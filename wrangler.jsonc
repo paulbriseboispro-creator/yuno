@@ -10,5 +10,21 @@
     // SPA fallback : toute route inconnue renvoie index.html (remplace l'ancien
     // `_redirects /*  /index.html  200`, rejeté par Workers Assets — "infinite loop").
     "not_found_handling": "single-page-application"
+  },
+  // Observability : logs d'invocation du Worker, persistés dans le dashboard.
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": false,
+      "persist": true,
+      "head_sampling_rate": 1
+    }
   }
 }
