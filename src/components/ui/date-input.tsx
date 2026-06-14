@@ -32,7 +32,13 @@ const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
           type="date"
           value={value}
           className={cn(
-            'pr-10 [&::-webkit-calendar-picker-indicator]:opacity-0',
+            // The shared Input base is display:flex. iOS renders a flex
+            // type="date" with its value centered and lets the control overflow
+            // its container. Force a normal block box, keep it inside its width,
+            // and left-align the native value so it reads like every other field.
+            'block w-full min-w-0 pr-10 text-left',
+            '[&::-webkit-calendar-picker-indicator]:opacity-0',
+            '[&::-webkit-date-and-time-value]:m-0 [&::-webkit-date-and-time-value]:text-left',
             // Hide the faint native placeholder while empty so our overlay is the
             // only thing on screen; the picked value shows normally otherwise.
             isEmpty && '[&::-webkit-datetime-edit]:opacity-0',
