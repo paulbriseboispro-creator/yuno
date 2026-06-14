@@ -97,19 +97,18 @@ free tier bande passante illimitée + aucune restriction d'usage commercial.
   `VITE_MAPBOX_TOKEN`, `VITE_STRIPE_PUBLISHABLE_KEY` (clé `pk_live_…`).
 - **Domaine** : brancher `yunoapp.eu` dès le départ (cf. CORS-lock ci-dessus).
 
-## État du repo (2026-06-14) — à assainir
+## Git / GitHub (départ propre 2026-06-14)
 
-- **GitHub** : `github.com/paulbriseboispro-creator/Yuno-app` (projet Lovable, auto-commit).
-  `main` poussé (`c66cb178`, 7 juin). Branche de travail `fix/guest-claim-tickets-tables`
-  jamais poussée.
-- **Gros écart non commité** : ~300 fichiers modifiés, ~30 supprimés, ~120 non trackés
-  (dont 66 migrations). Tout le travail de juin est dans le working tree, pas dans git.
-  À committer proprement avant tout push.
-- **Fichiers parasites à supprimer (ne JAMAIS `git add -A`)** :
-  `src/i18n/data 2.ts`, `src/i18n/data 3.ts`, `src/components/owner/co-event/EventGuestListModule 2.tsx`,
-  `src/pages/OwnerDashboard.tsx.backup`, `components/` (égaré à la racine), `supabase/.temp/`.
+- **Lovable est définitivement coupé.** Plus aucune référence, aucun rapport à Lovable.
+- **Repo** : `github.com/paulbriseboispro-creator/yuno` — historique vierge, démarré sur un
+  unique « Initial commit » depuis l'état propre. L'ancien repo Lovable `Yuno-app` (6509
+  commits du bot) est abandonné ; son `.git` local est sauvegardé dans `/tmp/yuno-dotgit-backup-*`.
+- **Branche** : `main`. Yuno est 100 % local — ce working tree est la seule source de vérité.
 - **Dossier parent** `/Users/paul/Desktop/yuno-app` = repo git de workspace séparé, sans remote.
   Le vrai projet est ce dossier-ci (`yuno-bar-buddy`).
+- **Migrations historiques** : certaines (`20260122…`) contiennent encore des URLs
+  `yuno-bar-buddy.lovable.app` dans du SQL **déjà appliqué** — ne pas réécrire (casse le
+  checksum Supabase). Vérifier plutôt la table live `email_templates` pour des liens résiduels.
 
 ## Règles de travail
 
