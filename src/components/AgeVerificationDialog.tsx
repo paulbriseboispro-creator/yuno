@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -91,9 +91,8 @@ export const AgeVerificationDialog = ({ open, onVerified, onCancel }: AgeVerific
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="birthDate">{t('ageVerification.birthDateLabel')}</Label>
-            <Input
+            <DateInput
               id="birthDate"
-              type="date"
               value={birthDate}
               onChange={(e) => setBirthDate(e.target.value)}
               max={new Date().toISOString().split('T')[0]}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
+import { DateInput } from '@/components/ui/date-input';
 import { Label } from '@/components/ui/label';
 import { ShieldCheck, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -123,8 +123,7 @@ export function AgeGate({ userId, onVerified }: AgeGateProps) {
       </div>
       <div className="space-y-1.5">
         <Label className="font-mono uppercase text-[10px] tracking-[0.10em] text-[#5A5A5E]">{t('ageGate.birthDate')}</Label>
-        <Input
-          type="date"
+        <DateInput
           value={birthDate}
           onChange={(e) => setBirthDate(e.target.value)}
           max={new Date().toISOString().split('T')[0]}

@@ -457,15 +457,10 @@ export default function TicketSelection() {
         <CheckoutSteps currentStep={1} />
       </div>
 
-      {/* Status banners */}
+      {/* Status banners. We never surface the alcohol-free / minors-allowed nature
+          of an event publicly — that only appears as a quiet "no alcohol" line under
+          the date-of-birth field in checkout, and only once a minor's date is entered. */}
       <div className="px-4 pt-2 space-y-3">
-        {eventData.alcoholFree && (
-          <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
-            style={{ background: 'rgba(56,189,248,0.10)', border: '1px solid rgba(56,189,248,0.3)' }}>
-            <span className="text-sm font-semibold text-sky-300">{t('tickets.alcoholFreeBadge')}</span>
-            <span className="text-xs text-white/55">{t('tickets.alcoholFreeEventNote')}</span>
-          </div>
-        )}
         {(salesStatus === 'coming_soon' || salesStatus === 'presale' || salesStatus === 'sold_out') && (
           <EventSalesStatus
             event={{ presaleStartAt: eventData.presaleStartAt, publicSaleStartAt: eventData.publicSaleStartAt, waitlistEnabled: eventData.waitlistEnabled }}

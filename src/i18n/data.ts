@@ -866,6 +866,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'coEvent.glNotConfigured': "No guest list configured for this event.",
     // === Partnerships (owner) ===
     'common.loading': "Loading…",
+    'common.dateFormatHint': "MM / DD / YYYY",
     'common.send': "Send",
     'common.accept': "Accept",
     'common.decline': "Decline",
@@ -3613,6 +3614,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'ageGate.invalidDate': 'The date entered is not valid.',
     'minorAuth.ageCheckTitle': 'Age verification',
     'minorAuth.birthDate': 'Date of birth',
+    'minorAuth.noAlcoholNote': 'Alcohol-free event — no alcohol will be served.',
     'minorAuth.minorNotice': 'You are a minor. The venue requires a signed authorization to attend. Download it, have it signed, then upload it below to continue.',
     'minorAuth.download': 'Download',
     'minorAuth.downloadFallback': 'Authorization form',
@@ -9311,6 +9313,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'coEvent.glNotConfigured': "Ninguna guest list configurada para este evento.",
     // === Partnerships (owner) ===
     'common.loading': "Cargando…",
+    'common.dateFormatHint': "DD / MM / AAAA",
     'common.send': "Enviar",
     'common.accept': "Aceptar",
     'common.decline': "Rechazar",
@@ -11983,6 +11986,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'ageGate.invalidDate': 'La fecha indicada no es válida.',
     'minorAuth.ageCheckTitle': 'Verificación de edad',
     'minorAuth.birthDate': 'Fecha de nacimiento',
+    'minorAuth.noAlcoholNote': 'Evento sin alcohol — no se servirá alcohol.',
     'minorAuth.minorNotice': 'Eres menor de edad. El local exige una autorización firmada para asistir. Descárgala, hazla firmar y súbela abajo para continuar.',
     'minorAuth.download': 'Descargar',
     'minorAuth.downloadFallback': 'Formulario de autorización',
@@ -17588,6 +17592,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'coEvent.glNotConfigured': "Aucune guest list configurée pour cette soirée.",
     // === Partnerships (owner) ===
     'common.loading': "Chargement…",
+    'common.dateFormatHint': "JJ / MM / AAAA",
     'common.send': "Envoyer",
     'common.accept': "Accepter",
     'common.decline': "Refuser",
@@ -20229,6 +20234,7 @@ export const translations: Record<Language, Record<string, string>> = {
     'ageGate.invalidDate': 'La date indiquée n\'est pas valable.',
     'minorAuth.ageCheckTitle': 'Vérification d\'âge',
     'minorAuth.birthDate': 'Date de naissance',
+    'minorAuth.noAlcoholNote': 'Soirée sans alcool — aucun alcool ne sera servi.',
     'minorAuth.minorNotice': 'Vous êtes mineur. L\'établissement exige une autorisation signée pour entrer. Téléchargez-la, faites-la signer, puis importez-la ci-dessous pour continuer.',
     'minorAuth.download': 'Télécharger',
     'minorAuth.downloadFallback': 'Formulaire d\'autorisation',

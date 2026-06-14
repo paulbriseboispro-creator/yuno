@@ -39,7 +39,6 @@ export function EventTicketCard({ event, venueSlug, ticketRounds = [] }: EventTi
 
   const cheapestPrice = getCheapestPrice();
   const allSoldOut = ticketRounds.length > 0 && ticketRounds.every(r => r.ticketsSold >= r.maxTickets);
-  const hasAlcoholFree = !!event.alcoholFree;
 
   // Scarcity: check if any round crosses the threshold (only when urgency badge is on and remaining counter is off)
   const showScarcityBadge = scarcity?.low_stock_enabled && !scarcity?.show_remaining_count && !allSoldOut && ticketRounds.some(r => {
@@ -122,11 +121,6 @@ export function EventTicketCard({ event, venueSlug, ticketRounds = [] }: EventTi
                       </span>
                     ) : (
                       <span className="text-sm text-muted-foreground">{t('tickets.viewDetails')}</span>
-                    )}
-                    {hasAlcoholFree && !allSoldOut && (
-                      <Badge variant="outline" className="text-[10px] border-sky-400/40 text-sky-300 px-1.5 py-0.5">
-                        {t('tickets.alcoholFreeBadge')}
-                      </Badge>
                     )}
                   </div>
                 ) : (

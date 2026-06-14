@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Input } from '@/components/ui/input';
+import { DateInput } from '@/components/ui/date-input';
 import { Label } from '@/components/ui/label';
-import { ShieldCheck, Upload, Loader2, FileCheck2, FileText, AlertTriangle, Download } from 'lucide-react';
+import { ShieldCheck, Upload, Loader2, FileCheck2, FileText, AlertTriangle, Download, Wine } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
@@ -62,8 +62,10 @@ export function MinorAuthGate({ userId, eventId, acceptsMinors, template, onRead
   const docRequired = minorNeedsDoc && !uploadedUrl;
 
   // The purchase is unlocked: an adult, a minor who needs no document, or a minor
-  // whose signed authorization is already uploaded. Once unlocked we show no badge
-  // and no banner — a valid date just reads like a normal, completed field.
+  // whose signed authorization is already uploaded. Once unlocked an adult's date
+  // reads like a normal, completed field; a minor on a minors-allowed (alcohol-free)
+  // event additionally gets one quiet "no alcohol" line — the only place that fact
+  // ever surfaces, never on any public page.
   const gatePassed = isAdult || minorNoDoc || (minorNeedsDoc && !!uploadedUrl);
 
   // Ask for the birth date only when we don't already know it from the profile.
@@ -159,8 +161,7 @@ export function MinorAuthGate({ userId, eventId, acceptsMinors, template, onRead
       {showInput && (
         <div className="space-y-1.5">
           <Label className="font-mono uppercase text-[10px] tracking-[0.10em] text-[#5A5A5E]">{t('minorAuth.birthDate')}</Label>
-          <Input
-            type="date"
+          <DateInput
             value={birthDate}
             onChange={(e) => setBirthDate(e.target.value)}
             max={new Date().toISOString().split('T')[0]}
@@ -169,8 +170,15 @@ export function MinorAuthGate({ userId, eventId, acceptsMinors, template, onRead
         </div>
       )}
 
-      {/* Any valid, unlocking date (adult, or a minor who needs no document)
-          shows nothing at all — the section just reads as a normal field. */}
+      {/* A minor on a minors-allowed event is the ONLY case where the event's
+          alcohol-free nature is ever shown to a buyer: a single quiet line under
+          the date field. An adult's date still shows nothing. */}
+      {isMinor && acceptsMinors && (
+        <div className="flex items-start gap-2 text-[11px] text-sky-300/80">
+          <Wine className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+          <span>{t('minorAuth.noAlcoholNote')}</span>
+        </div>
+      )}
 
       {/* Only a date that actually blocks the purchase gets a message under the
           field: it is invalid for this event. No reference to minors or documents. */}

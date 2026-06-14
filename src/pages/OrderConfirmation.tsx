@@ -644,12 +644,6 @@ export default function OrderConfirmation() {
                       <span className="font-medium">{data.details}</span>
                     </div>
                     <h2 className="text-xl font-bold">{data.eventTitle}</h2>
-                    {data.alcoholFree && (
-                      <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium"
-                        style={{ background: 'rgba(56,189,248,0.12)', color: '#7dd3fc', border: '1px solid rgba(56,189,248,0.3)' }}>
-                        {t('tickets.alcoholFreeBadge')}
-                      </div>
-                    )}
                   </div>
                 )}
 
