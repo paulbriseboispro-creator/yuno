@@ -3,6 +3,46 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!--
+      Responsive scaling system — adapte la taille des éléments à la largeur de l'écran.
+      Beaucoup d'éléments de Yuno sont dimensionnés en pixels fixes, calés sur un téléphone
+      "baseline" (~390px de large). Sur un grand téléphone (iPhone 14 Pro Max = 430px), ces
+      tailles fixes ne grandissent pas → tout paraît trop petit avec beaucoup de vide.
+      Ce script demande au navigateur de mettre en page à la largeur "baseline" puis de mettre
+      à l'échelle pour remplir l'écran : le navigateur agrandit TOUT uniformément (px + rem +
+      images + canvas Mapbox), sans débordement horizontal. Les petits téléphones et le desktop
+      ne sont pas touchés. Un seul réglage à tuner : BASELINE (plus petit = plus gros).
+    -->
+    <script>
+      (function () {
+        var BASELINE = 390;     // largeur de référence en px (densité cible). Plus bas = éléments plus gros.
+        var MAX_SCALE = 1.20;   // agrandissement maximum (évite que les très grands écrans explosent).
+        var PHONE_MAX = 480;    // au-delà, c'est une tablette : on ne touche pas.
+        var vp = document.querySelector('meta[name="viewport"]');
+        var DEFAULT = 'width=device-width, initial-scale=1, viewport-fit=cover';
+        function apply() {
+          try {
+            var portrait = !window.matchMedia || window.matchMedia('(orientation: portrait)').matches;
+            // Dimensions de l'appareil en px CSS, indépendantes du viewport courant.
+            var narrow = Math.min(screen.width, screen.height);
+            var wide = Math.max(screen.width, screen.height);
+            var deviceWidth = portrait ? narrow : wide;
+            if (portrait && deviceWidth > BASELINE && deviceWidth <= PHONE_MAX) {
+              var scale = Math.min(deviceWidth / BASELINE, MAX_SCALE);
+              var target = Math.round(deviceWidth / scale);
+              vp.setAttribute('content', 'width=' + target + ', viewport-fit=cover');
+            } else {
+              vp.setAttribute('content', DEFAULT);
+            }
+          } catch (e) {
+            vp.setAttribute('content', DEFAULT);
+          }
+        }
+        apply();
+        window.addEventListener('orientationchange', apply);
+        window.addEventListener('resize', apply);
+      })();
+    </script>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="mobile-web-app-capable" content="yes" />
