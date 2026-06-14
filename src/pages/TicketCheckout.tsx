@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Minus, Plus, ShieldCheck, Tag, ChevronRight, ChevronUp, LogIn, UserPlus, Calendar, Wine, Lock } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, ShieldCheck, Tag, ChevronRight, ChevronUp, LogIn, Calendar, Wine, Lock } from 'lucide-react';
 import { getEventSalesStatus } from '@/types/ticketing';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -70,10 +70,14 @@ export default function TicketCheckout() {
   // resolves to an adult, a minor allowed without a doc, or a minor whose signed
   // authorization has been uploaded.
   const [minorGateReady, setMinorGateReady] = useState(false);
+  // True only while a minor on a minors-allowed event still owes their signed
+  // authorization upload. This is the ONLY blocked state that shows the dashed
+  // "complete the form" CTA; every other blocked state (e.g. no birth date yet)
+  // simply disables the normal pay button.
+  const [minorDocPending, setMinorDocPending] = useState(false);
   const [minorDocUrl, setMinorDocUrl] = useState<string | null>(null);
   // Full minor classification from the gate — used to record a minor-ticket row at checkout.
   const [minorInfo, setMinorInfo] = useState<{ isMinor: boolean; birthDate: string; docUrl: string | null; docName: string | null } | null>(null);
-  const [guestMode, setGuestMode] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   // Sale controls (per-person limit + password gate)
   const [salePasswordEnabled, setSalePasswordEnabled] = useState(false);
@@ -825,46 +829,6 @@ export default function TicketCheckout() {
 
         <div className="my-6 h-px bg-white/[0.06]" />
 
-        {/* Auth choice */}
-        {!user && !authLoading && !guestMode && !blockGuestMode && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            className="space-y-3"
-          >
-            <SectionLabel label={t('guest.authChoiceTitle')} />
-            <button
-              onClick={() => navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
-              className="w-full flex items-center gap-3 p-4 border text-left transition-all active:scale-[0.99]"
-              style={{ backgroundColor: 'rgba(232,25,44,0.05)', borderColor: 'rgba(232,25,44,0.25)', borderRadius: 10 }}
-            >
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <LogIn className="h-5 w-5 text-primary" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-white">{t('guest.loginOption')}</p>
-                <p className="text-[11px] text-[#9A9A9A] mt-0.5">{t('guest.loginOptionDesc')}</p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-[#5A5A5E]" />
-            </button>
-            <button
-              onClick={() => setGuestMode(true)}
-              className="w-full flex items-center gap-3 p-4 border border-white/[0.08] bg-[#141414] text-left transition-all active:scale-[0.99] hover:border-white/[0.14]"
-              style={{ borderRadius: 10 }}
-            >
-              <div className="w-10 h-10 rounded-full bg-white/[0.06] flex items-center justify-center shrink-0">
-                <UserPlus className="h-5 w-5 text-[#9A9A9A]" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-bold text-white">{t('guest.guestOption')}</p>
-                <p className="text-[11px] text-[#9A9A9A] mt-0.5">{t('guest.guestOptionDesc')}</p>
-              </div>
-              <ChevronRight className="h-4 w-4 text-[#5A5A5E]" />
-            </button>
-          </motion.div>
-        )}
-
         {/* Presale: force login */}
         {!user && !authLoading && blockGuestMode && (
           <motion.div
@@ -897,7 +861,7 @@ export default function TicketCheckout() {
         )}
 
         {/* Attendee forms */}
-        {(user || guestMode) && (
+        {(user || (!authLoading && !blockGuestMode)) && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -905,6 +869,20 @@ export default function TicketCheckout() {
             className="space-y-4"
           >
             <SectionLabel label={quantity > 1 ? t('ticketCheckout.attendeesInfo') : t('ticketCheckout.buyerInfo')} />
+
+            {/* Guest checkout is the default — no decision blocks the form. Returning
+                users get an optional, non-blocking link to log in and auto-fill. */}
+            {!user && (
+              <button
+                onClick={() => navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
+                className="flex items-center gap-1.5 text-[12px] text-[#9A9A9A] hover:text-white transition-colors"
+              >
+                <LogIn className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span>{t('guest.haveAccountQuestion')}{' '}
+                  <span className="text-primary font-semibold underline underline-offset-2">{t('guest.logIn')}</span>
+                </span>
+              </button>
+            )}
 
             {attendees.map((attendee, idx) => (
               <TicketAttendeeForm
@@ -931,6 +909,7 @@ export default function TicketCheckout() {
               onReady={setMinorGateReady}
               onDocUploaded={setMinorDocUrl}
               onMinorInfo={setMinorInfo}
+              onDocPending={setMinorDocPending}
             />
 
             <MarketingOptIns
@@ -940,6 +919,10 @@ export default function TicketCheckout() {
               onSmsChange={setSmsOptIn}
               showNewsletter={!alreadyOptedIn}
             />
+
+            {/* Terms consent lives in the scroll flow, right below the marketing
+                opt-ins — not glued to the sticky footer. */}
+            <TermsAcceptance userId={user?.id} guestEmail={!user ? attendees[0]?.email : null} context="ticket" onAcceptedChange={setAcceptCgv} />
           </motion.div>
         )}
       </div>
@@ -1028,9 +1011,16 @@ export default function TicketCheckout() {
         </AnimatePresence>
 
         <div className="relative z-50">
-          <div className="max-w-lg mx-auto px-4 pt-2 pb-1 bg-[#0A0A0A]">
-            <TermsAcceptance userId={user?.id} guestEmail={!user ? attendees[0]?.email : null} context="ticket" onAcceptedChange={setAcceptCgv} />
-          </div>
+          {/* The pay button greys out until the age gate is satisfied. Without this
+              line the disabled state is silent — the buyer can't tell a date of
+              birth (collected higher up) is what's blocking them. */}
+          {!checkoutLoading && minorGateBlocked && !minorDocPending && (
+            <div className="max-w-lg mx-auto px-4 pt-2 pb-1 bg-[#0A0A0A]">
+              <p className="text-center text-amber-400" style={{ fontSize: '11px' }}>
+                {t('tickets.dobRequiredHint')}
+              </p>
+            </div>
+          )}
           <div className="flex justify-center px-4 pb-4 bg-[#0A0A0A]">
             <div
               className="inline-flex items-center w-full max-w-md gap-4 rounded-xl px-5 py-3 justify-between"
@@ -1057,8 +1047,11 @@ export default function TicketCheckout() {
                 </span>
                 <span style={{ fontSize: '10px', color: '#5A5A5E', marginTop: '1px' }}>{t('tickets.feesIncluded')}</span>
               </button>
-              {minorGateBlocked ? (
-                /* Age/minor gate not satisfied → visibly incomplete, non-functional CTA. */
+              {minorGateBlocked && minorDocPending ? (
+                /* Minor-needs-doc flow only: visibly incomplete, non-functional CTA
+                   that nudges the buyer to download + upload the signed form. Every
+                   other blocked state (e.g. no birth date yet) keeps the normal
+                   pay button below, just disabled. */
                 <button
                   type="button"
                   disabled
@@ -1078,8 +1071,8 @@ export default function TicketCheckout() {
               ) : (
                 <button
                   onClick={handleCheckout}
-                  disabled={checkoutLoading || perPersonLimitReached}
-                  className="px-6 h-11 rounded-lg font-semibold shrink-0 text-sm text-white transition-all duration-150 hover:brightness-110 active:scale-[0.97] disabled:opacity-40 flex items-center"
+                  disabled={checkoutLoading || perPersonLimitReached || minorGateBlocked}
+                  className="px-6 h-11 rounded-lg font-semibold shrink-0 text-sm text-white transition-all duration-150 hover:brightness-110 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:brightness-100 disabled:active:scale-100 flex items-center"
                   style={{ background: '#E8192C', border: 'none', boxShadow: '0 6px 24px rgba(232,25,44,0.35)', fontFamily: "'Inter', sans-serif", letterSpacing: '0.01em' }}
                 >
                   {checkoutLoading ? (

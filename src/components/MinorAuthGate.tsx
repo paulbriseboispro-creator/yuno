@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ShieldCheck, Check, Upload, Loader2, FileCheck2, FileText, AlertTriangle, Download } from 'lucide-react';
+import { ShieldCheck, Upload, Loader2, FileCheck2, FileText, AlertTriangle, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
@@ -20,6 +20,11 @@ interface MinorAuthGateProps {
   /** Full minor classification, so the checkout can record a minor-ticket row.
    *  null until a valid date of birth is entered. */
   onMinorInfo?: (info: { isMinor: boolean; birthDate: string; docUrl: string | null; docName: string | null } | null) => void;
+  /** True only while a minor on a minors-allowed event still owes their signed
+   *  authorization upload. This is the ONLY state that warrants the checkout's
+   *  "complete the form" CTA — every other blocked state just disables the
+   *  normal pay button. */
+  onDocPending?: (pending: boolean) => void;
 }
 
 // Age in full years from a YYYY-MM-DD string, or null if unparseable.
@@ -33,7 +38,7 @@ function ageFromDate(dateStr: string): number | null {
   return age;
 }
 
-export function MinorAuthGate({ userId, eventId, acceptsMinors, template, onReady, onDocUploaded, onMinorInfo }: MinorAuthGateProps) {
+export function MinorAuthGate({ userId, eventId, acceptsMinors, template, onReady, onDocUploaded, onMinorInfo, onDocPending }: MinorAuthGateProps) {
   const { t } = useLanguage();
   const [birthDate, setBirthDate] = useState('');
   // True once we've loaded a birth date already saved on the user's profile.
@@ -56,6 +61,11 @@ export function MinorAuthGate({ userId, eventId, acceptsMinors, template, onRead
   // event still has to upload their copy.
   const docRequired = minorNeedsDoc && !uploadedUrl;
 
+  // The purchase is unlocked: an adult, a minor who needs no document, or a minor
+  // whose signed authorization is already uploaded. Once unlocked we show no badge
+  // and no banner — a valid date just reads like a normal, completed field.
+  const gatePassed = isAdult || minorNoDoc || (minorNeedsDoc && !!uploadedUrl);
+
   // Ask for the birth date only when we don't already know it from the profile.
   const showInput = !prefilled;
 
@@ -77,6 +87,9 @@ export function MinorAuthGate({ userId, eventId, acceptsMinors, template, onRead
 
   // Drive the readiness gate + the attached document from the decision tree.
   useEffect(() => {
+    // Only the minor-needs-doc branch (doc not yet uploaded) warrants the
+    // checkout's dashed "complete the form" CTA; false in every other branch.
+    onDocPending?.(docRequired);
     // A birth date is mandatory: no valid date keeps the purchase blocked.
     if (age === null) { onReady(false); onDocUploaded(null); onMinorInfo?.(null); return; }
     // Adult → normal ticket.
@@ -131,7 +144,7 @@ export function MinorAuthGate({ userId, eventId, acceptsMinors, template, onRead
           <ShieldCheck className="h-4 w-4 text-primary" />
           <span className="text-sm font-bold text-white">{t('minorAuth.ageCheckTitle')}</span>
         </div>
-        {(showInput || docRequired) && (
+        {!gatePassed && (
           <span
             className="font-mono uppercase text-[9px] font-bold tracking-[0.12em] text-primary px-2 py-0.5 rounded-full"
             style={{ background: 'rgba(232,25,44,0.10)' }}
@@ -156,22 +169,15 @@ export function MinorAuthGate({ userId, eventId, acceptsMinors, template, onRead
         </div>
       )}
 
-      {/* Adult → nothing to show. A valid adult date simply unlocks the purchase
-          without any confirmation banner. */}
+      {/* Any valid, unlocking date (adult, or a minor who needs no document)
+          shows nothing at all — the section just reads as a normal field. */}
 
-      {/* Minor on an event that forbids minors → invalid, must be of legal age. */}
+      {/* Only a date that actually blocks the purchase gets a message under the
+          field: it is invalid for this event. No reference to minors or documents. */}
       {minorRejected && (
         <div className="flex items-start gap-2 text-[11px] text-primary">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
           <span>{t('minorAuth.mustBeAdult')}</span>
-        </div>
-      )}
-
-      {/* Minor allowed, no document required → minor ticket OK. */}
-      {minorNoDoc && (
-        <div className="flex items-center gap-2 text-[11px] text-emerald-400">
-          <Check className="h-3.5 w-3.5 shrink-0" />
-          <span>{t('minorAuth.minorTicketOk')}</span>
         </div>
       )}
 

@@ -6,9 +6,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { ArrowLeft, Users, Clock, Wine, CheckCircle, Ticket, LogIn, UserPlus, PartyPopper } from 'lucide-react';
+import { ArrowLeft, Users, Clock, Wine, CheckCircle, Ticket, LogIn, PartyPopper } from 'lucide-react';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -54,6 +56,10 @@ export default function GuestListSignup() {
   // Form (gender only - rest comes from profile)
   // Pre-fill from URL param when coming from a gender-specific share link
   const [gender, setGender] = useState(genderFromUrl || '');
+  // Guest registration (no account) — same unified pattern as ticket/table checkout.
+  const [guestName, setGuestName] = useState('');
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestPhone, setGuestPhone] = useState('');
 
   // Countdown
   const [timeLeft, setTimeLeft] = useState('');
@@ -218,11 +224,16 @@ export default function GuestListSignup() {
   };
 
   const handleConfirm = async () => {
-    if (!guestList || !user) return;
+    if (!guestList) return;
 
     // Validate gender required if quotas are set
     if ((guestList.quotaFemale !== null || guestList.quotaMale !== null) && !gender) {
       toast.error(t('guestList.genderRequired'));
+      return;
+    }
+    // Guests register without an account — validate their contact info.
+    if (!user && (!guestName.trim() || !guestEmail.trim() || !guestPhone.trim())) {
+      toast.error(t('tickets.fillRequired'));
       return;
     }
 
@@ -233,6 +244,12 @@ export default function GuestListSignup() {
           shareToken: token || guestList.shareToken,
           gender: gender || undefined,
           promoterCode: ref || undefined,
+          // Guest contact info — used by the function only when no JWT is present.
+          ...(user ? {} : {
+            guestFullName: guestName.trim(),
+            guestEmail: guestEmail.trim(),
+            guestPhone: guestPhone.trim(),
+          }),
         },
       });
 
@@ -252,7 +269,21 @@ export default function GuestListSignup() {
       setSuccess(true);
       toast.success(t('guestList.registrationSuccess'));
     } catch (err: any) {
-      const msg = err.message || t('guestList.registrationError');
+      let msg = err?.message || t('guestList.registrationError');
+      // supabase-js wraps a non-2xx function response; the real message is in the body.
+      try {
+        if (err?.context && typeof err.context.json === 'function') {
+          const body = await err.context.json();
+          if (body?.error) msg = body.error;
+        }
+      } catch { /* ignore body parse errors */ }
+      // Graceful fallback until the guest-capable edge function is deployed: a guest
+      // who can't yet be registered without an account is routed to login instead of
+      // hitting a dead-end error. Once the function ships, guests succeed here.
+      if (!user && /authentication required|log in/i.test(msg)) {
+        navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+        return;
+      }
       if (msg.includes('full')) {
         toast.error(t('guestList.full'));
       } else if (msg.includes('already registered')) {
@@ -420,42 +451,92 @@ export default function GuestListSignup() {
             </div>
           )}
 
-          {/* Auth gate card */}
-          <Card className="border border-border/50">
-            <CardContent className="p-6 space-y-4">
-              <div className="text-center space-y-2">
-                <div className="w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center mx-auto">
-                  <PartyPopper className="h-6 w-6 text-primary" />
+          {/* Guest registration — no account required (account creation is offered
+              after success via /guest/finalize, not as a wall before it). */}
+          {!isFull && (
+            <Card className="border border-border/50">
+              <CardContent className="p-4 space-y-4">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">{t('guestList.yourDetails')}</p>
+                  <p className="text-xs text-muted-foreground">{t('guestList.guestSubtitle')}</p>
                 </div>
-                <h3 className="text-lg font-bold">{t('guestList.authGateTitle')}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {t('guestList.authGateDescription')}
-                </p>
-              </div>
 
-              <div className="space-y-3 pt-2">
-                <Button
-                  className="w-full h-12 font-semibold"
+                <button
+                  type="button"
                   onClick={() => navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
+                  className="flex items-center gap-1.5 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  <LogIn className="h-4 w-4 mr-2" />
-                  {t('guestList.loginToRegister')}
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full h-12 font-semibold"
-                  onClick={() => navigate(`/auth?signup=true&redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
-                >
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  {t('guestList.createAccount')}
-                </Button>
-              </div>
+                  <LogIn className="h-3.5 w-3.5 text-primary shrink-0" />
+                  <span>{t('guest.haveAccountQuestion')}{' '}
+                    <span className="text-primary font-semibold underline underline-offset-2">{t('guest.logIn')}</span>
+                  </span>
+                </button>
 
-              <p className="text-xs text-center text-muted-foreground">
-                {t('guestList.authGateNote')}
-              </p>
-            </CardContent>
-          </Card>
+                <div className="space-y-1.5">
+                  <Label htmlFor="gls-name" className="text-xs text-muted-foreground">{t('guestList.fullName')} *</Label>
+                  <Input id="gls-name" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder={t('guestList.namePlaceholder')} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="gls-email" className="text-xs text-muted-foreground">{t('guestList.email')} *</Label>
+                  <Input id="gls-email" type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder={t('guestList.emailPlaceholder')} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="gls-phone" className="text-xs text-muted-foreground">{t('guestList.phone')} *</Label>
+                  <Input id="gls-phone" type="tel" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder={t('guestList.phonePlaceholder')} />
+                </div>
+
+                {/* Gender selection if quotas */}
+                {(guestList.quotaFemale !== null || guestList.quotaMale !== null) && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">{t('guestList.gender')} *</p>
+                    {genderFromUrl ? (
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-border/50 bg-muted/40">
+                        <span className="text-sm font-medium">
+                          {genderFromUrl === 'female' ? `♀ ${t('guestList.female')}` : `♂ ${t('guestList.male')}`}
+                        </span>
+                      </div>
+                    ) : (
+                      <Select value={gender} onValueChange={setGender}>
+                        <SelectTrigger>
+                          <SelectValue placeholder={t('guestList.selectGender')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(guestList.quotaFemale === null || guestList.quotaFemale > 0) && (
+                            <SelectItem value="female">{t('guestList.female')}</SelectItem>
+                          )}
+                          {(guestList.quotaMale === null || guestList.quotaMale > 0) && (
+                            <SelectItem value="male">{t('guestList.male')}</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                )}
+
+                {/* Summary */}
+                <div className="border-t border-border pt-3 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Guest List — {guestList.eventTitle}</span>
+                    <span className="font-bold text-primary">0 €</span>
+                  </div>
+                  {guestList.includesDrink && (
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>🍸 {t('guestList.drinkIncluded')}</span>
+                      <span>{t('guestList.included')}</span>
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  className="w-full h-12 font-semibold"
+                  onClick={handleConfirm}
+                  disabled={submitting || !guestName.trim() || !guestEmail.trim() || !guestPhone.trim()}
+                >
+                  {submitting ? '...' : t('guestList.confirmRegistration')}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     );

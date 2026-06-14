@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { usePreviewNavigate } from '@/contexts/OwnerPreviewContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, MapPin, Calendar, Clock, Check, Tag, ArrowRight, Repeat, ChevronRight } from 'lucide-react';
+import { ArrowLeft, MapPin, Calendar, Clock, Check, Tag, ArrowRight, Repeat, ChevronRight, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -658,6 +658,24 @@ export default function TableCheckout() {
             {currentStep === 2 && (
               <motion.div key="step2" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="mt-4">
                 <p className="section-label-ruled mb-4">{t('tableCheckout.yourInfo')}</p>
+                {/* No account required: tell the guest so plainly, and give returning
+                    users an optional link to log in (auto-fills + avoids the
+                    ACCOUNT_EXISTS bounce after they've filled everything). */}
+                {!user && (
+                  <div className="mb-4 space-y-2">
+                    <p className="text-[12px] text-[#9A9A9A]">{t('guest.noAccountNeeded')}</p>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
+                      className="flex items-center gap-1.5 text-[12px] text-[#9A9A9A] hover:text-white transition-colors"
+                    >
+                      <LogIn className="h-3.5 w-3.5 text-primary shrink-0" />
+                      <span>{t('guest.haveAccountQuestion')}{' '}
+                        <span className="text-primary font-semibold underline underline-offset-2">{t('guest.logIn')}</span>
+                      </span>
+                    </button>
+                  </div>
+                )}
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="fullName" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[#5A5A5E]">{t('tableCheckout.fullName')} *</Label>

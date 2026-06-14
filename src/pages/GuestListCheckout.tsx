@@ -5,6 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CheckoutSteps } from '@/components/CheckoutSteps';
 import { StickyCheckoutFooter } from '@/components/StickyCheckoutFooter';
@@ -14,7 +16,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { fr, es, enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { ArrowLeft, Clock, Wine, CheckCircle, Ticket, LogIn, UserPlus, PartyPopper, Calendar } from 'lucide-react';
+import { ArrowLeft, Clock, Wine, CheckCircle, Ticket, LogIn, PartyPopper, Calendar } from 'lucide-react';
 import QRCode from 'qrcode';
 
 interface GuestListInfo {
@@ -61,6 +63,10 @@ export default function GuestListCheckout() {
   const [gender, setGender] = useState<string>(genderParam || '');
   const [qrImage, setQrImage] = useState('');
   const [timeLeft, setTimeLeft] = useState('');
+  // Guest registration (no account) — mirrors the ticket/table guest flow.
+  const [guestName, setGuestName] = useState('');
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestPhone, setGuestPhone] = useState('');
 
   const backToSelection = () =>
     navigate(slug && eventId ? `/club/${slug}/event/${eventId}/billets` : '/');
@@ -163,9 +169,14 @@ export default function GuestListCheckout() {
   };
 
   const handleConfirm = async () => {
-    if (!guestList || !user || submitting) return;
+    if (!guestList || submitting) return;
     if ((guestList.quotaFemale !== null || guestList.quotaMale !== null) && !gender) {
       toast.error(t('guestList.genderRequired'));
+      return;
+    }
+    // Guests register without an account — validate their contact info up front.
+    if (!user && (!guestName.trim() || !guestEmail.trim() || !guestPhone.trim())) {
+      toast.error(t('tickets.fillRequired'));
       return;
     }
 
@@ -177,6 +188,13 @@ export default function GuestListCheckout() {
           shareToken: guestList.shareToken,
           gender: gender || undefined,
           promoterCode,
+          // Guest contact info — the function uses these only when no valid JWT
+          // is present, creating an entry with user_id = null.
+          ...(user ? {} : {
+            guestFullName: guestName.trim(),
+            guestEmail: guestEmail.trim(),
+            guestPhone: guestPhone.trim(),
+          }),
         },
       });
 
@@ -195,7 +213,22 @@ export default function GuestListCheckout() {
       setSuccess(true);
       toast.success(t('guestList.registrationSuccess'));
     } catch (err: any) {
-      const msg = err.message || t('guestList.registrationError');
+      let msg = err?.message || t('guestList.registrationError');
+      // supabase-js wraps a non-2xx function response; the real message is in the body.
+      try {
+        if (err?.context && typeof err.context.json === 'function') {
+          const body = await err.context.json();
+          if (body?.error) msg = body.error;
+        }
+      } catch { /* ignore body parse errors */ }
+      // Graceful fallback until the guest-capable edge function is deployed: a guest
+      // who can't yet be registered without an account is routed to login instead of
+      // hitting a dead-end error. Once the function ships, guests succeed and never
+      // reach this branch.
+      if (!user && /authentication required|log in/i.test(msg)) {
+        navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+        return;
+      }
       if (msg.includes('full')) toast.error(t('guestList.full'));
       else if (msg.includes('already registered')) toast.error(t('guestList.alreadyRegistered'));
       else if (msg.includes('quota reached')) toast.error(t('guestList.quotaReached'));
@@ -367,29 +400,71 @@ export default function GuestListCheckout() {
             </Button>
           </div>
         ) : !user ? (
-          /* Auth gate — entry creation requires a Yuno account */
-          <div className="mt-5 space-y-3">
-            <div className="border border-white/[0.08] bg-[#141414] p-4 text-center space-y-1.5" style={{ borderRadius: 10 }}>
-              <div className="w-11 h-11 rounded-full bg-emerald-500/15 flex items-center justify-center mx-auto">
-                <PartyPopper className="h-5 w-5 text-emerald-400" />
-              </div>
-              <h3 className="text-base font-bold">{t('guestList.authGateTitle')}</h3>
-              <p className="text-xs text-white/45 leading-relaxed">{t('guestList.authGateDescription')}</p>
+          /* Guest registration — no account required (mirrors the ticket/table guest flow).
+             Account creation becomes an optional upsell after success, not a wall before it. */
+          <div className="mt-5 border border-white/[0.08] bg-[#141414] p-4 space-y-4" style={{ borderRadius: 10 }}>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">{t('guestList.yourDetails')}</p>
+              <p className="text-xs text-white/45">{t('guestList.guestSubtitle')}</p>
             </div>
-            <Button
-              className="w-full h-12 font-semibold"
+
+            <button
+              type="button"
               onClick={() => navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
+              className="flex items-center gap-1.5 text-[12px] text-white/55 hover:text-white transition-colors"
             >
-              <LogIn className="h-4 w-4 mr-2" />{t('guestList.loginToRegister')}
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full h-12 font-semibold"
-              onClick={() => navigate(`/auth?signup=true&redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
-            >
-              <UserPlus className="h-4 w-4 mr-2" />{t('guestList.createAccount')}
-            </Button>
-            <p className="text-xs text-center text-white/35">{t('guestList.authGateNote')}</p>
+              <LogIn className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+              <span>{t('guest.haveAccountQuestion')}{' '}
+                <span className="text-emerald-400 font-semibold underline underline-offset-2">{t('guest.logIn')}</span>
+              </span>
+            </button>
+
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="gl-name" className="text-xs text-white/55">{t('guestList.fullName')} *</Label>
+                <Input id="gl-name" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder={t('guestList.namePlaceholder')} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="gl-email" className="text-xs text-white/55">{t('guestList.email')} *</Label>
+                <Input id="gl-email" type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder={t('guestList.emailPlaceholder')} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="gl-phone" className="text-xs text-white/55">{t('guestList.phone')} *</Label>
+                <Input id="gl-phone" type="tel" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder={t('guestList.phonePlaceholder')} />
+              </div>
+            </div>
+
+            {genderRequired && (
+              <div>
+                <p className="text-sm font-medium mb-2">{t('guestList.gender')} *</p>
+                <Select value={gender} onValueChange={setGender}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t('guestList.selectGender')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(guestList.quotaFemale === null || guestList.quotaFemale > 0) && (
+                      <SelectItem value="female">{t('guestList.female')}</SelectItem>
+                    )}
+                    {(guestList.quotaMale === null || guestList.quotaMale > 0) && (
+                      <SelectItem value="male">{t('guestList.male')}</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="border-t border-white/[0.08] pt-3 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-white/70">{displayTitle} — {guestList.eventTitle}</span>
+                <span className="font-bold text-emerald-400">0 €</span>
+              </div>
+              {guestList.includesDrink && (
+                <div className="flex justify-between text-sm text-white/45">
+                  <span>🍸 {t('guestList.drinkIncluded')}</span>
+                  <span>{t('guestList.included')}</span>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           /* Logged-in confirmation form */
@@ -434,14 +509,14 @@ export default function GuestListCheckout() {
         )}
       </div>
 
-      {/* Sticky confirm — only on the logged-in form state */}
-      {user && !isFull && !alreadyRegistered && (
+      {/* Sticky confirm — shown on the registration form (logged-in or guest) */}
+      {!isFull && !alreadyRegistered && (
         <StickyCheckoutFooter
           amount={0}
           label={`${displayTitle} · ${t('guestList.free')}`}
           buttonText={t('guestList.confirmRegistration')}
           isLoading={submitting}
-          disabled={genderRequired && !gender}
+          disabled={(genderRequired && !gender) || (!user && (!guestName.trim() || !guestEmail.trim() || !guestPhone.trim()))}
           onClick={handleConfirm}
         />
       )}

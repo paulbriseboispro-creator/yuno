@@ -35,49 +35,61 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new Error("Authentication required. Please log in to register for the guest list.");
-    }
-
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
-      logStep("Auth error", { error: userError?.message });
-      throw new Error("Authentication required. Please log in to register for the guest list.");
-    }
-
-    logStep("User authenticated", { userId: user.id, email: user.email });
-
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } }
     );
 
-    const { shareToken, gender, promoterCode } = await req.json();
+    const { shareToken, gender, promoterCode, guestEmail, guestFullName, guestPhone } = await req.json();
 
     if (!shareToken) {
       throw new Error("Missing required field: shareToken");
     }
 
-    // Get user profile
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("first_name, last_name, phone, email")
-      .eq("id", user.id)
-      .single();
+    // Resolve the registrant. Two paths, same as ticket/table checkout:
+    //   - logged-in user  → identity from the JWT + profile
+    //   - guest (no account) → identity from the request body
+    // A guest entry is stored with user_id = null (the column is nullable and the
+    // INSERT RLS allows it); account creation is offered later via /guest/finalize.
+    const authHeader = req.headers.get("Authorization");
+    let user: { id: string; email: string | null } | null = null;
+    if (authHeader) {
+      const supabaseClient = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+        { global: { headers: { Authorization: authHeader } } }
+      );
+      const { data: { user: authedUser } } = await supabaseClient.auth.getUser();
+      if (authedUser) user = { id: authedUser.id, email: authedUser.email ?? null };
+    }
 
-    const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") || user.email?.split("@")[0] || "Guest";
-    const email = user.email || profile?.email || "";
-    const phone = profile?.phone || "";
+    let fullName: string;
+    let email: string;
+    let phone: string;
 
-    logStep("User profile loaded", { fullName, email });
+    if (user) {
+      logStep("User authenticated", { userId: user.id, email: user.email });
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("first_name, last_name, phone, email")
+        .eq("id", user.id)
+        .single();
+      fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") || user.email?.split("@")[0] || "Guest";
+      email = user.email || profile?.email || "";
+      phone = profile?.phone || "";
+    } else {
+      // Guest registration — no account required.
+      if (!guestEmail || !guestFullName) {
+        throw new Error("Please provide your name and email to register, or log in.");
+      }
+      logStep("Guest registration", { email: guestEmail });
+      fullName = String(guestFullName).trim();
+      email = String(guestEmail).trim();
+      phone = guestPhone ? String(guestPhone).trim() : "";
+    }
+
+    logStep("Registrant resolved", { fullName, email, isGuest: !user });
 
     // Find guest list by share token
     const { data: guestList, error: glError } = await supabaseAdmin
@@ -95,17 +107,20 @@ serve(async (req) => {
       throw new Error("Event has ended");
     }
 
-    // Check user not already registered
-    const { data: existingByUser } = await supabaseAdmin
-      .from("guest_list_entries")
-      .select("id")
-      .eq("guest_list_id", guestList.id)
-      .eq("user_id", user.id)
-      .neq("status", "cancelled")
-      .maybeSingle();
+    // Check user not already registered (logged-in path only; guests are
+    // de-duplicated by email below).
+    if (user) {
+      const { data: existingByUser } = await supabaseAdmin
+        .from("guest_list_entries")
+        .select("id")
+        .eq("guest_list_id", guestList.id)
+        .eq("user_id", user.id)
+        .neq("status", "cancelled")
+        .maybeSingle();
 
-    if (existingByUser) {
-      throw new Error("You are already registered for this guest list");
+      if (existingByUser) {
+        throw new Error("You are already registered for this guest list");
+      }
     }
 
     const { data: existingByEmail } = await supabaseAdmin
@@ -172,11 +187,11 @@ serve(async (req) => {
       if (promoter) promoterId = promoter.id;
     }
 
-    // Create/update venue_customer
+    // Create/update venue_customer (works for guests too — user_id is optional)
     const nameParts = fullName.trim().split(" ");
     await supabaseAdmin.rpc("get_or_create_venue_customer", {
       p_venue_id: guestList.venue_id,
-      p_user_id: user.id,
+      p_user_id: user?.id ?? null,
       p_email: email.toLowerCase().trim(),
       p_first_name: nameParts[0] || null,
       p_last_name: nameParts.slice(1).join(" ") || null,
@@ -191,7 +206,7 @@ serve(async (req) => {
       .from("guest_list_entries")
       .insert({
         guest_list_id: guestList.id,
-        user_id: user.id,
+        user_id: user?.id ?? null,
         full_name: fullName.trim(),
         email: email.toLowerCase().trim(),
         phone: phone || "",
@@ -209,10 +224,12 @@ serve(async (req) => {
       throw new Error("Failed to create guest list entry");
     }
 
-    logStep("Entry created", { entryId: entry.id, userId: user.id, reservationCode });
+    logStep("Entry created", { entryId: entry.id, userId: user?.id ?? null, reservationCode });
 
     // ── Grant drink credits if guest list includes_drink AND venue uses credits mode ──
-    if (guestList.includes_drink && user.id) {
+    // Credits key on user_id, so only logged-in registrants get them here. A guest
+    // who later creates an account (via /guest/finalize) can claim the drink then.
+    if (guestList.includes_drink && user) {
       // Check venue free_drink_mode
       const { data: venueForDrink } = await supabaseAdmin
         .from("venues")

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Check } from 'lucide-react';
+import { Check, ScrollText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -107,33 +107,36 @@ export function TermsAcceptance({ userId, guestEmail, context, onAcceptedChange 
   if (alreadyAccepted) return null;
 
   return (
-    <button
-      type="button"
-      onClick={() => handleCheck(!checked)}
-      className="flex items-center gap-2.5 w-full text-left py-1"
-    >
-      <span
-        className={[
-          'shrink-0 h-5 w-5 rounded-[4px] border flex items-center justify-center transition-colors',
-          checked
-            ? 'bg-primary border-primary'
-            : 'bg-transparent border-white/30',
-        ].join(' ')}
+    // Same card + row design as the marketing opt-ins (MarketingOptIns), so the
+    // required terms consent reads as part of the same checkbox family.
+    <div className="rounded-[10px] border border-white/[0.08] bg-[#141414] p-4">
+      <button
+        type="button"
+        onClick={() => handleCheck(!checked)}
+        className="flex items-center gap-3 w-full text-left transition-colors"
       >
-        {checked && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
-      </span>
-      <span className="text-sm text-[#9A9A9A] leading-snug" onClick={(e) => e.stopPropagation()}>
-        {t('cgv.acceptText')}{' '}
-        <a
-          href={termsUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-primary underline hover:text-primary/80"
-          onClick={(e) => e.stopPropagation()}
+        <span
+          className={[
+            'shrink-0 h-5 w-5 rounded-[4px] border flex items-center justify-center transition-colors',
+            checked ? 'bg-primary border-primary' : 'bg-transparent border-white/25',
+          ].join(' ')}
         >
-          {t('cgv.linkText')}
-        </a>
-      </span>
-    </button>
+          {checked && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+        </span>
+        <span className="text-[#5A5A5E] shrink-0"><ScrollText className="h-4 w-4" /></span>
+        <span className="text-sm text-[#9A9A9A] leading-snug" onClick={(e) => e.stopPropagation()}>
+          {t('cgv.acceptText')}{' '}
+          <a
+            href={termsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline hover:text-primary/80"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {t('cgv.linkText')}
+          </a>
+        </span>
+      </button>
+    </div>
   );
 }
