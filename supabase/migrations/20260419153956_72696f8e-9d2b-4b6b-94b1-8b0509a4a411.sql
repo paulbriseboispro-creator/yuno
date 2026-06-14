@@ -1,0 +1,1 @@
+UPDATE public.events SET image_url = NULL WHERE image_url LIKE 'blob:%' OR image_url LIKE 'data:%';

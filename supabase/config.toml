@@ -1,0 +1,178 @@
+project_id = "fulawxvdlwtdlpkycixe"
+
+[functions.invite-affiliate]
+verify_jwt = true
+
+[functions.create-affiliate-recurring-events]
+verify_jwt = false
+
+[functions.create-owner-recurring-events]
+verify_jwt = false
+
+[functions.sms-send]
+verify_jwt = true
+
+[functions.sms-twilio-status-webhook]
+verify_jwt = false
+
+[functions.sms-purchase-checkout]
+verify_jwt = true
+
+[functions.sms-purchase-verify]
+verify_jwt = true
+
+[functions.send-order-confirmation]
+verify_jwt = false
+
+[functions.create-order]
+verify_jwt = true
+
+[functions.verify-pin]
+verify_jwt = true
+
+[functions.staff-pin-login]
+verify_jwt = false
+
+[functions.create-ticket-checkout]
+verify_jwt = false
+
+[functions.create-checkout]
+verify_jwt = false
+
+[functions.verify-payment]
+verify_jwt = false
+
+[functions.verify-ticket-payment]
+verify_jwt = false
+
+[functions.join-waitlist]
+verify_jwt = false
+
+[functions.notify-waitlist]
+verify_jwt = false
+
+[functions.bulk-notify-waitlist]
+verify_jwt = false
+
+[functions.redeem-loyalty-reward]
+verify_jwt = true
+
+[functions.cancel-ticket]
+verify_jwt = true
+
+[functions.send-post-visit-notification]
+verify_jwt = false
+
+[functions.create-guest-list-entry]
+verify_jwt = false
+
+[functions.owner-refund]
+verify_jwt = true
+
+[functions.yuno-assistant]
+verify_jwt = true
+
+[functions.mfa-disable]
+verify_jwt = false
+
+[functions.send-push-notification]
+verify_jwt = false
+
+[functions.get-vapid-key]
+verify_jwt = false
+
+[functions.send-push-campaign]
+verify_jwt = false
+
+[functions.event-reminder]
+verify_jwt = false
+
+[functions.weekly-digest]
+verify_jwt = false
+
+[functions.inactivity-reminder]
+verify_jwt = false
+
+[functions.cart-abandonment-check]
+verify_jwt = false
+
+[functions.request-email-change]
+verify_jwt = false
+
+[functions.verify-email-change]
+verify_jwt = false
+
+[functions.submit-new-email]
+verify_jwt = false
+
+[functions.send-event-recap]
+verify_jwt = false
+
+[functions.send-test-email]
+verify_jwt = false
+
+[functions.owner-assistant]
+verify_jwt = true
+
+[functions.notify-event-waitlist]
+verify_jwt = false
+
+[functions.claim-guest-order]
+verify_jwt = false
+
+[functions.send-event-update]
+verify_jwt = true
+
+[functions.send-vip-confirmation]
+verify_jwt = false
+
+[functions.cleanup-pending-purchases]
+verify_jwt = false
+
+[functions.send-upsell-email]
+verify_jwt = false
+
+[functions.send-low-ticket-alert]
+verify_jwt = false
+
+[functions.send-pre-night-checklist]
+verify_jwt = false
+
+[functions.send-next-event-recommendation]
+verify_jwt = false
+
+[functions.send-missed-you]
+verify_jwt = false
+
+[functions.send-owner-night-summary]
+verify_jwt = false
+
+[functions.send-owner-weekly-report]
+verify_jwt = false
+
+[functions.invite-club-collab]
+verify_jwt = true
+
+[functions.accept-club-collab-invitation]
+verify_jwt = false
+
+[functions.send-campaign]
+verify_jwt = true
+
+[functions.unsubscribe-newsletter]
+verify_jwt = false
+
+[functions.resend-webhook]
+verify_jwt = false
+
+[functions.process-scheduled-campaigns]
+verify_jwt = false
+
+[functions.get-mapbox-token]
+verify_jwt = false
+
+[functions.delete-account]
+verify_jwt = true
+
+[functions.geocode-address]
+verify_jwt = false

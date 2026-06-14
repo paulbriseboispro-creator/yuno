@@ -1,0 +1,2 @@
+-- Drop FK constraint on order_pack_credits.pack_id so it can reference both upsell_drink_packs and ticket_upsell_offers
+ALTER TABLE public.order_pack_credits DROP CONSTRAINT IF EXISTS order_pack_credits_pack_id_fkey;

@@ -1,0 +1,1 @@
+ALTER FUNCTION public.is_venue_staff(_user_id uuid, _venue_id text) SET search_path = public;

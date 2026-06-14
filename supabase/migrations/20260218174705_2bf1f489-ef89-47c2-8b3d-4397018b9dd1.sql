@@ -1,0 +1,1 @@
+ALTER TABLE venue_subscriptions ADD COLUMN IF NOT EXISTS trial_end timestamptz;

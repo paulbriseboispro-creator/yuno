@@ -1,0 +1,7 @@
+ALTER TABLE public.ticket_upsell_offers 
+ADD COLUMN IF NOT EXISTS name_fr TEXT,
+ADD COLUMN IF NOT EXISTS name_en TEXT,
+ADD COLUMN IF NOT EXISTS name_es TEXT,
+ADD COLUMN IF NOT EXISTS description_fr TEXT,
+ADD COLUMN IF NOT EXISTS description_en TEXT,
+ADD COLUMN IF NOT EXISTS description_es TEXT;

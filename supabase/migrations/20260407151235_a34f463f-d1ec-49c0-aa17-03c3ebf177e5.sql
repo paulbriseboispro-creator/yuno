@@ -1,0 +1,1 @@
+ALTER TABLE public.leaderboard_rewards ADD COLUMN IF NOT EXISTS reward_config jsonb DEFAULT '{}'::jsonb;

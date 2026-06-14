@@ -1,0 +1,1 @@
+ALTER TABLE public.cloakroom_transactions ADD COLUMN IF NOT EXISTS processed_by UUID;

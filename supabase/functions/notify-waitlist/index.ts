@@ -1,0 +1,226 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
+import { Resend } from "https://esm.sh/resend@2.0.0";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+const logStep = (step: string, details?: any) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[NOTIFY-WAITLIST] ${step}${detailsStr}`);
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    logStep("Function started");
+
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
+    // Authenticate caller
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Invalid authentication' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+
+    const { roundId, ticketsFreed = 1 } = await req.json();
+    
+    if (!roundId) {
+      throw new Error('roundId is required');
+    }
+
+    logStep("Request data", { roundId, ticketsFreed, callerUserId: user.id });
+
+    // Get round and event details
+    const { data: round, error: roundError } = await supabaseClient
+      .from('ticket_rounds')
+      .select('*, events(id, title, start_at, venue_id)')
+      .eq('id', roundId)
+      .single();
+
+    if (roundError || !round) {
+      throw new Error('Round not found');
+    }
+
+    // Verify caller is owner or manager of the venue
+    const venueId = round.events.venue_id;
+    const { data: canManage } = await supabaseClient.rpc('can_manage_venue', {
+      _user_id: user.id,
+      _venue_id: venueId,
+    });
+
+    if (!canManage) {
+      return new Response(JSON.stringify({ error: 'Unauthorized: you must be the venue owner or manager' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Get venue details
+    const { data: venue } = await supabaseClient
+      .from('venues')
+      .select('id, name')
+      .eq('id', venueId)
+      .single();
+
+    // Find the last active round price for waitlist purchases
+    const { data: lastActiveRound } = await supabaseClient
+      .from('ticket_rounds')
+      .select('price, name')
+      .eq('event_id', round.event_id)
+      .eq('is_active', true)
+      .order('position', { ascending: false })
+      .limit(1)
+      .single();
+
+    const purchasePrice = lastActiveRound?.price || round.price;
+
+    logStep("Round found", { roundName: round.name, eventTitle: round.events.title, purchasePrice });
+
+    // Find next person in waitlist who hasn't been notified or whose notification expired
+    const now = new Date().toISOString();
+    const { data: nextInLine, error: waitlistError } = await supabaseClient
+      .from('ticket_waitlist')
+      .select('*')
+      .eq('ticket_round_id', roundId)
+      .eq('purchased', false)
+      .or(`notified_at.is.null,expired_at.lt.${now}`)
+      .order('position', { ascending: true })
+      .limit(ticketsFreed);
+
+    if (waitlistError) {
+      throw waitlistError;
+    }
+
+    if (!nextInLine || nextInLine.length === 0) {
+      logStep("No one in waitlist to notify");
+      return new Response(
+        JSON.stringify({ success: true, notified: 0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    logStep("Found people to notify", { count: nextInLine.length });
+
+    const appUrl = Deno.env.get("APP_BASE_URL") || "https://yunoapp.eu";
+
+    let notifiedCount = 0;
+    for (const entry of nextInLine) {
+      // Set expiration to 30 minutes from now
+      const expiredAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+
+      // Update waitlist entry
+      const { error: updateError } = await supabaseClient
+        .from('ticket_waitlist')
+        .update({
+          notified_at: now,
+          expired_at: expiredAt,
+        })
+        .eq('id', entry.id);
+
+      if (updateError) {
+        console.error('Error updating waitlist entry:', updateError);
+        continue;
+      }
+
+      // Build purchase URL
+      const purchaseUrl = `${appUrl}/club/${venue?.id || venueId}/event/${round.event_id}/tickets/${roundId}?waitlist=true`;
+
+      // Send email with Yuno branding (red/black theme)
+      try {
+        const emailResponse = await resend.emails.send({
+          from: "Yuno <notifications@resend.dev>",
+          to: [entry.email],
+          subject: `🎟️ Place disponible pour ${round.events.title}!`,
+          html: `
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="utf-8">
+              <style>
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #050505; color: #fff; }
+                .container { max-width: 500px; margin: 0 auto; background: #0a0a0a; border-radius: 16px; padding: 32px; border: 1px solid rgba(255,255,255,0.05); }
+                .logo { text-align: center; margin-bottom: 24px; font-size: 28px; font-weight: bold; color: #dc2626; }
+                h1 { color: #fff; margin: 0 0 16px 0; font-size: 24px; }
+                p { color: #a0a0a0; line-height: 1.6; margin: 0 0 16px 0; }
+                .highlight { color: #dc2626; font-weight: bold; }
+                .price { font-size: 32px; font-weight: bold; color: #fff; margin: 24px 0; text-align: center; }
+                .timer { background: #1a1a1a; border-radius: 8px; padding: 12px 16px; margin: 16px 0; border-left: 4px solid #f59e0b; }
+                .timer p { color: #f59e0b; margin: 0; font-weight: 500; }
+                .button { display: inline-block; background: #dc2626; color: #fff !important; text-decoration: none; padding: 16px 32px; border-radius: 12px; font-weight: bold; font-size: 16px; margin: 24px 0; }
+                .button:hover { background: #b91c1c; }
+                .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 12px; color: #666; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="logo">YUNO</div>
+                <h1>🎉 Une place s'est libérée!</h1>
+                <p>Bonne nouvelle! Une place est disponible pour <span class="highlight">${round.events.title}</span>.</p>
+                <p>Vous étiez en position <strong style="color:#fff;">#${entry.position}</strong> sur la liste d'attente.</p>
+                
+                <div class="price">${purchasePrice} €</div>
+                
+                <div class="timer">
+                  <p>⏱️ Vous avez 30 minutes pour réserver votre place!</p>
+                </div>
+                
+                <center>
+                  <a href="${purchaseUrl}" class="button">Acheter maintenant →</a>
+                </center>
+                
+                <p style="font-size: 14px;">Si vous n'achetez pas dans les 30 minutes, la place sera proposée à la personne suivante.</p>
+                
+                <div class="footer">
+                  <p>Cet email a été envoyé car vous étiez inscrit sur la liste d'attente pour ${round.events.title}.</p>
+                </div>
+              </div>
+            </body>
+            </html>
+          `,
+        });
+
+        logStep("Email sent", { email: entry.email, position: entry.position });
+        notifiedCount++;
+      } catch (emailError) {
+        console.error('Error sending email:', emailError);
+      }
+    }
+
+    logStep("Notifications complete", { notifiedCount });
+
+    return new Response(
+      JSON.stringify({ success: true, notified: notifiedCount }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('[NOTIFY-WAITLIST] Error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(
+      JSON.stringify({ error: errorMessage }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+    );
+  }
+});

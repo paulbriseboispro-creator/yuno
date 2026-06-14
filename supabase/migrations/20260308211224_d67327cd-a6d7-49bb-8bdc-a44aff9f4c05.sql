@@ -1,0 +1,1 @@
+CREATE POLICY "Users can view own feedback" ON public.feedback_issues FOR SELECT TO authenticated USING (reported_by = auth.uid());

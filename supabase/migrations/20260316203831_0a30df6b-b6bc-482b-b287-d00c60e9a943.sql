@@ -1,0 +1,2 @@
+ALTER TABLE public.guest_list_entries ADD COLUMN IF NOT EXISTS reservation_code TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_guest_list_entries_reservation_code ON public.guest_list_entries(reservation_code) WHERE reservation_code IS NOT NULL;

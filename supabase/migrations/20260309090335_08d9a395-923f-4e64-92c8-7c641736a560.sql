@@ -1,0 +1,1 @@
+ALTER TABLE public.ticket_presets ADD COLUMN IF NOT EXISTS selling_mode text DEFAULT 'rounds';

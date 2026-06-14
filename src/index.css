@@ -1,0 +1,699 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   YUNO — Design System
+   Inspired by yunoapp.eu / yuno-madrid
+   ============================================================ */
+
+:root {
+  /* Brand Colors */
+  --yuno-black:     #0A0A0A;
+  --yuno-bg-2:      #0E0E10;
+  --yuno-card:      #141414;
+  --yuno-card-2:    #1B1B1E;
+  --yuno-elev:      #222226;
+  --yuno-input:     #1F1F22;
+  --yuno-surface:   #111111;
+  --yuno-surface-2: #191919;
+  --yuno-surface-3: #222222;
+
+  --yuno-red:       #E8192C;
+  --yuno-red-hover: #FF2438;
+  --yuno-red-dim:   rgba(232, 25, 44, 0.10);
+  --yuno-red-soft:  rgba(232, 25, 44, 0.18);
+  --yuno-red-tint:  rgba(232, 25, 44, 0.06);
+
+  --yuno-white:   #FFFFFF;
+  --yuno-gray-1:  #E5E5E5;
+  --yuno-gray-2:  #9A9A9A;
+  --yuno-gray-3:  #5A5A5E;
+  --yuno-gray-4:  #3A3A3E;
+  --yuno-live-dot: #FF3B30;
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  /* Typography scale */
+  --text-hero:     clamp(48px, 8vw, 96px);
+  --text-display:  clamp(28px, 5vw, 64px);
+  --text-title:    clamp(20px, 3vw, 36px);
+  --text-subtitle: 18px;
+  --text-body:     16px;
+  --text-small:    14px;
+  --text-xs:       12px;
+  --text-mono:     13px;
+
+  /* Layout */
+  --gutter:    clamp(16px, 4vw, 48px);
+  --max-width: 768px;
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   10px;
+  --radius-xl:   14px;
+  --radius-pill: 999px;
+
+  /* ── Tailwind-compatible tokens (HSL) ───────────────────── */
+  --background: 0 0% 4%;
+  --foreground: 0 0% 98%;
+
+  --surface: 0 0% 6%;
+  --surface-elevated: 0 0% 8%;
+
+  --card: 0 0% 8%;
+  --card-foreground: 0 0% 98%;
+
+  --popover: 0 0% 7%;
+  --popover-foreground: 0 0% 98%;
+
+  --primary: 354 84% 51%;
+  --primary-foreground: 0 0% 100%;
+  --primary-hover: 354 84% 57%;
+  --primary-muted: 0 70% 35%;
+
+  --accent: 354 84% 51%;
+  --accent-foreground: 0 0% 100%;
+
+  --secondary: 0 0% 8%;
+  --secondary-foreground: 0 0% 80%;
+
+  --muted: 0 0% 7%;
+  --muted-foreground: 0 0% 55%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 0 0% 10%;
+  --input: 0 0% 10%;
+  --ring: 354 84% 51%;
+
+  --radius: 0.625rem;
+
+  --shadow-soft: 0 2px 8px hsla(0, 0%, 0%, 0.3);
+  --shadow-inset: inset 0 1px 0 hsla(0, 0%, 100%, 0.03);
+
+  --surface-glass: 0 0% 100% / 0.03;
+  --surface-glass-hover: 0 0% 100% / 0.06;
+  --glow-primary: 354 84% 51%;
+  --glow-purple: 270 60% 50%;
+  --glow-blue: 220 60% 50%;
+
+  --transition-fast: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* shadcn chart color tokens — Yuno palette */
+  --chart-1: 354 84% 51%;   /* Yuno red */
+  --chart-2: 354 70% 68%;   /* red-light */
+  --chart-3: 0 0% 45%;      /* mid-gray */
+  --chart-4: 0 0% 30%;      /* dark-gray */
+  --chart-5: 0 0% 62%;      /* light-gray */
+}
+
+/* ============================================================
+   BASE
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+@layer base {
+  * { @apply border-border; }
+
+  html {
+    font-size: 16px;
+    scroll-behavior: smooth;
+  }
+
+  html, body {
+    background-color: var(--yuno-black);
+    color: var(--yuno-white);
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100%;
+    min-height: 100dvh;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    touch-action: manipulation;
+    @apply bg-background text-foreground;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  button, a {
+    @apply transition-all duration-200 ease-out;
+  }
+
+  button:active {
+    transform: scale(0.97);
+  }
+  :root {
+    /* Yuno dark sidebar — override efferd defaults */
+    --sidebar-background:     0 0% 5%;
+    --sidebar-foreground:     0 0% 90%;
+    --sidebar-primary:        354 84% 51%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent:         0 0% 9%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border:         0 0% 11%;
+    --sidebar-ring:           354 84% 51%;
+  }
+  .dark {
+    --sidebar-background:     0 0% 5%;
+    --sidebar-foreground:     0 0% 90%;
+    --sidebar-primary:        354 84% 51%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent:         0 0% 9%;
+    --sidebar-accent-foreground: 0 0% 90%;
+    --sidebar-border:         0 0% 11%;
+    --sidebar-ring:           354 84% 51%;
+  }
+}
+
+/* iOS PWA safe-area */
+@supports (padding-top: env(safe-area-inset-top)) {
+  header.sticky, div.sticky {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
+
+/* Prevent Safari iOS zoom on input focus */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea {
+    font-size: max(16px, 1rem) !important;
+  }
+}
+
+/* ============================================================
+   SCROLLBAR
+   ============================================================ */
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--yuno-black); }
+::-webkit-scrollbar-thumb { background: var(--yuno-gray-4); border-radius: 2px; }
+
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.85); }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in-fast {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(32px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scroll-line {
+  0%   { transform: scaleY(0); transform-origin: top; }
+  50%  { transform: scaleY(1); transform-origin: top; }
+  51%  { transform: scaleY(1); transform-origin: bottom; }
+  100% { transform: scaleY(0); transform-origin: bottom; }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes accordion-down {
+  from { height: 0; }
+  to   { height: var(--radix-accordion-content-height); }
+}
+
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); }
+  to   { height: 0; }
+}
+
+@keyframes ping-dot {
+  0% { transform: scale(1); opacity: 0.75; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
+.animate-pulse-dot    { animation: pulse-dot 1.5s ease-in-out infinite; }
+.animate-fade-up      { animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.animate-marquee      { animation: marquee 30s linear infinite; }
+.animate-fade-in-fast { animation: fade-in-fast 0.2s ease forwards; }
+
+.reveal { opacity: 0; }
+.reveal.is-visible {
+  animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 22px;
+  border-radius: var(--radius-pill);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  border: none;
+  cursor: pointer;
+  transition: background 150ms ease, transform 100ms ease, box-shadow 150ms ease;
+}
+
+.btn--primary {
+  background: var(--yuno-red);
+  color: #fff;
+  box-shadow: 0 10px 28px rgba(232, 25, 44, 0.32);
+}
+.btn--primary:hover  { background: var(--yuno-red-hover); box-shadow: 0 14px 36px rgba(232,25,44,0.45); transform: translateY(-1px); }
+.btn--primary:active { transform: scale(0.97) translateY(0); box-shadow: 0 6px 16px rgba(232,25,44,0.25); }
+
+.btn--ghost {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+}
+.btn--ghost:hover  { background: rgba(255, 255, 255, 0.11); border-color: rgba(255,255,255,0.18); transform: translateY(-1px); }
+.btn--ghost:active { transform: scale(0.97) translateY(0); }
+
+.btn--secondary {
+  background: transparent;
+  color: var(--yuno-red);
+  border: 1px solid var(--yuno-red);
+}
+.btn--secondary:hover  { background: var(--yuno-red-tint); transform: translateY(-1px); }
+.btn--secondary:active { transform: scale(0.97) translateY(0); }
+
+/* ============================================================
+   LIVE DOT
+   ============================================================ */
+
+.dot-live {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--yuno-live-dot);
+  box-shadow: 0 0 8px rgba(255, 59, 48, 0.7);
+  animation: pulse-dot 1.4s ease-in-out infinite;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   CARDS
+   ============================================================ */
+
+.yuno-card {
+  background: var(--yuno-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.event-card {
+  position: relative;
+  background: var(--yuno-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+  transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 250ms ease, border-color 250ms ease;
+  cursor: pointer;
+}
+.event-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,0.4); border-color: rgba(232, 25, 44, 0.28); }
+.event-card:active { transform: translateY(-2px); }
+
+/* ============================================================
+   BADGE LIVE
+   ============================================================ */
+
+.badge-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(10, 10, 10, 0.6);
+  border: 1px solid rgba(232, 25, 44, 0.5);
+  color: var(--yuno-red);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 999px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ============================================================
+   GENRE TAG
+   ============================================================ */
+
+.genre-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
+  color: var(--yuno-gray-1);
+}
+
+/* ============================================================
+   SKELETON
+   ============================================================ */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--yuno-card) 25%,
+    var(--yuno-card-2) 50%,
+    var(--yuno-card) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* ============================================================
+   OVERLAYS
+   ============================================================ */
+
+.hero-overlay {
+  background: linear-gradient(
+    to top,
+    rgba(10, 10, 10, 0.98) 0%,
+    rgba(10, 10, 10, 0.70) 30%,
+    rgba(10, 10, 10, 0.25) 60%,
+    rgba(10, 10, 10, 0.05) 100%
+  );
+}
+
+.card-overlay {
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.96) 0%,
+    rgba(0, 0, 0, 0.60) 40%,
+    rgba(0, 0, 0, 0.08) 100%
+  );
+}
+
+/* ============================================================
+   MARQUEE TICKER
+   ============================================================ */
+
+.marquee-strip {
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  background: #0C0C0E;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.marquee-inner {
+  display: flex;
+  white-space: nowrap;
+  width: max-content;
+  animation: marquee 30s linear infinite;
+}
+
+.marquee-item {
+  padding: 0 24px;
+  border-right: 1px solid rgba(255,255,255,0.07);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--yuno-gray-3);
+  text-transform: uppercase;
+}
+
+.marquee-item--accent {
+  color: var(--yuno-red);
+}
+
+/* ============================================================
+   RULE / DIVIDER
+   ============================================================ */
+
+/* Horizontal divider line (plain) */
+.yuno-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.08);
+}
+
+/* Editorial section label: —— SECTION TITLE */
+.yuno-rule {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #5A5A5E;
+}
+.yuno-rule::before {
+  content: '';
+  display: block;
+  width: 20px;
+  height: 1px;
+  background: #E8192C;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   LINK SLIDE
+   ============================================================ */
+
+.link-slide {
+  position: relative;
+  display: inline-block;
+}
+.link-slide::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: currentColor;
+  transition: width 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.link-slide:hover::after { width: 100%; }
+
+/* ============================================================
+   FIXED BOTTOM BAR
+   ============================================================ */
+
+.fixed-bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ============================================================
+   GLASS CARD (dashboard / owner)
+   ============================================================ */
+
+.glass-card {
+  background: hsla(var(--surface-glass));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid hsla(0, 0%, 100%, 0.06);
+  transition: var(--transition-smooth);
+}
+.glass-card:hover {
+  background: hsla(var(--surface-glass-hover));
+  border-color: hsla(0, 0%, 100%, 0.1);
+}
+
+/* ============================================================
+   OWNER / DASHBOARD — preserved
+   ============================================================ */
+
+.glow-border-primary {
+  box-shadow: 0 0 0 1px hsla(var(--glow-primary), 0.15),
+              0 0 20px -5px hsla(var(--glow-primary), 0.1);
+}
+
+.glow-border-purple {
+  box-shadow: 0 0 0 1px hsla(var(--glow-purple), 0.15),
+              0 0 20px -5px hsla(var(--glow-purple), 0.1);
+}
+
+.dashboard-gradient-bg {
+  background: linear-gradient(
+    180deg,
+    hsl(0 0% 4%) 0%,
+    hsl(0 0% 5.5%) 40%,
+    hsl(0 0% 4.5%) 100%
+  );
+}
+
+.metric-value {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.owner-card {
+  background: hsla(0, 0%, 100%, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid hsla(0, 0%, 100%, 0.06);
+  border-radius: 0.75rem;
+  transition: var(--transition-smooth);
+}
+.owner-card:hover {
+  background: hsla(0, 0%, 100%, 0.05);
+  border-color: hsla(0, 0%, 100%, 0.1);
+}
+
+.owner-stat {
+  background: hsla(0, 0%, 100%, 0.03);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid hsla(0, 0%, 100%, 0.06);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  transition: var(--transition-smooth);
+}
+.owner-stat:hover {
+  background: hsla(0, 0%, 100%, 0.05);
+  border-color: hsla(0, 0%, 100%, 0.1);
+  transform: translateY(-1px);
+}
+
+.owner-tabs {
+  background: hsla(0, 0%, 100%, 0.03);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid hsla(0, 0%, 100%, 0.06);
+  border-radius: 0.75rem;
+  padding: 0.25rem;
+}
+
+.owner-section {
+  background: hsla(0, 0%, 100%, 0.02);
+  border: 1px solid hsla(0, 0%, 100%, 0.04);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+}
+
+.owner-list-item {
+  background: hsla(0, 0%, 100%, 0.02);
+  border: 1px solid hsla(0, 0%, 100%, 0.05);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  transition: var(--transition-smooth);
+}
+.owner-list-item:hover {
+  background: hsla(0, 0%, 100%, 0.04);
+  border-color: hsla(0, 0%, 100%, 0.08);
+}
+
+/* ============================================================
+   YUNO-MADRID EVENT PAGE — Design System Classes
+   ============================================================ */
+
+/* Section label with red rule — matches yuno-madrid editorial style */
+.section-label-ruled {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #9A9A9A;
+  font-family: 'JetBrains Mono', monospace;
+}
+.section-label-ruled::before {
+  content: '';
+  display: block;
+  width: 28px;
+  height: 1px;
+  background: #E8192C;
+  flex-shrink: 0;
+}
+
+/* Hero staggered entrance animations */
+.animate-hero-label {
+  animation: slide-up 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.05s backwards;
+}
+.animate-hero-h1 {
+  animation: slide-up 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.18s backwards;
+}
+.animate-hero-body {
+  animation: slide-up 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.35s backwards;
+}
+.animate-hero-cta {
+  animation: slide-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.48s backwards;
+}
+
+/* Staggered card grid */
+.stagger-grid > * {
+  animation: slide-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+.stagger-grid > *:nth-child(1) { animation-delay: 0ms;   }
+.stagger-grid > *:nth-child(2) { animation-delay: 60ms;  }
+.stagger-grid > *:nth-child(3) { animation-delay: 120ms; }
+.stagger-grid > *:nth-child(4) { animation-delay: 180ms; }
+.stagger-grid > *:nth-child(n+5) { animation-delay: 240ms; }
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ============================================================
+   ORDERS V2 — temporal commandes page (QR scan overlay)
+   ============================================================ */
+@keyframes yuno-scan-line {
+  0%   { top: 2%; }
+  50%  { top: calc(100% - 4px); }
+  100% { top: 2%; }
+}
+@keyframes yuno-qr-pulse {
+  0%, 100% { opacity: 1;  box-shadow: 0 0 7px hsl(var(--primary) / 0.9); }
+  50%      { opacity: .4; box-shadow: 0 0 2px hsl(var(--primary) / 0.3); }
+}
+.yuno-scan-line { animation: yuno-scan-line 2.2s ease-in-out infinite; }
+.yuno-qr-pulse  { animation: yuno-qr-pulse 1.5s ease-in-out infinite; }

@@ -1,0 +1,1 @@
+ALTER TABLE public.guest_list_entries ADD COLUMN IF NOT EXISTS entry_type TEXT DEFAULT 'normal';

@@ -1,0 +1,1 @@
+ALTER TABLE public.venues ADD COLUMN menu_enabled boolean NOT NULL DEFAULT true;

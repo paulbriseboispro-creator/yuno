@@ -1,0 +1,1 @@
+ALTER TABLE public.venue_subscriptions ADD COLUMN IF NOT EXISTS subscription_plan text NOT NULL DEFAULT 'essential';

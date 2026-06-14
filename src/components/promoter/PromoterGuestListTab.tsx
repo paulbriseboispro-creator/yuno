@@ -1,0 +1,521 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
+import { UserPlus, Users, Loader2, BarChart3, Calendar, Zap, Clock, Mail } from 'lucide-react';
+
+interface PromoterProfile {
+  id: string;
+  user_id: string;
+  venue_id: string;
+  promo_code: string;
+  is_active: boolean;
+  default_commission_template_id?: string;
+  venue?: { id: string; name: string; logo_url?: string };
+}
+
+interface PromoterGuestListTabProps {
+  promoterProfiles: PromoterProfile[];
+}
+
+interface GuestEntry {
+  id: string;
+  fullName: string;
+  email: string;
+  entryType: string;
+  createdAt: string;
+}
+
+interface QuotaBreakdown {
+  globalQuota: number | null;
+  normalQuota: number | null;
+  tableQuota: number | null;
+  drinkQuota: number | null;
+}
+
+interface QuotaUsage {
+  total: number;
+  normal: number;
+  table: number;
+  drink: number;
+}
+
+type EntryType = 'normal' | 'table' | 'drink';
+
+interface EventOption {
+  id: string;
+  title: string;
+  startAt: string;
+  endAt: string;
+  venueId: string;
+  venueName: string;
+}
+
+export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabProps) {
+  const { t, language } = useLanguage();
+  const [events, setEvents] = useState<EventOption[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string>('');
+  const [entries, setEntries] = useState<GuestEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [entryType, setEntryType] = useState<EntryType>('normal');
+
+  const [quota, setQuota] = useState<QuotaBreakdown>({ globalQuota: null, normalQuota: null, tableQuota: null, drinkQuota: null });
+  const [usage, setUsage] = useState<QuotaUsage>({ total: 0, normal: 0, table: 0, drink: 0 });
+
+  // Get the promoter for the selected event's venue
+  const selectedEvent = events.find(e => e.id === selectedEventId);
+  const activePromoter = selectedEvent
+    ? promoterProfiles.find(p => p.venue_id === selectedEvent.venueId)
+    : null;
+
+  // Fetch events across all venues
+  useEffect(() => {
+    fetchEvents();
+  }, [promoterProfiles]);
+
+  async function fetchEvents() {
+    setLoading(true);
+    try {
+      const venueIds = [...new Set(promoterProfiles.map(p => p.venue_id))];
+      if (!venueIds.length) { setEvents([]); setLoading(false); return; }
+
+      const now = new Date().toISOString();
+      const { data } = await supabase.from('events')
+        .select('id, title, start_at, end_at, venue_id, venues!events_venue_id_fkey(name)')
+        .in('venue_id', venueIds)
+        .gte('end_at', now)
+        .order('start_at', { ascending: true })
+        .limit(30);
+
+      const mapped: EventOption[] = (data || []).map((e: any) => ({
+        id: e.id,
+        title: e.title,
+        startAt: e.start_at,
+        endAt: e.end_at,
+        venueId: e.venue_id,
+        venueName: e.venues?.name || '',
+      }));
+      setEvents(mapped);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Fetch quota + entries when event selected
+  useEffect(() => {
+    if (selectedEventId && activePromoter) {
+      fetchQuotaAndEntries();
+    } else {
+      setEntries([]);
+      setQuota({ globalQuota: null, normalQuota: null, tableQuota: null, drinkQuota: null });
+      setUsage({ total: 0, normal: 0, table: 0, drink: 0 });
+    }
+  }, [selectedEventId, activePromoter?.id]);
+
+  async function fetchQuotaAndEntries() {
+    if (!activePromoter || !selectedEventId) return;
+    try {
+      // Fetch quota from commission template
+      let q: QuotaBreakdown = { globalQuota: null, normalQuota: null, tableQuota: null, drinkQuota: null };
+      // Fetch guest_list_template_id from promoter record (dedicated preset)
+      const { data: promoterRecord } = await supabase.from('promoters')
+        .select('guest_list_template_id')
+        .eq('id', activePromoter.id)
+        .single();
+      const glTemplateId = (promoterRecord as any)?.guest_list_template_id;
+      if (glTemplateId) {
+        const { data: tmpl } = await supabase.from('commission_templates')
+          .select('rules')
+          .eq('id', glTemplateId)
+          .single();
+        const rules = tmpl?.rules as any;
+        if (rules?.guest_list) {
+          q = {
+            globalQuota: rules.guest_list.quota ?? null,
+            normalQuota: rules.guest_list.normalQuota ?? null,
+            tableQuota: rules.guest_list.tableQuota ?? null,
+            drinkQuota: rules.guest_list.drinkQuota ?? null,
+          };
+        }
+      } else {
+        // No guest list preset assigned — show explicit message
+        setQuota({ globalQuota: null, normalQuota: null, tableQuota: null, drinkQuota: null });
+      }
+      setQuota(q);
+
+      // Fetch guest list for the event
+      const { data: gl } = await supabase.from('guest_lists')
+        .select('id')
+        .eq('event_id', selectedEventId)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (!gl) {
+        setEntries([]);
+        setUsage({ total: 0, normal: 0, table: 0, drink: 0 });
+        return;
+      }
+
+      // Fetch entries by this promoter
+      const { data: entriesData } = await supabase.from('guest_list_entries')
+        .select('id, full_name, email, entry_type, created_at')
+        .eq('guest_list_id', gl.id)
+        .eq('promoter_id', activePromoter.id)
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false });
+
+      const mapped: GuestEntry[] = (entriesData || []).map(d => ({
+        id: d.id,
+        fullName: d.full_name || '',
+        email: d.email || '',
+        entryType: (d as any).entry_type || 'normal',
+        createdAt: d.created_at,
+      }));
+      setEntries(mapped);
+
+      // Compute usage
+      const u: QuotaUsage = { total: mapped.length, normal: 0, table: 0, drink: 0 };
+      mapped.forEach(e => {
+        if (e.entryType === 'table') u.table++;
+        else if (e.entryType === 'drink') u.drink++;
+        else u.normal++;
+      });
+      setUsage(u);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  async function handleAdd() {
+    if (!firstName.trim() || !lastName.trim()) {
+      toast.error('Veuillez renseigner le nom et le prénom');
+      return;
+    }
+    if (!activePromoter || !selectedEventId) return;
+
+    setAdding(true);
+    try {
+      const fullName = `${firstName.trim()} ${lastName.trim()}`;
+      const { data, error } = await supabase.functions.invoke('promoter-add-guest', {
+        body: {
+          promoterId: activePromoter.id,
+          eventId: selectedEventId,
+          fullName,
+          gender: null,
+          email: email.trim() || null,
+          entryType,
+        },
+      });
+
+      if (error) {
+        let fnMessage = '';
+        const errorContext = (error as any)?.context;
+
+        if (errorContext && typeof errorContext.json === 'function') {
+          try {
+            const parsed = await errorContext.json();
+            fnMessage = parsed?.error || '';
+          } catch {
+            // ignore parse errors
+          }
+        }
+
+        throw new Error(fnMessage || (error as any)?.message || t('promoterGuestlist.addError'));
+      }
+
+      if (data?.error) throw new Error(data.error);
+
+      toast.success(t('promoterGuestlist.added'));
+      setFirstName('');
+      setLastName('');
+      setEmail('');
+      setEntryType('normal');
+      fetchQuotaAndEntries();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || t('promoterGuestlist.addError'));
+    } finally { setAdding(false); }
+  }
+
+  const getEventStatus = (startAt: string, endAt: string) => {
+    const now = new Date();
+    if (new Date(startAt) <= now && new Date(endAt) >= now) return 'live';
+    return 'upcoming';
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-US', {
+      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+    });
+  };
+
+  // Available entry types based on quota
+  const availableEntryTypes: Array<{ value: EntryType; label: string }> = [];
+  if (quota.normalQuota == null || quota.normalQuota > 0) {
+    availableEntryTypes.push({ value: 'normal', label: 'Entrée standard' });
+  }
+  if (quota.tableQuota != null && quota.tableQuota > 0) {
+    availableEntryTypes.push({ value: 'table', label: 'Entrée Table VIP' });
+  }
+  if (quota.drinkQuota != null && quota.drinkQuota > 0) {
+    availableEntryTypes.push({ value: 'drink', label: 'Entrée + Boisson offerte' });
+  }
+
+  const globalQuotaPercent = quota.globalQuota ? Math.min(100, (usage.total / quota.globalQuota) * 100) : 0;
+  const isQuotaFull = quota.globalQuota != null && usage.total >= quota.globalQuota;
+
+  // Check per-type full
+  const isTypeFull = (type: EntryType) => {
+    if (type === 'normal' && quota.normalQuota != null) return usage.normal >= quota.normalQuota;
+    if (type === 'table' && quota.tableQuota != null) return usage.table >= quota.tableQuota;
+    if (type === 'drink' && quota.drinkQuota != null) return usage.drink >= quota.drinkQuota;
+    return false;
+  };
+
+  const entryTypeBadge = (type: string) => {
+    if (type === 'table') return <Badge variant="outline" className="text-[10px]">VIP</Badge>;
+    if (type === 'drink') return <Badge variant="outline" className="text-[10px]">Boisson</Badge>;
+    return <Badge variant="secondary" className="text-[10px]">Standard</Badge>;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Event Selector */}
+      <Card className="border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Sélectionner une soirée
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {events.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucune soirée à venir</p>
+          ) : (
+            <Select value={selectedEventId} onValueChange={setSelectedEventId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Choisir une soirée..." />
+              </SelectTrigger>
+              <SelectContent>
+                {events.map(ev => {
+                  const status = getEventStatus(ev.startAt, ev.endAt);
+                  return (
+                    <SelectItem key={ev.id} value={ev.id}>
+                      <div className="flex items-center gap-2">
+                        <span>{ev.title}</span>
+                        {promoterProfiles.length > 1 && (
+                          <span className="text-muted-foreground text-xs">— {ev.venueName}</span>
+                        )}
+                        {status === 'live' ? (
+                          <Badge className="bg-destructive text-destructive-foreground text-[9px] px-1.5 py-0 animate-pulse">LIVE</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
+                            <Clock className="h-2.5 w-2.5 mr-0.5" />
+                            À venir
+                          </Badge>
+                        )}
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Content when event selected */}
+      {selectedEventId && activePromoter && (
+        <>
+          {/* Quota Tracking */}
+          <Card className="border-border">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Quota Guest List</span>
+                {quota.globalQuota != null && (
+                  <Badge variant={isQuotaFull ? 'destructive' : 'secondary'} className="ml-auto text-xs">
+                    {usage.total} / {quota.globalQuota}
+                  </Badge>
+                )}
+              </div>
+
+              {quota.globalQuota != null && (
+                <Progress value={globalQuotaPercent} className="h-2 mb-3" />
+              )}
+
+              {/* Per-type breakdown */}
+              <div className="grid grid-cols-3 gap-2">
+                {quota.normalQuota != null && (
+                  <div className="bg-muted/50 rounded-lg p-2.5 text-center">
+                    <p className="text-lg font-bold">{usage.normal}<span className="text-xs font-normal text-muted-foreground">/{quota.normalQuota}</span></p>
+                    <p className="text-[10px] text-muted-foreground">Entrées</p>
+                    {usage.normal >= quota.normalQuota && (
+                      <Badge variant="destructive" className="text-[9px] mt-1">Complet</Badge>
+                    )}
+                  </div>
+                )}
+                {quota.tableQuota != null && (
+                  <div className="bg-muted/50 rounded-lg p-2.5 text-center">
+                    <p className="text-lg font-bold">{usage.table}<span className="text-xs font-normal text-muted-foreground">/{quota.tableQuota}</span></p>
+                    <p className="text-[10px] text-muted-foreground">Tables VIP</p>
+                    {usage.table >= quota.tableQuota && (
+                      <Badge variant="destructive" className="text-[9px] mt-1">Complet</Badge>
+                    )}
+                  </div>
+                )}
+                {quota.drinkQuota != null && (
+                  <div className="bg-muted/50 rounded-lg p-2.5 text-center">
+                    <p className="text-lg font-bold">{usage.drink}<span className="text-xs font-normal text-muted-foreground">/{quota.drinkQuota}</span></p>
+                    <p className="text-[10px] text-muted-foreground">Boissons</p>
+                    {usage.drink >= quota.drinkQuota && (
+                      <Badge variant="destructive" className="text-[9px] mt-1">Complet</Badge>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {quota.globalQuota == null && quota.normalQuota == null && quota.tableQuota == null && quota.drinkQuota == null && (
+                <p className="text-xs text-amber-500">Aucun preset Guest List assigne — demandez a votre manager de configurer vos droits.</p>
+              )}
+
+              {isQuotaFull && (
+                <p className="text-xs text-destructive mt-2">Quota atteint — impossible d'ajouter plus d'invités</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Add Guest Form */}
+          <Card className="border-primary/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <UserPlus className="h-4 w-4" />
+                Ajouter un invité
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">Prénom</Label>
+                  <Input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Jean" />
+                </div>
+                <div>
+                  <Label className="text-xs">Nom</Label>
+                  <Input value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Dupont" />
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs flex items-center gap-1">
+                  <Mail className="h-3 w-3" />
+                  Email
+                </Label>
+                <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="jean@email.com" />
+                <p className="text-[10px] text-muted-foreground mt-0.5">L'invité recevra son invitation par email</p>
+              </div>
+
+              {/* Entry type selector */}
+              {availableEntryTypes.length > 1 && (
+                <div>
+                  <Label className="text-xs">Type d'entrée</Label>
+                  <Select value={entryType} onValueChange={v => setEntryType(v as EntryType)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableEntryTypes.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value} disabled={isTypeFull(opt.value)}>
+                          <div className="flex items-center gap-2">
+                            <span>{opt.label}</span>
+                            {isTypeFull(opt.value) && <Badge variant="destructive" className="text-[9px]">Complet</Badge>}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <Button
+                onClick={handleAdd}
+                disabled={adding || !firstName.trim() || !lastName.trim() || isQuotaFull || isTypeFull(entryType)}
+                className="w-full"
+              >
+                {adding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <UserPlus className="h-4 w-4 mr-2" />}
+                Ajouter à la Guest List
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Entries List */}
+          <div className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
+            <span className="text-sm text-muted-foreground flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              Invités ajoutés
+            </span>
+            <Badge variant="secondary">{entries.length}</Badge>
+          </div>
+
+          {entries.length === 0 ? (
+            <Card><CardContent className="p-6 text-center text-muted-foreground text-sm">
+              Aucun invité pour cette soirée
+            </CardContent></Card>
+          ) : (
+            <div className="space-y-2">
+              {entries.map(entry => (
+                <Card key={entry.id}>
+                  <CardContent className="p-3 flex items-center justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm truncate">{entry.fullName}</p>
+                        {entryTypeBadge(entry.entryType)}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {entry.email && (
+                          <p className="text-[11px] text-muted-foreground truncate">{entry.email}</p>
+                        )}
+                        <p className="text-[11px] text-muted-foreground">
+                          {formatDate(entry.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* No event selected */}
+      {!selectedEventId && events.length > 0 && (
+        <Card>
+          <CardContent className="p-8 text-center text-muted-foreground text-sm">
+            Sélectionnez une soirée pour gérer la guest list
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}

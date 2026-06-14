@@ -1,0 +1,604 @@
+import { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { RefreshCw, Plus, Pencil, Trash2, Clock, Upload, Info, Music, Tag, Ticket, Crown, Sparkles, ChevronDown, Zap } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Switch } from '@/components/ui/switch';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { PosterCropper, PosterPosition } from '@/components/PosterCropper';
+
+// ─── Yuno Design Tokens (mirror OwnerEvents) ──────────────────────────────────
+const RED      = '#E8192C';
+const T1       = 'rgba(255,255,255,0.96)';
+const T2       = 'rgba(255,255,255,0.58)';
+const T3       = 'rgba(255,255,255,0.36)';
+const C_FAINT  = 'rgba(255,255,255,0.06)';
+const BORDER   = 'rgba(255,255,255,0.085)';
+const F_BORDER = 'rgba(255,255,255,0.055)';
+const CARD_BG  = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
+const INNER_BG = 'rgba(255,255,255,0.032)';
+const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+
+const CROPPER_CONTAINER_PX = 144;
+
+// 0 = Sunday — matches Postgres / JS getDay()
+const DAYS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Lun → Dim for pickers
+const MUSIC_GENRES = ['House', 'Techno', 'Rap / Hip-Hop', 'Afro / Shatta', 'Reggaeton / Latino', 'Commercial / Hits', 'Electro / EDM', 'Open Format'];
+
+function cropToSquare(dataUrl: string, position: { x: number; y: number; scale: number } | null, outputSize = 1080): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const W = img.naturalWidth, H = img.naturalHeight, C = CROPPER_CONTAINER_PX;
+      const baseScale = Math.max(C / W, C / H);
+      const totalScale = baseScale * (position?.scale ?? 1);
+      const cropSize = C / totalScale;
+      const cropX = Math.max(0, Math.min(W - cropSize, W / 2 - (C / 2 + (position?.x ?? 0)) / totalScale));
+      const cropY = Math.max(0, Math.min(H - cropSize, H / 2 - (C / 2 + (position?.y ?? 0)) / totalScale));
+      const canvas = document.createElement('canvas');
+      canvas.width = outputSize; canvas.height = outputSize;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return reject(new Error('Canvas not available'));
+      ctx.drawImage(img, cropX, cropY, cropSize, cropSize, 0, 0, outputSize, outputSize);
+      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Canvas toBlob failed'))), 'image/jpeg', 0.90);
+    };
+    img.onerror = reject;
+    img.src = dataUrl;
+  });
+}
+
+function getNextOccurrences(dayOfWeek: number, count = 5): Date[] {
+  const dates: Date[] = [];
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  while (dates.length < count) {
+    d.setDate(d.getDate() + 1);
+    if (d.getDay() === dayOfWeek) dates.push(new Date(d));
+  }
+  return dates;
+}
+
+type Preset = { id: string; name: string; ticket_type: string; total_capacity: number; selling_mode: string | null };
+
+type TemplateRow = {
+  id: string;
+  venue_id: string | null;
+  organizer_user_id: string | null;
+  name: string;
+  description: string | null;
+  poster_url: string | null;
+  poster_position: PosterPosition | null;
+  music_genres: string[];
+  event_type: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  advance_days: number;
+  ticket_preset_id: string | null;
+  vip_preset_id: string | null;
+  auto_enable_tables: boolean;
+  is_active: boolean;
+};
+
+type FormState = {
+  name: string;
+  description: string;
+  posterUrl: string;
+  musicGenres: string[];
+  eventType: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  advanceDays: number;
+  ticketPresetId: string;
+  vipPresetId: string;
+  autoEnableTables: boolean;
+  isActive: boolean;
+};
+
+const EMPTY_FORM: FormState = {
+  name: '', description: '', posterUrl: '', musicGenres: ['Open Format'], eventType: 'club',
+  dayOfWeek: 5, startTime: '23:00', endTime: '06:00', advanceDays: 7,
+  ticketPresetId: '', vipPresetId: '', autoEnableTables: false, isActive: true,
+};
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 6 }}>
+      {children}
+    </p>
+  );
+}
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', padding: '10px 12px', borderRadius: 12, fontSize: 13,
+  background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none', colorScheme: 'dark',
+};
+
+export function RecurringEventsManager({ venueId, organizerUserId, onEventsChanged }: { venueId?: string | null; organizerUserId?: string | null; onEventsChanged?: () => void }) {
+  // A recurring template belongs to a venue (club owner) OR an organizer.
+  const isOrg = !!organizerUserId;
+  const scopeReady = isOrg ? !!organizerUserId : !!venueId;
+  const [templates, setTemplates] = useState<TemplateRow[]>([]);
+  const [presets, setPresets] = useState<Preset[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<TemplateRow | null>(null);
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [posterFile, setPosterFile] = useState<File | null>(null);
+  const [posterPreview, setPosterPreview] = useState('');
+  const [posterPosition, setPosterPosition] = useState<PosterPosition | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const standardPresets = presets.filter(p => p.ticket_type !== 'vip');
+  const vipPresets = presets.filter(p => p.ticket_type === 'vip');
+
+  const fetchData = useCallback(async () => {
+    if (!scopeReady) return;
+    try {
+      const tplBase = supabase.from('owner_recurring_templates').select('*').order('day_of_week');
+      const presetBase = supabase.from('ticket_presets').select('id, name, ticket_type, total_capacity, selling_mode').order('created_at', { ascending: false });
+      const [tplRes, presetRes] = await Promise.all([
+        isOrg ? tplBase.eq('organizer_user_id', organizerUserId!) : tplBase.eq('venue_id', venueId!),
+        isOrg ? presetBase.eq('organizer_user_id', organizerUserId!) : presetBase.eq('venue_id', venueId!),
+      ]);
+      if (tplRes.error) throw tplRes.error;
+      setTemplates((tplRes.data || []) as unknown as TemplateRow[]);
+      setPresets((presetRes.data || []) as Preset[]);
+    } catch (err) {
+      console.error('Error loading recurring templates:', err);
+      toast.error('Erreur de chargement des soirées récurrentes');
+    } finally {
+      setLoading(false);
+    }
+  }, [venueId, organizerUserId, isOrg, scopeReady]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const set = <K extends keyof FormState>(field: K, value: FormState[K]) =>
+    setForm(prev => ({ ...prev, [field]: value }));
+
+  const openCreate = () => {
+    setEditing(null);
+    setForm(EMPTY_FORM);
+    setPosterFile(null); setPosterPreview(''); setPosterPosition(null);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (tpl: TemplateRow) => {
+    setEditing(tpl);
+    setForm({
+      name: tpl.name,
+      description: tpl.description || '',
+      posterUrl: tpl.poster_url || '',
+      musicGenres: tpl.music_genres?.length ? tpl.music_genres : ['Open Format'],
+      eventType: tpl.event_type || 'club',
+      dayOfWeek: tpl.day_of_week,
+      startTime: tpl.start_time?.slice(0, 5) || '23:00',
+      endTime: tpl.end_time?.slice(0, 5) || '06:00',
+      advanceDays: tpl.advance_days ?? 7,
+      ticketPresetId: tpl.ticket_preset_id || '',
+      vipPresetId: tpl.vip_preset_id || '',
+      autoEnableTables: tpl.auto_enable_tables,
+      isActive: tpl.is_active,
+    });
+    setPosterFile(null);
+    setPosterPreview(tpl.poster_url || '');
+    setPosterPosition(tpl.poster_position || null);
+    setDialogOpen(true);
+  };
+
+  const handlePosterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPosterFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setPosterPreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleSave = async () => {
+    if (saving) return;
+    if (!form.name.trim()) { toast.error('Le nom de la soirée est requis'); return; }
+    if (!scopeReady) return;
+    setSaving(true);
+    try {
+      let posterUrl = form.posterUrl;
+      if (posterFile && posterPreview) {
+        try {
+          const blob = await cropToSquare(posterPreview, posterPosition);
+          const filePath = `events/recurring-${Date.now()}-poster.jpg`;
+          const { error: upErr } = await supabase.storage.from('event-images').upload(filePath, blob, { contentType: 'image/jpeg' });
+          if (!upErr) posterUrl = supabase.storage.from('event-images').getPublicUrl(filePath).data.publicUrl;
+        } catch (err) { console.error('Poster upload exception:', err); }
+      }
+
+      const payload = {
+        venue_id: isOrg ? null : venueId!,
+        organizer_user_id: isOrg ? organizerUserId! : null,
+        name: form.name.trim(),
+        description: form.description || null,
+        poster_url: posterUrl || null,
+        poster_position: posterPosition ? { x: posterPosition.x, y: posterPosition.y, scale: posterPosition.scale } : null,
+        music_genres: form.musicGenres,
+        event_type: form.eventType,
+        day_of_week: form.dayOfWeek,
+        start_time: form.startTime,
+        end_time: form.endTime,
+        advance_days: form.advanceDays,
+        ticket_preset_id: form.ticketPresetId || null,
+        vip_preset_id: form.vipPresetId || null,
+        auto_enable_tables: form.autoEnableTables,
+        is_active: form.isActive,
+      };
+
+      let templateId = editing?.id;
+      if (editing) {
+        const { error } = await supabase.from('owner_recurring_templates').update(payload).eq('id', editing.id);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase.from('owner_recurring_templates').insert(payload).select('id').single();
+        if (error) throw error;
+        templateId = data.id;
+      }
+
+      // Generate occurrences immediately so the owner/organizer sees the events right away.
+      if (form.isActive && templateId) {
+        await supabase.rpc('generate_recurring_events', { p_template_id: templateId });
+      }
+
+      toast.success(editing ? 'Modèle mis à jour — soirées synchronisées' : 'Modèle créé — soirées générées');
+      setDialogOpen(false);
+      fetchData();
+      onEventsChanged?.();
+    } catch (err) {
+      console.error('Error saving recurring template:', err);
+      toast.error('Erreur lors de l\'enregistrement');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleToggleActive = async (tpl: TemplateRow) => {
+    try {
+      const { error } = await supabase.from('owner_recurring_templates').update({ is_active: !tpl.is_active }).eq('id', tpl.id);
+      if (error) throw error;
+      if (!tpl.is_active) await supabase.rpc('generate_recurring_events', { p_template_id: tpl.id });
+      toast.success(tpl.is_active ? 'Récurrence désactivée' : 'Récurrence activée — soirées générées');
+      fetchData();
+      onEventsChanged?.();
+    } catch { toast.error('Erreur'); }
+  };
+
+  const handleDelete = async (tpl: TemplateRow) => {
+    if (!confirm('Supprimer ce modèle récurrent ? Les soirées déjà générées ne seront pas supprimées.')) return;
+    try {
+      const { error } = await supabase.from('owner_recurring_templates').delete().eq('id', tpl.id);
+      if (error) throw error;
+      toast.success('Modèle supprimé');
+      fetchData();
+    } catch { toast.error('Erreur de suppression'); }
+  };
+
+  const presetLabel = (id: string | null) => id ? presets.find(p => p.id === id)?.name : null;
+
+  return (
+    <div className="space-y-4">
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>Soirées récurrentes</h2>
+          <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>
+            Génère automatiquement vos soirées hebdomadaires, billetterie comprise
+          </p>
+        </div>
+        <button
+          onClick={openCreate}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold cursor-pointer transition-all duration-150"
+          style={{ background: RED, color: '#fff', boxShadow: `0 0 20px -6px ${RED}88` }}
+        >
+          <Plus className="w-4 h-4" />
+          <span className="hidden sm:inline">Nouvelle récurrence</span>
+        </button>
+      </div>
+
+      {loading ? (
+        <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW }} className="py-16 text-center">
+          <p style={{ color: T3, fontSize: 13 }}>Chargement…</p>
+        </div>
+      ) : templates.length === 0 ? (
+        <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW }}>
+          <div className="text-center py-16 px-6">
+            <RefreshCw className="h-9 w-9 mx-auto mb-3" style={{ color: 'rgba(255,255,255,0.12)' }} />
+            <p style={{ color: T2, fontSize: 13.5, fontWeight: 560, marginBottom: 4 }}>Aucune soirée récurrente</p>
+            <p style={{ color: T3, fontSize: 12, maxWidth: 360, margin: '0 auto' }}>
+              Créez un modèle (ex. « Vendredi Club ») et Yuno publiera la soirée chaque semaine, avec la billetterie déjà en ligne.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {templates.map((tpl, i) => (
+            <motion.div key={tpl.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}>
+              <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, overflow: 'hidden' }}>
+                <div className="flex items-start gap-4 p-5">
+                  {tpl.poster_url && (
+                    <img src={tpl.poster_url} alt={tpl.name} className="w-16 h-20 sm:w-20 sm:h-24 rounded-xl object-cover flex-shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                      <h3 style={{ color: T1, fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em' }} className="truncate">{tpl.name}</h3>
+                      {tpl.is_active ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                          style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: '#34D399' }}>
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#34D399] inline-block" />Actif
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                          style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T3 }}>Inactif</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap" style={{ color: T2, fontSize: 12 }}>
+                      <RefreshCw className="w-3.5 h-3.5" style={{ color: T3 }} />
+                      <span>Chaque <strong style={{ color: T1, fontWeight: 600 }}>{DAYS[tpl.day_of_week]}</strong></span>
+                      <span style={{ color: 'rgba(255,255,255,0.2)' }}>·</span>
+                      <Clock className="w-3.5 h-3.5" style={{ color: T3 }} />
+                      <span>{tpl.start_time?.slice(0, 5)} – {tpl.end_time?.slice(0, 5)}</span>
+                      <span style={{ color: 'rgba(255,255,255,0.2)' }}>·</span>
+                      <span>publiée {tpl.advance_days}j avant</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap mt-2">
+                      {presetLabel(tpl.ticket_preset_id) && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
+                          style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.22)', color: '#FF7A82' }}>
+                          <Ticket className="w-3 h-3" />{presetLabel(tpl.ticket_preset_id)}
+                        </span>
+                      )}
+                      {presetLabel(tpl.vip_preset_id) && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
+                          style={{ background: 'rgba(252,211,77,0.1)', border: '1px solid rgba(252,211,77,0.22)', color: '#FCD34D' }}>
+                          <Crown className="w-3 h-3" />{presetLabel(tpl.vip_preset_id)}
+                        </span>
+                      )}
+                      {tpl.auto_enable_tables && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
+                          style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 }}>Tables VIP en ligne</span>
+                      )}
+                      {!tpl.ticket_preset_id && !tpl.vip_preset_id && (
+                        <span style={{ color: T3, fontSize: 11.5 }}>Sans billetterie automatique</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 px-5 pb-4 flex-wrap" style={{ borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 12 }}>
+                  <button onClick={() => openEdit(tpl)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150"
+                    style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 }}>
+                    <Pencil className="w-3.5 h-3.5" /><span className="hidden sm:inline">Modifier</span>
+                  </button>
+                  <button onClick={() => handleToggleActive(tpl)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150"
+                    style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: tpl.is_active ? '#34D399' : T2 }}>
+                    {tpl.is_active ? 'Désactiver' : 'Activer'}
+                  </button>
+                  <button onClick={() => handleDelete(tpl)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150"
+                    style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.2)', color: '#FF5C63' }}>
+                    <Trash2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">Supprimer</span>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      {/* Create / Edit dialog */}
+      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) setDialogOpen(false); }}>
+        <DialogContent className="border-0 p-0 overflow-hidden max-h-[90vh] overflow-y-auto"
+          style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, maxWidth: 600 }}>
+          <DialogHeader className="px-6 pt-6 pb-0">
+            <DialogTitle style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>
+              {editing ? 'Modifier la récurrence' : 'Nouvelle soirée récurrente'}
+            </DialogTitle>
+            <DialogDescription className="sr-only">Configuration de la soirée récurrente</DialogDescription>
+          </DialogHeader>
+
+          <div className="p-6 space-y-5">
+            {/* Name */}
+            <div>
+              <FieldLabel>Nom de la soirée</FieldLabel>
+              <input style={inputStyle} value={form.name} onChange={e => set('name', e.target.value)} placeholder="Ex. Vendredi Club" />
+            </div>
+
+            {/* Description */}
+            <div>
+              <FieldLabel>Description</FieldLabel>
+              <textarea style={{ ...inputStyle, resize: 'none' }} rows={2} value={form.description}
+                onChange={e => set('description', e.target.value)} placeholder="Ambiance, dress code, infos…" />
+            </div>
+
+            {/* Day + advance */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FieldLabel>Jour de la semaine</FieldLabel>
+                <div className="relative">
+                  <select value={form.dayOfWeek} onChange={e => set('dayOfWeek', parseInt(e.target.value))}
+                    className="appearance-none cursor-pointer" style={inputStyle}>
+                    {DAY_ORDER.map(d => <option key={d} value={d} style={{ background: '#0a0a0c' }}>{DAYS[d]}</option>)}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
+                </div>
+              </div>
+              <div>
+                <FieldLabel>Publier X jours avant</FieldLabel>
+                <input type="number" min={0} max={60} style={inputStyle} value={form.advanceDays}
+                  onChange={e => set('advanceDays', parseInt(e.target.value) || 7)} />
+              </div>
+            </div>
+
+            {/* Times */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FieldLabel>Ouverture</FieldLabel>
+                <input type="time" style={inputStyle} value={form.startTime} onChange={e => set('startTime', e.target.value)} />
+              </div>
+              <div>
+                <FieldLabel>Fermeture</FieldLabel>
+                <input type="time" style={inputStyle} value={form.endTime} onChange={e => set('endTime', e.target.value)} />
+              </div>
+            </div>
+
+            {/* Poster */}
+            <div>
+              <FieldLabel>Affiche par défaut</FieldLabel>
+              {posterPreview ? (
+                <PosterCropper imageUrl={posterPreview} initialPosition={posterPosition || undefined}
+                  onPositionChange={setPosterPosition}
+                  onRemove={() => { setPosterFile(null); setPosterPreview(''); setPosterPosition(null); set('posterUrl', ''); }} />
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2 p-3 rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+                    <Info className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: T3 }} />
+                    <div>
+                      <p style={{ color: T1, fontSize: 12, fontWeight: 560, marginBottom: 2 }}>Format Carré (1:1)</p>
+                      <p style={{ color: T3, fontSize: 11.5 }}>Réutilisée pour chaque soirée générée · 1080 × 1080 px</p>
+                    </div>
+                  </div>
+                  <input id="recurring-poster" type="file" accept="image/*" onChange={handlePosterChange} className="hidden" />
+                  <button type="button" onClick={() => document.getElementById('recurring-poster')?.click()}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] font-medium cursor-pointer"
+                    style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>
+                    <Upload className="w-4 h-4" />Ajouter une affiche
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Music genres */}
+            <div>
+              <FieldLabel><Music className="w-3 h-3 inline mr-1" />Genres musicaux</FieldLabel>
+              <div className="flex flex-wrap gap-2">
+                {MUSIC_GENRES.map(g => {
+                  const selected = form.musicGenres.includes(g);
+                  return (
+                    <button key={g} type="button"
+                      onClick={() => {
+                        const next = selected ? form.musicGenres.filter(x => x !== g) : [...form.musicGenres, g];
+                        set('musicGenres', next.length ? next : [g]);
+                      }}
+                      className="rounded-full px-3 py-1.5 text-[12px] font-medium cursor-pointer transition-all duration-150"
+                      style={selected
+                        ? { background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.3)', color: RED }
+                        : { background: INNER_BG, border: `1px solid ${BORDER}`, color: T3 }}>
+                      {g}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Event type */}
+            <div>
+              <FieldLabel><Tag className="w-3 h-3 inline mr-1" />Type d'événement</FieldLabel>
+              <div className="relative">
+                <select value={form.eventType} onChange={e => set('eventType', e.target.value)} className="appearance-none cursor-pointer" style={inputStyle}>
+                  <option value="club" style={{ background: '#0a0a0c' }}>Club</option>
+                  <option value="after_party" style={{ background: '#0a0a0c' }}>After Party</option>
+                  <option value="beach_club" style={{ background: '#0a0a0c' }}>Beach Club</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
+              </div>
+            </div>
+
+            {/* Auto ticketing */}
+            <div className="rounded-xl p-4 space-y-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4" style={{ color: RED }} />
+                <p style={{ color: T1, fontSize: 13, fontWeight: 600 }}>Billetterie automatique</p>
+              </div>
+              <p style={{ color: T3, fontSize: 11.5, marginTop: -4 }}>
+                Choisissez un modèle de billets. Chaque soirée générée applique ce modèle et met la billetterie en ligne automatiquement.
+              </p>
+              <div>
+                <FieldLabel><Ticket className="w-3 h-3 inline mr-1" />Modèle de billets standard</FieldLabel>
+                <div className="relative">
+                  <select value={form.ticketPresetId} onChange={e => set('ticketPresetId', e.target.value)} className="appearance-none cursor-pointer" style={inputStyle}>
+                    <option value="" style={{ background: '#0a0a0c' }}>— Aucune billetterie —</option>
+                    {standardPresets.map(p => <option key={p.id} value={p.id} style={{ background: '#0a0a0c' }}>{p.name}</option>)}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
+                </div>
+              </div>
+              {vipPresets.length > 0 && (
+                <div>
+                  <FieldLabel><Crown className="w-3 h-3 inline mr-1" />Modèle de billets VIP (optionnel)</FieldLabel>
+                  <div className="relative">
+                    <select value={form.vipPresetId} onChange={e => set('vipPresetId', e.target.value)} className="appearance-none cursor-pointer" style={inputStyle}>
+                      <option value="" style={{ background: '#0a0a0c' }}>— Aucun —</option>
+                      {vipPresets.map(p => <option key={p.id} value={p.id} style={{ background: '#0a0a0c' }}>{p.name}</option>)}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
+                  </div>
+                </div>
+              )}
+              {presets.length === 0 && (
+                <div className="flex items-start gap-2 p-2.5 rounded-lg" style={{ background: 'rgba(252,211,77,0.07)', border: '1px solid rgba(252,211,77,0.18)' }}>
+                  <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: '#FCD34D' }} />
+                  <p style={{ color: T2, fontSize: 11.5 }}>
+                    Aucun modèle de billets enregistré. Créez-en un dans l'onglet <strong>Billetterie</strong> pour activer la billetterie automatique.
+                  </p>
+                </div>
+              )}
+              <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-3.5 h-3.5" style={{ color: T3 }} />
+                  <span style={{ color: T2, fontSize: 12.5 }}>Activer les tables VIP en ligne</span>
+                </div>
+                <Switch checked={form.autoEnableTables} onCheckedChange={v => set('autoEnableTables', v)} />
+              </div>
+            </div>
+
+            {/* Active */}
+            <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+              <div>
+                <p style={{ color: T1, fontSize: 13, fontWeight: 560 }}>Récurrence active</p>
+                <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>Génère automatiquement les soirées chaque semaine</p>
+              </div>
+              <Switch checked={form.isActive} onCheckedChange={v => set('isActive', v)} />
+            </div>
+
+            {/* Next occurrences preview */}
+            <div className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${F_BORDER}` }}>
+              <p style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 8 }}>
+                5 prochaines occurrences
+              </p>
+              <ul className="space-y-1.5">
+                {getNextOccurrences(form.dayOfWeek).map((d, i) => (
+                  <li key={i} style={{ color: T2, fontSize: 12.5 }}>
+                    {d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-1">
+              <button onClick={handleSave} disabled={saving}
+                className="flex-1 py-3 rounded-xl text-[13.5px] font-semibold cursor-pointer transition-all duration-150"
+                style={{ background: saving ? 'rgba(232,25,44,0.5)' : RED, color: '#fff', boxShadow: saving ? 'none' : `0 0 20px -6px ${RED}88` }}>
+                {saving ? '…' : (editing ? 'Enregistrer' : 'Créer la récurrence')}
+              </button>
+              <button onClick={() => setDialogOpen(false)} disabled={saving}
+                className="px-5 py-3 rounded-xl text-[13.5px] font-medium cursor-pointer transition-all duration-150"
+                style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>
+                Annuler
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

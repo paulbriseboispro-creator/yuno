@@ -1,0 +1,2 @@
+ALTER TABLE public.ticket_rounds DROP CONSTRAINT ticket_rounds_drink_deadline_type_check;
+ALTER TABLE public.ticket_rounds ADD CONSTRAINT ticket_rounds_drink_deadline_type_check CHECK (drink_deadline_type = ANY (ARRAY['hours_after_start'::text, 'fixed_time'::text, 'none'::text]));

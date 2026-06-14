@@ -1,0 +1,273 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+/** Generate client-facing reservation code in YN-XXXXXX format */
+function generateReservationCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return `YN-${code}`;
+}
+
+/** Generate internal QR code for scanning */
+function generateQRCode(): string {
+  // Cryptographically-random, unguessable code (Deno global crypto). A QR code is
+  // a door credential — it must not be guessable from a timestamp.
+  return `GL-${crypto.randomUUID()}`;
+}
+
+const logStep = (step: string, details?: Record<string, unknown>) => {
+  console.log(`[CREATE-GUEST-LIST-ENTRY] ${step}`, details ? JSON.stringify(details) : "");
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    logStep("Function started");
+
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      throw new Error("Authentication required. Please log in to register for the guest list.");
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
+      logStep("Auth error", { error: userError?.message });
+      throw new Error("Authentication required. Please log in to register for the guest list.");
+    }
+
+    logStep("User authenticated", { userId: user.id, email: user.email });
+
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false } }
+    );
+
+    const { shareToken, gender, promoterCode } = await req.json();
+
+    if (!shareToken) {
+      throw new Error("Missing required field: shareToken");
+    }
+
+    // Get user profile
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("first_name, last_name, phone, email")
+      .eq("id", user.id)
+      .single();
+
+    const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ") || user.email?.split("@")[0] || "Guest";
+    const email = user.email || profile?.email || "";
+    const phone = profile?.phone || "";
+
+    logStep("User profile loaded", { fullName, email });
+
+    // Find guest list by share token
+    const { data: guestList, error: glError } = await supabaseAdmin
+      .from("guest_lists")
+      .select("*, events!inner(id, title, start_at, end_at, venue_id)")
+      .eq("share_token", shareToken)
+      .eq("is_active", true)
+      .single();
+
+    if (glError || !guestList) {
+      throw new Error("Guest list not found or inactive");
+    }
+
+    if (new Date(guestList.events.end_at) < new Date()) {
+      throw new Error("Event has ended");
+    }
+
+    // Check user not already registered
+    const { data: existingByUser } = await supabaseAdmin
+      .from("guest_list_entries")
+      .select("id")
+      .eq("guest_list_id", guestList.id)
+      .eq("user_id", user.id)
+      .neq("status", "cancelled")
+      .maybeSingle();
+
+    if (existingByUser) {
+      throw new Error("You are already registered for this guest list");
+    }
+
+    const { data: existingByEmail } = await supabaseAdmin
+      .from("guest_list_entries")
+      .select("id")
+      .eq("guest_list_id", guestList.id)
+      .eq("email", email.toLowerCase().trim())
+      .neq("status", "cancelled")
+      .maybeSingle();
+
+    if (existingByEmail) {
+      throw new Error("Email already registered for this guest list");
+    }
+
+    // Count current entries
+    const { count: totalEntries } = await supabaseAdmin
+      .from("guest_list_entries")
+      .select("*", { count: "exact", head: true })
+      .eq("guest_list_id", guestList.id)
+      .neq("status", "cancelled");
+
+    if ((totalEntries ?? 0) >= guestList.quota) {
+      throw new Error("Guest list is full");
+    }
+
+    // Check gender quotas
+    if (gender && (guestList.quota_female || guestList.quota_male)) {
+      if (gender === "female" && guestList.quota_female) {
+        const { count: femaleCount } = await supabaseAdmin
+          .from("guest_list_entries")
+          .select("*", { count: "exact", head: true })
+          .eq("guest_list_id", guestList.id)
+          .eq("gender", "female")
+          .neq("status", "cancelled");
+
+        if ((femaleCount ?? 0) >= guestList.quota_female) {
+          throw new Error("Female quota reached");
+        }
+      }
+
+      if (gender === "male" && guestList.quota_male) {
+        const { count: maleCount } = await supabaseAdmin
+          .from("guest_list_entries")
+          .select("*", { count: "exact", head: true })
+          .eq("guest_list_id", guestList.id)
+          .eq("gender", "male")
+          .neq("status", "cancelled");
+
+        if ((maleCount ?? 0) >= guestList.quota_male) {
+          throw new Error("Male quota reached");
+        }
+      }
+    }
+
+    // Resolve promoter ID
+    let promoterId: string | null = null;
+    if (promoterCode) {
+      const { data: promoter } = await supabaseAdmin
+        .from("promoters")
+        .select("id")
+        .eq("promo_code", promoterCode)
+        .eq("venue_id", guestList.venue_id)
+        .maybeSingle();
+      if (promoter) promoterId = promoter.id;
+    }
+
+    // Create/update venue_customer
+    const nameParts = fullName.trim().split(" ");
+    await supabaseAdmin.rpc("get_or_create_venue_customer", {
+      p_venue_id: guestList.venue_id,
+      p_user_id: user.id,
+      p_email: email.toLowerCase().trim(),
+      p_first_name: nameParts[0] || null,
+      p_last_name: nameParts.slice(1).join(" ") || null,
+      p_phone: phone || null,
+    });
+
+    // Create the entry with YN-XXXXXX reservation code
+    const qrCode = generateQRCode();
+    const reservationCode = generateReservationCode();
+    
+    const { data: entry, error: insertError } = await supabaseAdmin
+      .from("guest_list_entries")
+      .insert({
+        guest_list_id: guestList.id,
+        user_id: user.id,
+        full_name: fullName.trim(),
+        email: email.toLowerCase().trim(),
+        phone: phone || "",
+        gender: gender || null,
+        qr_code: qrCode,
+        reservation_code: reservationCode,
+        status: "reserved",
+        promoter_id: promoterId,
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error("Insert error:", insertError);
+      throw new Error("Failed to create guest list entry");
+    }
+
+    logStep("Entry created", { entryId: entry.id, userId: user.id, reservationCode });
+
+    // ── Grant drink credits if guest list includes_drink AND venue uses credits mode ──
+    if (guestList.includes_drink && user.id) {
+      // Check venue free_drink_mode
+      const { data: venueForDrink } = await supabaseAdmin
+        .from("venues")
+        .select("free_drink_mode")
+        .eq("id", guestList.venue_id)
+        .single();
+      const drinkMode = venueForDrink?.free_drink_mode || 'credits';
+      
+      if (drinkMode === 'credits') {
+        const expiresAt = new Date(new Date(guestList.events.end_at).getTime()).toISOString();
+        await supabaseAdmin
+          .from("order_pack_credits")
+          .upsert({
+            user_id: user.id,
+            venue_id: guestList.venue_id,
+            event_id: guestList.events.id,
+            pack_id: `gl-drink-${entry.id}`,
+            total_credits: 1,
+            used_credits: 0,
+            expires_at: expiresAt,
+          }, { onConflict: "user_id,pack_id" });
+        logStep("Drink credits created for club GL", { userId: user.id });
+      } else {
+        logStep("Drink credits skipped for GL (bouncer_notify mode)", { userId: user.id });
+      }
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        entry: {
+          id: entry.id,
+          qrCode: entry.qr_code,
+          reservationCode: reservationCode,
+          fullName: entry.full_name,
+          email: entry.email,
+          eventTitle: guestList.events.title,
+          eventStartAt: guestList.events.start_at,
+          freeBeforeTime: guestList.free_before_time,
+          includesDrink: guestList.includes_drink,
+        },
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      }
+    );
+  } catch (error: any) {
+    console.error("Error:", error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      }
+    );
+  }
+});
