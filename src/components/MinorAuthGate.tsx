@@ -36,6 +36,9 @@ function ageFromDate(dateStr: string): number | null {
 export function MinorAuthGate({ userId, eventId, acceptsMinors, template, onReady, onDocUploaded, onMinorInfo }: MinorAuthGateProps) {
   const { t } = useLanguage();
   const [birthDate, setBirthDate] = useState('');
+  // True once we've loaded a birth date already saved on the user's profile.
+  // We then never ask again — the field stays hidden on every future event.
+  const [prefilled, setPrefilled] = useState(false);
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
   const [uploadedName, setUploadedName] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -44,10 +47,17 @@ export function MinorAuthGate({ userId, eventId, acceptsMinors, template, onRead
   const isAdult = age !== null && age >= 18;
   const isMinor = age !== null && age < 18;
 
-  // Branches of the decision tree.
-  const minorRejected = isMinor && !acceptsMinors;                 // minors not allowed → must be adult
+  // Branches of the decision tree (only reached once a valid date is known).
+  const minorRejected = isMinor && !acceptsMinors;                 // minors not allowed → must be of legal age
   const minorNeedsDoc = isMinor && acceptsMinors && !!template;    // minor + venue requires a signed doc
   const minorNoDoc = isMinor && acceptsMinors && !template;        // minor ticket, no doc required
+
+  // A signed authorization is actively required once a minor on a minors-allowed
+  // event still has to upload their copy.
+  const docRequired = minorNeedsDoc && !uploadedUrl;
+
+  // Ask for the birth date only when we don't already know it from the profile.
+  const showInput = !prefilled;
 
   // Reuse a birth date already on the profile — never ask twice for the same person.
   useEffect(() => {
@@ -58,13 +68,16 @@ export function MinorAuthGate({ userId, eventId, acceptsMinors, template, onRead
       .eq('id', userId)
       .maybeSingle()
       .then(({ data }) => {
-        if (data?.birth_date) setBirthDate(data.birth_date);
+        if (data?.birth_date) {
+          setBirthDate(data.birth_date);
+          setPrefilled(true);
+        }
       });
   }, [userId]);
 
   // Drive the readiness gate + the attached document from the decision tree.
   useEffect(() => {
-    // No valid date yet → can't classify → block.
+    // A birth date is mandatory: no valid date keeps the purchase blocked.
     if (age === null) { onReady(false); onDocUploaded(null); onMinorInfo?.(null); return; }
     // Adult → normal ticket.
     if (isAdult) { onReady(true); onDocUploaded(null); onMinorInfo?.({ isMinor: false, birthDate, docUrl: null, docName: null }); return; }
@@ -78,9 +91,10 @@ export function MinorAuthGate({ userId, eventId, acceptsMinors, template, onRead
     onMinorInfo?.({ isMinor: true, birthDate, docUrl: uploadedUrl, docName: uploadedName });
   }, [birthDate, uploadedUrl, acceptsMinors, template]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Persist a valid birth date for logged-in users so we remember it next time.
+  // Persist a freshly entered birth date so future events never ask again. Skip
+  // when it came from the profile (already saved) or there's no logged-in user.
   useEffect(() => {
-    if (!userId || age === null) return;
+    if (!userId || prefilled || age === null) return;
     supabase.from('profiles').update({ birth_date: birthDate }).eq('id', userId).then(() => {});
   }, [birthDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -107,40 +121,43 @@ export function MinorAuthGate({ userId, eventId, acceptsMinors, template, onRead
     }
   };
 
+  // Returning adult, already verified from their profile → ask nothing, show nothing.
+  if (prefilled && isAdult) return null;
+
   return (
     <div className="space-y-3 p-4 rounded-[10px] border border-white/[0.08] bg-[#141414]">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-primary" />
-          <span className="text-sm font-bold text-white">{t('minorAuth.title')}</span>
+          <span className="text-sm font-bold text-white">{t('minorAuth.ageCheckTitle')}</span>
         </div>
-        <span
-          className="font-mono uppercase text-[9px] font-bold tracking-[0.12em] text-primary px-2 py-0.5 rounded-full"
-          style={{ background: 'rgba(232,25,44,0.10)' }}
-        >
-          {t('consent.required')}
-        </span>
+        {(showInput || docRequired) && (
+          <span
+            className="font-mono uppercase text-[9px] font-bold tracking-[0.12em] text-primary px-2 py-0.5 rounded-full"
+            style={{ background: 'rgba(232,25,44,0.10)' }}
+          >
+            {t('consent.required')}
+          </span>
+        )}
       </div>
 
-      {/* Date of birth — the single input that drives everything. */}
-      <div className="space-y-1.5">
-        <Label className="font-mono uppercase text-[10px] tracking-[0.10em] text-[#5A5A5E]">{t('minorAuth.birthDate')}</Label>
-        <Input
-          type="date"
-          value={birthDate}
-          onChange={(e) => setBirthDate(e.target.value)}
-          max={new Date().toISOString().split('T')[0]}
-          className="h-11 rounded-lg bg-[#1F1F22] border-white/[0.08] text-white focus-visible:ring-0 focus-visible:border-primary/50"
-        />
-      </div>
-
-      {/* Adult → normal ticket. */}
-      {isAdult && (
-        <div className="flex items-center gap-2 text-[11px] text-emerald-400">
-          <Check className="h-3.5 w-3.5 shrink-0" />
-          <span>{t('minorAuth.adultOk')}</span>
+      {/* Date of birth — required to buy, asked only once. Once saved on the
+          profile it is reused silently on every future event. */}
+      {showInput && (
+        <div className="space-y-1.5">
+          <Label className="font-mono uppercase text-[10px] tracking-[0.10em] text-[#5A5A5E]">{t('minorAuth.birthDate')}</Label>
+          <Input
+            type="date"
+            value={birthDate}
+            onChange={(e) => setBirthDate(e.target.value)}
+            max={new Date().toISOString().split('T')[0]}
+            className="h-11 rounded-lg bg-[#1F1F22] border-white/[0.08] text-white focus-visible:ring-0 focus-visible:border-primary/50"
+          />
         </div>
       )}
+
+      {/* Adult → nothing to show. A valid adult date simply unlocks the purchase
+          without any confirmation banner. */}
 
       {/* Minor on an event that forbids minors → invalid, must be of legal age. */}
       {minorRejected && (

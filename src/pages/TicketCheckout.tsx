@@ -54,14 +54,21 @@ export default function TicketCheckout() {
   const [alreadyOptedIn, setAlreadyOptedIn] = useState(false);
   const [selectedUpsells, setSelectedUpsells] = useState<SelectedUpsell[]>([]);
   const [acceptCgv, setAcceptCgv] = useState(false);
-  // Single age/minor gate for ticket sales (decision tree in MinorAuthGate):
-  //   adult                                  → normal ticket
+  // Single age/minor gate for ticket sales (decision tree in MinorAuthGate). A
+  // birth date is required; once entered it's saved on the profile and never asked
+  // again on future events:
+  //   no date                                → blocked (date of birth required)
+  //   adult                                  → normal ticket, nothing shown
   //   minor + event forbids minors           → blocked ("must be of legal age")
   //   minor + event allows minors + needs doc→ download + upload the signed form, then OK
   //   minor + event allows minors + no doc   → minor ticket OK
   // `minorTemplate` is the blank form the venue/organizer attached; `minorGateReady`
   // gates the pay button; `minorDocUrl` is the buyer's uploaded copy (saved on the ticket).
   const [minorTemplate, setMinorTemplate] = useState<{ url: string; name: string } | null>(null);
+  // A birth date is mandatory to buy. The gate starts blocked and only flips to
+  // true once a valid date is known (entered now, or reused from the profile) and
+  // resolves to an adult, a minor allowed without a doc, or a minor whose signed
+  // authorization has been uploaded.
   const [minorGateReady, setMinorGateReady] = useState(false);
   const [minorDocUrl, setMinorDocUrl] = useState<string | null>(null);
   // Full minor classification from the gate — used to record a minor-ticket row at checkout.
@@ -414,10 +421,10 @@ export default function TicketCheckout() {
   const maxQuantity = Math.min(Math.max(perOrderAllowance, 0), remainingTickets);
   const perPersonLimitReached = perPersonLimit != null && perOrderAllowance <= 0;
 
-  // The age/minor gate must be satisfied before paying: a valid date of birth that
-  // resolves to an adult, a minor allowed without a doc, or a minor whose signed
-  // document has been uploaded. Anything else (no date, minor on an adults-only
-  // event, missing doc) keeps the pay button in its "incomplete" state.
+  // The age gate must be satisfied before paying: a known birth date (entered now
+  // or reused from the profile) that resolves to an adult, a minor allowed without
+  // a doc, or a minor whose signed authorization has been uploaded. No date, or a
+  // minor on an adults-only event, keeps the pay button in its "incomplete" state.
   const minorGateBlocked = !minorGateReady;
 
   // Hide insurance if event < 24h away or venue disabled it
