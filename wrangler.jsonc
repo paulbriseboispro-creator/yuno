@@ -1,0 +1,14 @@
+{
+  // Cloudflare Workers — déploiement de Yuno en tant que SPA statique.
+  // Le frontend est un build Vite (dossier dist/). Pas de script Worker :
+  // uniquement des assets statiques servis par le runtime Workers Assets.
+  "name": "yuno",
+  "compatibility_date": "2026-06-14",
+  "assets": {
+    // Dossier produit par `npm run build`.
+    "directory": "./dist",
+    // SPA fallback : toute route inconnue renvoie index.html (remplace l'ancien
+    // `_redirects /*  /index.html  200`, rejeté par Workers Assets — "infinite loop").
+    "not_found_handling": "single-page-application"
+  }
+}
