@@ -82,16 +82,22 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   → checkout impossible en local (échec silencieux, pas de toast) ET la prod DOIT servir depuis
   ce domaine exact.
 
-## Déploiement — Cloudflare Pages
+## Déploiement — Cloudflare Workers (Static Assets)
 
-Frontend statique sur **Cloudflare Pages** (backend déjà sur Supabase). Choisi vs Vercel car
-free tier bande passante illimitée + aucune restriction d'usage commercial.
+Frontend statique sur **Cloudflare Workers** (Workers Builds connecté au repo `yuno` ;
+backend déjà sur Supabase). Choisi vs Vercel car free tier illimité + aucune restriction
+d'usage commercial. NB : c'est un Worker « assets-only », pas un projet Pages — les assets
+statiques sont servis gratuitement et ne comptent pas dans le quota de requêtes Worker.
 
-- **Root directory** : `/` (le repo GitHub `Yuno-app` a sa racine sur ce dossier).
-- **Build command** : `npm run build` — **Output** : `dist`.
+- **Config** : `wrangler.jsonc` à la racine (`name: yuno`, `assets.directory: ./dist`,
+  `assets.not_found_handling: single-page-application`). C'est la source de vérité du déploiement.
+- **Build command** (dashboard) : `npm run build` — **Deploy** : `npx wrangler deploy`.
 - **Node** : `.nvmrc` = 22 (Vite 8 exige Node ≥20 ; fallback env var `NODE_VERSION=22`).
-- **SPA fallback** : `public/_redirects` (`/*  /index.html  200`) — sinon 404 au refresh.
-- **Headers + CSP prod** : `public/_headers` (le CSP de `vite.config.ts` ne sert qu'au dev).
+- **SPA fallback** : via `not_found_handling: single-page-application` dans `wrangler.jsonc`.
+  ⚠️ NE PAS utiliser un `_redirects` avec `/*  /index.html  200` : Workers Assets le rejette
+  ("infinite loop detected"). C'est valable sur Pages, pas sur Workers.
+- **Headers + CSP prod** : `public/_headers` (supporté par Workers Assets ; le CSP de
+  `vite.config.ts` ne sert qu'au dev).
 - **Variables d'env à mettre dans le dashboard** (`.env.local` non poussé) :
   `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_APP_BASE_URL` (=`https://yunoapp.eu`),
   `VITE_MAPBOX_TOKEN`, `VITE_STRIPE_PUBLISHABLE_KEY` (clé `pk_live_…`).
