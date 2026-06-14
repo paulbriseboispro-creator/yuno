@@ -169,6 +169,8 @@ export function OrgEventFormDialog({
   const [locationAddress, setLocationAddress] = useState('');
   /** Private events only: hide the exact venue / city / address from the public page. */
   const [locationIsSecret, setLocationIsSecret] = useState(false);
+  /** Private events only: hide the top "back to Yuno" button so visitors stay on the event page. */
+  const [hideYunoNavigation, setHideYunoNavigation] = useState(false);
   const [isActive, setIsActive] = useState(true);
 
   // Metadata (Yuno standard)
@@ -205,6 +207,7 @@ export function OrgEventFormDialog({
       setLocationCity('');
       setLocationAddress('');
       setLocationIsSecret(false);
+      setHideYunoNavigation(false);
       setIsActive(true);
       setMusicGenres(['Open Format']);
       setEventType('club');
@@ -237,6 +240,7 @@ export function OrgEventFormDialog({
         setLocationCity(ev.location_city || '');
         setLocationAddress(ev.location_address || '');
         setLocationIsSecret(!!(ev as any).location_is_secret);
+        setHideYunoNavigation(!!(ev as any).hide_yuno_navigation);
         setIsActive(ev.is_active);
         setMusicGenres(
           (ev as any).music_genres?.length ? (ev as any).music_genres : [(ev as any).music_genre || 'Open Format']
@@ -384,6 +388,7 @@ export function OrgEventFormDialog({
         location_city: locationCity.trim() || null,
         location_address: locationAddress.trim() || null,
         location_is_secret: eventKind === 'private_event' ? locationIsSecret : false,
+        hide_yuno_navigation: eventKind === 'private_event' ? hideYunoNavigation : false,
         is_active: isActive,
         music_genres: musicGenres,
         event_type: eventType,
@@ -739,6 +744,37 @@ export function OrgEventFormDialog({
                       {t(
                         "Cache le nom du lieu, la ville et l'adresse sur la page publique. Révélés uniquement aux participants confirmés (e-mail / push).",
                         'Hide the venue name, city and address on the public page. Revealed only to confirmed attendees (email / push).'
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            )}
+
+            {/* Lock visitors to the event page (private events only) */}
+            {eventKind === 'private_event' && (
+              <button
+                type="button"
+                onClick={() => setHideYunoNavigation(!hideYunoNavigation)}
+                className="w-full text-left rounded-xl p-4 transition-all duration-150"
+                style={{ background: 'rgba(232,25,44,0.05)', border: '1px solid rgba(232,25,44,0.25)' }}
+              >
+                <div className="flex items-start gap-3">
+                  <span
+                    className="mt-0.5 h-5 w-5 rounded-md flex items-center justify-center flex-shrink-0 transition-all"
+                    style={hideYunoNavigation
+                      ? { background: RED, border: `1px solid ${RED}` }
+                      : { background: INNER_BG, border: `1px solid ${BORDER}` }
+                    }
+                  >
+                    {hideYunoNavigation && <Check className="h-3.5 w-3.5 text-white" />}
+                  </span>
+                  <div className="flex-1">
+                    <p style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{t('Garder les visiteurs sur la page', 'Keep visitors on the page')}</p>
+                    <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>
+                      {t(
+                        "Masque le bouton de retour en haut de la page : les visiteurs restent sur l'événement et ne peuvent pas naviguer vers l'accueil Yuno.",
+                        'Hide the back button at the top of the page: visitors stay on the event and can\'t navigate out to the Yuno homepage.'
                       )}
                     </p>
                   </div>

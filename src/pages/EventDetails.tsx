@@ -42,7 +42,7 @@ export default function EventDetails() {
   usePromoterTracking(undefined, eventId); // Capture promoter ref + bind tracking to this event
   useResolvePurchaseSource(eventId); // Capture purchase source for collab analytics
 
-  const [event, setEvent] = useState<(EventWithTicketing & { eventType?: string; locationIsSecret?: boolean; visibility?: string }) | null>(null);
+  const [event, setEvent] = useState<(EventWithTicketing & { eventType?: string; locationIsSecret?: boolean; visibility?: string; hideYunoNavigation?: boolean }) | null>(null);
   const [showLeavePrivate, setShowLeavePrivate] = useState(false);
   const [venue, setVenue] = useState<{ id: string; name: string; city: string; address?: string; floorPlanUrl?: string; latitude?: number; longitude?: number; logoUrl?: string } | null>(null);
   // Primary entity: 'organizer' for organizer-led events, 'venue' otherwise
@@ -312,6 +312,7 @@ export default function EventDetails() {
         updatedAt: eventData.updated_at,
         eventType: eventData.event_type,
         visibility: (eventData as any).visibility as string | undefined,
+        hideYunoNavigation: !!(eventData as any).hide_yuno_navigation,
       });
 
       // Fetch stats: venue stats only if hostVenueId is a real venue (not the org placeholder)
@@ -660,14 +661,19 @@ export default function EventDetails() {
           className="absolute top-0 left-0 right-0 z-20 flex items-start justify-between"
           style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 8px) 16px 0' }}
         >
-          <button
-            onClick={handleBack}
-            aria-label={t('common.back')}
-            className="flex items-center justify-center hover:opacity-80 transition-opacity"
-            style={{ width: 36, height: 36, borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: '#fff', border: 'none', cursor: 'pointer' }}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
+          {/* Back button — hidden when the organizer locks visitors to the event page */}
+          {event.hideYunoNavigation ? (
+            <div aria-hidden="true" />
+          ) : (
+            <button
+              onClick={handleBack}
+              aria-label={t('common.back')}
+              className="flex items-center justify-center hover:opacity-80 transition-opacity"
+              style={{ width: 36, height: 36, borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: '#fff', border: 'none', cursor: 'pointer' }}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          )}
 
           <div className="flex items-center gap-2">
             <button
