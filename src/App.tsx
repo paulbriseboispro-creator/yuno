@@ -29,6 +29,7 @@ const OwnerLayout = lazyWithRetry(() => import("./components/OwnerLayout").then(
 import { supabase } from "@/integrations/supabase/client";
 import { useStore } from "@/store/useStore";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { DemoSwitcher } from "@/components/demo/DemoSwitcher";
 
 // Lazy load all pages including VenuePage
 const VenuePage = lazyWithRetry(() => import("./pages/VenuePage"));
@@ -355,6 +356,7 @@ const App = () => (
             <OnboardingGate />
             <Toaster />
             <Sonner />
+            <DemoSwitcher />
             <ScrollToTop />
             <CartCleanup />
             <OfflineBanner />

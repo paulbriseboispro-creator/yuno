@@ -143,7 +143,7 @@ export default function AffiliateEventPage() {
       try { await navigator.share(shareData); } catch {}
     } else {
       await navigator.clipboard.writeText(url);
-      toast.success('Lien copié');
+      toast.success(t('share.copied'));
     }
   };
 
@@ -168,17 +168,17 @@ export default function AffiliateEventPage() {
   const hasTicketLink = !!event.external_ticket_url;
 
   const priceDisplay = isFree
-    ? 'Entrée libre'
+    ? t('affiliate.freeEntry')
     : priceFrom != null
-    ? `À partir de ${priceFrom.toFixed(2)}€`
-    : 'Voir les tarifs';
+    ? `${t('event.startingFrom')} ${priceFrom.toFixed(2)}€`
+    : t('affiliate.seePrices');
 
   // Hero meta line
   const metaParts = [
     venue ? venue.name.toUpperCase() : null,
     `${dayName.toUpperCase()} ${dateShort.toUpperCase()}`,
-    `OPENS ${timeOpen}`,
-    timeClose ? `CLOSES ${timeClose}` : null,
+    `${t('event.doorsOpen').toUpperCase()} ${timeOpen}`,
+    timeClose ? `${t('event.doorsClose').toUpperCase()} ${timeClose}` : null,
   ].filter(Boolean);
 
   return (
@@ -216,7 +216,7 @@ export default function AffiliateEventPage() {
         >
           <button
             onClick={() => navigate(-1)}
-            aria-label="Retour"
+            aria-label={t('affiliate.back')}
             className="flex items-center justify-center hover:opacity-80 transition-opacity"
             style={{ width: 36, height: 36, borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: '#fff', border: 'none', cursor: 'pointer' }}
           >
@@ -226,7 +226,7 @@ export default function AffiliateEventPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => event && toggleFavorite('affiliate_event', event.id)}
-              aria-label="Intéressé"
+              aria-label={t('affiliate.interested')}
               className="flex items-center justify-center hover:opacity-80 transition-opacity"
               style={{ width: 36, height: 36, borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: event && isFavorite('affiliate_event', event.id) ? '#E8192C' : '#fff', border: 'none', cursor: 'pointer' }}
             >
@@ -234,7 +234,7 @@ export default function AffiliateEventPage() {
             </button>
             <button
               onClick={handleShare}
-              aria-label="Partager"
+              aria-label={t('affiliate.share')}
               className="flex items-center justify-center hover:opacity-80 transition-opacity"
               style={{ width: 36, height: 36, borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: '#fff', border: 'none', cursor: 'pointer' }}
             >
@@ -255,7 +255,7 @@ export default function AffiliateEventPage() {
                 className="font-mono font-bold tracking-[0.18em] text-white px-3 py-1"
                 style={{ fontSize: '11px', background: '#E8192C', borderRadius: '2px' }}
               >
-                COMPLET
+                {t('event.soldOut').toUpperCase()}
               </span>
             )}
             {/* PARTENAIRE badge — red, pas violet */}
@@ -270,7 +270,7 @@ export default function AffiliateEventPage() {
                 padding: '3px 9px',
               }}
             >
-              PARTENAIRE
+              {t('affiliate.partner').toUpperCase()}
             </span>
             {event.genres.slice(0, 2).map(g => (
               <span
@@ -366,7 +366,7 @@ export default function AffiliateEventPage() {
             }}
           >
             <Bookmark className={`h-3 w-3 ${isFavorite('affiliate_event', event.id) ? 'fill-[#E8192C]' : ''}`} />
-            {isFavorite('affiliate_event', event.id) ? 'Intéressé' : 'Intéressé ?'}
+            {isFavorite('affiliate_event', event.id) ? t('affiliate.interested') : t('affiliate.interestedQuestion')}
           </button>
           <button
             onClick={handleShare}
@@ -374,11 +374,11 @@ export default function AffiliateEventPage() {
             style={{ fontSize: '11px', height: '32px', padding: '0 14px', background: 'transparent', border: '1px solid #2A2A2A', color: '#888888', borderRadius: '2px', cursor: 'pointer' }}
           >
             <Share2 className="h-3 w-3" />
-            Partager
+            {t('affiliate.share')}
           </button>
           {/* YUNO partner label */}
           <span className="font-mono text-[#5A5A5E]" style={{ fontSize: '11px', letterSpacing: '0.04em' }}>
-            Soirée partenaire{' '}
+            {t('affiliate.partnerEventLabel')}{' '}
             <span className="font-bold" style={{ color: '#E8192C' }}>YUNO</span>
           </span>
         </div>
@@ -400,13 +400,13 @@ export default function AffiliateEventPage() {
                     className="font-mono uppercase mb-1"
                     style={{ fontSize: '9px', color: '#E8192C', letterSpacing: '0.14em' }}
                   >
-                    Billetterie disponible
+                    {t('event.ticketsAvailable')}
                   </p>
                   <p
                     className="font-display font-bold text-white"
                     style={{ fontSize: 'clamp(20px, 5vw, 30px)', letterSpacing: '-0.025em', lineHeight: 1 }}
                   >
-                    {isFree ? 'Entrée libre' : priceFrom != null ? `À partir de ${priceFrom.toFixed(2)}€` : 'Voir les tarifs'}
+                    {priceDisplay}
                   </p>
                 </div>
                 <a
@@ -434,7 +434,7 @@ export default function AffiliateEventPage() {
                   onTouchStart={e => (e.currentTarget.style.transform = 'scale(0.97)')}
                   onTouchEnd={e => (e.currentTarget.style.transform = '')}
                 >
-                  Obtenir <ExternalLink className="h-3.5 w-3.5" />
+                  {t('affiliate.getTickets')} <ExternalLink className="h-3.5 w-3.5" />
                 </a>
               </div>
             </div>
@@ -456,13 +456,13 @@ export default function AffiliateEventPage() {
                 className="font-mono uppercase mb-1"
                 style={{ fontSize: '9px', color: '#5A5A5E', letterSpacing: '0.14em' }}
               >
-                Billetterie
+                {t('affiliate.ticketing')}
               </p>
               <p
                 className="font-display font-bold"
                 style={{ fontSize: 'clamp(17px, 4vw, 22px)', color: '#E8192C', letterSpacing: '-0.02em', lineHeight: 1.1 }}
               >
-                Événement complet
+                {t('event.soldOut')}
               </p>
             </div>
           </section>
@@ -483,13 +483,13 @@ export default function AffiliateEventPage() {
                 className="font-mono uppercase mb-1"
                 style={{ fontSize: '9px', color: '#5A5A5E', letterSpacing: '0.14em' }}
               >
-                Billetterie
+                {t('affiliate.ticketing')}
               </p>
               <p
                 className="font-display font-bold text-white"
                 style={{ fontSize: 'clamp(17px, 4vw, 22px)', letterSpacing: '-0.02em', lineHeight: 1.1 }}
               >
-                Bientôt disponible
+                {t('affiliate.comingSoon')}
               </p>
             </div>
           </section>
@@ -499,7 +499,7 @@ export default function AffiliateEventPage() {
         <section
           style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
         >
-          <p className="section-label-ruled mb-6">Date & Lieu</p>
+          <p className="section-label-ruled mb-6">{t('affiliate.dateAndVenue')}</p>
 
           {/* Large typographic date + time */}
           <div
@@ -508,7 +508,7 @@ export default function AffiliateEventPage() {
           >
             <div className="flex-1">
               <p className="font-mono uppercase mb-2" style={{ fontSize: '9px', color: '#5A5A5E', letterSpacing: '0.14em' }}>
-                DATE
+                {t('affiliate.date')}
               </p>
               <p
                 className="font-display font-bold text-white"
@@ -529,7 +529,7 @@ export default function AffiliateEventPage() {
 
             <div className="flex-1">
               <p className="font-mono uppercase mb-2" style={{ fontSize: '9px', color: '#5A5A5E', letterSpacing: '0.14em' }}>
-                OUVERTURE
+                {t('event.doorsOpen')}
               </p>
               <p
                 className="font-display font-bold text-white"
@@ -542,7 +542,7 @@ export default function AffiliateEventPage() {
                   className="font-mono uppercase"
                   style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.08em', marginTop: 8 }}
                 >
-                  Fermeture {timeClose}
+                  {t('event.doorsClose')} {timeClose}
                 </p>
               )}
             </div>
@@ -552,30 +552,30 @@ export default function AffiliateEventPage() {
           {(venue?.address || venue?.city || venue?.neighborhood) && (
             <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '0 16px' }}>
               {([
-                venue?.name ? ['Lieu', venue.name] : null,
+                venue?.name ? { label: t('affiliate.venue'), value: venue.name } : null,
                 venue?.neighborhood || venue?.city
-                  ? ['Quartier', [venue.neighborhood, venue.city].filter(Boolean).join(' · ')]
+                  ? { label: t('affiliate.neighborhood'), value: [venue.neighborhood, venue.city].filter(Boolean).join(' · ') }
                   : null,
-                venue?.address ? ['Adresse', venue.address] : null,
-              ].filter(Boolean) as [string, string][]).map(([k, v], i, arr) => (
+                venue?.address ? { label: t('event.address'), value: venue.address, isAddress: true } : null,
+              ].filter(Boolean) as { label: string; value: string; isAddress?: boolean }[]).map((row, i, arr) => (
                 <div
-                  key={k}
+                  key={row.label}
                   className="flex items-start justify-between gap-3"
                   style={{ padding: '11px 0', borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.07)' : 'none' }}
                 >
-                  <span className="font-mono flex-shrink-0" style={{ fontSize: '12px', color: '#5A5A5E' }}>{k}</span>
-                  {k === 'Adresse' ? (
+                  <span className="font-mono flex-shrink-0" style={{ fontSize: '12px', color: '#5A5A5E' }}>{row.label}</span>
+                  {row.isAddress ? (
                     <a
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(v)}`}
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(row.value)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="font-mono text-right transition-colors hover:text-[#E8192C]"
                       style={{ fontSize: '12px', color: '#FFFFFF', letterSpacing: '0.02em', maxWidth: '60%' }}
                     >
-                      {v}
+                      {row.value}
                     </a>
                   ) : (
-                    <span className="font-mono text-right" style={{ fontSize: '12px', color: '#FFFFFF', letterSpacing: '0.02em', maxWidth: '65%' }}>{v}</span>
+                    <span className="font-mono text-right" style={{ fontSize: '12px', color: '#FFFFFF', letterSpacing: '0.02em', maxWidth: '65%' }}>{row.value}</span>
                   )}
                 </div>
               ))}
@@ -587,7 +587,7 @@ export default function AffiliateEventPage() {
                   className="flex items-center justify-center gap-1 w-full my-4 font-mono text-[#5A5A5E] hover:text-white transition-colors"
                   style={{ height: '38px', borderRadius: '4px', fontSize: '11px', letterSpacing: '0.08em', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent' }}
                 >
-                  Ouvrir dans Maps →
+                  {t('affiliate.openInMaps')} →
                 </a>
               )}
             </div>
@@ -599,7 +599,7 @@ export default function AffiliateEventPage() {
           <section
             style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
           >
-            <p className="section-label-ruled mb-6">Lieu</p>
+            <p className="section-label-ruled mb-6">{t('affiliate.venue')}</p>
             <div
               className="flex items-center"
               style={{ border: '1px solid rgba(255,255,255,0.12)', borderRadius: '4px', padding: '18px 20px', background: 'rgba(255,255,255,0.02)' }}
@@ -642,7 +642,7 @@ export default function AffiliateEventPage() {
           <section
             style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
           >
-            <p className="section-label-ruled mb-6">Organisateur</p>
+            <p className="section-label-ruled mb-6">{t('affiliate.organizer')}</p>
             <div
               style={{ border: '1px solid rgba(255,255,255,0.06)', borderRadius: '4px', padding: '12px 16px' }}
             >
@@ -668,7 +668,7 @@ export default function AffiliateEventPage() {
                     {affiliate.name}
                   </p>
                   <p className="font-mono mt-1" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.04em' }}>
-                    Partenaire YUNO
+                    {t('affiliate.yunoPartner')}
                   </p>
                 </div>
                 {affiliate.linktree_slug && (
@@ -684,7 +684,7 @@ export default function AffiliateEventPage() {
           <section
             style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
           >
-            <p className="section-label-ruled mb-5">À propos</p>
+            <p className="section-label-ruled mb-5">{t('event.about')}</p>
             <div className="relative">
               <p
                 className={`whitespace-pre-line ${!showFullDescription ? 'line-clamp-6' : ''}`}
@@ -721,7 +721,7 @@ export default function AffiliateEventPage() {
           <section
             style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
           >
-            <p className="section-label-ruled mb-6">Line-up</p>
+            <p className="section-label-ruled mb-6">{t('affiliate.lineup')}</p>
             <div
               className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide"
               style={{ margin: '0 -20px', padding: '0 20px' }}
@@ -755,7 +755,7 @@ export default function AffiliateEventPage() {
           <section
             style={{ padding: 'clamp(32px, 5vw, 44px) 20px' }}
           >
-            <p className="section-label-ruled mb-5">Photos</p>
+            <p className="section-label-ruled mb-5">{t('affiliate.photos')}</p>
             <div className="grid grid-cols-3 gap-1.5">
               {event.gallery_urls.slice(0, 9).map((url, i) => (
                 <div key={i} className="aspect-square overflow-hidden" style={{ borderRadius: '4px' }}>
@@ -784,7 +784,7 @@ export default function AffiliateEventPage() {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <p className="font-mono uppercase" style={{ fontSize: '9px', color: '#5A5A5E', letterSpacing: '0.14em' }}>
-                  {isFree ? 'Gratuit' : 'Prix'}
+                  {isFree ? t('affiliate.free') : t('affiliate.price')}
                 </p>
                 <p className="font-display font-bold text-white" style={{ fontSize: 'clamp(18px, 4vw, 24px)', letterSpacing: '-0.02em', lineHeight: 1 }}>
                   {priceDisplay}
@@ -816,11 +816,11 @@ export default function AffiliateEventPage() {
                 onTouchStart={e => (e.currentTarget.style.transform = 'scale(0.97)')}
                 onTouchEnd={e => (e.currentTarget.style.transform = '')}
               >
-                Obtenir <ExternalLink className="h-3.5 w-3.5" />
+                {t('affiliate.getTickets')} <ExternalLink className="h-3.5 w-3.5" />
               </a>
             </div>
             <p className="text-center font-mono" style={{ fontSize: '10px', color: '#3A3A3E', letterSpacing: '0.04em' }}>
-              Vous serez redirigé vers la billetterie partenaire
+              {t('affiliate.redirectNotice')}
             </p>
           </div>
         </div>

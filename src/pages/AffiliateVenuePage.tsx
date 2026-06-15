@@ -120,7 +120,7 @@ function LoadingSkeleton() {
 export default function AffiliateVenuePage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const { user } = useAuth();
   const [venue, setVenue] = useState<AffiliateVenue | null>(null);
   const [events, setEvents] = useState<UpcomingEvent[]>([]);
@@ -189,7 +189,7 @@ export default function AffiliateVenuePage() {
       try { await navigator.share(shareData); } catch {}
     } else {
       await navigator.clipboard.writeText(url);
-      toast.success('Lien copié');
+      toast.success(t('share.copied'));
     }
   };
 
@@ -202,25 +202,25 @@ export default function AffiliateVenuePage() {
 
   // Stats bar items (non-null)
   const statItems: { label: string; value: string }[] = [
-    venue.genres.length > 0 ? { label: 'MUSIC', value: venue.genres[0].toUpperCase() } : null,
-    venue.city ? { label: 'AREA', value: venue.city.toUpperCase() } : null,
-    venue.min_age ? { label: 'AGE', value: `${venue.min_age}+` } : null,
-    venue.dress_code ? { label: 'DRESS', value: venue.dress_code.toUpperCase() } : null,
+    venue.genres.length > 0 ? { label: t('affiliate.statMusic').toUpperCase(), value: venue.genres[0].toUpperCase() } : null,
+    venue.city ? { label: t('affiliate.statArea').toUpperCase(), value: venue.city.toUpperCase() } : null,
+    venue.min_age ? { label: t('affiliate.statAge').toUpperCase(), value: `${venue.min_age}+` } : null,
+    venue.dress_code ? { label: t('affiliate.statDress').toUpperCase(), value: venue.dress_code.toUpperCase() } : null,
   ].filter(Boolean) as { label: string; value: string }[];
 
   // Info card rows
   const infoRows: { label: string; href: string; value: string; color?: string }[] = [
     venue.address
-      ? { label: 'Adresse', href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue.address)}`, value: venue.address }
+      ? { label: t('event.address'), href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue.address)}`, value: venue.address }
       : null,
     venue.instagram
       ? { label: 'Instagram', href: `https://instagram.com/${venue.instagram.replace('@', '')}`, value: '@' + venue.instagram.replace('@', ''), color: '#E8192C' }
       : null,
     venue.website
-      ? { label: 'Site web', href: venue.website, value: venue.website.replace(/^https?:\/\//, '').replace(/\/$/, '') }
+      ? { label: t('affiliate.website'), href: venue.website, value: venue.website.replace(/^https?:\/\//, '').replace(/\/$/, '') }
       : null,
     venue.external_booking_url
-      ? { label: 'Réservation', href: venue.external_booking_url, value: 'Réserver une table →' }
+      ? { label: t('affiliate.booking'), href: venue.external_booking_url, value: `${t('affiliate.bookTable')} →` }
       : null,
   ].filter(Boolean) as { label: string; href: string; value: string; color?: string }[];
 
@@ -235,7 +235,7 @@ export default function AffiliateVenuePage() {
           <div className="absolute left-5 z-20" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}>
             <button
               onClick={() => navigate(-1)}
-              aria-label="Retour"
+              aria-label={t('affiliate.back')}
               className="flex items-center justify-center h-9 w-9 rounded-full cursor-pointer"
               style={{ background: 'rgba(10,10,10,0.65)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.12)' }}
             >
@@ -247,7 +247,7 @@ export default function AffiliateVenuePage() {
           <div className="absolute right-5 z-20 flex items-center gap-2" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}>
             <button
               onClick={() => venue && toggleFavorite('affiliate_venue', venue.id)}
-              aria-label="Suivre"
+              aria-label={t('affiliate.follow')}
               className="flex items-center justify-center h-9 w-9 rounded-full cursor-pointer"
               style={{ background: 'rgba(10,10,10,0.65)', backdropFilter: 'blur(10px)', border: `1px solid ${venue && isFavorite('affiliate_venue', venue.id) ? 'rgba(232,25,44,0.50)' : 'rgba(255,255,255,0.12)'}` }}
             >
@@ -258,7 +258,7 @@ export default function AffiliateVenuePage() {
             </button>
             <button
               onClick={handleShare}
-              aria-label="Partager"
+              aria-label={t('affiliate.share')}
               className="flex items-center justify-center h-9 w-9 rounded-full cursor-pointer"
               style={{ background: 'rgba(10,10,10,0.65)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.12)' }}
             >
@@ -298,7 +298,7 @@ export default function AffiliateVenuePage() {
                   style={{ width: 6, height: 6, background: '#E8192C' }}
                 />
                 <span className="font-mono font-bold text-white" style={{ fontSize: '10px', letterSpacing: '0.10em' }}>
-                  CE SOIR
+                  {t('affiliate.tonight').toUpperCase()}
                 </span>
               </div>
             )}
@@ -309,7 +309,7 @@ export default function AffiliateVenuePage() {
                 className="font-mono font-bold"
                 style={{ fontSize: '9px', color: '#E8192C', background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.28)', borderRadius: '2px', padding: '3px 8px', letterSpacing: '0.12em' }}
               >
-                PARTENAIRE
+                {t('affiliate.partner').toUpperCase()}
               </span>
             </div>
           </div>
@@ -373,7 +373,7 @@ export default function AffiliateVenuePage() {
               className="h-3 w-3"
               style={{ fill: isFavorite('affiliate_venue', venue.id) ? '#E8192C' : 'transparent' }}
             />
-            {isFavorite('affiliate_venue', venue.id) ? 'Suivi' : 'Suivre'}
+            {isFavorite('affiliate_venue', venue.id) ? t('affiliate.following') : t('affiliate.follow')}
           </button>
         </div>
 
@@ -416,7 +416,7 @@ export default function AffiliateVenuePage() {
               style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}
             >
               <p className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.14em', color: '#5A5A5E' }}>
-                Prochaines soirées
+                {t('affiliate.upcomingEvents')}
               </p>
               <span className="font-mono" style={{ fontSize: '10px', color: '#3A3A3E', letterSpacing: '0.08em' }}>
                 {events.length}
@@ -430,14 +430,14 @@ export default function AffiliateVenuePage() {
                 const dateObj = new Date(`${event.event_date}T${timeStr}:00`);
                 const isToday = event.event_date === todayStr;
                 const dateLabel = isToday
-                  ? 'CE SOIR'
+                  ? t('affiliate.tonight').toUpperCase()
                   : format(dateObj, 'EEE dd MMM', { locale: dateLocale }).toUpperCase();
                 const timeLabel = timeStr;
 
                 const priceLabel = event.is_free
-                  ? 'Gratuit'
+                  ? t('affiliate.free')
                   : event.is_sold_out
-                  ? 'Complet'
+                  ? t('event.soldOut')
                   : event.price_from != null
                   ? `${event.price_from.toFixed(2)}€`
                   : null;
@@ -488,7 +488,7 @@ export default function AffiliateVenuePage() {
                             className="font-mono font-bold tracking-[0.14em] text-white px-2 py-1"
                             style={{ fontSize: '9px', background: 'rgba(232,25,44,0.85)', borderRadius: '2px' }}
                           >
-                            COMPLET
+                            {t('event.soldOut').toUpperCase()}
                           </span>
                         </div>
                       )}
@@ -549,7 +549,7 @@ export default function AffiliateVenuePage() {
         {venue.gallery_urls.length > 0 && (
           <div className="pt-10">
             <div className="px-5 mb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
-              <p className="yuno-rule">PHOTOS</p>
+              <p className="yuno-rule">{t('affiliate.photos')}</p>
             </div>
 
             <div
@@ -608,7 +608,7 @@ export default function AffiliateVenuePage() {
         {venue.description && (
           <div className="px-5 pt-10">
             <div style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px', marginBottom: '4px' }}>
-              <p className="yuno-rule">THE ROOM</p>
+              <p className="yuno-rule">{t('affiliate.theRoom')}</p>
             </div>
             <VenueDescription description={venue.description} />
           </div>
@@ -646,7 +646,7 @@ export default function AffiliateVenuePage() {
                   className="flex items-center justify-center gap-1 w-full my-4 font-mono text-[#5A5A5E] hover:text-white transition-colors"
                   style={{ height: '38px', borderRadius: '4px', fontSize: '11px', letterSpacing: '0.08em', border: '1px solid rgba(255,255,255,0.08)', background: 'transparent' }}
                 >
-                  Ouvrir dans Maps →
+                  {t('affiliate.openInMaps')} →
                 </a>
               )}
             </div>
@@ -657,7 +657,7 @@ export default function AffiliateVenuePage() {
         {affiliate && (
           <div className="px-5 pt-10">
             <div style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px', marginBottom: '12px' }}>
-              <p className="yuno-rule">ORGANISATEUR</p>
+              <p className="yuno-rule">{t('affiliate.organizer')}</p>
             </div>
             <div
               style={{ border: '1px solid rgba(255,255,255,0.06)', borderRadius: '4px', padding: '12px 16px' }}
@@ -684,7 +684,7 @@ export default function AffiliateVenuePage() {
                     {affiliate.name}
                   </p>
                   <p className="font-mono mt-1" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.04em' }}>
-                    Partenaire YUNO
+                    {t('affiliate.yunoPartner')}
                   </p>
                 </div>
                 {affiliate.linktree_slug && (

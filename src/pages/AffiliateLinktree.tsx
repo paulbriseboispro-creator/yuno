@@ -105,6 +105,7 @@ function IconArrow() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function PartnerBadge() {
+  const { t } = useLanguage();
   return (
     <div
       style={{
@@ -131,7 +132,7 @@ function PartnerBadge() {
           textTransform: 'uppercase' as const,
         }}
       >
-        Partenaire Officiel Yuno
+        {t('promoterLinktree.officialPartner')}
       </span>
     </div>
   );
@@ -174,6 +175,7 @@ function LinktreeFilters({
   genreFilter: string | null; setGenreFilter: (v: string | null) => void;
   priceFilter: PriceFilter; setPriceFilter: (v: PriceFilter) => void;
 }) {
+  const { t } = useLanguage();
   if (allGenres.length === 0) return null;
 
   const chipStyle = (active: boolean): React.CSSProperties => ({
@@ -209,7 +211,7 @@ function LinktreeFilters({
       <div
         style={{ display: 'flex', gap: '7px', overflowX: 'auto', paddingBottom: '4px' }}
         role="group"
-        aria-label="Filtrer par jour"
+        aria-label={t('promoterLinktree.filterDay')}
       >
         {(['today', 'tomorrow', 'weekend'] as const).map((d) => (
           <button
@@ -217,7 +219,7 @@ function LinktreeFilters({
             onClick={() => setDayFilter(dayFilter === d ? null : d)}
             style={chipStyle(dayFilter === d)}
           >
-            {d === 'today' ? "Aujourd'hui" : d === 'tomorrow' ? 'Demain' : 'Ce weekend'}
+            {d === 'today' ? t('promoterLinktree.today') : d === 'tomorrow' ? t('promoterLinktree.tomorrow') : t('promoterLinktree.weekend')}
           </button>
         ))}
       </div>
@@ -226,13 +228,13 @@ function LinktreeFilters({
       <div
         style={{ display: 'flex', gap: '7px', overflowX: 'auto', paddingBottom: '4px' }}
         role="group"
-        aria-label="Filtrer par genre et prix"
+        aria-label={t('promoterLinktree.filterGenrePrice')}
       >
         <button onClick={() => setPriceFilter(priceFilter === 'free' ? null : 'free')} style={chipStyle(priceFilter === 'free')}>
-          Gratuit
+          {t('promoterLinktree.free')}
         </button>
         <button onClick={() => setPriceFilter(priceFilter === 'paid' ? null : 'paid')} style={chipStyle(priceFilter === 'paid')}>
-          Payant
+          {t('promoterLinktree.paid')}
         </button>
         {allGenres.slice(0, 5).map((g) => (
           <button key={g} onClick={() => setGenreFilter(genreFilter === g ? null : g)} style={chipStyle(genreFilter === g)}>
@@ -397,16 +399,17 @@ function EventCard({
   isOwner: boolean;
   onNavigate: () => void;
 }) {
+  const { t } = useLanguage();
   const isSoldOut = event.is_sold_out;
   const isFree = event.is_free;
   const priceLabel = isSoldOut
-    ? 'Complet'
+    ? t('promoterLinktree.soldOut')
     : isFree
-    ? 'Gratuit'
+    ? t('promoterLinktree.free')
     : event.price_from != null
     ? `${event.price_from}€`
     : null;
-  const ctaLabel = isSoldOut ? 'Complet' : isFree ? 'Rejoindre' : 'Billets';
+  const ctaLabel = isSoldOut ? t('promoterLinktree.soldOut') : isFree ? t('promoterLinktree.join') : t('promoterLinktree.tickets');
 
   const handleClick = () => {
     if (isSoldOut) return;
@@ -649,12 +652,13 @@ function LoadingSkeleton() {
 }
 
 function NotFoundState() {
+  const { t } = useLanguage();
   return (
     <div style={{ minHeight: '100vh', background: '#0A0A0A', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
       <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, color: '#E8192C', letterSpacing: '0.16em', fontSize: '18px', marginBottom: '16px' }}>YUNO</span>
-      <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", color: '#FFFFFF', fontSize: '24px', fontWeight: 700, margin: '0 0 8px' }}>Page introuvable</h1>
+      <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", color: '#FFFFFF', fontSize: '24px', fontWeight: 700, margin: '0 0 8px' }}>{t('promoterLinktree.notFoundTitle')}</h1>
       <p style={{ fontFamily: "'JetBrains Mono', monospace", color: '#5A5A5E', fontSize: '13px', maxWidth: '280px' }}>
-        Ce lien partenaire n&apos;existe pas ou n&apos;est pas encore actif.
+        {t('promoterLinktree.notFoundBody')}
       </p>
     </div>
   );
@@ -680,12 +684,12 @@ function groupByDate(events: LinktreeEvent[], locale: Locale): GroupedDate[] {
     });
 }
 
-function sortAndGroupEvents(events: LinktreeEvent[], mode: SortMode, locale: Locale): GroupedDate[] {
+function sortAndGroupEvents(events: LinktreeEvent[], mode: SortMode, locale: Locale, t: (key: string) => string): GroupedDate[] {
   switch (mode) {
     case 'by_genre': {
       const map = new Map<string, LinktreeEvent[]>();
       for (const ev of events) {
-        const genre = ev.genres[0] ?? 'Autre';
+        const genre = ev.genres[0] ?? t('promoterLinktree.otherGenre');
         if (!map.has(genre)) map.set(genre, []);
         map.get(genre)!.push(ev);
       }
@@ -703,7 +707,7 @@ function sortAndGroupEvents(events: LinktreeEvent[], mode: SortMode, locale: Loc
         const pb = b.is_free ? -1 : (b.price_from ?? 9999);
         return pa - pb;
       });
-      return [{ date: '__price__', label: 'PAR PRIX', items: sorted }];
+      return [{ date: '__price__', label: t('promoterLinktree.byPrice'), items: sorted }];
     }
     case 'custom':
       return [{ date: '__custom__', label: '', items: events }];
@@ -845,7 +849,7 @@ export default function AffiliateLinktree() {
     return true;
   });
 
-  const grouped = sortAndGroupEvents(filteredEvents, affiliate.linktree_sort_mode, dateLocale);
+  const grouped = sortAndGroupEvents(filteredEvents, affiliate.linktree_sort_mode, dateLocale, t);
 
   return (
     <>
@@ -978,7 +982,7 @@ export default function AffiliateLinktree() {
             {(affiliate.instagram || affiliate.tiktok || affiliate.website || affiliate.whatsapp) && (
               <nav
                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%' }}
-                aria-label={`Réseaux ${affiliate.name}`}
+                aria-label={`${t('promoterLinktree.socialOf')} ${affiliate.name}`}
               >
                 {(affiliate.instagram || affiliate.tiktok) && (
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
@@ -1003,14 +1007,14 @@ export default function AffiliateLinktree() {
                     {affiliate.website && (
                       <SocialButton
                         href={affiliate.website.startsWith('http') ? affiliate.website : `https://${affiliate.website}`}
-                        label="Site web"
+                        label={t('affiliate.website')}
                         icon={<IconGlobe />}
                       />
                     )}
                     {affiliate.whatsapp && (
                       <SocialButton
                         href={affiliate.whatsapp.startsWith('http') ? affiliate.whatsapp : `https://wa.me/${affiliate.whatsapp.replace(/[^0-9]/g, '')}`}
-                        label="Communauté"
+                        label={t('promoterLinktree.community')}
                         icon={<IconWhatsApp />}
                         isWhatsApp
                       />
@@ -1060,7 +1064,7 @@ export default function AffiliateLinktree() {
           />
 
           {/* ══ ÉVÉNEMENTS ═══════════════════════════════════════════ */}
-          <section style={{ padding: '8px 20px 0' }} aria-label="Événements">
+          <section style={{ padding: '8px 20px 0' }} aria-label={t('promoterLinktree.events')}>
             {grouped.length === 0 ? (
               <p
                 style={{
@@ -1073,8 +1077,8 @@ export default function AffiliateLinktree() {
                 }}
               >
                 {(dayFilter || genreFilter || priceFilter)
-                  ? 'Aucune soirée pour ces filtres.'
-                  : 'Aucune soirée pour le moment.'}
+                  ? t('promoterLinktree.noEventsFilters')
+                  : t('promoterLinktree.noEventsYet')}
               </p>
             ) : (
               grouped.map((group) => (
@@ -1112,7 +1116,7 @@ export default function AffiliateLinktree() {
                         textTransform: 'uppercase' as const,
                       }}
                     >
-                      {group.items.length} EVENT{group.items.length !== 1 ? 'S' : ''}
+                      {group.items.length} {group.items.length !== 1 ? t('promoterLinktree.eventPlural') : t('promoterLinktree.eventSingular')}
                     </span>
                   </div>
 
@@ -1179,7 +1183,7 @@ export default function AffiliateLinktree() {
           href="https://yunoapp.eu"
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="Propulsé par Yuno"
+          aria-label={t('promoterLinktree.poweredBy')}
           style={{
             position: 'fixed',
             bottom: '20px',
