@@ -834,19 +834,33 @@ export default function Barman() {
 
       if (error) throw error;
 
-      // Send push notification to user
-      if (preparingOrder.userEmail) {
-        try {
+      // Send push notification to the order owner.
+      // send-push-notification requires { user_id, payload } — the previous
+      // { orderId, userEmail, type } shape returned 400 and the client was
+      // never notified that the order was ready (the error was swallowed below).
+      try {
+        const { data: orderData } = await supabase
+          .from('orders')
+          .select('user_id')
+          .eq('id', preparingOrder.id)
+          .single();
+
+        if (orderData?.user_id) {
+          const itemsSummary = ((preparingOrder as any).items as any[])
+            ?.map((i: any) => `${i.qty}x ${i.name}`).join(', ') || 'Commande';
           await supabase.functions.invoke('send-push-notification', {
-            body: { 
-              orderId: preparingOrder.id,
-              userEmail: preparingOrder.userEmail,
-              type: 'ready'
+            body: {
+              user_id: orderData.user_id,
+              payload: {
+                title: 'Commande prête 🎉',
+                body: `${itemsSummary} – Viens récupérer ta commande !`,
+                url: '/my-orders',
+              },
             },
           });
-        } catch (notifError) {
-          console.error('Error sending notification:', notifError);
         }
+      } catch (notifError) {
+        console.error('Error sending notification:', notifError);
       }
 
       // Close preparation view
@@ -898,6 +912,8 @@ export default function Barman() {
           );
 
           if (allServed) {
+            // Guard against double-serve: only the first scan that finds the
+            // token unused may close the order (matches the legacy path below).
             await supabase
               .from('orders')
               .update({
@@ -908,7 +924,8 @@ export default function Barman() {
                 prep_status: 'served',
                 archived: true,
               })
-              .eq('id', seg.orderId);
+              .eq('id', seg.orderId)
+              .eq('token_used', false);
           } else {
             await supabase
               .from('orders')
