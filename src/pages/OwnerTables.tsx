@@ -112,7 +112,7 @@ export default function OwnerTables() {
     try {
       const { data, error } = await supabase.from('events').select('*').or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`).gte('end_at', nowInParis().toISOString()).order('start_at', { ascending: true });
       if (error) throw error;
-      setEvents((data || []).map(ev => ({ id: ev.id, venueId: ev.venue_id, title: ev.title, description: ev.description || undefined, imageUrl: ev.image_url || undefined, startAt: ev.start_at, endAt: ev.end_at, isActive: ev.is_active, tablesEnabled: ev.tables_enabled, isCoEventPartner: ev.venue_id !== venueId && ev.partner_venue_id === venueId, createdAt: ev.created_at, updatedAt: ev.updated_at })));
+      setEvents((data || []).map(ev => ({ id: ev.id, venueId: ev.venue_id, title: ev.title, description: ev.description || undefined, startAt: ev.start_at, endAt: ev.end_at, isActive: ev.is_active, tablesEnabled: ev.tables_enabled, isCoEventPartner: ev.venue_id !== venueId && ev.partner_venue_id === venueId, createdAt: ev.created_at, updatedAt: ev.updated_at })));
     } catch { toast.error(t('tables.errorLoading')); }
     finally { setLoading(false); }
   };

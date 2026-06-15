@@ -61,7 +61,7 @@ serve(async (req) => {
 
     const { data: recentEvents } = await supabaseAdmin
       .from('events')
-      .select('id, title, start_at, venue_id, image_url, poster_url, venues(name)')
+      .select('id, title, start_at, venue_id, poster_url, venues(name)')
       .lte('end_at', twelveHoursAgo)
       .gte('end_at', fortyEightHoursAgo);
 
@@ -78,7 +78,7 @@ serve(async (req) => {
       const venueName = (event.venues as any)?.name || '';
       const safeEventTitle = escapeHtml(event.title);
       const safeVenueName = escapeHtml(venueName);
-      const eventImageUrl = event.image_url || event.poster_url || null;
+      const eventImageUrl = event.poster_url || null;
 
       const { data: noShowTickets } = await supabaseAdmin
         .from('tickets')

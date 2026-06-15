@@ -144,9 +144,13 @@ function Sparkline({ pts, accent = false }: { pts: number[]; accent?: boolean })
 // ─── Revenue hourly bars ──────────────────────────────────────────────────────
 function RevenueBars({ data }: { data: { hour: string; revenue: number }[] }) {
   if (!data.length) return null;
-  const bw = 18, gap = 8, step = bw + gap;
-  const W = data.length * step;
-  const plotH = 180, labelH = 20, H = plotH + labelH;
+  // Fixed wide viewBox (≈3.8:1) so the chart height stays sane regardless of bar
+  // count — bars are distributed across W instead of W growing per bar (which made
+  // the rendered height explode at width:100%).
+  const W = 640, plotH = 150, labelH = 20, H = plotH + labelH;
+  const slot = W / data.length;
+  const bw = Math.min(28, slot * 0.6);
+  const r = Math.min(4, bw / 2);
   const maxVal = Math.max(...data.map(d => d.revenue), 1) * 1.1;
   const peakIdx = data.reduce((m, d, i) => d.revenue > data[m].revenue ? i : m, 0);
   return (
@@ -156,10 +160,9 @@ function RevenueBars({ data }: { data: { hour: string; revenue: number }[] }) {
           <line key={i} x1={0} x2={W} y1={plotH - plotH * g} y2={plotH - plotH * g} stroke={C_FAINT} strokeWidth={1} />
         ))}
         {data.map((d, i) => {
-          const x = i * step + gap / 2;
+          const x = i * slot + (slot - bw) / 2;
           const bh = Math.max(2, (d.revenue / maxVal) * plotH);
           const y = plotH - bh;
-          const r = Math.min(5, bw / 2);
           const isPeak = i === peakIdx;
           const showLabel = i % 3 === 0;
           return (
@@ -249,13 +252,16 @@ function DonutChart({ data }: { data: { name: string; val: number; pct: number }
         transform={`rotate(-90 ${c} ${c})`} strokeLinecap="butt" />
     );
   });
-  const top = data[0];
+  // Center label shows the dominant category, not data[0] (which made an empty
+  // first category read "0%" while real revenue sat in others).
+  const hasData = data.some(d => d.val > 0);
+  const top = data.reduce((m, d) => (d.val > m.val ? d : m), data[0] ?? { name: '', val: 0, pct: 0 });
   return (
     <svg width={S} height={S} viewBox={`0 0 ${S} ${S}`} style={{ flexShrink: 0 }}>
       <circle cx={c} cy={c} r={r} fill="none" stroke={C_FAINT} strokeWidth={sw} />
       {segs}
-      <text x={c} y={c - 5} fill={T1} fontSize={21} fontWeight={650} textAnchor="middle" style={{ letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{top?.pct ?? 0}%</text>
-      <text x={c} y={c + 14} fill={T3} fontSize={10} textAnchor="middle" style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}>{top?.name?.split(' ')[0] ?? ''}</text>
+      <text x={c} y={c - 5} fill={T1} fontSize={21} fontWeight={650} textAnchor="middle" style={{ letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>{hasData ? top.pct : 0}%</text>
+      <text x={c} y={c + 14} fill={T3} fontSize={10} textAnchor="middle" style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}>{hasData ? top.name.split(' ')[0] : ''}</text>
     </svg>
   );
 }
@@ -526,7 +532,7 @@ export default function OrgAppAnalytics() {
 
   // Funnel stages (organizer visitor funnel)
   const funnelSteps = [
-    { label: tt('Visiteurs', 'Visitors'), n: funnel.visitors, pct: '100%' },
+    { label: tt('Visiteurs', 'Visitors'), n: funnel.visitors, pct: funnel.visitors > 0 ? '100%' : '0%' },
     { label: tt('Panier', 'Added to cart'), n: funnel.addedToCart, pct: funnel.visitors > 0 ? ((funnel.addedToCart / funnel.visitors) * 100).toFixed(0) + '%' : '0%' },
     { label: tt('Checkout', 'Checkout'), n: funnel.proceededToCheckout, pct: funnel.visitors > 0 ? ((funnel.proceededToCheckout / funnel.visitors) * 100).toFixed(0) + '%' : '0%' },
     { label: tt('Conversions', 'Conversions'), n: funnel.completed, pct: funnel.visitors > 0 ? funnel.conversionRate.toFixed(1) + '%' : '0%' },
@@ -683,19 +689,27 @@ export default function OrgAppAnalytics() {
             right={
               <div className="text-right px-4 py-2 rounded-xl" style={{ background: 'rgba(232,25,44,0.08)', border: `1px solid rgba(232,25,44,0.2)` }}>
                 <div className="text-[10px] uppercase tracking-[0.07em] mb-1" style={{ color: T3 }}>{tt('Taux global', 'Global rate')}</div>
-                <div className="text-2xl font-[660] tabular-nums" style={{ color: RED, letterSpacing: '-0.03em' }}>{funnel.conversionRate.toFixed(1)}%</div>
+                <div className="text-2xl font-[660] tabular-nums" style={{ color: RED, letterSpacing: '-0.03em' }}>{funnel.visitors > 0 ? `${funnel.conversionRate.toFixed(1)}%` : '—'}</div>
               </div>
             }
           >
-            <FunnelRibbon stages={funnelSteps} />
-            <div className="grid mt-3" style={{ gridTemplateColumns: `repeat(${funnelSteps.length}, 1fr)` }}>
-              {funnelSteps.map((s, i) => (
-                <div key={i} className="text-center px-1" style={{ borderLeft: i > 0 ? `1px solid ${BORDER}` : 'none' }}>
-                  <div className="text-base font-[640] tabular-nums leading-tight" style={{ color: T1, letterSpacing: '-0.02em' }}>{s.n.toLocaleString()}</div>
-                  <div className="text-[11.5px] mt-1" style={{ color: T3 }}>{s.label}</div>
+            {funnel.visitors > 0 ? (
+              <>
+                <FunnelRibbon stages={funnelSteps} />
+                <div className="grid mt-3" style={{ gridTemplateColumns: `repeat(${funnelSteps.length}, 1fr)` }}>
+                  {funnelSteps.map((s, i) => (
+                    <div key={i} className="text-center px-1" style={{ borderLeft: i > 0 ? `1px solid ${BORDER}` : 'none' }}>
+                      <div className="text-base font-[640] tabular-nums leading-tight" style={{ color: T1, letterSpacing: '-0.02em' }}>{s.n.toLocaleString()}</div>
+                      <div className="text-[11.5px] mt-1" style={{ color: T3 }}>{s.label}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            ) : (
+              <div className="flex items-center justify-center text-sm" style={{ height: 248, color: T3 }}>
+                {tt('Aucune donnée sur la période', 'No data for this period')}
+              </div>
+            )}
           </PCard>
 
           <PCard icon={<Layers className="w-4 h-4" />} title={tt('Répartition du revenu', 'Revenue mix')} sub={tt('Part par catégorie', 'Share by category')}>

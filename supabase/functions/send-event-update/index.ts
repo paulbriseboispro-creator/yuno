@@ -48,7 +48,7 @@ serve(async (req) => {
 
     const { data: event, error: eventError } = await supabaseAdmin
       .from('events')
-      .select('id, title, start_at, end_at, venue_id, poster_url, image_url, venues(name)')
+      .select('id, title, start_at, end_at, venue_id, poster_url, venues(name)')
       .eq('id', eventId)
       .single();
 
@@ -57,7 +57,7 @@ serve(async (req) => {
     const venueName = (event.venues as any)?.name || '';
     const safeEventTitle = escapeHtml(event.title);
     const safeVenueName = escapeHtml(venueName);
-    const eventImageUrl = event.image_url || event.poster_url || null;
+    const eventImageUrl = event.poster_url || null;
 
     const { data: tickets } = await supabaseAdmin
       .from('tickets')

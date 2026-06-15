@@ -36,7 +36,6 @@ interface EventOption {
   title: string;
   start_at: string;
   end_at: string;
-  image_url: string | null;
   poster_url: string | null;
   description: string | null;
   music_genre: string;
@@ -165,7 +164,7 @@ export default function OwnerStoryBuilder() {
       setLoading(true);
       const { data } = await supabase
         .from('events')
-        .select('id, title, start_at, end_at, image_url, poster_url, description, music_genre, ticket_selling_mode, max_tickets')
+        .select('id, title, start_at, end_at, poster_url, description, music_genre, ticket_selling_mode, max_tickets')
         .eq('venue_id', venueId)
         .eq('is_active', true)
         .gte('end_at', new Date().toISOString())
@@ -281,7 +280,7 @@ export default function OwnerStoryBuilder() {
             <EventPromoTemplate
               venueName={venue?.name || ''} venueCity={(venue as any)?.city || ''} venueAddress={(venue as any)?.address || ''}
               eventTitle={selectedEvent.title} eventDate={selectedEvent.start_at} eventEndDate={selectedEvent.end_at}
-              eventDescription={selectedEvent.description || ''} eventImageUrl={selectedEvent.image_url || selectedEvent.poster_url || ''}
+              eventDescription={selectedEvent.description || ''} eventImageUrl={selectedEvent.poster_url || ''}
               musicGenre={selectedEvent.music_genre || ''} ctaText={ctaText} language={language} djs={djs} organizers={organizers}
               {...customColors}
             />

@@ -1,0 +1,59 @@
+-- ============================================================================
+-- DEFERRED — the code is clean, but DO NOT run this until the cleaned code is
+-- DEPLOYED. Kept OUT of supabase/migrations/ on purpose so `supabase db push`
+-- never applies it by accident.
+-- ============================================================================
+-- This drops the retired 16:9 event banner columns (image_url, banner_position)
+-- from the events table.
+--
+-- STATUS (2026-06-15)
+-- -------------------
+-- DONE: every reference to events.image_url / banner_position has been removed
+--   from the frontend (src/) AND from the 12 edge functions that used to select
+--   it. The poster backfill already ran
+--   (migrations/20260615160000_backfill_event_poster_from_banner.sql), so no
+--   event loses its image when the column is dropped.
+--
+-- DEPLOYED so far (cleaned code now LIVE): 7 of the 12 edge functions —
+--   send-missed-you, accept-club-collab-invitation, notify-event-waitlist,
+--   promoter-add-guest, resolve-promoter-link, send-event-update,
+--   send-next-event-recommendation.
+--
+-- STILL ON OLD CODE (deploy blocked by 402 "Max number of functions reached"):
+--   send-pre-night-checklist, send-ticket-confirmation, send-vip-confirmation,
+--   verify-ticket-payment, yuno-assistant.
+--   >>> These 5 still `select events.image_url`. The column CANNOT be dropped
+--       until all 5 are redeployed, or dropping breaks ticket/VIP confirmation
+--       emails and payment verification. The frontend also still needs shipping.
+--
+-- WHY IT IS STILL GATED
+-- ---------------------
+-- PostgREST errors the WHOLE query if you select a column that no longer exists.
+-- The currently DEPLOYED frontend and DEPLOYED edge functions still contain the
+-- old `select(... image_url ...)`. Dropping the column before the cleaned code
+-- is live would break critical flows (public ticket checkout, order history,
+-- confirmation emails, etc.). So the column can only be dropped AFTER a release.
+--
+-- RUN ORDER
+-- ---------
+-- 1. Ship the cleaned frontend to production (git push -> Cloudflare Workers
+--    Build, or `npm run build && npx wrangler deploy`).
+-- 2. Redeploy the 12 cleaned edge functions (needs the Supabase 402 function/spend
+--    cap lifted):
+--        supabase functions deploy accept-club-collab-invitation notify-event-waitlist \
+--          promoter-add-guest resolve-promoter-link send-event-update send-missed-you \
+--          send-next-event-recommendation send-pre-night-checklist send-ticket-confirmation \
+--          send-vip-confirmation verify-ticket-payment yuno-assistant
+-- 3. Verify live: load checkout (TicketSelection), order history (MyOrders),
+--    Explore, and trigger a ticket confirmation email — all should work.
+-- 4. Only then, move the statements below into a real migration in
+--    supabase/migrations/ (timestamped) and run `supabase db push`:
+--
+--        ALTER TABLE public.events DROP COLUMN IF EXISTS image_url;
+--        ALTER TABLE public.events DROP COLUMN IF EXISTS banner_position;
+--
+-- 5. Regenerate types (remember to redirect stderr):
+--        supabase gen types typescript --project-id fulawxvdlwtdlpkycixe > src/integrations/supabase/types.ts 2>/dev/null
+--
+-- After step 5 this file can be deleted.
+-- ============================================================================

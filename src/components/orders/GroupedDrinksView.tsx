@@ -17,7 +17,6 @@ type Order = Tables<'orders'> & {
     start_at: string;
     end_at: string;
     poster_url?: string;
-    image_url?: string;
     venue_id?: string;
   } | null;
   venueName?: string;

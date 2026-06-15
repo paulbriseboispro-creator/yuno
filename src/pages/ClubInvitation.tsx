@@ -37,7 +37,6 @@ interface InvitationData {
     title: string;
     start_at: string;
     poster_url: string | null;
-    image_url: string | null;
   } | null;
   expired: boolean;
 }
@@ -214,9 +213,9 @@ export default function ClubInvitationPage() {
                       {t('clubInv.eventConcerned')}
                     </div>
                     <div className="flex items-start gap-3">
-                      {(event.poster_url || event.image_url) && (
+                      {event.poster_url && (
                         <img
-                          src={event.poster_url ?? event.image_url ?? undefined}
+                          src={event.poster_url}
                           alt=""
                           className="h-16 w-16 rounded-lg object-cover shrink-0"
                         />

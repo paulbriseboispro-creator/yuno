@@ -87,6 +87,7 @@ const OwnerRefunds = lazyWithRetry(() => import("./pages/OwnerRefunds"));
 const OwnerNotifications = lazyWithRetry(() => import("./pages/OwnerNotifications"));
 const OwnerCampaigns = lazyWithRetry(() => import("./pages/OwnerCampaigns").then(m => ({ default: m.default })));
 const OwnerCampaignEditor = lazyWithRetry(() => import("./pages/OwnerCampaigns").then(m => ({ default: m.OwnerCampaignEditor })));
+const OwnerCampaignReport = lazyWithRetry(() => import("./pages/OwnerCampaigns").then(m => ({ default: m.OwnerCampaignReport })));
 const Unsubscribe = lazyWithRetry(() => import("./pages/Unsubscribe"));
 // Legacy organizer pages removed — replaced by OrgApp* + OrganizerPublicProfile.
 const GuestListSignup = lazyWithRetry(() => import("./pages/GuestListSignup"));
@@ -113,6 +114,7 @@ const OrgAppTeam = lazyWithRetry(() => import("./pages/organizer-app/OrgAppTeam"
 const OrgAppCustomers = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCustomers"));
 const OrgAppCampaigns = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCampaigns").then(m => ({ default: m.default })));
 const OrgAppCampaignEditor = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCampaigns").then(m => ({ default: m.OrgAppCampaignEditor })));
+const OrgAppCampaignReport = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCampaigns").then(m => ({ default: m.OrgAppCampaignReport })));
 const OrganizerPublicProfile = lazyWithRetry(() => import("./pages/OrganizerPublicProfile"));
 const OwnerPartnerships = lazyWithRetry(() => import("./pages/OwnerPartnerships"));
 const OwnerCollaborations = lazyWithRetry(() => import("./pages/OwnerCollaborations"));
@@ -458,6 +460,7 @@ const App = () => (
                   <Route path="campaigns" element={<OrgAppCampaigns />} />
                   <Route path="campaigns/new" element={<OrgAppCampaignEditor />} />
                   <Route path="campaigns/:id/edit" element={<OrgAppCampaignEditor />} />
+                  <Route path="campaigns/:id/report" element={<OrgAppCampaignReport />} />
                   <Route path="organization" element={<OrgAppOrganization />} />
                   <Route path="payments" element={<OrgAppPayments />} />
                   {/* Legacy Stripe onboarding return target (`?stripe=success|refresh`) → payments page */}
@@ -559,6 +562,7 @@ const App = () => (
                   <Route path="campaigns" element={<PlanGuard feature="email_campaigns_promotional"><OwnerCampaigns /></PlanGuard>} />
                   <Route path="campaigns/new" element={<PlanGuard feature="email_campaigns_promotional"><OwnerCampaignEditor /></PlanGuard>} />
                   <Route path="campaigns/:id/edit" element={<PlanGuard feature="email_campaigns_promotional"><OwnerCampaignEditor /></PlanGuard>} />
+                  <Route path="campaigns/:id/report" element={<PlanGuard feature="email_campaigns_promotional"><OwnerCampaignReport /></PlanGuard>} />
                   <Route path="sms" element={<OwnerSmsCredits />} />
                   <Route path="sms-campaigns" element={<OwnerSmsCampaigns />} />
                   <Route path="promoters" element={<PlanGuard feature="promoters"><OwnerPromoters /></PlanGuard>} />

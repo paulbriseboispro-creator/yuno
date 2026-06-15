@@ -56,7 +56,7 @@ serve(async (req) => {
         id, qr_code, quantity, unit_price, total_price, full_name, user_email, user_id, status,
         ticket_round_id, event_id,
         ticket_rounds(name),
-        events!inner(id, title, start_at, venue_id, poster_url, image_url, venues(name, address))
+        events!inner(id, title, start_at, venue_id, poster_url, venues(name, address))
       `)
       .eq("id", ticketId)
       .single();
@@ -137,7 +137,7 @@ serve(async (req) => {
     // Extract reference from qr_code (TK-XXXX...)
     const ticketRef = ticket.qr_code || ticketId.slice(0, 8).toUpperCase();
 
-    const eventImageUrl = event?.image_url || event?.poster_url || null;
+    const eventImageUrl = event?.poster_url || null;
 
     // Build guest-specific blocks
     const guestBlock = isGuest

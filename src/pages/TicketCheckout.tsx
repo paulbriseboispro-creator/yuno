@@ -290,7 +290,6 @@ export default function TicketCheckout() {
         venueId: eventData.venue_id,
         title: eventData.title,
         description: eventData.description,
-        imageUrl: eventData.image_url,
         posterUrl: eventData.poster_url,
         startAt: eventData.start_at,
         endAt: eventData.end_at,

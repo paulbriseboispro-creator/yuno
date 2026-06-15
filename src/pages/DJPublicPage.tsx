@@ -81,7 +81,6 @@ interface DJEvent {
   start_at: string;
   end_at: string;
   poster_url: string | null;
-  image_url: string | null;
   venue_id: string;
   venue_name: string;
   venue_city: string;
@@ -144,7 +143,7 @@ export default function DJPublicPage() {
       if (eventIds.length > 0) {
         const { data: events } = await supabase
           .from('events')
-          .select('id, title, start_at, end_at, poster_url, image_url, venue_id')
+          .select('id, title, start_at, end_at, poster_url, venue_id')
           .in('id', eventIds)
           .order('start_at', { ascending: true });
 
@@ -166,7 +165,6 @@ export default function DJPublicPage() {
             start_at: e.start_at,
             end_at: e.end_at,
             poster_url: e.poster_url,
-            image_url: e.image_url,
             venue_id: e.venue_id,
             venue_name: venueMap[e.venue_id]?.name || '',
             venue_city: venueMap[e.venue_id]?.city || '',
@@ -439,7 +437,7 @@ function PremiumEventCard({ event, locale, index, onClick, clickable = true }: {
   const day = formatInTimeZone(new Date(event.start_at), PARIS_TIMEZONE, 'd', { locale });
   const month = formatInTimeZone(new Date(event.start_at), PARIS_TIMEZONE, 'MMM', { locale }).toUpperCase();
   const time = formatInTimeZone(new Date(event.start_at), PARIS_TIMEZONE, 'HH:mm', { locale });
-  const posterSrc = event.poster_url || event.image_url;
+  const posterSrc = event.poster_url;
 
   const content = (
     <div className="flex items-center gap-3 w-full">

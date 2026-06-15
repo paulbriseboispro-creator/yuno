@@ -108,7 +108,6 @@ interface NextEvent {
   title: string;
   start_at: string;
   poster_url: string | null;
-  image_url: string | null;
   location_city: string | null;
   max_tickets: number | null;
   venue_id: string | null;
@@ -224,7 +223,7 @@ export default function OwnerDashboard() {
     if (!venueId) return;
     try {
       const { data } = await supabase.from('events')
-        .select('id, title, start_at, poster_url, image_url, location_city, max_tickets, venue_id, partner_venue_id, partner_organizer_id, organizer_user_id')
+        .select('id, title, start_at, poster_url, location_city, max_tickets, venue_id, partner_venue_id, partner_organizer_id, organizer_user_id')
         .or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`)
         .gte('end_at', new Date().toISOString()).order('start_at', { ascending: true }).limit(1);
       const next = data?.[0] as NextEvent | undefined;
@@ -961,7 +960,7 @@ function NextEventHero({
   const fillRate = nextEvent.max_tickets && nextEvent.max_tickets > 0 && stats
     ? Math.min(100, Math.round((stats.ticketsSold / nextEvent.max_tickets) * 100)) : null;
   const checkinRate = stats && stats.ticketsSold > 0 ? Math.round((stats.scanned / stats.ticketsSold) * 100) : 0;
-  const poster = nextEvent.image_url || nextEvent.poster_url;
+  const poster = nextEvent.poster_url;
 
   return (
     <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, overflow: 'hidden' }}>

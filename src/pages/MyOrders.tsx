@@ -77,7 +77,6 @@ interface PendingReward {
     startAt: string;
     endAt: string;
     posterUrl: string | null;
-    imageUrl: string | null;
   };
 }
 
@@ -87,7 +86,6 @@ type Order = Tables<'orders'> & {
     start_at: string;
     end_at: string;
     poster_url?: string;
-    image_url?: string;
     venue_id?: string;
   } | null;
   venueName?: string;
@@ -107,7 +105,6 @@ interface TicketWithDetails {
   eventStartAt: string;
   eventEndAt: string;
   eventPosterUrl?: string;
-  eventImageUrl?: string;
   venueName: string;
   roundName: string;
   quantity: number;
@@ -137,7 +134,6 @@ interface VipReservationWithDetails {
   eventStartAt: string;
   eventEndAt: string;
   eventPosterUrl?: string;
-  eventImageUrl?: string;
   venueName: string;
   zoneName: string;
   packName: string;
@@ -166,7 +162,6 @@ interface GuestListEntryWithDetails {
   eventStartAt: string;
   eventEndAt: string;
   eventPosterUrl?: string;
-  eventImageUrl?: string;
   venueName: string;
   freeBeforeTime: string;
   includesDrink: boolean;
@@ -210,7 +205,7 @@ export default function MyOrders() {
   const [prepWithItemsBarOrder, setPrepWithItemsBarOrder] = useState<{ order: Order; indices: number[] } | null>(null);
   const [venueBarCounts, setVenueBarCounts] = useState<Record<string, number>>({});
   const [selectedGuestEntry, setSelectedGuestEntry] = useState<GuestListEntryWithDetails | null>(null);
-  const [waitlistEntries, setWaitlistEntries] = useState<{ id: string; eventId: string; eventTitle: string; eventStartAt: string; eventPosterUrl?: string; eventImageUrl?: string; venueName: string; venueSlug: string; createdAt: string; presaleStartAt?: string; publicSaleStartAt?: string }[]>([]);
+  const [waitlistEntries, setWaitlistEntries] = useState<{ id: string; eventId: string; eventTitle: string; eventStartAt: string; eventPosterUrl?: string; venueName: string; venueSlug: string; createdAt: string; presaleStartAt?: string; publicSaleStartAt?: string }[]>([]);
   const [seg, setSeg] = useState<OrderBucket>('pending');
 
   // Handle URL params for tab selection and success messages
@@ -302,7 +297,7 @@ export default function MyOrders() {
       // C4: Pagination — limit to 50 most recent orders
       const { data, error } = await supabase
         .from('orders')
-        .select('*, events(title, start_at, end_at, poster_url, image_url, venue_id, partner_venue_id)')
+        .select('*, events(title, start_at, end_at, poster_url, venue_id, partner_venue_id)')
         .eq('user_id', user?.id)
         .in('status', ['paid', 'served', 'refunded', 'cancelled'])
         .order('created_at', { ascending: false })
@@ -402,7 +397,7 @@ export default function MyOrders() {
           refund_amount,
           refund_reason,
           ticket_rounds!inner (name, includes_drink, drink_deadline_type, drink_deadline_hours, drink_cutoff_time),
-          events!inner (title, start_at, end_at, venue_id, partner_venue_id, poster_url, image_url)
+          events!inner (title, start_at, end_at, venue_id, partner_venue_id, poster_url)
         `)
         .eq('user_id', user?.id)
         .in('status', ['paid', 'refunded'])
@@ -426,7 +421,6 @@ export default function MyOrders() {
         eventStartAt: (t.events as any).start_at,
         eventEndAt: (t.events as any).end_at,
         eventPosterUrl: (t.events as any).poster_url,
-        eventImageUrl: (t.events as any).image_url,
         venueName: venueMap.get((t.events as any).venue_id ?? (t.events as any).partner_venue_id) || '',
         roundName: (t.ticket_rounds as any).name,
         quantity: t.quantity,
@@ -518,7 +512,7 @@ export default function MyOrders() {
           placement_note,
           table_packs (name),
           table_zones (name),
-          events!inner (title, start_at, end_at, venue_id, partner_venue_id, poster_url, image_url)
+          events!inner (title, start_at, end_at, venue_id, partner_venue_id, poster_url)
         `)
         .eq('user_id', user?.id)
         .in('status', ['paid', 'refunded'])
@@ -541,7 +535,6 @@ export default function MyOrders() {
         eventStartAt: (r.events as any).start_at,
         eventEndAt: (r.events as any).end_at,
         eventPosterUrl: (r.events as any).poster_url,
-        eventImageUrl: (r.events as any).image_url,
         venueName: venueMap.get((r.events as any).venue_id ?? (r.events as any).partner_venue_id) || '',
         zoneName: (r.table_zones as any)?.name || '',
         packName: (r.table_packs as any)?.name || '',
@@ -602,7 +595,7 @@ export default function MyOrders() {
           guest_lists!inner (
             free_before_time,
             includes_drink,
-            events!inner (title, start_at, end_at, venue_id, partner_venue_id, poster_url, image_url)
+            events!inner (title, start_at, end_at, venue_id, partner_venue_id, poster_url)
           )
         `)
         .eq('user_id', user?.id)
@@ -625,7 +618,6 @@ export default function MyOrders() {
         eventStartAt: (e.guest_lists as any).events.start_at,
         eventEndAt: (e.guest_lists as any).events.end_at,
         eventPosterUrl: (e.guest_lists as any).events.poster_url || undefined,
-        eventImageUrl: (e.guest_lists as any).events.image_url || undefined,
         venueName: venueMap.get((e.guest_lists as any).events.venue_id ?? (e.guest_lists as any).events.partner_venue_id) || '',
         freeBeforeTime: (e.guest_lists as any).free_before_time?.substring(0, 5) || '02:00',
         includesDrink: (e.guest_lists as any).includes_drink || (e as any).entry_type === 'drink',
@@ -669,7 +661,7 @@ export default function MyOrders() {
 
       const { data: entries, error } = await supabase
         .from('event_waitlist')
-        .select('id, event_id, created_at, show_in_orders, events!inner(title, start_at, venue_id, poster_url, image_url, presale_start_at, public_sale_start_at, waitlist_enabled)')
+        .select('id, event_id, created_at, show_in_orders, events!inner(title, start_at, venue_id, poster_url, presale_start_at, public_sale_start_at, waitlist_enabled)')
         .or(filters.join(','))
         .eq('show_in_orders', true)
         .order('created_at', { ascending: false });
@@ -719,7 +711,6 @@ export default function MyOrders() {
         eventTitle: e.events.title,
         eventStartAt: e.events.start_at,
         eventPosterUrl: e.events.poster_url || undefined,
-        eventImageUrl: e.events.image_url || undefined,
         venueName: venueMap.get(e.events.venue_id) || '',
         venueSlug: e.events.venue_id || '',
         createdAt: e.created_at,
@@ -792,12 +783,12 @@ export default function MyOrders() {
         const venueIds = [...new Set(redemptions.map((r: any) => r.venue_id))];
         
         // Fetch the next active event for each venue (for free_ticket rewards)
-        const venueEventsMap: Record<string, { title: string; startAt: string; endAt: string; posterUrl: string | null; imageUrl: string | null }> = {};
+        const venueEventsMap: Record<string, { title: string; startAt: string; endAt: string; posterUrl: string | null }> = {};
         
         if (venueIds.length > 0) {
           const { data: eventsData } = await supabase
             .from('events')
-            .select('id, title, start_at, end_at, poster_url, image_url, venue_id')
+            .select('id, title, start_at, end_at, poster_url, venue_id')
             .in('venue_id', venueIds)
             .eq('is_active', true)
             .gte('start_at', new Date().toISOString())
@@ -811,8 +802,7 @@ export default function MyOrders() {
                   title: e.title,
                   startAt: e.start_at,
                   endAt: e.end_at,
-                  posterUrl: e.poster_url,
-                  imageUrl: e.image_url
+                  posterUrl: e.poster_url
                 };
               }
             });

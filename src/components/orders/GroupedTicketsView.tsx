@@ -16,7 +16,6 @@ interface TicketWithDetails {
   eventStartAt: string;
   eventEndAt: string;
   eventPosterUrl?: string;
-  eventImageUrl?: string;
   venueName: string;
   roundName: string;
   quantity: number;
@@ -46,7 +45,6 @@ interface VipReservationWithDetails {
   eventStartAt: string;
   eventEndAt: string;
   eventPosterUrl?: string;
-  eventImageUrl?: string;
   venueName: string;
   zoneName: string;
   packName: string;
@@ -169,7 +167,7 @@ export function GroupedTicketsView({
 
   const renderTicket = (ticket: TicketWithDetails, index: number) => {
     const drinkDeadline = formatDrinkDeadline(ticket);
-    const posterImage = ticket.eventPosterUrl || ticket.eventImageUrl;
+    const posterImage = ticket.eventPosterUrl;
     
     return (
       <motion.div key={ticket.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03 }}>
@@ -277,7 +275,7 @@ export function GroupedTicketsView({
   };
 
   const renderVipReservation = (reservation: VipReservationWithDetails, index: number) => {
-    const posterImage = reservation.eventPosterUrl || reservation.eventImageUrl;
+    const posterImage = reservation.eventPosterUrl;
     const depositPaid = reservation.deposit;
     
     return (

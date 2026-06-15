@@ -72,7 +72,6 @@ export type Event = {
   venueId: string;
   title: string;
   description?: string;
-  imageUrl?: string;
   posterUrl?: string;
   startAt: string;
   endAt: string;

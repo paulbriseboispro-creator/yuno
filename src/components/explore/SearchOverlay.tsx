@@ -19,7 +19,6 @@ interface EventResult {
   id: string;
   title: string;
   poster_url: string | null;
-  image_url: string | null;
   start_at: string;
   venue_name: string;
   venue_slug: string;
@@ -293,7 +292,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
           applyEventConstraints(
             supabase
               .from('events')
-              .select('id, title, poster_url, image_url, start_at, end_at, venue_id, is_active, music_genres')
+              .select('id, title, poster_url, start_at, end_at, venue_id, is_active, music_genres')
               .order('start_at', { ascending: true })
               .limit(20)
           )
@@ -304,7 +303,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
           applyEventConstraints(
             supabase
               .from('events')
-              .select('id, title, poster_url, image_url, start_at, end_at, venue_id, is_active, music_genres')
+              .select('id, title, poster_url, start_at, end_at, venue_id, is_active, music_genres')
               .ilike('title', searchTerm)
               .limit(10)
           )
@@ -315,7 +314,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
             applyEventConstraints(
               supabase
                 .from('events')
-                .select('id, title, poster_url, image_url, start_at, end_at, venue_id, is_active, music_genres')
+                .select('id, title, poster_url, start_at, end_at, venue_id, is_active, music_genres')
                 .contains('music_genres', [variant])
                 .limit(10)
             )
@@ -505,7 +504,6 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
         id: e.id,
         title: e.title,
         poster_url: e.poster_url,
-        image_url: e.image_url || null,
         start_at: e.start_at,
         venue_name: venueMap[e.venue_id]?.name || '',
         venue_slug: venueMap[e.venue_id]?.slug || e.venue_id,
@@ -518,7 +516,6 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
         id: ae.id,
         title: ae.name,
         poster_url: ae.flyer_url || null,
-        image_url: ae.flyer_url || null,
         start_at: ae.event_date + (ae.start_time ? `T${ae.start_time}` : 'T23:00:00'),
         venue_name: ae.affiliate_venue_id ? (affVenueMap[ae.affiliate_venue_id] || '') : '',
         venue_slug: '',
@@ -837,8 +834,8 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
                           whileTap={tapScale}
                         >
                           <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
-                            {(e.image_url || e.poster_url) ? (
-                              <img src={e.image_url || e.poster_url!} alt={e.title} className="h-full w-full object-cover" />
+                            {e.poster_url ? (
+                              <img src={e.poster_url} alt={e.title} className="h-full w-full object-cover" />
                             ) : (
                               <div className="flex h-full w-full items-center justify-center bg-card">
                                 <Music className="h-4 w-4 text-muted-foreground" />

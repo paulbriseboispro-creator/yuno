@@ -72,7 +72,7 @@ serve(async (req) => {
 
     const { data: upcomingEvents } = await supabaseAdmin
       .from('events')
-      .select('id, title, start_at, venue_id, poster_url, image_url, venues(name, address)')
+      .select('id, title, start_at, venue_id, poster_url, venues(name, address)')
       .eq('is_active', true)
       .gte('start_at', twoHoursFromNow)
       .lte('start_at', fourHoursFromNow);
@@ -89,7 +89,7 @@ serve(async (req) => {
     for (const event of upcomingEvents) {
       const venueName = (event.venues as any)?.name || '';
       const venueAddress = (event.venues as any)?.address || '';
-      const eventImageUrl = event.image_url || event.poster_url || null;
+      const eventImageUrl = event.poster_url || null;
       const safeEventTitle = escapeHtml(event.title);
       const safeVenueName = escapeHtml(venueName);
       const safeAddress = escapeHtml(venueAddress);

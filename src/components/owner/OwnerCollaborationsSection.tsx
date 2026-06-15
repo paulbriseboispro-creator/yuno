@@ -17,7 +17,6 @@ interface CollabEvent {
   title: string;
   description: string | null;
   poster_url: string | null;
-  image_url: string | null;
   start_at: string;
   end_at: string;
   is_active: boolean;
@@ -50,7 +49,7 @@ export function OwnerCollaborationsSection({ venueId }: Props) {
       setLoading(true);
       const { data, error } = await supabase
         .from('events')
-        .select('id, title, description, poster_url, image_url, start_at, end_at, is_active, organizer_user_id')
+        .select('id, title, description, poster_url, start_at, end_at, is_active, organizer_user_id')
         .eq('partner_venue_id', venueId)
         .not('organizer_user_id', 'is', null)
         .order('start_at', { ascending: false });
@@ -90,7 +89,6 @@ export function OwnerCollaborationsSection({ venueId }: Props) {
         title: e.title,
         description: e.description,
         poster_url: e.poster_url,
-        image_url: e.image_url,
         start_at: e.start_at,
         end_at: e.end_at,
         is_active: e.is_active,
@@ -181,9 +179,9 @@ export function OwnerCollaborationsSection({ venueId }: Props) {
               </span>
             </div>
           </div>
-          {(event.poster_url || event.image_url) && (
+          {event.poster_url && (
             <img
-              src={event.poster_url || event.image_url || ''}
+              src={event.poster_url}
               alt={event.title}
               className="w-16 h-20 sm:w-20 sm:h-28 rounded-lg object-cover flex-shrink-0"
             />

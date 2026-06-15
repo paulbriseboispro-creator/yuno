@@ -66,7 +66,6 @@ interface FavoriteEvent {
   title: string;
   startAt: string;
   endAt?: string;
-  imageUrl?: string;
   posterUrl?: string;
   venueId?: string;
   venueName?: string;
@@ -398,9 +397,9 @@ function EventCard({
     >
       {/* Left visual + date badge */}
       <div style={{ position: 'relative', width: 96, flexShrink: 0, ...glowStyle(hue) }}>
-        {(event.posterUrl || event.imageUrl) && (
+        {event.posterUrl && (
           <img
-            src={getOptimizedImageUrl(event.posterUrl || event.imageUrl!, { width: 192, height: 200 })}
+            src={getOptimizedImageUrl(event.posterUrl, { width: 192, height: 200 })}
             alt={event.title}
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
@@ -745,7 +744,7 @@ export default function Favorites() {
 
         const [eventResult, affiliateEventResult] = await Promise.all([
           eventFavs.length > 0
-            ? supabase.from('events').select('id, title, start_at, end_at, image_url, poster_url, venue_id, music_genres').in('id', eventFavs.map(f => f.eventId).filter(Boolean) as string[])
+            ? supabase.from('events').select('id, title, start_at, end_at, poster_url, venue_id, music_genres').in('id', eventFavs.map(f => f.eventId).filter(Boolean) as string[])
             : Promise.resolve({ data: [], error: null }),
           affiliateEventFavs.length > 0
             ? supabase.from('affiliate_events').select('id, name, event_date, start_time, flyer_url, slug, genres, affiliate_venues(name)').in('id', affiliateEventFavs.map(f => f.affiliateEventId).filter(Boolean) as string[])
@@ -756,7 +755,7 @@ export default function Favorites() {
 
         const regularEvents = (eventResult.data || []).map((e: any) => ({
           id: e.id, title: e.title, startAt: e.start_at, endAt: e.end_at,
-          imageUrl: e.image_url || undefined, posterUrl: e.poster_url || undefined,
+          posterUrl: e.poster_url || undefined,
           venueId: e.venue_id, isAffiliate: false,
           musicGenres: e.music_genres || [],
         }));

@@ -108,7 +108,6 @@ export function EventSelectionDialog({
         venueId: event.venue_id,
         title: event.title,
         description: event.description || undefined,
-        imageUrl: event.image_url || undefined,
         posterUrl: event.poster_url || undefined,
         startAt: event.start_at,
         endAt: event.end_at,
@@ -160,11 +159,11 @@ export function EventSelectionDialog({
                 className="w-full text-left rounded-lg border border-border hover:border-primary hover:bg-accent/50 transition-all p-3"
               >
                 <div className="flex gap-3">
-                  {/* Poster thumbnail — square 1:1 (poster_url is the 1080×1080 square; image_url is the 16:9 banner fallback) */}
-                  {(event.posterUrl || event.imageUrl) && (
+                  {/* Poster thumbnail — square 1:1 (poster_url is the 1080×1080 square photo) */}
+                  {event.posterUrl && (
                     <div className="w-16 h-16 flex-shrink-0 rounded-md overflow-hidden bg-muted">
                       <img
-                        src={event.posterUrl || event.imageUrl}
+                        src={event.posterUrl}
                         alt={event.title}
                         className="w-full h-full object-cover"
                       />

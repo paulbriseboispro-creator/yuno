@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
     const { data: venueEvents } = venueIds.length > 0
       ? await supabase
           .from("events")
-          .select("id, title, start_at, end_at, image_url, poster_url, music_genre, ticketing_enabled, venue_id, organizer_user_id, partner_organizer_id, partner_venue_id")
+          .select("id, title, start_at, end_at, poster_url, music_genre, ticketing_enabled, venue_id, organizer_user_id, partner_organizer_id, partner_venue_id")
           .in("venue_id", venueIds)
           .eq("is_active", true)
           .gte("end_at", now)
@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
       ]).join(",");
       const { data } = await supabase
         .from("events")
-        .select("id, title, start_at, end_at, image_url, poster_url, music_genre, ticketing_enabled, venue_id, organizer_user_id, partner_organizer_id, partner_venue_id")
+        .select("id, title, start_at, end_at, poster_url, music_genre, ticketing_enabled, venue_id, organizer_user_id, partner_organizer_id, partner_venue_id")
         .or(orFilter)
         .eq("is_active", true)
         .gte("end_at", now)

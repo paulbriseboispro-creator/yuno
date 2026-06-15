@@ -141,7 +141,6 @@ function buildRealDataContext(
       if (e.music_genre) ctx += ` — ${e.music_genre}`;
       ctx += `\n  Lien : ${eventLink}`;
       if (e.poster_url) ctx += `\n  Poster : ${e.poster_url}`;
-      else if (e.image_url) ctx += `\n  Image : ${e.image_url}`;
 
       // Ticket rounds
       const rounds = ticketRounds.filter((r: any) => r.event_id === e.id);
@@ -319,7 +318,7 @@ serve(async (req) => {
     ] = await Promise.all([
       supabase.from("venues").select("id, name, city, address, instagram_url, logo_url, cover_url").limit(50),
       supabase.from("events")
-        .select("id, venue_id, title, start_at, end_at, music_genre, ticketing_enabled, tables_enabled, poster_url, image_url")
+        .select("id, venue_id, title, start_at, end_at, music_genre, ticketing_enabled, tables_enabled, poster_url")
         .gte("end_at", now)
         .eq("is_active", true)
         .order("start_at")

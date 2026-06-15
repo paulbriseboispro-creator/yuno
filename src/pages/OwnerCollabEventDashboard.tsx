@@ -39,7 +39,6 @@ interface EventData {
   title: string;
   description: string | null;
   poster_url: string | null;
-  image_url: string | null;
   start_at: string;
   end_at: string;
   is_active: boolean;
@@ -92,7 +91,7 @@ export default function OwnerCollabEventDashboard() {
       // 2. Fetch event (RLS will allow if user is lead, partner_venue_owner, or partner_organizer)
       const { data: ev, error: evErr } = await supabase
         .from('events')
-        .select('id, title, description, poster_url, image_url, start_at, end_at, is_active, organizer_user_id, partner_organizer_id, venue_id, partner_venue_id, event_mode, revenue_split_rules, split_locked_at')
+        .select('id, title, description, poster_url, start_at, end_at, is_active, organizer_user_id, partner_organizer_id, venue_id, partner_venue_id, event_mode, revenue_split_rules, split_locked_at')
         .eq('id', eventId)
         .maybeSingle();
       if (cancelled) return;
@@ -176,9 +175,9 @@ export default function OwnerCollabEventDashboard() {
         {/* HERO */}
         <Card className="owner-card border-0 overflow-hidden">
           <div className="flex flex-col sm:flex-row gap-4 p-4 sm:p-6">
-            {(event.poster_url || event.image_url) && (
+            {event.poster_url && (
               <img
-                src={event.poster_url || event.image_url || ''}
+                src={event.poster_url}
                 alt={event.title}
                 className="w-full sm:w-32 h-44 sm:h-44 rounded-xl object-cover flex-shrink-0"
               />

@@ -289,18 +289,21 @@ function DonutChart({ data }: { data: { name: string; val: number; pct: number }
       />
     );
   });
-  const top = data[0];
+  // Center label shows the dominant category, not data[0] (which made an empty
+  // first category like "Boissons" read "0%" while real revenue sat in others).
+  const hasData = data.some(d => d.val > 0);
+  const top = data.reduce((m, d) => (d.val > m.val ? d : m), data[0] ?? { name: '', val: 0, pct: 0 });
   return (
     <svg width={S} height={S} viewBox={`0 0 ${S} ${S}`} style={{ flexShrink: 0 }}>
       <circle cx={c} cy={c} r={r} fill="none" stroke={C_FAINT} strokeWidth={sw} />
       {segs}
       <text x={c} y={c - 5} fill={T1} fontSize={21} fontWeight={650} textAnchor="middle"
         style={{ letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
-        {top?.pct ?? 0}%
+        {hasData ? top.pct : 0}%
       </text>
       <text x={c} y={c + 14} fill={T3} fontSize={10} textAnchor="middle"
         style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-        {top?.name?.split(' ')[0] ?? ''}
+        {hasData ? top.name.split(' ')[0] : ''}
       </text>
     </svg>
   );
@@ -547,7 +550,7 @@ export default function OwnerAnalytics() {
 
   // Funnel steps (drinks funnel data)
   const funnelSteps = [
-    { label: t('owner.visitors'), n: drinkAnalytics.visitors, pct: '100%' },
+    { label: t('owner.visitors'), n: drinkAnalytics.visitors, pct: drinkAnalytics.visitors > 0 ? '100%' : '0%' },
     { label: t('owner.addedToCart'), n: drinkAnalytics.addedToCart, pct: drinkAnalytics.visitors > 0 ? ((drinkAnalytics.addedToCart / drinkAnalytics.visitors) * 100).toFixed(0) + '%' : '0%' },
     { label: t('owner.proceededToCheckout'), n: drinkAnalytics.proceededToCheckout, pct: drinkAnalytics.visitors > 0 ? ((drinkAnalytics.proceededToCheckout / drinkAnalytics.visitors) * 100).toFixed(0) + '%' : '0%' },
     { label: t('owner.paidOrders'), n: drinkAnalytics.totalOrders, pct: drinkAnalytics.visitors > 0 ? drinkAnalytics.conversionRate.toFixed(1) + '%' : '0%' },
@@ -733,22 +736,30 @@ export default function OwnerAnalytics() {
               <div className="text-right px-4 py-2 rounded-xl" style={{ background: 'rgba(232,25,44,0.08)', border: `1px solid rgba(232,25,44,0.2)` }}>
                 <div className="text-[10px] uppercase tracking-[0.07em] mb-1" style={{ color: T3 }}>{t('owner.globalRate')}</div>
                 <div className="text-2xl font-[660] tabular-nums" style={{ color: RED, letterSpacing: '-0.03em' }}>
-                  {drinkAnalytics.conversionRate.toFixed(1)}%
+                  {drinkAnalytics.visitors > 0 ? `${drinkAnalytics.conversionRate.toFixed(1)}%` : '—'}
                 </div>
               </div>
             }
           >
-            <FunnelRibbon stages={funnelSteps} />
-            <div className="grid mt-3" style={{ gridTemplateColumns: `repeat(${funnelSteps.length}, 1fr)` }}>
-              {funnelSteps.map((s, i) => (
-                <div key={i} className="text-center px-1" style={{ borderLeft: i > 0 ? `1px solid ${BORDER}` : 'none' }}>
-                  <div className="text-base font-[640] tabular-nums leading-tight" style={{ color: T1, letterSpacing: '-0.02em' }}>
-                    {s.n.toLocaleString()}
-                  </div>
-                  <div className="text-[11.5px] mt-1" style={{ color: T3 }}>{s.label}</div>
+            {drinkAnalytics.visitors > 0 ? (
+              <>
+                <FunnelRibbon stages={funnelSteps} />
+                <div className="grid mt-3" style={{ gridTemplateColumns: `repeat(${funnelSteps.length}, 1fr)` }}>
+                  {funnelSteps.map((s, i) => (
+                    <div key={i} className="text-center px-1" style={{ borderLeft: i > 0 ? `1px solid ${BORDER}` : 'none' }}>
+                      <div className="text-base font-[640] tabular-nums leading-tight" style={{ color: T1, letterSpacing: '-0.02em' }}>
+                        {s.n.toLocaleString()}
+                      </div>
+                      <div className="text-[11.5px] mt-1" style={{ color: T3 }}>{s.label}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            ) : (
+              <div className="flex items-center justify-center text-sm" style={{ height: 248, color: T3 }}>
+                {t('owner.an.noDataPeriod')}
+              </div>
+            )}
           </PCard>
 
           {/* Revenue mix donut */}

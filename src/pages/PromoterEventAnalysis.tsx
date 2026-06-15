@@ -22,7 +22,6 @@ interface EventInfo {
   title: string;
   start_at: string;
   end_at: string;
-  image_url: string | null;
   poster_url: string | null;
   venue_id: string;
 }
@@ -108,7 +107,7 @@ export default function PromoterEventAnalysis() {
     if (!eventId) return;
     (async () => {
       const { data: ev } = await supabase.from('events')
-        .select('id, title, start_at, end_at, image_url, poster_url, venue_id')
+        .select('id, title, start_at, end_at, poster_url, venue_id')
         .eq('id', eventId).single();
       if (!ev) { setLoading(false); return; }
       setEvent(ev);

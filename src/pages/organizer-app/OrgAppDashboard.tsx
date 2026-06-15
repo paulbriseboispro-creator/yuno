@@ -33,7 +33,6 @@ interface NextEvent {
   start_at: string;
   end_at: string;
   poster_url: string | null;
-  image_url: string | null;
   location_name: string | null;
   location_city: string | null;
   max_tickets: number | null;
@@ -96,7 +95,7 @@ export default function OrgAppDashboard() {
         // 1. Next upcoming event
         const { data: upcoming } = await supabase
           .from('events')
-          .select('id, title, start_at, end_at, poster_url, image_url, location_name, location_city, max_tickets, partner_venue_id, venue_id')
+          .select('id, title, start_at, end_at, poster_url, location_name, location_city, max_tickets, partner_venue_id, venue_id')
           .or(`organizer_user_id.eq.${user.id},partner_organizer_id.eq.${user.id}`)
           .gte('end_at', new Date().toISOString())
           .order('start_at', { ascending: true })
@@ -416,8 +415,8 @@ export default function OrgAppDashboard() {
           <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, overflow: 'hidden' }}>
             <div className="grid md:grid-cols-[240px_1fr]">
               <div className="relative h-40 md:h-full" style={{ background: INNER_BG }}>
-                {(nextEvent.poster_url || nextEvent.image_url) ? (
-                  <img src={nextEvent.poster_url || nextEvent.image_url || ''} alt={nextEvent.title} className="h-full w-full object-cover" />
+                {nextEvent.poster_url ? (
+                  <img src={nextEvent.poster_url} alt={nextEvent.title} className="h-full w-full object-cover" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center" style={{ color: T3 }}>
                     <Sparkles className="h-10 w-10" />

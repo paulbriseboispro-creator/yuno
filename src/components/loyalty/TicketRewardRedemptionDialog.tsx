@@ -11,7 +11,7 @@ interface Event {
   id: string;
   title: string;
   start_at: string;
-  image_url: string | null;
+  poster_url: string | null;
 }
 
 interface TicketRound {
@@ -82,7 +82,7 @@ export function TicketRewardRedemptionDialog({
     try {
       const { data: eventsData } = await supabase
         .from('events')
-        .select('id, title, start_at, image_url')
+        .select('id, title, start_at, poster_url')
         .eq('venue_id', venueId)
         .eq('is_active', true)
         .eq('ticketing_enabled', true)
@@ -213,9 +213,9 @@ export function TicketRewardRedemptionDialog({
                           : 'border-border hover:border-primary/50'
                       )}
                     >
-                      {event.image_url ? (
+                      {event.poster_url ? (
                         <img
-                          src={event.image_url}
+                          src={event.poster_url}
                           alt={event.title}
                           className="w-12 h-12 object-cover rounded-lg"
                         />

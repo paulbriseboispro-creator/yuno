@@ -190,7 +190,7 @@ serve(async (req) => {
 
     const { data: event, error: eventError } = await supabaseClient
       .from('events')
-      .select('title, start_at, venue_id, image_url, poster_url, description, venues(name)')
+      .select('title, start_at, venue_id, poster_url, description, venues(name)')
       .eq('id', eventId)
       .single();
 
@@ -233,7 +233,7 @@ serve(async (req) => {
     if (resendApiKey) {
       const venueName = (event as any).venues?.name || 'Yuno';
       const eventUrl = `https://yunoapp.eu/club/${event.venue_id}`;
-      const eventImageUrl = (event as any).image_url || (event as any).poster_url || null;
+      const eventImageUrl = (event as any).poster_url || null;
       const lang: EmailLanguage = 'fr';
 
       for (const entry of entries) {

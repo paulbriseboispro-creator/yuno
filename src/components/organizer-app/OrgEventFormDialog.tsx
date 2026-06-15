@@ -21,12 +21,10 @@ import {
   Building2,
   Users,
   Sparkles,
-  Info,
   Loader2,
   ChevronDown,
   Check,
 } from 'lucide-react';
-import { BannerCropper, BannerPosition } from '@/components/BannerCropper';
 import { PosterCropper, PosterPosition } from '@/components/PosterCropper';
 import { DJLineupSelector } from '@/components/dj/DJLineupSelector';
 import { fromParisTime } from '@/lib/timezone';
@@ -183,10 +181,7 @@ export function OrgEventFormDialog({
   const [collabMode, setCollabMode] = useState<CollabMode>('solo');
   const [partnerVenueId, setPartnerVenueId] = useState<string>('');
 
-  // Visuals
-  const [bannerFile, setBannerFile] = useState<File | null>(null);
-  const [bannerPreview, setBannerPreview] = useState<string>('');
-  const [bannerPosition, setBannerPosition] = useState<BannerPosition | null>(null);
+  // Visuals — events use a single 1:1 square photo (poster)
   const [posterFile, setPosterFile] = useState<File | null>(null);
   const [posterPreview, setPosterPreview] = useState<string>('');
   const [posterPosition, setPosterPosition] = useState<PosterPosition | null>(null);
@@ -215,9 +210,6 @@ export function OrgEventFormDialog({
       setEventKind('public_event');
       setCollabMode('solo');
       setPartnerVenueId('');
-      setBannerFile(null);
-      setBannerPreview('');
-      setBannerPosition(null);
       setPosterFile(null);
       setPosterPreview('');
       setPosterPosition(null);
@@ -259,8 +251,6 @@ export function OrgEventFormDialog({
         } else {
           setCollabMode('solo');
         }
-        setBannerPreview(ev.image_url || '');
-        setBannerPosition((ev.banner_position as any) || null);
         setPosterPreview(ev.poster_url || '');
         setPosterPosition((ev.poster_position as any) || null);
 
@@ -275,14 +265,6 @@ export function OrgEventFormDialog({
     })();
   }, [open, eventId]);
 
-  const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setBannerFile(file);
-    setBannerPreview(URL.createObjectURL(file));
-    setBannerPosition(null);
-  };
-
   const handlePosterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -291,17 +273,12 @@ export function OrgEventFormDialog({
     setPosterPosition(null);
   };
 
-  const uploadImage = async (
-    file: File,
-    prefix: 'banner' | 'poster'
-  ): Promise<string | null> => {
-    // Bucket convention:
-    // - banners → 'event-images' (16:9 hero)
-    // - posters → 'event-posters' (9:16 portrait)
-    // Both use path scoped to the organizer's user id so RLS allows the upload.
-    const bucket = prefix === 'poster' ? 'event-posters' : 'event-images';
+  const uploadImage = async (file: File): Promise<string | null> => {
+    // Events use a single 1:1 square photo, stored in the 'event-posters' bucket.
+    // Path is scoped to the organizer's user id so RLS allows the upload.
+    const bucket = 'event-posters';
     const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-    const path = `${organizerUserId}/${Date.now()}-${prefix}.${ext}`;
+    const path = `${organizerUserId}/${Date.now()}-poster.${ext}`;
     const { error } = await supabase.storage
       .from(bucket)
       .upload(path, file, { upsert: false, contentType: file.type });
@@ -340,23 +317,14 @@ export function OrgEventFormDialog({
     try {
       // Sanitize previews: never persist blob: or data: URLs (they're local-only and break on reload)
       const sanitize = (url: string) => (url && (url.startsWith('blob:') || url.startsWith('data:')) ? '' : url);
-      let imageUrl = sanitize(bannerPreview);
       let posterUrl = sanitize(posterPreview);
 
-      if (bannerFile) {
-        const url = await uploadImage(bannerFile, 'banner');
-        if (url) imageUrl = url;
-        else {
-          setSaving(false);
-          return; // upload failed, abort save to avoid persisting blob URL
-        }
-      }
       if (posterFile) {
-        const url = await uploadImage(posterFile, 'poster');
+        const url = await uploadImage(posterFile);
         if (url) posterUrl = url;
         else {
           setSaving(false);
-          return;
+          return; // upload failed, abort save to avoid persisting blob URL
         }
       }
 
@@ -374,11 +342,7 @@ export function OrgEventFormDialog({
         organizer_user_id: organizerUserId,
         title: title.trim(),
         description: description.trim() || null,
-        image_url: imageUrl || null,
         poster_url: posterUrl || null,
-        banner_position: bannerPosition
-          ? { xPercent: bannerPosition.xPercent, yPercent: bannerPosition.yPercent, scale: bannerPosition.scale }
-          : null,
         poster_position: posterPosition
           ? { x: posterPosition.x, y: posterPosition.y, scale: posterPosition.scale }
           : null,
@@ -461,8 +425,8 @@ export function OrgEventFormDialog({
           </DialogTitle>
           <DialogDescription style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>
             {t(
-              'Bannière + affiche, métadonnées musicales et créneau Paris.',
-              'Banner + poster, music metadata and Paris timezone.'
+              'Photo carrée, métadonnées musicales et créneau Paris.',
+              'Square photo, music metadata and Paris timezone.'
             )}
           </DialogDescription>
         </DialogHeader>
@@ -473,46 +437,9 @@ export function OrgEventFormDialog({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="p-6 space-y-5">
-            {/* Banner */}
+            {/* Poster — single 1:1 square photo */}
             <div>
-              <FieldLabel>{t('Bannière (16:9)', 'Banner (16:9)')}</FieldLabel>
-              {bannerPreview ? (
-                <BannerCropper
-                  imageUrl={bannerPreview}
-                  initialPosition={bannerPosition || undefined}
-                  onPositionChange={setBannerPosition}
-                  onRemove={() => {
-                    setBannerFile(null);
-                    setBannerPreview('');
-                    setBannerPosition(null);
-                  }}
-                />
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-start gap-2 p-3 rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-                    <Info className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: T3 }} />
-                    <div>
-                      <p style={{ color: T1, fontSize: 12, fontWeight: 560, marginBottom: 2 }}>{t('Format Bannière (16:9)', 'Banner format (16:9)', 'Formato de banner (16:9)')}</p>
-                      <p style={{ color: T3, fontSize: 11.5 }}>{t('Recommandé :', 'Recommended:', 'Recomendado:')} <span style={{ color: T2 }}>1920 × 1080 px</span></p>
-                    </div>
-                  </div>
-                  <input id="banner-input" type="file" accept="image/*" onChange={handleBannerChange} className="hidden" />
-                  <button
-                    type="button"
-                    onClick={() => document.getElementById('banner-input')?.click()}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] font-medium cursor-pointer transition-all duration-150"
-                    style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}
-                  >
-                    <Upload className="w-4 h-4" />
-                    {t('Ajouter une bannière', 'Add banner')}
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Poster */}
-            <div>
-              <FieldLabel>{t('Affiche (9:16)', 'Poster (9:16)')}</FieldLabel>
+              <FieldLabel>{t('Photo (1:1)', 'Photo (1:1)')}</FieldLabel>
               {posterPreview ? (
                 <PosterCropper
                   imageUrl={posterPreview}

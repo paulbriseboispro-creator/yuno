@@ -23,7 +23,7 @@ interface Event {
   title: string;
   start_at: string;
   end_at: string;
-  image_url: string | null;
+  poster_url: string | null;
 }
 
 interface DrinkRewardRedemptionDialogProps {
@@ -160,7 +160,7 @@ export function DrinkRewardRedemptionDialog({
       // so that drink rewards can be consumed at any soirée taking place at this club.
       const { data: eventsData } = await supabase
         .from('events')
-        .select('id, title, start_at, end_at, image_url')
+        .select('id, title, start_at, end_at, poster_url')
         .or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`)
         .eq('is_active', true)
         .gte('end_at', new Date().toISOString())
@@ -338,9 +338,9 @@ export function DrinkRewardRedemptionDialog({
                             : 'border-border hover:border-primary/50'
                         )}
                       >
-                        {event.image_url ? (
+                        {event.poster_url ? (
                           <img
-                            src={event.image_url}
+                            src={event.poster_url}
                             alt={event.title}
                             className="w-12 h-12 object-cover rounded-lg"
                           />

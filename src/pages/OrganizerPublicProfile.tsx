@@ -38,7 +38,6 @@ interface OrgEvent {
   start_at: string;
   end_at: string;
   poster_url: string | null;
-  image_url: string | null;
   location_city: string | null;
   venue_id: string | null;
   venue_name?: string;
@@ -98,7 +97,7 @@ export default function OrganizerPublicProfile() {
       // qu'un visiteur consulte volontairement).
       const { data: evs } = await supabase
         .from('events')
-        .select('id, title, start_at, end_at, poster_url, image_url, location_city, venue_id, partner_venue_id')
+        .select('id, title, start_at, end_at, poster_url, location_city, venue_id, partner_venue_id')
         .eq('organizer_user_id', prof.user_id)
         .eq('visibility', 'public')
         .eq('is_active', true)
@@ -492,12 +491,6 @@ export default function OrganizerPublicProfile() {
                         alt={event.title}
                         className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
-                    ) : event.image_url ? (
-                      <img
-                        src={getOptimizedImageUrl(event.image_url, { width: 300, quality: 70 })}
-                        alt={event.title}
-                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
                     ) : (
                       <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center">
                         <Calendar className="h-12 w-12 text-muted-foreground" />
@@ -653,9 +646,9 @@ export default function OrganizerPublicProfile() {
                   className="flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]"
                 >
                   <div className="h-14 w-12 shrink-0 rounded-lg overflow-hidden bg-white/[0.05]">
-                    {(event.poster_url || event.image_url) ? (
+                    {event.poster_url ? (
                       <img
-                        src={(event.poster_url || event.image_url)!}
+                        src={event.poster_url}
                         alt=""
                         className="w-full h-full object-cover"
                       />

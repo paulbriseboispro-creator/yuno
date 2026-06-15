@@ -80,7 +80,7 @@ serve(async (req) => {
 
     const { data: event } = await supabaseAdmin
       .from("events")
-      .select("id, title, venue_id, start_at, poster_url, image_url")
+      .select("id, title, venue_id, start_at, poster_url")
       .eq("id", eventId)
       .maybeSingle();
 
@@ -369,7 +369,7 @@ serve(async (req) => {
 
           const safeEventTitle = escapeHtml(event?.title || "Événement");
           const safeVenueName = escapeHtml(venueName);
-          const eventImageUrl = event?.image_url || event?.poster_url || null;
+          const eventImageUrl = event?.poster_url || null;
 
           const emailContent = `
             ${eventImageUrl ? `

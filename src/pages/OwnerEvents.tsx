@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { TablesUpdate } from '@/integrations/supabase/types';
 import { Event } from '@/types';
 import { formatInTimeZone } from 'date-fns-tz';
-import { fr } from 'date-fns/locale';
+import { fr, es, enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { PARIS_TIMEZONE, toParisTime, fromParisTime, nowInParis } from '@/lib/timezone';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -17,7 +17,6 @@ import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { PosterCropper, PosterPosition } from '@/components/PosterCropper';
-import { BannerCropper, BannerPosition } from '@/components/BannerCropper';
 import { DJLineupSelector } from '@/components/dj/DJLineupSelector';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { isCollabPlan } from '@/lib/planFeatures';
@@ -131,7 +130,7 @@ type OwnerEventRow = Event & {
 type VenuePreset = { id: string; name: string; ticket_type: string; total_capacity: number; selling_mode: string | null; rounds: unknown };
 
 export default function OwnerEvents() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   const { venueId, organizerUserId, scope, loading: venueLoading } = useVenueContext();
   const { basePath } = useDashboardMode();
@@ -165,7 +164,7 @@ export default function OwnerEvents() {
     isActive: true, musicGenres: ['Open Format'] as string[], eventType: 'club',
   });
 
-  // ─── Organizer-only event fields (visibility / collab / banner / secret venue) ──
+  // ─── Organizer-only event fields (visibility / collab / secret venue) ──
   const [eventKind, setEventKind] = useState<EventKind>('public_event');
   const [collabMode, setCollabMode] = useState<CollabMode>('solo');
   const [partnerVenueId, setPartnerVenueId] = useState<string>('');
@@ -177,9 +176,6 @@ export default function OwnerEvents() {
   // Per-event opt-out is only offered when the global is on.
   const [globalMinorsAllowed, setGlobalMinorsAllowed] = useState(false);
   const [minorsDisabled, setMinorsDisabled] = useState(false);
-  const [bannerFile, setBannerFile] = useState<File | null>(null);
-  const [bannerPreview, setBannerPreview] = useState<string>('');
-  const [bannerPosition, setBannerPosition] = useState<BannerPosition | null>(null);
   const requiresPartner = isOrganizerScope && eventKind === 'public_event' && collabMode !== 'solo';
 
   useEffect(() => {
@@ -228,7 +224,7 @@ export default function OwnerEvents() {
       const mappedEvents = (data || []).map((event) => ({
         id: event.id, venueId: event.venue_id, title: event.title,
         description: event.description || undefined,
-        posterUrl: event.poster_url || event.image_url || undefined,
+        posterUrl: event.poster_url || undefined,
         posterPosition: event.poster_position as unknown as PosterPosition | undefined,
         startAt: event.start_at, endAt: event.end_at, isActive: event.is_active,
         createdAt: event.created_at, updatedAt: event.updated_at,
@@ -277,32 +273,28 @@ export default function OwnerEvents() {
     setPresets((data || []) as VenuePreset[]);
   };
 
-  // Upload an organizer image to the right bucket (banners = 16:9 event-images, posters = 9:16 event-posters).
-  const uploadOrgImage = async (file: File, prefix: 'banner' | 'poster'): Promise<string | null> => {
-    const bucket = prefix === 'poster' ? 'event-posters' : 'event-images';
+  // Upload an organizer event photo (single 1:1 square poster) to the 'event-posters' bucket.
+  const uploadOrgImage = async (file: File): Promise<string | null> => {
+    const bucket = 'event-posters';
     const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-    const path = `${organizerUserId}/${Date.now()}-${prefix}.${ext}`;
+    const path = `${organizerUserId}/${Date.now()}-poster.${ext}`;
     const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: false, contentType: file.type });
     if (error) { toast.error(error.message || t('owner.toastPosterUploadError')); return null; }
     return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
   };
 
-  // Organizer event save — visibility (public/private), collab mode, partner club, secret venue, banner+poster.
+  // Organizer event save — visibility (public/private), collab mode, partner club, secret venue, 1:1 poster.
   const saveOrganizerEvent = async ({ startAtUTC, endAtUTC }: { startAtUTC: string; endAtUTC: string }) => {
     const sanitize = (url: string) => (url && (url.startsWith('blob:') || url.startsWith('data:')) ? '' : url);
-    let imageUrl = sanitize(bannerPreview);
     let posterUrl = sanitize(posterPreview);
-    if (bannerFile) { const u = await uploadOrgImage(bannerFile, 'banner'); if (u) imageUrl = u; else throw new Error('banner upload failed'); }
-    if (posterFile) { const u = await uploadOrgImage(posterFile, 'poster'); if (u) posterUrl = u; else throw new Error('poster upload failed'); }
+    if (posterFile) { const u = await uploadOrgImage(posterFile); if (u) posterUrl = u; else throw new Error('poster upload failed'); }
 
     const visibility = eventKind === 'private_event' ? 'private' : 'public';
     const payload: Record<string, any> = {
       organizer_user_id: organizerUserId,
       title: formData.title.trim(),
       description: formData.description.trim() || null,
-      image_url: imageUrl || null,
       poster_url: posterUrl || null,
-      banner_position: bannerPosition ? { xPercent: bannerPosition.xPercent, yPercent: bannerPosition.yPercent, scale: bannerPosition.scale } : null,
       poster_position: posterPosition ? { x: posterPosition.x, y: posterPosition.y, scale: posterPosition.scale } : null,
       start_at: startAtUTC, end_at: endAtUTC,
       location_name: locationName.trim() || null,
@@ -353,7 +345,7 @@ export default function OwnerEvents() {
     if (requiresPartner && !partnerVenueId) { toast.error('Sélectionne un club partenaire'); return; }
     setIsSaving(true);
     try {
-      // ── Organizer scope: visibility / collab / banner / secret venue (mirrors the org event flow) ──
+      // ── Organizer scope: visibility / collab / secret venue (mirrors the org event flow) ──
       if (isOrganizerScope) {
         await saveOrganizerEvent({ startAtUTC: fromParisTime(formData.startAt).toISOString(), endAtUTC: fromParisTime(formData.endAt).toISOString() });
         setIsDialogOpen(false);
@@ -548,7 +540,7 @@ export default function OwnerEvents() {
     if (isOrganizerScope) {
       const { data: ev } = await supabase
         .from('events')
-        .select('event_kind, partner_venue_id, event_mode, location_name, location_city, location_address, location_is_secret, image_url, banner_position')
+        .select('event_kind, partner_venue_id, event_mode, location_name, location_city, location_address, location_is_secret')
         .eq('id', event.id)
         .maybeSingle();
       if (ev) {
@@ -564,8 +556,6 @@ export default function OwnerEvents() {
         setLocationCity(ev.location_city || '');
         setLocationAddress(ev.location_address || '');
         setLocationIsSecret(!!(ev as any).location_is_secret);
-        setBannerPreview(ev.image_url || '');
-        setBannerPosition(((ev as any).banner_position as BannerPosition) || null);
       }
     }
     setIsDialogOpen(true);
@@ -576,15 +566,6 @@ export default function OwnerEvents() {
     setFormData({ title: '', description: '', posterUrl: '', startAt: '', endAt: '', isActive: true, musicGenres: ['Open Format'], eventType: 'club' });
     setEventKind('public_event'); setCollabMode('solo'); setPartnerVenueId('');
     setLocationName(''); setLocationCity(''); setLocationAddress(''); setLocationIsSecret(false); setMinorsDisabled(false);
-    setBannerFile(null); setBannerPreview(''); setBannerPosition(null);
-  };
-
-  const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setBannerFile(file);
-    setBannerPreview(URL.createObjectURL(file));
-    setBannerPosition(null);
   };
 
   const handlePosterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -599,6 +580,35 @@ export default function OwnerEvents() {
 
   const upcomingEvents = events.filter(e => toParisTime(e.endAt) >= nowInParis());
   const pastEvents = events.filter(e => toParisTime(e.endAt) < nowInParis());
+
+  // Group upcoming events by their Paris-time calendar day so a busy dashboard
+  // reads day-by-day (Today → Tomorrow → later) instead of one long flat run.
+  const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
+  const upcomingByDay: { key: string; date: Date; events: Event[] }[] = (() => {
+    const map = new Map<string, Event[]>();
+    for (const ev of upcomingEvents) {
+      const key = formatInTimeZone(new Date(ev.startAt), PARIS_TIMEZONE, 'yyyy-MM-dd');
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(ev);
+    }
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b)) // soonest day first
+      .map(([key, evs]) => ({
+        key,
+        date: new Date(evs[0].startAt),
+        events: [...evs].sort((x, y) => new Date(x.startAt).getTime() - new Date(y.startAt).getTime()),
+      }));
+  })();
+  const todayKey = formatInTimeZone(new Date(), PARIS_TIMEZONE, 'yyyy-MM-dd');
+  const tomorrowKey = formatInTimeZone(new Date(Date.now() + 86_400_000), PARIS_TIMEZONE, 'yyyy-MM-dd');
+  const currentYear = formatInTimeZone(new Date(), PARIS_TIMEZONE, 'yyyy');
+  const dayHeaderLabel = (key: string, date: Date): string => {
+    if (key === todayKey) return t('owner.today');
+    if (key === tomorrowKey) return t('owner.tomorrow');
+    const fmt = formatInTimeZone(date, PARIS_TIMEZONE, 'yyyy') === currentYear ? 'EEEE d MMMM' : 'EEEE d MMMM yyyy';
+    const s = formatInTimeZone(date, PARIS_TIMEZONE, fmt, { locale: dateLocale });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  };
 
   if (loading || venueLoading) return <OwnerPageSkeleton />;
 
@@ -707,32 +717,47 @@ export default function OwnerEvents() {
           </div>
         )}
 
-        {/* Upcoming events */}
+        {/* Upcoming events — grouped by day for readability */}
         {upcomingEvents.length > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-5">
             <p style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>À venir</p>
-            {upcomingEvents.map((event, i) => (
-              <motion.div
-                key={event.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.04 }}
-              >
-                <EventCard
-                  event={event}
-                  onEdit={() => handleEdit(event)}
-                  onDelete={() => handleDelete(event.id)}
-                  onToggle={() => handleToggleActive(event)}
-                  onToggleTicketing={() => handleToggleTicketing(event)}
-                  onToggleTables={() => handleToggleTables(event)}
-                  onApplyPreset={(preset) => handleApplyPresetAndPublish(event, preset)}
-                  presets={presets}
-                  onNavigate={navigate}
-                  onDetails={isOrganizerScope ? () => navigate(`${basePath}/events/${event.id}`) : undefined}
-                  basePath={basePath}
-                  t={t}
-                />
-              </motion.div>
+            {upcomingByDay.map((group) => (
+              <div key={group.key} className="space-y-3">
+                {/* Day header */}
+                <div className="flex items-center gap-3">
+                  <span style={{ color: T2, fontSize: 12.5, fontWeight: 600, letterSpacing: '-0.01em' }}>
+                    {dayHeaderLabel(group.key, group.date)}
+                  </span>
+                  <span style={{ flex: 1, height: 1, background: F_BORDER }} />
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-semibold"
+                    style={{ background: C_FAINT, color: T3 }}>
+                    {group.events.length}
+                  </span>
+                </div>
+                {group.events.map((event, i) => (
+                  <motion.div
+                    key={event.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.04 }}
+                  >
+                    <EventCard
+                      event={event}
+                      onEdit={() => handleEdit(event)}
+                      onDelete={() => handleDelete(event.id)}
+                      onToggle={() => handleToggleActive(event)}
+                      onToggleTicketing={() => handleToggleTicketing(event)}
+                      onToggleTables={() => handleToggleTables(event)}
+                      onApplyPreset={(preset) => handleApplyPresetAndPublish(event, preset)}
+                      presets={presets}
+                      onNavigate={navigate}
+                      onDetails={isOrganizerScope ? () => navigate(`${basePath}/events/${event.id}`) : undefined}
+                      basePath={basePath}
+                      t={t}
+                    />
+                  </motion.div>
+                ))}
+              </div>
             ))}
           </div>
         )}
@@ -812,35 +837,7 @@ export default function OwnerEvents() {
               <DarkTextarea value={formData.description} onChange={v => setFormData({ ...formData, description: v })} placeholder={t('owner.descriptionPlaceholder')} rows={3} />
             </div>
 
-            {/* Banner — organizer scope only (16:9 hero) */}
-            {isOrganizerScope && (
-              <div>
-                <FieldLabel>Bannière (16:9)</FieldLabel>
-                {bannerPreview ? (
-                  <BannerCropper
-                    imageUrl={bannerPreview}
-                    initialPosition={bannerPosition || undefined}
-                    onPositionChange={setBannerPosition}
-                    onRemove={() => { setBannerFile(null); setBannerPreview(''); setBannerPosition(null); }}
-                  />
-                ) : (
-                  <div className="space-y-2">
-                    <input id="event-banner" type="file" accept="image/*" onChange={handleBannerChange} className="hidden" />
-                    <button
-                      type="button"
-                      onClick={() => document.getElementById('event-banner')?.click()}
-                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] font-medium cursor-pointer transition-all duration-150"
-                      style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}
-                    >
-                      <Upload className="w-4 h-4" />
-                      Ajouter une bannière
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Poster */}
+            {/* Poster — single 1:1 square photo */}
             <div>
               <FieldLabel>{t('owner.eventPosterLabel')}</FieldLabel>
               <p style={{ color: T3, fontSize: 11.5, marginBottom: 8 }}>{t('owner.eventPosterDesc')}</p>

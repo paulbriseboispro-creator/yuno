@@ -43,7 +43,7 @@ export default function TicketSelection() {
 
   const [loading, setLoading] = useState(true);
   const [eventData, setEventData] = useState<{
-    title: string; posterUrl?: string; imageUrl?: string; startAt: string;
+    title: string; posterUrl?: string; startAt: string;
     ticketingEnabled: boolean; tablesEnabled: boolean; venueId: string | null;
     ticketSellingMode: TicketSellingMode; presaleStartAt?: string; publicSaleStartAt?: string;
     waitlistEnabled?: boolean; maxTickets?: number | null; roundsVisibility?: 'sequential' | 'preview_upcoming' | 'all_open';
@@ -97,7 +97,7 @@ export default function TicketSelection() {
     try {
       const { data: ev, error } = await supabase
         .from('events')
-        .select('title, poster_url, image_url, start_at, ticketing_enabled, tables_enabled, venue_id, partner_venue_id, tables_mode, ticket_selling_mode, presale_start_at, public_sale_start_at, waitlist_enabled, max_tickets, rounds_visibility, alcohol_free, max_tickets_per_person, sale_password_enabled')
+        .select('title, poster_url, start_at, ticketing_enabled, tables_enabled, venue_id, partner_venue_id, tables_mode, ticket_selling_mode, presale_start_at, public_sale_start_at, waitlist_enabled, max_tickets, rounds_visibility, alcohol_free, max_tickets_per_person, sale_password_enabled')
         .eq('id', eventId)
         .single();
       if (error) throw error;
@@ -106,7 +106,7 @@ export default function TicketSelection() {
       const isBasicTables = (ev as any).tables_mode === 'basic' || !ev.venue_id;
 
       const evData = {
-        title: ev.title, posterUrl: ev.poster_url || undefined, imageUrl: ev.image_url || undefined,
+        title: ev.title, posterUrl: ev.poster_url || undefined,
         startAt: ev.start_at, ticketingEnabled: ev.ticketing_enabled, tablesEnabled: ev.tables_enabled,
         venueId: effectiveVenueId,
         ticketSellingMode: ((ev as any).ticket_selling_mode as TicketSellingMode) || 'rounds',
@@ -290,7 +290,7 @@ export default function TicketSelection() {
     return visible;
   };
 
-  const heroImage = eventData?.posterUrl || eventData?.imageUrl;
+  const heroImage = eventData?.posterUrl;
   const salesIsOpen = salesStatus === 'public_sale' || (salesStatus === 'presale' && hasPresaleAccess);
   // Password-gated sale: hide everything buyable until the buyer unlocks.
   const saleLocked = !!eventData?.salePasswordEnabled && !saleUnlocked;

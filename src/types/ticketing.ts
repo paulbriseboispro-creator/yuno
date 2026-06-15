@@ -126,10 +126,8 @@ export type EventWithTicketing = {
   venueId: string;
   title: string;
   description?: string;
-  imageUrl?: string;
   posterUrl?: string;
   posterPosition?: { x: number; y: number; scale: number };
-  bannerPosition?: { xPercent: number; yPercent: number; scale: number };
   startAt: string;
   endAt: string;
   isActive: boolean;

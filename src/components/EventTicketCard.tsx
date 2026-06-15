@@ -76,9 +76,9 @@ export function EventTicketCard({ event, venueSlug, ticketRounds = [] }: EventTi
           <div className="flex gap-4">
             {/* Event Image */}
             <div className="relative w-28 sm:w-36 h-32 sm:h-40 flex-shrink-0">
-              {event.imageUrl ? (
+              {event.posterUrl ? (
                 <img
-                  src={getOptimizedImageUrl(event.imageUrl, { width: 200, height: 240, quality: 70 })}
+                  src={getOptimizedImageUrl(event.posterUrl, { width: 200, height: 240, quality: 70 })}
                   alt={event.title}
                   className="w-full h-full object-cover"
                 />

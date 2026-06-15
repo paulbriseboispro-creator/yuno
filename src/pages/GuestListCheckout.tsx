@@ -104,7 +104,7 @@ export default function GuestListCheckout() {
       // Public-only gate: a direct URL must point at a list the club chose to show.
       const { data: gl } = await supabase
         .from('guest_lists')
-        .select('id, quota, quota_female, quota_male, free_before_time, includes_drink, share_token, events!inner(id, title, start_at, end_at, venue_id, image_url)')
+        .select('id, quota, quota_female, quota_male, free_before_time, includes_drink, share_token, events!inner(id, title, start_at, end_at, venue_id, poster_url)')
         .eq('event_id', eventId)
         .eq('is_active', true)
         .eq('visible_on_club_page', true)
@@ -130,7 +130,7 @@ export default function GuestListCheckout() {
         eventTitle: ev.title,
         eventStartAt: ev.start_at,
         eventEndAt: ev.end_at,
-        eventImageUrl: ev.image_url || null,
+        eventImageUrl: ev.poster_url || null,
         venueId: ev.venue_id || null,
         venueName,
       });

@@ -34,7 +34,6 @@ interface EventCard {
   title: string;
   start_at: string;
   end_at: string;
-  image_url: string | null;
   poster_url: string | null;
   music_genre: string;
   ticketing_enabled: boolean;
@@ -89,7 +88,7 @@ function EventCard({
     return new Date(event.start_at) <= now && new Date(event.end_at) >= now;
   })();
   const ctaLabel = event.ticketing_enabled ? 'Billets' : 'Voir';
-  const img = event.poster_url || event.image_url;
+  const img = event.poster_url;
 
   return (
     <div

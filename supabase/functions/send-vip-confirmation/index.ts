@@ -58,7 +58,7 @@ serve(async (req) => {
         id, user_email, user_id, full_name, minimum_spend, total_price, qr_code,
         zone_id,
         table_zones(name, venue_id),
-        events!inner(id, title, start_at, venue_id, poster_url, image_url, venues(name, address))
+        events!inner(id, title, start_at, venue_id, poster_url, venues(name, address))
       `)
       .eq('id', reservationId)
       .single();
@@ -95,7 +95,7 @@ serve(async (req) => {
     const safeEventTitle = escapeHtml(eventTitle);
     const safeVenueName = escapeHtml(venueName);
     const nameStr = firstName ? ` ${firstName}` : '';
-    const eventImageUrl = event?.image_url || event?.poster_url || null;
+    const eventImageUrl = event?.poster_url || null;
 
     const dateLocales: Record<EmailLanguage, string> = { en: 'en-GB', es: 'es-ES', fr: 'fr-FR' };
     let formattedDate = '';

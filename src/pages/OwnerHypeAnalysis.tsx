@@ -26,7 +26,6 @@ interface UpcomingEvent {
   id: string;
   title: string;
   start_at: string;
-  image_url: string | null;
 }
 
 export default function OwnerHypeAnalysis() {
@@ -56,7 +55,7 @@ export default function OwnerHypeAnalysis() {
     const fetchEvents = async () => {
       const { data } = await supabase
         .from('events')
-        .select('id, title, start_at, image_url')
+        .select('id, title, start_at')
         .eq('venue_id', venueId)
         .eq('is_active', true)
         .gte('end_at', new Date().toISOString())

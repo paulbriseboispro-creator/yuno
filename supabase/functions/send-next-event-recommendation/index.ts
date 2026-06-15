@@ -66,7 +66,7 @@ serve(async (req) => {
 
     const { data: upcomingEvents } = await supabaseAdmin
       .from('events')
-      .select('id, title, start_at, venue_id, music_genre, music_genres, poster_url, image_url, ticketing_enabled, venues(name)')
+      .select('id, title, start_at, venue_id, music_genre, music_genres, poster_url, ticketing_enabled, venues(name)')
       .eq('is_active', true)
       .gt('start_at', now)
       .lt('start_at', twoWeeksFromNow)
@@ -167,7 +167,7 @@ serve(async (req) => {
         const eventsHtml = scoredEvents.map(e => {
           const vName = (e.venues as any)?.name || '';
           const date = new Date(e.start_at).toLocaleDateString(dateLocales[lang], { weekday: 'short', day: 'numeric', month: 'short' });
-          const imgUrl = e.image_url || e.poster_url;
+          const imgUrl = e.poster_url;
           return `
             <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 12px; overflow: hidden;">
               ${imgUrl ? `<tr><td><img src="${imgUrl}" alt="${escapeHtml(e.title)}" style="width:100%;max-height:120px;object-fit:cover;display:block;" /></td></tr>` : ''}

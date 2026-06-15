@@ -164,14 +164,14 @@ export default function Cart() {
       if (!firstItem.eventId) return;
       try {
         const { data: eventData, error: eventError } = await supabase
-          .from('events').select('venue_id, partner_venue_id, poster_url, image_url').eq('id', firstItem.eventId).single();
+          .from('events').select('venue_id, partner_venue_id, poster_url').eq('id', firstItem.eventId).single();
         const hostVenueId = eventData?.venue_id || eventData?.partner_venue_id;
         if (eventError || !hostVenueId) throw eventError || new Error('No venue');
         const { data: venue, error: venueError } = await supabase
           .from('venues').select('id, name, cover_url').eq('id', hostVenueId).single();
         if (venueError) throw venueError;
         if (venue) setVenueInfo({ id: venue.id, name: venue.name });
-        setHeroImage(eventData?.poster_url || eventData?.image_url || venue?.cover_url || null);
+        setHeroImage(eventData?.poster_url || venue?.cover_url || null);
       } catch (error) { console.error('Error fetching venue info:', error); }
     };
     fetchVenueInfo();

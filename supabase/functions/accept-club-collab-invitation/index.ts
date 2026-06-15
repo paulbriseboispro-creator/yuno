@@ -76,7 +76,7 @@ const handler = async (req: Request): Promise<Response> => {
       if (inv.event_id) {
         const { data: ev } = await admin
           .from("events")
-          .select("id, title, start_at, poster_url, image_url")
+          .select("id, title, start_at, poster_url")
           .eq("id", inv.event_id)
           .maybeSingle();
         event = ev;

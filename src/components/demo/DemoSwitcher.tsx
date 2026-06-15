@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   Building2, CalendarDays, Megaphone, Share2, ShieldCheck, Wine, Shirt,
-  ChevronRight, Loader2, FlaskConical, LogIn,
+  Disc3, ChevronRight, Loader2, FlaskConical, LogIn,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,23 +27,59 @@ const OWNER_EMAIL = 'owner@womber.fr';
 const DEMO_PASSWORD = 'YunoDemo2026!';
 const ORIGIN_KEY = 'yuno_demo_origin_session';
 
+// Comptes démo dont la route exige RequireMFA (owner, affilié). On pose une
+// session MFA locale valide 24 h pour ne pas tomber sur /mfa-setup en démo
+// (sans jamais toucher au vrai secret 2FA).
+const MFA_GATED = new Set(['owner@womber.fr', 'affiliate@womber.fr']);
+function setMfaBypass(userId: string | undefined) {
+  if (!userId) return;
+  try {
+    localStorage.setItem('mfaSession', JSON.stringify({
+      userId, expiresAt: Date.now() + 24 * 60 * 60 * 1000, verifiedAt: Date.now(),
+    }));
+  } catch { /* localStorage indispo : ignore */ }
+}
+
 type DemoAccount = {
   email: string;
   label: string;
   sub: string;
   route: string;
   icon: typeof Building2;
+  // Session à poser pour passer le garde du rôle sans étape PIN (edge function verify-pin
+  // CORS-lock / non déployée). 'staff' -> localStorage.staffSession ; 'pin' -> localStorage.pinSession.
+  session?: 'staff' | 'pin';
+  role?: string;
 };
 
 const ACCOUNTS: DemoAccount[] = [
-  { email: 'owner@womber.fr',     label: 'Club (Owner)',        sub: 'Womber',             route: '/owner/dashboard', icon: Building2 },
-  { email: 'organizer@womber.fr', label: 'Organisateur / BDE',  sub: 'BDE Démo Paris',     route: '/organizer-app',   icon: CalendarDays },
-  { email: 'promoter@womber.fr',  label: 'Promoteur',           sub: 'WOMBER-DEMO',        route: '/promoter',        icon: Megaphone },
-  { email: 'affiliate@womber.fr', label: 'Affilié',             sub: 'Paris Night Agency', route: '/affiliate',       icon: Share2 },
-  { email: 'bouncer@womber.fr',   label: 'Videur (porte)',      sub: 'PIN 1234',           route: '/bouncer',         icon: ShieldCheck },
-  { email: 'barman@womber.fr',    label: 'Barman',              sub: 'PIN 1234',           route: '/barman',          icon: Wine },
-  { email: 'cloakroom@womber.fr', label: 'Vestiaire',           sub: 'PIN 1234',           route: '/cloakroom',       icon: Shirt },
+  { email: 'owner@womber.fr',     label: 'Club Yuno (Owner)',   sub: 'Club Yuno',      route: '/owner/dashboard', icon: Building2 },
+  { email: 'organizer@womber.fr', label: 'Orga Yuno',           sub: 'Yuno Events',    route: '/organizer-app',   icon: CalendarDays },
+  { email: 'promoter@womber.fr',  label: 'Promoteur',           sub: 'Alex Rivière',   route: '/promoter',        icon: Megaphone,   session: 'pin',   role: 'promoter' },
+  { email: 'dj@womber.fr',        label: 'DJ',                  sub: 'MARCO V',        route: '/dj',              icon: Disc3,       session: 'pin',   role: 'dj' },
+  { email: 'affiliate@womber.fr', label: 'Affilié',             sub: 'Yuno Network',   route: '/affiliate',       icon: Share2 },
+  { email: 'bouncer@womber.fr',   label: 'Videur (porte)',      sub: 'Accès direct',   route: '/bouncer',         icon: ShieldCheck, session: 'staff', role: 'bouncer' },
+  { email: 'barman@womber.fr',    label: 'Barman',              sub: 'Accès direct',   route: '/barman',          icon: Wine,        session: 'staff', role: 'barman' },
+  { email: 'cloakroom@womber.fr', label: 'Vestiaire',           sub: 'Accès direct',   route: '/cloakroom',       icon: Shirt,       session: 'staff', role: 'cloakroom' },
 ];
+
+// Pose la session locale qui satisfait RequireStaffSession / RequirePinSession,
+// pour éviter l'étape PIN (verify-pin = edge function CORS-lock / non déployée).
+async function setRoleSessionBypass(account: DemoAccount, userId: string | undefined) {
+  const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
+  try {
+    if (account.session === 'staff' && account.role) {
+      let venueId: string | null = null;
+      if (userId) {
+        const { data } = await supabase.from('profiles').select('venue_id').eq('id', userId).maybeSingle();
+        venueId = data?.venue_id ?? null;
+      }
+      localStorage.setItem('staffSession', JSON.stringify({ venueId, role: account.role, expiresAt, verifiedAt: Date.now() }));
+    } else if (account.session === 'pin' && account.role) {
+      localStorage.setItem('pinSession', JSON.stringify({ role: account.role, expiresAt, verifiedAt: Date.now() }));
+    }
+  } catch { /* localStorage indispo : ignore */ }
+}
 
 export function DemoSwitcher() {
   const { user, session } = useAuth();
@@ -54,51 +90,62 @@ export function DemoSwitcher() {
   const currentEmail = user?.email?.toLowerCase() ?? null;
   const isDemoUser = ACCOUNTS.some((a) => a.email === currentEmail);
 
+  // Dès qu'on est sur un compte démo MFA-gated, poser le bypass MFA local.
+  useEffect(() => {
+    if (currentEmail && MFA_GATED.has(currentEmail)) setMfaBypass(user?.id);
+  }, [user?.id, currentEmail]);
+
   // Rendu UNIQUEMENT pour les comptes démo @womber.fr.
   if (!isDemoUser) return null;
 
   async function switchTo(account: DemoAccount) {
     if (busy) return;
     if (account.email === currentEmail) {
+      if (MFA_GATED.has(account.email)) setMfaBypass(user?.id);
+      await setRoleSessionBypass(account, user?.id);
       navigate(account.route);
       setOpen(false);
       return;
     }
     setBusy(account.email);
     try {
-      if (account.email === OWNER_EMAIL) {
-        // Retour owner : restaurer la session sauvegardée (pas de mdp embarqué).
-        const raw = localStorage.getItem(ORIGIN_KEY);
-        if (raw) {
+      // Filet de secours : si on quitte owner, garder sa session pour pouvoir y revenir
+      // même si le mot de passe démo de owner n'est pas encore appliqué côté base.
+      if (currentEmail === OWNER_EMAIL && session) {
+        localStorage.setItem(
+          ORIGIN_KEY,
+          JSON.stringify({ access_token: session.access_token, refresh_token: session.refresh_token }),
+        );
+      }
+      let newUserId: string | undefined;
+      // Bascule uniforme : tout compte démo (owner inclus) via signInWithPassword → illimité any→any.
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: account.email,
+        password: DEMO_PASSWORD,
+      });
+      if (error) {
+        // Owner : si le login échoue (mdp démo pas encore posé), restaurer la session sauvegardée.
+        if (account.email === OWNER_EMAIL) {
+          const raw = localStorage.getItem(ORIGIN_KEY);
+          if (!raw) throw error;
           const saved = JSON.parse(raw) as { access_token: string; refresh_token: string };
-          const { error } = await supabase.auth.setSession({
+          const restored = await supabase.auth.setSession({
             access_token: saved.access_token,
             refresh_token: saved.refresh_token,
           });
-          if (error) throw error;
+          if (restored.error) throw error;
+          newUserId = restored.data.user?.id;
           localStorage.removeItem(ORIGIN_KEY);
-          toast.success('Retour sur owner@womber.fr');
-          navigate(account.route);
         } else {
-          toast.info('Reconnecte-toi en owner@womber.fr pour revenir.');
-          navigate('/auth');
+          throw error;
         }
       } else {
-        // Vers un compte démo : sauvegarder la session owner si on part de owner.
-        if (currentEmail === OWNER_EMAIL && session) {
-          localStorage.setItem(
-            ORIGIN_KEY,
-            JSON.stringify({ access_token: session.access_token, refresh_token: session.refresh_token }),
-          );
-        }
-        const { error } = await supabase.auth.signInWithPassword({
-          email: account.email,
-          password: DEMO_PASSWORD,
-        });
-        if (error) throw error;
-        toast.success(`Connecté en ${account.label}`);
-        navigate(account.route);
+        newUserId = data.user?.id;
       }
+      if (MFA_GATED.has(account.email)) setMfaBypass(newUserId);
+      await setRoleSessionBypass(account, newUserId);
+      toast.success(`Connecté en ${account.label}`);
+      navigate(account.route);
       setOpen(false);
     } catch (e) {
       toast.error('Bascule impossible : ' + (e instanceof Error ? e.message : 'erreur'));
@@ -176,8 +223,8 @@ export function DemoSwitcher() {
           <p className="flex items-start gap-1.5">
             <LogIn className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
-              Le staff (videur / barman / vestiaire) demande le PIN <b className="text-white/70">1234</b> une
-              fois après la bascule.
+              Staff (videur / barman / vestiaire), DJ et promoteur : connexion{' '}
+              <b className="text-white/70">automatique</b>, aucun PIN à saisir.
             </span>
           </p>
         </div>

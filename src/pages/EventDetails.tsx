@@ -292,10 +292,8 @@ export default function EventDetails() {
         venueId: eventData.venue_id,
         title: eventData.title,
         description: eventData.description,
-        imageUrl: eventData.image_url,
         posterUrl: eventData.poster_url,
         posterPosition: eventData.poster_position as { x: number; y: number; scale: number } | undefined,
-        bannerPosition: eventData.banner_position as { xPercent: number; yPercent: number; scale: number } | undefined,
         startAt: eventData.start_at,
         endAt: eventData.end_at,
         isActive: eventData.is_active,
@@ -563,8 +561,7 @@ export default function EventDetails() {
     );
   }
 
-  const heroImage = event.posterUrl || event.imageUrl;
-  const bannerPos = event.bannerPosition;
+  const heroImage = event.posterUrl;
 
   // Availability logic — respects rounds_visibility:
   //   sequential       → only the first active not-sold-out round shows as buyable
@@ -641,10 +638,6 @@ export default function EventDetails() {
             alt={event.title}
             fetchPriority="high"
             className="absolute inset-0 w-full h-full object-cover object-center"
-            style={bannerPos ? {
-              transform: `translate(${bannerPos.xPercent}%, ${bannerPos.yPercent}%) scale(${bannerPos.scale})`,
-              transformOrigin: 'center center',
-            } : undefined}
           />
         ) : (
           <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #1a0a0d 0%, #4a0f1a 50%, #7a1428 100%)' }} />

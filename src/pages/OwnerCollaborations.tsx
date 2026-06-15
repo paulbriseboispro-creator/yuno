@@ -139,7 +139,7 @@ interface OrganizerSearchResult {
 
 interface CollabEvent {
   id: string; title: string; description: string | null;
-  poster_url: string | null; image_url: string | null;
+  poster_url: string | null;
   start_at: string; end_at: string; is_active: boolean;
   organizer_user_id: string | null; partner_organizer_id: string | null;
   venue_id: string | null; partner_venue_id: string | null;
@@ -263,7 +263,7 @@ function CollabEventsTab({ venueId, canPropose }: { venueId: string; canPropose:
   const fetchEvents = async () => {
     setLoading(true);
     const { data, error } = await supabase.from('events')
-      .select('id, title, description, poster_url, image_url, start_at, end_at, is_active, organizer_user_id, partner_organizer_id, venue_id, partner_venue_id, event_mode')
+      .select('id, title, description, poster_url, start_at, end_at, is_active, organizer_user_id, partner_organizer_id, venue_id, partner_venue_id, event_mode')
       .or(`partner_venue_id.eq.${venueId},and(venue_id.eq.${venueId},partner_organizer_id.not.is.null)`)
       .order('start_at', { ascending: false });
     if (error) { console.error(error); setLoading(false); return; }
@@ -278,7 +278,7 @@ function CollabEventsTab({ venueId, canPropose }: { venueId: string; canPropose:
     }
     const mapped: CollabEvent[] = (data || []).map((e) => {
       const orgId = e.organizer_user_id ?? e.partner_organizer_id;
-      return { id: e.id, title: e.title, description: e.description, poster_url: e.poster_url, image_url: e.image_url, start_at: e.start_at, end_at: e.end_at, is_active: e.is_active, organizer_user_id: e.organizer_user_id, partner_organizer_id: e.partner_organizer_id, venue_id: e.venue_id, partner_venue_id: e.partner_venue_id, event_mode: e.event_mode, initiated_by_venue: e.venue_id === venueId && !!e.partner_organizer_id, organizer: orgId ? (orgMap.get(orgId) ?? null) : null };
+      return { id: e.id, title: e.title, description: e.description, poster_url: e.poster_url, start_at: e.start_at, end_at: e.end_at, is_active: e.is_active, organizer_user_id: e.organizer_user_id, partner_organizer_id: e.partner_organizer_id, venue_id: e.venue_id, partner_venue_id: e.partner_venue_id, event_mode: e.event_mode, initiated_by_venue: e.venue_id === venueId && !!e.partner_organizer_id, organizer: orgId ? (orgMap.get(orgId) ?? null) : null };
     });
     setEvents(mapped);
     setLoading(false);
@@ -415,8 +415,8 @@ function CollabEventCard({ event, venueId }: { event: CollabEvent; venueId: stri
             {formatInTimeZone(new Date(event.start_at), PARIS_TIMEZONE, 'dd MMM yyyy · HH:mm', { locale: fr })}
           </p>
         </div>
-        {(event.poster_url || event.image_url) && (
-          <img src={event.poster_url || event.image_url || ''} alt={event.title}
+        {event.poster_url && (
+          <img src={event.poster_url} alt={event.title}
             className="w-16 h-20 sm:w-20 sm:h-28 rounded-xl object-cover flex-none"
             style={{ border: `1px solid ${F_BORDER}` }} />
         )}

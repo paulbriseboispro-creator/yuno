@@ -357,7 +357,6 @@ export default function VenuePage() {
           venueId: event.venue_id,
           title: event.title,
           description: event.description || undefined,
-          imageUrl: event.image_url || undefined,
           posterUrl: event.poster_url || undefined,
           posterPosition: event.poster_position as { x: number; y: number; scale: number } | undefined,
           startAt: event.start_at,
@@ -733,7 +732,7 @@ export default function VenuePage() {
               const ticketPrice = eventTicketPrices[event.id];
               const organizer = eventOrganizers[event.id];
               const isCoOrganized = !!organizer;
-              const posterSrc = (event as any).posterUrl || event.imageUrl;
+              const posterSrc = (event as any).posterUrl;
               const musicGenre = (event as any).musicGenre as string | undefined;
               const startDate = new Date(event.startAt);
               const isToday = startDate.toDateString() === new Date().toDateString();

@@ -305,7 +305,6 @@ export default function OwnerTicketing() {
         venueId: event.venue_id,
         title: event.title,
         description: event.description || undefined,
-        imageUrl: event.image_url || undefined,
         startAt: event.start_at,
         endAt: event.end_at,
         isActive: event.is_active,

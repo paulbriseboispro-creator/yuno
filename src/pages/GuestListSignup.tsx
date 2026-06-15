@@ -108,7 +108,7 @@ export default function GuestListSignup() {
         if (glRow) {
           const { data: ev } = await supabase
             .from('events')
-            .select('id, title, start_at, end_at, venue_id, image_url')
+            .select('id, title, start_at, end_at, venue_id, poster_url')
             .eq('id', (glRow as any).event_id)
             .maybeSingle();
           data = { ...(glRow as any), events: ev };
@@ -116,7 +116,7 @@ export default function GuestListSignup() {
       } else if (eventId) {
         const { data: glRow } = await supabase
           .from('guest_lists')
-          .select('*, events!inner(id, title, start_at, end_at, venue_id, image_url)')
+          .select('*, events!inner(id, title, start_at, end_at, venue_id, poster_url)')
           .eq('is_active', true)
           .eq('event_id', eventId)
           .maybeSingle();
@@ -147,7 +147,7 @@ export default function GuestListSignup() {
         eventTitle: (data.events as any).title,
         eventStartAt: (data.events as any).start_at,
         eventEndAt: (data.events as any).end_at,
-        eventImageUrl: (data.events as any).image_url || null,
+        eventImageUrl: (data.events as any).poster_url || null,
         venueId: (data.events as any).venue_id,
         venueName: venue?.name || '',
         shareToken: data.share_token,

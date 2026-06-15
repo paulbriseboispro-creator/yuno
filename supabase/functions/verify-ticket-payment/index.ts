@@ -597,7 +597,7 @@ serve(async (req) => {
             .from('tickets')
             .select(`
               id, qr_code, quantity, unit_price, total_price, full_name, user_email, phone, paid_at, service_fee, insurance_fee,
-              events!inner(title, start_at, venue_id, poster_url, image_url),
+              events!inner(title, start_at, venue_id, poster_url),
               ticket_rounds!inner(name, price)
             `)
             .eq('id', ticketId)
