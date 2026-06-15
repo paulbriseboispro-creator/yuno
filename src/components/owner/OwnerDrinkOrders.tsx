@@ -78,6 +78,26 @@ export function OwnerDrinkOrders({ venueId, eventId }: OwnerDrinkOrdersProps) {
   useEffect(() => {
     if (!venueId && !eventId) return;
     fetchOrders();
+
+    // Live updates: a new paid order, a status flip (served/refunded) or a
+    // stuck-then-resolved pending order must appear without a manual refresh.
+    const channel = supabase
+      .channel(`owner-drink-orders-${eventId || venueId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'orders',
+          filter: eventId ? `event_id=eq.${eventId}` : `venue_id=eq.${venueId}`,
+        },
+        () => fetchOrders()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [venueId, eventId]);
 
   const fetchOrders = async () => {
@@ -85,7 +105,10 @@ export function OwnerDrinkOrders({ venueId, eventId }: OwnerDrinkOrdersProps) {
       let query = supabase
         .from('orders')
         .select('*')
-        .in('status', ['paid', 'served'])
+        // Include pending/refunded/cancelled too: a payment that succeeded on
+        // Stripe but never got confirmed stays 'pending', and was previously
+        // invisible to the owner (phantom revenue impossible to diagnose).
+        .in('status', ['pending', 'paid', 'served', 'refunded', 'cancelled'])
         .order('created_at', { ascending: false });
       if (eventId) query = query.eq('event_id', eventId);
       else if (venueId) query = query.eq('venue_id', venueId);
@@ -97,7 +120,7 @@ export function OwnerDrinkOrders({ venueId, eventId }: OwnerDrinkOrdersProps) {
         venueId: order.venue_id,
         items: order.items as any,
         total: Number(order.total),
-        status: order.status as 'pending' | 'paid' | 'served',
+        status: order.status as 'pending' | 'paid' | 'served' | 'refunded' | 'cancelled',
         createdAt: order.created_at,
         paidAt: order.paid_at || undefined,
         servedAt: order.served_at || undefined,
@@ -124,8 +147,11 @@ export function OwnerDrinkOrders({ venueId, eventId }: OwnerDrinkOrdersProps) {
       : b.total - a.total
     );
 
-  const totalRevenue = filteredOrders.reduce((s, o) => s + o.total, 0);
-  const avgOrder = filteredOrders.length ? totalRevenue / filteredOrders.length : 0;
+  // Revenue counts only money actually collected — never pending (not yet paid),
+  // refunded or cancelled (money returned / never settled).
+  const revenueOrders = filteredOrders.filter((o) => o.status === 'paid' || o.status === 'served');
+  const totalRevenue = revenueOrders.reduce((s, o) => s + o.total, 0);
+  const avgOrder = revenueOrders.length ? totalRevenue / revenueOrders.length : 0;
 
   const copyToken = (token: string) => {
     navigator.clipboard.writeText(token);
@@ -195,8 +221,10 @@ export function OwnerDrinkOrders({ venueId, eventId }: OwnerDrinkOrdersProps) {
               onChange={setStatusFilter}
               options={[
                 { value: 'all', label: t('owner.allStatuses') },
+                { value: 'pending', label: STATUS_STYLE.pending.label },
                 { value: 'paid', label: t('owner.paid') },
                 { value: 'served', label: t('owner.served') },
+                { value: 'refunded', label: STATUS_STYLE.refunded.label },
               ]}
             />
             <DarkSelect
