@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Mail, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Plus, Mail, Loader2, AlertCircle, BarChart3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfileType } from '@/hooks/useProfileType';
 import CampaignBuilder from '@/components/campaigns/CampaignBuilder';
+import CampaignReport from '@/components/campaigns/CampaignReport';
 import { slugifyVenueName } from '@/lib/emailCampaign';
 import {
   OrgPage, OrgPageHeader, OrgCard, OrgPill, OrgButton, OrgEmptyState,
@@ -91,7 +92,9 @@ export default function OrgAppCampaigns() {
               const statusTone: PillTone = s?.tone ?? 'muted';
               const openRate = c.recipients_count > 0 ? ((c.opens_count / c.recipients_count) * 100).toFixed(1) : '0';
               return (
-                <OrgCard key={c.id} onClick={() => navigate(`/organizer-app/campaigns/${c.id}/edit`)} className="cursor-pointer">
+                <OrgCard key={c.id} onClick={() => navigate(c.status === 'sent'
+                  ? `/organizer-app/campaigns/${c.id}/report`
+                  : `/organizer-app/campaigns/${c.id}/edit`)} className="cursor-pointer">
                   <div className="flex items-center justify-between gap-4 p-4">
                     <div className="min-w-0 flex-1">
                       <div className="mb-1 flex flex-wrap items-center gap-2">
@@ -101,9 +104,12 @@ export default function OrgAppCampaigns() {
                       </div>
                       <p className="truncate" style={{ color: T3, fontSize: 12.5 }}>{c.subject}</p>
                     </div>
-                    <div className="shrink-0 text-right">
-                      <div style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{c.recipients_count} {t('destinataires', 'recipients', 'destinatarios')}</div>
-                      <div style={{ color: T3, fontSize: 11.5 }}>{openRate}% {t('ouvertures', 'opens', 'aperturas')}</div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <div className="text-right">
+                        <div style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{c.recipients_count} {t('destinataires', 'recipients', 'destinatarios')}</div>
+                        <div style={{ color: T3, fontSize: 11.5 }}>{openRate}% {t('ouvertures', 'opens', 'aperturas')}</div>
+                      </div>
+                      {c.status === 'sent' && <BarChart3 className="h-4 w-4" style={{ color: T3 }} />}
                     </div>
                   </div>
                 </OrgCard>
@@ -124,6 +130,26 @@ export function OrgAppCampaignEditor() {
   }
   return (
     <CampaignBuilder
+      basePath="/organizer-app/campaigns"
+      scope={{
+        kind: 'organizer',
+        organizerId: user.id,
+        name: profile?.organizationName || 'Mon organisation',
+        logoUrl: (profile as any)?.organizationLogoUrl || null,
+        city: null,
+      }}
+    />
+  );
+}
+
+export function OrgAppCampaignReport() {
+  const { user } = useAuth();
+  const { profile } = useProfileType();
+  if (!user?.id) {
+    return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
+  }
+  return (
+    <CampaignReport
       basePath="/organizer-app/campaigns"
       scope={{
         kind: 'organizer',

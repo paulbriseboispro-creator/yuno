@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Mail, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Plus, Mail, Loader2, AlertCircle, BarChart3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import CampaignBuilder from '@/components/campaigns/CampaignBuilder';
+import CampaignReport from '@/components/campaigns/CampaignReport';
 import { slugifyVenueName } from '@/lib/emailCampaign';
 
 // ─── Yuno Design Tokens ──────────────────────────────────────────────────────
@@ -134,7 +135,9 @@ export default function OwnerCampaigns() {
               return (
                 <button
                   key={c.id}
-                  onClick={() => navigate(`/owner/campaigns/${c.id}/edit`)}
+                  onClick={() => navigate(c.status === 'sent'
+                    ? `/owner/campaigns/${c.id}/report`
+                    : `/owner/campaigns/${c.id}/edit`)}
                   className="w-full text-left cursor-pointer transition-all duration-150"
                   style={{
                     background: CARD_BG,
@@ -158,9 +161,12 @@ export default function OwnerCampaigns() {
                     </div>
                     <p className="truncate" style={{ color: T3, fontSize: 12.5, margin: 0 }}>{c.subject}</p>
                   </div>
-                  <div className="text-right shrink-0">
-                    <p style={{ color: T1, fontSize: 13.5, fontWeight: 600, margin: 0 }}>{c.recipients_count} {t('em.recipients')}</p>
-                    <p style={{ color: T3, fontSize: 11.5, margin: 0 }}>{openRate}% {t('em.openRate')}</p>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="text-right">
+                      <p style={{ color: T1, fontSize: 13.5, fontWeight: 600, margin: 0 }}>{c.recipients_count} {t('em.recipients')}</p>
+                      <p style={{ color: T3, fontSize: 11.5, margin: 0 }}>{openRate}% {t('em.openRate')}</p>
+                    </div>
+                    {c.status === 'sent' && <BarChart3 className="w-4 h-4" style={{ color: T3 }} />}
                   </div>
                 </button>
               );
@@ -177,6 +183,23 @@ export function OwnerCampaignEditor() {
   if (loading || !venueId) return <OwnerPageSkeleton />;
   return (
     <CampaignBuilder
+      basePath="/owner/campaigns"
+      scope={{
+        kind: 'venue',
+        venueId,
+        name: venue?.name || 'Mon club',
+        logoUrl: (venue as any)?.logoUrl || (venue as any)?.logo_url || null,
+        city: (venue as any)?.city || null,
+      }}
+    />
+  );
+}
+
+export function OwnerCampaignReport() {
+  const { venueId, venue, loading } = useVenueContext();
+  if (loading || !venueId) return <OwnerPageSkeleton />;
+  return (
+    <CampaignReport
       basePath="/owner/campaigns"
       scope={{
         kind: 'venue',
