@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueChannel } from '@/lib/realtime';
 import { Event } from '@/types';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -80,9 +81,11 @@ export function EventFilter({ selectedEventId, onEventSelect, venueId }: EventFi
 
     fetchEvents();
 
-    // Realtime subscription
+    // Realtime subscription. Unique topic per mount (see uniqueChannel): the
+    // Barman page renders EventFilter twice (desktop + mobile), and a shared
+    // topic would crash both copies.
     const channel = supabase
-      .channel('events-filter-changes')
+      .channel(uniqueChannel(`events-filter-changes-${venueId || 'all'}`))
       .on(
         'postgres_changes',
         {
