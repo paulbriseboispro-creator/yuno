@@ -5,6 +5,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueChannel } from '@/lib/realtime';
 import { toast } from 'sonner';
 import { formatDistanceToNow, format } from 'date-fns';
 import { fr, es } from 'date-fns/locale';
@@ -76,7 +77,7 @@ export function VipOrderNotifications({ venueId, onOrderConfirmed, onPendingCoun
     fetchOrders();
 
     const channel = supabase
-      .channel('vip_orders_changes')
+      .channel(uniqueChannel('vip_orders_changes'))
       .on(
         'postgres_changes',
         {

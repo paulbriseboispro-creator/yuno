@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueChannel } from '@/lib/realtime';
 import type { TablesUpdate } from '@/integrations/supabase/types';
 import { VipReservation, VipConsumption, VenueFloorPlan } from '@/types';
 import { useStaffVenue } from './useStaffVenue';
@@ -209,7 +210,7 @@ export function useVipHost() {
 
     // Subscribe to reservation changes
     const reservationsChannel = supabase
-      .channel('vip_reservations_changes')
+      .channel(uniqueChannel('vip_reservations_changes'))
       .on(
         'postgres_changes',
         {
@@ -225,7 +226,7 @@ export function useVipHost() {
 
     // Subscribe to consumption changes
     const consumptionsChannel = supabase
-      .channel('vip_consumptions_changes')
+      .channel(uniqueChannel('vip_consumptions_changes'))
       .on(
         'postgres_changes',
         {

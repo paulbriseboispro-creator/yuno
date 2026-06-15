@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueChannel } from '@/lib/realtime';
 import { Role } from '@/types';
 
 // DbRole is not used - we cast directly to Role type
@@ -12,7 +13,7 @@ export function useUserRoles() {
 
     // Subscribe to role changes
     const channel = supabase
-      .channel('user_roles_changes')
+      .channel(uniqueChannel('user_roles_changes'))
       .on(
         'postgres_changes',
         {

@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueChannel } from '@/lib/realtime';
 import { Event } from '@/types';
 import { format } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -62,7 +63,7 @@ export function EventSelector({ selectedEventId, onEventSelect, venueId }: Event
 
     // Realtime subscription
     const channel = supabase
-      .channel('events-changes')
+      .channel(uniqueChannel('events-changes'))
       .on(
         'postgres_changes',
         {

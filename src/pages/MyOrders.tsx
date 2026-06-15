@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueChannel } from '@/lib/realtime';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Bell } from 'lucide-react';
@@ -246,7 +247,7 @@ export default function MyOrders() {
 
       // Subscribe to real-time order updates
       const ordersChannel = supabase
-        .channel('user-orders-changes')
+        .channel(uniqueChannel('user-orders-changes'))
         .on(
           'postgres_changes',
           {

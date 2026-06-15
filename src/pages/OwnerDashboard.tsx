@@ -49,6 +49,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useState, useEffect, useMemo, useId } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueChannel } from '@/lib/realtime';
 import { Order } from '@/types';
 import { useOwnerVenue } from '@/hooks/useOwnerVenue';
 import { useStripeConnect } from '@/hooks/useStripeConnect';
@@ -151,7 +152,7 @@ export default function OwnerDashboard() {
     fetchNextEvent();
     fetchVisitors();
     const channel = supabase
-      .channel('owner-orders-changes')
+      .channel(uniqueChannel('owner-orders-changes'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `venue_id=eq.${venueId}` }, () => fetchOrders())
       .subscribe();
     return () => { supabase.removeChannel(channel); };

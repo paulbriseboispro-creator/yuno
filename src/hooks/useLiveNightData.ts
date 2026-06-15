@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueChannel } from '@/lib/realtime';
 
 export type FeedItemType = 'order_created' | 'order_ready' | 'order_served' | 'ticket_scanned' | 'vip_scanned' | 'refund' | 'table_booked' | 'cloakroom';
 export type AlertSeverity = 'info' | 'warning' | 'critical';
@@ -439,7 +440,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
     fetchAllData();
 
     const orderChannel = supabase
-      .channel('live-orders')
+      .channel(uniqueChannel('live-orders'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `venue_id=eq.${venueId}` }, (payload) => {
         fetchAllData();
         if (payload.eventType === 'INSERT') {
@@ -454,7 +455,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       }).subscribe();
 
     const ticketChannel = supabase
-      .channel('live-tickets')
+      .channel(uniqueChannel('live-tickets'))
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tickets' }, (payload) => {
         const t = payload.new as any;
         if (t.entry_scanned && !payload.old?.entry_scanned) {
@@ -464,7 +465,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       }).subscribe();
 
     const tableChannel = supabase
-      .channel('live-tables')
+      .channel(uniqueChannel('live-tables'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'table_reservations' }, (payload) => {
         if (payload.eventType === 'INSERT') {
           addRealtimeFeedItem({ type: 'table_booked', description: (payload.new as any).full_name || 'VIP', timestamp: (payload.new as any).created_at });
@@ -479,7 +480,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       }).subscribe();
 
     const cloakroomChannel = supabase
-      .channel('live-cloakroom')
+      .channel(uniqueChannel('live-cloakroom'))
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cloakroom_transactions', filter: `venue_id=eq.${venueId}` }, (payload) => {
         const c = payload.new as any;
         addRealtimeFeedItem({ type: 'cloakroom', description: `#${c.cloakroom_number || ''}`, timestamp: c.created_at });

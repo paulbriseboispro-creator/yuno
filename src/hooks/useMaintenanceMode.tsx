@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueChannel } from '@/lib/realtime';
 
 interface MaintenanceState {
   isMaintenanceMode: boolean;
@@ -21,7 +22,7 @@ export function useMaintenanceMode() {
 
     // Subscribe to changes
     const channel = supabase
-      .channel('app_settings_changes')
+      .channel(uniqueChannel('app_settings_changes'))
       .on(
         'postgres_changes',
         {

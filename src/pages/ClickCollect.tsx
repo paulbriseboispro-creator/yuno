@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueChannel } from '@/lib/realtime';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -77,7 +78,7 @@ export default function ClickCollect() {
 
     // Realtime subscription with venue filter
     const channel = supabase
-      .channel('click-collect-orders-realtime')
+      .channel(uniqueChannel('click-collect-orders-realtime'))
       .on(
         'postgres_changes',
         {

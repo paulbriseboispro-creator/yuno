@@ -27,6 +27,7 @@ const CloakroomRoute = lazyWithRetry(() => import("./components/CloakroomRoute")
 const OwnerPreviewLayout = lazyWithRetry(() => import("./components/OwnerPreviewLayout").then(m => ({ default: m.OwnerPreviewLayout })));
 const OwnerLayout = lazyWithRetry(() => import("./components/OwnerLayout").then(m => ({ default: m.OwnerLayout })));
 import { supabase } from "@/integrations/supabase/client";
+import { uniqueChannel } from "@/lib/realtime";
 import { useStore } from "@/store/useStore";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { DemoSwitcher } from "@/components/demo/DemoSwitcher";
@@ -246,7 +247,7 @@ function MaintenanceWrapper({ children }: { children: React.ReactNode }) {
     checkStatus();
 
     const channel = supabase
-      .channel('app_settings_maintenance')
+      .channel(uniqueChannel('app_settings_maintenance'))
       .on(
         'postgres_changes',
         {

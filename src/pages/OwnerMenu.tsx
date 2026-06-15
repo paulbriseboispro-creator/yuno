@@ -6,6 +6,7 @@ import { Edit2, Plus, Upload, X, Trash2, Wine, Coffee, Package, GripVertical, Sa
 import { Drink } from '@/types';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { uniqueChannel } from '@/lib/realtime';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
@@ -217,7 +218,7 @@ export default function OwnerMenu() {
   useEffect(() => {
     if (!venueId) return;
     fetchDrinks();
-    const channel = supabase.channel('owner-drinks-changes')
+    const channel = supabase.channel(uniqueChannel('owner-drinks-changes'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'drinks', filter: `venue_id=eq.${venueId}` }, () => fetchDrinks())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
