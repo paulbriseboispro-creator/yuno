@@ -154,7 +154,50 @@ serve(async (req) => {
       }));
     });
 
-    // Create order
+    // Consume credits ATOMICALLY and BEFORE creating the order. Each pack is
+    // decremented under a row lock via consume_pack_credit (returns the amount
+    // actually taken), so two concurrent redemptions can never hand out more
+    // free drinks than were purchased. The stale in-memory read above is only a
+    // fast fail; this loop is the authoritative guard.
+    const releaseAll = async (taken: { id: string; amount: number }[]) => {
+      for (const c of taken) {
+        await supabaseAdmin.rpc("release_pack_credit", { p_credit_id: c.id, p_amount: c.amount });
+      }
+    };
+
+    let remaining = totalQtyNeeded;
+    const consumed: { id: string; amount: number }[] = [];
+    for (const credit of credits) {
+      if (remaining <= 0) break;
+      const { data: took, error: consumeErr } = await supabaseAdmin.rpc("consume_pack_credit", {
+        p_credit_id: credit.id,
+        p_want: remaining,
+      });
+      if (consumeErr) {
+        console.error("Credit consume error:", consumeErr);
+        await releaseAll(consumed);
+        return new Response(
+          JSON.stringify({ error: "Failed to consume credits" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const amount = Number(took) || 0;
+      if (amount > 0) {
+        consumed.push({ id: credit.id, amount });
+        remaining -= amount;
+      }
+    }
+
+    if (remaining > 0) {
+      // Lost a race with a concurrent redemption: not enough credits left.
+      await releaseAll(consumed);
+      return new Response(
+        JSON.stringify({ error: "Not enough credits", needed: totalQtyNeeded }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Credits are now reserved — create the order.
     const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
       .insert({
@@ -175,24 +218,12 @@ serve(async (req) => {
 
     if (orderError) {
       console.error("Order creation error:", orderError);
+      // The order didn't persist — give the credits back.
+      await releaseAll(consumed);
       return new Response(
         JSON.stringify({ error: "Failed to create order" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
-    }
-
-    // Decrement credits across packs (FIFO)
-    let remaining = totalQtyNeeded;
-    for (const credit of credits) {
-      if (remaining <= 0) break;
-      const available = credit.total_credits - credit.used_credits;
-      if (available <= 0) continue;
-      const use = Math.min(available, remaining);
-      await supabaseAdmin
-        .from("order_pack_credits")
-        .update({ used_credits: credit.used_credits + use })
-        .eq("id", credit.id);
-      remaining -= use;
     }
 
     console.log(`Credits used: ${totalQtyNeeded}, order: ${order.id}`);
