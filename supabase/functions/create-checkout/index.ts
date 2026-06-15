@@ -235,7 +235,7 @@ serve(async (req) => {
     const drinkIds = items.map((item: { id: string }) => item.id);
     const { data: drinks, error: drinksError } = await supabaseAdmin
       .from("drinks")
-      .select("id, price, presale_price, presale_active, name, active, collection")
+      .select("id, price, promo_price, presale_price, presale_active, name, active, collection")
       .eq("venue_id", venueId)
       .in("id", drinkIds);
 
@@ -257,10 +257,15 @@ serve(async (req) => {
       if (!quantity || quantity < 1 || quantity > 50)
         throw new Error(`Invalid quantity for ${drink.name}`);
 
+      // Price precedence MUST mirror the client (useStore.ts addToCart): presale
+      // wins, then promo_price (whenever set), then the regular price. Skipping
+      // promo_price here is what charged the client full price on promo drinks.
       const serverPrice =
         drink.presale_active && drink.presale_price
           ? drink.presale_price
-          : drink.price;
+          : drink.promo_price
+            ? drink.promo_price
+            : drink.price;
       calculatedTotal += serverPrice * quantity;
 
       validatedItems.push({
@@ -308,7 +313,7 @@ serve(async (req) => {
       discountedTotal,
     });
 
-    // Service fee (5% of discounted drinks total)
+    // Service fee (3% of discounted drinks total — YUNO_COMMISSION_RATE)
     const serviceFee =
       Math.round(discountedTotal * YUNO_COMMISSION_RATE * 100) / 100;
     const yunoCommission = Math.round(serviceFee * 100);
