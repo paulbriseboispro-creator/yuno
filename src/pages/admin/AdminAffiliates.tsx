@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -12,24 +8,33 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Mail, Building2, MapPin, TrendingUp, CheckCircle, XCircle, Send, Trash2, Copy } from 'lucide-react';
+import { Plus, Mail, Building2, MapPin, TrendingUp, CheckCircle, XCircle, Send, Trash2, Copy, type LucideIcon } from 'lucide-react';
 import { format } from 'date-fns';
+
+// ─── Yuno Design Tokens ───────────────────────────────────────────────────────
+const RED         = '#E8192C';
+const POS         = '#34D399';
+const T1          = 'rgba(255,255,255,0.96)';
+const T2          = 'rgba(255,255,255,0.58)';
+const T3          = 'rgba(255,255,255,0.36)';
+const C_FAINT     = 'rgba(255,255,255,0.06)';
+const BORDER      = 'rgba(255,255,255,0.085)';
+const F_BORDER    = 'rgba(255,255,255,0.055)';
+const INNER_BG    = 'rgba(255,255,255,0.032)';
+const CARD_BG     = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
+const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+
+const inputStyle: React.CSSProperties = {
+  background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10,
+  color: T1, fontSize: 13, padding: '9px 12px', width: '100%', outline: 'none',
+};
+
+const labelStyle: React.CSSProperties = { color: T2, fontSize: 12.5, fontWeight: 560, display: 'block', marginBottom: 6 };
+
+const cardStyle: React.CSSProperties = {
+  background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 18, overflow: 'hidden',
+};
 
 type AffiliateRow = {
   id: string;
@@ -69,10 +74,11 @@ const TYPE_LABELS: Record<string, string> = {
   independent: 'Indépendant',
 };
 
-const TYPE_COLORS: Record<string, string> = {
-  yuno_internal: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
-  city_agency: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-  independent: 'bg-zinc-500/20 text-zinc-300 border-zinc-500/30',
+// yuno_internal = accent RED, others = neutral white tiers
+const typePillStyle = (type: string): React.CSSProperties => {
+  if (type === 'yuno_internal') return { background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.3)', color: RED };
+  if (type === 'city_agency') return { background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER}`, color: T1 };
+  return { background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 };
 };
 
 export default function AdminAffiliates() {
@@ -258,255 +264,273 @@ export default function AdminAffiliates() {
     );
   };
 
+  const stats: { label: string; value: number; icon: LucideIcon }[] = [
+    { label: 'Affiliés actifs', value: affiliates.filter((a) => a.is_active).length, icon: Building2 },
+    { label: 'Clubs partenaires', value: affiliates.reduce((s, a) => s + (a.venueCount ?? 0), 0), icon: MapPin },
+    { label: 'Soirées affiliées', value: affiliates.reduce((s, a) => s + (a.eventCount ?? 0), 0), icon: CheckCircle },
+    { label: 'Clics ce mois', value: affiliates.reduce((s, a) => s + (a.clickCount ?? 0), 0), icon: TrendingUp },
+  ];
+
+  const thStyle: React.CSSProperties = { color: T3, fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em' };
+  const iconBtnStyle: React.CSSProperties = {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32,
+    borderRadius: 8, background: INNER_BG, border: `1px solid ${BORDER}`, cursor: 'pointer',
+  };
+
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Affiliés</h1>
-          <p className="text-zinc-400 text-sm mt-1">
-            Gérez les agences ville et indépendants qui publient des clubs et soirées partenaires.
-          </p>
-        </div>
-        <Button onClick={() => setInviteOpen(true)} className="bg-red-600 hover:bg-red-700">
-          <Plus className="h-4 w-4 mr-2" />
-          Inviter un affilié
-        </Button>
-      </div>
+    <div className="min-h-screen pb-16" style={{ background: '#000' }}>
+      <div className="fixed inset-0 pointer-events-none z-0"
+        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(232,25,44,.05),transparent 55%)' }} />
 
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
-        {[
-          { label: 'Affiliés actifs', value: affiliates.filter((a) => a.is_active).length, icon: Building2 },
-          { label: 'Clubs partenaires', value: affiliates.reduce((s, a) => s + (a.venueCount ?? 0), 0), icon: MapPin },
-          { label: 'Soirées affiliées', value: affiliates.reduce((s, a) => s + (a.eventCount ?? 0), 0), icon: CheckCircle },
-          { label: 'Clics ce mois', value: affiliates.reduce((s, a) => s + (a.clickCount ?? 0), 0), icon: TrendingUp },
-        ].map(({ label, value, icon: Icon }) => (
-          <div key={label} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
-            <div className="flex items-center gap-2 text-zinc-400 text-sm mb-1">
-              <Icon className="h-4 w-4" />
-              {label}
-            </div>
-            <div className="text-2xl font-bold text-white">{value}</div>
+      <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 py-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h1 style={{ color: T1, fontSize: 'clamp(22px,3vw,28px)', fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.1 }}>Affiliés</h1>
+            <p style={{ color: T3, fontSize: 13, marginTop: 4 }}>
+              Gérez les agences ville et indépendants qui publient des clubs et soirées partenaires.
+            </p>
           </div>
-        ))}
-      </div>
-
-      {/* Pending invitations */}
-      {(pendingInvites.length > 0 || loading) && (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
-          <h2 className="text-sm font-semibold text-zinc-300 mb-3 flex items-center gap-2">
-            <Mail className="h-4 w-4 text-red-500" />
-            Invitations en attente ({pendingInvites.length})
-          </h2>
-          {loading ? (
-            <div className="text-zinc-500 text-sm text-center py-4">Chargement…</div>
-          ) : (
-            <div className="space-y-2">
-              {pendingInvites.map((inv) => (
-                <div key={inv.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-zinc-800/50">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-white truncate">{inv.organization_name}</div>
-                    <div className="text-xs text-zinc-500 truncate">
-                      {inv.email} · expire le {format(new Date(inv.expires_at), 'dd/MM/yyyy')}
-                    </div>
-                  </div>
-                  <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-xs border">
-                    En attente
-                  </Badge>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-zinc-400 hover:text-white"
-                    title="Copier le lien d'activation"
-                    onClick={() => {
-                      const link = `${window.location.origin}/auth?invite_affiliate=${inv.token}&email=${encodeURIComponent(inv.email)}`;
-                      navigator.clipboard.writeText(link);
-                      toast({ title: 'Lien copié', description: 'Le lien d\'activation est dans le presse-papiers.' });
-                    }}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-zinc-400 hover:text-white"
-                    title="Renvoyer l'invitation par email"
-                    onClick={() => handleResendInvite(inv)}
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-red-500 hover:text-red-400"
-                    title="Révoquer"
-                    onClick={() => handleRevokeInvite(inv.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
+          <button
+            onClick={() => setInviteOpen(true)}
+            className="inline-flex items-center gap-2 cursor-pointer transition-all duration-150"
+            style={{ padding: '10px 16px', borderRadius: 12, background: RED, border: '1px solid rgba(232,25,44,0.6)', color: '#fff', fontSize: 13, fontWeight: 600, boxShadow: `0 0 16px -6px ${RED}` }}
+          >
+            <Plus className="h-4 w-4" />
+            Inviter un affilié
+          </button>
         </div>
-      )}
 
-      {/* Table */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-zinc-800 hover:bg-transparent">
-              <TableHead className="text-zinc-400">Nom</TableHead>
-              <TableHead className="text-zinc-400">Type</TableHead>
-              <TableHead className="text-zinc-400">Ville</TableHead>
-              <TableHead className="text-zinc-400 text-center">Clubs</TableHead>
-              <TableHead className="text-zinc-400 text-center">Soirées</TableHead>
-              <TableHead className="text-zinc-400 text-center">Clics</TableHead>
-              <TableHead className="text-zinc-400 text-center">Commission</TableHead>
-              <TableHead className="text-zinc-400 text-center">Statut</TableHead>
-              <TableHead className="text-zinc-400" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center text-zinc-500 py-12">
-                  Chargement…
-                </TableCell>
-              </TableRow>
-            ) : affiliates.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={9} className="text-center text-zinc-500 py-12">
-                  Aucun affilié pour l'instant.
-                </TableCell>
-              </TableRow>
-            ) : (
-              affiliates.map((aff) => (
-                <TableRow key={aff.id} className="border-zinc-800 hover:bg-zinc-800/50">
-                  <TableCell className="font-medium text-white">{aff.name}</TableCell>
-                  <TableCell>
-                    <Badge className={`text-xs border ${TYPE_COLORS[aff.type] ?? ''}`}>
-                      {TYPE_LABELS[aff.type] ?? aff.type}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-zinc-400">{aff.city ?? '—'}</TableCell>
-                  <TableCell className="text-center text-zinc-300">{aff.venueCount}</TableCell>
-                  <TableCell className="text-center text-zinc-300">{aff.eventCount}</TableCell>
-                  <TableCell className="text-center text-zinc-300">{aff.clickCount}</TableCell>
-                  <TableCell className="text-center text-zinc-300">{aff.commission_rate}%</TableCell>
-                  <TableCell className="text-center">
-                    {aff.is_active ? (
-                      <CheckCircle className="h-4 w-4 text-green-500 mx-auto" />
-                    ) : (
-                      <XCircle className="h-4 w-4 text-zinc-500 mx-auto" />
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-zinc-400 hover:text-white text-xs"
-                      onClick={() => handleToggleActive(aff)}
-                    >
-                      {aff.is_active ? 'Désactiver' : 'Activer'}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Invite Dialog */}
-      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-        <DialogContent className="bg-zinc-950 border-zinc-800 text-white max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5 text-red-500" />
-              Inviter un affilié
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label className="text-zinc-300">Email *</Label>
-              <Input
-                placeholder="contact@agence-madrid.com"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="bg-zinc-900 border-zinc-700 text-white"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-zinc-300">Nom de l'entité *</Label>
-              <Input
-                placeholder="Agence Madrid Nightlife"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="bg-zinc-900 border-zinc-700 text-white"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-zinc-300">Ville</Label>
-                <Input
-                  placeholder="Madrid"
-                  value={form.city}
-                  onChange={(e) => setForm({ ...form, city: e.target.value })}
-                  className="bg-zinc-900 border-zinc-700 text-white"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-zinc-300">Commission (%)</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.5"
-                  placeholder="0"
-                  value={form.commission_rate}
-                  onChange={(e) => setForm({ ...form, commission_rate: e.target.value })}
-                  className="bg-zinc-900 border-zinc-700 text-white"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-zinc-300">Type</Label>
-              <Select
-                value={form.type}
-                onValueChange={(v) => setForm({ ...form, type: v as InviteForm['type'] })}
-              >
-                <SelectTrigger className="bg-zinc-900 border-zinc-700 text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-900 border-zinc-700">
-                  <SelectItem value="city_agency">Agence Ville</SelectItem>
-                  <SelectItem value="independent">Indépendant</SelectItem>
-                  <SelectItem value="yuno_internal">Yuno Interne</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setInviteOpen(false)} className="text-zinc-400">
-              Annuler
-            </Button>
-            <Button
-              onClick={handleInvite}
-              disabled={inviteLoading}
-              className="bg-red-600 hover:bg-red-700"
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {stats.map(({ label, value, icon: Icon }) => (
+            <div
+              key={label}
+              style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: '16px 18px' }}
             >
-              {inviteLoading ? 'Envoi…' : 'Envoyer l\'invitation'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              <div className="flex items-center gap-2 mb-2" style={{ color: T3, fontSize: 12 }}>
+                <Icon className="h-4 w-4" style={{ color: T2 }} />
+                {label}
+              </div>
+              <div className="tabular-nums" style={{ color: T1, fontSize: 24, fontWeight: 640, letterSpacing: '-0.02em' }}>{value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Pending invitations */}
+        {(pendingInvites.length > 0 || loading) && (
+          <div style={cardStyle}>
+            <h2 className="flex items-center gap-2 mb-3" style={{ color: T2, fontSize: 13, fontWeight: 600 }}>
+              <Mail className="h-4 w-4" style={{ color: RED }} />
+              Invitations en attente ({pendingInvites.length})
+            </h2>
+            {loading ? (
+              <div className="text-center py-4" style={{ color: T3, fontSize: 13 }}>Chargement…</div>
+            ) : (
+              <div className="space-y-2">
+                {pendingInvites.map((inv) => (
+                  <div key={inv.id} className="flex items-center justify-between gap-3 p-3 rounded-xl" style={{ background: INNER_BG, border: `1px solid ${F_BORDER}` }}>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-[560] truncate" style={{ color: T1, fontSize: 13.5 }}>{inv.organization_name}</div>
+                      <div className="truncate" style={{ color: T3, fontSize: 11.5 }}>
+                        {inv.email} · expire le {format(new Date(inv.expires_at), 'dd/MM/yyyy')}
+                      </div>
+                    </div>
+                    <span style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2, fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 999 }}>
+                      En attente
+                    </span>
+                    <button
+                      style={{ ...iconBtnStyle, color: T2 }}
+                      title="Copier le lien d'activation"
+                      onClick={() => {
+                        const link = `${window.location.origin}/auth?invite_affiliate=${inv.token}&email=${encodeURIComponent(inv.email)}`;
+                        navigator.clipboard.writeText(link);
+                        toast({ title: 'Lien copié', description: 'Le lien d\'activation est dans le presse-papiers.' });
+                      }}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </button>
+                    <button
+                      style={{ ...iconBtnStyle, color: T2 }}
+                      title="Renvoyer l'invitation par email"
+                      onClick={() => handleResendInvite(inv)}
+                    >
+                      <Send className="h-4 w-4" />
+                    </button>
+                    <button
+                      style={{ ...iconBtnStyle, color: RED, border: '1px solid rgba(232,25,44,0.25)', background: 'rgba(232,25,44,0.08)' }}
+                      title="Révoquer"
+                      onClick={() => handleRevokeInvite(inv.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Table */}
+        <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, overflow: 'hidden' }}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]" style={{ minWidth: 720 }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${F_BORDER}` }}>
+                  <th className="px-4 py-3 text-left font-medium" style={thStyle}>Nom</th>
+                  <th className="px-4 py-3 text-left font-medium" style={thStyle}>Type</th>
+                  <th className="px-4 py-3 text-left font-medium" style={thStyle}>Ville</th>
+                  <th className="px-4 py-3 text-center font-medium" style={thStyle}>Clubs</th>
+                  <th className="px-4 py-3 text-center font-medium" style={thStyle}>Soirées</th>
+                  <th className="px-4 py-3 text-center font-medium" style={thStyle}>Clics</th>
+                  <th className="px-4 py-3 text-center font-medium" style={thStyle}>Commission</th>
+                  <th className="px-4 py-3 text-center font-medium" style={thStyle}>Statut</th>
+                  <th className="px-4 py-3" style={thStyle} />
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={9} className="text-center py-12">
+                      <div className="h-8 w-8 animate-spin rounded-full border-2 mx-auto mb-2" style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} />
+                      <span style={{ color: T3, fontSize: 12 }}>Chargement…</span>
+                    </td>
+                  </tr>
+                ) : affiliates.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="text-center py-12">
+                      <Building2 className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.12)' }} />
+                      <span style={{ color: T3, fontSize: 12 }}>Aucun affilié pour l'instant.</span>
+                    </td>
+                  </tr>
+                ) : (
+                  affiliates.map((aff, index) => (
+                    <tr key={aff.id} style={{ borderBottom: index < affiliates.length - 1 ? `1px solid ${F_BORDER}` : 'none' }}>
+                      <td className="px-4 py-3 font-[560]" style={{ color: T1 }}>{aff.name}</td>
+                      <td className="px-4 py-3">
+                        <span style={{ ...typePillStyle(aff.type), fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 999, display: 'inline-block' }}>
+                          {TYPE_LABELS[aff.type] ?? aff.type}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3" style={{ color: T2 }}>{aff.city ?? '—'}</td>
+                      <td className="px-4 py-3 text-center tabular-nums" style={{ color: T2 }}>{aff.venueCount}</td>
+                      <td className="px-4 py-3 text-center tabular-nums" style={{ color: T2 }}>{aff.eventCount}</td>
+                      <td className="px-4 py-3 text-center tabular-nums" style={{ color: T2 }}>{aff.clickCount}</td>
+                      <td className="px-4 py-3 text-center tabular-nums" style={{ color: T2 }}>{aff.commission_rate}%</td>
+                      <td className="px-4 py-3 text-center">
+                        {aff.is_active ? (
+                          <CheckCircle className="h-4 w-4 mx-auto" style={{ color: POS }} />
+                        ) : (
+                          <XCircle className="h-4 w-4 mx-auto" style={{ color: T3 }} />
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          className="cursor-pointer transition-all duration-150"
+                          style={{ padding: '5px 11px', borderRadius: 8, background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, fontSize: 12, fontWeight: 500 }}
+                          onClick={() => handleToggleActive(aff)}
+                        >
+                          {aff.is_active ? 'Désactiver' : 'Activer'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Invite Dialog */}
+        <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+          <DialogContent className="max-w-md" style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, color: T1 }}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2" style={{ color: T1 }}>
+                <Mail className="h-5 w-5" style={{ color: RED }} />
+                Inviter un affilié
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2">
+              <div>
+                <label style={labelStyle}>Email *</label>
+                <input
+                  placeholder="contact@agence-madrid.com"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Nom de l'entité *</label>
+                <input
+                  placeholder="Agence Madrid Nightlife"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label style={labelStyle}>Ville</label>
+                  <input
+                    placeholder="Madrid"
+                    value={form.city}
+                    onChange={(e) => setForm({ ...form, city: e.target.value })}
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Commission (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    placeholder="0"
+                    value={form.commission_rate}
+                    onChange={(e) => setForm({ ...form, commission_rate: e.target.value })}
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Type</label>
+                <select
+                  value={form.type}
+                  onChange={(e) => setForm({ ...form, type: e.target.value as InviteForm['type'] })}
+                  style={{ ...inputStyle, cursor: 'pointer' }}
+                >
+                  <option value="city_agency" style={{ background: '#0a0a0c', color: T1 }}>Agence Ville</option>
+                  <option value="independent" style={{ background: '#0a0a0c', color: T1 }}>Indépendant</option>
+                  <option value="yuno_internal" style={{ background: '#0a0a0c', color: T1 }}>Yuno Interne</option>
+                </select>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <button
+                onClick={() => setInviteOpen(false)}
+                className="cursor-pointer transition-all duration-150"
+                style={{ padding: '9px 14px', borderRadius: 10, background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, fontSize: 13, fontWeight: 500 }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleInvite}
+                disabled={inviteLoading}
+                className="cursor-pointer transition-all duration-150"
+                style={{ padding: '9px 16px', borderRadius: 10, background: RED, border: '1px solid rgba(232,25,44,0.6)', color: '#fff', fontSize: 13, fontWeight: 600, opacity: inviteLoading ? 0.5 : 1 }}
+              >
+                {inviteLoading ? 'Envoi…' : 'Envoyer l\'invitation'}
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }

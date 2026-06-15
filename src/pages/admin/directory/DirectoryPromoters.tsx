@@ -1,17 +1,43 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { Search } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
+
+// ─── Yuno Design Tokens ───────────────────────────────────────────────────────
+const POS        = '#34D399';
+const T1         = 'rgba(255,255,255,0.96)';
+const T2         = 'rgba(255,255,255,0.58)';
+const T3         = 'rgba(255,255,255,0.36)';
+const BORDER     = 'rgba(255,255,255,0.085)';
+const F_BORDER   = 'rgba(255,255,255,0.055)';
+const INNER_BG   = 'rgba(255,255,255,0.032)';
+const CARD_BG    = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
+const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+
+const thStyle: React.CSSProperties = { color: T3, fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em' };
+
+function StatusPill({ active, on, off }: { active: boolean; on: string; off: string }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5"
+      style={{
+        fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '0.04em',
+        background: active ? 'rgba(52,211,153,0.1)' : 'rgba(255,255,255,0.045)',
+        border: `1px solid ${active ? 'rgba(52,211,153,0.25)' : BORDER}`,
+        color: active ? POS : T3,
+      }}
+    >
+      {active ? on : off}
+    </span>
+  );
+}
 
 const PAGE_SIZE = 25;
 
 export default function DirectoryPromoters() {
   const { t } = useLanguage();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data, setData] = useState<any[]>([]);
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(0);
@@ -68,59 +94,80 @@ export default function DirectoryPromoters() {
 
   return (
     <div className="space-y-4 mt-4">
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder={t('admin.dir.searchPromoters')} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 max-w-sm min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: T3 }} />
+          <input
+            placeholder={t('admin.dir.searchPromoters')}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, color: T1, fontSize: 13, padding: '9px 12px 9px 36px', width: '100%', outline: 'none' }}
+          />
         </div>
-        <span className="text-sm text-muted-foreground">{count} {t('admin.dir.results')}</span>
+        <span className="tabular-nums" style={{ color: T3, fontSize: 12.5 }}>{count} {t('admin.dir.results')}</span>
       </div>
 
-      <div className="rounded-lg border border-border overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('admin.dir.name')}</TableHead>
-              <TableHead>Code</TableHead>
-              <TableHead>Venue</TableHead>
-              <TableHead>Clicks</TableHead>
-              <TableHead>Conversions</TableHead>
-              <TableHead>{t('admin.dir.commission')}</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>{t('admin.dir.created')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">{t('admin.dir.loading')}</TableCell></TableRow>
-            ) : data.length === 0 ? (
-              <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">{t('admin.dir.noResults')}</TableCell></TableRow>
-            ) : data.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell className="font-medium">{p.first_name} {p.last_name}</TableCell>
-                <TableCell><code className="text-xs bg-muted px-1.5 py-0.5 rounded">{p.promo_code}</code></TableCell>
-                <TableCell className="text-sm text-muted-foreground">{p.venueName}</TableCell>
-                <TableCell>{p.clicks}</TableCell>
-                <TableCell>{p.conversions}</TableCell>
-                <TableCell className="text-sm">{p.pending_amount.toFixed(2)} €</TableCell>
-                <TableCell>
-                  <Badge variant={p.is_active ? 'success' : 'secondary'}>{p.is_active ? t('admin.dir.active') : t('admin.dir.inactive')}</Badge>
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">{format(new Date(p.created_at), 'dd/MM/yyyy')}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '8px 4px', overflow: 'hidden' }}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px]" style={{ minWidth: 820 }}>
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${F_BORDER}` }}>
+                <th className="px-3 py-2.5 text-left" style={thStyle}>{t('admin.dir.name')}</th>
+                <th className="px-3 py-2.5 text-left" style={thStyle}>Code</th>
+                <th className="px-3 py-2.5 text-left" style={thStyle}>Venue</th>
+                <th className="px-3 py-2.5 text-right" style={thStyle}>Clicks</th>
+                <th className="px-3 py-2.5 text-right" style={thStyle}>Conversions</th>
+                <th className="px-3 py-2.5 text-right" style={thStyle}>{t('admin.dir.commission')}</th>
+                <th className="px-3 py-2.5 text-left" style={thStyle}>Status</th>
+                <th className="px-3 py-2.5 text-right" style={thStyle}>{t('admin.dir.created')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={8} className="text-center py-8" style={{ color: T3, fontSize: 12.5 }}>{t('admin.dir.loading')}</td></tr>
+              ) : data.length === 0 ? (
+                <tr><td colSpan={8} className="text-center py-8" style={{ color: T3, fontSize: 12.5 }}>{t('admin.dir.noResults')}</td></tr>
+              ) : data.map((p, i) => (
+                <tr key={p.id} style={{ borderBottom: i < data.length - 1 ? `1px solid ${F_BORDER}` : 'none' }}>
+                  <td className="px-3 py-3 font-medium" style={{ color: T1 }}>{p.first_name} {p.last_name}</td>
+                  <td className="px-3 py-3">
+                    <code style={{ fontSize: 11.5, background: INNER_BG, border: `1px solid ${F_BORDER}`, color: T2, padding: '2px 7px', borderRadius: 6 }}>{p.promo_code}</code>
+                  </td>
+                  <td className="px-3 py-3" style={{ color: T3 }}>{p.venueName}</td>
+                  <td className="px-3 py-3 text-right tabular-nums" style={{ color: T2 }}>{p.clicks}</td>
+                  <td className="px-3 py-3 text-right tabular-nums" style={{ color: T2 }}>{p.conversions}</td>
+                  <td className="px-3 py-3 text-right tabular-nums" style={{ color: T1 }}>{p.pending_amount.toFixed(2)} €</td>
+                  <td className="px-3 py-3">
+                    <StatusPill active={p.is_active} on={t('admin.dir.active')} off={t('admin.dir.inactive')} />
+                  </td>
+                  <td className="px-3 py-3 text-right tabular-nums" style={{ color: T3 }}>{format(new Date(p.created_at), 'dd/MM/yyyy')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {totalPages > 1 && (
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem><PaginationPrevious onClick={() => setPage(p => Math.max(0, p - 1))} className={page === 0 ? 'pointer-events-none opacity-50' : 'cursor-pointer'} /></PaginationItem>
-            <PaginationItem><span className="text-sm text-muted-foreground px-3">{page + 1} / {totalPages}</span></PaginationItem>
-            <PaginationItem><PaginationNext onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} className={page >= totalPages - 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'} /></PaginationItem>
-          </PaginationContent>
-        </Pagination>
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="inline-flex items-center justify-center h-8 w-8 rounded-lg cursor-pointer transition-all duration-150 disabled:cursor-not-allowed"
+            style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, opacity: page === 0 ? 0.4 : 1 }}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="tabular-nums px-2" style={{ color: T3, fontSize: 12.5 }}>{page + 1} / {totalPages}</span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1}
+            className="inline-flex items-center justify-center h-8 w-8 rounded-lg cursor-pointer transition-all duration-150 disabled:cursor-not-allowed"
+            style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, opacity: page >= totalPages - 1 ? 0.4 : 1 }}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
       )}
     </div>
   );

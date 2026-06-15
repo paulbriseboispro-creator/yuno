@@ -1,28 +1,68 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { CreditCard, CheckCircle, Clock, XCircle, Search } from 'lucide-react';
+import { CreditCard, CheckCircle, Clock, XCircle, Search, type LucideIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { PLANS, PlanCode } from '@/lib/planFeatures';
 
+// ─── Yuno Design Tokens ───────────────────────────────────────────────────────
+const RED         = '#E8192C';
+const POS         = '#34D399';
+const NEG         = '#FF5C63';
+const T1          = 'rgba(255,255,255,0.96)';
+const T2          = 'rgba(255,255,255,0.58)';
+const T3          = 'rgba(255,255,255,0.36)';
+const C_FAINT     = 'rgba(255,255,255,0.06)';
+const BORDER      = 'rgba(255,255,255,0.085)';
+const F_BORDER    = 'rgba(255,255,255,0.055)';
+const INNER_BG    = 'rgba(255,255,255,0.032)';
+const CARD_BG     = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
+const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+
 const PAGE_SIZE = 25;
 
-const PLAN_BADGE_COLORS: Record<string, string> = {
-  elite: 'bg-purple-600 text-white',
-  pro: 'bg-blue-600 text-white',
-  essential: 'bg-muted text-foreground',
+const inputStyle: React.CSSProperties = {
+  background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10,
+  color: T1, fontSize: 13, padding: '9px 12px 9px 34px', width: '100%', outline: 'none',
+};
+
+const selectStyle: React.CSSProperties = {
+  background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10,
+  color: T1, fontSize: 13, padding: '9px 12px', outline: 'none', cursor: 'pointer', minWidth: 160,
 };
 
 const planLabel = (code: string) => {
   const p = PLANS[code as PlanCode];
   return p ? p.name : code;
 };
+
+// elite = accent RED, pro = bright white, essential = muted
+const planPillStyle = (code: string): React.CSSProperties => {
+  if (code === 'elite') return { background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.3)', color: RED };
+  if (code === 'pro') return { background: 'rgba(255,255,255,0.08)', border: `1px solid ${BORDER}`, color: T1 };
+  return { background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 };
+};
+
+// ─── Status pill ──────────────────────────────────────────────────────────────
+function StatusPill({ status }: { status: string }) {
+  const pos = status === 'active';
+  const neg = status === 'past_due';
+  const trial = status === 'trialing';
+  const tone = pos
+    ? { color: POS, background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)' }
+    : neg
+    ? { color: NEG, background: 'rgba(255,92,99,0.1)', border: '1px solid rgba(255,92,99,0.25)' }
+    : trial
+    ? { color: T1, background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER}` }
+    : { color: T3, background: C_FAINT, border: `1px solid ${BORDER}` };
+  return (
+    <span style={{ ...tone, fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 999, textTransform: 'capitalize', display: 'inline-block' }}>
+      {status}
+    </span>
+  );
+}
 
 export default function AdminSubscriptions() {
   const { t } = useLanguage();
@@ -83,113 +123,136 @@ export default function AdminSubscriptions() {
 
   const totalPages = Math.ceil(count / PAGE_SIZE);
 
-  const statusColor: Record<string, string> = {
-    active: 'success', trialing: 'warning', past_due: 'destructive', canceled: 'outline', incomplete: 'outline',
-  };
-
   const kpiCards = useMemo(() => [
-    { label: t('admin.subs.active'), value: kpis.active, icon: CheckCircle, color: 'text-emerald-500' },
-    { label: t('admin.subs.trialing'), value: kpis.trialing, icon: Clock, color: 'text-amber-500' },
-    { label: t('admin.subs.expired'), value: kpis.expired, icon: XCircle, color: 'text-destructive' },
+    { label: t('admin.subs.active'), value: kpis.active, icon: CheckCircle, tone: 'pos' as const },
+    { label: t('admin.subs.trialing'), value: kpis.trialing, icon: Clock, tone: undefined },
+    { label: t('admin.subs.expired'), value: kpis.expired, icon: XCircle, tone: kpis.expired > 0 ? 'neg' as const : undefined },
   ], [kpis, t]);
 
+  const statusOptions = [
+    { value: 'all', label: t('admin.subs.allStatuses') },
+    { value: 'active', label: t('admin.subs.active') },
+    { value: 'trialing', label: t('admin.subs.trialing') },
+    { value: 'canceled', label: t('admin.orders.cancelled') },
+    { value: 'past_due', label: t('admin.orders.pending') },
+  ];
+
+  const planOptions = [
+    { value: 'all', label: t('admin.subs.allPlans') },
+    { value: 'essential', label: 'Essential' },
+    { value: 'pro', label: 'Pro' },
+    { value: 'elite', label: 'Elite' },
+  ];
+
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">{t('admin.subs.title')}</h1>
-        <p className="text-muted-foreground text-sm mt-1">{t('admin.subs.subtitle')}</p>
-      </div>
+    <div className="min-h-screen pb-16" style={{ background: '#000' }}>
+      <div className="fixed inset-0 pointer-events-none z-0"
+        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(232,25,44,.05),transparent 55%)' }} />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {kpiCards.map((kpi) => (
-          <div key={kpi.label} className="rounded-xl border border-border bg-card p-4 flex items-center gap-3">
-            <div className="rounded-lg bg-muted p-2.5">
-              <kpi.icon className={`h-5 w-5 ${kpi.color}`} />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground font-medium">{kpi.label}</p>
-              <p className="text-lg font-bold text-foreground">{kpi.value}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Filters */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder={t('admin.subs.searchVenue')} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 py-6 space-y-6">
+        {/* Header */}
+        <div>
+          <h1 style={{ color: T1, fontSize: 'clamp(22px,3vw,28px)', fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.1 }}>
+            {t('admin.subs.title')}
+          </h1>
+          <p style={{ color: T3, fontSize: 13, marginTop: 4 }}>{t('admin.subs.subtitle')}</p>
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('admin.subs.allStatuses')}</SelectItem>
-            <SelectItem value="active">{t('admin.subs.active')}</SelectItem>
-            <SelectItem value="trialing">{t('admin.subs.trialing')}</SelectItem>
-            <SelectItem value="canceled">{t('admin.orders.cancelled')}</SelectItem>
-            <SelectItem value="past_due">{t('admin.orders.pending')}</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={planFilter} onValueChange={setPlanFilter}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('admin.subs.allPlans')}</SelectItem>
-            <SelectItem value="essential">Essential</SelectItem>
-            <SelectItem value="pro">Pro</SelectItem>
-            <SelectItem value="elite">Elite</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
 
-      <div className="rounded-lg border border-border overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('admin.subs.venue')}</TableHead>
-              <TableHead>{t('admin.subs.plan')}</TableHead>
-              <TableHead>{t('admin.subs.status')}</TableHead>
-              <TableHead>{t('admin.subs.periodStart')}</TableHead>
-              <TableHead>{t('admin.subs.periodEnd')}</TableHead>
-              <TableHead>{t('admin.subs.trialEnd')}</TableHead>
-              <TableHead>{t('admin.subs.createdAt')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">{t('admin.subs.loading')}</TableCell></TableRow>
-            ) : data.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">{t('admin.subs.noResults')}</TableCell></TableRow>
-            ) : data.map(s => (
-              <TableRow key={s.id}>
-                <TableCell>
-                  <Link to={`/admin/directory/venue/${s.venue_id}`} className="font-medium text-primary hover:underline">{s.venueName}</Link>
-                </TableCell>
-                <TableCell>
-                  <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${PLAN_BADGE_COLORS[s.subscription_plan] || 'bg-muted text-foreground'}`}>
-                    {planLabel(s.subscription_plan)}
-                  </span>
-                </TableCell>
-                <TableCell><Badge variant={(statusColor[s.status] || 'outline') as any}>{s.status}</Badge></TableCell>
-                <TableCell className="text-sm text-muted-foreground">{s.current_period_start ? format(new Date(s.current_period_start), 'dd/MM/yyyy') : '—'}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">{s.current_period_end ? format(new Date(s.current_period_end), 'dd/MM/yyyy') : '—'}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">{s.trial_end ? format(new Date(s.trial_end), 'dd/MM/yyyy') : '—'}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">{format(new Date(s.created_at), 'dd/MM/yyyy')}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {kpiCards.map((kpi) => {
+            const Icon: LucideIcon = kpi.icon;
+            const valueColor = kpi.tone === 'neg' ? NEG : kpi.tone === 'pos' ? POS : T1;
+            const iconColor = kpi.tone === 'neg' ? NEG : kpi.tone === 'pos' ? POS : T2;
+            return (
+              <div
+                key={kpi.label}
+                style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: '16px 18px' }}
+                className="flex items-center gap-3"
+              >
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-xl flex-none"
+                  style={{ background: C_FAINT, border: `1px solid ${F_BORDER}` }}
+                >
+                  <Icon className="h-5 w-5" style={{ color: iconColor }} />
+                </div>
+                <div>
+                  <p style={{ color: T3, fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{kpi.label}</p>
+                  <p className="tabular-nums" style={{ color: valueColor, fontSize: 20, fontWeight: 640, letterSpacing: '-0.02em', marginTop: 3 }}>{kpi.value}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
 
-      {totalPages > 1 && (
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem><PaginationPrevious onClick={() => setPage(p => Math.max(0, p - 1))} className={page === 0 ? 'pointer-events-none opacity-50' : 'cursor-pointer'} /></PaginationItem>
-            <PaginationItem><span className="text-sm text-muted-foreground px-3">{page + 1} / {totalPages}</span></PaginationItem>
-            <PaginationItem><PaginationNext onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} className={page >= totalPages - 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'} /></PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      )}
+        {/* Filters */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: T3 }} />
+            <input placeholder={t('admin.subs.searchVenue')} value={search} onChange={(e) => setSearch(e.target.value)} style={inputStyle} />
+          </div>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={selectStyle}>
+            {statusOptions.map(o => <option key={o.value} value={o.value} style={{ background: '#0a0a0c', color: T1 }}>{o.label}</option>)}
+          </select>
+          <select value={planFilter} onChange={(e) => setPlanFilter(e.target.value)} style={selectStyle}>
+            {planOptions.map(o => <option key={o.value} value={o.value} style={{ background: '#0a0a0c', color: T1 }}>{o.label}</option>)}
+          </select>
+        </div>
+
+        {/* Table */}
+        <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, overflow: 'hidden' }}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[13px]" style={{ minWidth: 680 }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${F_BORDER}` }}>
+                  {[t('admin.subs.venue'), t('admin.subs.plan'), t('admin.subs.status'), t('admin.subs.periodStart'), t('admin.subs.periodEnd'), t('admin.subs.trialEnd'), t('admin.subs.createdAt')].map((h, i) => (
+                    <th key={i} className="px-4 py-3 text-left font-medium" style={{ color: T3, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan={7} className="text-center py-10">
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 mx-auto mb-2" style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} />
+                    <span style={{ color: T3, fontSize: 12 }}>{t('admin.subs.loading')}</span>
+                  </td></tr>
+                ) : data.length === 0 ? (
+                  <tr><td colSpan={7} className="text-center py-12">
+                    <CreditCard className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.12)' }} />
+                    <span style={{ color: T3, fontSize: 12 }}>{t('admin.subs.noResults')}</span>
+                  </td></tr>
+                ) : data.map((s, index) => (
+                  <tr key={s.id} style={{ borderBottom: index < data.length - 1 ? `1px solid ${F_BORDER}` : 'none' }}>
+                    <td className="px-4 py-3">
+                      <Link to={`/admin/directory/venue/${s.venue_id}`} className="font-[560] hover:opacity-80 transition-opacity" style={{ color: RED }}>{s.venueName}</Link>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span style={{ ...planPillStyle(s.subscription_plan), fontSize: 11, fontWeight: 600, padding: '2px 9px', borderRadius: 999, display: 'inline-block' }}>
+                        {planLabel(s.subscription_plan)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3"><StatusPill status={s.status} /></td>
+                    <td className="px-4 py-3 tabular-nums" style={{ color: T2 }}>{s.current_period_start ? format(new Date(s.current_period_start), 'dd/MM/yyyy') : '—'}</td>
+                    <td className="px-4 py-3 tabular-nums" style={{ color: T2 }}>{s.current_period_end ? format(new Date(s.current_period_end), 'dd/MM/yyyy') : '—'}</td>
+                    <td className="px-4 py-3 tabular-nums" style={{ color: T2 }}>{s.trial_end ? format(new Date(s.trial_end), 'dd/MM/yyyy') : '—'}</td>
+                    <td className="px-4 py-3 tabular-nums" style={{ color: T3 }}>{format(new Date(s.created_at), 'dd/MM/yyyy')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {totalPages > 1 && (
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem><PaginationPrevious onClick={() => setPage(p => Math.max(0, p - 1))} className={page === 0 ? 'pointer-events-none opacity-50' : 'cursor-pointer'} /></PaginationItem>
+              <PaginationItem><span className="text-sm px-3 tabular-nums" style={{ color: T3 }}>{page + 1} / {totalPages}</span></PaginationItem>
+              <PaginationItem><PaginationNext onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} className={page >= totalPages - 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'} /></PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        )}
+      </div>
     </div>
   );
 }

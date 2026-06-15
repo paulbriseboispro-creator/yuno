@@ -1,12 +1,57 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Building2, CheckCircle, XCircle, AlertTriangle, Users, Calendar, ExternalLink, CreditCard, Wine, Ticket, Armchair } from 'lucide-react';
+import { ArrowLeft, Building2, CheckCircle, XCircle, AlertTriangle, Users, Calendar, ExternalLink, CreditCard, Wine, Ticket, Armchair, type LucideIcon } from 'lucide-react';
 import { format } from 'date-fns';
+import { motion } from 'framer-motion';
+
+// ─── Yuno Design Tokens ───────────────────────────────────────────────────────
+const RED        = '#E8192C';
+const POS        = '#34D399';
+const NEG        = '#FF5C63';
+const T1         = 'rgba(255,255,255,0.96)';
+const T2         = 'rgba(255,255,255,0.58)';
+const T3         = 'rgba(255,255,255,0.36)';
+const C_FAINT    = 'rgba(255,255,255,0.06)';
+const BORDER     = 'rgba(255,255,255,0.085)';
+const F_BORDER   = 'rgba(255,255,255,0.055)';
+const INNER_BG   = 'rgba(255,255,255,0.032)';
+const CARD_BG    = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
+const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+
+const cardStyle: React.CSSProperties = {
+  background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18,
+  boxShadow: CARD_SHADOW, padding: 22, overflow: 'hidden',
+};
+
+function SectionHeader({ icon: Icon, label, accent }: { icon: LucideIcon; label: string; accent?: boolean }) {
+  return (
+    <div className="flex items-center gap-2.5 mb-4">
+      <div
+        className="flex h-8 w-8 items-center justify-center rounded-xl flex-none"
+        style={accent
+          ? { background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }
+          : { background: C_FAINT, border: `1px solid ${BORDER}` }}
+      >
+        <Icon className="h-4 w-4" style={{ color: accent ? RED : T2 }} />
+      </div>
+      <h3 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em', margin: 0 }}>{label}</h3>
+    </div>
+  );
+}
+
+const thStyle: React.CSSProperties = { color: T3, fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em' };
+
+function RolePill({ label }: { label: string }) {
+  return (
+    <span
+      className="inline-flex items-center px-2.5 py-1 rounded-full"
+      style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1, fontSize: 11, fontWeight: 600 }}
+    >
+      {label}
+    </span>
+  );
+}
 
 export default function AdminVenueDetail() {
   const { venueId } = useParams<{ venueId: string }>();
@@ -85,26 +130,41 @@ export default function AdminVenueDetail() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center" style={{ background: '#000' }}>
+        <div className="h-10 w-10 animate-spin rounded-full border-2" style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} />
       </div>
     );
   }
 
   if (!venue) {
     return (
-      <div className="p-6">
-        <Button variant="ghost" onClick={() => navigate(-1)}><ArrowLeft className="h-4 w-4 mr-2" />Retour</Button>
-        <p className="text-muted-foreground mt-4">Établissement introuvable.</p>
+      <div className="min-h-screen" style={{ background: '#000' }}>
+        <div className="mx-auto max-w-[1340px] px-4 sm:px-6 py-6">
+          <button
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors"
+            style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${F_BORDER}`, color: T3, fontSize: 13 }}
+          >
+            <ArrowLeft className="h-4 w-4" />Retour
+          </button>
+          <p className="mt-4" style={{ color: T3, fontSize: 13 }}>Établissement introuvable.</p>
+        </div>
       </div>
     );
   }
 
   const stripeStatus = venue.stripe_charges_enabled
-    ? { label: 'Connecté', variant: 'success' as const, icon: CheckCircle }
+    ? { label: 'Connecté', tone: 'pos' as const, icon: CheckCircle }
     : venue.stripe_account_id
-      ? { label: 'En attente', variant: 'warning' as const, icon: AlertTriangle }
-      : { label: 'Non configuré', variant: 'destructive' as const, icon: XCircle };
+      ? { label: 'En attente', tone: 'accent' as const, icon: AlertTriangle }
+      : { label: 'Non configuré', tone: 'neg' as const, icon: XCircle };
+
+  const stripePillStyle: React.CSSProperties =
+    stripeStatus.tone === 'pos'
+      ? { background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: POS }
+      : stripeStatus.tone === 'accent'
+        ? { background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.3)', color: RED }
+        : { background: 'rgba(255,92,99,0.1)', border: '1px solid rgba(255,92,99,0.3)', color: NEG };
 
   const onboardingPct = onboarding?.completed_at ? 100 : (() => {
     const steps = onboarding?.steps as Record<string, boolean> | null;
@@ -114,154 +174,187 @@ export default function AdminVenueDetail() {
     return total > 0 ? Math.round((done / total) * 100) : 0;
   })();
 
+  const statTiles = [
+    { icon: Wine, value: stats.orders, label: `Commandes · ${stats.orderRevenue.toFixed(0)} €` },
+    { icon: Ticket, value: stats.tickets, label: `Billets · ${stats.ticketRevenue.toFixed(0)} €` },
+    { icon: Armchair, value: stats.tables, label: `Tables · ${stats.tableRevenue.toFixed(0)} €` },
+  ];
+
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-5xl">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="h-5 w-5" /></Button>
-        <Building2 className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold text-foreground">{venue.name}</h1>
-        <a href={`/club/${venue.id}`} target="_blank" rel="noopener noreferrer">
-          <Badge variant="outline" className="gap-1 cursor-pointer"><ExternalLink className="h-3 w-3" />Voir page</Badge>
-        </a>
-      </div>
+    <div className="min-h-screen" style={{ background: '#000' }}>
+      <div className="mx-auto max-w-[1340px] px-4 sm:px-6 py-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg flex-none cursor-pointer transition-colors"
+            style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${F_BORDER}`, color: T3 }}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl flex-none" style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}>
+            <Building2 className="h-4 w-4" style={{ color: RED }} />
+          </div>
+          <h1 style={{ color: T1, fontSize: 'clamp(22px,3vw,28px)', fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.1 }}>{venue.name}</h1>
+          <a href={`/club/${venue.id}`} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full cursor-pointer transition-colors"
+            style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2, fontSize: 11.5, fontWeight: 500 }}
+          >
+            <ExternalLink className="h-3 w-3" />Voir page
+          </a>
+        </div>
 
-      {/* Info + Stripe + Owner */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Informations</CardTitle></CardHeader>
-          <CardContent className="space-y-1 text-sm">
-            <p><span className="text-muted-foreground">Ville :</span> {venue.city || '—'}</p>
-            <p><span className="text-muted-foreground">Adresse :</span> {venue.address || '—'}</p>
-            <p><span className="text-muted-foreground">Créé le :</span> {format(new Date(venue.created_at), 'dd/MM/yyyy')}</p>
-            <div className="flex items-center gap-2 pt-1">
-              <span className="text-muted-foreground">Onboarding :</span>
-              <div className="h-2 w-16 bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-primary rounded-full" style={{ width: `${onboardingPct}%` }} />
+        {/* Info + Stripe + Owner */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div style={cardStyle}>
+            <p style={{ color: T3, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 12 }}>Informations</p>
+            <div className="space-y-1.5" style={{ fontSize: 13, color: T1 }}>
+              <p><span style={{ color: T3 }}>Ville :</span> {venue.city || '—'}</p>
+              <p><span style={{ color: T3 }}>Adresse :</span> {venue.address || '—'}</p>
+              <p><span style={{ color: T3 }}>Créé le :</span> {format(new Date(venue.created_at), 'dd/MM/yyyy')}</p>
+              <div className="flex items-center gap-2 pt-1">
+                <span style={{ color: T3 }}>Onboarding :</span>
+                <div className="h-2 w-16 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                  <div className="h-full rounded-full" style={{ width: `${onboardingPct}%`, background: RED }} />
+                </div>
+                <span className="tabular-nums" style={{ fontSize: 12, color: T1 }}>{onboardingPct}%</span>
               </div>
-              <span className="text-xs">{onboardingPct}%</span>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground flex items-center gap-1"><CreditCard className="h-4 w-4" /> Stripe</CardTitle></CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <Badge variant={stripeStatus.variant} className="gap-1">
-              <stripeStatus.icon className="h-3 w-3" />{stripeStatus.label}
-            </Badge>
-            {subscription && (
-              <div className="pt-2 space-y-1">
-                <p><span className="text-muted-foreground">Abonnement :</span> <Badge variant="outline">{subscription.status}</Badge></p>
-                {subscription.trial_end && (
-                  <p className="text-xs text-muted-foreground">Fin essai : {format(new Date(subscription.trial_end), 'dd/MM/yyyy')}</p>
-                )}
+          <div style={cardStyle}>
+            <p className="flex items-center gap-1.5" style={{ color: T3, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 12 }}>
+              <CreditCard className="h-3.5 w-3.5" /> Stripe
+            </p>
+            <div className="space-y-2" style={{ fontSize: 13 }}>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={{ ...stripePillStyle, fontSize: 12, fontWeight: 600 }}>
+                <stripeStatus.icon className="h-3 w-3" />{stripeStatus.label}
+              </span>
+              {subscription && (
+                <div className="pt-2 space-y-1.5">
+                  <p className="flex items-center gap-2">
+                    <span style={{ color: T3 }}>Abonnement :</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full" style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1, fontSize: 11, fontWeight: 600 }}>{subscription.status}</span>
+                  </p>
+                  {subscription.trial_end && (
+                    <p style={{ fontSize: 12, color: T3 }}>Fin essai : {format(new Date(subscription.trial_end), 'dd/MM/yyyy')}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div style={cardStyle}>
+            <p style={{ color: T3, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 12 }}>Owner</p>
+            <div style={{ fontSize: 13 }}>
+              {owner ? (
+                <div className="space-y-1">
+                  <p style={{ color: T1, fontWeight: 600 }}>{`${owner.first_name || ''} ${owner.last_name || ''}`.trim() || 'Sans nom'}</p>
+                  <p style={{ color: T2 }}>{owner.email}</p>
+                  <Link to={`/admin/directory/user/${owner.id}`} style={{ color: RED, fontSize: 12, textDecoration: 'none' }}>Voir profil →</Link>
+                </div>
+              ) : (
+                <p style={{ color: T3 }}>Aucun owner assigné</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Revenue stats */}
+        <div className="grid grid-cols-3 gap-4">
+          {statTiles.map((tile, i) => (
+            <div key={i} style={{ ...cardStyle, padding: '16px 18px' }} className="text-center">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg mx-auto mb-2" style={{ background: C_FAINT, border: `1px solid ${BORDER}` }}>
+                <tile.icon className="h-4 w-4" style={{ color: T2 }} />
               </div>
-            )}
-          </CardContent>
-        </Card>
+              <p className="tabular-nums" style={{ color: T1, fontSize: 26, fontWeight: 640, letterSpacing: '-0.025em', lineHeight: 1 }}>{tile.value}</p>
+              <p style={{ color: T3, fontSize: 11, marginTop: 8 }}>{tile.label}</p>
+            </div>
+          ))}
+        </div>
 
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm text-muted-foreground">Owner</CardTitle></CardHeader>
-          <CardContent className="text-sm">
-            {owner ? (
-              <div className="space-y-1">
-                <p className="font-medium">{`${owner.first_name || ''} ${owner.last_name || ''}`.trim() || 'Sans nom'}</p>
-                <p className="text-muted-foreground">{owner.email}</p>
-                <Link to={`/admin/directory/user/${owner.id}`} className="text-primary text-xs hover:underline">Voir profil →</Link>
+        {/* Staff */}
+        {staff.length > 0 && (
+          <section>
+            <SectionHeader icon={Users} label={`Staff (${staff.length})`} />
+            <div style={{ ...cardStyle, padding: '8px 4px' }}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${F_BORDER}` }}>
+                      <th className="px-3 py-2.5 text-left font-medium" style={thStyle}>Nom</th>
+                      <th className="px-3 py-2.5 text-left font-medium" style={thStyle}>Email</th>
+                      <th className="px-3 py-2.5 text-left font-medium" style={thStyle}>Rôles</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {staff.map((s, i) => (
+                      <motion.tr
+                        key={s.id}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: Math.min(i * 0.03, 0.3) }}
+                        style={{ borderBottom: i < staff.length - 1 ? `1px solid ${F_BORDER}` : 'none' }}
+                      >
+                        <td className="px-3 py-3">
+                          <Link to={`/admin/directory/user/${s.id}`} style={{ color: RED, fontWeight: 600, textDecoration: 'none' }}>
+                            {`${s.first_name || ''} ${s.last_name || ''}`.trim() || s.email}
+                          </Link>
+                        </td>
+                        <td className="px-3 py-3" style={{ color: T2 }}>{s.email}</td>
+                        <td className="px-3 py-3"><div className="flex gap-1 flex-wrap">{s.roles.map((r: string) => <RolePill key={r} label={r} />)}</div></td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            ) : (
-              <p className="text-muted-foreground">Aucun owner assigné</p>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          </section>
+        )}
+
+        {/* Events */}
+        {events.length > 0 && (
+          <section>
+            <SectionHeader icon={Calendar} label="Événements récents" />
+            <div style={{ ...cardStyle, padding: '8px 4px' }}>
+              <div className="overflow-x-auto">
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${F_BORDER}` }}>
+                      <th className="px-3 py-2.5 text-left font-medium" style={thStyle}>Titre</th>
+                      <th className="px-3 py-2.5 text-left font-medium" style={thStyle}>Date</th>
+                      <th className="px-3 py-2.5 text-left font-medium" style={thStyle}>Actif</th>
+                      <th className="px-3 py-2.5 text-left font-medium" style={thStyle}>Billetterie</th>
+                      <th className="px-3 py-2.5 text-left font-medium" style={thStyle}>Tables</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {events.map((e, i) => (
+                      <motion.tr
+                        key={e.id}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: Math.min(i * 0.03, 0.3) }}
+                        style={{ borderBottom: i < events.length - 1 ? `1px solid ${F_BORDER}` : 'none' }}
+                      >
+                        <td className="px-3 py-3" style={{ color: T1, fontWeight: 600 }}>{e.title}</td>
+                        <td className="px-3 py-3" style={{ color: T2 }}>{format(new Date(e.start_at), 'dd/MM/yyyy HH:mm')}</td>
+                        <td className="px-3 py-3">
+                          {e.is_active
+                            ? <span className="inline-flex items-center px-2 py-0.5 rounded-full" style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: POS, fontSize: 11, fontWeight: 600 }}>Oui</span>
+                            : <span className="inline-flex items-center px-2 py-0.5 rounded-full" style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2, fontSize: 11, fontWeight: 600 }}>Non</span>}
+                        </td>
+                        <td className="px-3 py-3" style={{ color: e.ticketing_enabled ? POS : T3 }}>{e.ticketing_enabled ? '✓' : '—'}</td>
+                        <td className="px-3 py-3" style={{ color: e.tables_enabled ? POS : T3 }}>{e.tables_enabled ? '✓' : '—'}</td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        )}
       </div>
-
-      {/* Revenue stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4 text-center">
-            <Wine className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
-            <p className="text-2xl font-bold text-foreground">{stats.orders}</p>
-            <p className="text-xs text-muted-foreground">Commandes · {stats.orderRevenue.toFixed(0)} €</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <Ticket className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
-            <p className="text-2xl font-bold text-foreground">{stats.tickets}</p>
-            <p className="text-xs text-muted-foreground">Billets · {stats.ticketRevenue.toFixed(0)} €</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 text-center">
-            <Armchair className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
-            <p className="text-2xl font-bold text-foreground">{stats.tables}</p>
-            <p className="text-xs text-muted-foreground">Tables · {stats.tableRevenue.toFixed(0)} €</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Staff */}
-      {staff.length > 0 && (
-        <Card>
-          <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Users className="h-5 w-5" /> Staff ({staff.length})</CardTitle></CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nom</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Rôles</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {staff.map(s => (
-                  <TableRow key={s.id}>
-                    <TableCell>
-                      <Link to={`/admin/directory/user/${s.id}`} className="font-medium text-primary hover:underline">
-                        {`${s.first_name || ''} ${s.last_name || ''}`.trim() || s.email}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{s.email}</TableCell>
-                    <TableCell className="flex gap-1 flex-wrap">{s.roles.map((r: string) => <Badge key={r} variant="outline" className="text-xs">{r}</Badge>)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Events */}
-      {events.length > 0 && (
-        <Card>
-          <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Calendar className="h-5 w-5" /> Événements récents</CardTitle></CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Titre</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Actif</TableHead>
-                  <TableHead>Billetterie</TableHead>
-                  <TableHead>Tables</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {events.map(e => (
-                  <TableRow key={e.id}>
-                    <TableCell className="font-medium">{e.title}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{format(new Date(e.start_at), 'dd/MM/yyyy HH:mm')}</TableCell>
-                    <TableCell>{e.is_active ? <Badge variant="outline" className="text-primary">Oui</Badge> : <Badge variant="outline">Non</Badge>}</TableCell>
-                    <TableCell>{e.ticketing_enabled ? '✓' : '—'}</TableCell>
-                    <TableCell>{e.tables_enabled ? '✓' : '—'}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

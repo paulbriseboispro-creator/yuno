@@ -1,17 +1,44 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { Search, ExternalLink } from 'lucide-react';
+import { Search, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
+
+// ─── Yuno Design Tokens ───────────────────────────────────────────────────────
+const RED        = '#E8192C';
+const POS        = '#34D399';
+const T1         = 'rgba(255,255,255,0.96)';
+const T2         = 'rgba(255,255,255,0.58)';
+const T3         = 'rgba(255,255,255,0.36)';
+const BORDER     = 'rgba(255,255,255,0.085)';
+const F_BORDER   = 'rgba(255,255,255,0.055)';
+const INNER_BG   = 'rgba(255,255,255,0.032)';
+const CARD_BG    = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
+const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+
+const thStyle: React.CSSProperties = { color: T3, fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em' };
+
+function StatusPill({ active, on, off }: { active: boolean; on: string; off: string }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5"
+      style={{
+        fontSize: 11, fontWeight: 600, padding: '3px 9px', borderRadius: 999, textTransform: 'uppercase', letterSpacing: '0.04em',
+        background: active ? 'rgba(52,211,153,0.1)' : 'rgba(255,255,255,0.045)',
+        border: `1px solid ${active ? 'rgba(52,211,153,0.25)' : BORDER}`,
+        color: active ? POS : T3,
+      }}
+    >
+      {active ? on : off}
+    </span>
+  );
+}
 
 const PAGE_SIZE = 25;
 
 export default function DirectoryDJs() {
   const { t } = useLanguage();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data, setData] = useState<any[]>([]);
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(0);
@@ -64,64 +91,83 @@ export default function DirectoryDJs() {
 
   return (
     <div className="space-y-4 mt-4">
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder={t('admin.dir.searchDJs')} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 max-w-sm min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: T3 }} />
+          <input
+            placeholder={t('admin.dir.searchDJs')}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, color: T1, fontSize: 13, padding: '9px 12px 9px 36px', width: '100%', outline: 'none' }}
+          />
         </div>
-        <span className="text-sm text-muted-foreground">{count} {t('admin.dir.results')}</span>
+        <span className="tabular-nums" style={{ color: T3, fontSize: 12.5 }}>{count} {t('admin.dir.results')}</span>
       </div>
 
-      <div className="rounded-lg border border-border overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>DJ</TableHead>
-              <TableHead>{t('admin.dir.city')}</TableHead>
-              <TableHead>Venue</TableHead>
-              <TableHead>Events</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>{t('admin.dir.created')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{t('admin.dir.loading')}</TableCell></TableRow>
-            ) : data.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{t('admin.dir.noResults')}</TableCell></TableRow>
-            ) : data.map((d) => (
-              <TableRow key={d.id}>
-                <TableCell className="font-medium">
-                  {d.slug ? (
-                    <a href={`/dj/${d.slug}`} target="_blank" rel="noopener noreferrer" className="text-primary underline-offset-2 hover:underline inline-flex items-center gap-1">
-                      {d.stage_name || `${d.first_name} ${d.last_name}`}
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  ) : (
-                    d.stage_name || `${d.first_name} ${d.last_name}`
-                  )}
-                </TableCell>
-                <TableCell>{d.city || '—'}</TableCell>
-                <TableCell className="text-sm text-muted-foreground">{d.venueName}</TableCell>
-                <TableCell>{d.eventCount}</TableCell>
-                <TableCell>
-                  <Badge variant={d.is_active ? 'success' : 'secondary'}>{d.is_active ? t('admin.dir.active') : t('admin.dir.inactive')}</Badge>
-                </TableCell>
-                <TableCell className="text-sm text-muted-foreground">{format(new Date(d.created_at), 'dd/MM/yyyy')}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '8px 4px', overflow: 'hidden' }}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px]" style={{ minWidth: 700 }}>
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${F_BORDER}` }}>
+                <th className="px-3 py-2.5 text-left" style={thStyle}>DJ</th>
+                <th className="px-3 py-2.5 text-left" style={thStyle}>{t('admin.dir.city')}</th>
+                <th className="px-3 py-2.5 text-left" style={thStyle}>Venue</th>
+                <th className="px-3 py-2.5 text-right" style={thStyle}>Events</th>
+                <th className="px-3 py-2.5 text-left" style={thStyle}>Status</th>
+                <th className="px-3 py-2.5 text-right" style={thStyle}>{t('admin.dir.created')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={6} className="text-center py-8" style={{ color: T3, fontSize: 12.5 }}>{t('admin.dir.loading')}</td></tr>
+              ) : data.length === 0 ? (
+                <tr><td colSpan={6} className="text-center py-8" style={{ color: T3, fontSize: 12.5 }}>{t('admin.dir.noResults')}</td></tr>
+              ) : data.map((d, i) => (
+                <tr key={d.id} style={{ borderBottom: i < data.length - 1 ? `1px solid ${F_BORDER}` : 'none' }}>
+                  <td className="px-3 py-3 font-medium">
+                    {d.slug ? (
+                      <a href={`/dj/${d.slug}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1" style={{ color: RED, textDecoration: 'none' }}>
+                        {d.stage_name || `${d.first_name} ${d.last_name}`}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    ) : (
+                      <span style={{ color: T1 }}>{d.stage_name || `${d.first_name} ${d.last_name}`}</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-3" style={{ color: T2 }}>{d.city || '—'}</td>
+                  <td className="px-3 py-3" style={{ color: T3 }}>{d.venueName}</td>
+                  <td className="px-3 py-3 text-right tabular-nums" style={{ color: T2 }}>{d.eventCount}</td>
+                  <td className="px-3 py-3">
+                    <StatusPill active={d.is_active} on={t('admin.dir.active')} off={t('admin.dir.inactive')} />
+                  </td>
+                  <td className="px-3 py-3 text-right tabular-nums" style={{ color: T3 }}>{format(new Date(d.created_at), 'dd/MM/yyyy')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {totalPages > 1 && (
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem><PaginationPrevious onClick={() => setPage(p => Math.max(0, p - 1))} className={page === 0 ? 'pointer-events-none opacity-50' : 'cursor-pointer'} /></PaginationItem>
-            <PaginationItem><span className="text-sm text-muted-foreground px-3">{page + 1} / {totalPages}</span></PaginationItem>
-            <PaginationItem><PaginationNext onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} className={page >= totalPages - 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'} /></PaginationItem>
-          </PaginationContent>
-        </Pagination>
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={() => setPage(p => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="inline-flex items-center justify-center h-8 w-8 rounded-lg cursor-pointer transition-all duration-150 disabled:cursor-not-allowed"
+            style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, opacity: page === 0 ? 0.4 : 1 }}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="tabular-nums px-2" style={{ color: T3, fontSize: 12.5 }}>{page + 1} / {totalPages}</span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1}
+            className="inline-flex items-center justify-center h-8 w-8 rounded-lg cursor-pointer transition-all duration-150 disabled:cursor-not-allowed"
+            style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, opacity: page >= totalPages - 1 ? 0.4 : 1 }}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
       )}
     </div>
   );

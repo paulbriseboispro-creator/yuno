@@ -2,13 +2,25 @@ import { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Building2, Music, Megaphone, Users, UserCheck, HeartHandshake } from 'lucide-react';
+import { Building2, Music, Megaphone, Users, UserCheck, HeartHandshake, type LucideIcon } from 'lucide-react';
+import { motion } from 'framer-motion';
 import DirectoryVenues from './directory/DirectoryVenues';
 import DirectoryDJs from './directory/DirectoryDJs';
 import DirectoryOrganizers from './directory/DirectoryOrganizers';
 import DirectoryPromoters from './directory/DirectoryPromoters';
 import DirectoryStaff from './directory/DirectoryStaff';
 import DirectoryCustomers from './directory/DirectoryCustomers';
+
+// ─── Yuno Design Tokens ───────────────────────────────────────────────────────
+const RED        = '#E8192C';
+const POS        = '#34D399';
+const T1         = 'rgba(255,255,255,0.96)';
+const T3         = 'rgba(255,255,255,0.36)';
+const C_FAINT    = 'rgba(255,255,255,0.06)';
+const BORDER     = 'rgba(255,255,255,0.085)';
+const F_BORDER   = 'rgba(255,255,255,0.055)';
+const CARD_BG    = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
+const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
 
 interface PlatformStats {
   venues: number;
@@ -19,6 +31,11 @@ interface PlatformStats {
   customers: number;
   newSignups7d: number;
 }
+
+const tabTriggerClass =
+  'group relative inline-flex items-center gap-2 px-4 py-3 text-[13.5px] font-[560] cursor-pointer rounded-none border-0 bg-transparent shadow-none ' +
+  'data-[state=active]:bg-transparent data-[state=active]:shadow-none transition-colors duration-150 ' +
+  'text-[rgba(255,255,255,0.36)] data-[state=active]:text-[rgba(255,255,255,0.96)]';
 
 export default function AdminDirectory() {
   const { t } = useLanguage();
@@ -52,7 +69,7 @@ export default function AdminDirectory() {
     setLoading(false);
   };
 
-  const statCards = [
+  const statCards: { label: string; value: number; icon: LucideIcon }[] = [
     { label: t('admin.dir.venues'), value: stats.venues, icon: Building2 },
     { label: 'DJs', value: stats.djs, icon: Music },
     { label: t('admin.dir.organizers'), value: stats.organizers, icon: Megaphone },
@@ -61,49 +78,88 @@ export default function AdminDirectory() {
     { label: 'Clients', value: stats.customers, icon: Users },
   ];
 
+  const tabs: { value: string; label: string; icon: LucideIcon }[] = [
+    { value: 'venues', label: t('admin.dir.venues'), icon: Building2 },
+    { value: 'djs', label: 'DJs', icon: Music },
+    { value: 'organizers', label: t('admin.dir.organizers'), icon: Megaphone },
+    { value: 'promoters', label: t('admin.dir.promoters'), icon: HeartHandshake },
+    { value: 'staff', label: 'Staff', icon: UserCheck },
+    { value: 'customers', label: 'Clients', icon: Users },
+  ];
+
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">{t('admin.dir.title')}</h1>
-        <p className="text-muted-foreground text-sm mt-1">{t('admin.dir.subtitle')}</p>
-      </div>
+    <div className="min-h-screen pb-16" style={{ background: '#000' }}>
+      {/* Ambient vignette */}
+      <div className="fixed inset-0 pointer-events-none z-0"
+        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(232,25,44,.05),transparent 55%)' }} />
 
-      {/* Stats bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
-        {statCards.map((s) => (
-          <div key={s.label} className="rounded-xl border border-border bg-card p-3 flex flex-col gap-1">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <s.icon className="h-4 w-4" />
-              <span className="text-xs font-medium truncate">{s.label}</span>
-            </div>
-            <span className="text-xl font-bold text-foreground">{loading ? '—' : s.value}</span>
+      <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 py-6 space-y-6">
+
+        {/* Header */}
+        <div>
+          <h1 style={{ color: T1, fontSize: 'clamp(22px,3vw,28px)', fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.1 }}>
+            {t('admin.dir.title')}
+          </h1>
+          <p style={{ color: T3, fontSize: 13, marginTop: 4 }}>{t('admin.dir.subtitle')}</p>
+        </div>
+
+        {/* Stats bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+          {statCards.map((s, i) => (
+            <motion.div
+              key={s.label}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.04 }}
+              style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: '14px 16px', height: '100%' }}
+            >
+              <div className="flex items-center justify-between gap-2 mb-2.5">
+                <span style={{ color: T3, fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }} className="truncate">{s.label}</span>
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg flex-none" style={{ background: C_FAINT, border: `1px solid ${F_BORDER}` }}>
+                  <s.icon className="h-3.5 w-3.5" style={{ color: T3 }} />
+                </div>
+              </div>
+              <span className="tabular-nums" style={{ color: T1, fontSize: 26, fontWeight: 640, letterSpacing: '-0.025em', lineHeight: 1 }}>{loading ? '—' : s.value}</span>
+            </motion.div>
+          ))}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: statCards.length * 0.04 }}
+            style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: '14px 16px', height: '100%' }}
+          >
+            <span style={{ color: T3, fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.07em' }} className="block mb-2.5 truncate">{t('admin.dir.new7d')}</span>
+            <span className="tabular-nums" style={{ color: POS, fontSize: 26, fontWeight: 640, letterSpacing: '-0.025em', lineHeight: 1 }}>{loading ? '—' : `+${stats.newSignups7d}`}</span>
+          </motion.div>
+        </div>
+
+        {/* Tabs */}
+        <Tabs defaultValue="venues" className="w-full">
+          <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+            <TabsList
+              className="w-max md:w-full flex gap-0.5 h-auto p-0 bg-transparent rounded-none justify-start"
+              style={{ borderBottom: `1px solid ${BORDER}` }}
+            >
+              {tabs.map((tab) => (
+                <TabsTrigger key={tab.value} value={tab.value} className={tabTriggerClass}>
+                  <tab.icon className="h-4 w-4" />
+                  <span>{tab.label}</span>
+                  <span
+                    className="absolute left-3 right-3 rounded-full opacity-0 transition-opacity duration-150 group-data-[state=active]:opacity-100"
+                    style={{ bottom: -1, height: 2, background: RED, boxShadow: '0 0 10px rgba(232,25,44,0.6)' }}
+                  />
+                </TabsTrigger>
+              ))}
+            </TabsList>
           </div>
-        ))}
-        <div className="rounded-xl border border-border bg-card p-3 flex flex-col gap-1">
-          <span className="text-xs font-medium text-muted-foreground">{t('admin.dir.new7d')}</span>
-          <span className="text-xl font-bold text-primary">{loading ? '—' : `+${stats.newSignups7d}`}</span>
-        </div>
+          <TabsContent value="venues"><DirectoryVenues /></TabsContent>
+          <TabsContent value="djs"><DirectoryDJs /></TabsContent>
+          <TabsContent value="organizers"><DirectoryOrganizers /></TabsContent>
+          <TabsContent value="promoters"><DirectoryPromoters /></TabsContent>
+          <TabsContent value="staff"><DirectoryStaff /></TabsContent>
+          <TabsContent value="customers"><DirectoryCustomers /></TabsContent>
+        </Tabs>
       </div>
-
-      {/* Tabs */}
-      <Tabs defaultValue="venues" className="w-full">
-        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-          <TabsList className="w-max md:w-full flex gap-1 h-auto">
-            <TabsTrigger value="venues" className="min-w-[80px]">{t('admin.dir.venues')}</TabsTrigger>
-            <TabsTrigger value="djs" className="min-w-[60px]">DJs</TabsTrigger>
-            <TabsTrigger value="organizers" className="min-w-[80px]">{t('admin.dir.organizers')}</TabsTrigger>
-            <TabsTrigger value="promoters" className="min-w-[80px]">{t('admin.dir.promoters')}</TabsTrigger>
-            <TabsTrigger value="staff" className="min-w-[60px]">Staff</TabsTrigger>
-            <TabsTrigger value="customers" className="min-w-[60px]">Clients</TabsTrigger>
-          </TabsList>
-        </div>
-        <TabsContent value="venues"><DirectoryVenues /></TabsContent>
-        <TabsContent value="djs"><DirectoryDJs /></TabsContent>
-        <TabsContent value="organizers"><DirectoryOrganizers /></TabsContent>
-        <TabsContent value="promoters"><DirectoryPromoters /></TabsContent>
-        <TabsContent value="staff"><DirectoryStaff /></TabsContent>
-        <TabsContent value="customers"><DirectoryCustomers /></TabsContent>
-      </Tabs>
     </div>
   );
 }

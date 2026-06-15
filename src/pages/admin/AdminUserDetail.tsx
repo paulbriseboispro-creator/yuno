@@ -2,14 +2,65 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, UserCircle, Shield, ShieldOff, Plus, Trash2, MapPin, Mail, Calendar, Star, ShoppingBag, Ticket, AlertTriangle, Building2 } from 'lucide-react';
+import { ArrowLeft, UserCircle, Shield, ShieldOff, Plus, Trash2, MapPin, Mail, Calendar, Star, ShoppingBag, Ticket, AlertTriangle, Building2, type LucideIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+
+// ─── Yuno Design Tokens ───────────────────────────────────────────────────────
+const RED        = '#E8192C';
+const POS        = '#34D399';
+const NEG        = '#FF5C63';
+const T1         = 'rgba(255,255,255,0.96)';
+const T2         = 'rgba(255,255,255,0.58)';
+const T3         = 'rgba(255,255,255,0.36)';
+const C_FAINT    = 'rgba(255,255,255,0.06)';
+const BORDER     = 'rgba(255,255,255,0.085)';
+const F_BORDER   = 'rgba(255,255,255,0.055)';
+const INNER_BG   = 'rgba(255,255,255,0.032)';
+const CARD_BG    = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
+const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+
+const cardStyle: React.CSSProperties = {
+  background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18,
+  boxShadow: CARD_SHADOW, padding: 22, overflow: 'hidden',
+};
+
+const thStyle: React.CSSProperties = { color: T3, fontSize: 11, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em' };
+
+const primaryBtnStyle: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px',
+  borderRadius: 10, background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.3)',
+  color: RED, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+};
+
+const dangerBtnStyle: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px',
+  borderRadius: 10, background: 'rgba(255,92,99,0.12)', border: '1px solid rgba(255,92,99,0.3)',
+  color: NEG, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+};
+
+const secondaryBtnStyle: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px',
+  borderRadius: 10, background: INNER_BG, border: `1px solid ${BORDER}`,
+  color: T2, fontSize: 12.5, fontWeight: 560, cursor: 'pointer',
+};
+
+function SectionHeader({ icon: Icon, label, accent }: { icon: LucideIcon; label: string; accent?: boolean }) {
+  return (
+    <div className="flex items-center gap-2.5 mb-4">
+      <div
+        className="flex h-8 w-8 items-center justify-center rounded-xl flex-none"
+        style={accent
+          ? { background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }
+          : { background: C_FAINT, border: `1px solid ${BORDER}` }}
+      >
+        <Icon className="h-4 w-4" style={{ color: accent ? RED : T2 }} />
+      </div>
+      <h3 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em', margin: 0 }}>{label}</h3>
+    </div>
+  );
+}
 
 const STAFF_ROLES = ['barman', 'bouncer', 'vip_host', 'cloakroom', 'manager'] as const;
 const PLATFORM_ROLES = ['client', 'admin'] as const;
@@ -263,322 +314,332 @@ export default function AdminUserDetail() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      <div className="flex min-h-screen items-center justify-center" style={{ background: '#000' }}>
+        <div className="h-10 w-10 animate-spin rounded-full border-2" style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} />
       </div>
     );
   }
 
   if (!profile) {
     return (
-      <div className="p-6">
-        <Button variant="ghost" onClick={() => navigate(-1)}><ArrowLeft className="h-4 w-4 mr-2" />Retour</Button>
-        <p className="text-muted-foreground mt-4">Utilisateur introuvable.</p>
+      <div className="min-h-screen" style={{ background: '#000' }}>
+        <div className="mx-auto max-w-[1340px] px-4 sm:px-6 py-6">
+          <button
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors"
+            style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${F_BORDER}`, color: T3, fontSize: 13 }}
+          >
+            <ArrowLeft className="h-4 w-4" />Retour
+          </button>
+          <p className="mt-4" style={{ color: T3, fontSize: 13 }}>Utilisateur introuvable.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-5xl">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="h-5 w-5" /></Button>
-        <h1 className="text-2xl font-bold text-foreground">Détail utilisateur</h1>
-      </div>
+    <div className="min-h-screen" style={{ background: '#000' }}>
+      <div className="mx-auto max-w-[1340px] px-4 sm:px-6 py-6 space-y-6">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg flex-none cursor-pointer transition-colors"
+            style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${F_BORDER}`, color: T3 }}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <h1 style={{ color: T1, fontSize: 'clamp(22px,3vw,28px)', fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.1 }}>Détail utilisateur</h1>
+        </div>
 
-      {/* Profile card */}
-      <Card>
-        <CardContent className="p-6">
+        {/* Profile card */}
+        <div style={cardStyle}>
           <div className="flex items-start gap-4">
             {profile.avatar_url ? (
-              <img src={profile.avatar_url} alt="" className="h-16 w-16 rounded-full object-cover border-2 border-border" />
+              <img src={profile.avatar_url} alt="" className="h-16 w-16 rounded-full object-cover" style={{ border: `1px solid ${BORDER}` }} />
             ) : (
-              <UserCircle className="h-16 w-16 text-muted-foreground" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-full flex-none" style={{ background: C_FAINT, border: `1px solid ${BORDER}` }}>
+                <UserCircle className="h-9 w-9" style={{ color: T3 }} />
+              </div>
             )}
-            <div className="flex-1 space-y-1">
-              <h2 className="text-xl font-bold text-foreground">
+            <div className="flex-1 space-y-1.5 min-w-0">
+              <h2 style={{ color: T1, fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em' }}>
                 {`${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Sans nom'}
               </h2>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Mail className="h-3.5 w-3.5" /> {profile.email}
+              <div className="flex items-center gap-2" style={{ fontSize: 13, color: T2 }}>
+                <Mail className="h-3.5 w-3.5" style={{ color: T3 }} /> {profile.email}
               </div>
               {profile.city && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <MapPin className="h-3.5 w-3.5" /> {profile.city}
+                <div className="flex items-center gap-2" style={{ fontSize: 13, color: T2 }}>
+                  <MapPin className="h-3.5 w-3.5" style={{ color: T3 }} /> {profile.city}
                 </div>
               )}
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Calendar className="h-3.5 w-3.5" /> Inscrit le {format(new Date(profile.created_at), 'dd/MM/yyyy')}
+              <div className="flex items-center gap-2" style={{ fontSize: 13, color: T2 }}>
+                <Calendar className="h-3.5 w-3.5" style={{ color: T3 }} /> Inscrit le {format(new Date(profile.created_at), 'dd/MM/yyyy')}
               </div>
               {venueName && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Building2 className="h-3.5 w-3.5" />
-                  Établissement rattaché : <span className="font-medium text-foreground">{venueName}</span>
+                <div className="flex items-center gap-2" style={{ fontSize: 13, color: T2 }}>
+                  <Building2 className="h-3.5 w-3.5" style={{ color: T3 }} />
+                  Établissement rattaché : <span style={{ fontWeight: 600, color: T1 }}>{venueName}</span>
                 </div>
               )}
-              <div className="flex items-center gap-2 text-sm">
+              <div className="flex items-center gap-2" style={{ fontSize: 13 }}>
                 {profile.mfa_enabled ? (
-                  <span className="flex items-center gap-1 text-primary"><Shield className="h-3.5 w-3.5" /> MFA activé</span>
+                  <span className="flex items-center gap-1" style={{ color: POS }}><Shield className="h-3.5 w-3.5" /> MFA activé</span>
                 ) : (
-                  <span className="flex items-center gap-1 text-muted-foreground"><ShieldOff className="h-3.5 w-3.5" /> MFA désactivé</span>
+                  <span className="flex items-center gap-1" style={{ color: T3 }}><ShieldOff className="h-3.5 w-3.5" /> MFA désactivé</span>
                 )}
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Roles management */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Rôles</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          {/* Current roles */}
-          <div className="flex flex-wrap gap-2">
-            {roles.length === 0 && <span className="text-sm text-muted-foreground">Aucun rôle assigné</span>}
-            {roles.map(role => {
-              const meta = ROLE_META[role] || { label: role };
-              return (
-                <Badge key={role} variant="outline" className="gap-1.5 pr-1">
-                  {meta.label}
-                  <button
-                    type="button"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRemoveRole(role); }}
-                    className="ml-1 p-0.5 rounded hover:bg-destructive/20 text-destructive"
+        {/* Roles management */}
+        <div style={cardStyle}>
+          <SectionHeader icon={Shield} label="Rôles" />
+          <div className="space-y-5">
+            {/* Current roles */}
+            <div className="flex flex-wrap gap-2">
+              {roles.length === 0 && <span style={{ fontSize: 13, color: T3 }}>Aucun rôle assigné</span>}
+              {roles.map(role => {
+                const meta = ROLE_META[role] || { label: role };
+                return (
+                  <span
+                    key={role}
+                    className="inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-full"
+                    style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1, fontSize: 12, fontWeight: 600 }}
                   >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </Badge>
-              );
-            })}
-          </div>
+                    {meta.label}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRemoveRole(role); }}
+                      className="ml-0.5 p-0.5 rounded-full cursor-pointer transition-colors"
+                      style={{ color: NEG }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
 
-          {/* Add role form */}
-          {availableRoles.length > 0 && (
-            <div className="border border-border rounded-lg p-4 space-y-3 bg-muted/30">
-              <p className="text-sm font-medium text-foreground">Ajouter un rôle</p>
+            {/* Add role form */}
+            {availableRoles.length > 0 && (
+              <div className="rounded-xl p-4 space-y-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+                <p style={{ fontSize: 13, fontWeight: 600, color: T1 }}>Ajouter un rôle</p>
 
-              <Select value={addingRole} onValueChange={(v) => { setAddingRole(v); if (!needsVenue(v)) setSelectedVenueId(''); else if (profile?.venue_id) setSelectedVenueId(profile.venue_id); }}>
-                <SelectTrigger className="w-full md:w-64">
-                  <SelectValue placeholder="Sélectionner un rôle…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableRoles.map(r => {
-                    const meta = ROLE_META[r] || { label: r, description: '' };
-                    return (
-                      <SelectItem key={r} value={r}>
-                        <span className="font-medium">{meta.label}</span>
-                        <span className="text-muted-foreground ml-2 text-xs">— {meta.description}</span>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+                <Select value={addingRole} onValueChange={(v) => { setAddingRole(v); if (!needsVenue(v)) setSelectedVenueId(''); else if (profile?.venue_id) setSelectedVenueId(profile.venue_id); }}>
+                  <SelectTrigger className="w-full md:w-64">
+                    <SelectValue placeholder="Sélectionner un rôle…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableRoles.map(r => {
+                      const meta = ROLE_META[r] || { label: r, description: '' };
+                      return (
+                        <SelectItem key={r} value={r}>
+                          <span className="font-medium">{meta.label}</span>
+                          <span className="ml-2 text-xs" style={{ color: T3 }}>— {meta.description}</span>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
 
-              {showVenueSelector && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <AlertTriangle className="h-4 w-4 shrink-0" />
-                    <span>
-                      {addingRole === OWNER_ROLE
-                        ? 'Ce rôle sera lié comme propriétaire de l\'établissement sélectionné.'
-                        : 'Ce rôle nécessite un établissement de rattachement.'}
-                    </span>
+                {showVenueSelector && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2" style={{ fontSize: 13, color: T2 }}>
+                      <AlertTriangle className="h-4 w-4 shrink-0" style={{ color: RED }} />
+                      <span>
+                        {addingRole === OWNER_ROLE
+                          ? 'Ce rôle sera lié comme propriétaire de l\'établissement sélectionné.'
+                          : 'Ce rôle nécessite un établissement de rattachement.'}
+                      </span>
+                    </div>
+                    <Select value={selectedVenueId} onValueChange={setSelectedVenueId}>
+                      <SelectTrigger className="w-full md:w-64">
+                        <SelectValue placeholder="Sélectionner un établissement…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {venues.map(v => (
+                          <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <Select value={selectedVenueId} onValueChange={setSelectedVenueId}>
-                    <SelectTrigger className="w-full md:w-64">
-                      <SelectValue placeholder="Sélectionner un établissement…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {venues.map(v => (
-                        <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                )}
+
+                <button
+                  onClick={handleAddRole}
+                  disabled={!addingRole || (showVenueSelector && !selectedVenueId)}
+                  style={{ ...primaryBtnStyle, opacity: (!addingRole || (showVenueSelector && !selectedVenueId)) ? 0.5 : 1 }}
+                >
+                  <Plus className="h-4 w-4" /> Ajouter
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Owner venue sync — shown when user has owner role */}
+        {roles.includes(OWNER_ROLE) && (
+          <div style={cardStyle}>
+            <SectionHeader icon={Building2} label="Établissement propriétaire" accent />
+            <div className="space-y-3">
+              {ownedVenue ? (
+                <p style={{ fontSize: 13, color: T2 }}>
+                  Actuellement lié à : <span style={{ fontWeight: 600, color: T1 }}>{ownedVenue.name}</span>
+                </p>
+              ) : (
+                <p style={{ fontSize: 13, color: NEG, fontWeight: 600 }}>
+                  ⚠ Aucun établissement lié — c'est pourquoi l'owner voit l'erreur "Aucun établissement assigné".
+                </p>
               )}
-
-              <Button size="sm" onClick={handleAddRole} disabled={!addingRole || (showVenueSelector && !selectedVenueId)}>
-                <Plus className="h-4 w-4 mr-1" /> Ajouter
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                <Select value={resyncVenueId} onValueChange={setResyncVenueId}>
+                  <SelectTrigger className="w-full sm:w-72">
+                    <SelectValue placeholder="Sélectionner l'établissement à lier…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {venues.map(v => (
+                      <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <button
+                  onClick={handleResyncOwner}
+                  disabled={!resyncVenueId || resyncing}
+                  style={{ ...primaryBtnStyle, opacity: (!resyncVenueId || resyncing) ? 0.5 : 1 }}
+                >
+                  {resyncing ? 'Mise à jour…' : 'Synchroniser le lien propriétaire'}
+                </button>
+              </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </div>
+        )}
 
-      {/* Owner venue sync — shown when user has owner role */}
-      {roles.includes(OWNER_ROLE) && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-primary" /> Établissement propriétaire
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {ownedVenue ? (
-              <p className="text-sm text-muted-foreground">
-                Actuellement lié à : <span className="font-semibold text-foreground">{ownedVenue.name}</span>
-              </p>
-            ) : (
-              <p className="text-sm text-destructive font-medium">
-                ⚠ Aucun établissement lié — c'est pourquoi l'owner voit l'erreur "Aucun établissement assigné".
-              </p>
-            )}
-            <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-              <Select value={resyncVenueId} onValueChange={setResyncVenueId}>
-                <SelectTrigger className="w-full sm:w-72">
-                  <SelectValue placeholder="Sélectionner l'établissement à lier…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {venues.map(v => (
-                    <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                size="sm"
-                onClick={handleResyncOwner}
-                disabled={!resyncVenueId || resyncing}
-              >
-                {resyncing ? 'Mise à jour…' : 'Synchroniser le lien propriétaire'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Promoter profiles — shown when user has promoter role */}
-      {roles.includes('promoter') && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Star className="h-5 w-5 text-primary" /> Profils promoteur
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        {/* Promoter profiles — shown when user has promoter role */}
+        {roles.includes('promoter') && (
+          <div style={cardStyle}>
+            <SectionHeader icon={Star} label="Profils promoteur" accent />
             {promoterProfiles.length === 0 ? (
-              <p className="text-sm text-destructive font-medium">
-                ⚠ Aucun profil dans la table <code>promoters</code> — c'est pourquoi le dashboard promoteur est inaccessible.
+              <p style={{ fontSize: 13, color: NEG, fontWeight: 600, lineHeight: 1.6 }}>
+                ⚠ Aucun profil dans la table <code style={{ background: C_FAINT, padding: '1px 5px', borderRadius: 4, color: T1 }}>promoters</code> — c'est pourquoi le dashboard promoteur est inaccessible.
                 L'owner doit inviter cet utilisateur depuis son dashboard Promoteurs, ou utiliser le script SQL
-                <code>migration-kit/12_DIAGNOSTIC_OWNER_PROMOTER_SYNC.sql</code> (correction B2).
+                <code style={{ background: C_FAINT, padding: '1px 5px', borderRadius: 4, color: T1 }}>migration-kit/12_DIAGNOSTIC_OWNER_PROMOTER_SYNC.sql</code> (correction B2).
               </p>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Établissement</TableHead>
-                    <TableHead>Code promo</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead>Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {promoterProfiles.map(p => (
-                    <TableRow key={p.id}>
-                      <TableCell className="font-medium">{p.venueName || '(aucun)'}</TableCell>
-                      <TableCell className="font-mono text-xs">{p.promo_code}</TableCell>
-                      <TableCell>
-                        {p.is_active
-                          ? <Badge variant="outline" className="text-primary">Actif</Badge>
-                          : <Badge variant="destructive">Inactif</Badge>
-                        }
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant={p.is_active ? 'destructive' : 'outline'}
-                          onClick={() => handleTogglePromoter(p.id, p.is_active)}
-                          disabled={togglingPromoter === p.id}
-                        >
-                          {togglingPromoter === p.id
-                            ? '…'
-                            : p.is_active ? 'Désactiver' : 'Activer'}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <div className="overflow-x-auto -mx-1">
+                <table className="w-full text-[13px]">
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${F_BORDER}` }}>
+                      <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Établissement</th>
+                      <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Code promo</th>
+                      <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Statut</th>
+                      <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {promoterProfiles.map((p, i) => (
+                      <tr key={p.id} style={{ borderBottom: i < promoterProfiles.length - 1 ? `1px solid ${F_BORDER}` : 'none' }}>
+                        <td className="px-2 py-3" style={{ color: T1, fontWeight: 600 }}>{p.venueName || '(aucun)'}</td>
+                        <td className="px-2 py-3 font-mono text-xs" style={{ color: T2 }}>{p.promo_code}</td>
+                        <td className="px-2 py-3">
+                          {p.is_active
+                            ? <span className="inline-flex items-center px-2 py-0.5 rounded-full" style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: POS, fontSize: 11, fontWeight: 600 }}>Actif</span>
+                            : <span className="inline-flex items-center px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,92,99,0.1)', border: '1px solid rgba(255,92,99,0.3)', color: NEG, fontSize: 11, fontWeight: 600 }}>Inactif</span>}
+                        </td>
+                        <td className="px-2 py-3">
+                          <button
+                            onClick={() => handleTogglePromoter(p.id, p.is_active)}
+                            disabled={togglingPromoter === p.id}
+                            style={{ ...(p.is_active ? dangerBtnStyle : secondaryBtnStyle), padding: '6px 12px', opacity: togglingPromoter === p.id ? 0.5 : 1 }}
+                          >
+                            {togglingPromoter === p.id
+                              ? '…'
+                              : p.is_active ? 'Désactiver' : 'Activer'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        )}
 
-      {/* Activity per venue */}
-      {venueCustomers.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Activité par établissement</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Établissement</TableHead>
-                  <TableHead><ShoppingBag className="h-4 w-4 inline mr-1" />Commandes</TableHead>
-                  <TableHead><Ticket className="h-4 w-4 inline mr-1" />Billets</TableHead>
-                  <TableHead>Tables</TableHead>
-                  <TableHead>Dépensé</TableHead>
-                  <TableHead>Dernière visite</TableHead>
-                  <TableHead>Statut</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {venueCustomers.map(vc => (
-                  <TableRow key={vc.id}>
-                    <TableCell className="font-medium">{vc.venueName}</TableCell>
-                    <TableCell>{vc.order_count ?? 0}</TableCell>
-                    <TableCell>{vc.ticket_count ?? 0}</TableCell>
-                    <TableCell>{vc.table_count ?? 0}</TableCell>
-                    <TableCell>{(vc.total_spent ?? 0).toFixed(2)} €</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {vc.last_visit_at ? format(new Date(vc.last_visit_at), 'dd/MM/yyyy') : '—'}
-                    </TableCell>
-                    <TableCell>
-                      {vc.is_banned ? (
-                        <Badge variant="destructive">Banni</Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-primary">Actif</Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+        {/* Activity per venue */}
+        {venueCustomers.length > 0 && (
+          <div style={cardStyle}>
+            <SectionHeader icon={ShoppingBag} label="Activité par établissement" />
+            <div className="overflow-x-auto -mx-1">
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${F_BORDER}` }}>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Établissement</th>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}><ShoppingBag className="h-4 w-4 inline mr-1" />Commandes</th>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}><Ticket className="h-4 w-4 inline mr-1" />Billets</th>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Tables</th>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Dépensé</th>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Dernière visite</th>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Statut</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {venueCustomers.map((vc, i) => (
+                    <tr key={vc.id} style={{ borderBottom: i < venueCustomers.length - 1 ? `1px solid ${F_BORDER}` : 'none' }}>
+                      <td className="px-2 py-3" style={{ color: T1, fontWeight: 600 }}>{vc.venueName}</td>
+                      <td className="px-2 py-3 tabular-nums" style={{ color: T2 }}>{vc.order_count ?? 0}</td>
+                      <td className="px-2 py-3 tabular-nums" style={{ color: T2 }}>{vc.ticket_count ?? 0}</td>
+                      <td className="px-2 py-3 tabular-nums" style={{ color: T2 }}>{vc.table_count ?? 0}</td>
+                      <td className="px-2 py-3 tabular-nums" style={{ color: T1 }}>{(vc.total_spent ?? 0).toFixed(2)} €</td>
+                      <td className="px-2 py-3" style={{ color: T2 }}>
+                        {vc.last_visit_at ? format(new Date(vc.last_visit_at), 'dd/MM/yyyy') : '—'}
+                      </td>
+                      <td className="px-2 py-3">
+                        {vc.is_banned ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,92,99,0.1)', border: '1px solid rgba(255,92,99,0.3)', color: NEG, fontSize: 11, fontWeight: 600 }}>Banni</span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full" style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: POS, fontSize: 11, fontWeight: 600 }}>Actif</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
-      {/* Loyalty */}
-      {loyalty.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2"><Star className="h-5 w-5 text-primary" /> Fidélité</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Établissement</TableHead>
-                  <TableHead>Tier</TableHead>
-                  <TableHead>Solde</TableHead>
-                  <TableHead>Total gagné</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loyalty.map(l => (
-                  <TableRow key={l.id}>
-                    <TableCell className="font-medium">{l.venueName}</TableCell>
-                    <TableCell><Badge variant="outline">{l.tier || 'bronze'}</Badge></TableCell>
-                    <TableCell className="font-bold text-primary">{l.current_balance ?? 0} pts</TableCell>
-                    <TableCell>{l.total_points_earned ?? 0} pts</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+        {/* Loyalty */}
+        {loyalty.length > 0 && (
+          <div style={cardStyle}>
+            <SectionHeader icon={Star} label="Fidélité" accent />
+            <div className="overflow-x-auto -mx-1">
+              <table className="w-full text-[13px]">
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${F_BORDER}` }}>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Établissement</th>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Tier</th>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Solde</th>
+                    <th className="px-2 py-2.5 text-left font-medium" style={thStyle}>Total gagné</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loyalty.map((l, i) => (
+                    <tr key={l.id} style={{ borderBottom: i < loyalty.length - 1 ? `1px solid ${F_BORDER}` : 'none' }}>
+                      <td className="px-2 py-3" style={{ color: T1, fontWeight: 600 }}>{l.venueName}</td>
+                      <td className="px-2 py-3"><span className="inline-flex items-center px-2 py-0.5 rounded-full" style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1, fontSize: 11, fontWeight: 600 }}>{l.tier || 'bronze'}</span></td>
+                      <td className="px-2 py-3 tabular-nums" style={{ color: RED, fontWeight: 700 }}>{l.current_balance ?? 0} pts</td>
+                      <td className="px-2 py-3 tabular-nums" style={{ color: T2 }}>{l.total_points_earned ?? 0} pts</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
