@@ -10,9 +10,21 @@ interface Drink {
   id: string;
   name: string;
   price: number;
+  promo_price: number | null;
+  presale_price: number | null;
+  presale_active: boolean | null;
   img_url: string | null;
   collection: string | null;
   active: boolean;
+}
+
+// The price the customer is actually charged — must mirror create-checkout /
+// useStore: presale wins, then promo_price, then the regular price. Showing the
+// plain price here misled the organizer about the base their share is computed on.
+function effectivePrice(d: Drink): number {
+  if (d.presale_active && d.presale_price) return Number(d.presale_price);
+  if (d.promo_price) return Number(d.promo_price);
+  return Number(d.price);
 }
 
 interface Props {
@@ -76,7 +88,7 @@ export function OrgEventDrinksMenu({ eventId }: Props) {
 
       const { data: ds } = await supabase
         .from('drinks')
-        .select('id, name, price, img_url, collection, active')
+        .select('id, name, price, promo_price, presale_price, presale_active, img_url, collection, active')
         .eq('venue_id', hostVenueId)
         .eq('active', true)
         .order('position', { ascending: true })
@@ -140,8 +152,13 @@ export function OrgEventDrinksMenu({ eventId }: Props) {
               </div>
             )}
             <p className="mt-1.5 line-clamp-2" style={{ color: T1, fontSize: 11.5, fontWeight: 560 }}>{d.name}</p>
-            <p className="mt-0.5" style={{ color: RED, fontSize: 11.5, fontWeight: 600 }}>
-              {Number(d.price).toFixed(2)} €
+            <p className="mt-0.5 flex items-center gap-1.5" style={{ fontSize: 11.5, fontWeight: 600 }}>
+              <span style={{ color: RED }}>{effectivePrice(d).toFixed(2)} €</span>
+              {effectivePrice(d) < Number(d.price) && (
+                <span style={{ color: T3, fontWeight: 500, textDecoration: 'line-through' }}>
+                  {Number(d.price).toFixed(2)} €
+                </span>
+              )}
             </p>
           </div>
         ))}
