@@ -219,15 +219,28 @@ export function VipOrderNotifications({ venueId, onOrderConfirmed, onPendingCoun
   const handleMarkServed = async (orderId: string) => {
     setProcessing(true);
     try {
-      const { error } = await supabase
+      // Conditional update guards against double-serve: only an order that is
+      // not yet served/cancelled may transition. If two VIP hosts click at the
+      // same time, only the first wins — the second updates 0 rows and we skip
+      // the consumption insert, preventing double-billing the table.
+      const { data: served, error } = await supabase
         .from('vip_table_orders')
         .update({
           status: 'served',
           served_at: new Date().toISOString(),
         })
-        .eq('id', orderId);
+        .eq('id', orderId)
+        .in('status', ['pending', 'confirmed', 'preparing'])
+        .select();
 
       if (error) throw error;
+
+      if (!served || served.length === 0) {
+        toast.error(t('vipOrders.alreadyServed') || t('vip.error'));
+        setSelectedOrder(null);
+        fetchOrders();
+        return;
+      }
 
       // Add items to vip_consumptions
       const order = orders.find(o => o.id === orderId);
