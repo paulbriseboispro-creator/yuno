@@ -45,6 +45,12 @@ verify_jwt = false
 [functions.verify-ticket-payment]
 verify_jwt = false
 
+# Stripe calls this with a stripe-signature header, never a Supabase JWT.
+# Without verify_jwt = false the platform returns 401 before the function runs,
+# silently killing the payment safety net (co-event transfers, refund reversals).
+[functions.stripe-webhook]
+verify_jwt = false
+
 [functions.join-waitlist]
 verify_jwt = false
 
