@@ -119,7 +119,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Generate QR code as SVG (works in Deno without canvas)
     const appBaseUrl = Deno.env.get("APP_BASE_URL") || "https://yunoapp.eu";
-    const qrCodeUrl = `${appBaseUrl}/order-qr?id=${orderId}`;
+    const qrCodeUrl = `${appBaseUrl}/order/${orderId}/qr`;
     const qrCodeSvg = await QRCode.toString(qrCodeUrl, {
       type: 'svg',
       width: 300,

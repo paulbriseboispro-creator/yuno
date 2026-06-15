@@ -105,7 +105,7 @@ export function CreditPaymentSheet({
 
       toast.success(t('upsell.creditUsedSuccess') || `${drinkName} commandé avec un crédit !`);
       onClose();
-      navigate(`/order-qr?orderId=${data.orderId}`);
+      navigate(`/order/${data.orderId}/qr`);
     } catch (err: any) {
       console.error('Credit use error:', err);
       toast.error(err.message || 'Erreur');

@@ -106,7 +106,7 @@ export default function ClaimOrder() {
       if (qrValue) {
         const origin = window.location.origin;
         const qrUrl = purchaseType === 'order'
-          ? `${origin}/order-qr?id=${data.order.id}`
+          ? `${origin}/order/${data.order.id}/qr`
           : qrValue;
         const url = await QRCode.toDataURL(qrUrl, { width: 280, margin: 2 });
         setQrDataUrl(url);
