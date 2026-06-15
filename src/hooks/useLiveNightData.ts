@@ -33,6 +33,7 @@ export interface StaffMember {
 export interface OrderPipeline {
   pending: number;
   paid: number;
+  preparing: number;
   ready: number;
   served: number;
   refunded: number;
@@ -85,7 +86,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
   });
   const [feed, setFeed] = useState<FeedItem[]>([]);
   const [alerts, setAlerts] = useState<LiveAlert[]>([]);
-  const [pipeline, setPipeline] = useState<OrderPipeline>({ pending: 0, paid: 0, ready: 0, served: 0, refunded: 0 });
+  const [pipeline, setPipeline] = useState<OrderPipeline>({ pending: 0, paid: 0, preparing: 0, ready: 0, served: 0, refunded: 0 });
   const [staffActivity, setStaffActivity] = useState<StaffMember[]>([]);
   const [entryFlow, setEntryFlow] = useState<EntryHour[]>([]);
   const [advancedMetrics, setAdvancedMetrics] = useState<LiveAdvancedMetrics>({
@@ -275,6 +276,9 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       const refundedOrders = orders.filter(o => o.status === 'refunded' || o.refunded_at);
       const pendingOrders = orders.filter(o => o.status === 'pending');
       const paidWaiting = orders.filter(o => o.status === 'paid' && (!o.prep_status || o.prep_status === 'queue'));
+      // Orders the bar is actively preparing — previously fell through every
+      // bucket and vanished from the live board.
+      const preparingOrders = orders.filter(o => o.status === 'paid' && o.prep_status === 'preparing');
       const readyOrders = orders.filter(o => o.prep_status === 'ready');
       const servedOrders = orders.filter(o => o.status === 'served' || o.prep_status === 'served');
 
@@ -294,6 +298,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       setPipeline({
         pending: pendingOrders.length,
         paid: paidWaiting.length,
+        preparing: preparingOrders.length,
         ready: readyOrders.length,
         served: servedOrders.length,
         refunded: refundedOrders.length,

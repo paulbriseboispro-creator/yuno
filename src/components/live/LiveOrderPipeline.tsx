@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { CreditCard, Clock, CheckCircle, ShoppingBag, RotateCcw } from 'lucide-react';
+import { CreditCard, Clock, CheckCircle, ShoppingBag, RotateCcw, Flame } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { OrderPipeline } from '@/hooks/useLiveNightData';
 
@@ -19,12 +19,13 @@ interface Props {
 
 export function LiveOrderPipeline({ pipeline }: Props) {
   const { t } = useLanguage();
-  const total = pipeline.pending + pipeline.paid + pipeline.ready + pipeline.served + pipeline.refunded;
+  const total = pipeline.pending + pipeline.paid + pipeline.preparing + pipeline.ready + pipeline.served + pipeline.refunded;
 
   const stages = [
-    { key: 'pending',  label: t('live.pipelinePending'),  count: pipeline.pending,  color: '#FCD34D',            icon: Clock },
-    { key: 'paid',     label: t('live.pipelinePaid'),     count: pipeline.paid,     color: 'rgba(167,139,250,1)', icon: CreditCard },
-    { key: 'ready',    label: t('live.pipelineReady'),    count: pipeline.ready,    color: POS,                   icon: CheckCircle },
+    { key: 'pending',   label: t('live.pipelinePending'),   count: pipeline.pending,   color: '#FCD34D',            icon: Clock },
+    { key: 'paid',      label: t('live.pipelinePaid'),      count: pipeline.paid,      color: 'rgba(167,139,250,1)', icon: CreditCard },
+    { key: 'preparing', label: t('live.pipelinePreparing'), count: pipeline.preparing, color: '#FB923C',            icon: Flame },
+    { key: 'ready',     label: t('live.pipelineReady'),     count: pipeline.ready,     color: POS,                   icon: CheckCircle },
     { key: 'served',   label: t('live.pipelineServed'),   count: pipeline.served,   color: T2,                    icon: ShoppingBag },
     { key: 'refunded', label: t('live.pipelineRefunded'), count: pipeline.refunded, color: NEG,                   icon: RotateCcw },
   ];
