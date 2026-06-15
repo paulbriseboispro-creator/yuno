@@ -52,8 +52,8 @@ export function MFAVerificationDialog({ open, onVerified, onCancel }: MFAVerific
     setLoading(true);
     setError('');
     try {
-      const { data, error: fnError } = await supabase.functions.invoke('mfa-verify-login', {
-        body: useRecovery ? { recoveryCode } : { code: codeToVerify },
+      const { data, error: fnError } = await supabase.functions.invoke('mfa', {
+        body: { action: 'verify-login', ...(useRecovery ? { recoveryCode } : { code: codeToVerify }) },
       });
 
       if (fnError) {

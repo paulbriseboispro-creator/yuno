@@ -176,3 +176,16 @@ verify_jwt = true
 
 [functions.geocode-address]
 verify_jwt = false
+
+# ── Unified dispatchers (cap-reduction merge) ──
+[functions.stripe-connect]
+verify_jwt = true
+
+[functions.club-subscription]
+verify_jwt = true
+
+[functions.mfa]
+verify_jwt = false
+
+[functions.email-change]
+verify_jwt = false

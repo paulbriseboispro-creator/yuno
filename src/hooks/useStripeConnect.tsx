@@ -32,7 +32,7 @@ export function useStripeConnect(venueId: string | null) {
   const refreshStatus = useCallback(async () => {
     if (!venueId) return;
     try {
-      const { data, error } = await supabase.functions.invoke('stripe-connect-refresh', { body: { venueId } });
+      const { data, error } = await supabase.functions.invoke('stripe-connect', { body: { action: 'refresh', venueId } });
       if (error) throw error;
       setStripeStatus({
         connected: data.connected || false,
@@ -47,7 +47,7 @@ export function useStripeConnect(venueId: string | null) {
   const checkSubscription = useCallback(async () => {
     if (!venueId) return;
     try {
-      const { data, error } = await supabase.functions.invoke('check-club-subscription', { body: { venueId } });
+      const { data, error } = await supabase.functions.invoke('club-subscription', { body: { action: 'check', venueId } });
       if (error) throw error;
       setSubscription({
         subscribed: data.subscribed || false,
@@ -71,8 +71,8 @@ export function useStripeConnect(venueId: string | null) {
 
   const startOnboarding = async (opts?: { returnUrl?: string; refreshUrl?: string }) => {
     try {
-      const { data, error } = await supabase.functions.invoke('organizer-stripe-connect-onboard', {
-        body: { actor_type: 'owner', venueId, returnUrl: opts?.returnUrl, refreshUrl: opts?.refreshUrl },
+      const { data, error } = await supabase.functions.invoke('stripe-connect', {
+        body: { action: 'onboard', actor_type: 'owner', venueId, returnUrl: opts?.returnUrl, refreshUrl: opts?.refreshUrl },
       });
       if (error) throw error;
       if (data.url) window.open(data.url, '_blank');
@@ -83,7 +83,7 @@ export function useStripeConnect(venueId: string | null) {
 
   const openDashboard = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('stripe-connect-dashboard', { body: { venueId } });
+      const { data, error } = await supabase.functions.invoke('stripe-connect', { body: { action: 'dashboard', venueId } });
       if (error) throw error;
       if (data.url) window.open(data.url, '_blank');
     } catch (e) {
@@ -94,7 +94,7 @@ export function useStripeConnect(venueId: string | null) {
   const startSubscription = async (planCode?: PlanCode) => {
     // Check directly with Stripe via edge function to prevent duplicates
     try {
-      const { data: checkData } = await supabase.functions.invoke('check-club-subscription', { body: { venueId } });
+      const { data: checkData } = await supabase.functions.invoke('club-subscription', { body: { action: 'check', venueId } });
       if (checkData?.subscribed) {
         setSubscription({
           subscribed: checkData.subscribed,
@@ -112,8 +112,8 @@ export function useStripeConnect(venueId: string | null) {
     }
 
     try {
-      const { data, error } = await supabase.functions.invoke('create-club-subscription', {
-        body: { venueId, ...(planCode ? { planCode } : {}) },
+      const { data, error } = await supabase.functions.invoke('club-subscription', {
+        body: { action: 'create', venueId, ...(planCode ? { planCode } : {}) },
       });
       if (error) throw error;
       if (data.url) window.open(data.url, '_blank');
@@ -125,7 +125,7 @@ export function useStripeConnect(venueId: string | null) {
 
   const manageSubscription = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('manage-club-subscription');
+      const { data, error } = await supabase.functions.invoke('club-subscription', { body: { action: 'manage' } });
       if (error) throw error;
       if (data.url) window.open(data.url, '_blank');
     } catch (e) {

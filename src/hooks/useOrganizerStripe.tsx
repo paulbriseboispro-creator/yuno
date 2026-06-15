@@ -48,7 +48,8 @@ export function useOrganizerStripe(userId: string | null | undefined) {
       // If account exists, refresh from Stripe in background
       if (profile?.stripe_connect_account_id) {
         const { data: fresh } = await supabase.functions.invoke(
-          'organizer-stripe-connect-status',
+          'stripe-connect',
+          { body: { action: 'status' } },
         );
         if (fresh && !fresh.error) {
           setData({
@@ -75,7 +76,8 @@ export function useOrganizerStripe(userId: string | null | undefined) {
   const startOnboarding = async () => {
     try {
       const { data, error } = await supabase.functions.invoke(
-        'organizer-stripe-connect-onboard',
+        'stripe-connect',
+        { body: { action: 'onboard' } },
       );
       if (error) throw error;
       if (data?.url) {
@@ -91,8 +93,8 @@ export function useOrganizerStripe(userId: string | null | undefined) {
   const openDashboard = async () => {
     try {
       const { data, error } = await supabase.functions.invoke(
-        'stripe-connect-dashboard',
-        { body: { actor_type: 'organizer' } },
+        'stripe-connect',
+        { body: { action: 'dashboard', actor_type: 'organizer' } },
       );
       if (error) throw error;
       if (data?.url) window.open(data.url, '_blank');

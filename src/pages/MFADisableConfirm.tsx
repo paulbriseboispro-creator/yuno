@@ -24,8 +24,8 @@ export default function MFADisableConfirm() {
 
   const confirmDisable = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('mfa-disable', {
-        body: { token },
+      const { data, error } = await supabase.functions.invoke('mfa', {
+        body: { action: 'disable-confirm', token },
       });
 
       if (error) {

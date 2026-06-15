@@ -73,8 +73,8 @@ export default function Settings() {
 
   const handleEmailChangeToken = async (token: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('verify-email-change', {
-        body: { token },
+      const { data, error } = await supabase.functions.invoke('email-change', {
+        body: { action: 'verify', token },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -96,8 +96,8 @@ export default function Settings() {
   const handleRequestEmailChange = async () => {
     setEmailChangeLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('request-email-change', {
-        body: { origin: window.location.origin },
+      const { data, error } = await supabase.functions.invoke('email-change', {
+        body: { action: 'request', origin: window.location.origin },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -113,8 +113,9 @@ export default function Settings() {
     if (!newEmail.trim() || !newEmailRequestId) return;
     setSubmittingNewEmail(true);
     try {
-      const { data, error } = await supabase.functions.invoke('submit-new-email', {
+      const { data, error } = await supabase.functions.invoke('email-change', {
         body: {
+          action: 'submit',
           request_id: newEmailRequestId,
           new_email: newEmail.trim(),
           origin: window.location.origin,
@@ -179,7 +180,7 @@ export default function Settings() {
   const handleDisableMFA = async () => {
     if (!confirm(t('profile.confirmDisable2FA') || 'Un email de vérification sera envoyé pour confirmer la désactivation. Continuer ?')) return;
     try {
-      const { data, error } = await supabase.functions.invoke('mfa-disable', { body: { action: 'request' } });
+      const { data, error } = await supabase.functions.invoke('mfa', { body: { action: 'disable-request' } });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       toast.success('📧 Email de vérification envoyé ! Vérifie ta boîte mail pour confirmer.');

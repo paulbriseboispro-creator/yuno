@@ -42,8 +42,8 @@ export function SubscriptionPlanProvider({ venueId, children }: { venueId: strin
       return;
     }
     try {
-      const { data, error } = await supabase.functions.invoke('check-club-subscription', {
-        body: { venueId },
+      const { data, error } = await supabase.functions.invoke('club-subscription', {
+        body: { action: 'check', venueId },
       });
       if (error) throw error;
       

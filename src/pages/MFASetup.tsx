@@ -66,7 +66,7 @@ export default function MFASetup() {
   const generateSecret = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('mfa-generate-secret');
+      const { data, error } = await supabase.functions.invoke('mfa', { body: { action: 'generate-secret' } });
 
       if (error) throw error;
 
@@ -103,8 +103,8 @@ export default function MFASetup() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('mfa-verify-setup', {
-        body: { code },
+      const { data, error } = await supabase.functions.invoke('mfa', {
+        body: { action: 'verify-setup', code },
       });
 
       if (error) throw error;

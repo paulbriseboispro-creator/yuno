@@ -1228,10 +1228,10 @@ serve(async (req) => {
     // Fetch subscription plan
     let venuePlan = "essential";
     try {
-      const subRes = await fetch(`${supabaseUrl}/functions/v1/check-club-subscription`, {
+      const subRes = await fetch(`${supabaseUrl}/functions/v1/club-subscription`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
-        body: JSON.stringify({ venueId }),
+        body: JSON.stringify({ action: "check", venueId }),
       });
       if (subRes.ok) {
         const subData = await subRes.json();

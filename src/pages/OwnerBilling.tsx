@@ -115,7 +115,7 @@ export default function OwnerBilling() {
     if (!venueId) return;
     setSubscribing(planCode);
     try {
-      const { data, error } = await supabase.functions.invoke('create-club-subscription', { body: { venueId, planCode } });
+      const { data, error } = await supabase.functions.invoke('club-subscription', { body: { action: 'create', venueId, planCode } });
       if (error) throw error;
       if (data?.updated) { toast.success(t('plan.planChanged')); refreshPlan(); }
       else if (data?.url) { window.open(data.url, '_blank'); }
