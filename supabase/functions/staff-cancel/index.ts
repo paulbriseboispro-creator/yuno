@@ -112,6 +112,7 @@ serve(async (req) => {
     let paymentIntentId = '';
     let ticketId: string | null = null;
     let orderId: string | null = null;
+    let scopeEventId: string | null = null;
 
     if (type === 'ticket') {
       let ticketQuery = adminClient
@@ -126,6 +127,7 @@ serve(async (req) => {
       if (ticket.entry_scanned) throw new Error('Cannot cancel: ticket already scanned for entry');
 
       ticketId = ticket.id;
+      scopeEventId = ticket.events?.id || null;
       venueId = ticket.events.venue_id;
       venueName = ticket.events.venues?.name || '';
       eventTitle = ticket.events.title || '';
@@ -239,6 +241,7 @@ serve(async (req) => {
       if (order.served_at || order.token_used) throw new Error('Cannot cancel: order already served');
 
       orderId = order.id;
+      scopeEventId = order.event_id || null;
       venueId = order.venue_id;
       venueName = order.venues?.name || '';
       customerEmail = order.user_email || '';
@@ -259,22 +262,54 @@ serve(async (req) => {
       refundAmount = Math.round(Math.max(0, refundableAmount - stripeFee) * 100) / 100;
 
       logStep("Order refund calculation", { originalAmount, serviceFee, stripeFee, refundableAmount, refundAmount });
-
-      await adminClient
-        .from('orders')
-        .update({
-          status: 'refunded',
-          served_at: new Date().toISOString(),
-          archived: true,
-          token_used: true,
-          refund_amount: refundAmount,
-          refund_reason: reason || null,
-          refunded_by: user.id,
-        })
-        .eq('id', order.id);
+      // NOTE: the order is NOT marked refunded here. For drink orders we refund
+      // on Stripe first (blocking) and only then write the refunded status, so a
+      // failed refund can never leave a "refunded" order with no money returned.
     }
 
-    // Process Stripe refund
+    // Venue scoping: a staff member may only cancel/refund items that belong to
+    // their own venue. Without this, a barman from one club could refund another
+    // club's order. Allowed: platform admins, the venue owner, club-scope staff
+    // (profiles.venue_id), and the organizer (or accepted org_staff) of the
+    // linked event for org-run events hosted at a partner venue.
+    {
+      const isAdmin = roles?.some(r => r.role === 'admin') ?? false;
+      if (!isAdmin && venueId) {
+        let belongsToVenue = false;
+
+        const { data: prof } = await adminClient
+          .from('profiles').select('venue_id').eq('id', authenticatedUserId).single();
+        if (prof?.venue_id && prof.venue_id === venueId) belongsToVenue = true;
+
+        if (!belongsToVenue) {
+          const { data: ownedVenue } = await adminClient
+            .from('venues').select('id').eq('id', venueId).eq('owner_id', authenticatedUserId).maybeSingle();
+          if (ownedVenue) belongsToVenue = true;
+        }
+
+        if (!belongsToVenue && scopeEventId) {
+          const { data: evt } = await adminClient
+            .from('events').select('organizer_user_id').eq('id', scopeEventId).maybeSingle();
+          if (evt?.organizer_user_id === authenticatedUserId) {
+            belongsToVenue = true;
+          } else if (evt?.organizer_user_id) {
+            const { data: orgLink } = await adminClient
+              .from('org_staff').select('user_id')
+              .eq('organizer_user_id', evt.organizer_user_id)
+              .eq('user_id', authenticatedUserId)
+              .eq('invitation_status', 'accepted').limit(1);
+            if (orgLink && orgLink.length > 0) belongsToVenue = true;
+          }
+        }
+
+        if (!belongsToVenue) {
+          logStep("Venue scope denied", { authenticatedUserId, venueId, scopeEventId });
+          throw new Error('Unauthorized: not assigned to this venue');
+        }
+      }
+    }
+
+    // Process Stripe refund.
     if (paymentIntentId && refundAmount > 0) {
       try {
         const refundAmountCents = Math.round(refundAmount * 100);
@@ -286,10 +321,39 @@ serve(async (req) => {
         });
         logStep("Stripe refund processed", { paymentIntentId, refundAmountCents });
       } catch (stripeError: any) {
-        logStep("Stripe refund error (non-blocking)", { error: stripeError.message });
+        logStep("Stripe refund error", { error: stripeError.message, type });
+        // For drink orders the DB write happens AFTER this, so aborting here
+        // leaves the order untouched (still 'paid') — no phantom "refunded".
+        if (type === 'order') {
+          throw new Error(`Stripe refund failed, cancellation aborted: ${stripeError.message}`);
+        }
+        // Ticket path keeps its existing (pre-write) behaviour to avoid
+        // destabilising the entry-refusal + linked-orders flow.
       }
     } else {
       logStep("No payment intent - skipping Stripe refund", { paymentIntentId, refundAmount });
+    }
+
+    // Money is back (or there was nothing to refund): now record the refund.
+    // Guarded by status='paid' so a retry / double-scan can't refund twice.
+    if (type === 'order' && orderId) {
+      const { data: refundedRows } = await adminClient
+        .from('orders')
+        .update({
+          status: 'refunded',
+          served_at: new Date().toISOString(),
+          archived: true,
+          token_used: true,
+          refund_amount: refundAmount,
+          refund_reason: reason || null,
+          refunded_by: user.id,
+        })
+        .eq('id', orderId)
+        .eq('status', 'paid')
+        .select();
+      if (!refundedRows || refundedRows.length === 0) {
+        logStep("Order already refunded/served by a concurrent call — skipping", { orderId });
+      }
     }
 
     // Include linked orders info for email
