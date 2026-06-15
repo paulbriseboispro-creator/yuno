@@ -93,6 +93,29 @@ export default function GuestDrinkCheckout() {
       return;
     }
 
+    // A drink order must be attached to an event (same rule as the cart page).
+    const hasNoEvent = cart.some(item => !item.eventId);
+    if (hasNoEvent) {
+      toast({ title: t('cart.eventMissing'), description: t('cart.eventMissingDesc'), variant: 'destructive' });
+      return;
+    }
+
+    // Anti-double-payment guard (mirrors Cart.tsx): block re-submitting the same
+    // cart while a checkout is already in flight, so a double-click / back-button
+    // can't open two Stripe sessions and double-charge the guest.
+    const cartHash = JSON.stringify(cart.map(i => `${i.drinkId}:${i.qty}`).sort());
+    const pendingSessionKey = 'yuno_pending_checkout';
+    const existingSession = sessionStorage.getItem(pendingSessionKey);
+    if (existingSession) {
+      try {
+        const parsed = JSON.parse(existingSession);
+        if (parsed.hash === cartHash && Date.now() - parsed.ts < 5 * 60 * 1000) {
+          toast({ title: t('cart.checkoutInProgress') || 'Paiement en cours', description: t('cart.checkoutInProgressDesc') || 'Un paiement est déjà en cours pour ce panier.', variant: 'destructive' });
+          return;
+        }
+      } catch { /* ignore corrupt data */ }
+    }
+
     setIsProcessing(true);
     try {
       // CGV acceptance is handled by TermsAcceptance component
@@ -127,12 +150,14 @@ export default function GuestDrinkCheckout() {
       if (!data?.success) throw new Error(data?.error || 'Failed to create checkout');
 
       if (data.testMode && data.redirectUrl) {
+        sessionStorage.removeItem(pendingSessionKey);
         clearCart();
         navigate(data.redirectUrl);
         return;
       }
 
       if (data.url) {
+        sessionStorage.setItem(pendingSessionKey, JSON.stringify({ hash: cartHash, ts: Date.now() }));
         window.location.href = data.url;
         return;
       }
