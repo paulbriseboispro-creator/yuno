@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Plus, Pencil, Trash2, Clock, Upload, Info, Music, Tag, Ticket, Crown, Sparkles, ChevronDown, Zap } from 'lucide-react';
+import { RefreshCw, Plus, Pencil, Trash2, Clock, Upload, Info, Music, Tag, Ticket, Crown, Sparkles, ChevronDown, Zap, Handshake } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
@@ -78,6 +78,8 @@ type TemplateRow = {
   ticket_preset_id: string | null;
   vip_preset_id: string | null;
   auto_enable_tables: boolean;
+  partner_organizer_id: string | null;
+  revenue_split_rules: { venue?: number; organizer?: number } | null;
   is_active: boolean;
 };
 
@@ -94,13 +96,16 @@ type FormState = {
   ticketPresetId: string;
   vipPresetId: string;
   autoEnableTables: boolean;
+  partnerOrganizerId: string;
+  venueSplitPct: number;
   isActive: boolean;
 };
 
 const EMPTY_FORM: FormState = {
   name: '', description: '', posterUrl: '', musicGenres: ['Open Format'], eventType: 'club',
   dayOfWeek: 5, startTime: '23:00', endTime: '06:00', advanceDays: 7,
-  ticketPresetId: '', vipPresetId: '', autoEnableTables: false, isActive: true,
+  ticketPresetId: '', vipPresetId: '', autoEnableTables: false,
+  partnerOrganizerId: '', venueSplitPct: 70, isActive: true,
 };
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
@@ -122,6 +127,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
   const scopeReady = isOrg ? !!organizerUserId : !!venueId;
   const [templates, setTemplates] = useState<TemplateRow[]>([]);
   const [presets, setPresets] = useState<Preset[]>([]);
+  const [partners, setPartners] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<TemplateRow | null>(null);
@@ -146,6 +152,23 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
       if (tplRes.error) throw tplRes.error;
       setTemplates((tplRes.data || []) as unknown as TemplateRow[]);
       setPresets((presetRes.data || []) as Preset[]);
+
+      // Partenaires organisateurs actifs (scope club) → co-events récurrents
+      if (!isOrg && venueId) {
+        const { data: parts } = await supabase
+          .from('venue_organizer_partnerships')
+          .select('organizer_user_id')
+          .eq('venue_id', venueId).eq('status', 'active');
+        const ids = (parts || []).map(p => p.organizer_user_id).filter(Boolean) as string[];
+        if (ids.length) {
+          const { data: profs } = await supabase
+            .from('organizer_profiles').select('user_id, display_name').in('user_id', ids);
+          const nameMap = new Map((profs || []).map(p => [p.user_id, p.display_name]));
+          setPartners(ids.map(id => ({ id, name: nameMap.get(id) || 'Organisateur' })));
+        } else {
+          setPartners([]);
+        }
+      }
     } catch (err) {
       console.error('Error loading recurring templates:', err);
       toast.error('Erreur de chargement des soirées récurrentes');
@@ -181,6 +204,8 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
       ticketPresetId: tpl.ticket_preset_id || '',
       vipPresetId: tpl.vip_preset_id || '',
       autoEnableTables: tpl.auto_enable_tables,
+      partnerOrganizerId: tpl.partner_organizer_id || '',
+      venueSplitPct: tpl.revenue_split_rules?.venue ?? 70,
       isActive: tpl.is_active,
     });
     setPosterFile(null);
@@ -230,6 +255,9 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
         ticket_preset_id: form.ticketPresetId || null,
         vip_preset_id: form.vipPresetId || null,
         auto_enable_tables: form.autoEnableTables,
+        partner_organizer_id: !isOrg && form.partnerOrganizerId ? form.partnerOrganizerId : null,
+        revenue_split_rules: !isOrg && form.partnerOrganizerId
+          ? { venue: form.venueSplitPct, organizer: 100 - form.venueSplitPct } : null,
         is_active: form.isActive,
       };
 
@@ -364,6 +392,12 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                       {tpl.auto_enable_tables && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
                           style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 }}>Tables VIP en ligne</span>
+                      )}
+                      {tpl.partner_organizer_id && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
+                          style={{ background: 'rgba(232,25,44,0.10)', border: '1px solid rgba(232,25,44,0.22)', color: RED }}>
+                          <Handshake className="w-3 h-3" />Co-event{partners.find(p => p.id === tpl.partner_organizer_id)?.name ? ` · ${partners.find(p => p.id === tpl.partner_organizer_id)!.name}` : ''}
+                        </span>
                       )}
                       {!tpl.ticket_preset_id && !tpl.vip_preset_id && (
                         <span style={{ color: T3, fontSize: 11.5 }}>Sans billetterie automatique</span>
@@ -511,6 +545,39 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
               </div>
             </div>
+
+            {/* Co-organisation avec un partenaire (scope club uniquement) */}
+            {!isOrg && partners.length > 0 && (
+              <div className="rounded-xl p-4 space-y-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+                <div className="flex items-center gap-2">
+                  <Handshake className="w-4 h-4" style={{ color: RED }} />
+                  <p style={{ color: T1, fontSize: 13, fontWeight: 600 }}>Co-organisation (optionnel)</p>
+                </div>
+                <p style={{ color: T3, fontSize: 11.5, marginTop: -4 }}>
+                  Chaque soirée générée devient un co-event partagé avec ce partenaire, selon la répartition choisie.
+                </p>
+                <div>
+                  <FieldLabel>Co-organiser avec</FieldLabel>
+                  <div className="relative">
+                    <select value={form.partnerOrganizerId} onChange={e => set('partnerOrganizerId', e.target.value)} className="appearance-none cursor-pointer" style={inputStyle}>
+                      <option value="" style={{ background: '#0a0a0c' }}>— Aucun (soirée solo) —</option>
+                      {partners.map(p => <option key={p.id} value={p.id} style={{ background: '#0a0a0c' }}>{p.name}</option>)}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
+                  </div>
+                </div>
+                {form.partnerOrganizerId && (
+                  <div>
+                    <FieldLabel>Répartition des revenus</FieldLabel>
+                    <div className="flex items-center gap-3">
+                      <input type="number" min={0} max={100} style={{ ...inputStyle, width: 90 }} value={form.venueSplitPct}
+                        onChange={e => set('venueSplitPct', Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))} />
+                      <span style={{ color: T2, fontSize: 12.5 }}>% club · {100 - form.venueSplitPct}% partenaire</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Auto ticketing */}
             <div className="rounded-xl p-4 space-y-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
