@@ -34,3 +34,5 @@ supabase/.temp/
 
 # Backup / duplicate artifacts
 *.backup
+# macOS Finder duplicates ("name 2.ext", "name 3.ext", ...)
+* [0-9].*
