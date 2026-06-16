@@ -251,6 +251,7 @@ DELETE FROM events WHERE access_code = 'DEMO_SEED'
   AND (venue_id = (SELECT t FROM _ctx WHERE k='venue') OR organizer_user_id = (SELECT u FROM _ctx WHERE k='organizer'));
 
 DELETE FROM upsell_drink_packs WHERE venue_id = (SELECT t FROM _ctx WHERE k='venue');
+DELETE FROM favorites WHERE drink_id IN (SELECT id FROM drinks WHERE venue_id = (SELECT t FROM _ctx WHERE k='venue'));
 DELETE FROM drinks WHERE venue_id = (SELECT t FROM _ctx WHERE k='venue');
 DELETE FROM loyalty_rewards  WHERE venue_id = (SELECT t FROM _ctx WHERE k='venue');
 DELETE FROM loyalty_settings WHERE venue_id = (SELECT t FROM _ctx WHERE k='venue');
@@ -266,24 +267,21 @@ DELETE FROM affiliate_venues WHERE affiliate_id = (SELECT u FROM _ctx WHERE k='a
 -- ----------------------------------------------------------------------------
 -- ÉTAPE 3 — Catalogue club : boissons, packs conso, zones + tables + table packs.
 -- ----------------------------------------------------------------------------
+-- Boissons du club démo : on seed depuis le VRAI catalogue admin (drink_catalog),
+-- jamais des entrées inventées. Le menu démo reflète donc les boissons réelles de
+-- la base. Prix par catégorie (le catalogue n'en porte pas) : drink 12 / shot 6 / soft 5.
+-- (Suppose drink_catalog peuplé — c'est le cas en prod.)
 INSERT INTO drinks (id, venue_id, name, price, img_url, collection, active, position)
-SELECT 'yuno-' || d.slug, (SELECT t FROM _ctx WHERE k='venue'), d.name, d.price, d.img, d.coll, true, d.pos
-FROM (VALUES
-  ('mojito','Mojito',13,'https://images.unsplash.com/photo-1551538827-9c037cb4f32a','drink',0),
-  ('gintonic','Gin Tonic',12,'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b','drink',1),
-  ('vodkarb','Vodka Red Bull',14,'https://images.unsplash.com/photo-1470337458703-46ad1756a187','drink',2),
-  ('whiskycoca','Whisky Coca',13,'https://images.unsplash.com/photo-1569924995012-c4c706bfcd51','drink',3),
-  ('spritz','Aperol Spritz',12,'https://images.unsplash.com/photo-1560512823-829485b8bf24','drink',4),
-  ('margarita','Margarita',14,'https://images.unsplash.com/photo-1556679343-c7306c1976bc','drink',5),
-  ('champagne','Coupe de Champagne',16,'https://images.unsplash.com/photo-1551024709-8f23befc6f87','drink',6),
-  ('tequila','Shot Tequila',6,'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b','shot',7),
-  ('jager','Shot Jägermeister',6,'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b','shot',8),
-  ('vodkashot','Shot Vodka',5,'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b','shot',9),
-  ('b52','Shot B-52',7,'https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b','shot',10),
-  ('coca','Coca-Cola',5,'https://images.unsplash.com/photo-1554866585-cd94860890b7','soft',11),
-  ('redbull','Red Bull',6,'https://images.unsplash.com/photo-1613618948931-9b1c6f3a0e1a','soft',12),
-  ('eau','Eau minérale',4,'https://images.unsplash.com/photo-1560023907-5f339617ea30','soft',13)
-) d(slug, name, price, img, coll, pos);
+SELECT
+  'yuno-' || dc.id,
+  (SELECT t FROM _ctx WHERE k='venue'),
+  dc.name,
+  CASE dc.category WHEN 'shot' THEN 6 WHEN 'soft' THEN 5 ELSE 12 END,
+  COALESCE(dc.image_url, ''),
+  dc.category,
+  true,
+  (row_number() OVER (ORDER BY CASE dc.category WHEN 'drink' THEN 0 WHEN 'shot' THEN 1 ELSE 2 END, dc.name))::int - 1
+FROM drink_catalog dc;
 
 INSERT INTO upsell_drink_packs (venue_id, name, description, drink_count, pack_price, original_price, allowed_collections, is_active)
 SELECT (SELECT t FROM _ctx WHERE k='venue'), x.name, x.descr, x.cnt, x.pp, x.op, ARRAY['drink','shot'], true
