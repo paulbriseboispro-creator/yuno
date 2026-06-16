@@ -1,8 +1,8 @@
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { useOrganizerStripe } from '@/hooks/useOrganizerStripe';
-import { Button } from '@/components/ui/button';
-import { CreditCard, ShieldCheck, Zap, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { CreditCard, ShieldCheck, Zap, ExternalLink, Check, type LucideIcon } from 'lucide-react';
+import { StepHeader, PrimaryButton, GhostButton, InnerCard, DoneRow, RED, POS, T1, T2, T3, BORDER } from '@/components/onboarding/onboardingUI';
 
 interface Props {
   userId: string;
@@ -16,96 +16,88 @@ export function OrgOnboardingStepStripe({ userId, onComplete, onSkip }: Props) {
   const { canSell, status, loading, startOnboarding, openDashboard } = useOrganizerStripe(userId);
 
   return (
-    <div className="space-y-6 max-w-xl">
-      <div>
-        <h2 className="text-2xl font-bold flex items-center gap-2">
-          <CreditCard className="h-6 w-6 text-primary" />
-          {tt('Activer les paiements', 'Activate payments')}
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
+    <div className="space-y-6">
+      <StepHeader
+        icon={CreditCard}
+        title={tt('Activer les paiements', 'Activate payments')}
+        subtitle={tt(
+          'Connectez Stripe pour vendre des billets. Les revenus arrivent directement sur votre compte bancaire.',
+          'Connect Stripe to sell tickets. Revenue lands directly in your bank account.',
+        )}
+      />
+
+      <div className="grid sm:grid-cols-3 gap-2.5">
+        <Benefit icon={Zap} title={tt('Versements rapides', 'Fast payouts')} desc={tt('Reçus en J+2 sur votre IBAN.', 'Settled in 2 days to your IBAN.')} />
+        <Benefit icon={ShieldCheck} title={tt('Sécurisé Stripe', 'Stripe-secured')} desc={tt('Conformité PCI & 3DS.', 'PCI & 3DS handled.')} />
+        <Benefit icon={CreditCard} title={tt('Apple Pay & cartes', 'Apple Pay & cards')} desc={tt('Tous les moyens de paiement.', 'All payment methods.')} />
+      </div>
+
+      <div className="rounded-xl" style={{ padding: 14, background: 'rgba(255,255,255,0.03)', border: `1px solid ${BORDER}` }}>
+        <p style={{ color: T3, fontSize: 12, lineHeight: 1.5 }}>
           {tt(
-            "Connectez votre compte Stripe pour vendre des billets. Les revenus arrivent directement sur votre compte bancaire.",
-            'Connect your Stripe account to sell tickets. Revenue lands directly in your bank account.'
+            'Frais Yuno : max(0,99 € ; 4 %) par billet vendu. Frais Stripe : 1,5 % + 0,25 €. Tout est transparent et déduit avant versement.',
+            'Yuno fee: max(€0.99; 4%) per ticket sold. Stripe fee: 1.5% + €0.25. Fully transparent, deducted before payout.',
           )}
         </p>
       </div>
 
-      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
-        <div className="grid sm:grid-cols-3 gap-3">
-          <Benefit icon={Zap} title={tt('Paiements instantanés', 'Instant payouts')} desc={tt('Reçus en J+2 sur votre IBAN.', 'Settled in 2 days to your IBAN.')} />
-          <Benefit icon={ShieldCheck} title={tt('Sécurisé Stripe', 'Stripe-secured')} desc={tt('Conformité PCI & 3DS automatique.', 'PCI & 3DS handled.')} />
-          <Benefit icon={CreditCard} title={tt('Apple Pay & Cartes', 'Apple Pay & cards')} desc={tt('Tous les moyens de paiement.', 'All payment methods.')} />
-        </div>
-
-        <div className="rounded-lg bg-primary/5 border border-primary/10 p-4 text-xs text-muted-foreground">
-          {tt(
-            'Frais Yuno : max(0,99 € ; 4 %) par billet vendu. Frais Stripe : 1,5 % + 0,25 €. Tout est transparent et déduit avant versement.',
-            'Yuno fee: max(€0.99; 4%) per ticket sold. Stripe fee: 1.5% + €0.25. Fully transparent, deducted before payout.'
-          )}
-        </div>
-
-        {canSell ? (
-          <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-4 flex items-start gap-3">
-            <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="font-medium text-sm">{tt('Stripe connecté ✓', 'Stripe connected ✓')}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {tt('Vous pouvez vendre dès maintenant.', 'You can start selling right now.')}
-              </p>
-            </div>
-            <Button variant="ghost" size="sm" onClick={openDashboard}>
-              <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-              {tt('Dashboard', 'Dashboard')}
-            </Button>
+      {canSell ? (
+        <DoneRow>
+          <Check className="w-5 h-5 flex-none" style={{ color: POS }} />
+          <div className="flex-1 min-w-0">
+            <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{tt('Stripe connecté', 'Stripe connected')}</p>
+            <p style={{ color: T3, fontSize: 12, marginTop: 1 }}>{tt('Vous pouvez vendre dès maintenant.', 'You can start selling right now.')}</p>
           </div>
-        ) : status === 'pending' ? (
-          <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-4 text-sm">
-            <p className="font-medium">{tt('Onboarding incomplet', 'Onboarding incomplete')}</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {tt(
-                'Reprenez votre configuration Stripe pour pouvoir vendre.',
-                'Resume your Stripe setup to start selling.'
-              )}
-            </p>
-          </div>
-        ) : null}
-      </div>
+          <button
+            onClick={openDashboard}
+            className="inline-flex items-center gap-1.5 text-[12px] font-medium cursor-pointer transition-opacity hover:opacity-80 flex-none"
+            style={{ color: T2 }}
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            {tt('Dashboard', 'Dashboard')}
+          </button>
+        </DoneRow>
+      ) : status === 'pending' ? (
+        <div className="rounded-xl" style={{ padding: '12px 14px', background: 'rgba(252,211,77,0.07)', border: '1px solid rgba(252,211,77,0.22)' }}>
+          <p style={{ color: '#FCD34D', fontSize: 13.5, fontWeight: 600 }}>{tt('Onboarding incomplet', 'Onboarding incomplete')}</p>
+          <p style={{ color: T3, fontSize: 12, marginTop: 2 }}>{tt('Reprenez votre configuration Stripe pour pouvoir vendre.', 'Resume your Stripe setup to start selling.')}</p>
+        </div>
+      ) : null}
 
-      <div className="flex flex-col gap-2">
+      <div className="space-y-2.5">
         {!canSell ? (
           <>
-            <Button onClick={startOnboarding} disabled={loading} className="w-full" size="lg">
-              <CreditCard className="h-4 w-4 mr-2" />
+            <PrimaryButton fullWidth icon={CreditCard} onClick={startOnboarding} loading={loading}>
               {status === 'pending' ? tt('Reprendre Stripe', 'Resume Stripe') : tt('Connecter Stripe', 'Connect Stripe')}
-            </Button>
+            </PrimaryButton>
             {onSkip && (
-              <Button onClick={onSkip} variant="ghost" className="w-full" size="lg">
+              <GhostButton fullWidth onClick={onSkip}>
                 {tt('Configurer plus tard', 'Set up later')}
-              </Button>
+              </GhostButton>
             )}
-            <p className="text-[11px] text-muted-foreground text-center">
+            <p style={{ color: T3, fontSize: 11, textAlign: 'center', lineHeight: 1.45 }}>
               {tt(
-                'Vous pourrez activer les paiements à tout moment depuis Réglages. La vente de billets ne sera possible qu’une fois Stripe connecté.',
-                'You can activate payments anytime from Settings. Ticket sales only become possible once Stripe is connected.'
+                'Activable à tout moment depuis Réglages. La vente de billets nécessite Stripe.',
+                'Activate anytime from Settings. Ticket sales require Stripe.',
               )}
             </p>
           </>
         ) : (
-          <Button onClick={onComplete} className="w-full" size="lg">
+          <PrimaryButton fullWidth onClick={onComplete}>
             {tt('Continuer', 'Continue')}
-          </Button>
+          </PrimaryButton>
         )}
       </div>
     </div>
   );
 }
 
-function Benefit({ icon: Icon, title, desc }: { icon: any; title: string; desc: string }) {
+function Benefit({ icon: Icon, title, desc }: { icon: LucideIcon; title: string; desc: string }) {
   return (
-    <div className="rounded-lg bg-white/[0.02] border border-white/[0.04] p-3">
-      <Icon className="h-4 w-4 text-primary mb-1.5" />
-      <div className="text-xs font-medium">{title}</div>
-      <div className="text-[11px] text-muted-foreground mt-0.5">{desc}</div>
-    </div>
+    <InnerCard style={{ padding: '12px 14px' }}>
+      <Icon className="w-4 h-4 mb-2" style={{ color: RED }} />
+      <div style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>{title}</div>
+      <div style={{ color: T3, fontSize: 11, marginTop: 2, lineHeight: 1.35 }}>{desc}</div>
+    </InnerCard>
   );
 }

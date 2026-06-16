@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
-import { Button } from '@/components/ui/button';
-import { CalendarDays, Plus, Clock, Megaphone, CheckCircle2 } from 'lucide-react';
+import { CalendarDays, Plus, Clock, Megaphone, Check, ArrowRight, SkipForward, type LucideIcon } from 'lucide-react';
 import { OrgEventFormDialog } from '@/components/organizer-app/OrgEventFormDialog';
+import { StepHeader, PrimaryButton, GhostButton, InnerCard, DoneRow, RED, POS, T1, T3 } from '@/components/onboarding/onboardingUI';
 
 interface Props {
   userId: string;
@@ -18,55 +18,47 @@ export function OrgOnboardingStepFirstEvent({ userId, onComplete, onSkip }: Prop
   const [created, setCreated] = useState(false);
 
   return (
-    <div className="space-y-6 max-w-xl">
-      <div>
-        <h2 className="text-2xl font-bold flex items-center gap-2">
-          <CalendarDays className="h-6 w-6 text-primary" />
-          {tt('Votre premier événement', 'Your first event')}
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          {tt(
-            "Créez un événement pour ouvrir votre billetterie. Vous pourrez le modifier ensuite et le rendre public ou privé.",
-            'Create an event to open ticket sales. You can edit it later and make it public or private.'
-          )}
-        </p>
-      </div>
+    <div className="space-y-6">
+      <StepHeader
+        icon={CalendarDays}
+        title={tt('Votre premier événement', 'Your first event')}
+        subtitle={tt(
+          'Créez un événement pour ouvrir votre billetterie. Modifiable ensuite, public ou privé.',
+          'Create an event to open ticket sales. Editable later, public or private.',
+        )}
+      />
 
       {created ? (
-        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-5 flex items-start gap-3">
-          <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+        <DoneRow>
+          <Check className="w-5 h-5 flex-none" style={{ color: POS }} />
           <div>
-            <p className="text-sm font-medium">{tt('Événement créé 🎉', 'Event created 🎉')}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {tt(
-                'Vous pourrez le retrouver et le modifier depuis « Mes événements ».',
-                'You can find and edit it anytime under "My events".'
-              )}
-            </p>
+            <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{tt('Événement créé', 'Event created')}</p>
+            <p style={{ color: T3, fontSize: 12, marginTop: 1 }}>{tt('Retrouvez-le et modifiez-le dans « Mes événements ».', 'Find and edit it under "My events".')}</p>
           </div>
-        </div>
+        </DoneRow>
       ) : (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-3">
-          <Item icon={Clock} title={tt('5 minutes pour démarrer', '5 minutes to launch')} desc={tt('Titre, date, billetterie, c\'est en ligne.', 'Title, date, tickets, you\'re live.')} />
-          <Item icon={Megaphone} title={tt('Public ou privé', 'Public or private')} desc={tt('Visible dans Explore ou accessible par lien direct uniquement.', 'Listed in Explore or shared via direct link only.')} />
-          <Item icon={CalendarDays} title={tt('Multiples événements', 'Multiple events')} desc={tt('Créez autant d\'événements que vous voulez depuis votre dashboard.', 'Create as many events as you want from your dashboard.')} />
-        </div>
+        <InnerCard>
+          <div className="space-y-3.5">
+            <Item icon={Clock} title={tt('5 minutes pour démarrer', '5 minutes to launch')} desc={tt("Titre, date, billetterie, c'est en ligne.", "Title, date, tickets, you're live.")} />
+            <Item icon={Megaphone} title={tt('Public ou privé', 'Public or private')} desc={tt('Visible dans Explore ou accessible par lien direct.', 'Listed in Explore or shared via direct link.')} />
+            <Item icon={CalendarDays} title={tt('Autant que vous voulez', 'As many as you want')} desc={tt('Créez d\'autres événements depuis votre dashboard.', 'Create more events from your dashboard.')} />
+          </div>
+        </InnerCard>
       )}
 
-      <div className="flex gap-2">
+      <div className="flex gap-2.5">
         {created ? (
-          <Button onClick={onComplete} className="flex-1" size="lg">
+          <PrimaryButton fullWidth icon={ArrowRight} onClick={onComplete}>
             {tt('Continuer', 'Continue')}
-          </Button>
+          </PrimaryButton>
         ) : (
           <>
-            <Button onClick={() => setDialogOpen(true)} className="flex-1" size="lg">
-              <Plus className="h-4 w-4 mr-2" />
+            <PrimaryButton fullWidth icon={Plus} onClick={() => setDialogOpen(true)}>
               {tt('Créer mon premier événement', 'Create my first event')}
-            </Button>
-            <Button onClick={onSkip} variant="ghost" size="lg">
+            </PrimaryButton>
+            <GhostButton icon={SkipForward} onClick={onSkip}>
               {tt('Plus tard', 'Later')}
-            </Button>
+            </GhostButton>
           </>
         )}
       </div>
@@ -82,15 +74,15 @@ export function OrgOnboardingStepFirstEvent({ userId, onComplete, onSkip }: Prop
   );
 }
 
-function Item({ icon: Icon, title, desc }: { icon: any; title: string; desc: string }) {
+function Item({ icon: Icon, title, desc }: { icon: LucideIcon; title: string; desc: string }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="h-8 w-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-        <Icon className="h-4 w-4 text-primary" />
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}>
+        <Icon className="w-4 h-4" style={{ color: RED }} />
       </div>
       <div>
-        <div className="text-sm font-medium">{title}</div>
-        <div className="text-xs text-muted-foreground mt-0.5">{desc}</div>
+        <div style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{title}</div>
+        <div style={{ color: T3, fontSize: 12, marginTop: 1 }}>{desc}</div>
       </div>
     </div>
   );

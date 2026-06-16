@@ -4,11 +4,10 @@ import { translate } from '@/i18n/orgTranslate';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Globe, UserCircle } from 'lucide-react';
+import { UserCircle, Globe, ImagePlus, Loader2, ArrowRight, SkipForward } from 'lucide-react';
 import { Instagram } from '@/components/icons/Instagram';
 import { toast } from 'sonner';
+import { StepHeader, PrimaryButton, GhostButton, FieldLabel, OptionalPill, T2, T3, BORDER } from '@/components/onboarding/onboardingUI';
 
 interface Props {
   userId: string;
@@ -19,43 +18,69 @@ interface Props {
 export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
+
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [bio, setBio] = useState('');
   const [instagram, setInstagram] = useState('');
   const [website, setWebsite] = useState('');
-  const [loaded, setLoaded] = useState(false);
+  const [uploading, setUploading] = useState<'logo' | 'cover' | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('organizer_profiles')
-        .select('bio, instagram_url, website_url')
-        .eq('user_id', userId)
-        .maybeSingle();
-      if (data) {
-        setBio(data.bio ?? '');
-        setInstagram(data.instagram_url ?? '');
-        setWebsite(data.website_url ?? '');
-      }
+      const [{ data: profile }, { data: orgProfile }] = await Promise.all([
+        supabase.from('profiles').select('organization_logo_url').eq('id', userId).maybeSingle(),
+        supabase.from('organizer_profiles').select('cover_url, bio, instagram_url, website_url').eq('user_id', userId).maybeSingle(),
+      ]);
+      setLogoUrl(profile?.organization_logo_url ?? null);
+      setCoverUrl(orgProfile?.cover_url ?? null);
+      setBio(orgProfile?.bio ?? '');
+      setInstagram(orgProfile?.instagram_url ?? '');
+      setWebsite(orgProfile?.website_url ?? '');
       setLoaded(true);
     })();
   }, [userId]);
 
+  const upsertOrgProfile = async (patch: Record<string, unknown>) => {
+    const { data: existing } = await supabase.from('organizer_profiles').select('user_id').eq('user_id', userId).maybeSingle();
+    if (existing) {
+      return supabase.from('organizer_profiles').update(patch as any).eq('user_id', userId);
+    }
+    return supabase.from('organizer_profiles').insert({ user_id: userId, is_public: true, ...patch } as any);
+  };
+
+  const upload = async (file: File, kind: 'logo' | 'cover') => {
+    setUploading(kind);
+    try {
+      const ext = file.name.split('.').pop() ?? 'jpg';
+      const path = `${userId}/${kind}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('organization-assets').upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
+      const { data: { publicUrl } } = supabase.storage.from('organization-assets').getPublicUrl(path);
+      if (kind === 'logo') {
+        await supabase.from('profiles').update({ organization_logo_url: publicUrl } as any).eq('id', userId);
+        setLogoUrl(publicUrl);
+      } else {
+        await upsertOrgProfile({ cover_url: publicUrl });
+        setCoverUrl(publicUrl);
+      }
+      toast.success(tt('Image téléchargée', 'Image uploaded'));
+    } catch (e: any) {
+      toast.error(e.message || tt('Erreur upload', 'Upload error'));
+    } finally {
+      setUploading(null);
+    }
+  };
+
   const save = async () => {
     setSaving(true);
-    const payload: any = {
+    const { error } = await upsertOrgProfile({
       bio: bio.trim() || null,
       instagram_url: instagram.trim() || null,
       website_url: website.trim() || null,
-    };
-    const { data: existing } = await supabase
-      .from('organizer_profiles')
-      .select('user_id')
-      .eq('user_id', userId)
-      .maybeSingle();
-    const { error } = existing
-      ? await supabase.from('organizer_profiles').update(payload).eq('user_id', userId)
-      : await supabase.from('organizer_profiles').insert({ user_id: userId, ...payload, is_public: true });
+    });
     setSaving(false);
     if (error) {
       toast.error(error.message);
@@ -65,70 +90,90 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
     onComplete();
   };
 
-  const valid = bio.trim().length > 0 && (instagram.trim() || website.trim());
-
   if (!loaded) return null;
 
   return (
-    <div className="space-y-6 max-w-xl">
-      <div>
-        <h2 className="text-2xl font-bold flex items-center gap-2">
-          <UserCircle className="h-6 w-6 text-primary" />
-          {tt('Profil public', 'Public profile')}
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          {tt(
-            "Comment les fêtards vous découvrent dans Explore. Une bio courte et un lien suffisent.",
-            'How party-goers discover you in Explore. A short bio and one link is enough.'
+    <div className="space-y-6">
+      <StepHeader
+        icon={UserCircle}
+        title={tt('Profil public', 'Public profile')}
+        subtitle={tt(
+          'Comment les fêtards vous découvrent dans Explore. Logo, bannière, bio et un lien.',
+          'How party-goers discover you in Explore. Logo, banner, bio and one link.',
+        )}
+        right={<OptionalPill label={tt('Optionnel', 'Optional')} />}
+      />
+
+      {/* Logo + cover */}
+      <div className="flex items-start gap-4">
+        <div className="flex flex-col items-center gap-2">
+          {logoUrl ? (
+            <img src={logoUrl} alt="logo" className="w-20 h-20 rounded-2xl object-cover" style={{ border: `1px solid ${BORDER}` }} />
+          ) : (
+            <div className="w-20 h-20 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)', border: `1px dashed ${BORDER}`, color: T3 }}>
+              <ImagePlus className="w-6 h-6" />
+            </div>
           )}
-        </p>
+          <label className="cursor-pointer text-[11px] font-medium transition-opacity hover:opacity-80" style={{ color: T2 }}>
+            <input type="file" accept="image/*" hidden onChange={e => e.target.files?.[0] && upload(e.target.files[0], 'logo')} />
+            {uploading === 'logo' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : logoUrl ? tt('Changer le logo', 'Change logo') : tt('Logo', 'Logo')}
+          </label>
+        </div>
+        <div className="flex-1 min-w-0">
+          {coverUrl ? (
+            <img src={coverUrl} alt="cover" className="w-full h-20 rounded-xl object-cover" style={{ border: `1px solid ${BORDER}` }} />
+          ) : (
+            <div className="w-full h-20 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)', border: `1px dashed ${BORDER}`, color: T3 }}>
+              <ImagePlus className="w-6 h-6" />
+            </div>
+          )}
+          <label className="cursor-pointer inline-block mt-2 text-[11px] font-medium transition-opacity hover:opacity-80" style={{ color: T2 }}>
+            <input type="file" accept="image/*" hidden onChange={e => e.target.files?.[0] && upload(e.target.files[0], 'cover')} />
+            {uploading === 'cover' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : coverUrl ? tt('Changer la bannière', 'Change banner') : tt('Bannière (optionnelle)', 'Banner (optional)')}
+          </label>
+        </div>
       </div>
 
-      <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
+      {/* Bio + links */}
+      <div className="space-y-4">
         <div>
-          <Label>{tt('Bio courte', 'Short bio')}</Label>
+          <FieldLabel>{tt('Bio courte', 'Short bio')}</FieldLabel>
           <Textarea
             value={bio}
             onChange={e => setBio(e.target.value)}
-            placeholder={tt(
-              'Ex : On organise les meilleures soirées techno de Paris depuis 2018.',
-              'Ex: We throw the best techno nights in Paris since 2018.'
-            )}
+            placeholder={tt('Ex : On organise les meilleures soirées techno de Paris depuis 2018.', 'Ex: We throw the best techno nights in Paris since 2018.')}
             rows={3}
             maxLength={280}
-            className="mt-1.5"
           />
-          <p className="text-xs text-muted-foreground mt-1 text-right">{bio.length}/280</p>
+          <p style={{ color: T3, fontSize: 11, marginTop: 4, textAlign: 'right' }} className="tabular-nums">{bio.length}/280</p>
         </div>
-
         <div>
-          <Label className="flex items-center gap-1.5"><Instagram className="h-3.5 w-3.5" /> Instagram</Label>
-          <Input
-            value={instagram}
-            onChange={e => setInstagram(e.target.value)}
-            placeholder="https://instagram.com/votre_orga"
-            className="mt-1.5"
-          />
+          <FieldLabel>Instagram</FieldLabel>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}` }}>
+              <Instagram className="w-4 h-4" style={{ color: T2 }} />
+            </div>
+            <Input value={instagram} onChange={e => setInstagram(e.target.value)} placeholder="instagram.com/votre_orga" />
+          </div>
         </div>
-
         <div>
-          <Label className="flex items-center gap-1.5"><Globe className="h-3.5 w-3.5" /> {tt('Site web', 'Website')}</Label>
-          <Input
-            value={website}
-            onChange={e => setWebsite(e.target.value)}
-            placeholder="https://votreorga.com"
-            className="mt-1.5"
-          />
+          <FieldLabel>{tt('Site web', 'Website')}</FieldLabel>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}` }}>
+              <Globe className="w-4 h-4" style={{ color: T2 }} />
+            </div>
+            <Input value={website} onChange={e => setWebsite(e.target.value)} placeholder="votreorga.com" />
+          </div>
         </div>
       </div>
 
-      <div className="flex gap-2">
-        <Button onClick={save} disabled={!valid || saving} className="flex-1" size="lg">
-          {saving ? tt('Enregistrement...', 'Saving...') : tt('Continuer', 'Continue')}
-        </Button>
-        <Button onClick={onSkip} variant="ghost" size="lg">
+      <div className="flex gap-3">
+        <GhostButton fullWidth icon={SkipForward} onClick={onSkip}>
           {tt('Plus tard', 'Later')}
-        </Button>
+        </GhostButton>
+        <PrimaryButton fullWidth icon={ArrowRight} onClick={save} loading={saving}>
+          {tt('Continuer', 'Continue')}
+        </PrimaryButton>
       </div>
     </div>
   );

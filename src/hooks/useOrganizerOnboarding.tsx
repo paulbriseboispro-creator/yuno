@@ -17,7 +17,11 @@ export interface OrganizerOnboardingState {
   completed_at: string | null;
 }
 
-const TOTAL_STEPS = 7;
+// ─── Fast-path order ────────────────────────────────────────────────────────
+// 1 Welcome · 2 Payments (Stripe) · 3 First event · 4 Public profile (optional)
+// 5 Team (optional) · 6 Tour. Value first (sell), polish later.
+export const TOTAL_STEPS = 6;
+export const OPTIONAL_STEPS = ['4', '5'];
 
 const DEFAULT_STEPS: Record<string, StepState> = {
   '1': { status: 'not_started', completed_at: null },
@@ -26,7 +30,6 @@ const DEFAULT_STEPS: Record<string, StepState> = {
   '4': { status: 'not_started', completed_at: null },
   '5': { status: 'not_started', completed_at: null },
   '6': { status: 'not_started', completed_at: null },
-  '7': { status: 'not_started', completed_at: null },
 };
 
 /**
@@ -38,7 +41,7 @@ async function detectCompletedSteps(userId: string): Promise<Record<string, bool
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('organization_name, city, organization_logo_url, stripe_connect_account_id, stripe_connect_charges_enabled')
+    .select('organization_name, city, organization_logo_url, stripe_connect_account_id')
     .eq('id', userId)
     .maybeSingle();
 
@@ -48,34 +51,38 @@ async function detectCompletedSteps(userId: string): Promise<Record<string, bool
     .eq('user_id', userId)
     .maybeSingle();
 
-  // Step 1 — Welcome / org name + city
+  // Step 1 — Welcome: org name + city.
   result['1'] = !!(profile?.organization_name && profile?.city);
 
-  // Step 2 — Visual identity: logo + (avatar OR cover)
-  result['2'] = !!(profile?.organization_logo_url || orgProfile?.avatar_url || orgProfile?.cover_url);
+  // Step 2 — Payments: Stripe Connect account exists.
+  result['2'] = !!profile?.stripe_connect_account_id;
 
-  // Step 3 — Public profile: bio + at least one social/website
-  result['3'] = !!(orgProfile?.bio && (orgProfile?.instagram_url || orgProfile?.website_url));
-
-  // Step 4 — Stripe Connect onboarded
-  result['4'] = !!profile?.stripe_connect_account_id;
-
-  // Step 5 — At least one event created
+  // Step 3 — First event created.
   const eventsQuery: any = supabase.from('events').select('id', { count: 'exact', head: true });
   const { count: eventCount } = await eventsQuery.or(
-    `organizer_user_id.eq.${userId},partner_organizer_id.eq.${userId}`
+    `organizer_user_id.eq.${userId},partner_organizer_id.eq.${userId}`,
   );
-  result['5'] = (eventCount ?? 0) > 0;
+  result['3'] = (eventCount ?? 0) > 0;
 
-  // Step 6 — At least one team member (excluding pending invitations)
+  // Step 4 — Public profile (optional): any identity/branding present.
+  result['4'] = !!(
+    profile?.organization_logo_url ||
+    orgProfile?.avatar_url ||
+    orgProfile?.cover_url ||
+    orgProfile?.bio ||
+    orgProfile?.instagram_url ||
+    orgProfile?.website_url
+  );
+
+  // Step 5 — Team (optional): at least one accepted member.
   const membersQuery: any = supabase.from('org_members').select('id', { count: 'exact', head: true });
   const { count: memberCount } = await membersQuery
     .eq('organizer_user_id', userId)
     .eq('invitation_status', 'accepted');
-  result['6'] = (memberCount ?? 0) > 0;
+  result['5'] = (memberCount ?? 0) > 0;
 
-  // Step 7 — Tour: only marked when explicitly clicked, never auto-detected
-  result['7'] = false;
+  // Step 6 — Tour: only marked when explicitly finished, never auto-detected.
+  result['6'] = false;
 
   return result;
 }
@@ -140,7 +147,7 @@ export function useOrganizerOnboarding(userId: string | null) {
       }
 
       const allDone = Object.keys(DEFAULT_STEPS).every(
-        k => steps[k]?.status === 'completed' || steps[k]?.status === 'skipped'
+        k => steps[k]?.status === 'completed' || steps[k]?.status === 'skipped',
       );
       if (allDone) {
         completedAt = new Date().toISOString();
@@ -175,7 +182,7 @@ export function useOrganizerOnboarding(userId: string | null) {
   const updateStep = useCallback(async (
     stepNum: number,
     status: StepStatus,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
   ) => {
     if (!state) return;
     const newSteps = { ...state.steps };
@@ -191,7 +198,7 @@ export function useOrganizerOnboarding(userId: string | null) {
     }
 
     const isComplete = Object.keys(DEFAULT_STEPS).every(
-      k => newSteps[k]?.status === 'completed' || newSteps[k]?.status === 'skipped'
+      k => newSteps[k]?.status === 'completed' || newSteps[k]?.status === 'skipped',
     );
 
     const update: any = {
