@@ -367,35 +367,38 @@ serve(async (req) => {
     if (TEST_MODE) {
       logStep("TEST MODE: Creating paid reservation directly");
 
-      const { data: reservation, error: reservationError } = await supabaseAdmin.from("table_reservations").insert({
-        event_id: eventId, 
-        pack_id: packId, 
-        zone_id: zoneId, 
-        user_id: user?.id || null, 
-        user_email: user?.email || guestEmail || "",
-        is_guest: isGuestCheckout,
-        guest_count: validGuestCount, 
-        deposit: discountedDeposit, 
-        total_price: finalTotalPrice, 
-        service_fee: 0, 
-        management_fee: managementFee,
-        status: "paid", 
-        paid_at: new Date().toISOString(), 
-        qr_code: qrCode, 
-        full_name: fullName, 
-        phone, 
-        remarks, 
-        newsletter_opt_in: newsletterOptIn,
-        sms_opt_in: !!smsOptIn,
-        requested_table_id: requestedTableId || null,
-        placement_status: placementStatus || 'none',
-        purchase_source: safePurchaseSource,
-      }).select().single();
+      // Atomic: locks the governing zone, re-counts under the lock, then inserts.
+      // See migration 20260616130000_reserve_table_slot_atomic.sql.
+      const { data: reservationId, error: reservationError } = await supabaseAdmin.rpc("reserve_table_slot", {
+        _event_id: eventId,
+        _zone_id: zoneId,
+        _capacity_zone_id: effectiveZoneId,
+        _pack_id: packId,
+        _user_id: user?.id || null,
+        _user_email: user?.email || guestEmail || "",
+        _is_guest: isGuestCheckout,
+        _guest_count: validGuestCount,
+        _deposit: discountedDeposit,
+        _total_price: finalTotalPrice,
+        _management_fee: managementFee,
+        _status: "paid",
+        _qr_code: qrCode,
+        _full_name: fullName,
+        _phone: phone,
+        _remarks: remarks,
+        _newsletter_opt_in: newsletterOptIn,
+        _sms_opt_in: !!smsOptIn,
+        _requested_table_id: requestedTableId || null,
+        _placement_status: placementStatus || "none",
+        _purchase_source: safePurchaseSource,
+      });
 
-      if (reservationError) {
-        logStep("Error creating reservation", { error: reservationError.message });
-        throw new Error("Failed to create reservation");
+      if (reservationError || !reservationId) {
+        logStep("Error creating reservation", { error: reservationError?.message });
+        // Surface the zone-full message (and any other guard) to the client.
+        throw new Error(reservationError?.message || "Failed to create reservation");
       }
+      const reservation = { id: reservationId as string };
 
       // Upsert SMS contact if buyer opted in
       if (smsOptIn && event.venue_id && phone) {
@@ -518,34 +521,38 @@ serve(async (req) => {
     if (!venue.stripe_account_id) throw new Error("Ce club n'a pas encore configuré ses paiements.");
     if (!venue.stripe_charges_enabled) throw new Error("Le compte Stripe du club n'est pas encore activé.");
 
-    const { data: reservation, error: reservationError } = await supabaseAdmin.from("table_reservations").insert({
-      event_id: eventId, 
-      pack_id: packId, 
-      zone_id: zoneId, 
-      user_id: user?.id || null, 
-      user_email: user?.email || guestEmail || "",
-      is_guest: isGuestCheckout,
-      guest_count: validGuestCount, 
-      deposit: discountedDeposit, 
-      total_price: finalTotalPrice, 
-      service_fee: 0, 
-      management_fee: managementFee,
-      status: "pending", 
-      qr_code: qrCode, 
-      full_name: fullName, 
-      phone, 
-      remarks, 
-      newsletter_opt_in: newsletterOptIn,
-      sms_opt_in: !!smsOptIn,
-      requested_table_id: requestedTableId || null,
-      placement_status: placementStatus || 'none',
-      purchase_source: safePurchaseSource,
-    }).select().single();
+    // Atomic: locks the governing zone, re-counts under the lock, then inserts the
+    // pending reservation. See migration 20260616130000_reserve_table_slot_atomic.sql.
+    const { data: reservationId, error: reservationError } = await supabaseAdmin.rpc("reserve_table_slot", {
+      _event_id: eventId,
+      _zone_id: zoneId,
+      _capacity_zone_id: effectiveZoneId,
+      _pack_id: packId,
+      _user_id: user?.id || null,
+      _user_email: user?.email || guestEmail || "",
+      _is_guest: isGuestCheckout,
+      _guest_count: validGuestCount,
+      _deposit: discountedDeposit,
+      _total_price: finalTotalPrice,
+      _management_fee: managementFee,
+      _status: "pending",
+      _qr_code: qrCode,
+      _full_name: fullName,
+      _phone: phone,
+      _remarks: remarks,
+      _newsletter_opt_in: newsletterOptIn,
+      _sms_opt_in: !!smsOptIn,
+      _requested_table_id: requestedTableId || null,
+      _placement_status: placementStatus || "none",
+      _purchase_source: safePurchaseSource,
+    });
 
-    if (reservationError) {
-      logStep("Error creating pending reservation", { error: reservationError.message });
-      throw new Error("Failed to create reservation");
+    if (reservationError || !reservationId) {
+      logStep("Error creating pending reservation", { error: reservationError?.message });
+      // Surface the zone-full message (and any other guard) to the client.
+      throw new Error(reservationError?.message || "Failed to create reservation");
     }
+    const reservation = { id: reservationId as string };
 
     logStep("Pending reservation created", { reservationId: reservation.id });
 
