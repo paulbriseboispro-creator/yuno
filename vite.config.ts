@@ -20,6 +20,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // We register the SW ourselves via `virtual:pwa-register` in main.tsx so a
+      // new deploy force-reloads open tabs (returning visitors never stay stuck on
+      // a stale precached bundle). Disable the bare auto-injected registerSW.js to
+      // avoid a double registration.
+      injectRegister: false,
       includeAssets: ['favicon.ico'],
       manifest: {
         name: 'Yuno',
@@ -59,6 +64,13 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // A new SW takes over immediately and claims open tabs, so the
+        // `controlling` event fires and registerSW() (main.tsx) reloads them onto
+        // the fresh build. vite-plugin-pwa only auto-sets these when injectRegister
+        // is 'auto'/null; since we use the virtual module + injectRegister:false,
+        // we set them explicitly. Without clientsClaim the auto-reload never fires.
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,ttf}'],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallback: '/index.html',
