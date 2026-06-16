@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { usePreviewNavigate } from '@/contexts/OwnerPreviewContext';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -87,11 +87,21 @@ export default function TicketSelection() {
     return () => clearInterval(interval);
   }, []);
 
+  // Show VIP tiers cheapest → most expensive for the client. A zone's price is
+  // its cheapest pack; zones with no packs fall to the end.
+  const sortedZones = useMemo(() => {
+    const zonePrice = (zoneId: string) => {
+      const zp = packs.filter(p => p.zoneId === zoneId);
+      return zp.length ? Math.min(...zp.map(p => p.basePrice)) : Infinity;
+    };
+    return [...zones].sort((a, b) => zonePrice(a.id) - zonePrice(b.id));
+  }, [zones, packs]);
+
   useEffect(() => {
-    if (!loading && zones.length > 0 && !selectedZoneId) {
-      setSelectedZoneId(zones[0].id);
+    if (!loading && sortedZones.length > 0 && !selectedZoneId) {
+      setSelectedZoneId(sortedZones[0].id);
     }
-  }, [loading, zones]);
+  }, [loading, sortedZones, selectedZoneId]);
 
   const fetchData = async () => {
     try {
@@ -683,7 +693,7 @@ export default function TicketSelection() {
               {zones.length > 1 && (
                 <div className="-mx-4 overflow-x-auto scrollbar-hide">
                   <div className="flex gap-1.5 px-4 pb-0.5">
-                    {zones.map(zone => {
+                    {sortedZones.map(zone => {
                       const reserved = reservationsByZone[zone.id] || 0;
                       const remaining = zone.tablesCount - reserved;
                       const isSoldOut = remaining <= 0;
@@ -716,7 +726,9 @@ export default function TicketSelection() {
               {/* Pack cards */}
               {selectedZoneId && (() => {
                 const zone = zones.find(z => z.id === selectedZoneId);
-                const zonePacks = packs.filter(p => p.zoneId === selectedZoneId);
+                const zonePacks = packs
+                  .filter(p => p.zoneId === selectedZoneId)
+                  .sort((a, b) => a.basePrice - b.basePrice);
                 const reserved = reservationsByZone[selectedZoneId] || 0;
                 const remaining = (zone?.tablesCount || 0) - reserved;
                 const isSoldOut = remaining <= 0;
