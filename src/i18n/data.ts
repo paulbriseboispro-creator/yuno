@@ -4182,6 +4182,10 @@ export const translations: Record<Language, Record<string, string>> = {
     'tables.reservations': 'Reservations',
     // VIP Owner Dashboard
     'vipOwner.allEvents': 'All events',
+    'vipOwner.upcomingGroup': 'Upcoming',
+    'vipOwner.pastGroup': 'Past events',
+    'vipOwner.showPastEvents': 'Show past events',
+    'vipOwner.hidePastEvents': 'Hide past events',
     'vipOwner.bottlesServed': 'Bottles served',
     'vipOwner.perTable': '/table',
     'vipOwner.avgSpendPerTable': 'Avg spend/table',
@@ -12700,6 +12704,10 @@ export const translations: Record<Language, Record<string, string>> = {
     'tables.reservations': 'Reservas',
     // VIP Owner Dashboard
     'vipOwner.allEvents': 'Todos los eventos',
+    'vipOwner.upcomingGroup': 'Próximas',
+    'vipOwner.pastGroup': 'Eventos pasados',
+    'vipOwner.showPastEvents': 'Ver eventos pasados',
+    'vipOwner.hidePastEvents': 'Ocultar pasados',
     'vipOwner.bottlesServed': 'Botellas servidas',
     'vipOwner.perTable': '/mesa',
     'vipOwner.avgSpendPerTable': 'Gasto prom./mesa',
@@ -21099,6 +21107,10 @@ export const translations: Record<Language, Record<string, string>> = {
     'tables.reservations': 'Réservations',
     // VIP Owner Dashboard
     'vipOwner.allEvents': 'Toutes les soirées',
+    'vipOwner.upcomingGroup': 'À venir',
+    'vipOwner.pastGroup': 'Soirées passées',
+    'vipOwner.showPastEvents': 'Voir les soirées passées',
+    'vipOwner.hidePastEvents': 'Masquer les passées',
     'vipOwner.bottlesServed': 'Bouteilles servies',
     'vipOwner.perTable': '/table',
     'vipOwner.avgSpendPerTable': 'Dépense moy./table',
