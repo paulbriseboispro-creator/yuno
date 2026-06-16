@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   Building2, CalendarDays, Megaphone, Share2, ShieldCheck, Wine, Shirt,
-  Disc3, ChevronRight, Loader2, FlaskConical, LogIn, Globe,
+  Disc3, ChevronRight, Loader2, FlaskConical, LogIn, Globe, Rocket,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -122,12 +122,12 @@ export function DemoSwitcher() {
     }
   }
 
-  async function switchTo(account: DemoAccount) {
+  async function switchTo(account: DemoAccount, routeOverride?: string) {
     if (busy) return;
     if (account.email === currentEmail) {
       if (MFA_GATED.has(account.email)) setMfaBypass(user?.id);
       await setRoleSessionBypass(account, user?.id);
-      navigate(account.route);
+      navigate(routeOverride ?? account.route);
       setOpen(false);
       return;
     }
@@ -169,7 +169,7 @@ export function DemoSwitcher() {
       if (MFA_GATED.has(account.email)) setMfaBypass(newUserId);
       await setRoleSessionBypass(account, newUserId);
       toast.success(`Connecté en ${account.label}`);
-      navigate(account.route);
+      navigate(routeOverride ?? account.route);
       setOpen(false);
     } catch (e) {
       toast.error('Bascule impossible : ' + (e instanceof Error ? e.message : 'erreur'));
@@ -184,7 +184,7 @@ export function DemoSwitcher() {
         <button
           type="button"
           aria-label="Comptes démo"
-          className="fixed z-[60] flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-primary-foreground shadow-lg ring-1 ring-white/10 transition hover:brightness-110"
+          className={`fixed z-[60] ${open ? 'hidden' : 'flex'} items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-primary-foreground shadow-lg ring-1 ring-white/10 transition hover:brightness-110`}
           style={{
             bottom: 'calc(env(safe-area-inset-bottom, 0px) + 6rem)',
             left: '1.25rem',
@@ -195,7 +195,7 @@ export function DemoSwitcher() {
         </button>
       </SheetTrigger>
 
-      <SheetContent side="left" className="w-[340px] border-white/10 bg-[#0A0A0A] text-white">
+      <SheetContent side="left" className="flex w-[340px] flex-col overflow-y-auto border-white/10 bg-[#0A0A0A] pb-8 text-white">
         <SheetHeader className="text-left">
           <SheetTitle className="flex items-center gap-2 text-white">
             <FlaskConical className="h-5 w-5 text-primary" />
@@ -268,6 +268,29 @@ export function DemoSwitcher() {
               </button>
             );
           })}
+        </div>
+
+        {/* Onboarding démo : lance le flux owner / orga en mode preview (non destructif) */}
+        <div className="mt-5">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/35">Onboarding</p>
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              disabled={!!busy}
+              onClick={() => { const a = ACCOUNTS.find((x) => x.email === OWNER_EMAIL); if (a) switchTo(a, '/owner/onboarding?preview=1'); }}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-2 py-2 text-[12px] font-medium text-white/80 transition hover:bg-white/[0.07] disabled:opacity-50"
+            >
+              <Rocket className="h-3.5 w-3.5 text-primary" />Onboarding club
+            </button>
+            <button
+              type="button"
+              disabled={!!busy}
+              onClick={() => { const a = ACCOUNTS.find((x) => x.email === 'organizer@womber.fr'); if (a) switchTo(a, '/organizer-app/onboarding?preview=1'); }}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-2 py-2 text-[12px] font-medium text-white/80 transition hover:bg-white/[0.07] disabled:opacity-50"
+            >
+              <Rocket className="h-3.5 w-3.5 text-primary" />Onboarding orga
+            </button>
+          </div>
         </div>
 
         <div className="mt-5 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-[11px] leading-relaxed text-white/45">
