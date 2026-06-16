@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   Building2, CalendarDays, Megaphone, Share2, ShieldCheck, Wine, Shirt,
-  Disc3, ChevronRight, Loader2, FlaskConical, LogIn,
+  Disc3, ChevronRight, Loader2, FlaskConical, LogIn, Globe,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -86,6 +86,8 @@ export function DemoSwitcher() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [live, setLive] = useState<boolean | null>(null);
+  const [liveBusy, setLiveBusy] = useState(false);
 
   const currentEmail = user?.email?.toLowerCase() ?? null;
   const isDemoUser = ACCOUNTS.some((a) => a.email === currentEmail);
@@ -95,8 +97,30 @@ export function DemoSwitcher() {
     if (currentEmail && MFA_GATED.has(currentEmail)) setMfaBypass(user?.id);
   }, [user?.id, currentEmail]);
 
+  // État Live : le club/orga démo est-il visible dans l'app publique ?
+  useEffect(() => {
+    if (!currentEmail) return;
+    supabase.rpc('demo_is_live').then(({ data }) => setLive(Boolean(data))).catch(() => {});
+  }, [currentEmail]);
+
   // Rendu UNIQUEMENT pour les comptes démo @womber.fr.
   if (!isDemoUser) return null;
+
+  async function toggleLive() {
+    if (liveBusy) return;
+    setLiveBusy(true);
+    const next = !live;
+    try {
+      const { data, error } = await supabase.rpc('demo_set_live', { p_live: next });
+      if (error) throw error;
+      setLive(Boolean(data));
+      toast.success(next ? "Club démo visible dans l'app" : "Club démo masqué de l'app");
+    } catch (e) {
+      toast.error('Bascule Live impossible : ' + (e instanceof Error ? e.message : 'erreur'));
+    } finally {
+      setLiveBusy(false);
+    }
+  }
 
   async function switchTo(account: DemoAccount) {
     if (busy) return;
@@ -182,6 +206,33 @@ export function DemoSwitcher() {
             <span className="font-medium text-white/80">{currentEmail}</span>.
           </p>
         </SheetHeader>
+
+        {/* Toggle Live : faire apparaître le club/orga démo dans l'app publique (pour les présentations). */}
+        <button
+          type="button"
+          onClick={toggleLive}
+          disabled={liveBusy || live === null}
+          className={`mt-4 flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition disabled:opacity-60 ${
+            live ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.07]'
+          }`}
+        >
+          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${live ? 'bg-emerald-500/15' : 'bg-white/5'}`}>
+            <Globe className={`h-4 w-4 ${live ? 'text-emerald-400' : 'text-white/50'}`} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium text-white">Live dans l'app</span>
+            <span className="block text-[11px] text-white/45">
+              {live === null ? '…' : live ? 'Club démo visible publiquement' : 'Masqué — visible des démos seulement'}
+            </span>
+          </span>
+          {liveBusy ? (
+            <Loader2 className="h-4 w-4 animate-spin text-white/60" />
+          ) : (
+            <span className={`relative h-5 w-9 shrink-0 rounded-full transition ${live ? 'bg-emerald-500' : 'bg-white/15'}`}>
+              <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${live ? 'left-[1.125rem]' : 'left-0.5'}`} />
+            </span>
+          )}
+        </button>
 
         <div className="mt-5 flex flex-col gap-1.5">
           {ACCOUNTS.map((a) => {
