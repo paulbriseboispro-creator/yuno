@@ -59,11 +59,23 @@ export default function OwnerOnboarding() {
     }
   }, [searchParams, setSearchParams, refreshStatus, currentStep, completeStep]);
 
+  // ?preview=1 : mode démo — on reste sur l'onboarding même s'il est complété
+  // (pour le montrer en appel), sans rien modifier en base.
+  const isPreview = searchParams.get('preview') === '1';
+  const previewInit = useRef(false);
+
   useEffect(() => {
-    if (!onbLoading && isComplete) {
+    if (!onbLoading && isComplete && !isPreview) {
       navigate('/owner/dashboard', { replace: true });
     }
-  }, [isComplete, onbLoading, navigate]);
+  }, [isComplete, onbLoading, navigate, isPreview]);
+
+  useEffect(() => {
+    if (!onbLoading && isPreview && !previewInit.current) {
+      previewInit.current = true;
+      goToStep(1);
+    }
+  }, [onbLoading, isPreview, goToStep]);
 
   if (venueLoading || onbLoading) return <BrandedLoader />;
   if (!venueId) {
