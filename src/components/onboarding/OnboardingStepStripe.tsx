@@ -1,10 +1,10 @@
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Check, ExternalLink, Loader2, Clock, CreditCard, Zap, Rocket, Crown, Handshake, Sparkles } from 'lucide-react';
-import { PLANS, PAID_PLANS, PlanCode } from '@/lib/planFeatures';
+import { Link } from 'react-router-dom';
+import { Check, ExternalLink, Loader2, Clock, CreditCard, Handshake, Sparkles, ArrowRight, Gift } from 'lucide-react';
+import { PlanCode } from '@/lib/planFeatures';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { StepHeader, PrimaryButton, GhostButton, InnerCard, POS, T1, T2, T3, BORDER } from './onboardingUI';
 
 interface StripeConnectStatus {
   connected: boolean;
@@ -35,22 +35,6 @@ interface Props {
   checkSubscription: () => Promise<void>;
 }
 
-const PLAN_ICONS: Record<PlanCode, typeof Zap> = {
-  core: Zap,
-  collab: Zap,
-  essential: Zap,
-  pro: Rocket,
-  elite: Crown,
-};
-
-const PLAN_ACCENTS: Record<PlanCode, { border: string; bg: string; icon: string }> = {
-  core: { border: '', bg: 'bg-muted/30', icon: 'text-muted-foreground' },
-  collab: { border: '', bg: 'bg-muted/30', icon: 'text-muted-foreground' },
-  essential: { border: '', bg: 'bg-muted/50', icon: 'text-muted-foreground' },
-  pro: { border: 'ring-1 ring-primary/30', bg: 'bg-primary/5', icon: 'text-primary' },
-  elite: { border: '', bg: 'bg-purple-500/5', icon: 'text-purple-500' },
-};
-
 export function OnboardingStepStripe({
   venueId,
   onComplete,
@@ -59,17 +43,15 @@ export function OnboardingStepStripe({
   loading,
   startOnboarding,
   refreshStatus,
-  startSubscription,
   checkSubscription,
 }: Props) {
   const { t } = useLanguage();
-  const [subscribing, setSubscribing] = useState<PlanCode | null>(null);
   const [collabInvitation, setCollabInvitation] = useState<{
     organizer_name: string | null;
     event_title: string | null;
   } | null>(null);
 
-  // Detect if this venue was created via a collab invitation (so we show the Collab info block)
+  // Detect whether this venue was created via an organizer collab invitation.
   useEffect(() => {
     if (!venueId) return;
     let cancelled = false;
@@ -82,12 +64,8 @@ export function OnboardingStepStripe({
         .maybeSingle();
       if (!inv || cancelled) return;
       const [eventRes, profileRes] = await Promise.all([
-        inv.event_id
-          ? supabase.from('events').select('title').eq('id', inv.event_id).maybeSingle()
-          : Promise.resolve({ data: null }),
-        inv.organizer_user_id
-          ? supabase.from('profiles').select('full_name').eq('id', inv.organizer_user_id).maybeSingle()
-          : Promise.resolve({ data: null }),
+        inv.event_id ? supabase.from('events').select('title').eq('id', inv.event_id).maybeSingle() : Promise.resolve({ data: null }),
+        inv.organizer_user_id ? supabase.from('profiles').select('full_name').eq('id', inv.organizer_user_id).maybeSingle() : Promise.resolve({ data: null }),
       ]);
       if (cancelled) return;
       setCollabInvitation({
@@ -100,8 +78,6 @@ export function OnboardingStepStripe({
 
   const isConnected = stripeStatus.connected;
   const isFullyVerified = stripeStatus.connected && stripeStatus.chargesEnabled;
-  const isSubscribed = subscription.subscribed;
-  const bothDone = isConnected && isSubscribed;
 
   const handleStartOnboarding = () => {
     const origin = window.location.origin;
@@ -115,25 +91,13 @@ export function OnboardingStepStripe({
     await Promise.all([refreshStatus(), checkSubscription()]);
   };
 
-  const handleSelectPlan = async (code: PlanCode) => {
-    setSubscribing(code);
-    try {
-      await startSubscription(code);
-    } finally {
-      setSubscribing(null);
-    }
-  };
-
   if (loading) {
     return (
       <div className="space-y-6">
-        <div>
-          <h2 className="text-xl font-bold mb-1">{t('onboarding.step4Title')}</h2>
-          <p className="text-sm text-muted-foreground">{t('onboarding.step4Desc')}</p>
-        </div>
-        <div className="flex items-center gap-2 text-muted-foreground">
+        <StepHeader icon={CreditCard} title={t('onboarding.step3Title')} subtitle={t('onboarding.step3Desc')} />
+        <div className="flex items-center gap-2" style={{ color: T3 }}>
           <Loader2 className="w-4 h-4 animate-spin" />
-          <span className="text-sm">{t('onboarding.checkingStripe')}</span>
+          <span style={{ fontSize: 13 }}>{t('onboarding.checkingStripe')}</span>
         </div>
       </div>
     );
@@ -141,179 +105,110 @@ export function OnboardingStepStripe({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold mb-1">{t('onboarding.step4Title')}</h2>
-        <p className="text-sm text-muted-foreground">{t('onboarding.step4Desc')}</p>
-      </div>
+      <StepHeader icon={CreditCard} title={t('onboarding.step3Title')} subtitle={t('onboarding.step3Desc')} />
 
-      {/* Collab account info — shown when this venue was created via an organizer invitation */}
+      {/* Collab account info */}
       {collabInvitation && (
-        <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-4 space-y-3">
+        <InnerCard style={{ border: '1px solid rgba(168,85,247,0.28)', background: 'rgba(168,85,247,0.05)' }}>
           <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-lg bg-purple-500/15 flex items-center justify-center shrink-0">
-              <Handshake className="w-5 h-5 text-purple-400" />
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgba(168,85,247,0.15)' }}>
+              <Handshake className="w-5 h-5" style={{ color: '#c084fc' }} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-bold text-sm">{t('onboarding.collabAccountTitle')}</h3>
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300">
+                <h3 style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{t('onboarding.collabAccountTitle')}</h3>
+                <span
+                  className="inline-flex items-center gap-1 rounded-full text-[10px] font-bold uppercase"
+                  style={{ letterSpacing: '0.06em', padding: '2px 8px', background: 'rgba(168,85,247,0.18)', color: '#d8b4fe' }}
+                >
                   <Sparkles className="w-3 h-3" />
                   {t('onboarding.collabAccountActive')}
                 </span>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">{t('onboarding.collabAccountDesc')}</p>
-              {(collabInvitation.organizer_name || collabInvitation.event_title) && (
-                <p className="text-xs text-purple-300/80 mt-2">
-                  {collabInvitation.organizer_name && <strong>{collabInvitation.organizer_name}</strong>}
-                  {collabInvitation.organizer_name && collabInvitation.event_title && ' — '}
-                  {collabInvitation.event_title && <em>{collabInvitation.event_title}</em>}
-                </p>
-              )}
+              <p style={{ color: T3, fontSize: 12, marginTop: 4 }}>{t('onboarding.collabAccountDesc')}</p>
             </div>
           </div>
-          <div className="border-t border-purple-500/20 pt-3">
-            <p className="text-xs text-muted-foreground">{t('onboarding.collabVsSubscription')}</p>
-          </div>
-        </div>
+        </InnerCard>
       )}
 
-      {/* All done banner */}
-      {bothDone && (
-        <div className="flex items-center gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/30">
-          <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
-          <span className="text-sm font-medium text-green-500">{t('onboarding.stripeBothDone')}</span>
-        </div>
-      )}
-
-      {/* Sub-step 1: Stripe Connect */}
-      <div className="rounded-lg border border-border p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isConnected ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'}`}>
+      {/* Stripe Connect */}
+      <InnerCard>
+        <div className="flex items-center gap-2.5 mb-2">
+          <div
+            className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold flex-none"
+            style={isConnected ? { background: POS, color: '#04130d' } : { background: 'rgba(255,255,255,0.06)', color: T3, border: `1px solid ${BORDER}` }}
+          >
             {isConnected ? <Check className="w-3.5 h-3.5" /> : '1'}
           </div>
-          <h3 className="font-semibold text-sm">{t('onboarding.stripeStep1')}</h3>
+          <h3 style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{t('onboarding.stripeStep1')}</h3>
         </div>
-        <p className="text-xs text-muted-foreground pl-8">{t('onboarding.stripeStep1Desc')}</p>
+        <p style={{ color: T3, fontSize: 12.5, paddingLeft: 34, marginBottom: 12, lineHeight: 1.45 }}>
+          {t('onboarding.stripeStep1Desc')}
+        </p>
 
-        <div className="pl-8">
+        <div style={{ paddingLeft: 34 }}>
           {isFullyVerified ? (
-            <div className="flex items-center gap-2 text-green-500">
+            <div className="flex items-center gap-2" style={{ color: POS }}>
               <Check className="w-4 h-4" />
-              <span className="text-sm font-medium">{t('onboarding.stripeConnected')}</span>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>{t('onboarding.stripeConnected')}</span>
             </div>
           ) : isConnected ? (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-amber-500">
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-2" style={{ color: '#FCD34D' }}>
                 <Clock className="w-4 h-4" />
-                <span className="text-sm font-medium">{t('onboarding.stripePending')}</span>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{t('onboarding.stripePending')}</span>
               </div>
-              <p className="text-xs text-muted-foreground">{t('onboarding.stripePendingHint')}</p>
-              <Button variant="outline" size="sm" onClick={handleRefresh} className="gap-2">
-                <Loader2 className="w-3 h-3" />
+              <p style={{ color: T3, fontSize: 12 }}>{t('onboarding.stripePendingHint')}</p>
+              <GhostButton icon={Loader2} onClick={handleRefresh} style={{ padding: '8px 12px', fontSize: 13 }}>
                 {t('onboarding.refreshStatus')}
-              </Button>
+              </GhostButton>
             </div>
           ) : (
-            <div className="space-y-2">
-              <div className="rounded-md bg-muted/50 p-3 space-y-1">
-                <p className="text-xs font-medium">{t('onboarding.stripeWhatIs')}</p>
-                <p className="text-xs text-muted-foreground">{t('onboarding.stripeExplain')}</p>
+            <div className="space-y-3">
+              <div className="rounded-lg" style={{ padding: 12, background: 'rgba(255,255,255,0.03)', border: `1px solid ${BORDER}` }}>
+                <p style={{ color: T2, fontSize: 12, fontWeight: 600 }}>{t('onboarding.stripeWhatIs')}</p>
+                <p style={{ color: T3, fontSize: 12, marginTop: 3, lineHeight: 1.45 }}>{t('onboarding.stripeExplain')}</p>
               </div>
-              <Button onClick={handleStartOnboarding} size="sm" className="gap-2">
-                <ExternalLink className="w-4 h-4" />
+              <PrimaryButton icon={ExternalLink} onClick={handleStartOnboarding} style={{ padding: '9px 14px', fontSize: 13 }}>
                 {t('onboarding.connectStripe')}
-              </Button>
+              </PrimaryButton>
             </div>
           )}
         </div>
-      </div>
+      </InnerCard>
 
-      {/* Sub-step 2: Plan Selection */}
-      <div className="rounded-lg border border-border p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${isSubscribed ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'}`}>
-            {isSubscribed ? <Check className="w-3.5 h-3.5" /> : '2'}
-          </div>
-          <h3 className="font-semibold text-sm">{t('onboarding.stripeStep2')}</h3>
+      {/* Free trial — plan choice deferred (no paywall in the flow) */}
+      <div
+        className="flex items-start gap-3 rounded-2xl"
+        style={{ padding: '14px 16px', background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.2)' }}
+      >
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgba(52,211,153,0.14)' }}>
+          <Gift className="w-5 h-5" style={{ color: POS }} />
         </div>
-        <p className="text-xs text-muted-foreground pl-8">{t('onboarding.stripeStep2Desc')}</p>
-
-        <div className="pl-8">
-          {isSubscribed ? (
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-green-500">
-                <Check className="w-4 h-4" />
-                <span className="text-sm font-medium">
-                  {subscription.isTrial ? t('onboarding.subscriptionTrial') : t('onboarding.subscriptionActive')}
-                </span>
-              </div>
-              {subscription.isTrial && subscription.daysRemaining !== null && (
-                <p className="text-xs text-muted-foreground">
-                  {t('onboarding.trialDaysLeft').replace('{days}', String(subscription.daysRemaining))}
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
-              {PAID_PLANS.map((code) => {
-                const p = PLANS[code];
-                const accent = PLAN_ACCENTS[code];
-                const Icon = PLAN_ICONS[code];
-                const isPopular = code === 'pro';
-
-                return (
-                  <Card
-                    key={code}
-                    className={`relative overflow-visible p-4 pt-7 flex flex-col gap-3 min-w-0 ${accent.border} ${isPopular ? 'ring-1 ring-primary/30' : ''}`}
-                  >
-                    {isPopular && (
-                      <div className="absolute -top-2 right-3 bg-primary text-primary-foreground text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md shadow-sm">
-                        {t('plan.popular')}
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className={`w-7 h-7 rounded-md ${accent.bg} flex items-center justify-center shrink-0`}>
-                        <Icon className={`h-3.5 w-3.5 ${accent.icon}`} />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-bold text-sm leading-tight truncate">{p.name}</p>
-                        <p className="text-[10px] text-muted-foreground truncate">{t(`plan.tagline.${code}`)}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-baseline gap-0.5">
-                      <span className="text-2xl font-extrabold">{p.price}€</span>
-                      <span className="text-xs text-muted-foreground">/{t('plan.month')}</span>
-                    </div>
-
-                    <Button
-                      size="sm"
-                      className="w-full mt-auto whitespace-normal h-auto py-2 text-xs leading-tight"
-                      variant={isPopular ? 'default' : 'outline'}
-                      onClick={() => handleSelectPlan(code)}
-                      disabled={subscribing !== null}
-                    >
-                      {subscribing === code ? (
-                        <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                      ) : null}
-                      {t('onboarding.startTrial')}
-                    </Button>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
+        <div className="flex-1 min-w-0">
+          <h3 style={{ color: T1, fontSize: 14, fontWeight: 600 }}>
+            {subscription.subscribed && subscription.isTrial ? t('onboarding.trialActiveTitle') : t('onboarding.trialFreeTitle')}
+          </h3>
+          <p style={{ color: T3, fontSize: 12, marginTop: 3, lineHeight: 1.45 }}>
+            {subscription.subscribed && subscription.isTrial && subscription.daysRemaining !== null
+              ? t('onboarding.trialDaysLeft').replace('{days}', String(subscription.daysRemaining))
+              : t('onboarding.trialDeferDesc')}
+          </p>
+          <Link
+            to="/owner/billing"
+            className="inline-flex items-center gap-1 mt-2 text-[12px] font-semibold transition-opacity hover:opacity-80"
+            style={{ color: POS }}
+          >
+            {t('onboarding.seePlans')}
+            <ArrowRight className="w-3 h-3" />
+          </Link>
         </div>
       </div>
 
-      {/* Continue button — available once Stripe is connected */}
-      {isConnected && (
-        <Button onClick={onComplete} className="w-full gap-2">
-          <CreditCard className="w-4 h-4" />
-          {t('onboarding.continue')}
-        </Button>
-      )}
+      {/* Continue — available once Stripe is connected */}
+      <PrimaryButton fullWidth icon={isConnected ? ArrowRight : undefined} onClick={onComplete} disabled={!isConnected}>
+        {isConnected ? t('onboarding.continue') : t('onboarding.connectStripeFirst')}
+      </PrimaryButton>
     </div>
   );
 }

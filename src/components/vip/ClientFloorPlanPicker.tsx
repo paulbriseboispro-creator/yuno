@@ -16,6 +16,7 @@ interface ZoneArea {
   width: number;
   height: number;
   fillOpacity?: number;
+  borderRadius?: number;
   showLabel?: boolean;
   labelOffsetX?: number;
   labelOffsetY?: number;
@@ -458,7 +459,7 @@ export function ClientFloorPlanPicker({
               <rect
                 x={zoneArea.x - 3} y={zoneArea.y - 3}
                 width={zoneArea.width + 6} height={zoneArea.height + 6}
-                rx={10}
+                rx={(zoneArea.borderRadius ?? 8) + 2}
                 fill="none"
                 stroke={zoneInfo.color} strokeWidth={2} strokeOpacity={0.5}
                 filter="url(#zone-glow)"
@@ -470,7 +471,7 @@ export function ClientFloorPlanPicker({
             <rect
               x={zoneArea.x} y={zoneArea.y}
               width={zoneArea.width} height={zoneArea.height}
-              rx={8}
+              rx={zoneArea.borderRadius ?? 8}
               fill={zoneInfo.color}
               fillOpacity={highlighted ? Math.max(zoneArea.fillOpacity ?? 0.04, 0.08) : (zoneArea.fillOpacity ?? 0.04)}
               stroke={zoneInfo.color}

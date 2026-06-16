@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export type StepStatus = 'not_started' | 'in_progress' | 'completed' | 'skipped';
+export type Pillar = 'tickets' | 'tables' | 'drinks';
 
 export interface StepState {
   status: StepStatus;
@@ -18,7 +19,13 @@ export interface OnboardingState {
   completed_at: string | null;
 }
 
-const TOTAL_STEPS = 9;
+// ─── New funnel (7 steps) ───────────────────────────────────────────────────
+// 1 Welcome & pillars · 2 Basics · 3 Payments · 4 Offer (inline)
+// 5 Polish (optional) · 6 Team (optional) · 7 Go live
+export const TOTAL_STEPS = 7;
+// Steps that must be completed to go live (5 & 6 are optional polish).
+export const REQUIRED_STEPS = ['1', '2', '3', '4'];
+export const OPTIONAL_STEPS = ['5', '6'];
 
 const DEFAULT_STEPS: Record<string, StepState> = {
   '1': { status: 'not_started', completed_at: null },
@@ -28,77 +35,79 @@ const DEFAULT_STEPS: Record<string, StepState> = {
   '5': { status: 'not_started', completed_at: null },
   '6': { status: 'not_started', completed_at: null },
   '7': { status: 'not_started', completed_at: null },
-  '8': { status: 'not_started', completed_at: null },
-  '9': { status: 'not_started', completed_at: null },
 };
 
+export function readPillars(steps: Record<string, StepState> | undefined): Pillar[] {
+  const raw = steps?.['1']?.metadata?.pillars;
+  if (Array.isArray(raw)) return raw.filter((p): p is Pillar => p === 'tickets' || p === 'tables' || p === 'drinks');
+  return [];
+}
+
 /**
- * Auto-detect which onboarding steps are already fulfilled
- * by checking actual venue data, regardless of the onboarding wizard.
+ * Auto-detect which onboarding steps are already fulfilled from real venue
+ * data, so a partly-configured venue never re-does work it already did.
  */
-async function detectCompletedSteps(venueId: string): Promise<Record<string, boolean>> {
+async function detectCompletedSteps(
+  venueId: string,
+  existingSteps: Record<string, StepState>,
+): Promise<Record<string, boolean>> {
   const result: Record<string, boolean> = {};
 
-  // Fetch venue data
   const { data: venue } = await supabase
     .from('venues')
-    .select('name, city, address, logo_url, cover_url, instagram_url, facebook_url, tiktok_url, siret, legal_name, stripe_account_id, stripe_charges_enabled')
+    .select(
+      'name, city, address, cover_url, description, gallery_images, instagram_url, facebook_url, tiktok_url, siret, legal_name, stripe_account_id, is_hidden',
+    )
     .eq('id', venueId)
     .single();
 
   if (!venue) return result;
 
-  // Step 1 — Basics: name + city + address
-  result['1'] = !!(venue.name && venue.city && venue.address);
+  // Pillars come only from an explicit choice in step 1 — never inferred from
+  // venue flags (menu_enabled defaults to true, which is not a real choice).
+  const pillars = readPillars(existingSteps);
 
-  // Step 2 — Design & Photos: logo or cover uploaded
-  result['2'] = !!(venue.logo_url || venue.cover_url);
+  // Step 1 — Welcome & pillars: at least one pillar explicitly chosen.
+  result['1'] = pillars.length > 0;
 
-  // Step 3 — Branding / Socials / Billing: at least one social link or legal info
-  result['3'] = !!(venue.instagram_url || venue.facebook_url || venue.tiktok_url || venue.siret || venue.legal_name);
+  // Step 2 — Basics: name + city + address.
+  result['2'] = !!(venue.name && venue.city && venue.address);
 
-  // Step 4 — Stripe: account connected
-  result['4'] = !!(venue.stripe_account_id);
+  // Step 3 — Payments: Stripe account connected.
+  result['3'] = !!venue.stripe_account_id;
 
-  // Step 5 — Staff: at least one employee profile linked to this venue
+  // Step 4 — Offer: each chosen pillar has its minimal content.
+  const [{ count: drinkCount }, { count: eventCount }] = await Promise.all([
+    supabase.from('drinks').select('id', { count: 'exact', head: true }).eq('venue_id', venueId),
+    supabase.from('events').select('id', { count: 'exact', head: true }).eq('venue_id', venueId),
+  ]);
+  const drinksOk = !pillars.includes('drinks') || (drinkCount ?? 0) > 0;
+  const eventOk = !(pillars.includes('tickets') || pillars.includes('tables')) || (eventCount ?? 0) > 0;
+  result['4'] = pillars.length > 0 && drinksOk && eventOk;
+
+  // Step 5 — Polish (optional): any branding/media present.
+  const gallery = (venue.gallery_images as string[] | null) ?? [];
+  result['5'] = !!(
+    venue.cover_url ||
+    venue.description ||
+    gallery.length > 0 ||
+    venue.instagram_url ||
+    venue.facebook_url ||
+    venue.tiktok_url ||
+    venue.legal_name ||
+    venue.siret
+  );
+
+  // Step 6 — Team (optional): at least one staff member with a PIN.
   const { count: staffCount } = await supabase
     .from('profiles')
     .select('id', { count: 'exact', head: true })
     .eq('venue_id', venueId)
-    .neq('id', venue.name); // just count — the neq is a no-op trick to avoid owner
+    .not('employee_pin', 'is', null);
+  result['6'] = (staffCount ?? 0) > 0;
 
-  // Better: check user_roles for staff roles linked to this venue
-  const { count: staffRoles } = await supabase
-    .from('profiles')
-    .select('id', { count: 'exact', head: true })
-    .eq('venue_id', venueId);
-  result['5'] = (staffRoles ?? 0) > 1; // more than just the owner
-
-  // Step 6 — Menu: at least one drink
-  const { count: drinkCount } = await supabase
-    .from('drinks')
-    .select('id', { count: 'exact', head: true })
-    .eq('venue_id', venueId);
-  result['6'] = (drinkCount ?? 0) > 0;
-
-  // Step 7 — Event: at least one event created
-  const { count: eventCount } = await supabase
-    .from('events')
-    .select('id', { count: 'exact', head: true })
-    .eq('venue_id', venueId);
-  result['7'] = (eventCount ?? 0) > 0;
-
-  // Step 8 — Preview: auto-complete if steps 1-7 are done
-  const steps1to7Done = ['1', '2', '3', '4', '5', '6', '7'].every(k => result[k]);
-  result['8'] = steps1to7Done;
-
-  // Step 9 — Go Live: if venue is not hidden (is live)
-  const { data: venueVisibility } = await supabase
-    .from('venues')
-    .select('is_hidden')
-    .eq('id', venueId)
-    .single();
-  result['9'] = venueVisibility ? !venueVisibility.is_hidden : false;
+  // Step 7 — Go live: venue is visible.
+  result['7'] = !venue.is_hidden;
 
   return result;
 }
@@ -133,7 +142,6 @@ export function useOwnerOnboarding(venueId: string | null) {
         currentStep = data.current_step ?? 1;
         completedAt = data.completed_at;
       } else {
-        // Auto-create onboarding row
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
@@ -158,26 +166,29 @@ export function useOwnerOnboarding(venueId: string | null) {
         completedAt = null;
       }
 
-      // If already marked complete, skip detection
+      // If already complete, don't re-derive.
       if (completedAt) {
         setState({ id: onboardingId, venue_id: venueId, owner_id: ownerId, current_step: currentStep, steps, completed_at: completedAt });
         return;
       }
 
-      // Auto-detect completed steps from actual data
-      const detected = await detectCompletedSteps(venueId);
+      const detected = await detectCompletedSteps(venueId, steps);
       let changed = false;
 
       for (const [stepKey, isDone] of Object.entries(detected)) {
         if (isDone && steps[stepKey]?.status !== 'completed' && steps[stepKey]?.status !== 'skipped') {
-          steps[stepKey] = { status: 'completed', completed_at: new Date().toISOString(), metadata: { auto_detected: true } };
+          steps[stepKey] = {
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            metadata: { ...(steps[stepKey]?.metadata ?? {}), auto_detected: true },
+          };
           changed = true;
         }
       }
 
-      // Check if all steps are now complete
-      const allDone = Object.keys(DEFAULT_STEPS).every(
-        k => steps[k]?.status === 'completed' || steps[k]?.status === 'skipped'
+      // Onboarding is "done" when every required step is completed AND go live happened.
+      const allDone = [...REQUIRED_STEPS, '7'].every(
+        k => steps[k]?.status === 'completed' || steps[k]?.status === 'skipped',
       );
 
       if (allDone) {
@@ -185,7 +196,6 @@ export function useOwnerOnboarding(venueId: string | null) {
         changed = true;
       }
 
-      // Advance current_step to first incomplete step
       if (changed) {
         const firstIncomplete = Object.keys(DEFAULT_STEPS)
           .map(Number)
@@ -193,7 +203,6 @@ export function useOwnerOnboarding(venueId: string | null) {
           .find(n => steps[String(n)]?.status !== 'completed' && steps[String(n)]?.status !== 'skipped');
         currentStep = firstIncomplete ?? TOTAL_STEPS;
 
-        // Persist the auto-detected changes
         const update: any = {
           steps,
           current_step: currentStep,
@@ -201,10 +210,7 @@ export function useOwnerOnboarding(venueId: string | null) {
         };
         if (completedAt) update.completed_at = completedAt;
 
-        await supabase
-          .from('venue_onboarding')
-          .update(update)
-          .eq('id', onboardingId);
+        await supabase.from('venue_onboarding').update(update).eq('id', onboardingId);
       }
 
       setState({
@@ -229,25 +235,23 @@ export function useOwnerOnboarding(venueId: string | null) {
   const updateStep = useCallback(async (
     stepNum: number,
     status: StepStatus,
-    metadata?: Record<string, unknown>
+    metadata?: Record<string, unknown>,
   ) => {
     if (!state) return;
     const newSteps = { ...state.steps };
     newSteps[String(stepNum)] = {
       status,
       completed_at: status === 'completed' ? new Date().toISOString() : null,
-      ...(metadata ? { metadata } : {}),
+      metadata: { ...(state.steps[String(stepNum)]?.metadata ?? {}), ...(metadata ?? {}) },
     };
 
-    // Determine next step
     let newCurrentStep = state.current_step;
     if ((status === 'completed' || status === 'skipped') && stepNum === state.current_step) {
       newCurrentStep = Math.min(stepNum + 1, TOTAL_STEPS);
     }
 
-    // Check if all done
-    const isComplete = Object.keys(DEFAULT_STEPS).every(
-      k => newSteps[k]?.status === 'completed' || newSteps[k]?.status === 'skipped'
+    const isComplete = [...REQUIRED_STEPS, '7'].every(
+      k => newSteps[k]?.status === 'completed' || newSteps[k]?.status === 'skipped',
     );
 
     const update: any = {
@@ -257,11 +261,7 @@ export function useOwnerOnboarding(venueId: string | null) {
     };
     if (isComplete) update.completed_at = new Date().toISOString();
 
-    const { error } = await supabase
-      .from('venue_onboarding')
-      .update(update)
-      .eq('id', state.id);
-
+    const { error } = await supabase.from('venue_onboarding').update(update).eq('id', state.id);
     if (error) {
       console.error('Error updating onboarding step:', error);
       return;
@@ -297,12 +297,14 @@ export function useOwnerOnboarding(venueId: string | null) {
   const isComplete = state?.completed_at !== null && state?.completed_at !== undefined;
   const currentStep = state?.current_step ?? 1;
   const stepStatuses = state?.steps ?? DEFAULT_STEPS;
+  const pillars = readPillars(stepStatuses);
 
   return {
     state,
     loading,
     currentStep,
     stepStatuses,
+    pillars,
     isComplete,
     completeStep,
     skipStep,

@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Upload, Check } from 'lucide-react';
+import { Upload, Loader2, MapPin, Building2, ArrowRight } from 'lucide-react';
+import { StepHeader, PrimaryButton, FieldLabel, RED, T2, T3, BORDER } from './onboardingUI';
 
 interface Props {
   venueId: string;
@@ -17,7 +15,7 @@ export function OnboardingStepBasics({ venueId, onComplete }: Props) {
   const { t } = useLanguage();
   const [name, setName] = useState('');
   const [city, setCity] = useState('');
-  const [venueType, setVenueType] = useState('club');
+  const [address, setAddress] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -27,12 +25,13 @@ export function OnboardingStepBasics({ venueId, onComplete }: Props) {
     const load = async () => {
       const { data } = await supabase
         .from('venues')
-        .select('name, city, logo_url')
+        .select('name, city, address, logo_url')
         .eq('id', venueId)
         .single();
       if (data) {
         setName(data.name || '');
         setCity(data.city || '');
+        setAddress(data.address || '');
         setLogoUrl(data.logo_url || null);
       }
       setLoaded(true);
@@ -46,14 +45,10 @@ export function OnboardingStepBasics({ venueId, onComplete }: Props) {
     setUploading(true);
     try {
       const ext = file.name.split('.').pop();
-      const path = `${venueId}/logo.${ext}`;
-      const { error: uploadErr } = await supabase.storage
-        .from('venue-assets')
-        .upload(path, file, { upsert: true });
+      const path = `${venueId}/logo-${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from('venue-assets').upload(path, file, { upsert: true });
       if (uploadErr) throw uploadErr;
-      const { data: { publicUrl } } = supabase.storage
-        .from('venue-assets')
-        .getPublicUrl(path);
+      const { data: { publicUrl } } = supabase.storage.from('venue-assets').getPublicUrl(path);
       setLogoUrl(publicUrl);
       await supabase.from('venues').update({ logo_url: publicUrl } as any).eq('id', venueId);
       toast.success(t('onboarding.logoUploaded'));
@@ -64,7 +59,7 @@ export function OnboardingStepBasics({ venueId, onComplete }: Props) {
     }
   };
 
-  const isValid = name.trim().length > 0 && city.trim().length > 0;
+  const isValid = name.trim().length > 0 && city.trim().length > 0 && address.trim().length > 4;
 
   const handleSave = async () => {
     if (!isValid) return;
@@ -72,9 +67,18 @@ export function OnboardingStepBasics({ venueId, onComplete }: Props) {
     try {
       const { error } = await supabase
         .from('venues')
-        .update({ name: name.trim(), city: city.trim() } as any)
+        .update({ name: name.trim(), city: city.trim(), address: address.trim() } as any)
         .eq('id', venueId);
       if (error) throw error;
+      // Geocode for the public map (best-effort, non-blocking on failure).
+      try {
+        const { data } = await supabase.functions.invoke('geocode-address', { body: { address: address.trim() } });
+        if (data?.latitude && data?.longitude) {
+          await supabase.from('venues').update({ latitude: data.latitude, longitude: data.longitude } as any).eq('id', venueId);
+        }
+      } catch {
+        // silent — geocoding can be retried later
+      }
       onComplete();
       toast.success(t('onboarding.basicsSaved'));
     } catch {
@@ -88,55 +92,57 @@ export function OnboardingStepBasics({ venueId, onComplete }: Props) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold mb-1">{t('onboarding.step1Title')}</h2>
-        <p className="text-sm text-muted-foreground">{t('onboarding.step1Desc')}</p>
-      </div>
+      <StepHeader icon={Building2} title={t('onboarding.step2Title')} subtitle={t('onboarding.step2Desc')} />
 
       <div className="space-y-4">
         <div>
-          <Label>{t('onboarding.venueName')} *</Label>
-          <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Le Duplex" />
+          <FieldLabel>{t('onboarding.venueName')} *</FieldLabel>
+          <Input value={name} onChange={e => setName(e.target.value)} placeholder="Le Duplex" />
         </div>
         <div>
-          <Label>{t('onboarding.venueCity')} *</Label>
-          <Input value={city} onChange={e => setCity(e.target.value)} placeholder="Ex: Paris" />
+          <FieldLabel>{t('onboarding.venueCity')} *</FieldLabel>
+          <Input value={city} onChange={e => setCity(e.target.value)} placeholder="Paris" />
         </div>
         <div>
-          <Label>{t('onboarding.venueType')}</Label>
-          <Select value={venueType} onValueChange={setVenueType}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="club">Club</SelectItem>
-              <SelectItem value="bar">Bar</SelectItem>
-              <SelectItem value="lounge">Lounge</SelectItem>
-              <SelectItem value="rooftop">Rooftop</SelectItem>
-            </SelectContent>
-          </Select>
+          <FieldLabel>{t('onboarding.venueAddress')} *</FieldLabel>
+          <div className="relative">
+            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
+            <Input
+              value={address}
+              onChange={e => setAddress(e.target.value)}
+              placeholder="123 Rue de la Nuit, 75001 Paris"
+              className="pl-10"
+            />
+          </div>
         </div>
         <div>
-          <Label>{t('onboarding.venueLogo')}</Label>
-          <div className="flex items-center gap-4 mt-2">
+          <FieldLabel>{t('onboarding.venueLogo')}</FieldLabel>
+          <div className="flex items-center gap-4">
             {logoUrl ? (
-              <img src={logoUrl} alt="Logo" className="w-16 h-16 rounded-xl object-cover border border-border" />
+              <img src={logoUrl} alt="Logo" className="w-16 h-16 rounded-2xl object-cover" style={{ border: `1px solid ${BORDER}` }} />
             ) : (
-              <div className="w-16 h-16 rounded-xl bg-muted flex items-center justify-center border border-dashed border-border">
-                <Upload className="w-5 h-5 text-muted-foreground" />
+              <div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                style={{ background: 'rgba(255,255,255,0.04)', border: `1px dashed ${BORDER}`, color: T3 }}
+              >
+                <Upload className="w-5 h-5" />
               </div>
             )}
-            <label className="cursor-pointer">
-              <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-              <Button variant="outline" size="sm" asChild disabled={uploading}>
-                <span>{uploading ? '...' : t('onboarding.uploadLogo')}</span>
-              </Button>
+            <label
+              className="cursor-pointer inline-flex items-center gap-2 rounded-xl text-[13px] font-medium transition-colors hover:bg-white/[0.06]"
+              style={{ padding: '9px 14px', background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, color: T2 }}
+            >
+              <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={uploading} />
+              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              {logoUrl ? t('onboarding.changeLogo') : t('onboarding.uploadLogo')}
             </label>
           </div>
         </div>
       </div>
 
-      <Button onClick={handleSave} disabled={!isValid || saving} className="w-full">
-        {saving ? '...' : t('onboarding.continue')}
-      </Button>
+      <PrimaryButton fullWidth icon={ArrowRight} onClick={handleSave} disabled={!isValid} loading={saving}>
+        {t('onboarding.continue')}
+      </PrimaryButton>
     </div>
   );
 }

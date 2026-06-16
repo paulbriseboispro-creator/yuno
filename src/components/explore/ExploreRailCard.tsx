@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
+import { fr, es, enUS } from 'date-fns/locale';
 import { EventCardData } from './EventCard';
+
+const dfLocale = (lang: string) => (lang === 'fr' ? fr : lang === 'es' ? es : enUS);
 
 function priceLabel(event: EventCardData, t: (k: string) => string): string {
   if (event.minPrice === 0) return t('explore.free');
@@ -24,12 +27,12 @@ function navigateToEvent(event: EventCardData, navigate: ReturnType<typeof useNa
 
 export function ExploreRailCard({ event }: { event: EventCardData }) {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { isFavorite, toggleFavorite } = useFavorites();
   const favType = event.isAffiliate ? 'affiliate_event' : 'event';
   const liked = isFavorite(favType, event.id);
 
-  const timeLabel = format(new Date(event.startAt), 'HH:mm');
+  const dateLabel = format(new Date(event.startAt), 'EEE dd MMM', { locale: dfLocale(language) }).toUpperCase();
   const price = priceLabel(event, t);
 
   const handleFav = (e: React.MouseEvent) => {
@@ -123,12 +126,12 @@ export function ExploreRailCard({ event }: { event: EventCardData }) {
         >
           {event.title}
         </h3>
-        <div className="flex items-center justify-between">
-          <span className="font-mono" style={{ fontSize: '11.5px', color: '#9A9AA4' }}>
-            {timeLabel}
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-mono truncate" style={{ fontSize: '11.5px', color: '#9A9AA4' }}>
+            {dateLabel}
           </span>
           {price && (
-            <span className="font-mono font-bold" style={{ fontSize: '13px', color: '#E8192C' }}>
+            <span className="font-mono font-bold shrink-0" style={{ fontSize: '13px', color: '#E8192C' }}>
               {price}
             </span>
           )}

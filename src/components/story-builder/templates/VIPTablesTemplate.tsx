@@ -18,6 +18,7 @@ interface ZoneArea {
   width: number;
   height: number;
   fillOpacity?: number;
+  borderRadius?: number;
   showLabel?: boolean;
   labelOffsetX?: number;
   labelOffsetY?: number;
@@ -291,7 +292,7 @@ export function VIPTablesTemplate({
                       return (
                         <g key={`za-${za.id}`}>
                           <rect
-                            x={za.x} y={za.y} width={za.width} height={za.height} rx={8}
+                            x={za.x} y={za.y} width={za.width} height={za.height} rx={za.borderRadius ?? 8}
                             fill={zColor} fillOpacity={za.fillOpacity ?? 0.04}
                             stroke={zColor} strokeWidth={0.5} strokeOpacity={0.3} strokeDasharray="4 3"
                           />

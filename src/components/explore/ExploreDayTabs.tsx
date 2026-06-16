@@ -97,6 +97,30 @@ export function ExploreDayTabs({ weekData, chipGenres, freeOnly, exploreFilters 
               >
                 {format(d.date, 'dd')}
               </p>
+              {/* Event indicator dots — up to 3, scaling with the number of parties that day.
+                  Fixed-height row so days with no event keep the same card height. */}
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '3px',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  height: '5px',
+                  marginTop: '4px',
+                }}
+              >
+                {Array.from({ length: Math.min(d.events.length, 3) }).map((_, di) => (
+                  <span
+                    key={di}
+                    style={{
+                      width: '4px',
+                      height: '4px',
+                      borderRadius: '50%',
+                      background: on ? 'rgba(255,255,255,0.9)' : '#E8192C',
+                    }}
+                  />
+                ))}
+              </div>
             </button>
           );
         })}

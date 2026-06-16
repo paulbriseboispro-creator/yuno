@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { Check, Users, SkipForward } from 'lucide-react';
+import { Check, Users, SkipForward, ArrowRight, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { StepHeader, PrimaryButton, GhostButton, InnerCard, DoneRow, OptionalPill, POS, T1, T2, T3, BORDER, TILE_BG } from './onboardingUI';
 
 interface Props {
   venueId: string;
@@ -18,7 +18,6 @@ export function OnboardingStepStaff({ venueId, onComplete, onSkip }: Props) {
 
   useEffect(() => {
     const check = async () => {
-      // Count profiles with venue_id that have staff roles
       const { count } = await supabase
         .from('profiles')
         .select('id', { count: 'exact', head: true })
@@ -34,51 +33,48 @@ export function OnboardingStepStaff({ venueId, onComplete, onSkip }: Props) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold mb-1">{t('onboarding.step5Title')}</h2>
-        <p className="text-sm text-muted-foreground">{t('onboarding.step5Desc')}</p>
-      </div>
+      <StepHeader
+        icon={Users}
+        title={t('onboarding.step6Title')}
+        subtitle={t('onboarding.step6Desc')}
+        right={<OptionalPill label={t('onboarding.optional')} />}
+      />
 
-      <div className="rounded-lg bg-muted/50 border border-border p-4 space-y-3">
-        <h3 className="font-semibold text-sm">{t('onboarding.staffPinExplain')}</h3>
-        <p className="text-sm text-muted-foreground">{t('onboarding.staffPinDetail')}</p>
-      </div>
+      <InnerCard>
+        <h3 style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{t('onboarding.staffPinExplain')}</h3>
+        <p style={{ color: T3, fontSize: 12.5, marginTop: 6, lineHeight: 1.5 }}>{t('onboarding.staffPinDetail')}</p>
+      </InnerCard>
 
       {loading ? (
-        <div className="h-12 flex items-center"><div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>
+        <div className="h-10" />
       ) : hasStaff ? (
-        <div className="flex items-center gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/30">
-          <Check className="w-5 h-5 text-green-500" />
-          <span className="text-sm font-medium text-green-500">
+        <DoneRow>
+          <Check className="w-5 h-5 flex-none" style={{ color: POS }} />
+          <span className="tabular-nums" style={{ color: POS, fontSize: 13, fontWeight: 600 }}>
             {staffCount} {t('onboarding.staffConfigured')}
           </span>
-        </div>
+        </DoneRow>
+      ) : null}
+
+      <Link
+        to="/owner/staff"
+        className="w-full inline-flex items-center justify-center gap-2 rounded-xl text-[14px] font-medium cursor-pointer transition-colors hover:bg-white/[0.04]"
+        style={{ padding: '11px 18px', background: TILE_BG, border: `1px solid ${BORDER}`, color: T2 }}
+      >
+        <Users className="w-4 h-4" />
+        {t('onboarding.goToStaffPage')}
+        <ExternalLink className="w-3.5 h-3.5" />
+      </Link>
+
+      {hasStaff ? (
+        <PrimaryButton fullWidth icon={ArrowRight} onClick={onComplete}>
+          {t('onboarding.continue')}
+        </PrimaryButton>
       ) : (
-        <div className="flex items-center gap-3 p-4 rounded-lg bg-muted border border-border">
-          <Users className="w-5 h-5 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">{t('onboarding.noStaffYet')}</span>
-        </div>
+        <GhostButton fullWidth icon={SkipForward} onClick={onSkip}>
+          {t('onboarding.skipForNow')}
+        </GhostButton>
       )}
-
-      <Button variant="outline" asChild className="w-full gap-2">
-        <Link to="/owner/staff">
-          <Users className="w-4 h-4" />
-          {t('onboarding.goToStaffPage')}
-        </Link>
-      </Button>
-
-      <div className="flex gap-2">
-        {hasStaff ? (
-          <Button onClick={onComplete} className="flex-1">
-            {t('onboarding.continue')}
-          </Button>
-        ) : (
-          <Button variant="outline" onClick={onSkip} className="flex-1 gap-2">
-            <SkipForward className="w-4 h-4" />
-            {t('onboarding.skipForNow')}
-          </Button>
-        )}
-      </div>
     </div>
   );
 }

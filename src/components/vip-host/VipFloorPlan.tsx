@@ -223,7 +223,7 @@ export function VipFloorPlan({
                     y={zoneArea.y}
                     width={zoneArea.width}
                     height={zoneArea.height}
-                    rx={zoneArea.borderRadius ?? 10}
+                    rx={zoneArea.borderRadius ?? 8}
                     fill={zoneInfo.color}
                     fillOpacity={zoneArea.fillOpacity ?? 0.08}
                     stroke={zoneInfo.color}
