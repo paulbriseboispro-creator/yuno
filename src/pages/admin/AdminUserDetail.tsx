@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, UserCircle, Shield, ShieldOff, Plus, Trash2, MapPin, Mail, Calendar, Star, ShoppingBag, Ticket, AlertTriangle, Building2, type LucideIcon } from 'lucide-react';
+import { ArrowLeft, UserCircle, Shield, ShieldOff, Plus, Trash2, MapPin, Mail, Calendar, Star, ShoppingBag, Ticket, AlertTriangle, Building2, KeyRound, Ban, UserCheck, ShieldAlert, type LucideIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -113,6 +113,7 @@ export default function AdminUserDetail() {
   const [resyncing, setResyncing] = useState(false);
   const [promoterProfiles, setPromoterProfiles] = useState<PromoterProfile[]>([]);
   const [togglingPromoter, setTogglingPromoter] = useState<string | null>(null);
+  const [securityBusy, setSecurityBusy] = useState(false);
 
   useEffect(() => {
     if (userId) {
@@ -163,6 +164,76 @@ export default function AdminUserDetail() {
     setPromoterProfiles(data.map(p => ({ ...p, venueName: p.venue_id ? venueMap[p.venue_id] : undefined })));
   };
 
+  const handleResetMfa = async () => {
+    if (!userId) return;
+    if (!confirm(
+      `Réinitialiser la double authentification de ${profile?.email || 'cet utilisateur'} ?\n\n` +
+      `Utile si le pro est verrouillé hors de son compte (téléphone perdu). Il devra ` +
+      `ré-enrôler une nouvelle app à la prochaine connexion. Action tracée.`
+    )) return;
+    setSecurityBusy(true);
+    try {
+      const { error } = await supabase.rpc('admin_reset_user_mfa', { _user_id: userId });
+      if (error) throw error;
+      toast.success('MFA réinitialisé — le pro pourra se reconnecter et ré-enrôler.');
+      await loadUser();
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur');
+    } finally {
+      setSecurityBusy(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!userId) return;
+    if (!confirm(
+      `Envoyer un lien de réinitialisation de mot de passe à ${profile?.email || 'cet utilisateur'} ?`
+    )) return;
+    setSecurityBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-account-recovery', {
+        body: { action: 'reset-password', userId },
+      });
+      if (error) throw error;
+      if (data && data.success === false) throw new Error(data.error || 'Échec');
+      toast.success('Email de réinitialisation envoyé.');
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur');
+    } finally {
+      setSecurityBusy(false);
+    }
+  };
+
+  const handleToggleSuspend = async () => {
+    if (!userId) return;
+    const currentlySuspended = !!profile?.is_suspended;
+    let reason: string | null = null;
+    if (!currentlySuspended) {
+      if (!confirm(
+        `Suspendre le compte ${profile?.email || ''} ?\n\n` +
+        `L'utilisateur perdra l'accès aux dashboards pro. Réversible. Action tracée.`
+      )) return;
+      reason = window.prompt('Raison de la suspension (journal d\'audit) :', '') ?? '';
+    } else {
+      if (!confirm(`Réactiver le compte ${profile?.email || ''} ?`)) return;
+    }
+    setSecurityBusy(true);
+    try {
+      const { error } = await supabase.rpc('admin_set_user_suspended', {
+        _user_id: userId,
+        _suspended: !currentlySuspended,
+        _reason: reason || null,
+      });
+      if (error) throw error;
+      toast.success(currentlySuspended ? 'Compte réactivé' : 'Compte suspendu');
+      await loadUser();
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur');
+    } finally {
+      setSecurityBusy(false);
+    }
+  };
+
   const handleResyncOwner = async () => {
     if (!userId || !resyncVenueId) return;
     setResyncing(true);
@@ -200,7 +271,7 @@ export default function AdminUserDetail() {
   const loadUser = async () => {
     setLoading(true);
     const [profileRes, rolesRes, vcRes, loyaltyRes] = await Promise.all([
-      supabase.from('profiles').select('id, email, first_name, last_name, city, venue_id, avatar_url, created_at, mfa_enabled').eq('id', userId!).single(),
+      supabase.from('profiles').select('id, email, first_name, last_name, city, venue_id, avatar_url, created_at, mfa_enabled, is_suspended, suspension_reason').eq('id', userId!).single(),
       supabase.from('user_roles').select('id, role, created_at').eq('user_id', userId!),
       supabase.from('venue_customers').select('id, venue_id, email, order_count, ticket_count, table_count, total_spent, last_visit_at, is_banned, favorite_drink_category').eq('user_id', userId!),
       supabase.from('customer_loyalty').select('id, venue_id, current_balance, total_points_earned, tier').eq('user_id', userId!),
@@ -240,6 +311,13 @@ export default function AdminUserDetail() {
       return;
     }
 
+    // Garde-fou escalade de privilège : confirmation explicite pour le rôle admin.
+    if (addingRole === 'admin' && !confirm(
+      `Donner le rôle SUPER ADMIN à ${profile?.email || 'cet utilisateur'} ?\n\n` +
+      `Ce rôle donne un accès TOTAL à la plateforme (remboursements, suppression, ` +
+      `suspension de comptes). Action tracée dans le journal d'audit. Confirmer ?`
+    )) return;
+
     const { error: roleInsertError } = await supabase
       .from('user_roles')
       .insert({ user_id: userId, role: addingRole as any, email: profile?.email });
@@ -275,6 +353,14 @@ export default function AdminUserDetail() {
       }
     }
 
+    // Journal d'audit (priorité au rôle admin = escalade de privilège)
+    await supabase.rpc('admin_log_action', {
+      _action: addingRole === 'admin' ? 'role_admin_granted' : 'role_granted',
+      _entity_type: 'profile',
+      _entity_id: userId,
+      _metadata: { role: addingRole, venue_id: needsVenue(addingRole) ? selectedVenueId : null },
+    });
+
     const meta = ROLE_META[addingRole];
     toast.success(`Rôle "${meta?.label || addingRole}" ajouté`);
     setAddingRole('');
@@ -303,6 +389,13 @@ export default function AdminUserDetail() {
     if (role === OWNER_ROLE && profile?.venue_id) {
       // Don't unlink — venue.owner_id stays. Admin can reassign.
     }
+
+    await supabase.rpc('admin_log_action', {
+      _action: role === 'admin' ? 'role_admin_revoked' : 'role_revoked',
+      _entity_type: 'profile',
+      _entity_id: userId,
+      _metadata: { role },
+    });
 
     const meta = ROLE_META[role];
     toast.success(`Rôle "${meta?.label || role}" retiré`);
@@ -478,6 +571,54 @@ export default function AdminUserDetail() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Sécurité & accès — recovery pro + suspension plateforme */}
+        <div style={cardStyle}>
+          <SectionHeader icon={ShieldAlert} label="Sécurité & accès" accent />
+          {profile?.is_suspended && (
+            <div className="flex items-start gap-2 mb-4 rounded-xl p-3" style={{ background: 'rgba(255,92,99,0.08)', border: '1px solid rgba(255,92,99,0.3)' }}>
+              <Ban className="h-4 w-4 mt-0.5 shrink-0" style={{ color: NEG }} />
+              <div style={{ fontSize: 13, color: T1 }}>
+                <span style={{ fontWeight: 600, color: NEG }}>Compte suspendu.</span>{' '}
+                {profile.suspension_reason ? <span style={{ color: T2 }}>Motif : {profile.suspension_reason}</span> : <span style={{ color: T3 }}>Aucun motif renseigné.</span>}
+              </div>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2.5">
+            <button
+              onClick={handleResetMfa}
+              disabled={securityBusy}
+              style={{ ...secondaryBtnStyle, opacity: securityBusy ? 0.5 : 1 }}
+            >
+              <KeyRound className="h-4 w-4" /> Réinitialiser le MFA
+            </button>
+            <button
+              onClick={handleResetPassword}
+              disabled={securityBusy}
+              style={{ ...secondaryBtnStyle, opacity: securityBusy ? 0.5 : 1 }}
+            >
+              <Mail className="h-4 w-4" /> Réinitialiser le mot de passe
+            </button>
+            <button
+              onClick={handleToggleSuspend}
+              disabled={securityBusy || roles.includes('admin')}
+              title={roles.includes('admin') ? 'Impossible de suspendre un admin' : undefined}
+              style={{
+                ...(profile?.is_suspended ? primaryBtnStyle : dangerBtnStyle),
+                opacity: (securityBusy || roles.includes('admin')) ? 0.5 : 1,
+              }}
+            >
+              {profile?.is_suspended ? <><UserCheck className="h-4 w-4" /> Réactiver le compte</> : <><Ban className="h-4 w-4" /> Suspendre le compte</>}
+            </button>
+          </div>
+          <p style={{ fontSize: 12, color: T3, marginTop: 12, lineHeight: 1.5 }}>
+            <strong style={{ color: T2 }}>Reset MFA</strong> : débloque un pro verrouillé (téléphone perdu) ; il ré-enrôle à la prochaine connexion.
+            <br />
+            <strong style={{ color: T2 }}>Reset mot de passe</strong> : envoie un lien de réinitialisation au pro.
+            <br />
+            <strong style={{ color: T2 }}>Suspension</strong> : coupe l'accès aux dashboards pro (effet à la prochaine navigation).
+          </p>
         </div>
 
         {/* Owner venue sync — shown when user has owner role */}

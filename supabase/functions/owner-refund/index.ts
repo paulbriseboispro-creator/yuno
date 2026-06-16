@@ -35,6 +35,17 @@ serve(async (req) => {
 
     logStep("User authenticated", { userId: user.id });
 
+    // Super admin peut rembourser n'importe quelle transaction (support plateforme).
+    // Les contrôles de propriété par item sont alors court-circuités.
+    const { data: adminRole } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .maybeSingle();
+    const isAdmin = !!adminRole;
+    if (isAdmin) logStep("Caller is super admin — ownership checks bypassed");
+
     const { items, reason } = await req.json();
     // items: Array<{ type: 'order' | 'ticket' | 'table_reservation', id: string, amount: number }>
 
@@ -71,7 +82,7 @@ serve(async (req) => {
           record = data;
           if (!record) { results.push({ id: item.id, type: item.type, success: false, error: "Not found" }); continue; }
           
-          if (record.venues.owner_id !== user.id) {
+          if (!isAdmin && record.venues.owner_id !== user.id) {
             results.push({ id: item.id, type: item.type, success: false, error: "Unauthorized" }); continue;
           }
           venueId = record.venue_id;
@@ -97,7 +108,7 @@ serve(async (req) => {
 
           const isVenueOwner = record.events?.venues?.owner_id === user.id;
           const isOrganizer = record.events?.organizer_user_id === user.id || record.events?.partner_organizer_id === user.id;
-          if (!isVenueOwner && !isOrganizer) {
+          if (!isAdmin && !isVenueOwner && !isOrganizer) {
             results.push({ id: item.id, type: item.type, success: false, error: "Unauthorized" }); continue;
           }
           venueId = record.events.venue_id;
@@ -119,7 +130,7 @@ serve(async (req) => {
 
           const isVenueOwner = record.events?.venues?.owner_id === user.id;
           const isOrganizer = record.events?.organizer_user_id === user.id || record.events?.partner_organizer_id === user.id;
-          if (!isVenueOwner && !isOrganizer) {
+          if (!isAdmin && !isVenueOwner && !isOrganizer) {
             results.push({ id: item.id, type: item.type, success: false, error: "Unauthorized" }); continue;
           }
           venueId = record.events.venue_id;
@@ -378,6 +389,21 @@ serve(async (req) => {
 
         results.push({ id: item.id, type: item.type, success: true, amount: refundAmount });
         logStep("Item refunded", { id: item.id, type: item.type, amount: refundAmount });
+
+        // Journal d'audit admin (remboursement déclenché par un super admin)
+        if (isAdmin) {
+          try {
+            await supabaseAdmin.from("admin_audit_log").insert({
+              admin_id: user.id,
+              action: "refund_issued",
+              entity_type: item.type,
+              entity_id: item.id,
+              metadata: { amount: refundAmount, reason: reason.trim(), venue_id: venueId },
+            });
+          } catch (auditErr) {
+            console.error("Admin audit log error (refund):", auditErr);
+          }
+        }
 
         // Owner notification: refund processed
         if (venueId) {

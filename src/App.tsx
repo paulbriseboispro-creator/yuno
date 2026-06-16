@@ -178,6 +178,9 @@ const AdminOrders = lazyWithRetry(() => import("./pages/admin/AdminOrders"));
 const AdminSubscriptions = lazyWithRetry(() => import("./pages/admin/AdminSubscriptions"));
 const AdminPlatformInvitations = lazyWithRetry(() => import("./pages/admin/AdminPlatformInvitations"));
 const AdminAffiliates = lazyWithRetry(() => import("./pages/admin/AdminAffiliates"));
+const AdminEvents = lazyWithRetry(() => import("./pages/admin/AdminEvents"));
+const AdminAuditLog = lazyWithRetry(() => import("./pages/admin/AdminAuditLog"));
+const AccountSuspended = lazyWithRetry(() => import("./pages/AccountSuspended"));
 
 // Affiliate app pages
 const AffiliateLayout = lazyWithRetry(() => import("./pages/affiliate-app/AffiliateLayout"));
@@ -784,6 +787,9 @@ const App = () => (
                   </ManagerRoute>
                 } />
                 
+                {/* Compte suspendu (public, hors guards) */}
+                <Route path="/account-suspended" element={<AccountSuspended />} />
+
                 {/* Admin routes */}
                 <Route path="/admin" element={<AdminLayout />}>
                   <Route index element={<AdminDashboard />} />
@@ -799,10 +805,12 @@ const App = () => (
                   <Route path="directory" element={<AdminDirectory />} />
                   <Route path="directory/user/:userId" element={<AdminUserDetail />} />
                   <Route path="directory/venue/:venueId" element={<AdminVenueDetail />} />
+                  <Route path="events" element={<AdminEvents />} />
                   <Route path="orders" element={<AdminOrders />} />
                   <Route path="subscriptions" element={<AdminSubscriptions />} />
                   <Route path="organizers" element={<AdminPlatformInvitations />} />
                   <Route path="affiliates" element={<AdminAffiliates />} />
+                  <Route path="audit" element={<AdminAuditLog />} />
                 </Route>
 
                 {/* Affiliate app */}

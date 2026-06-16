@@ -22,6 +22,8 @@ import {
   CreditCard,
   Sparkles,
   Link2,
+  CalendarDays,
+  ScrollText,
   type LucideIcon,
 } from 'lucide-react';
 import AdminSearchBar from '@/components/admin/AdminSearchBar';
@@ -59,6 +61,7 @@ export default function AdminLayout() {
       label: t('admin.navGroupActors'),
       items: [
         { title: 'Venues', path: '/admin/venues', icon: Building2 },
+        { title: 'Événements', path: '/admin/events', icon: CalendarDays },
         { title: 'Organisateurs', path: '/admin/organizers', icon: Sparkles },
         { title: 'Affiliés', path: '/admin/affiliates', icon: Link2 },
         { title: 'Waitlist', path: '/admin/waitlist', icon: Users },
@@ -79,6 +82,7 @@ export default function AdminLayout() {
         { title: 'Email Templates', path: '/admin/emails', icon: Mail },
         { title: t('admin.navPush'), path: '/admin/push', icon: Bell },
         { title: t('admin.navFeedback'), path: '/admin/feedback', icon: MessageSquareWarning },
+        { title: 'Journal d\'audit', path: '/admin/audit', icon: ScrollText },
       ],
     },
   ];

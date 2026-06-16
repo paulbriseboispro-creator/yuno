@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Role } from '@/types';
 
 interface RequireRoleProps {
@@ -13,6 +14,17 @@ export function RequireRole({ children, allowedRoles }: RequireRoleProps) {
   const location = useLocation();
   const [authChecked, setAuthChecked] = useState(false);
   const [hasValidStaffSession, setHasValidStaffSession] = useState(false);
+  // Suspension : optimiste — on ne redirige que sur un `true` confirmé, jamais
+  // sur une lecture lente/échouée (évite de verrouiller un compte légitime).
+  const [suspended, setSuspended] = useState(false);
+
+  useEffect(() => {
+    if (!user) { setSuspended(false); return; }
+    let active = true;
+    supabase.from('profiles').select('is_suspended').eq('id', user.id).maybeSingle()
+      .then(({ data }) => { if (active && data?.is_suspended) setSuspended(true); });
+    return () => { active = false; };
+  }, [user]);
 
   useEffect(() => {
     // Staff session is only valid if user is authenticated (PIN login creates Supabase session)
@@ -56,6 +68,11 @@ export function RequireRole({ children, allowedRoles }: RequireRoleProps) {
   // User must be authenticated - no bypass without Supabase session
   if (!user) {
     return <Navigate to="/auth" state={{ from: location }} replace />;
+  }
+
+  // Compte suspendu par un admin → page dédiée (coupe l'accès pro).
+  if (suspended) {
+    return <Navigate to="/account-suspended" replace />;
   }
 
   // If valid staff session exists (user is authenticated via PIN + Supabase), allow access
