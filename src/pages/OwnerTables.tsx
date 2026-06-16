@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Pencil, Trash2, Package, Layers, Save, FolderOpen, Zap, Calendar, Check, LayoutGrid } from 'lucide-react';
 import { FloorPlanEditor } from '@/components/owner/FloorPlanEditor';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
@@ -75,6 +76,7 @@ export default function OwnerTables() {
   const [presets, setPresets] = useState<TablePackPreset[]>([]);
   const [eventSettings, setEventSettings] = useState<EventTableSettings[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<{ kind: 'zone' | 'pack' | 'preset'; id: string; name: string } | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>('events');
   const [showFloorPlanEditor, setShowFloorPlanEditor] = useState(false);
   const [floorPlan, setFloorPlan] = useState<any>(null);
@@ -168,13 +170,19 @@ export default function OwnerTables() {
 
   const handleAddZone = () => { setEditingZone(null); setZoneFormData({ name: '', color: '#3b82f6', tablesCount: '1', lastTablesThreshold: '20' }); setIsZoneDialogOpen(true); };
   const handleEditZone = (zone: TableZone) => { setEditingZone(zone); setZoneFormData({ name: zone.name, color: zone.color, tablesCount: zone.tablesCount.toString(), lastTablesThreshold: (zone.lastTablesThreshold ?? 20).toString() }); setIsZoneDialogOpen(true); };
+  // 23514 = our BEFORE DELETE guard (live reservations); 23503 = FK restrict.
+  const deleteErrorMessage = (error: unknown): string => {
+    const code = (error as { code?: string } | null)?.code;
+    if (code === '23514' || code === '23503') return t('tables.deleteBlockedLive');
+    return t('tables.errorDeleting');
+  };
+
   const handleDeleteZone = async (zoneId: string) => {
-    if (!confirm(t('tables.confirmDeleteZone'))) return;
     try {
       const { error } = await supabase.from('table_zones').delete().eq('id', zoneId);
       if (error) throw error;
       toast.success(t('tables.zoneDeleted')); fetchZones(); fetchPacks();
-    } catch { toast.error(t('tables.errorDeleting')); }
+    } catch (e) { toast.error(deleteErrorMessage(e)); }
   };
 
   const handleSaveZone = async (e: React.FormEvent) => {
@@ -191,9 +199,8 @@ export default function OwnerTables() {
   const handleAddPack = (zoneId?: string) => { setEditingPack(null); setSelectedZoneForPack(zoneId || zones[0]?.id || ''); setPackFormData({ name: '', description: '', basePrice: '', baseCapacity: '6', maxExtraPersons: '0', extraPersonPrice: '0', deposit: '0', depositType: 'fixed', includedItems: '', minimumSpend: '0', tablesCount: '1', isActive: true }); setIsPackDialogOpen(true); };
   const handleEditPack = (pack: TablePack) => { setEditingPack(pack); setSelectedZoneForPack(pack.zoneId); setPackFormData({ name: pack.name, description: pack.description || '', basePrice: pack.basePrice.toString(), baseCapacity: pack.baseCapacity.toString(), maxExtraPersons: pack.maxExtraPersons.toString(), extraPersonPrice: pack.extraPersonPrice.toString(), deposit: pack.deposit.toString(), depositType: pack.depositType || 'fixed', includedItems: pack.includedItems || '', minimumSpend: (pack.minimumSpend || 0).toString(), tablesCount: pack.tablesCount.toString(), isActive: pack.isActive }); setIsPackDialogOpen(true); };
   const handleDeletePack = async (packId: string) => {
-    if (!confirm(t('tables.confirmDeletePack'))) return;
     try { const { error } = await supabase.from('table_packs').delete().eq('id', packId); if (error) throw error; toast.success(t('tables.packDeleted')); fetchPacks(); }
-    catch { toast.error(t('tables.errorDeleting')); }
+    catch (e) { toast.error(deleteErrorMessage(e)); }
   };
 
   const handleSavePack = async (e: React.FormEvent) => {
@@ -210,9 +217,18 @@ export default function OwnerTables() {
   const handleCreatePreset = () => { setEditingPreset(null); setPresetFormData({ name: '', selectedPacks: packs.map(p => ({ packId: p.id, customPrice: p.basePrice.toString(), useCustomPrice: false })) }); setIsPresetDialogOpen(true); };
   const handleEditPreset = (preset: TablePackPreset) => { setEditingPreset(preset); setPresetFormData({ name: preset.name, selectedPacks: packs.map(p => { const pp = preset.packs.find(x => x.packId === p.id); return { packId: p.id, customPrice: pp?.customPrice?.toString() || p.basePrice.toString(), useCustomPrice: pp ? pp.customPrice !== null : false }; }) }); setIsPresetDialogOpen(true); };
   const handleDeletePreset = async (presetId: string) => {
-    if (!confirm(t('tables.confirmDeletePreset'))) return;
     try { const { error } = await supabase.from('table_pack_presets').delete().eq('id', presetId); if (error) throw error; toast.success(t('tables.presetDeleted')); fetchPresets(); }
-    catch { toast.error(t('tables.errorDeleting')); }
+    catch (e) { toast.error(deleteErrorMessage(e)); }
+  };
+
+  // Confirmation modal target (replaces browser confirm() with an impact-aware dialog)
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const { kind, id } = deleteTarget;
+    setDeleteTarget(null);
+    if (kind === 'zone') await handleDeleteZone(id);
+    else if (kind === 'pack') await handleDeletePack(id);
+    else await handleDeletePreset(id);
   };
 
   const handleSavePreset = async (e: React.FormEvent) => {
@@ -413,7 +429,7 @@ export default function OwnerTables() {
                             </div>
                             <div className="flex gap-1">
                               <button onClick={() => handleEditZone(zone)} className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer" style={{ background: 'rgba(255,255,255,0.05)', color: T2 }}><Pencil className="w-3.5 h-3.5" /></button>
-                              <button onClick={() => handleDeleteZone(zone.id)} className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer" style={{ background: 'rgba(232,25,44,0.08)', color: '#FF5C63' }}><Trash2 className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => setDeleteTarget({ kind: 'zone', id: zone.id, name: zone.name })} className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer" style={{ background: 'rgba(232,25,44,0.08)', color: '#FF5C63' }}><Trash2 className="w-3.5 h-3.5" /></button>
                             </div>
                           </div>
                           <p style={{ color: T3, fontSize: 12, marginBottom: 12 }}>{zone.tablesCount} tables · {zonePacks.length} packs</p>
@@ -468,7 +484,7 @@ export default function OwnerTables() {
                                   </div>
                                   <div className="flex gap-1">
                                     <button onClick={() => handleEditPack(pack)} className="w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer" style={{ background: INNER_BG, color: T2 }}><Pencil className="w-3 h-3" /></button>
-                                    <button onClick={() => handleDeletePack(pack.id)} className="w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer" style={{ background: 'rgba(232,25,44,0.08)', color: '#FF5C63' }}><Trash2 className="w-3 h-3" /></button>
+                                    <button onClick={() => setDeleteTarget({ kind: 'pack', id: pack.id, name: pack.name })} className="w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer" style={{ background: 'rgba(232,25,44,0.08)', color: '#FF5C63' }}><Trash2 className="w-3 h-3" /></button>
                                   </div>
                                 </div>
                                 <p style={{ color: T1, fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em' }}>{pack.basePrice}€</p>
@@ -518,7 +534,7 @@ export default function OwnerTables() {
                           <p style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{preset.name}</p>
                           <div className="flex gap-1">
                             <button onClick={() => handleEditPreset(preset)} className="w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer" style={{ background: INNER_BG, color: T2 }}><Pencil className="w-3 h-3" /></button>
-                            <button onClick={() => handleDeletePreset(preset.id)} className="w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer" style={{ background: 'rgba(232,25,44,0.08)', color: '#FF5C63' }}><Trash2 className="w-3 h-3" /></button>
+                            <button onClick={() => setDeleteTarget({ kind: 'preset', id: preset.id, name: preset.name })} className="w-7 h-7 flex items-center justify-center rounded-lg cursor-pointer" style={{ background: 'rgba(232,25,44,0.08)', color: '#FF5C63' }}><Trash2 className="w-3 h-3" /></button>
                           </div>
                         </div>
                         <div className="space-y-1.5">
@@ -719,6 +735,34 @@ export default function OwnerTables() {
         zones={zones}
         onSave={() => { fetchFloorPlan(); }}
       />
+
+      {/* Impact-aware delete confirmation (replaces browser confirm). Live
+          reservations are blocked server-side; this surfaces the consequence. */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t('tables.confirmDeleteTitle').replace('{name}', deleteTarget?.name || '')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.kind === 'zone'
+                ? t('tables.confirmDeleteZoneImpact').replace(
+                    '{count}',
+                    String(packs.filter(p => p.zoneId === deleteTarget?.id).length)
+                  )
+                : deleteTarget?.kind === 'pack'
+                ? t('tables.confirmDeletePack')
+                : t('tables.confirmDeletePreset')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {t('tables.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

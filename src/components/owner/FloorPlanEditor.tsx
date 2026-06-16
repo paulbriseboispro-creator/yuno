@@ -20,7 +20,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
-import { Plus, Trash2, Save, Loader2, GripVertical, Square, Image, ZoomIn, ZoomOut, Move } from 'lucide-react';
+import { Plus, Trash2, Save, Loader2, GripVertical, Square, Image, ZoomIn, ZoomOut, Move, Copy, Check, AlertTriangle } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { FloorPlanTableShape } from '@/types';
 import { renderTableShape, ShapeIcon } from '@/components/vip/floorPlanShapes';
@@ -53,6 +53,7 @@ interface FloorZoneArea {
   width: number;
   height: number;
   fillOpacity?: number;
+  borderRadius?: number;
   showLabel?: boolean;
   labelOffsetX?: number;
   labelOffsetY?: number;
@@ -106,30 +107,101 @@ export function FloorPlanEditor({
   const [uploadingBg, setUploadingBg] = useState(false);
   const [bgImageSize, setBgImageSize] = useState({ width: CANVAS_WIDTH, height: CANVAS_HEIGHT });
   const [alignGuides, setAlignGuides] = useState<{ type: 'h' | 'v'; pos: number }[]>([]);
+  const [saveState, setSaveState] = useState<'saved' | 'saving' | 'error'>('saved');
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSavedSnapshotRef = useRef<string | null>(null);
+  const errorToastShownRef = useRef(false);
+  // Where a table sat when its drag began — lets handleEnd tell a real drag from a plain click.
+  const tableDragStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Single canonical serializer — used for both the DB write and the dirty-check,
+  // so the autosave snapshot and the saved layout always normalize identically.
+  const buildLayout = (
+    tbls: FloorTable[] = tables,
+    zAreas: FloorZoneArea[] = zoneAreas,
+    off: { x: number; y: number } = bgOffset,
+    scale: number = bgScale,
+  ) => ({
+    tables: tbls.map(t => ({
+      id: t.id, name: t.name, x: t.x, y: t.y, width: t.width, height: t.height,
+      capacity: t.capacity, maxExtraPersons: t.maxExtraPersons || 0, extraPersonPrice: t.extraPersonPrice || 0,
+      zoneId: t.zoneId || null, zoneName: t.zoneName || null,
+      zoneColor: t.zoneColor || null, shape: t.shape || 'rectangle', color: t.color || null,
+      borderRadius: t.borderRadius ?? 6, fillOpacity: t.fillOpacity ?? 0.55,
+    })),
+    zoneAreas: zAreas.map(z => ({ id: z.id, zoneId: z.zoneId, x: z.x, y: z.y, width: z.width, height: z.height, fillOpacity: z.fillOpacity ?? 0.05, borderRadius: z.borderRadius ?? 8, showLabel: z.showLabel ?? true, labelOffsetX: z.labelOffsetX ?? 0, labelOffsetY: z.labelOffsetY ?? 0, labelFontSize: z.labelFontSize ?? 10, labelRotation: z.labelRotation ?? 0 })),
+    bgOffset: off, bgScale: scale,
+  });
+
+  const snapshotOf = (
+    tbls: FloorTable[], zAreas: FloorZoneArea[], off: { x: number; y: number }, scale: number, bgUrl: string | null,
+  ) => JSON.stringify({ layout: buildLayout(tbls, zAreas, off, scale), bg: bgUrl || null });
+
+  // Low-level write. Returns ok/code so callers (manual save, autosave, close) decide UX.
+  const writeLayout = async (): Promise<{ ok: boolean; code?: string }> => {
+    if (!venueId) return { ok: false };
+    const { data: existing } = await supabase
+      .from('venue_floor_plans').select('id').eq('venue_id', venueId).maybeSingle();
+    const saveData = { layout: JSON.parse(JSON.stringify(buildLayout())), updated_at: new Date().toISOString(), background_image_url: backgroundUrl };
+    const { error } = existing
+      ? await supabase.from('venue_floor_plans').update(saveData).eq('venue_id', venueId)
+      : await supabase.from('venue_floor_plans').insert({ venue_id: venueId, ...saveData });
+    if (error) {
+      console.error('Error saving floor plan:', error);
+      return { ok: false, code: (error as { code?: string }).code };
+    }
+    return { ok: true };
+  };
 
   useEffect(() => {
-    if (existingLayout?.tables) {
-      setTables(existingLayout.tables.map(t => ({ ...t, maxExtraPersons: t.maxExtraPersons ?? 0, extraPersonPrice: t.extraPersonPrice ?? 0 })));
-    } else {
-      setTables([]);
-    }
-    if (existingLayout?.zoneAreas) {
-      setZoneAreas(existingLayout.zoneAreas);
-    } else {
-      setZoneAreas([]);
-    }
-    if (existingLayout?.bgOffset) {
-      setBgOffset(existingLayout.bgOffset);
-    } else {
-      setBgOffset({ x: 0, y: 0 });
-    }
-    if (existingLayout?.bgScale) {
-      setBgScale(existingLayout.bgScale);
-    } else {
-      setBgScale(1);
-    }
-    setBackgroundUrl(existingBackgroundUrl || null);
+    const nextTables: FloorTable[] = existingLayout?.tables
+      ? existingLayout.tables.map(t => ({ ...t, maxExtraPersons: t.maxExtraPersons ?? 0, extraPersonPrice: t.extraPersonPrice ?? 0 }))
+      : [];
+    const nextZoneAreas: FloorZoneArea[] = existingLayout?.zoneAreas ?? [];
+    const nextBgOffset = existingLayout?.bgOffset ?? { x: 0, y: 0 };
+    const nextBgScale = existingLayout?.bgScale ?? 1;
+    const nextBgUrl = existingBackgroundUrl || null;
+    setTables(nextTables);
+    setZoneAreas(nextZoneAreas);
+    setBgOffset(nextBgOffset);
+    setBgScale(nextBgScale);
+    setBackgroundUrl(nextBgUrl);
+    // Capture the just-loaded layout as the baseline so autosave doesn't fire on open.
+    lastSavedSnapshotRef.current = snapshotOf(nextTables, nextZoneAreas, nextBgOffset, nextBgScale, nextBgUrl);
+    setSaveState('saved');
+    errorToastShownRef.current = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [existingLayout, existingBackgroundUrl, open]);
+
+  // Debounced autosave: persists ~1s after the last change to any saved field.
+  // Snapshot equality keeps it from writing when nothing actually changed.
+  useEffect(() => {
+    if (!open || !venueId) return;
+    const snapshot = snapshotOf(tables, zoneAreas, bgOffset, bgScale, backgroundUrl);
+    if (snapshot === lastSavedSnapshotRef.current) return;
+    setSaveState('saving');
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(async () => {
+      const snap = snapshotOf(tables, zoneAreas, bgOffset, bgScale, backgroundUrl);
+      if (snap === lastSavedSnapshotRef.current) { setSaveState('saved'); return; }
+      const res = await writeLayout();
+      if (res.ok) {
+        lastSavedSnapshotRef.current = snap;
+        errorToastShownRef.current = false;
+        setSaveState('saved');
+      } else {
+        setSaveState('error');
+        if (!errorToastShownRef.current) {
+          errorToastShownRef.current = true;
+          toast.error(res.code === '23514' ? t('vipHost.floorPlanTableInUse') : t('common.error'));
+        }
+      }
+    }, 1000);
+    return () => { if (autoSaveTimer.current) { clearTimeout(autoSaveTimer.current); autoSaveTimer.current = null; } };
+    // Content-only deps on purpose: reacting to `open` here would race the hydration
+    // effect (stale snapshot vs freshly-set baseline). `open`/`venueId` are read via the guard.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tables, zoneAreas, bgOffset, bgScale, backgroundUrl]);
 
   useEffect(() => {
     if (!backgroundUrl) {
@@ -186,14 +258,35 @@ export function FloorPlanEditor({
   };
 
   const addTable = () => {
+    // Cascade each new table so they don't stack on the exact same spot.
+    const w = 40, h = 40;
+    const slot = tables.length % 9;
     const newTable: FloorTable = {
       id: crypto.randomUUID(),
       name: `Table ${tables.length + 1}`,
-      x: 50, y: 50, width: 40, height: 40, capacity: 6, maxExtraPersons: 0, extraPersonPrice: 0,
+      x: Math.min(60 + slot * 22, CANVAS_WIDTH - w),
+      y: Math.min(60 + slot * 22, CANVAS_HEIGHT - h),
+      width: w, height: h, capacity: 6, maxExtraPersons: 0, extraPersonPrice: 0,
       shape: 'rectangle',
     };
     setTables([...tables, newTable]);
     setSelectedTable(newTable.id);
+    setSelectedZoneArea(null);
+  };
+
+  const duplicateTable = (tableId: string) => {
+    const src = tables.find(t => t.id === tableId);
+    if (!src) return;
+    const inZone = src.zoneId ? tables.filter(t => t.zoneId === src.zoneId).length + 1 : tables.length + 1;
+    const dup: FloorTable = {
+      ...src,
+      id: crypto.randomUUID(),
+      name: `Table ${inZone}`,
+      x: Math.min(src.x + 20, CANVAS_WIDTH - src.width),
+      y: Math.min(src.y + 20, CANVAS_HEIGHT - src.height),
+    };
+    setTables([...tables, dup]);
+    setSelectedTable(dup.id);
     setSelectedZoneArea(null);
   };
 
@@ -215,6 +308,46 @@ export function FloorPlanEditor({
     setZoneAreas(zoneAreas.map(z => z.id === zoneAreaId ? { ...z, ...updates } : z));
   };
 
+  // Keyboard shortcuts — only when the editor is open and focus isn't in a field.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = document.activeElement as HTMLElement | null;
+      const tag = (el?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || el?.isContentEditable) return;
+
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'd' || e.key === 'D')) {
+        if (selectedTable) { e.preventDefault(); duplicateTable(selectedTable); }
+        return;
+      }
+      if (e.key === 'Escape') { setSelectedTable(null); setSelectedZoneArea(null); return; }
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedTable) { e.preventDefault(); removeTable(selectedTable); }
+        else if (selectedZoneArea) { e.preventDefault(); removeZoneArea(selectedZoneArea); }
+        return;
+      }
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        if (!selectedTable) return;
+        const tbl = tables.find(t => t.id === selectedTable);
+        if (!tbl) return;
+        e.preventDefault();
+        const dist = e.shiftKey ? 10 : 1;
+        let { x, y } = tbl;
+        if (e.key === 'ArrowUp') y -= dist;
+        if (e.key === 'ArrowDown') y += dist;
+        if (e.key === 'ArrowLeft') x -= dist;
+        if (e.key === 'ArrowRight') x += dist;
+        updateTable(selectedTable, {
+          x: Math.max(0, Math.min(x, CANVAS_WIDTH - tbl.width)),
+          y: Math.max(0, Math.min(y, CANVAS_HEIGHT - tbl.height)),
+        });
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, selectedTable, selectedZoneArea, tables]);
+
   const getEventPosition = (e: React.MouseEvent | React.TouchEvent) => {
     if (!svgRef.current) return { x: 0, y: 0 };
     const rect = svgRef.current.getBoundingClientRect();
@@ -233,6 +366,7 @@ export function FloorPlanEditor({
     const pos = getEventPosition(e);
     setDragging({ type: 'table', id: tableId });
     setDragOffset({ x: pos.x - table.x, y: pos.y - table.y });
+    tableDragStartRef.current = { x: table.x, y: table.y };
     setSelectedTable(tableId);
     setSelectedZoneArea(null);
   };
@@ -314,15 +448,20 @@ export function FloorPlanEditor({
     let newX = pos.x - dragOffset.x;
     let newY = pos.y - dragOffset.y;
 
-    // Smart alignment guides (no grid snapping)
+    // Smart alignment guides + snap to the nearest table edge/center (Figma-style)
     if (dragging.type === 'table') {
       const table = tables.find(t => t.id === dragging.id);
       if (table) {
-        const guides: { type: 'h' | 'v'; pos: number }[] = [];
         const cx = newX + table.width / 2;
         const cy = newY + table.height / 2;
         const right = newX + table.width;
         const bottom = newY + table.height;
+
+        // Best snap candidate per axis: { dist, target (new x/y), guide (line position) }
+        let bestVX: { dist: number; v: number; g: number } | null = null;
+        let bestHY: { dist: number; v: number; g: number } | null = null;
+        const considerV = (d: number, v: number, g: number) => { if (d < SNAP_THRESHOLD && (!bestVX || d < bestVX.dist)) bestVX = { dist: d, v, g }; };
+        const considerH = (d: number, v: number, g: number) => { if (d < SNAP_THRESHOLD && (!bestHY || d < bestHY.dist)) bestHY = { dist: d, v, g }; };
 
         for (const other of tables) {
           if (other.id === dragging.id) continue;
@@ -331,20 +470,24 @@ export function FloorPlanEditor({
           const oRight = other.x + other.width;
           const oBottom = other.y + other.height;
 
-          // Vertical guides (x alignment) — visual only, no snapping
-          if (Math.abs(newX - other.x) < SNAP_THRESHOLD) { guides.push({ type: 'v', pos: other.x }); }
-          else if (Math.abs(right - oRight) < SNAP_THRESHOLD) { guides.push({ type: 'v', pos: oRight }); }
-          else if (Math.abs(cx - oCx) < SNAP_THRESHOLD) { guides.push({ type: 'v', pos: oCx }); }
-          else if (Math.abs(newX - oRight) < SNAP_THRESHOLD) { guides.push({ type: 'v', pos: oRight }); }
-          else if (Math.abs(right - other.x) < SNAP_THRESHOLD) { guides.push({ type: 'v', pos: other.x }); }
+          // Vertical alignment (x): left/right edges, centers, edge-to-edge
+          considerV(Math.abs(newX - other.x), other.x, other.x);
+          considerV(Math.abs(right - oRight), oRight - table.width, oRight);
+          considerV(Math.abs(cx - oCx), oCx - table.width / 2, oCx);
+          considerV(Math.abs(newX - oRight), oRight, oRight);
+          considerV(Math.abs(right - other.x), other.x - table.width, other.x);
 
-          // Horizontal guides (y alignment) — visual only, no snapping
-          if (Math.abs(newY - other.y) < SNAP_THRESHOLD) { guides.push({ type: 'h', pos: other.y }); }
-          else if (Math.abs(bottom - oBottom) < SNAP_THRESHOLD) { guides.push({ type: 'h', pos: oBottom }); }
-          else if (Math.abs(cy - oCy) < SNAP_THRESHOLD) { guides.push({ type: 'h', pos: oCy }); }
-          else if (Math.abs(newY - oBottom) < SNAP_THRESHOLD) { guides.push({ type: 'h', pos: oBottom }); }
-          else if (Math.abs(bottom - other.y) < SNAP_THRESHOLD) { guides.push({ type: 'h', pos: other.y }); }
+          // Horizontal alignment (y): top/bottom edges, centers, edge-to-edge
+          considerH(Math.abs(newY - other.y), other.y, other.y);
+          considerH(Math.abs(bottom - oBottom), oBottom - table.height, oBottom);
+          considerH(Math.abs(cy - oCy), oCy - table.height / 2, oCy);
+          considerH(Math.abs(newY - oBottom), oBottom, oBottom);
+          considerH(Math.abs(bottom - other.y), other.y - table.height, other.y);
         }
+
+        const guides: { type: 'h' | 'v'; pos: number }[] = [];
+        if (bestVX) { newX = (bestVX as { v: number }).v; guides.push({ type: 'v', pos: (bestVX as { g: number }).g }); }
+        if (bestHY) { newY = (bestHY as { v: number }).v; guides.push({ type: 'h', pos: (bestHY as { g: number }).g }); }
         setAlignGuides(guides);
         newX = Math.max(0, Math.min(newX, CANVAS_WIDTH - table.width));
         newY = Math.max(0, Math.min(newY, CANVAS_HEIGHT - table.height));
@@ -361,10 +504,13 @@ export function FloorPlanEditor({
   };
 
   const handleEnd = () => {
-    // Auto-assign zone when table drag ends
+    // Spatial zone membership only re-evaluates on a real DRAG — a plain click that just
+    // selects a table must never change its zone. We compare against where the drag began.
     if (dragging?.type === 'table') {
       const table = tables.find(t => t.id === dragging.id);
-      if (table) {
+      const start = tableDragStartRef.current;
+      const moved = !!table && (!start || Math.abs(table.x - start.x) > 3 || Math.abs(table.y - start.y) > 3);
+      if (table && moved) {
         const tableCx = table.x + table.width / 2;
         const tableCy = table.y + table.height / 2;
         const containingZone = zoneAreas.find(z =>
@@ -379,11 +525,14 @@ export function FloorPlanEditor({
             const newIndex = tablesInZone + 1;
             updateTable(dragging.id, { zoneId: zone.id, zoneName: zone.name, zoneColor: zone.color, name: `Table ${newIndex}` });
           }
-        } else if (table.zoneId) {
+        } else if (table.zoneId && zoneAreas.some(z => z.zoneId === table.zoneId)) {
+          // Only drop the zone if it's governed by a drawn area on the canvas and the table
+          // was dragged out of it. Zones assigned via the dropdown (no area) stay put.
           updateTable(dragging.id, { zoneId: undefined, zoneName: undefined, zoneColor: undefined });
         }
       }
     }
+    tableDragStartRef.current = null;
     setDragging(null); setResizing(null); setAlignGuides([]);
   };
 
@@ -397,41 +546,38 @@ export function FloorPlanEditor({
     offsetY: bgOffset.y,
   });
 
-  const handleSave = async () => {
+  // Explicit "Save" button — flushes any pending autosave, persists, and closes.
+  const handleSaveAndClose = async () => {
+    if (autoSaveTimer.current) { clearTimeout(autoSaveTimer.current); autoSaveTimer.current = null; }
+    if (!venueId) { onClose(); return; }
     setSaving(true);
-    try {
-      const layout = {
-        tables: tables.map(t => ({
-          id: t.id, name: t.name, x: t.x, y: t.y, width: t.width, height: t.height,
-          capacity: t.capacity, maxExtraPersons: t.maxExtraPersons || 0, extraPersonPrice: t.extraPersonPrice || 0,
-          zoneId: t.zoneId || null, zoneName: t.zoneName || null,
-          zoneColor: t.zoneColor || null, shape: t.shape || 'rectangle', color: t.color || null,
-          borderRadius: t.borderRadius ?? 6, fillOpacity: t.fillOpacity ?? 0.55,
-        })),
-        zoneAreas: zoneAreas.map(z => ({ id: z.id, zoneId: z.zoneId, x: z.x, y: z.y, width: z.width, height: z.height, fillOpacity: z.fillOpacity ?? 0.05, showLabel: z.showLabel ?? true, labelOffsetX: z.labelOffsetX ?? 0, labelOffsetY: z.labelOffsetY ?? 0, labelFontSize: z.labelFontSize ?? 10, labelRotation: z.labelRotation ?? 0 })),
-        bgOffset, bgScale,
-      } as unknown;
-
-      const { data: existing } = await supabase
-        .from('venue_floor_plans').select('id').eq('venue_id', venueId).maybeSingle();
-
-      const saveData = { layout: layout as any, updated_at: new Date().toISOString(), background_image_url: backgroundUrl };
-
-      if (existing) {
-        await supabase.from('venue_floor_plans').update(saveData).eq('venue_id', venueId);
-      } else {
-        await supabase.from('venue_floor_plans').insert({ venue_id: venueId, ...saveData });
-      }
-
+    setSaveState('saving');
+    const snapshot = snapshotOf(tables, zoneAreas, bgOffset, bgScale, backgroundUrl);
+    const res = await writeLayout();
+    setSaving(false);
+    if (res.ok) {
+      lastSavedSnapshotRef.current = snapshot;
+      setSaveState('saved');
       toast.success(t('vipHost.floorPlanSaved'));
       onSave();
       onClose();
-    } catch (error) {
-      console.error('Error saving floor plan:', error);
-      toast.error(t('common.error'));
-    } finally {
-      setSaving(false);
+    } else {
+      setSaveState('error');
+      // 23514 = the prevent_floor_plan_table_removal guard (table still seated).
+      toast.error(res.code === '23514' ? t('vipHost.floorPlanTableInUse') : t('common.error'));
     }
+  };
+
+  // Closing via the X / overlay — flush any unsaved change in the background, then refresh + close.
+  const requestClose = () => {
+    if (autoSaveTimer.current) { clearTimeout(autoSaveTimer.current); autoSaveTimer.current = null; }
+    const snapshot = snapshotOf(tables, zoneAreas, bgOffset, bgScale, backgroundUrl);
+    if (venueId && snapshot !== lastSavedSnapshotRef.current) {
+      writeLayout().then(res => { if (res.ok) lastSavedSnapshotRef.current = snapshot; onSave(); });
+    } else {
+      onSave();
+    }
+    onClose();
   };
 
   const selectedTableData = tables.find(t => t.id === selectedTable);
@@ -446,11 +592,18 @@ export function FloorPlanEditor({
   };
 
   return (
-    <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+    <Sheet open={open} onOpenChange={(isOpen) => !isOpen && requestClose()}>
       <SheetContent side="bottom" className="h-[90vh] rounded-t-3xl">
         <SheetHeader className="pb-4">
           <SheetTitle className="flex items-center justify-between">
-            <span>{t('vipHost.floorPlanEditor')}</span>
+            <span className="flex items-center gap-3">
+              {t('vipHost.floorPlanEditor')}
+              <span className="flex items-center gap-1.5 text-xs font-normal" aria-live="polite">
+                {saveState === 'saving' && <><Loader2 className="h-3 w-3 animate-spin text-muted-foreground" /><span className="text-muted-foreground">{t('vipHost.autoSaving')}</span></>}
+                {saveState === 'saved' && <><Check className="h-3 w-3 text-emerald-500" /><span className="text-muted-foreground">{t('vipHost.autoSaved')}</span></>}
+                {saveState === 'error' && <><AlertTriangle className="h-3 w-3 text-destructive" /><span className="text-destructive">{t('vipHost.autoSaveError')}</span></>}
+              </span>
+            </span>
             <div className="flex gap-2 flex-wrap">
               <Select value="" onValueChange={(value) => value && addZoneArea(value)}>
                 <SelectTrigger className="w-[140px] h-9">
@@ -481,7 +634,7 @@ export function FloorPlanEditor({
                 <Plus className="h-4 w-4 mr-1" />
                 {t('vipHost.addTable')}
               </Button>
-              <Button size="sm" onClick={handleSave} disabled={saving}>
+              <Button size="sm" onClick={handleSaveAndClose} disabled={saving}>
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Save className="h-4 w-4 mr-1" />{t('common.save')}</>}
               </Button>
             </div>
@@ -559,6 +712,15 @@ export function FloorPlanEditor({
               </defs>
               <rect width="100%" height="100%" fill="url(#grid)" />
 
+              {/* Empty-canvas hint */}
+              {tables.length === 0 && zoneAreas.length === 0 && !backgroundUrl && (
+                <text x={CANVAS_WIDTH / 2} y={CANVAS_HEIGHT / 2} textAnchor="middle" dominantBaseline="middle"
+                  className="pointer-events-none select-none" fill="hsl(var(--muted-foreground))" opacity={0.55}
+                  style={{ fontSize: '13px' }}>
+                  {t('vipHost.emptyCanvasHint')}
+                </text>
+              )}
+
               {/* Background image with pan/zoom */}
               {backgroundUrl && (
                 <g clipPath="url(#canvas-clip)">
@@ -587,7 +749,7 @@ export function FloorPlanEditor({
                     onMouseLeave={() => setHoveredZoneArea(null)}
                   >
                     <rect x={zoneArea.x} y={zoneArea.y} width={zoneArea.width} height={zoneArea.height}
-                      rx={8} fill={zone.color} fillOpacity={zoneArea.fillOpacity ?? 0.05} stroke={zone.color} strokeWidth={0.75} strokeOpacity={0.4} strokeDasharray="6 4"
+                      rx={zoneArea.borderRadius ?? 8} fill={zone.color} fillOpacity={zoneArea.fillOpacity ?? 0.05} stroke={zone.color} strokeWidth={0.75} strokeOpacity={0.4} strokeDasharray="6 4"
                       className="cursor-move touch-none"
                       onMouseDown={(e) => handleZoneStart(e, zoneArea.id)}
                       onTouchStart={(e) => handleZoneStart(e, zoneArea.id)}
@@ -711,6 +873,19 @@ export function FloorPlanEditor({
                     <Input type="number" value={selectedZoneAreaData.height}
                       onChange={(e) => updateZoneArea(selectedZoneAreaData.id, { height: parseInt(e.target.value) || 30 })}
                       min={30} max={400} step={1} />
+                  </div>
+                </div>
+                {/* Corner radius */}
+                <div>
+                  <Label className="text-xs">Coins arrondis</Label>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Slider
+                      value={[selectedZoneAreaData.borderRadius ?? 8]}
+                      onValueChange={([v]) => updateZoneArea(selectedZoneAreaData.id, { borderRadius: v })}
+                      min={0} max={40} step={1}
+                      className="flex-1"
+                    />
+                    <span className="text-xs text-muted-foreground w-6 text-right">{selectedZoneAreaData.borderRadius ?? 8}</span>
                   </div>
                 </div>
                 {/* Fill opacity */}
@@ -921,10 +1096,16 @@ export function FloorPlanEditor({
                   </div>
                 </div>
 
-                <Button variant="destructive" size="sm" className="w-full" onClick={() => removeTable(selectedTableData.id)}>
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  {t('vipHost.removeTable')}
-                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" size="sm" onClick={() => duplicateTable(selectedTableData.id)}>
+                    <Copy className="h-4 w-4 mr-1" />
+                    {t('vipHost.duplicateTable')}
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={() => removeTable(selectedTableData.id)}>
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    {t('vipHost.removeTable')}
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="text-center text-muted-foreground py-8">
@@ -958,6 +1139,10 @@ export function FloorPlanEditor({
                 </div>
               </ScrollArea>
             </div>
+
+            <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground/70">
+              {t('vipHost.shortcutsHint')}
+            </p>
           </div>
         </div>
       </SheetContent>

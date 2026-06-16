@@ -11,7 +11,7 @@ export interface OwnerVipReservation {
   deposit: number;
   totalPrice: number;
   minimumSpend: number;
-  vipStatus: 'waiting' | 'placed' | 'active' | 'finished';
+  vipStatus: 'waiting' | 'placed' | 'active' | 'finished' | 'no_show' | 'denied';
   zoneName: string;
   zoneColor: string;
   zoneId: string;

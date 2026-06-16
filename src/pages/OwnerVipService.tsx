@@ -517,6 +517,7 @@ export default function OwnerVipService() {
           open={!!selectedTableReservation}
           onClose={() => setSelectedTableReservation(null)}
           onModifyPlacement={(res) => setModifyingReservation(res)}
+          onChanged={() => { refresh(); setSelectedTableReservation(null); }}
           tableName={
             selectedTableReservation?.assignedTableId
               ? floorPlan?.layout?.tables?.find((t: any) => t.id === selectedTableReservation.assignedTableId)?.name

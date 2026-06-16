@@ -948,6 +948,15 @@ function PackCard({
   const percentUsed = zone.tablesCount > 0 ? ((zone.tablesCount - remaining) / zone.tablesCount) * 100 : 0;
   const showUrgency = scarcity?.low_stock_enabled && !isSoldOut && percentUsed >= (scarcity?.low_stock_percent ?? 80);
 
+  // Deposit-now vs balance-at-venue, surfaced up front so the split payment is no
+  // surprise at checkout. Mirrors the deposit math in TableCheckout.
+  const depositAmount = (pack.deposit ?? 0) > 0
+    ? (pack.depositType === 'percentage'
+        ? Math.round((pack.basePrice * (pack.deposit as number)) / 100)
+        : (pack.deposit as number))
+    : 0;
+  const remainingAtVenue = depositAmount > 0 ? Math.max(0, pack.basePrice - depositAmount) : 0;
+
   return (
     <div
       className={cn(
@@ -985,6 +994,12 @@ function PackCard({
             )}
             {pack.minimumSpend > 0 && (
               <p className="text-[11px] text-amber-400/60 font-medium">{t('ticketSel.minSpend')} {pack.minimumSpend} €</p>
+            )}
+            {depositAmount > 0 && remainingAtVenue > 0 && (
+              <p className="text-[11px] text-white/45">
+                <span className="text-white/70 font-medium">{t('ticketSel.depositNow')} {depositAmount} €</span>
+                {' · '}{remainingAtVenue} € {t('ticketSel.atVenue')}
+              </p>
             )}
           </div>
 
