@@ -104,9 +104,29 @@ export default function OwnerTables() {
   }, [venueId]);
 
   const fetchFloorPlan = async () => {
-    if (!venueId) return;
+    if (!venueId) return null;
     const { data } = await supabase.from('venue_floor_plans').select('*').eq('venue_id', venueId).maybeSingle();
     setFloorPlan(data);
+    return data;
+  };
+
+  // The interactive plan is the source of truth for how many tables a zone holds. After a plan
+  // save, bring each zone's tables_count (the sellable inventory cap used by the booking flow)
+  // in line with the tables actually placed in that zone. Zones with no table on the plan keep
+  // their manual count, so we never accidentally zero-out a zone managed without the plan.
+  const syncZoneCountsFromLayout = async (layout: unknown) => {
+    const planTables = (layout as { tables?: { zoneId?: string | null }[] } | null | undefined)?.tables ?? [];
+    if (planTables.length === 0) return;
+    const counts = new Map<string, number>();
+    for (const t of planTables) { if (t.zoneId) counts.set(t.zoneId, (counts.get(t.zoneId) || 0) + 1); }
+    const updates = zones.flatMap(z => {
+      const n = counts.get(z.id);
+      if (n === undefined || n === z.tablesCount) return [];
+      return [supabase.from('table_zones').update({ tables_count: n }).eq('id', z.id)];
+    });
+    if (updates.length === 0) return;
+    await Promise.all(updates);
+    fetchZones();
   };
 
   const fetchEvents = async () => {
@@ -733,7 +753,7 @@ export default function OwnerTables() {
         existingLayout={floorPlan?.layout as any}
         existingBackgroundUrl={(floorPlan as any)?.background_image_url}
         zones={zones}
-        onSave={() => { fetchFloorPlan(); }}
+        onSave={async () => { const fp = await fetchFloorPlan(); await syncZoneCountsFromLayout(fp?.layout); }}
       />
 
       {/* Impact-aware delete confirmation (replaces browser confirm). Live

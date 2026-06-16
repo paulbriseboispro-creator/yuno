@@ -113,6 +113,10 @@ export function FloorPlanEditor({
   const errorToastShownRef = useRef(false);
   // Where a table sat when its drag began — lets handleEnd tell a real drag from a plain click.
   const tableDragStartRef = useRef<{ x: number; y: number } | null>(null);
+  // Latest state, mirrored into a ref so async writers persist the CURRENT layout, never a
+  // stale closure. writeChainRef serializes every write so they can't race / clobber.
+  const liveRef = useRef({ tables, zoneAreas, bgOffset, bgScale, backgroundUrl, venueId });
+  const writeChainRef = useRef<Promise<unknown>>(Promise.resolve());
 
   // Single canonical serializer — used for both the DB write and the dirty-check,
   // so the autosave snapshot and the saved layout always normalize identically.
@@ -137,20 +141,56 @@ export function FloorPlanEditor({
     tbls: FloorTable[], zAreas: FloorZoneArea[], off: { x: number; y: number }, scale: number, bgUrl: string | null,
   ) => JSON.stringify({ layout: buildLayout(tbls, zAreas, off, scale), bg: bgUrl || null });
 
-  // Low-level write. Returns ok/code so callers (manual save, autosave, close) decide UX.
-  const writeLayout = async (): Promise<{ ok: boolean; code?: string }> => {
-    if (!venueId) return { ok: false };
-    const { data: existing } = await supabase
-      .from('venue_floor_plans').select('id').eq('venue_id', venueId).maybeSingle();
-    const saveData = { layout: JSON.parse(JSON.stringify(buildLayout())), updated_at: new Date().toISOString(), background_image_url: backgroundUrl };
-    const { error } = existing
-      ? await supabase.from('venue_floor_plans').update(saveData).eq('venue_id', venueId)
-      : await supabase.from('venue_floor_plans').insert({ venue_id: venueId, ...saveData });
+  // Mirror current state every render so async writers read the latest, not a stale closure.
+  liveRef.current = { tables, zoneAreas, bgOffset, bgScale, backgroundUrl, venueId };
+
+  type LiveState = typeof liveRef.current;
+
+  // Atomic write: upsert on the unique venue_id (no select-then-write race) and require a row
+  // back — an empty result means the write was silently blocked (RLS / not the owner), which we
+  // surface as an error instead of reporting a phantom success.
+  const writeLayout = async (live: LiveState): Promise<{ ok: boolean; code?: string }> => {
+    if (!live.venueId) return { ok: false, code: 'NO_VENUE' };
+    const layout = buildLayout(live.tables, live.zoneAreas, live.bgOffset, live.bgScale);
+    const { data: rows, error } = await supabase
+      .from('venue_floor_plans')
+      .upsert(
+        { venue_id: live.venueId, layout: JSON.parse(JSON.stringify(layout)), updated_at: new Date().toISOString(), background_image_url: live.backgroundUrl },
+        { onConflict: 'venue_id' },
+      )
+      .select('id');
     if (error) {
       console.error('Error saving floor plan:', error);
       return { ok: false, code: (error as { code?: string }).code };
     }
+    if (!rows || rows.length === 0) {
+      console.error('Floor plan save persisted no row (RLS / ownership?)');
+      return { ok: false, code: 'NO_ROW' };
+    }
     return { ok: true };
+  };
+
+  // Single-flight writer: every save (autosave, manual, close) joins one promise chain, so writes
+  // never overlap and each link persists the LATEST state from liveRef. Redundant links no-op via
+  // the snapshot guard. This is what makes "add tables → save" land the final layout, every time.
+  const persist = (): Promise<{ ok: boolean; code?: string }> => {
+    const run = writeChainRef.current.then(async () => {
+      const live = liveRef.current;
+      const snap = snapshotOf(live.tables, live.zoneAreas, live.bgOffset, live.bgScale, live.backgroundUrl);
+      if (snap === lastSavedSnapshotRef.current) return { ok: true };
+      setSaveState('saving');
+      const res = await writeLayout(live);
+      if (res.ok) {
+        lastSavedSnapshotRef.current = snap;
+        errorToastShownRef.current = false;
+        setSaveState('saved');
+      } else {
+        setSaveState('error');
+      }
+      return res;
+    });
+    writeChainRef.current = run.catch(() => undefined);
+    return run;
   };
 
   useEffect(() => {
@@ -181,21 +221,13 @@ export function FloorPlanEditor({
     if (snapshot === lastSavedSnapshotRef.current) return;
     setSaveState('saving');
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-    autoSaveTimer.current = setTimeout(async () => {
-      const snap = snapshotOf(tables, zoneAreas, bgOffset, bgScale, backgroundUrl);
-      if (snap === lastSavedSnapshotRef.current) { setSaveState('saved'); return; }
-      const res = await writeLayout();
-      if (res.ok) {
-        lastSavedSnapshotRef.current = snap;
-        errorToastShownRef.current = false;
-        setSaveState('saved');
-      } else {
-        setSaveState('error');
-        if (!errorToastShownRef.current) {
+    autoSaveTimer.current = setTimeout(() => {
+      persist().then(res => {
+        if (!res.ok && !errorToastShownRef.current) {
           errorToastShownRef.current = true;
           toast.error(res.code === '23514' ? t('vipHost.floorPlanTableInUse') : t('common.error'));
         }
-      }
+      });
     }, 1000);
     return () => { if (autoSaveTimer.current) { clearTimeout(autoSaveTimer.current); autoSaveTimer.current = null; } };
     // Content-only deps on purpose: reacting to `open` here would race the hydration
@@ -257,13 +289,26 @@ export function FloorPlanEditor({
     setSelectedTable(null);
   };
 
+  // Next collision-free "Table N" label, scoped to a zone (or to unzoned tables when no zoneId).
+  // Uses the highest existing index + 1 — NOT the count — so deletes/renames/duplicates can never
+  // produce two tables with the same name in a zone (which would be ambiguous for staff & guests).
+  const nextTableName = (pool: FloorTable[], zoneId?: string) => {
+    const scoped = pool.filter(t => (zoneId ? t.zoneId === zoneId : !t.zoneId));
+    let max = 0;
+    for (const t of scoped) {
+      const m = /(\d+)\s*$/.exec((t.name || '').trim());
+      if (m) max = Math.max(max, parseInt(m[1], 10));
+    }
+    return `Table ${max + 1}`;
+  };
+
   const addTable = () => {
     // Cascade each new table so they don't stack on the exact same spot.
     const w = 40, h = 40;
     const slot = tables.length % 9;
     const newTable: FloorTable = {
       id: crypto.randomUUID(),
-      name: `Table ${tables.length + 1}`,
+      name: nextTableName(tables),
       x: Math.min(60 + slot * 22, CANVAS_WIDTH - w),
       y: Math.min(60 + slot * 22, CANVAS_HEIGHT - h),
       width: w, height: h, capacity: 6, maxExtraPersons: 0, extraPersonPrice: 0,
@@ -277,11 +322,10 @@ export function FloorPlanEditor({
   const duplicateTable = (tableId: string) => {
     const src = tables.find(t => t.id === tableId);
     if (!src) return;
-    const inZone = src.zoneId ? tables.filter(t => t.zoneId === src.zoneId).length + 1 : tables.length + 1;
     const dup: FloorTable = {
       ...src,
       id: crypto.randomUUID(),
-      name: `Table ${inZone}`,
+      name: nextTableName(tables, src.zoneId),
       x: Math.min(src.x + 20, CANVAS_WIDTH - src.width),
       y: Math.min(src.y + 20, CANVAS_HEIGHT - src.height),
     };
@@ -521,9 +565,8 @@ export function FloorPlanEditor({
           const zone = zones.find(z => z.id === containingZone.zoneId);
           if (zone && table.zoneId !== containingZone.zoneId) {
             // Count existing tables in this zone (excluding current)
-            const tablesInZone = tables.filter(t => t.id !== dragging.id && t.zoneId === zone.id).length;
-            const newIndex = tablesInZone + 1;
-            updateTable(dragging.id, { zoneId: zone.id, zoneName: zone.name, zoneColor: zone.color, name: `Table ${newIndex}` });
+            const name = nextTableName(tables.filter(t => t.id !== dragging.id), zone.id);
+            updateTable(dragging.id, { zoneId: zone.id, zoneName: zone.name, zoneColor: zone.color, name });
           }
         } else if (table.zoneId && zoneAreas.some(z => z.zoneId === table.zoneId)) {
           // Only drop the zone if it's governed by a drawn area on the canvas and the table
@@ -546,34 +589,29 @@ export function FloorPlanEditor({
     offsetY: bgOffset.y,
   });
 
-  // Explicit "Save" button — flushes any pending autosave, persists, and closes.
+  // Explicit "Save" button — drains the write chain to the latest state, then closes.
   const handleSaveAndClose = async () => {
     if (autoSaveTimer.current) { clearTimeout(autoSaveTimer.current); autoSaveTimer.current = null; }
     if (!venueId) { onClose(); return; }
     setSaving(true);
-    setSaveState('saving');
-    const snapshot = snapshotOf(tables, zoneAreas, bgOffset, bgScale, backgroundUrl);
-    const res = await writeLayout();
+    const res = await persist();
     setSaving(false);
     if (res.ok) {
-      lastSavedSnapshotRef.current = snapshot;
-      setSaveState('saved');
       toast.success(t('vipHost.floorPlanSaved'));
       onSave();
       onClose();
     } else {
-      setSaveState('error');
       // 23514 = the prevent_floor_plan_table_removal guard (table still seated).
       toast.error(res.code === '23514' ? t('vipHost.floorPlanTableInUse') : t('common.error'));
     }
   };
 
-  // Closing via the X / overlay — flush any unsaved change in the background, then refresh + close.
+  // Closing via the X / overlay — flush any unsaved change through the chain, then refresh + close.
   const requestClose = () => {
     if (autoSaveTimer.current) { clearTimeout(autoSaveTimer.current); autoSaveTimer.current = null; }
     const snapshot = snapshotOf(tables, zoneAreas, bgOffset, bgScale, backgroundUrl);
     if (venueId && snapshot !== lastSavedSnapshotRef.current) {
-      writeLayout().then(res => { if (res.ok) lastSavedSnapshotRef.current = snapshot; onSave(); });
+      persist().finally(() => onSave());
     } else {
       onSave();
     }
@@ -586,9 +624,8 @@ export function FloorPlanEditor({
 
   const handleZoneChange = (tableId: string, zoneId: string) => {
     const zone = zones.find(z => z.id === zoneId);
-    const tablesInZone = tables.filter(t => t.id !== tableId && t.zoneId === zoneId).length;
-    const newIndex = tablesInZone + 1;
-    updateTable(tableId, { zoneId, zoneName: zone?.name, zoneColor: zone?.color, name: `Table ${newIndex}` });
+    const name = nextTableName(tables.filter(t => t.id !== tableId), zoneId);
+    updateTable(tableId, { zoneId, zoneName: zone?.name, zoneColor: zone?.color, name });
   };
 
   return (
