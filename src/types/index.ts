@@ -175,7 +175,7 @@ export type AffiliateClick = {
   referrer?: string;
 };
 
-export type VipStatus = 'waiting' | 'placed' | 'active' | 'finished';
+export type VipStatus = 'waiting' | 'placed' | 'active' | 'finished' | 'no_show' | 'denied';
 
 export type VipReservation = {
   id: string;

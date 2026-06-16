@@ -18,9 +18,12 @@ export function VipTableGrid({ reservations, consumptions, onSelect }: VipTableG
   const { t } = useLanguage();
 
   const getStatusColor = (reservation: VipReservation, totalConsumed: number) => {
-    const hasArrived = reservation.hasArrived ?? 
+    if (reservation.vipStatus === 'denied') return 'destructive';
+    if (reservation.vipStatus === 'no_show') return 'muted';
+
+    const hasArrived = reservation.hasArrived ??
       (reservation.checkedInAt !== null || ['placed', 'active', 'finished'].includes(reservation.vipStatus));
-    
+
     if (!hasArrived) return 'expected';
     
     const hasMinimum = (reservation.minimumSpend || 0) > 0;
@@ -35,6 +38,7 @@ export function VipTableGrid({ reservations, consumptions, onSelect }: VipTableG
     destructive: { background: 'rgba(232,25,44,0.05)', border: '1px solid rgba(232,25,44,0.5)' },
     warning: { background: 'rgba(234,179,8,0.05)', border: '1px solid rgba(234,179,8,0.5)' },
     success: { background: 'rgba(52,211,153,0.05)', border: '1px solid rgba(52,211,153,0.5)' },
+    muted: { background: 'rgba(255,255,255,0.02)', border: `1px solid ${BORDER}`, opacity: 0.45 },
     default: { background: INNER_BG, border: `1px solid ${BORDER}` },
   };
 
@@ -43,6 +47,7 @@ export function VipTableGrid({ reservations, consumptions, onSelect }: VipTableG
     destructive: '#E8192C',
     warning: '#FCD34D',
     success: '#34D399',
+    muted: 'rgba(255,255,255,0.25)',
     default: 'rgba(255,255,255,0.36)',
   };
 

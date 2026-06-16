@@ -37,6 +37,8 @@ const getStatusConfig = (t: (key: string) => string): Record<string, { label: st
   placed: { label: t('vip.inside'), color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/30' },
   active: { label: t('vip.inside'), color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/30' },
   finished: { label: t('vip.finished'), color: 'text-muted-foreground', bg: 'bg-muted/50 border-muted' },
+  no_show: { label: t('vipHost.statusNoShow'), color: 'text-muted-foreground', bg: 'bg-muted/50 border-muted' },
+  denied: { label: t('vipHost.statusDenied'), color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/30' },
 });
 
 const getArrivalConfig = (t: (key: string) => string) => ({

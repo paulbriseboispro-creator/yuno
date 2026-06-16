@@ -67,6 +67,9 @@ interface VipTableDetailProps {
     status: VipReservation['vipStatus'],
     tableId?: string
   ) => Promise<void>;
+  onReassign?: (reservation: VipReservation) => void;
+  canReassign?: boolean;
+  actionsDisabled?: boolean;
   venueId?: string;
 }
 
@@ -89,6 +92,9 @@ export function VipTableDetail({
   onClose,
   onAddConsumption,
   onUpdateStatus,
+  onReassign,
+  canReassign = false,
+  actionsDisabled = false,
   venueId,
 }: VipTableDetailProps) {
   const { language, t } = useLanguage();
@@ -270,13 +276,15 @@ export function VipTableDetail({
             <Badge 
               variant="outline"
               className="text-xs"
-              style={{ 
-                borderColor: reservation.vipStatus === 'finished' ? 'hsl(var(--muted-foreground))' : reservation.zoneColor, 
-                color: reservation.vipStatus === 'finished' ? 'hsl(var(--muted-foreground))' : reservation.zoneColor 
+              style={{
+                borderColor: ['finished', 'no_show', 'denied'].includes(reservation.vipStatus) ? 'hsl(var(--muted-foreground))' : reservation.zoneColor,
+                color: ['finished', 'no_show', 'denied'].includes(reservation.vipStatus) ? 'hsl(var(--muted-foreground))' : reservation.zoneColor
               }}
             >
-              {reservation.vipStatus === 'waiting' ? t('vipHost.statusWaiting') 
+              {reservation.vipStatus === 'waiting' ? t('vipHost.statusWaiting')
                 : reservation.vipStatus === 'finished' ? t('vipHost.statusFinished')
+                : reservation.vipStatus === 'no_show' ? t('vipHost.statusNoShow')
+                : reservation.vipStatus === 'denied' ? t('vipHost.statusDenied')
                 : t('vipHost.statusInside')}
             </Badge>
           </div>
@@ -600,24 +608,37 @@ export function VipTableDetail({
           </div>
         </ScrollArea>
 
-        {/* Fixed footer */}
-        {reservation.vipStatus !== 'finished' && (
+        {/* Fixed footer — actions only for seated guests (placed/active) */}
+        {['placed', 'active'].includes(reservation.vipStatus) && (
           <div className="absolute bottom-0 left-0 right-0 p-4 backdrop-blur" style={{ background: 'rgba(10,10,12,0.92)', borderTop: `1px solid ${BORDER}`, paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
-            <Button 
-              className="w-full h-12"
-              variant="secondary"
-              onClick={handleMarkFinished}
-              disabled={loading}
-            >
-              {loading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <>
-                  <CheckCircle2 className="w-5 h-5 mr-2" />
-                  {t('vipHost.markFinished')}
-                </>
+            <div className="flex gap-2">
+              {canReassign && onReassign && (
+                <Button
+                  className="flex-1 h-12"
+                  variant="outline"
+                  onClick={() => onReassign(reservation)}
+                  disabled={loading || actionsDisabled}
+                >
+                  <MapPin className="w-5 h-5 mr-2" />
+                  {t('vipHost.reassignTable')}
+                </Button>
               )}
-            </Button>
+              <Button
+                className="flex-1 h-12"
+                variant="secondary"
+                onClick={handleMarkFinished}
+                disabled={loading || actionsDisabled}
+              >
+                {loading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-5 h-5 mr-2" />
+                    {t('vipHost.markFinished')}
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         )}
       </SheetContent>

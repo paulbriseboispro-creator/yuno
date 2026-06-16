@@ -36,9 +36,9 @@ type SortBy = 'status' | 'time';
 
 export default function VipHostDashboard() {
   const { t } = useLanguage();
-  const { 
+  const {
     reservations, consumptions, floorPlan, loading, activeEvent, venueId,
-    updateReservationStatus, addConsumption, refresh
+    updateReservationStatus, addConsumption, reassignTable, refresh, connectionStale
   } = useVipHost();
 
   const { quickItems, loading: menuLoading } = useVipMenuItems(venueId);
@@ -48,6 +48,7 @@ export default function VipHostDashboard() {
   const [sortBy, setSortBy] = useState<SortBy>('status');
   const [showPlacementSheet, setShowPlacementSheet] = useState(false);
   const [pendingPlacement, setPendingPlacement] = useState<VipReservation | null>(null);
+  const [reassignMode, setReassignMode] = useState(false);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [placementLoading, setPlacementLoading] = useState(false);
   const [showOrders, setShowOrders] = useState(false);
@@ -88,6 +89,8 @@ export default function VipHostDashboard() {
         placed: 1,
         active: 2,
         finished: 3,
+        no_show: 4,
+        denied: 5,
       };
       sorted.sort((a, b) => statusOrder[a.vipStatus] - statusOrder[b.vipStatus]);
     } else {
@@ -114,30 +117,59 @@ export default function VipHostDashboard() {
     type: item.item_type,
   }));
 
-  // Handle starting placement for a reservation
+  // Map known DB guard codes to precise, localized messages (vs a generic error).
+  const placementErrorMessage = (error: unknown): string => {
+    const code = (error as { code?: string } | null)?.code;
+    if (code === '23505') return t('vipHost.tableTaken');     // occupancy guard
+    if (code === '23503') return t('vipHost.tableMissing');   // not on floor plan
+    return (error as Error)?.message || t('vipHost.placementError');
+  };
+
+  // Handle starting placement for a reservation (initial seating)
   const handleStartPlacement = (reservationId: string) => {
     const reservation = reservations.find(r => r.id === reservationId);
     if (reservation) {
       setShowArrivals(false);
+      setReassignMode(false);
+      setSelectedTableId(null);
       setPendingPlacement(reservation);
       setShowPlacementSheet(true);
     }
   };
 
-  // Handle table placement
+  // Handle starting a table REASSIGNMENT for an already-placed guest
+  const handleStartReassign = (reservation: VipReservation) => {
+    setSelectedReservation(null);
+    setReassignMode(true);
+    setSelectedTableId(reservation.assignedTableId || null);
+    setPendingPlacement(reservation);
+    setShowPlacementSheet(true);
+  };
+
+  const closePlacementSheet = () => {
+    setShowPlacementSheet(false);
+    setPendingPlacement(null);
+    setSelectedTableId(null);
+    setReassignMode(false);
+  };
+
+  // Handle table placement / reassignment
   const handlePlaceTable = async () => {
     if (!pendingPlacement || !selectedTableId) return;
-    
+
     setPlacementLoading(true);
     try {
-      await updateReservationStatus(pendingPlacement.id, 'placed', selectedTableId);
+      if (reassignMode) {
+        await reassignTable(pendingPlacement.id, selectedTableId);
+      } else {
+        await updateReservationStatus(pendingPlacement.id, 'placed', selectedTableId);
+      }
       const tableName = floorPlan?.layout?.tables?.find(t => t.id === selectedTableId)?.name || selectedTableId;
       toast.success(`${pendingPlacement.fullName} → ${tableName}`);
-      setShowPlacementSheet(false);
-      setPendingPlacement(null);
-      setSelectedTableId(null);
+      closePlacementSheet();
     } catch (error) {
-      toast.error(t('vipHost.placementError'));
+      // Surface the real reason (e.g. table already taken / no longer on plan).
+      toast.error(placementErrorMessage(error));
     } finally {
       setPlacementLoading(false);
     }
@@ -149,6 +181,21 @@ export default function VipHostDashboard() {
   const handleFinishService = async (reservationId: string) => {
     await updateReservationStatus(reservationId, 'finished');
     toast.success(t('vipHost.serviceFinished'));
+  };
+
+  // Mark a not-yet-arrived guest as no-show or denied entry (from placement sheet)
+  const handleMarkAbsent = async (status: 'no_show' | 'denied') => {
+    if (!pendingPlacement) return;
+    setPlacementLoading(true);
+    try {
+      await updateReservationStatus(pendingPlacement.id, status);
+      toast.success(status === 'no_show' ? t('vipHost.markedNoShow') : t('vipHost.markedDenied'));
+      closePlacementSheet();
+    } catch (error) {
+      toast.error(placementErrorMessage(error));
+    } finally {
+      setPlacementLoading(false);
+    }
   };
 
   // Handle clicking on low credit table from priority lane
@@ -252,6 +299,23 @@ export default function VipHostDashboard() {
         </div>
       </header>
 
+      {/* Stale-connection banner: realtime socket dropped or device offline.
+          Data may be out of date and write actions are disabled until reconnect. */}
+      {!loading && connectionStale && (
+        <div
+          className="sticky z-30 flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium"
+          style={{
+            top: 'calc(env(safe-area-inset-top, 0px) + 48px)',
+            background: 'rgba(232,25,44,0.16)',
+            color: '#FCA5A5',
+            borderBottom: `1px solid ${BORDER}`,
+          }}
+        >
+          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+          {t('vipHost.connectionStale')}
+        </div>
+      )}
+
       <main className="relative z-10 p-3 space-y-3">
         {/* Zone Tabs */}
         {zones.length > 1 && (
@@ -328,9 +392,8 @@ export default function VipHostDashboard() {
                     : undefined
                   }
                   onClick={() => {
-                    if (reservation.vipStatus === 'waiting') {
-                      setPendingPlacement(reservation);
-                      setShowPlacementSheet(true);
+                    if (['waiting', 'no_show', 'denied'].includes(reservation.vipStatus)) {
+                      handleStartPlacement(reservation.id);
                     } else {
                       setSelectedReservation(reservation);
                     }
@@ -348,9 +411,8 @@ export default function VipHostDashboard() {
                 reservations={sortedReservations}
                 consumptions={consumptions}
                 onSelect={(reservation) => {
-                  if (reservation.vipStatus === 'waiting') {
-                    setPendingPlacement(reservation);
-                    setShowPlacementSheet(true);
+                  if (['waiting', 'no_show', 'denied'].includes(reservation.vipStatus)) {
+                    handleStartPlacement(reservation.id);
                   } else {
                     setSelectedReservation(reservation);
                   }
@@ -405,15 +467,18 @@ export default function VipHostDashboard() {
         onClose={() => setSelectedReservation(null)}
         onAddConsumption={addConsumption}
         onUpdateStatus={updateReservationStatus}
+        onReassign={handleStartReassign}
+        canReassign={(floorPlan?.layout?.tables?.length ?? 0) > 0}
+        actionsDisabled={connectionStale}
         venueId={venueId}
       />
 
-      {/* Placement sheet */}
-      <Sheet open={showPlacementSheet} onOpenChange={setShowPlacementSheet}>
+      {/* Placement sheet (initial seating + reassignment) */}
+      <Sheet open={showPlacementSheet} onOpenChange={(o) => { if (!o) closePlacementSheet(); }}>
         <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl">
           <SheetHeader className="pb-4">
             <SheetTitle>
-              {t('vipHost.placeGuest').replace('{name}', pendingPlacement?.fullName || '')}
+              {(reassignMode ? t('vipHost.reassignGuest') : t('vipHost.placeGuest')).replace('{name}', pendingPlacement?.fullName || '')}
             </SheetTitle>
             <p className="text-sm text-muted-foreground">
               {t('vipHost.personsInZone').replace('{count}', String(pendingPlacement?.guestCount || 0)).replace('{zone}', pendingPlacement?.zoneName || '')}
@@ -429,18 +494,42 @@ export default function VipHostDashboard() {
             onTableSelect={(tableId) => setSelectedTableId(tableId)}
           />
 
-          <div className="absolute bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur border-t" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
-            <Button 
+          <div className="absolute bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur border-t space-y-2" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
+            <Button
               className="w-full h-12 font-semibold"
-              disabled={!selectedTableId || placementLoading}
+              disabled={!selectedTableId || placementLoading || connectionStale}
               onClick={handlePlaceTable}
             >
               {placementLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
+              ) : connectionStale ? (
+                t('vipHost.connectionStale')
               ) : (
                 `${t('vipHost.placeTo')} ${selectedTableId ? (floorPlan?.layout?.tables?.find(tbl => tbl.id === selectedTableId)?.name || selectedTableId) : '...'}`
               )}
             </Button>
+
+            {/* No-show / denied entry — only for initial seating, not reassignment */}
+            {!reassignMode && (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1 h-10"
+                  disabled={placementLoading || connectionStale}
+                  onClick={() => handleMarkAbsent('no_show')}
+                >
+                  {t('vipHost.markNoShow')}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1 h-10 text-destructive hover:text-destructive"
+                  disabled={placementLoading || connectionStale}
+                  onClick={() => handleMarkAbsent('denied')}
+                >
+                  {t('vipHost.markDenied')}
+                </Button>
+              </div>
+            )}
           </div>
         </SheetContent>
       </Sheet>

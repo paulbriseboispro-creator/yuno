@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { uniqueChannel } from '@/lib/realtime';
 import type { TablesUpdate } from '@/integrations/supabase/types';
@@ -22,6 +22,26 @@ export function useVipHost() {
     loading: true,
     activeEvent: null,
   });
+
+  // Realtime health: in a packed club on flaky wifi the websocket can drop while
+  // the browser still reports "online". We surface that so the UI can warn the
+  // host that data may be stale and block writes until we reconnect.
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const [isOnline, setIsOnline] = useState(
+    typeof navigator === 'undefined' ? true : navigator.onLine
+  );
+  const wasConnectedRef = useRef(false);
+
+  useEffect(() => {
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+    };
+  }, []);
 
   const fetchData = useCallback(async () => {
     if (!venueId) return;
@@ -208,7 +228,10 @@ export function useVipHost() {
 
     fetchData();
 
-    // Subscribe to reservation changes
+    // Subscribe to reservation changes. The status callback is the health signal:
+    // SUBSCRIBED = live; CHANNEL_ERROR/TIMED_OUT/CLOSED = the socket dropped.
+    // supabase-js auto-reconnects, so on a fresh SUBSCRIBED after a drop we refetch
+    // to resync any changes we missed while offline.
     const reservationsChannel = supabase
       .channel(uniqueChannel('vip_reservations_changes'))
       .on(
@@ -222,7 +245,22 @@ export function useVipHost() {
           fetchData();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          setRealtimeConnected(true);
+          if (wasConnectedRef.current === false) {
+            wasConnectedRef.current = true;
+            fetchData(); // resync after (re)connect
+          }
+        } else if (
+          status === 'CHANNEL_ERROR' ||
+          status === 'TIMED_OUT' ||
+          status === 'CLOSED'
+        ) {
+          wasConnectedRef.current = false;
+          setRealtimeConnected(false);
+        }
+      });
 
     // Subscribe to consumption changes
     const consumptionsChannel = supabase
@@ -241,6 +279,8 @@ export function useVipHost() {
       .subscribe();
 
     return () => {
+      wasConnectedRef.current = false;
+      setRealtimeConnected(false);
       supabase.removeChannel(reservationsChannel);
       supabase.removeChannel(consumptionsChannel);
     };
@@ -329,12 +369,28 @@ export function useVipHost() {
     await fetchData();
   };
 
+  // Move an already-placed guest to a different table. Errors propagate verbatim
+  // so the UI can show the real reason (e.g. "table already taken" / not on plan).
+  const reassignTable = async (reservationId: string, tableId: string) => {
+    const { error } = await supabase
+      .from('table_reservations')
+      .update({ assigned_table_id: tableId })
+      .eq('id', reservationId);
+
+    if (error) throw error;
+    await fetchData();
+  };
+
   return {
     ...data,
     venueId,
     loading: data.loading || venueLoading,
     updateReservationStatus,
     addConsumption,
+    reassignTable,
     refresh: fetchData,
+    // True when the realtime socket is down or the device is offline → data may
+    // be stale and writes should be blocked.
+    connectionStale: !realtimeConnected || !isOnline,
   };
 }
