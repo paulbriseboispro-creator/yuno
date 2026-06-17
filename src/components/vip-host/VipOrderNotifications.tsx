@@ -248,8 +248,8 @@ export function VipOrderNotifications({ venueId, onOrderConfirmed, onPendingCoun
       if (order) {
         const { data: { user } } = await supabase.auth.getUser();
         
-        for (const item of order.items) {
-          await supabase.from('vip_consumptions').insert({
+        const { error: consErr } = await supabase.from('vip_consumptions').insert(
+          order.items.map(item => ({
             table_reservation_id: order.table_reservation_id,
             venue_id: venueId,
             item_name: item.item_name,
@@ -258,8 +258,9 @@ export function VipOrderNotifications({ venueId, onOrderConfirmed, onPendingCoun
             unit_price: item.unit_price,
             total_price: item.quantity * item.unit_price,
             served_by: user?.id,
-          });
-        }
+          }))
+        );
+        if (consErr) throw consErr;
       }
 
       toast.success(t('vipOrders.served'));
