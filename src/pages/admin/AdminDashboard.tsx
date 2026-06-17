@@ -10,6 +10,7 @@ import { motion } from 'framer-motion';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { MaintenanceToggle } from '@/components/admin/MaintenanceToggle';
+import { PaymentsToggle } from '@/components/admin/PaymentsToggle';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED        = '#E8192C';
@@ -390,7 +391,10 @@ export default function AdminDashboard() {
         {/* System / maintenance */}
         <section>
           <SectionHeader icon={AlertCircle} label={t('maintenance.title')} />
-          <MaintenanceToggle />
+          <div className="grid gap-4 md:grid-cols-2">
+            <MaintenanceToggle />
+            <PaymentsToggle />
+          </div>
         </section>
 
       </div>

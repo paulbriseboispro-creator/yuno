@@ -1056,6 +1056,7 @@ export type Database = {
           maintenance_mode: boolean
           maintenance_password: string | null
           maintenance_password_hash: string | null
+          payments_disabled: boolean
           terms_url: string | null
           terms_version: string
           updated_at: string
@@ -1067,6 +1068,7 @@ export type Database = {
           maintenance_mode?: boolean
           maintenance_password?: string | null
           maintenance_password_hash?: string | null
+          payments_disabled?: boolean
           terms_url?: string | null
           terms_version?: string
           updated_at?: string
@@ -1078,6 +1080,7 @@ export type Database = {
           maintenance_mode?: boolean
           maintenance_password?: string | null
           maintenance_password_hash?: string | null
+          payments_disabled?: boolean
           terms_url?: string | null
           terms_version?: string
           updated_at?: string
@@ -9715,6 +9718,7 @@ export type Database = {
           id: string | null
           maintenance_message: string | null
           maintenance_mode: boolean | null
+          payments_disabled: boolean | null
           terms_url: string | null
           terms_version: string | null
           updated_at: string | null
@@ -9723,6 +9727,7 @@ export type Database = {
           id?: string | null
           maintenance_message?: string | null
           maintenance_mode?: boolean | null
+          payments_disabled?: boolean | null
           terms_url?: string | null
           terms_version?: string | null
           updated_at?: string | null
@@ -9731,6 +9736,7 @@ export type Database = {
           id?: string | null
           maintenance_message?: string | null
           maintenance_mode?: boolean | null
+          payments_disabled?: boolean | null
           terms_url?: string | null
           terms_version?: string | null
           updated_at?: string | null

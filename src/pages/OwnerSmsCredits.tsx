@@ -184,6 +184,17 @@ export default function OwnerSmsCredits() {
         },
       });
       if (error) throw error;
+      if (data?.code === 'PAYMENTS_DISABLED') {
+        toast.error(t('payments.disabledBanner'));
+        setPurchasing(null);
+        return;
+      }
+      if (data?.demo) {
+        toast.success(`Demo: +${data.credits_added} SMS`);
+        await loadBalance();
+        setPurchasing(null);
+        return;
+      }
       if (data?.url) {
         window.location.href = data.url;
       } else {

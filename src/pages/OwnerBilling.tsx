@@ -118,7 +118,8 @@ export default function OwnerBilling() {
     try {
       const { data, error } = await supabase.functions.invoke('club-subscription', { body: { action: 'create', venueId, planCode, billingCycle: cycle } });
       if (error) throw error;
-      if (data?.updated) { toast.success(t('plan.planChanged')); refreshPlan(); }
+      if (data?.code === 'PAYMENTS_DISABLED') { toast.error(t('payments.disabledBanner')); }
+      else if (data?.updated) { toast.success(t('plan.planChanged')); refreshPlan(); }
       else if (data?.url) { window.open(data.url, '_blank'); }
       else if (data?.error) { toast.error(data.error); }
     } catch { toast.error(t('plan.subscribeError')); }

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
 
 // Pinned to the account's API version. Newer than the SDK's bundled types
 // (which top out at basil), hence the cast. On clover+, a subscription's billing
@@ -305,13 +306,6 @@ serve(async (req) => {
       let targetVenueId = body.venueId;
       const planCode = body.planCode || "elite";
       const billingCycle: BillingCycle = body.billingCycle === "annual" ? "annual" : "monthly";
-      const priceId = priceForPlan(planCode, billingCycle);
-      if (!priceId) {
-        const cycleKey = billingCycle === "annual" ? "ANNUAL" : "MONTHLY";
-        throw new Error(
-          `Price not configured for plan "${planCode}" (${billingCycle}). Set STRIPE_PRICE_${planCode.toUpperCase()}_${cycleKey}.`,
-        );
-      }
 
       if (!targetVenueId) {
         const { data: venue } = await supabaseClient
@@ -326,6 +320,43 @@ serve(async (req) => {
       }
 
       if (!targetVenueId) throw new Error("No venue found for this user");
+
+      // ── Payments kill-switch + demo bypass ──────────────────────────────────
+      // Resolved BEFORE the Stripe price lookup so a demo subscription works even
+      // when the STRIPE_PRICE_* secrets aren't configured yet.
+      const paymentMode = (await resolvePaymentMode(supabaseClient, user.email)).mode;
+      if (paymentMode === "blocked") {
+        return json({ success: false, error: "Payments are temporarily unavailable. Please try again later.", code: PAYMENTS_DISABLED_CODE }, 200);
+      }
+      if (paymentMode === "simulate") {
+        // Demo (@womber.fr): grant the plan as active with no Stripe. Period runs
+        // one month (or one year) from now to mirror the chosen billing cycle.
+        const now = new Date();
+        const periodEnd = new Date(now);
+        if (billingCycle === "annual") periodEnd.setFullYear(periodEnd.getFullYear() + 1);
+        else periodEnd.setMonth(periodEnd.getMonth() + 1);
+        await supabaseClient
+          .from("venue_subscriptions")
+          .upsert({
+            venue_id: targetVenueId,
+            subscription_plan: planCode,
+            status: "active",
+            current_period_start: now.toISOString(),
+            current_period_end: periodEnd.toISOString(),
+            trial_end: null,
+            updated_at: now.toISOString(),
+          }, { onConflict: "venue_id" });
+        logStep("DEMO subscription granted (no Stripe)", { venueId: targetVenueId, planCode, billingCycle });
+        return json({ success: true, updated: true, plan: planCode, billingCycle, demo: true });
+      }
+
+      const priceId = priceForPlan(planCode, billingCycle);
+      if (!priceId) {
+        const cycleKey = billingCycle === "annual" ? "ANNUAL" : "MONTHLY";
+        throw new Error(
+          `Price not configured for plan "${planCode}" (${billingCycle}). Set STRIPE_PRICE_${planCode.toUpperCase()}_${cycleKey}.`,
+        );
+      }
 
       const { data: venue } = await supabaseClient
         .from("venues").select("id, name").eq("id", targetVenueId).single();

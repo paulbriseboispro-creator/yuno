@@ -437,6 +437,10 @@ export default function TableCheckout() {
       });
       
       if (error) throw error;
+      if (data?.code === 'PAYMENTS_DISABLED') {
+        toast.error(t('payments.disabledBanner'));
+        return;
+      }
       if (data?.error) {
         if (data.code === 'ACCOUNT_EXISTS') {
           toast.error(data.error);

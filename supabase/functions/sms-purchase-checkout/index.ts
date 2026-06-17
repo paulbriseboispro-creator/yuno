@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -63,6 +64,42 @@ serve(async (req) => {
         });
         if (!isAdmin) throw new Error("Not authorized for this venue");
       }
+    }
+
+    // ── Payments kill-switch + demo bypass ────────────────────────────────────
+    // Demo (@womber.fr) → grant the credits for free with NO Stripe (mirrors
+    // sms-purchase-verify). Real buyer while the kill-switch is ON → refuse.
+    const paymentMode = (await resolvePaymentMode(admin, user.email)).mode;
+    if (paymentMode === "blocked") {
+      return new Response(
+        JSON.stringify({ success: false, error: "Payments are temporarily unavailable. Please try again later.", code: PAYMENTS_DISABLED_CODE }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    if (paymentMode === "simulate") {
+      const { data: balanceId, error: balErr } = await admin.rpc("get_or_create_sms_balance", {
+        p_venue_id: body.scope === "venue" ? body.venue_id : null,
+        p_organizer_id: body.scope === "organizer" ? user.id : null,
+      });
+      if (balErr) throw balErr;
+
+      const { data: newBalance, error: rpcErr } = await admin.rpc("add_sms_credits", {
+        p_balance_id: balanceId,
+        p_amount: pack.credits_amount,
+        p_type: "purchase",
+        p_pack_id: pack.id,
+        p_stripe_session_id: null,
+        p_stripe_payment_intent_id: null,
+        p_notes: "Demo purchase (womber.fr bypass — no charge)",
+        p_created_by: user.id,
+      });
+      if (rpcErr) throw rpcErr;
+
+      console.log("[sms-purchase-checkout] DEMO grant", { userId: user.id, credits: pack.credits_amount });
+      return new Response(
+        JSON.stringify({ success: true, demo: true, balance: newBalance ?? null, credits_added: pack.credits_amount }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: "2025-08-27.basil" });

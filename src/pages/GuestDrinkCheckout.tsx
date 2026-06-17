@@ -147,6 +147,11 @@ export default function GuestDrinkCheckout() {
         return;
       }
 
+      if (data?.code === 'PAYMENTS_DISABLED') {
+        toast({ title: t('payments.disabledBanner'), variant: 'destructive' });
+        return;
+      }
+
       if (!data?.success) throw new Error(data?.error || 'Failed to create checkout');
 
       if (data.testMode && data.redirectUrl) {

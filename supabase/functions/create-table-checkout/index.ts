@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentSplit } from "../_shared/payment-split.ts";
+import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -104,6 +105,20 @@ serve(async (req) => {
     }
 
     logStep("User/guest mode resolved", { userId: user?.id, email: user?.email, isGuest: isGuestCheckout });
+
+    // ── Payments kill-switch + demo bypass ────────────────────────────────────
+    // Demo (@womber.fr) → simulate a paid reservation with NO Stripe (reuses the
+    // TEST_MODE fulfillment below). Real buyer while the kill-switch is ON →
+    // refuse before any reservation row is created. Authenticated buyer only.
+    const paymentMode = (await resolvePaymentMode(supabaseAdmin, user?.email)).mode;
+    if (paymentMode === "blocked") {
+      logStep("Payments disabled — checkout refused");
+      return new Response(
+        JSON.stringify({ success: false, error: "Payments are temporarily unavailable. Please try again later.", code: PAYMENTS_DISABLED_CODE }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
+    }
+    const simulate = TEST_MODE || paymentMode === "simulate";
 
     if (!eventId || !packId) throw new Error("Missing required fields");
 
@@ -364,8 +379,8 @@ serve(async (req) => {
       yunoCommission 
     });
 
-    if (TEST_MODE) {
-      logStep("TEST MODE: Creating paid reservation directly");
+    if (simulate) {
+      logStep("SIMULATE: Creating paid reservation directly (demo or test mode)");
 
       // Atomic: locks the governing zone, re-counts under the lock, then inserts.
       // See migration 20260616130000_reserve_table_slot_atomic.sql.

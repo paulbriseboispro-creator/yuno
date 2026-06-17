@@ -991,6 +991,11 @@ export default function MyOrders() {
 
       if (response.error) throw response.error;
 
+      if (response.data?.code === 'PAYMENTS_DISABLED') {
+        toast.error(t('payments.disabledBanner'));
+        return;
+      }
+
       const { sessionId } = response.data;
       window.location.href = `/verify-payment?session_id=${sessionId}`;
     } catch (error) {

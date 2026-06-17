@@ -3,6 +3,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentSplit } from "../_shared/payment-split.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
+import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
 
 // Production mode - payments are processed via Stripe
 const TEST_MODE = false;
@@ -166,6 +167,20 @@ serve(async (req) => {
       itemsCount: items.length,
       isGuest,
     });
+
+    // ── Payments kill-switch + demo bypass ────────────────────────────────────
+    // Demo (@womber.fr) → simulate a paid drink order with NO Stripe (reuses the
+    // TEST_MODE fulfillment below). Real buyer while the kill-switch is ON →
+    // refuse before any order row is created. Authenticated buyer only.
+    const paymentMode = (await resolvePaymentMode(supabaseAdmin, user?.email)).mode;
+    if (paymentMode === "blocked") {
+      logStep("Payments disabled — checkout refused", { venueId });
+      return new Response(
+        JSON.stringify({ success: false, error: "Payments are temporarily unavailable. Please try again later.", code: PAYMENTS_DISABLED_CODE }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
+    }
+    const simulate = TEST_MODE || paymentMode === "simulate";
 
     // Extract guest name parts for order storage
     const guestNameParts = guestFullName?.split(" ") || [];
@@ -335,7 +350,7 @@ serve(async (req) => {
       items: validatedItems,
       total: clientTotal,
       service_fee: serviceFee,
-      status: TEST_MODE ? "paid" : "pending",
+      status: simulate ? "paid" : "pending",
       is_guest: isGuest,
     };
 
@@ -345,10 +360,17 @@ serve(async (req) => {
       orderInsert.guest_phone = guestPhone || null;
     }
 
-    if (TEST_MODE) {
+    if (simulate) {
       orderInsert.paid_at = new Date().toISOString();
+      // Mint the pickup token here (production mints it in verify-payment) so the
+      // simulated order is fully serveable — the barman can scan it in a demo.
+      orderInsert.token = crypto.randomUUID().replace(/-/g, "").substring(0, 16).toUpperCase();
+      const tokenExpiresAt = new Date();
+      tokenExpiresAt.setHours(tokenExpiresAt.getHours() + 12);
+      orderInsert.token_expires_at = tokenExpiresAt.toISOString();
+      orderInsert.token_used = false;
 
-      logStep("TEST MODE: Creating paid order directly");
+      logStep("SIMULATE: Creating paid order directly (demo or test mode)");
 
       const { data: order, error: orderError } = await supabaseAdmin
         .from("orders")

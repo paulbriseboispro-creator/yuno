@@ -3,6 +3,8 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentSplit } from "../_shared/payment-split.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
+import { t, resolveLang } from "../_shared/i18n.ts";
+import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
 
 // Production mode - payments go through Stripe Connect
 const TEST_MODE = false;
@@ -52,8 +54,9 @@ serve(async (req) => {
       newsletterOptIn, smsOptIn, hasInsurance, promoCode, promoterId, attendees,
       guestEmail, guestFullName, guestPhone, packId,
       upsellSelections, cancelUrl,
-      purchaseSource, minorAuthDocUrl,
+      purchaseSource, minorAuthDocUrl, language,
     } = await req.json();
+    const lang = resolveLang(language);
 
     const ALLOWED_SOURCES = ['venue_profile','organizer_profile','dj_profile','explore','promoter','direct'];
     // Default to 'direct' so analytics never show "unknown" — every ticket has a source.
@@ -86,7 +89,23 @@ serve(async (req) => {
       throw new Error("User not authenticated and no guest info provided");
     }
 
-    logStep("Request parsed", { eventId, ticketRoundId, quantity, hasInsurance, promoCode, attendeesCount: attendees?.length });
+    // ── Payments kill-switch + demo bypass ────────────────────────────────────
+    // Demo (@womber.fr) buyers simulate a paid ticket with NO Stripe call — they
+    // reuse the TEST_MODE fulfillment path below (records created as paid, free).
+    // A real buyer while the global kill-switch is ON is refused here, before any
+    // capacity is held or record created. Based on the authenticated buyer only;
+    // guests never simulate.
+    const paymentMode = (await resolvePaymentMode(supabaseAdmin, user?.email)).mode;
+    if (paymentMode === "blocked") {
+      logStep("Payments disabled — checkout refused", { eventId });
+      return new Response(
+        JSON.stringify({ success: false, error: t("checkout.paymentsDisabled", lang), code: PAYMENTS_DISABLED_CODE }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      );
+    }
+    const simulate = TEST_MODE || paymentMode === "simulate";
+
+    logStep("Request parsed", { eventId, ticketRoundId, quantity, hasInsurance, promoCode, attendeesCount: attendees?.length, simulate });
 
     // Get event details
     const { data: event, error: eventError } = await supabaseAdmin
@@ -100,7 +119,7 @@ serve(async (req) => {
 
     // Check if event has ended
     if (event.end_at && new Date(event.end_at) < new Date()) {
-      throw new Error("Cet événement est terminé.");
+      throw new Error(t("checkout.eventEnded", lang));
     }
 
     // Sales timing validation
@@ -111,12 +130,12 @@ serve(async (req) => {
 
     // Private mode: waitlist only, no sales dates
     if (!presaleStart && !publicStart && waitlistEnabled) {
-      throw new Error("La vente n'est pas encore ouverte. Rejoignez la liste d'attente.");
+      throw new Error(t("checkout.saleNotOpen", lang));
     }
 
     const firstSaleDate = presaleStart || publicStart;
     if (firstSaleDate && now < firstSaleDate) {
-      throw new Error("Les ventes n'ont pas encore commencé pour cet événement.");
+      throw new Error(t("checkout.salesNotStarted", lang));
     }
 
     const invalidDateOrder = Boolean(presaleStart && publicStart && publicStart <= presaleStart);
@@ -131,7 +150,7 @@ serve(async (req) => {
     // Block guest users from presale-only events (they can't be on the waitlist)
     const isGuestUser = !!guestEmail && !authHeader;
     if (isGuestUser && isPresaleWindow) {
-      throw new Error("La prévente est réservée aux membres. Veuillez créer un compte pour continuer.");
+      throw new Error(t("checkout.presaleMembersOnly", lang));
     }
 
     // Presale access check
@@ -155,7 +174,7 @@ serve(async (req) => {
       }
 
       if (!hasPromoterRef && !hasWaitlistAccess) {
-        throw new Error("Cette vente est réservée aux détenteurs d'un accès prévente.");
+        throw new Error(t("checkout.presaleAccessOnly", lang));
       }
       logStep("Presale access verified", { hasPromoterRef, hasWaitlistAccess, invalidDateOrder });
     }
@@ -177,7 +196,7 @@ serve(async (req) => {
           .maybeSingle();
         if (bannedCustomer?.is_banned) {
           logStep("Customer is banned (account)", { userId: user.id, venueId: event.venue_id });
-          throw new Error("Vous n'êtes pas autorisé à acheter des billets pour ce club.");
+          throw new Error(t("checkout.notAllowedTickets", lang));
         }
       }
 
@@ -187,7 +206,7 @@ serve(async (req) => {
         });
         if (emailBanned === true) {
           logStep("Customer is banned (email)", { venueId: event.venue_id });
-          throw new Error("Vous n'êtes pas autorisé à acheter des billets pour ce club.");
+          throw new Error(t("checkout.notAllowedTickets", lang));
         }
       }
     }
@@ -223,7 +242,7 @@ serve(async (req) => {
             requested: ticketRound.id,
             firstAvailable: firstAvailable?.id,
           });
-          throw new Error("Ce palier n'est pas encore disponible à l'achat.");
+          throw new Error(t("checkout.tierNotAvailable", lang));
         }
       }
       // 'all_open' → any active, non-sold-out round is buyable (already checked above)
@@ -257,7 +276,7 @@ serve(async (req) => {
       const totalSold = (allRounds || []).reduce((sum: number, r: { tickets_sold: number }) => sum + r.tickets_sold, 0);
       if (totalSold + capacityNeeded > event.max_tickets) {
         logStep("Global capacity exceeded", { totalSold, capacityNeeded, maxTickets: event.max_tickets });
-        throw new Error("Plus de places disponibles pour cet événement.");
+        throw new Error(t("checkout.soldOut", lang));
       }
       logStep("Global capacity check passed", { totalSold, capacityNeeded, maxTickets: event.max_tickets });
     }
@@ -266,7 +285,7 @@ serve(async (req) => {
     // This is locked with FOR UPDATE on ticket_rounds and accounts for other pending reservations.
     let reservationId: string | null = null;
     let reservationExpiresAt: string | null = null;
-    if (!TEST_MODE) {
+    if (!simulate) {
       const { data: reservation, error: reservationError } = await supabaseAdmin.rpc(
         'reserve_ticket_capacity',
         {
@@ -284,9 +303,9 @@ serve(async (req) => {
         logStep("Reservation failed (atomic)", { error: reservationError.message });
         // PostgreSQL raises 23514 (check_violation) when capacity is insufficient
         if (reservationError.message?.includes('Insufficient capacity')) {
-          throw new Error("Plus de places disponibles. Quelqu'un vient peut-être de réserver les dernières.");
+          throw new Error(t("checkout.soldOutRace", lang));
         }
-        throw new Error("Impossible de réserver les places. Réessaye dans un instant.");
+        throw new Error(t("checkout.reserveFailed", lang));
       }
 
       const reservationRow = Array.isArray(reservation) ? reservation[0] : reservation;
@@ -294,7 +313,7 @@ serve(async (req) => {
       reservationExpiresAt = reservationRow?.expires_at ?? null;
 
       if (!reservationId) {
-        throw new Error("Réservation invalide. Réessaye.");
+        throw new Error(t("checkout.reserveInvalid", lang));
       }
       logStep("Atomic reservation created", { reservationId, expiresAt: reservationExpiresAt, capacityHeld: capacityNeeded });
     }
@@ -537,8 +556,8 @@ serve(async (req) => {
 
     const qrCode = generateQRCode();
 
-    if (TEST_MODE) {
-      logStep("TEST MODE: Creating paid ticket directly");
+    if (simulate) {
+      logStep("SIMULATE: Creating paid ticket directly (demo or test mode)");
 
       // Create ticket directly with paid status
       const ticketType = ticketRound.ticket_type || 'standard';

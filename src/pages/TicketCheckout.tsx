@@ -567,6 +567,7 @@ export default function TicketCheckout() {
       const { data, error } = await supabase.functions.invoke('create-ticket-checkout', {
         body: {
           eventId: event.id,
+          language,
           ticketRoundId: round.id,
           purchaseSource,
           quantity,
@@ -600,6 +601,10 @@ export default function TicketCheckout() {
       });
 
       if (error) throw error;
+      if (data?.code === 'PAYMENTS_DISABLED') {
+        toast.error(t('payments.disabledBanner'));
+        return;
+      }
       if (data?.error) {
         if (data.code === 'ACCOUNT_EXISTS') {
           toast.error(data.error);
