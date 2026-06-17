@@ -28,106 +28,12 @@ import { OwnerCollaborationsSection } from '@/components/owner/OwnerCollaboratio
 import { RecurringEventsManager } from '@/components/owner/RecurringEventsManager';
 import { useNavigate } from 'react-router-dom';
 
-type EventKind = 'public_event' | 'private_event';
-type CollabMode = 'solo' | 'co_event' | 'venue_rental' | 'hosted_by_venue';
-
-// ─── Yuno Design Tokens ───────────────────────────────────────────────────────
-const RED     = '#E8192C';
-const POS     = '#34D399';
-const T1      = 'rgba(255,255,255,0.96)';
-const T2      = 'rgba(255,255,255,0.58)';
-const T3      = 'rgba(255,255,255,0.36)';
-const C_FAINT = 'rgba(255,255,255,0.06)';
-const BORDER  = 'rgba(255,255,255,0.085)';
-const F_BORDER= 'rgba(255,255,255,0.055)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
-
-const CROPPER_CONTAINER_PX = 144;
-
-function cropToSquare(dataUrl: string, position: { x: number; y: number; scale: number } | null, outputSize = 1080): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      const W = img.naturalWidth, H = img.naturalHeight, C = CROPPER_CONTAINER_PX;
-      const baseScale = Math.max(C / W, C / H);
-      const totalScale = baseScale * (position?.scale ?? 1);
-      const cropSize = C / totalScale;
-      const cropX = Math.max(0, Math.min(W - cropSize, W / 2 - (C / 2 + (position?.x ?? 0)) / totalScale));
-      const cropY = Math.max(0, Math.min(H - cropSize, H / 2 - (C / 2 + (position?.y ?? 0)) / totalScale));
-      const canvas = document.createElement('canvas');
-      canvas.width = outputSize; canvas.height = outputSize;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return reject(new Error('Canvas not available'));
-      ctx.drawImage(img, cropX, cropY, cropSize, cropSize, 0, 0, outputSize, outputSize);
-      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('Canvas toBlob failed'))), 'image/jpeg', 0.90);
-    };
-    img.onerror = reject;
-    img.src = dataUrl;
-  });
-}
-
-const MUSIC_GENRES = ['House','Techno','Rap / Hip-Hop','Afro / Shatta','Reggaeton / Latino','Commercial / Hits','Electro / EDM','Open Format'];
-
-function DarkInput({ id, value, onChange, placeholder, type = 'text', required }: {
-  id?: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; type?: string; required?: boolean;
-}) {
-  return (
-    <input
-      id={id}
-      type={type}
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      placeholder={placeholder}
-      required={required}
-      className="w-full px-3 py-2.5 rounded-xl text-[13px] transition-all duration-150"
-      style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
-      onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')}
-      onBlur={e => (e.target.style.borderColor = BORDER)}
-    />
-  );
-}
-
-function DarkTextarea({ id, value, onChange, placeholder, rows = 3 }: {
-  id?: string; value: string; onChange: (v: string) => void; placeholder?: string; rows?: number;
-}) {
-  return (
-    <textarea
-      id={id}
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      placeholder={placeholder}
-      rows={rows}
-      className="w-full px-3 py-2.5 rounded-xl text-[13px] resize-none transition-all duration-150"
-      style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
-      onFocus={e => (e.target.style.borderColor = 'rgba(255,255,255,0.18)')}
-      onBlur={e => (e.target.style.borderColor = BORDER)}
-    />
-  );
-}
-
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 6 }}>
-      {children}
-    </p>
-  );
-}
-
-type OwnerEventRow = Event & {
-  isPartnerHosted?: boolean;
-  organizerUserId?: string | null;
-  ticketingEnabled?: boolean;
-  tablesEnabled?: boolean;
-  ticketSellingMode?: string;
-  roundsCount?: number;
-  /** Organizer private events: their only shareable URL is the direct link, surfaced on the card. */
-  isPrivate?: boolean;
-};
-
-type VenuePreset = { id: string; name: string; ticket_type: string; total_capacity: number; selling_mode: string | null; rounds: unknown };
+import type { EventKind, CollabMode, OwnerEventRow, VenuePreset } from '@/components/owner/events/events-types';
+import {
+  RED, T1, T2, T3, C_FAINT, BORDER, F_BORDER, CARD_BG, INNER_BG, CARD_SHADOW,
+  DarkInput, DarkTextarea, FieldLabel,
+} from '@/components/owner/events/events-ui';
+import { cropToSquare, MUSIC_GENRES } from '@/components/owner/events/events-utils';
 
 export default function OwnerEvents() {
   const { t, language } = useLanguage();
@@ -342,7 +248,7 @@ export default function OwnerEvents() {
     if (isNaN(parsedStart.getTime()) || isNaN(parsedEnd.getTime())) { toast.error(t('owner.toastFieldsRequired')); return; }
     if (parsedEnd <= parsedStart) { toast.error(t('owner.toastEndAfterStart')); return; }
     if (!scopeReady) { toast.error(t('owner.toastVenueNotFound')); return; }
-    if (requiresPartner && !partnerVenueId) { toast.error('Sélectionne un club partenaire'); return; }
+    if (requiresPartner && !partnerVenueId) { toast.error(t('owner.ev.selectPartnerClub')); return; }
     setIsSaving(true);
     try {
       // ── Organizer scope: visibility / collab / secret venue (mirrors the org event flow) ──
@@ -438,7 +344,7 @@ export default function OwnerEvents() {
     try {
       const { error } = await supabase.from('events').update({ tables_enabled: !event.tablesEnabled }).eq('id', event.id);
       if (error) throw error;
-      toast.success(event.tablesEnabled ? 'Tables VIP retirées de la vente' : 'Tables VIP en ligne');
+      toast.success(event.tablesEnabled ? t('owner.ev.tablesRemoved') : t('owner.ev.tablesOnlineToast'));
       fetchEvents();
     } catch { toast.error(t('owner.toastSaveError')); }
   };
@@ -451,9 +357,9 @@ export default function OwnerEvents() {
     if (!event.ticketingEnabled && orgSellingBlocked) {
       toast.error(
         stripeStatus === 'pending'
-          ? 'Stripe en attente : terminez la vérification dans Paiements pour vendre.'
-          : 'Activez les paiements (Stripe) avant de mettre la billetterie en vente.',
-        { action: { label: 'Configurer', onClick: () => navigate(`${basePath}/payments`) } }
+          ? t('owner.ev.stripePendingToast')
+          : t('owner.ev.stripeNotConfiguredToast'),
+        { action: { label: t('owner.ev.configure'), onClick: () => navigate(`${basePath}/payments`) } }
       );
       return true; // handled — don't open the inline preset panel
     }
@@ -463,7 +369,7 @@ export default function OwnerEvents() {
     try {
       const { error } = await supabase.from('events').update({ ticketing_enabled: !event.ticketingEnabled }).eq('id', event.id);
       if (error) throw error;
-      toast.success(event.ticketingEnabled ? 'Billetterie retirée de la vente' : 'Billetterie en ligne');
+      toast.success(event.ticketingEnabled ? t('owner.ev.ticketingRemovedToast') : t('owner.ev.ticketingOnlineToast'));
       fetchEvents();
     } catch { toast.error(t('owner.toastSaveError')); }
     return true;
@@ -474,16 +380,16 @@ export default function OwnerEvents() {
     if (orgSellingBlocked) {
       toast.error(
         stripeStatus === 'pending'
-          ? 'Stripe en attente : terminez la vérification dans Paiements pour vendre.'
-          : 'Activez les paiements (Stripe) avant de mettre la billetterie en vente.',
-        { action: { label: 'Configurer', onClick: () => navigate(`${basePath}/payments`) } }
+          ? t('owner.ev.stripePendingToast')
+          : t('owner.ev.stripeNotConfiguredToast'),
+        { action: { label: t('owner.ev.configure'), onClick: () => navigate(`${basePath}/payments`) } }
       );
       return;
     }
     try {
       const sellingMode = preset.selling_mode || 'rounds';
       const rounds = (preset.rounds as any[]) || [];
-      if (rounds.length === 0) { toast.error('Ce modèle ne contient aucun palier'); return; }
+      if (rounds.length === 0) { toast.error(t('owner.ev.presetNoRounds')); return; }
 
       // Fresh start: remove any existing rounds of this ticket type.
       const { data: existing } = await supabase.from('ticket_rounds').select('id, ticket_type').eq('event_id', event.id);
