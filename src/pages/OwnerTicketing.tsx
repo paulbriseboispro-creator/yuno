@@ -36,6 +36,8 @@ import { ActivationWizardDialog } from '@/components/owner/ticketing/ActivationW
 import { EventRoundRow } from '@/components/owner/ticketing/EventRoundRow';
 import { EventRegistrationsViewer } from '@/components/owner/ticketing/EventRegistrationsViewer';
 import { EventSalesModeSection } from '@/components/owner/ticketing/EventSalesModeSection';
+import { EventMaxPerPersonControl } from '@/components/owner/ticketing/EventMaxPerPersonControl';
+import { EventSalePasswordControl } from '@/components/owner/ticketing/EventSalePasswordControl';
 
 export default function OwnerTicketing() {
   const { t, language } = useLanguage();
@@ -1370,83 +1372,19 @@ export default function OwnerTicketing() {
                             )}
 
                             {/* Max tickets per person */}
-                            <div className="p-3.5 space-y-2.5" style={INNER_CARD}>
-                              <div className="flex items-center gap-3">
-                                <Ticket className="h-4 w-4 flex-none" style={{ color: T3 }} />
-                                <div>
-                                  <p style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{t('tickets.maxPerPerson')}</p>
-                                  <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>{t('tickets.maxPerPersonDesc')}</p>
-                                </div>
-                              </div>
-                              <Input
-                                type="number"
-                                min="1"
-                                placeholder={t('tickets.maxPerPersonPlaceholder')}
-                                defaultValue={event.maxTicketsPerPerson ?? ''}
-                                onBlur={(e) => {
-                                  const raw = e.target.value.trim();
-                                  const val = raw === '' ? null : parseInt(raw, 10);
-                                  const current = event.maxTicketsPerPerson ?? null;
-                                  const next = val && val > 0 ? val : null;
-                                  if (next !== current) handleUpdateMaxPerPerson(event.id, next);
-                                }}
-                              />
-                              <p style={{ color: T3, fontSize: 11 }}>
-                                {event.maxTicketsPerPerson
-                                  ? t('tickets.maxPerPersonActive').replace('{count}', String(event.maxTicketsPerPerson))
-                                  : t('tickets.maxPerPersonNone')}
-                              </p>
-                            </div>
+                            <EventMaxPerPersonControl
+                              maxTicketsPerPerson={event.maxTicketsPerPerson}
+                              onUpdate={(val) => handleUpdateMaxPerPerson(event.id, val)}
+                            />
 
                             {/* Password-gated sale */}
-                            <div className="p-3.5 space-y-3" style={INNER_CARD}>
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <Lock className="h-4 w-4 flex-none" style={{ color: event.salePasswordEnabled ? RED : T3 }} />
-                                  <div className="min-w-0">
-                                    <p style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{t('tickets.salePassword')}</p>
-                                    <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>{t('tickets.salePasswordDesc')}</p>
-                                  </div>
-                                </div>
-                                {event.salePasswordEnabled && (
-                                  <span
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold shrink-0"
-                                    style={{ background: 'rgba(232,25,44,0.12)', border: `1px solid rgba(232,25,44,0.3)`, color: RED }}
-                                  >
-                                    <Lock className="h-2.5 w-2.5" />
-                                    {t('tickets.salePasswordOn')}
-                                  </span>
-                                )}
-                              </div>
-                              <Input
-                                type="text"
-                                autoComplete="off"
-                                placeholder={event.salePasswordEnabled ? t('tickets.salePasswordChangePlaceholder') : t('tickets.salePasswordPlaceholder')}
-                                value={salePasswordDraft[event.id] ?? ''}
-                                onChange={(e) => setSalePasswordDraft(prev => ({ ...prev, [event.id]: e.target.value }))}
-                              />
-                              <div className="flex gap-2">
-                                <Button
-                                  type="button"
-                                  className="flex-1"
-                                  disabled={salePasswordSaving === event.id || !(salePasswordDraft[event.id] ?? '').trim()}
-                                  onClick={() => handleSetSalePassword(event.id, (salePasswordDraft[event.id] ?? '').trim())}
-                                  style={{ background: RED, color: '#fff' }}
-                                >
-                                  {event.salePasswordEnabled ? t('tickets.salePasswordUpdate') : t('tickets.salePasswordActivate')}
-                                </Button>
-                                {event.salePasswordEnabled && (
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    disabled={salePasswordSaving === event.id}
-                                    onClick={() => handleSetSalePassword(event.id, null)}
-                                  >
-                                    {t('tickets.salePasswordRemove')}
-                                  </Button>
-                                )}
-                              </div>
-                            </div>
+                            <EventSalePasswordControl
+                              salePasswordEnabled={!!event.salePasswordEnabled}
+                              passwordDraft={salePasswordDraft[event.id] ?? ''}
+                              onPasswordDraftChange={(value) => setSalePasswordDraft(prev => ({ ...prev, [event.id]: value }))}
+                              saving={salePasswordSaving === event.id}
+                              onSetPassword={(password) => handleSetSalePassword(event.id, password)}
+                            />
 
                             {/* Sales mode */}
                             <EventSalesModeSection
