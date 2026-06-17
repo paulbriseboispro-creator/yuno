@@ -45,6 +45,18 @@ export interface RoundFormData {
   entryDeadline: string;
 }
 
+// Shape of the preset-creation form state (verbatim from OwnerTicketing useState).
+export interface PresetFormData {
+  name: string;
+  totalCapacity: string;
+  lastTicketsThreshold: string;
+  includesDrink: boolean;
+  drinkDeadlineType: 'hours_after_start' | 'fixed_time' | 'none';
+  drinkDeadlineHours: string;
+  drinkCutoffTime: string;
+  rounds: { name: string; price: string; maxTickets: string; entryDeadline: string; includesDrink: boolean }[];
+}
+
 export type TicketSalesMode = 'private' | 'presale' | 'normal';
 export type SalesDraft = {
   mode: TicketSalesMode;
