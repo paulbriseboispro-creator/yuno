@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { Link } from 'react-router-dom';
+import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
 import { toast } from 'sonner';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
@@ -219,6 +220,7 @@ export default function VipHostDashboard() {
 
   return (
     <div className="min-h-screen pb-20" style={{ background: '#000' }}>
+      <RoleIntroGate role="viphost" />
       {/* Vignette ambiante */}
       <div
         className="fixed inset-0 pointer-events-none z-0"

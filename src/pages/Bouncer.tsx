@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useStaffVenue } from '@/hooks/useStaffVenue';
+import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
 import { QrCode, CheckCircle, XCircle, User, Ticket, Wine, Camera, RefreshCw, Users, Ban, AlertTriangle, ArrowLeft, Clock, Search, ShieldAlert, UserX } from 'lucide-react';
 import { nowInParis } from '@/lib/timezone';
 import { Link } from 'react-router-dom';
@@ -1129,6 +1130,7 @@ export default function Bouncer() {
 
   return (
     <div className="min-h-screen pb-24" style={{ background: '#000' }}>
+      <RoleIntroGate role="bouncer" />
       {/* Vignette ambiante */}
       <div
         className="fixed inset-0 pointer-events-none z-0"

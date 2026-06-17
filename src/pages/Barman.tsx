@@ -24,6 +24,7 @@ import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
 import { OrderPreparationView } from '@/components/OrderPreparationView';
 import { useStaffVenue } from '@/hooks/useStaffVenue';
 import { BarmanBarSelection } from '@/components/barman/BarmanBarSelection';
@@ -979,6 +980,7 @@ export default function Barman() {
 
   return (
     <div className="min-h-screen pb-24" style={{ background: '#000' }}>
+      <RoleIntroGate role="barman" />
       {/* Vignette ambiante */}
       <div
         className="fixed inset-0 pointer-events-none z-0"

@@ -16,6 +16,7 @@ import {
   AffPage, AffCard, AffCardHeader, Pill, AffLinkButton, AffSpinner, AffEmpty,
   RED, POS, NEG, T1, T2, T3, C_HI, BORDER, F_BORDER, C_FAINT, INNER_BG, TILE_BG, CARD_BG, CARD_SHADOW,
 } from '@/components/affiliate/affiliate-ui';
+import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
 
 type NextEvent = {
   id: string;
@@ -136,6 +137,7 @@ export default function AffiliateDashboard() {
 
   return (
     <AffPage>
+      <RoleIntroGate role="affiliate" />
       {/* ─── Hero ─────────────────────────────────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}

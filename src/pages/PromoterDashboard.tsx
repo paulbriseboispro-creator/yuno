@@ -11,6 +11,7 @@ import { VenuePromoterContent } from '@/components/promoter/VenuePromoterContent
 import { toast } from 'sonner';
 import { Home, Building2, KeyRound } from 'lucide-react';
 import { ChangePinFlow } from '@/components/ChangePinFlow';
+import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
 import type { PromoterStats } from '@/types/promoter';
 
 interface Promoter {
@@ -224,6 +225,7 @@ export default function PromoterDashboard() {
 
   return (
     <div className="min-h-screen dashboard-gradient-bg pb-8">
+      <RoleIntroGate role="promoter" />
       <header className="sticky top-0 z-40 border-b border-border/30 bg-surface/60 backdrop-blur-xl" style={{ paddingTop: 'max(0.25rem, env(safe-area-inset-top, 0.25rem))' }}>
         <div className="mx-auto flex h-14 max-w-3xl items-center gap-3 px-4">
           <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
