@@ -734,8 +734,8 @@ export const emailTranslations: Record<EmailLanguage, Record<string, string>> = 
 /**
  * Get translation for a specific key and language
  */
-export function t(key: string, lang: EmailLanguage = 'fr', replacements?: Record<string, string | number>): string {
-  let text = emailTranslations[lang]?.[key] || emailTranslations['fr'][key] || key;
+export function t(key: string, lang: EmailLanguage = 'en', replacements?: Record<string, string | number>): string {
+  let text = emailTranslations[lang]?.[key] || emailTranslations['en'][key] || key;
   
   if (replacements) {
     Object.entries(replacements).forEach(([k, v]) => {
@@ -749,7 +749,7 @@ export function t(key: string, lang: EmailLanguage = 'fr', replacements?: Record
 /**
  * Generate Yuno branded email header with subtle but recognizable branding
  */
-export function generateYunoBrandHeader(lang: EmailLanguage = 'fr'): string {
+export function generateYunoBrandHeader(lang: EmailLanguage = 'en'): string {
   return `
     <!-- Yuno Brand Header - Subtle but Present -->
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 4px;">
@@ -777,7 +777,7 @@ export function generateYunoBrandHeader(lang: EmailLanguage = 'fr'): string {
 /**
  * Generate Yuno branded email footer with call to action
  */
-export function generateYunoBrandFooter(lang: EmailLanguage = 'fr', venueName?: string): string {
+export function generateYunoBrandFooter(lang: EmailLanguage = 'en', venueName?: string): string {
   const year = new Date().getFullYear();
   
   return `
@@ -824,10 +824,10 @@ export function generateYunoBrandFooter(lang: EmailLanguage = 'fr', venueName?: 
 /**
  * Generate the full email wrapper with Yuno branding
  */
-export function wrapEmailWithBranding(content: string, lang: EmailLanguage = 'fr', venueName?: string): string {
+export function wrapEmailWithBranding(content: string, lang: EmailLanguage = 'en', venueName?: string): string {
   return `
     <!DOCTYPE html>
-    <html xmlns="http://www.w3.org/1999/xhtml" lang="fr" xml:lang="fr">
+    <html xmlns="http://www.w3.org/1999/xhtml" lang="${lang}" xml:lang="${lang}">
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
