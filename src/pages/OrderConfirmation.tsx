@@ -535,7 +535,7 @@ export default function OrderConfirmation() {
         attendees: data.attendees,
       };
 
-      await downloadInvoicePDF(invoiceData, `facture-${invoiceNum}.pdf`);
+      await downloadInvoicePDF(invoiceData, `facture-${invoiceNum}.pdf`, language);
       toast.success(t('invoice.downloaded') || 'Facture téléchargée');
     } catch (error) {
       console.error('Error generating invoice:', error);

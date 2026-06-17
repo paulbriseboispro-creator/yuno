@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import QRCode from 'qrcode';
+import type { Language } from '@/contexts/LanguageContext';
 
 export interface InvoiceItem {
   description: string;
@@ -44,6 +45,9 @@ export interface InvoiceData {
   
   // QR Code
   qrCode: string;
+
+  // Document language (defaults to French for backwards compatibility)
+  language?: Language;
   
   // Attendees (for nominative tickets)
   attendees?: Array<{ firstName: string; lastName: string; qrCode?: string }>;
@@ -73,16 +77,16 @@ export interface InvoiceData {
   };
 }
 
-const formatDate = (date: Date): string => {
-  return date.toLocaleDateString('fr-FR', {
+const formatDate = (date: Date, locale = 'fr-FR'): string => {
+  return date.toLocaleDateString(locale, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   });
 };
 
-const formatDateTime = (date: Date): string => {
-  return date.toLocaleDateString('fr-FR', {
+const formatDateTime = (date: Date, locale = 'fr-FR'): string => {
+  return date.toLocaleDateString(locale, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -121,7 +125,45 @@ const getImageDimensions = (dataUrl: string): Promise<{ width: number; height: n
   });
 };
 
-export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
+const INVOICE_LOCALE: Record<Language, string> = { fr: 'fr-FR', en: 'en-GB', es: 'es-ES' };
+
+const INVOICE_LABELS: Record<Language, Record<string, string>> = {
+  fr: {
+    invoice: 'FACTURE', invoiceNo: 'N°', dateLabel: 'Date :', issuer: 'ÉMETTEUR', recipient: 'DESTINATAIRE',
+    vat: 'TVA', event: 'ÉVÉNEMENT', orderDetails: 'DÉTAILS DE LA COMMANDE', description: 'Description', qty: 'Qté',
+    unitPrice: 'Prix U.', total: 'Total', serviceFee: 'Frais de service', managementFee: 'Frais de gestion',
+    cancellationInsurance: 'Assurance annulation', subtotal: 'Sous-total HT', vatLine: 'TVA (20%)', totalTTC: 'TOTAL TTC',
+    coEventSplit: 'RÉPARTITION CO-ÉVÉNEMENT', amountCollected: 'Montant TTC encaissé', yunoServiceFee: 'Frais de service Yuno',
+    netToSplit: 'Net à répartir', attendees: 'PARTICIPANTS', showAtEntry: "Présentez ce code à l'entrée", legalMentions: 'MENTIONS LÉGALES',
+    legalVatApplicable: 'TVA applicable selon le régime en vigueur', legalVatNotApplicable: 'TVA non applicable - Art. 293 B du CGI',
+    legalProofOfPayment: 'Cette facture tient lieu de justificatif de paiement',
+  },
+  en: {
+    invoice: 'INVOICE', invoiceNo: 'No.', dateLabel: 'Date:', issuer: 'FROM', recipient: 'BILL TO',
+    vat: 'VAT', event: 'EVENT', orderDetails: 'ORDER DETAILS', description: 'Description', qty: 'Qty',
+    unitPrice: 'Unit price', total: 'Total', serviceFee: 'Service fee', managementFee: 'Management fee',
+    cancellationInsurance: 'Cancellation insurance', subtotal: 'Subtotal (excl. tax)', vatLine: 'VAT (20%)', totalTTC: 'TOTAL (incl. tax)',
+    coEventSplit: 'CO-EVENT SPLIT', amountCollected: 'Amount collected (incl. tax)', yunoServiceFee: 'Yuno service fee',
+    netToSplit: 'Net to split', attendees: 'ATTENDEES', showAtEntry: 'Show this code at the door', legalMentions: 'LEGAL NOTICE',
+    legalVatApplicable: 'VAT applicable under the current regime', legalVatNotApplicable: 'VAT not applicable - Art. 293 B French Tax Code',
+    legalProofOfPayment: 'This invoice serves as proof of payment',
+  },
+  es: {
+    invoice: 'FACTURA', invoiceNo: 'N.º', dateLabel: 'Fecha:', issuer: 'EMISOR', recipient: 'DESTINATARIO',
+    vat: 'IVA', event: 'EVENTO', orderDetails: 'DETALLES DEL PEDIDO', description: 'Descripción', qty: 'Cant.',
+    unitPrice: 'Precio U.', total: 'Total', serviceFee: 'Gastos de servicio', managementFee: 'Gastos de gestión',
+    cancellationInsurance: 'Seguro de cancelación', subtotal: 'Subtotal (sin IVA)', vatLine: 'IVA (20%)', totalTTC: 'TOTAL (con IVA)',
+    coEventSplit: 'REPARTO CO-EVENTO', amountCollected: 'Importe cobrado (con IVA)', yunoServiceFee: 'Gastos de servicio Yuno',
+    netToSplit: 'Neto a repartir', attendees: 'ASISTENTES', showAtEntry: 'Presenta este código en la entrada', legalMentions: 'INFORMACIÓN LEGAL',
+    legalVatApplicable: 'IVA aplicable según el régimen vigente', legalVatNotApplicable: 'IVA no aplicable - Art. 293 B del CGI (Francia)',
+    legalProofOfPayment: 'Esta factura sirve como justificante de pago',
+  },
+};
+
+export const generateInvoicePDF = async (data: InvoiceData, languageOverride?: Language): Promise<Blob> => {
+  const lang: Language = data.language || languageOverride || 'fr';
+  const L = INVOICE_LABELS[lang];
+  const locale = INVOICE_LOCALE[lang];
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -195,17 +237,17 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   }
 
   // Invoice title and number on the right
-  addText('FACTURE', pageWidth - margin, y + 5, { 
+  addText(L.invoice, pageWidth - margin, y + 5, { 
     fontSize: 20, 
     fontStyle: 'bold', 
     color: primaryColor,
     align: 'right' 
   });
-  addText(`N° ${data.invoiceNumber}`, pageWidth - margin, y + 12, { 
+  addText(`${L.invoiceNo} ${data.invoiceNumber}`, pageWidth - margin, y + 12, { 
     fontSize: 10, 
     align: 'right' 
   });
-  addText(`Date : ${formatDate(data.invoiceDate)}`, pageWidth - margin, y + 18, { 
+  addText(`${L.dateLabel} ${formatDate(data.invoiceDate, locale)}`, pageWidth - margin, y + 18, { 
     fontSize: 9, 
     color: mutedColor,
     align: 'right' 
@@ -224,7 +266,7 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   const col2X = pageWidth / 2 + 5;
 
   // Seller (Vendor) info
-  addText('ÉMETTEUR', col1X, y, { fontSize: 8, fontStyle: 'bold', color: mutedColor });
+  addText(L.issuer, col1X, y, { fontSize: 8, fontStyle: 'bold', color: mutedColor });
   y += 5;
   addText(data.venueLegalName || data.venueName, col1X, y, { fontSize: 10, fontStyle: 'bold' });
   y += 5;
@@ -240,7 +282,7 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
     y += 4;
   }
   if (data.venueVatNumber) {
-    addText(`TVA : ${data.venueVatNumber}`, col1X, y, { fontSize: 9, color: mutedColor });
+    addText(`${L.vat} : ${data.venueVatNumber}`, col1X, y, { fontSize: 9, color: mutedColor });
     y += 4;
   }
 
@@ -249,7 +291,7 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   if (data.venueSiret) customerY -= 4;
   if (data.venueVatNumber) customerY -= 4;
   
-  addText('DESTINATAIRE', col2X, customerY, { fontSize: 8, fontStyle: 'bold', color: mutedColor });
+  addText(L.recipient, col2X, customerY, { fontSize: 8, fontStyle: 'bold', color: mutedColor });
   customerY += 5;
   addText(data.customerName, col2X, customerY, { fontSize: 10, fontStyle: 'bold' });
   customerY += 5;
@@ -286,11 +328,11 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
 
     const eventTextX = margin + posterWidth + 10;
     
-    addText('ÉVÉNEMENT', eventTextX, eventBoxY + 3, { fontSize: 8, fontStyle: 'bold', color: mutedColor });
+    addText(L.event, eventTextX, eventBoxY + 3, { fontSize: 8, fontStyle: 'bold', color: mutedColor });
     addText(data.eventTitle, eventTextX, eventBoxY + 10, { fontSize: 12, fontStyle: 'bold' });
     
     if (data.eventDate) {
-      addText(formatDateTime(data.eventDate), eventTextX, eventBoxY + 17, { fontSize: 9, color: mutedColor });
+      addText(formatDateTime(data.eventDate, locale), eventTextX, eventBoxY + 17, { fontSize: 9, color: mutedColor });
     }
     
     addText(`${data.venueName}`, eventTextX, eventBoxY + 24, { fontSize: 9 });
@@ -299,7 +341,7 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   }
 
   // ==================== ORDER DETAILS TABLE ====================
-  addText('DÉTAILS DE LA COMMANDE', margin, y, { fontSize: 10, fontStyle: 'bold' });
+  addText(L.orderDetails, margin, y, { fontSize: 10, fontStyle: 'bold' });
   y += 8;
 
   // Table header
@@ -311,10 +353,10 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   const colUnit = margin + 115;
   const colTotal = pageWidth - margin - 3;
 
-  addText('Description', colDesc, y + 2, { fontSize: 8, fontStyle: 'bold', color: mutedColor });
-  addText('Qté', colQty, y + 2, { fontSize: 8, fontStyle: 'bold', color: mutedColor });
-  addText('Prix U.', colUnit, y + 2, { fontSize: 8, fontStyle: 'bold', color: mutedColor });
-  addText('Total', colTotal, y + 2, { fontSize: 8, fontStyle: 'bold', color: mutedColor, align: 'right' });
+  addText(L.description, colDesc, y + 2, { fontSize: 8, fontStyle: 'bold', color: mutedColor });
+  addText(L.qty, colQty, y + 2, { fontSize: 8, fontStyle: 'bold', color: mutedColor });
+  addText(L.unitPrice, colUnit, y + 2, { fontSize: 8, fontStyle: 'bold', color: mutedColor });
+  addText(L.total, colTotal, y + 2, { fontSize: 8, fontStyle: 'bold', color: mutedColor, align: 'right' });
 
   y += 10;
 
@@ -335,7 +377,7 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
 
   // Service fee
   if (data.serviceFee && data.serviceFee > 0) {
-    addText('Frais de service', colDesc, y, { fontSize: 9, color: mutedColor });
+    addText(L.serviceFee, colDesc, y, { fontSize: 9, color: mutedColor });
     addText('1', colQty, y, { fontSize: 9, color: mutedColor });
     addText(formatPrice(data.serviceFee), colUnit, y, { fontSize: 9, color: mutedColor });
     addText(formatPrice(data.serviceFee), colTotal, y, { fontSize: 9, color: mutedColor, align: 'right' });
@@ -344,7 +386,7 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
 
   // Management fee
   if (data.managementFee && data.managementFee > 0) {
-    addText('Frais de gestion', colDesc, y, { fontSize: 9, color: mutedColor });
+    addText(L.managementFee, colDesc, y, { fontSize: 9, color: mutedColor });
     addText('1', colQty, y, { fontSize: 9, color: mutedColor });
     addText(formatPrice(data.managementFee), colUnit, y, { fontSize: 9, color: mutedColor });
     addText(formatPrice(data.managementFee), colTotal, y, { fontSize: 9, color: mutedColor, align: 'right' });
@@ -353,7 +395,7 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
 
   // Insurance fee
   if (data.insuranceFee && data.insuranceFee > 0) {
-    addText('Assurance annulation', colDesc, y, { fontSize: 9, color: mutedColor });
+    addText(L.cancellationInsurance, colDesc, y, { fontSize: 9, color: mutedColor });
     addText('1', colQty, y, { fontSize: 9, color: mutedColor });
     addText(formatPrice(data.insuranceFee), colUnit, y, { fontSize: 9, color: mutedColor });
     addText(formatPrice(data.insuranceFee), colTotal, y, { fontSize: 9, color: mutedColor, align: 'right' });
@@ -368,17 +410,17 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   y += 6;
 
   // Totals
-  addText('Sous-total HT', colUnit - 20, y, { fontSize: 9 });
+  addText(L.subtotal, colUnit - 20, y, { fontSize: 9 });
   addText(formatPrice(data.totalHT), colTotal, y, { fontSize: 9, align: 'right' });
   y += 5;
 
-  addText('TVA (20%)', colUnit - 20, y, { fontSize: 9, color: mutedColor });
+  addText(L.vatLine, colUnit - 20, y, { fontSize: 9, color: mutedColor });
   addText(formatPrice(data.tva), colTotal, y, { fontSize: 9, color: mutedColor, align: 'right' });
   y += 6;
 
   doc.setFillColor(...primaryColor);
   doc.roundedRect(colUnit - 25, y - 4, pageWidth - margin - colUnit + 28, 10, 2, 2, 'F');
-  addText('TOTAL TTC', colUnit - 20, y + 2, { fontSize: 10, fontStyle: 'bold', color: [255, 255, 255] });
+  addText(L.totalTTC, colUnit - 20, y + 2, { fontSize: 10, fontStyle: 'bold', color: [255, 255, 255] });
   addText(formatPrice(data.totalTTC), colTotal, y + 2, { fontSize: 10, fontStyle: 'bold', color: [255, 255, 255], align: 'right' });
   y += 15;
 
@@ -399,21 +441,21 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
     doc.setLineWidth(0.3);
     doc.roundedRect(margin, y, contentWidth, 50, 3, 3, 'FD');
 
-    addText('RÉPARTITION CO-ÉVÉNEMENT', margin + 5, y + 6, { fontSize: 8, fontStyle: 'bold', color: primaryColor });
+    addText(L.coEventSplit, margin + 5, y + 6, { fontSize: 8, fontStyle: 'bold', color: primaryColor });
     addText(modeLabel, pageWidth - margin - 5, y + 6, { fontSize: 8, color: mutedColor, align: 'right' });
 
     // Line 1: gross
-    addText('Montant TTC encaissé', margin + 5, y + 14, { fontSize: 9 });
+    addText(L.amountCollected, margin + 5, y + 14, { fontSize: 9 });
     addText(formatPrice(data.totalTTC), pageWidth - margin - 5, y + 14, { fontSize: 9, align: 'right' });
 
     // Line 2: yuno fee
-    addText(`Frais de service Yuno`, margin + 5, y + 20, { fontSize: 9, color: mutedColor });
+    addText(L.yunoServiceFee, margin + 5, y + 20, { fontSize: 9, color: mutedColor });
     addText(`- ${formatPrice(ce.yunoFee)}`, pageWidth - margin - 5, y + 20, { fontSize: 9, color: mutedColor, align: 'right' });
 
     // Line 3: net base
     doc.setDrawColor(229, 231, 235);
     doc.line(margin + 5, y + 23, pageWidth - margin - 5, y + 23);
-    addText('Net à répartir', margin + 5, y + 28, { fontSize: 9, fontStyle: 'bold' });
+    addText(L.netToSplit, margin + 5, y + 28, { fontSize: 9, fontStyle: 'bold' });
     addText(formatPrice(ce.netAmount), pageWidth - margin - 5, y + 28, { fontSize: 9, fontStyle: 'bold', align: 'right' });
 
     // Line 4: viewer share (highlighted)
@@ -430,7 +472,7 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   // ==================== ATTENDEES (for nominative tickets) ====================
   if (data.attendees && data.attendees.length > 0) {
     y += 5;
-    addText('PARTICIPANTS', margin, y, { fontSize: 10, fontStyle: 'bold' });
+    addText(L.attendees, margin, y, { fontSize: 10, fontStyle: 'bold' });
     y += 6;
     
     data.attendees.forEach((attendee, index) => {
@@ -453,7 +495,7 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   
   addText(data.qrCode, pageWidth / 2, y, { fontSize: 9, fontStyle: 'bold', align: 'center' });
   y += 4;
-  addText('Présentez ce code à l\'entrée', pageWidth / 2, y, { fontSize: 8, color: mutedColor, align: 'center' });
+  addText(L.showAtEntry, pageWidth / 2, y, { fontSize: 8, color: mutedColor, align: 'center' });
 
   // ==================== LEGAL MENTIONS ====================
   y = doc.internal.pageSize.getHeight() - 35;
@@ -463,14 +505,24 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   doc.line(margin, y, pageWidth - margin, y);
   y += 5;
 
-  addText('MENTIONS LÉGALES', margin, y, { fontSize: 7, fontStyle: 'bold', color: mutedColor });
+  addText(L.legalMentions, margin, y, { fontSize: 7, fontStyle: 'bold', color: mutedColor });
   y += 4;
 
+  const paidByCard = lang === 'es'
+    ? `Pago efectuado con tarjeta el ${formatDate(data.paymentDate, locale)}`
+    : lang === 'en'
+      ? `Paid by card on ${formatDate(data.paymentDate, locale)}`
+      : `Paiement effectué par carte bancaire le ${formatDate(data.paymentDate, locale)}`;
+  const autoGenerated = lang === 'es'
+    ? `Factura generada automáticamente - ${data.venueLegalName || data.venueName}`
+    : lang === 'en'
+      ? `Invoice generated automatically - ${data.venueLegalName || data.venueName}`
+      : `Facture générée automatiquement - ${data.venueLegalName || data.venueName}`;
   const legalMentions = [
-    `Paiement effectué par carte bancaire le ${formatDate(data.paymentDate)}`,
-    data.venueVatNumber ? 'TVA applicable selon le régime en vigueur' : 'TVA non applicable - Art. 293 B du CGI',
-    'Cette facture tient lieu de justificatif de paiement',
-    `Facture générée automatiquement - ${data.venueLegalName || data.venueName}`,
+    paidByCard,
+    data.venueVatNumber ? L.legalVatApplicable : L.legalVatNotApplicable,
+    L.legalProofOfPayment,
+    autoGenerated,
   ];
 
   legalMentions.forEach((mention) => {
@@ -482,8 +534,8 @@ export const generateInvoicePDF = async (data: InvoiceData): Promise<Blob> => {
   return doc.output('blob');
 };
 
-export const downloadInvoicePDF = async (data: InvoiceData, filename?: string): Promise<void> => {
-  const blob = await generateInvoicePDF(data);
+export const downloadInvoicePDF = async (data: InvoiceData, filename?: string, languageOverride?: Language): Promise<void> => {
+  const blob = await generateInvoicePDF(data, languageOverride);
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;

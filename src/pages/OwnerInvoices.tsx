@@ -275,11 +275,11 @@ export default function OwnerInvoices() {
     }
 
     // Generate CSV
-    const headers = ['Numéro', 'Date', 'Type', 'Montant', 'Client', 'Email', 'Événement'];
+    const headers = [t('invoices.csv.number'), t('invoices.csv.date'), t('invoices.csv.type'), t('invoices.csv.amount'), t('invoices.csv.client'), t('invoices.csv.email'), t('invoices.csv.event')];
     const rows = periodInvoices.map(inv => [
       inv.invoice_number,
       format(new Date(inv.created_at), 'dd/MM/yyyy HH:mm'),
-      inv.type === 'ticket' ? 'Billet' : inv.type === 'table' ? 'Table VIP' : 'Boisson',
+      inv.type === 'ticket' ? t('invoices.ticket') : inv.type === 'table' ? t('invoices.vipTable') : t('invoices.drink'),
       `${inv.amount.toFixed(2)} €`,
       inv.customer_name || '-',
       inv.customer_email,
@@ -292,11 +292,11 @@ export default function OwnerInvoices() {
     const link = document.createElement('a');
     
     const periodLabelsFile: Record<ExportPeriod, string> = {
-      week: 'semaine',
-      month: 'mois',
-      quarter: 'trimestre',
-      semester: 'semestre',
-      year: 'annee',
+      week: t('invoices.csv.week'),
+      month: t('invoices.csv.month'),
+      quarter: t('invoices.csv.quarter'),
+      semester: t('invoices.csv.semester'),
+      year: t('invoices.csv.year'),
     };
     
     link.href = url;
@@ -331,7 +331,7 @@ export default function OwnerInvoices() {
         // Generate invoice data for each invoice
         const invoiceData = await buildInvoiceData(invoice);
         if (invoiceData) {
-          const pdfBlob = await generateInvoicePDF(invoiceData);
+          const pdfBlob = await generateInvoicePDF(invoiceData, language);
           const pdfBytes = await pdfBlob.arrayBuffer();
           const pdf = await PDFDocument.load(pdfBytes);
           const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
@@ -562,10 +562,10 @@ export default function OwnerInvoices() {
           ) : (
             <div className="flex items-center gap-2"
               style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '8px 12px', color: T3, fontSize: 13, opacity: 0.5 }}
-              title="Export indisponible en mode démo Collab"
+              title={t('invoices.exportUnavailableCollab')}
             >
               <Download className="h-4 w-4" />
-              Export désactivé (Collab)
+              {t('invoices.exportDisabledCollab')}
             </div>
           )}
         </div>

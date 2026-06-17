@@ -332,7 +332,7 @@ export function EventInvoicesModule({ eventId }: Props) {
       const data = await buildInvoiceData(inv);
       if (data) {
         const suffix = data.coEvent ? `-${data.coEvent.viewerSide}` : '';
-        await downloadInvoicePDF(data, `facture-${inv.invoice_number}${suffix}.pdf`);
+        await downloadInvoicePDF(data, `facture-${inv.invoice_number}${suffix}.pdf`, language);
         toast.success(t('coInv.downloaded'));
       }
     } catch (err) {
