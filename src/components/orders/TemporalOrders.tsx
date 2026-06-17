@@ -7,10 +7,11 @@
    (docs/DESIGN_SYSTEM_PUBLIC.md). Hex durs, mono uppercase tracké,
    radius tranchant, rouge unique #E8192C comme seul accent.
    ============================================================ */
+import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   Ticket, Crown, Wine, Users, Gift, Bell, QrCode, ArrowRight, CheckCircle2,
-  X, Share2, CreditCard, type LucideIcon,
+  X, Share2, CreditCard, User, ChevronLeft, ChevronRight, type LucideIcon,
 } from 'lucide-react';
 
 export type OrderKind = 'ticket' | 'vip' | 'guestlist' | 'reward' | 'drink' | 'waitlist';
@@ -316,8 +317,15 @@ function ScanCorner({ pos }: { pos: 'tl' | 'tr' | 'bl' | 'br' }) {
 /* ================================================================
    QR OVERLAY — grande QR + ligne de scan + infos en bas
    ================================================================ */
+export interface QRSlide {
+  qrImage?: string;
+  /** attendee name shown above the QR */
+  caption?: string;
+  scanned?: boolean;
+}
+
 export function OrderQROverlay({
-  kind, title, venueName, qrImage, idLabel, scanned, footer, labels, onClose, onShare,
+  kind, title, venueName, qrImage, idLabel, scanned, footer, labels, onClose, onShare, slides,
 }: {
   kind: OrderKind;
   title: string;
@@ -330,7 +338,28 @@ export function OrderQROverlay({
   labels: { scanThisQR: string; shareThisQR: string; valid: string; scanned: string };
   onClose: () => void;
   onShare?: () => void;
+  /** optional per-attendee carousel — when 2+ entries, shows swipe + dots */
+  slides?: QRSlide[];
 }) {
+  const [index, setIndex] = useState(0);
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
+
+  const total = slides && slides.length > 0 ? slides.length : 1;
+  const active = slides && slides.length > 0 ? slides[Math.min(index, slides.length - 1)] : undefined;
+  const activeQr = active ? active.qrImage : qrImage;
+  const activeScanned = active ? active.scanned : scanned;
+  const caption = active?.caption;
+  const hasCarousel = total > 1;
+
+  const goNext = () => setIndex(i => Math.min(i + 1, total - 1));
+  const goPrev = () => setIndex(i => Math.max(i - 1, 0));
+  const handleTouchEnd = () => {
+    const diff = touchStartX.current - touchEndX.current;
+    if (diff > 50) goNext();
+    else if (diff < -50) goPrev();
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }}
@@ -351,14 +380,29 @@ export function OrderQROverlay({
       </div>
 
       {/* Zone QR */}
-      <div className="flex-1 flex items-center justify-center relative w-full max-w-md mx-auto" style={{ padding: '0 32px' }}>
+      <div className="flex-1 flex flex-col items-center justify-center relative w-full max-w-md mx-auto" style={{ padding: '0 32px' }}>
         <div style={{ position: 'absolute', width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(232,25,44,0.15) 0%, transparent 70%)' }} />
-        <div style={{ position: 'relative' }}>
+
+        {/* Nom du participant (carousel billets) */}
+        {caption && (
+          <div className="flex items-center justify-center gap-1.5" style={{ position: 'relative', marginBottom: 18 }}>
+            <User style={{ width: 14, height: 14, color: G2 }} strokeWidth={2} />
+            <span className="font-mono uppercase" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.08em', color: G1 }}>{caption}</span>
+            {activeScanned && <CheckCircle2 style={{ width: 14, height: 14, color: '#10B981' }} strokeWidth={2} />}
+          </div>
+        )}
+
+        <div
+          style={{ position: 'relative' }}
+          onTouchStart={e => { touchStartX.current = e.touches[0].clientX; touchEndX.current = e.touches[0].clientX; }}
+          onTouchMove={e => { touchEndX.current = e.touches[0].clientX; }}
+          onTouchEnd={handleTouchEnd}
+        >
           <div
             style={{ background: '#fff', borderRadius: 6, padding: 16, position: 'relative', overflow: 'hidden', boxShadow: '0 32px 70px -20px rgba(0,0,0,.95), 0 0 0 1px rgba(255,255,255,.05)' }}
           >
-            {qrImage
-              ? <img src={qrImage} alt="QR" style={{ display: 'block', width: 216, height: 216 }} />
+            {activeQr
+              ? <img src={activeQr} alt="QR" style={{ display: 'block', width: 216, height: 216 }} />
               : <div style={{ width: 216, height: 216, display: 'grid', placeItems: 'center' }}><QrCode style={{ width: 72, height: 72, color: '#bbb' }} /></div>}
             {/* Ligne de scan animée */}
             <div
@@ -372,6 +416,38 @@ export function OrderQROverlay({
           </div>
           <ScanCorner pos="tl" /><ScanCorner pos="tr" /><ScanCorner pos="bl" /><ScanCorner pos="br" />
         </div>
+
+        {/* Navigation carousel (flèches + points) */}
+        {hasCarousel && (
+          <div className="flex items-center justify-center gap-4" style={{ position: 'relative', marginTop: 22 }}>
+            <button
+              onClick={goPrev}
+              disabled={index === 0}
+              className="grid place-items-center cursor-pointer"
+              style={{ width: 30, height: 30, borderRadius: 999, background: CARD, border: `1px solid ${BORDER_STRONG}`, color: index === 0 ? G3 : G1, opacity: index === 0 ? 0.4 : 1 }}
+            >
+              <ChevronLeft style={{ width: 16, height: 16 }} strokeWidth={2} />
+            </button>
+            <div className="flex items-center gap-1.5">
+              {slides!.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setIndex(i)}
+                  className="cursor-pointer"
+                  style={{ height: 6, width: i === index ? 20 : 6, borderRadius: 999, border: 'none', background: i === index ? RED : 'rgba(255,255,255,0.20)', transition: 'all .2s' }}
+                />
+              ))}
+            </div>
+            <button
+              onClick={goNext}
+              disabled={index === total - 1}
+              className="grid place-items-center cursor-pointer"
+              style={{ width: 30, height: 30, borderRadius: 999, background: CARD, border: `1px solid ${BORDER_STRONG}`, color: index === total - 1 ? G3 : G1, opacity: index === total - 1 ? 0.4 : 1 }}
+            >
+              <ChevronRight style={{ width: 16, height: 16 }} strokeWidth={2} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Infos bas */}
@@ -394,12 +470,12 @@ export function OrderQROverlay({
             className="font-mono uppercase"
             style={{
               fontSize: 9.5, fontWeight: 600, letterSpacing: '.1em', padding: '4px 9px', borderRadius: 999, flexShrink: 0,
-              color: scanned ? G2 : RED,
-              background: scanned ? 'rgba(255,255,255,0.06)' : RED_TINT,
-              border: `1px solid ${scanned ? BORDER_STRONG : RED_SOFT}`,
+              color: activeScanned ? G2 : RED,
+              background: activeScanned ? 'rgba(255,255,255,0.06)' : RED_TINT,
+              border: `1px solid ${activeScanned ? BORDER_STRONG : RED_SOFT}`,
             }}
           >
-            {scanned ? labels.scanned : labels.valid}
+            {activeScanned ? labels.scanned : labels.valid}
           </span>
         </div>
 

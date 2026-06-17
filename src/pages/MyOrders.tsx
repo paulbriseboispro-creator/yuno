@@ -23,7 +23,7 @@ import { GroupedTicketsView } from '@/components/orders/GroupedTicketsView';
 import { GroupedDrinksView } from '@/components/orders/GroupedDrinksView';
 import { BarSelectionDialog } from '@/components/orders/BarSelectionDialog';
 import { DrinkCreditsCard } from '@/components/upsell/DrinkCreditsCard';
-import { TicketQRCarousel } from '@/components/orders/TicketQRCarousel';
+import { TicketQROverlay } from '@/components/orders/TicketQROverlay';
 import {
   SegControl, PendingCard, UpcomingCard, PastCard, OrderQROverlay,
   type UnifiedOrderEntry, type OrderBucket,
@@ -1538,9 +1538,9 @@ export default function MyOrders() {
         onConfirm={handleCancelTicket}
       />
 
-      {/* QR Code Modal for Tickets - Per-attendee carousel */}
+      {/* QR Code Modal for Tickets - Per-attendee carousel (shared premium design) */}
       {selectedTicket && (
-        <TicketQRCarousel
+        <TicketQROverlay
           ticketId={selectedTicket.id}
           ticketQrCode={selectedTicket.qrCode}
           quantity={selectedTicket.quantity}
@@ -1548,7 +1548,9 @@ export default function MyOrders() {
           eventTitle={selectedTicket.eventTitle}
           venueName={selectedTicket.venueName}
           entryScanned={selectedTicket.entryScanned}
+          labels={qrOverlayLabels}
           onClose={() => setSelectedTicket(null)}
+          onShare={() => shareQR(selectedTicket.eventTitle)}
         />
       )}
 
