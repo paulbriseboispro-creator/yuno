@@ -12,6 +12,7 @@ import { ZoneUpsellSheet } from '@/components/vip/ZoneUpsellSheet';
 import { TermsAcceptance } from '@/components/TermsAcceptance';
 import { AgeGate } from '@/components/AgeGate';
 import { MarketingOptIns } from '@/components/MarketingOptIns';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { Separator } from '@/components/ui/separator';
 import { VipCheckoutSteps } from '@/components/vip/VipCheckoutSteps';
 import { ClientFloorPlanPicker } from '@/components/vip/ClientFloorPlanPicker';
@@ -691,7 +692,7 @@ export default function TableCheckout() {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="phone" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[#5A5A5E]">{t('tableCheckout.phone')} *</Label>
-                    <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t('tableCheckout.phonePlaceholder')} required className={tableInputClass} />
+                    <PhoneInputWithCountry id="phone" value={phone} onChange={setPhone} />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="remarks" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[#5A5A5E]">{t('tableCheckout.remarks')}</Label>

@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CheckoutSteps } from '@/components/CheckoutSteps';
+import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { StickyCheckoutFooter } from '@/components/StickyCheckoutFooter';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { getStoredPromoCodeForVenue } from '@/hooks/usePromoterTracking';
@@ -430,7 +431,7 @@ export default function GuestListCheckout() {
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="gl-phone" className="text-xs text-white/55">{t('guestList.phone')} *</Label>
-                <Input id="gl-phone" type="tel" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder={t('guestList.phonePlaceholder')} />
+                <PhoneInputWithCountry id="gl-phone" value={guestPhone} onChange={setGuestPhone} />
               </div>
             </div>
 

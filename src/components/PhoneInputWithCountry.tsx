@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatNationalNumber } from '@/lib/countries';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface Country {
@@ -104,14 +105,15 @@ export function PhoneInputWithCountry({
   const { country: selectedCountry, number: phoneNumber } = parsePhoneValue(value);
   
   const handleCountrySelect = (country: Country) => {
-    onChange(`${country.dialCode} ${phoneNumber}`);
+    // Re-group the existing digits under the newly selected country's format.
+    onChange(`${country.dialCode} ${formatNationalNumber(phoneNumber, country)}`);
     setIsOpen(false);
   };
-  
+
   const handleNumberChange = (newNumber: string) => {
-    // Remove any non-digit characters except spaces
-    const cleaned = newNumber.replace(/[^\d\s]/g, '');
-    onChange(`${selectedCountry.dialCode} ${cleaned}`);
+    // Strip the national trunk "0" / mistyped dial code and pretty-group.
+    const formatted = formatNationalNumber(newNumber, selectedCountry);
+    onChange(`${selectedCountry.dialCode} ${formatted}`);
   };
   
   // Close dropdown when clicking outside

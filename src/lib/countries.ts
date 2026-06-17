@@ -79,3 +79,68 @@ export function countryFromPhone(phone: string | null | undefined): Country | nu
 }
 
 export const COUNTRY_BY_NUMERIC = new Map<number, Country>(COUNTRIES.map(c => [c.isoNumeric, c]));
+
+// Countries that KEEP the leading trunk "0" in international format.
+// Italy is the classic exception: "+39 06 ..." is correct (landlines retain
+// the 0). For everyone else (FR, ES, GB, DE, ...), the leading 0 is a national
+// trunk prefix that must be dropped after the dial code.
+const KEEP_LEADING_ZERO = new Set(['IT']);
+
+/**
+ * Extract the clean national digits a user typed for a given country.
+ * Handles the common ways people mistype a number into a field that already
+ * shows the dial code:
+ *  - leading trunk "0"        ("06 44 ..." -> "6 44 ...")   [dropped unless Italy]
+ *  - the dial code itself     ("+33 6 ...", "0033 6 ...")  [stripped]
+ *  - any non-digit separators (spaces, dashes, parens)      [removed]
+ * Returns digits only (no separators).
+ */
+export function nationalDigits(
+  raw: string,
+  country: Pick<Country, 'code' | 'dialCode'>,
+): string {
+  const dial = country.dialCode.slice(1); // "+33" -> "33"
+  const hadPlus = raw.trimStart().startsWith('+');
+  let digits = raw.replace(/\D/g, '');
+
+  // International prefix accidentally typed into the national field.
+  if (hadPlus && digits.startsWith(dial)) {
+    digits = digits.slice(dial.length);
+  } else if (digits.startsWith('00')) {
+    digits = digits.slice(2);
+    if (digits.startsWith(dial)) digits = digits.slice(dial.length);
+  }
+
+  // National trunk prefix "0" (kept for Italy and the like).
+  if (!KEEP_LEADING_ZERO.has(country.code)) {
+    digits = digits.replace(/^0+/, '');
+  }
+
+  return digits;
+}
+
+/**
+ * Normalize + pretty-group a national number for display, using the country's
+ * `format` placeholder as the grouping template. Digit slots in the template are
+ * filled left-to-right; literal characters (space, "-", "(", ")") are inserted
+ * between groups. Overflow digits beyond the template are appended.
+ *
+ * "06 44 21 66 89" with FR -> "6 44 21 66 89".
+ */
+export function formatNationalNumber(
+  raw: string,
+  country: Pick<Country, 'code' | 'dialCode' | 'format'>,
+): string {
+  const digits = nationalDigits(raw, country);
+  if (!digits) return '';
+
+  let out = '';
+  let di = 0;
+  for (const ch of country.format) {
+    if (di >= digits.length) break; // stop before emitting a trailing separator
+    if (/\d/.test(ch)) out += digits[di++];
+    else out += ch;
+  }
+  if (di < digits.length) out += (out ? ' ' : '') + digits.slice(di);
+  return out;
+}
