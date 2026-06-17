@@ -67,6 +67,16 @@ export interface BulkDrinkFormData {
   applyToVip: boolean;
 }
 
+// One row of the activation-wizard guided rounds builder (verbatim from OwnerTicketing).
+export interface WizardCustomRound {
+  name: string;
+  price: string;
+  maxTickets: string;
+  ticketType: TicketType;
+  includesDrink: boolean;
+  entryDeadline?: string;
+}
+
 export type TicketSalesMode = 'private' | 'presale' | 'normal';
 export type SalesDraft = {
   mode: TicketSalesMode;
