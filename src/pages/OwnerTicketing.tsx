@@ -1,4 +1,4 @@
-import { useState, useEffect, type CSSProperties } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Ticket, Save, FolderOpen, Zap, Crown, Wine, ShieldCheck, Clock, ChevronDown, Users, Bell, Check, ArrowRight, ArrowLeft, Sparkles, Lock, Copy, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -25,96 +25,9 @@ import { useVenueContext } from '@/hooks/useVenueContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { CollabReadOnlyBanner } from '@/components/CollabReadOnlyBanner';
-
-// ─── Yuno Dark Premium — Design Tokens ────────────────────────────────────────
-// See docs/DESIGN_SYSTEM.md. Pure-black surfaces, single red accent, hierarchy by
-// opacity (T1/T2/T3), inline-styled divs (no shadcn Card), Lucide icons only.
-const RED = '#E8192C';
-const POS = '#34D399';
-const GOLD = '#FCD34D';
-const T1 = 'rgba(255,255,255,0.96)';
-const T2 = 'rgba(255,255,255,0.58)';
-const T3 = 'rgba(255,255,255,0.36)';
-const C_FAINT = 'rgba(255,255,255,0.06)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const F_BORDER = 'rgba(255,255,255,0.055)';
-const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const INNER_BG = 'rgba(255,255,255,0.032)';
-const TILE_BG = 'rgba(255,255,255,0.025)';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
-
-// Top-level section card
-const MAIN_CARD: CSSProperties = {
-  background: CARD_BG,
-  border: `1px solid ${BORDER}`,
-  borderRadius: 18,
-  boxShadow: CARD_SHADOW,
-  overflow: 'hidden',
-  position: 'relative',
-};
-// Nested card inside a MAIN_CARD
-const INNER_CARD: CSSProperties = {
-  background: INNER_BG,
-  border: `1px solid ${BORDER}`,
-  borderRadius: 14,
-};
-// Level-3 tile
-const TILE: CSSProperties = {
-  background: TILE_BG,
-  border: `1px solid ${BORDER}`,
-  borderRadius: 12,
-};
-// Uppercase micro-label
-const LABEL: CSSProperties = {
-  color: T3,
-  fontSize: 11,
-  fontWeight: 600,
-  letterSpacing: '0.07em',
-  textTransform: 'uppercase',
-};
-// Modal surface
-const DIALOG_SURFACE: CSSProperties = {
-  background: 'linear-gradient(180deg,rgba(255,255,255,.025) 0%,transparent 40%),#0a0a0c',
-  border: `1px solid ${BORDER}`,
-};
-const DIALOG_TITLE: CSSProperties = { color: T1, fontSize: 17, fontWeight: 600, letterSpacing: '-0.015em' };
-const HINT: CSSProperties = { color: T3, fontSize: 11.5 };
-
-interface PresetRound {
-  name: string;
-  price: number;
-  maxTickets: number;
-  lastTicketsThreshold: number;
-  includesDrink?: boolean;
-  drinkDeadlineType?: 'hours_after_start' | 'fixed_time' | 'none';
-  drinkDeadlineHours?: number;
-  drinkCutoffTime?: string;
-  entryDeadline?: string;
-}
-
-interface TicketPreset {
-  id: string;
-  venueId: string;
-  name: string;
-  totalCapacity: number;
-  rounds: PresetRound[];
-  ticketType: TicketType;
-  sellingMode: PresetSellingMode;
-  includesDrink?: boolean;
-  drinkDeadlineType?: 'hours_after_start' | 'fixed_time' | 'none';
-  drinkDeadlineHours?: number;
-  drinkCutoffTime?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-type TicketSalesMode = 'private' | 'presale' | 'normal';
-type SalesDraft = {
-  mode: TicketSalesMode;
-  presaleStartAt: string;
-  publicSaleStartAt: string;
-  waitlistEnabled: boolean;
-};
+import { RED, POS, GOLD, T1, T2, T3, C_FAINT, BORDER, TILE_BG, CARD_SHADOW, MAIN_CARD, INNER_CARD, TILE, LABEL, DIALOG_SURFACE, DIALOG_TITLE, HINT } from '@/components/owner/ticketing/ticketing-ui';
+import type { PresetRound, TicketPreset, TicketSalesMode, SalesDraft } from '@/components/owner/ticketing/ticketing-types';
+import { toDateTimeLocalInput, toUtcIsoOrNull, resolveSalesMode } from '@/components/owner/ticketing/ticketing-utils';
 
 export default function OwnerTicketing() {
   const { t, language } = useLanguage();
@@ -207,22 +120,6 @@ export default function OwnerTicketing() {
       case 'fr': return fr;
       default: return enUS;
     }
-  };
-
-  const toDateTimeLocalInput = (value?: string) => {
-    if (!value) return '';
-    return formatInTimeZone(toParisTime(value), PARIS_TIMEZONE, "yyyy-MM-dd'T'HH:mm");
-  };
-
-  const toUtcIsoOrNull = (value: string) => {
-    if (!value) return null;
-    return fromParisTime(value).toISOString();
-  };
-
-  const resolveSalesMode = (values: { presaleStartAt?: string; publicSaleStartAt?: string; waitlistEnabled?: boolean }): TicketSalesMode => {
-    if (values.presaleStartAt || values.publicSaleStartAt) return 'presale';
-    if (values.waitlistEnabled) return 'private';
-    return 'normal';
   };
 
   useEffect(() => {
