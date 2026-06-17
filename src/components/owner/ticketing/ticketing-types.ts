@@ -57,6 +57,16 @@ export interface PresetFormData {
   rounds: { name: string; price: string; maxTickets: string; entryDeadline: string; includesDrink: boolean }[];
 }
 
+// Shape of the bulk-drink form state (verbatim from OwnerTicketing useState).
+export interface BulkDrinkFormData {
+  includesDrink: boolean;
+  drinkDeadlineType: 'hours_after_start' | 'fixed_time' | 'none';
+  drinkDeadlineHours: string;
+  drinkCutoffTime: string;
+  applyToStandard: boolean;
+  applyToVip: boolean;
+}
+
 export type TicketSalesMode = 'private' | 'presale' | 'normal';
 export type SalesDraft = {
   mode: TicketSalesMode;

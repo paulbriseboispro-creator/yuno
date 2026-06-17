@@ -30,6 +30,8 @@ import type { PresetRound, TicketPreset, TicketSalesMode, SalesDraft, RoundFormD
 import { toDateTimeLocalInput, toUtcIsoOrNull, resolveSalesMode } from '@/components/owner/ticketing/ticketing-utils';
 import { RoundDialog } from '@/components/owner/ticketing/RoundDialog';
 import { PresetDialog } from '@/components/owner/ticketing/PresetDialog';
+import { PresetTypeDialog } from '@/components/owner/ticketing/PresetTypeDialog';
+import { BulkDrinkDialog } from '@/components/owner/ticketing/BulkDrinkDialog';
 
 export default function OwnerTicketing() {
   const { t, language } = useLanguage();
@@ -1905,214 +1907,24 @@ export default function OwnerTicketing() {
 
 
         {/* Preset Type Selection Dialog — 2 steps: mode then type */}
-        <Dialog open={isPresetTypeDialogOpen} onOpenChange={(open) => {
-          setIsPresetTypeDialogOpen(open);
-          if (!open) setPresetTypeStep('mode');
-        }}>
-          <DialogContent className="max-w-sm" style={DIALOG_SURFACE}>
-            {presetTypeStep === 'mode' ? (
-              <>
-                <DialogHeader>
-                  <DialogTitle style={DIALOG_TITLE}>{t('tickets.selectPresetMode')}</DialogTitle>
-                  <DialogDescription style={HINT}>{t('tickets.selectPresetModeDesc')}</DialogDescription>
-                </DialogHeader>
-                <div className="grid grid-cols-3 gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => handleSelectPresetMode('simple')}
-                    className="flex flex-col items-center gap-3 p-4 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-all group"
-                  >
-                    <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-                      <Ticket className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
-                    </div>
-                    <div className="text-center">
-                      <div className="font-semibold text-sm">{t('tickets.presetModeSimple')}</div>
-                      <div style={HINT}>{t('tickets.presetModeSimpleDesc')}</div>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSelectPresetMode('rounds')}
-                    className="flex flex-col items-center gap-3 p-4 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-all group"
-                  >
-                    <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-                      <Zap className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
-                    </div>
-                    <div className="text-center">
-                      <div className="font-semibold text-sm">{t('tickets.presetModeRounds')}</div>
-                      <div style={HINT}>{t('tickets.presetModeRoundsDesc')}</div>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSelectPresetMode('timed_entry')}
-                    className="flex flex-col items-center gap-3 p-4 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-all group"
-                  >
-                    <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-                      <Clock className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
-                    </div>
-                    <div className="text-center">
-                      <div className="font-semibold text-sm">{t('tickets.presetModeTimed')}</div>
-                      <div style={HINT}>{t('tickets.presetModeTimedDesc')}</div>
-                    </div>
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <DialogHeader>
-                  <DialogTitle style={DIALOG_TITLE}>{t('tickets.selectPresetType')}</DialogTitle>
-                  <DialogDescription style={HINT}>
-                    {t('tickets.selectPresetTypeDesc')} — {presetSellingMode === 'simple' ? t('tickets.presetModeSimple') : presetSellingMode === 'timed_entry' ? t('tickets.presetModeTimed') : t('tickets.presetModeRounds')}
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid grid-cols-2 gap-4 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => handleSelectPresetType('standard')}
-                    className="flex flex-col items-center gap-3 p-6 rounded-xl border border-border hover:border-primary hover:bg-primary/5 transition-all group"
-                  >
-                    <div className="h-14 w-14 rounded-full bg-muted flex items-center justify-center group-hover:bg-primary/10 transition-colors">
-                      <Ticket className="h-7 w-7 text-muted-foreground group-hover:text-primary transition-colors" />
-                    </div>
-                    <div className="text-center">
-                      <div className="font-semibold">{t('tickets.standard')}</div>
-                      <div style={HINT}>{t('tickets.standardDesc')}</div>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSelectPresetType('vip')}
-                    className="flex flex-col items-center gap-3 p-6 rounded-xl border border-amber-500/30 hover:border-amber-500 hover:bg-amber-500/5 transition-all group"
-                  >
-                    <div className="h-14 w-14 rounded-full bg-amber-500/10 flex items-center justify-center group-hover:bg-amber-500/20 transition-colors">
-                      <Crown className="h-7 w-7 text-amber-500" />
-                    </div>
-                    <div className="text-center">
-                      <div className="font-semibold text-amber-500">VIP</div>
-                      <div style={HINT}>{t('tickets.vipDesc')}</div>
-                    </div>
-                  </button>
-                </div>
-                <Button variant="ghost" size="sm" onClick={() => setPresetTypeStep('mode')} className="mt-2 gap-1.5" style={{ color: T2 }}>
-                  <ArrowLeft className="h-3.5 w-3.5" />
-                  {t('common.back')}
-                </Button>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
+        <PresetTypeDialog
+          isPresetTypeDialogOpen={isPresetTypeDialogOpen}
+          setIsPresetTypeDialogOpen={setIsPresetTypeDialogOpen}
+          presetTypeStep={presetTypeStep}
+          setPresetTypeStep={setPresetTypeStep}
+          presetSellingMode={presetSellingMode}
+          handleSelectPresetMode={handleSelectPresetMode}
+          handleSelectPresetType={handleSelectPresetType}
+        />
 
         {/* Bulk Drink Dialog */}
-        <Dialog open={isBulkDrinkDialogOpen} onOpenChange={setIsBulkDrinkDialogOpen}>
-          <DialogContent className="max-w-md" style={DIALOG_SURFACE}>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2" style={DIALOG_TITLE}>
-                <Wine className="h-5 w-5" style={{ color: POS }} />
-                {t('tickets.bulkDrinkTitle')}
-              </DialogTitle>
-              <DialogDescription style={HINT}>{t('tickets.bulkDrinkDesc')}</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              {/* Apply to which ticket types */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="flex items-center gap-2">
-                    <Ticket className="h-4 w-4" />
-                    {t('tickets.applyToStandard')}
-                  </Label>
-                  <Switch
-                    checked={bulkDrinkFormData.applyToStandard}
-                    onCheckedChange={(checked) => setBulkDrinkFormData({ ...bulkDrinkFormData, applyToStandard: checked })}
-                  />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label className="flex items-center gap-2">
-                    <Crown className="h-4 w-4" style={{ color: GOLD }} />
-                    {t('tickets.applyToVip')}
-                  </Label>
-                  <Switch
-                    checked={bulkDrinkFormData.applyToVip}
-                    onCheckedChange={(checked) => setBulkDrinkFormData({ ...bulkDrinkFormData, applyToVip: checked })}
-                  />
-                </div>
-              </div>
-
-              {/* Drink settings */}
-              <div className="space-y-3 pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label>{t('tickets.includesDrink')}</Label>
-                    <p style={HINT}>{t('tickets.includesDrinkDesc')}</p>
-                  </div>
-                  <Switch
-                    checked={bulkDrinkFormData.includesDrink}
-                    onCheckedChange={(checked) => setBulkDrinkFormData({ ...bulkDrinkFormData, includesDrink: checked })}
-                  />
-                </div>
-
-                {bulkDrinkFormData.includesDrink && (
-                  <div className="space-y-3 pl-4" style={{ borderLeft: '2px solid rgba(52,211,153,0.3)' }}>
-                    <div>
-                      <Label>{t('tickets.drinkDeadlineType')}</Label>
-                      <Select
-                        value={bulkDrinkFormData.drinkDeadlineType}
-                        onValueChange={(value: 'hours_after_start' | 'fixed_time' | 'none') => 
-                          setBulkDrinkFormData({ ...bulkDrinkFormData, drinkDeadlineType: value })
-                        }
-                      >
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">{t('tickets.drinkDeadlineNone')}</SelectItem>
-                          <SelectItem value="hours_after_start">{t('tickets.hoursAfterStart')}</SelectItem>
-                          <SelectItem value="fixed_time">{t('tickets.fixedTime')}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {bulkDrinkFormData.drinkDeadlineType === 'hours_after_start' && (
-                      <div>
-                        <Label>{t('tickets.drinkDeadlineHours')}</Label>
-                        <Input
-                          type="number"
-                          min="1"
-                          max="12"
-                          value={bulkDrinkFormData.drinkDeadlineHours}
-                          onChange={(e) => setBulkDrinkFormData({ ...bulkDrinkFormData, drinkDeadlineHours: e.target.value })}
-                          placeholder="2"
-                        />
-                      </div>
-                    )}
-
-                    {bulkDrinkFormData.drinkDeadlineType === 'fixed_time' && (
-                      <div>
-                        <Label>{t('tickets.drinkCutoffTime')}</Label>
-                        <p style={{ ...HINT, marginBottom: 4 }}>{t('tickets.drinkCutoffTimeDesc')}</p>
-                        <Input
-                          type="time"
-                          value={bulkDrinkFormData.drinkCutoffTime}
-                          onChange={(e) => setBulkDrinkFormData({ ...bulkDrinkFormData, drinkCutoffTime: e.target.value })}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2">
-                <Button onClick={handleBulkAddDrink} className="flex-1" style={{ background: RED, color: '#fff' }}>
-                  <Wine className="h-4 w-4 mr-2" />
-                  {t('owner.apply')}
-                </Button>
-                <Button variant="outline" onClick={() => setIsBulkDrinkDialogOpen(false)} style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1 }}>
-                  {t('common.cancel')}
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <BulkDrinkDialog
+          isBulkDrinkDialogOpen={isBulkDrinkDialogOpen}
+          setIsBulkDrinkDialogOpen={setIsBulkDrinkDialogOpen}
+          bulkDrinkFormData={bulkDrinkFormData}
+          setBulkDrinkFormData={setBulkDrinkFormData}
+          handleBulkAddDrink={handleBulkAddDrink}
+        />
 
         {/* Activation Wizard Dialog */}
         <Dialog open={isActivationWizardOpen} onOpenChange={(open) => { setIsActivationWizardOpen(open); if (!open) setWizardModeChange(false); }}>
