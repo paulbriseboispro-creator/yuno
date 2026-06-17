@@ -35,6 +35,7 @@ import { BulkDrinkDialog } from '@/components/owner/ticketing/BulkDrinkDialog';
 import { ActivationWizardDialog } from '@/components/owner/ticketing/ActivationWizardDialog';
 import { EventRoundRow } from '@/components/owner/ticketing/EventRoundRow';
 import { EventRegistrationsViewer } from '@/components/owner/ticketing/EventRegistrationsViewer';
+import { EventSalesModeSection } from '@/components/owner/ticketing/EventSalesModeSection';
 
 export default function OwnerTicketing() {
   const { t, language } = useLanguage();
@@ -1448,73 +1449,12 @@ export default function OwnerTicketing() {
                             </div>
 
                             {/* Sales mode */}
-                            <div className="p-3.5 space-y-4" style={INNER_CARD}>
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <Bell className="h-4 w-4" style={{ color: RED }} />
-                                  <p style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{t('tickets.salesMode')}</p>
-                                </div>
-                                <p style={{ color: T3, fontSize: 11.5 }}>{t('tickets.salesModeDesc')}</p>
-                              </div>
-
-                              <Select
-                                value={advancedOptionsDraft[event.id]?.mode || 'normal'}
-                                onValueChange={(value) => handleSetSalesMode(event.id, value as TicketSalesMode)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="private">{t('tickets.salesMode.private')}</SelectItem>
-                                  <SelectItem value="presale">{t('tickets.salesMode.presale')}</SelectItem>
-                                  <SelectItem value="normal">{t('tickets.salesMode.normal')}</SelectItem>
-                                </SelectContent>
-                              </Select>
-
-                              {advancedOptionsDraft[event.id]?.mode === 'private' && (
-                                <p style={{ color: T3, fontSize: 11.5 }}>{t('tickets.privateModeHint')}</p>
-                              )}
-
-                              {advancedOptionsDraft[event.id]?.mode === 'normal' && (
-                                <p style={{ color: T3, fontSize: 11.5 }}>{t('tickets.normalModeHint')}</p>
-                              )}
-
-                              {advancedOptionsDraft[event.id]?.mode === 'presale' && (
-                                <div className="space-y-3">
-                                  <p style={{ color: T3, fontSize: 11.5 }}>{t('tickets.presaleModeHint')}</p>
-                                  <div>
-                                    <Label style={{ ...LABEL, fontSize: 10.5 }}>{t('tickets.presaleMembersStart')}</Label>
-                                    <p style={{ color: T3, fontSize: 10, marginTop: 3 }}>{t('tickets.presaleMembersStartDesc')}</p>
-                                    <Input
-                                      type="datetime-local"
-                                      className="mt-1.5"
-                                      value={advancedOptionsDraft[event.id]?.presaleStartAt || ''}
-                                      onChange={(e) => handleUpdateAdvancedOption(event.id, { presaleStartAt: e.target.value })}
-                                    />
-                                  </div>
-
-                                  <div>
-                                    <Label style={{ ...LABEL, fontSize: 10.5 }}>{t('tickets.publicSaleStart')}</Label>
-                                    <p style={{ color: T3, fontSize: 10, marginTop: 3 }}>{t('tickets.publicSaleStartDesc')}</p>
-                                    <Input
-                                      type="datetime-local"
-                                      className="mt-1.5"
-                                      value={advancedOptionsDraft[event.id]?.publicSaleStartAt || ''}
-                                      onChange={(e) => handleUpdateAdvancedOption(event.id, { publicSaleStartAt: e.target.value })}
-                                    />
-                                  </div>
-                                </div>
-                              )}
-
-                              <Button
-                                type="button"
-                                className="w-full"
-                                onClick={() => handleSaveAdvancedOptions(event.id)}
-                                style={{ background: RED, color: '#fff' }}
-                              >
-                                {t('common.save')}
-                              </Button>
-                            </div>
+                            <EventSalesModeSection
+                              draft={advancedOptionsDraft[event.id]}
+                              onSetMode={(mode) => handleSetSalesMode(event.id, mode)}
+                              onUpdateOption={(patch) => handleUpdateAdvancedOption(event.id, patch)}
+                              onSave={() => handleSaveAdvancedOptions(event.id)}
+                            />
 
                             {/* Private List Registrations Viewer */}
                             {(advancedOptionsDraft[event.id]?.mode === 'private' || advancedOptionsDraft[event.id]?.mode === 'presale' || event.waitlistEnabled) && (
