@@ -12,7 +12,6 @@ import { DrinkOrderDetailModal } from '@/components/DrinkOrderDetailModal';
 import { FreeDrinkRewardModal } from '@/components/FreeDrinkRewardModal';
 import { BottomNav } from '@/components/BottomNav';
 import { Badge } from '@/components/ui/badge';
-import { Tables } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format, addHours } from 'date-fns';
 import { enUS, es, fr } from 'date-fns/locale';
@@ -47,134 +46,10 @@ import {
   SegControl, PendingCard, UpcomingCard, PastCard, OrderQROverlay,
   type UnifiedOrderEntry, type OrderBucket,
 } from '@/components/orders/TemporalOrders';
-
-interface LoyaltyTransaction {
-  id: string;
-  reference_type: string | null;
-  reference_id: string | null;
-  points: number;
-}
-
-interface PendingReward {
-  id: string;
-  rewardName: string;
-  rewardType: 'free_drink' | 'free_ticket' | 'discount';
-  pointsSpent: number;
-  qrCode: string | null;
-  expiresAt: string | null;
-  createdAt: string;
-  venueName: string;
-  venueId: string;
-  metadata?: {
-    drinkId?: string;
-    drinkName?: string;
-    eventId?: string;
-    eventTitle?: string;
-    roundId?: string;
-    roundName?: string;
-  };
-  eventDetails?: {
-    title: string;
-    startAt: string;
-    endAt: string;
-    posterUrl: string | null;
-  };
-}
-
-type Order = Tables<'orders'> & {
-  events?: {
-    title: string;
-    start_at: string;
-    end_at: string;
-    poster_url?: string;
-    venue_id?: string;
-  } | null;
-  venueName?: string;
-};
-
-interface OrderItem {
-  id: string;
-  name: string;
-  qty: number;
-  unitPrice: number;
-  imgUrl?: string;
-}
-
-interface TicketWithDetails {
-  id: string;
-  eventTitle: string;
-  eventStartAt: string;
-  eventEndAt: string;
-  eventPosterUrl?: string;
-  venueName: string;
-  roundName: string;
-  quantity: number;
-  totalPrice: number;
-  serviceFee: number;
-  status: string;
-  qrCode: string;
-  used: boolean;
-  paidAt?: string;
-  includesDrink?: boolean;
-  drinkRedeemed?: boolean;
-  hasInsurance?: boolean;
-  insuranceFee?: number;
-  drinkDeadlineType?: string;
-  drinkDeadlineHours?: number;
-  drinkCutoffTime?: string;
-  entryScanned?: boolean;
-  entryScannedAt?: string;
-  refundAmount?: number;
-  refundReason?: string;
-  hasCloakroom?: boolean;
-}
-
-interface VipReservationWithDetails {
-  id: string;
-  eventTitle: string;
-  eventStartAt: string;
-  eventEndAt: string;
-  eventPosterUrl?: string;
-  venueName: string;
-  zoneName: string;
-  packName: string;
-  guestCount: number;
-  totalPrice: number;
-  deposit: number;
-  managementFee: number;
-  serviceFee: number;
-  status: string;
-  qrCode: string;
-  paidAt?: string;
-  fullName: string;
-  entryScanned?: boolean;
-  entryScannedAt?: string;
-  refundAmount?: number;
-  refundReason?: string;
-  placementStatus?: string;
-  requestedTableName?: string;
-  assignedTableName?: string;
-  placementNote?: string;
-}
-
-interface GuestListEntryWithDetails {
-  id: string;
-  eventTitle: string;
-  eventStartAt: string;
-  eventEndAt: string;
-  eventPosterUrl?: string;
-  venueName: string;
-  freeBeforeTime: string;
-  includesDrink: boolean;
-  qrCode: string;
-  status: string;
-  fullName: string;
-  entryScanned: boolean;
-  entryScannedAt?: string;
-  drinkRedeemed?: boolean;
-  createdAt: string;
-  entryType?: string;
-}
+import type {
+  LoyaltyTransaction, PendingReward, Order, OrderItem,
+  TicketWithDetails, VipReservationWithDetails, GuestListEntryWithDetails,
+} from '@/components/orders/myorders-types';
 
 export default function MyOrders() {
   const { user, loading: authLoading } = useAuth();
