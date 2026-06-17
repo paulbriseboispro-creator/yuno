@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import DOMPurify from 'dompurify';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
@@ -125,11 +126,11 @@ export default function AdminEmailTemplates() {
       const { error } = await supabase.from('email_templates').update({
         name: formData.name, subject: formData.subject, html_content,
         preview_text: formData.preview_text || null, is_active: formData.is_active, category: formData.category,
-        blocks_json: formData.editor_mode === 'visual' ? formData.blocks_json : null,
-        theme_json: formData.editor_mode === 'visual' ? formData.theme_json : null,
+        blocks_json: (formData.editor_mode === 'visual' ? formData.blocks_json : null) as unknown as Json,
+        theme_json: (formData.editor_mode === 'visual' ? formData.theme_json : null) as unknown as Json,
         editor_mode: formData.editor_mode,
         updated_at: new Date().toISOString(),
-      } as Record<string, unknown>).eq('id', selectedTemplate.id);
+      }).eq('id', selectedTemplate.id);
       if (error) throw error;
       toast.success(t('adminEmails.templateSaved'));
       setEditMode(false); fetchTemplates();

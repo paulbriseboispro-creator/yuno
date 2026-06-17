@@ -67,7 +67,7 @@ function VisibilityPill({ ev }: { ev: EventRow }) {
 
 export default function AdminEvents() {
   const [search, setSearch] = useState('');
-  const [discoveryFilter, setDiscoveryFilter] = useState('all');
+  const [discoveryFilter, setDiscoveryFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [stateFilter, setStateFilter] = useState('all'); // all | live | depublished | cancelled
   const [data, setData] = useState<EventRow[]>([]);
   const [count, setCount] = useState(0);
@@ -200,7 +200,7 @@ export default function AdminEvents() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: T3 }} />
             <input placeholder="Rechercher par titre…" value={search} onChange={(e) => setSearch(e.target.value)} style={inputStyle} />
           </div>
-          <select value={discoveryFilter} onChange={(e) => setDiscoveryFilter(e.target.value)} style={selectStyle}>
+          <select value={discoveryFilter} onChange={(e) => setDiscoveryFilter(e.target.value as 'all' | 'pending' | 'approved' | 'rejected')} style={selectStyle}>
             <option value="all" style={{ background: '#0a0a0c' }}>Toute modération</option>
             <option value="pending" style={{ background: '#0a0a0c' }}>En attente</option>
             <option value="approved" style={{ background: '#0a0a0c' }}>Approuvés</option>
