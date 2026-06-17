@@ -7,7 +7,7 @@ import { uniqueChannel } from '@/lib/realtime';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Bell } from 'lucide-react';
-import { ArrowLeft, Clock, CheckCircle2, QrCode, Trash2, Plus, Minus, CreditCard, Archive, Ticket, ChevronDown, ChevronUp, Wine, Calendar, Shield, X, Users, Sparkles, Gift, LogIn, ShoppingBag, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle2, QrCode, Trash2, CreditCard, Archive, Ticket, ChevronDown, ChevronUp, Wine, Calendar, Shield, X, Users, Sparkles, Gift, LogIn, ShoppingBag, ArrowRight } from 'lucide-react';
 import { DrinkOrderDetailModal } from '@/components/DrinkOrderDetailModal';
 import { FreeDrinkRewardModal } from '@/components/FreeDrinkRewardModal';
 import { BottomNav } from '@/components/BottomNav';
@@ -16,24 +16,6 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { format, addHours } from 'date-fns';
 import { enUS, es, fr } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle,
-  DialogDescription,
-  DialogFooter
-} from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { loadStripe } from '@stripe/stripe-js';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import QRCode from 'qrcode';
