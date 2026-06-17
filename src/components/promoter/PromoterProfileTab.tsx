@@ -147,7 +147,9 @@ export function PromoterProfileTab({ promoter, allPromoterProfiles, onSaved }: P
       const updates = allProfiles.map(p =>
         supabase.from('promoters').update({ iban: newIban || null, bic: newBic || null }).eq('id', p.id)
       );
-      await Promise.all(updates);
+      const results = await Promise.all(updates);
+      const firstError = results.find(r => r.error)?.error;
+      if (firstError) throw firstError;
       onSaved?.();
       setShowIbanDialog(false);
       toast.success(t('promoter.bankInfoSaved'));
