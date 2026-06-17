@@ -77,6 +77,15 @@ export interface WizardCustomRound {
   entryDeadline?: string;
 }
 
+// A private-list / waitlist registration row (verbatim from OwnerTicketing state).
+export interface WaitlistEntry {
+  id: string;
+  email: string;
+  full_name: string | null;
+  created_at: string;
+  presale_access: boolean;
+}
+
 export type TicketSalesMode = 'private' | 'presale' | 'normal';
 export type SalesDraft = {
   mode: TicketSalesMode;
