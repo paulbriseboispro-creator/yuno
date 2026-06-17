@@ -169,11 +169,13 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
         return;
       }
 
-      // Mark as scanned
+      // Mark as scanned — surface DB errors so a failed write never shows as a successful scan
       if (attendeeTicket?.attendee) {
-        await supabase.from('ticket_attendees').update({ entry_scanned: true }).eq('id', attendeeTicket.attendee.id);
+        const { error: attErr } = await supabase.from('ticket_attendees').update({ entry_scanned: true }).eq('id', attendeeTicket.attendee.id);
+        if (attErr) throw attErr;
       }
-      await supabase.from('tickets').update({ entry_scanned: true }).eq('id', resolvedTicket.id);
+      const { error: tkErr } = await supabase.from('tickets').update({ entry_scanned: true }).eq('id', resolvedTicket.id);
+      if (tkErr) throw tkErr;
 
       setLastResult({
         status: 'success',
