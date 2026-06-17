@@ -71,6 +71,11 @@ export default defineConfig({
         // we set them explicitly. Without clientsClaim the auto-reload never fires.
         skipWaiting: true,
         clientsClaim: true,
+        // Fold the push-notification handlers into THIS workbox SW instead of
+        // registering a separate /sw-push.js. A browser allows one SW per scope,
+        // so a second registration at '/' would replace workbox — killing the
+        // precache + auto-reload as soon as a user enabled push. One SW, both jobs.
+        importScripts: ['/sw-push-handlers.js'],
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,ttf}'],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallback: '/index.html',

@@ -91,7 +91,9 @@ export function usePushNotifications() {
   const checkSubscription = async () => {
     try {
       if (!('serviceWorker' in navigator)) return;
-      const registration = await navigator.serviceWorker.getRegistration('/sw-push.js') as any;
+      // Use the single workbox SW (push handlers are imported into it) — never a
+      // separate /sw-push.js, which would replace workbox at scope '/'.
+      const registration = await navigator.serviceWorker.ready;
       if (!registration) { setIsSubscribed(false); return; }
       const subscription = await registration.pushManager?.getSubscription();
       if (!subscription) { setIsSubscribed(false); return; }
@@ -118,8 +120,8 @@ export function usePushNotifications() {
       setPermission(perm);
       if (perm !== 'granted') throw new Error('Permission denied');
 
-      const registration = await navigator.serviceWorker.register('/sw-push.js', { scope: '/' }) as any;
-      await navigator.serviceWorker.ready;
+      // Subscribe through the active workbox SW (it imports the push handlers).
+      const registration = await navigator.serviceWorker.ready;
 
       const vapidKey = await getVapidPublicKey();
       const applicationServerKey = urlBase64ToUint8Array(vapidKey);
@@ -145,7 +147,7 @@ export function usePushNotifications() {
   const unsubscribe = useCallback(async () => {
     setIsLoading(true);
     try {
-      const registration = await navigator.serviceWorker.getRegistration('/sw-push.js') as any;
+      const registration = await navigator.serviceWorker.ready;
       if (!registration) { setIsSubscribed(false); return; }
 
       const subscription = await registration.pushManager?.getSubscription();

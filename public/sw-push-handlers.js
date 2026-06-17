@@ -1,13 +1,15 @@
-// Push notification service worker - Yuno
-self.addEventListener('install', (event) => {
-  console.log('[SW-Push] Installing...');
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', (event) => {
-  console.log('[SW-Push] Activating...');
-  event.waitUntil(clients.claim());
-});
+// Push notification handlers for Yuno.
+//
+// These run INSIDE the workbox-generated service worker (sw.js) via
+// `workbox.importScripts` (see vite.config.ts). Keeping push in the same SW is
+// deliberate: a browser allows only ONE service worker per scope, so registering
+// a separate /sw-push.js at scope '/' used to REPLACE the workbox SW — silently
+// disabling the PWA precache AND the new-deploy auto-reload the moment a user
+// enabled push. Folding the handlers in here keeps a single SW that does both.
+//
+// Do NOT add install/activate/skipWaiting/clientsClaim here — the workbox
+// template owns the lifecycle (skipWaiting + clientsClaim are set in workbox
+// config). Only event listeners belong in this file.
 
 self.addEventListener('push', (event) => {
   let data = {
@@ -65,7 +67,7 @@ self.addEventListener('notificationclick', (event) => {
   const urlToOpen = event.notification.data?.url || '/';
 
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true })
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then((windowClients) => {
         for (const client of windowClients) {
           if (client.url.includes(self.location.origin) && 'focus' in client) {
@@ -73,8 +75,8 @@ self.addEventListener('notificationclick', (event) => {
             return client.focus();
           }
         }
-        if (clients.openWindow) {
-          return clients.openWindow(urlToOpen);
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(urlToOpen);
         }
       })
   );
