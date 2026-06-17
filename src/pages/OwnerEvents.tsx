@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Plus, Pencil, Trash2, Clock, Upload, X, Archive, ChevronDown, ChevronUp, Info, Music, Tag, Lock, Users, Ticket, Crown, RefreshCw, Sparkles, ExternalLink, Eye, Building2, Check, Settings2, Link2 } from 'lucide-react';
+import { Calendar, Plus, Pencil, Trash2, Clock, Upload, X, Archive, ChevronDown, ChevronUp, Info, Tag, Lock, Users, Ticket, Crown, RefreshCw, Sparkles, ExternalLink, Eye, Building2, Check, Settings2, Link2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -33,7 +33,8 @@ import {
   RED, T1, T2, T3, C_FAINT, BORDER, F_BORDER, CARD_BG, INNER_BG, CARD_SHADOW,
   DarkInput, DarkTextarea, FieldLabel,
 } from '@/components/owner/events/events-ui';
-import { cropToSquare, MUSIC_GENRES } from '@/components/owner/events/events-utils';
+import { cropToSquare } from '@/components/owner/events/events-utils';
+import { EventGenrePicker } from '@/components/owner/events/EventGenrePicker';
 
 export default function OwnerEvents() {
   const { t, language } = useLanguage();
@@ -419,7 +420,7 @@ export default function OwnerEvents() {
       const { error: evErr } = await supabase.from('events').update(update).eq('id', event.id);
       if (evErr) throw evErr;
 
-      toast.success('Billetterie en ligne');
+      toast.success(t('owner.ev.ticketingOnlineToast'));
       fetchEvents();
     } catch (err) {
       console.error('Error applying preset:', err);
@@ -532,7 +533,7 @@ export default function OwnerEvents() {
           <h1 style={{ color: T1, fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em', marginTop: 4 }}>{t('owner.eventsTitle')}</h1>
         )}
         {collabReadOnly && <CollabUpsellBanner />}
-        {collabReadOnly && <CollabReadOnlyBanner action="La création d'événements" />}
+        {collabReadOnly && <CollabReadOnlyBanner action={t('collab.action.createEvent')} />}
 
         {orgSellingBlocked && (
           <div
@@ -542,22 +543,22 @@ export default function OwnerEvents() {
             <Lock className="w-4 h-4 shrink-0" style={{ color: '#E8192C' }} />
             <p className="text-[12.5px] flex-1" style={{ color: T1 }}>
               {stripeStatus === 'pending'
-                ? 'Stripe en attente de vérification. Terminez la configuration pour mettre vos billets en vente.'
-                : 'Vous pouvez créer des soirées, mais la mise en vente des billets nécessite d’activer les paiements.'}
+                ? t('owner.ev.stripePendingBanner')
+                : t('owner.ev.stripeNotConfiguredBanner')}
             </p>
             <button
               onClick={() => navigate(`${basePath}/payments`)}
               className="text-[12.5px] font-medium px-3 py-1.5 rounded-lg cursor-pointer shrink-0"
               style={{ background: 'rgba(232,25,44,0.16)', border: '1px solid rgba(232,25,44,0.32)', color: '#fff' }}
             >
-              Configurer
+              {t('owner.ev.configure')}
             </button>
           </div>
         )}
 
         {/* View switcher: events / recurring (recurring works for both venues and organizers) */}
         <div className="inline-flex p-1 rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-          {([['events', 'Événements', Calendar], ['recurring', 'Récurrentes', RefreshCw]] as const).map(([key, label, Icon]) => {
+          {([['events', t('owner.ev.tabEvents'), Calendar], ['recurring', t('owner.ev.tabRecurring'), RefreshCw]] as const).map(([key, label, Icon]) => {
             const active = view === key;
             return (
               <button
@@ -587,14 +588,16 @@ export default function OwnerEvents() {
         {/* Header row */}
         <div className="flex items-center justify-between">
           <div>
-            <h2 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>Mes événements</h2>
+            <h2 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>{t('owner.ev.myEvents')}</h2>
             <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>
-              {upcomingEvents.length} à venir · {pastEvents.length} passé{pastEvents.length !== 1 ? 's' : ''}
+              {t('owner.ev.eventCounts')
+                .replace('{upcoming}', String(upcomingEvents.length))
+                .replace('{past}', String(pastEvents.length))}
             </p>
           </div>
           {collabReadOnly ? (
             <button
-              onClick={() => toast.info("Mode démo Collab — la création d'événements est gérée par votre orga partenaire.")}
+              onClick={() => toast.info(t('owner.ev.collabDemoToast'))}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium cursor-not-allowed opacity-60"
               style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 }}
             >
@@ -626,7 +629,7 @@ export default function OwnerEvents() {
         {/* Upcoming events — grouped by day for readability */}
         {upcomingEvents.length > 0 && (
           <div className="space-y-5">
-            <p style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>À venir</p>
+            <p style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{t('owner.ev.upcoming')}</p>
             {upcomingByDay.map((group) => (
               <div key={group.key} className="space-y-3">
                 {/* Day header */}
@@ -759,8 +762,8 @@ export default function OwnerEvents() {
                   <div className="flex items-start gap-2 p-3 rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
                     <Info className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: T3 }} />
                     <div>
-                      <p style={{ color: T1, fontSize: 12, fontWeight: 560, marginBottom: 2 }}>Format Carré (1:1)</p>
-                      <p style={{ color: T3, fontSize: 11.5 }}>Recommandé : <span style={{ color: T2 }}>1080 × 1080 px</span></p>
+                      <p style={{ color: T1, fontSize: 12, fontWeight: 560, marginBottom: 2 }}>{t('posterCropper.format')}</p>
+                      <p style={{ color: T3, fontSize: 11.5 }}>{t('owner.ev.recommendedLabel')} <span style={{ color: T2 }}>1080 × 1080 px</span></p>
                     </div>
                   </div>
                   <input id="poster" type="file" accept="image/*" onChange={handlePosterChange} className="hidden" />
@@ -778,34 +781,14 @@ export default function OwnerEvents() {
             </div>
 
             {/* Music genres */}
-            <div>
-              <FieldLabel>
-                <Music className="w-3 h-3 inline mr-1" />
-                {t('owner.musicGenre')}
-              </FieldLabel>
-              <div className="flex flex-wrap gap-2">
-                {MUSIC_GENRES.map(g => {
-                  const selected = formData.musicGenres.includes(g);
-                  return (
-                    <button
-                      key={g}
-                      type="button"
-                      onClick={() => {
-                        const newGenres = selected ? formData.musicGenres.filter(x => x !== g) : [...formData.musicGenres, g];
-                        setFormData({ ...formData, musicGenres: newGenres.length > 0 ? newGenres : [g] });
-                      }}
-                      className="rounded-full px-3 py-1.5 text-[12px] font-medium cursor-pointer transition-all duration-150"
-                      style={selected
-                        ? { background: `rgba(232,25,44,0.12)`, border: `1px solid rgba(232,25,44,0.3)`, color: RED }
-                        : { background: INNER_BG, border: `1px solid ${BORDER}`, color: T3 }
-                      }
-                    >
-                      {g}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <EventGenrePicker
+              selectedGenres={formData.musicGenres}
+              onToggleGenre={(g) => {
+                const selected = formData.musicGenres.includes(g);
+                const newGenres = selected ? formData.musicGenres.filter(x => x !== g) : [...formData.musicGenres, g];
+                setFormData({ ...formData, musicGenres: newGenres.length > 0 ? newGenres : [g] });
+              }}
+            />
 
             {/* Event type */}
             <div>
@@ -846,43 +829,43 @@ export default function OwnerEvents() {
             {/* ── Organizer-only: visibility / collaboration / partner club / secret venue ── */}
             {isOrganizerScope && (
               <div className="rounded-xl p-4" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-                <FieldLabel>Visibilité de l'événement</FieldLabel>
+                <FieldLabel>{t('owner.ev.fldVisibility')}</FieldLabel>
                 <div className="space-y-2">
                   <EventSelectCard selected={eventKind === 'public_event'} onClick={() => setEventKind('public_event')} icon={Eye}
-                    title="Public" description="Ouvert à tous, peut apparaître dans Yuno Explore." />
+                    title={t('owner.ev.publicTitle')} description={t('owner.ev.publicDesc')} />
                   <EventSelectCard selected={eventKind === 'private_event'} onClick={() => setEventKind('private_event')} icon={Lock}
-                    title="Privé" description="Accessible uniquement par lien direct, non listé dans Yuno Explore." />
+                    title={t('owner.ev.privateTitle')} description={t('owner.ev.privateDesc')} />
                 </div>
               </div>
             )}
 
             {isOrganizerScope && eventKind === 'public_event' && (
               <div className="rounded-xl p-4" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-                <FieldLabel>Mode de collaboration</FieldLabel>
+                <FieldLabel>{t('owner.ev.collabMode')}</FieldLabel>
                 <div className="space-y-2">
                   <EventSelectCard selected={collabMode === 'solo'} onClick={() => setCollabMode('solo')} icon={Sparkles}
-                    title="Solo orga" description="Tu portes l'événement seul·e (lieu loué hors Yuno)." />
+                    title={t('owner.ev.soloTitle')} description={t('owner.ev.soloDesc')} />
                   <EventSelectCard selected={collabMode === 'co_event'} onClick={() => setCollabMode('co_event')} icon={Users}
-                    title="Co-event avec un club" description="Co-organisé avec un club partenaire — split revenu personnalisable." />
+                    title={t('owner.ev.coEventTitle')} description={t('owner.ev.coEventDesc')} />
                   <EventSelectCard selected={collabMode === 'venue_rental'} onClick={() => setCollabMode('venue_rental')} icon={Building2}
-                    title="Location de salle" description="Tu loues le club, tu encaisses tout (sauf boissons)." />
+                    title={t('owner.ev.venueRentalTitle')} description={t('owner.ev.venueRentalDesc')} />
                   <EventSelectCard selected={collabMode === 'hosted_by_venue'} onClick={() => setCollabMode('hosted_by_venue')} icon={Building2}
-                    title="Hébergé par le club" description="Le club gère la billetterie, tu apportes la programmation." />
+                    title={t('owner.ev.hostedByVenueTitle')} description={t('owner.ev.hostedByVenueDesc')} />
                 </div>
               </div>
             )}
 
             {requiresPartner && (
               <div className="rounded-xl p-4" style={{ background: 'rgba(232,25,44,0.05)', border: '1px solid rgba(232,25,44,0.25)' }}>
-                <FieldLabel>Club partenaire</FieldLabel>
+                <FieldLabel>{t('owner.ev.partnerClub')}</FieldLabel>
                 {activePartnerships.length === 0 ? (
-                  <p style={{ color: T3, fontSize: 12.5 }}>Aucun partenariat actif. Va dans « Clubs partenaires » pour en créer un.</p>
+                  <p style={{ color: T3, fontSize: 12.5 }}>{t('owner.ev.noPartnerships')}</p>
                 ) : (
                   <div className="relative">
                     <select value={partnerVenueId} onChange={(e) => setPartnerVenueId(e.target.value)}
                       className="w-full appearance-none px-3 py-2.5 rounded-xl text-[13px] cursor-pointer"
                       style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: partnerVenueId ? T1 : T3, outline: 'none' }}>
-                      <option value="" style={{ background: '#0a0a0c' }}>Sélectionne un club</option>
+                      <option value="" style={{ background: '#0a0a0c' }}>{t('owner.ev.selectClub')}</option>
                       {activePartnerships.map((p) => (
                         <option key={p.id} value={p.venue_id} style={{ background: '#0a0a0c' }}>
                           {p.venue?.name ?? p.venue_id}{p.venue?.city ? ` · ${p.venue.city}` : ''}
@@ -905,8 +888,8 @@ export default function OwnerEvents() {
                     {locationIsSecret && <Check className="h-3.5 w-3.5 text-white" />}
                   </span>
                   <div className="flex-1">
-                    <p style={{ color: T1, fontSize: 13, fontWeight: 560 }}>Lieu secret</p>
-                    <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>Cache le nom du lieu, la ville et l'adresse sur la page publique. Révélés uniquement aux participants confirmés.</p>
+                    <p style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{t('owner.ev.secretVenue')}</p>
+                    <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{t('owner.ev.secretVenueDesc')}</p>
                   </div>
                 </div>
               </button>
@@ -922,22 +905,22 @@ export default function OwnerEvents() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {lockedToPartner && (
                     <p className="sm:col-span-2" style={{ color: T3, fontSize: 11.5, fontStyle: 'italic', marginBottom: -4 }}>
-                      Lieu et adresse récupérés automatiquement depuis le club partenaire.
+                      {t('owner.ev.locationAutoFilled')}
                     </p>
                   )}
                   <div>
-                    <FieldLabel>Lieu</FieldLabel>
-                    <input value={displayName} onChange={(e) => setLocationName(e.target.value)} disabled={lockedToPartner} placeholder="Ex: Salle des fêtes"
+                    <FieldLabel>{t('owner.ev.venue')}</FieldLabel>
+                    <input value={displayName} onChange={(e) => setLocationName(e.target.value)} disabled={lockedToPartner} placeholder={t('owner.ev.venuePlaceholder')}
                       className="w-full px-3 py-2.5 rounded-xl text-[13px] disabled:opacity-50" style={inputStyle} />
                   </div>
                   <div>
-                    <FieldLabel>Ville</FieldLabel>
-                    <input value={displayCity} onChange={(e) => setLocationCity(e.target.value)} disabled={lockedToPartner} placeholder="Paris"
+                    <FieldLabel>{t('owner.ev.city')}</FieldLabel>
+                    <input value={displayCity} onChange={(e) => setLocationCity(e.target.value)} disabled={lockedToPartner} placeholder={t('owner.ev.cityPlaceholder')}
                       className="w-full px-3 py-2.5 rounded-xl text-[13px] disabled:opacity-50" style={inputStyle} />
                   </div>
                   <div className="sm:col-span-2">
-                    <FieldLabel>Adresse</FieldLabel>
-                    <input value={locationAddress} onChange={(e) => setLocationAddress(e.target.value)} disabled={lockedToPartner} placeholder="12 rue de Rivoli"
+                    <FieldLabel>{t('owner.ev.address')}</FieldLabel>
+                    <input value={locationAddress} onChange={(e) => setLocationAddress(e.target.value)} disabled={lockedToPartner} placeholder={t('owner.ev.addressPlaceholder')}
                       className="w-full px-3 py-2.5 rounded-xl text-[13px] disabled:opacity-50" style={inputStyle} />
                   </div>
                 </div>
@@ -948,7 +931,7 @@ export default function OwnerEvents() {
             <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
               <div>
                 <p style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{t('owner.activeEvent')}</p>
-                <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>Visible par les clients dans l'app</p>
+                <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{t('owner.ev.visibleInApp')}</p>
               </div>
               <Switch
                 id="isActive"
@@ -1035,8 +1018,8 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
   const copyPrivateLink = () => {
     const url = `${window.location.origin}/event/${event.id}`;
     navigator.clipboard.writeText(url).then(
-      () => toast.success('Lien privé copié'),
-      () => toast.error('Impossible de copier le lien'),
+      () => toast.success(t('owner.ev.privateLinkCopied')),
+      () => toast.error(t('owner.ev.copyLinkFailed')),
     );
   };
 
@@ -1071,13 +1054,13 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
                 style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: '#34D399' }}>
                 <span className="w-1.5 h-1.5 rounded-full bg-[#34D399] inline-block" />
-                Actif
+                {t('owner.active')}
               </span>
             )}
             {event.isPartnerHosted && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
                 style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)', color: '#FCD34D' }}>
-                Co-organisée
+                {t('owner.ev.coHosted')}
               </span>
             )}
           </div>
@@ -1105,13 +1088,13 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
             <div className="flex items-center gap-2 min-w-0">
               <Lock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: RED_C }} />
               <div className="min-w-0 text-left">
-                <p style={{ color: T1_C, fontSize: 12.5, fontWeight: 560 }} className="truncate">Lien privé</p>
+                <p style={{ color: T1_C, fontSize: 12.5, fontWeight: 560 }} className="truncate">{t('owner.ev.privateLink')}</p>
                 <p style={{ color: T3_C, fontSize: 10.5 }} className="truncate">{`${window.location.origin}/event/${event.id}`}</p>
               </div>
             </div>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg flex-shrink-0"
               style={{ background: RED_C, color: '#fff', fontSize: 11.5, fontWeight: 600 }}>
-              <Link2 className="w-3.5 h-3.5" />Copier
+              <Link2 className="w-3.5 h-3.5" />{t('common.copy')}
             </span>
           </button>
         </div>
@@ -1127,9 +1110,9 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
               <div className="flex items-center gap-2 min-w-0">
                 <Ticket className="w-4 h-4 flex-shrink-0" style={{ color: event.ticketingEnabled ? '#FF7A82' : T3_C }} />
                 <div className="min-w-0">
-                  <p style={{ color: T1_C, fontSize: 12.5, fontWeight: 560 }} className="truncate">Billetterie</p>
+                  <p style={{ color: T1_C, fontSize: 12.5, fontWeight: 560 }} className="truncate">{t('owner.ev.ticketing')}</p>
                   <p style={{ color: T3_C, fontSize: 10.5 }} className="truncate">
-                    {event.ticketingEnabled ? 'En ligne' : (event.roundsCount ? 'Prête' : 'À configurer')}
+                    {event.ticketingEnabled ? t('owner.ev.online') : (event.roundsCount ? t('owner.ev.ready') : t('owner.ev.toConfigure'))}
                   </p>
                 </div>
               </div>
@@ -1141,8 +1124,8 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
               <div className="flex items-center gap-2 min-w-0">
                 <Crown className="w-4 h-4 flex-shrink-0" style={{ color: event.tablesEnabled ? '#FCD34D' : T3_C }} />
                 <div className="min-w-0">
-                  <p style={{ color: T1_C, fontSize: 12.5, fontWeight: 560 }} className="truncate">Tables VIP</p>
-                  <p style={{ color: T3_C, fontSize: 10.5 }} className="truncate">{event.tablesEnabled ? 'En ligne' : 'Hors ligne'}</p>
+                  <p style={{ color: T1_C, fontSize: 12.5, fontWeight: 560 }} className="truncate">{t('owner.ev.tablesVip')}</p>
+                  <p style={{ color: T3_C, fontSize: 10.5 }} className="truncate">{event.tablesEnabled ? t('owner.ev.online') : t('owner.ev.offline')}</p>
                 </div>
               </div>
               <Switch checked={!!event.tablesEnabled} onCheckedChange={onToggleTables} />
@@ -1158,17 +1141,17 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
                 <div className="mt-2.5 p-3 rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER_C}` }}>
                   <div className="flex items-center gap-1.5 mb-2">
                     <Sparkles className="w-3.5 h-3.5" style={{ color: RED_C }} />
-                    <p style={{ color: T1_C, fontSize: 12, fontWeight: 600 }}>Mettre la billetterie en ligne</p>
+                    <p style={{ color: T1_C, fontSize: 12, fontWeight: 600 }}>{t('owner.ev.publishTicketing')}</p>
                   </div>
                   {standardPresets.length > 0 ? (
                     <>
-                      <p style={{ color: T3_C, fontSize: 11, marginBottom: 8 }}>Choisissez un modèle de billets à appliquer :</p>
+                      <p style={{ color: T3_C, fontSize: 11, marginBottom: 8 }}>{t('owner.ev.selectPresetToApply')}</p>
                       <div className="flex items-center gap-2">
                         <div className="relative flex-1">
                           <select value={selectedPresetId} onChange={e => setSelectedPresetId(e.target.value)}
                             className="w-full appearance-none px-3 py-2 rounded-lg text-[12.5px] cursor-pointer"
                             style={{ background: '#0a0a0c', border: `1px solid ${BORDER_C}`, color: T1_C, outline: 'none' }}>
-                            <option value="">— Sélectionner un modèle —</option>
+                            <option value="">{t('owner.ev.selectPresetOption')}</option>
                             {standardPresets.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                           </select>
                           <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: T3_C }} />
@@ -1181,24 +1164,24 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
                           }}
                           className="px-3 py-2 rounded-lg text-[12px] font-semibold cursor-pointer transition-all duration-150"
                           style={{ background: selectedPresetId ? RED_C : 'rgba(232,25,44,0.35)', color: '#fff' }}>
-                          Publier
+                          {t('owner.ev.publish')}
                         </button>
                       </div>
                       <button onClick={() => onNavigate(`${basePath}/ticketing?eventId=${event.id}`)}
                         className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium cursor-pointer"
                         style={{ color: T3_C }}>
-                        <ExternalLink className="w-3 h-3" />Configuration avancée
+                        <ExternalLink className="w-3 h-3" />{t('owner.ev.advancedConfig')}
                       </button>
                     </>
                   ) : (
                     <div>
                       <p style={{ color: T2_C, fontSize: 11.5, marginBottom: 8 }}>
-                        Aucun modèle de billets enregistré. Configurez la billetterie pour cette soirée.
+                        {t('owner.ev.noPresetsExist')}
                       </p>
                       <button onClick={() => onNavigate(`${basePath}/ticketing?eventId=${event.id}`)}
                         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-semibold cursor-pointer"
                         style={{ background: RED_C, color: '#fff' }}>
-                        <ExternalLink className="w-3.5 h-3.5" />Configurer la billetterie
+                        <ExternalLink className="w-3.5 h-3.5" />{t('owner.ev.configureTicketing')}
                       </button>
                     </div>
                   )}
@@ -1216,17 +1199,17 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
             <a href={`/owner/ticketing?eventId=${event.id}`}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150"
               style={{ background: C_FAINT_C, border: `1px solid ${BORDER_C}`, color: T2_C }}>
-              Billetterie
+              {t('owner.ev.ticketing')}
             </a>
             <a href={`/owner/tables?eventId=${event.id}`}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150"
               style={{ background: C_FAINT_C, border: `1px solid ${BORDER_C}`, color: T2_C }}>
-              Tables
+              {t('owner.ev.tables')}
             </a>
             <a href={`/event/${event.id}`}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150 ml-auto"
               style={{ color: T3_C }}>
-              Voir la fiche
+              {t('owner.ev.viewDetails')}
             </a>
           </>
         ) : (
@@ -1261,7 +1244,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
                 style={{ background: C_FAINT_C, border: `1px solid ${BORDER_C}`, color: T2_C }}
               >
                 <Settings2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Détails</span>
+                <span className="hidden sm:inline">{t('owner.ev.details')}</span>
               </button>
             )}
           </>
