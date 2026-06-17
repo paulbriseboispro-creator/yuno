@@ -38,6 +38,9 @@ import { EventRegistrationsViewer } from '@/components/owner/ticketing/EventRegi
 import { EventSalesModeSection } from '@/components/owner/ticketing/EventSalesModeSection';
 import { EventMaxPerPersonControl } from '@/components/owner/ticketing/EventMaxPerPersonControl';
 import { EventSalePasswordControl } from '@/components/owner/ticketing/EventSalePasswordControl';
+import { EventSellingModeToggle } from '@/components/owner/ticketing/EventSellingModeToggle';
+import { EventRoundsVisibility } from '@/components/owner/ticketing/EventRoundsVisibility';
+import { EventGlobalCapacity } from '@/components/owner/ticketing/EventGlobalCapacity';
 
 export default function OwnerTicketing() {
   const { t, language } = useLanguage();
@@ -1255,120 +1258,38 @@ export default function OwnerTicketing() {
                         {event.ticketingEnabled ? (
                           <div className="space-y-3">
                             {/* Selling mode toggle */}
-                            <div className="flex items-center justify-between gap-3 p-3.5" style={INNER_CARD}>
-                              <div className="flex items-center gap-3">
-                                <Clock className="h-4 w-4 flex-none" style={{ color: T3 }} />
-                                <div>
-                                  <p style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{t('tickets.sellingMode')}</p>
-                                  <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>
-                                    {event.ticketSellingMode === 'simple'
-                                      ? t('tickets.sellingModeSimpleDesc')
-                                      : event.ticketSellingMode === 'timed_entry'
-                                        ? t('tickets.sellingModeTimedDesc')
-                                        : t('tickets.sellingModeRoundsDesc')}
-                                  </p>
-                                </div>
-                              </div>
-                              {soldTickets > 0 ? (
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div className="flex items-center gap-2 px-3 py-1.5 text-[13px]" style={{ ...TILE, color: T2 }}>
-                                        <Lock className="h-3.5 w-3.5" />
-                                        {event.ticketSellingMode === 'simple' ? t('tickets.sellingModeSimple') : event.ticketSellingMode === 'timed_entry' ? t('tickets.sellingModeTimed') : t('tickets.sellingModeRounds')}
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>{t('tickets.sellingModeLocked')}</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              ) : (
-                                <Select
-                                  value={event.ticketSellingMode}
-                                  onValueChange={(value) => handleChangeSellingMode(event as any, value as TicketSellingMode)}
-                                >
-                                  <SelectTrigger className="w-[160px]">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="simple">{t('tickets.sellingModeSimple')}</SelectItem>
-                                    <SelectItem value="rounds">{t('tickets.sellingModeRounds')}</SelectItem>
-                                    <SelectItem value="timed_entry">{t('tickets.sellingModeTimed')}</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              )}
-                            </div>
+                            <EventSellingModeToggle
+                              sellingMode={event.ticketSellingMode}
+                              locked={soldTickets > 0}
+                              onChangeMode={(mode) => handleChangeSellingMode(event as any, mode)}
+                            />
 
                             {/* Rounds visibility (only for rounds mode) */}
                             {event.ticketSellingMode === 'rounds' && (
-                              <div className="flex items-center justify-between gap-3 flex-wrap p-3.5" style={INNER_CARD}>
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <Ticket className="h-4 w-4 flex-shrink-0" style={{ color: T3 }} />
-                                  <div className="min-w-0">
-                                    <p style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{t('tickets.roundsVisibilityLabel')}</p>
-                                    <p className="truncate" style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>
-                                      {(event.roundsVisibility ?? 'sequential') === 'sequential' && t('tickets.roundsVisibilitySequential')}
-                                      {event.roundsVisibility === 'preview_upcoming' && t('tickets.roundsVisibilityPreview')}
-                                      {event.roundsVisibility === 'all_open' && t('tickets.roundsVisibilityAll')}
-                                    </p>
-                                  </div>
-                                </div>
-                                <Select
-                                  value={event.roundsVisibility ?? 'sequential'}
-                                  onValueChange={async (value) => {
-                                    const { error } = await supabase
-                                      .from('events')
-                                      .update({ rounds_visibility: value } as any)
-                                      .eq('id', event.id);
-                                    if (error) {
-                                      toast.error(error.message);
-                                      return;
-                                    }
-                                    setEvents(prev => prev.map(ev => ev.id === event.id ? { ...ev, roundsVisibility: value as any } : ev));
-                                    toast.success(t('common.saved') || 'Enregistré');
-                                  }}
-                                >
-                                  <SelectTrigger className="w-[180px]">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="sequential">{t('tickets.roundsVisibilitySequential')}</SelectItem>
-                                    <SelectItem value="preview_upcoming">{t('tickets.roundsVisibilityPreview')}</SelectItem>
-                                    <SelectItem value="all_open">{t('tickets.roundsVisibilityAll')}</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
+                              <EventRoundsVisibility
+                                visibility={event.roundsVisibility ?? 'sequential'}
+                                onChange={async (value) => {
+                                  const { error } = await supabase
+                                    .from('events')
+                                    .update({ rounds_visibility: value } as any)
+                                    .eq('id', event.id);
+                                  if (error) {
+                                    toast.error(error.message);
+                                    return;
+                                  }
+                                  setEvents(prev => prev.map(ev => ev.id === event.id ? { ...ev, roundsVisibility: value as any } : ev));
+                                  toast.success(t('common.saved') || 'Enregistré');
+                                }}
+                              />
                             )}
 
                             {/* Global capacity for simple mode */}
                             {event.ticketSellingMode === 'simple' && (
-                              <div className="p-3.5 space-y-2.5" style={INNER_CARD}>
-                                <div className="flex items-center gap-3">
-                                  <Users className="h-4 w-4 flex-none" style={{ color: T3 }} />
-                                  <div>
-                                    <p style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{t('tickets.globalCapacity')}</p>
-                                    <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>{t('tickets.globalCapacityDesc')}</p>
-                                  </div>
-                                </div>
-                                <div className="flex gap-2">
-                                  <Input
-                                    type="number"
-                                    min="1"
-                                    placeholder="200"
-                                    defaultValue={event.maxTickets || ''}
-                                    onBlur={(e) => {
-                                      const val = parseInt(e.target.value);
-                                      if (val > 0) handleUpdateGlobalCapacity(event.id, val);
-                                    }}
-                                  />
-                                </div>
-                                {event.maxTickets && (
-                                  <div style={{ color: T3, fontSize: 11.5 }}>
-                                    {soldTickets} / {event.maxTickets} {t('tickets.sold')}
-                                  </div>
-                                )}
-                              </div>
+                              <EventGlobalCapacity
+                                maxTickets={event.maxTickets}
+                                soldTickets={soldTickets}
+                                onUpdate={(val) => handleUpdateGlobalCapacity(event.id, val)}
+                              />
                             )}
 
                             {/* Max tickets per person */}
