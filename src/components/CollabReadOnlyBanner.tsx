@@ -2,9 +2,10 @@ import { Link } from 'react-router-dom';
 import { Eye, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface CollabReadOnlyBannerProps {
-  /** What the user is trying to do, e.g. "créer un événement" */
+  /** What the user is trying to do, already translated (e.g. t('collab.action.createEvent')) */
   action?: string;
 }
 
@@ -15,6 +16,7 @@ interface CollabReadOnlyBannerProps {
  */
 export function CollabReadOnlyBanner({ action }: CollabReadOnlyBannerProps) {
   const { isReadOnly } = useCollabReadOnly();
+  const { t } = useLanguage();
   if (!isReadOnly) return null;
 
   return (
@@ -25,19 +27,20 @@ export function CollabReadOnlyBanner({ action }: CollabReadOnlyBannerProps) {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-foreground">
-            Mode démo Yuno Collab — lecture seule
+            {t('collab.demoTitle')}
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
             {action
-              ? `${action} est géré par l'organisation partenaire. `
-              : `La création est gérée par l'organisation partenaire. `}
-            Passez à Pro pour piloter votre club au quotidien.
+              ? t('collab.demoWithAction').replace('{action}', action)
+              : t('collab.demoDefault')}
+            {' '}
+            {t('collab.upgradeHint')}
           </p>
         </div>
       </div>
       <Button asChild size="sm" variant="outline" className="shrink-0">
         <Link to="/owner/billing">
-          Activer Pro
+          {t('collab.activatePro')}
           <ArrowRight className="h-4 w-4 ml-1" />
         </Link>
       </Button>
