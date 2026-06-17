@@ -29,6 +29,22 @@ export interface TicketPreset {
   updatedAt: string;
 }
 
+// Shape of the round-creation form state (verbatim from OwnerTicketing useState).
+export interface RoundFormData {
+  name: string;
+  price: string;
+  maxTickets: string;
+  isActive: boolean;
+  autoActivate: boolean;
+  lastTicketsThreshold: string;
+  includesDrink: boolean;
+  drinkDeadlineType: 'hours_after_start' | 'fixed_time' | 'none';
+  drinkDeadlineHours: string;
+  drinkCutoffTime: string;
+  ticketType: TicketType;
+  entryDeadline: string;
+}
+
 export type TicketSalesMode = 'private' | 'presale' | 'normal';
 export type SalesDraft = {
   mode: TicketSalesMode;

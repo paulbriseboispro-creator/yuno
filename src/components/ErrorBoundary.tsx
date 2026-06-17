@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from "react";
+import { purgeServiceWorkersAndReload } from "@/lib/swRecovery";
 
 interface Props {
   children: ReactNode;
@@ -56,7 +57,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </p>
             <button
               className="px-4 py-2 rounded-lg bg-primary text-white text-sm"
-              onClick={() => window.location.reload()}
+              onClick={() => { void purgeServiceWorkersAndReload(); }}
             >
               Recharger
             </button>
