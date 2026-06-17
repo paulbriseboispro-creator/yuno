@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { translate } from '@/i18n/orgTranslate';
 import { Users, Crown, Trophy, Award, Repeat, UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -36,7 +37,7 @@ interface RFMSegment {
 
 export function AudienceInsights({ scope, from, to }: Props) {
   const { language } = useLanguage();
-  const tt = (fr: string, en: string) => (language === 'fr' ? fr : en);
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [segments, setSegments] = useState<RFMSegment[]>([]);
   const [tiers, setTiers] = useState({ bronze: 0, silver: 0, gold: 0, platinum: 0 });
   const [returning, setReturning] = useState({ newC: 0, returningC: 0 });

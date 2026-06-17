@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { translate } from '@/i18n/orgTranslate';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { usePromoterScope } from '@/hooks/usePromoterScope';
@@ -37,7 +38,7 @@ export default function OwnerPromoterTeams() {
   const scopeFilter = getScopeFilter(scope);
   const { basePath } = useDashboardMode();
   const { t, language } = useLanguage();
-  const tt = (fr: string, en: string) => (language === 'fr' ? fr : en);
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const navigate = useNavigate();
   const [teams, setTeams] = useState<TeamRow[]>([]);
   const [promoters, setPromoters] = useState<PromoterOption[]>([]);
@@ -252,7 +253,7 @@ export default function OwnerPromoterTeams() {
                           <Crown className="h-3 w-3" style={{ color: RED }} /> {team.leaderName}
                           {team.overrideValue > 0 && (
                             <span style={{ color: RED, marginLeft: 4 }}>
-                              · {tt(`+${team.overrideValue}${team.overrideType === 'percentage' ? '%' : '€'}/vente`, `+${team.overrideValue}${team.overrideType === 'percentage' ? '%' : '€'}/sale`)}
+                              · {tt(`+${team.overrideValue}${team.overrideType === 'percentage' ? '%' : '€'}/vente`, `+${team.overrideValue}${team.overrideType === 'percentage' ? '%' : '€'}/sale`, `+${team.overrideValue}${team.overrideType === 'percentage' ? '%' : '€'}/venta`)}
                             </span>
                           )}
                         </p>

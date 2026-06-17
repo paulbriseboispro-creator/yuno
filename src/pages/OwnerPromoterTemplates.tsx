@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { translate } from '@/i18n/orgTranslate';
 import { supabase } from '@/integrations/supabase/client';
 import { usePromoterScope } from '@/hooks/usePromoterScope';
 import { getScopeFilter, scopeId } from '@/lib/promoterScopeHelpers';
@@ -39,7 +40,7 @@ export default function OwnerPromoterTemplates() {
   const scopeFilter = getScopeFilter(scope);
   const { basePath } = useDashboardMode();
   const { t, language } = useLanguage();
-  const tt = (fr: string, en: string) => (language === 'fr' ? fr : en);
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -227,7 +228,7 @@ export default function OwnerPromoterTemplates() {
         parts.push(rules.reward_type === 'free_entry' ? tt('Entrée gratuite', 'Free entry')
           : rules.reward_type === 'vip' ? tt('VIP', 'VIP') : tt('Boissons', 'Drinks'));
       } else if (rules.tiers && rules.tiers.length > 0) {
-        parts.push(tt(`${rules.tiers.length} palier(s)`, `${rules.tiers.length} tier(s)`));
+        parts.push(tt(`${rules.tiers.length} palier(s)`, `${rules.tiers.length} tier(s)`, `${rules.tiers.length} tramo(s)`));
       } else if (rules.ticket) {
         parts.push(`${tt('Ventes', 'Sales')} ${rules.ticket.value}${rules.ticket.type === 'percentage' ? '%' : '€'}`);
       } else {

@@ -35,14 +35,14 @@ interface Props {
 }
 
 const STAGE_CONFIG = {
-  browsing: { icon: Eye,          color: T2,                   label: 'Navigation' },
-  cart:     { icon: ShoppingCart, color: '#FCD34D',            label: 'Panier' },
-  checkout: { icon: CreditCard,   color: 'rgba(167,139,250,1)', label: 'Paiement' },
-  paid:     { icon: CheckCircle2, color: POS,                  label: 'Converti' },
+  browsing: { icon: Eye,          color: T2,                   labelKey: 'owner.live.stageBrowsing' },
+  cart:     { icon: ShoppingCart, color: '#FCD34D',            labelKey: 'owner.live.stageCart' },
+  checkout: { icon: CreditCard,   color: 'rgba(167,139,250,1)', labelKey: 'owner.live.stageCheckout' },
+  paid:     { icon: CheckCircle2, color: POS,                  labelKey: 'owner.live.stageConverted' },
 } as const;
 
 export function LiveVisitorsPanel({ venueId, organizerUserId, eventId, hasAccess = true, upgradeMessage }: Props) {
-  const { language } = useLanguage();
+  const { t } = useLanguage();
   const [pings, setPings] = useState<LivePing[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -91,12 +91,10 @@ export function LiveVisitorsPanel({ venueId, organizerUserId, eventId, hasAccess
       >
         <Lock className="h-8 w-8 mx-auto mb-3" style={{ color: RED }} />
         <p style={{ color: T1, fontSize: 15, fontWeight: 600, marginBottom: 6 }}>
-          {language === 'fr' ? 'Vue Live des visiteurs' : 'Live visitors view'}
+          {t('owner.live.visitorsViewTitle')}
         </p>
         <p style={{ color: T3, fontSize: 13, maxWidth: 320, margin: '0 auto' }}>
-          {upgradeMessage || (language === 'fr'
-            ? 'Disponible à partir du plan Pro. Suivez en temps réel les visiteurs sur votre page, leurs paniers et conversions.'
-            : 'Available from Pro plan. Track real-time visitors on your page, carts and conversions.')}
+          {upgradeMessage || t('owner.live.visitorsViewLocked')}
         </p>
       </div>
     );
@@ -121,7 +119,7 @@ export function LiveVisitorsPanel({ venueId, organizerUserId, eventId, hasAccess
             <span className="relative inline-flex rounded-full h-2.5 w-2.5" style={{ background: POS }} />
           </span>
           <h3 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>
-            {language === 'fr' ? 'Visiteurs en direct' : 'Live visitors'}
+            {t('owner.live.visitorsHeading')}
           </h3>
           <span
             className="tabular-nums px-2 py-0.5 rounded-full"
@@ -131,7 +129,7 @@ export function LiveVisitorsPanel({ venueId, organizerUserId, eventId, hasAccess
           </span>
         </div>
         <div style={{ color: T3, fontSize: 12 }}>
-          {language === 'fr' ? 'Convertis' : 'Converted'}{' '}
+          {t('owner.live.converted')}{' '}
           <span className="tabular-nums" style={{ color: POS, fontWeight: 600 }}>{conversionRate}%</span>
         </div>
       </div>
@@ -151,7 +149,7 @@ export function LiveVisitorsPanel({ venueId, organizerUserId, eventId, hasAccess
               <div className="flex items-center gap-2 mb-2">
                 <Icon className="h-3.5 w-3.5" style={{ color: config.color }} />
                 <span style={{ color: T3, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  {config.label}
+                  {t(config.labelKey)}
                 </span>
               </div>
               <div className="tabular-nums" style={{ color: config.color, fontSize: 24, fontWeight: 640, letterSpacing: '-0.02em' }}>
@@ -164,14 +162,14 @@ export function LiveVisitorsPanel({ venueId, organizerUserId, eventId, hasAccess
 
       {cartValueTotal > 0 && (
         <div style={{ borderTop: `1px solid ${F_BORDER}`, paddingTop: 12, color: T3, fontSize: 12 }}>
-          {language === 'fr' ? 'Valeur paniers actifs' : 'Active cart value'}{': '}
+          {t('owner.live.activeCartValue')}{': '}
           <span className="tabular-nums" style={{ color: T1, fontWeight: 640 }}>{cartValueTotal.toFixed(0)} €</span>
         </div>
       )}
 
       {total === 0 && !loading && (
         <p className="text-center py-4" style={{ color: T3, fontSize: 12 }}>
-          {language === 'fr' ? 'Aucun visiteur en ce moment' : 'No visitors right now'}
+          {t('owner.live.noVisitorsNow')}
         </p>
       )}
     </div>

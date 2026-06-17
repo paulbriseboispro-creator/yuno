@@ -66,9 +66,9 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
         await upsertOrgProfile({ cover_url: publicUrl });
         setCoverUrl(publicUrl);
       }
-      toast.success(tt('Image téléchargée', 'Image uploaded'));
+      toast.success(tt('Image téléchargée', 'Image uploaded', 'Imagen subida'));
     } catch (e: any) {
-      toast.error(e.message || tt('Erreur upload', 'Upload error'));
+      toast.error(e.message || tt('Erreur upload', 'Upload error', 'Error de subida'));
     } finally {
       setUploading(null);
     }
@@ -86,7 +86,7 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
       toast.error(error.message);
       return;
     }
-    toast.success(tt('Profil mis à jour', 'Profile updated'));
+    toast.success(tt('Profil mis à jour', 'Profile updated', 'Perfil actualizado'));
     onComplete();
   };
 
@@ -96,12 +96,13 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
     <div className="space-y-6">
       <StepHeader
         icon={UserCircle}
-        title={tt('Profil public', 'Public profile')}
+        title={tt('Profil public', 'Public profile', 'Perfil público')}
         subtitle={tt(
           'Comment les fêtards vous découvrent dans Explore. Logo, bannière, bio et un lien.',
           'How party-goers discover you in Explore. Logo, banner, bio and one link.',
+          'Cómo te descubren los fiesteros en Explore. Logo, banner, bio y un enlace.',
         )}
-        right={<OptionalPill label={tt('Optionnel', 'Optional')} />}
+        right={<OptionalPill label={tt('Optionnel', 'Optional', 'Opcional')} />}
       />
 
       {/* Logo + cover */}
@@ -116,7 +117,7 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
           )}
           <label className="cursor-pointer text-[11px] font-medium transition-opacity hover:opacity-80" style={{ color: T2 }}>
             <input type="file" accept="image/*" hidden onChange={e => e.target.files?.[0] && upload(e.target.files[0], 'logo')} />
-            {uploading === 'logo' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : logoUrl ? tt('Changer le logo', 'Change logo') : tt('Logo', 'Logo')}
+            {uploading === 'logo' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : logoUrl ? tt('Changer le logo', 'Change logo', 'Cambiar el logo') : tt('Logo', 'Logo', 'Logo')}
           </label>
         </div>
         <div className="flex-1 min-w-0">
@@ -129,7 +130,7 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
           )}
           <label className="cursor-pointer inline-block mt-2 text-[11px] font-medium transition-opacity hover:opacity-80" style={{ color: T2 }}>
             <input type="file" accept="image/*" hidden onChange={e => e.target.files?.[0] && upload(e.target.files[0], 'cover')} />
-            {uploading === 'cover' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : coverUrl ? tt('Changer la bannière', 'Change banner') : tt('Bannière (optionnelle)', 'Banner (optional)')}
+            {uploading === 'cover' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : coverUrl ? tt('Changer la bannière', 'Change banner', 'Cambiar el banner') : tt('Bannière (optionnelle)', 'Banner (optional)', 'Banner (opcional)')}
           </label>
         </div>
       </div>
@@ -137,11 +138,11 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
       {/* Bio + links */}
       <div className="space-y-4">
         <div>
-          <FieldLabel>{tt('Bio courte', 'Short bio')}</FieldLabel>
+          <FieldLabel>{tt('Bio courte', 'Short bio', 'Bio corta')}</FieldLabel>
           <Textarea
             value={bio}
             onChange={e => setBio(e.target.value)}
-            placeholder={tt('Ex : On organise les meilleures soirées techno de Paris depuis 2018.', 'Ex: We throw the best techno nights in Paris since 2018.')}
+            placeholder={tt('Ex : On organise les meilleures soirées techno de Paris depuis 2018.', 'Ex: We throw the best techno nights in Paris since 2018.', 'Ej.: Montamos las mejores noches de techno de París desde 2018.')}
             rows={3}
             maxLength={280}
           />
@@ -157,7 +158,7 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
           </div>
         </div>
         <div>
-          <FieldLabel>{tt('Site web', 'Website')}</FieldLabel>
+          <FieldLabel>{tt('Site web', 'Website', 'Sitio web')}</FieldLabel>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}` }}>
               <Globe className="w-4 h-4" style={{ color: T2 }} />
@@ -169,10 +170,10 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
 
       <div className="flex gap-3">
         <GhostButton fullWidth icon={SkipForward} onClick={onSkip}>
-          {tt('Plus tard', 'Later')}
+          {tt('Plus tard', 'Later', 'Más tarde')}
         </GhostButton>
         <PrimaryButton fullWidth icon={ArrowRight} onClick={save} loading={saving}>
-          {tt('Continuer', 'Continue')}
+          {tt('Continuer', 'Continue', 'Continuar')}
         </PrimaryButton>
       </div>
     </div>

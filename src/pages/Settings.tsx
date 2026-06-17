@@ -481,23 +481,23 @@ export default function Settings() {
               <div>
                 <span className="text-sm">{language === 'fr' ? 'Apparence dans les classements' : language === 'es' ? 'Apariencia en rankings' : 'Leaderboard display'}</span>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {language === 'fr' ? 'Contrôlez comment votre nom apparaît' : 'Control how your name appears'}
+                  {language === 'fr' ? 'Contrôlez comment votre nom apparaît' : language === 'es' ? 'Controla cómo aparece tu nombre' : 'Control how your name appears'}
                 </p>
               </div>
               <Select 
                 value={profile?.leaderboard_visibility || 'public'} 
                 onValueChange={async (val) => {
                   await updateProfile({ leaderboard_visibility: val });
-                  toast.success(language === 'fr' ? 'Préférence mise à jour' : 'Preference updated');
+                  toast.success(language === 'fr' ? 'Préférence mise à jour' : language === 'es' ? 'Preferencia actualizada' : 'Preference updated');
                 }}
               >
                 <SelectTrigger className="w-[140px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="public">{language === 'fr' ? 'Public' : 'Public'}</SelectItem>
-                  <SelectItem value="anonymous">{language === 'fr' ? 'Anonyme' : 'Anonymous'}</SelectItem>
-                  <SelectItem value="hidden">{language === 'fr' ? 'Masqué' : 'Hidden'}</SelectItem>
+                  <SelectItem value="public">{language === 'fr' ? 'Public' : language === 'es' ? 'Público' : 'Public'}</SelectItem>
+                  <SelectItem value="anonymous">{language === 'fr' ? 'Anonyme' : language === 'es' ? 'Anónimo' : 'Anonymous'}</SelectItem>
+                  <SelectItem value="hidden">{language === 'fr' ? 'Masqué' : language === 'es' ? 'Oculto' : 'Hidden'}</SelectItem>
                 </SelectContent>
               </Select>
             </div>

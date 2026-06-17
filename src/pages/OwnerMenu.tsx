@@ -29,10 +29,10 @@ const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(
 type SortMode = 'recent' | 'price_asc' | 'price_desc' | 'custom';
 
 const CATEGORY_TABS = [
-  { key: 'all',   label: 'Tout',    icon: null },
-  { key: 'drink', label: 'Boissons', icon: Wine },
-  { key: 'shot',  label: 'Shots',    icon: null },
-  { key: 'soft',  label: 'Softs',    icon: Coffee },
+  { key: 'all',   labelKey: 'owner.menu.all', icon: null },
+  { key: 'drink', labelKey: 'owner.drinks',   icon: Wine },
+  { key: 'shot',  labelKey: 'owner.menu.shots', icon: null },
+  { key: 'soft',  labelKey: 'owner.menu.softs', icon: Coffee },
 ] as const;
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
@@ -367,10 +367,10 @@ export default function OwnerMenu() {
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex gap-8">
               {[
-                { label: 'Boissons', value: drinks.filter(d => d.collection === 'drink').length },
-                { label: 'Shots', value: drinks.filter(d => d.collection === 'shot').length },
-                { label: 'Softs', value: drinks.filter(d => d.collection === 'soft').length },
-                { label: 'Actifs', value: drinks.filter(d => d.active).length },
+                { label: t('owner.drinks'), value: drinks.filter(d => d.collection === 'drink').length },
+                { label: t('owner.menu.shots'), value: drinks.filter(d => d.collection === 'shot').length },
+                { label: t('owner.menu.softs'), value: drinks.filter(d => d.collection === 'soft').length },
+                { label: t('owner.menu.activeCount'), value: drinks.filter(d => d.active).length },
               ].map(({ label, value }) => (
                 <div key={label}>
                   <div style={{ color: T3, fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 2 }}>{label}</div>
@@ -435,7 +435,7 @@ export default function OwnerMenu() {
               style={{ background: `rgba(52,211,153,0.12)`, border: `1px solid rgba(52,211,153,0.25)`, color: '#34D399' }}
             >
               <Save className="w-3.5 h-3.5" />
-              {t('owner.save') || 'Sauvegarder'}
+              {t('owner.save')}
             </button>
           )}
         </div>
@@ -444,7 +444,7 @@ export default function OwnerMenu() {
         <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, overflow: 'hidden' }}>
           {/* Category tab bar */}
           <div className="flex gap-0.5 px-4 pt-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
-            {CATEGORY_TABS.map(({ key, label, icon: Icon }) => {
+            {CATEGORY_TABS.map(({ key, labelKey, icon: Icon }) => {
               const count = key === 'all' ? drinks.length : drinks.filter(d => d.collection === key).length;
               const isActive = categoryFilter === key;
               return (
@@ -455,7 +455,7 @@ export default function OwnerMenu() {
                   style={{ color: isActive ? T1 : T3 }}
                 >
                   {Icon && <Icon className="w-3.5 h-3.5" />}
-                  {label}
+                  {t(labelKey)}
                   <span style={{ color: isActive ? T2 : 'rgba(255,255,255,0.2)', fontSize: 11 }}>({count})</span>
                   {isActive && (
                     <span className="absolute left-3 right-3 rounded-full" style={{ bottom: -1, height: 2, background: RED, boxShadow: `0 0 10px rgba(232,25,44,0.6)` }} />
@@ -606,7 +606,7 @@ export default function OwnerMenu() {
             <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
               <div>
                 <p style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{t('owner.drinkActive')}</p>
-                <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>Visible dans l'app cliente</p>
+                <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{t('owner.menu.visibleInApp')}</p>
               </div>
               <Switch checked={formData.active} onCheckedChange={v => setFormData({ ...formData, active: v })} />
             </div>

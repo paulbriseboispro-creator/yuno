@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   Building2, CalendarDays, Megaphone, Share2, ShieldCheck, Wine, Shirt,
-  Disc3, ChevronRight, Loader2, FlaskConical, LogIn, Globe, Rocket,
+  Disc3, ChevronRight, Loader2, FlaskConical, LogIn, Globe, Rocket, Crown,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -61,6 +61,7 @@ const ACCOUNTS: DemoAccount[] = [
   { email: 'bouncer@womber.fr',   label: 'Videur (porte)',      sub: 'Accès direct',   route: '/bouncer',         icon: ShieldCheck, session: 'staff', role: 'bouncer' },
   { email: 'barman@womber.fr',    label: 'Barman',              sub: 'Accès direct',   route: '/barman',          icon: Wine,        session: 'staff', role: 'barman' },
   { email: 'cloakroom@womber.fr', label: 'Vestiaire',           sub: 'Accès direct',   route: '/cloakroom',       icon: Shirt,       session: 'staff', role: 'cloakroom' },
+  { email: 'viphost@womber.fr',   label: 'Hôte VIP',            sub: 'Accès direct',   route: '/vip-host',        icon: Crown,       session: 'staff', role: 'vip_host' },
 ];
 
 // Pose la session locale qui satisfait RequireStaffSession / RequirePinSession,
@@ -290,6 +291,28 @@ export function DemoSwitcher() {
             >
               <Rocket className="h-3.5 w-3.5 text-primary" />Onboarding orga
             </button>
+          </div>
+
+          {/* Intros first-run des autres rôles (?intro=1 force l'affichage) */}
+          <p className="mb-2 mt-4 text-[10px] font-semibold uppercase tracking-wider text-white/35">Intros rôles</p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {[
+              { email: 'promoter@womber.fr',  label: 'Promoteur', route: '/promoter?intro=1' },
+              { email: 'bouncer@womber.fr',   label: 'Videur',    route: '/bouncer?intro=1' },
+              { email: 'barman@womber.fr',    label: 'Barman',    route: '/barman?intro=1' },
+              { email: 'viphost@womber.fr',   label: 'Hôte VIP',  route: '/vip-host?intro=1' },
+              { email: 'affiliate@womber.fr', label: 'Affilié',   route: '/affiliate?intro=1' },
+            ].map((it) => (
+              <button
+                key={it.email}
+                type="button"
+                disabled={!!busy}
+                onClick={() => { const a = ACCOUNTS.find((x) => x.email === it.email); if (a) switchTo(a, it.route); }}
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-2 py-2 text-[12px] font-medium text-white/80 transition hover:bg-white/[0.07] disabled:opacity-50"
+              >
+                <Rocket className="h-3.5 w-3.5 text-primary" />{it.label}
+              </button>
+            ))}
           </div>
         </div>
 

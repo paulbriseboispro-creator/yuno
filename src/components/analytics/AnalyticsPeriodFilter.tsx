@@ -1,4 +1,5 @@
 import { CalendarRange } from 'lucide-react';
+import { translate } from '@/i18n/orgTranslate';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { subDays, subHours } from 'date-fns';
 
@@ -47,7 +48,7 @@ const selectStyle: React.CSSProperties = {
 
 export function AnalyticsPeriodFilter({ range, onChange, device, onDeviceChange, source, onSourceChange }: Props) {
   const { language } = useLanguage();
-  const tt = (fr: string, en: string) => (language === 'fr' ? fr : en);
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
   const ranges: { key: AnalyticsRange; label: string }[] = [
     { key: '24h', label: '24h' },

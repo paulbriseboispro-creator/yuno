@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { translate } from '@/i18n/orgTranslate';
 import { motion } from 'framer-motion';
 import { Card } from '@/components/ui/card';
 import { Eye, ShoppingCart, CreditCard, Trophy, Percent, ChevronRight } from 'lucide-react';
@@ -34,7 +35,7 @@ interface FunnelData {
  */
 export function ConversionFunnelCard({ scope, from, to, className }: Props) {
   const { language } = useLanguage();
-  const t = (fr: string, en: string) => (language === 'fr' ? fr : en);
+  const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [data, setData] = useState<FunnelData | null>(null);
   const organizerUserId = scope.kind === 'organizer' ? scope.organizerUserId : null;
   const { eventIds, venueIds } = useOrganizerEventIds(organizerUserId);

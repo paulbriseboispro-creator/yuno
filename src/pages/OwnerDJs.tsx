@@ -82,6 +82,7 @@ interface DJInvitation {
 
 function DJDropdownMenu({ dj, basePath, onDelete }: { dj: DJ; basePath: string; onDelete: (dj: DJ) => void }) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -113,7 +114,7 @@ function DJDropdownMenu({ dj, basePath, onDelete }: { dj: DJ; basePath: string; 
               onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
             >
               <Eye className="h-4 w-4" style={{ color: T3 }} />
-              Voir
+              {t('owner.dj.view')}
             </button>
             <button onClick={e => { e.stopPropagation(); onDelete(dj); setOpen(false); }}
               className="w-full flex items-center gap-2 cursor-pointer"
@@ -122,7 +123,7 @@ function DJDropdownMenu({ dj, basePath, onDelete }: { dj: DJ; basePath: string; 
               onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
             >
               <Trash2 className="h-4 w-4" />
-              Supprimer
+              {t('common.delete')}
             </button>
           </motion.div>
         )}
@@ -297,7 +298,7 @@ export default function OwnerDJs() {
       {!isOrganizerScope && <OwnerHeader title={t('owner.djManagement')} />}
 
       <div className="mx-auto max-w-7xl p-4">
-        <CollabReadOnlyBanner action="L'invitation de DJs" />
+        <CollabReadOnlyBanner action={t('collab.action.inviteDjs')} />
 
         {/* Tabs + Add button */}
         <div className="flex items-center justify-between mb-4 gap-3">

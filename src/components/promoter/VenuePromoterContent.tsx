@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { translate } from '@/i18n/orgTranslate';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PromoterProfileTab } from '@/components/promoter/PromoterProfileTab';
 import { useNavigate } from 'react-router-dom';
@@ -80,7 +81,7 @@ interface VenuePromoterContentProps {
 
 export function VenuePromoterContent({ promoter, stats, announcements, onProfileSaved, allPromoterProfiles }: VenuePromoterContentProps) {
   const { t, language } = useLanguage();
-  const tt = (fr: string, en: string) => (language === 'fr' ? fr : en);
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const navigate = useNavigate();
   const venue = promoter.venue;
   const [tab, setTab] = useState('overview');

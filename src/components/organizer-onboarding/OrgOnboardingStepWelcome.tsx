@@ -46,7 +46,7 @@ export function OrgOnboardingStepWelcome({ userId, onComplete }: Props) {
       toast.error(error.message);
       return;
     }
-    toast.success(tt('Profil enregistré', 'Profile saved'));
+    toast.success(tt('Profil enregistré', 'Profile saved', 'Perfil guardado'));
     onComplete();
   };
 
@@ -57,10 +57,11 @@ export function OrgOnboardingStepWelcome({ userId, onComplete }: Props) {
       <StepHeader
         icon={Sparkles}
         accent
-        title={tt('Bienvenue sur Yuno', 'Welcome to Yuno')}
+        title={tt('Bienvenue sur Yuno', 'Welcome to Yuno', 'Bienvenido a Yuno')}
         subtitle={tt(
           'Quelques étapes simples pour configurer votre organisation. Tout est modifiable plus tard.',
           'A few simple steps to set up your organization. Everything is editable later.',
+          'Unos pasos sencillos para configurar tu organización. Todo se puede modificar más tarde.',
         )}
       />
 
@@ -70,29 +71,29 @@ export function OrgOnboardingStepWelcome({ userId, onComplete }: Props) {
       >
         <Clock className="w-4 h-4 flex-none" style={{ color: RED }} />
         <span style={{ color: T1, fontSize: 13, fontWeight: 500 }}>
-          {tt('Environ 5 minutes pour vendre votre premier billet.', 'About 5 minutes to sell your first ticket.')}
+          {tt('Environ 5 minutes pour vendre votre premier billet.', 'About 5 minutes to sell your first ticket.', 'Unos 5 minutos para vender tu primera entrada.')}
         </span>
       </div>
 
       <div className="space-y-4">
         <div>
-          <FieldLabel>{tt("Nom de l'organisation", 'Organization name')} *</FieldLabel>
-          <Input value={orgName} onChange={e => setOrgName(e.target.value)} placeholder={tt('Nightlife Crew', 'Nightlife Crew')} />
+          <FieldLabel>{tt("Nom de l'organisation", 'Organization name', 'Nombre de la organización')} *</FieldLabel>
+          <Input value={orgName} onChange={e => setOrgName(e.target.value)} placeholder={tt('Nightlife Crew', 'Nightlife Crew', 'Nightlife Crew')} />
           <p style={{ color: T3, fontSize: 11.5, marginTop: 6 }}>
-            {tt('Visible sur vos événements et reçus.', 'Shown on your events and receipts.')}
+            {tt('Visible sur vos événements et reçus.', 'Shown on your events and receipts.', 'Visible en tus eventos y recibos.')}
           </p>
         </div>
         <div>
-          <FieldLabel>{tt("Ville d'opération", 'Operating city')} *</FieldLabel>
-          <Input value={city} onChange={e => setCity(e.target.value)} placeholder={tt('Paris', 'Paris')} />
+          <FieldLabel>{tt("Ville d'opération", 'Operating city', 'Ciudad de operación')} *</FieldLabel>
+          <Input value={city} onChange={e => setCity(e.target.value)} placeholder={tt('Paris', 'Paris', 'Paris')} />
           <p style={{ color: T3, fontSize: 11.5, marginTop: 6 }}>
-            {tt('Aide vos clients locaux à vous découvrir dans Explore.', 'Helps local customers discover you on Explore.')}
+            {tt('Aide vos clients locaux à vous découvrir dans Explore.', 'Helps local customers discover you on Explore.', 'Ayuda a tus clientes locales a descubrirte en Explore.')}
           </p>
         </div>
       </div>
 
       <PrimaryButton fullWidth icon={ArrowRight} onClick={save} disabled={!valid} loading={saving}>
-        {tt('Continuer', 'Continue')}
+        {tt('Continuer', 'Continue', 'Continuar')}
       </PrimaryButton>
     </div>
   );

@@ -29,10 +29,10 @@ interface DrinkCatalogSearchProps {
 }
 
 const categoryConfig = {
-  drink: { label: 'Boissons', icon: Wine, emoji: '🍹' },
-  shot: { label: 'Shots', icon: Martini, emoji: '🥃' },
-  soft: { label: 'Softs', icon: Coffee, emoji: '🥤' },
-  other: { label: 'Autres', icon: Grid3X3, emoji: '🍸' },
+  drink: { labelKey: 'drinkCat.catDrinks', icon: Wine, emoji: '🍹' },
+  shot: { labelKey: 'drinkCat.catShots', icon: Martini, emoji: '🥃' },
+  soft: { labelKey: 'drinkCat.catSofts', icon: Coffee, emoji: '🥤' },
+  other: { labelKey: 'drinkCat.catOther', icon: Grid3X3, emoji: '🍸' },
 };
 
 export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearchProps) {
@@ -181,7 +181,7 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
 
       if (error) throw error;
 
-      toast.success(`${selectedDrink.name} ajouté à votre menu !`);
+      toast.success(t('drinkCat.addedToMenu').replace('{name}', selectedDrink.name));
       setIsOpen(false);
       onDrinkAdded();
     } catch (error: any) {
@@ -219,7 +219,10 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
       <p className="font-medium text-sm line-clamp-2">{drink.name}</p>
       <div className="flex items-center gap-1 mt-1">
         <Badge variant="secondary" className="text-xs">
-          {categoryConfig[drink.category as keyof typeof categoryConfig]?.label || drink.category}
+          {(() => {
+            const cfg = categoryConfig[drink.category as keyof typeof categoryConfig];
+            return cfg ? t(cfg.labelKey) : drink.category;
+          })()}
         </Badge>
         {drink.alc_pct && (
           <span className="text-xs text-muted-foreground">{drink.alc_pct}%</span>
@@ -269,15 +272,15 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
     <>
       <Button onClick={() => setIsOpen(true)} className="w-full sm:w-auto">
         <Plus className="mr-2 h-5 w-5" />
-        Ajouter une boisson
+        {t('drinkCat.addDrink')}
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>Ajouter une boisson</DialogTitle>
+            <DialogTitle>{t('drinkCat.addDrink')}</DialogTitle>
             <DialogDescription>
-              Recherchez dans le catalogue ou demandez l'ajout d'une nouvelle boisson
+              {t('drinkCat.searchOrRequest')}
             </DialogDescription>
           </DialogHeader>
 
@@ -288,11 +291,11 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
                 <TabsList className="w-full mb-4">
                   <TabsTrigger value="browse" className="flex-1">
                     <Grid3X3 className="h-4 w-4 mr-2" />
-                    Parcourir
+                    {t('drinkCat.browse')}
                   </TabsTrigger>
                   <TabsTrigger value="search" className="flex-1">
                     <Search className="h-4 w-4 mr-2" />
-                    Rechercher
+                    {t('drinkCat.search')}
                   </TabsTrigger>
                 </TabsList>
 
@@ -301,7 +304,7 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
                   <div className="relative mb-4">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Tapez le nom de la boisson..."
+                      placeholder={t('drinkCat.typeNamePlaceholder')}
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10 pr-10"
@@ -323,12 +326,12 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
                     {loading ? (
                       <div className="py-8 text-center">
                         <Loader2 className="h-8 w-8 mx-auto animate-spin text-primary" />
-                        <p className="text-sm text-muted-foreground mt-2">Recherche...</p>
+                        <p className="text-sm text-muted-foreground mt-2">{t('drinkCat.searching')}</p>
                       </div>
                     ) : searchTerm.length < 2 ? (
                       <div className="py-8 text-center text-muted-foreground">
                         <Search className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                        <p>Tapez au moins 2 caractères pour rechercher</p>
+                        <p>{t('drinkCat.minCharsHint')}</p>
                       </div>
                     ) : results.length > 0 ? (
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pr-4">
@@ -339,11 +342,11 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
                     ) : (
                       <div className="py-8 text-center">
                         <p className="text-muted-foreground mb-4">
-                          Aucune boisson trouvée pour "<span className="font-medium">{searchTerm}</span>"
+                          {t('drinkCat.noDrinksFound').replace('{term}', searchTerm)}
                         </p>
                         <Button onClick={handleRequestNewDrink} variant="outline">
                           <Send className="h-4 w-4 mr-2" />
-                          Demander l'ajout de cette boisson
+                          {t('drinkCat.requestThis')}
                         </Button>
                       </div>
                     )}
@@ -365,7 +368,7 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
                           className="shrink-0"
                         >
                           <config.icon className="h-4 w-4 mr-1" />
-                          {config.label}
+                          {t(config.labelKey)}
                         </Button>
                       );
                     })}
@@ -375,7 +378,7 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
                     {browseLoading ? (
                       <div className="py-8 text-center">
                         <Loader2 className="h-8 w-8 mx-auto animate-spin text-primary" />
-                        <p className="text-sm text-muted-foreground mt-2">Chargement...</p>
+                        <p className="text-sm text-muted-foreground mt-2">{t('drinkCat.loading')}</p>
                       </div>
                     ) : browseCatalog.length > 0 ? (
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pr-4">
@@ -385,10 +388,10 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
                       </div>
                     ) : (
                       <div className="py-8 text-center text-muted-foreground">
-                        <p>Aucune boisson dans cette catégorie</p>
+                        <p>{t('drinkCat.noCategory')}</p>
                         <Button onClick={() => { setMode('search'); }} variant="outline" className="mt-4">
                           <Search className="h-4 w-4 mr-2" />
-                          Rechercher par nom
+                          {t('drinkCat.searchByName')}
                         </Button>
                       </div>
                     )}
@@ -418,7 +421,7 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
                   )}
                   <div className="flex items-center gap-2 mt-1">
                     <Badge variant="secondary">
-                      {selectedDrink.category === 'drink' ? 'Boisson' : selectedDrink.category === 'shot' ? 'Shot' : 'Soft'}
+                      {selectedDrink.category === 'drink' ? t('drinkCat.categoryDrink') : selectedDrink.category === 'shot' ? t('drinkCat.catShots') : t('drinkCat.catSofts')}
                     </Badge>
                     {selectedDrink.alc_pct && (
                       <span className="text-sm text-muted-foreground">{selectedDrink.alc_pct}% alc.</span>
@@ -438,7 +441,7 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="price" className="text-base font-medium">
-                    Prix de vente *
+                    {t('drinkCat.salePrice')}
                   </Label>
                   <div className="relative">
                     <Input
@@ -460,7 +463,7 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
 
                 <div className="space-y-2">
                   <Label htmlFor="presalePrice" className="text-base font-medium">
-                    Prix prévente <span className="text-muted-foreground font-normal">(optionnel)</span>
+                    {t('drinkCat.presalePrice')}
                   </Label>
                   <div className="relative">
                     <Input
@@ -468,7 +471,7 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
                       type="number"
                       step="0.5"
                       min="0"
-                      placeholder="Laisser vide si pas de prévente"
+                      placeholder={t('drinkCat.presalePlaceholder')}
                       value={presalePrice}
                       onChange={(e) => setPresalePrice(e.target.value)}
                       className="h-12 pr-12"
@@ -478,20 +481,20 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Prix réduit applicable lors des périodes de prévente
+                    {t('drinkCat.presaleDesc')}
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-base font-medium">Catégorie d'affichage</Label>
+                  <Label className="text-base font-medium">{t('drinkCat.displayCategory')}</Label>
                   <Select value={collection} onValueChange={(v) => setCollection(v as any)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="drink">🍹 Boissons</SelectItem>
-                      <SelectItem value="shot">🥃 Shots</SelectItem>
-                      <SelectItem value="soft">🥤 Softs</SelectItem>
+                      <SelectItem value="drink">🍹 {t('drinkCat.catDrinks')}</SelectItem>
+                      <SelectItem value="shot">🥃 {t('drinkCat.catShots')}</SelectItem>
+                      <SelectItem value="soft">🥤 {t('drinkCat.catSofts')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -502,7 +505,7 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
           {selectedDrink && (
             <DialogFooter className="mt-4 shrink-0 border-t border-border pt-4 bg-background sticky bottom-0">
               <Button variant="outline" onClick={() => setSelectedDrink(null)}>
-                Retour
+                {t('drinkCat.back')}
               </Button>
               <Button 
                 onClick={handleAddDrink} 
@@ -513,7 +516,7 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
                 ) : (
                   <Check className="h-4 w-4 mr-2" />
                 )}
-                Ajouter au menu
+                {t('drinkCat.addToMenu')}
               </Button>
             </DialogFooter>
           )}
@@ -524,61 +527,61 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
       <Dialog open={showRequestDialog} onOpenChange={setShowRequestDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Demander l'ajout d'une boisson</DialogTitle>
+            <DialogTitle>{t('drinkCat.requestTitle')}</DialogTitle>
             <DialogDescription>
-              Nous ajouterons cette boisson au catalogue sous 24h et vous serez notifié.
+              {t('drinkCat.requestDesc')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="requestName">Nom de la boisson *</Label>
+              <Label htmlFor="requestName">{t('drinkCat.drinkName')}</Label>
               <Input
                 id="requestName"
                 value={requestName}
                 onChange={(e) => setRequestName(e.target.value)}
-                placeholder="Ex: Vodka Grey Goose"
+                placeholder={t('drinkCat.nameExample')}
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Catégorie *</Label>
+              <Label>{t('drinkCat.category')}</Label>
               <Select value={requestCategory} onValueChange={(v) => setRequestCategory(v as any)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="drink">🍹 Boisson</SelectItem>
-                  <SelectItem value="shot">🥃 Shot</SelectItem>
-                  <SelectItem value="soft">🥤 Soft</SelectItem>
+                  <SelectItem value="drink">🍹 {t('drinkCat.catDrinks')}</SelectItem>
+                  <SelectItem value="shot">🥃 {t('drinkCat.catShots')}</SelectItem>
+                  <SelectItem value="soft">🥤 {t('drinkCat.catSofts')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="requestBrand">Marque (optionnel)</Label>
+              <Label htmlFor="requestBrand">{t('drinkCat.brand')}</Label>
               <Input
                 id="requestBrand"
                 value={requestBrand}
                 onChange={(e) => setRequestBrand(e.target.value)}
-                placeholder="Ex: Grey Goose"
+                placeholder={t('drinkCat.brandExample')}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="requestDescription">Description (optionnel)</Label>
+              <Label htmlFor="requestDescription">{t('drinkCat.description')}</Label>
               <Input
                 id="requestDescription"
                 value={requestDescription}
                 onChange={(e) => setRequestDescription(e.target.value)}
-                placeholder="Ex: Vodka premium française"
+                placeholder={t('drinkCat.descExample')}
               />
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowRequestDialog(false)}>
-              Annuler
+              {t('common.cancel')}
             </Button>
             <Button onClick={submitDrinkRequest} disabled={isSubmittingRequest || !requestName.trim()}>
               {isSubmittingRequest ? (
@@ -586,7 +589,7 @@ export function DrinkCatalogSearch({ venueId, onDrinkAdded }: DrinkCatalogSearch
               ) : (
                 <Send className="h-4 w-4 mr-2" />
               )}
-              Envoyer la demande
+              {t('drinkCat.submitRequest')}
             </Button>
           </DialogFooter>
         </DialogContent>

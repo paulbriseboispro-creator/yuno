@@ -38,14 +38,14 @@ interface ScannedTicket {
   paymentIntentId: string | null;
 }
 
-const REFUND_REASONS: Record<string, { fr: string; en: string }> = {
-  intoxication: { fr: 'Ivresse', en: 'Intoxication' },
-  behavior: { fr: 'Comportement inapproprié', en: 'Inappropriate behavior' },
-  documents: { fr: 'Documents non valides', en: 'Invalid documents' },
-  minor: { fr: 'Mineur', en: 'Minor' },
-  dress_code: { fr: 'Dress code non respecté', en: 'Dress code violation' },
-  capacity: { fr: 'Capacité maximale atteinte', en: 'Max capacity reached' },
-  other: { fr: 'Autre', en: 'Other' },
+const REFUND_REASONS: Record<string, { fr: string; en: string; es: string }> = {
+  intoxication: { fr: 'Ivresse', en: 'Intoxication', es: 'Embriaguez' },
+  behavior: { fr: 'Comportement inapproprié', en: 'Inappropriate behavior', es: 'Comportamiento inadecuado' },
+  documents: { fr: 'Documents non valides', en: 'Invalid documents', es: 'Documentos no válidos' },
+  minor: { fr: 'Mineur', en: 'Minor', es: 'Menor de edad' },
+  dress_code: { fr: 'Dress code non respecté', en: 'Dress code violation', es: 'Incumplimiento del código de vestimenta' },
+  capacity: { fr: 'Capacité maximale atteinte', en: 'Max capacity reached', es: 'Aforo máximo alcanzado' },
+  other: { fr: 'Autre', en: 'Other', es: 'Otro' },
 };
 
 // Big success / error scan result banner
@@ -298,8 +298,8 @@ export default function OrgAppCheckin() {
   };
 
   const getFinalReason = () => {
-    if (refundReason === 'other') return customReason || REFUND_REASONS.other[language === 'fr' ? 'fr' : 'en'];
-    return REFUND_REASONS[refundReason]?.[language === 'fr' ? 'fr' : 'en'] || '';
+    if (refundReason === 'other') return customReason || REFUND_REASONS.other[language];
+    return REFUND_REASONS[refundReason]?.[language] || '';
   };
 
   const confirmCancelTicket = async () => {
@@ -516,7 +516,7 @@ export default function OrgAppCheckin() {
                           <FieldLabel>{t('Motif du refus', 'Refusal reason')} *</FieldLabel>
                           <DarkSelect value={refundReason} onChange={setRefundReason} placeholder={t('Choisir un motif', 'Select a reason')}>
                             {Object.keys(REFUND_REASONS).map(key => (
-                              <option key={key} value={key} style={{ background: '#0a0a0c' }}>{REFUND_REASONS[key][language === 'fr' ? 'fr' : 'en']}</option>
+                              <option key={key} value={key} style={{ background: '#0a0a0c' }}>{REFUND_REASONS[key][language]}</option>
                             ))}
                           </DarkSelect>
                           {refundReason === 'other' && (

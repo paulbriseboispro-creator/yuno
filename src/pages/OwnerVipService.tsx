@@ -210,7 +210,7 @@ export default function OwnerVipService() {
   const tabs: { id: VipTab; label: string; icon: LucideIcon; badge?: number }[] = [
     { id: 'overview', label: t('owner.overview'), icon: BarChart3 },
     { id: 'reservations', label: t('tables.reservations'), icon: Crown },
-    { id: 'placement', label: 'Placement', icon: MapPin, badge: pendingPlacements },
+    { id: 'placement', label: t('vipCheckout.step.placement'), icon: MapPin, badge: pendingPlacements },
     { id: 'menu', label: t('vipMenu.menuTab'), icon: Wine },
     { id: 'staff', label: t('owner.staff'), icon: UserCheck },
     { id: 'settings', label: t('owner.settings') || 'Settings', icon: Settings },
@@ -284,7 +284,7 @@ export default function OwnerVipService() {
               {floorPlan && (
                 <VipCard
                   icon={<LayoutGrid className="w-4 h-4" />}
-                  title="Plan de salle en direct"
+                  title={t('owner.vip.liveFloorPlan')}
                   sub={t('vipPlacement.liveFloorPlanSub') || undefined}
                 >
                   <VipFloorPlan

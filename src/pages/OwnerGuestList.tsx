@@ -41,7 +41,7 @@ interface GuestListData { id: string; event_id: string; venue_id: string; quota:
 interface EntryData    { id: string; full_name: string; email: string; phone: string; gender: string | null; status: string; entry_scanned: boolean; entry_scanned_at: string | null; created_at: string; promoter_id: string | null; entry_type: string | null }
 interface PromoterGLEntry extends EntryData { promoterName?: string }
 
-function EventSelector({ events, value, onChange }: { events: EventOption[]; value: string; onChange: (v: string) => void }) {
+function EventSelector({ events, value, onChange, t }: { events: EventOption[]; value: string; onChange: (v: string) => void; t: (key: string) => string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const selected = events.find(e => e.id === value);
@@ -58,7 +58,7 @@ function EventSelector({ events, value, onChange }: { events: EventOption[]; val
         className="w-full flex items-center justify-between cursor-pointer"
         style={{ background: INNER_BG, border: `1px solid ${open ? 'rgba(255,255,255,0.2)' : BORDER}`, borderRadius: 10, padding: '10px 14px', color: T1, fontSize: 13.5, fontFamily: 'inherit' }}>
         <span style={{ color: selected ? T1 : T3 }}>
-          {selected ? `${selected.title} — ${formatInTimeZone(new Date(selected.startAt), PARIS_TIMEZONE, 'dd/MM/yyyy HH:mm')}` : 'Sélectionner un événement'}
+          {selected ? `${selected.title} — ${formatInTimeZone(new Date(selected.startAt), PARIS_TIMEZONE, 'dd/MM/yyyy HH:mm')}` : t('guestList.selectEventPlaceholder')}
         </span>
         <ChevronDown className="h-4 w-4 shrink-0" style={{ color: T3, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
       </button>
@@ -189,10 +189,10 @@ export default function OwnerGuestList() {
       const { data: profiles } = await supabase.from('profiles').select('id,first_name,last_name').in('id', userIds);
       if (profiles) {
         const profileMap = new Map(profiles.map(p => [p.id, `${p.first_name || ''} ${p.last_name || ''}`.trim()]));
-        promoters.forEach(p => { nameMap[p.id] = profileMap.get(p.user_id) || 'Promoteur'; });
+        promoters.forEach(p => { nameMap[p.id] = profileMap.get(p.user_id) || t('guestList.promoterFallback'); });
       }
     }
-    setPromoterEntries(pEntries.map(e => ({ ...e, promoterName: e.promoter_id ? nameMap[e.promoter_id] || 'Promoteur' : undefined })) as PromoterGLEntry[]);
+    setPromoterEntries(pEntries.map(e => ({ ...e, promoterName: e.promoter_id ? nameMap[e.promoter_id] || t('guestList.promoterFallback') : undefined })) as PromoterGLEntry[]);
   };
 
   const handleSave = async () => {
@@ -270,7 +270,7 @@ export default function OwnerGuestList() {
           <p style={{ color: T2, fontSize: 13, fontWeight: 500, marginBottom: 8 }}>{t('guestList.selectEvent')}</p>
           {events.length === 0
             ? <p style={{ color: T3, fontSize: 13 }}>{t('guestList.noEvents')}</p>
-            : <EventSelector events={events} value={selectedEventId} onChange={setSelectedEventId} />
+            : <EventSelector events={events} value={selectedEventId} onChange={setSelectedEventId} t={t} />
           }
         </div>
 
@@ -377,13 +377,13 @@ export default function OwnerGuestList() {
                 <div>
                   <p className="flex items-center gap-2" style={{ color: T2, fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
                     <Clock className="h-4 w-4" style={{ color: T3 }} />
-                    Heure limite d'entrée
+                    {t('guestList.entryDeadline')}
                   </p>
                   <input type="time" value={entryDeadline} onChange={e => setEntryDeadline(e.target.value)} placeholder="--:--"
                     className="outline-none"
                     style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '8px 12px', color: T1, fontSize: 14, fontFamily: 'inherit', colorScheme: 'dark', width: 160 }} />
                   <p style={{ color: T3, fontSize: 11.5, marginTop: 4 }}>
-                    Heure maximale pour rentrer dans le club (laisser vide = pas de limite)
+                    {t('guestList.entryDeadlineDesc')}
                   </p>
                 </div>
 
@@ -456,11 +456,11 @@ export default function OwnerGuestList() {
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="flex items-center gap-2" style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0 }}>
                         <Link2 className="h-4 w-4" style={{ color: RED }} />
-                        ♀ Guest List Femme
+                        ♀ {t('guestList.femaleList')}
                       </h3>
                       {femaleCount >= effectiveFemale && (
                         <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, color: NEG, background: 'rgba(255,92,99,0.12)', border: '1px solid rgba(255,92,99,0.3)' }}>
-                          Complet
+                          {t('guestList.quotaFull')}
                         </span>
                       )}
                     </div>
@@ -473,7 +473,7 @@ export default function OwnerGuestList() {
                         <Copy className="h-4 w-4" />
                       </button>
                     </div>
-                    <p style={{ color: T3, fontSize: 11.5, marginTop: 6 }}>{femaleCount}/{effectiveFemale} inscrites</p>
+                    <p style={{ color: T3, fontSize: 11.5, marginTop: 6 }}>{femaleCount}/{effectiveFemale} {t('guestList.signedUpFemale')}</p>
                   </div>
                 )}
 
@@ -483,11 +483,11 @@ export default function OwnerGuestList() {
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="flex items-center gap-2" style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0 }}>
                         <Link2 className="h-4 w-4" style={{ color: RED }} />
-                        ♂ Guest List Homme
+                        ♂ {t('guestList.maleList')}
                       </h3>
                       {maleCount >= effectiveMale && (
                         <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, color: NEG, background: 'rgba(255,92,99,0.12)', border: '1px solid rgba(255,92,99,0.3)' }}>
-                          Complet
+                          {t('guestList.quotaFull')}
                         </span>
                       )}
                     </div>
@@ -500,7 +500,7 @@ export default function OwnerGuestList() {
                         <Copy className="h-4 w-4" />
                       </button>
                     </div>
-                    <p style={{ color: T3, fontSize: 11.5, marginTop: 6 }}>{maleCount}/{effectiveMale} inscrits</p>
+                    <p style={{ color: T3, fontSize: 11.5, marginTop: 6 }}>{maleCount}/{effectiveMale} {t('guestList.signedUpMale')}</p>
                   </div>
                 )}
               </div>
@@ -534,7 +534,7 @@ export default function OwnerGuestList() {
             {guestList && clubEntries.length > 0 && (
               <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px' }}>
                 <h3 style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0, marginBottom: 12 }}>
-                  Inscrits Club ({clubEntries.length})
+                  {t('guestList.clubRegistered')} ({clubEntries.length})
                 </h3>
                 <div className="space-y-1.5" style={{ maxHeight: 384, overflowY: 'auto' }}>
                   {clubEntries.map(entry => (
@@ -581,10 +581,10 @@ export default function OwnerGuestList() {
             <div style={{ background: CARD_BG, border: `1px solid rgba(232,25,44,0.18)`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px' }}>
               <h3 className="flex items-center gap-2 mb-1" style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0 }}>
                 <Users className="h-4 w-4" style={{ color: RED }} />
-                Guest List Promoteurs
+                {t('guestList.promoterList')}
               </h3>
               <p style={{ color: T3, fontSize: 12, marginBottom: 12 }}>
-                Invités ajoutés par vos promoteurs pour cet événement. Fonctionne indépendamment de la guest list club.
+                {t('guestList.promoterListDesc')}
               </p>
               {promoterEntries.length > 0 ? (
                 <>
@@ -598,11 +598,11 @@ export default function OwnerGuestList() {
                             <p style={{ color: T3, fontSize: 11.5, margin: 0 }} className="truncate">{entry.email}</p>
                             {entry.entry_type && entry.entry_type !== 'normal' && (
                               <span style={{ padding: '1px 6px', borderRadius: 5, fontSize: 10, fontWeight: 600, color: T2, background: INNER_BG, border: `1px solid ${F_BORDER}` }}>
-                                {entry.entry_type === 'table' ? '🪩 VIP' : entry.entry_type === 'drink' ? '🍹 Boisson' : entry.entry_type}
+                                {entry.entry_type === 'table' ? '🪩 VIP' : entry.entry_type === 'drink' ? `🍹 ${t('guestList.drinkBadge')}` : entry.entry_type}
                               </span>
                             )}
                           </div>
-                          <p style={{ color: 'rgba(232,25,44,0.8)', fontSize: 11, margin: 0 }}>Invité par {entry.promoterName}</p>
+                          <p style={{ color: 'rgba(232,25,44,0.8)', fontSize: 11, margin: 0 }}>{t('guestList.invitedBy').replace('{name}', String(entry.promoterName))}</p>
                         </div>
                         <div className="shrink-0 ml-3">
                           {entry.entry_scanned ? (
@@ -619,19 +619,19 @@ export default function OwnerGuestList() {
                     ))}
                   </div>
                   <div className="flex items-center gap-3 mt-3" style={{ color: T3, fontSize: 11.5 }}>
-                    <span>{promoterEntries.length} invité(s)</span>
+                    <span>{promoterEntries.length} {t('guestList.guestsCount')}</span>
                     <span>·</span>
-                    <span>{promoterEntries.filter(e => e.entry_scanned).length} entré(s)</span>
+                    <span>{promoterEntries.filter(e => e.entry_scanned).length} {t('guestList.enteredCount')}</span>
                     <span>·</span>
                     <span>{promoterEntries.filter(e => e.entry_type === 'table').length} VIP</span>
                     <span>·</span>
-                    <span>{promoterEntries.filter(e => e.entry_type === 'drink').length} avec boisson</span>
+                    <span>{promoterEntries.filter(e => e.entry_type === 'drink').length} {t('guestList.withDrink')}</span>
                   </div>
                 </>
               ) : (
                 <div className="text-center py-10">
                   <Users className="h-10 w-10 mx-auto mb-2" style={{ color: T3, opacity: 0.3 }} />
-                  <p style={{ color: T3, fontSize: 13 }}>Aucun invité promoteur pour cet événement</p>
+                  <p style={{ color: T3, fontSize: 13 }}>{t('guestList.noPromoterGuests')}</p>
                 </div>
               )}
             </div>

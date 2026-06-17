@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { translate } from '@/i18n/orgTranslate';
 import { Activity, TrendingDown, Clock, Target, Smartphone, Monitor, Tablet } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -53,7 +54,7 @@ const EMPTY: BehaviorStats = {
 
 export function BehaviorAnalytics({ scope, from, to, deviceFilter, sourceFilter }: Props) {
   const { language } = useLanguage();
-  const tt = (fr: string, en: string) => (language === 'fr' ? fr : en);
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [stats, setStats] = useState<BehaviorStats>(EMPTY);
   const [loading, setLoading] = useState(true);
   const { eventIds, venueIds } = useOrganizerEventIds(scope.kind === 'organizer' ? scope.id : null);

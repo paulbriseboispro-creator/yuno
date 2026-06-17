@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { translate } from '@/i18n/orgTranslate';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Activity, Globe, Target, Users } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -13,7 +14,7 @@ interface Props {
 
 export function AnalyticsHubLayout({ active, onChange, children }: Props) {
   const { language } = useLanguage();
-  const tt = (fr: string, en: string) => (language === 'fr' ? fr : en);
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
   const pillars: { key: AnalyticsPillar; label: string; icon: any; description: string }[] = [
     { key: 'pulse', label: tt('Pulse', 'Pulse'), icon: Activity, description: tt('Activité en temps réel', 'Real-time activity') },

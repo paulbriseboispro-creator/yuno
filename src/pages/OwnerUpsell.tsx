@@ -30,7 +30,7 @@ export default function OwnerUpsell() {
   }
 
   const tabs: { id: TabKey; label: string; shortLabel: string; icon: typeof Ticket }[] = [
-    { id: 'ticket', label: 'Ticket', shortLabel: 'Ticket', icon: Ticket },
+    { id: 'ticket', label: t('owner.ups.tabTicket'), shortLabel: t('owner.ups.tabTicket'), icon: Ticket },
     { id: 'cart', label: t('upsell.tabCartOffers'), shortLabel: t('upsell.tabCartShort'), icon: ShoppingCart },
     { id: 'promos', label: t('upsell.tabPromos'), shortLabel: 'Promos', icon: Percent },
   ];
@@ -45,7 +45,7 @@ export default function OwnerUpsell() {
       />
 
       <UPage maxWidth={960}>
-        <CollabReadOnlyBanner action="L'édition des upsells" />
+        <CollabReadOnlyBanner action={t('collab.action.editUpsells')} />
 
         <motion.p
           initial={{ opacity: 0 }}

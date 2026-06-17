@@ -305,7 +305,7 @@ export default function OwnerTables() {
       <OwnerHeader title={t('tables.title')} />
 
       <main className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-2 pb-4 space-y-4">
-        <CollabReadOnlyBanner action="La gestion des tables VIP" />
+        <CollabReadOnlyBanner action={t('collab.action.manageTables')} />
 
         {/* Floor Plan Card */}
         <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 20 }}>

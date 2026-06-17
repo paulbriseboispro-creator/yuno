@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Move, ZoomIn, ZoomOut, RotateCcw, X, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export interface PosterPosition {
   x: number;
@@ -25,9 +26,10 @@ export function PosterCropper({
   onRemove, 
   className 
 }: PosterCropperProps) {
+  const { t } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
-  
+
   const [scale, setScale] = useState(initialPosition?.scale ?? 1);
   const [position, setPosition] = useState({ 
     x: initialPosition?.x ?? 0, 
@@ -159,9 +161,9 @@ export function PosterCropper({
       <div className="flex items-start gap-2 p-2 rounded-lg bg-primary/10 border border-primary/20">
         <Info className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
         <div className="text-xs text-muted-foreground">
-          <p className="font-medium text-foreground mb-0.5">Format Carré (1:1)</p>
-          <p>Taille recommandée : <span className="font-mono text-primary">1080 × 1080 px</span></p>
-          <p className="mt-1">Glissez l'image pour centrer la zone visible sur la carte.</p>
+          <p className="font-medium text-foreground mb-0.5">{t('posterCropper.format')}</p>
+          <p>{t('posterCropper.recommendedSize')}</p>
+          <p className="mt-1">{t('posterCropper.dragInstruction')}</p>
         </div>
       </div>
 
@@ -196,7 +198,7 @@ export function PosterCropper({
           {imageLoaded && (
             <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-background/80 backdrop-blur-sm rounded-full px-2 py-1 flex items-center gap-1 text-[10px] text-muted-foreground pointer-events-none">
               <Move className="h-3 w-3" />
-              <span>Glisser</span>
+              <span>{t('posterCropper.drag')}</span>
             </div>
           )}
         </div>
@@ -234,7 +236,7 @@ export function PosterCropper({
               className="flex-1 text-xs"
             >
               <RotateCcw className="h-3 w-3 mr-1" />
-              Réinitialiser
+              {t('posterCropper.reset')}
             </Button>
             <Button
               type="button"
@@ -250,7 +252,7 @@ export function PosterCropper({
           {/* Image info */}
           {imageLoaded && naturalSize.width > 0 && (
             <div className="text-xs text-muted-foreground">
-              <p>Image source : <span className="font-mono">{naturalSize.width} × {naturalSize.height} px</span></p>
+              <p>{t('posterCropper.sourceImage')} <span className="font-mono">{naturalSize.width} × {naturalSize.height} px</span></p>
             </div>
           )}
         </div>

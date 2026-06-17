@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { translate } from '@/i18n/orgTranslate';
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
@@ -36,7 +37,7 @@ const TYPE_META: Record<ActivityItem['type'], { icon: any; cls: string }> = {
 
 export function CustomerTimelineSheet({ open, onClose, email, name, organizerUserId, venueId }: Props) {
   const { language } = useLanguage();
-  const tt = (fr: string, en: string) => (language === 'fr' ? fr : en);
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const dateLocale = language === 'fr' ? frLocale : enUS;
   const [items, setItems] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -105,7 +106,7 @@ export function CustomerTimelineSheet({ open, onClose, email, name, organizerUse
             list.push({
               ts: t.created_at,
               type: 'ticket',
-              label: tt(`${t.quantity ?? 1} billet(s)`, `${t.quantity ?? 1} ticket(s)`),
+              label: tt(`${t.quantity ?? 1} billet(s)`, `${t.quantity ?? 1} ticket(s)`, `${t.quantity ?? 1} entrada(s)`),
               amount: Number(t.total_price ?? 0),
               eventTitle: eventTitles.get(t.event_id),
             });
@@ -144,7 +145,7 @@ export function CustomerTimelineSheet({ open, onClose, email, name, organizerUse
             list.push({
               ts: o.created_at,
               type: 'order',
-              label: tt(`Commande de ${itemCount} produit(s)`, `Order of ${itemCount} item(s)`),
+              label: tt(`Commande de ${itemCount} produit(s)`, `Order of ${itemCount} item(s)`, `Pedido de ${itemCount} producto(s)`),
               amount: Number(o.total ?? 0),
               eventTitle: o.event_id ? eventTitles.get(o.event_id) : undefined,
             });

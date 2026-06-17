@@ -21,11 +21,18 @@ const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,2
 const INNER_BG = 'rgba(255,255,255,0.032)';
 const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
 
-const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
-  paid:      { bg: 'rgba(52,211,153,0.12)',  color: POS,       label: 'Payé' },
-  cancelled: { bg: 'rgba(232,25,44,0.12)',   color: '#FF5C63', label: 'Annulé' },
-  refunded:  { bg: 'rgba(232,25,44,0.12)',   color: '#FF5C63', label: 'Remboursé' },
-  pending:   { bg: 'rgba(255,255,255,0.06)', color: T2,        label: 'En attente' },
+const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
+  paid:      { bg: 'rgba(52,211,153,0.12)',  color: POS },
+  cancelled: { bg: 'rgba(232,25,44,0.12)',   color: '#FF5C63' },
+  refunded:  { bg: 'rgba(232,25,44,0.12)',   color: '#FF5C63' },
+  pending:   { bg: 'rgba(255,255,255,0.06)', color: T2 },
+};
+
+const STATUS_KEY: Record<string, string> = {
+  paid: 'owner.paid',
+  cancelled: 'owner.cancelled',
+  refunded: 'owner.refunded',
+  pending: 'orders.status.pending',
 };
 
 interface TicketOrder {
@@ -88,6 +95,7 @@ export function OwnerTicketOrders({ venueId, eventId }: OwnerTicketOrdersProps) 
   const [minorDocs, setMinorDocs] = useState<Map<string, MinorDoc>>(new Map());
 
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
+  const statusLabel = (s: string) => t(STATUS_KEY[s] ?? 'orders.status.pending');
 
   const minorDocFor = (ticket: TicketOrder) => minorDocs.get(minorDocKey(ticket.eventId, ticket.userEmail));
 
@@ -160,9 +168,9 @@ export function OwnerTicketOrders({ venueId, eventId }: OwnerTicketOrdersProps) 
       <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px 22px', marginBottom: 16 }}>
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: 'Commandes', value: filteredTickets.length.toString() },
-            { label: 'Tickets vendus', value: totalQty.toString() },
-            { label: 'Revenu total', value: `€${totalRevenue.toFixed(0)}` },
+            { label: t('owner.orders'), value: filteredTickets.length.toString() },
+            { label: t('owner.ord.ticketsSold'), value: totalQty.toString() },
+            { label: t('owner.totalRevenue'), value: `€${totalRevenue.toFixed(0)}` },
           ].map(({ label, value }) => (
             <div key={label} className="text-center">
               <div style={{ color: T3, fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
@@ -214,8 +222,8 @@ export function OwnerTicketOrders({ venueId, eventId }: OwnerTicketOrdersProps) 
         ) : (
           <div>
             <div className="grid items-center px-5 py-3" style={{ gridTemplateColumns: '1fr 120px 80px 100px 40px', borderBottom: `1px solid ${F_BORDER}` }}>
-              {['Client', 'Événement', 'Total', 'Statut', ''].map((h) => (
-                <span key={h} style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{h}</span>
+              {[t('owner.th.client'), t('owner.th.event'), t('owner.th.total'), t('owner.th.status'), ''].map((h, idx) => (
+                <span key={idx} style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{h}</span>
               ))}
             </div>
             {filteredTickets.map((ticket, i) => {
@@ -254,7 +262,7 @@ export function OwnerTicketOrders({ venueId, eventId }: OwnerTicketOrdersProps) 
                     €{ticket.totalPrice.toFixed(2)}
                   </span>
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: st.bg, color: st.color }}>
-                    {st.label}
+                    {statusLabel(ticket.status)}
                   </span>
                   <button
                     onClick={(e) => { e.stopPropagation(); setSelectedTicket(ticket); }}
@@ -282,7 +290,7 @@ export function OwnerTicketOrders({ venueId, eventId }: OwnerTicketOrdersProps) 
               <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
                 <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[12px] font-semibold"
                   style={{ background: STATUS_STYLE[selectedTicket.status]?.bg ?? C_FAINT, color: STATUS_STYLE[selectedTicket.status]?.color ?? T2 }}>
-                  {STATUS_STYLE[selectedTicket.status]?.label ?? selectedTicket.status}
+                  {statusLabel(selectedTicket.status)}
                 </span>
                 <span style={{ color: T1, fontSize: 24, fontWeight: 640, letterSpacing: '-0.02em' }} className="tabular-nums">
                   €{selectedTicket.totalPrice.toFixed(2)}

@@ -300,7 +300,7 @@ export default function OwnerScarcity() {
         <OwnerHeader title={t('scarcity.title')} showBackButton backTo="/owner/dashboard" />
 
         <div className="px-4 py-6 max-w-2xl mx-auto space-y-4">
-          <CollabReadOnlyBanner action="L'édition des outils de rareté" />
+          <CollabReadOnlyBanner action={t('collab.action.editScarcity')} />
 
           {/* How it works — sets the mental model up front */}
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>

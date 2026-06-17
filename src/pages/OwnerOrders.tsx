@@ -16,9 +16,9 @@ const T3   = 'rgba(255,255,255,0.36)';
 const BORDER = 'rgba(255,255,255,0.085)';
 
 const TABS = [
-  { key: 'drinks',  label: 'Boissons',   Icon: Wine   },
-  { key: 'tickets', label: 'Tickets',    Icon: Ticket },
-  { key: 'vip',     label: 'VIP Tables', Icon: Crown  },
+  { key: 'drinks',  labelKey: 'owner.drinks', fallback: 'Drinks',     Icon: Wine   },
+  { key: 'tickets', labelKey: null,           fallback: 'Tickets',    Icon: Ticket },
+  { key: 'vip',     labelKey: null,           fallback: 'VIP Tables', Icon: Crown  },
 ] as const;
 
 type TabKey = typeof TABS[number]['key'];
@@ -41,7 +41,7 @@ export default function OwnerOrders() {
       <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-2">
         {/* Tab bar */}
         <div className="flex gap-0.5 mb-5" style={{ borderBottom: `1px solid ${BORDER}` }}>
-          {TABS.map(({ key, label, Icon }) => (
+          {TABS.map(({ key, labelKey, fallback, Icon }) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
@@ -49,7 +49,7 @@ export default function OwnerOrders() {
               style={{ color: activeTab === key ? T1 : T3 }}
             >
               <Icon className="w-4 h-4" />
-              <span className="hidden sm:inline">{label}</span>
+              <span className="hidden sm:inline">{labelKey ? t(labelKey) : fallback}</span>
               {activeTab === key && (
                 <span
                   className="absolute left-3 right-3 rounded-full"

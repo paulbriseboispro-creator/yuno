@@ -21,28 +21,28 @@ export function OrgOnboardingStepTour({ onComplete }: Props) {
   const slides: { icon: LucideIcon; title: string; desc: string }[] = [
     {
       icon: LayoutDashboard,
-      title: tt('Mission Control', 'Mission Control'),
-      desc: tt('Votre tableau de bord temps réel : ventes, check-ins, prochain événement, KPI 30 jours.', 'Your real-time dashboard: sales, check-ins, next event, 30-day KPIs.'),
+      title: tt('Mission Control', 'Mission Control', 'Mission Control'),
+      desc: tt('Votre tableau de bord temps réel : ventes, check-ins, prochain événement, KPI 30 jours.', 'Your real-time dashboard: sales, check-ins, next event, 30-day KPIs.', 'Tu panel de control en tiempo real: ventas, check-ins, próximo evento, KPIs de 30 días.'),
     },
     {
       icon: Ticket,
-      title: tt('Billetterie flexible', 'Flexible ticketing'),
-      desc: tt('Tarifs simples, vagues progressives ou créneaux. Listes privées et codes promoteurs inclus.', 'Simple prices, progressive waves or time slots. Private lists and promoter codes included.'),
+      title: tt('Billetterie flexible', 'Flexible ticketing', 'Ticketing flexible'),
+      desc: tt('Tarifs simples, vagues progressives ou créneaux. Listes privées et codes promoteurs inclus.', 'Simple prices, progressive waves or time slots. Private lists and promoter codes included.', 'Precios simples, oleadas progresivas o franjas horarias. Listas privadas y códigos de promotor incluidos.'),
     },
     {
       icon: ScanLine,
-      title: tt('Check-in à la porte', 'Door check-in'),
-      desc: tt('Scannez les QR codes hors-ligne, statistiques en temps réel, gestion des refus.', 'Scan QR codes offline, real-time stats, rejection handling.'),
+      title: tt('Check-in à la porte', 'Door check-in', 'Check-in en la puerta'),
+      desc: tt('Scannez les QR codes hors-ligne, statistiques en temps réel, gestion des refus.', 'Scan QR codes offline, real-time stats, rejection handling.', 'Escanea los códigos QR sin conexión, estadísticas en tiempo real, gestión de rechazos.'),
     },
     {
       icon: BarChart3,
-      title: tt('Analyses avancées', 'Advanced analytics'),
-      desc: tt('Vélocité de vente, ratio demande/offre, hype score, segments clients, exports.', 'Sales velocity, demand ratio, hype score, customer segments, exports.'),
+      title: tt('Analyses avancées', 'Advanced analytics', 'Analíticas avanzadas'),
+      desc: tt('Vélocité de vente, ratio demande/offre, hype score, segments clients, exports.', 'Sales velocity, demand ratio, hype score, customer segments, exports.', 'Velocidad de venta, ratio demanda/oferta, hype score, segmentos de clientes, exportaciones.'),
     },
     {
       icon: Handshake,
-      title: tt('Écosystème nightlife', 'Nightlife ecosystem'),
-      desc: tt('Partenariats avec clubs, DJs, équipe, promoteurs. Splits de revenus automatisés.', 'Partnerships with clubs, DJs, team, promoters. Automated revenue splits.'),
+      title: tt('Écosystème nightlife', 'Nightlife ecosystem', 'Ecosistema nightlife'),
+      desc: tt('Partenariats avec clubs, DJs, équipe, promoteurs. Splits de revenus automatisés.', 'Partnerships with clubs, DJs, team, promoters. Automated revenue splits.', 'Colaboraciones con clubs, DJs, equipo, promotores. Reparto de ingresos automatizado.'),
     },
   ];
 
@@ -55,8 +55,8 @@ export function OrgOnboardingStepTour({ onComplete }: Props) {
       <StepHeader
         icon={Sparkles}
         accent
-        title={tt('Découvrez Yuno', 'Discover Yuno')}
-        subtitle={tt('Une visite éclair des fonctionnalités clés avant de plonger.', 'A quick tour of the key features before diving in.')}
+        title={tt('Découvrez Yuno', 'Discover Yuno', 'Descubre Yuno')}
+        subtitle={tt('Une visite éclair des fonctionnalités clés avant de plonger.', 'A quick tour of the key features before diving in.', 'Un recorrido rápido por las funciones clave antes de empezar.')}
       />
 
       <InnerCard style={{ padding: 0, overflow: 'hidden', minHeight: 240 }}>
@@ -95,7 +95,7 @@ export function OrgOnboardingStepTour({ onComplete }: Props) {
             </GhostButton>
             {!isLast ? (
               <PrimaryButton icon={ArrowRight} onClick={() => setSlide(s => s + 1)} style={{ padding: '8px 14px' }}>
-                {tt('Suivant', 'Next')}
+                {tt('Suivant', 'Next', 'Siguiente')}
               </PrimaryButton>
             ) : (
               <PrimaryButton
@@ -104,7 +104,7 @@ export function OrgOnboardingStepTour({ onComplete }: Props) {
                 onClick={async () => { setFinishing(true); await onComplete(); }}
                 style={{ padding: '8px 14px' }}
               >
-                {tt("C'est parti", "Let's go")}
+                {tt("C'est parti", "Let's go", "Vamos")}
               </PrimaryButton>
             )}
           </div>
@@ -114,8 +114,8 @@ export function OrgOnboardingStepTour({ onComplete }: Props) {
       <DoneRow>
         <Check className="w-5 h-5 flex-none" style={{ color: '#34D399' }} />
         <div>
-          <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{tt('Vous êtes prêt', "You're ready")}</p>
-          <p style={{ color: T3, fontSize: 12, marginTop: 1 }}>{tt('Revenez à cet onboarding à tout moment depuis vos réglages.', 'Come back to this onboarding anytime from your settings.')}</p>
+          <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{tt('Vous êtes prêt', "You're ready", "Estás listo")}</p>
+          <p style={{ color: T3, fontSize: 12, marginTop: 1 }}>{tt('Revenez à cet onboarding à tout moment depuis vos réglages.', 'Come back to this onboarding anytime from your settings.', 'Vuelve a este onboarding cuando quieras desde tus ajustes.')}</p>
         </div>
       </DoneRow>
     </div>

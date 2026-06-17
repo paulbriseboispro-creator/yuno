@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { translate } from '@/i18n/orgTranslate';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { usePromoterScope } from '@/hooks/usePromoterScope';
@@ -51,7 +52,7 @@ export default function OwnerPromoterDetail() {
   const scopeFilter = getScopeFilter(scope);
   const { basePath } = useDashboardMode();
   const { t, language } = useLanguage();
-  const tt = (fr: string, en: string) => (language === 'fr' ? fr : en);
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [promoter, setPromoter] = useState<Promoter | null>(null);
   const [conversions, setConversions] = useState<PromoterConversion[]>([]);
   const [loading, setLoading] = useState(true);

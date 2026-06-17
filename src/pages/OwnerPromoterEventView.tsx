@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { translate } from '@/i18n/orgTranslate';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { usePromoterScope } from '@/hooks/usePromoterScope';
@@ -51,7 +52,7 @@ export default function OwnerPromoterEventView() {
   const scopeFilter = getScopeFilter(scope);
   const { basePath } = useDashboardMode();
   const { t, language } = useLanguage();
-  const tt = (fr: string, en: string) => (language === 'fr' ? fr : en);
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [eventTitle, setEventTitle] = useState('');
   const [performers, setPerformers] = useState<PromoterEventPerf[]>([]);
   const [loading, setLoading] = useState(true);
@@ -386,7 +387,7 @@ export default function OwnerPromoterEventView() {
 
                 <div className="flex items-center justify-between" style={{ marginTop: 8, color: T3, fontSize: 11 }}>
                   <span>{tt('Conv.', 'Conv.')} {p.conversionRate.toFixed(1)}%</span>
-                  <span>{tt(`En attente ${p.pendingCommission.toFixed(0)}€ · Payée ${p.paidCommission.toFixed(0)}€`, `Pending ${p.pendingCommission.toFixed(0)}€ · Paid ${p.paidCommission.toFixed(0)}€`)}</span>
+                  <span>{tt(`En attente ${p.pendingCommission.toFixed(0)}€ · Payée ${p.paidCommission.toFixed(0)}€`, `Pending ${p.pendingCommission.toFixed(0)}€ · Paid ${p.paidCommission.toFixed(0)}€`, `Pendiente ${p.pendingCommission.toFixed(0)}€ · Pagada ${p.paidCommission.toFixed(0)}€`)}</span>
                 </div>
 
                 {p.maxTickets && p.maxTickets > 0 && (

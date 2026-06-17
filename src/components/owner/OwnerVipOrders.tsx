@@ -20,12 +20,20 @@ const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,2
 const INNER_BG = 'rgba(255,255,255,0.032)';
 const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
 
-const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
-  paid:      { bg: 'rgba(52,211,153,0.12)',  color: POS,       label: 'Payé' },
-  confirmed: { bg: 'rgba(52,211,153,0.12)',  color: POS,       label: 'Confirmé' },
-  cancelled: { bg: 'rgba(232,25,44,0.12)',   color: '#FF5C63', label: 'Annulé' },
-  refunded:  { bg: 'rgba(232,25,44,0.12)',   color: '#FF5C63', label: 'Remboursé' },
-  pending:   { bg: 'rgba(255,255,255,0.06)', color: T2,        label: 'En attente' },
+const STATUS_STYLE: Record<string, { bg: string; color: string }> = {
+  paid:      { bg: 'rgba(52,211,153,0.12)',  color: POS },
+  confirmed: { bg: 'rgba(52,211,153,0.12)',  color: POS },
+  cancelled: { bg: 'rgba(232,25,44,0.12)',   color: '#FF5C63' },
+  refunded:  { bg: 'rgba(232,25,44,0.12)',   color: '#FF5C63' },
+  pending:   { bg: 'rgba(255,255,255,0.06)', color: T2 },
+};
+
+const STATUS_KEY: Record<string, string> = {
+  paid: 'owner.paid',
+  confirmed: 'owner.confirmed',
+  cancelled: 'owner.cancelled',
+  refunded: 'owner.refunded',
+  pending: 'orders.status.pending',
 };
 
 interface VipOrder {
@@ -85,6 +93,7 @@ export function OwnerVipOrders({ venueId, eventId }: OwnerVipOrdersProps) {
   const [sortBy, setSortBy] = useState<'date' | 'price'>('date');
 
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
+  const statusLabel = (s: string) => t(STATUS_KEY[s] ?? 'orders.status.pending');
 
   useEffect(() => {
     if (!venueId && !eventId) return;
@@ -150,9 +159,9 @@ export function OwnerVipOrders({ venueId, eventId }: OwnerVipOrdersProps) {
       <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px 22px', marginBottom: 16 }}>
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: 'Réservations', value: filteredReservations.length.toString() },
-            { label: 'Invités total', value: totalGuests.toString() },
-            { label: 'Revenu VIP', value: `€${totalRevenue.toFixed(0)}` },
+            { label: t('owner.reservations'), value: filteredReservations.length.toString() },
+            { label: t('owner.ord.totalGuests'), value: totalGuests.toString() },
+            { label: t('owner.ord.vipRevenue'), value: `€${totalRevenue.toFixed(0)}` },
           ].map(({ label, value }) => (
             <div key={label} className="text-center">
               <div style={{ color: T3, fontSize: 10, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
@@ -205,8 +214,8 @@ export function OwnerVipOrders({ venueId, eventId }: OwnerVipOrdersProps) {
         ) : (
           <div>
             <div className="grid items-center px-5 py-3" style={{ gridTemplateColumns: '1fr 100px 80px 60px 100px 40px', borderBottom: `1px solid ${F_BORDER}` }}>
-              {['Client', 'Zone', 'Total', 'Invités', 'Statut', ''].map((h) => (
-                <span key={h} style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{h}</span>
+              {[t('owner.th.client'), t('owner.th.zone'), t('owner.th.total'), t('owner.th.guests'), t('owner.th.status'), ''].map((h, idx) => (
+                <span key={idx} style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{h}</span>
               ))}
             </div>
             {filteredReservations.map((res, i) => {
@@ -237,7 +246,7 @@ export function OwnerVipOrders({ venueId, eventId }: OwnerVipOrdersProps) {
                     {res.guestCount ? <><Users className="w-3 h-3" />{res.guestCount}</> : '—'}
                   </span>
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: st.bg, color: st.color }}>
-                    {st.label}
+                    {statusLabel(res.status)}
                   </span>
                   <button
                     onClick={(e) => { e.stopPropagation(); setSelectedReservation(res); }}
@@ -266,7 +275,7 @@ export function OwnerVipOrders({ venueId, eventId }: OwnerVipOrdersProps) {
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[12px] font-semibold"
                     style={{ background: STATUS_STYLE[selectedReservation.status]?.bg ?? C_FAINT, color: STATUS_STYLE[selectedReservation.status]?.color ?? T2 }}>
-                    {STATUS_STYLE[selectedReservation.status]?.label ?? selectedReservation.status}
+                    {statusLabel(selectedReservation.status)}
                   </span>
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
                     style={{ background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.25)', color: '#FCD34D' }}>

@@ -25,12 +25,12 @@ export default function OrgAppOnboarding() {
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
   const STEP_TITLES = [
-    tt('Bienvenue', 'Welcome'),
-    tt('Paiements', 'Payments'),
-    tt('Premier événement', 'First event'),
-    tt('Profil public', 'Public profile'),
-    tt('Équipe & promoteurs', 'Team & promoters'),
-    tt("Tour de l'app", 'App tour'),
+    tt('Bienvenue', 'Welcome', 'Bienvenida'),
+    tt('Paiements', 'Payments', 'Pagos'),
+    tt('Premier événement', 'First event', 'Primer evento'),
+    tt('Profil public', 'Public profile', 'Perfil público'),
+    tt('Équipe & promoteurs', 'Team & promoters', 'Equipo y promotores'),
+    tt("Tour de l'app", 'App tour', 'Tour de la app'),
   ];
 
   const userId = user?.id ?? null;
@@ -140,10 +140,10 @@ export default function OrgAppOnboarding() {
         </button>
         <div className="flex-1 min-w-0">
           <h1 style={{ color: T1, fontSize: 14, fontWeight: 640, letterSpacing: '-0.01em', margin: 0 }} className="truncate">
-            {tt('Configuration de votre organisation', 'Set up your organization')}
+            {tt('Configuration de votre organisation', 'Set up your organization', 'Configuración de tu organización')}
           </h1>
           <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }} className="tabular-nums">
-            {progress}% · {tt('Étape', 'Step')} {Math.min(currentStep, TOTAL_STEPS)}/{TOTAL_STEPS}
+            {progress}% · {tt('Étape', 'Step', 'Paso')} {Math.min(currentStep, TOTAL_STEPS)}/{TOTAL_STEPS}
           </p>
         </div>
         <div

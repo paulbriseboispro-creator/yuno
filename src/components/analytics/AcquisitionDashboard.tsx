@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { translate } from '@/i18n/orgTranslate';
 import { Globe, ArrowUpRight, Search as SearchIcon, Share2, Mail, QrCode, Link2, MousePointer2, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -61,7 +62,7 @@ const CATEGORY_META: Record<string, { label: string; icon: any; color: string }>
 
 export function AcquisitionDashboard({ scope, from, to, deviceFilter, sourceFilter }: Props) {
   const { language } = useLanguage();
-  const tt = (fr: string, en: string) => (language === 'fr' ? fr : en);
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [sources, setSources] = useState<SourceBucket[]>([]);
   const [utms, setUtms] = useState<UtmRow[]>([]);
   const [topReferrers, setTopReferrers] = useState<{ domain: string; visits: number }[]>([]);
@@ -339,7 +340,7 @@ function DonutChart({ data, language }: { data: SourceBucket[]; language: string
           {total.toLocaleString()}
         </span>
         <span className="text-[10px] uppercase tracking-wider" style={{ color: T3 }}>
-          {language === 'fr' ? 'visites' : 'visits'}
+          {language === 'fr' ? 'visites' : language === 'es' ? 'visitas' : 'visits'}
         </span>
       </div>
     </div>

@@ -57,12 +57,12 @@ const defaultManagerPermissions: ManagerPermissions = {
   can_view_live: false, can_manage_vip_service: false,
 };
 
-const ROLE_CONFIG: Record<EmployeeRole, { label: string; color: string; bg: string; icon: any }> = {
-  bouncer:   { label: 'Bouncer',  color: '#FB923C', bg: 'rgba(251,146,60,0.12)',   icon: Shield  },
-  barman:    { label: 'Barman',   color: '#60A5FA', bg: 'rgba(96,165,250,0.12)',    icon: Wine    },
-  manager:   { label: 'Manager',  color: '#A78BFA', bg: 'rgba(167,139,250,0.12)',   icon: UserCog },
-  vip_host:  { label: 'VIP Host', color: '#FCD34D', bg: 'rgba(252,211,77,0.12)',    icon: Crown   },
-  cloakroom: { label: 'Vestiaire',color: '#34D399', bg: 'rgba(52,211,153,0.12)',    icon: Shirt   },
+const ROLE_CONFIG: Record<EmployeeRole, { labelKey: string; color: string; bg: string; icon: any }> = {
+  bouncer:   { labelKey: 'owner.stf.roleBouncer',  color: '#FB923C', bg: 'rgba(251,146,60,0.12)',   icon: Shield  },
+  barman:    { labelKey: 'owner.stf.roleBarman',   color: '#60A5FA', bg: 'rgba(96,165,250,0.12)',    icon: Wine    },
+  manager:   { labelKey: 'owner.stf.roleManager',  color: '#A78BFA', bg: 'rgba(167,139,250,0.12)',   icon: UserCog },
+  vip_host:  { labelKey: 'owner.stf.roleVipHost',  color: '#FCD34D', bg: 'rgba(252,211,77,0.12)',    icon: Crown   },
+  cloakroom: { labelKey: 'owner.stf.roleCloakroom',color: '#34D399', bg: 'rgba(52,211,153,0.12)',    icon: Shirt   },
 };
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
@@ -284,9 +284,9 @@ export default function OwnerStaff() {
     can_manage_events: t('owner.permEvents'), can_manage_menu: t('owner.permMenu'), can_manage_staff: t('owner.permStaff'),
     can_manage_promoters: t('owner.permPromoters'), can_manage_djs: t('owner.permDJs'), can_manage_tables: t('owner.permTables'),
     can_manage_tickets: t('owner.permTickets'), can_view_analytics: t('owner.permAnalytics'), can_view_orders: t('owner.permOrders'),
-    can_view_finance: t('owner.permFinance'), can_manage_loyalty: t('manager.loyalty'), can_manage_upsell: 'Upsells',
-    can_manage_guest_list: 'Guest List', can_view_customers: t('owner.customers'), can_manage_invoices: t('owner.invoices'),
-    can_manage_venue: t('manager.venue'), can_manage_refunds: t('manager.refunds'), can_manage_crm: 'CRM / Emails',
+    can_view_finance: t('owner.permFinance'), can_manage_loyalty: t('manager.loyalty'), can_manage_upsell: t('owner.stf.permUpsells'),
+    can_manage_guest_list: t('owner.stf.permGuestList'), can_view_customers: t('owner.customers'), can_manage_invoices: t('owner.invoices'),
+    can_manage_venue: t('manager.venue'), can_manage_refunds: t('manager.refunds'), can_manage_crm: t('owner.stf.permCRM'),
     can_view_hype: t('manager.hypeAnalysis'), can_manage_scarcity: t('scarcity.title'), can_manage_organizations: t('owner.organizers'),
     can_view_live: t('live.title'), can_manage_vip_service: t('owner.vipService'),
   };
@@ -308,7 +308,7 @@ export default function OwnerStaff() {
               style={{ background: roles.includes(role) ? cfg.bg : 'transparent', border: `1px solid ${roles.includes(role) ? 'rgba(255,255,255,0.1)' : 'transparent'}` }}>
               <Checkbox id={`${prefix}-${id}`} checked={roles.includes(role)} onCheckedChange={() => !isVipHostLocked && onToggle(role)} disabled={isVipHostLocked} />
               <Icon className="w-4 h-4 flex-shrink-0" style={{ color: isVipHostLocked ? T3 : cfg.color }} />
-              <span style={{ color: isVipHostLocked ? T3 : T1, fontSize: 13 }}>{cfg.label}</span>
+              <span style={{ color: isVipHostLocked ? T3 : T1, fontSize: 13 }}>{t(cfg.labelKey)}</span>
               {isVipHostLocked && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] ml-auto"
                   style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.2)', color: RED }}>
@@ -344,14 +344,14 @@ export default function OwnerStaff() {
       <OwnerHeader title={t('owner.staffManagement')} />
 
       <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-2 space-y-4">
-        <CollabReadOnlyBanner action="L'ajout d'employés" />
+        <CollabReadOnlyBanner action={t('collab.action.addStaff')} />
 
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h2 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>{t('owner.staffManagement')}</h2>
             <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>
-              {employees.length} employé{employees.length !== 1 ? 's' : ''} actif{employees.length !== 1 ? 's' : ''}
+              {t('owner.stf.activeCount').replace('{count}', String(employees.length))}
             </p>
           </div>
           <button
@@ -397,13 +397,13 @@ export default function OwnerStaff() {
                           return (
                             <span key={role} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
                               style={{ background: cfg.bg, color: cfg.color }}>
-                              <Icon className="w-3 h-3" />{cfg.label}
+                              <Icon className="w-3 h-3" />{t(cfg.labelKey)}
                             </span>
                           );
                         })}
                       </div>
                       {employee.is_click_collect_manager && (
-                        <p className="text-[11px] mt-1" style={{ color: POS }}>C&C Manager actif</p>
+                        <p className="text-[11px] mt-1" style={{ color: POS }}>{t('owner.stf.ccManagerActive')}</p>
                       )}
                     </div>
                     <div className="flex gap-1 ml-2">
@@ -466,7 +466,7 @@ export default function OwnerStaff() {
                   <div className="min-w-0">
                     <p style={{ color: T1, fontSize: 13 }} className="truncate">{inv.email}</p>
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold mt-1"
-                      style={{ background: cfg.bg, color: cfg.color }}>{cfg.label}</span>
+                      style={{ background: cfg.bg, color: cfg.color }}>{t(cfg.labelKey)}</span>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="text-[11px] px-2 py-1 rounded-full" style={{ background: 'rgba(252,211,77,0.1)', color: '#FCD34D' }}>{t('owner.inviteWaiting')}</span>

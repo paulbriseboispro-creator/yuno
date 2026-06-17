@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { translate } from '@/i18n/orgTranslate';
 import { motion } from 'framer-motion';
 import { Activity, Eye, ShoppingCart, CreditCard, TrendingUp, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,7 +41,7 @@ const EMPTY: LiveStats = {
 
 export function LiveActivityHero({ scope, from, to, deviceFilter, sourceFilter }: Props) {
   const { language } = useLanguage();
-  const tt = (fr: string, en: string) => (language === 'fr' ? fr : en);
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [stats, setStats] = useState<LiveStats>(EMPTY);
   const { eventIds, venueIds } = useOrganizerEventIds(scope.kind === 'organizer' ? scope.id : null);
 

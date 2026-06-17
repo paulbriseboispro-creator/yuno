@@ -16,12 +16,12 @@ export function OrgOnboardingProgress({ currentStep, stepStatuses, onStepClick }
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
   const STEPS = [
-    tt('Bienvenue', 'Welcome'),
-    tt('Paiements', 'Payments'),
-    tt('Premier événement', 'First event'),
-    tt('Profil public', 'Public profile'),
-    tt('Équipe & promoteurs', 'Team & promoters'),
-    tt("Tour de l'app", 'App tour'),
+    tt('Bienvenue', 'Welcome', 'Bienvenida'),
+    tt('Paiements', 'Payments', 'Pagos'),
+    tt('Premier événement', 'First event', 'Primer evento'),
+    tt('Profil public', 'Public profile', 'Perfil público'),
+    tt('Équipe & promoteurs', 'Team & promoters', 'Equipo y promotores'),
+    tt("Tour de l'app", 'App tour', 'Tour de la app'),
   ];
 
   return (
@@ -71,7 +71,7 @@ export function OrgOnboardingProgress({ currentStep, stepStatuses, onStepClick }
             </span>
             {isOptional && !isCompleted && !isSkipped && (
               <span style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: T3 }}>
-                {tt('Opt.', 'Opt.')}
+                {tt('Opt.', 'Opt.', 'Opc.')}
               </span>
             )}
             {isActive && (

@@ -112,11 +112,11 @@ export default function VenueLeaderboard() {
             <TabsList className="w-full grid grid-cols-2">
               <TabsTrigger value="monthly" className="gap-1.5">
                 <Calendar className="h-4 w-4" />
-                {language === 'fr' ? 'Ce mois' : 'This month'}
+                {language === 'fr' ? 'Ce mois' : language === 'es' ? 'Este mes' : 'This month'}
               </TabsTrigger>
               <TabsTrigger value="yearly" className="gap-1.5">
                 <CalendarDays className="h-4 w-4" />
-                {language === 'fr' ? 'Cette année' : 'This year'}
+                {language === 'fr' ? 'Cette année' : language === 'es' ? 'Este año' : 'This year'}
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -127,7 +127,7 @@ export default function VenueLeaderboard() {
           <div className="flex items-center gap-2 p-3 rounded-xl bg-primary/5 border border-primary/20">
             <Zap className="h-4 w-4 text-primary" />
             <span className="text-sm font-medium">
-              {language === 'fr' ? 'Concours événement' : 'Event Contest'}
+              {language === 'fr' ? 'Concours événement' : language === 'es' ? 'Concurso del evento' : 'Event Contest'}
             </span>
           </div>
         )}
@@ -148,7 +148,7 @@ export default function VenueLeaderboard() {
                 #{myCurrentRank}
               </div>
               <div className="flex-1">
-                <p className="font-semibold">{language === 'fr' ? 'Votre position' : 'Your position'}</p>
+                <p className="font-semibold">{language === 'fr' ? 'Votre position' : language === 'es' ? 'Tu posición' : 'Your position'}</p>
                 <p className="text-sm text-muted-foreground">
                   {Math.round(getScore(myRank)).toLocaleString()} pts
                 </p>
@@ -237,7 +237,7 @@ export default function VenueLeaderboard() {
               onClick={handleFindMyRank}
             >
               <Search className="h-4 w-4" />
-              {language === 'fr' ? 'Voir ma position' : 'Find my position'}
+              {language === 'fr' ? 'Voir ma position' : language === 'es' ? 'Ver mi posición' : 'Find my position'}
               {showMyContext ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
 
@@ -256,7 +256,7 @@ export default function VenueLeaderboard() {
                     "border border-primary/20"
                   )}>
                     <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-3">
-                      {language === 'fr' ? 'Votre classement' : 'Your ranking'}
+                      {language === 'fr' ? 'Votre classement' : language === 'es' ? 'Tu clasificación' : 'Your ranking'}
                     </p>
                     {getMyNeighbors().map((score) => {
                       const rank = getRank(score);

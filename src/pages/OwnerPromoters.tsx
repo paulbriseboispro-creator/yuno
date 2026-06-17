@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { translate } from '@/i18n/orgTranslate';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,7 +34,7 @@ export default function OwnerPromoters() {
   const scope = usePromoterScope();
   const { venue } = useVenueContext();
   const { t, language } = useLanguage();
-  const tt = (fr: string, en: string) => (language === 'fr' ? fr : en);
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const { basePath } = useDashboardMode();
   const { promoters, kpis, loading, dateRange, setDateRange } = usePromoterOwnerData(scope);
   const { isReadOnly: collabReadOnly } = useCollabReadOnly();
@@ -179,7 +180,7 @@ export default function OwnerPromoters() {
       />
 
       <PromoPage>
-        <CollabReadOnlyBanner action="La gestion des promoteurs" />
+        <CollabReadOnlyBanner action={t('collab.action.managePromoters')} />
 
         {/* ── Guided setup workflow ─────────────────────────────────────── */}
         {showGuide && (
@@ -235,7 +236,7 @@ export default function OwnerPromoters() {
               </p>
               <p style={{ color: T2, fontSize: 12.5, margin: 0, marginTop: 3 }}>
                 {owedCount > 0
-                  ? tt(`à payer à ${owedCount} promoteur${owedCount > 1 ? 's' : ''}`, `owed to ${owedCount} promoter${owedCount > 1 ? 's' : ''}`)
+                  ? tt(`à payer à ${owedCount} promoteur${owedCount > 1 ? 's' : ''}`, `owed to ${owedCount} promoter${owedCount > 1 ? 's' : ''}`, `por pagar a ${owedCount} promotor${owedCount > 1 ? 'es' : ''}`)
                   : tt('tout est réglé · aucune commission en attente', 'all settled · no pending commission')}
               </p>
             </div>

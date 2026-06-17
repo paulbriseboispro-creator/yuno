@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { translate } from '@/i18n/orgTranslate';
 import { supabase } from '@/integrations/supabase/client';
 import type { TablesUpdate } from '@/integrations/supabase/types';
 import { usePromoterScope } from '@/hooks/usePromoterScope';
@@ -42,7 +43,7 @@ export default function OwnerPromoterFinance() {
   const scopeFilter = getScopeFilter(scope);
   const { basePath } = useDashboardMode();
   const { t, language } = useLanguage();
-  const tt = (fr: string, en: string) => (language === 'fr' ? fr : en);
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const { canExport } = useCollabReadOnly();
   const [debts, setDebts] = useState<PromoterDebt[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
@@ -128,7 +129,7 @@ export default function OwnerPromoterFinance() {
       const { data, error } = await supabase.rpc('settle_promoter_payout', { p_promoter_id: promoterId });
       if (error) throw error;
       const res = data as { settled?: boolean; amount?: number } | null;
-      if (res?.settled) toast.success(tt(`Réglé : ${Number(res.amount).toFixed(2)}€`, `Settled: ${Number(res.amount).toFixed(2)}€`));
+      if (res?.settled) toast.success(tt(`Réglé : ${Number(res.amount).toFixed(2)}€`, `Settled: ${Number(res.amount).toFixed(2)}€`, `Saldado: ${Number(res.amount).toFixed(2)}€`));
       else toast.info(tt('Rien à régler', 'Nothing to settle'));
       fetchData();
     } catch { toast.error(t('promoterPayouts.updateError')); }
@@ -231,14 +232,14 @@ export default function OwnerPromoterFinance() {
                     <div className="min-w-0">
                       <p className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 620, margin: 0 }}>{debt.promoterName}</p>
                       <p style={{ color: T3, fontSize: 11.5, margin: 0 }}>
-                        {tt(`${debt.pendingConversions} conversion${debt.pendingConversions > 1 ? 's' : ''} en attente`, `${debt.pendingConversions} pending conversion${debt.pendingConversions > 1 ? 's' : ''}`)}
+                        {tt(`${debt.pendingConversions} conversion${debt.pendingConversions > 1 ? 's' : ''} en attente`, `${debt.pendingConversions} pending conversion${debt.pendingConversions > 1 ? 's' : ''}`, `${debt.pendingConversions} ${debt.pendingConversions > 1 ? 'conversiones pendientes' : 'conversión pendiente'}`)}
                         {debt.promoterIban && <> · IBAN {maskIban(debt.promoterIban)}</>}
                       </p>
                     </div>
                     <p style={{ color: RED, fontSize: 18, fontWeight: 740, margin: 0, flex: 'none' }}>{debt.pendingAmount.toFixed(2)}€</p>
                   </div>
                   <PromoButton full size="sm" onClick={() => settleNow(debt.promoterId)} disabled={acting}>
-                    <CheckCircle2 className="h-4 w-4" /> {tt(`Régler ${debt.pendingAmount.toFixed(0)}€ maintenant`, `Settle ${debt.pendingAmount.toFixed(0)}€ now`)}
+                    <CheckCircle2 className="h-4 w-4" /> {tt(`Régler ${debt.pendingAmount.toFixed(0)}€ maintenant`, `Settle ${debt.pendingAmount.toFixed(0)}€ now`, `Saldar ${debt.pendingAmount.toFixed(0)}€ ahora`)}
                   </PromoButton>
                 </PromoCard>
               ))}

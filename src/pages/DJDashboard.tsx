@@ -476,12 +476,12 @@ export default function DJDashboard() {
               {/* Per-set fee breakdown */}
               {sets.filter(s => s.fee > 0).length > 0 && (
                 <div className="owner-card p-4">
-                  <h3 className="font-semibold mb-4">{language === 'fr' ? 'Détail par set' : 'Per-set breakdown'}</h3>
+                  <h3 className="font-semibold mb-4">{language === 'fr' ? 'Détail par set' : language === 'es' ? 'Detalle por set' : 'Per-set breakdown'}</h3>
                   <div className="space-y-2">
                     {sets.filter(s => s.fee > 0).sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()).map(set => (
                       <div key={set.id} className="owner-list-item flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-sm">{set.title || set.event?.title || (language === 'fr' ? 'Set' : 'Set')}</p>
+                          <p className="font-medium text-sm">{set.title || set.event?.title || (language === 'fr' ? 'Set' : language === 'es' ? 'Set' : 'Set')}</p>
                           <p className="text-xs text-muted-foreground">
                             {format(new Date(set.start_time), 'dd MMM yyyy', { locale: dateLocale })}
                             {set.venue && ` • ${set.venue.name}`}
@@ -492,7 +492,7 @@ export default function DJDashboard() {
                             {set.fee}€
                           </span>
                           <p className="text-[10px] text-muted-foreground">
-                            {set.fee_paid ? (language === 'fr' ? 'Payé' : 'Paid') : (language === 'fr' ? 'En attente' : 'Pending')}
+                            {set.fee_paid ? (language === 'fr' ? 'Payé' : language === 'es' ? 'Pagado' : 'Paid') : (language === 'fr' ? 'En attente' : language === 'es' ? 'Pendiente' : 'Pending')}
                           </p>
                         </div>
                       </div>

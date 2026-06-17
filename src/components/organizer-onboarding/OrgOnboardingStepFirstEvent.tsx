@@ -21,10 +21,11 @@ export function OrgOnboardingStepFirstEvent({ userId, onComplete, onSkip }: Prop
     <div className="space-y-6">
       <StepHeader
         icon={CalendarDays}
-        title={tt('Votre premier événement', 'Your first event')}
+        title={tt('Votre premier événement', 'Your first event', 'Tu primer evento')}
         subtitle={tt(
           'Créez un événement pour ouvrir votre billetterie. Modifiable ensuite, public ou privé.',
           'Create an event to open ticket sales. Editable later, public or private.',
+          'Crea un evento para abrir tu venta de entradas. Editable después, público o privado.',
         )}
       />
 
@@ -32,16 +33,16 @@ export function OrgOnboardingStepFirstEvent({ userId, onComplete, onSkip }: Prop
         <DoneRow>
           <Check className="w-5 h-5 flex-none" style={{ color: POS }} />
           <div>
-            <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{tt('Événement créé', 'Event created')}</p>
-            <p style={{ color: T3, fontSize: 12, marginTop: 1 }}>{tt('Retrouvez-le et modifiez-le dans « Mes événements ».', 'Find and edit it under "My events".')}</p>
+            <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{tt('Événement créé', 'Event created', 'Evento creado')}</p>
+            <p style={{ color: T3, fontSize: 12, marginTop: 1 }}>{tt('Retrouvez-le et modifiez-le dans « Mes événements ».', 'Find and edit it under "My events".', 'Encuéntralo y edítalo en «Mis eventos».')}</p>
           </div>
         </DoneRow>
       ) : (
         <InnerCard>
           <div className="space-y-3.5">
-            <Item icon={Clock} title={tt('5 minutes pour démarrer', '5 minutes to launch')} desc={tt("Titre, date, billetterie, c'est en ligne.", "Title, date, tickets, you're live.")} />
-            <Item icon={Megaphone} title={tt('Public ou privé', 'Public or private')} desc={tt('Visible dans Explore ou accessible par lien direct.', 'Listed in Explore or shared via direct link.')} />
-            <Item icon={CalendarDays} title={tt('Autant que vous voulez', 'As many as you want')} desc={tt('Créez d\'autres événements depuis votre dashboard.', 'Create more events from your dashboard.')} />
+            <Item icon={Clock} title={tt('5 minutes pour démarrer', '5 minutes to launch', '5 minutos para empezar')} desc={tt("Titre, date, billetterie, c'est en ligne.", "Title, date, tickets, you're live.", 'Título, fecha, entradas, y está en línea.')} />
+            <Item icon={Megaphone} title={tt('Public ou privé', 'Public or private', 'Público o privado')} desc={tt('Visible dans Explore ou accessible par lien direct.', 'Listed in Explore or shared via direct link.', 'Visible en Explore o accesible mediante enlace directo.')} />
+            <Item icon={CalendarDays} title={tt('Autant que vous voulez', 'As many as you want', 'Tantos como quieras')} desc={tt('Créez d\'autres événements depuis votre dashboard.', 'Create more events from your dashboard.', 'Crea más eventos desde tu dashboard.')} />
           </div>
         </InnerCard>
       )}
@@ -49,15 +50,15 @@ export function OrgOnboardingStepFirstEvent({ userId, onComplete, onSkip }: Prop
       <div className="flex gap-2.5">
         {created ? (
           <PrimaryButton fullWidth icon={ArrowRight} onClick={onComplete}>
-            {tt('Continuer', 'Continue')}
+            {tt('Continuer', 'Continue', 'Continuar')}
           </PrimaryButton>
         ) : (
           <>
             <PrimaryButton fullWidth icon={Plus} onClick={() => setDialogOpen(true)}>
-              {tt('Créer mon premier événement', 'Create my first event')}
+              {tt('Créer mon premier événement', 'Create my first event', 'Crear mi primer evento')}
             </PrimaryButton>
             <GhostButton icon={SkipForward} onClick={onSkip}>
-              {tt('Plus tard', 'Later')}
+              {tt('Plus tard', 'Later', 'Más tarde')}
             </GhostButton>
           </>
         )}

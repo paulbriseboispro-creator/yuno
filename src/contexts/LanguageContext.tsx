@@ -77,8 +77,18 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const t = useCallback((key: string): string => {
-    return strings[key] || key;
-  }, [strings]);
+    // Resolve in the active language first, then fall back to English so a
+    // missing translation never leaks a raw key (e.g. "owner.crm.addBlocks")
+    // into the UI. The raw key is only ever shown as a last resort.
+    const value = strings[key] ?? translations['en']?.[key];
+    if (value === undefined) {
+      if (import.meta.env.DEV) {
+        console.warn(`[i18n] clé manquante "${key}" (langue: ${language})`);
+      }
+      return key;
+    }
+    return value;
+  }, [strings, language]);
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage, t }}>

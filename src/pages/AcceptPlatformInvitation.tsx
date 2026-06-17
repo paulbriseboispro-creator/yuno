@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { translate } from '@/i18n/orgTranslate';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -19,7 +20,7 @@ export default function AcceptPlatformInvitation() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [accepted, setAccepted] = useState(false);
-  const t = (fr: string, en: string) => (language === 'fr' ? fr : en);
+  const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
   useEffect(() => {
     if (!token) { setLoading(false); return; }

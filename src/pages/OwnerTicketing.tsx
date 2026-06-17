@@ -1169,7 +1169,7 @@ export default function OwnerTicketing() {
       {!isOrganizerScope && <OwnerHeader title={t('tickets.ticketManagement')} />}
 
       <div className="relative z-10 container mx-auto px-3 sm:px-4 py-4 sm:py-8 space-y-5">
-        <CollabReadOnlyBanner action="La création de billetterie" />
+        <CollabReadOnlyBanner action={t('collab.action.createTicketing')} />
         {/* Insurance toggle (venue-scoped only) */}
         {!isOrganizerScope && (
           <div className="flex items-center justify-between gap-3 px-5 py-4" style={MAIN_CARD}>

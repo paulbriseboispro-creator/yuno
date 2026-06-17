@@ -434,7 +434,7 @@ export default function OwnerCustomers() {
 
   const exportCustomersCsv = () => {
     const sep = ',';
-    const rows = [['Email', 'Prénom', 'Nom', 'Phone', 'Segment', 'Tier', 'Tickets', 'Orders', 'Tables', 'TotalSpent', 'Revenue30d', 'VisitsPerMonth', 'LastActivity', 'Status'].join(sep)];
+    const rows = [['Email', t('profile.firstName'), t('profile.lastName'), 'Phone', 'Segment', 'Tier', 'Tickets', 'Orders', 'Tables', 'TotalSpent', 'Revenue30d', 'VisitsPerMonth', 'LastActivity', 'Status'].join(sep)];
     filteredCustomers.forEach(c => {
       const s = scoredById.get(c.id)?._s;
       rows.push([c.email, c.first_name || '', c.last_name || '', c.phone || '',

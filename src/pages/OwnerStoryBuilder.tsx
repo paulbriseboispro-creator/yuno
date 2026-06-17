@@ -325,7 +325,7 @@ export default function OwnerStoryBuilder() {
         style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
 
       <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 pt-3 pb-28">
-        <CollabReadOnlyBanner action="La création de stories" />
+        <CollabReadOnlyBanner action={t('collab.action.createStories')} />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left: Controls */}
           <div className="space-y-4">

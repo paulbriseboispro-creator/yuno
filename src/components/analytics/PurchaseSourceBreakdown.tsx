@@ -135,7 +135,7 @@ export function PurchaseSourceBreakdown({ eventId, title }: Props) {
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-primary" />
-          {title || (language === 'fr' ? 'Sources d\'acquisition' : 'Acquisition sources')}
+          {title || (language === 'fr' ? 'Sources d\'acquisition' : language === 'es' ? 'Fuentes de adquisición' : 'Acquisition sources')}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -146,7 +146,7 @@ export function PurchaseSourceBreakdown({ eventId, title }: Props) {
             {totalTickets > 0 && (
               <div>
                 <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
-                  {language === 'fr' ? `Billets vendus (${totalTickets})` : `Tickets sold (${totalTickets})`}
+                  {language === 'fr' ? `Billets vendus (${totalTickets})` : language === 'es' ? `Entradas vendidas (${totalTickets})` : `Tickets sold (${totalTickets})`}
                 </p>
                 <div className="space-y-2.5">
                   {orderedKeys.map((k) => renderRow(k, tickets[k], totalTickets))}
@@ -156,7 +156,7 @@ export function PurchaseSourceBreakdown({ eventId, title }: Props) {
             {totalTables > 0 && (
               <div>
                 <p className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">
-                  {language === 'fr' ? `Tables réservées (${totalTables})` : `Tables booked (${totalTables})`}
+                  {language === 'fr' ? `Tables réservées (${totalTables})` : language === 'es' ? `Mesas reservadas (${totalTables})` : `Tables booked (${totalTables})`}
                 </p>
                 <div className="space-y-2.5">
                   {orderedKeys.map((k) => renderRow(k, tables[k], totalTables))}
