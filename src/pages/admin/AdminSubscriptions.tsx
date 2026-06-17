@@ -2,10 +2,11 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { CreditCard, CheckCircle, Clock, XCircle, Search, type LucideIcon } from 'lucide-react';
+import { CreditCard, CheckCircle, Clock, XCircle, Search, Gem, Lock, X, type LucideIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
-import { PLANS, PlanCode } from '@/lib/planFeatures';
+import { toast } from 'sonner';
+import { PLANS, PlanCode, PAID_PLANS, EARLY_ADOPTER_FREE_DAYS, EARLY_ADOPTER_LIMIT } from '@/lib/planFeatures';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED         = '#E8192C';
@@ -64,35 +65,52 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
+interface SubRow {
+  id: string;
+  venue_id: string;
+  status: string;
+  subscription_plan: string;
+  stripe_subscription_id: string | null;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  trial_end: string | null;
+  created_at: string;
+  is_early_adopter: boolean | null;
+  price_locked: boolean | null;
+  venueName: string;
+}
+
 export default function AdminSubscriptions() {
   const { t } = useLanguage();
-  const [data, setData] = useState<any[]>([]);
+  const [data, setData] = useState<SubRow[]>([]);
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [planFilter, setPlanFilter] = useState('all');
   const [search, setSearch] = useState('');
-  const [kpis, setKpis] = useState({ active: 0, trialing: 0, expired: 0 });
+  const [kpis, setKpis] = useState({ active: 0, trialing: 0, expired: 0, earlyAdopters: 0 });
+  const [grantTarget, setGrantTarget] = useState<{ venueId: string; venueName: string } | null>(null);
+  const [grantPlan, setGrantPlan] = useState<PlanCode>('pro');
+  const [granting, setGranting] = useState(false);
 
   // Load KPIs
-  useEffect(() => {
-    const loadKpis = async () => {
-      const [{ count: active }, { count: trialing }, { count: expired }] = await Promise.all([
-        supabase.from('venue_subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-        supabase.from('venue_subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'trialing'),
-        supabase.from('venue_subscriptions').select('id', { count: 'exact', head: true }).in('status', ['canceled', 'past_due', 'incomplete']),
-      ]);
-      setKpis({ active: active ?? 0, trialing: trialing ?? 0, expired: expired ?? 0 });
-    };
-    loadKpis();
+  const loadKpis = useCallback(async () => {
+    const [{ count: active }, { count: trialing }, { count: expired }, { count: earlyAdopters }] = await Promise.all([
+      supabase.from('venue_subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+      supabase.from('venue_subscriptions').select('id', { count: 'exact', head: true }).eq('status', 'trialing'),
+      supabase.from('venue_subscriptions').select('id', { count: 'exact', head: true }).in('status', ['canceled', 'past_due', 'incomplete']),
+      supabase.from('venue_subscriptions').select('id', { count: 'exact', head: true }).eq('is_early_adopter', true),
+    ]);
+    setKpis({ active: active ?? 0, trialing: trialing ?? 0, expired: expired ?? 0, earlyAdopters: earlyAdopters ?? 0 });
   }, []);
+  useEffect(() => { loadKpis(); }, [loadKpis]);
 
   const load = useCallback(async () => {
     setLoading(true);
     let query = supabase
       .from('venue_subscriptions')
-      .select('id, venue_id, status, subscription_plan, stripe_subscription_id, current_period_start, current_period_end, trial_end, created_at', { count: 'exact' });
+      .select('id, venue_id, status, subscription_plan, stripe_subscription_id, current_period_start, current_period_end, trial_end, created_at, is_early_adopter, price_locked', { count: 'exact' });
 
     if (statusFilter !== 'all') query = query.eq('status', statusFilter);
     if (planFilter !== 'all') query = query.eq('subscription_plan', planFilter);
@@ -121,12 +139,46 @@ export default function AdminSubscriptions() {
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(0); }, [statusFilter, planFilter, search]);
 
+  // Grant the 3-month free early-adopter access (no card). Super-admin RLS allows
+  // a direct upsert on venue_subscriptions.
+  const grantEarlyAdopter = async () => {
+    if (!grantTarget) return;
+    setGranting(true);
+    const trialEnd = new Date(Date.now() + EARLY_ADOPTER_FREE_DAYS * 86400000).toISOString();
+    const { error } = await supabase
+      .from('venue_subscriptions')
+      .upsert({
+        venue_id: grantTarget.venueId,
+        subscription_plan: grantPlan,
+        status: 'trialing',
+        trial_end: trialEnd,
+        is_early_adopter: true,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'venue_id' });
+    setGranting(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('admin.subs.eaGranted'));
+    setGrantTarget(null);
+    load(); loadKpis();
+  };
+
+  const revokeEarlyAdopter = async (venueId: string) => {
+    const { error } = await supabase
+      .from('venue_subscriptions')
+      .update({ is_early_adopter: false, price_locked: false, updated_at: new Date().toISOString() })
+      .eq('venue_id', venueId);
+    if (error) { toast.error(error.message); return; }
+    toast.success(t('admin.subs.eaRevoked'));
+    load(); loadKpis();
+  };
+
   const totalPages = Math.ceil(count / PAGE_SIZE);
 
   const kpiCards = useMemo(() => [
     { label: t('admin.subs.active'), value: kpis.active, icon: CheckCircle, tone: 'pos' as const },
     { label: t('admin.subs.trialing'), value: kpis.trialing, icon: Clock, tone: undefined },
     { label: t('admin.subs.expired'), value: kpis.expired, icon: XCircle, tone: kpis.expired > 0 ? 'neg' as const : undefined },
+    { label: t('admin.subs.earlyAdopters'), value: `${kpis.earlyAdopters} / ${EARLY_ADOPTER_LIMIT}`, icon: Gem, tone: undefined },
   ], [kpis, t]);
 
   const statusOptions = [
@@ -159,7 +211,7 @@ export default function AdminSubscriptions() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {kpiCards.map((kpi) => {
             const Icon: LucideIcon = kpi.icon;
             const valueColor = kpi.tone === 'neg' ? NEG : kpi.tone === 'pos' ? POS : T1;
@@ -205,19 +257,19 @@ export default function AdminSubscriptions() {
             <table className="w-full text-[13px]" style={{ minWidth: 680 }}>
               <thead>
                 <tr style={{ borderBottom: `1px solid ${F_BORDER}` }}>
-                  {[t('admin.subs.venue'), t('admin.subs.plan'), t('admin.subs.status'), t('admin.subs.periodStart'), t('admin.subs.periodEnd'), t('admin.subs.trialEnd'), t('admin.subs.createdAt')].map((h, i) => (
+                  {[t('admin.subs.venue'), t('admin.subs.plan'), t('admin.subs.status'), t('admin.subs.periodEnd'), t('admin.subs.trialEnd'), t('admin.subs.earlyAdopter')].map((h, i) => (
                     <th key={i} className="px-4 py-3 text-left font-medium" style={{ color: T3, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={7} className="text-center py-10">
+                  <tr><td colSpan={6} className="text-center py-10">
                     <div className="h-8 w-8 animate-spin rounded-full border-2 mx-auto mb-2" style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} />
                     <span style={{ color: T3, fontSize: 12 }}>{t('admin.subs.loading')}</span>
                   </td></tr>
                 ) : data.length === 0 ? (
-                  <tr><td colSpan={7} className="text-center py-12">
+                  <tr><td colSpan={6} className="text-center py-12">
                     <CreditCard className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.12)' }} />
                     <span style={{ color: T3, fontSize: 12 }}>{t('admin.subs.noResults')}</span>
                   </td></tr>
@@ -232,10 +284,28 @@ export default function AdminSubscriptions() {
                       </span>
                     </td>
                     <td className="px-4 py-3"><StatusPill status={s.status} /></td>
-                    <td className="px-4 py-3 tabular-nums" style={{ color: T2 }}>{s.current_period_start ? format(new Date(s.current_period_start), 'dd/MM/yyyy') : '—'}</td>
                     <td className="px-4 py-3 tabular-nums" style={{ color: T2 }}>{s.current_period_end ? format(new Date(s.current_period_end), 'dd/MM/yyyy') : '—'}</td>
                     <td className="px-4 py-3 tabular-nums" style={{ color: T2 }}>{s.trial_end ? format(new Date(s.trial_end), 'dd/MM/yyyy') : '—'}</td>
-                    <td className="px-4 py-3 tabular-nums" style={{ color: T3 }}>{format(new Date(s.created_at), 'dd/MM/yyyy')}</td>
+                    <td className="px-4 py-3">
+                      {s.is_early_adopter ? (
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider"
+                            style={{ background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', color: '#A78BFA' }}>
+                            <Gem className="w-3 h-3" />{t('admin.subs.ea')}
+                          </span>
+                          {s.price_locked && <Lock className="w-3.5 h-3.5" style={{ color: POS }} aria-label={t('plan.priceLockedBadge')} />}
+                          <button onClick={() => revokeEarlyAdopter(s.venue_id)} className="text-[11px] cursor-pointer hover:opacity-80" style={{ color: T3 }}>
+                            {t('admin.subs.revoke')}
+                          </button>
+                        </div>
+                      ) : (
+                        <button onClick={() => { setGrantTarget({ venueId: s.venue_id, venueName: s.venueName }); setGrantPlan('pro'); }}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer transition-all duration-150"
+                          style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>
+                          <Gem className="w-3 h-3" />{t('admin.subs.makeEa')}
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -253,6 +323,49 @@ export default function AdminSubscriptions() {
           </Pagination>
         )}
       </div>
+
+      {/* Grant early-adopter modal */}
+      {grantTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}
+          onClick={() => !granting && setGrantTarget(null)}>
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 24, width: '100%', maxWidth: 420 }}>
+            <div className="flex items-start justify-between gap-3 mb-1">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: 'rgba(167,139,250,0.12)' }}>
+                  <Gem className="w-4 h-4" style={{ color: '#A78BFA' }} />
+                </div>
+                <h2 style={{ color: T1, fontSize: 16, fontWeight: 700 }}>{t('admin.subs.grantEaTitle')}</h2>
+              </div>
+              <button onClick={() => !granting && setGrantTarget(null)} className="cursor-pointer"><X className="w-4 h-4" style={{ color: T3 }} /></button>
+            </div>
+            <p style={{ color: T2, fontSize: 13, marginBottom: 4 }}>{grantTarget.venueName}</p>
+            <p style={{ color: T3, fontSize: 12, marginBottom: 16 }}>
+              {t('admin.subs.grantEaDesc').replace('{days}', String(EARLY_ADOPTER_FREE_DAYS))}
+            </p>
+
+            <label style={{ color: T3, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('admin.subs.plan')}</label>
+            <select value={grantPlan} onChange={(e) => setGrantPlan(e.target.value as PlanCode)} style={{ ...selectStyle, width: '100%', marginTop: 6, marginBottom: 20 }}>
+              {PAID_PLANS.map((code) => (
+                <option key={code} value={code} style={{ background: '#0a0a0c', color: T1 }}>{PLANS[code].name} — {PLANS[code].price}€/mo</option>
+              ))}
+            </select>
+
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setGrantTarget(null)} disabled={granting}
+                className="px-4 py-2 rounded-xl text-[12.5px] font-medium cursor-pointer disabled:opacity-50"
+                style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>
+                {t('admin.subs.cancel')}
+              </button>
+              <button onClick={grantEarlyAdopter} disabled={granting}
+                className="px-4 py-2 rounded-xl text-[12.5px] font-semibold cursor-pointer disabled:opacity-50"
+                style={{ background: '#A78BFA', color: '#0a0a0c' }}>
+                {granting ? '…' : t('admin.subs.grantEaConfirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

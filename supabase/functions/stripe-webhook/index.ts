@@ -2,6 +2,24 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
+// Pinned to the account's API version. Newer than the SDK's bundled types
+// (which top out at basil), hence the cast. On clover+, a subscription's billing
+// period lives on the subscription ITEM, not the subscription object.
+const STRIPE_API_VERSION = "2025-12-15.clover" as unknown as Stripe.LatestApiVersion;
+
+// Resolve the current billing period regardless of API version: item-level first
+// (clover+), falling back to the subscription level (basil and earlier).
+function periodBoundsOf(subscription: Stripe.Subscription): { start: number | null; end: number | null } {
+  const item = subscription.items?.data?.[0] as unknown as
+    | { current_period_start?: number; current_period_end?: number }
+    | undefined;
+  const sub = subscription as unknown as { current_period_start?: number; current_period_end?: number };
+  return {
+    start: item?.current_period_start ?? sub.current_period_start ?? null,
+    end: item?.current_period_end ?? sub.current_period_end ?? null,
+  };
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
@@ -11,13 +29,24 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[STRIPE-WEBHOOK] ${step}`, details ? JSON.stringify(details) : "");
 };
 
-// Price ID -> plan code mapping
-const PRICE_TO_PLAN: Record<string, string> = {
-  "price_1T91TpFIpANRmEzezOMFPZuQ": "essential",
-  "price_1T91TpFIpANRmEzeuhtRxCUJ": "pro",
-  "price_1T91ZPFIpANRmEze3ctLMfCG": "elite",
-  "price_1T2Em8FIpANRmEze5eAaeE7o": "elite", // legacy
-};
+// Price ID -> plan code mapping. All IDs live in Supabase secrets (no hardcoding)
+// so the same code resolves plans against the Stripe test account today and the
+// live account later — a secrets swap, never a code deploy. Must mirror the
+// secret names set for the club-subscription function.
+const PRICE_TO_PLAN: Record<string, string> = {};
+for (
+  const [env, plan] of [
+    ["STRIPE_PRICE_ESSENTIAL_MONTHLY", "essential"],
+    ["STRIPE_PRICE_PRO_MONTHLY", "pro"],
+    ["STRIPE_PRICE_ELITE_MONTHLY", "elite"],
+    ["STRIPE_PRICE_ESSENTIAL_ANNUAL", "essential"],
+    ["STRIPE_PRICE_PRO_ANNUAL", "pro"],
+    ["STRIPE_PRICE_ELITE_ANNUAL", "elite"],
+  ] as const
+) {
+  const id = Deno.env.get(env);
+  if (id) PRICE_TO_PLAN[id] = plan;
+}
 
 function resolvePlanFromSubscription(subscription: Stripe.Subscription): string {
   const priceId = subscription.items?.data?.[0]?.price?.id;
@@ -37,7 +66,7 @@ serve(async (req) => {
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
     if (!webhookSecret) throw new Error("STRIPE_WEBHOOK_SECRET is not set");
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2025-04-30.basil" });
+    const stripe = new Stripe(stripeKey, { apiVersion: STRIPE_API_VERSION });
 
     const body = await req.text();
     const signature = req.headers.get("stripe-signature");
@@ -219,8 +248,9 @@ serve(async (req) => {
         };
 
         const trialEnd = toISO(subscription.trial_end);
-        const periodStart = toISO(subscription.current_period_start) ?? new Date().toISOString();
-        const periodEnd = toISO(subscription.current_period_end) ?? new Date().toISOString();
+        const { start: periodStartRaw, end: periodEndRaw } = periodBoundsOf(subscription);
+        const periodStart = toISO(periodStartRaw) ?? new Date().toISOString();
+        const periodEnd = toISO(periodEndRaw) ?? new Date().toISOString();
         const subscriptionPlan = resolvePlanFromSubscription(subscription);
 
         logStep("Subscription upsert", {

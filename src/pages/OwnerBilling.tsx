@@ -4,8 +4,8 @@ import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { useOwnerVenue } from '@/hooks/useOwnerVenue';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { useStripeConnect } from '@/hooks/useStripeConnect';
-import { PLANS, PLAN_ORDER, PlanCode, FeatureKey } from '@/lib/planFeatures';
-import { Check, AlertTriangle, CreditCard, ExternalLink, AlertCircle, Loader2, Crown, Zap, Rocket, Shield, RefreshCw, Sparkles, ShieldCheck, Banknote, Receipt, Lock } from 'lucide-react';
+import { PLANS, PLAN_ORDER, PlanCode, FeatureKey, BillingCycle, planPrice, annualSavings, ANNUAL_BILLED_MONTHS } from '@/lib/planFeatures';
+import { Check, AlertTriangle, CreditCard, ExternalLink, AlertCircle, Loader2, Crown, Zap, Rocket, Shield, RefreshCw, Sparkles, ShieldCheck, Banknote, Receipt, Lock, Gem } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
@@ -86,9 +86,10 @@ function FeatureRow({ label }: { label: string }) {
 export default function OwnerBilling() {
   const { t, language } = useLanguage();
   const { venueId } = useOwnerVenue();
-  const { plan, status, isTrial, daysRemaining, currentPeriodEnd, loading, refreshPlan } = useSubscriptionPlan();
+  const { plan, status, isTrial, daysRemaining, currentPeriodEnd, isEarlyAdopter, priceLocked, billingInterval, loading, refreshPlan } = useSubscriptionPlan();
   const { stripeStatus, loading: stripeLoading, startOnboarding, openDashboard, refreshStatus, manageSubscription } = useStripeConnect(venueId);
   const [subscribing, setSubscribing] = useState<PlanCode | null>(null);
+  const [cycle, setCycle] = useState<BillingCycle>('annual');
   const [searchParams, setSearchParams] = useSearchParams();
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
 
@@ -115,7 +116,7 @@ export default function OwnerBilling() {
     if (!venueId) return;
     setSubscribing(planCode);
     try {
-      const { data, error } = await supabase.functions.invoke('club-subscription', { body: { action: 'create', venueId, planCode } });
+      const { data, error } = await supabase.functions.invoke('club-subscription', { body: { action: 'create', venueId, planCode, billingCycle: cycle } });
       if (error) throw error;
       if (data?.updated) { toast.success(t('plan.planChanged')); refreshPlan(); }
       else if (data?.url) { window.open(data.url, '_blank'); }
@@ -169,10 +170,14 @@ export default function OwnerBilling() {
 
         {isTrial && daysRemaining !== null && (
           <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
-            style={{ background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.2)' }}>
-            <Sparkles className="h-4 w-4 flex-shrink-0" style={{ color: POS }} />
-            <p style={{ color: POS, fontSize: 13, fontWeight: 500 }}>
-              {t('plan.trialActive').replace('{days}', String(daysRemaining))}
+            style={isEarlyAdopter
+              ? { background: 'rgba(167,139,250,0.07)', border: '1px solid rgba(167,139,250,0.2)' }
+              : { background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.2)' }}>
+            {isEarlyAdopter
+              ? <Gem className="h-4 w-4 flex-shrink-0" style={{ color: '#A78BFA' }} />
+              : <Sparkles className="h-4 w-4 flex-shrink-0" style={{ color: POS }} />}
+            <p style={{ color: isEarlyAdopter ? '#A78BFA' : POS, fontSize: 13, fontWeight: 500 }}>
+              {(isEarlyAdopter ? t('plan.earlyAccessActive') : t('plan.trialActive')).replace('{days}', String(daysRemaining))}
             </p>
           </div>
         )}
@@ -184,11 +189,29 @@ export default function OwnerBilling() {
               <p style={{ color: T3, fontSize: 10.5, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
                 {t('plan.currentPlan')}
               </p>
-              <p style={{ color: T1, fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>
-                {currentPlanInfo.name}
-              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <p style={{ color: T1, fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>
+                  {currentPlanInfo.name}
+                </p>
+                {isEarlyAdopter && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider"
+                    style={{ background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', color: '#A78BFA' }}>
+                    <Gem className="w-3 h-3" />{t('plan.earlyAdopterBadge')}
+                  </span>
+                )}
+                {priceLocked && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider"
+                    style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: POS }}>
+                    <Lock className="w-3 h-3" />{t('plan.priceLockedBadge')}
+                  </span>
+                )}
+              </div>
               <p style={{ color: T2, fontSize: 13, marginTop: 3 }}>
-                {isCore ? t('plan.ticketFeesOnly') : `${currentPlanInfo.price}€ / ${t('plan.month')}`}
+                {isCore
+                  ? t('plan.ticketFeesOnly')
+                  : billingInterval === 'annual'
+                    ? `${currentPlanInfo.priceAnnual}€ / ${t('plan.year')}`
+                    : `${currentPlanInfo.price}€ / ${t('plan.month')}`}
               </p>
               {!isCore && currentPeriodEnd && isActive && (
                 <p style={{ color: T3, fontSize: 12, marginTop: 4 }}>
@@ -312,7 +335,32 @@ export default function OwnerBilling() {
 
         {/* Plan Comparison */}
         <div>
-          <p style={{ color: T1, fontSize: 15, fontWeight: 600, marginBottom: 16 }}>{t('plan.comparePlans')}</p>
+          <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
+            <p style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('plan.comparePlans')}</p>
+            {/* Monthly / Annual toggle */}
+            <div className="inline-flex items-center p-1 rounded-full" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+              {(['monthly', 'annual'] as BillingCycle[]).map((c) => {
+                const active = cycle === c;
+                return (
+                  <button key={c} onClick={() => setCycle(c)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-semibold cursor-pointer transition-all duration-150"
+                    style={active
+                      ? { background: '#fff', color: '#0a0a0c' }
+                      : { background: 'transparent', color: T2 }}>
+                    {c === 'monthly' ? t('plan.monthly') : t('plan.annual')}
+                    {c === 'annual' && (
+                      <span className="px-1.5 py-0.5 rounded-full text-[9.5px] font-bold uppercase tracking-wide"
+                        style={active
+                          ? { background: 'rgba(52,211,153,0.16)', color: '#059669' }
+                          : { background: 'rgba(52,211,153,0.12)', color: POS }}>
+                        {t('plan.twoMonthsFree')}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {PLAN_ORDER.filter(code => code !== 'collab' || plan === 'collab').map((code, i) => {
               const p = PLANS[code];
@@ -368,6 +416,19 @@ export default function OwnerBilling() {
                     <div style={{ borderTop: `1px solid ${F_BORDER}`, paddingTop: 14 }}>
                       {code === 'core' ? (
                         <p style={{ color: T1, fontSize: 13, fontWeight: 500 }}>{t('plan.ticketFeesOnly')}</p>
+                      ) : cycle === 'annual' ? (
+                        <div>
+                          <div className="flex items-baseline gap-1">
+                            <span style={{ color: T1, fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>{planPrice(code, 'annual')}€</span>
+                            <span style={{ color: T3, fontSize: 12 }}>/{t('plan.year')}</span>
+                          </div>
+                          <p style={{ color: T3, fontSize: 11, marginTop: 3 }}>
+                            {t('plan.perMonthEquiv').replace('{price}', String(Math.round(planPrice(code, 'annual') / 12)))}
+                          </p>
+                          <p style={{ color: POS, fontSize: 11, fontWeight: 600, marginTop: 2 }}>
+                            {t('plan.savePerYear').replace('{amount}', String(annualSavings(code)))}
+                          </p>
+                        </div>
                       ) : (
                         <div className="flex items-baseline gap-1">
                           <span style={{ color: T1, fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>{p.price}€</span>

@@ -4364,18 +4364,21 @@ export type Database = {
       mfa_secrets: {
         Row: {
           created_at: string
-          secret_encrypted: string
+          secret_encrypted: string | null
           user_id: string
+          vault_secret_id: string | null
         }
         Insert: {
           created_at?: string
-          secret_encrypted: string
+          secret_encrypted?: string | null
           user_id: string
+          vault_secret_id?: string | null
         }
         Update: {
           created_at?: string
-          secret_encrypted?: string
+          secret_encrypted?: string | null
           user_id?: string
+          vault_secret_id?: string | null
         }
         Relationships: []
       }
@@ -6430,6 +6433,7 @@ export type Database = {
           created_at: string
           id: string
           ip_address: string | null
+          ip_hash: string | null
           success: boolean | null
           user_agent: string | null
           user_id: string | null
@@ -6439,6 +6443,7 @@ export type Database = {
           created_at?: string
           id?: string
           ip_address?: string | null
+          ip_hash?: string | null
           success?: boolean | null
           user_agent?: string | null
           user_id?: string | null
@@ -6448,6 +6453,7 @@ export type Database = {
           created_at?: string
           id?: string
           ip_address?: string | null
+          ip_hash?: string | null
           success?: boolean | null
           user_agent?: string | null
           user_id?: string | null
@@ -8782,7 +8788,9 @@ export type Database = {
           current_period_end: string | null
           current_period_start: string | null
           id: string
+          is_early_adopter: boolean
           plan_source: Database["public"]["Enums"]["subscription_plan_source"]
+          price_locked: boolean
           status: string | null
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
@@ -8796,7 +8804,9 @@ export type Database = {
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          is_early_adopter?: boolean
           plan_source?: Database["public"]["Enums"]["subscription_plan_source"]
+          price_locked?: boolean
           status?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
@@ -8810,7 +8820,9 @@ export type Database = {
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          is_early_adopter?: boolean
           plan_source?: Database["public"]["Enums"]["subscription_plan_source"]
+          price_locked?: boolean
           status?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
@@ -10160,6 +10172,10 @@ export type Database = {
         Args: { amount: number; current_val: number }
         Returns: number
       }
+      delete_mfa_totp_secret: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
       demo_is_live: { Args: never; Returns: boolean }
       demo_set_live: { Args: { p_live: boolean }; Returns: boolean }
       expire_stale_ticket_reservations: { Args: never; Returns: number }
@@ -10225,6 +10241,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_mfa_totp_secret: { Args: { p_user_id: string }; Returns: string }
       get_or_create_customer_loyalty: {
         Args: {
           p_user_id: string
@@ -10443,6 +10460,7 @@ export type Database = {
           scope_name: string
         }[]
       }
+      purge_expired_personal_data: { Args: never; Returns: undefined }
       recalc_all_leaderboards: { Args: never; Returns: number }
       record_promoter_conversion: {
         Args: {
@@ -10472,6 +10490,32 @@ export type Database = {
       release_pack_credit: {
         Args: { p_amount: number; p_credit_id: string }
         Returns: undefined
+      }
+      reserve_table_slot: {
+        Args: {
+          _capacity_zone_id: string
+          _deposit: number
+          _event_id: string
+          _full_name: string
+          _guest_count: number
+          _is_guest: boolean
+          _management_fee: number
+          _newsletter_opt_in: boolean
+          _pack_id: string
+          _phone: string
+          _placement_status: string
+          _purchase_source: string
+          _qr_code: string
+          _remarks: string
+          _requested_table_id: string
+          _sms_opt_in: boolean
+          _status: string
+          _total_price: number
+          _user_email: string
+          _user_id: string
+          _zone_id: string
+        }
+        Returns: string
       }
       reserve_ticket_capacity: {
         Args: {
@@ -10554,6 +10598,10 @@ export type Database = {
           p_venue_id: string
         }
         Returns: string
+      }
+      store_mfa_totp_secret: {
+        Args: { p_secret: string; p_user_id: string }
+        Returns: undefined
       }
       unlock_event_sale: {
         Args: { p_event_id: string; p_guest_email?: string; p_password: string }

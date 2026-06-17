@@ -2,6 +2,25 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
+// Pinned to the account's API version. Newer than the SDK's bundled types
+// (which top out at basil), hence the cast. On clover+, a subscription's billing
+// period lives on the subscription ITEM, not the subscription object — see
+// periodBoundsOf() below.
+const STRIPE_API_VERSION = "2025-12-15.clover" as unknown as Stripe.LatestApiVersion;
+
+// Resolve the current billing period regardless of API version: item-level first
+// (clover+), falling back to the subscription level (basil and earlier).
+function periodBoundsOf(subscription: Stripe.Subscription): { start: number | null; end: number | null } {
+  const item = subscription.items?.data?.[0] as unknown as
+    | { current_period_start?: number; current_period_end?: number }
+    | undefined;
+  const sub = subscription as unknown as { current_period_start?: number; current_period_end?: number };
+  return {
+    start: item?.current_period_start ?? sub.current_period_start ?? null,
+    end: item?.current_period_end ?? sub.current_period_end ?? null,
+  };
+}
+
 // Unified club subscription dispatcher.
 // Replaces: check-club-subscription, create-club-subscription, manage-club-subscription.
 // Route via body.action: "check" | "create" | "manage".
@@ -21,23 +40,51 @@ const json = (body: unknown, status = 200) =>
     status,
   });
 
-// Plan code <-> Stripe price ID mappings
-const PLAN_PRICES: Record<string, string> = {
-  essential: "price_1T91TpFIpANRmEzezOMFPZuQ",
-  pro: "price_1T91TpFIpANRmEzeuhtRxCUJ",
-  elite: "price_1T2Em8FIpANRmEze5eAaeE7o",
+// Yuno Pricing GTM v1.0
+//   monthly: Core free, Essential 39€, Pro 69€, Elite 99€
+//   annual : 2 months free (= monthly × 10) → Essential 390€, Pro 690€, Elite 990€
+//
+// All paid price IDs live in Supabase secrets (no hardcoding) so the same code
+// runs against the Stripe test account today and the live account later — a
+// secrets swap, never a code deploy:
+//   STRIPE_PRICE_{ESSENTIAL,PRO,ELITE}_{MONTHLY,ANNUAL}
+// Core is free (0€) and never goes through Stripe checkout, so it has no price ID.
+const PLAN_PRICES_MONTHLY: Record<string, string> = {
+  essential: Deno.env.get("STRIPE_PRICE_ESSENTIAL_MONTHLY") ?? "",
+  pro: Deno.env.get("STRIPE_PRICE_PRO_MONTHLY") ?? "",
+  elite: Deno.env.get("STRIPE_PRICE_ELITE_MONTHLY") ?? "",
 };
-const PRICE_TO_PLAN: Record<string, string> = {
-  "price_1T91TpFIpANRmEzezOMFPZuQ": "essential",
-  "price_1T91TpFIpANRmEzeuhtRxCUJ": "pro",
-  "price_1T2Em8FIpANRmEze5eAaeE7o": "elite",
+const PLAN_PRICES_ANNUAL: Record<string, string> = {
+  essential: Deno.env.get("STRIPE_PRICE_ESSENTIAL_ANNUAL") ?? "",
+  pro: Deno.env.get("STRIPE_PRICE_PRO_ANNUAL") ?? "",
+  elite: Deno.env.get("STRIPE_PRICE_ELITE_ANNUAL") ?? "",
 };
+
+type BillingCycle = "monthly" | "annual";
+
+function priceForPlan(planCode: string, cycle: BillingCycle): string {
+  return (cycle === "annual" ? PLAN_PRICES_ANNUAL : PLAN_PRICES_MONTHLY)[planCode] ?? "";
+}
+
+// Reverse map (both cycles) → plan code, used to resolve the plan from a Stripe sub.
+const PRICE_TO_PLAN: Record<string, string> = (() => {
+  const map: Record<string, string> = {};
+  for (const [plan, id] of Object.entries(PLAN_PRICES_MONTHLY)) if (id) map[id] = plan;
+  for (const [plan, id] of Object.entries(PLAN_PRICES_ANNUAL)) if (id) map[id] = plan;
+  return map;
+})();
 
 function resolvePlan(subscription: Stripe.Subscription): string {
   const priceId = subscription.items?.data?.[0]?.price?.id;
   if (priceId && PRICE_TO_PLAN[priceId]) return PRICE_TO_PLAN[priceId];
   if (subscription.metadata?.plan) return subscription.metadata.plan;
   return "essential";
+}
+
+function billingIntervalOf(subscription: Stripe.Subscription): BillingCycle {
+  return subscription.items?.data?.[0]?.price?.recurring?.interval === "year"
+    ? "annual"
+    : "monthly";
 }
 
 serve(async (req) => {
@@ -88,9 +135,12 @@ serve(async (req) => {
       // DB-FIRST: respect collab plan granted via partnership
       const { data: existingSub } = await supabaseClient
         .from("venue_subscriptions")
-        .select("subscription_plan, status, plan_source, current_period_start, current_period_end, trial_end, stripe_subscription_id, stripe_customer_id")
+        .select("subscription_plan, status, plan_source, current_period_start, current_period_end, trial_end, stripe_subscription_id, stripe_customer_id, is_early_adopter, price_locked")
         .eq("venue_id", targetVenueId)
         .maybeSingle();
+
+      const isEarlyAdopter = !!existingSub?.is_early_adopter;
+      const priceLocked = !!existingSub?.price_locked;
 
       if (existingSub?.subscription_plan === "collab") {
         logStep("Collab plan detected in DB, bypassing Stripe", { venueId: targetVenueId });
@@ -104,16 +154,61 @@ serve(async (req) => {
           isTrial: false,
           trialEnd: null,
           daysRemaining: null,
+          isEarlyAdopter,
+          priceLocked,
+          billingInterval: null,
         });
       }
 
-      const stripe = new Stripe(stripeKey, { apiVersion: "2025-04-30.basil" });
+      // DB-FIRST: early adopter on the 3-month free grant (no Stripe sub yet).
+      // Once they convert (stripe_subscription_id set) Stripe becomes the source of truth below.
+      if (isEarlyAdopter && !existingSub?.stripe_subscription_id) {
+        const trialEndDate = existingSub?.trial_end ? new Date(existingSub.trial_end) : null;
+        const stillFree = trialEndDate ? trialEndDate.getTime() > Date.now() : false;
+        if (stillFree) {
+          const daysRemaining = Math.max(
+            0,
+            Math.ceil((trialEndDate!.getTime() - Date.now()) / (1000 * 60 * 60 * 24)),
+          );
+          logStep("Early adopter free period active", { venueId: targetVenueId, daysRemaining });
+          return json({
+            success: true,
+            subscribed: true,
+            status: "trialing",
+            subscriptionPlan: existingSub?.subscription_plan || "core",
+            currentPeriodStart: existingSub?.current_period_start ?? null,
+            currentPeriodEnd: existingSub?.trial_end ?? null,
+            isTrial: true,
+            trialEnd: existingSub?.trial_end ?? null,
+            daysRemaining,
+            isEarlyAdopter: true,
+            priceLocked,
+            billingInterval: null,
+          });
+        }
+        // Free period elapsed and never converted → fall back to Core (paywall), keep flag.
+        logStep("Early adopter free period elapsed, no conversion", { venueId: targetVenueId });
+        return json({
+          success: true,
+          subscribed: false,
+          status: "inactive",
+          subscriptionPlan: "core",
+          isTrial: false,
+          trialEnd: existingSub?.trial_end ?? null,
+          daysRemaining: 0,
+          isEarlyAdopter: true,
+          priceLocked,
+          billingInterval: null,
+        });
+      }
+
+      const stripe = new Stripe(stripeKey, { apiVersion: STRIPE_API_VERSION });
       const customers = await stripe.customers.list({ email: user.email, limit: 1 });
 
       if (customers.data.length === 0) {
         logStep("No customer found");
         const fallbackPlan = (existingSub?.subscription_plan as string) || "core";
-        return json({ success: true, subscribed: false, status: "inactive", subscriptionPlan: fallbackPlan, isTrial: false, trialEnd: null, daysRemaining: null });
+        return json({ success: true, subscribed: false, status: "inactive", subscriptionPlan: fallbackPlan, isTrial: false, trialEnd: null, daysRemaining: null, isEarlyAdopter, priceLocked, billingInterval: null });
       }
 
       const customerId = customers.data[0].id;
@@ -136,7 +231,7 @@ serve(async (req) => {
             updated_at: new Date().toISOString(),
           }, { onConflict: "venue_id" });
 
-        return json({ success: true, subscribed: false, status: "inactive", subscriptionPlan: "core", isTrial: false, trialEnd: null, daysRemaining: null });
+        return json({ success: true, subscribed: false, status: "inactive", subscriptionPlan: "core", isTrial: false, trialEnd: null, daysRemaining: null, isEarlyAdopter, priceLocked, billingInterval: null });
       }
 
       const toISO = (val: unknown): string | null => {
@@ -152,12 +247,14 @@ serve(async (req) => {
         return null;
       };
 
-      const currentPeriodStart = toISO(subscription.current_period_start) ?? new Date().toISOString();
-      const currentPeriodEnd = toISO(subscription.current_period_end) ?? new Date().toISOString();
+      const { start: periodStartRaw, end: periodEndRaw } = periodBoundsOf(subscription);
+      const currentPeriodStart = toISO(periodStartRaw) ?? new Date().toISOString();
+      const currentPeriodEnd = toISO(periodEndRaw) ?? new Date().toISOString();
       const status = subscription.status;
       const isTrial = status === "trialing";
       const trialEnd = toISO(subscription.trial_end);
       const subscriptionPlan = resolvePlan(subscription);
+      const billingInterval = billingIntervalOf(subscription);
 
       let daysRemaining: number | null = null;
       if (isTrial && subscription.trial_end) {
@@ -195,6 +292,9 @@ serve(async (req) => {
         isTrial,
         trialEnd,
         daysRemaining,
+        isEarlyAdopter,
+        priceLocked,
+        billingInterval,
       });
     }
 
@@ -204,8 +304,14 @@ serve(async (req) => {
     if (action === "create") {
       let targetVenueId = body.venueId;
       const planCode = body.planCode || "elite";
-      const priceId = PLAN_PRICES[planCode];
-      if (!priceId) throw new Error(`Invalid plan code: ${planCode}`);
+      const billingCycle: BillingCycle = body.billingCycle === "annual" ? "annual" : "monthly";
+      const priceId = priceForPlan(planCode, billingCycle);
+      if (!priceId) {
+        const cycleKey = billingCycle === "annual" ? "ANNUAL" : "MONTHLY";
+        throw new Error(
+          `Price not configured for plan "${planCode}" (${billingCycle}). Set STRIPE_PRICE_${planCode.toUpperCase()}_${cycleKey}.`,
+        );
+      }
 
       if (!targetVenueId) {
         const { data: venue } = await supabaseClient
@@ -224,7 +330,17 @@ serve(async (req) => {
       const { data: venue } = await supabaseClient
         .from("venues").select("id, name").eq("id", targetVenueId).single();
 
-      const stripe = new Stripe(stripeKey, { apiVersion: "2025-04-30.basil" });
+      // Early adopters already used their 3-month free grant. When they convert,
+      // they get NO extra trial, and picking annual freezes their price for life.
+      const { data: subRow } = await supabaseClient
+        .from("venue_subscriptions")
+        .select("is_early_adopter")
+        .eq("venue_id", targetVenueId)
+        .maybeSingle();
+      const isEarlyAdopter = !!subRow?.is_early_adopter;
+      const lockPrice = isEarlyAdopter && billingCycle === "annual";
+
+      const stripe = new Stripe(stripeKey, { apiVersion: STRIPE_API_VERSION });
 
       const customers = await stripe.customers.list({ email: user.email, limit: 1 });
       let customerId: string;
@@ -260,11 +376,12 @@ serve(async (req) => {
             .upsert({
               venue_id: targetVenueId,
               subscription_plan: planCode,
+              ...(lockPrice ? { price_locked: true } : {}),
               updated_at: new Date().toISOString(),
             }, { onConflict: "venue_id" });
 
-          logStep("Subscription updated", { subscriptionId: activeOrTrialing.id, newPlan: planCode });
-          return json({ success: true, updated: true, plan: planCode });
+          logStep("Subscription updated", { subscriptionId: activeOrTrialing.id, newPlan: planCode, billingCycle, lockPrice });
+          return json({ success: true, updated: true, plan: planCode, billingCycle });
         }
       } else {
         const customer = await stripe.customers.create({
@@ -279,22 +396,38 @@ serve(async (req) => {
         logStep("New customer created", { customerId });
       }
 
+      // Standard offer: 14-day trial, credit card required at signup (filters
+      // curious sign-ups, lifts conversion). Early adopters converting after their
+      // free 3 months get NO extra trial — they pay immediately.
+      const trialDays = isEarlyAdopter ? 0 : 14;
+
       const origin = req.headers.get("origin") || "https://yunoapp.eu";
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
         line_items: [{ price: priceId, quantity: 1 }],
         mode: "subscription",
-        payment_method_collection: "if_required",
+        payment_method_collection: "always",
         success_url: `${origin}/owner/billing?subscription=success`,
         cancel_url: `${origin}/owner/billing?subscription=canceled`,
-        metadata: { venue_id: targetVenueId, user_id: user.id, plan: planCode },
+        metadata: { venue_id: targetVenueId, user_id: user.id, plan: planCode, billing_cycle: billingCycle },
         subscription_data: {
-          trial_period_days: 30,
-          metadata: { venue_id: targetVenueId, user_id: user.id, plan: planCode },
+          ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
+          metadata: { venue_id: targetVenueId, user_id: user.id, plan: planCode, billing_cycle: billingCycle },
         },
       });
 
-      logStep("Checkout session created", { sessionId: session.id, plan: planCode, price: priceId });
+      // Freeze the price for annual early adopters (optimistic; harmless if checkout is abandoned).
+      if (lockPrice) {
+        await supabaseClient
+          .from("venue_subscriptions")
+          .upsert({
+            venue_id: targetVenueId,
+            price_locked: true,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "venue_id" });
+      }
+
+      logStep("Checkout session created", { sessionId: session.id, plan: planCode, price: priceId, billingCycle, trialDays, lockPrice });
       return json({ success: true, sessionId: session.id, url: session.url });
     }
 
@@ -302,7 +435,7 @@ serve(async (req) => {
     // action: "manage"  (← manage-club-subscription)
     // ─────────────────────────────────────────────────────────────────────────
     if (action === "manage") {
-      const stripe = new Stripe(stripeKey, { apiVersion: "2025-04-30.basil" });
+      const stripe = new Stripe(stripeKey, { apiVersion: STRIPE_API_VERSION });
       const customers = await stripe.customers.list({ email: user.email, limit: 1 });
       if (customers.data.length === 0) {
         throw new Error("No Stripe customer found for this user");

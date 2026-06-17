@@ -13,12 +13,28 @@ export type FeatureKey =
   | 'story_builder' | 'story_builder_advanced'
   | 'email_campaigns_informational' | 'email_campaigns_promotional';
 
+export type BillingCycle = 'monthly' | 'annual';
+
+/**
+ * Months billed on the annual plan. The other 2 months are free
+ * ("2 mois offerts" — Yuno Pricing GTM v1.0), so annual = monthly × 10.
+ */
+export const ANNUAL_BILLED_MONTHS = 10;
+/** Free trial length (days) for the STANDARD offer — credit card required. */
+export const STANDARD_TRIAL_DAYS = 14;
+/** Free period (days) for hand-picked EARLY ADOPTERS — no credit card. */
+export const EARLY_ADOPTER_FREE_DAYS = 90;
+/** Size of the hand-picked early-adopter cohort (Yuno Pricing GTM v1.0). */
+export const EARLY_ADOPTER_LIMIT = 15;
+
 export interface PlanInfo {
   code: PlanCode;
   name: string;
   nameKey: string;
+  /** Monthly price in EUR. */
   price: number;
-  priceId: string;
+  /** Annual price in EUR (monthly × 10 — two months free). */
+  priceAnnual: number;
   features: FeatureKey[];
 }
 
@@ -71,13 +87,18 @@ const COLLAB_FEATURES: FeatureKey[] = PRO_FEATURES.filter(
   (f) => f !== 'exports_csv'
 );
 
+// Stripe price IDs are NOT stored here. The frontend only sends { planCode,
+// billingCycle } to the `club-subscription` edge function, which resolves the
+// actual Stripe price from Supabase secrets (STRIPE_PRICE_{PLAN}_{MONTHLY,ANNUAL}).
+// The current plan shown in the UI comes from the edge function response
+// (`subscriptionPlan`), never from a price-id lookup on the client.
 export const PLANS: Record<PlanCode, PlanInfo> = {
   core: {
     code: 'core',
     name: 'Yuno Core',
     nameKey: 'plan.core',
     price: 0,
-    priceId: '',
+    priceAnnual: 0,
     features: CORE_FEATURES,
   },
   collab: {
@@ -85,7 +106,7 @@ export const PLANS: Record<PlanCode, PlanInfo> = {
     name: 'Yuno Collab',
     nameKey: 'plan.collab',
     price: 0,
-    priceId: '',
+    priceAnnual: 0,
     features: COLLAB_FEATURES,
   },
   essential: {
@@ -93,7 +114,7 @@ export const PLANS: Record<PlanCode, PlanInfo> = {
     name: 'Essential',
     nameKey: 'plan.essential',
     price: 39,
-    priceId: 'price_1T91TpFIpANRmEzezOMFPZuQ',
+    priceAnnual: 39 * ANNUAL_BILLED_MONTHS, // 390€ / an
     features: ESSENTIAL_FEATURES,
   },
   pro: {
@@ -101,7 +122,7 @@ export const PLANS: Record<PlanCode, PlanInfo> = {
     name: 'Pro',
     nameKey: 'plan.pro',
     price: 69,
-    priceId: 'price_1T91TpFIpANRmEzeuhtRxCUJ',
+    priceAnnual: 69 * ANNUAL_BILLED_MONTHS, // 690€ / an
     features: PRO_FEATURES,
   },
   elite: {
@@ -109,10 +130,22 @@ export const PLANS: Record<PlanCode, PlanInfo> = {
     name: 'Elite',
     nameKey: 'plan.elite',
     price: 99,
-    priceId: 'price_1T2Em8FIpANRmEze5eAaeE7o',
+    priceAnnual: 99 * ANNUAL_BILLED_MONTHS, // 990€ / an
     features: ELITE_FEATURES,
   },
 };
+
+/** Price in EUR for a plan on a given billing cycle. */
+export function planPrice(code: PlanCode, cycle: BillingCycle): number {
+  const p = PLANS[code];
+  return cycle === 'annual' ? p.priceAnnual : p.price;
+}
+
+/** Annual savings in EUR vs paying 12 monthly installments. */
+export function annualSavings(code: PlanCode): number {
+  const p = PLANS[code];
+  return p.price * 12 - p.priceAnnual;
+}
 
 export const PLAN_ORDER: PlanCode[] = ['core', 'collab', 'essential', 'pro', 'elite'];
 
@@ -135,15 +168,6 @@ export function requiredPlan(feature: FeatureKey): PlanCode {
     if (PLANS[code].features.includes(feature)) return code;
   }
   return 'elite';
-}
-
-/** Map Stripe price_id to plan code */
-export function priceIdToPlan(priceId: string | null | undefined): PlanCode {
-  if (!priceId) return 'core';
-  for (const plan of Object.values(PLANS)) {
-    if (plan.priceId === priceId) return plan.code;
-  }
-  return 'core';
 }
 
 /** Feature key to route path mapping */

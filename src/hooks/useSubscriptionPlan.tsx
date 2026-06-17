@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { hasFeature as checkFeature, requiredPlan as getRequiredPlan, priceIdToPlan, PlanCode, FeatureKey, PLANS } from '@/lib/planFeatures';
+import { hasFeature as checkFeature, requiredPlan as getRequiredPlan, PlanCode, FeatureKey, PLANS } from '@/lib/planFeatures';
+
+type BillingInterval = 'monthly' | 'annual';
 
 interface SubscriptionPlanState {
   plan: PlanCode;
@@ -9,6 +11,9 @@ interface SubscriptionPlanState {
   daysRemaining: number | null;
   isTrial: boolean;
   currentPeriodEnd: string | null;
+  isEarlyAdopter: boolean;
+  priceLocked: boolean;
+  billingInterval: BillingInterval | null;
   hasFeature: (feature: FeatureKey) => boolean;
   requiredPlan: (feature: FeatureKey) => PlanCode;
   refreshPlan: () => Promise<void>;
@@ -21,6 +26,9 @@ const defaultState: SubscriptionPlanState = {
   daysRemaining: null,
   isTrial: false,
   currentPeriodEnd: null,
+  isEarlyAdopter: false,
+  priceLocked: false,
+  billingInterval: null,
   hasFeature: () => false,
   requiredPlan: () => 'elite',
   refreshPlan: async () => {},
@@ -35,6 +43,9 @@ export function SubscriptionPlanProvider({ venueId, children }: { venueId: strin
   const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
   const [isTrial, setIsTrial] = useState(false);
   const [currentPeriodEnd, setCurrentPeriodEnd] = useState<string | null>(null);
+  const [isEarlyAdopter, setIsEarlyAdopter] = useState(false);
+  const [priceLocked, setPriceLocked] = useState(false);
+  const [billingInterval, setBillingInterval] = useState<BillingInterval | null>(null);
 
   const fetchPlan = useCallback(async () => {
     if (!venueId) {
@@ -51,6 +62,9 @@ export function SubscriptionPlanProvider({ venueId, children }: { venueId: strin
         setIsTrial(false);
         setDaysRemaining(null);
         setCurrentPeriodEnd(null);
+        setIsEarlyAdopter(false);
+        setPriceLocked(false);
+        setBillingInterval('monthly');
         setLoading(false);
         return;
       }
@@ -58,12 +72,15 @@ export function SubscriptionPlanProvider({ venueId, children }: { venueId: strin
         body: { action: 'check', venueId },
       });
       if (error) throw error;
-      
+
       setPlan((data?.subscriptionPlan as PlanCode) || 'core');
       setStatus(data?.status || 'inactive');
       setIsTrial(data?.isTrial || false);
       setDaysRemaining(data?.daysRemaining ?? null);
       setCurrentPeriodEnd(data?.currentPeriodEnd || null);
+      setIsEarlyAdopter(data?.isEarlyAdopter || false);
+      setPriceLocked(data?.priceLocked || false);
+      setBillingInterval((data?.billingInterval as BillingInterval) ?? null);
     } catch (e) {
       console.error('Error fetching subscription plan:', e);
     } finally {
@@ -82,6 +99,9 @@ export function SubscriptionPlanProvider({ venueId, children }: { venueId: strin
     daysRemaining,
     isTrial,
     currentPeriodEnd,
+    isEarlyAdopter,
+    priceLocked,
+    billingInterval,
     hasFeature: (feature: FeatureKey) => checkFeature(plan, feature),
     requiredPlan: getRequiredPlan,
     refreshPlan: fetchPlan,
