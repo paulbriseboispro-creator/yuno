@@ -12,7 +12,10 @@ import {
   Star, BarChart3, ClipboardCheck, Music, Sun, Wrench, TrendingUp,
   UserCog, Lock, DoorOpen, Shirt, RefreshCw, Megaphone, Headphones,
   Hash, ShieldCheck, Undo2, QrCode, Wallet, Package, Globe, Bell,
-  Receipt, Settings2, MessageCircle, type LucideIcon
+  Receipt, Settings2, MessageCircle,
+  Calendar, Crown, Gift, Handshake, Heart, LayoutGrid, Mail, Martini,
+  MessageSquare, Music2, Radio, ShoppingCart, Store, UserCheck, Wand,
+  type LucideIcon
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
@@ -28,7 +31,9 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Sun, Wrench, TrendingUp, UserCog, Lock, DoorOpen, Shirt,
   RefreshCw, Megaphone, Headphones, Search, Hash, ShieldCheck,
   Undo2, AlertTriangle, QrCode, Zap, Wallet, Package, Globe, Bell,
-  Receipt, Settings2,
+  Receipt, Settings2, Sparkles, MessageCircle,
+  Calendar, Crown, Gift, Handshake, Heart, LayoutGrid, Mail, Martini,
+  MessageSquare, Music2, Radio, ShoppingCart, Store, UserCheck, Wand,
 };
 
 function renderIcon(name: string, className?: string) {
@@ -40,6 +45,13 @@ function renderIcon(name: string, className?: string) {
 // Category color map
 const CATEGORY_COLORS: Record<string, { bg: string; border: string; text: string; iconBg: string }> = {
   'getting-started': { bg: 'bg-emerald-500/8', border: 'border-emerald-500/20', text: 'text-emerald-400', iconBg: 'bg-emerald-500/15' },
+  // Mirror groups (match the owner dashboard sidebar)
+  'overview': { bg: 'bg-blue-500/8', border: 'border-blue-500/20', text: 'text-blue-400', iconBg: 'bg-blue-500/15' },
+  'events': { bg: 'bg-red-500/8', border: 'border-red-500/20', text: 'text-red-400', iconBg: 'bg-red-500/15' },
+  'marketing-crm': { bg: 'bg-indigo-500/8', border: 'border-indigo-500/20', text: 'text-indigo-400', iconBg: 'bg-indigo-500/15' },
+  'operations': { bg: 'bg-orange-500/8', border: 'border-orange-500/20', text: 'text-orange-400', iconBg: 'bg-orange-500/15' },
+  'settings': { bg: 'bg-cyan-500/8', border: 'border-cyan-500/20', text: 'text-cyan-400', iconBg: 'bg-cyan-500/15' },
+  // Bonus / reference groups
   'plans-billing': { bg: 'bg-orange-500/8', border: 'border-orange-500/20', text: 'text-orange-400', iconBg: 'bg-orange-500/15' },
   'owner-setup': { bg: 'bg-blue-500/8', border: 'border-blue-500/20', text: 'text-blue-400', iconBg: 'bg-blue-500/15' },
   'daily-operations': { bg: 'bg-purple-500/8', border: 'border-purple-500/20', text: 'text-purple-400', iconBg: 'bg-purple-500/15' },
