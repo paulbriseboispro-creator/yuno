@@ -118,6 +118,17 @@ function getStartDate(dateRange: DateRange): Date | null {
   return null;
 }
 
+/**
+ * Convert the page's period selector into an ISO {from, to} window so web-traffic
+ * sections (acquisition, engagement, audience) can share the SAME period control
+ * as the rest of the analytics page instead of carrying their own filter.
+ * 'alltime' falls back to a fixed early date.
+ */
+export function dateRangeToWindow(dateRange: DateRange): { from: string; to: string } {
+  const start = getStartDate(dateRange) ?? new Date('2020-01-01');
+  return { from: start.toISOString(), to: new Date().toISOString() };
+}
+
 /** Length of the selected window in ms — null for ranges without a fixed length (all-time). */
 function getWindowMs(dateRange: DateRange): number | null {
   const H = 3_600_000, D = 86_400_000;

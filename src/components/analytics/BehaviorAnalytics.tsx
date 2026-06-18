@@ -14,11 +14,15 @@ const T2 = 'rgba(255,255,255,0.58)';
 const T3 = 'rgba(255,255,255,0.36)';
 const BORDER = 'rgba(255,255,255,0.085)';
 const FAINT_BORDER = 'rgba(255,255,255,0.055)';
+const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
+const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
 
+// Promoted to a top-level Yuno card so each section reads as a native page card.
 const crd: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.032)',
+  background: CARD_BG,
   border: `1px solid ${BORDER}`,
-  borderRadius: 14,
+  borderRadius: 18,
+  boxShadow: CARD_SHADOW,
   overflow: 'hidden',
 };
 
@@ -122,9 +126,6 @@ export function BehaviorAnalytics({ scope, from, to, deviceFilter, sourceFilter 
   }, [scope.kind, scope.id, from, to, deviceFilter, sourceFilter, eventIds.join(','), venueIds.join(',')]);
 
   const totalDev = stats.devices.mobile + stats.devices.tablet + stats.devices.desktop;
-  const dropoff1 = stats.visits > 0 ? Math.round((1 - stats.carts / stats.visits) * 100) : 0;
-  const dropoff2 = stats.carts > 0 ? Math.round((1 - stats.checkouts / stats.carts) * 100) : 0;
-  const dropoff3 = stats.checkouts > 0 ? Math.round((1 - stats.conversions / stats.checkouts) * 100) : 0;
 
   if (loading) {
     return (
@@ -134,53 +135,10 @@ export function BehaviorAnalytics({ scope, from, to, deviceFilter, sourceFilter 
     );
   }
 
-  const funnelSteps = [
-    { label: tt('Visites', 'Visits'), value: stats.visits, pct: 100 },
-    { label: tt('Panier', 'Cart'), value: stats.carts, pct: stats.visits ? (stats.carts / stats.visits) * 100 : 0, drop: dropoff1 },
-    { label: 'Checkout', value: stats.checkouts, pct: stats.visits ? (stats.checkouts / stats.visits) * 100 : 0, drop: dropoff2 },
-    { label: tt('Conversion', 'Conversion'), value: stats.conversions, pct: stats.visits ? (stats.conversions / stats.visits) * 100 : 0, drop: dropoff3 },
-  ];
-
   return (
     <div className="space-y-3">
-      {/* Detailed funnel */}
-      <div style={{ ...crd, padding: '20px 22px' }}>
-        <h3 className="text-[15px] font-semibold mb-4 flex items-center gap-2.5" style={{ color: T1, letterSpacing: '-0.01em' }}>
-          <Target className="h-4 w-4 flex-none" style={{ color: RED }} />
-          {tt('Funnel détaillé', 'Detailed funnel')}
-        </h3>
-        <div className="space-y-3">
-          {funnelSteps.map((s, i) => (
-            <div key={i} className="space-y-1.5">
-              <div className="flex justify-between items-center text-sm">
-                <span className="font-medium" style={{ color: T2 }}>{s.label}</span>
-                <span className="tabular-nums flex items-center gap-2" style={{ color: T1 }}>
-                  {s.value.toLocaleString()}
-                  <span className="text-[11.5px]" style={{ color: T3 }}>({s.pct.toFixed(1)}%)</span>
-                  {(s as any).drop !== undefined && (
-                    <span className="text-[11px] font-semibold" style={{ color: NEG }}>
-                      −{(s as any).drop}%
-                    </span>
-                  )}
-                </span>
-              </div>
-              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                <div
-                  className="h-full rounded-full transition-all duration-700"
-                  style={{
-                    width: `${s.pct}%`,
-                    background: i === 0
-                      ? 'rgba(255,255,255,0.25)'
-                      : `linear-gradient(90deg, rgba(232,25,44,0.75), rgba(232,25,44,0.35))`,
-                  }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Stat tiles */}
+      {/* Engagement stat tiles — the detailed funnel lives in the page's main
+          Conversion Funnel card, so it's intentionally not repeated here. */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
         <StatTile icon={Clock} label={tt('Durée moyenne', 'Avg duration')}
           value={`${Math.floor(stats.avgDuration / 60)}m ${stats.avgDuration % 60}s`} />
@@ -203,9 +161,9 @@ export function BehaviorAnalytics({ scope, from, to, deviceFilter, sourceFilter 
             {tt('Appareils', 'Devices')}
           </h3>
           <div className="space-y-3">
-            <DeviceBar icon={Smartphone} label="Mobile" value={stats.devices.mobile} total={totalDev} color="#f43f5e" />
-            <DeviceBar icon={Tablet} label="Tablet" value={stats.devices.tablet} total={totalDev} color="#a855f7" />
-            <DeviceBar icon={Monitor} label="Desktop" value={stats.devices.desktop} total={totalDev} color="#3b82f6" />
+            <DeviceBar icon={Smartphone} label="Mobile" value={stats.devices.mobile} total={totalDev} color={RED} />
+            <DeviceBar icon={Tablet} label="Tablet" value={stats.devices.tablet} total={totalDev} color="rgba(255,255,255,0.45)" />
+            <DeviceBar icon={Monitor} label="Desktop" value={stats.devices.desktop} total={totalDev} color="rgba(255,255,255,0.26)" />
           </div>
 
           <div className="mt-5 pt-4" style={{ borderTop: `1px solid ${FAINT_BORDER}` }}>
@@ -215,7 +173,7 @@ export function BehaviorAnalytics({ scope, from, to, deviceFilter, sourceFilter 
             <div className="text-[22px] font-bold tabular-nums" style={{ color: T1, letterSpacing: '-0.025em' }}>
               {stats.abandonedCarts}
             </div>
-            <p className="text-xs mt-1 font-medium" style={{ color: '#FBBF24' }}>
+            <p className="text-xs mt-1 font-medium" style={{ color: RED }}>
               ≈ {(stats.abandonedValueCents / 100).toFixed(0)}€ {tt('à récupérer', 'to recover')}
             </p>
           </div>
@@ -231,11 +189,12 @@ function StatTile({
 }: { icon: any; label: string; value: string; negative?: boolean }) {
   return (
     <div
-      className="rounded-xl"
+      className="rounded-2xl"
       style={{
-        background: 'rgba(255,255,255,0.025)',
+        background: CARD_BG,
         border: `1px solid ${BORDER}`,
-        padding: '10px 12px',
+        boxShadow: CARD_SHADOW,
+        padding: '14px 16px',
       }}
     >
       <div className="flex items-center justify-between mb-1.5">

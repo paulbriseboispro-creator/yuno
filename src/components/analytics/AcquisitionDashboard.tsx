@@ -13,13 +13,31 @@ const POS = '#34D399';
 const T1 = 'rgba(255,255,255,0.96)';
 const T2 = 'rgba(255,255,255,0.58)';
 const T3 = 'rgba(255,255,255,0.36)';
+const C_FAINT = 'rgba(255,255,255,0.06)';
 const BORDER = 'rgba(255,255,255,0.085)';
 const FAINT_BORDER = 'rgba(255,255,255,0.055)';
+const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
+const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
 
+// Single-accent ranked ramp — the top source is RED, the rest fade through white
+// opacity. Keeps categorical data legible while honoring the Yuno DA rule that
+// #E8192C is the only systemic color accent (no rainbow of source colors).
+const RAMP = [
+  RED,
+  'rgba(255,255,255,0.90)', 'rgba(255,255,255,0.64)', 'rgba(255,255,255,0.46)',
+  'rgba(255,255,255,0.33)', 'rgba(255,255,255,0.24)', 'rgba(255,255,255,0.17)',
+  'rgba(255,255,255,0.12)', 'rgba(255,255,255,0.09)', 'rgba(255,255,255,0.07)',
+  'rgba(255,255,255,0.06)',
+];
+const ramp = (i: number) => RAMP[Math.min(i, RAMP.length - 1)];
+
+// Promoted to a top-level Yuno card so each section reads as a native page card
+// (sits directly on the black page background, not nested inside a "hub" wrapper).
 const crd: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.032)',
+  background: CARD_BG,
   border: `1px solid ${BORDER}`,
-  borderRadius: 14,
+  borderRadius: 18,
+  boxShadow: CARD_SHADOW,
   overflow: 'hidden',
 };
 
@@ -163,6 +181,7 @@ export function AcquisitionDashboard({ scope, from, to, deviceFilter, sourceFilt
               {sources.map((s, i) => {
                 const meta = CATEGORY_META[s.category] || CATEGORY_META.other;
                 const Icon = meta.icon;
+                const c = ramp(i);
                 const pct = totalVisits ? ((s.visits / totalVisits) * 100).toFixed(1) : '0';
                 const conv = s.visits ? ((s.conversions / s.visits) * 100).toFixed(1) : '0';
                 return (
@@ -175,8 +194,8 @@ export function AcquisitionDashboard({ scope, from, to, deviceFilter, sourceFilt
                     <div className="flex items-center gap-3 px-2.5 py-2 rounded-xl"
                       style={{ transition: 'background 150ms' }}>
                       <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-none"
-                        style={{ background: `${meta.color}1a`, border: `1px solid ${meta.color}35` }}>
-                        <Icon className="h-3.5 w-3.5" style={{ color: meta.color }} />
+                        style={{ background: C_FAINT, border: `1px solid ${BORDER}` }}>
+                        <Icon className="h-3.5 w-3.5" style={{ color: c }} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
@@ -187,7 +206,7 @@ export function AcquisitionDashboard({ scope, from, to, deviceFilter, sourceFilt
                           <div className="flex-1 h-1 rounded-full overflow-hidden"
                             style={{ background: 'rgba(255,255,255,0.06)' }}>
                             <div className="h-full rounded-full transition-all"
-                              style={{ width: `${pct}%`, background: meta.color }} />
+                              style={{ width: `${pct}%`, background: c }} />
                           </div>
                           <span className="text-[10px] tabular-nums" style={{ color: T3 }}>{pct}%</span>
                           <span className="text-[10px] tabular-nums" style={{ color: POS }}>↗ {conv}%</span>
@@ -316,7 +335,6 @@ function DonutChart({ data, language }: { data: SourceBucket[]; language: string
         <circle cx="100" cy="100" r={radius} fill="none"
           stroke="rgba(255,255,255,0.04)" strokeWidth={stroke} />
         {data.map((s, i) => {
-          const meta = CATEGORY_META[s.category] || CATEGORY_META.other;
           const fraction = s.visits / total;
           const dash = fraction * circ;
           const offset = -cumulative * circ;
@@ -326,7 +344,7 @@ function DonutChart({ data, language }: { data: SourceBucket[]; language: string
               key={i}
               cx="100" cy="100" r={radius}
               fill="none"
-              stroke={meta.color}
+              stroke={ramp(i)}
               strokeWidth={stroke}
               strokeDasharray={`${dash} ${circ - dash}`}
               strokeDashoffset={offset}

@@ -11,6 +11,7 @@ import {
   type TableLite,
   type VenueBenchmark,
 } from '@/lib/hypePostEvent';
+import { orderRevenue, ticketRevenue, tableRevenue } from '@/utils/fees';
 
 export interface PostEventKPI {
   label: string;
@@ -90,7 +91,15 @@ export interface PostEventData {
 
 type ItemsJson = { name?: string; qty?: number; quantity?: number }[];
 
-export function usePostEventAnalysis(venueId: string | null, eventId?: string | null) {
+export function usePostEventAnalysis(
+  venueId: string | null,
+  eventId?: string | null,
+  organizerUserId?: string | null,
+) {
+  // Organizer scope: no venue, events keyed by organizer_user_id/partner_organizer_id,
+  // and no drinks (organizers don't sell at the bar). The pure engine is reused as-is.
+  const isOrg = !!organizerUserId && !venueId;
+  const scopeReady = isOrg ? !!organizerUserId : !!venueId;
   const { t, language } = useLanguage();
   const tr = (key: string, params?: Record<string, string | number>) => {
     let s = t(key);
@@ -114,13 +123,13 @@ export function usePostEventAnalysis(venueId: string | null, eventId?: string | 
   }, [events, searchQuery]);
 
   useEffect(() => {
-    if (!venueId) return;
+    if (!scopeReady) return;
     fetchPastEvents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [venueId]);
+  }, [venueId, organizerUserId]);
 
   useEffect(() => {
-    if (!venueId) return;
+    if (!scopeReady) return;
     if (events.length === 0 && loading) return;
     if (selectedEventId === null) {
       if (events.length > 0) buildReport(events.map((e) => e.id), true);
@@ -128,17 +137,20 @@ export function usePostEventAnalysis(venueId: string | null, eventId?: string | 
       buildReport([selectedEventId], false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [venueId, selectedEventId, events.length, language]);
+  }, [venueId, organizerUserId, selectedEventId, events.length, language]);
 
   const fetchPastEvents = async () => {
-    if (!venueId) return;
-    const { data } = await supabase
+    if (!scopeReady) return;
+    let q = supabase
       .from('events')
       .select('id, title, start_at, end_at')
-      .eq('venue_id', venueId)
       .lt('end_at', new Date().toISOString())
       .order('start_at', { ascending: false })
       .limit(50);
+    q = isOrg
+      ? q.or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`)
+      : q.eq('venue_id', venueId!);
+    const { data } = await q;
     if (data) {
       setEvents(data.map((e) => ({ id: e.id, title: e.title, date: new Date(e.start_at) })));
     }
@@ -156,24 +168,25 @@ export function usePostEventAnalysis(venueId: string | null, eventId?: string | 
   const fetchBenchmark = async (excludeIds: string[]): Promise<VenueBenchmark> => {
     const past = events.filter((e) => !excludeIds.includes(e.id)).slice(0, BENCHMARK_WINDOW);
     const empty: VenueBenchmark = { eventsCount: 0, avgAttendance: null, avgRevenuePerHead: null, avgDrinksPerHead: null };
-    if (!venueId || past.length === 0) return empty;
+    if (!scopeReady || past.length === 0) return empty;
     const ids = past.map((e) => e.id);
 
     const [{ data: bt }, { data: bo }, { data: btab }] = await Promise.all([
       supabase
         .from('tickets')
-        .select('quantity, total_price, refunded_at, refund_amount, event_id, ticket_attendees(entry_scanned)')
+        .select('quantity, total_price, service_fee, insurance_fee, refunded_at, refund_amount, event_id, ticket_attendees(entry_scanned)')
         .in('event_id', ids)
         .eq('status', 'paid'),
-      supabase
+      // Organizers never sell drinks → no orders contribute to their benchmark.
+      isOrg ? Promise.resolve({ data: [] as any[] }) : supabase
         .from('orders')
-        .select('total, refunded_at, refund_amount, items, event_id')
-        .eq('venue_id', venueId)
+        .select('total, service_fee, refunded_at, refund_amount, items, event_id')
+        .eq('venue_id', venueId!)
         .in('event_id', ids)
         .in('status', ['paid', 'served']),
       supabase
         .from('table_reservations')
-        .select('total_price, guest_count, entry_scanned, refunded_at, refund_amount, event_id')
+        .select('total_price, service_fee, management_fee, guest_count, entry_scanned, refunded_at, refund_amount, event_id')
         .in('event_id', ids)
         .eq('status', 'paid'),
     ]);
@@ -187,11 +200,14 @@ export function usePostEventAnalysis(venueId: string | null, eventId?: string | 
       return a;
     };
 
+    // netRev is CLUB NET: gross (Yuno fees excluded) − Stripe − refunds. The
+    // benchmark must use the same basis as the report, never Yuno's cut.
     for (const t of bt || []) {
       const a = acc(t.event_id);
       const refunded = !!t.refunded_at;
+      const r = ticketRevenue(t);
       a.sold += refunded ? 0 : t.quantity || 0;
-      a.netRev += (Number(t.total_price) || 0) - (refunded ? Number(t.refund_amount) || 0 : 0);
+      a.netRev += r.gross - r.stripe - (refunded ? Number(t.refund_amount) || 0 : 0);
       const attendees = (t.ticket_attendees as { entry_scanned: boolean | null }[]) || [];
       const sc = attendees.filter((x) => x.entry_scanned).length;
       a.scanned += sc;
@@ -200,13 +216,15 @@ export function usePostEventAnalysis(venueId: string | null, eventId?: string | 
     for (const o of bo || []) {
       const a = acc(o.event_id);
       const refunded = !!o.refunded_at;
-      a.netRev += (Number(o.total) || 0) - (refunded ? Number(o.refund_amount) || 0 : 0);
+      const r = orderRevenue(o);
+      a.netRev += r.gross - r.stripe - (refunded ? Number(o.refund_amount) || 0 : 0);
       for (const it of (o.items as ItemsJson) || []) a.drinks += it.qty || it.quantity || 0;
     }
     for (const tb of btab || []) {
       const a = acc(tb.event_id);
       const refunded = !!tb.refunded_at;
-      a.netRev += (Number(tb.total_price) || 0) - (refunded ? Number(tb.refund_amount) || 0 : 0);
+      const r = tableRevenue(tb);
+      a.netRev += r.gross - r.stripe - (refunded ? Number(tb.refund_amount) || 0 : 0);
       if (tb.entry_scanned && !refunded) { a.scanned += Math.max(1, tb.guest_count || 1); a.sawScan = true; }
     }
 
@@ -238,7 +256,7 @@ export function usePostEventAnalysis(venueId: string | null, eventId?: string | 
   };
 
   const buildReport = async (eventIds: string[], isAggregate: boolean) => {
-    if (!venueId || eventIds.length === 0) return;
+    if (!scopeReady || eventIds.length === 0) return;
     try {
       setLoading(true);
       const numEvents = eventIds.length;
@@ -249,18 +267,19 @@ export function usePostEventAnalysis(venueId: string | null, eventId?: string | 
           supabase.from('events').select('id, title, start_at, end_at, max_tickets').in('id', eventIds),
           supabase
             .from('tickets')
-            .select('quantity, total_price, created_at, refunded_at, refund_amount, is_guest, user_email, ticket_attendees(entry_scanned, entry_scanned_at, drink_redeemed)')
+            .select('quantity, total_price, service_fee, insurance_fee, created_at, refunded_at, refund_amount, is_guest, user_email, ticket_attendees(entry_scanned, entry_scanned_at, drink_redeemed)')
             .in('event_id', eventIds)
             .eq('status', 'paid'),
-          supabase
+          // Organizers don't sell drinks → no orders.
+          isOrg ? Promise.resolve({ data: [] as any[] }) : supabase
             .from('orders')
-            .select('total, created_at, refunded_at, refund_amount, items, user_email')
-            .eq('venue_id', venueId)
+            .select('total, service_fee, created_at, refunded_at, refund_amount, items, user_email')
+            .eq('venue_id', venueId!)
             .in('event_id', eventIds)
             .in('status', ['paid', 'served']),
           supabase
             .from('table_reservations')
-            .select('total_price, guest_count, created_at, entry_scanned, refunded_at, refund_amount')
+            .select('total_price, service_fee, management_fee, guest_count, created_at, entry_scanned, refunded_at, refund_amount')
             .in('event_id', eventIds)
             .eq('status', 'paid'),
           supabase.from('visitor_sessions').select('session_id').in('event_id', eventIds),
@@ -282,38 +301,52 @@ export function usePostEventAnalysis(venueId: string | null, eventId?: string | 
       const capacity = !isAggregate ? evList[0]?.max_tickets ?? null : null;
 
       // ── Shape rows for the engine ──
-      const tickets: TicketLite[] = (ticketRows || []).map((t) => ({
-        quantity: t.quantity || 0,
-        revenue: Number(t.total_price) || 0,
-        createdAt: new Date(t.created_at).getTime(),
-        refunded: !!t.refunded_at,
-        refundAmount: Number(t.refund_amount) || 0,
-        isGuest: !!t.is_guest,
-        email: t.user_email ?? null,
-        attendees: ((t.ticket_attendees as { entry_scanned: boolean | null; entry_scanned_at: string | null; drink_redeemed: boolean | null }[]) || []).map((a) => ({
-          scanned: !!a.entry_scanned,
-          scannedAt: a.entry_scanned_at ? new Date(a.entry_scanned_at).getTime() : null,
-          drinkRedeemed: !!a.drink_redeemed,
-        })),
-      }));
+      // Revenue is CLUB GROSS (Yuno fees excluded via the canonical helpers);
+      // each row carries its Stripe fee so net = gross − stripe − refunds.
+      const tickets: TicketLite[] = (ticketRows || []).map((t) => {
+        const r = ticketRevenue(t);
+        return {
+          quantity: t.quantity || 0,
+          revenue: r.gross,
+          stripe: r.stripe,
+          createdAt: new Date(t.created_at).getTime(),
+          refunded: !!t.refunded_at,
+          refundAmount: Number(t.refund_amount) || 0,
+          isGuest: !!t.is_guest,
+          email: t.user_email ?? null,
+          attendees: ((t.ticket_attendees as { entry_scanned: boolean | null; entry_scanned_at: string | null; drink_redeemed: boolean | null }[]) || []).map((a) => ({
+            scanned: !!a.entry_scanned,
+            scannedAt: a.entry_scanned_at ? new Date(a.entry_scanned_at).getTime() : null,
+            drinkRedeemed: !!a.drink_redeemed,
+          })),
+        };
+      });
 
-      const orders: OrderLite[] = (orderRows || []).map((o) => ({
-        total: Number(o.total) || 0,
-        createdAt: new Date(o.created_at).getTime(),
-        refunded: !!o.refunded_at,
-        refundAmount: Number(o.refund_amount) || 0,
-        items: ((o.items as ItemsJson) || []).map((i) => ({ name: i.name || '', qty: i.qty || i.quantity || 0 })),
-        email: o.user_email ?? null,
-      }));
+      const orders: OrderLite[] = (orderRows || []).map((o) => {
+        const r = orderRevenue(o);
+        return {
+          total: r.gross,
+          stripe: r.stripe,
+          createdAt: new Date(o.created_at).getTime(),
+          refunded: !!o.refunded_at,
+          refundAmount: Number(o.refund_amount) || 0,
+          items: ((o.items as ItemsJson) || []).map((i) => ({ name: i.name || '', qty: i.qty || i.quantity || 0 })),
+          email: o.user_email ?? null,
+        };
+      });
 
-      const tables: TableLite[] = (tableRows || []).map((t) => ({
-        revenue: Number(t.total_price) || 0,
-        guests: t.guest_count || 0,
-        createdAt: new Date(t.created_at).getTime(),
-        refunded: !!t.refunded_at,
-        refundAmount: Number(t.refund_amount) || 0,
-        scanned: !!t.entry_scanned,
-      }));
+      const tables: TableLite[] = (tableRows || []).map((t) => {
+        const r = tableRevenue(t);
+        return {
+          revenue: r.gross,
+          stripe: r.stripe,
+          guests: t.guest_count || 0,
+          createdAt: new Date(t.created_at).getTime(),
+          refunded: !!t.refunded_at,
+          refundAmount: Number(t.refund_amount) || 0,
+          scanned: !!t.entry_scanned,
+        };
+      });
 
       const pageViews = new Set((sessRows || []).map((s) => s.session_id)).size;
 
@@ -324,11 +357,26 @@ export function usePostEventAnalysis(venueId: string | null, eventId?: string | 
       let newCustomers = buyerEmails.length;
       let returningCustomers = 0;
       let topSegment: string | null = null;
-      if (buyerEmails.length > 0) {
+      if (buyerEmails.length > 0 && isOrg) {
+        // No venue_customers for organizers: a buyer is "returning" if they bought
+        // at any of the organizer's OTHER past events.
+        const otherIds = events.map((e) => e.id).filter((id) => !eventIds.includes(id));
+        if (otherIds.length > 0) {
+          const lc = buyerEmails.map((e) => e.toLowerCase());
+          const [{ data: priorT }, { data: priorTab }] = await Promise.all([
+            supabase.from('tickets').select('user_email').in('event_id', otherIds).eq('status', 'paid').in('user_email', buyerEmails),
+            supabase.from('table_reservations').select('user_email').in('event_id', otherIds).eq('status', 'paid').in('user_email', buyerEmails),
+          ]);
+          const seen = new Set<string>();
+          for (const r of [...(priorT || []), ...(priorTab || [])]) if (r.user_email) seen.add(r.user_email.toLowerCase());
+          returningCustomers = lc.filter((e) => seen.has(e)).length;
+          newCustomers = Math.max(0, buyerEmails.length - returningCustomers);
+        }
+      } else if (buyerEmails.length > 0) {
         const { data: vc } = await supabase
           .from('venue_customers')
           .select('email, order_count, ticket_count, customer_segment')
-          .eq('venue_id', venueId)
+          .eq('venue_id', venueId!)
           .in('email', buyerEmails);
         const returning = (vc || []).filter((c) => (c.order_count || 0) + (c.ticket_count || 0) > 1);
         returningCustomers = returning.length;

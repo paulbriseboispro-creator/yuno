@@ -5,7 +5,7 @@ import {
   Download, Ticket, Wine, Users, RotateCcw,
   Lock as LockIcon, Percent, Eye, ShoppingCart, CreditCard,
   MousePointerClick, TrendingUp, Layers, Flame, Clock,
-  ArrowUpRight, ArrowDownRight, Sparkles, Globe, Calendar,
+  ArrowUpRight, ArrowDownRight, Globe, Calendar, Activity, ArrowLeft, ChevronDown,
   DoorOpen, UserCheck, Footprints, Megaphone, Target, Repeat, Crown, HeartHandshake,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -17,11 +17,14 @@ import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
-import { useAnalyticsData, type AnalyticsMode, type DateRange } from '@/hooks/useAnalyticsData';
+import { useAnalyticsData, type AnalyticsMode, type DateRange, dateRangeToWindow } from '@/hooks/useAnalyticsData';
 import { useNightAnalytics } from '@/hooks/useNightAnalytics';
 import { usePromoterAnalytics } from '@/hooks/usePromoterAnalytics';
 import { useCustomerAnalytics } from '@/hooks/useCustomerAnalytics';
 import { AnalyticsEssentialView } from '@/components/analytics/AnalyticsEssentialView';
+import { EventPostAnalysisView } from '@/components/owner/co-event/EventPostAnalysisView';
+import { EventAnalyticsPicker } from '@/components/analytics/EventAnalyticsPicker';
+import { AnalyticsAnchorNav, type AnchorSection } from '@/components/analytics/AnalyticsAnchorNav';
 import { DrinkAnalyticsSection } from '@/components/analytics/DrinkAnalyticsSection';
 import { TableAnalyticsSection } from '@/components/analytics/TableAnalyticsSection';
 import { TicketAnalyticsOverview } from '@/components/analytics/TicketAnalyticsOverview';
@@ -29,12 +32,8 @@ import { TicketAnalyticsLaunch } from '@/components/analytics/TicketAnalyticsLau
 import { TicketAnalyticsTypes } from '@/components/analytics/TicketAnalyticsTypes';
 import { TicketAnalyticsPhases } from '@/components/analytics/TicketAnalyticsPhases';
 import { RefundAnalyticsSection } from '@/components/analytics/RefundAnalyticsSection';
-import { AnalyticsHubLayout, type AnalyticsPillar } from '@/components/analytics/AnalyticsHubLayout';
-import { LiveActivityHero } from '@/components/analytics/LiveActivityHero';
 import { AcquisitionDashboard } from '@/components/analytics/AcquisitionDashboard';
 import { BehaviorAnalytics } from '@/components/analytics/BehaviorAnalytics';
-import { AudienceInsights } from '@/components/analytics/AudienceInsights';
-import { AnalyticsPeriodFilter, type AnalyticsRange, rangeToDates } from '@/components/analytics/AnalyticsPeriodFilter';
 import { STRIPE_FEE_LABEL } from '@/utils/fees';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -120,9 +119,9 @@ function Delta({ delta, vs }: { delta: number | null; vs?: string }) {
 }
 
 // ─── Zone heading (IA section separator) ──────────────────────────────────────
-function ZoneHeading({ icon, label }: { icon: React.ReactNode; label: string }) {
+function ZoneHeading({ icon, label, id }: { icon: React.ReactNode; label: string; id?: string }) {
   return (
-    <div className="flex items-center gap-2 px-1">
+    <div id={id} className="flex items-center gap-2 px-1" style={id ? { scrollMarginTop: 84 } : undefined}>
       <span style={{ color: T2 }}>{icon}</span>
       <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em]" style={{ color: T2 }}>{label}</h3>
     </div>
@@ -175,13 +174,36 @@ function Sparkline({ pts, accent = false }: { pts: number[]; accent?: boolean })
 }
 
 // ─── Revenue hourly bars ──────────────────────────────────────────────────────
-function RevenueBars({ data }: { data: { hour: string; revenue: number }[] }) {
-  if (!data.length) return null;
-  const bw = 18, gap = 8, step = bw + gap;
-  const W = data.length * step;
-  const plotH = 180, labelH = 20, H = plotH + labelH;
+// Turn a sparse list of active hours into a continuous min→max hour range,
+// inserting revenue:0 for the gaps so the chart reads as a real timeline.
+function fillHourGaps(rows: { hour: string; revenue: number }[]): { hour: string; revenue: number }[] {
+  const byHour = new Map<number, number>();
+  rows.forEach(d => { const h = parseInt(d.hour); if (!Number.isNaN(h)) byHour.set(h, (byHour.get(h) || 0) + d.revenue); });
+  if (byHour.size === 0) return rows;
+  const hours = Array.from(byHour.keys());
+  const min = Math.min(...hours), max = Math.max(...hours);
+  const out: { hour: string; revenue: number }[] = [];
+  for (let h = min; h <= max; h++) out.push({ hour: `${h}h`, revenue: byHour.get(h) || 0 });
+  return out;
+}
+
+function RevenueBars({ data: raw }: { data: { hour: string; revenue: number }[] }) {
+  if (!raw.length) return null;
+  // Fill every hour between the first and last active hour so the x-axis reads
+  // as a continuous timeline instead of a few sparse bars floating in space.
+  const data = fillHourGaps(raw);
+  // Fixed wide viewBox (≈3.5:1) so the chart height stays sane regardless of bar
+  // count — bars are distributed across W instead of W growing per bar. With the
+  // old per-bar width, a single active hour (e.g. one arrival hour) made the
+  // viewBox tiny and stretching it to width:100% blew the height up into one
+  // giant red bar.
+  const W = 640, plotH = 180, labelH = 20, H = plotH + labelH;
+  const slot = W / data.length;
+  const bw = Math.min(28, slot * 0.6);
   const maxVal = Math.max(...data.map(d => d.revenue), 1) * 1.1;
   const peakIdx = data.reduce((m, d, i) => d.revenue > data[m].revenue ? i : m, 0);
+  // Thin out hour labels so they never collide; aim for ~8 labels max.
+  const labelEvery = Math.max(1, Math.ceil(data.length / 8));
   return (
     <div style={{ width: '100%', overflowX: 'hidden' }}>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ display: 'block', width: '100%', height: 'auto' }}>
@@ -189,18 +211,26 @@ function RevenueBars({ data }: { data: { hour: string; revenue: number }[] }) {
           <line key={i} x1={0} x2={W} y1={plotH - plotH * g} y2={plotH - plotH * g} stroke={C_FAINT} strokeWidth={1} />
         ))}
         {data.map((d, i) => {
-          const x = i * step + gap / 2;
-          const bh = Math.max(2, (d.revenue / maxVal) * plotH);
+          const isEmpty = d.revenue <= 0;
+          // Empty hours render as a faint baseline tick, not a rounded sliver.
+          const bh = isEmpty ? 3 : Math.max(6, (d.revenue / maxVal) * plotH);
           const y = plotH - bh;
-          const r = Math.min(5, bw / 2);
+          // Clamp the corner radius to the bar's own height so short bars don't
+          // produce a malformed path (the little "U"/tab shapes at the baseline).
+          const r = Math.min(5, bw / 2, bh / 2);
           const isPeak = i === peakIdx;
-          const showLabel = i % 3 === 0;
+          const showLabel = i % labelEvery === 0;
+          const x = i * slot + (slot - bw) / 2;
           return (
             <g key={i}>
-              <path
-                d={`M${x} ${y + r} a${r} ${r} 0 0 1 ${r} ${-r} h${bw - 2 * r} a${r} ${r} 0 0 1 ${r} ${r} V${plotH} H${x} Z`}
+              {/* Animate the rect's own height/y so the bar grows from the
+                  baseline — robust across browsers (no transform-origin quirks). */}
+              <motion.rect
+                x={x} width={bw} rx={r}
                 fill={isPeak ? RED : C_MID}
-                opacity={isPeak ? 0.85 : 1}
+                initial={{ height: 0, y: plotH, opacity: 0 }}
+                animate={{ height: bh, y, opacity: isEmpty ? 0.25 : (isPeak ? 0.92 : 0.82) }}
+                transition={{ delay: i * 0.035, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
               />
               {showLabel && (
                 <text x={x + bw / 2} y={H - 4} fill={T3} fontSize={9} textAnchor="middle" style={{ fontVariantNumeric: 'tabular-nums' }}>
@@ -355,11 +385,12 @@ export default function OwnerAnalytics() {
   const [recentActivity, setRecentActivity] = useState(0);
   const [activeTab, setActiveTab] = useState<'drinks' | 'tickets' | 'tables' | 'refunds'>('drinks');
   const [ticketSubTab, setTicketSubTab] = useState<'overview' | 'launch' | 'types' | 'phases'>('overview');
-  const [pillar, setPillar] = useState<AnalyticsPillar>('pulse');
-  const [hubRange, setHubRange] = useState<AnalyticsRange>('7d');
-  const [hubDevice, setHubDevice] = useState<string>('all');
-  const [hubSource, setHubSource] = useState<string>('all');
-  const hubDates = rangeToDates(hubRange);
+  // In event mode the chaptered verdict leads; the raw zone stack is opt-in detail.
+  const [showAdvancedZones, setShowAdvancedZones] = useState(false);
+
+  // Web-traffic zones (acquisition / engagement) share the page's main period
+  // selector — one period control for the whole page, no separate hub filter.
+  const webWindow = dateRangeToWindow(dateRange);
 
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
 
@@ -588,6 +619,23 @@ export default function OwnerAnalytics() {
     { id: 'refunds' as const, label: t('owner.refundsTab'), icon: RotateCcw },
   ];
 
+  // Event mode with no night chosen yet → show the calendar-style card picker
+  // instead of the full zone stack.
+  const showEventPicker = mode === 'event' && !selectedEventId;
+
+  // Global-mode spine: only the zones that actually render get an anchor pill.
+  const hasNight = !!nightAnalytics && (nightAnalytics.ticketsSold > 0 || nightAnalytics.tablesBooked > 0 || nightAnalytics.guestlistSize > 0);
+  const hasPromoter = !!promoterAnalytics && promoterAnalytics.promoters.length > 0;
+  const hasLoyalty = !!customerAnalytics && customerAnalytics.totalCustomers > 0;
+  const navSections: AnchorSection[] = [
+    { id: 'an-overview', label: t('owner.an.zoneOverview'), icon: Layers },
+    ...(hasNight ? [{ id: 'an-night', label: t('owner.an.theNight'), icon: DoorOpen }] : []),
+    ...(hasPromoter ? [{ id: 'an-promoter', label: t('owner.an.promoterRoi'), icon: Megaphone }] : []),
+    ...(hasLoyalty ? [{ id: 'an-loyalty', label: t('owner.an.loyalty'), icon: HeartHandshake }] : []),
+    ...(venueId ? [{ id: 'an-web', label: t('owner.an.zoneTraffic'), icon: Globe }] : []),
+    { id: 'an-detail', label: t('owner.an.zoneDetails'), icon: Layers },
+  ];
+
   return (
     <div className="min-h-screen pb-28" style={{ background: '#000' }}>
       {/* Top ambient vignette */}
@@ -623,23 +671,6 @@ export default function OwnerAnalytics() {
               ]}
               onChange={(k) => { setMode(k as AnalyticsMode); if (k === 'global') setSelectedEventId(null); }}
             />
-            {mode === 'event' && events.length > 0 && (
-              <select
-                value={selectedEventId || ''}
-                onChange={(e) => setSelectedEventId(e.target.value || null)}
-                className="h-9 px-3 rounded-xl text-[13px] cursor-pointer outline-none"
-                style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}`, color: T1 }}
-              >
-                <option value="" style={{ background: '#0a0a0c' }}>
-                  {t('owner.an.selectEvent')}
-                </option>
-                {events.map(event => (
-                  <option key={event.id} value={event.id} style={{ background: '#0a0a0c' }}>
-                    {event.title}
-                  </option>
-                ))}
-              </select>
-            )}
           </div>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-wrap">
             {mode === 'global' && (
@@ -670,8 +701,58 @@ export default function OwnerAnalytics() {
           </div>
         </motion.div>
 
+        {showEventPicker ? (
+          <EventAnalyticsPicker
+            venueId={venueId}
+            onSelect={(id) => {
+              setSelectedEventId(id);
+              if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        ) : (
+        <>
+
+        {/* Back to the night picker */}
+        {mode === 'event' && selectedEventId && (
+          <button
+            type="button"
+            onClick={() => setSelectedEventId(null)}
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium cursor-pointer transition-colors hover:text-white"
+            style={{ color: T3 }}
+          >
+            <ArrowLeft className="w-4 h-4" /> {t('owner.an.backToEvents')}
+          </button>
+        )}
+
+        {/* ── Verdict first — "did this night work?" (event mode only) ───── */}
+        {mode === 'event' && selectedEventId && venueId && (
+          <EventPostAnalysisView key={selectedEventId} eventId={selectedEventId} venueId={venueId} />
+        )}
+
+        {/* In event mode the raw zone stack is collapsed behind an opt-in toggle. */}
+        {mode === 'event' && selectedEventId && (
+          <button
+            type="button"
+            onClick={() => setShowAdvancedZones((v) => !v)}
+            className="w-full flex items-center justify-between rounded-xl px-4 h-12 cursor-pointer transition-colors hover:bg-white/[0.03]"
+            style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}` }}
+          >
+            <span className="flex items-center gap-2 text-[13px] font-medium" style={{ color: T1 }}>
+              <Layers className="w-4 h-4" style={{ color: T3 }} />
+              {t('owner.an.advancedDetail')}
+            </span>
+            <ChevronDown className={`w-4 h-4 transition-transform ${showAdvancedZones ? 'rotate-180' : ''}`} style={{ color: T3 }} />
+          </button>
+        )}
+
+        {(mode === 'global' || showAdvancedZones) && (
+        <>
+
+        {/* Anchor-nav spine — global mode only (event mode has its own in the verdict view) */}
+        {mode === 'global' && <AnalyticsAnchorNav sections={navSections} />}
+
         {/* ── Zone 1 · Overview ─────────────────────────────────────────── */}
-        <ZoneHeading icon={<Layers className="w-4 h-4" />} label={t('owner.an.zoneOverview')} />
+        <ZoneHeading id="an-overview" icon={<Layers className="w-4 h-4" />} label={t('owner.an.zoneOverview')} />
 
         {/* ── KPI row ───────────────────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
@@ -850,7 +931,7 @@ export default function OwnerAnalytics() {
           ];
           return (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }} className="space-y-3">
-              <ZoneHeading icon={<DoorOpen className="w-4 h-4" />} label={t('owner.an.theNight')} />
+              <ZoneHeading id="an-night" icon={<DoorOpen className="w-4 h-4" />} label={t('owner.an.theNight')} />
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {nightTiles.map((tile, i) => (
                   <PCard key={i}>
@@ -883,7 +964,7 @@ export default function OwnerAnalytics() {
         {/* ── Promoter ROI ───────────────────────────────────────────────── */}
         {promoterAnalytics && promoterAnalytics.promoters.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }} className="space-y-3">
-            <ZoneHeading icon={<Megaphone className="w-4 h-4" />} label={t('owner.an.promoterRoi')} />
+            <ZoneHeading id="an-promoter" icon={<Megaphone className="w-4 h-4" />} label={t('owner.an.promoterRoi')} />
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               {[
                 { label: t('owner.an.attributedRevenue'), val: fmt(promoterAnalytics.totalAttributed), sub: `${promoterAnalytics.totalConversions} ${t('owner.an.conversions')}`, icon: <TrendingUp className="w-4 h-4" />, tone: T1 },
@@ -950,7 +1031,7 @@ export default function OwnerAnalytics() {
           ];
           return (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }} className="space-y-3">
-              <ZoneHeading icon={<HeartHandshake className="w-4 h-4" />} label={t('owner.an.loyalty')} />
+              <ZoneHeading id="an-loyalty" icon={<HeartHandshake className="w-4 h-4" />} label={t('owner.an.loyalty')} />
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {tiles.map((tile, i) => (
                   <PCard key={i}>
@@ -1001,45 +1082,24 @@ export default function OwnerAnalytics() {
           );
         })()}
 
-        {/* ── Zone · Deep-dive ──────────────────────────────────────────── */}
-        <div className="pt-2"><ZoneHeading icon={<Layers className="w-4 h-4" />} label={t('owner.an.zoneDetails')} /></div>
-
-        {/* ── Premium Analytics Hub ─────────────────────────────────────── */}
+        {/* ── Zone · Web traffic ────────────────────────────────────────── */}
         {venueId && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
-            <PCard style={{ padding: 18 }}>
-              <div className="flex items-center gap-2.5 mb-4">
-                <div className="w-8 h-8 flex items-center justify-center rounded-xl"
-                  style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}>
-                  <Sparkles className="w-4 h-4" style={{ color: RED }} />
-                </div>
-                <div>
-                  <h2 className="text-[15px] font-bold" style={{ color: T1, letterSpacing: '-0.01em' }}>
-                    {t('owner.an.premiumHub')}
-                  </h2>
-                  <p className="text-[11.5px]" style={{ color: T3 }}>
-                    Pulse · Acquisition · {t('owner.an.behavior')} · Audience
-                  </p>
-                </div>
-              </div>
-
-              <AnalyticsPeriodFilter
-                range={hubRange} onChange={setHubRange}
-                device={hubDevice} onDeviceChange={setHubDevice}
-                source={hubSource} onSourceChange={setHubSource}
-              />
-
-              <div className="mt-4">
-                <AnalyticsHubLayout active={pillar} onChange={setPillar}>
-                  {pillar === 'pulse' && <LiveActivityHero scope={{ kind: 'venue', id: venueId }} from={hubDates.from} to={hubDates.to} deviceFilter={hubDevice} sourceFilter={hubSource} />}
-                  {pillar === 'acquisition' && <AcquisitionDashboard scope={{ kind: 'venue', id: venueId }} from={hubDates.from} to={hubDates.to} deviceFilter={hubDevice} sourceFilter={hubSource} />}
-                  {pillar === 'behavior' && <BehaviorAnalytics scope={{ kind: 'venue', id: venueId }} from={hubDates.from} to={hubDates.to} deviceFilter={hubDevice} sourceFilter={hubSource} />}
-                  {pillar === 'audience' && <AudienceInsights scope={{ kind: 'venue', id: venueId }} from={hubDates.from} to={hubDates.to} />}
-                </AnalyticsHubLayout>
-              </div>
-            </PCard>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }} className="space-y-3">
+            <ZoneHeading id="an-web" icon={<Globe className="w-4 h-4" />} label={t('owner.an.zoneTraffic')} />
+            <AcquisitionDashboard scope={{ kind: 'venue', id: venueId }} from={webWindow.from} to={webWindow.to} />
           </motion.div>
         )}
+
+        {/* ── Zone · Web engagement ─────────────────────────────────────── */}
+        {venueId && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }} className="space-y-3">
+            <ZoneHeading icon={<Activity className="w-4 h-4" />} label={t('owner.an.zoneEngagement')} />
+            <BehaviorAnalytics scope={{ kind: 'venue', id: venueId }} from={webWindow.from} to={webWindow.to} />
+          </motion.div>
+        )}
+
+        {/* ── Zone · Deep-dive ──────────────────────────────────────────── */}
+        <div className="pt-2"><ZoneHeading id="an-detail" icon={<Layers className="w-4 h-4" />} label={t('owner.an.zoneDetails')} /></div>
 
         {/* ── Category tabs ─────────────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
@@ -1128,6 +1188,12 @@ export default function OwnerAnalytics() {
             </div>
           </PCard>
         </motion.div>
+
+        </>
+        )}
+
+        </>
+        )}
 
       </div>
     </div>

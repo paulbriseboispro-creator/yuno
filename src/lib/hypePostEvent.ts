@@ -34,7 +34,8 @@ export interface AttendeeLite {
 
 export interface TicketLite {
   quantity: number;
-  revenue: number; // total_price (gross)
+  revenue: number; // CLUB GROSS = total_price − Yuno fees (service + insurance). Yuno's cut is NEVER counted.
+  stripe: number; // Stripe fee on the full charged amount
   createdAt: number; // sale time
   refunded: boolean;
   refundAmount: number;
@@ -44,7 +45,8 @@ export interface TicketLite {
 }
 
 export interface OrderLite {
-  total: number;
+  total: number; // CLUB GROSS = order total − Yuno service fee. Yuno's cut is NEVER counted.
+  stripe: number; // Stripe fee on the full charged amount
   createdAt: number;
   refunded: boolean;
   refundAmount: number;
@@ -53,7 +55,8 @@ export interface OrderLite {
 }
 
 export interface TableLite {
-  revenue: number;
+  revenue: number; // CLUB GROSS = total_price − Yuno fees (service + management). Yuno's cut is NEVER counted.
+  stripe: number; // Stripe fee on the full charged amount
   guests: number;
   createdAt: number;
   refunded: boolean;
@@ -211,15 +214,22 @@ export function computeNightStats(input: NightInput): NightStats {
   const heads = attendance > 0 ? attendance : ticketsSold;
 
   // ── Revenue ──
+  // All revenue inputs are CLUB GROSS — Yuno fees are already excluded upstream
+  // (see usePostEventAnalysis). The club's results NEVER include Yuno's cut.
+  // Net = club gross − Stripe fees − refunds.
   const ticketRevenue = tickets.reduce((s, t) => s + t.revenue, 0);
   const drinkRevenue = orders.reduce((s, o) => s + o.total, 0);
   const tableRevenue = tables.reduce((s, t) => s + (t.revenue || 0), 0);
   const grossRevenue = ticketRevenue + drinkRevenue + tableRevenue;
+  const stripeFees =
+    tickets.reduce((s, t) => s + (t.stripe || 0), 0) +
+    orders.reduce((s, o) => s + (o.stripe || 0), 0) +
+    tables.reduce((s, t) => s + (t.stripe || 0), 0);
   const refunds =
     tickets.reduce((s, t) => s + (t.refunded ? t.refundAmount : 0), 0) +
     orders.reduce((s, o) => s + (o.refunded ? o.refundAmount : 0), 0) +
     tables.reduce((s, t) => s + (t.refunded ? t.refundAmount : 0), 0);
-  const netRevenue = Math.max(0, grossRevenue - refunds);
+  const netRevenue = Math.max(0, grossRevenue - stripeFees - refunds);
   const revenuePerHead = heads > 0 ? netRevenue / heads : 0;
   const avgOrderValue = orders.length > 0 ? drinkRevenue / orders.length : 0;
 
