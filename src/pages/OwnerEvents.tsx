@@ -806,6 +806,7 @@ export default function OwnerEvents() {
                   <option value="club" style={{ background: '#0a0a0c' }}>Club</option>
                   <option value="after_party" style={{ background: '#0a0a0c' }}>After Party</option>
                   <option value="beach_club" style={{ background: '#0a0a0c' }}>Beach Club</option>
+                  <option value="open_air" style={{ background: '#0a0a0c' }}>Open Air</option>
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
               </div>

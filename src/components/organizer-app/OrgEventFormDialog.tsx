@@ -57,6 +57,7 @@ const EVENT_TYPES = [
   { value: 'club', label: 'Club' },
   { value: 'after_party', label: 'After Party' },
   { value: 'beach_club', label: 'Beach Club' },
+  { value: 'open_air', label: 'Open Air' },
   { value: 'private_party', label: 'Soirée privée' },
 ];
 

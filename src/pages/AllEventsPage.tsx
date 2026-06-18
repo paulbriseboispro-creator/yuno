@@ -97,6 +97,7 @@ const TYPE_CHIPS = [
   { id: 'club', label: 'Clubs' },
   { id: 'after_party', label: 'After Parties' },
   { id: 'beach_club', label: 'Beach Clubs' },
+  { id: 'open_air', label: 'Open Air' },
 ];
 
 const FILTER_DYNAMIC_DATA: FilterDynamicData = {

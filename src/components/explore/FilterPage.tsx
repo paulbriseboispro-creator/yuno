@@ -19,6 +19,7 @@ const EVENT_TYPES = [
   { id: 'club', label: 'Clubs' },
   { id: 'after_party', label: 'After Parties' },
   { id: 'beach_club', label: 'Beach Clubs' },
+  { id: 'open_air', label: 'Open Air' },
 ];
 
 const MUSIC_GENRES = [
