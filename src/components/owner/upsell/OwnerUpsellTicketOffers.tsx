@@ -172,7 +172,11 @@ export function OwnerUpsellTicketOffers({ venueId }: { venueId: string }) {
   };
 
   const toggleActive = async (offer: TicketUpsellOffer) => {
-    await supabase.from('ticket_upsell_offers').update({ is_active: !offer.is_active }).eq('id', offer.id);
+    const { error } = await supabase.from('ticket_upsell_offers').update({ is_active: !offer.is_active }).eq('id', offer.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     fetchOffers();
   };
 

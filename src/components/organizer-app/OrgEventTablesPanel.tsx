@@ -176,7 +176,8 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
 
   const deleteZone = async (id: string) => {
     if (!confirm(tt('Supprimer cette zone et tous ses packs ?', 'Delete this zone and all its packs?'))) return;
-    await supabase.from('table_packs').delete().eq('zone_id', id).eq('event_id', eventId);
+    const { error: packErr } = await supabase.from('table_packs').delete().eq('zone_id', id).eq('event_id', eventId);
+    if (packErr) { toast.error(packErr.message); return; }
     const { error } = await supabase.from('table_zones').delete().eq('id', id);
     if (error) toast.error(error.message);
     else { toast.success(tt('Zone supprimée', 'Zone deleted')); loadAll(); }

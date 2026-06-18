@@ -275,7 +275,11 @@ export function OwnerUpsellCartRules({ venueId }: { venueId: string }) {
   };
 
   const toggleActive = async (rule: CartRule) => {
-    await supabase.from('upsell_cart_rules').update({ is_active: !rule.is_active }).eq('id', rule.id);
+    const { error } = await supabase.from('upsell_cart_rules').update({ is_active: !rule.is_active }).eq('id', rule.id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     fetchRules();
   };
 
