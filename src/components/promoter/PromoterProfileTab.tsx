@@ -82,10 +82,11 @@ export function PromoterProfileTab({ promoter, allPromoterProfiles, onSaved }: P
     if (!user) return;
     setSaving(true);
     try {
-      await supabase.from('profiles').update({
+      const { error: profErr } = await supabase.from('profiles').update({
         first_name: firstName || null,
         last_name: lastName || null,
       }).eq('id', user.id);
+      if (profErr) throw profErr;
 
       const newCode = generatePromoCode(firstName, lastName);
       const updateData: Record<string, any> = {
@@ -119,7 +120,8 @@ export function PromoterProfileTab({ promoter, allPromoterProfiles, onSaved }: P
         }
       }
 
-      await supabase.from('promoters').update(updateData as TablesUpdate<'promoters'>).eq('user_id', user.id);
+      const { error: promErr } = await supabase.from('promoters').update(updateData as TablesUpdate<'promoters'>).eq('user_id', user.id);
+      if (promErr) throw promErr;
 
       toast.success('Profil mis à jour');
       onSaved?.();
@@ -174,7 +176,8 @@ export function PromoterProfileTab({ promoter, allPromoterProfiles, onSaved }: P
             <ProfilePhotoUpload
               currentImageUrl={promoter.profile_image_url}
               onUpload={async (url) => {
-                await supabase.from('promoters').update({ profile_image_url: url }).eq('user_id', user!.id);
+                const { error } = await supabase.from('promoters').update({ profile_image_url: url }).eq('user_id', user!.id);
+                if (error) { toast.error('Erreur lors de la sauvegarde'); return; }
                 onSaved?.();
               }}
               size="lg"
