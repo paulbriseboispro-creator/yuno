@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { useParams } from 'react-router-dom';
 import { usePreviewNavigate } from '@/contexts/OwnerPreviewContext';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, ChevronRight, ChevronDown, ChevronUp, Share2 } from 'lucide-react';
+import { ArrowLeft, ChevronRight, ChevronDown, ChevronUp, Share2, MapPin, Calendar } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr } from 'date-fns/locale';
@@ -498,11 +498,11 @@ export default function VenuePage() {
           </div>
           <Skeleton className="h-8 w-28 rounded-full" />
         </div>
-        <div className="px-5 pt-8 space-y-4">
+        <div className="mx-auto max-w-xl px-5 pt-8 space-y-4">
           <Skeleton className="h-4 w-32" />
-          <div className="flex gap-5">
-            <Skeleton className="w-40 aspect-[9/16] rounded-xl" />
-            <Skeleton className="w-40 aspect-[9/16] rounded-xl" />
+          <div className="flex flex-col gap-6">
+            <Skeleton className="w-full aspect-square rounded-xl" />
+            <Skeleton className="w-full aspect-square rounded-xl" />
           </div>
         </div>
       </div>
@@ -711,7 +711,7 @@ export default function VenuePage() {
 
       {/* ===== EVENTS SECTION ===== */}
       {events.length > 0 && (
-        <div className="pt-8">
+        <div className="mx-auto max-w-xl pt-8">
           {/* Section header — ruled */}
           <div
             className="flex items-center justify-between px-5"
@@ -725,28 +725,20 @@ export default function VenuePage() {
             </span>
           </div>
 
-          {/* Cards — vertical full-width list */}
-          <div className="px-5 pt-4 pb-2 space-y-3">
+          {/* Cards — vertical single-column list (1:1 poster + text below) */}
+          <div className="flex flex-col gap-6 px-5 pt-4 pb-2">
             {events.map((event, index) => {
-              const ticketPrice = eventTicketPrices[event.id];
               const organizer = eventOrganizers[event.id];
               const isCoOrganized = !!organizer;
               const posterSrc = (event as any).posterUrl;
-              const musicGenre = (event as any).musicGenre as string | undefined;
               const startDate = new Date(event.startAt);
-              const isToday = startDate.toDateString() === new Date().toDateString();
-              const dateLabel = isToday
-                ? 'TONIGHT'
-                : formatInTimeZone(startDate, PARIS_TIMEZONE, 'EEE dd MMM', { locale: fr }).toUpperCase();
-              const timeLabel = formatInTimeZone(startDate, PARIS_TIMEZONE, 'HH:mm');
 
               return (
                 <motion.article
                   key={event.id}
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1], delay: index * 0.06 }}
-                  whileTap={{ scale: 0.98, transition: { duration: 0.12 } }}
+                  transition={{ delay: index * 0.06 }}
                   onClick={() => {
                     if (isCoOrganized) {
                       navigate(`/event/${event.id}`);
@@ -754,32 +746,24 @@ export default function VenuePage() {
                       navigate(`/club/${slug}/event/${event.id}`);
                     }
                   }}
-                  className="cursor-pointer overflow-hidden"
-                  style={{ borderRadius: 4, border: '1px solid rgba(255,255,255,0.08)' }}
+                  className="cursor-pointer group"
                 >
-                  {/* Poster — 16:9 with date + title overlay */}
-                  <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', background: '#111', overflow: 'hidden' }}>
+                  {/* Poster — 1:1 */}
+                  <div className="relative aspect-square rounded-xl overflow-hidden bg-muted">
                     {posterSrc ? (
                       <img
-                        src={getOptimizedImageUrl(posterSrc, { width: 800, quality: 82 })}
+                        src={getOptimizedImageUrl(posterSrc, { width: 400, height: 400, quality: 75 })}
                         alt={event.title}
-                        className="absolute inset-0 w-full h-full object-cover"
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         loading="lazy"
                       />
                     ) : (
-                      <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #1a0f12 0%, #3a1020 100%)' }} />
-                    )}
-                    {/* Bottom gradient */}
-                    <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(10,10,10,0.94) 0%, rgba(10,10,10,0) 55%)' }} />
-
-                    {/* Genre badge */}
-                    {musicGenre && (
-                      <div className="absolute top-3 left-3 z-10">
-                        <span className="genre-tag">{musicGenre}</span>
+                      <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center">
+                        <Calendar className="h-12 w-12 text-muted-foreground" />
                       </div>
                     )}
 
-                    {/* Fav button */}
+                    {/* Favorite (heart) — top-right of poster */}
                     <div
                       className="absolute top-3 right-3 z-10 flex items-center justify-center rounded-full w-8 h-8"
                       style={{ background: 'rgba(10,10,10,0.55)', border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)' }}
@@ -793,38 +777,24 @@ export default function VenuePage() {
                         iconClassName="h-3.5 w-3.5"
                       />
                     </div>
-
-                    {/* Date + title over gradient */}
-                    <div className="absolute bottom-0 left-0 right-0 z-10 px-4 pb-3.5">
-                      <p className="font-mono uppercase mb-1.5" style={{ fontSize: '10px', color: 'rgba(255,255,255,0.50)', letterSpacing: '0.14em' }}>
-                        {dateLabel}{!isToday && ` · ${timeLabel}`}
-                      </p>
-                      <h3
-                        className="font-display font-bold text-white uppercase"
-                        style={{ fontSize: 'clamp(20px, 5.5vw, 30px)', letterSpacing: '-0.02em', lineHeight: 0.93 }}
-                      >
-                        {event.title}
-                      </h3>
-                    </div>
                   </div>
 
-                  {/* Bottom strip */}
-                  <div
-                    className="flex items-center justify-between px-4 py-3"
-                    style={{ background: '#0e0e0e', borderTop: '1px solid rgba(255,255,255,0.06)' }}
-                  >
-                    <p className="font-mono truncate" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                      {isCoOrganized && organizer ? organizer.name : venue.name}
-                      {!isToday && <span style={{ color: '#3A3A3E' }}> · {timeLabel}</span>}
+                  {/* Text — separated below the image */}
+                  <div className="pt-2.5">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                      {formatInTimeZone(startDate, PARIS_TIMEZONE, 'EEE d MMM', { locale: fr })}
                     </p>
-                    <div className="flex items-center gap-2.5 shrink-0 ml-3">
-                      {ticketPrice !== undefined && ticketPrice !== null && (
-                        <span className="font-mono font-bold" style={{ fontSize: '13px', color: '#E8192C', letterSpacing: '0.02em' }}>
-                          {ticketPrice.toFixed(2)}€
+                    <p className="text-sm font-bold text-foreground mt-0.5 line-clamp-2 leading-tight">
+                      {event.title}
+                    </p>
+                    {venue.city && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                        <span className="text-[11px] text-muted-foreground truncate">
+                          {venue.city}
                         </span>
-                      )}
-                      <span className="font-mono" style={{ fontSize: '12px', color: '#3A3A3E' }}>→</span>
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </motion.article>
               );

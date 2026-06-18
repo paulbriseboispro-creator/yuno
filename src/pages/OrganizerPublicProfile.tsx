@@ -2,15 +2,14 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Calendar, Users, MapPin, Sparkles, Share2, Globe, Bell, ChevronRight } from 'lucide-react';
-import { Instagram } from '@/components/icons/Instagram';
+import { ArrowLeft, Calendar, Users, MapPin, Share2, Bell, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr, enUS, es } from 'date-fns/locale';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { BottomNav } from '@/components/BottomNav';
+import { FavoriteButton } from '@/components/FavoriteButton';
 import { toast } from 'sonner';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { useTagEventsSource } from '@/hooks/usePurchaseSourceTracking';
@@ -264,7 +263,7 @@ export default function OrganizerPublicProfile() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0A0A' }}>
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     );
@@ -272,7 +271,7 @@ export default function OrganizerPublicProfile() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4 px-4">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4" style={{ background: '#0A0A0A' }}>
         <Users className="h-16 w-16 text-muted-foreground/40" />
         <p className="text-muted-foreground">{t('orgPublic.notFound') || 'Organisateur introuvable'}</p>
         <Button variant="outline" onClick={() => navigate('/')}>
@@ -285,87 +284,83 @@ export default function OrganizerPublicProfile() {
   const visiblePast = showAllPast ? past : past.slice(0, 3);
 
   return (
-    <div className="relative min-h-[100dvh] bg-background flex flex-col">
+    <div className="relative min-h-[100dvh] flex flex-col" style={{ background: '#0A0A0A' }}>
       <main className="flex-1 pb-28">
-        {/* ===== HERO BANNER 16:9 (VenuePage style) ===== */}
-        <div className="relative px-4" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}>
+        {/* ===== HERO — full-bleed cinematic (Yuno DA) ===== */}
+        <div className="relative overflow-hidden" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px))' }}>
           {/* Floating back */}
-          <div className="absolute left-8 z-20" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 2rem)' }}>
+          <div className="absolute left-5 z-20" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}>
             <button
               onClick={() => navigate('/')}
-              className="flex items-center justify-center h-10 w-10 rounded-full bg-black/40 backdrop-blur-xl hover:bg-black/60 transition-colors"
+              className="flex items-center justify-center h-9 w-9 hover:opacity-80 transition-opacity"
+              style={{ borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: 'none' }}
             >
-              <ArrowLeft className="h-5 w-5 text-white" />
+              <ArrowLeft className="h-4 w-4 text-white" />
             </button>
           </div>
           {/* Floating share */}
-          <div className="absolute right-8 z-20 flex items-center gap-2" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 2rem)' }}>
+          <div className="absolute right-5 z-20 flex items-center gap-2" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}>
             <button
               onClick={handleShare}
-              className="flex items-center justify-center h-10 w-10 rounded-full bg-black/40 backdrop-blur-xl hover:bg-black/60 transition-colors"
               aria-label={t('orgPublic.share')}
+              className="flex items-center justify-center h-9 w-9 hover:opacity-80 transition-opacity"
+              style={{ borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: 'none' }}
             >
-              <Share2 className="h-5 w-5 text-white" />
+              <Share2 className="h-4 w-4 text-white" />
             </button>
           </div>
 
-          <div className="relative w-full aspect-video rounded-xl overflow-hidden">
+          {/* Hero image — full-bleed 4:3 */}
+          <div className="relative w-full overflow-hidden" style={{ aspectRatio: '4/3' }}>
             {profile.cover_url ? (
               <motion.img
-                initial={{ scale: 1.05, opacity: 0 }}
+                initial={{ scale: 1.06, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.6 }}
-                src={getOptimizedImageUrl(profile.cover_url, { width: 1200, quality: 80 })}
+                transition={{ duration: 0.7, ease: 'easeOut' }}
+                src={getOptimizedImageUrl(profile.cover_url, { width: 1200, quality: 82 })}
                 alt={profile.display_name}
                 fetchPriority="high"
                 className="absolute inset-0 w-full h-full object-cover"
               />
             ) : (
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-primary/10 to-background" />
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #1a0f12 0%, #3a1020 100%)' }} />
             )}
-            <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent" />
+            {/* Cinematic gradient */}
+            <div
+              className="absolute inset-0"
+              style={{ background: 'linear-gradient(to top, rgba(10,10,10,0.97) 0%, rgba(10,10,10,0.05) 45%, rgba(10,10,10,0.50) 100%)' }}
+            />
           </div>
         </div>
 
-        {/* ===== IDENTITY ZONE ===== */}
+        {/* ===== IDENTITY BLOCK (Yuno DA) ===== */}
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
-          className="px-5 pt-4 space-y-2.5"
+          className="px-5 pt-5"
         >
-          {/* Name */}
-          <h1 className="font-display text-2xl font-bold leading-tight text-foreground">
-            {profile.display_name}
-          </h1>
-
-          {/* Avatar + organizer badge */}
-          <div className="flex items-center gap-2 min-w-0">
-            {profile.avatar_url ? (
+          {/* Kicker — logo + ORGANIZER */}
+          <div className="flex items-center gap-2 mb-2">
+            {profile.avatar_url && (
               <img
                 src={profile.avatar_url}
                 alt={profile.display_name}
-                className="h-7 w-7 rounded-full object-cover border border-white/[0.06] flex-shrink-0 bg-muted"
-                onError={(e) => {
-                  // Hide broken image and let initials fallback show
-                  (e.currentTarget as HTMLImageElement).style.display = 'none';
-                  const fallback = (e.currentTarget as HTMLImageElement).nextElementSibling as HTMLElement | null;
-                  if (fallback) fallback.style.display = 'flex';
-                }}
+                className="h-6 w-6 rounded-full object-cover flex-shrink-0"
+                style={{ border: '1px solid rgba(255,255,255,0.14)' }}
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
               />
-            ) : null}
-            <div
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-primary flex-shrink-0"
-              style={{ display: profile.avatar_url ? 'none' : 'flex' }}
-            >
-              <span className="text-xs font-bold text-primary-foreground">
-                {profile.display_name.charAt(0).toUpperCase()}
-              </span>
-            </div>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-medium flex-shrink-0">
-              <Sparkles className="h-3 w-3" />
-              {t('orgPublic.organizer') || 'Organisateur'}
-            </span>
+            )}
+            <p className="font-mono uppercase" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.16em' }}>
+              {(t('orgPublic.organizer') || 'Organizer').toUpperCase()}
+            </p>
           </div>
+
+          <h1
+            className="font-display font-bold"
+            style={{ fontSize: 'clamp(34px, 10vw, 54px)', color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '-0.025em', lineHeight: 0.9, marginBottom: 16 }}
+          >
+            {profile.display_name}
+          </h1>
 
           {/* Follow + count */}
           <div className="flex items-center gap-3">
@@ -373,7 +368,7 @@ export default function OrganizerPublicProfile() {
               onClick={toggleFollow}
               variant={isFollowing ? 'outline' : 'default'}
               size="sm"
-              className={`h-8 px-3 rounded-full text-xs font-medium ${isFollowing ? 'border-border/50' : ''}`}
+              className={`h-8 px-3 rounded-[10px] text-xs font-medium ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 ${isFollowing ? 'border-border/50' : ''}`}
             >
               {isFollowing ? (
                 <><Bell className="h-3.5 w-3.5 mr-1.5 fill-current" /> {t('subscribe.active')}</>
@@ -382,7 +377,7 @@ export default function OrganizerPublicProfile() {
               )}
             </Button>
             {followersCount > 0 && (
-              <span className="text-sm text-muted-foreground">
+              <span style={{ fontSize: '13px', color: '#9A9A9A' }}>
                 {followersCount.toLocaleString()} {followersCount === 1
                   ? (t('venue.follower') || 'abonné')
                   : (t('venue.followers') || 'abonnés')}
@@ -393,101 +388,117 @@ export default function OrganizerPublicProfile() {
 
         {/* ===== BIO ===== */}
         {profile.bio && (
-          <div className="px-5 pt-4">
+          <div className="px-5 pt-5">
             <div className="relative">
-              <p className={`text-sm text-muted-foreground leading-relaxed ${!bioExpanded ? 'line-clamp-3' : ''}`}>
+              <p
+                className={!bioExpanded ? 'line-clamp-3' : ''}
+                style={{ fontSize: '14px', color: '#9A9A9A', lineHeight: 1.65, letterSpacing: '0.01em' }}
+              >
                 {profile.bio}
               </p>
               {!bioExpanded && profile.bio.length > 180 && (
-                <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-background to-transparent" />
+                <div
+                  className="absolute bottom-0 left-0 right-0 h-10 pointer-events-none"
+                  style={{ background: 'linear-gradient(to top, #0A0A0A, transparent)' }}
+                />
               )}
             </div>
             {profile.bio.length > 180 && (
               <button
                 onClick={() => setBioExpanded(!bioExpanded)}
-                className="text-xs font-medium text-primary mt-1.5"
+                className="flex items-center gap-1 mt-2"
+                style={{ fontSize: '11px', color: '#5A5A5E', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.06em', textTransform: 'uppercase' }}
               >
                 {bioExpanded ? (t('event.seeLess') || 'Voir moins') : (t('event.seeMore') || 'Voir plus')}
+                {bioExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
               </button>
             )}
           </div>
         )}
 
-        {/* ===== SOCIAL LINKS ===== */}
+        {/* ===== SOCIAL / INFO CARD (Yuno DA) ===== */}
         {(profile.instagram_url || profile.website_url) && (
-          <div className="px-5 pt-4 flex gap-2">
-            {profile.instagram_url && (
-              <a
-                href={profile.instagram_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="h-9 w-9 rounded-full bg-white/[0.04] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/10 transition-all"
-                aria-label="Instagram"
-              >
-                <Instagram className="h-4 w-4" />
-              </a>
-            )}
-            {profile.website_url && (
-              <a
-                href={profile.website_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="h-9 w-9 rounded-full bg-white/[0.04] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/10 transition-all"
-                aria-label="Website"
-              >
-                <Globe className="h-4 w-4" />
-              </a>
-            )}
+          <div className="px-5 pt-6">
+            <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '0 16px' }}>
+              {([
+                profile.instagram_url
+                  ? { label: 'Instagram', type: 'instagram', value: '@' + profile.instagram_url.replace(/https?:\/\/(www\.)?instagram\.com\//i, '').replace(/\/$/, ''), href: profile.instagram_url }
+                  : null,
+                profile.website_url
+                  ? { label: 'Website', type: 'website', value: profile.website_url.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, ''), href: profile.website_url }
+                  : null,
+              ])
+                .filter((x): x is { label: string; type: string; value: string; href: string } => x !== null)
+                .map(({ label, type, value, href }, i, arr) => (
+                  <div
+                    key={label}
+                    className="flex items-center justify-between gap-3"
+                    style={{ padding: '11px 0', borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.07)' : 'none' }}
+                  >
+                    <span className="font-mono flex-shrink-0" style={{ fontSize: '11px', color: '#5A5A5E', letterSpacing: '0.08em' }}>{label}</span>
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono text-right truncate"
+                      style={{ fontSize: '12px', color: type === 'instagram' ? '#E8192C' : '#FFFFFF', letterSpacing: '0.02em' }}
+                    >
+                      {value}
+                    </a>
+                  </div>
+                ))}
+            </div>
           </div>
         )}
 
-        {/* ===== STATS PILLS ===== */}
-        <div className="px-5 pt-6">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="text-center p-3 rounded-xl bg-white/[0.03] backdrop-blur-sm border border-white/[0.06]">
-              <p className="text-xl font-bold text-primary tabular-nums">{upcoming.length}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wider">
-                {t('orgPublic.upcomingDatesCount') || 'À venir'}
-              </p>
-            </div>
-            <div className="text-center p-3 rounded-xl bg-white/[0.03] backdrop-blur-sm border border-white/[0.06]">
-              <p className="text-xl font-bold text-foreground tabular-nums">{past.length}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wider">
-                {t('orgPublic.pastDatesCount') || 'Passées'}
-              </p>
-            </div>
-            <div className="text-center p-3 rounded-xl bg-white/[0.03] backdrop-blur-sm border border-white/[0.06]">
-              <p className="text-xl font-bold text-foreground tabular-nums">{followersCount}</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5 uppercase tracking-wider">
-                {t('venue.followers') || 'Abonnés'}
-              </p>
-            </div>
+        {/* ===== STATS — ruled row (Yuno DA) ===== */}
+        <div
+          className="flex items-start px-5 pt-6 pb-5 mt-2"
+          style={{ borderTop: '1px solid rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.06)', gap: 0 }}
+        >
+          <div className="flex flex-col flex-1 min-w-0" style={{ paddingRight: 12 }}>
+            <span className="font-mono" style={{ fontSize: '9px', color: '#5A5A5E', letterSpacing: '0.14em', marginBottom: 4 }}>{(t('orgPublic.upcomingDatesCount') || 'À venir').toUpperCase()}</span>
+            <span className="font-display font-bold tabular-nums" style={{ fontSize: '20px', color: '#FFFFFF', letterSpacing: '-0.01em', lineHeight: 1.1 }}>{upcoming.length}</span>
+          </div>
+          <div className="flex flex-col flex-1 min-w-0" style={{ paddingRight: 12, borderLeft: '1px solid rgba(255,255,255,0.07)', paddingLeft: 12 }}>
+            <span className="font-mono" style={{ fontSize: '9px', color: '#5A5A5E', letterSpacing: '0.14em', marginBottom: 4 }}>{(t('orgPublic.pastDatesCount') || 'Passées').toUpperCase()}</span>
+            <span className="font-display font-bold tabular-nums" style={{ fontSize: '20px', color: '#FFFFFF', letterSpacing: '-0.01em', lineHeight: 1.1 }}>{past.length}</span>
+          </div>
+          <div className="flex flex-col flex-1 min-w-0" style={{ borderLeft: '1px solid rgba(255,255,255,0.07)', paddingLeft: 12 }}>
+            <span className="font-mono" style={{ fontSize: '9px', color: '#5A5A5E', letterSpacing: '0.14em', marginBottom: 4 }}>{(t('venue.followers') || 'Abonnés').toUpperCase()}</span>
+            <span className="font-display font-bold tabular-nums" style={{ fontSize: '20px', color: '#FFFFFF', letterSpacing: '-0.01em', lineHeight: 1.1 }}>{followersCount}</span>
           </div>
         </div>
 
-        {/* ===== UPCOMING EVENTS — horizontal posters ===== */}
+        {/* ===== UPCOMING EVENTS — single-column vertical list ===== */}
         {upcoming.length > 0 && (
-          <div className="mx-auto max-w-7xl pt-8">
-            <div className="px-5 mb-4">
-              <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+          <div className="mx-auto max-w-xl pt-8">
+            <div
+              className="flex items-center justify-between px-5"
+              style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}
+            >
+              <p className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.14em', color: '#5A5A5E' }}>
                 {t('venue.upcomingEvents') || 'Prochains événements'}
-              </h3>
+              </p>
+              <span className="font-mono" style={{ fontSize: '10px', color: '#3A3A3E', letterSpacing: '0.08em' }}>
+                {upcoming.length}
+              </span>
             </div>
 
-            <div className="flex gap-5 overflow-x-auto pb-4 px-5 scrollbar-hide">
+            <div className="flex flex-col gap-6 px-5 pt-4 pb-4">
               {upcoming.map((event, index) => (
                 <motion.div
                   key={event.id}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.06 }}
-                  className="flex-shrink-0 w-40 sm:w-52 cursor-pointer group"
+                  className="cursor-pointer group"
                   onClick={() => navigate(`/event/${event.id}`)}
                 >
-                  <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-muted">
+                  <div className="relative aspect-square rounded-xl overflow-hidden bg-muted">
                     {event.poster_url ? (
                       <img
-                        src={getOptimizedImageUrl(event.poster_url, { width: 300, height: 533, quality: 75 })}
+                        src={getOptimizedImageUrl(event.poster_url, { width: 400, height: 400, quality: 75 })}
                         alt={event.title}
                         className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
@@ -496,24 +507,38 @@ export default function OrganizerPublicProfile() {
                         <Calendar className="h-12 w-12 text-muted-foreground" />
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent" />
 
-                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <p className="text-[10px] uppercase tracking-wider text-white/70 font-medium">
-                        {formatInTimeZone(new Date(event.start_at), PARIS_TIMEZONE, 'EEE d MMM', { locale })}
-                      </p>
-                      <p className="text-sm font-bold text-white mt-0.5 line-clamp-2 leading-tight">
-                        {event.title}
-                      </p>
-                      {(event.venue_name || event.location_city) && (
-                        <div className="flex items-center gap-1 mt-1">
-                          <MapPin className="h-3 w-3 text-white/60 flex-shrink-0" />
-                          <span className="text-[11px] text-white/70 truncate">
-                            {event.venue_name || event.location_city}
-                          </span>
-                        </div>
-                      )}
+                    {/* Favorite (heart) — top-right of poster */}
+                    <div
+                      className="absolute top-3 right-3 z-10 flex items-center justify-center rounded-full w-8 h-8"
+                      style={{ background: 'rgba(10,10,10,0.55)', border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)' }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <FavoriteButton
+                        type="event"
+                        id={event.id}
+                        className="h-8 w-8 rounded-full border-0 bg-transparent shadow-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-0"
+                        size="icon"
+                        iconClassName="h-3.5 w-3.5"
+                      />
                     </div>
+                  </div>
+
+                  <div className="pt-2.5">
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                      {formatInTimeZone(new Date(event.start_at), PARIS_TIMEZONE, 'EEE d MMM', { locale })}
+                    </p>
+                    <p className="text-sm font-bold text-foreground mt-0.5 line-clamp-2 leading-tight">
+                      {event.title}
+                    </p>
+                    {(event.venue_name || event.location_city) && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                        <span className="text-[11px] text-muted-foreground truncate">
+                          {event.venue_name || event.location_city}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </motion.div>
               ))}
@@ -524,9 +549,9 @@ export default function OrganizerPublicProfile() {
         {/* ===== EMPTY STATE for upcoming ===== */}
         {upcoming.length === 0 && (
           <div className="px-5 pt-8">
-            <div className="p-8 text-center rounded-xl bg-white/[0.03] backdrop-blur-sm border border-white/[0.06]">
-              <Calendar className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-              <p className="text-sm text-muted-foreground">
+            <div className="p-8 text-center" style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px' }}>
+              <Calendar className="h-10 w-10 mx-auto mb-3" style={{ color: '#3A3A3E' }} />
+              <p style={{ fontSize: '13px', color: '#5A5A5E' }}>
                 {t('orgPublic.noUpcoming') || 'Aucun événement à venir pour le moment.'}
               </p>
             </div>
@@ -561,13 +586,13 @@ export default function OrganizerPublicProfile() {
               animate={{ opacity: 1, y: 0 }}
               className="pt-8"
             >
-              <div className="px-5 mb-3">
-                <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              <div className="px-5 mb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
+                <p className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.14em', color: '#5A5A5E' }}>
                   {t('event.drinksMenu') || 'Boissons & cocktails'}
-                </h2>
-                <p className="text-[11px] text-muted-foreground mt-1">
+                </p>
+                <p className="mt-1" style={{ fontSize: '11px', color: '#5A5A5E' }}>
                   {t('event.drinksServedBy') || 'Servies par'}{' '}
-                  <span className="text-foreground font-medium">{selectedGroup.venueName}</span>
+                  <span style={{ color: '#FFFFFF', fontWeight: 500 }}>{selectedGroup.venueName}</span>
                 </p>
               </div>
 
@@ -598,15 +623,16 @@ export default function OrganizerPublicProfile() {
                 {categories.map((cat) => (
                   <div key={cat}>
                     <div className="px-5 flex items-end justify-between mb-2">
-                      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      <h3 className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.12em', color: '#5A5A5E' }}>
                         {categoryLabels[cat]}
                       </h3>
                       <button
                         onClick={() => navigate(`/club/${selectedGroup.venueId}/drinks/${cat}`)}
-                        className="flex items-center gap-0.5 text-xs text-primary font-medium"
+                        className="flex items-center gap-0.5"
+                        style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.08em' }}
                       >
                         {t('common.viewAll') || 'Voir tout'}
-                        <ChevronRight className="h-3.5 w-3.5" />
+                        <ChevronRight className="h-3 w-3" />
                       </button>
                     </div>
                     <div className="flex gap-3 overflow-x-auto px-5 pb-2 snap-x snap-mandatory scrollbar-none">
@@ -630,22 +656,25 @@ export default function OrganizerPublicProfile() {
           );
         })()}
 
-        {/* ===== PAST EVENTS — list with thumbnails ===== */}
+        {/* ===== PAST EVENTS — list with thumbnails (Yuno DA) ===== */}
         {past.length > 0 && (
-          <div className="px-5 pt-8 space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-              {t('orgPublic.pastEvents') || 'Événements passés'}
-            </h3>
-            <div className="space-y-2 opacity-70">
+          <div className="mx-auto max-w-xl pt-10">
+            <div className="px-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
+              <p className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.14em', color: '#5A5A5E' }}>
+                {t('orgPublic.pastEvents') || 'Événements passés'}
+              </p>
+            </div>
+            <div className="px-5 pt-4">
               {visiblePast.map((event, i) => (
                 <motion.div
                   key={event.id}
                   initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 0.7, y: 0 }}
+                  animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.04 }}
-                  className="flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]"
+                  className="flex items-center gap-3 py-3"
+                  style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
                 >
-                  <div className="h-14 w-12 shrink-0 rounded-lg overflow-hidden bg-white/[0.05]">
+                  <div className="h-14 w-12 shrink-0 overflow-hidden" style={{ borderRadius: 3, background: 'rgba(255,255,255,0.05)' }}>
                     {event.poster_url ? (
                       <img
                         src={event.poster_url}
@@ -654,13 +683,13 @@ export default function OrganizerPublicProfile() {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <Calendar className="h-4 w-4" style={{ color: '#5A5A5E' }} />
                       </div>
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate text-foreground">{event.title}</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                    <p className="truncate" style={{ fontSize: '14px', color: '#FFFFFF', fontWeight: 500 }}>{event.title}</p>
+                    <p className="font-mono mt-0.5" style={{ fontSize: '11px', color: '#5A5A5E', letterSpacing: '0.04em' }}>
                       {formatInTimeZone(new Date(event.start_at), PARIS_TIMEZONE, 'EEE d MMM yyyy', { locale })}
                       {event.venue_name && ` · ${event.venue_name}`}
                     </p>
@@ -669,17 +698,25 @@ export default function OrganizerPublicProfile() {
               ))}
             </div>
             {past.length > 3 && !showAllPast && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full bg-white/[0.03] border-white/[0.08] hover:bg-white/[0.06]"
-                onClick={() => setShowAllPast(true)}
-              >
-                {t('orgPublic.showAllPast') || `Voir les ${past.length} événements passés`}
-              </Button>
+              <div className="px-5 pt-4">
+                <button
+                  onClick={() => setShowAllPast(true)}
+                  className="w-full flex items-center justify-center"
+                  style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '11px', color: '#5A5A5E', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4, padding: '10px 0' }}
+                >
+                  {t('orgPublic.showAllPast') || `Voir les ${past.length} événements passés`}
+                </button>
+              </div>
             )}
           </div>
         )}
+        {/* Footer */}
+        <div className="px-5 pt-10 pb-4 text-center">
+          <p className="font-mono" style={{ fontSize: '10px', color: '#3A3A3E', letterSpacing: '0.08em' }}>
+            © {new Date().getFullYear()} {profile.display_name.toUpperCase()} · POWERED BY YUNO
+          </p>
+        </div>
+
       </main>
 
       {partnerDrinksByVenue.length > 0 && (
