@@ -185,24 +185,20 @@ const Welcome = () => {
     
     const requestGeolocation = () => {
       if (!navigator.geolocation) {
-        console.log('Geolocation not supported');
         return;
       }
       
-      console.log('Auto geolocation: requesting position...');
       setLocationRequested(true);
       
       // Use lower accuracy first for Safari iOS compatibility
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          console.log('Auto geolocation: success', position.coords);
           setUserLocation({
             lat: position.coords.latitude,
             lng: position.coords.longitude
           });
         },
         (error) => {
-          console.log('Auto geolocation: denied or unavailable:', error.message, error.code);
           // Error codes: 1=PERMISSION_DENIED, 2=POSITION_UNAVAILABLE, 3=TIMEOUT
         },
         { 
@@ -293,14 +289,12 @@ const Welcome = () => {
     }
 
     setLocationRequested(true);
-    console.log('Manual geolocation: requesting position...');
     
     // Show loading toast for Safari users
     const loadingToast = toast.loading(t('welcome.locating') || 'Getting your location...');
     
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        console.log('Manual geolocation: success', position.coords);
         toast.dismiss(loadingToast);
         setUserLocation({
           lat: position.coords.latitude,

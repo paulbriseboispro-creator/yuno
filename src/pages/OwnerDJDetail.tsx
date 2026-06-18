@@ -518,7 +518,7 @@ export default function OwnerDJDetail() {
               <DJCalendar
                 sets={sets.map(s => ({ ...s, dj: { first_name: dj.first_name, last_name: dj.last_name, stage_name: dj.stage_name } }))}
                 showDJNames={false}
-                onSetClick={(set) => console.log('Set:', set)}
+                onSetClick={() => {}}
               />
 
               {/* Upcoming sets list */}

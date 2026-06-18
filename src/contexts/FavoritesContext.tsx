@@ -114,8 +114,6 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
 
           if (deleteError) {
             console.error('Error deleting past event favorites:', deleteError);
-          } else {
-            console.log(`Deleted ${pastFavoriteIds.length} past event favorites`);
           }
 
           // Filter out past events from the list
@@ -162,7 +160,6 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (event && new Date(event.end_at) < new Date()) {
-        console.log('Cannot add past event to favorites');
         return 'removed'; // Silently ignore
       }
     }
@@ -176,7 +173,6 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (affEvent && new Date(affEvent.event_date) < new Date(new Date().toISOString().split('T')[0])) {
-        console.log('Cannot add past affiliate event to favorites');
         return 'removed';
       }
     }

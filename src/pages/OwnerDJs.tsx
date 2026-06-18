@@ -338,7 +338,7 @@ export default function OwnerDJs() {
                 djs={djs.map(d => ({ id: d.id, first_name: d.first_name, last_name: d.last_name, stage_name: d.stage_name }))}
                 events={events}
                 venueAddress={venue?.address}
-                onSetClick={(set) => console.log('Set clicked:', set)}
+                onSetClick={() => {}}
                 onAddSet={handleAddSet}
                 onDeleteSet={handleDeleteSet}
                 canAddSets

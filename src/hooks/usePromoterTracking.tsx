@@ -26,7 +26,6 @@ function storePromoCode(code: string, venueId: string, eventId?: string, source?
   if (eventId) localStorage.setItem(PROMO_EVENT_KEY, eventId);
   if (source) localStorage.setItem(PROMO_SOURCE_KEY, source);
   
-  console.log('[PromoterTracking] Stored promo code:', { code, venueId, eventId, source });
 }
 
 /**
@@ -40,7 +39,6 @@ function clearExpiredLocalStorage() {
     localStorage.removeItem(PROMO_EVENT_KEY);
     localStorage.removeItem(PROMO_SOURCE_KEY);
     localStorage.removeItem(PROMO_EXPIRY_KEY);
-    console.log('[PromoterTracking] Cleared expired promo code from localStorage');
   }
 }
 
@@ -71,7 +69,6 @@ export function usePromoterTracking(venueId?: string, routeEventId?: string) {
         return;
       }
 
-      console.log('[PromoterTracking] Found ref code in URL:', refCode, 'for venue:', resolvedVenueId, 'event:', eventId, 'source:', source);
 
       storePromoCode(refCode, resolvedVenueId, eventId, source);
       trackPromoterClick(refCode, resolvedVenueId, eventId, source);
@@ -117,7 +114,6 @@ async function trackPromoterClick(promoCode: string, venueId: string, eventId?: 
       return;
     }
 
-    console.log('[PromoterTracking] Click tracking response:', data);
   } catch (error) {
     console.error('[PromoterTracking] Error in trackPromoterClick:', error);
   }
@@ -226,5 +222,4 @@ export function clearPromoCode() {
   localStorage.removeItem(PROMO_EVENT_KEY);
   localStorage.removeItem(PROMO_SOURCE_KEY);
   localStorage.removeItem(PROMO_EXPIRY_KEY);
-  console.log('[PromoterTracking] Cleared promo code from all storages');
 }

@@ -372,7 +372,6 @@ export default function Bouncer() {
     await stopScanning();
 
     const qrCode = decodedText.trim();
-    console.log('Scanned QR code:', qrCode);
 
     try {
       // First try to find a ticket_attendee with this qr_code (nominative tickets)
@@ -392,7 +391,6 @@ export default function Bouncer() {
 
       if (attendee && !attendeeError) {
         const ticket = attendee.tickets as any;
-        console.log('Found attendee ticket:', attendee.id, 'for ticket:', ticket.id);
 
         if (ticket.events.venue_id !== venueId) {
           setScanResult('error');
@@ -567,7 +565,6 @@ export default function Bouncer() {
         .maybeSingle();
 
       if (ticket && !ticketError) {
-        console.log('Found ticket:', ticket.id);
         
         if (ticket.events.venue_id !== venueId) {
           setScanResult('error');
@@ -716,7 +713,6 @@ export default function Bouncer() {
       }
 
       // If no ticket, check for VIP reservation
-      console.log('No ticket found, checking VIP reservations...');
       const { data: reservation, error: reservationError } = await supabase
         .from('table_reservations')
         .select(`
@@ -729,7 +725,6 @@ export default function Bouncer() {
         .maybeSingle();
 
       if (reservation && !reservationError) {
-        console.log('Found VIP reservation:', reservation.id);
         
         if (reservation.events.venue_id !== venueId) {
           setScanResult('error');
@@ -763,7 +758,6 @@ export default function Bouncer() {
         }
 
         const { data: { user: currentUser } } = await supabase.auth.getUser();
-        console.log('Updating VIP reservation entry_scanned for:', reservation.id, 'by user:', currentUser?.id);
 
         const checkInTime = new Date().toISOString();
         const { data: updatedRes, error: updateError } = await retrySupabaseAction(async () => {
@@ -846,7 +840,6 @@ export default function Bouncer() {
 
       // Check for Guest List entry (GL- prefix)
       if (qrCode.startsWith('GL-')) {
-        console.log('Guest List QR detected, checking entry...');
         const { data: glEntry, error: glError } = await supabase
           .from('guest_list_entries')
           .select(`
@@ -948,7 +941,6 @@ export default function Bouncer() {
       }
 
       // No ticket or reservation found
-      console.log('No ticket or reservation found for QR code:', qrCode);
       setScanResult('error');
       setErrorMessage(t('bouncer.ticketNotFound'));
     } catch (error) {

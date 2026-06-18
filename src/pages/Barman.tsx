@@ -352,12 +352,10 @@ export default function Barman() {
 
   const requestCameraPermission = async (): Promise<boolean> => {
     try {
-      console.log('Requesting camera permission via getUserMedia...');
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' },
       });
       stream.getTracks().forEach((track) => track.stop());
-      console.log('Camera permission granted');
       return true;
     } catch (error: any) {
       console.error('Camera permission denied:', error);

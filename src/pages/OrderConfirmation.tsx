@@ -408,8 +408,8 @@ export default function OrderConfirmation() {
           text: `${data.eventTitle} - ${data.venueName}`,
           url: window.location.href,
         });
-      } catch (error) {
-        console.log('Share cancelled');
+      } catch {
+        /* share dismissed by user */
       }
     }
   };
