@@ -101,7 +101,7 @@ export function DemoSwitcher() {
   // État Live : le club/orga démo est-il visible dans l'app publique ?
   useEffect(() => {
     if (!currentEmail) return;
-    supabase.rpc('demo_is_live').then(({ data }) => setLive(Boolean(data))).catch(() => {});
+    supabase.rpc('demo_is_live').then(({ data }) => setLive(Boolean(data)), () => {});
   }, [currentEmail]);
 
   // Rendu UNIQUEMENT pour les comptes démo @womber.fr.
