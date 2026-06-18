@@ -25,6 +25,7 @@ import { useOrganizerStripe } from '@/hooks/useOrganizerStripe';
 import { CollabUpsellBanner } from '@/components/CollabUpsellBanner';
 import { CollabReadOnlyBanner } from '@/components/CollabReadOnlyBanner';
 import { OwnerCollaborationsSection } from '@/components/owner/OwnerCollaborationsSection';
+import TrackedLinksManager, { TrackedOwnerKind } from '@/components/tracking/TrackedLinksManager';
 import { RecurringEventsManager } from '@/components/owner/RecurringEventsManager';
 import { useNavigate } from 'react-router-dom';
 
@@ -663,6 +664,9 @@ export default function OwnerEvents() {
                       onDetails={isOrganizerScope ? () => navigate(`${basePath}/events/${event.id}`) : undefined}
                       basePath={basePath}
                       t={t}
+                      ownerKind={isOrganizerScope ? 'organizer' : 'venue'}
+                      venueId={isOrganizerScope ? null : venueId}
+                      organizerUserId={isOrganizerScope ? organizerUserId : null}
                     />
                   </motion.div>
                 ))}
@@ -993,7 +997,7 @@ const BORDER_C  = 'rgba(255,255,255,0.085)';
 const CARD_BG_C = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
 const CARD_SHADOW_C = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
 
-function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onToggleTables, onApplyPreset, presets, onNavigate, onDetails, basePath, t }: {
+function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onToggleTables, onApplyPreset, presets, onNavigate, onDetails, basePath, t, ownerKind, venueId, organizerUserId }: {
   event: OwnerEventRow;
   onEdit: () => void;
   onDelete: () => void;
@@ -1006,8 +1010,12 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
   onDetails?: () => void;
   basePath: string;
   t: (k: string) => string;
+  ownerKind: TrackedOwnerKind;
+  venueId: string | null;
+  organizerUserId: string | null;
 }) {
   const [showPresetPanel, setShowPresetPanel] = useState(false);
+  const [showLinks, setShowLinks] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState('');
   const isPast = toParisTime(event.endAt) < nowInParis();
 
@@ -1251,6 +1259,43 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
           </>
         )}
       </div>
+
+      {/* Tracked links — per-channel links + click/conversion/revenue attribution */}
+      {!isPast && (
+        <div className="px-5 pb-5">
+          <button
+            type="button"
+            onClick={() => setShowLinks((v) => !v)}
+            className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-150"
+            style={{ background: C_FAINT_C, border: `1px solid ${BORDER_C}` }}
+          >
+            <div className="flex items-center gap-2">
+              <Link2 className="w-3.5 h-3.5" style={{ color: T3_C }} />
+              <span style={{ color: T1_C, fontSize: 12.5, fontWeight: 560 }}>{t('tlink.title')}</span>
+            </div>
+            {showLinks ? <ChevronUp className="w-4 h-4" style={{ color: T3_C }} /> : <ChevronDown className="w-4 h-4" style={{ color: T3_C }} />}
+          </button>
+          <AnimatePresence>
+            {showLinks && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden pt-3"
+              >
+                <TrackedLinksManager
+                  ownerKind={ownerKind}
+                  venueId={venueId}
+                  organizerUserId={organizerUserId}
+                  targetKind="event"
+                  eventId={event.id}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 }

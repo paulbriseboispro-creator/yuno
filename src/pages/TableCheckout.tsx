@@ -408,13 +408,15 @@ export default function TableCheckout() {
       const isGuest = !user;
       const guestCheckout = isGuest ? { guestEmail: email.trim(), guestFullName: fullName.trim(), guestPhone: phone.trim() } : null;
 
-      const { getPurchaseSource } = await import('@/hooks/usePurchaseSourceTracking');
+      const { getPurchaseSource, getTrackedLinkForCheckout } = await import('@/hooks/usePurchaseSourceTracking');
       const purchaseSource = getPurchaseSource(eventId);
+      const trackedLinkId = getTrackedLinkForCheckout(eventId);
 
       const { data, error } = await supabase.functions.invoke('create-table-checkout', {
         body: {
           eventId, packId, zoneId,
           purchaseSource,
+          trackedLinkId,
           guestCount: Math.min(guestCount, pack!.baseCapacity + pack!.maxExtraPersons),
           extraGuestsAtClub: payAtClubGuests,
           totalPrice: pricing.totalPrice, deposit: pricing.deposit,

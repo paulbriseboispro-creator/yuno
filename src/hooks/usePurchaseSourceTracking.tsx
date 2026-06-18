@@ -136,3 +136,94 @@ export function useResolvePurchaseSource(eventId: string | undefined, fallback: 
 function isValidSource(s: string): s is PurchaseSource {
   return ['venue_profile', 'organizer_profile', 'dj_profile', 'explore', 'promoter', 'direct'].includes(s);
 }
+
+/* ---------------------------------------------------------------------------
+ * Tracked links (named per-channel links — instagram, tiktok, newsletter…).
+ * A click on /l/:code stores the tracked_link_id so that, after a Stripe
+ * redirect, the checkout can attribute the purchase back to the link.
+ *
+ * Two storage scopes, same 6h TTL as the purchase source above:
+ *  - per-event   : the link targets a specific event (key = event id).
+ *  - global slot : the link targets a venue/organizer profile (permanent
+ *    link). It attributes the *next* purchase the visitor makes within TTL,
+ *    used as a fallback when no event-scoped link is set.
+ * ------------------------------------------------------------------------- */
+const TLINK_KEY_PREFIX = 'tracked_link__';
+const TLINK_GLOBAL_KEY = 'tracked_link__active';
+
+type StoredTrackedLink = { linkId: string; expiresAt: number };
+
+function tlinkKey(eventId: string) {
+  return `${TLINK_KEY_PREFIX}${eventId}`;
+}
+
+function writeTrackedLink(key: string, linkId: string) {
+  try {
+    const payload: StoredTrackedLink = { linkId, expiresAt: Date.now() + SOURCE_TTL_MS };
+    sessionStorage.setItem(key, JSON.stringify(payload));
+    localStorage.setItem(key, JSON.stringify(payload));
+  } catch {
+    // ignore storage errors (private mode, quota)
+  }
+}
+
+function readTrackedLink(key: string): string | null {
+  const read = (storage: Storage): string | null => {
+    try {
+      const raw = storage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as StoredTrackedLink;
+      if (parsed.expiresAt < Date.now()) {
+        storage.removeItem(key);
+        return null;
+      }
+      return parsed.linkId;
+    } catch {
+      return null;
+    }
+  };
+  return read(sessionStorage) || read(localStorage);
+}
+
+/** Store a tracked link that targets a specific event. */
+export function setTrackedLinkForEvent(eventId: string, linkId: string) {
+  if (eventId && linkId) writeTrackedLink(tlinkKey(eventId), linkId);
+}
+
+/** Store a tracked link from a venue/organizer (permanent) link — global fallback. */
+export function setActiveTrackedLink(linkId: string) {
+  if (linkId) writeTrackedLink(TLINK_GLOBAL_KEY, linkId);
+}
+
+/**
+ * Resolve the tracked link to attribute a checkout for `eventId`:
+ * event-scoped link wins, otherwise the active (venue/organizer) link.
+ */
+export function getTrackedLinkForCheckout(eventId: string | undefined | null): string | null {
+  if (eventId) {
+    const scoped = readTrackedLink(tlinkKey(eventId));
+    if (scoped) return scoped;
+  }
+  return readTrackedLink(TLINK_GLOBAL_KEY);
+}
+
+/**
+ * Read a `?tl=<id>` param off the current URL (filet de sécurité after a
+ * redirect) and persist it for the given event. Call on event pages.
+ */
+export function useResolveTrackedLink(eventId: string | undefined) {
+  useEffect(() => {
+    if (!eventId) return;
+    try {
+      const url = new URL(window.location.href);
+      const tl = url.searchParams.get('tl');
+      if (tl) {
+        setTrackedLinkForEvent(eventId, tl);
+        url.searchParams.delete('tl');
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch {
+      // ignore
+    }
+  }, [eventId]);
+}

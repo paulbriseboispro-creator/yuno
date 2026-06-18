@@ -96,6 +96,7 @@ const GuestListCheckout = lazyWithRetry(() => import("./pages/GuestListCheckout"
 const PromoterDashboard = lazyWithRetry(() => import("./pages/PromoterDashboard"));
 const PromoterHub = lazyWithRetry(() => import("./pages/PromoterHub"));
 const PromoterPublicRedirect = lazyWithRetry(() => import("./pages/PromoterPublicRedirect"));
+const TrackedLinkRedirect = lazyWithRetry(() => import("./pages/TrackedLinkRedirect"));
 const PromoterEventAnalysis = lazyWithRetry(() => import("./pages/PromoterEventAnalysis"));
 const AcceptPlatformInvitation = lazyWithRetry(() => import("./pages/AcceptPlatformInvitation"));
 const ClubInvitation = lazyWithRetry(() => import("./pages/ClubInvitation"));
@@ -379,6 +380,7 @@ const App = () => (
                 
                 {/* Promoter public hub — direct render, no redirect */}
                 <Route path="/promoteur/:promoCode" element={<PromoterHub />} />
+                <Route path="/l/:code" element={<TrackedLinkRedirect />} />
                 
                 {/* Legacy /club/:slug/promo route — also renders PromoterHub */}
                 <Route path="/club/:slug/promo" element={<PromoterHub />} />

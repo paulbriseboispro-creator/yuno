@@ -130,7 +130,9 @@ serve(async (req) => {
     );
 
     // Parse request body
-    const { items, venueId, eventId, cancelUrl, guestEmail, guestFullName, guestPhone } = await req.json();
+    const { items, venueId, eventId, cancelUrl, guestEmail, guestFullName, guestPhone, trackedLinkId } = await req.json();
+    // Tracked-link attribution: a UUID or null. Persisted on the order for revenue attribution.
+    const safeTrackedLinkId = (typeof trackedLinkId === 'string' && /^[0-9a-f-]{36}$/i.test(trackedLinkId)) ? trackedLinkId : null;
 
     if (!items || !venueId || !Array.isArray(items) || items.length === 0) {
       throw new Error("Missing required fields");
@@ -352,6 +354,7 @@ serve(async (req) => {
       service_fee: serviceFee,
       status: simulate ? "paid" : "pending",
       is_guest: isGuest,
+      tracked_link_id: safeTrackedLinkId,
     };
 
     if (isGuest) {

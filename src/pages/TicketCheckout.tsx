@@ -194,7 +194,6 @@ export default function TicketCheckout() {
       
       // Use venue-specific lookup to ensure we match the right venue
       const storedCode = getStoredPromoCodeForVenue(venue.id);
-      console.log('[TicketCheckout] Checking promo code for venue:', venue.id, 'code:', storedCode);
       
       if (!storedCode) return;
 
@@ -208,11 +207,9 @@ export default function TicketCheckout() {
           .maybeSingle();
 
         if (error || !promoter) {
-          console.log('[TicketCheckout] No promoter found for code:', storedCode);
           return;
         }
 
-        console.log('[TicketCheckout] Found promoter:', promoter.id, 'discount:', promoter.ticket_discount_value);
 
         // Set promoter discount - even if discount is 0, we need to track the conversion
         setPromoterDiscount({
@@ -561,8 +558,9 @@ export default function TicketCheckout() {
         guestPhone: attendees[0].phone.trim(),
       } : null;
 
-      const { getPurchaseSource } = await import('@/hooks/usePurchaseSourceTracking');
+      const { getPurchaseSource, getTrackedLinkForCheckout } = await import('@/hooks/usePurchaseSourceTracking');
       const purchaseSource = getPurchaseSource(event.id);
+      const trackedLinkId = getTrackedLinkForCheckout(event.id);
 
       const { data, error } = await supabase.functions.invoke('create-ticket-checkout', {
         body: {
@@ -570,6 +568,7 @@ export default function TicketCheckout() {
           language,
           ticketRoundId: round.id,
           purchaseSource,
+          trackedLinkId,
           quantity,
           unitPrice: round.price,
           serviceFee,

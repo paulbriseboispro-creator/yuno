@@ -4619,6 +4619,7 @@ export type Database = {
           token_expires_at: string | null
           token_used: boolean | null
           total: number
+          tracked_link_id: string | null
           user_email: string | null
           user_id: string | null
           venue_id: string
@@ -4659,6 +4660,7 @@ export type Database = {
           token_expires_at?: string | null
           token_used?: boolean | null
           total: number
+          tracked_link_id?: string | null
           user_email?: string | null
           user_id?: string | null
           venue_id: string
@@ -4699,6 +4701,7 @@ export type Database = {
           token_expires_at?: string | null
           token_used?: boolean | null
           total?: number
+          tracked_link_id?: string | null
           user_email?: string | null
           user_id?: string | null
           venue_id?: string
@@ -4709,6 +4712,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_tracked_link_id_fkey"
+            columns: ["tracked_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracked_links"
             referencedColumns: ["id"]
           },
           {
@@ -4857,6 +4867,36 @@ export type Database = {
         }
         Relationships: []
       }
+      organizer_banned_emails: {
+        Row: {
+          ban_reason: string | null
+          banned_at: string | null
+          banned_by: string | null
+          created_at: string | null
+          email: string
+          id: string
+          organizer_user_id: string
+        }
+        Insert: {
+          ban_reason?: string | null
+          banned_at?: string | null
+          banned_by?: string | null
+          created_at?: string | null
+          email: string
+          id?: string
+          organizer_user_id: string
+        }
+        Update: {
+          ban_reason?: string | null
+          banned_at?: string | null
+          banned_by?: string | null
+          created_at?: string | null
+          email?: string
+          id?: string
+          organizer_user_id?: string
+        }
+        Relationships: []
+      }
       organizer_claim_invitations: {
         Row: {
           accepted_at: string | null
@@ -4932,6 +4972,63 @@ export type Database = {
           },
         ]
       }
+      organizer_customer_incidents: {
+        Row: {
+          created_at: string | null
+          details: string | null
+          email: string
+          id: string
+          incident_type: string
+          organizer_user_id: string
+          reason: string
+          reported_by: string
+        }
+        Insert: {
+          created_at?: string | null
+          details?: string | null
+          email: string
+          id?: string
+          incident_type: string
+          organizer_user_id: string
+          reason: string
+          reported_by: string
+        }
+        Update: {
+          created_at?: string | null
+          details?: string | null
+          email?: string
+          id?: string
+          incident_type?: string
+          organizer_user_id?: string
+          reason?: string
+          reported_by?: string
+        }
+        Relationships: []
+      }
+      organizer_customer_notes: {
+        Row: {
+          email: string
+          notes: string | null
+          organizer_user_id: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          email: string
+          notes?: string | null
+          organizer_user_id: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          email?: string
+          notes?: string | null
+          organizer_user_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       organizer_onboarding: {
         Row: {
           completed_at: string | null
@@ -5003,6 +5100,7 @@ export type Database = {
           avatar_url: string | null
           billing_email: string | null
           bio: string | null
+          city: string | null
           cover_url: string | null
           created_at: string
           display_name: string
@@ -5024,6 +5122,7 @@ export type Database = {
           avatar_url?: string | null
           billing_email?: string | null
           bio?: string | null
+          city?: string | null
           cover_url?: string | null
           created_at?: string
           display_name: string
@@ -5045,6 +5144,7 @@ export type Database = {
           avatar_url?: string | null
           billing_email?: string | null
           bio?: string | null
+          city?: string | null
           cover_url?: string | null
           created_at?: string
           display_name?: string
@@ -7068,6 +7168,7 @@ export type Database = {
           stripe_session_id: string | null
           table_id: string | null
           total_price: number
+          tracked_link_id: string | null
           user_email: string
           user_id: string | null
           vip_status: string | null
@@ -7119,6 +7220,7 @@ export type Database = {
           stripe_session_id?: string | null
           table_id?: string | null
           total_price: number
+          tracked_link_id?: string | null
           user_email: string
           user_id?: string | null
           vip_status?: string | null
@@ -7170,6 +7272,7 @@ export type Database = {
           stripe_session_id?: string | null
           table_id?: string | null
           total_price?: number
+          tracked_link_id?: string | null
           user_email?: string
           user_id?: string | null
           vip_status?: string | null
@@ -7195,6 +7298,13 @@ export type Database = {
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "vip_tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_reservations_tracked_link_id_fkey"
+            columns: ["tracked_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracked_links"
             referencedColumns: ["id"]
           },
           {
@@ -7918,6 +8028,7 @@ export type Database = {
           ticket_round_id: string
           ticket_type: string
           total_price: number
+          tracked_link_id: string | null
           unit_price: number
           upgraded_from_ticket_id: string | null
           used: boolean
@@ -7968,6 +8079,7 @@ export type Database = {
           ticket_round_id: string
           ticket_type?: string
           total_price: number
+          tracked_link_id?: string | null
           unit_price: number
           upgraded_from_ticket_id?: string | null
           used?: boolean
@@ -8018,6 +8130,7 @@ export type Database = {
           ticket_round_id?: string
           ticket_type?: string
           total_price?: number
+          tracked_link_id?: string | null
           unit_price?: number
           upgraded_from_ticket_id?: string | null
           used?: boolean
@@ -8048,6 +8161,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tickets_tracked_link_id_fkey"
+            columns: ["tracked_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracked_links"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tickets_upgraded_from_ticket_id_fkey"
             columns: ["upgraded_from_ticket_id"]
             isOneToOne: false
@@ -8066,6 +8186,136 @@ export type Database = {
             columns: ["upgraded_from_ticket_id"]
             isOneToOne: false
             referencedRelation: "tickets_entry_scan"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tracked_link_clicks: {
+        Row: {
+          clicked_at: string
+          device_type: string | null
+          id: string
+          ip_hash: string | null
+          referrer: string | null
+          tracked_link_id: string
+          user_agent: string | null
+          visitor_id: string | null
+        }
+        Insert: {
+          clicked_at?: string
+          device_type?: string | null
+          id?: string
+          ip_hash?: string | null
+          referrer?: string | null
+          tracked_link_id: string
+          user_agent?: string | null
+          visitor_id?: string | null
+        }
+        Update: {
+          clicked_at?: string
+          device_type?: string | null
+          id?: string
+          ip_hash?: string | null
+          referrer?: string | null
+          tracked_link_id?: string
+          user_agent?: string | null
+          visitor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracked_link_clicks_tracked_link_id_fkey"
+            columns: ["tracked_link_id"]
+            isOneToOne: false
+            referencedRelation: "tracked_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tracked_links: {
+        Row: {
+          clicks_count: number
+          code: string
+          created_at: string
+          created_by: string
+          event_id: string | null
+          id: string
+          is_active: boolean
+          label: string
+          organizer_user_id: string | null
+          owner_kind: string
+          promoter_id: string | null
+          target_kind: string
+          target_venue_id: string | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+          venue_id: string | null
+        }
+        Insert: {
+          clicks_count?: number
+          code: string
+          created_at?: string
+          created_by?: string
+          event_id?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          organizer_user_id?: string | null
+          owner_kind: string
+          promoter_id?: string | null
+          target_kind: string
+          target_venue_id?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          venue_id?: string | null
+        }
+        Update: {
+          clicks_count?: number
+          code?: string
+          created_at?: string
+          created_by?: string
+          event_id?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          organizer_user_id?: string | null
+          owner_kind?: string
+          promoter_id?: string | null
+          target_kind?: string
+          target_venue_id?: string | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tracked_links_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracked_links_promoter_id_fkey"
+            columns: ["promoter_id"]
+            isOneToOne: false
+            referencedRelation: "promoters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracked_links_target_venue_id_fkey"
+            columns: ["target_venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracked_links_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -10042,6 +10292,7 @@ export type Database = {
         Args: { _event_id: string; _reason?: string }
         Returns: undefined
       }
+      admin_delete_organizer: { Args: { _user_id: string }; Returns: undefined }
       admin_delete_venue: { Args: { _venue_id: string }; Returns: undefined }
       admin_log_action: {
         Args: {
@@ -10111,6 +10362,10 @@ export type Database = {
       }
       can_manage_event_tables: {
         Args: { _event_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_manage_organizer: {
+        Args: { p_organizer_user_id: string }
         Returns: boolean
       }
       can_manage_venue: {
@@ -10189,6 +10444,7 @@ export type Database = {
         Args: { p_contest_id: string }
         Returns: Json
       }
+      gen_tracked_link_code: { Args: never; Returns: string }
       generate_invoice_number:
         | { Args: { p_venue_id: string }; Returns: string }
         | {
@@ -10272,6 +10528,36 @@ export type Database = {
         Returns: string
       }
       get_org_staff_organizer: { Args: { _user_id: string }; Returns: string }
+      get_organizer_customer_segments: {
+        Args: { p_organizer_user_id: string }
+        Returns: {
+          avg_basket: number
+          ban_reason: string
+          banned_at: string
+          email: string
+          first_name: string
+          first_visit_at: string
+          id: string
+          is_banned: boolean
+          last_activity_at: string
+          last_name: string
+          last_visit_at: string
+          notes: string
+          order_count: number
+          phone: string
+          preferred_dow: number
+          preferred_event_title: string
+          revenue_30d: number
+          revenue_90d: number
+          revenue_prev_90d: number
+          table_count: number
+          ticket_count: number
+          total_spent: number
+          user_id: string
+          visit_nights: number
+          visits_per_month: number
+        }[]
+      }
       get_owner_venue_ids: { Args: { _owner_id: string }; Returns: string[] }
       get_public_favorite_count: {
         Args: {
@@ -10293,6 +10579,27 @@ export type Database = {
       get_reservation_venue_id: {
         Args: { _reservation_id: string }
         Returns: string
+      }
+      get_tracked_link_stats: {
+        Args: {
+          p_event_id?: string
+          p_organizer_user_id?: string
+          p_owner_kind: string
+          p_promoter_id?: string
+          p_venue_id?: string
+        }
+        Returns: {
+          clicks: number
+          code: string
+          conversions: number
+          created_at: string
+          event_id: string
+          id: string
+          is_active: boolean
+          label: string
+          revenue: number
+          target_kind: string
+        }[]
       }
       get_user_nightlife_stats: {
         Args: { p_user_id: string }
@@ -10395,6 +10702,10 @@ export type Database = {
         Args: { p_email: string; p_venue_id: string }
         Returns: boolean
       }
+      is_email_banned_org: {
+        Args: { p_email: string; p_organizer_user_id: string }
+        Returns: boolean
+      }
       is_event_organizer: {
         Args: { _event_id: string; _user_id: string }
         Returns: boolean
@@ -10458,6 +10769,31 @@ export type Database = {
         }
         Returns: boolean
       }
+      organizer_ban_customer: {
+        Args: { p_email: string; p_organizer_user_id: string; p_reason: string }
+        Returns: undefined
+      }
+      organizer_save_customer_note: {
+        Args: { p_email: string; p_notes: string; p_organizer_user_id: string }
+        Returns: undefined
+      }
+      organizer_unban_customer: {
+        Args: {
+          p_email: string
+          p_organizer_user_id: string
+          p_reason?: string
+        }
+        Returns: undefined
+      }
+      organizer_warn_customer: {
+        Args: {
+          p_details?: string
+          p_email: string
+          p_organizer_user_id: string
+          p_reason: string
+        }
+        Returns: undefined
+      }
       preview_unsubscribe: {
         Args: { p_token: string }
         Returns: {
@@ -10479,6 +10815,17 @@ export type Database = {
           p_scan_at?: string
           p_table_reservation_id?: string
           p_ticket_id?: string
+        }
+        Returns: Json
+      }
+      record_tracked_link_click: {
+        Args: {
+          p_code: string
+          p_device_type?: string
+          p_ip_hash?: string
+          p_referrer?: string
+          p_user_agent?: string
+          p_visitor_id?: string
         }
         Returns: Json
       }
@@ -10564,6 +10911,10 @@ export type Database = {
       resolve_venue_customer: {
         Args: { p_email: string; p_user_id: string; p_venue_id: string }
         Returns: string
+      }
+      seed_event_tracked_links: {
+        Args: { p_event_id: string }
+        Returns: undefined
       }
       set_event_sale_password: {
         Args: { p_event_id: string; p_password: string }

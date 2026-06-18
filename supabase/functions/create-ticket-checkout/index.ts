@@ -54,13 +54,15 @@ serve(async (req) => {
       newsletterOptIn, smsOptIn, hasInsurance, promoCode, promoterId, attendees,
       guestEmail, guestFullName, guestPhone, packId,
       upsellSelections, cancelUrl,
-      purchaseSource, minorAuthDocUrl, language,
+      purchaseSource, minorAuthDocUrl, language, trackedLinkId,
     } = await req.json();
     const lang = resolveLang(language);
 
     const ALLOWED_SOURCES = ['venue_profile','organizer_profile','dj_profile','explore','promoter','direct'];
     // Default to 'direct' so analytics never show "unknown" — every ticket has a source.
     const safePurchaseSource = ALLOWED_SOURCES.includes(purchaseSource) ? purchaseSource : 'direct';
+    // Tracked-link attribution: a UUID or null. Stored on the ticket + carried in Stripe metadata.
+    const safeTrackedLinkId = (typeof trackedLinkId === 'string' && /^[0-9a-f-]{36}$/i.test(trackedLinkId)) ? trackedLinkId : null;
 
     if (!eventId || !ticketRoundId || !quantity) {
       throw new Error("Missing required fields");
@@ -592,6 +594,7 @@ serve(async (req) => {
           guest_last_name: isGuestCheckout ? lastName : null,
           guest_phone: isGuestCheckout ? userPhone : null,
           purchase_source: safePurchaseSource,
+          tracked_link_id: safeTrackedLinkId,
           minor_auth_doc_url: minorAuthDocUrl || null,
         })
         .select()
@@ -876,6 +879,7 @@ serve(async (req) => {
         guest_last_name: isGuestCheckout ? lastName : null,
         guest_phone: isGuestCheckout ? userPhone : null,
         purchase_source: safePurchaseSource,
+        tracked_link_id: safeTrackedLinkId,
         reservation_id: reservationId,
         minor_auth_doc_url: minorAuthDocUrl || null,
       })
@@ -975,6 +979,7 @@ serve(async (req) => {
         venueId: event.venue_id || '',
         promoCode: promoCode || '',
         promoterId: promoterId || '',
+        trackedLinkId: safeTrackedLinkId || '',
         isGuest: isGuestCheckout ? 'true' : 'false',
         upsells: upsellMeta,
         reservationId: reservationId || '',

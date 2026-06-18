@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
+import TrackedLinksManager from '@/components/tracking/TrackedLinksManager';
 import { toast } from 'sonner';
 import {
   ArrowLeft, TrendingUp, Ticket, Calendar, Euro, Copy, Share2,
@@ -487,6 +488,20 @@ export default function PromoterEventAnalysis() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Tracked links — per-channel links for this promoter (attributed to their commission) */}
+        {!isOwnerView && promoterId && eventId && (
+          <Card>
+            <CardContent className="p-4">
+              <TrackedLinksManager
+                ownerKind="promoter"
+                promoterId={promoterId}
+                targetKind="event"
+                eventId={eventId}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {/* Revenue + Commission */}
         <div className={`grid ${isMoneyReward ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>

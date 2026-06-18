@@ -34,6 +34,7 @@ import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { Switch } from '@/components/ui/switch';
 import { BarConfigSection } from '@/components/owner/BarConfigSection';
+import TrackedLinksManager from '@/components/tracking/TrackedLinksManager';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
@@ -492,6 +493,19 @@ export default function OwnerVenue() {
             </div>
           </div>
         </SectionCard>
+
+        {/* Liens trackés permanents — attribuent tout achat futur fait via ce lien */}
+        {venueId && (
+          <SectionCard title={t('tlink.venueTitle')}>
+            <p className="mb-3 text-xs text-white/45">{t('tlink.venueDesc')}</p>
+            <TrackedLinksManager
+              ownerKind="venue"
+              venueId={venueId}
+              targetKind="venue"
+              targetVenueId={venueId}
+            />
+          </SectionCard>
+        )}
 
         {/* Logo + Bannière */}
         <div className="grid gap-4 md:grid-cols-2">

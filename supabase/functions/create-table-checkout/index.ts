@@ -71,12 +71,14 @@ serve(async (req) => {
       requestedTableId,
       placementStatus,
       // Source tracking
-      purchaseSource,
+      purchaseSource, trackedLinkId,
     } = await req.json();
 
     const ALLOWED_SOURCES = ['venue_profile','organizer_profile','dj_profile','explore','promoter','direct'];
     // Default to 'direct' so analytics never show "unknown" — every reservation has a source.
     const safePurchaseSource = ALLOWED_SOURCES.includes(purchaseSource) ? purchaseSource : 'direct';
+    // Tracked-link attribution: a UUID or null. Stamped onto the reservation post-create.
+    const safeTrackedLinkId = (typeof trackedLinkId === 'string' && /^[0-9a-f-]{36}$/i.test(trackedLinkId)) ? trackedLinkId : null;
 
     // Try to authenticate user
     let user: { id: string; email: string | null } | null = null;
@@ -414,6 +416,9 @@ serve(async (req) => {
         throw new Error(reservationError?.message || "Failed to create reservation");
       }
       const reservation = { id: reservationId as string };
+      if (safeTrackedLinkId) {
+        await supabaseAdmin.from("table_reservations").update({ tracked_link_id: safeTrackedLinkId }).eq('id', reservation.id);
+      }
 
       // Upsert SMS contact if buyer opted in
       if (smsOptIn && event.venue_id && phone) {
@@ -568,6 +573,9 @@ serve(async (req) => {
       throw new Error(reservationError?.message || "Failed to create reservation");
     }
     const reservation = { id: reservationId as string };
+    if (safeTrackedLinkId) {
+      await supabaseAdmin.from("table_reservations").update({ tracked_link_id: safeTrackedLinkId }).eq('id', reservation.id);
+    }
 
     logStep("Pending reservation created", { reservationId: reservation.id });
 
@@ -585,7 +593,7 @@ serve(async (req) => {
       cancel_url: cancelUrl ? `${origin}${cancelUrl}` : `${origin}/`,
       customer_email: user?.email || guestEmail,
       payment_method_types: ['card', 'link'],
-      metadata: { reservationId: reservation.id, eventId, packId, userId: user?.id || '', venueId: effectiveVenueId, promoterId: promoterId || '', promoCode: promoCode || '', isGuest: isGuestCheckout ? 'true' : 'false' },
+      metadata: { reservationId: reservation.id, eventId, packId, userId: user?.id || '', venueId: effectiveVenueId, promoterId: promoterId || '', promoCode: promoCode || '', trackedLinkId: safeTrackedLinkId || '', isGuest: isGuestCheckout ? 'true' : 'false' },
       payment_intent_data: (() => {
         const grossAmount = discountedDeposit + managementFee;
         const split = resolvePaymentSplit({

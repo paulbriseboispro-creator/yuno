@@ -278,8 +278,10 @@ export default function Cart() {
     setIsProcessing(true);
     try {
       const eventId = selectedEventId || cart[0]?.eventId;
+      const { getTrackedLinkForCheckout } = await import('@/hooks/usePurchaseSourceTracking');
+      const trackedLinkId = getTrackedLinkForCheckout(eventId);
       const cartItemsPayload = cart.map(item => ({ id: item.drinkId, quantity: item.qty, collection: item.collection }));
-      const body: any = { items: cartItemsPayload, eventId, venueId: venueInfo?.id, cancelUrl: '/cart' };
+      const body: any = { items: cartItemsPayload, eventId, venueId: venueInfo?.id, cancelUrl: '/cart', trackedLinkId };
 
       if (!user) {
         body.guestEmail = guestEmail.trim();
