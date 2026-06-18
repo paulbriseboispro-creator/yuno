@@ -80,7 +80,8 @@ export function OnboardingStepPolish({ venueId, onComplete, onSkip }: Props) {
       if (uploadErr) throw uploadErr;
       const { data: { publicUrl } } = supabase.storage.from('venue-assets').getPublicUrl(path);
       setCoverPreview(publicUrl);
-      await supabase.from('venues').update({ cover_url: publicUrl } as any).eq('id', venueId);
+      const { error: updErr } = await supabase.from('venues').update({ cover_url: publicUrl } as any).eq('id', venueId);
+      if (updErr) throw updErr;
     } catch {
       toast.error(t('onboarding.saveError'));
     } finally {
@@ -104,7 +105,8 @@ export function OnboardingStepPolish({ venueId, onComplete, onSkip }: Props) {
         newImages.push(publicUrl);
       }
       setGalleryImages(newImages);
-      await supabase.from('venues').update({ gallery_images: newImages } as any).eq('id', venueId);
+      const { error: updErr } = await supabase.from('venues').update({ gallery_images: newImages } as any).eq('id', venueId);
+      if (updErr) throw updErr;
     } catch {
       toast.error(t('onboarding.saveError'));
     } finally {
@@ -113,9 +115,11 @@ export function OnboardingStepPolish({ venueId, onComplete, onSkip }: Props) {
   };
 
   const removeGalleryImage = async (index: number) => {
+    const prev = galleryImages;
     const newImages = galleryImages.filter((_, i) => i !== index);
     setGalleryImages(newImages);
-    await supabase.from('venues').update({ gallery_images: newImages } as any).eq('id', venueId);
+    const { error } = await supabase.from('venues').update({ gallery_images: newImages } as any).eq('id', venueId);
+    if (error) { setGalleryImages(prev); toast.error(t('onboarding.saveError')); }
   };
 
   const handleSave = async () => {

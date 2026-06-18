@@ -50,7 +50,8 @@ export function OnboardingStepBasics({ venueId, onComplete }: Props) {
       if (uploadErr) throw uploadErr;
       const { data: { publicUrl } } = supabase.storage.from('venue-assets').getPublicUrl(path);
       setLogoUrl(publicUrl);
-      await supabase.from('venues').update({ logo_url: publicUrl } as any).eq('id', venueId);
+      const { error: updErr } = await supabase.from('venues').update({ logo_url: publicUrl } as any).eq('id', venueId);
+      if (updErr) throw updErr;
       toast.success(t('onboarding.logoUploaded'));
     } catch {
       toast.error(t('onboarding.logoUploadError'));
