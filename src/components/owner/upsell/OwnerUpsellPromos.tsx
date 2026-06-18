@@ -59,12 +59,14 @@ export function OwnerUpsellPromos({ venueId }: { venueId: string }) {
   const togglePromo = async (drink: DrinkWithPromo) => {
     if (drink.hasPromo) {
       // Remove promo
-      await supabase.from('drinks').update({ promo_price: null }).eq('id', drink.id);
+      const { error } = await supabase.from('drinks').update({ promo_price: null }).eq('id', drink.id);
+      if (error) { toast.error(t('common.error')); return; }
       toast.success(t('upsell.promoRemoved'));
     } else {
       // Set a default promo price (80% of original)
       const defaultPromo = Math.round(drink.price * 0.8 * 100) / 100;
-      await supabase.from('drinks').update({ promo_price: defaultPromo }).eq('id', drink.id);
+      const { error } = await supabase.from('drinks').update({ promo_price: defaultPromo }).eq('id', drink.id);
+      if (error) { toast.error(t('common.error')); return; }
       setEditPrices(prev => ({ ...prev, [drink.id]: defaultPromo.toString() }));
       toast.success(t('upsell.promoAdded'));
     }
@@ -77,7 +79,8 @@ export function OwnerUpsellPromos({ venueId }: { venueId: string }) {
       toast.error(t('upsell.invalidPrice'));
       return;
     }
-    await supabase.from('drinks').update({ promo_price: price }).eq('id', drinkId);
+    const { error } = await supabase.from('drinks').update({ promo_price: price }).eq('id', drinkId);
+    if (error) { toast.error(t('common.error')); return; }
     toast.success(t('upsell.promoUpdated'));
     fetchDrinks();
   };
