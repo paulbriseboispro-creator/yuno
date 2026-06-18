@@ -11,7 +11,7 @@ const VenueMap = lazy(() => import('@/components/welcome/VenueMap'));
 import { BottomNav } from '@/components/BottomNav';
 import VenueCard from '@/components/welcome/VenueCard';
 import { LanguageSelector } from '@/components/LanguageSelector';
-import { Loader2, MapIcon, Grid3X3, Navigation, Clock, Heart } from 'lucide-react';
+import { Loader2, MapIcon, Grid3X3, Navigation, Clock, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 import { toast } from 'sonner';
@@ -535,13 +535,14 @@ const Welcome = () => {
                                 e.stopPropagation();
                                 toggleFavorite('club', venue.id);
                               }}
+                              aria-label={t('subscribe.action')}
                               className="shrink-0 p-1.5 rounded-full hover:bg-muted/50 transition-colors"
                             >
-                              <Heart 
+                              <Bell
                                 className={cn(
                                   "w-5 h-5 transition-colors",
-                                  isFavorite('club', venue.id) 
-                                    ? "fill-red-500 text-red-500" 
+                                  isFavorite('club', venue.id)
+                                    ? "fill-red-500 text-red-500"
                                     : "text-muted-foreground hover:text-red-400"
                                 )}
                               />
@@ -624,13 +625,14 @@ const Welcome = () => {
                             e.stopPropagation();
                             toggleFavorite('club', venue.id);
                           }}
+                          aria-label={t('subscribe.action')}
                           className="shrink-0 p-2 rounded-full hover:bg-muted/50 transition-colors"
                         >
-                          <Heart 
+                          <Bell
                             className={cn(
                               "w-5 h-5 transition-colors",
-                              isFavorite('club', venue.id) 
-                                ? "fill-red-500 text-red-500" 
+                              isFavorite('club', venue.id)
+                                ? "fill-red-500 text-red-500"
                                 : "text-muted-foreground hover:text-red-400"
                             )}
                           />

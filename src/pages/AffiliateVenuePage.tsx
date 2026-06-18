@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Share2, MapPin, Globe, ExternalLink,
-  ChevronDown, ChevronUp, Heart,
+  ChevronDown, ChevronUp, Bell,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -247,11 +247,11 @@ export default function AffiliateVenuePage() {
           <div className="absolute right-5 z-20 flex items-center gap-2" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}>
             <button
               onClick={() => venue && toggleFavorite('affiliate_venue', venue.id)}
-              aria-label={t('affiliate.follow')}
+              aria-label={t('subscribe.action')}
               className="flex items-center justify-center h-9 w-9 rounded-full cursor-pointer"
               style={{ background: 'rgba(10,10,10,0.65)', backdropFilter: 'blur(10px)', border: `1px solid ${venue && isFavorite('affiliate_venue', venue.id) ? 'rgba(232,25,44,0.50)' : 'rgba(255,255,255,0.12)'}` }}
             >
-              <Heart
+              <Bell
                 className="h-4 w-4"
                 style={{ color: venue && isFavorite('affiliate_venue', venue.id) ? '#E8192C' : 'white', fill: venue && isFavorite('affiliate_venue', venue.id) ? '#E8192C' : 'transparent' }}
               />
@@ -369,11 +369,11 @@ export default function AffiliateVenuePage() {
               cursor: 'pointer',
             }}
           >
-            <Heart
+            <Bell
               className="h-3 w-3"
               style={{ fill: isFavorite('affiliate_venue', venue.id) ? '#E8192C' : 'transparent' }}
             />
-            {isFavorite('affiliate_venue', venue.id) ? t('affiliate.following') : t('affiliate.follow')}
+            {isFavorite('affiliate_venue', venue.id) ? t('subscribe.active') : t('subscribe.action')}
           </button>
         </div>
 

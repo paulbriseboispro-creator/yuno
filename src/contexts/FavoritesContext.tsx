@@ -5,6 +5,19 @@ import { insertOwnerNotif } from '@/utils/ownerNotifications';
 
 export type FavoriteType = 'club' | 'event' | 'drink' | 'dj' | 'affiliate_event' | 'affiliate_venue';
 
+/**
+ * Two semantics over the SAME storage: a "favori" is an item you save (boissons,
+ * soirées), an "abonnement" is a place/créateur you follow (clubs, DJs). The row
+ * counts the same; only the meaning — and therefore icon, verb, toast — differs.
+ * Organizers also live in the abonnement family but are stored in their own
+ * `organizer_profile_followers` table, so they're handled at the call site.
+ */
+const SUBSCRIPTION_TYPES: readonly FavoriteType[] = ['club', 'dj', 'affiliate_venue'];
+
+export function isSubscriptionType(type: FavoriteType): boolean {
+  return SUBSCRIPTION_TYPES.includes(type);
+}
+
 export interface Favorite {
   id: string;
   userId: string;
@@ -237,13 +250,13 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
           createdAt: data.created_at,
         }]);
 
-        // Owner notification: club or event added to favorites
+        // Owner notification: new subscriber (club) or new favorite (event)
         if (type === 'club' && data.venue_id) {
           insertOwnerNotif({
             venueId: data.venue_id,
             type: 'favorite_added',
-            title: 'Nouveau favori — Club',
-            message: 'Un utilisateur a ajouté votre club à ses favoris',
+            title: 'Nouvel abonné — Club',
+            message: 'Un utilisateur s\'est abonné à votre club',
             priority: 'low',
             referenceType: 'venue',
             referenceId: data.venue_id,

@@ -1,6 +1,7 @@
-import { Heart, Bookmark } from 'lucide-react';
+import { Heart, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useFavorites, FavoriteType } from '@/hooks/useFavorites';
+import { useFavorites, FavoriteType, isSubscriptionType } from '@/hooks/useFavorites';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 
 interface FavoriteButtonProps {
@@ -10,14 +11,21 @@ interface FavoriteButtonProps {
   variant?: 'ghost' | 'outline' | 'default';
   className?: string;
   showLabel?: boolean;
+  /** Override the inactive label. Defaults to "Subscribe"/"Add to favorites" by kind. */
   label?: string;
+  /** Override the active label. Defaults to "Subscribed"/"Saved" by kind. */
   followingLabel?: string;
   onToggle?: () => void;
-  icon?: 'heart' | 'bookmark';
   iconClassName?: string;
   style?: React.CSSProperties;
 }
 
+/**
+ * One toggle, two meanings (same storage, see FavoritesContext):
+ *   - subscription types (club / dj / affiliate_venue) → Bell + "S'abonner / Abonné"
+ *   - favorite types (drink / event / affiliate_event)  → Heart + "Favori"
+ * The kind is derived from `type`, so call sites never have to pick an icon.
+ */
 export function FavoriteButton({
   type,
   id,
@@ -28,12 +36,13 @@ export function FavoriteButton({
   label,
   followingLabel,
   onToggle,
-  icon = 'heart',
   iconClassName,
   style,
 }: FavoriteButtonProps) {
   const { isFavorite, toggleFavorite } = useFavorites();
-  const isLiked = isFavorite(type, id);
+  const { t } = useLanguage();
+  const isActive = isFavorite(type, id);
+  const subscription = isSubscriptionType(type);
 
   const handleClick = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -42,15 +51,18 @@ export function FavoriteButton({
     onToggle?.();
   };
 
-  const Icon = icon === 'bookmark' ? Bookmark : Heart;
+  const Icon = subscription ? Bell : Heart;
 
-  // For "follow" style buttons (showLabel + default variant), toggle between filled and outline
+  const inactiveLabel = label ?? (subscription ? t('subscribe.action') : t('favorites.like'));
+  const activeLabel = followingLabel ?? (subscription ? t('subscribe.active') : t('favorites.liked'));
+
+  // Filled-pill follow style: a solid CTA that flips to a quiet outline once active.
   const isFollowButton = showLabel && variant === 'default';
 
-  const resolvedVariant = isFollowButton && isLiked ? 'outline' : variant;
-  const resolvedClassName = isFollowButton && isLiked
+  const resolvedVariant = isFollowButton && isActive ? 'outline' : variant;
+  const resolvedClassName = isFollowButton && isActive
     ? cn("transition-all ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none border-border text-foreground", className?.replace(/bg-primary\b/g, '').replace(/text-primary-foreground/g, '').replace(/hover:bg-primary-hover/g, ''))
-    : cn("transition-all ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none", isLiked && !isFollowButton && "text-primary hover:text-primary-hover", className);
+    : cn("transition-all ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none", isActive && !isFollowButton && "text-primary hover:text-primary-hover", className);
 
   return (
     <Button
@@ -59,17 +71,18 @@ export function FavoriteButton({
       onClick={handleClick}
       className={resolvedClassName}
       style={style}
+      aria-pressed={isActive}
     >
-      <Icon 
+      <Icon
         className={cn(
           "h-5 w-5 transition-all",
-          isLiked && !isFollowButton ? "fill-primary text-primary" : "",
+          isActive && !isFollowButton ? "fill-primary text-primary" : "",
           iconClassName
-        )} 
+        )}
       />
       {showLabel && (
         <span className="ml-1">
-          {isLiked ? (followingLabel || label) : label}
+          {isActive ? activeLabel : inactiveLabel}
         </span>
       )}
     </Button>

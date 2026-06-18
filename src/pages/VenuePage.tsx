@@ -666,13 +666,12 @@ export default function VenuePage() {
             <FavoriteButton
               type="club"
               id={venue.id}
-              icon="bookmark"
               variant="outline"
               size="sm"
               className="h-8 px-3 rounded-[10px] text-xs font-medium border-border/50 ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               showLabel
-              label={t('venue.follow')}
-              followingLabel={t('venue.following')}
+              label={t('subscribe.action')}
+              followingLabel={t('subscribe.active')}
             />
             {clickCollectMode && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[8px] bg-primary/10 text-primary text-[10px] font-medium flex-shrink-0">

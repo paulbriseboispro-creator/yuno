@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, MapPin, Clock, ExternalLink, ChevronDown, ChevronUp,
-  Share2, Music, Bookmark,
+  Share2, Music, Heart,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -230,7 +230,7 @@ export default function AffiliateEventPage() {
               className="flex items-center justify-center hover:opacity-80 transition-opacity"
               style={{ width: 36, height: 36, borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', color: event && isFavorite('affiliate_event', event.id) ? '#E8192C' : '#fff', border: 'none', cursor: 'pointer' }}
             >
-              <Bookmark className={`h-4 w-4 ${event && isFavorite('affiliate_event', event.id) ? 'fill-[#E8192C]' : ''}`} />
+              <Heart className={`h-4 w-4 ${event && isFavorite('affiliate_event', event.id) ? 'fill-[#E8192C]' : ''}`} />
             </button>
             <button
               onClick={handleShare}
@@ -365,7 +365,7 @@ export default function AffiliateEventPage() {
               cursor: 'pointer',
             }}
           >
-            <Bookmark className={`h-3 w-3 ${isFavorite('affiliate_event', event.id) ? 'fill-[#E8192C]' : ''}`} />
+            <Heart className={`h-3 w-3 ${isFavorite('affiliate_event', event.id) ? 'fill-[#E8192C]' : ''}`} />
             {isFavorite('affiliate_event', event.id) ? t('affiliate.interested') : t('affiliate.interestedQuestion')}
           </button>
           <button

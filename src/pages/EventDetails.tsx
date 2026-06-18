@@ -20,7 +20,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { EventCountdown } from '@/components/EventCountdown';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePromoterTracking } from '@/hooks/usePromoterTracking';
-import { useResolvePurchaseSource } from '@/hooks/usePurchaseSourceTracking';
+import { useResolvePurchaseSource, useResolveTrackedLink } from '@/hooks/usePurchaseSourceTracking';
 import { useStore } from '@/store/useStore';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 
@@ -41,6 +41,7 @@ export default function EventDetails() {
   const { isFavorite, toggleFavorite } = useFavorites();
   usePromoterTracking(undefined, eventId); // Capture promoter ref + bind tracking to this event
   useResolvePurchaseSource(eventId); // Capture purchase source for collab analytics
+  useResolveTrackedLink(eventId); // Capture ?tl= tracked-link attribution (backup after redirect)
 
   const [event, setEvent] = useState<(EventWithTicketing & { eventType?: string; locationIsSecret?: boolean; visibility?: string; hideYunoNavigation?: boolean }) | null>(null);
   const [showLeavePrivate, setShowLeavePrivate] = useState(false);
@@ -759,7 +760,6 @@ export default function EventDetails() {
           <FavoriteButton
             type="event"
             id={event.id}
-            icon="bookmark"
             variant="outline"
             size="sm"
             showLabel
@@ -1020,10 +1020,11 @@ export default function EventDetails() {
                     </button>
                     <button
                       onClick={toggleOrgFollow}
-                      className="shrink-0 font-mono font-semibold tracking-[0.08em] uppercase transition-colors ml-3"
+                      className="shrink-0 inline-flex items-center gap-1.5 font-mono font-semibold tracking-[0.08em] uppercase transition-colors ml-3"
                       style={{ fontSize: '10px', height: '28px', padding: '0 12px', borderRadius: '2px', border: '1px solid', borderColor: isFollowingOrg ? 'rgba(232,25,44,0.4)' : '#2A2A2A', background: isFollowingOrg ? 'rgba(232,25,44,0.08)' : 'transparent', color: isFollowingOrg ? '#E8192C' : '#9A9A9A', cursor: 'pointer' }}
                     >
-                      {isFollowingOrg ? t('event.following') : t('event.follow')}
+                      <Bell className="h-3 w-3" strokeWidth={2} style={{ fill: isFollowingOrg ? '#E8192C' : 'transparent' }} />
+                      {isFollowingOrg ? t('subscribe.active') : t('subscribe.action')}
                     </button>
                   </div>
                 );
@@ -1053,10 +1054,11 @@ export default function EventDetails() {
                 </button>
                 <button
                   onClick={() => toggleFavorite('club', venue.id)}
-                  className="shrink-0 font-mono font-semibold tracking-[0.08em] uppercase transition-colors ml-3"
+                  className="shrink-0 inline-flex items-center gap-1.5 font-mono font-semibold tracking-[0.08em] uppercase transition-colors ml-3"
                   style={{ fontSize: '10px', height: '28px', padding: '0 12px', borderRadius: '2px', border: '1px solid', borderColor: isFavorite('club', venue.id) ? 'rgba(232,25,44,0.4)' : '#2A2A2A', background: isFavorite('club', venue.id) ? 'rgba(232,25,44,0.08)' : 'transparent', color: isFavorite('club', venue.id) ? '#E8192C' : '#9A9A9A', cursor: 'pointer' }}
                 >
-                  {isFavorite('club', venue.id) ? t('event.following') : t('event.follow')}
+                  <Bell className="h-3 w-3" strokeWidth={2} style={{ fill: isFavorite('club', venue.id) ? '#E8192C' : 'transparent' }} />
+                  {isFavorite('club', venue.id) ? t('subscribe.active') : t('subscribe.action')}
                 </button>
               </div>
               )}

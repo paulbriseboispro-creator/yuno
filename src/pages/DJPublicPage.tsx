@@ -192,7 +192,6 @@ export default function DJPublicPage() {
     upcomingDates: t('djPublic.upcomingDates'),
     pastEvents: t('djPublic.pastEvents'),
     about: t('djPublic.about'),
-    follow: t('djPublic.follow'),
     followers: t('djPublic.followers'),
     upcomingDatesCount: t('djPublic.upcomingDatesCount'),
     pastDatesCount: t('djPublic.pastDatesCount'),
@@ -309,7 +308,8 @@ export default function DJPublicPage() {
           size="default"
           variant="outline"
           showLabel
-          label={labels.follow}
+          label={t('subscribe.action')}
+          followingLabel={t('subscribe.active')}
           className="mx-auto"
           onToggle={() => djId && fetchFollowersCount(djId)}
         />

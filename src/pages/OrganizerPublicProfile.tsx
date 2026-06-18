@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Calendar, Users, MapPin, Sparkles, Share2, Globe, Bookmark, BookmarkCheck, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Calendar, Users, MapPin, Sparkles, Share2, Globe, Bell, ChevronRight } from 'lucide-react';
 import { Instagram } from '@/components/icons/Instagram';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr, enUS, es } from 'date-fns/locale';
@@ -376,9 +376,9 @@ export default function OrganizerPublicProfile() {
               className={`h-8 px-3 rounded-full text-xs font-medium ${isFollowing ? 'border-border/50' : ''}`}
             >
               {isFollowing ? (
-                <><BookmarkCheck className="h-3.5 w-3.5 mr-1.5" /> {t('venue.following') || 'Suivi'}</>
+                <><Bell className="h-3.5 w-3.5 mr-1.5 fill-current" /> {t('subscribe.active')}</>
               ) : (
-                <><Bookmark className="h-3.5 w-3.5 mr-1.5" /> {t('venue.follow') || 'Suivre'}</>
+                <><Bell className="h-3.5 w-3.5 mr-1.5" /> {t('subscribe.action')}</>
               )}
             </Button>
             {followersCount > 0 && (

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Heart, Calendar, Wine, MapPin, Music, Users, Sparkles } from 'lucide-react';
+import { Heart, Bell, Calendar, Wine, MapPin, Music, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFavorites } from '@/hooks/useFavorites';
@@ -347,7 +347,7 @@ function OrganizerCard({
           boxShadow: '0 8px 18px -8px rgba(255,43,61,.75)',
         }}
       >
-        <Heart size={17} strokeWidth={2} fill="#fff" color="#fff" />
+        <Bell size={17} strokeWidth={2} fill="#fff" color="#fff" />
       </button>
     </div>
   );
@@ -495,6 +495,7 @@ function EventCard({
 
 /* ── DJ card ── */
 function DJCard({ dj, onClick }: { dj: FavoriteDJ; onClick: () => void }) {
+  const { t } = useLanguage();
   const hue = hueFromId(dj.id);
   return (
     <div
@@ -559,8 +560,8 @@ function DJCard({ dj, onClick }: { dj: FavoriteDJ; onClick: () => void }) {
           </div>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--yuno-mono, ui-monospace, monospace)', fontSize: 11, color: D.faint }}>
-          <Sparkles size={12} strokeWidth={2} color={D.faint} />
-          Artiste suivi
+          <Bell size={12} strokeWidth={2} color={D.faint} />
+          {t('subscribe.active')}
         </div>
       </div>
 
@@ -694,6 +695,9 @@ export default function Favorites() {
   const { t, language } = useLanguage();
   const { favorites, loading: favLoading } = useFavorites();
 
+  // Single screen, flat tabs (clubs / soirées / DJs / boissons). The favori vs
+  // abonnement distinction lives in the cards (cœur for soirées+boissons, cloche
+  // "abonné" for clubs+orgas+DJs) and the count wording — not in the layout.
   const [activeTab, setActiveTab] = useState<'clubs' | 'events' | 'djs' | 'drinks'>('clubs');
   const [venues, setVenues] = useState<FavoriteVenue[]>([]);
   const [events, setEvents] = useState<FavoriteEvent[]>([]);
@@ -709,7 +713,7 @@ export default function Favorites() {
   const drinkFavoriteCount = favorites.filter(f => f.favoriteType === 'drink').length;
   const djFavoriteCount = favorites.filter(f => f.favoriteType === 'dj').length;
 
-  const totalCount = clubFavoriteCount + eventFavoriteCount + drinkFavoriteCount + djFavoriteCount;
+  const totalCount = clubFavoriteCount + eventFavoriteCount + drinkFavoriteCount + djFavoriteCount + followedOrganizers.length;
 
   useEffect(() => {
     const fetchFavoriteData = async () => {
@@ -840,10 +844,10 @@ export default function Favorites() {
   };
 
   const tabs = [
-    { id: 'clubs' as const,  label: t('favorites.clubs'),  icon: MapPin,    count: clubFavoriteCount + followedOrganizers.length },
-    { id: 'events' as const, label: t('favorites.events'), icon: Calendar,  count: eventFavoriteCount },
-    { id: 'djs' as const,    label: 'DJs',                 icon: Music,     count: djFavoriteCount },
-    { id: 'drinks' as const, label: t('favorites.drinks'), icon: Wine,      count: drinkFavoriteCount },
+    { id: 'clubs' as const,  label: t('favorites.clubs'),      icon: MapPin,    count: clubFavoriteCount + followedOrganizers.length },
+    { id: 'events' as const, label: t('favorites.tabParties'), icon: Calendar,  count: eventFavoriteCount },
+    { id: 'djs' as const,    label: 'DJs',                     icon: Music,     count: djFavoriteCount },
+    { id: 'drinks' as const, label: t('favorites.drinks'),     icon: Wine,      count: drinkFavoriteCount },
   ];
 
   const isLoading = loading || favLoading;
@@ -902,7 +906,7 @@ export default function Favorites() {
           )}
         </div>
 
-        {/* ── Scrollable tabs — même pattern qu'ExploreChipRow : spacers enfants, pas de scroll-snap ── */}
+        {/* ── Scrollable tabs — même pattern qu'ExploreChipRow ── */}
         <style>{`.fav-hscroll::-webkit-scrollbar{display:none}`}</style>
         <div
           className="fav-hscroll flex gap-2 overflow-x-auto"
@@ -931,18 +935,18 @@ export default function Favorites() {
       {/* ── Content ── */}
       <div style={{ maxWidth: 512, margin: '0 auto', padding: '24px 0 0' }}>
 
-        {/* CLUBS TAB */}
+        {/* CLUBS TAB — abonnements (clubs + organisateurs) */}
         {activeTab === 'clubs' && (
           <>
             {isLoading ? (
               <Spinner />
             ) : clubFavoriteCount === 0 && followedOrganizers.length === 0 ? (
-              <EmptyState icon={MapPin} title={t('favorites.noClubs')} description={t('favorites.noClubsDesc')} />
+              <EmptyState icon={MapPin} title={t('subscribe.emptyClubs')} description={t('subscribe.emptyClubsDesc')} />
             ) : (
               <>
                 {venues.length > 0 && (
                   <>
-                    <SecLabel count={`${venues.length} sauvegardés`}>{t('favorites.clubs').toUpperCase()}</SecLabel>
+                    <SecLabel count={`${venues.length} ${t('favorites.unitSubscribers')}`}>{t('favorites.clubs').toUpperCase()}</SecLabel>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
                       {venues.map((venue) => (
                         <ClubCard
@@ -957,7 +961,7 @@ export default function Favorites() {
 
                 {followedOrganizers.length > 0 && (
                   <div style={{ marginTop: venues.length > 0 ? 32 : 0 }}>
-                    <SecLabel count={`${followedOrganizers.length} suivis`}>{t('favorites.partyOrganizers').toUpperCase()}</SecLabel>
+                    <SecLabel count={`${followedOrganizers.length} ${t('favorites.unitSubscribers')}`}>{t('favorites.tabOrganizers').toUpperCase()}</SecLabel>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
                       {followedOrganizers.map((org) => (
                         <OrganizerCard
@@ -981,7 +985,7 @@ export default function Favorites() {
           </>
         )}
 
-        {/* EVENTS TAB */}
+        {/* EVENTS TAB — favoris (soirées) */}
         {activeTab === 'events' && (
           <>
             {isLoading ? (
@@ -990,7 +994,7 @@ export default function Favorites() {
               <EmptyState icon={Calendar} title={t('favorites.noEvents')} description={t('favorites.noEventsDesc')} />
             ) : (
               <>
-                <SecLabel count={`${events.length} à venir`}>ÉVÉNEMENTS</SecLabel>
+                <SecLabel count={`${events.length} ${t('favorites.unitUpcoming')}`}>{t('favorites.tabParties').toUpperCase()}</SecLabel>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
                   {events.map((event) => (
                     <EventCard
@@ -1011,16 +1015,16 @@ export default function Favorites() {
           </>
         )}
 
-        {/* DJs TAB */}
+        {/* DJs TAB — abonnements */}
         {activeTab === 'djs' && (
           <>
             {isLoading ? (
               <Spinner />
             ) : djFavoriteCount === 0 ? (
-              <EmptyState icon={Music} title={t('favorites.noDJs')} description={t('favorites.noDJsDesc')} />
+              <EmptyState icon={Music} title={t('subscribe.emptyDJs')} description={t('subscribe.emptyDJsDesc')} />
             ) : (
               <>
-                <SecLabel count={`${djs.length} suivis`}>ARTISTES</SecLabel>
+                <SecLabel count={`${djs.length} ${t('favorites.unitSubscribers')}`}>DJS</SecLabel>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
                   {djs.map((dj) => (
                     <DJCard
@@ -1035,7 +1039,7 @@ export default function Favorites() {
           </>
         )}
 
-        {/* DRINKS TAB */}
+        {/* DRINKS TAB — favoris */}
         {activeTab === 'drinks' && (
           <>
             {isLoading ? (
@@ -1044,7 +1048,7 @@ export default function Favorites() {
               <EmptyState icon={Wine} title={t('favorites.noDrinks')} description={t('favorites.noDrinksDesc')} />
             ) : (
               <>
-                <SecLabel count={`${drinks.length} favorites`}>BOISSONS</SecLabel>
+                <SecLabel count={`${drinks.length} ${t('favorites.unitFavorites')}`}>{t('favorites.drinks').toUpperCase()}</SecLabel>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
                   {drinks.map((drink) => (
                     <DrinkCard key={drink.id} drink={drink} />
@@ -1055,7 +1059,7 @@ export default function Favorites() {
           </>
         )}
 
-        {/* Footer hint */}
+        {/* Footer hint — abonnement vs favori selon l'onglet (pas de séparation de layout) */}
         <div style={{
           padding: '28px 22px 0',
           display: 'flex',
@@ -1065,9 +1069,13 @@ export default function Favorites() {
           fontFamily: 'var(--yuno-mono, ui-monospace, monospace)',
           fontSize: 11.5,
           color: D.faint,
+          textAlign: 'center',
         }}>
-          <Heart size={13} strokeWidth={2} color={D.faint} />
-          Touche le cœur d'un lieu pour le retrouver ici
+          {activeTab === 'clubs' || activeTab === 'djs' ? (
+            <><Bell size={13} strokeWidth={2} color={D.faint} />{t('favorites.hintSubscriptions')}</>
+          ) : (
+            <><Heart size={13} strokeWidth={2} color={D.faint} />{t('favorites.hintFavorites')}</>
+          )}
         </div>
       </div>
 
