@@ -1,0 +1,82 @@
+/**
+ * Co-event revenue-split helpers — single source of truth for "your share".
+ *
+ * Mirrors the backend split model in supabase/functions/_shared/payment-split.ts.
+ * The Yuno fee model lives here (not in utils/fees.ts) because it is tied to the
+ * co-event split: tickets/tables 4% (min 0.99€), drinks 3%. Stripe-fee and
+ * refund math stay in utils/fees.ts.
+ *
+ * Used by:
+ *   - components/owner/co-event/EventInvoicesModule.tsx (single event)
+ *   - pages/OwnerAccounting.tsx (aggregated across all events)
+ * Keep both on this module so the per-event invoice PDF and the accounting
+ * report always agree to the cent.
+ */
+
+export type InvoiceType = 'ticket' | 'table' | 'order';
+
+export interface EffectiveSplit { organizer_pct: number; venue_pct: number; }
+
+export interface ShareResult {
+  /** Viewer's share of the net amount (€), rounded to cents. */
+  share: number;
+  /** Effective percentage applied for the viewer's side. */
+  pct: number;
+  /** Net amount after Yuno fees (€). */
+  net: number;
+  /** Yuno service fee on this transaction (€). */
+  yuno: number;
+}
+
+/** Yuno fee model — kept in sync with supabase/functions/_shared/payment-split.ts. */
+export function computeYunoFee(type: InvoiceType, gross: number): number {
+  if (type === 'order') return Math.round(gross * 0.03 * 100) / 100;
+  return Math.max(0.99, gross * 0.04);
+}
+
+/** Default split per event mode, mirroring backend defaultSplitForItem(). */
+export function defaultSplit(type: InvoiceType, mode: string | null): EffectiveSplit {
+  if (mode === 'venue_rental') {
+    return type === 'ticket' ? { organizer_pct: 100, venue_pct: 0 } : { organizer_pct: 0, venue_pct: 100 };
+  }
+  if (mode === 'org_hosted') return { organizer_pct: 100, venue_pct: 0 };
+  if (type === 'ticket') return { organizer_pct: 50, venue_pct: 50 };
+  if (type === 'table') return { organizer_pct: 0, venue_pct: 100 };
+  return { organizer_pct: 0, venue_pct: 100 }; // drinks default to venue
+}
+
+/** Normalize the stored revenue_split_rules jsonb into effective percentages. */
+export function getEffectiveSplit(rules: any, type: InvoiceType, mode: string | null): EffectiveSplit {
+  if (!rules) return defaultSplit(type, mode);
+  const key = type === 'ticket' ? 'tickets' : type === 'table' ? 'tables' : 'drinks';
+  const block = rules[key];
+  if (!block) return defaultSplit(type, mode);
+  const o = Number(block.organizer_pct ?? 0);
+  const v = Number(block.venue_pct ?? 0);
+  const total = o + v;
+  if (total <= 0) return defaultSplit(type, mode);
+  return { organizer_pct: (o / total) * 100, venue_pct: (v / total) * 100 };
+}
+
+/**
+ * Compute the viewer's share for one transaction.
+ * @param amount   TTC amount charged to the customer (€).
+ * @param type     ticket | table | order.
+ * @param side     which party is viewing ('venue' | 'organizer').
+ * @param rules    revenue_split_rules jsonb (null → defaults for the mode).
+ * @param mode     event_mode (co_event | venue_rental | org_hosted | solo_*).
+ */
+export function computeShare(
+  amount: number,
+  type: InvoiceType,
+  side: 'venue' | 'organizer',
+  rules: any,
+  mode: string | null,
+): ShareResult {
+  const yuno = computeYunoFee(type, amount);
+  const net = amount - yuno;
+  const split = getEffectiveSplit(rules, type, mode);
+  const pct = side === 'venue' ? split.venue_pct : split.organizer_pct;
+  const share = Math.round((net * pct) / 100 * 100) / 100;
+  return { share, pct, net, yuno };
+}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { orderRevenue as orderClub, ticketRevenue as ticketClub, tableRevenue as tableClub } from '@/utils/fees';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Download, Calculator } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
@@ -61,7 +62,7 @@ export default function AdminAccounting() {
       // Fetch all 3 revenue sources
       const [ordersRes, ticketsRes, tablesRes, eventsRes, subsRes] = await Promise.all([
         supabase.from('orders').select('venue_id, total, service_fee').in('status', ['paid', 'served']).gte('created_at', monthStart).lte('created_at', monthEnd),
-        supabase.from('tickets').select('event_id, total_price, service_fee').eq('status', 'paid').gte('created_at', monthStart).lte('created_at', monthEnd),
+        supabase.from('tickets').select('event_id, total_price, service_fee, insurance_fee').eq('status', 'paid').gte('created_at', monthStart).lte('created_at', monthEnd),
         supabase.from('table_reservations').select('event_id, total_price, service_fee, management_fee').in('status', ['confirmed', 'paid']).gte('created_at', monthStart).lte('created_at', monthEnd),
         supabase.from('events').select('id, venue_id'),
         supabase.from('venue_subscriptions').select('id, venue_id, status').in('status', ['active', 'trialing']),
@@ -73,17 +74,19 @@ export default function AdminAccounting() {
       const venueMap = new Map<string, VenueRevenue>();
       (venuesData || []).forEach(v => venueMap.set(v.id, { venue_id: v.id, venue_name: v.name, drinkRevenue: 0, ticketRevenue: 0, tableRevenue: 0, totalRevenue: 0, yunoFees: 0, drinkOrders: 0, ticketCount: 0, tableCount: 0 }));
 
+      // Club revenue excludes Yuno fees (orderClub/ticketClub/tableClub .gross);
+      // yunoFees tracks Yuno's own take separately. Yuno is never in club revenue.
       (ordersRes.data || []).forEach(o => {
         const v = venueMap.get(o.venue_id);
-        if (v) { v.drinkRevenue += Number(o.total); v.yunoFees += Number(o.service_fee || 0); v.drinkOrders += 1; }
+        if (v) { v.drinkRevenue += orderClub(o).gross; v.yunoFees += Number(o.service_fee || 0); v.drinkOrders += 1; }
       });
       (ticketsRes.data || []).forEach(t => {
         const vid = eventVenueMap.get(t.event_id);
-        if (vid) { const v = venueMap.get(vid); if (v) { v.ticketRevenue += Number(t.total_price); v.yunoFees += Number(t.service_fee || 0); v.ticketCount += 1; } }
+        if (vid) { const v = venueMap.get(vid); if (v) { v.ticketRevenue += ticketClub(t).gross; v.yunoFees += Number(t.service_fee || 0) + Number(t.insurance_fee || 0); v.ticketCount += 1; } }
       });
       (tablesRes.data || []).forEach(t => {
         const vid = eventVenueMap.get(t.event_id);
-        if (vid) { const v = venueMap.get(vid); if (v) { v.tableRevenue += Number(t.total_price); v.yunoFees += Number(t.service_fee || 0) + Number(t.management_fee || 0); v.tableCount += 1; } }
+        if (vid) { const v = venueMap.get(vid); if (v) { v.tableRevenue += tableClub(t).gross; v.yunoFees += Number(t.service_fee || 0) + Number(t.management_fee || 0); v.tableCount += 1; } }
       });
 
       const list = Array.from(venueMap.values()).map(v => ({ ...v, totalRevenue: v.drinkRevenue + v.ticketRevenue + v.tableRevenue })).filter(v => v.totalRevenue > 0).sort((a, b) => b.totalRevenue - a.totalRevenue);

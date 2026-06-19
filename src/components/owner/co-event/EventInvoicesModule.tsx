@@ -14,10 +14,10 @@ import { fr, es, enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { downloadInvoicePDF, type InvoiceData, type InvoiceItem } from '@/lib/generateInvoicePDF';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { computeYunoFee, getEffectiveSplit, computeShare as computeShareUtil, type InvoiceType } from '@/utils/coEventSplit';
 
 const dfLocale = (lng: string) => (lng === 'fr' ? fr : lng === 'es' ? es : enUS);
 
-type InvoiceType = 'ticket' | 'table' | 'order';
 type ViewerSide = 'customer' | 'venue' | 'organizer';
 
 interface Invoice {
@@ -54,35 +54,6 @@ interface Props {
   eventId: string;
 }
 
-/** Yuno fee model — kept in sync with supabase/functions/_shared/payment-split.ts */
-function computeYunoFee(type: InvoiceType, gross: number): number {
-  if (type === 'order') return Math.round(gross * 0.03 * 100) / 100;
-  return Math.max(0.99, gross * 0.04);
-}
-
-/** Default split per event mode, mirroring backend defaultSplitForItem(). */
-function defaultSplit(type: InvoiceType, mode: string | null) {
-  if (mode === 'venue_rental') {
-    return type === 'ticket' ? { organizer_pct: 100, venue_pct: 0 } : { organizer_pct: 0, venue_pct: 100 };
-  }
-  if (mode === 'org_hosted') return { organizer_pct: 100, venue_pct: 0 };
-  if (type === 'ticket') return { organizer_pct: 50, venue_pct: 50 };
-  if (type === 'table') return { organizer_pct: 0, venue_pct: 100 };
-  return { organizer_pct: 0, venue_pct: 100 }; // drinks default to venue
-}
-
-function getEffectiveSplit(rules: any, type: InvoiceType, mode: string | null) {
-  if (!rules) return defaultSplit(type, mode);
-  const key = type === 'ticket' ? 'tickets' : type === 'table' ? 'tables' : 'drinks';
-  const block = rules[key];
-  if (!block) return defaultSplit(type, mode);
-  const o = Number(block.organizer_pct ?? 0);
-  const v = Number(block.venue_pct ?? 0);
-  const t = o + v;
-  if (t <= 0) return defaultSplit(type, mode);
-  return { organizer_pct: (o / t) * 100, venue_pct: (v / t) * 100 };
-}
-
 /**
  * Module Factures scopé à un événement avec adaptation co-organisateur.
  * - Détecte si l'utilisateur est lead/partner venue ou organisateur.
@@ -117,7 +88,7 @@ export function EventInvoicesModule({ eventId }: Props) {
       .maybeSingle();
 
     let venueName = '';
-    let organizerName = 'Organisateur';
+    let organizerName = t('owner.coev.organizer');
     if (ev) {
       const vid = ev.venue_id ?? ev.partner_venue_id;
       const oid = ev.organizer_user_id ?? ev.partner_organizer_id;
@@ -126,7 +97,7 @@ export function EventInvoicesModule({ eventId }: Props) {
         oid ? supabase.from('organizer_profiles' as any).select('display_name').eq('user_id', oid).maybeSingle() : Promise.resolve({ data: null }),
       ]);
       venueName = (v as any)?.name ?? '';
-      organizerName = (o as any)?.display_name ?? 'Organisateur';
+      organizerName = (o as any)?.display_name ?? t('owner.coev.organizer');
 
       setEventCo({
         venue_id: ev.venue_id,
@@ -207,12 +178,7 @@ export function EventInvoicesModule({ eventId }: Props) {
 
   /** Compute the viewer's share for an invoice given current viewMode. */
   function computeShare(inv: Invoice, side: 'venue' | 'organizer'): { share: number; pct: number; net: number; yuno: number } {
-    const yuno = computeYunoFee(inv.type, inv.amount);
-    const net = inv.amount - yuno;
-    const split = getEffectiveSplit(eventCo?.revenue_split_rules, inv.type, eventCo?.event_mode ?? null);
-    const pct = side === 'venue' ? split.venue_pct : split.organizer_pct;
-    const share = Math.round((net * pct) / 100 * 100) / 100;
-    return { share, pct, net, yuno };
+    return computeShareUtil(inv.amount, inv.type, side, eventCo?.revenue_split_rules, eventCo?.event_mode ?? null);
   }
 
   /** Adaptive totals depending on the active viewMode. */
@@ -285,8 +251,8 @@ export function EventInvoicesModule({ eventId }: Props) {
       const organizerShare = Math.round((net * split.organizer_pct) / 100 * 100) / 100;
       coEvent = {
         viewerSide: viewMode,
-        venuePartyName: eventCo.venueName || 'Établissement',
-        organizerPartyName: eventCo.organizerName || 'Organisateur',
+        venuePartyName: eventCo.venueName || t('owner.coev.establishment'),
+        organizerPartyName: eventCo.organizerName || t('owner.coev.organizer'),
         venuePct: split.venue_pct,
         organizerPct: split.organizer_pct,
         yunoFee: yuno,
@@ -354,7 +320,7 @@ export function EventInvoicesModule({ eventId }: Props) {
       const base = [
         i.invoice_number,
         format(new Date(i.created_at), 'dd/MM/yyyy HH:mm'),
-        i.type === 'ticket' ? 'Billet' : i.type === 'table' ? 'Table VIP' : 'Boisson',
+        i.type === 'ticket' ? t('coInv.badgeTicket') : i.type === 'table' ? t('coInv.tablesVip') : t('coInv.badgeDrink'),
       ];
       if (isCo && (viewMode === 'venue' || viewMode === 'organizer')) {
         const me = computeShare(i, viewMode);
