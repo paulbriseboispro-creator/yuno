@@ -8,7 +8,7 @@
 > flux guest, confirmation de commande, invite club, explore, profil client, etc.).
 > L'app publique a ses propres conventions de design.
 >
-> Ce style est dérivé des composants `OwnerAnalytics.tsx` et du Hub Analytics Premium.
+> Ce style est dérivé du composant de référence `OwnerAnalytics.tsx`.
 > Toutes les valeurs ci-dessous sont **directement copiables** dans n'importe quel composant dashboard.
 
 ---
@@ -84,7 +84,7 @@ Utilisé pour chaque section de page. Exemple : KPI row, Revenue chart, Finance 
 
 ### 3.2 Carte imbriquée (inner card)
 
-Utilisé à l'intérieur d'une carte principale ou d'un layout en grille. Exemple : cartes dans les composants Analytics Hub.
+Utilisé à l'intérieur d'une carte principale ou d'un layout en grille (tiles, lignes de liste, segments).
 
 ```tsx
 <div
@@ -357,7 +357,8 @@ Pattern standard pour l'en-tête d'une card avec icon + titre + sous-titre + él
 
 ### 6.4 Nav rail vertical (sidebar de pilier)
 
-Active state utilise le RED comme accent. Exemple : `AnalyticsHubLayout`.
+Active state utilise le RED comme accent. Pattern réutilisable pour toute navigation
+verticale en rail (n'est plus monté dans la page Analytics, conservé ici comme référence).
 
 ```tsx
 <button
@@ -382,7 +383,7 @@ Active state utilise le RED comme accent. Exemple : `AnalyticsHubLayout`.
 </button>
 ```
 
-**Référence :** `PillarButton` dans `src/components/analytics/AnalyticsHubLayout.tsx:60–89`
+**Référence :** pattern conservé ci-dessus (composant `AnalyticsHubLayout` retiré lors du passage aux zones natives).
 
 ---
 
@@ -793,11 +794,8 @@ Avant de soumettre un composant redesigné :
 
 | Fichier | Rôle |
 |---|---|
-| `src/pages/OwnerAnalytics.tsx` | Page référence principale — tokens, PCard, Delta, Sparkline, RevenueBars, FunnelRibbon, DonutChart, Seg |
-| `src/components/analytics/LiveActivityHero.tsx` | Hero live — surface avec glow, Pill, KpiTile |
-| `src/components/analytics/AcquisitionDashboard.tsx` | Table, lists, inner cards, DonutChart sources |
-| `src/components/analytics/BehaviorAnalytics.tsx` | StatTile, Heatmap, DeviceBar, funnel bars |
-| `src/components/analytics/AudienceInsights.tsx` | TierTile, RFM segments, new vs returning |
-| `src/components/analytics/AnalyticsHubLayout.tsx` | Nav rail vertical active RED |
-| `src/components/analytics/AnalyticsPeriodFilter.tsx` | Filter bar, select styles dark |
+| `src/pages/OwnerAnalytics.tsx` | Page référence principale — tokens, PCard, Delta, Sparkline, RevenueBars, FunnelRibbon, DonutChart, Seg, ZoneHeading |
+| `src/components/analytics/AcquisitionDashboard.tsx` | Zone Trafic web — cartes natives, table, ramp rouge+mono, DonutChart sources |
+| `src/components/analytics/BehaviorAnalytics.tsx` | Zone Engagement web — StatTile, Heatmap, DeviceBar |
+| `src/components/analytics/AudienceInsights.tsx` | Zone Audience — TierTile, segments RFM, new vs returning |
 | `src/components/OwnerHeader.tsx` | Header pattern avec slot droit |

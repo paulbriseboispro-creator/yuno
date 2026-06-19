@@ -1,5 +1,6 @@
 import { useState, useEffect, useId } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { orderRevenue as orderClub, ticketRevenue as ticketClub, tableRevenue as tableClub } from '@/utils/fees';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -190,7 +191,7 @@ export default function AdminAnalytics() {
       const { data: orders } = await ordersQ;
 
       // Fetch tickets
-      const ticketsQ = supabase.from('tickets').select('event_id, total_price, service_fee, created_at, status').eq('status', 'paid').gte('created_at', startDate).lte('created_at', endDate);
+      const ticketsQ = supabase.from('tickets').select('event_id, total_price, service_fee, insurance_fee, created_at, status').eq('status', 'paid').gte('created_at', startDate).lte('created_at', endDate);
       const { data: allTickets } = await ticketsQ;
       const ticketsData = selectedVenue !== 'all'
         ? (allTickets || []).filter(t => eventVenueMap.get(t.event_id) === selectedVenue)
@@ -218,20 +219,21 @@ export default function AdminAnalytics() {
         dailyMap.set(date, { drinks: 0, tickets: 0, tables: 0, drinkOrders: 0, ticketOrders: 0, tableOrders: 0 });
       }
 
+      // Club revenue excludes Yuno fees; Yuno's own take is yunoRevenue below.
       (orders || []).forEach(o => {
         const date = format(new Date(o.created_at), 'dd/MM');
         const e = dailyMap.get(date);
-        if (e) { e.drinks += Number(o.total); e.drinkOrders += 1; }
+        if (e) { e.drinks += orderClub(o).gross; e.drinkOrders += 1; }
       });
       ticketsData.forEach(t => {
         const date = format(new Date(t.created_at), 'dd/MM');
         const e = dailyMap.get(date);
-        if (e) { e.tickets += Number(t.total_price); e.ticketOrders += 1; }
+        if (e) { e.tickets += ticketClub(t).gross; e.ticketOrders += 1; }
       });
       tablesData.forEach(t => {
         const date = format(new Date(t.created_at), 'dd/MM');
         const e = dailyMap.get(date);
-        if (e) { e.tables += Number(t.total_price); e.tableOrders += 1; }
+        if (e) { e.tables += tableClub(t).gross; e.tableOrders += 1; }
       });
 
       const daily = Array.from(dailyMap.entries()).map(([date, d]) => ({
@@ -240,13 +242,13 @@ export default function AdminAnalytics() {
       setDailyData(daily);
 
       // KPIs
-      const drinkTotal = (orders || []).reduce((s, o) => s + Number(o.total), 0);
-      const ticketTotal = ticketsData.reduce((s, t) => s + Number(t.total_price), 0);
-      const tableTotal = tablesData.reduce((s, t) => s + Number(t.total_price), 0);
+      const drinkTotal = (orders || []).reduce((s, o) => s + orderClub(o).gross, 0);
+      const ticketTotal = ticketsData.reduce((s, t) => s + ticketClub(t).gross, 0);
+      const tableTotal = tablesData.reduce((s, t) => s + tableClub(t).gross, 0);
       const totalRevenue = drinkTotal + ticketTotal + tableTotal;
 
       const yunoRevenue = (orders || []).reduce((s, o) => s + Number(o.service_fee || 0), 0)
-        + ticketsData.reduce((s, t) => s + Number(t.service_fee || 0), 0)
+        + ticketsData.reduce((s, t) => s + Number(t.service_fee || 0) + Number(t.insurance_fee || 0), 0)
         + tablesData.reduce((s, t) => s + Number(t.service_fee || 0) + Number(t.management_fee || 0), 0);
 
       const totalTransactions = (orders || []).length + ticketsData.length + tablesData.length;
@@ -278,9 +280,9 @@ export default function AdminAnalytics() {
       if (selectedVenue === 'all') {
         const venueRevMap = new Map<string, number>();
         venues.forEach(v => venueRevMap.set(v.id, 0));
-        (orders || []).forEach(o => venueRevMap.set(o.venue_id, (venueRevMap.get(o.venue_id) || 0) + Number(o.total)));
-        ticketsData.forEach(t => { const vid = eventVenueMap.get(t.event_id); if (vid) venueRevMap.set(vid, (venueRevMap.get(vid) || 0) + Number(t.total_price)); });
-        tablesData.forEach(t => { const vid = eventVenueMap.get(t.event_id); if (vid) venueRevMap.set(vid, (venueRevMap.get(vid) || 0) + Number(t.total_price)); });
+        (orders || []).forEach(o => venueRevMap.set(o.venue_id, (venueRevMap.get(o.venue_id) || 0) + orderClub(o).gross));
+        ticketsData.forEach(t => { const vid = eventVenueMap.get(t.event_id); if (vid) venueRevMap.set(vid, (venueRevMap.get(vid) || 0) + ticketClub(t).gross); });
+        tablesData.forEach(t => { const vid = eventVenueMap.get(t.event_id); if (vid) venueRevMap.set(vid, (venueRevMap.get(vid) || 0) + tableClub(t).gross); });
         setVenueComparison(venues.map(v => ({ name: v.name, revenue: venueRevMap.get(v.id) || 0 })).filter(v => v.revenue > 0).sort((a, b) => b.revenue - a.revenue));
       }
     } catch (error) {

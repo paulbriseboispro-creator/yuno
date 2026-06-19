@@ -3,7 +3,7 @@ import {
   Download, Ticket, Users, RotateCcw,
   Percent, ShoppingCart, CreditCard,
   TrendingUp, Layers, Flame,
-  ArrowUpRight, ArrowDownRight, Sparkles, Globe, Calendar, Wine,
+  ArrowUpRight, ArrowDownRight, Globe, Calendar, Wine, Activity,
   Loader2,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -13,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, subMinutes, subHours, subDays, startOfDay } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import { useState, useEffect } from 'react';
-import { useAnalyticsData, type AnalyticsMode, type DateRange } from '@/hooks/useAnalyticsData';
+import { useAnalyticsData, type AnalyticsMode, type DateRange, dateRangeToWindow } from '@/hooks/useAnalyticsData';
 import { useOrganizerEventIds } from '@/hooks/useOrganizerEventIds';
 import { buildOrganizerScopeOr } from '@/components/analytics/scopeFilter';
 import { TableAnalyticsSection } from '@/components/analytics/TableAnalyticsSection';
@@ -22,13 +22,11 @@ import { TicketAnalyticsLaunch } from '@/components/analytics/TicketAnalyticsLau
 import { TicketAnalyticsTypes } from '@/components/analytics/TicketAnalyticsTypes';
 import { TicketAnalyticsPhases } from '@/components/analytics/TicketAnalyticsPhases';
 import { RefundAnalyticsSection } from '@/components/analytics/RefundAnalyticsSection';
-import { AnalyticsHubLayout, type AnalyticsPillar } from '@/components/analytics/AnalyticsHubLayout';
-import { LiveActivityHero } from '@/components/analytics/LiveActivityHero';
 import { AcquisitionDashboard } from '@/components/analytics/AcquisitionDashboard';
 import { BehaviorAnalytics } from '@/components/analytics/BehaviorAnalytics';
 import { AudienceInsights } from '@/components/analytics/AudienceInsights';
-import { ConversionFunnelCard } from '@/components/analytics/ConversionFunnelCard';
-import { AnalyticsPeriodFilter, type AnalyticsRange, rangeToDates } from '@/components/analytics/AnalyticsPeriodFilter';
+import { EventPostAnalysisView } from '@/components/owner/co-event/EventPostAnalysisView';
+import { AnalyticsAnchorNav, type AnchorSection } from '@/components/analytics/AnalyticsAnchorNav';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const RED = '#E8192C';
@@ -142,17 +140,32 @@ function Sparkline({ pts, accent = false }: { pts: number[]; accent?: boolean })
 }
 
 // ─── Revenue hourly bars ──────────────────────────────────────────────────────
-function RevenueBars({ data }: { data: { hour: string; revenue: number }[] }) {
-  if (!data.length) return null;
+// Turn a sparse list of active hours into a continuous min→max hour range,
+// inserting revenue:0 for the gaps so the chart reads as a real timeline.
+function fillHourGaps(rows: { hour: string; revenue: number }[]): { hour: string; revenue: number }[] {
+  const byHour = new Map<number, number>();
+  rows.forEach(d => { const h = parseInt(d.hour); if (!Number.isNaN(h)) byHour.set(h, (byHour.get(h) || 0) + d.revenue); });
+  if (byHour.size === 0) return rows;
+  const hours = Array.from(byHour.keys());
+  const min = Math.min(...hours), max = Math.max(...hours);
+  const out: { hour: string; revenue: number }[] = [];
+  for (let h = min; h <= max; h++) out.push({ hour: `${h}h`, revenue: byHour.get(h) || 0 });
+  return out;
+}
+
+function RevenueBars({ data: raw }: { data: { hour: string; revenue: number }[] }) {
+  if (!raw.length) return null;
+  const data = fillHourGaps(raw);
   // Fixed wide viewBox (≈3.8:1) so the chart height stays sane regardless of bar
   // count — bars are distributed across W instead of W growing per bar (which made
   // the rendered height explode at width:100%).
   const W = 640, plotH = 150, labelH = 20, H = plotH + labelH;
   const slot = W / data.length;
   const bw = Math.min(28, slot * 0.6);
-  const r = Math.min(4, bw / 2);
   const maxVal = Math.max(...data.map(d => d.revenue), 1) * 1.1;
   const peakIdx = data.reduce((m, d, i) => d.revenue > data[m].revenue ? i : m, 0);
+  // Thin out hour labels so they never collide; aim for ~8 labels max.
+  const labelEvery = Math.max(1, Math.ceil(data.length / 8));
   return (
     <div style={{ width: '100%', overflowX: 'hidden' }}>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" style={{ display: 'block', width: '100%', height: 'auto' }}>
@@ -160,17 +173,26 @@ function RevenueBars({ data }: { data: { hour: string; revenue: number }[] }) {
           <line key={i} x1={0} x2={W} y1={plotH - plotH * g} y2={plotH - plotH * g} stroke={C_FAINT} strokeWidth={1} />
         ))}
         {data.map((d, i) => {
-          const x = i * slot + (slot - bw) / 2;
-          const bh = Math.max(2, (d.revenue / maxVal) * plotH);
+          const isEmpty = d.revenue <= 0;
+          // Empty hours render as a faint baseline tick, not a rounded sliver.
+          const bh = isEmpty ? 3 : Math.max(6, (d.revenue / maxVal) * plotH);
           const y = plotH - bh;
+          // Clamp the corner radius to the bar's own height so short bars don't
+          // produce a malformed path (the little "U"/tab shapes at the baseline).
+          const r = Math.min(4, bw / 2, bh / 2);
           const isPeak = i === peakIdx;
-          const showLabel = i % 3 === 0;
+          const showLabel = i % labelEvery === 0;
+          const x = i * slot + (slot - bw) / 2;
           return (
             <g key={i}>
-              <path
-                d={`M${x} ${y + r} a${r} ${r} 0 0 1 ${r} ${-r} h${bw - 2 * r} a${r} ${r} 0 0 1 ${r} ${r} V${plotH} H${x} Z`}
+              {/* Animate the rect's own height/y so the bar grows from the
+                  baseline — robust across browsers (no transform-origin quirks). */}
+              <motion.rect
+                x={x} width={bw} rx={r}
                 fill={isPeak ? RED : C_MID}
-                opacity={isPeak ? 0.85 : 1}
+                initial={{ height: 0, y: plotH, opacity: 0 }}
+                animate={{ height: bh, y, opacity: isEmpty ? 0.25 : (isPeak ? 0.92 : 0.82) }}
+                transition={{ delay: i * 0.035, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
               />
               {showLabel && (
                 <text x={x + bw / 2} y={H - 4} fill={T3} fontSize={9} textAnchor="middle" style={{ fontVariantNumeric: 'tabular-nums' }}>{d.hour}</text>
@@ -322,12 +344,12 @@ export default function OrgAppAnalytics() {
   const [liveVisitors, setLiveVisitors] = useState(0);
   const [funnel, setFunnel] = useState({ visitors: 0, addedToCart: 0, proceededToCheckout: 0, completed: 0, conversionRate: 0 });
   const [activeTab, setActiveTab] = useState<'tickets' | 'tables' | 'refunds'>('tickets');
+  // Per-event verdict (post-event analysis) collapses the raw breakdown behind a toggle.
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [ticketSubTab, setTicketSubTab] = useState<'overview' | 'launch' | 'types' | 'phases'>('overview');
-  const [pillar, setPillar] = useState<AnalyticsPillar>('pulse');
-  const [hubRange, setHubRange] = useState<AnalyticsRange>('7d');
-  const [hubDevice, setHubDevice] = useState<string>('all');
-  const [hubSource, setHubSource] = useState<string>('all');
-  const hubDates = rangeToDates(hubRange);
+
+  // Web-traffic zones share the page's main period selector (no separate filter).
+  const webWindow = dateRangeToWindow(dateRange);
 
   const { eventIds, venueIds } = useOrganizerEventIds(user?.id);
   const { ticketAnalytics, tableAnalytics, refundAnalytics, events, loading } = useAnalyticsData({
@@ -522,7 +544,7 @@ export default function OrgAppAnalytics() {
     { label: tt('Invités uniques', 'Unique guests'), val: totalGuests.toLocaleString(), spark: guestsSparkPts, icon: <Users className="w-4 h-4" />, ...trendDelta(guestsSparkPts) },
   ];
 
-  // Merge hourly bars from tickets + tables
+  // Merge hourly bars from tickets + tables (RevenueBars fills the hour gaps).
   const hourMap = new Map<string, number>();
   ticketAnalytics.hourlyData.forEach(h => hourMap.set(h.hour, (hourMap.get(h.hour) || 0) + h.revenue));
   tableAnalytics.hourlyData.forEach(h => hourMap.set(h.hour, (hourMap.get(h.hour) || 0) + h.revenue));
@@ -568,6 +590,17 @@ export default function OrgAppAnalytics() {
     { id: 'tickets' as const, label: tt('Billets', 'Tickets'), icon: Ticket },
     { id: 'tables' as const, label: tt('Tables VIP', 'VIP Tables'), icon: Wine },
     { id: 'refunds' as const, label: tt('Remboursements', 'Refunds'), icon: RotateCcw },
+  ];
+
+  // Event mode shows the post-event verdict first; the raw breakdown collapses behind a toggle.
+  const isEventVerdict = mode === 'event' && !!selectedEventId && !!user;
+  const showBreakdown = !isEventVerdict || showAdvanced;
+  const navSections: AnchorSection[] = [
+    { id: 'an-overview', label: tt("Vue d'ensemble", 'Overview'), icon: Layers },
+    { id: 'an-web', label: tt('Trafic web', 'Web traffic'), icon: Globe },
+    { id: 'an-engagement', label: tt('Engagement', 'Engagement'), icon: Activity },
+    { id: 'an-audience', label: tt('Audience', 'Audience'), icon: Users },
+    { id: 'an-detail', label: tt('Détails', 'Details'), icon: Calendar },
   ];
 
   return (
@@ -635,8 +668,24 @@ export default function OrgAppAnalytics() {
           </div>
         </motion.div>
 
+        {/* ── Per-event verdict (post-event analysis engine, organizer-scoped) ── */}
+        {isEventVerdict && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+            <EventPostAnalysisView key={selectedEventId!} eventId={selectedEventId!} venueId={null} organizerUserId={user!.id} />
+            <button onClick={() => setShowAdvanced(v => !v)}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium cursor-pointer"
+              style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T2 }}>
+              {showAdvanced ? tt('Masquer le détail avancé', 'Hide advanced breakdown') : tt('Voir le détail avancé', 'Show advanced breakdown')}
+            </button>
+          </motion.div>
+        )}
+
+        {/* ── Global anchor-nav spine ───────────────────────────────────── */}
+        {mode === 'global' && <AnalyticsAnchorNav sections={navSections} />}
+
+        {showBreakdown && (<>
         {/* ── KPI row ───────────────────────────────────────────────────── */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <motion.div id="an-overview" style={{ scrollMarginTop: 80 }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {kpis.map((kpi, i) => (
             <PCard key={i}>
               <div className="flex flex-col min-h-[120px]">
@@ -759,43 +808,40 @@ export default function OrgAppAnalytics() {
           </motion.div>
         )}
 
-        {/* ── Premium Analytics Hub ─────────────────────────────────────── */}
+        {/* ── Web traffic / engagement / audience (native zones) ────────── */}
         {user && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
-            <PCard style={{ padding: 18 }}>
-              <div className="flex items-center gap-2.5 mb-4">
-                <div className="w-8 h-8 flex items-center justify-center rounded-xl" style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}>
-                  <Sparkles className="w-4 h-4" style={{ color: RED }} />
-                </div>
-                <div>
-                  <h2 className="text-[15px] font-bold" style={{ color: T1, letterSpacing: '-0.01em' }}>{tt('Hub Premium', 'Premium Hub')}</h2>
-                  <p className="text-[11.5px]" style={{ color: T3 }}>Pulse · Acquisition · {tt('Comportement', 'Behavior')} · Audience</p>
-                </div>
+          <>
+            {/* Web traffic */}
+            <motion.div id="an-web" style={{ scrollMarginTop: 80 }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }} className="space-y-3">
+              <div className="flex items-center gap-2 px-1">
+                <Globe className="w-4 h-4" style={{ color: T2 }} />
+                <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em]" style={{ color: T2 }}>{tt('Trafic web', 'Web traffic')}</h3>
               </div>
+              <AcquisitionDashboard scope={{ kind: 'organizer', id: user.id }} from={webWindow.from} to={webWindow.to} />
+            </motion.div>
 
-              <AnalyticsPeriodFilter range={hubRange} onChange={setHubRange} device={hubDevice} onDeviceChange={setHubDevice} source={hubSource} onSourceChange={setHubSource} />
-
-              <div className="mt-4">
-                <AnalyticsHubLayout active={pillar} onChange={setPillar}>
-                  {pillar === 'pulse' && <LiveActivityHero scope={{ kind: 'organizer', id: user.id }} from={hubDates.from} to={hubDates.to} deviceFilter={hubDevice} sourceFilter={hubSource} />}
-                  {pillar === 'acquisition' && <AcquisitionDashboard scope={{ kind: 'organizer', id: user.id }} from={hubDates.from} to={hubDates.to} deviceFilter={hubDevice} sourceFilter={hubSource} />}
-                  {pillar === 'behavior' && (
-                    <div className="space-y-4">
-                      {mode === 'event' && selectedEventId
-                        ? <ConversionFunnelCard scope={{ kind: 'event', eventId: selectedEventId }} />
-                        : <ConversionFunnelCard scope={{ kind: 'organizer', organizerUserId: user.id }} />}
-                      <BehaviorAnalytics scope={{ kind: 'organizer', id: user.id }} from={hubDates.from} to={hubDates.to} deviceFilter={hubDevice} sourceFilter={hubSource} />
-                    </div>
-                  )}
-                  {pillar === 'audience' && <AudienceInsights scope={{ kind: 'organizer', id: user.id }} from={hubDates.from} to={hubDates.to} />}
-                </AnalyticsHubLayout>
+            {/* Web engagement — the conversion funnel lives in the main funnel card above. */}
+            <motion.div id="an-engagement" style={{ scrollMarginTop: 80 }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.24 }} className="space-y-3">
+              <div className="flex items-center gap-2 px-1">
+                <Activity className="w-4 h-4" style={{ color: T2 }} />
+                <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em]" style={{ color: T2 }}>{tt('Engagement web', 'Web engagement')}</h3>
               </div>
-            </PCard>
-          </motion.div>
+              <BehaviorAnalytics scope={{ kind: 'organizer', id: user.id }} from={webWindow.from} to={webWindow.to} />
+            </motion.div>
+
+            {/* Audience */}
+            <motion.div id="an-audience" style={{ scrollMarginTop: 80 }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }} className="space-y-3">
+              <div className="flex items-center gap-2 px-1">
+                <Users className="w-4 h-4" style={{ color: T2 }} />
+                <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em]" style={{ color: T2 }}>{tt('Audience', 'Audience')}</h3>
+              </div>
+              <AudienceInsights scope={{ kind: 'organizer', id: user.id }} from={webWindow.from} to={webWindow.to} />
+            </motion.div>
+          </>
         )}
 
         {/* ── Category tabs ─────────────────────────────────────────────── */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+        <motion.div id="an-detail" style={{ scrollMarginTop: 80 }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
           <div className="flex gap-0.5 mb-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
             {tabs.map(tab => {
               const Icon = tab.icon;
@@ -868,6 +914,7 @@ export default function OrgAppAnalytics() {
             </div>
           </PCard>
         </motion.div>
+        </>)}
 
       </div>
     </div>

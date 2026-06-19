@@ -13,11 +13,24 @@ const T2 = 'rgba(255,255,255,0.58)';
 const T3 = 'rgba(255,255,255,0.36)';
 const BORDER = 'rgba(255,255,255,0.085)';
 const FAINT_BORDER = 'rgba(255,255,255,0.055)';
+const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
+const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
 
+// Ordinal ramp — best tier/segment is RED, the rest fade through white opacity.
+// Single-accent, no rainbow (Yuno DA: #E8192C is the only systemic color accent).
+const RAMP = [
+  RED,
+  'rgba(255,255,255,0.82)', 'rgba(255,255,255,0.58)', 'rgba(255,255,255,0.42)',
+  'rgba(255,255,255,0.30)', 'rgba(255,255,255,0.22)', 'rgba(255,255,255,0.15)',
+];
+const ramp = (i: number) => RAMP[Math.min(i, RAMP.length - 1)];
+
+// Promoted to a top-level Yuno card so each section reads as a native page card.
 const crd: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.032)',
+  background: CARD_BG,
   border: `1px solid ${BORDER}`,
-  borderRadius: 14,
+  borderRadius: 18,
+  boxShadow: CARD_SHADOW,
   overflow: 'hidden',
 };
 
@@ -114,13 +127,13 @@ export function AudienceInsights({ scope, from, to }: Props) {
       });
 
       const segs: RFMSegment[] = [
-        { key: 'champions', label: tt('Champions', 'Champions'), count: segMap.champions, color: '#10b981', description: tt('Top clients récents', 'Top recent customers') },
-        { key: 'loyal', label: tt('Fidèles', 'Loyal'), count: segMap.loyal, color: '#3b82f6', description: tt('Réguliers actifs', 'Active regulars') },
-        { key: 'potential', label: tt('Potentiels', 'Potential'), count: segMap.potential, color: '#a855f7', description: tt('À fidéliser', 'To nurture') },
-        { key: 'new', label: tt('Nouveaux', 'New'), count: segMap.new, color: '#f59e0b', description: tt('Première visite récente', 'Recent first-timers') },
-        { key: 'atRisk', label: tt('À risque', 'At risk'), count: segMap.atRisk, color: '#f97316', description: tt('Réactivation urgente', 'Need re-engagement') },
-        { key: 'hibernating', label: tt('Endormis', 'Hibernating'), count: segMap.hibernating, color: '#6b7280', description: tt('Inactifs depuis longtemps', 'Long inactive') },
-        { key: 'lost', label: tt('Perdus', 'Lost'), count: segMap.lost, color: '#94a3b8', description: tt('+180j sans activité', '180+ days inactive') },
+        { key: 'champions', label: tt('Champions', 'Champions'), count: segMap.champions, color: ramp(0), description: tt('Top clients récents', 'Top recent customers') },
+        { key: 'loyal', label: tt('Fidèles', 'Loyal'), count: segMap.loyal, color: ramp(1), description: tt('Réguliers actifs', 'Active regulars') },
+        { key: 'potential', label: tt('Potentiels', 'Potential'), count: segMap.potential, color: ramp(2), description: tt('À fidéliser', 'To nurture') },
+        { key: 'new', label: tt('Nouveaux', 'New'), count: segMap.new, color: ramp(3), description: tt('Première visite récente', 'Recent first-timers') },
+        { key: 'atRisk', label: tt('À risque', 'At risk'), count: segMap.atRisk, color: ramp(4), description: tt('Réactivation urgente', 'Need re-engagement') },
+        { key: 'hibernating', label: tt('Endormis', 'Hibernating'), count: segMap.hibernating, color: ramp(5), description: tt('Inactifs depuis longtemps', 'Long inactive') },
+        { key: 'lost', label: tt('Perdus', 'Lost'), count: segMap.lost, color: ramp(6), description: tt('+180j sans activité', '180+ days inactive') },
       ];
 
       setSegments(segs);
@@ -150,10 +163,10 @@ export function AudienceInsights({ scope, from, to }: Props) {
           {tt('Tiers de clients', 'Customer tiers')}
         </h3>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-          <TierTile icon={Trophy} label="Platinum" value={tiers.platinum} color="#e5e7eb" sub="≥ 1000€" />
-          <TierTile icon={Award} label="Gold" value={tiers.gold} color="#fbbf24" sub="≥ 500€" />
-          <TierTile icon={Award} label="Silver" value={tiers.silver} color="#cbd5e1" sub="≥ 200€" />
-          <TierTile icon={Award} label="Bronze" value={tiers.bronze} color="#d97706" sub="< 200€" />
+          <TierTile icon={Trophy} label="Platinum" value={tiers.platinum} color={ramp(0)} sub="≥ 1000€" />
+          <TierTile icon={Award} label="Gold" value={tiers.gold} color={ramp(1)} sub="≥ 500€" />
+          <TierTile icon={Award} label="Silver" value={tiers.silver} color={ramp(2)} sub="≥ 200€" />
+          <TierTile icon={Award} label="Bronze" value={tiers.bronze} color={ramp(3)} sub="< 200€" />
         </div>
       </div>
 
@@ -223,11 +236,11 @@ export function AudienceInsights({ scope, from, to }: Props) {
             className="rounded-xl"
             style={{
               padding: '16px 18px',
-              border: '1px solid rgba(59,130,246,0.2)',
-              background: 'rgba(59,130,246,0.06)',
+              border: '1px solid rgba(232,25,44,0.2)',
+              background: 'rgba(232,25,44,0.06)',
             }}
           >
-            <Repeat className="h-5 w-5 mb-2.5" style={{ color: '#60a5fa' }} />
+            <Repeat className="h-5 w-5 mb-2.5" style={{ color: RED }} />
             <div className="text-2xl font-bold tabular-nums" style={{ color: T1, letterSpacing: '-0.025em' }}>
               {returning.returningC}
             </div>
