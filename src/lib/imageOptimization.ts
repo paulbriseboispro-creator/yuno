@@ -30,14 +30,18 @@ export function getOptimizedImageUrl(
     '/storage/v1/object/public/',
     '/storage/v1/render/image/public/'
   );
-  
-  const params = new URLSearchParams();
-  
+
+  // Preserve any query string already on the source URL (e.g. a legacy ?t=
+  // cache-buster) and merge the transform params into it, so we never emit a
+  // malformed `?t=123?width=...` with two question marks.
+  const [base, existingQuery] = transformUrl.split('?');
+  const params = new URLSearchParams(existingQuery || '');
+
   if (width) params.set('width', width.toString());
   if (height) params.set('height', height.toString());
   params.set('quality', quality.toString());
-  
-  return `${transformUrl}?${params.toString()}`;
+
+  return `${base}?${params.toString()}`;
 }
 
 /**
