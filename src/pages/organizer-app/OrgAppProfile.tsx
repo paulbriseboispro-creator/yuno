@@ -5,7 +5,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { ExternalLink, Loader2, Upload, Globe, Image as ImageIcon, User, Building2, FileText, Trash2 } from 'lucide-react';
+import { ExternalLink, Loader2, Upload, Globe, Image as ImageIcon, User, Building2, FileText, Trash2, MapPin } from 'lucide-react';
 import { Instagram } from '@/components/icons/Instagram';
 import { ImageCropperDialog } from '@/components/ImageCropperDialog';
 import {
@@ -19,6 +19,7 @@ interface OrgProfile {
   display_name: string;
   slug: string | null;
   bio: string | null;
+  city: string | null;
   avatar_url: string | null;
   cover_url: string | null;
   instagram_url: string | null;
@@ -47,7 +48,7 @@ export default function OrgAppProfile() {
   const [cropperType, setCropperType] = useState<'avatar' | 'cover' | null>(null);
 
   const [profile, setProfile] = useState<OrgProfile>({
-    user_id: '', display_name: '', slug: null, bio: '', avatar_url: '', cover_url: '',
+    user_id: '', display_name: '', slug: null, bio: '', city: '', avatar_url: '', cover_url: '',
     instagram_url: '', website_url: '', is_public: true,
     legal_name: '', legal_address: '', siret: '', vat_number: '', billing_email: '', minors_allowed: false,
     minor_auth_doc_url: null, minor_auth_doc_name: null,
@@ -68,6 +69,7 @@ export default function OrgAppProfile() {
           display_name: data.display_name || '',
           slug: data.slug,
           bio: data.bio || '',
+          city: data.city || '',
           avatar_url: data.avatar_url || '',
           cover_url: data.cover_url || '',
           instagram_url: data.instagram_url || '',
@@ -119,7 +121,11 @@ export default function OrgAppProfile() {
         .upload(path, file, { upsert: true, contentType: file.type });
       if (error) throw error;
       const { data } = supabase.storage.from('profile-photos').getPublicUrl(path);
-      return `${data.publicUrl}?t=${Date.now()}`;
+      // The path already carries a unique Date.now() segment, so the public URL
+      // is distinct per upload — no query-string cache-buster needed. A ?t= here
+      // would get baked into the stored URL and break getOptimizedImageUrl's
+      // transform params on the public profile (malformed ?t=123?width=...).
+      return data.publicUrl;
     } catch (e: any) {
       toast.error(e.message || t('Erreur upload', 'Upload error'));
       return null;
@@ -165,6 +171,7 @@ export default function OrgAppProfile() {
         user_id: user.id,
         display_name: profile.display_name.trim(),
         bio: profile.bio?.trim() || null,
+        city: profile.city?.trim() || null,
         avatar_url: profile.avatar_url || null,
         cover_url: profile.cover_url || null,
         instagram_url: profile.instagram_url?.trim() || null,
@@ -184,10 +191,11 @@ export default function OrgAppProfile() {
         .upsert(payload, { onConflict: 'user_id' });
       if (error) throw error;
 
-      await supabase
+      const { error: profErr } = await supabase
         .from('profiles')
         .update({ organization_name: payload.display_name, organization_logo_url: payload.avatar_url })
         .eq('id', user.id);
+      if (profErr) throw profErr;
 
       toast.success(t('Profil enregistré', 'Profile saved'));
 
@@ -227,7 +235,7 @@ export default function OrgAppProfile() {
           {/* Cover */}
           <div>
             <FieldLabel><ImageIcon className="mr-1 inline h-3 w-3" /> {t('Bannière de couverture', 'Cover banner')}</FieldLabel>
-            <div className="relative aspect-[3/1] w-full overflow-hidden rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
               {profile.cover_url ? (
                 <img src={profile.cover_url} alt="cover" className="h-full w-full object-cover" />
               ) : (
@@ -267,13 +275,11 @@ export default function OrgAppProfile() {
                 <div className="absolute inset-0 flex items-center justify-center rounded-2xl" style={{ background: 'rgba(0,0,0,0.6)' }}><Loader2 className="h-5 w-5 animate-spin" style={{ color: T1 }} /></div>
               )}
               <input id="avatar-upload" type="file" accept="image/*" className="hidden"
-                onChange={async (e) => {
+                onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (!f) return;
                   if (!f.type.startsWith('image/')) { toast.error(t('Format non supporté', 'Unsupported format')); e.target.value = ''; return; }
-                  const url = await uploadImage(f, 'avatar');
-                  if (url) setProfile((p) => ({ ...p, avatar_url: url }));
-                  e.target.value = '';
+                  setPendingFile(f); setCropperType('avatar'); e.target.value = '';
                 }}
               />
               <button type="button" onClick={() => document.getElementById('avatar-upload')?.click()}
@@ -300,6 +306,12 @@ export default function OrgAppProfile() {
           <div>
             <FieldLabel>{t('Bio', 'Bio')}</FieldLabel>
             <DarkTextarea value={profile.bio || ''} onChange={(v) => setProfile((p) => ({ ...p, bio: v }))} rows={3} placeholder={t('Présentez votre collectif en quelques mots…', 'Introduce your collective in a few words…')} />
+          </div>
+
+          {/* City — shown on your public profile and on followers' favorites cards */}
+          <div>
+            <FieldLabel><MapPin className="mr-1 inline h-3 w-3" /> {t('Ville', 'City', 'Ciudad')}</FieldLabel>
+            <DarkInput value={profile.city || ''} onChange={(v) => setProfile((p) => ({ ...p, city: v }))} placeholder={t('Ex : Paris', 'e.g. Paris', 'Ej: Madrid')} />
           </div>
 
           {/* Social */}
@@ -399,19 +411,21 @@ export default function OrgAppProfile() {
       </OrgCard>
 
       <ImageCropperDialog
-        open={cropperType === 'cover'}
+        open={cropperType !== null}
         onOpenChange={(o) => { if (!o) { setCropperType(null); setPendingFile(null); } }}
-        imageFile={cropperType === 'cover' ? pendingFile : null}
-        aspectRatio={3}
-        shape="rect"
-        outputSize={1500}
-        title={t('Cadrer la bannière', 'Crop banner')}
+        imageFile={pendingFile}
+        aspectRatio={cropperType === 'cover' ? 4 / 3 : 1}
+        shape={cropperType === 'avatar' ? 'circle' : 'rect'}
+        outputSize={cropperType === 'avatar' ? 512 : 1500}
+        title={cropperType === 'avatar' ? t('Cadrer le logo', 'Crop logo') : t('Cadrer la bannière', 'Crop banner')}
         helperText={t('Glissez pour déplacer · pincez ou utilisez le curseur pour zoomer', 'Drag to move · pinch or use slider to zoom')}
         onCrop={async (cropped) => {
+          const type = cropperType;
           setCropperType(null);
           setPendingFile(null);
-          const url = await uploadImage(cropped, 'cover');
-          if (url) setProfile((p) => ({ ...p, cover_url: url }));
+          if (!type) return;
+          const url = await uploadImage(cropped, type);
+          if (url) setProfile((p) => (type === 'avatar' ? { ...p, avatar_url: url } : { ...p, cover_url: url }));
         }}
       />
     </OrgPage>

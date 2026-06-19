@@ -327,12 +327,15 @@ FROM (VALUES
   ('o4',  gen_random_uuid(), 'org',   'Yuno Summer Closing', 20, true, false, 'open')
 ) v(slug, id, kind, title, doff, ticketing, tables, genre);
 
-INSERT INTO events (id, title, start_at, end_at, venue_id, organizer_user_id,
+INSERT INTO events (id, title, start_at, end_at, venue_id, organizer_user_id, description,
   music_genre, event_type, event_kind, event_mode, visibility, is_active, is_discoverable,
   ticketing_enabled, tables_enabled, access_code, location_name, location_city, image_url, poster_url, created_at)
 SELECT e.id, e.title, e.start_ts, e.start_ts + interval '6 hours',
   CASE WHEN e.kind = 'venue' THEN (SELECT t FROM _ctx WHERE k='venue') END,
   CASE WHEN e.kind = 'org'   THEN (SELECT u FROM _ctx WHERE k='organizer') END,
+  -- Description >= 30 chars so the discoverability trigger can approve the event once it's
+  -- switched to a public event (empty descriptions silently keep events out of Explore).
+  e.title || ' — soirée ' || e.genre || ' par Yuno. Line-up, tables VIP et énergie jusqu''au bout de la nuit.',
   e.genre, 'club',
   (CASE WHEN e.kind = 'org' THEN 'organizer_event' ELSE 'club_event' END)::event_kind,
   (CASE WHEN e.kind = 'org' THEN 'solo_organizer' ELSE 'solo_venue' END)::event_mode,

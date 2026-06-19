@@ -4,7 +4,7 @@ import { translate } from '@/i18n/orgTranslate';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { UserCircle, Globe, ImagePlus, Loader2, ArrowRight, SkipForward } from 'lucide-react';
+import { UserCircle, Globe, ImagePlus, Loader2, ArrowRight, SkipForward, MapPin } from 'lucide-react';
 import { Instagram } from '@/components/icons/Instagram';
 import { toast } from 'sonner';
 import { StepHeader, PrimaryButton, GhostButton, FieldLabel, OptionalPill, T2, T3, BORDER } from '@/components/onboarding/onboardingUI';
@@ -22,6 +22,7 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [bio, setBio] = useState('');
+  const [city, setCity] = useState('');
   const [instagram, setInstagram] = useState('');
   const [website, setWebsite] = useState('');
   const [uploading, setUploading] = useState<'logo' | 'cover' | null>(null);
@@ -32,11 +33,12 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
     (async () => {
       const [{ data: profile }, { data: orgProfile }] = await Promise.all([
         supabase.from('profiles').select('organization_logo_url').eq('id', userId).maybeSingle(),
-        supabase.from('organizer_profiles').select('cover_url, bio, instagram_url, website_url').eq('user_id', userId).maybeSingle(),
+        supabase.from('organizer_profiles').select('cover_url, bio, city, instagram_url, website_url').eq('user_id', userId).maybeSingle(),
       ]);
       setLogoUrl(profile?.organization_logo_url ?? null);
       setCoverUrl(orgProfile?.cover_url ?? null);
       setBio(orgProfile?.bio ?? '');
+      setCity((orgProfile as any)?.city ?? '');
       setInstagram(orgProfile?.instagram_url ?? '');
       setWebsite(orgProfile?.website_url ?? '');
       setLoaded(true);
@@ -78,6 +80,7 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
     setSaving(true);
     const { error } = await upsertOrgProfile({
       bio: bio.trim() || null,
+      city: city.trim() || null,
       instagram_url: instagram.trim() || null,
       website_url: website.trim() || null,
     });
@@ -147,6 +150,15 @@ export function OrgOnboardingStepPublic({ userId, onComplete, onSkip }: Props) {
             maxLength={280}
           />
           <p style={{ color: T3, fontSize: 11, marginTop: 4, textAlign: 'right' }} className="tabular-nums">{bio.length}/280</p>
+        </div>
+        <div>
+          <FieldLabel>{tt('Ville', 'City', 'Ciudad')}</FieldLabel>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-none" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}` }}>
+              <MapPin className="w-4 h-4" style={{ color: T2 }} />
+            </div>
+            <Input value={city} onChange={e => setCity(e.target.value)} placeholder={tt('Ex : Paris', 'e.g. Paris', 'Ej: Madrid')} />
+          </div>
         </div>
         <div>
           <FieldLabel>Instagram</FieldLabel>
