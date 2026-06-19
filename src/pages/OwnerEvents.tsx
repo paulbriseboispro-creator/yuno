@@ -342,13 +342,42 @@ export default function OwnerEvents() {
   };
 
   // ─── Inline ticketing / tables publishing (avoids tab navigation) ──────────
-  const handleToggleTables = async (event: OwnerEventRow) => {
+  // Returns false when activation needs a table plan first (no bookable inventory),
+  // so the card routes the user to the table setup instead of flipping a dead flag.
+  const handleToggleTables = async (event: OwnerEventRow): Promise<boolean> => {
     try {
-      const { error } = await supabase.from('events').update({ tables_enabled: !event.tablesEnabled }).eq('id', event.id);
-      if (error) throw error;
-      toast.success(event.tablesEnabled ? t('owner.ev.tablesRemoved') : t('owner.ev.tablesOnlineToast'));
+      // Turning sales OFF is always allowed.
+      if (event.tablesEnabled) {
+        const { error } = await supabase.from('events').update({ tables_enabled: false }).eq('id', event.id);
+        if (error) throw error;
+        toast.success(t('owner.ev.tablesRemoved'));
+        fetchEvents();
+        return true;
+      }
+      // Turning ON requires bookable inventory, else clients reach an empty tables tab.
+      if (isOrganizerScope) {
+        // Organizer events use event-scoped zones/packs (OrgEventTablesPanel).
+        const { count } = await supabase
+          .from('table_packs').select('id', { count: 'exact', head: true }).eq('event_id', event.id);
+        if (!count) return false; // caller routes to the event's table setup
+        const { error } = await supabase.from('events').update({
+          tables_enabled: true, tables_mode: 'basic', tables_owner_user_id: organizerUserId,
+        }).eq('id', event.id);
+        if (error) throw error;
+      } else {
+        // Venue events are configured via presets (event_table_settings) or event-scoped packs.
+        const [{ count: packCount }, { count: settingCount }] = await Promise.all([
+          supabase.from('table_packs').select('id', { count: 'exact', head: true }).eq('event_id', event.id),
+          supabase.from('event_table_settings').select('id', { count: 'exact', head: true }).eq('event_id', event.id),
+        ]);
+        if (!packCount && !settingCount) return false; // caller routes to /owner/tables
+        const { error } = await supabase.from('events').update({ tables_enabled: true }).eq('id', event.id);
+        if (error) throw error;
+      }
+      toast.success(t('owner.ev.tablesOnlineToast'));
       fetchEvents();
-    } catch { toast.error(t('owner.toastSaveError')); }
+      return true;
+    } catch { toast.error(t('owner.toastSaveError')); return true; }
   };
 
   // Toggle ticketing. Returns false when activation needs a preset (no rounds yet)
@@ -1003,7 +1032,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
   onDelete: () => void;
   onToggle: () => void;
   onToggleTicketing: () => Promise<boolean>;
-  onToggleTables: () => void;
+  onToggleTables: () => Promise<boolean>;
   onApplyPreset: (preset: VenuePreset) => void;
   presets: VenuePreset[];
   onNavigate: (path: string) => void;
@@ -1022,6 +1051,16 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
   const handleTicketingClick = async () => {
     const handled = await onToggleTicketing();
     if (!handled) setShowPresetPanel(true); // needs a preset first
+  };
+
+  const handleTablesClick = async () => {
+    const handled = await onToggleTables();
+    if (!handled) {
+      // No bookable table inventory yet → send the user to set up the plan.
+      toast.info(t('owner.ev.tablesNeedSetup'));
+      if (onDetails) onDetails();
+      else onNavigate(`${basePath}/tables`);
+    }
   };
 
   const copyPrivateLink = () => {
@@ -1137,7 +1176,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
                   <p style={{ color: T3_C, fontSize: 10.5 }} className="truncate">{event.tablesEnabled ? t('owner.ev.online') : t('owner.ev.offline')}</p>
                 </div>
               </div>
-              <Switch checked={!!event.tablesEnabled} onCheckedChange={onToggleTables} />
+              <Switch checked={!!event.tablesEnabled} onCheckedChange={handleTablesClick} />
             </div>
           </div>
 
