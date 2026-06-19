@@ -29,10 +29,12 @@ import {
 	UserCircleIcon,
 	FileTextIcon,
 	RotateCcwIcon,
+	CalculatorIcon,
 	SettingsIcon,
 	CreditCardIcon,
 	HomeIcon,
 	UserIcon,
+	HelpCircleIcon,
 } from "lucide-react";
 
 type TT = (fr: string, en: string) => string;
@@ -77,6 +79,7 @@ function buildOrgNavGroups(tt: TT): SidebarNavGroup[] {
 			items: [
 				{ title: tt("Paiements", "Payments"), path: "/organizer-app/payments", icon: <CreditCardIcon /> },
 				{ title: tt("Factures", "Invoices"), path: "/organizer-app/invoices", icon: <FileTextIcon /> },
+				{ title: tt("Compta", "Accounting"), path: "/organizer-app/accounting", icon: <CalculatorIcon /> },
 				{ title: tt("Remboursements", "Refunds"), path: "/organizer-app/refunds", icon: <RotateCcwIcon /> },
 			],
 		},
@@ -91,6 +94,7 @@ function buildOrgNavGroups(tt: TT): SidebarNavGroup[] {
 
 function buildOrgFooterNavLinks(tt: TT): SidebarNavItem[] {
 	return [
+		{ title: tt("Aide & support", "Help & support"), path: "/organizer-app/help", icon: <HelpCircleIcon /> },
 		{ title: tt("Retour au site", "Back to site"), path: "/", icon: <HomeIcon /> },
 		{ title: tt("Mon profil", "My profile"), path: "/profile", icon: <UserIcon /> },
 	];

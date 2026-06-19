@@ -64,6 +64,7 @@ const OwnerDJDetail = lazyWithRetry(() => import("./pages/OwnerDJDetail"));
 const OwnerManagers = lazyWithRetry(() => import("./pages/OwnerManagers"));
 const OwnerCustomers = lazyWithRetry(() => import("./pages/OwnerCustomers"));
 const OwnerInvoices = lazyWithRetry(() => import("./pages/OwnerInvoices"));
+const OwnerAccounting = lazyWithRetry(() => import("./pages/OwnerAccounting"));
 const OwnerLoyalty = lazyWithRetry(() => import("./pages/OwnerLoyalty"));
 // Email Campaign Editor - Hidden for now, feature in development
 // // const OwnerEmailCampaign = lazyWithRetry(() => import("./pages/OwnerEmailCampaign"));
@@ -117,6 +118,7 @@ const OrgAppCustomers = lazyWithRetry(() => import("./pages/organizer-app/OrgApp
 const OrgAppCampaigns = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCampaigns").then(m => ({ default: m.default })));
 const OrgAppCampaignEditor = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCampaigns").then(m => ({ default: m.OrgAppCampaignEditor })));
 const OrgAppCampaignReport = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCampaigns").then(m => ({ default: m.OrgAppCampaignReport })));
+const OrganizerHelpCenter = lazyWithRetry(() => import("./pages/OrganizerHelpCenter"));
 const OrganizerPublicProfile = lazyWithRetry(() => import("./pages/OrganizerPublicProfile"));
 const OwnerPartnerships = lazyWithRetry(() => import("./pages/OwnerPartnerships"));
 const OwnerCollaborations = lazyWithRetry(() => import("./pages/OwnerCollaborations"));
@@ -152,6 +154,8 @@ const AcceptStaffInvitation = lazyWithRetry(() => import("./pages/AcceptStaffInv
 const Welcome = lazyWithRetry(() => import("./pages/Welcome"));
 const Explore = lazyWithRetry(() => import("./pages/Explore"));
 const AllEventsPage = lazyWithRetry(() => import("./pages/AllEventsPage"));
+const AllClubsPage = lazyWithRetry(() => import("./pages/AllClubsPage"));
+const AllDJsPage = lazyWithRetry(() => import("./pages/AllDJsPage"));
 const ClubMap = lazyWithRetry(() => import("./pages/ClubMap"));
 const Maintenance = lazyWithRetry(() => import("./pages/Maintenance"));
 const Settings = lazyWithRetry(() => import("./pages/Settings"));
@@ -374,6 +378,8 @@ const App = () => (
                 {/* Explorer home page */}
                 <Route path="/" element={<Explore />} />
                 <Route path="/events" element={<AllEventsPage />} />
+                <Route path="/clubs" element={<AllClubsPage />} />
+                <Route path="/djs" element={<AllDJsPage />} />
                 <Route path="/map" element={<ClubMap />} />
                 <Route path="/welcome" element={<Welcome />} />
                 
@@ -454,6 +460,7 @@ const App = () => (
                   <Route path="team" element={<OrgAppTeam />} />
                   <Route path="customers" element={<OrgAppCustomers />} />
                   <Route path="invoices" element={<OwnerInvoices />} />
+                  <Route path="accounting" element={<OwnerAccounting />} />
                   <Route path="refunds" element={<OwnerRefunds />} />
                   <Route path="guest-list" element={<OwnerGuestList />} />
                   <Route path="promoters" element={<OwnerPromoters />} />
@@ -471,6 +478,9 @@ const App = () => (
                   <Route path="payments" element={<OrgAppPayments />} />
                   {/* Legacy Stripe onboarding return target (`?stripe=success|refresh`) → payments page */}
                   <Route path="settings" element={<OrgAppPayments />} />
+                  <Route path="help" element={<OrganizerHelpCenter />} />
+                  {/* Help center "back" target — org dashboard is the index route */}
+                  <Route path="dashboard" element={<Navigate to="/organizer-app" replace />} />
                 </Route>
 
                 {/* Public organizer profile (slug-based) */}
@@ -580,6 +590,7 @@ const App = () => (
                   <Route path="promoters/:id" element={<OwnerPromoterDetail />} />
                   <Route path="orders" element={<PlanGuard feature="orders_qr"><OwnerOrders /></PlanGuard>} />
                   <Route path="invoices" element={<PlanGuard feature="invoices_refunds"><OwnerInvoices /></PlanGuard>} />
+                  <Route path="accounting" element={<PlanGuard feature="invoices_refunds"><OwnerAccounting /></PlanGuard>} />
                   <Route path="refunds" element={<OwnerRefunds />} />
                   <Route path="staff" element={<PlanGuard feature="staff_pin"><OwnerStaff /></PlanGuard>} />
                   <Route path="menu" element={<PlanGuard feature="menu"><OwnerMenu /></PlanGuard>} />

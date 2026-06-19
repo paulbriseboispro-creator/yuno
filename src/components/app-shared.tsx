@@ -27,6 +27,7 @@ import {
 	WandIcon,
 	HelpCircleIcon,
 	ActivityIcon,
+	CalculatorIcon,
 } from "lucide-react";
 
 export type SidebarNavItem = {
@@ -151,6 +152,11 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					title: t('sidebar.invoices'),
 					path: "/owner/invoices",
 					icon: <FileTextIcon />,
+				},
+				{
+					title: t('sidebar.accounting'),
+					path: "/owner/accounting",
+					icon: <CalculatorIcon />,
 				},
 				{
 					title: t('sidebar.refunds'),
