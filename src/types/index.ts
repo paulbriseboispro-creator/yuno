@@ -48,6 +48,8 @@ export type Order = {
   venueId: string;
   items: CartItem[];
   total: number;
+  /** Yuno service fee on this order (€). Club revenue = total − serviceFee. */
+  serviceFee?: number;
   status: OrderStatus;
   createdAt: string;
   paidAt?: string;

@@ -43,13 +43,14 @@ export default function OrgAppEventDetail() {
 
       const { data: tickets } = await supabase
         .from('tickets')
-        .select('total_price, entry_scanned')
+        .select('total_price, service_fee, insurance_fee, entry_scanned')
         .eq('event_id', eventId)
         .eq('status', 'paid');
 
       setStats({
         sold: tickets?.length ?? 0,
-        revenue: (tickets ?? []).reduce((s, t: any) => s + Number(t.total_price ?? 0), 0),
+        // Club revenue excludes Yuno fees (service + insurance) — never Yuno's cut.
+        revenue: (tickets ?? []).reduce((s, t: any) => s + (Number(t.total_price ?? 0) - Number(t.service_fee ?? 0) - Number(t.insurance_fee ?? 0)), 0),
         checkins: (tickets ?? []).filter((t: any) => t.entry_scanned).length,
       });
       setLoading(false);

@@ -106,11 +106,12 @@ export default function OrgAppDashboard() {
         if (next) {
           const { data: nextTickets } = await supabase
             .from('tickets')
-            .select('total_price, entry_scanned, quantity')
+            .select('total_price, service_fee, insurance_fee, entry_scanned, quantity')
             .eq('event_id', next.id)
             .eq('status', 'paid');
           const ticketsSold = nextTickets?.reduce((s, t: any) => s + (t.quantity ?? 1), 0) ?? 0;
-          const revenue = nextTickets?.reduce((s, t: any) => s + Number(t.total_price ?? 0), 0) ?? 0;
+          // Club revenue excludes Yuno fees (service + insurance) — never Yuno's cut.
+          const revenue = nextTickets?.reduce((s, t: any) => s + (Number(t.total_price ?? 0) - Number(t.service_fee ?? 0) - Number(t.insurance_fee ?? 0)), 0) ?? 0;
           const checkins = nextTickets?.filter((t: any) => t.entry_scanned).length ?? 0;
           const { count: tablesBooked } = await supabase
             .from('table_reservations')

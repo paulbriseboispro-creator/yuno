@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { orderRevenue as orderClub, ticketRevenue as ticketClub, tableRevenue as tableClub } from '@/utils/fees';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   Building2, ShoppingBag, Users, DollarSign, TrendingUp, AlertCircle,
@@ -138,13 +139,13 @@ export default function AdminDashboard() {
       const [venuesRes, ordersRes, ticketsRes, tablesRes, eventsRes, usersRes, issuesRes, monthOrdersRes, monthTicketsRes, monthTablesRes, subsRes] = await Promise.all([
         supabase.from('venues').select('id, name'),
         supabase.from('orders').select('venue_id, total, service_fee, status').in('status', ['paid', 'served']),
-        supabase.from('tickets').select('event_id, total_price, service_fee, status').eq('status', 'paid'),
+        supabase.from('tickets').select('event_id, total_price, service_fee, insurance_fee, status').eq('status', 'paid'),
         supabase.from('table_reservations').select('event_id, zone_id, total_price, service_fee, management_fee, status').in('status', ['confirmed', 'paid']),
         supabase.from('events').select('id, venue_id'),
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
         supabase.from('feedback_issues').select('id', { count: 'exact', head: true }).eq('status', 'open'),
         supabase.from('orders').select('total, service_fee').in('status', ['paid', 'served']).gte('created_at', monthStart).lte('created_at', monthEnd),
-        supabase.from('tickets').select('total_price, service_fee').eq('status', 'paid').gte('created_at', monthStart).lte('created_at', monthEnd),
+        supabase.from('tickets').select('total_price, service_fee, insurance_fee').eq('status', 'paid').gte('created_at', monthStart).lte('created_at', monthEnd),
         supabase.from('table_reservations').select('total_price, service_fee, management_fee').in('status', ['confirmed', 'paid']).gte('created_at', monthStart).lte('created_at', monthEnd),
         supabase.from('venue_subscriptions').select('id', { count: 'exact', head: true }).in('status', ['active', 'trialing']),
       ]);
@@ -159,14 +160,15 @@ export default function AdminDashboard() {
       const eventVenueMap = new Map<string, string>();
       events.forEach(e => eventVenueMap.set(e.id, e.venue_id));
 
-      // Global totals
-      const orderRevenue = orders.reduce((s, o) => s + Number(o.total), 0);
-      const ticketRevenue = tickets.reduce((s, t) => s + Number(t.total_price), 0);
-      const tableRevenue = tables.reduce((s, t) => s + Number(t.total_price), 0);
+      // Global totals — club revenue excludes Yuno fees (.gross). Yuno's own take
+      // is yunoRevenue, tracked separately. Yuno is never counted in club revenue.
+      const orderRevenue = orders.reduce((s, o) => s + orderClub(o).gross, 0);
+      const ticketRevenue = tickets.reduce((s, t) => s + ticketClub(t).gross, 0);
+      const tableRevenue = tables.reduce((s, t) => s + tableClub(t).gross, 0);
       const totalRevenue = orderRevenue + ticketRevenue + tableRevenue;
 
       const orderFees = orders.reduce((s, o) => s + Number(o.service_fee || 0), 0);
-      const ticketFees = tickets.reduce((s, t) => s + Number(t.service_fee || 0), 0);
+      const ticketFees = tickets.reduce((s, t) => s + Number(t.service_fee || 0) + Number(t.insurance_fee || 0), 0);
       const tableFees = tables.reduce((s, t) => s + Number(t.service_fee || 0) + Number(t.management_fee || 0), 0);
       const yunoRevenue = orderFees + ticketFees + tableFees;
 
@@ -174,8 +176,8 @@ export default function AdminDashboard() {
       const mOrders = monthOrdersRes.data || [];
       const mTickets = monthTicketsRes.data || [];
       const mTables = monthTablesRes.data || [];
-      const monthlyRevenue = mOrders.reduce((s, o) => s + Number(o.total), 0) + mTickets.reduce((s, t) => s + Number(t.total_price), 0) + mTables.reduce((s, t) => s + Number(t.total_price), 0);
-      const monthlyYunoRevenue = mOrders.reduce((s, o) => s + Number(o.service_fee || 0), 0) + mTickets.reduce((s, t) => s + Number(t.service_fee || 0), 0) + mTables.reduce((s, t) => s + Number(t.service_fee || 0) + Number(t.management_fee || 0), 0);
+      const monthlyRevenue = mOrders.reduce((s, o) => s + orderClub(o).gross, 0) + mTickets.reduce((s, t) => s + ticketClub(t).gross, 0) + mTables.reduce((s, t) => s + tableClub(t).gross, 0);
+      const monthlyYunoRevenue = mOrders.reduce((s, o) => s + Number(o.service_fee || 0), 0) + mTickets.reduce((s, t) => s + Number(t.service_fee || 0) + Number(t.insurance_fee || 0), 0) + mTables.reduce((s, t) => s + Number(t.service_fee || 0) + Number(t.management_fee || 0), 0);
 
       // Per-venue stats
       const venueMap = new Map<string, VenueStat>();
@@ -183,20 +185,20 @@ export default function AdminDashboard() {
 
       orders.forEach(o => {
         const v = venueMap.get(o.venue_id);
-        if (v) { v.drinkRevenue += Number(o.total); v.yunoFees += Number(o.service_fee || 0); v.orders += 1; }
+        if (v) { v.drinkRevenue += orderClub(o).gross; v.yunoFees += Number(o.service_fee || 0); v.orders += 1; }
       });
       tickets.forEach(t => {
         const venueId = eventVenueMap.get(t.event_id);
         if (venueId) {
           const v = venueMap.get(venueId);
-          if (v) { v.ticketRevenue += Number(t.total_price); v.yunoFees += Number(t.service_fee || 0); }
+          if (v) { v.ticketRevenue += ticketClub(t).gross; v.yunoFees += Number(t.service_fee || 0) + Number(t.insurance_fee || 0); }
         }
       });
       tables.forEach(t => {
         const venueId = eventVenueMap.get(t.event_id);
         if (venueId) {
           const v = venueMap.get(venueId);
-          if (v) { v.tableRevenue += Number(t.total_price); v.yunoFees += Number(t.service_fee || 0) + Number(t.management_fee || 0); }
+          if (v) { v.tableRevenue += tableClub(t).gross; v.yunoFees += Number(t.service_fee || 0) + Number(t.management_fee || 0); }
         }
       });
 

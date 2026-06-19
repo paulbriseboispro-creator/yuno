@@ -1,6 +1,6 @@
 import { AppHeader } from '@/components/app-header';
 import { DashboardSkeleton } from '@/components/DashboardSkeleton';
-import { calcStripeFee } from '@/utils/fees';
+import { calcStripeFee, ticketRevenue } from '@/utils/fees';
 import { useOwnerOnboarding } from '@/hooks/useOwnerOnboarding';
 import { OnboardingSidebar } from '@/components/onboarding/OnboardingSidebar';
 import {
@@ -231,13 +231,14 @@ export default function OwnerDashboard() {
       if (!next) { setNextEvent(null); setNextStats(null); return; }
       setNextEvent(next);
       const [tk, tr] = await Promise.all([
-        supabase.from('tickets').select('total_price, quantity, entry_scanned').eq('event_id', next.id).eq('status', 'paid'),
+        supabase.from('tickets').select('total_price, service_fee, insurance_fee, quantity, entry_scanned').eq('event_id', next.id).eq('status', 'paid'),
         supabase.from('table_reservations').select('id', { count: 'exact', head: true }).eq('event_id', next.id).in('status', ['confirmed', 'paid']),
       ]);
       const tk2 = (tk.data || []) as any[];
       setNextStats({
         ticketsSold: tk2.reduce((s, x) => s + (x.quantity || 1), 0),
-        revenue: tk2.reduce((s, x) => s + Number(x.total_price || 0), 0),
+        // Club revenue excludes Yuno fees (service + insurance), never counts Yuno's cut.
+        revenue: tk2.reduce((s, x) => s + ticketRevenue(x).gross, 0),
         scanned: tk2.filter((x) => x.entry_scanned).length,
         tablesBooked: tr.count ?? 0,
       });

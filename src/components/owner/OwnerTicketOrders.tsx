@@ -159,7 +159,8 @@ export function OwnerTicketOrders({ venueId, eventId }: OwnerTicketOrdersProps) 
       : b.totalPrice - a.totalPrice
     );
 
-  const totalRevenue = filteredTickets.reduce((s, t) => s + t.totalPrice, 0);
+  // Club revenue excludes Yuno fees (service + insurance) — never Yuno's cut.
+  const totalRevenue = filteredTickets.reduce((s, t) => s + (t.totalPrice - t.serviceFee - (t.insuranceFee ?? 0)), 0);
   const totalQty = filteredTickets.reduce((s, t) => s + t.quantity, 0);
 
   return (

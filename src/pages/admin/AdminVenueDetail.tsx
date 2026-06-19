@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { orderRevenue as orderClub, ticketRevenue as ticketClub, tableRevenue as tableClub } from '@/utils/fees';
 import { ArrowLeft, Building2, CheckCircle, XCircle, AlertTriangle, Users, Calendar, ExternalLink, CreditCard, Wine, Ticket, Armchair, type LucideIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
@@ -103,24 +104,24 @@ export default function AdminVenueDetail() {
 
     // Revenue stats
     const [ordersRes, ticketsRes, tablesRes] = await Promise.all([
-      supabase.from('orders').select('id, total', { count: 'exact' }).eq('venue_id', venueId!).eq('status', 'paid'),
-      supabase.from('tickets').select('id, total_price', { count: 'exact' }).eq('status', 'paid').in('event_id', (eventsRes.data || []).map(e => e.id)),
-      supabase.from('table_reservations').select('id, total_price', { count: 'exact' }).eq('status', 'confirmed').in('zone_id', []),
+      supabase.from('orders').select('id, total, service_fee', { count: 'exact' }).eq('venue_id', venueId!).eq('status', 'paid'),
+      supabase.from('tickets').select('id, total_price, service_fee, insurance_fee', { count: 'exact' }).eq('status', 'paid').in('event_id', (eventsRes.data || []).map(e => e.id)),
+      supabase.from('table_reservations').select('id, total_price, service_fee, management_fee', { count: 'exact' }).eq('status', 'confirmed').in('zone_id', []),
     ]);
-    // Calculate table stats via zones
+    // Calculate table stats via zones. Club revenue excludes Yuno fees (.gross).
     const { data: zones } = await supabase.from('table_zones').select('id').eq('venue_id', venueId!);
     let tableCount = 0, tableRev = 0;
     if (zones && zones.length > 0) {
-      const { data: tableData, count } = await supabase.from('table_reservations').select('id, total_price', { count: 'exact' }).eq('status', 'confirmed').in('zone_id', zones.map(z => z.id));
+      const { data: tableData, count } = await supabase.from('table_reservations').select('id, total_price, service_fee, management_fee', { count: 'exact' }).eq('status', 'confirmed').in('zone_id', zones.map(z => z.id));
       tableCount = count ?? 0;
-      tableRev = (tableData || []).reduce((s, t) => s + (t.total_price || 0), 0);
+      tableRev = (tableData || []).reduce((s, t) => s + tableClub(t).gross, 0);
     }
 
     setStats({
       orders: ordersRes.count ?? 0,
-      orderRevenue: (ordersRes.data || []).reduce((s, o) => s + (o.total || 0), 0),
+      orderRevenue: (ordersRes.data || []).reduce((s, o) => s + orderClub(o).gross, 0),
       tickets: ticketsRes.count ?? 0,
-      ticketRevenue: (ticketsRes.data || []).reduce((s, t) => s + (t.total_price || 0), 0),
+      ticketRevenue: (ticketsRes.data || []).reduce((s, t) => s + ticketClub(t).gross, 0),
       tables: tableCount,
       tableRevenue: tableRev,
     });

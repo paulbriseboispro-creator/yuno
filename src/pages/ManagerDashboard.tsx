@@ -85,7 +85,7 @@ export default function ManagerDashboard() {
         // Revenue today (orders)
         supabase
           .from('orders')
-          .select('total')
+          .select('total, service_fee')
           .eq('venue_id', venue.id)
           .eq('status', 'paid')
           .gte('created_at', today.toISOString()),
@@ -94,7 +94,8 @@ export default function ManagerDashboard() {
       const stats: Record<string, number> = {};
       if (ordersRes.count !== null) stats.orders = ordersRes.count;
       if (ticketsRes.count !== null) stats.tickets = ticketsRes.count;
-      if (revenueRes.data) stats.revenue = revenueRes.data.reduce((sum, o) => sum + Number(o.total || 0), 0);
+      // Club revenue excludes the Yuno service fee — never count Yuno's cut.
+      if (revenueRes.data) stats.revenue = revenueRes.data.reduce((sum, o) => sum + (Number(o.total || 0) - Number(o.service_fee || 0)), 0);
       
       setQuickStats(stats);
     };

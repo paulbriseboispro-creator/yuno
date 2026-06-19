@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { orderRevenue as orderClub, ticketRevenue as ticketClub, tableRevenue as tableClub } from '@/utils/fees';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { Search, Wine, Ticket, Armchair, RefreshCw, ShoppingCart, TrendingUp, RotateCcw, X, type LucideIcon } from 'lucide-react';
@@ -112,24 +113,24 @@ export default function AdminOrders() {
           supabase.from('orders').select('id', { count: 'exact', head: true }),
           supabase.from('orders').select('id', { count: 'exact', head: true }).eq('status', 'refunded'),
         ]);
-        const { data: revData } = await supabase.from('orders').select('total').in('status', ['paid', 'confirmed', 'served']);
-        const revenue = (revData || []).reduce((sum, o) => sum + (o.total || 0), 0);
+        const { data: revData } = await supabase.from('orders').select('total, service_fee').in('status', ['paid', 'confirmed', 'served']);
+        const revenue = (revData || []).reduce((sum, o) => sum + orderClub(o).gross, 0);
         setKpis({ total: total ?? 0, revenue, refunds: refunds ?? 0 });
       } else if (tab === 'tickets') {
         const [{ count: total }, { count: refunds }] = await Promise.all([
           supabase.from('tickets').select('id', { count: 'exact', head: true }),
           supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('status', 'refunded'),
         ]);
-        const { data: revData } = await supabase.from('tickets').select('total_price').in('status', ['paid', 'confirmed']);
-        const revenue = (revData || []).reduce((sum, o) => sum + (o.total_price || 0), 0);
+        const { data: revData } = await supabase.from('tickets').select('total_price, service_fee, insurance_fee').in('status', ['paid', 'confirmed']);
+        const revenue = (revData || []).reduce((sum, o) => sum + ticketClub(o).gross, 0);
         setKpis({ total: total ?? 0, revenue, refunds: refunds ?? 0 });
       } else {
         const [{ count: total }, { count: refunds }] = await Promise.all([
           supabase.from('table_reservations').select('id', { count: 'exact', head: true }),
           supabase.from('table_reservations').select('id', { count: 'exact', head: true }).eq('status', 'refunded'),
         ]);
-        const { data: revData } = await supabase.from('table_reservations').select('total_price').in('status', ['paid', 'confirmed']);
-        const revenue = (revData || []).reduce((sum, o) => sum + (o.total_price || 0), 0);
+        const { data: revData } = await supabase.from('table_reservations').select('total_price, service_fee, management_fee').in('status', ['paid', 'confirmed']);
+        const revenue = (revData || []).reduce((sum, o) => sum + tableClub(o).gross, 0);
         setKpis({ total: total ?? 0, revenue, refunds: refunds ?? 0 });
       }
     };

@@ -129,6 +129,7 @@ export function OwnerDrinkOrders({ venueId, eventId }: OwnerDrinkOrdersProps) {
         venueId: order.venue_id,
         items: order.items as any,
         total: Number(order.total),
+        serviceFee: Number(order.service_fee || 0),
         status: order.status as 'pending' | 'paid' | 'served' | 'refunded' | 'cancelled',
         createdAt: order.created_at,
         paidAt: order.paid_at || undefined,
@@ -159,7 +160,8 @@ export function OwnerDrinkOrders({ venueId, eventId }: OwnerDrinkOrdersProps) {
   // Revenue counts only money actually collected — never pending (not yet paid),
   // refunded or cancelled (money returned / never settled).
   const revenueOrders = filteredOrders.filter((o) => o.status === 'paid' || o.status === 'served');
-  const totalRevenue = revenueOrders.reduce((s, o) => s + o.total, 0);
+  // Club revenue excludes the Yuno service fee — never count Yuno's cut.
+  const totalRevenue = revenueOrders.reduce((s, o) => s + (o.total - (o.serviceFee ?? 0)), 0);
   const avgOrder = revenueOrders.length ? totalRevenue / revenueOrders.length : 0;
 
   const copyToken = (token: string) => {

@@ -116,7 +116,10 @@ serve(async (req) => {
           customerEmail = record.user_email || "";
           customerUserId = record.user_id || "";
           const ticketServiceFee = Number(record.service_fee) || 0;
-          maxRefundable = Number(record.total_price) - ticketServiceFee;
+          const ticketInsuranceFee = Number(record.insurance_fee) || 0;
+          // Club-side cap: total paid minus ALL Yuno fees (service + insurance).
+          // Yuno never refunds its own fees, so they must not inflate the cap.
+          maxRefundable = Number(record.total_price) - ticketServiceFee - ticketInsuranceFee;
           eventTitle = record.events.title || "";
 
         } else if (item.type === "table_reservation") {
