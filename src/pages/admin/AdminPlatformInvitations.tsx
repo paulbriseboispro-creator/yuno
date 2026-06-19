@@ -178,11 +178,14 @@ export default function AdminPlatformInvitations() {
         .update({ organization_name: editName })
         .eq('id', editTarget.id);
       if (error) throw error;
-      // also update public organizer_profiles display_name if exists
-      await supabase
+      // also update public organizer_profiles display_name if exists.
+      // The super-admin RLS policy added in migration 20260618120000 lets this
+      // succeed; surface any error instead of swallowing it like before.
+      const { error: opErr } = await supabase
         .from('organizer_profiles')
         .update({ display_name: editName })
         .eq('user_id', editTarget.id);
+      if (opErr) throw opErr;
       toast.success('Organisation mise à jour');
       setEditOpen(false);
       setEditTarget(null);
@@ -198,30 +201,15 @@ export default function AdminPlatformInvitations() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      // Revert profile to default 'club' type (profile_type is NOT NULL in DB)
-      const { error: pErr } = await supabase
-        .from('profiles')
-        .update({ profile_type: 'club', organization_name: null, onboarding_completed: false })
-        .eq('id', deleteTarget.id);
-      if (pErr) throw pErr;
-
-      // Drop the public organizer profile (if any)
-      await supabase.from('organizer_profiles').delete().eq('user_id', deleteTarget.id);
-
-      // Remove the 'organizer' role so they no longer access the V2 dashboard
-      await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', deleteTarget.id)
-        .eq('role', 'organizer');
-
-      // Drop any platform invitation for this email
-      if (deleteTarget.email) {
-        await supabase
-          .from('platform_invitations')
-          .delete()
-          .eq('email', deleteTarget.email.toLowerCase());
-      }
+      // Atomic, server-side removal: reverts the profile, drops the public
+      // organizer_profiles row (the /o/:slug page), removes team members + role,
+      // and clears any invitation. Runs SECURITY DEFINER so it bypasses RLS —
+      // doing these deletes from the browser silently no-ops on organizer_profiles
+      // because there is no super-admin RLS policy for direct client deletes.
+      const { error } = await supabase.rpc('admin_delete_organizer', {
+        _user_id: deleteTarget.id,
+      });
+      if (error) throw error;
 
       toast.success('Compte organisateur retiré');
       setDeleteTarget(null);
