@@ -51,6 +51,9 @@ const CATEGORY_COLORS: Record<string, { bg: string; border: string; text: string
   'marketing-crm': { bg: 'bg-indigo-500/8', border: 'border-indigo-500/20', text: 'text-indigo-400', iconBg: 'bg-indigo-500/15' },
   'operations': { bg: 'bg-orange-500/8', border: 'border-orange-500/20', text: 'text-orange-400', iconBg: 'bg-orange-500/15' },
   'settings': { bg: 'bg-cyan-500/8', border: 'border-cyan-500/20', text: 'text-cyan-400', iconBg: 'bg-cyan-500/15' },
+  // Organizer-only mirror groups
+  'ecosystem': { bg: 'bg-violet-500/8', border: 'border-violet-500/20', text: 'text-violet-400', iconBg: 'bg-violet-500/15' },
+  'finance': { bg: 'bg-emerald-500/8', border: 'border-emerald-500/20', text: 'text-emerald-400', iconBg: 'bg-emerald-500/15' },
   // Bonus / reference groups
   'plans-billing': { bg: 'bg-orange-500/8', border: 'border-orange-500/20', text: 'text-orange-400', iconBg: 'bg-orange-500/15' },
   'owner-setup': { bg: 'bg-blue-500/8', border: 'border-blue-500/20', text: 'text-blue-400', iconBg: 'bg-blue-500/15' },
@@ -70,11 +73,12 @@ function getCategoryColor(id: string) {
 
 // Callout component
 function Callout({ type, children }: { type: 'tip' | 'warning' | 'example' | 'steps'; children: React.ReactNode }) {
+  const { t } = useLanguage();
   const config = {
-    tip: { icon: <Lightbulb className="w-4 h-4" />, label: 'Conseil', bg: 'bg-emerald-500/10 border-emerald-500/30', text: 'text-emerald-400' },
-    warning: { icon: <AlertTriangle className="w-4 h-4" />, label: 'Attention', bg: 'bg-amber-500/10 border-amber-500/30', text: 'text-amber-400' },
-    example: { icon: <Sparkles className="w-4 h-4" />, label: 'Exemple', bg: 'bg-blue-500/10 border-blue-500/30', text: 'text-blue-400' },
-    steps: { icon: <ListOrdered className="w-4 h-4" />, label: 'Étapes', bg: 'bg-purple-500/10 border-purple-500/30', text: 'text-purple-400' },
+    tip: { icon: <Lightbulb className="w-4 h-4" />, label: t('owner.help.calloutTip'), bg: 'bg-emerald-500/10 border-emerald-500/30', text: 'text-emerald-400' },
+    warning: { icon: <AlertTriangle className="w-4 h-4" />, label: t('owner.help.calloutWarning'), bg: 'bg-amber-500/10 border-amber-500/30', text: 'text-amber-400' },
+    example: { icon: <Sparkles className="w-4 h-4" />, label: t('owner.help.calloutExample'), bg: 'bg-blue-500/10 border-blue-500/30', text: 'text-blue-400' },
+    steps: { icon: <ListOrdered className="w-4 h-4" />, label: t('owner.help.calloutSteps'), bg: 'bg-purple-500/10 border-purple-500/30', text: 'text-purple-400' },
   };
   const c = config[type];
   return (
@@ -126,7 +130,7 @@ function GlossaryText({ text, t }: { text: string; t: (key: string) => string })
   );
 }
 
-export default function OwnerHelpCenter() {
+export default function OwnerHelpCenter({ categories = ownerHelpCategories }: { categories?: OwnerHelpCategory[] } = {}) {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const { basePath } = useDashboardMode();
@@ -136,12 +140,12 @@ export default function OwnerHelpCenter() {
   const [zoomedImg, setZoomedImg] = useState<string | null>(null);
 
   const quickStartArticles = useMemo(() => {
-    return ownerHelpCategories.flatMap(c => c.articles).filter(a => a.quickStart);
+    return categories.flatMap(c => c.articles).filter(a => a.quickStart);
   }, []);
 
   const selectedCategory = useMemo(() => {
     if (!selectedCategoryId) return null;
-    return ownerHelpCategories.find(c => c.id === selectedCategoryId) || null;
+    return categories.find(c => c.id === selectedCategoryId) || null;
   }, [selectedCategoryId]);
 
   const searchResults = useMemo(() => {
@@ -151,7 +155,7 @@ export default function OwnerHelpCenter() {
 
     const scored: { article: OwnerHelpArticle; category: OwnerHelpCategory; snippet: string; score: number }[] = [];
 
-    for (const cat of ownerHelpCategories) {
+    for (const cat of categories) {
       for (const article of cat.articles) {
         let score = 0;
         const title = t(article.titleKey).toLowerCase();
@@ -199,7 +203,7 @@ export default function OwnerHelpCenter() {
   };
 
   const currentCategory = selectedArticle
-    ? ownerHelpCategories.find(c => c.articles.some(a => a.id === selectedArticle.id))
+    ? categories.find(c => c.articles.some(a => a.id === selectedArticle.id))
     : null;
 
   // ─── ARTICLE DETAIL VIEW ───
@@ -285,7 +289,7 @@ export default function OwnerHelpCenter() {
 
           {/* Related articles */}
           {selectedArticle.relatedArticleIds && selectedArticle.relatedArticleIds.length > 0 && (() => {
-            const allArticles = ownerHelpCategories.flatMap(c => c.articles);
+            const allArticles = categories.flatMap(c => c.articles);
             const related = selectedArticle.relatedArticleIds!
               .map(id => allArticles.find(a => a.id === id))
               .filter(Boolean) as OwnerHelpArticle[];
@@ -491,7 +495,7 @@ export default function OwnerHelpCenter() {
           <div>
             <h2 className="text-xs uppercase tracking-wider text-muted-foreground mb-3">{t('ohelp.allCategories')}</h2>
             <div className="grid grid-cols-2 gap-3">
-              {ownerHelpCategories.map(category => {
+              {categories.map(category => {
                 const colors = getCategoryColor(category.id);
                 return (
                   <button
