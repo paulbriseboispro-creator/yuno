@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { translate } from '@/i18n/orgTranslate';
 import { supabase } from '@/integrations/supabase/client';
 import { usePromoterScope } from '@/hooks/usePromoterScope';
 import { getScopeFilter, scopeId } from '@/lib/promoterScopeHelpers';
@@ -39,8 +38,7 @@ export default function OwnerPromoterTemplates() {
   const sid = scopeId(scope);
   const scopeFilter = getScopeFilter(scope);
   const { basePath } = useDashboardMode();
-  const { t, language } = useLanguage();
-  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
+  const { t } = useLanguage();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -178,7 +176,7 @@ export default function OwnerPromoterTemplates() {
   async function handleSave() {
     if (!sid || !name.trim()) return;
     if (!enableSales && !enableGuestList && !enableClientDiscount) {
-      toast.error(tt('Activez au moins une section.', 'Enable at least one section.'));
+      toast.error(t('owner.promo.enableOneSection'));
       return;
     }
     setSaving(true);
@@ -225,26 +223,26 @@ export default function OwnerPromoterTemplates() {
     const s = sectionsOf(rules);
     if (s.sales) {
       if (rules.reward_type && rules.reward_type !== 'money') {
-        parts.push(rules.reward_type === 'free_entry' ? tt('Entrée gratuite', 'Free entry')
-          : rules.reward_type === 'vip' ? tt('VIP', 'VIP') : tt('Boissons', 'Drinks'));
+        parts.push(rules.reward_type === 'free_entry' ? t('owner.promo.freeEntry')
+          : rules.reward_type === 'vip' ? t('owner.promo.vip') : t('owner.drinks'));
       } else if (rules.tiers && rules.tiers.length > 0) {
-        parts.push(tt(`${rules.tiers.length} palier(s)`, `${rules.tiers.length} tier(s)`, `${rules.tiers.length} tramo(s)`));
+        parts.push(t('owner.promo.tierCount').replace('{count}', String(rules.tiers.length)));
       } else if (rules.ticket) {
-        parts.push(`${tt('Ventes', 'Sales')} ${rules.ticket.value}${rules.ticket.type === 'percentage' ? '%' : '€'}`);
+        parts.push(`${t('owner.promo.sales')} ${rules.ticket.value}${rules.ticket.type === 'percentage' ? '%' : '€'}`);
       } else {
-        parts.push(tt('Ventes', 'Sales'));
+        parts.push(t('owner.promo.sales'));
       }
-      if (rules.time_windows && rules.time_windows.length > 0) parts.push(tt('horaires', 'time-based'));
+      if (rules.time_windows && rules.time_windows.length > 0) parts.push(t('owner.promo.timeBased'));
     }
     if (s.guestList && rules.guest_list) {
       const gl = rules.guest_list;
-      parts.push(`${tt('Guest list', 'Guest list')} ${(gl.normalQuota ?? gl.quota ?? 0) + (gl.tableQuota ?? 0) + (gl.drinkQuota ?? 0)}`);
+      parts.push(`${t('owner.promo.guestList')} ${(gl.normalQuota ?? gl.quota ?? 0) + (gl.tableQuota ?? 0) + (gl.drinkQuota ?? 0)}`);
     }
     if (s.clientDiscount && rules.customer_discount) {
       const cd = rules.customer_discount;
-      parts.push(`${tt('Client', 'Customer')} ${cd.type === 'percentage' ? `-${cd.value}%` : `-${cd.value}€`}`);
+      parts.push(`${t('owner.promo.customer')} ${cd.type === 'percentage' ? `-${cd.value}%` : `-${cd.value}€`}`);
     }
-    return parts.join(' · ') || tt('Aucune règle', 'No rules');
+    return parts.join(' · ') || t('owner.promo.noRules');
   }
 
   if (loading) return <OwnerPageSkeleton />;
@@ -253,7 +251,7 @@ export default function OwnerPromoterTemplates() {
     <>
       <PromoHeader
         title={t('promoterTemplates.title')}
-        subtitle={tt('Un modèle = ventes + guest list + avantages, en un seul endroit', 'One template = sales + guest list + perks, all in one place')}
+        subtitle={t('owner.promo.templatesSubtitle')}
         backTo={`${basePath}/promoters`}
         right={<PromoButton size="sm" onClick={openCreate}><Plus className="h-4 w-4" />{t('promoterTemplates.create')}</PromoButton>}
       />
@@ -263,7 +261,7 @@ export default function OwnerPromoterTemplates() {
           <PromoEmpty
             icon={Gift}
             title={t('promoterTemplates.empty')}
-            description={tt('Créez un modèle de rémunération à appliquer à vos promoteurs : commission sur ventes, quotas de guest list et avantages clients.', "Create a compensation template for your promoters: sales commission, guest-list quotas and customer perks.")}
+            description={t('owner.promo.templatesEmptyDescription')}
             action={<PromoButton onClick={openCreate}><Plus className="h-4 w-4" />{t('promoterTemplates.create')}</PromoButton>}
           />
         ) : (
@@ -279,17 +277,17 @@ export default function OwnerPromoterTemplates() {
                         {tpl.isDefault && <PromoPill tone="red"><span className="inline-flex items-center gap-1"><Star className="h-3 w-3" />{t('promoterTemplates.default')}</span></PromoPill>}
                       </div>
                       <div className="flex items-center gap-1.5 flex-wrap" style={{ marginTop: 6 }}>
-                        {s.sales && <PromoPill tone="muted"><span className="inline-flex items-center gap-1"><Euro className="h-3 w-3" />{tt('Ventes', 'Sales')}</span></PromoPill>}
-                        {s.guestList && <PromoPill tone="muted"><span className="inline-flex items-center gap-1"><UserPlus className="h-3 w-3" />{tt('Guest list', 'Guest list')}</span></PromoPill>}
-                        {s.clientDiscount && <PromoPill tone="muted"><span className="inline-flex items-center gap-1"><Tag className="h-3 w-3" />{tt('Avantages', 'Perks')}</span></PromoPill>}
+                        {s.sales && <PromoPill tone="muted"><span className="inline-flex items-center gap-1"><Euro className="h-3 w-3" />{t('owner.promo.sales')}</span></PromoPill>}
+                        {s.guestList && <PromoPill tone="muted"><span className="inline-flex items-center gap-1"><UserPlus className="h-3 w-3" />{t('owner.promo.guestList')}</span></PromoPill>}
+                        {s.clientDiscount && <PromoPill tone="muted"><span className="inline-flex items-center gap-1"><Tag className="h-3 w-3" />{t('owner.promo.perks')}</span></PromoPill>}
                       </div>
                       <p style={{ color: T2, fontSize: 12.5, margin: 0, marginTop: 7 }}>{rulesLabel(tpl.rules)}</p>
                     </div>
                     <div className="flex gap-1 shrink-0">
-                      <button onClick={() => openEdit(tpl)} aria-label={tt('Modifier', 'Edit')} style={{ width: 32, height: 32, borderRadius: 9, background: TILE_BG, border: `1px solid ${F_BORDER}`, color: T2, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                      <button onClick={() => openEdit(tpl)} aria-label={t('owner.edit')} style={{ width: 32, height: 32, borderRadius: 9, background: TILE_BG, border: `1px solid ${F_BORDER}`, color: T2, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                         <Pencil className="h-4 w-4" />
                       </button>
-                      <button onClick={() => setDeleteId(tpl.id)} aria-label={tt('Supprimer', 'Delete')} style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(255,92,99,0.08)', border: '1px solid rgba(255,92,99,0.2)', color: '#FF5C63', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                      <button onClick={() => setDeleteId(tpl.id)} aria-label={t('common.delete')} style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(255,92,99,0.08)', border: '1px solid rgba(255,92,99,0.2)', color: '#FF5C63', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
@@ -310,28 +308,28 @@ export default function OwnerPromoterTemplates() {
           <div className="space-y-4">
             <div>
               <Label>{t('promoterTemplates.name')}</Label>
-              <Input value={name} onChange={e => setName(e.target.value)} placeholder={tt('ex : Standard, VIP, Agence A…', 'e.g. Standard, VIP, Agency A…')} />
+              <Input value={name} onChange={e => setName(e.target.value)} placeholder={t('owner.promo.namePlaceholder')} />
             </div>
             <p className="text-xs text-muted-foreground">
-              {tt('Activez les sections dont ce promoteur a besoin. Un seul modèle peut tout couvrir.', 'Turn on the sections this promoter needs. A single template can cover everything.')}
+              {t('owner.promo.sectionsIntro')}
             </p>
 
             {/* SECTION 1 — Sales commission */}
             <SectionCard
               icon={<Euro className="h-4 w-4 text-primary" />}
-              title={tt('Commission sur les ventes', 'Sales commission')}
-              desc={tt('Ce que le promoteur gagne par billet / table.', 'What the promoter earns per ticket / table.')}
+              title={t('owner.promo.salesCommission')}
+              desc={t('owner.promo.salesCommissionDesc')}
               enabled={enableSales} onToggle={setEnableSales}
             >
               <div>
-                <Label className="text-xs">{tt('Type de récompense', 'Reward type')}</Label>
+                <Label className="text-xs">{t('owner.promo.rewardType')}</Label>
                 <Select value={rewardType} onValueChange={v => setRewardType(v as RewardType)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="money"><span className="flex items-center gap-2"><Euro className="h-4 w-4" />{tt('Argent', 'Money')}</span></SelectItem>
-                    <SelectItem value="free_entry"><span className="flex items-center gap-2"><Ticket className="h-4 w-4" />{tt('Entrées gratuites', 'Free entries')}</span></SelectItem>
-                    <SelectItem value="vip"><span className="flex items-center gap-2"><Crown className="h-4 w-4" />{tt('Accès VIP / Table', 'VIP / Table access')}</span></SelectItem>
-                    <SelectItem value="drinks"><span className="flex items-center gap-2"><Wine className="h-4 w-4" />{tt('Boissons offertes', 'Free drinks')}</span></SelectItem>
+                    <SelectItem value="money"><span className="flex items-center gap-2"><Euro className="h-4 w-4" />{t('owner.promo.money')}</span></SelectItem>
+                    <SelectItem value="free_entry"><span className="flex items-center gap-2"><Ticket className="h-4 w-4" />{t('owner.promo.freeEntries')}</span></SelectItem>
+                    <SelectItem value="vip"><span className="flex items-center gap-2"><Crown className="h-4 w-4" />{t('owner.promo.vipTableAccess')}</span></SelectItem>
+                    <SelectItem value="drinks"><span className="flex items-center gap-2"><Wine className="h-4 w-4" />{t('owner.promo.freeDrinks')}</span></SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -340,7 +338,7 @@ export default function OwnerPromoterTemplates() {
                 <>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs">{tt('Par billet', 'Per ticket')}</Label>
+                      <Label className="text-xs">{t('owner.promo.perTicket')}</Label>
                       <div className="flex gap-2">
                         <Select value={ticketType} onValueChange={v => setTicketType(v as any)}>
                           <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
@@ -350,7 +348,7 @@ export default function OwnerPromoterTemplates() {
                       </div>
                     </div>
                     <div>
-                      <Label className="text-xs">{tt('Par table', 'Per table')}</Label>
+                      <Label className="text-xs">{t('owner.promo.perTable')}</Label>
                       <div className="flex gap-2">
                         <Select value={tableType} onValueChange={v => setTableType(v as any)}>
                           <SelectTrigger className="w-20"><SelectValue /></SelectTrigger>
@@ -360,29 +358,29 @@ export default function OwnerPromoterTemplates() {
                       </div>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">{tt('En fixe (€), la commission s\'applique aussi aux entrées guest list validées au scan.', 'With a fixed (€) amount, the commission also applies to guest-list entries validated at the door.')}</p>
+                  <p className="text-xs text-muted-foreground">{t('owner.promo.fixedAppliesGuestList')}</p>
                 </>
               )}
 
               {rewardType === 'free_entry' && (
                 <div>
-                  <Label className="text-xs">{tt("Nombre d'entrées gratuites", 'Number of free entries')}</Label>
+                  <Label className="text-xs">{t('owner.promo.freeEntriesCount')}</Label>
                   <Input type="number" min={1} value={rewardConfig?.entryCount || 1} onChange={e => setRewardConfig(prev => ({ ...prev, entryCount: parseInt(e.target.value) || 1 }))} />
                 </div>
               )}
               {rewardType === 'drinks' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label className="text-xs">{tt('Nombre de boissons', 'Number of drinks')}</Label>
+                    <Label className="text-xs">{t('owner.promo.drinksCount')}</Label>
                     <Input type="number" min={1} value={rewardConfig?.drinkCount || 1} onChange={e => setRewardConfig(prev => ({ ...prev, drinkCount: parseInt(e.target.value) || 1 }))} />
                   </div>
                   <div>
-                    <Label className="text-xs">{tt('Catégorie', 'Category')}</Label>
+                    <Label className="text-xs">{t('owner.promo.category')}</Label>
                     <Select value={rewardConfig?.drinkCategory || 'all'} onValueChange={v => setRewardConfig(prev => ({ ...prev, drinkCategory: v }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">{tt('Toutes', 'All')}</SelectItem>
-                        <SelectItem value="drink">{tt('Boissons', 'Drinks')}</SelectItem>
+                        <SelectItem value="all">{t('owner.promo.all')}</SelectItem>
+                        <SelectItem value="drink">{t('owner.drinks')}</SelectItem>
                         <SelectItem value="shot">Shots</SelectItem>
                         <SelectItem value="soft">Softs</SelectItem>
                       </SelectContent>
@@ -392,13 +390,13 @@ export default function OwnerPromoterTemplates() {
               )}
               {rewardType === 'vip' && (
                 <div>
-                  <Label className="text-xs">{tt("Type d'accès VIP", 'VIP access type')}</Label>
+                  <Label className="text-xs">{t('owner.promo.vipAccessType')}</Label>
                   <Select value={rewardConfig?.vipType || 'standard'} onValueChange={v => setRewardConfig(prev => ({ ...prev, vipType: v }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="standard">{tt('Accès VIP standard', 'Standard VIP access')}</SelectItem>
-                      <SelectItem value="table">{tt('Table VIP', 'VIP table')}</SelectItem>
-                      <SelectItem value="premium">{tt('Table Premium', 'Premium table')}</SelectItem>
+                      <SelectItem value="standard">{t('owner.promo.vipStandard')}</SelectItem>
+                      <SelectItem value="table">{t('owner.promo.vipTable')}</SelectItem>
+                      <SelectItem value="premium">{t('owner.promo.vipPremium')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -409,7 +407,7 @@ export default function OwnerPromoterTemplates() {
                   {/* Tiers */}
                   <div className="rounded-lg border p-3 space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label className="flex items-center gap-2 text-xs"><Layers className="h-4 w-4 text-primary" />{tt('Paliers par nombre de ventes', 'Tiers by sales count')}</Label>
+                      <Label className="flex items-center gap-2 text-xs"><Layers className="h-4 w-4 text-primary" />{t('owner.promo.tiersBySalesCount')}</Label>
                       <Switch checked={useTiers} onCheckedChange={v => { setUseTiers(v); if (v && tiers.length === 0) addTier(); }} />
                     </div>
                     {useTiers && (
@@ -417,20 +415,20 @@ export default function OwnerPromoterTemplates() {
                         {tiers.map((tier, i) => (
                           <div key={i} className="rounded-lg bg-muted/30 p-2 space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className="text-xs font-medium text-muted-foreground">{tt('Palier', 'Tier')} {i + 1}</span>
+                              <span className="text-xs font-medium text-muted-foreground">{t('owner.promo.tier')} {i + 1}</span>
                               <button className="text-destructive" onClick={() => removeTier(i)}><Trash2 className="h-3.5 w-3.5" /></button>
                             </div>
                             <div className="grid grid-cols-2 gap-2">
-                              <div><Label className="text-[11px]">{tt('Min ventes', 'Min sales')}</Label><Input type="number" min={0} value={tier.min} onChange={e => updateTier(i, 'min', parseInt(e.target.value) || 0)} /></div>
-                              <div><Label className="text-[11px]">{tt('Max (vide = ∞)', 'Max (empty = ∞)')}</Label><Input type="number" min={0} value={tier.max ?? ''} onChange={e => updateTier(i, 'max', e.target.value ? parseInt(e.target.value) : null)} /></div>
+                              <div><Label className="text-[11px]">{t('owner.promo.minSales')}</Label><Input type="number" min={0} value={tier.min} onChange={e => updateTier(i, 'min', parseInt(e.target.value) || 0)} /></div>
+                              <div><Label className="text-[11px]">{t('owner.promo.maxEmptyInfinity')}</Label><Input type="number" min={0} value={tier.max ?? ''} onChange={e => updateTier(i, 'max', e.target.value ? parseInt(e.target.value) : null)} /></div>
                             </div>
                             <div>
-                              <Label className="text-[11px]">{tt('€ par billet à ce palier', '€ per ticket at this tier')}</Label>
+                              <Label className="text-[11px]">{t('owner.promo.eurPerTicketTier')}</Label>
                               <Input type="number" min={0} value={tier.ticketValue || 0} onChange={e => setTiers(prev => prev.map((tr, idx) => idx === i ? { ...tr, reward_type: 'money', ticketValue: parseFloat(e.target.value) || 0 } : tr))} />
                             </div>
                           </div>
                         ))}
-                        <Button onClick={addTier} variant="outline" size="sm" className="w-full"><Plus className="h-3 w-3 mr-1" />{tt('Ajouter un palier', 'Add a tier')}</Button>
+                        <Button onClick={addTier} variant="outline" size="sm" className="w-full"><Plus className="h-3 w-3 mr-1" />{t('owner.promo.addTier')}</Button>
                       </div>
                     )}
                   </div>
@@ -438,17 +436,17 @@ export default function OwnerPromoterTemplates() {
                   {/* Time windows */}
                   <div className="rounded-lg border p-3 space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label className="flex items-center gap-2 text-xs"><Percent className="h-4 w-4 text-primary" />{tt('Commission par tranche horaire', 'Commission by time window')}</Label>
-                      <Button variant="outline" size="sm" onClick={addWindow}><Plus className="h-3 w-3 mr-1" />{tt('Ajouter', 'Add')}</Button>
+                      <Label className="flex items-center gap-2 text-xs"><Percent className="h-4 w-4 text-primary" />{t('owner.promo.commissionByTimeWindow')}</Label>
+                      <Button variant="outline" size="sm" onClick={addWindow}><Plus className="h-3 w-3 mr-1" />{t('owner.promo.add')}</Button>
                     </div>
-                    <p className="text-[11px] text-muted-foreground">{tt('Ex : 5€ avant 00h30, puis 2€. L\'heure du scan fait foi.', 'e.g. 5€ before 00:30, then 2€. The scan time is authoritative.')}</p>
+                    <p className="text-[11px] text-muted-foreground">{t('owner.promo.timeWindowExample')}</p>
                     {timeWindows.map((w, i) => (
                       <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end rounded-lg bg-muted/30 p-2">
-                        <div><Label className="text-[11px]">{tt('Avant', 'Before')}</Label><Input type="time" value={w.before} onChange={e => updateWindow(i, 'before', e.target.value)} /></div>
-                        <div><Label className="text-[11px]">Type</Label>
+                        <div><Label className="text-[11px]">{t('owner.promo.before')}</Label><Input type="time" value={w.before} onChange={e => updateWindow(i, 'before', e.target.value)} /></div>
+                        <div><Label className="text-[11px]">{t('owner.promo.type')}</Label>
                           <Select value={w.type} onValueChange={v => updateWindow(i, 'type', v)}><SelectTrigger className="h-9"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="fixed">€</SelectItem><SelectItem value="percentage">%</SelectItem></SelectContent></Select>
                         </div>
-                        <div><Label className="text-[11px]">{tt('Valeur', 'Value')}</Label><Input type="number" min={0} value={w.value} onChange={e => updateWindow(i, 'value', parseFloat(e.target.value) || 0)} /></div>
+                        <div><Label className="text-[11px]">{t('owner.promo.value')}</Label><Input type="number" min={0} value={w.value} onChange={e => updateWindow(i, 'value', parseFloat(e.target.value) || 0)} /></div>
                         <button className="text-destructive h-9 flex items-center" onClick={() => removeWindow(i)}><Trash2 className="h-4 w-4" /></button>
                       </div>
                     ))}
@@ -456,11 +454,11 @@ export default function OwnerPromoterTemplates() {
 
                   {/* Bonus */}
                   <div className="rounded-lg border p-3 space-y-2">
-                    <Label className="text-xs font-medium">{tt('Bonus performance', 'Performance bonus')}</Label>
-                    <p className="text-[11px] text-muted-foreground">{tt('Bonus unique au-delà d\'un seuil de ventes.', 'One-off bonus past a sales threshold.')}</p>
+                    <Label className="text-xs font-medium">{t('owner.promo.performanceBonus')}</Label>
+                    <p className="text-[11px] text-muted-foreground">{t('owner.promo.bonusDesc')}</p>
                     <div className="grid grid-cols-2 gap-2">
-                      <div><Label className="text-[11px]">{tt('Seuil (ventes)', 'Threshold (sales)')}</Label><Input type="number" min={0} value={bonusThreshold} onChange={e => setBonusThreshold(parseInt(e.target.value) || 0)} /></div>
-                      <div><Label className="text-[11px]">{tt('Montant (€)', 'Amount (€)')}</Label><Input type="number" min={0} value={bonusAmount} onChange={e => setBonusAmount(parseInt(e.target.value) || 0)} /></div>
+                      <div><Label className="text-[11px]">{t('owner.promo.thresholdSales')}</Label><Input type="number" min={0} value={bonusThreshold} onChange={e => setBonusThreshold(parseInt(e.target.value) || 0)} /></div>
+                      <div><Label className="text-[11px]">{t('owner.promo.amountEur')}</Label><Input type="number" min={0} value={bonusAmount} onChange={e => setBonusAmount(parseInt(e.target.value) || 0)} /></div>
                     </div>
                   </div>
                 </>
@@ -470,60 +468,60 @@ export default function OwnerPromoterTemplates() {
             {/* SECTION 2 — Guest list */}
             <SectionCard
               icon={<UserPlus className="h-4 w-4 text-primary" />}
-              title={tt('Guest list', 'Guest list')}
-              desc={tt('Combien d\'invités ce promoteur peut placer.', 'How many guests this promoter can place.')}
+              title={t('owner.promo.guestList')}
+              desc={t('owner.promo.guestListDesc')}
               enabled={enableGuestList} onToggle={setEnableGuestList}
             >
               <div className="grid grid-cols-3 gap-2">
-                <div><Label className="text-[11px]">{tt('Entrées', 'Entries')}</Label><Input type="number" min={0} value={glNormalQuota} onChange={e => setGlNormalQuota(parseInt(e.target.value) || 0)} /></div>
-                <div><Label className="text-[11px]">{tt('Tables', 'Tables')}</Label><Input type="number" min={0} value={glTableQuota} onChange={e => setGlTableQuota(parseInt(e.target.value) || 0)} /></div>
-                <div><Label className="text-[11px]">{tt('Avec boisson', 'With drink')}</Label><Input type="number" min={0} value={glDrinkQuota} onChange={e => setGlDrinkQuota(parseInt(e.target.value) || 0)} /></div>
+                <div><Label className="text-[11px]">{t('owner.promo.entries')}</Label><Input type="number" min={0} value={glNormalQuota} onChange={e => setGlNormalQuota(parseInt(e.target.value) || 0)} /></div>
+                <div><Label className="text-[11px]">{t('owner.promo.tables')}</Label><Input type="number" min={0} value={glTableQuota} onChange={e => setGlTableQuota(parseInt(e.target.value) || 0)} /></div>
+                <div><Label className="text-[11px]">{t('owner.promo.withDrink')}</Label><Input type="number" min={0} value={glDrinkQuota} onChange={e => setGlDrinkQuota(parseInt(e.target.value) || 0)} /></div>
               </div>
               {glDrinkQuota > 0 && (
-                <div><Label className="text-[11px]">{tt('Boissons par personne', 'Drinks per guest')}</Label><Input type="number" min={1} value={glDrinkCount} onChange={e => setGlDrinkCount(parseInt(e.target.value) || 1)} /></div>
+                <div><Label className="text-[11px]">{t('owner.promo.drinksPerGuest')}</Label><Input type="number" min={1} value={glDrinkCount} onChange={e => setGlDrinkCount(parseInt(e.target.value) || 1)} /></div>
               )}
               <div className="flex items-center justify-between">
-                <Label className="text-xs">{tt('Accès VIP inclus', 'VIP access included')}</Label>
+                <Label className="text-xs">{t('owner.promo.vipAccessIncluded')}</Label>
                 <Switch checked={glVipAccess} onCheckedChange={setGlVipAccess} />
               </div>
               <div>
-                <Label className="text-[11px]">{tt("Heure limite d'entrée", 'Entry cutoff time')}</Label>
+                <Label className="text-[11px]">{t('owner.promo.entryCutoffTime')}</Label>
                 <Input type="time" value={glEntryDeadline} onChange={e => setGlEntryDeadline(e.target.value)} className="w-40" />
               </div>
               <div className="rounded-lg bg-muted/40 p-2 text-xs text-muted-foreground">
-                {tt('Total', 'Total')} : {glNormalQuota + glTableQuota + glDrinkQuota} {tt('invitations', 'invites')}
+                {t('owner.promo.total')} : {glNormalQuota + glTableQuota + glDrinkQuota} {t('owner.promo.invites')}
               </div>
             </SectionCard>
 
             {/* SECTION 3 — Customer perks */}
             <SectionCard
               icon={<Tag className="h-4 w-4 text-primary" />}
-              title={tt('Avantages clients', 'Customer perks')}
-              desc={tt('Réduction pour les clients qui passent par son lien.', 'Discount for customers who use their link.')}
+              title={t('owner.promo.customerPerks')}
+              desc={t('owner.promo.customerPerksDesc')}
               enabled={enableClientDiscount} onToggle={setEnableClientDiscount}
             >
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">{tt('Type', 'Type')}</Label>
+                  <Label className="text-xs">{t('owner.promo.type')}</Label>
                   <Select value={cdType} onValueChange={v => setCdType(v as any)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="percentage">{tt('Pourcentage (%)', 'Percentage (%)')}</SelectItem><SelectItem value="fixed">{tt('Montant fixe (€)', 'Fixed amount (€)')}</SelectItem></SelectContent>
+                    <SelectContent><SelectItem value="percentage">{t('owner.promo.percentage')}</SelectItem><SelectItem value="fixed">{t('owner.promo.fixedAmount')}</SelectItem></SelectContent>
                   </Select>
                 </div>
-                <div><Label className="text-xs">{tt('Valeur', 'Value')}</Label><Input type="number" min={0} value={cdValue} onChange={e => setCdValue(Number(e.target.value))} /></div>
+                <div><Label className="text-xs">{t('owner.promo.value')}</Label><Input type="number" min={0} value={cdValue} onChange={e => setCdValue(Number(e.target.value))} /></div>
               </div>
               <div>
-                <Label className="text-xs">{tt("S'applique sur", 'Applies to')}</Label>
+                <Label className="text-xs">{t('owner.promo.appliesTo')}</Label>
                 <Select value={cdAppliesTo} onValueChange={v => setCdAppliesTo(v as any)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="both">{tt('Billets et boissons', 'Tickets & drinks')}</SelectItem>
-                    <SelectItem value="tickets">{tt('Billets', 'Tickets')}</SelectItem>
-                    <SelectItem value="drinks">{tt('Boissons', 'Drinks')}</SelectItem>
+                    <SelectItem value="both">{t('owner.promo.ticketsAndDrinks')}</SelectItem>
+                    <SelectItem value="tickets">{t('owner.promo.tickets')}</SelectItem>
+                    <SelectItem value="drinks">{t('owner.drinks')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div><Label className="text-xs">{tt('Label (optionnel)', 'Label (optional)')}</Label><Input value={cdLabel} onChange={e => setCdLabel(e.target.value)} placeholder={tt('ex : -10% avec PAUL', 'e.g. -10% with PAUL')} /></div>
+              <div><Label className="text-xs">{t('owner.promo.labelOptional')}</Label><Input value={cdLabel} onChange={e => setCdLabel(e.target.value)} placeholder={t('owner.promo.labelPlaceholder')} /></div>
               <div className="rounded-lg bg-muted/40 p-2 text-center">
                 <p className="text-lg font-bold text-primary">{cdType === 'percentage' ? `-${cdValue}%` : `-${cdValue}€`}</p>
               </div>

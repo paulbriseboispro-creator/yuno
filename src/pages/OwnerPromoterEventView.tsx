@@ -304,7 +304,7 @@ export default function OwnerPromoterEventView() {
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: T3 }} axisLine={{ stroke: F_BORDER }} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: T3 }} axisLine={false} tickLine={false} />
                 <Tooltip formatter={(v: number) => `${v}€`} contentStyle={chartTooltip} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-                <Bar dataKey="revenue" name="CA" radius={[5, 5, 0, 0]}>
+                <Bar dataKey="revenue" name={tt('CA', 'Revenue')} radius={[5, 5, 0, 0]}>
                   {revenueChartData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
                 </Bar>
               </BarChart>
@@ -324,7 +324,7 @@ export default function OwnerPromoterEventView() {
                 <XAxis dataKey="name" tick={{ fontSize: 11, fill: T3 }} axisLine={{ stroke: F_BORDER }} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: T3 }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={chartTooltip} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-                <Bar dataKey="clicks" name="Clics" fill="rgba(255,255,255,0.22)" radius={[5, 5, 0, 0]} />
+                <Bar dataKey="clicks" name={tt('Clics', 'Clicks')} fill="rgba(255,255,255,0.22)" radius={[5, 5, 0, 0]} />
                 <Bar dataKey="conversions" name="Conversions" fill={RED} radius={[5, 5, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>

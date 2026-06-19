@@ -155,13 +155,13 @@ export function EventTicketingSetupModule({ eventId, readOnly = false }: Props) 
   };
 
   const remove = async (id: string) => {
-    if (!confirm('Supprimer ce round ?')) return;
+    if (!confirm(t('owner.coev.confirmDeleteRound'))) return;
     const { error } = await supabase.from('ticket_rounds').delete().eq('id', id);
     if (error) toast.error(error.message);
     else { toast.success(t('coEvent.roundDeleted')); loadAll(); }
   };
 
-  if (loading) return <Card className="p-6 text-sm text-muted-foreground">Chargement…</Card>;
+  if (loading) return <Card className="p-6 text-sm text-muted-foreground">{t('owner.coev.loading')}</Card>;
 
   if (!ticketingEnabled) {
     return (

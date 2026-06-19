@@ -35,12 +35,12 @@ interface RewardInfo {
   rewardEarnedCounts?: Record<string, number>;
 }
 
-function getRewardLabel(rewardType: string, rewardConfig: Record<string, any> = {}): string {
-  if (rewardType === 'money') return `${rewardConfig?.ticketValue || rewardConfig?.value || 0}€/vente`;
-  if (rewardType === 'free_entry') return `${rewardConfig?.entryCount || 1} entrée(s) gratuite(s)`;
-  if (rewardType === 'vip') return `Accès VIP${rewardConfig?.vipType ? ` (${rewardConfig.vipType})` : ''}`;
-  if (rewardType === 'drinks') return `${rewardConfig?.drinkCount || 1} boisson(s) offerte(s)${rewardConfig?.drinkCategory ? ` (${rewardConfig.drinkCategory})` : ''}`;
-  if (rewardType === 'none') return 'Aucune';
+function getRewardLabel(t: (k: string) => string, rewardType: string, rewardConfig: Record<string, any> = {}): string {
+  if (rewardType === 'money') return t('owner.promoB.rewardPerSale').replace('{x}', String(rewardConfig?.ticketValue || rewardConfig?.value || 0));
+  if (rewardType === 'free_entry') return t('owner.promoB.freeEntries').replace('{n}', String(rewardConfig?.entryCount || 1));
+  if (rewardType === 'vip') return t('owner.promoB.vipAccess') + (rewardConfig?.vipType ? ` (${rewardConfig.vipType})` : '');
+  if (rewardType === 'drinks') return t('owner.promoB.freeDrinks').replace('{n}', String(rewardConfig?.drinkCount || 1)) + (rewardConfig?.drinkCategory ? ` (${rewardConfig.drinkCategory})` : '');
+  if (rewardType === 'none') return t('owner.promoB.rewardNone');
   return rewardType;
 }
 
@@ -430,7 +430,7 @@ export default function OwnerPromoterDetail() {
                       <span className="flex items-center gap-2">
                         {e.title}
                         {isLive && <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-primary text-primary-foreground animate-pulse">LIVE</span>}
-                        {isUpcoming && <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-accent text-accent-foreground">À venir</span>}
+                        {isUpcoming && <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-accent text-accent-foreground">{t('owner.promoB.upcoming')}</span>}
                       </span>
                     </SelectItem>
                   );
@@ -480,15 +480,15 @@ export default function OwnerPromoterDetail() {
                   <div className="flex items-center gap-3" style={{ padding: 12, borderRadius: 11, background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.2)' }}>
                     <Star className="h-5 w-5 shrink-0" style={{ color: RED }} />
                     <div>
-                      <p style={{ color: T1, fontSize: 13, fontWeight: 540, margin: 0 }}>{getRewardLabel(rewardInfo.rewardType, rewardInfo.rewardConfig)}</p>
-                      <p style={{ color: T3, fontSize: 10, margin: 0, marginTop: 2 }}>Avantage par événement</p>
+                      <p style={{ color: T1, fontSize: 13, fontWeight: 540, margin: 0 }}>{getRewardLabel(t, rewardInfo.rewardType, rewardInfo.rewardConfig)}</p>
+                      <p style={{ color: T3, fontSize: 10, margin: 0, marginTop: 2 }}>{t('owner.promoB.perEventPerk')}</p>
                     </div>
                   </div>
                 )}
 
                 {rewardInfo.type === 'tiers' && rewardInfo.tiers && (() => {
                   const nonMoneyTiers = rewardInfo.tiers!.filter(t => t.reward_type !== 'money' && t.reward_type !== 'none');
-                  if (nonMoneyTiers.length === 0) return <p style={{ color: T3, fontSize: 12, textAlign: 'center', padding: '8px 0' }}>Aucune récompense non-monétaire configurée</p>;
+                  if (nonMoneyTiers.length === 0) return <p style={{ color: T3, fontSize: 12, textAlign: 'center', padding: '8px 0' }}>{t('owner.promoB.noNonMonetaryReward')}</p>;
 
                   if (eventFilter) {
                     const eventConvs = stats.totalConversions;
@@ -503,33 +503,33 @@ export default function OwnerPromoterDetail() {
                     const nextTier = currentIdx < rewardInfo.tiers!.length - 1 ? rewardInfo.tiers![currentIdx + 1] : null;
                     return (
                       <div className="space-y-3">
-                        <p style={{ color: T3, fontSize: 11.5, margin: 0 }}>Progression pour cet événement</p>
+                        <p style={{ color: T3, fontSize: 11.5, margin: 0 }}>{t('owner.promoB.progressForEvent')}</p>
                         <div style={{ padding: 12, borderRadius: 11, background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.2)' }}>
                           <div className="flex items-center justify-between" style={{ marginBottom: 4 }}>
-                            <span style={{ color: T3, fontSize: 11 }}>Palier actuel</span>
-                            <PromoPill tone="muted">{eventConvs} vente(s)</PromoPill>
+                            <span style={{ color: T3, fontSize: 11 }}>{t('owner.promoB.currentTier')}</span>
+                            <PromoPill tone="muted">{t('owner.promoB.salesCount').replace('{n}', String(eventConvs))}</PromoPill>
                           </div>
                           <p style={{ color: T1, fontSize: 13, fontWeight: 540, margin: 0 }}>
-                            {currentTier.reward_type === 'money' ? `${currentTier.ticketValue || 0}€ par vente`
-                              : currentTier.reward_type === 'none' ? 'Aucune récompense'
-                              : getRewardLabel(currentTier.reward_type, currentTier.reward_config)}
+                            {currentTier.reward_type === 'money' ? t('owner.promoB.perSaleAmount').replace('{x}', String(currentTier.ticketValue || 0))
+                              : currentTier.reward_type === 'none' ? t('owner.promoB.rewardNoneLong')
+                              : getRewardLabel(t, currentTier.reward_type, currentTier.reward_config)}
                           </p>
                         </div>
                         {nextTier && (
                           <div>
                             <div className="flex justify-between" style={{ fontSize: 11, marginBottom: 6 }}>
-                              <span style={{ color: T3 }}>Prochain palier à {nextTier.min} ventes</span>
+                              <span style={{ color: T3 }}>{t('owner.promoB.nextTierAt').replace('{n}', String(nextTier.min))}</span>
                               <span style={{ color: T2, fontWeight: 600 }}>{Math.min(100, nextTier.min > 0 ? (eventConvs / nextTier.min) * 100 : 0).toFixed(0)}%</span>
                             </div>
                             <PromoProgress value={Math.min(100, nextTier.min > 0 ? (eventConvs / nextTier.min) * 100 : 0)} height={6} />
                             <p style={{ color: T3, fontSize: 11, margin: 0, marginTop: 6 }}>
-                              → {nextTier.reward_type === 'money' ? `${nextTier.ticketValue || 0}€ par vente` : getRewardLabel(nextTier.reward_type, nextTier.reward_config)}
+                              → {nextTier.reward_type === 'money' ? t('owner.promoB.perSaleAmount').replace('{x}', String(nextTier.ticketValue || 0)) : getRewardLabel(t, nextTier.reward_type, nextTier.reward_config)}
                             </p>
                           </div>
                         )}
                         <div style={{ borderTop: `1px solid ${F_BORDER}`, paddingTop: 12 }}>
                           <p className="flex items-center gap-1" style={{ color: T3, fontSize: 11, fontWeight: 600, marginBottom: 8 }}>
-                            <Layers className="h-3 w-3" /> Tous les paliers
+                            <Layers className="h-3 w-3" /> {t('owner.promoB.allTiers')}
                           </p>
                           {rewardInfo.tiers!.map((tier, i) => {
                             const isActive = i === currentIdx;
@@ -537,9 +537,9 @@ export default function OwnerPromoterDetail() {
                             return (
                               <div key={i} className="flex items-center gap-2" style={{ fontSize: 11.5, padding: 8, borderRadius: 8, background: isActive ? 'rgba(232,25,44,0.08)' : 'transparent', color: isActive ? T1 : T3 }}>
                                 <div style={{ width: 7, height: 7, borderRadius: 999, flex: 'none', background: isActive ? RED : isCompleted ? 'rgba(232,25,44,0.5)' : 'rgba(255,255,255,0.2)' }} />
-                                <span className="flex-1">{tier.min}{tier.max ? `–${tier.max}` : '+'} ventes</span>
+                                <span className="flex-1">{tier.min}{tier.max ? `–${tier.max}` : '+'} {t('owner.promoB.salesWord')}</span>
                                 <span style={{ fontWeight: 600, color: isActive ? RED : undefined }}>
-                                  {tier.reward_type === 'money' ? `${tier.ticketValue || 0}€` : tier.reward_type === 'none' ? 'Aucune' : getRewardLabel(tier.reward_type, tier.reward_config)}
+                                  {tier.reward_type === 'money' ? `${tier.ticketValue || 0}€` : tier.reward_type === 'none' ? t('owner.promoB.rewardNone') : getRewardLabel(t, tier.reward_type, tier.reward_config)}
                                 </span>
                               </div>
                             );
@@ -552,16 +552,16 @@ export default function OwnerPromoterDetail() {
                   const earnedCounts = rewardInfo.rewardEarnedCounts || {};
                   return (
                     <div className="space-y-2">
-                      <p style={{ color: T3, fontSize: 11.5, margin: 0 }}>Les paliers sont réinitialisés à chaque événement</p>
+                      <p style={{ color: T3, fontSize: 11.5, margin: 0 }}>{t('owner.promoB.tiersResetPerEvent')}</p>
                       {nonMoneyTiers.map((tier, i) => {
-                        const label = getRewardLabel(tier.reward_type, tier.reward_config);
+                        const label = getRewardLabel(t, tier.reward_type, tier.reward_config);
                         const count = earnedCounts[`${tier.reward_type}_${tier.min}`] || 0;
                         return (
                           <div key={i} className="flex items-center justify-between" style={{ padding: 12, borderRadius: 10, background: TILE_BG }}>
                             <div className="flex items-center gap-2">
                               <div style={{ width: 7, height: 7, borderRadius: 999, flex: 'none', background: count > 0 ? RED : 'rgba(255,255,255,0.2)' }} />
                               <span style={{ color: T1, fontSize: 13 }}>{label}</span>
-                              <span style={{ color: T3, fontSize: 10 }}>({tier.min}+ ventes/event)</span>
+                              <span style={{ color: T3, fontSize: 10 }}>{t('owner.promoB.minSalesPerEvent').replace('{n}', String(tier.min))}</span>
                             </div>
                             <span style={{ color: count > 0 ? RED : T3, fontSize: 17, fontWeight: 720 }}>{count}×</span>
                           </div>

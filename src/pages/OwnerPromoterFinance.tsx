@@ -172,7 +172,7 @@ export default function OwnerPromoterFinance() {
   }
 
   function exportCSV() {
-    const rows = [['Promoteur', 'Montant', 'Statut', 'Période', 'IBAN', 'Date'].join(',')];
+    const rows = [[t('owner.promoB.csvPromoter'), t('owner.promoB.csvAmount'), t('owner.promoB.csvStatus'), t('owner.promoB.csvPeriod'), 'IBAN', t('owner.promoB.csvDate')].join(',')];
     payouts.forEach(p => {
       rows.push([
         `"${p.promoterName}"`, p.amount.toFixed(2), p.status, `"${p.period_label || ''}"`,

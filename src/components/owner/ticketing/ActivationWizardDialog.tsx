@@ -293,13 +293,13 @@ export function ActivationWizardDialog({
             {wizardStep === 2.5 && (
               <div className="space-y-4">
                 <div>
-                  <p style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>Crée tes paliers de vente</p>
+                  <p style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{t('owner.actw.buildTiers')}</p>
                   <p style={HINT}>
                     {wizardSellingMode === 'simple'
-                      ? 'Définis le prix et le quota global du billet.'
+                      ? t('owner.actw.simpleDesc')
                       : wizardSellingMode === 'timed_entry'
-                      ? 'Crée chaque créneau horaire avec son prix et son quota.'
-                      : 'Crée chaque palier de vente. Ils seront activés successivement quand le précédent est épuisé.'}
+                      ? t('owner.actw.timedDesc')
+                      : t('owner.actw.roundsDesc')}
                   </p>
                 </div>
 
@@ -308,7 +308,9 @@ export function ActivationWizardDialog({
                     <div key={idx} className="p-3 space-y-2" style={TILE}>
                         <div className="flex items-center justify-between">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 }}>
-                            {wizardSellingMode === 'timed_entry' ? `Créneau ${idx + 1}` : `Palier ${idx + 1}`}
+                            {wizardSellingMode === 'timed_entry'
+                              ? t('owner.actw.slotLabel').replace('{idx}', String(idx + 1))
+                              : t('owner.actw.tierLabel').replace('{idx}', String(idx + 1))}
                           </span>
                           {wizardCustomRounds.length > 1 && (
                             <Button
@@ -325,7 +327,7 @@ export function ActivationWizardDialog({
 
                         <div className="grid grid-cols-2 gap-2">
                           <div className="col-span-2">
-                            <Label className="text-xs">Nom</Label>
+                            <Label className="text-xs">{t('owner.actw.nameLabel')}</Label>
                             <Input
                               className="mt-1 h-9"
                               value={round.name}
@@ -337,7 +339,7 @@ export function ActivationWizardDialog({
                             />
                           </div>
                           <div>
-                            <Label className="text-xs">Prix (€)</Label>
+                            <Label className="text-xs">{t('owner.actw.priceLabel')}</Label>
                             <Input
                               type="number"
                               step="0.01"
@@ -353,7 +355,7 @@ export function ActivationWizardDialog({
                           </div>
                           {wizardSellingMode !== 'simple' && (
                             <div>
-                              <Label className="text-xs">Quota</Label>
+                              <Label className="text-xs">{t('owner.actw.quotaLabel')}</Label>
                               <Input
                                 type="number"
                                 min="1"
@@ -369,7 +371,7 @@ export function ActivationWizardDialog({
                           )}
                           {wizardSellingMode === 'timed_entry' && (
                             <div className="col-span-2">
-                              <Label className="text-xs">Heure limite d'entrée</Label>
+                              <Label className="text-xs">{t('owner.actw.entryDeadlineLabel')}</Label>
                               <Input
                                 type="datetime-local"
                                 className="mt-1 h-9"
@@ -404,7 +406,7 @@ export function ActivationWizardDialog({
                               }}
                             />
                             <Label className="text-xs flex items-center gap-1">
-                              <Wine className="h-3 w-3" style={{ color: POS }} /> Boisson incluse
+                              <Wine className="h-3 w-3" style={{ color: POS }} /> {t('owner.actw.includesDrink')}
                             </Label>
                           </div>
                         </div>
@@ -424,7 +426,7 @@ export function ActivationWizardDialog({
                     }}
                     style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1 }}
                   >
-                    <Plus className="h-4 w-4 mr-2" /> Ajouter un palier
+                    <Plus className="h-4 w-4 mr-2" /> {t('owner.actw.addTier')}
                   </Button>
                 )}
 

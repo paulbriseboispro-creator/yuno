@@ -106,7 +106,7 @@ export default function OwnerPromoterAnnouncements() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer cette annonce ?')) return;
+    if (!confirm(t('owner.promoB.deleteAnnouncementConfirm'))) return;
     try {
       const { error } = await supabase.from('promoter_announcements').delete().eq('id', id);
       if (error) throw error;
@@ -168,11 +168,11 @@ export default function OwnerPromoterAnnouncements() {
                       </div>
                     </div>
                     <div className="flex gap-1 flex-none">
-                      <button onClick={() => openEditDialog(a)} aria-label="Modifier"
+                      <button onClick={() => openEditDialog(a)} aria-label={t('owner.edit')}
                         style={{ width: 30, height: 30, borderRadius: 8, background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                         <Edit2 className="h-3.5 w-3.5" />
                       </button>
-                      <button onClick={() => handleDelete(a.id)} aria-label="Supprimer"
+                      <button onClick={() => handleDelete(a.id)} aria-label={t('common.delete')}
                         style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(255,92,99,0.08)', border: '1px solid rgba(255,92,99,0.2)', color: '#FF5C63', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>

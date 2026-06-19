@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { translate } from '@/i18n/orgTranslate';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,8 +32,7 @@ export default function OwnerPromoters() {
   const navigate = useNavigate();
   const scope = usePromoterScope();
   const { venue } = useVenueContext();
-  const { t, language } = useLanguage();
-  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
+  const { t } = useLanguage();
   const { basePath } = useDashboardMode();
   const { promoters, kpis, loading, dateRange, setDateRange } = usePromoterOwnerData(scope);
   const { isReadOnly: collabReadOnly } = useCollabReadOnly();
@@ -154,16 +152,16 @@ export default function OwnerPromoters() {
       disabled={collabReadOnly}
     >
       <Plus className="h-4 w-4" />
-      <span>{tt('Inviter', 'Invite')}</span>
+      <span>{t('owner.promo.invite')}</span>
     </PromoButton>
   );
 
   // ── Guided setup workflow ────────────────────────────────────────────────
   const steps = [
-    { n: 1, label: tt('Créer les règles', 'Set up rules'), hint: tt('Commission par vente ou par tête', 'Commission per sale or per head'), done: (templateCount ?? 0) > 0, go: () => navigate(`${basePath}/promoters/templates`) },
-    { n: 2, label: tt('Inviter des promoteurs', 'Invite promoters'), hint: tt('Recrutez votre force de vente', 'Recruit your sales force'), done: promoters.length > 0, go: () => { if (!collabReadOnly) setInviteOpen(true); } },
-    { n: 3, label: tt('Activer par soirée', 'Activate per night'), hint: tt('Quotas, objectifs, accès', 'Quotas, goals, access'), done: (activationCount ?? 0) > 0, go: () => navigate(nextEvent ? `${basePath}/promoters/event/${nextEvent.id}` : `${basePath}/promoters`) },
-    { n: 4, label: tt('Suivre & payer', 'Track & pay'), hint: tt('Live à la porte, liquidation', 'Live at the door, payouts'), done: kpis.ticketsSold > 0 || kpis.pendingCommission > 0, go: () => navigate(`${basePath}/promoters/finance`) },
+    { n: 1, label: t('owner.promo.stepRulesLabel'), hint: t('owner.promo.stepRulesHint'), done: (templateCount ?? 0) > 0, go: () => navigate(`${basePath}/promoters/templates`) },
+    { n: 2, label: t('owner.promo.stepInviteLabel'), hint: t('owner.promo.stepInviteHint'), done: promoters.length > 0, go: () => { if (!collabReadOnly) setInviteOpen(true); } },
+    { n: 3, label: t('owner.promo.stepActivateLabel'), hint: t('owner.promo.stepActivateHint'), done: (activationCount ?? 0) > 0, go: () => navigate(nextEvent ? `${basePath}/promoters/event/${nextEvent.id}` : `${basePath}/promoters`) },
+    { n: 4, label: t('owner.promo.stepTrackLabel'), hint: t('owner.promo.stepTrackHint'), done: kpis.ticketsSold > 0 || kpis.pendingCommission > 0, go: () => navigate(`${basePath}/promoters/finance`) },
   ];
   const coreDone = steps.slice(0, 3).every(s => s.done);
   const showGuide = templateCount !== null && !guideDismissed && !coreDone;
@@ -187,10 +185,10 @@ export default function OwnerPromoters() {
           <PromoCard style={{ padding: 0, overflow: 'hidden' }}>
             <div className="flex items-center justify-between" style={{ padding: '12px 16px', borderBottom: `1px solid ${F_BORDER}` }}>
               <div>
-                <p style={{ color: T1, fontSize: 13, fontWeight: 660, margin: 0 }}>{tt('Comment ça marche', 'How it works')}</p>
-                <p style={{ color: T3, fontSize: 11, margin: 0, marginTop: 1 }}>{tt('Mettez votre programme en place en 4 étapes', 'Set up your program in 4 steps')}</p>
+                <p style={{ color: T1, fontSize: 13, fontWeight: 660, margin: 0 }}>{t('owner.promo.howItWorks')}</p>
+                <p style={{ color: T3, fontSize: 11, margin: 0, marginTop: 1 }}>{t('owner.promo.howItWorksSub')}</p>
               </div>
-              <button onClick={dismissGuide} aria-label={tt('Masquer', 'Dismiss')} style={{ background: 'none', border: 'none', color: T3, cursor: 'pointer' }}>
+              <button onClick={dismissGuide} aria-label={t('owner.promo.dismiss')} style={{ background: 'none', border: 'none', color: T3, cursor: 'pointer' }}>
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -209,7 +207,7 @@ export default function OwnerPromoters() {
                       <p style={{ color: s.done ? T2 : T1, fontSize: 13, fontWeight: 560, margin: 0, textDecoration: s.done ? 'line-through' : 'none' }}>{s.label}</p>
                       <p style={{ color: T3, fontSize: 11, margin: 0 }}>{s.hint}</p>
                     </div>
-                    {isCurrent && <PromoPill tone="red">{tt('À faire', 'To do')}</PromoPill>}
+                    {isCurrent && <PromoPill tone="red">{t('owner.promo.toDo')}</PromoPill>}
                     <ChevronRight className="h-4 w-4 flex-none" style={{ color: T3 }} />
                   </button>
                 );
@@ -236,13 +234,13 @@ export default function OwnerPromoters() {
               </p>
               <p style={{ color: T2, fontSize: 12.5, margin: 0, marginTop: 3 }}>
                 {owedCount > 0
-                  ? tt(`à payer à ${owedCount} promoteur${owedCount > 1 ? 's' : ''}`, `owed to ${owedCount} promoter${owedCount > 1 ? 's' : ''}`, `por pagar a ${owedCount} promotor${owedCount > 1 ? 'es' : ''}`)
-                  : tt('tout est réglé · aucune commission en attente', 'all settled · no pending commission')}
+                  ? t(owedCount > 1 ? 'owner.promo.owedToPlural' : 'owner.promo.owedToSingular').replace('{count}', String(owedCount))
+                  : t('owner.promo.allSettled')}
               </p>
             </div>
             {owedCount > 0 && (
               <div className="flex items-center gap-1 flex-none" style={{ color: T1, fontSize: 13, fontWeight: 620 }}>
-                {tt('Payer', 'Pay')} <ArrowRight className="h-4 w-4" />
+                {t('owner.promo.pay')} <ArrowRight className="h-4 w-4" />
               </div>
             )}
           </div>
@@ -259,7 +257,7 @@ export default function OwnerPromoters() {
         {/* ── Next nights: activate promoters ───────────────────────────── */}
         {upcomingEvents.length > 0 && (
           <>
-            <SectionLabel>{tt('Prochaines soirées', 'Upcoming nights')}</SectionLabel>
+            <SectionLabel>{t('owner.promo.upcomingNights')}</SectionLabel>
             <div className="space-y-2">
               {upcomingEvents.slice(0, 3).map((evt, idx) => {
                 const fillPct = evt.quota && evt.quota > 0 ? (evt.entriesPlaced / evt.quota) * 100 : 0;
@@ -274,13 +272,10 @@ export default function OwnerPromoters() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <p className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 620, margin: 0 }}>{evt.title}</p>
-                          {isNext && <PromoPill tone="red">{tt('Prochaine', 'Next')}</PromoPill>}
+                          {isNext && <PromoPill tone="red">{t('owner.promo.next')}</PromoPill>}
                         </div>
                         <p style={{ color: T3, fontSize: 11.5, margin: 0, marginTop: 1 }}>
-                          {tt(
-                            `${evt.promoterCount} promoteur${evt.promoterCount !== 1 ? 's' : ''} activé${evt.promoterCount !== 1 ? 's' : ''}`,
-                            `${evt.promoterCount} promoter${evt.promoterCount !== 1 ? 's' : ''} activated`,
-                          )}
+                          {t(evt.promoterCount !== 1 ? 'owner.promo.promotersActivatedPlural' : 'owner.promo.promotersActivatedSingular').replace('{count}', String(evt.promoterCount))}
                         </p>
                       </div>
                       <ChevronRight className="h-4 w-4 flex-none" style={{ color: T3 }} />
@@ -288,7 +283,7 @@ export default function OwnerPromoters() {
                     {evt.quota && evt.quota > 0 && (
                       <div>
                         <div className="flex items-center justify-between" style={{ marginBottom: 5 }}>
-                          <span style={{ color: T3, fontSize: 11 }}>{tt('Entrées placées', 'Entries placed')}</span>
+                          <span style={{ color: T3, fontSize: 11 }}>{t('owner.promo.entriesPlaced')}</span>
                           <span style={{ color: T2, fontSize: 11, fontWeight: 600 }}>{evt.entriesPlaced}/{evt.quota}</span>
                         </div>
                         <PromoProgress value={fillPct} tone={fillPct >= 100 ? 'pos' : 'red'} />
@@ -332,7 +327,7 @@ export default function OwnerPromoters() {
         )}
 
         {/* ── Directory ─────────────────────────────────────────────────── */}
-        <SectionLabel action={<span style={{ color: T3, fontSize: 11.5 }}>{promoters.length}</span>}>{tt('Annuaire', 'Directory')}</SectionLabel>
+        <SectionLabel action={<span style={{ color: T3, fontSize: 11.5 }}>{promoters.length}</span>}>{t('owner.promo.directory')}</SectionLabel>
         <DarkInput value={searchTerm} onChange={setSearchTerm} placeholder={t('owner.searchPromoter')} icon={Search} />
 
         <div className="space-y-2.5">
@@ -341,8 +336,8 @@ export default function OwnerPromoters() {
               <PromoEmpty
                 icon={UserPlus}
                 title={t('promoterProgram.noPromoters')}
-                description={tt('Invitez votre premier promoteur pour lancer votre force de vente.', 'Invite your first promoter to kick off your sales force.')}
-                action={<PromoButton onClick={() => { if (!collabReadOnly) setInviteOpen(true); }} disabled={collabReadOnly}><Plus className="h-4 w-4" />{tt('Inviter un promoteur', 'Invite a promoter')}</PromoButton>}
+                description={t('owner.promo.emptyDescription')}
+                action={<PromoButton onClick={() => { if (!collabReadOnly) setInviteOpen(true); }} disabled={collabReadOnly}><Plus className="h-4 w-4" />{t('owner.promo.inviteAPromoter')}</PromoButton>}
               />
             ) : (
               <PromoEmpty icon={Search} title={t('promoterProgram.noResults')} />
@@ -363,7 +358,7 @@ export default function OwnerPromoters() {
                     </div>
                     <p style={{ color: T3, fontSize: 11.5, fontFamily: 'monospace', margin: 0 }}>@{p.promoCode}</p>
                   </div>
-                  {p.pendingAmount > 0 && <PromoPill tone="red">{p.pendingAmount.toFixed(0)}€ {tt('dû', 'owed')}</PromoPill>}
+                  {p.pendingAmount > 0 && <PromoPill tone="red">{p.pendingAmount.toFixed(0)}€ {t('owner.promo.owed')}</PromoPill>}
                 </div>
                 <div className="grid grid-cols-4 gap-2 text-center">
                   {[
@@ -384,7 +379,7 @@ export default function OwnerPromoters() {
         </div>
 
         {/* ── Configuration ─────────────────────────────────────────────── */}
-        <SectionLabel>{tt('Configuration', 'Setup')}</SectionLabel>
+        <SectionLabel>{t('owner.promo.setup')}</SectionLabel>
         <div className="grid grid-cols-3 gap-2">
           {[
             { label: t('promoterProgram.templates'), Icon: FileText, path: `${basePath}/promoters/templates`, hint: 'Règles' },

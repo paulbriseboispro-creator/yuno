@@ -201,7 +201,7 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
   };
 
   const deleteZone = async (id: string) => {
-    if (!confirm('Supprimer cette zone et tous ses packs ?')) return;
+    if (!confirm(t('owner.coev.confirmDeleteZone'))) return;
     await supabase.from('table_packs').delete().eq('zone_id', id).eq('event_id', eventId);
     const { error } = await supabase.from('table_zones').delete().eq('id', id);
     if (error) toast.error(error.message);
@@ -271,7 +271,7 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
   };
 
   const deletePack = async (id: string) => {
-    if (!confirm('Supprimer ce pack ?')) return;
+    if (!confirm(t('owner.coev.confirmDeletePack'))) return;
     const { error } = await supabase.from('table_packs').delete().eq('id', id);
     if (error) toast.error(error.message);
     else { toast.success(t('coTables.packDeleted')); loadAll(); }
@@ -313,7 +313,7 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
     }
   };
 
-  if (loading) return <Card className="p-6 text-sm text-muted-foreground">Chargement…</Card>;
+  if (loading) return <Card className="p-6 text-sm text-muted-foreground">{t('owner.coev.loading')}</Card>;
 
   if (!tablesEnabled || tablesMode !== 'basic') {
     return (
@@ -368,7 +368,7 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
           {!readOnly && (
             <div className="flex justify-end">
               <Button size="sm" onClick={() => openZoneDialog(null)}>
-                <Plus className="h-4 w-4 mr-1" /> Nouvelle zone
+                <Plus className="h-4 w-4 mr-1" /> {t('owner.coev.newZone')}
               </Button>
             </div>
           )}
@@ -383,7 +383,7 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
                 <div className="h-4 w-4 rounded" style={{ background: z.color }} />
                 <div>
                   <div className="font-medium text-sm">{z.name}</div>
-                  <div className="text-xs text-muted-foreground">{z.tables_count} tables</div>
+                  <div className="text-xs text-muted-foreground">{z.tables_count} {t('owner.coev.tablesWord')}</div>
                 </div>
               </div>
               {!readOnly && (
@@ -400,7 +400,7 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
           {!readOnly && (
             <div className="flex justify-end">
               <Button size="sm" onClick={() => openPackDialog(null)} disabled={zones.length === 0}>
-                <Plus className="h-4 w-4 mr-1" /> Nouveau pack
+                <Plus className="h-4 w-4 mr-1" /> {t('owner.coev.newPack')}
               </Button>
             </div>
           )}
@@ -425,8 +425,8 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
                         {p.name} <span className="text-muted-foreground">— {Number(p.base_price).toFixed(0)}€</span>
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {p.base_capacity} pers.
-                        {Number(p.deposit) > 0 && <> · Acompte {Number(p.deposit).toFixed(0)}€</>}
+                        {p.base_capacity} {t('owner.coev.peopleWord')}
+                        {Number(p.deposit) > 0 && <> · {t('owner.coev.depositWord')} {Number(p.deposit).toFixed(0)}€</>}
                       </div>
                     </div>
                     {!readOnly && (
@@ -456,7 +456,7 @@ export function EventTablesSetupModule({ eventId, readOnly = false }: Props) {
           </p>
           {floorPlanUrl && (
             <div className="rounded-lg overflow-hidden border">
-              <img src={floorPlanUrl} alt="Plan de salle" className="w-full h-auto" />
+              <img src={floorPlanUrl} alt={t('owner.coev.floorPlanAlt')} className="w-full h-auto" />
             </div>
           )}
           {!readOnly && (

@@ -365,7 +365,7 @@ export default function OwnerPromoterTeams() {
           <div className="space-y-4">
             <div>
               <Label>{t('promoterTeams.name')}</Label>
-              <Input value={name} onChange={e => setName(e.target.value)} placeholder="Équipe Alpha" />
+              <Input value={name} onChange={e => setName(e.target.value)} placeholder={t('owner.promoB.teamNamePlaceholder')} />
             </div>
             <div>
               <Label>{t('promoterTeams.leader')}</Label>
@@ -403,18 +403,18 @@ export default function OwnerPromoterTeams() {
               <Label className="mb-2 block">{t('promoterTeams.members')}</Label>
               <div className="border border-border rounded-lg max-h-48 overflow-y-auto">
                 {availablePromoters.length === 0 ? (
-                  <p className="p-3 text-sm text-muted-foreground text-center">Aucun promoteur disponible</p>
+                  <p className="p-3 text-sm text-muted-foreground text-center">{t('owner.promoB.noPromoterAvailable')}</p>
                 ) : (
                   availablePromoters.map(p => (
                     <label key={p.id} className="flex items-center gap-3 p-3 hover:bg-muted/50 cursor-pointer border-b border-border last:border-0">
                       <Checkbox checked={selectedMembers.includes(p.id)} onCheckedChange={() => toggleMember(p.id)} />
                       <span className="text-sm">{p.label}</span>
-                      {p.id === leaderId && <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-primary"><Crown className="h-2.5 w-2.5" />Chef</span>}
+                      {p.id === leaderId && <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-primary"><Crown className="h-2.5 w-2.5" />{tt('Chef', 'Lead')}</span>}
                     </label>
                   ))
                 )}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">{selectedMembers.length} sélectionné(s)</p>
+              <p className="text-xs text-muted-foreground mt-1">{t('owner.promoB.selectedCount').replace('{n}', String(selectedMembers.length))}</p>
             </div>
           </div>
           <DialogFooter>

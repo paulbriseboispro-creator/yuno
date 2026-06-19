@@ -150,9 +150,9 @@ export default function OwnerCollabEventDashboard() {
         <OwnerHeader title={t('collabDash.title')} />
         <div className="container mx-auto px-4 py-6 max-w-6xl">
           <Card className="p-8 text-center">
-            <p className="text-muted-foreground">{error ?? 'Erreur'}</p>
+            <p className="text-muted-foreground">{error ?? t('common.error')}</p>
             <Button variant="outline" className="mt-4" onClick={() => navigate('/owner/collaborations')}>
-              <ArrowLeft className="h-4 w-4 mr-2" /> Retour aux collaborations
+              <ArrowLeft className="h-4 w-4 mr-2" /> {t('owner.cdash.backToCollabs')}
             </Button>
           </Card>
         </div>
@@ -207,7 +207,7 @@ export default function OwnerCollabEventDashboard() {
                 {organizer && (
                   <div className="flex items-center gap-2">
                     <Megaphone className="h-3.5 w-3.5" />
-                    Organisateur : {organizer.slug ? (
+                    {t('owner.cdash.organizerLabel')} {organizer.slug ? (
                       <Link to={`/o/${organizer.slug}`} className="text-primary hover:underline inline-flex items-center gap-1">
                         {orgName} <ExternalLink className="h-3 w-3" />
                       </Link>
@@ -217,14 +217,14 @@ export default function OwnerCollabEventDashboard() {
                 {leadVenue && (
                   <div className="flex items-center gap-2">
                     <Users className="h-3.5 w-3.5" />
-                    Lieu : <span className="text-foreground">{leadVenue.name}</span>
+                    {t('owner.cdash.venueLabel')} <span className="text-foreground">{leadVenue.name}</span>
                   </div>
                 )}
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button asChild variant="outline" size="sm" className="text-xs">
                   <Link to={`/event/${event.id}`}>
-                    <Eye className="h-3 w-3 mr-1" /> Fiche publique
+                    <Eye className="h-3 w-3 mr-1" /> {t('owner.cdash.publicPage')}
                   </Link>
                 </Button>
               </div>
