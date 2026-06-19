@@ -568,7 +568,9 @@ export default function DJDashboard() {
                       const { error: uploadError } = await supabase.storage.from('profile-photos').upload(filePath, file);
                       if (uploadError) { toast.error('Upload error'); return; }
                       const { data: { publicUrl } } = supabase.storage.from('profile-photos').getPublicUrl(filePath);
-                      await supabase.from('djs').update({ cover_image_url: publicUrl }).eq('id', dj.id);
+                      // Sync across all of this DJ's scoped records (venue + org rosters) by user_id,
+                      // so their real uploaded cover shows everywhere, not just on this one row.
+                      await supabase.from('djs').update({ cover_image_url: publicUrl }).eq('user_id', dj.user_id);
                       fetchAllDJProfiles();
                     }}
                   />
@@ -588,10 +590,12 @@ export default function DJDashboard() {
                 <ProfilePhotoUpload
                   currentImageUrl={dj.profile_image_url}
                   onUpload={async (url) => {
+                    // Sync to all of this DJ's scoped records (venue + org rosters) by user_id,
+                    // so their real uploaded photo shows on every roster and event line-up.
                     const { error } = await supabase
                       .from('djs')
                       .update({ profile_image_url: url })
-                      .eq('id', dj.id);
+                      .eq('user_id', dj.user_id);
                     if (!error) {
                       fetchAllDJProfiles();
                     }

@@ -119,15 +119,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Source DJ profile to clone
-    const { data: existingDJProfile, error: djProfileError } = await supabase
+    // Source DJ profile to clone. A DJ can have several scoped rows (one per club/org);
+    // pick the richest one — the record that actually carries their uploaded photos — so the
+    // new roster record inherits the DJ's real profile + cover, not an empty scoped stub.
+    const { data: allDJProfiles, error: djProfileError } = await supabase
       .from('djs')
       .select('*')
-      .eq('user_id', user.id)
-      .limit(1)
-      .single();
+      .eq('user_id', user.id);
 
-    if (djProfileError || !existingDJProfile) {
+    if (djProfileError || !allDJProfiles || allDJProfiles.length === 0) {
       return new Response(JSON.stringify({
         error: "Profil DJ existant non trouvé. Impossible d'accepter l'invitation.",
       }), {
@@ -136,6 +136,15 @@ Deno.serve(async (req) => {
       });
     }
 
+    const mediaScore = (d: Record<string, any>) => (d.cover_image_url ? 2 : 0) + (d.profile_image_url ? 1 : 0);
+    const existingDJProfile = [...allDJProfiles].sort((a, b) => {
+      const byMedia = mediaScore(b) - mediaScore(a);
+      if (byMedia !== 0) return byMedia;
+      const at = new Date(a.updated_at || a.created_at || 0).getTime();
+      const bt = new Date(b.updated_at || b.created_at || 0).getTime();
+      return bt - at;
+    })[0];
+
     const insertPayload: Record<string, unknown> = {
       user_id: user.id,
       first_name: existingDJProfile.first_name,
@@ -143,10 +152,18 @@ Deno.serve(async (req) => {
       stage_name: existingDJProfile.stage_name,
       music_genres: existingDJProfile.music_genres || [],
       bio: existingDJProfile.bio,
+      description: existingDJProfile.description,
       instagram_url: existingDJProfile.instagram_url,
       tiktok_url: existingDJProfile.tiktok_url,
+      soundcloud_url: existingDJProfile.soundcloud_url,
+      spotify_url: existingDJProfile.spotify_url,
+      youtube_url: existingDJProfile.youtube_url,
       whatsapp_number: existingDJProfile.whatsapp_number,
+      city: existingDJProfile.city,
+      country: existingDJProfile.country,
       profile_image_url: existingDJProfile.profile_image_url,
+      cover_image_url: existingDJProfile.cover_image_url,
+      is_verified: existingDJProfile.is_verified,
       is_active: true,
     };
     if (isVenueScope) insertPayload.venue_id = invitation.venue_id;

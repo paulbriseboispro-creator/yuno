@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, BadgeCheck, Calendar, MapPin, Music, Sparkles, Users } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, Calendar, ChevronDown, ChevronUp, MapPin, Music, Share2 } from 'lucide-react';
 import { SiInstagram, SiTiktok, SiSoundcloud, SiSpotify, SiYoutube } from 'react-icons/si';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -12,6 +11,8 @@ import { fr, es, enUS } from 'date-fns/locale';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { FavoriteButton } from '@/components/FavoriteButton';
 import { BottomNav } from '@/components/BottomNav';
+import { getOptimizedImageUrl } from '@/lib/imageOptimization';
+import { toast } from 'sonner';
 
 const COUNTRY_TRANSLATIONS: Record<string, Record<string, string>> = {
   'France': { fr: 'France', es: 'Francia', en: 'France' },
@@ -90,6 +91,15 @@ interface DJEvent {
 export default function DJPublicPage() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  // Smart back: if the visitor came from within the app (e.g. an event line-up),
+  // return to that exact page. React Router stamps history.state.idx (0 on the first
+  // in-app entry); idx > 0 means there's a previous page to pop. Only a direct visit
+  // or external link (idx 0/undefined) falls back to the home page.
+  const handleBack = () => {
+    const idx = (window.history.state as { idx?: number } | null)?.idx;
+    if (typeof idx === 'number' && idx > 0) navigate(-1);
+    else navigate('/');
+  };
   const { language, t } = useLanguage();
   const locale = language === 'fr' ? fr : language === 'es' ? es : enUS;
 
@@ -102,10 +112,22 @@ export default function DJPublicPage() {
   const [loading, setLoading] = useState(true);
   const [djId, setDjId] = useState<string | null>(null);
   const [showAllPast, setShowAllPast] = useState(false);
+  const [bioExpanded, setBioExpanded] = useState(false);
 
   useEffect(() => {
     if (slug) fetchDJ();
   }, [slug]);
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    const title = dj?.stage_name || (dj ? `${dj.first_name} ${dj.last_name}` : '');
+    if (navigator.share) {
+      try { await navigator.share({ title, url }); } catch { /* user cancelled */ }
+    } else {
+      await navigator.clipboard.writeText(url);
+      toast.success(t('share.copied') || 'Lien copié');
+    }
+  };
 
   const fetchFollowersCount = async (id: string) => {
     const { count } = await supabase
@@ -118,11 +140,12 @@ export default function DJPublicPage() {
 
   const fetchDJ = async () => {
     try {
+      // Read from the public-safe view (active DJs, no financial/contact columns).
+      // The base `djs` table has no anon SELECT policy by design.
       const { data, error } = await supabase
-        .from('djs')
+        .from('djs_public')
         .select('*')
         .eq('slug', slug)
-        .eq('is_active', true)
         .maybeSingle();
 
       if (error || !data) {
@@ -201,18 +224,18 @@ export default function DJPublicPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0A0A' }}>
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     );
   }
 
   if (!dj) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
-        <Music className="h-16 w-16 text-muted-foreground" />
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4" style={{ background: '#0A0A0A' }}>
+        <Music className="h-16 w-16 text-muted-foreground/40" />
         <p className="text-muted-foreground">{labels.notFound}</p>
-        <Button variant="outline" onClick={() => navigate('/')}>
+        <Button variant="outline" onClick={handleBack}>
           <ArrowLeft className="h-4 w-4 mr-2" /> {t('djPublic.back')}
         </Button>
       </div>
@@ -233,266 +256,346 @@ export default function DJPublicPage() {
   ].filter(s => s.url);
 
   const visiblePast = showAllPast ? pastEvents : pastEvents.slice(0, 3);
+  const heroSrc = dj.cover_image_url || dj.profile_image_url;
+  const aboutText = dj.description || dj.bio;
+  // Dedupe genres case-insensitively — stored data can hold variants like
+  // "house" + "House", which .genre-tag uppercases into a visible duplicate.
+  const genres = Array.from(
+    new Map((dj.music_genres ?? []).map((g) => [g.trim().toLowerCase(), g.trim()])).values()
+  ).filter(Boolean);
 
   return (
-    <div className="min-h-[100dvh] bg-[#050505] pb-[calc(6rem+env(safe-area-inset-bottom))]">
-      {/* Hero cover with ambient glow */}
-      <div className="relative">
-        <div className="aspect-[16/9] w-full overflow-hidden">
-          {dj.cover_image_url ? (
-            <img src={dj.cover_image_url} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-primary/30 via-primary/10 to-transparent" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/60 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent" />
+    <div className="relative min-h-[100dvh] flex flex-col" style={{ background: '#0A0A0A' }}>
+      <main className="flex-1 pb-28">
+        {/* ===== HERO — full-bleed cinematic (Yuno DA publique) ===== */}
+        <div className="relative overflow-hidden" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px))' }}>
+          {/* Floating back */}
+          <div className="absolute left-5 z-20" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}>
+            <button
+              onClick={handleBack}
+              aria-label={t('djPublic.back')}
+              className="flex items-center justify-center h-9 w-9 hover:opacity-80 transition-opacity"
+              style={{ borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: 'none' }}
+            >
+              <ArrowLeft className="h-4 w-4 text-white" />
+            </button>
+          </div>
+          {/* Floating share */}
+          <div className="absolute right-5 z-20" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}>
+            <button
+              onClick={handleShare}
+              aria-label={t('orgPublic.share')}
+              className="flex items-center justify-center h-9 w-9 hover:opacity-80 transition-opacity"
+              style={{ borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: 'none' }}
+            >
+              <Share2 className="h-4 w-4 text-white" />
+            </button>
+          </div>
+
+          {/* Hero image — full-bleed 4:3 */}
+          <div className="relative w-full overflow-hidden" style={{ aspectRatio: '4/3' }}>
+            {heroSrc ? (
+              <motion.img
+                initial={{ scale: 1.06, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.7, ease: 'easeOut' }}
+                src={getOptimizedImageUrl(heroSrc, { width: 1200, quality: 82 })}
+                alt={djName}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #1a0f12 0%, #3a1020 100%)' }} />
+            )}
+            {/* Cinematic gradient */}
+            <div
+              className="absolute inset-0"
+              style={{ background: 'linear-gradient(to top, rgba(10,10,10,0.97) 0%, rgba(10,10,10,0.05) 45%, rgba(10,10,10,0.50) 100%)' }}
+            />
+          </div>
         </div>
 
-        {/* Ambient glow behind avatar */}
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-40 h-40 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
+        {/* ===== IDENTITY BLOCK ===== */}
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="px-5 pt-5">
+          {/* Prominent profile photo — overlaps the hero, mirrors the enlarged event line-up avatar */}
+          {dj.profile_image_url && (
+            <div
+              className="overflow-hidden"
+              style={{ width: 92, height: 92, borderRadius: 14, border: '3px solid #0A0A0A', boxShadow: '0 0 0 1px rgba(255,255,255,0.12)', background: '#191919', marginTop: -62, marginBottom: 14, position: 'relative', zIndex: 10 }}
+            >
+              <img
+                src={dj.profile_image_url}
+                alt={djName}
+                className="w-full h-full object-cover object-top"
+                onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }}
+              />
+            </div>
+          )}
+          {/* Kicker — DJ */}
+          <div className="flex items-center gap-2 mb-2">
+            <p className="font-mono uppercase" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.16em' }}>
+              DJ
+            </p>
+          </div>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute top-[calc(1rem+env(safe-area-inset-top))] left-4 bg-black/40 backdrop-blur-sm rounded-full text-white hover:bg-black/60"
-          onClick={() => navigate('/')}
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
+          <div className="flex items-start gap-2" style={{ marginBottom: 16 }}>
+            <h1
+              className="font-display font-bold"
+              style={{ fontSize: 'clamp(34px, 10vw, 54px)', color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '-0.025em', lineHeight: 0.9 }}
+            >
+              {djName}
+            </h1>
+            {dj.is_verified && <BadgeCheck className="h-5 w-5 text-primary flex-shrink-0" style={{ marginTop: 4 }} />}
+          </div>
 
-        {/* Profile photo */}
-        <div className="absolute -bottom-14 left-1/2 -translate-x-1/2 z-10">
-          <div className="h-28 w-28 rounded-full border-[3px] border-primary/40 overflow-hidden bg-card shadow-[0_0_30px_rgba(220,38,38,0.15)]">
-            {dj.profile_image_url ? (
-              <img src={dj.profile_image_url} alt={djName} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-primary/20">
-                <Music className="h-10 w-10 text-primary" />
-              </div>
+          {locationText && (
+            <p className="font-mono uppercase flex items-center gap-1.5" style={{ fontSize: '11px', color: '#9A9A9A', letterSpacing: '0.06em', marginBottom: 16 }}>
+              <MapPin className="h-3.5 w-3.5" />
+              {locationText}
+            </p>
+          )}
+
+          {/* Subscribe + count */}
+          <div className="flex items-center gap-3">
+            <FavoriteButton
+              type="dj"
+              id={dj.id}
+              size="sm"
+              variant="default"
+              showLabel
+              label={t('subscribe.action')}
+              followingLabel={t('subscribe.active')}
+              className="h-8 px-3 rounded-[10px] text-xs font-medium"
+              onToggle={() => djId && fetchFollowersCount(djId)}
+            />
+            {followersCount > 0 && (
+              <span style={{ fontSize: '13px', color: '#9A9A9A' }}>
+                {followersCount.toLocaleString()} {followersCount === 1
+                  ? t('djPublic.followerSingular')
+                  : labels.fans}
+              </span>
             )}
           </div>
-        </div>
-      </div>
+        </motion.div>
 
-      {/* Header info */}
-      <div className="px-4 text-center space-y-3 relative z-10" style={{ paddingTop: '4.5rem' }}>
-        <div className="flex items-center justify-center gap-2">
-          <h1 className="text-2xl font-bold text-foreground">{djName}</h1>
-          {dj.is_verified && <BadgeCheck className="h-5 w-5 text-primary" />}
-        </div>
-
-        {locationText && (
-          <p className="text-sm text-muted-foreground flex items-center justify-center gap-1">
-            <MapPin className="h-3.5 w-3.5" />
-            {locationText}
-          </p>
-        )}
-
-        {/* Stat pills */}
-        <div className="flex justify-center gap-3">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.04] backdrop-blur-sm border border-white/[0.08] text-xs">
-            <Users className="h-3.5 w-3.5 text-primary" />
-            <span className="font-semibold text-foreground">{followersCount}</span>
-            <span className="text-muted-foreground">{labels.fans}</span>
-          </div>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.04] backdrop-blur-sm border border-white/[0.08] text-xs">
-            <Calendar className="h-3.5 w-3.5 text-primary" />
-            <span className="font-semibold text-foreground">{upcomingCount + pastCount}</span>
-            <span className="text-muted-foreground">events</span>
-          </div>
-        </div>
-
-        <FavoriteButton
-          type="dj"
-          id={dj.id}
-          size="default"
-          variant="outline"
-          showLabel
-          label={t('subscribe.action')}
-          followingLabel={t('subscribe.active')}
-          className="mx-auto"
-          onToggle={() => djId && fetchFollowersCount(djId)}
-        />
-      </div>
-
-      <div className="mx-auto max-w-lg px-4 mt-6 space-y-6">
-        {/* Genre badges */}
-        {dj.music_genres && dj.music_genres.length > 0 && (
-          <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <div className="flex flex-wrap gap-2 justify-center">
-              {dj.music_genres.map((genre, i) => (
-                <Badge key={i} className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/20 text-xs uppercase tracking-wider px-3 py-1">
-                  <Music className="h-3 w-3 mr-1.5" />
-                  {genre}
-                </Badge>
+        {/* ===== GENRES — .genre-tag ===== */}
+        {genres.length > 0 && (
+          <div className="px-5 pt-5">
+            <div className="flex flex-wrap gap-2">
+              {genres.map((genre) => (
+                <span key={genre.toLowerCase()} className="genre-tag">{genre}</span>
               ))}
             </div>
-          </motion.section>
+          </div>
         )}
 
-        {/* Social links — premium pills */}
+        {/* ===== SOCIALS — editorial bordered buttons ===== */}
         {socials.length > 0 && (
-          <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="flex justify-center gap-3">
-            {socials.map(({ url, icon: Icon, label }) => (
-              <a
-                key={label}
-                href={url!}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="h-10 w-10 rounded-full bg-white/[0.04] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/40 hover:bg-primary/10 transition-all duration-200"
-                aria-label={label}
-              >
-                <Icon className="h-4 w-4" />
-              </a>
-            ))}
-          </motion.section>
-        )}
-
-        {/* About — glassmorphic card */}
-        {(dj.description || dj.bio) && (
-          <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-            <div className="p-4 rounded-xl bg-white/[0.03] backdrop-blur-sm border border-white/[0.06]">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
-                <Sparkles className="h-3.5 w-3.5 text-primary" />
-                {labels.about}
-              </h2>
-              <p className="text-sm text-muted-foreground leading-relaxed">{dj.description || dj.bio}</p>
-            </div>
-          </motion.section>
-        )}
-
-        {/* Upcoming events — poster cards */}
-        {upcomingEvents.length > 0 && (
-          <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }} className="space-y-3">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5 text-primary" />
-              {labels.upcomingDates}
-            </h2>
-            <div className="space-y-3">
-              {upcomingEvents.map((event, i) => (
-                <PremiumEventCard
-                  key={event.id}
-                  event={event}
-                  locale={locale}
-                  index={i}
-                  onClick={() => navigate(`/club/${event.venue_id}/event/${event.id}`)}
-                />
+          <div className="px-5 pt-6">
+            <p className="section-label-ruled mb-4">{t('djPublic.socials')}</p>
+            <div className="flex flex-wrap gap-2.5">
+              {socials.map(({ url, icon: Icon, label }) => (
+                <a
+                  key={label}
+                  href={url!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={label}
+                  className="flex items-center justify-center h-11 w-11 rounded-[4px] border border-white/10 text-[#9A9A9A] transition-colors hover:text-[#E8192C] hover:border-[#E8192C]/40"
+                >
+                  <Icon className="h-4 w-4" />
+                </a>
               ))}
             </div>
-          </motion.section>
+          </div>
         )}
 
-        {/* Past events */}
+        {/* ===== ABOUT ===== */}
+        {aboutText && (
+          <div className="px-5 pt-7">
+            <p className="section-label-ruled mb-4">{labels.about}</p>
+            <div className="relative">
+              <p
+                className={!bioExpanded ? 'line-clamp-4' : ''}
+                style={{ fontSize: '14px', color: '#9A9A9A', lineHeight: 1.65, letterSpacing: '0.01em' }}
+              >
+                {aboutText}
+              </p>
+              {!bioExpanded && aboutText.length > 220 && (
+                <div
+                  className="absolute bottom-0 left-0 right-0 h-10 pointer-events-none"
+                  style={{ background: 'linear-gradient(to top, #0A0A0A, transparent)' }}
+                />
+              )}
+            </div>
+            {aboutText.length > 220 && (
+              <button
+                onClick={() => setBioExpanded(!bioExpanded)}
+                className="flex items-center gap-1 mt-2 font-mono uppercase"
+                style={{ fontSize: '11px', color: '#5A5A5E', letterSpacing: '0.06em' }}
+              >
+                {bioExpanded ? t('event.seeLess') : t('event.seeMore')}
+                {bioExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* ===== STATS — ruled row ===== */}
+        <div
+          className="flex items-start px-5 pt-6 pb-5 mt-7"
+          style={{ borderTop: '1px solid rgba(255,255,255,0.06)', borderBottom: '1px solid rgba(255,255,255,0.06)', gap: 0 }}
+        >
+          <div className="flex flex-col flex-1 min-w-0" style={{ paddingRight: 12 }}>
+            <span className="font-mono" style={{ fontSize: '9px', color: '#5A5A5E', letterSpacing: '0.14em', marginBottom: 4 }}>{labels.upcomingDatesCount.toUpperCase()}</span>
+            <span className="font-display font-bold tabular-nums" style={{ fontSize: '20px', color: '#FFFFFF', letterSpacing: '-0.01em', lineHeight: 1.1 }}>{upcomingCount}</span>
+          </div>
+          <div className="flex flex-col flex-1 min-w-0" style={{ paddingRight: 12, borderLeft: '1px solid rgba(255,255,255,0.07)', paddingLeft: 12 }}>
+            <span className="font-mono" style={{ fontSize: '9px', color: '#5A5A5E', letterSpacing: '0.14em', marginBottom: 4 }}>{labels.pastDatesCount.toUpperCase()}</span>
+            <span className="font-display font-bold tabular-nums" style={{ fontSize: '20px', color: '#FFFFFF', letterSpacing: '-0.01em', lineHeight: 1.1 }}>{pastCount}</span>
+          </div>
+          <div className="flex flex-col flex-1 min-w-0" style={{ borderLeft: '1px solid rgba(255,255,255,0.07)', paddingLeft: 12 }}>
+            <span className="font-mono" style={{ fontSize: '9px', color: '#5A5A5E', letterSpacing: '0.14em', marginBottom: 4 }}>{labels.followers.toUpperCase()}</span>
+            <span className="font-display font-bold tabular-nums" style={{ fontSize: '20px', color: '#FFFFFF', letterSpacing: '-0.01em', lineHeight: 1.1 }}>{followersCount}</span>
+          </div>
+        </div>
+
+        {/* ===== UPCOMING EVENTS — single-column poster cards ===== */}
+        {upcomingEvents.length > 0 && (
+          <div className="mx-auto max-w-xl pt-8">
+            <div className="flex items-center justify-between px-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
+              <p className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.14em', color: '#5A5A5E' }}>
+                {labels.upcomingDates}
+              </p>
+              <span className="font-mono" style={{ fontSize: '10px', color: '#3A3A3E', letterSpacing: '0.08em' }}>
+                {upcomingEvents.length}
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-6 px-5 pt-4 pb-4">
+              {upcomingEvents.map((event, index) => (
+                <motion.div
+                  key={event.id}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.06 }}
+                  className="cursor-pointer group"
+                  onClick={() => navigate(`/club/${event.venue_id}/event/${event.id}`)}
+                >
+                  <div className="relative aspect-square overflow-hidden" style={{ borderRadius: 10, background: 'rgba(255,255,255,0.05)' }}>
+                    {event.poster_url ? (
+                      <img
+                        src={getOptimizedImageUrl(event.poster_url, { width: 400, height: 400, quality: 75 })}
+                        alt={event.title}
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #1a0f12 0%, #3a1020 100%)' }}>
+                        <Calendar className="h-12 w-12" style={{ color: '#5A5A5E' }} />
+                      </div>
+                    )}
+
+                    {/* Favorite (heart) — top-right of poster */}
+                    <div
+                      className="absolute top-3 right-3 z-10 flex items-center justify-center rounded-full w-8 h-8"
+                      style={{ background: 'rgba(10,10,10,0.55)', border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)' }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <FavoriteButton
+                        type="event"
+                        id={event.id}
+                        className="h-8 w-8 rounded-full border-0 bg-transparent shadow-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-0"
+                        size="icon"
+                        iconClassName="h-3.5 w-3.5"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-2.5">
+                    <p className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.08em', color: '#9A9A9A' }}>
+                      {formatInTimeZone(new Date(event.start_at), PARIS_TIMEZONE, 'EEE d MMM', { locale })}
+                      {' · '}
+                      {formatInTimeZone(new Date(event.start_at), PARIS_TIMEZONE, 'HH:mm', { locale })}
+                    </p>
+                    <p className="font-display font-bold mt-0.5 line-clamp-2" style={{ fontSize: '15px', color: '#FFFFFF', letterSpacing: '-0.01em', lineHeight: 1.15 }}>
+                      {event.title}
+                    </p>
+                    {(event.venue_name || event.venue_city) && (
+                      <div className="flex items-center gap-1.5 mt-1">
+                        {event.venue_logo && (
+                          <img src={event.venue_logo} alt="" className="h-4 w-4 rounded-full object-cover flex-shrink-0" />
+                        )}
+                        <span className="font-mono truncate" style={{ fontSize: '11px', color: '#9A9A9A', letterSpacing: '0.04em' }}>
+                          {event.venue_name}{event.venue_city ? ` · ${event.venue_city}` : ''}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ===== PAST EVENTS — thumbnail rows ===== */}
         {pastEvents.length > 0 && (
-          <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="space-y-3">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5" />
-              {labels.pastEvents}
-            </h2>
-            <div className="space-y-3 opacity-50">
+          <div className="mx-auto max-w-xl pt-10">
+            <div className="px-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
+              <p className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.14em', color: '#5A5A5E' }}>
+                {labels.pastEvents}
+              </p>
+            </div>
+            <div className="px-5 pt-4">
               {visiblePast.map((event, i) => (
-                <PremiumEventCard key={event.id} event={event} locale={locale} index={i} clickable={false} />
+                <motion.div
+                  key={event.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.04 }}
+                  className="flex items-center gap-3 py-3"
+                  style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+                >
+                  <div className="h-14 w-12 shrink-0 overflow-hidden" style={{ borderRadius: 3, background: 'rgba(255,255,255,0.05)' }}>
+                    {event.poster_url ? (
+                      <img src={event.poster_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Calendar className="h-4 w-4" style={{ color: '#5A5A5E' }} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate" style={{ fontSize: '14px', color: '#FFFFFF', fontWeight: 500 }}>{event.title}</p>
+                    <p className="font-mono mt-0.5" style={{ fontSize: '11px', color: '#5A5A5E', letterSpacing: '0.04em' }}>
+                      {formatInTimeZone(new Date(event.start_at), PARIS_TIMEZONE, 'EEE d MMM yyyy', { locale })}
+                      {event.venue_name && ` · ${event.venue_name}`}
+                    </p>
+                  </div>
+                </motion.div>
               ))}
             </div>
             {pastEvents.length > 3 && !showAllPast && (
-              <Button variant="outline" size="sm" className="w-full bg-white/[0.03] border-white/[0.08] hover:bg-white/[0.06]" onClick={() => setShowAllPast(true)}>
-                {t('djPublic.showAllPast')}
-              </Button>
+              <div className="px-5 pt-4">
+                <button
+                  onClick={() => setShowAllPast(true)}
+                  className="w-full flex items-center justify-center font-mono uppercase"
+                  style={{ fontSize: '11px', color: '#5A5A5E', letterSpacing: '0.08em', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4, padding: '10px 0' }}
+                >
+                  {t('djPublic.showAllPast')}
+                </button>
+              </div>
             )}
-          </motion.section>
+          </div>
         )}
 
-        {/* Stats section — glassmorphic */}
-        <motion.section initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="text-center p-4 rounded-xl bg-white/[0.03] backdrop-blur-sm border border-white/[0.06]">
-              <p className="text-2xl font-bold text-primary tabular-nums">{upcomingCount}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">{labels.upcomingDatesCount}</p>
-            </div>
-            <div className="text-center p-4 rounded-xl bg-white/[0.03] backdrop-blur-sm border border-white/[0.06]">
-              <p className="text-2xl font-bold text-muted-foreground tabular-nums">{pastCount}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">{labels.pastDatesCount}</p>
-            </div>
-            <div className="text-center p-4 rounded-xl bg-white/[0.03] backdrop-blur-sm border border-white/[0.06]">
-              <p className="text-2xl font-bold text-foreground tabular-nums">{followersCount}</p>
-              <p className="text-[10px] text-muted-foreground mt-1">{labels.followers}</p>
-            </div>
-          </div>
-        </motion.section>
-      </div>
+        {/* Footer */}
+        <div className="px-5 pt-10 pb-4 text-center">
+          <p className="font-mono" style={{ fontSize: '10px', color: '#3A3A3E', letterSpacing: '0.08em' }}>
+            © {new Date().getFullYear()} {djName.toUpperCase()} · POWERED BY YUNO
+          </p>
+        </div>
+      </main>
 
       <BottomNav />
     </div>
-  );
-}
-
-/** Premium event card with poster image */
-function PremiumEventCard({ event, locale, index, onClick, clickable = true }: {
-  event: DJEvent;
-  locale: any;
-  index: number;
-  onClick?: () => void;
-  clickable?: boolean;
-}) {
-  const day = formatInTimeZone(new Date(event.start_at), PARIS_TIMEZONE, 'd', { locale });
-  const month = formatInTimeZone(new Date(event.start_at), PARIS_TIMEZONE, 'MMM', { locale }).toUpperCase();
-  const time = formatInTimeZone(new Date(event.start_at), PARIS_TIMEZONE, 'HH:mm', { locale });
-  const posterSrc = event.poster_url;
-
-  const content = (
-    <div className="flex items-center gap-3 w-full">
-      {/* Poster thumbnail */}
-      <div className="h-[80px] w-[60px] shrink-0 rounded-lg overflow-hidden bg-white/[0.05]">
-        {posterSrc ? (
-          <img src={posterSrc} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center">
-            <span className="text-lg font-bold leading-none text-primary">{day}</span>
-            <span className="text-[9px] font-bold uppercase text-primary/70 mt-0.5">{month}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Event info */}
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold truncate text-foreground">{event.title}</p>
-        <div className="flex items-center gap-1.5 mt-1">
-          {event.venue_logo && (
-            <img src={event.venue_logo} alt="" className="h-4 w-4 rounded-full object-cover shrink-0" />
-          )}
-          <p className="text-xs text-muted-foreground truncate">
-            {event.venue_name}{event.venue_city ? ` · ${event.venue_city}` : ''}
-          </p>
-        </div>
-        <p className="text-[11px] text-muted-foreground mt-1">
-          {formatInTimeZone(new Date(event.start_at), PARIS_TIMEZONE, 'EEE d MMM', { locale })} · {time}
-        </p>
-      </div>
-
-      {clickable && (
-        <span className="text-xs text-primary font-medium shrink-0">→</span>
-      )}
-    </div>
-  );
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
-    >
-      {clickable ? (
-        <button
-          onClick={onClick}
-          className="w-full flex items-center p-3 rounded-xl bg-white/[0.03] backdrop-blur-sm border border-white/[0.06] hover:border-primary/30 hover:bg-white/[0.05] transition-all duration-200 text-left"
-        >
-          {content}
-        </button>
-      ) : (
-        <div className="w-full flex items-center p-3 rounded-xl bg-white/[0.03] backdrop-blur-sm border border-white/[0.06] text-left">
-          {content}
-        </div>
-      )}
-    </motion.div>
   );
 }

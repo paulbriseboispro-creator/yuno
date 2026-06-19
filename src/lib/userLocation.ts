@@ -58,3 +58,39 @@ export function clearManualLocation(): void {
 export function setResolvedCity(city: string): void {
   localStorage.setItem(CITY_KEY, city);
 }
+
+/**
+ * True when we actually KNOW where the visitor is — manual pick, or a city resolved from
+ * GPS / profile (persisted in localStorage). The 'Madrid' default from getStoredCity() does
+ * NOT count: it's a display fallback, not a signal. Location-scoped surfaces (/clubs, /djs)
+ * only filter by proximity when this is true, so they never go mysteriously empty for a
+ * visitor whose location we never learned.
+ */
+export function hasRealLocation(): boolean {
+  return hasManualCity() || !!getManualCoords() || !!localStorage.getItem(CITY_KEY);
+}
+
+/** Great-circle distance in km between two lat/lng points. */
+export function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/** Loose city-name match (case/accents/format tolerant) so "Paris" matches "paris", "Paris 11e". */
+export function cityMatches(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (!a || !b) return false;
+  const norm = (s: string) =>
+    s.toLowerCase().replace(/\s+/g, " ").trim();
+  const x = norm(a);
+  const y = norm(b);
+  if (!x || !y) return false;
+  return x === y || x.includes(y) || y.includes(x);
+}
+
+/** Radius (km) within which a venue counts as "near" the visitor — shared with Explore. */
+export const NEAR_RADIUS_KM = 50;

@@ -60,9 +60,15 @@ export function FavoriteButton({
   const isFollowButton = showLabel && variant === 'default';
 
   const resolvedVariant = isFollowButton && isActive ? 'outline' : variant;
+  // Once active ("Subscribed"), the button is a quiet unsubscribe toggle, not a CTA.
+  // The Button `outline` variant ships `hover:bg-accent` (solid red) — fine for the
+  // inactive Subscribe CTA, but in the active state the foreground is also red
+  // (text-primary + a fill-primary bell), so a red hover background renders red-on-red.
+  // It's worst on touch, where :hover sticks after the tap that toggled the state.
+  // Neutralize the accent hover in active states so it stays a calm, readable pill.
   const resolvedClassName = isFollowButton && isActive
-    ? cn("transition-all ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none border-border text-foreground", className?.replace(/bg-primary\b/g, '').replace(/text-primary-foreground/g, '').replace(/hover:bg-primary-hover/g, ''))
-    : cn("transition-all ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none", isActive && !isFollowButton && "text-primary hover:text-primary-hover", className);
+    ? cn("transition-all ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none border-border text-foreground hover:bg-muted hover:text-foreground", className?.replace(/bg-primary\b/g, '').replace(/text-primary-foreground/g, '').replace(/hover:bg-primary-hover/g, ''))
+    : cn("transition-all ring-0 focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none", isActive && !isFollowButton && "text-primary hover:text-primary-hover hover:bg-muted", className);
 
   return (
     <Button

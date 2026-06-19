@@ -14,6 +14,7 @@ import { ExploreSectionTitle } from '@/components/explore/ExploreSectionTitle';
 import { ExploreEventCarousel } from '@/components/explore/ExploreEventCarousel';
 import { ExploreRailCard } from '@/components/explore/ExploreRailCard';
 import { ExploreRankCard } from '@/components/explore/ExploreRankCard';
+import { ExploreDJCard, ExploreDJItem } from '@/components/explore/ExploreDJCard';
 import { ExploreVenueCard, ExploreVenueItem } from '@/components/explore/ExploreVenueCard';
 import { ExplorePopularClubCard } from '@/components/explore/ExplorePopularClubCard';
 import { ExploreDayTabs, WeekDayData } from '@/components/explore/ExploreDayTabs';
@@ -130,6 +131,9 @@ export default function Explore() {
   // ── Week data for "Cette semaine" section ──
   const [weekData, setWeekData] = useState<WeekDayData[]>([]);
 
+  // ── Top DJs jouant cette semaine dans la zone (les plus suivis) ──
+  const [topDjs, setTopDjs] = useState<ExploreDJItem[]>([]);
+
   // ── UI state ──
   const [loading, setLoading] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -220,6 +224,11 @@ export default function Explore() {
   useEffect(() => {
     fetchWeekData();
   }, [city, userLocation]);
+
+  // ── Top DJs: dérivé des soirées club/orga de la semaine déjà chargées ──
+  useEffect(() => {
+    fetchTopDjs();
+  }, [weekData]);
 
   const handleDateSelect = (date: Date | null, preset?: string) => {
     if (preset) {
@@ -947,6 +956,77 @@ export default function Explore() {
   };
 
   // ══════════════════════════════════════════════════
+  // FETCH: top DJs — les plus suivis qui jouent cette semaine dans la zone
+  // ══════════════════════════════════════════════════
+  const fetchTopDjs = async () => {
+    try {
+      // Soirées club + orga de la semaine, déjà filtrées par ville/fenêtre/visibilité
+      // dans weekData. On exclut les affiliés (table séparée, pas de line-up DJ).
+      const eventIds = [...new Set(
+        weekData.flatMap(d => d.events).filter(e => !e.isAffiliate).map(e => e.id)
+      )];
+      if (eventIds.length === 0) {
+        setTopDjs([]);
+        return;
+      }
+
+      // Quels DJs jouent l'une de ces soirées ? (event_djs : lecture publique)
+      const { data: links } = await supabase
+        .from('event_djs')
+        .select('dj_id')
+        .in('event_id', eventIds);
+      const djIds = [...new Set((links || []).map(l => l.dj_id).filter(Boolean))];
+      if (djIds.length === 0) {
+        setTopDjs([]);
+        return;
+      }
+
+      // Nombre d'abonnés par DJ + profils publics (vue djs_public, definer), en parallèle.
+      const [countsRes, djsRes] = await Promise.all([
+        supabase.rpc('get_public_favorite_counts', { _favorite_type: 'dj' }),
+        supabase
+          .from('djs_public')
+          .select('id, slug, stage_name, first_name, last_name, profile_image_url, music_genres, is_verified, is_active')
+          .in('id', djIds)
+          .eq('is_active', true),
+      ]);
+
+      const followerMap: Record<string, number> = {};
+      (countsRes.data || []).forEach((f: any) => {
+        if (f.target_id) followerMap[f.target_id] = f.total_count;
+      });
+
+      // Classement par abonnés décroissant, puis dédoublonnage par personne
+      // (un même DJ a une ligne par club/orga ; on garde la plus suivie).
+      const ranked = (djsRes.data || [])
+        .map((d: any) => ({
+          id: d.id,
+          slug: d.slug,
+          stageName: (d.stage_name || `${d.first_name ?? ''} ${d.last_name ?? ''}`).trim(),
+          profileImageUrl: d.profile_image_url,
+          musicGenres: d.music_genres || [],
+          isVerified: !!d.is_verified,
+          followersCount: followerMap[d.id] || 0,
+        }))
+        .filter(d => d.stageName)
+        .sort((a, b) => b.followersCount - a.followersCount);
+
+      const seen = new Set<string>();
+      const deduped: ExploreDJItem[] = [];
+      for (const d of ranked) {
+        const key = d.stageName.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        deduped.push(d);
+        if (deduped.length === 10) break;
+      }
+      setTopDjs(deduped);
+    } catch (err) {
+      console.error('Error fetching top DJs:', err);
+    }
+  };
+
+  // ══════════════════════════════════════════════════
   // RENDER
   // ══════════════════════════════════════════════════
   return (
@@ -1042,6 +1122,27 @@ export default function Explore() {
                 >
                   {trendingEvents.map((e, i) => (
                     <ExploreRankCard key={e.id} event={e} rank={i + 1} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ═══ MODULE 3bis : Les DJs à ne pas manquer — top 10 des plus suivis qui jouent cette semaine ═══ */}
+            {topDjs.length > 0 && (
+              <div style={{ marginTop: 32 }}>
+                <ExploreSectionTitle
+                  kicker={language === 'fr' ? 'LES PLUS SUIVIS' : language === 'es' ? 'LOS MÁS SEGUIDOS' : 'MOST FOLLOWED'}
+                  title={language === 'fr' ? 'Les DJs à ne pas manquer' : language === 'es' ? 'DJs que no te puedes perder' : 'DJs not to miss'}
+                  titleNoWrap
+                  action={language === 'fr' ? 'Tout voir' : language === 'es' ? 'Ver todo' : 'See all'}
+                  onAction={() => navigate('/djs')}
+                />
+                <div
+                  className="flex overflow-x-auto"
+                  style={{ gap: 14, paddingBottom: 8, paddingLeft: 20, paddingRight: 20, scrollbarWidth: 'none' } as React.CSSProperties}
+                >
+                  {topDjs.map((dj, i) => (
+                    <ExploreDJCard key={dj.id} dj={dj} rank={i + 1} />
                   ))}
                 </div>
               </div>

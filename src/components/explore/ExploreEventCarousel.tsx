@@ -85,9 +85,9 @@ function CarouselCard({ event }: { event: EventCardData }) {
           <button
             onClick={handleFav}
             aria-label={t('explore.favorite')}
-            style={{ width: 32, height: 32, borderRadius: '50%', background: liked ? '#E8192C' : 'rgba(10,10,12,0.6)', border: `1px solid ${liked ? '#E8192C' : 'rgba(255,255,255,0.25)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backdropFilter: 'blur(8px)', transition: '0.18s' }}
+            style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(10,10,12,0.6)', border: '1px solid rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backdropFilter: 'blur(8px)', transition: '0.18s' }}
           >
-            <Heart style={{ width: 14, height: 14, color: '#fff', fill: liked ? '#fff' : 'none' }} />
+            <Heart style={{ width: 14, height: 14, color: liked ? '#E8192C' : '#fff', fill: liked ? '#E8192C' : 'none' }} />
           </button>
         </div>
 
@@ -199,8 +199,8 @@ function HeroCard({ event }: { event: EventCardData }) {
             </span>
           )}
         </div>
-        <button onClick={handleFav} aria-label="Favori" style={{ width: 36, height: 36, borderRadius: '50%', background: liked ? '#E8192C' : 'rgba(10,10,12,0.55)', border: `1px solid ${liked ? '#E8192C' : 'rgba(255,255,255,0.25)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backdropFilter: 'blur(8px)', transition: '0.18s' }}>
-          <Heart style={{ width: 16, height: 16, color: '#fff', fill: liked ? '#fff' : 'none' }} />
+        <button onClick={handleFav} aria-label="Favori" style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(10,10,12,0.55)', border: '1px solid rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backdropFilter: 'blur(8px)', transition: '0.18s' }}>
+          <Heart style={{ width: 16, height: 16, color: liked ? '#E8192C' : '#fff', fill: liked ? '#E8192C' : 'none' }} />
         </button>
       </div>
 

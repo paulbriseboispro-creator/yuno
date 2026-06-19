@@ -94,8 +94,8 @@ export function ExploreRailCard({ event }: { event: EventCardData }) {
               width: 32,
               height: 32,
               borderRadius: '999px',
-              background: liked ? '#E8192C' : 'rgba(10,10,12,0.55)',
-              border: `1px solid ${liked ? '#E8192C' : 'rgba(255,255,255,0.25)'}`,
+              background: 'rgba(10,10,12,0.55)',
+              border: '1px solid rgba(255,255,255,0.25)',
               backdropFilter: 'blur(8px)',
               display: 'flex',
               alignItems: 'center',
@@ -106,7 +106,7 @@ export function ExploreRailCard({ event }: { event: EventCardData }) {
           >
             <Heart
               className="h-3.5 w-3.5"
-              style={{ color: '#fff', fill: liked ? '#fff' : 'none' }}
+              style={{ color: liked ? '#E8192C' : '#fff', fill: liked ? '#E8192C' : 'none' }}
             />
           </button>
         </div>

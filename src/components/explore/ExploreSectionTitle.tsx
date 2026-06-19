@@ -5,12 +5,14 @@ interface ExploreSectionTitleProps {
   title: string;
   action?: string;
   onAction?: () => void;
+  /** Keep the title on a single line (no wrap). */
+  titleNoWrap?: boolean;
 }
 
-export function ExploreSectionTitle({ kicker, title, action, onAction }: ExploreSectionTitleProps) {
+export function ExploreSectionTitle({ kicker, title, action, onAction, titleNoWrap }: ExploreSectionTitleProps) {
   return (
     <div className="flex items-end justify-between mb-3.5" style={{ paddingLeft: 20, paddingRight: 20 }}>
-      <div>
+      <div style={titleNoWrap ? { minWidth: 0 } : undefined}>
         {kicker && (
           <p
             className="font-mono mb-1.5"
@@ -21,7 +23,14 @@ export function ExploreSectionTitle({ kicker, title, action, onAction }: Explore
         )}
         <h2
           className="font-display font-bold"
-          style={{ fontSize: '21px', color: '#fff', letterSpacing: '-0.01em', lineHeight: 1.1, margin: 0 }}
+          style={{
+            fontSize: '21px',
+            color: '#fff',
+            letterSpacing: '-0.01em',
+            lineHeight: 1.1,
+            margin: 0,
+            ...(titleNoWrap ? { whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' } : null),
+          }}
         >
           {title}
         </h2>

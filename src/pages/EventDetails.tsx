@@ -270,17 +270,24 @@ export default function EventDetails() {
         });
       }
 
-      // Fetch DJs
+      // Fetch DJs via the djs_public view, NOT the djs table. The djs table has no
+      // RLS SELECT policy for anon, so embedding djs(...) here returned null for
+      // logged-out visitors and the whole LINE-UP section silently vanished on the
+      // public page. djs_public is security-definer with anon SELECT and safe columns.
       const { data: eventDjsData } = await supabase
         .from('event_djs')
-        .select('dj_id, djs(id, stage_name, first_name, last_name, slug, profile_image_url)')
+        .select('dj_id')
         .eq('event_id', eventId!);
 
-      if (eventDjsData) {
-        const djsList = eventDjsData
-          .map((ed: any) => ed.djs)
-          .filter(Boolean) as EventDJ[];
-        setDjs(djsList);
+      const djIds = (eventDjsData ?? []).map((ed: any) => ed.dj_id).filter(Boolean);
+      if (djIds.length > 0) {
+        const { data: djRows } = await supabase
+          .from('djs_public')
+          .select('id, stage_name, first_name, last_name, slug, profile_image_url')
+          .in('id', djIds);
+        // Preserve event_djs ordering (headliner first); .in() returns arbitrary order.
+        const byId = new Map((djRows ?? []).map((d: any) => [d.id, d]));
+        setDjs(djIds.map((id) => byId.get(id)).filter(Boolean) as EventDJ[]);
       }
 
       // Note: previously we fetched the partner club drinks here for organizer-led events.
@@ -976,6 +983,37 @@ export default function EventDetails() {
           </div>
         </section>
 
+        {/* ── DJ LINE-UP ── (right below the event info — the line-up is the headline of a night) */}
+        {djs.length > 0 && (
+          <section style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <p className="section-label-ruled mb-6">Line-up</p>
+            <div className="flex gap-6 overflow-x-auto pb-2 scrollbar-hide" style={{ margin: '0 -20px', padding: '0 20px' }}>
+              {djs.map((dj) => {
+                const djName = dj.stage_name || `${dj.first_name} ${dj.last_name}`;
+                const isFollowing = isFavorite('dj', dj.id);
+                return (
+                  <button
+                    key={dj.id}
+                    onClick={() => dj.slug && navigate(`/dj/${dj.slug}`)}
+                    className="flex flex-col items-center gap-3 flex-shrink-0 active:opacity-70 transition-opacity"
+                    style={{ width: 116 }}
+                  >
+                    <div className="overflow-hidden" style={{ width: 108, height: 108, borderRadius: 14, border: isFollowing ? '2px solid #E8192C' : '1px solid rgba(255,255,255,0.12)', background: '#191919' }}>
+                      {dj.profile_image_url
+                        ? <img src={dj.profile_image_url} alt={djName} loading="lazy" className="w-full h-full object-cover object-top" />
+                        : <div className="w-full h-full flex items-center justify-center"><Music className="h-9 w-9" style={{ color: '#5A5A5E' }} /></div>
+                      }
+                    </div>
+                    <p className="font-mono text-center leading-tight" style={{ fontSize: '13px', color: '#E5E5E5', letterSpacing: '0.05em', textTransform: 'uppercase', maxWidth: 116 }}>
+                      {djName}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         {/* ── ORGANIZER + VENUE ── */}
         {(eventOrganizers.length > 0 || venue) && (
           <section style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
@@ -1100,37 +1138,6 @@ export default function EventDetails() {
                 </button>
               </div>
             )}
-          </section>
-        )}
-
-        {/* ── DJ LINE-UP ── */}
-        {djs.length > 0 && (
-          <section style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-            <p className="section-label-ruled mb-6">Line-up</p>
-            <div className="flex gap-5 overflow-x-auto pb-2 scrollbar-hide" style={{ margin: '0 -20px', padding: '0 20px' }}>
-              {djs.map((dj) => {
-                const djName = dj.stage_name || `${dj.first_name} ${dj.last_name}`;
-                const isFollowing = isFavorite('dj', dj.id);
-                return (
-                  <button
-                    key={dj.id}
-                    onClick={() => dj.slug && navigate(`/dj/${dj.slug}`)}
-                    className="flex flex-col items-center gap-3 flex-shrink-0 active:opacity-70 transition-opacity"
-                    style={{ maxWidth: 68 }}
-                  >
-                    <div className="overflow-hidden" style={{ width: 60, height: 60, borderRadius: '50%', border: isFollowing ? '2px solid #E8192C' : '1px solid rgba(255,255,255,0.10)', background: '#191919' }}>
-                      {dj.profile_image_url
-                        ? <img src={dj.profile_image_url} alt={djName} loading="lazy" className="w-full h-full object-cover object-top" />
-                        : <div className="w-full h-full flex items-center justify-center"><Music className="h-6 w-6" style={{ color: '#5A5A5E' }} /></div>
-                      }
-                    </div>
-                    <p className="font-mono text-center leading-tight" style={{ fontSize: '12px', color: '#9A9A9A', letterSpacing: '0.04em', textTransform: 'uppercase', maxWidth: 68 }}>
-                      {djName}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
           </section>
         )}
 
