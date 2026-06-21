@@ -134,7 +134,7 @@ export default function DJPublicPage() {
   // so the count matches the aggregated public page, not a single venue row.
   const loadFollowers = async () => {
     if (!slug) return;
-    const rpc = supabase.rpc as unknown as (
+    const rpc = supabase.rpc.bind(supabase) as unknown as (
       fn: 'get_dj_public_profile', args: { p_slug: string },
     ) => Promise<{ data: { followers_count?: number } | null; error: unknown }>;
     const { data } = await rpc('get_dj_public_profile', { p_slug: slug });
@@ -145,10 +145,10 @@ export default function DJPublicPage() {
     try {
       // Resolve the slug OR the clean handle to the PERSON, and aggregate events across
       // all their venue + organizer profiles (server-side RPCs). One DJ = one page.
-      const rpcProfile = supabase.rpc as unknown as (
+      const rpcProfile = supabase.rpc.bind(supabase) as unknown as (
         fn: 'get_dj_public_profile', args: { p_slug: string },
       ) => Promise<{ data: (DJProfile & { handle?: string; followers_count?: number }) | null; error: unknown }>;
-      const rpcEvents = supabase.rpc as unknown as (
+      const rpcEvents = supabase.rpc.bind(supabase) as unknown as (
         fn: 'get_dj_public_events', args: { p_slug: string },
       ) => Promise<{ data: DJEvent[] | null; error: unknown }>;
 

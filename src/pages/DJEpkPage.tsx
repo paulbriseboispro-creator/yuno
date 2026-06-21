@@ -63,10 +63,10 @@ export default function DJEpkPage() {
       try {
         // Aggregate across all the person's profiles (server-side RPCs), same as the
         // public page, so the EPK shows the full picture from any slug or clean handle.
-        const rpcProfile = supabase.rpc as unknown as (
+        const rpcProfile = supabase.rpc.bind(supabase) as unknown as (
           fn: 'get_dj_public_profile', args: { p_slug: string },
         ) => Promise<{ data: DJProfile | null; error: unknown }>;
-        const rpcEvents = supabase.rpc as unknown as (
+        const rpcEvents = supabase.rpc.bind(supabase) as unknown as (
           fn: 'get_dj_public_events', args: { p_slug: string },
         ) => Promise<{ data: { venue_name: string | null; venue_city: string | null }[] | null; error: unknown }>;
 

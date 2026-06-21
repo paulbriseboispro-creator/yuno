@@ -141,7 +141,7 @@ export function DJDataProvider({ children }: { children: ReactNode }) {
       // own profiles only — identical to the previous behaviour.
       let ownerIds: string[] = [];
       try {
-        const { data: owners } = await (supabase.rpc as unknown as (
+        const { data: owners } = await (supabase.rpc.bind(supabase) as unknown as (
           fn: 'dj_team_owner_ids',
         ) => Promise<{ data: string[] | null; error: unknown }>)('dj_team_owner_ids');
         if (Array.isArray(owners)) ownerIds = owners.filter(Boolean);
@@ -256,7 +256,7 @@ export function DJDataProvider({ children }: { children: ReactNode }) {
     if (!first?.slug) { setHandle(null); return; }
     let active = true;
     (async () => {
-      const rpc = supabase.rpc as unknown as (
+      const rpc = supabase.rpc.bind(supabase) as unknown as (
         fn: 'get_dj_public_profile', args: { p_slug: string },
       ) => Promise<{ data: { handle?: string } | null; error: unknown }>;
       const { data } = await rpc('get_dj_public_profile', { p_slug: first.slug! });

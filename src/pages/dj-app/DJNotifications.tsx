@@ -155,7 +155,7 @@ export default function DJNotifications() {
   const handleRemind = async (setId: string) => {
     setRemindingId(setId);
     try {
-      const rpc = supabase.rpc as unknown as (
+      const rpc = supabase.rpc.bind(supabase) as unknown as (
         fn: 'dj_remind_unpaid_fee', args: { p_dj_set_id: string },
       ) => Promise<{ data: { ok?: boolean; reason?: string } | null; error: unknown }>;
       const { data, error } = await rpc('dj_remind_unpaid_fee', { p_dj_set_id: setId });
