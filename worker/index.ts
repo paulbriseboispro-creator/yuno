@@ -52,17 +52,38 @@ async function fetchRow(env: Env, query: string): Promise<Record<string, unknown
   }
 }
 
+// POST a SECURITY DEFINER RPC (used to resolve a DJ slug OR clean handle to the
+// canonical, aggregated public profile).
+async function rpcCall(env: Env, fn: string, args: Record<string, unknown>): Promise<Record<string, unknown> | null> {
+  try {
+    const r = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+      method: 'POST',
+      headers: {
+        apikey: env.SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${env.SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(args),
+      cf: { cacheTtl: 300, cacheEverything: true },
+    } as RequestInit);
+    if (!r.ok) return null;
+    const data = await r.json();
+    return data && typeof data === 'object' ? (data as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function resolveOG(url: URL, env: Env): Promise<OG | null> {
   const path = url.pathname;
   const here = url.origin + path;
   let m: RegExpMatchArray | null;
 
-  // /dj/:slug
+  // /dj/:slug  (also /dj/:slug/epk — regex captures the slug/handle before the next /)
+  // Resolves a clean handle OR a legacy per-venue slug to the canonical person.
   if ((m = path.match(/^\/dj\/([^/?#]+)/))) {
-    const dj = await fetchRow(
-      env,
-      `djs_public?slug=eq.${encodeURIComponent(m[1])}&select=stage_name,first_name,last_name,description,bio,profile_image_url,cover_image_url`,
-    );
+    const dj = await rpcCall(env, 'get_dj_public_profile', { p_slug: decodeURIComponent(m[1]) });
     if (!dj) return null;
     const name =
       (dj.stage_name as string) ||

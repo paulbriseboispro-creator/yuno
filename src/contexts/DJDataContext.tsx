@@ -74,6 +74,8 @@ interface DJDataValue {
   loading: boolean;
   dj: DJ | null;
   allDJProfiles: DJ[];
+  /** Clean canonical public handle for this person (one DJ = one /dj/<handle>). */
+  handle: string | null;
   venues: DJVenue[];
   selectedVenueId: string;
   setSelectedVenueId: (id: string) => void;
@@ -113,6 +115,7 @@ export function DJDataProvider({ children }: { children: ReactNode }) {
   const [sets, setSets] = useState<DJSet[]>([]);
   const [allSets, setAllSets] = useState<DJSet[]>([]);
   const [payments, setPayments] = useState<DJPayment[]>([]);
+  const [handle, setHandle] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const dj = useMemo(
@@ -132,10 +135,24 @@ export function DJDataProvider({ children }: { children: ReactNode }) {
   const fetchAllDJProfiles = async () => {
     if (!user) return;
     try {
+      // A user sees their own DJ profiles plus any roster they manage as an
+      // accepted team member. The RPC returns the DJ owner ids the current user
+      // can access; if it's absent (migration not yet applied) we fall back to
+      // own profiles only — identical to the previous behaviour.
+      let ownerIds: string[] = [];
+      try {
+        const { data: owners } = await (supabase.rpc as unknown as (
+          fn: 'dj_team_owner_ids',
+        ) => Promise<{ data: string[] | null; error: unknown }>)('dj_team_owner_ids');
+        if (Array.isArray(owners)) ownerIds = owners.filter(Boolean);
+      } catch { /* no team access path available */ }
+
+      const accessibleUserIds = Array.from(new Set([user.id, ...ownerIds]));
+
       const { data, error } = await supabase
         .from('djs')
         .select('*, venue:venues(id, name, logo_url)')
-        .eq('user_id', user.id);
+        .in('user_id', accessibleUserIds);
 
       if (error) throw error;
 
@@ -232,6 +249,22 @@ export function DJDataProvider({ children }: { children: ReactNode }) {
     fetchAllSets(allDJProfiles.map(p => p.id));
   }, [allDJProfiles]);
 
+  // Resolve the person's clean public handle (reuses the public profile RPC) so the
+  // dashboard always shares /dj/<handle>, never a per-venue slug with a -id4 suffix.
+  useEffect(() => {
+    const first = allDJProfiles.find(p => p.slug);
+    if (!first?.slug) { setHandle(null); return; }
+    let active = true;
+    (async () => {
+      const rpc = supabase.rpc as unknown as (
+        fn: 'get_dj_public_profile', args: { p_slug: string },
+      ) => Promise<{ data: { handle?: string } | null; error: unknown }>;
+      const { data } = await rpc('get_dj_public_profile', { p_slug: first.slug! });
+      if (active) setHandle(data?.handle || first.slug || null);
+    })();
+    return () => { active = false; };
+  }, [allDJProfiles]);
+
   const upcomingSets = useMemo(
     () => sets.filter(s => new Date(s.start_time) >= new Date()),
     [sets],
@@ -260,6 +293,7 @@ export function DJDataProvider({ children }: { children: ReactNode }) {
     loading: authLoading || loading,
     dj,
     allDJProfiles,
+    handle,
     venues,
     selectedVenueId,
     setSelectedVenueId,

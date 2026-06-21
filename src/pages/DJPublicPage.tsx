@@ -130,81 +130,62 @@ export default function DJPublicPage() {
     }
   };
 
-  const fetchFollowersCount = async (id: string) => {
-    const { count } = await supabase
-      .from('favorites')
-      .select('id', { count: 'exact', head: true })
-      .eq('favorite_type', 'dj')
-      .eq('dj_id', id);
-    setFollowersCount(count || 0);
+  // Followers are counted across ALL of the person's profiles (server-side RPC),
+  // so the count matches the aggregated public page, not a single venue row.
+  const loadFollowers = async () => {
+    if (!slug) return;
+    const rpc = supabase.rpc as unknown as (
+      fn: 'get_dj_public_profile', args: { p_slug: string },
+    ) => Promise<{ data: { followers_count?: number } | null; error: unknown }>;
+    const { data } = await rpc('get_dj_public_profile', { p_slug: slug });
+    if (data) setFollowersCount(Number(data.followers_count) || 0);
   };
 
   const fetchDJ = async () => {
     try {
-      // Read from the public-safe view (active DJs, no financial/contact columns).
-      // The base `djs` table has no anon SELECT policy by design.
-      const { data, error } = await supabase
-        .from('djs_public')
-        .select('*')
-        .eq('slug', slug)
-        .maybeSingle();
+      // Resolve the slug OR the clean handle to the PERSON, and aggregate events across
+      // all their venue + organizer profiles (server-side RPCs). One DJ = one page.
+      const rpcProfile = supabase.rpc as unknown as (
+        fn: 'get_dj_public_profile', args: { p_slug: string },
+      ) => Promise<{ data: (DJProfile & { handle?: string; followers_count?: number }) | null; error: unknown }>;
+      const rpcEvents = supabase.rpc as unknown as (
+        fn: 'get_dj_public_events', args: { p_slug: string },
+      ) => Promise<{ data: DJEvent[] | null; error: unknown }>;
 
-      if (error || !data) {
+      const { data: profile } = await rpcProfile('get_dj_public_profile', { p_slug: slug! });
+      if (!profile) {
         setLoading(false);
         return;
       }
 
-      setDJ(data as unknown as DJProfile);
-      setDjId(data.id);
+      setDJ(profile as DJProfile);
+      setDjId(profile.id);
+      setFollowersCount(Number(profile.followers_count) || 0);
 
-      const { data: eventDjs } = await supabase
-        .from('event_djs')
-        .select('event_id')
-        .eq('dj_id', data.id);
-
-      const eventIds = (eventDjs || []).map(ed => ed.event_id);
-
-      if (eventIds.length > 0) {
-        const { data: events } = await supabase
-          .from('events')
-          .select('id, title, start_at, end_at, poster_url, venue_id')
-          .in('id', eventIds)
-          .order('start_at', { ascending: true });
-
-        if (events && events.length > 0) {
-          const venueIds = [...new Set(events.map(e => e.venue_id))];
-          const { data: venues } = await supabase
-            .from('venues')
-            .select('id, name, city, logo_url')
-            .in('id', venueIds);
-
-          const venueMap = Object.fromEntries(
-            (venues || []).map(v => [v.id, { name: v.name, city: v.city, logo_url: v.logo_url }])
-          );
-
-          const now = new Date().toISOString();
-          const mapped: DJEvent[] = events.map(e => ({
-            id: e.id,
-            title: e.title,
-            start_at: e.start_at,
-            end_at: e.end_at,
-            poster_url: e.poster_url,
-            venue_id: e.venue_id,
-            venue_name: venueMap[e.venue_id]?.name || '',
-            venue_city: venueMap[e.venue_id]?.city || '',
-            venue_logo: venueMap[e.venue_id]?.logo_url || null,
-          }));
-
-          const upcoming = mapped.filter(e => e.end_at >= now);
-          const past = mapped.filter(e => e.end_at < now).reverse();
-          setUpcomingEvents(upcoming);
-          setPastEvents(past.slice(0, 10));
-          setUpcomingCount(upcoming.length);
-          setPastCount(past.length);
-        }
+      // Clean the URL: old per-venue slugs (marco-v-cad4) settle on the handle (marco-v).
+      if (profile.handle && profile.handle !== slug) {
+        navigate(`/dj/${profile.handle}`, { replace: true });
       }
 
-      await fetchFollowersCount(data.id);
+      const { data: events } = await rpcEvents('get_dj_public_events', { p_slug: slug! });
+      const now = new Date().toISOString();
+      const mapped: DJEvent[] = (events || []).map((e) => ({
+        id: e.id,
+        title: e.title,
+        start_at: e.start_at,
+        end_at: e.end_at,
+        poster_url: e.poster_url,
+        venue_id: e.venue_id,
+        venue_name: e.venue_name || '',
+        venue_city: e.venue_city || '',
+        venue_logo: null,
+      }));
+      const upcoming = mapped.filter(e => e.end_at >= now);
+      const past = mapped.filter(e => e.end_at < now).reverse();
+      setUpcomingEvents(upcoming);
+      setPastEvents(past.slice(0, 10));
+      setUpcomingCount(upcoming.length);
+      setPastCount(past.length);
     } catch (err) {
       console.error('Error fetching DJ:', err);
     } finally {
@@ -366,7 +347,7 @@ export default function DJPublicPage() {
               label={t('subscribe.action')}
               followingLabel={t('subscribe.active')}
               className="h-8 px-3 rounded-[10px] text-xs font-medium"
-              onToggle={() => djId && fetchFollowersCount(djId)}
+              onToggle={loadFollowers}
             />
             {followersCount > 0 && (
               <span style={{ fontSize: '13px', color: '#9A9A9A' }}>

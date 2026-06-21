@@ -21,7 +21,7 @@ const YUNO_MUSIC_GENRES = [
 
 export default function DJProfile() {
   const { t } = useLanguage();
-  const { dj, isProfileIncomplete, refetchProfiles } = useDJData();
+  const { dj, isProfileIncomplete, refetchProfiles, handle } = useDJData();
 
   const [saving, setSaving] = useState(false);
   const [showChangePinFlow, setShowChangePinFlow] = useState(false);
@@ -57,7 +57,8 @@ export default function DJProfile() {
   if (!dj) return null;
   const displayName = dj.stage_name || `${dj.first_name} ${dj.last_name}`;
   const BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu';
-  const epkUrl = dj.slug ? `${BASE_URL}/dj/${dj.slug}/epk` : undefined;
+  const publicSlug = handle || dj.slug;
+  const epkUrl = publicSlug ? `${BASE_URL}/dj/${publicSlug}/epk` : undefined;
 
   const handleSave = async () => {
     if (!editForm.firstName || !editForm.lastName) {
@@ -198,7 +199,7 @@ export default function DJProfile() {
               <div className="min-w-0">
                 <h2 className="text-xl font-[640]" style={{ color: T1, letterSpacing: '-0.02em' }}>{displayName}</h2>
                 <p className="text-sm" style={{ color: T2 }}>{dj.first_name} {dj.last_name}</p>
-                {dj.slug && <p className="text-xs font-mono mt-1" style={{ color: RED }}>yunoapp.eu/dj/{dj.slug}</p>}
+                {publicSlug && <p className="text-xs font-mono mt-1" style={{ color: RED }}>yunoapp.eu/dj/{publicSlug}</p>}
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {dj.music_genres.map((genre, i) => (
                     <span key={i} className="rounded-full px-2.5 py-1 text-[11px] font-medium"

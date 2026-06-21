@@ -29,6 +29,7 @@ interface DJProfile {
   country?: string;
   is_verified?: boolean;
   slug?: string;
+  handle?: string;
 }
 
 interface PlayedVenue {
@@ -60,33 +61,29 @@ export default function DJEpkPage() {
     (async () => {
       setLoading(true);
       try {
-        const { data } = await supabase.from('djs_public').select('*').eq('slug', slug).maybeSingle();
-        if (!active) return;
-        if (!data) { setLoading(false); return; }
-        setDj(data as unknown as DJProfile);
+        // Aggregate across all the person's profiles (server-side RPCs), same as the
+        // public page, so the EPK shows the full picture from any slug or clean handle.
+        const rpcProfile = supabase.rpc as unknown as (
+          fn: 'get_dj_public_profile', args: { p_slug: string },
+        ) => Promise<{ data: DJProfile | null; error: unknown }>;
+        const rpcEvents = supabase.rpc as unknown as (
+          fn: 'get_dj_public_events', args: { p_slug: string },
+        ) => Promise<{ data: { venue_name: string | null; venue_city: string | null }[] | null; error: unknown }>;
 
-        // "Played at" — distinct clubs/venues from the DJ's line-up history.
-        const { data: eventDjs } = await supabase.from('event_djs').select('event_id').eq('dj_id', data.id);
-        const eventIds = (eventDjs || []).map(e => e.event_id);
-        if (eventIds.length) {
-          const { data: events } = await supabase
-            .from('events')
-            .select('venue_id, location_name, location_city')
-            .in('id', eventIds);
-          const venueIds = [...new Set((events || []).map(e => e.venue_id).filter(Boolean))] as string[];
-          const venueMap: Record<string, PlayedVenue> = {};
-          if (venueIds.length) {
-            const { data: vs } = await supabase.from('venues').select('id, name, city').in('id', venueIds);
-            (vs || []).forEach((v: { id: string; name: string; city?: string }) => { venueMap[v.id] = { name: v.name, city: v.city }; });
-          }
-          const seen = new Set<string>();
-          const played: PlayedVenue[] = [];
-          (events || []).forEach(e => {
-            const pv = e.venue_id ? venueMap[e.venue_id] : (e.location_name ? { name: e.location_name, city: e.location_city } : null);
-            if (pv && !seen.has(pv.name.toLowerCase())) { seen.add(pv.name.toLowerCase()); played.push(pv); }
-          });
-          if (active) setVenues(played);
-        }
+        const { data: profile } = await rpcProfile('get_dj_public_profile', { p_slug: slug });
+        if (!active) return;
+        if (!profile) { setLoading(false); return; }
+        setDj(profile as DJProfile);
+
+        // "Played at" — distinct venues across all of the DJ's profiles.
+        const { data: events } = await rpcEvents('get_dj_public_events', { p_slug: slug });
+        const seen = new Set<string>();
+        const played: PlayedVenue[] = [];
+        (events || []).forEach(e => {
+          const nm = e.venue_name;
+          if (nm && !seen.has(nm.toLowerCase())) { seen.add(nm.toLowerCase()); played.push({ name: nm, city: e.venue_city || undefined }); }
+        });
+        if (active) setVenues(played);
       } finally {
         if (active) setLoading(false);
       }
@@ -113,7 +110,7 @@ export default function DJEpkPage() {
   const name = dj.stage_name || `${dj.first_name || ''} ${dj.last_name || ''}`.trim() || 'DJ';
   const location = [dj.city, dj.country].filter(Boolean).join(', ');
   const genres = [...new Set(dj.music_genres || [])];
-  const epkUrl = `${BASE_URL}/dj/${dj.slug}/epk`;
+  const epkUrl = `${BASE_URL}/dj/${dj.handle || dj.slug}/epk`;
   const spotify = spotifyEmbed(dj.spotify_url);
   const soundcloud = soundcloudEmbed(dj.soundcloud_url);
 
