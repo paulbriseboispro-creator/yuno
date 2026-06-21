@@ -1805,6 +1805,39 @@ export type Database = {
           },
         ]
       }
+      dj_handles: {
+        Row: {
+          created_at: string
+          handle: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          handle: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          handle?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dj_handles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_handles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dj_invitations: {
         Row: {
           accepted_at: string | null
@@ -2078,6 +2111,75 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      dj_team_invitations: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          dj_user_id: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          member_user_id: string | null
+          role: string
+          status: string
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          dj_user_id: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          member_user_id?: string | null
+          role?: string
+          status?: string
+          token?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          dj_user_id?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          member_user_id?: string | null
+          role?: string
+          status?: string
+          token?: string
+        }
+        Relationships: []
+      }
+      dj_team_members: {
+        Row: {
+          created_at: string
+          dj_user_id: string
+          id: string
+          member_user_id: string
+          role: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          dj_user_id: string
+          id?: string
+          member_user_id: string
+          role?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          dj_user_id?: string
+          id?: string
+          member_user_id?: string
+          role?: string
+          status?: string
+        }
+        Relationships: []
       }
       djs: {
         Row: {
@@ -10511,11 +10613,18 @@ export type Database = {
       }
       demo_is_live: { Args: never; Returns: boolean }
       demo_set_live: { Args: { p_live: boolean }; Returns: boolean }
+      dj_accept_team_invitation: { Args: { p_token: string }; Returns: Json }
+      dj_audience_analytics: { Args: { p_dj_user_id?: string }; Returns: Json }
+      dj_remind_unpaid_fee: { Args: { p_dj_set_id: string }; Returns: Json }
+      dj_revoke_team_invitation: { Args: { p_id: string }; Returns: Json }
+      dj_team_owner_ids: { Args: never; Returns: string[] }
+      dj_user_from_slug: { Args: { p_slug: string }; Returns: string }
       expire_stale_ticket_reservations: { Args: never; Returns: number }
       finalize_leaderboard_contest: {
         Args: { p_contest_id: string }
         Returns: Json
       }
+      gen_dj_handle: { Args: { p_name: string }; Returns: string }
       gen_tracked_link_code: { Args: never; Returns: string }
       generate_invoice_number:
         | { Args: { p_venue_id: string }; Returns: string }
@@ -10554,6 +10663,20 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_dj_public_events: {
+        Args: { p_slug: string }
+        Returns: {
+          end_at: string
+          id: string
+          poster_url: string
+          start_at: string
+          title: string
+          venue_city: string
+          venue_id: string
+          venue_name: string
+        }[]
+      }
+      get_dj_public_profile: { Args: { p_slug: string }; Returns: Json }
       get_event_managing_organizer: {
         Args: { _event_id: string }
         Returns: string

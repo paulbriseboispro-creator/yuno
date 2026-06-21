@@ -130,6 +130,12 @@ const DJPlanning = lazyWithRetry(() => import("./pages/dj-app/DJPlanning"));
 const DJAudience = lazyWithRetry(() => import("./pages/dj-app/DJAudience"));
 const DJPayments = lazyWithRetry(() => import("./pages/dj-app/DJPayments"));
 const DJProfile = lazyWithRetry(() => import("./pages/dj-app/DJProfile"));
+const DJAnalytics = lazyWithRetry(() => import("./pages/dj-app/DJAnalytics"));
+const DJNotifications = lazyWithRetry(() => import("./pages/dj-app/DJNotifications"));
+const DJHelp = lazyWithRetry(() => import("./pages/dj-app/DJHelp"));
+const DJTeam = lazyWithRetry(() => import("./pages/dj-app/DJTeam"));
+const DJOnboarding = lazyWithRetry(() => import("./pages/dj-app/DJOnboarding"));
+const DJTeamAccept = lazyWithRetry(() => import("./pages/dj-app/DJTeamAccept"));
 const DJPublicPage = lazyWithRetry(() => import("./pages/DJPublicPage"));
 const DJEpkPage = lazyWithRetry(() => import("./pages/DJEpkPage"));
 const ManagerDashboardPage = lazyWithRetry(() => import("./pages/ManagerDashboard"));
@@ -632,10 +638,22 @@ const App = () => (
                 }>
                   <Route index element={<DJOverview />} />
                   <Route path="planning" element={<DJPlanning />} />
+                  <Route path="analytics" element={<DJAnalytics />} />
                   <Route path="audience" element={<DJAudience />} />
                   <Route path="payments" element={<DJPayments />} />
+                  <Route path="notifications" element={<DJNotifications />} />
+                  <Route path="team" element={<DJTeam />} />
+                  <Route path="help" element={<DJHelp />} />
                   <Route path="profile" element={<DJProfile />} />
                 </Route>
+
+                {/* DJ onboarding (full-screen, no sidebar) + team-invite acceptance */}
+                <Route path="/dj/onboarding" element={
+                  <DJRoute>
+                    <DJOnboarding />
+                  </DJRoute>
+                } />
+                <Route path="/dj/team/accept" element={<DJTeamAccept />} />
                 
                 {/* Cloakroom routes */}
                 <Route path="/cloakroom" element={

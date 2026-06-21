@@ -13,13 +13,16 @@ import { NavGroup } from '@/components/nav-group';
 import type { SidebarNavGroup } from '@/components/app-shared';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { makeDjT } from '@/i18n/djTranslate';
 import {
-  LayoutDashboard, CalendarDays, MousePointerClick, BarChart2, User, LogOut, LifeBuoy,
+  LayoutDashboard, CalendarDays, MousePointerClick, BarChart2, LineChart, Bell,
+  Users, User, LogOut, LifeBuoy,
 } from 'lucide-react';
 
 export function DJAppSidebar() {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const tt = makeDjT(language);
 
   const groups: SidebarNavGroup[] = [
     {
@@ -27,6 +30,7 @@ export function DJAppSidebar() {
       items: [
         { title: t('dj.overview'), path: '/dj', icon: <LayoutDashboard /> },
         { title: t('dj.mySchedule'), path: '/dj/planning', icon: <CalendarDays /> },
+        { title: tt('Statistiques', 'Analytics', 'Estadísticas'), path: '/dj/analytics', icon: <LineChart /> },
       ],
     },
     {
@@ -34,12 +38,14 @@ export function DJAppSidebar() {
       items: [
         { title: t('dj.links.tab'), path: '/dj/audience', icon: <MousePointerClick /> },
         { title: t('dj.myPayments'), path: '/dj/payments', icon: <BarChart2 /> },
+        { title: tt('Notifications', 'Notifications', 'Notificaciones'), path: '/dj/notifications', icon: <Bell /> },
       ],
     },
     {
       label: t('sidebar.group.settings'),
       items: [
         { title: t('dj.myProfile'), path: '/dj/profile', icon: <User /> },
+        { title: tt('Équipe', 'Team', 'Equipo'), path: '/dj/team', icon: <Users /> },
       ],
     },
   ];
@@ -73,10 +79,10 @@ export function DJAppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="text-muted-foreground" size="sm">
-              <a href="mailto:support@yunoapp.eu">
+              <Link to="/dj/help">
                 <LifeBuoy />
                 <span>{t('sidebar.helpSupport')}</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>

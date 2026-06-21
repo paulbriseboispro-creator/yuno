@@ -1,12 +1,14 @@
-import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
 import { motion } from 'framer-motion';
 import { Calendar, Clock, Euro, TrendingUp, Layers, MapPin, ArrowRight } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/hooks/useAuth';
 import { useDJData } from '@/contexts/DJDataContext';
 import { DJShareCard } from '@/components/dj/DJShareCard';
+import { djOnboardingDoneKey } from '@/lib/djOnboarding';
 import {
   DJPage, DJHeading, ZoneHeading, PCard, Sparkline, Pill,
   POS, T1, T2, T3, WARN, INNER_BG, BORDER,
@@ -20,9 +22,19 @@ export default function DJOverview() {
   // not just the selected venue — otherwise a DJ whose upcoming gigs and earnings
   // sit on another roster sees all zeros. Money is computed from the gig fees
   // (fee_paid flag) which is where the real "paid / owed" signal lives.
-  const { dj, allSets, venues, isProfileIncomplete } = useDJData();
+  const { dj, allSets, venues, isProfileIncomplete, handle } = useDJData();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   const multiVenue = venues.length > 1;
+
+  // First-run: a DJ who hasn't completed (or skipped) onboarding and is still
+  // missing their name lands on the setup wizard instead of an empty dashboard.
+  useEffect(() => {
+    if (dj && isProfileIncomplete && user && !localStorage.getItem(djOnboardingDoneKey(user.id))) {
+      navigate('/dj/onboarding', { replace: true });
+    }
+  }, [dj, isProfileIncomplete, user, navigate]);
 
   const upcoming = useMemo(
     () => allSets.filter(s => new Date(s.start_time) >= new Date()),
@@ -96,9 +108,9 @@ export default function DJOverview() {
         ))}
       </motion.div>
 
-      {dj.slug && (
+      {(handle || dj.slug) && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <DJShareCard slug={dj.slug} stageName={displayName} />
+          <DJShareCard slug={handle || dj.slug} stageName={displayName} />
         </motion.div>
       )}
 
