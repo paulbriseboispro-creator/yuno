@@ -1,16 +1,30 @@
 {
-  // Cloudflare Workers — déploiement de Yuno en tant que SPA statique.
-  // Le frontend est un build Vite (dossier dist/). Pas de script Worker :
-  // uniquement des assets statiques servis par le runtime Workers Assets.
+  // Cloudflare Workers — Yuno SPA statique + Worker OG (A1b).
+  // Le frontend est un build Vite (dossier dist/). Un script Worker (worker/index.ts)
+  // ne s'exécute QUE sur les routes `run_worker_first` ci-dessous, et seulement pour
+  // les crawlers sociaux, afin d'injecter les meta Open Graph par entité. Tout le reste
+  // (JS, CSS, autres routes) est servi directement par Workers Assets — chemin rapide,
+  // zéro invocation Worker.
   "name": "yuno",
   "compatibility_date": "2026-06-14",
+  "main": "worker/index.ts",
   "assets": {
     // Dossier produit par `npm run build`.
     "directory": "./dist",
+    // Le Worker lit les assets (et le SPA fallback) via env.ASSETS.
+    "binding": "ASSETS",
     // SPA fallback : toute route inconnue renvoie index.html (remplace l'ancien
     // `_redirects /*  /index.html  200`, rejeté par Workers Assets — "infinite loop").
-    "not_found_handling": "single-page-application"
+    "not_found_handling": "single-page-application",
+    // Le Worker ne s'exécute d'abord que sur ces routes (pages partageables qui ont
+    // besoin d'un aperçu riche). Tout le reste = assets servis directement.
+    "run_worker_first": ["/dj/*", "/event/*", "/club/*", "/o/*"]
   },
+  // SUPABASE_URL est public (= VITE_SUPABASE_URL). La clé anon (SUPABASE_ANON_KEY,
+  // publique car déjà embarquée dans le bundle front) doit être ajoutée comme variable
+  // du Worker dans le dashboard Cloudflare. Sans elle, le Worker retombe proprement sur
+  // la carte Yuno générique (aucune casse).
+  "vars": { "SUPABASE_URL": "https://fulawxvdlwtdlpkycixe.supabase.co" },
   // Observability : logs d'invocation du Worker, persistés dans le dashboard.
   "observability": {
     "enabled": true,
