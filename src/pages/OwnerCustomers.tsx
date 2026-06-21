@@ -645,6 +645,7 @@ export default function OwnerCustomers() {
           {activeTab === 'origins' ? (
             <OwnerCustomerOrigins
               customers={allCustomers}
+              scope={venue?.id ? { kind: 'venue', id: venue.id } : undefined}
               onSelectCountry={(code) => { setActiveTab('all'); setSegmentFilters({ ...emptyFilters, origin: code }); }}
             />
           ) : (

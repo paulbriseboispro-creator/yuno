@@ -12,7 +12,7 @@ export default function DJAudience() {
   return (
     <DJPage>
       <DJHeading title={t('dj.links.tab')} subtitle={t('dj.links.subtitle')} />
-      <DJEventLinks djId={dj.id} />
+      <DJEventLinks />
     </DJPage>
   );
 }

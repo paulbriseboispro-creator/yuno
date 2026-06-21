@@ -1015,7 +1015,8 @@ async function executeTool(
       case "toggle_guest_list": {
         const { data: evt } = await supabase.from("events").select("id").eq("id", args.event_id).eq("venue_id", venueId).maybeSingle();
         if (!evt) return JSON.stringify({ error: "Event not found for this venue" });
-        const { data: gl } = await supabase.from("guest_lists").select("id").eq("event_id", args.event_id).maybeSingle();
+        // dj_id IS NULL = the host's own list (DJ-scoped lists are separate rows now).
+        const { data: gl } = await supabase.from("guest_lists").select("id").eq("event_id", args.event_id).is("dj_id", null).maybeSingle();
         if (!gl) return JSON.stringify({ error: "No guest list configured for this event." });
         const { error } = await supabase.from("guest_lists").update({ is_active: args.active }).eq("id", gl.id);
         if (error) return JSON.stringify({ error: error.message });

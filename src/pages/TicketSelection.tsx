@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { usePreviewNavigate } from '@/contexts/OwnerPreviewContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Minus, Plus, Users, Crown, Wine, Clock, ChevronDown, Lock, Ticket, Check } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, Users, Crown, Wine, Clock, ChevronDown, Lock, Ticket, Check, Music } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -60,6 +60,9 @@ export default function TicketSelection() {
   const [packs, setPacks] = useState<TablePack[]>([]);
   const [reservationsByZone, setReservationsByZone] = useState<Record<string, number>>({});
   const [guestList, setGuestList] = useState<{ id: string; quota: number; quotaFemale: number | null; quotaMale: number | null; freeBeforeTime: string; includesDrink: boolean; shareToken: string; count: number; femaleCount: number; maleCount: number } | null>(null);
+  // A DJ's personal guest list, surfaced ONLY when the visitor arrives with the
+  // DJ's private link (?dj=<share_token>) — invisible to the general public.
+  const [djGuestList, setDjGuestList] = useState<{ shareToken: string; freeBeforeTime: string; includesDrink: boolean; djName: string } | null>(null);
   const [floorPlan, setFloorPlan] = useState<VenueFloorPlan | null>(null);
 
   const [selection, setSelection] = useState<Selection | null>(() => {
@@ -239,6 +242,24 @@ export default function TicketSelection() {
           fCount = fc || 0; mCount = mc || 0;
         }
         setGuestList({ id: glData.id, quota: glData.quota, quotaFemale: glData.quota_female, quotaMale: glData.quota_male, freeBeforeTime: glData.free_before_time?.substring(0, 5) || '02:00', includesDrink: glData.includes_drink, shareToken: glData.share_token, count: c || 0, femaleCount: fCount, maleCount: mCount });
+      }
+
+      // DJ guest list via private link (?dj=<share_token>). Resolved by a SECURITY
+      // DEFINER token RPC (ignores visible_on_club_page), so it surfaces here only
+      // for visitors who hold the DJ's link — never on the bare public ticket page.
+      const djToken = (searchParams.get('dj') || '').trim();
+      if (djToken) {
+        const { data: djGlRaw } = await supabase.rpc('get_guest_list_by_token', { _token: djToken }).maybeSingle();
+        const djGl = djGlRaw as { dj_id: string | null; event_id: string; share_token: string; free_before_time: string | null; includes_drink: boolean } | null;
+        if (djGl && djGl.dj_id && djGl.event_id === eventId) {
+          const { data: djRow } = await supabase.from('djs_public').select('stage_name').eq('id', djGl.dj_id).maybeSingle();
+          setDjGuestList({
+            shareToken: djGl.share_token,
+            freeBeforeTime: djGl.free_before_time?.substring(0, 5) || '02:00',
+            includesDrink: djGl.includes_drink,
+            djName: djRow?.stage_name || 'DJ',
+          });
+        }
       }
 
       const hasPromoRef = !!searchParams.get('ref') || !!getStoredPromoCodeForVenue(effectiveVenueId || undefined);
@@ -683,6 +704,45 @@ export default function TicketSelection() {
             </>
           );
         })()}
+
+        {/* DJ GUEST LIST — only rendered when ?dj=<token> resolved a DJ's personal
+            list. Routes straight to the standalone signup (resolves by token). */}
+        {salesIsOpen && !saleLocked && djGuestList && (
+          <>
+            <SectionDivider icon={<Music className="h-2.5 w-2.5" />} label={t('guestList.dj.guestOf').replace('{name}', djGuestList.djName)} />
+            <button
+              onClick={() => navigate(`/club/${slug}/event/${eventId}/guestlist?token=${djGuestList.shareToken}`)}
+              className="relative w-full rounded border p-4 text-left transition-all active:scale-[0.99] border-emerald-500/20 hover:border-emerald-500/35"
+              style={{ backgroundColor: 'rgba(16,185,129,0.04)' }}
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm">{t('guestList.title')}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-sm">{t('guestList.free')}</span>
+                  </div>
+                  <p className="text-[11px] text-white/45 flex items-center gap-1.5">
+                    <Music className="h-3 w-3" />
+                    {t('guestList.dj.guestOf').replace('{name}', djGuestList.djName)}
+                  </p>
+                  <p className="text-[11px] text-white/45 flex items-center gap-1.5">
+                    <Clock className="h-3 w-3" />
+                    {t('guestList.freeBeforeTime')} {djGuestList.freeBeforeTime}
+                  </p>
+                  {djGuestList.includesDrink && (
+                    <p className="text-[11px] text-emerald-400/80 flex items-center gap-1.5">
+                      <Wine className="h-3 w-3" />
+                      {t('guestList.drinkIncluded')}
+                    </p>
+                  )}
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-2xl font-bold text-emerald-400">0 €</p>
+                </div>
+              </div>
+            </button>
+          </>
+        )}
 
         {/* TABLES */}
         {salesIsOpen && !saleLocked && zones.length > 0 && (

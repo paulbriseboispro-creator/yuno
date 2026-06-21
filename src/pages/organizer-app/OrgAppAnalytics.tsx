@@ -25,6 +25,7 @@ import { RefundAnalyticsSection } from '@/components/analytics/RefundAnalyticsSe
 import { AcquisitionDashboard } from '@/components/analytics/AcquisitionDashboard';
 import { BehaviorAnalytics } from '@/components/analytics/BehaviorAnalytics';
 import { AudienceInsights } from '@/components/analytics/AudienceInsights';
+import { EventAudienceDemographics } from '@/components/analytics/EventAudienceDemographics';
 import { EventPostAnalysisView } from '@/components/owner/co-event/EventPostAnalysisView';
 import { AnalyticsAnchorNav, type AnchorSection } from '@/components/analytics/AnalyticsAnchorNav';
 
@@ -672,6 +673,14 @@ export default function OrgAppAnalytics() {
         {isEventVerdict && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
             <EventPostAnalysisView key={selectedEventId!} eventId={selectedEventId!} venueId={null} organizerUserId={user!.id} />
+            {/* Per-night audience: age & gender of who actually came */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 px-1">
+                <Users className="w-4 h-4" style={{ color: T2 }} />
+                <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em]" style={{ color: T2 }}>{tt('Audience', 'Audience')}</h3>
+              </div>
+              <EventAudienceDemographics scope={{ kind: 'organizer', id: user!.id }} eventId={selectedEventId!} />
+            </div>
             <button onClick={() => setShowAdvanced(v => !v)}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium cursor-pointer"
               style={{ background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER}`, color: T2 }}>
@@ -835,6 +844,9 @@ export default function OrgAppAnalytics() {
                 <Users className="w-4 h-4" style={{ color: T2 }} />
                 <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em]" style={{ color: T2 }}>{tt('Audience', 'Audience')}</h3>
               </div>
+              {mode === 'global' && (
+                <EventAudienceDemographics scope={{ kind: 'organizer', id: user.id }} from={webWindow.from} to={webWindow.to} />
+              )}
               <AudienceInsights scope={{ kind: 'organizer', id: user.id }} from={webWindow.from} to={webWindow.to} />
             </motion.div>
           </>

@@ -34,6 +34,7 @@ import { TicketAnalyticsPhases } from '@/components/analytics/TicketAnalyticsPha
 import { RefundAnalyticsSection } from '@/components/analytics/RefundAnalyticsSection';
 import { AcquisitionDashboard } from '@/components/analytics/AcquisitionDashboard';
 import { BehaviorAnalytics } from '@/components/analytics/BehaviorAnalytics';
+import { EventAudienceDemographics } from '@/components/analytics/EventAudienceDemographics';
 import { STRIPE_FEE_LABEL } from '@/utils/fees';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -632,6 +633,7 @@ export default function OwnerAnalytics() {
     ...(hasNight ? [{ id: 'an-night', label: t('owner.an.theNight'), icon: DoorOpen }] : []),
     ...(hasPromoter ? [{ id: 'an-promoter', label: t('owner.an.promoterRoi'), icon: Megaphone }] : []),
     ...(hasLoyalty ? [{ id: 'an-loyalty', label: t('owner.an.loyalty'), icon: HeartHandshake }] : []),
+    ...(venueId ? [{ id: 'an-audience', label: t('owner.an.audience'), icon: Users }] : []),
     ...(venueId ? [{ id: 'an-web', label: t('owner.an.zoneTraffic'), icon: Globe }] : []),
     { id: 'an-detail', label: t('owner.an.zoneDetails'), icon: Layers },
   ];
@@ -727,6 +729,14 @@ export default function OwnerAnalytics() {
         {/* ── Verdict first — "did this night work?" (event mode only) ───── */}
         {mode === 'event' && selectedEventId && venueId && (
           <EventPostAnalysisView key={selectedEventId} eventId={selectedEventId} venueId={venueId} />
+        )}
+
+        {/* ── Per-night audience: age & gender of who actually came ──────── */}
+        {mode === 'event' && selectedEventId && venueId && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="space-y-3">
+            <ZoneHeading icon={<Users className="w-4 h-4" />} label={t('owner.an.audience')} />
+            <EventAudienceDemographics scope={{ kind: 'venue', id: venueId }} eventId={selectedEventId} />
+          </motion.div>
         )}
 
         {/* In event mode the raw zone stack is collapsed behind an opt-in toggle. */}
@@ -1081,6 +1091,14 @@ export default function OwnerAnalytics() {
             </motion.div>
           );
         })()}
+
+        {/* ── Zone · Audience (age & gender of participants) ────────────── */}
+        {mode === 'global' && venueId && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="space-y-3">
+            <ZoneHeading id="an-audience" icon={<Users className="w-4 h-4" />} label={t('owner.an.audience')} />
+            <EventAudienceDemographics scope={{ kind: 'venue', id: venueId }} from={webWindow.from} to={webWindow.to} />
+          </motion.div>
+        )}
 
         {/* ── Zone · Web traffic ────────────────────────────────────────── */}
         {venueId && (

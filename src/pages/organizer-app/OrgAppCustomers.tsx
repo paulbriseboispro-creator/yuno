@@ -588,6 +588,7 @@ export default function OrgAppCustomers() {
           {activeTab === 'origins' ? (
             <OwnerCustomerOrigins
               customers={allCustomers}
+              scope={user?.id ? { kind: 'organizer', id: user.id } : undefined}
               onSelectCountry={(code) => { setActiveTab('all'); setSegmentFilters({ ...emptyFilters, origin: code }); }}
             />
           ) : (

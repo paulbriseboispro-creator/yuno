@@ -6,7 +6,7 @@ import { useVenueContext } from '@/hooks/useVenueContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { toast } from 'sonner';
-import { Users, Copy, Link2, Clock, Wine, Eye, Trash2, CheckCircle, QrCode, ChevronDown } from 'lucide-react';
+import { Users, Copy, Link2, Clock, Wine, Eye, Trash2, CheckCircle, QrCode, ChevronDown, Music, UserCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -90,6 +90,201 @@ function EventSelector({ events, value, onChange, t }: { events: EventOption[]; 
   );
 }
 
+// Cosmetic club-slug for the DJ guest-list share URL (resolved by token, slug is display-only).
+function glSlugify(name: string | null): string {
+  const s = (name || 'event').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return s || 'event';
+}
+
+interface DJLineupEntry { id: string; name: string; image: string | null }
+interface DJGLRow { id: string; dj_id: string; quota: number; share_token: string; is_active: boolean }
+
+/**
+ * The new DJ <-> owner/organizer relationship: the host grants a lineup DJ a
+ * personal guest list for this event and caps its quota. The DJ then shares their
+ * private link and tracks signups from their own dashboard (Audience). The guests
+ * land in the same guest_list_entries table (host venue_id), so the door scanner
+ * and the owner's headcount include them automatically.
+ */
+function DJGuestListSection({ eventId, venueId, organizerUserId, isOrganizerScope, venueName, t }: {
+  eventId: string; venueId: string | null; organizerUserId: string | null; isOrganizerScope: boolean; venueName: string | null; t: (key: string) => string;
+}) {
+  const [djs, setDjs] = useState<DJLineupEntry[]>([]);
+  const [lists, setLists] = useState<Record<string, DJGLRow>>({});
+  const [counts, setCounts] = useState<Record<string, { signups: number; scanned: number }>>({});
+  const [quotaDraft, setQuotaDraft] = useState<Record<string, number>>({});
+  const [busy, setBusy] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (eventId) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId]);
+
+  const load = async () => {
+    setLoading(true);
+    // Lineup = DJs on the public line-up (event_djs) plus DJs with a scheduled set
+    // (dj_sets) for this event. Either makes them eligible for a personal guest list.
+    const [{ data: ed }, { data: ds }] = await Promise.all([
+      supabase.from('event_djs').select('dj_id').eq('event_id', eventId),
+      supabase.from('dj_sets').select('dj_id').eq('event_id', eventId),
+    ]);
+    const ids = [...new Set([...(ed || []).map(r => r.dj_id), ...(ds || []).map(r => r.dj_id)].filter(Boolean))] as string[];
+    if (ids.length === 0) { setDjs([]); setLists({}); setCounts({}); setLoading(false); return; }
+
+    const { data: djRows } = await supabase.from('djs').select('id, stage_name, first_name, last_name, profile_image_url').in('id', ids);
+    setDjs((djRows || []).map(d => ({
+      id: d.id,
+      name: d.stage_name || `${d.first_name || ''} ${d.last_name || ''}`.trim() || 'DJ',
+      image: d.profile_image_url || null,
+    })));
+
+    const { data: glRows } = await supabase.from('guest_lists').select('id, dj_id, quota, share_token, is_active').eq('event_id', eventId).not('dj_id', 'is', null);
+    const map: Record<string, DJGLRow> = {};
+    (glRows || []).forEach(g => { if (g.dj_id) map[g.dj_id] = g as DJGLRow; });
+    setLists(map);
+
+    const glIds = (glRows || []).map(g => g.id);
+    if (glIds.length) {
+      const { data: entries } = await supabase.from('guest_list_entries').select('guest_list_id, status, entry_scanned').in('guest_list_id', glIds);
+      const c: Record<string, { signups: number; scanned: number }> = {};
+      (entries || []).forEach(e => {
+        const k = e.guest_list_id as string;
+        if (!c[k]) c[k] = { signups: 0, scanned: 0 };
+        if (e.status !== 'cancelled') c[k].signups++;
+        if (e.entry_scanned) c[k].scanned++;
+      });
+      setCounts(c);
+    } else setCounts({});
+    setLoading(false);
+  };
+
+  const resolveHost = async (): Promise<{ venue_id: string | null; organizer_user_id: string | null }> => {
+    if (isOrganizerScope) {
+      const { data: ev } = await supabase.from('events').select('venue_id').eq('id', eventId).maybeSingle();
+      return { venue_id: ev?.venue_id ?? null, organizer_user_id: organizerUserId ?? null };
+    }
+    return { venue_id: venueId ?? null, organizer_user_id: null };
+  };
+
+  const toggle = async (djId: string, on: boolean) => {
+    setBusy(djId);
+    try {
+      const row = lists[djId];
+      if (on) {
+        if (row) {
+          const { error } = await supabase.from('guest_lists').update({ is_active: true }).eq('id', row.id);
+          if (error) throw error;
+          setLists(p => ({ ...p, [djId]: { ...row, is_active: true } }));
+        } else {
+          const host = await resolveHost();
+          const quota = quotaDraft[djId] ?? 20;
+          const { data, error } = await supabase.from('guest_lists').insert({
+            event_id: eventId, dj_id: djId, venue_id: host.venue_id, organizer_user_id: host.organizer_user_id,
+            quota, free_before_time: '02:00', includes_drink: false, visible_on_club_page: false, is_active: true,
+          }).select('id, dj_id, quota, share_token, is_active').single();
+          if (error) throw error;
+          setLists(p => ({ ...p, [djId]: data as DJGLRow }));
+        }
+        toast.success(t('guestList.dj.granted'));
+      } else if (row) {
+        const { error } = await supabase.from('guest_lists').update({ is_active: false }).eq('id', row.id);
+        if (error) throw error;
+        setLists(p => ({ ...p, [djId]: { ...row, is_active: false } }));
+      }
+    } catch (e) { toast.error(e instanceof Error ? e.message : t('guestList.saveError')); }
+    finally { setBusy(null); }
+  };
+
+  const saveQuota = async (djId: string, q: number) => {
+    const row = lists[djId];
+    if (!row || !q || q === row.quota) return;
+    try {
+      const { error } = await supabase.from('guest_lists').update({ quota: q }).eq('id', row.id);
+      if (error) throw error;
+      setLists(p => ({ ...p, [djId]: { ...row, quota: q } }));
+      toast.success(t('guestList.saved'));
+    } catch (e) { toast.error(e instanceof Error ? e.message : t('guestList.saveError')); }
+  };
+
+  const shareLink = (token: string) =>
+    `${window.location.origin}/club/${glSlugify(venueName)}/event/${eventId}/guestlist?token=${token}`;
+
+  return (
+    <div style={{ background: CARD_BG, border: `1px solid rgba(232,25,44,0.18)`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px' }}>
+      <h3 className="flex items-center gap-2 mb-1" style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0 }}>
+        <Music className="h-4 w-4" style={{ color: RED }} />
+        {t('guestList.dj.title')}
+      </h3>
+      <p style={{ color: T3, fontSize: 12, marginBottom: 14 }}>{t('guestList.dj.desc')}</p>
+
+      {loading ? (
+        <div className="flex justify-center py-6"><div className="h-6 w-6 animate-spin rounded-full border-2" style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} /></div>
+      ) : djs.length === 0 ? (
+        <div className="text-center py-8">
+          <Music className="h-9 w-9 mx-auto mb-2" style={{ color: T3, opacity: 0.3 }} />
+          <p style={{ color: T3, fontSize: 13 }}>{t('guestList.dj.noLineup')}</p>
+        </div>
+      ) : (
+        <div className="space-y-2.5">
+          {djs.map(dj => {
+            const row = lists[dj.id];
+            const active = !!row?.is_active;
+            const cnt = row ? counts[row.id] : undefined;
+            const quotaVal = quotaDraft[dj.id] ?? row?.quota ?? 20;
+            const full = active && row && cnt && cnt.signups >= row.quota;
+            return (
+              <div key={dj.id} style={{ padding: '12px', borderRadius: 12, background: TILE_BG, border: `1px solid ${F_BORDER}` }}>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {dj.image ? (
+                      <img src={dj.image} alt="" className="h-9 w-9 rounded-full object-cover flex-none" style={{ border: `1px solid ${BORDER}` }} />
+                    ) : (
+                      <div className="h-9 w-9 rounded-full flex items-center justify-center flex-none" style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}>
+                        <Music className="h-4 w-4" style={{ color: RED }} />
+                      </div>
+                    )}
+                    <p className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 500 }}>{dj.name}</p>
+                  </div>
+                  <div className="flex-none" style={{ opacity: busy === dj.id ? 0.5 : 1 }}>
+                    <YunoSwitch checked={active} onChange={(v) => toggle(dj.id, v)} />
+                  </div>
+                </div>
+
+                {active && row && (
+                  <div className="mt-3 space-y-2.5">
+                    <div className="flex items-center gap-2">
+                      <span style={{ color: T3, fontSize: 12 }}>{t('guestList.dj.quota')}</span>
+                      <input type="number" min={1} max={1000} value={quotaVal}
+                        onChange={e => setQuotaDraft(p => ({ ...p, [dj.id]: Math.max(1, Number(e.target.value)) }))}
+                        onBlur={e => saveQuota(dj.id, Math.max(1, Number(e.target.value)))}
+                        className="outline-none"
+                        style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '5px 10px', color: T1, fontSize: 13, fontFamily: 'inherit', width: 80 }} />
+                      <span className="ml-auto tabular-nums" style={{ color: full ? NEG : T2, fontSize: 12 }}>
+                        {full && <span className="mr-1.5 font-semibold">{t('guestList.quotaFull')}</span>}
+                        {cnt?.signups ?? 0}/{row.quota} · <UserCheck className="inline h-3 w-3" style={{ color: POS }} /> {cnt?.scanned ?? 0}
+                      </span>
+                    </div>
+                    <div className="flex gap-2">
+                      <input value={shareLink(row.share_token)} readOnly className="flex-1 outline-none"
+                        style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '6px 10px', color: T2, fontSize: 11, fontFamily: 'monospace', minWidth: 0 }} />
+                      <button onClick={() => { navigator.clipboard.writeText(shareLink(row.share_token)); toast.success(t('common.copied')); }}
+                        style={{ width: 36, height: 34, background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: T2 }}>
+                        <Copy className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function OwnerGuestList() {
   const { t, language } = useLanguage();
   const { venueId, venue, organizerUserId, scope, loading: venueLoading } = useVenueContext();
@@ -154,7 +349,9 @@ export default function OwnerGuestList() {
 
   const fetchGuestList = async () => {
     if (!selectedEventId) return;
-    const { data: gl } = await supabase.from('guest_lists').select('*').eq('event_id', selectedEventId).maybeSingle();
+    // dj_id IS NULL = the host (venue/organizer) list. DJ-scoped lists are separate
+    // rows on the same event and are managed in the DJ guest-list section below.
+    const { data: gl } = await supabase.from('guest_lists').select('*').eq('event_id', selectedEventId).is('dj_id', null).maybeSingle();
     if (gl) {
       setGuestList(gl as GuestListData);
       setQuota(gl.quota);
@@ -635,6 +832,16 @@ export default function OwnerGuestList() {
                 </div>
               )}
             </div>
+
+            {/* DJ Guest Lists — owner grants a lineup DJ a capped personal guest list */}
+            <DJGuestListSection
+              eventId={selectedEventId}
+              venueId={venueId ?? null}
+              organizerUserId={organizerUserId ?? null}
+              isOrganizerScope={isOrganizerScope}
+              venueName={isOrganizerScope ? null : (venue?.name ?? null)}
+              t={t}
+            />
           </>
         )}
       </div>

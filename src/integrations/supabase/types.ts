@@ -10652,6 +10652,26 @@ export type Database = {
       dj_revoke_team_invitation: { Args: { p_id: string }; Returns: Json }
       dj_team_owner_ids: { Args: never; Returns: string[] }
       dj_user_from_slug: { Args: { p_slug: string }; Returns: string }
+      event_audience_demographics: {
+        Args: {
+          p_event_id?: string
+          p_from?: string
+          p_scope: string
+          p_scope_id: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      event_origin_cities: {
+        Args: {
+          p_event_id?: string
+          p_from?: string
+          p_scope: string
+          p_scope_id: string
+          p_to?: string
+        }
+        Returns: Json
+      }
       expire_stale_ticket_reservations: { Args: never; Returns: number }
       finalize_leaderboard_contest: {
         Args: { p_contest_id: string }
