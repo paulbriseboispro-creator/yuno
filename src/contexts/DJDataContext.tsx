@@ -53,6 +53,7 @@ export interface DJSet {
   notes?: string;
   fee: number;
   fee_paid: boolean;
+  show_on_profile: boolean;
   event?: { title: string };
   venue?: { name: string; address?: string };
 }

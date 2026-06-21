@@ -6,7 +6,6 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/hooks/useAuth';
 import { Building2 } from 'lucide-react';
 import { Button } from './ui/button';
-import { OwnerAssistantFAB } from './owner/OwnerAssistantFAB';
 import { AppSkeleton } from '@/components/DashboardSkeleton';
 
 interface OwnerRouteProps {
@@ -52,7 +51,6 @@ function OwnerVenueGate({ children }: { children: React.ReactNode }) {
   return (
     <SubscriptionPlanProvider venueId={venueId}>
       {children}
-      <OwnerAssistantFAB />
     </SubscriptionPlanProvider>
   );
 }

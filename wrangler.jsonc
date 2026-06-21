@@ -24,7 +24,10 @@
   // publique car déjà embarquée dans le bundle front) doit être ajoutée comme variable
   // du Worker dans le dashboard Cloudflare. Sans elle, le Worker retombe proprement sur
   // la carte Yuno générique (aucune casse).
-  "vars": { "SUPABASE_URL": "https://fulawxvdlwtdlpkycixe.supabase.co" },
+  "vars": {
+    "SUPABASE_URL": "https://fulawxvdlwtdlpkycixe.supabase.co",
+    "SUPABASE_ANON_KEY": "sb_publishable_2rOH-YqTzz-YdIbQSrswpg_Os7DU-r1"
+  },
   // Observability : logs d'invocation du Worker, persistés dans le dashboard.
   "observability": {
     "enabled": true,

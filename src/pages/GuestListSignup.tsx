@@ -268,6 +268,12 @@ export default function GuestListSignup() {
 
       setSuccess(true);
       toast.success(t('guestList.registrationSuccess'));
+
+      // Sync gender to the user's profile so the DJ audience analytics can use it
+      // as a primary source (rather than relying on guest_list_entries coverage).
+      if (user && gender) {
+        supabase.from('profiles').update({ gender }).eq('id', user.id).then(() => {/* best-effort */});
+      }
     } catch (err: any) {
       let msg = err?.message || t('guestList.registrationError');
       // supabase-js wraps a non-2xx function response; the real message is in the body.
