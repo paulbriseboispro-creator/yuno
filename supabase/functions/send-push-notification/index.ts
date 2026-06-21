@@ -123,22 +123,187 @@ async function encryptPayload(
   return { encrypted };
 }
 
+// deno-lint-ignore no-explicit-any
+type Subscription = { id: string; endpoint: string; p256dh: string; auth: string };
+
+/**
+ * Send one encrypted push to a single subscription. Returns 'ok', 'stale' (cleaned up),
+ * or 'fail'. Stale subscriptions (401/403/404/410) are deleted so the table self-heals.
+ */
+// deno-lint-ignore no-explicit-any
+async function sendToSubscription(
+  supabase: any,
+  subscription: Subscription,
+  notificationPayload: string,
+  vapidPublicKey: string,
+  vapidPrivateKey: string,
+): Promise<'ok' | 'stale' | 'fail'> {
+  try {
+    const subscriberPublicKey = base64UrlToUint8Array(subscription.p256dh);
+    const subscriberAuth = base64UrlToUint8Array(subscription.auth);
+    const { encrypted } = await encryptPayload(notificationPayload, subscriberPublicKey, subscriberAuth);
+    const jwt = await generateVapidJWT(subscription.endpoint, vapidPrivateKey, vapidPublicKey);
+
+    const body = encrypted.buffer.slice(encrypted.byteOffset, encrypted.byteOffset + encrypted.byteLength) as ArrayBuffer;
+
+    const response = await fetch(subscription.endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Content-Encoding': 'aes128gcm',
+        'Content-Length': encrypted.length.toString(),
+        'TTL': '86400',
+        'Authorization': `vapid t=${jwt}, k=${vapidPublicKey}`,
+      },
+      body,
+    });
+
+    if (response.ok || response.status === 201) return 'ok';
+    if ([401, 403, 404, 410].includes(response.status)) {
+      console.log(`[Push] Removing stale subscription (HTTP ${response.status}): ${subscription.endpoint.slice(0, 60)}...`);
+      await supabase.from('push_subscriptions').delete().eq('id', subscription.id);
+      return 'stale';
+    }
+    const txt = await response.text().catch(() => '');
+    console.error(`[Push] Unexpected HTTP ${response.status} for ${subscription.endpoint.slice(0, 60)}: ${txt.slice(0, 200)}`);
+    return 'fail';
+  } catch (error) {
+    console.error('[Push] Error sending to endpoint:', subscription.endpoint?.slice(0, 60), error);
+    return 'fail';
+  }
+}
+
+const APP_BASE_URL = 'https://yunoapp.eu';
+
+/**
+ * A2 — fan out a "your followed DJ just got added to a line-up" push to a DJ's
+ * followers. Geo-filtered + opt-in + dedup all live in the RPC; this only sends.
+ * Only the event's owner (venue owner or organizer) may trigger it.
+ */
+// deno-lint-ignore no-explicit-any
+async function handleDjLineup(req: Request, supabase: any, vapidPublicKey: string, vapidPrivateKey: string, body: any) {
+  const eventId: string | undefined = body.event_id;
+  const djIds: string[] = Array.isArray(body.dj_ids) ? body.dj_ids : (body.dj_id ? [body.dj_id] : []);
+  if (!eventId || djIds.length === 0) {
+    return new Response(JSON.stringify({ error: 'event_id and dj_ids required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+
+  // Authorize: the caller must own the event (venue owner or organizer).
+  const authHeader = req.headers.get('Authorization') || '';
+  const userClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: userData } = await userClient.auth.getUser();
+  const callerId = userData?.user?.id;
+  if (!callerId) {
+    return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+
+  const { data: event } = await supabase
+    .from('events')
+    .select('id, title, start_at, venue_id, organizer_user_id')
+    .eq('id', eventId)
+    .maybeSingle();
+  if (!event) {
+    return new Response(JSON.stringify({ error: 'event not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+
+  let owns = false;
+  if (event.venue_id) {
+    const { data: venue } = await supabase.from('venues').select('owner_id').eq('id', event.venue_id).maybeSingle();
+    owns = venue?.owner_id === callerId;
+  } else if (event.organizer_user_id) {
+    owns = event.organizer_user_id === callerId;
+  }
+  if (!owns) {
+    return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+
+  let dateStr = '';
+  if (event.start_at) {
+    try {
+      dateStr = new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }).format(new Date(event.start_at));
+    } catch { /* leave empty */ }
+  }
+
+  let totalSent = 0;
+  let totalTargeted = 0;
+
+  for (const djId of djIds) {
+    // Recipients: geo-filtered + opt-in + not-already-notified (all in the RPC).
+    const { data: targets, error: tErr } = await supabase.rpc('get_dj_lineup_notification_targets', {
+      p_event_id: eventId,
+      p_dj_id: djId,
+    });
+    if (tErr) { console.error('[Push] targets RPC error:', tErr); continue; }
+    if (!targets?.length) continue;
+
+    // DJ display name + their event tracked link (so notif-driven sales are attributed to them).
+    const { data: dj } = await supabase.from('djs').select('stage_name, first_name, last_name').eq('id', djId).maybeSingle();
+    const djName = (dj?.stage_name || `${dj?.first_name || ''} ${dj?.last_name || ''}`.trim() || 'DJ');
+    const { data: link } = await supabase
+      .from('tracked_links')
+      .select('code')
+      .eq('event_id', eventId).eq('dj_id', djId).eq('owner_kind', 'dj')
+      .maybeSingle();
+    const url = link?.code ? `${APP_BASE_URL}/l/${link.code}` : `${APP_BASE_URL}/event/${eventId}`;
+
+    const notificationPayload = JSON.stringify({
+      title: `🎧 ${djName}`,
+      body: `${event.title || ''}${dateStr ? ' · ' + dateStr : ''}`.trim() || djName,
+      icon: '/favicon.ico',
+      badge: '/favicon.ico',
+      url,
+    });
+
+    const targetedUserIds = new Set<string>();
+    for (const sub of targets as (Subscription & { user_id: string })[]) {
+      targetedUserIds.add(sub.user_id);
+      const res = await sendToSubscription(supabase, sub, notificationPayload, vapidPublicKey, vapidPrivateKey);
+      if (res === 'ok') totalSent++;
+    }
+
+    // Mark targeted followers so re-saving the line-up never re-notifies them.
+    if (targetedUserIds.size > 0) {
+      const ids = [...targetedUserIds];
+      totalTargeted += ids.length;
+      await supabase.from('dj_lineup_notifications').upsert(
+        ids.map((uid) => ({ user_id: uid, event_id: eventId, dj_id: djId })),
+        { onConflict: 'user_id,event_id,dj_id', ignoreDuplicates: true },
+      );
+      await supabase.from('notification_log').insert(
+        ids.map((uid) => ({ user_id: uid, notification_type: 'dj_lineup', title: djName })),
+      );
+    }
+  }
+
+  return new Response(JSON.stringify({ success: true, sent: totalSent, targeted: totalTargeted }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { user_id, payload } = await req.json();
-    if (!user_id || !payload) {
-      return new Response(JSON.stringify({ error: 'user_id and payload required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY');
     const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
     if (!vapidPublicKey || !vapidPrivateKey) {
       return new Response(JSON.stringify({ error: 'VAPID keys not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const reqBody = await req.json();
+
+    // A2: fan-out to a DJ's followers (geo-filtered) when added to a line-up.
+    if (reqBody?.action === 'dj_lineup') {
+      return await handleDjLineup(req, supabase, vapidPublicKey, vapidPrivateKey, reqBody);
+    }
+
+    // Default: send to a single user's subscriptions.
+    const { user_id, payload } = reqBody;
+    if (!user_id || !payload) {
+      return new Response(JSON.stringify({ error: 'user_id and payload required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     const { data: subscriptions, error: subError } = await supabase.from('push_subscriptions').select('*').eq('user_id', user_id);
@@ -156,44 +321,9 @@ Deno.serve(async (req) => {
 
     let successCount = 0;
     let failCount = 0;
-
     for (const subscription of subscriptions) {
-      try {
-        const subscriberPublicKey = base64UrlToUint8Array(subscription.p256dh);
-        const subscriberAuth = base64UrlToUint8Array(subscription.auth);
-        const { encrypted } = await encryptPayload(notificationPayload, subscriberPublicKey, subscriberAuth);
-        const jwt = await generateVapidJWT(subscription.endpoint, vapidPrivateKey, vapidPublicKey);
-
-        const body = encrypted.buffer.slice(encrypted.byteOffset, encrypted.byteOffset + encrypted.byteLength) as ArrayBuffer;
-
-        const response = await fetch(subscription.endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/octet-stream',
-            'Content-Encoding': 'aes128gcm',
-            'Content-Length': encrypted.length.toString(),
-            'TTL': '86400',
-            'Authorization': `vapid t=${jwt}, k=${vapidPublicKey}`,
-          },
-          body,
-        });
-
-        if (response.ok || response.status === 201) {
-          successCount++;
-        } else if ([401, 403, 404, 410].includes(response.status)) {
-          // Expired or invalid subscription — clean up
-          console.log(`[Push] Removing stale subscription (HTTP ${response.status}): ${subscription.endpoint.slice(0, 60)}...`);
-          await supabase.from('push_subscriptions').delete().eq('id', subscription.id);
-          failCount++;
-        } else {
-          const body = await response.text().catch(() => '');
-          console.error(`[Push] Unexpected HTTP ${response.status} for endpoint ${subscription.endpoint.slice(0, 60)}: ${body.slice(0, 200)}`);
-          failCount++;
-        }
-      } catch (error) {
-        console.error('[Push] Error sending to endpoint:', subscription.endpoint?.slice(0, 60), error);
-        failCount++;
-      }
+      const res = await sendToSubscription(supabase, subscription, notificationPayload, vapidPublicKey, vapidPrivateKey);
+      if (res === 'ok') successCount++; else failCount++;
     }
 
     return new Response(JSON.stringify({ success: true, sent: successCount, failed: failCount, total: subscriptions.length }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
