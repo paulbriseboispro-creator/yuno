@@ -11,6 +11,7 @@ import { cityMatches } from '@/lib/userLocation';
 interface DJRow {
   id: string;
   slug: string | null;
+  handle: string | null;
   stageName: string;
   city: string | null;
   profileImageUrl: string | null;
@@ -30,7 +31,7 @@ export default function AllDJsPage() {
       // Read the security-definer djs_public view (anon-safe), never the djs table.
       const { data } = await supabase
         .from('djs_public')
-        .select('id, slug, stage_name, first_name, last_name, profile_image_url, music_genres, city, is_verified, is_active')
+        .select('id, slug, handle, stage_name, first_name, last_name, profile_image_url, music_genres, city, is_verified, is_active')
         .eq('is_active', true);
 
       // A DJ can have several scoped rows (one per club/org); the view has no user_id,
@@ -49,6 +50,7 @@ export default function AllDJsPage() {
         .map((d: any) => ({
           id: d.id,
           slug: d.slug,
+          handle: d.handle ?? null,
           stageName: (d.stage_name || `${d.first_name ?? ''} ${d.last_name ?? ''}`).trim(),
           city: d.city,
           profileImageUrl: d.profile_image_url,
@@ -141,12 +143,12 @@ export default function AllDJsPage() {
           visible.map((dj) => (
             <button
               key={dj.id}
-              onClick={() => dj.slug && navigate(`/dj/${dj.slug}`)}
-              disabled={!dj.slug}
+              onClick={() => (dj.handle || dj.slug) && navigate(`/dj/${dj.handle || dj.slug}`)}
+              disabled={!(dj.handle || dj.slug)}
               style={{
                 width: '100%',
                 textAlign: 'left',
-                cursor: dj.slug ? 'pointer' : 'default',
+                cursor: (dj.handle || dj.slug) ? 'pointer' : 'default',
                 color: 'inherit',
                 display: 'flex',
                 alignItems: 'center',

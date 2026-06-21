@@ -987,7 +987,7 @@ export default function Explore() {
         supabase.rpc('get_public_favorite_counts', { _favorite_type: 'dj' }),
         supabase
           .from('djs_public')
-          .select('id, slug, stage_name, first_name, last_name, profile_image_url, music_genres, is_verified, is_active')
+          .select('id, slug, handle, stage_name, first_name, last_name, profile_image_url, music_genres, is_verified, is_active')
           .in('id', djIds)
           .eq('is_active', true),
       ]);
@@ -1003,6 +1003,7 @@ export default function Explore() {
         .map((d: any) => ({
           id: d.id,
           slug: d.slug,
+          handle: d.handle ?? null,
           stageName: (d.stage_name || `${d.first_name ?? ''} ${d.last_name ?? ''}`).trim(),
           profileImageUrl: d.profile_image_url,
           musicGenres: d.music_genres || [],

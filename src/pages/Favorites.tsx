@@ -98,6 +98,7 @@ interface FavoriteDJ {
   profileImageUrl?: string;
   musicGenres: string[];
   slug?: string;
+  handle?: string;
 }
 
 interface FollowedOrganizer {
@@ -932,13 +933,15 @@ export default function Favorites() {
         const djFavs = favorites.filter(f => f.favoriteType === 'dj');
         if (djFavs.length > 0) {
           const djIds = djFavs.map(f => f.djId).filter(Boolean) as string[];
-          const { data } = await supabase.from('djs').select('id, stage_name, first_name, last_name, profile_image_url, music_genres, slug').in('id', djIds);
+          // djs_public (vue definer, anon-safe) expose le handle propre -> lien /dj/<handle>.
+          const { data } = await supabase.from('djs_public').select('id, stage_name, first_name, last_name, profile_image_url, music_genres, slug, handle').in('id', djIds);
           setDJs((data || []).map((d: any) => ({
             id: d.id,
             stageName: d.stage_name || `${d.first_name} ${d.last_name}`,
             profileImageUrl: d.profile_image_url || undefined,
             musicGenres: d.music_genres || [],
             slug: d.slug || undefined,
+            handle: d.handle || undefined,
           })));
         } else {
           setDJs([]);
@@ -1226,7 +1229,7 @@ export default function Favorites() {
                     <DJCard
                       key={dj.id}
                       dj={dj}
-                      onClick={() => dj.slug ? navigate(`/dj/${dj.slug}`) : undefined}
+                      onClick={() => (dj.handle || dj.slug) ? navigate(`/dj/${dj.handle || dj.slug}`) : undefined}
                     />
                   ))}
                 </div>

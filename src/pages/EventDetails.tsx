@@ -30,6 +30,7 @@ type EventDJ = {
   first_name: string;
   last_name: string;
   slug: string | null;
+  handle: string | null;
   profile_image_url: string | null;
 };
 
@@ -283,7 +284,7 @@ export default function EventDetails() {
       if (djIds.length > 0) {
         const { data: djRows } = await supabase
           .from('djs_public')
-          .select('id, stage_name, first_name, last_name, slug, profile_image_url')
+          .select('id, stage_name, first_name, last_name, slug, handle, profile_image_url')
           .in('id', djIds);
         // Preserve event_djs ordering (headliner first); .in() returns arbitrary order.
         const byId = new Map((djRows ?? []).map((d: any) => [d.id, d]));
@@ -988,7 +989,7 @@ export default function EventDetails() {
                 return (
                   <button
                     key={dj.id}
-                    onClick={() => dj.slug && navigate(`/dj/${dj.slug}`)}
+                    onClick={() => (dj.handle || dj.slug) && navigate(`/dj/${dj.handle || dj.slug}`)}
                     className="flex flex-col items-center gap-3 flex-shrink-0 active:opacity-70 transition-opacity"
                     style={{ width: 116 }}
                   >

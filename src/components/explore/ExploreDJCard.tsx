@@ -8,6 +8,8 @@ import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 export interface ExploreDJItem {
   id: string;
   slug: string | null;
+  /** Handle public propre (marco-v). Préféré au slug par-venue pour les liens. */
+  handle: string | null;
   stageName: string;
   profileImageUrl: string | null;
   musicGenres: string[];
@@ -26,16 +28,18 @@ export function ExploreDJCard({ dj, rank }: { dj: ExploreDJItem; rank: number })
     await toggleFavorite('dj', dj.id);
   };
 
+  const djPath = dj.handle || dj.slug;
+
   return (
     <div
-      onClick={() => dj.slug && navigate(`/dj/${dj.slug}`)}
+      onClick={() => djPath && navigate(`/dj/${djPath}`)}
       className="shrink-0 overflow-hidden"
       style={{
         width: 140,
         borderRadius: '14px',
         background: '#141417',
         border: '1px solid rgba(255,255,255,0.08)',
-        cursor: dj.slug ? 'pointer' : 'default',
+        cursor: djPath ? 'pointer' : 'default',
       }}
     >
       {/* Portrait + overlays */}

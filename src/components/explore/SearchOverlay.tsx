@@ -46,6 +46,7 @@ interface DjResult {
   profile_image_url: string | null;
   music_genres: string[] | null;
   slug: string | null;
+  handle: string | null;
 }
 
 interface OrgResult {
@@ -410,8 +411,8 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
         affVenuesQuery,
         hasText
           ? supabase
-              .from('djs')
-              .select('id, stage_name, first_name, last_name, profile_image_url, music_genres, slug')
+              .from('djs_public')
+              .select('id, stage_name, first_name, last_name, profile_image_url, music_genres, slug, handle')
               .eq('is_active', true)
               .or(`stage_name.ilike.${searchTerm},first_name.ilike.${searchTerm},last_name.ilike.${searchTerm}`)
               .limit(5)
@@ -431,8 +432,8 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
       if (hasText && q.length >= 2) {
         for (const variant of genreVariants(q)) {
           const { data } = await supabase
-            .from('djs')
-            .select('id, stage_name, first_name, last_name, profile_image_url, music_genres, slug')
+            .from('djs_public')
+            .select('id, stage_name, first_name, last_name, profile_image_url, music_genres, slug, handle')
             .eq('is_active', true)
             .contains('music_genres', [variant])
             .limit(5);
@@ -563,6 +564,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
           profile_image_url: d.profile_image_url,
           music_genres: d.music_genres,
           slug: d.slug || null,
+          handle: d.handle || null,
         })),
         organizers: (organizersRes.data || []).map((o: any) => ({
           id: o.user_id,
@@ -913,7 +915,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
                       {getVisibleItems(results.djs, 'djs').map(d => (
                         <motion.button
                           key={d.id}
-                          onClick={() => handleNavigate(d.slug ? `/dj/${d.slug}` : '/')}
+                          onClick={() => handleNavigate((d.handle || d.slug) ? `/dj/${d.handle || d.slug}` : '/')}
                           className="flex w-full items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-card active:bg-muted"
                           variants={staggerItem}
                           whileTap={tapScale}
