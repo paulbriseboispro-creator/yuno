@@ -4,6 +4,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useDJData } from '@/contexts/DJDataContext';
 import { ChangePinFlow } from '@/components/ChangePinFlow';
 import { ProfilePhotoUpload } from '@/components/ProfilePhotoUpload';
+import { DJShareCard } from '@/components/dj/DJShareCard';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
@@ -55,6 +56,8 @@ export default function DJProfile() {
 
   if (!dj) return null;
   const displayName = dj.stage_name || `${dj.first_name} ${dj.last_name}`;
+  const BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu';
+  const epkUrl = dj.slug ? `${BASE_URL}/dj/${dj.slug}/epk` : undefined;
 
   const handleSave = async () => {
     if (!editForm.firstName || !editForm.lastName) {
@@ -126,6 +129,16 @@ export default function DJProfile() {
               </button>
             </div>
           </PCard>
+
+          {/* B2 — shareable press kit (EPK) for bookers */}
+          {epkUrl && (
+            <DJShareCard
+              shareUrl={epkUrl}
+              stageName={displayName}
+              title={t('dj.epk.shareTitle')}
+              subtitle={t('dj.epk.shareSubtitle')}
+            />
+          )}
 
           <PCard className="space-y-6">
             {/* Cover image */}

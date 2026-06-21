@@ -22,6 +22,9 @@ interface DJShareCardProps {
   stageName?: string;
   /** When set, share this event-scoped tracked link instead of the bare profile. */
   shareUrl?: string;
+  /** Override the default "share your profile" copy (e.g. for the EPK / press kit). */
+  title?: string;
+  subtitle?: string;
   className?: string;
 }
 
@@ -31,7 +34,7 @@ interface DJShareCardProps {
  * native share, and a downloadable QR for the booth/story. Reuses the public URL
  * the DJ can drop in their Instagram bio.
  */
-export function DJShareCard({ slug, stageName, shareUrl, className }: DJShareCardProps) {
+export function DJShareCard({ slug, stageName, shareUrl, title, subtitle, className }: DJShareCardProps) {
   const { t } = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [copied, setCopied] = useState(false);
@@ -102,9 +105,9 @@ export function DJShareCard({ slug, stageName, shareUrl, className }: DJShareCar
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="text-[15.5px] font-semibold leading-tight" style={{ color: T1, letterSpacing: '-0.01em' }}>
-            {t('dj.share.title')}
+            {title || t('dj.share.title')}
           </h3>
-          <p className="mt-0.5 text-xs" style={{ color: T3 }}>{t('dj.share.subtitle')}</p>
+          <p className="mt-0.5 text-xs" style={{ color: T3 }}>{subtitle || t('dj.share.subtitle')}</p>
 
           <div className="mt-3 flex items-center gap-2 rounded-xl px-3 py-2.5"
             style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>

@@ -78,6 +78,8 @@ interface DJDataValue {
   selectedVenueId: string;
   setSelectedVenueId: (id: string) => void;
   sets: DJSet[];
+  /** B1 — every gig across ALL of this DJ's venue + organizer profiles, one timeline. */
+  allSets: DJSet[];
   payments: DJPayment[];
   isProfileIncomplete: boolean;
   upcomingSets: DJSet[];
@@ -86,6 +88,7 @@ interface DJDataValue {
   chartData: { month: string; amount: number }[];
   refetchProfiles: () => Promise<void>;
   refetchSets: () => Promise<void>;
+  refetchAllSets: () => Promise<void>;
   refetchPayments: () => Promise<void>;
 }
 
@@ -108,6 +111,7 @@ export function DJDataProvider({ children }: { children: ReactNode }) {
   const [allDJProfiles, setAllDJProfiles] = useState<DJ[]>([]);
   const [selectedVenueId, setSelectedVenueId] = useState<string>('');
   const [sets, setSets] = useState<DJSet[]>([]);
+  const [allSets, setAllSets] = useState<DJSet[]>([]);
   const [payments, setPayments] = useState<DJPayment[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -182,6 +186,26 @@ export function DJDataProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // B1 — every gig the DJ has, across all their venue + organizer profiles, in one
+  // timeline. This is what makes Yuno the single place a multi-club DJ's schedule lives.
+  const fetchAllSets = async (profileIds: string[]) => {
+    if (!profileIds.length) {
+      setAllSets([]);
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('dj_sets')
+        .select('*, event:events(title), venue:venues(name, address)')
+        .in('dj_id', profileIds)
+        .order('start_time', { ascending: true });
+      if (error) throw error;
+      setAllSets(data || []);
+    } catch (error) {
+      console.error('Error fetching all sets:', error);
+    }
+  };
+
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/auth');
@@ -202,6 +226,11 @@ export function DJDataProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, dj.venue_id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dj?.id]);
+
+  // Unified agenda: refetch whenever the full set of DJ profiles changes.
+  useEffect(() => {
+    fetchAllSets(allDJProfiles.map(p => p.id));
+  }, [allDJProfiles]);
 
   const upcomingSets = useMemo(
     () => sets.filter(s => new Date(s.start_time) >= new Date()),
@@ -235,6 +264,7 @@ export function DJDataProvider({ children }: { children: ReactNode }) {
     selectedVenueId,
     setSelectedVenueId,
     sets,
+    allSets,
     payments,
     isProfileIncomplete,
     upcomingSets,
@@ -243,6 +273,7 @@ export function DJDataProvider({ children }: { children: ReactNode }) {
     chartData,
     refetchProfiles: fetchAllDJProfiles,
     refetchSets: async () => { if (dj) await fetchSets(dj.id); },
+    refetchAllSets: async () => { await fetchAllSets(allDJProfiles.map(p => p.id)); },
     refetchPayments: async () => { if (dj) await fetchPayments(dj.id); },
   };
 

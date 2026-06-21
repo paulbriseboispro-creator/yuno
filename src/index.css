@@ -697,3 +697,8 @@
 }
 .yuno-scan-line { animation: yuno-scan-line 2.2s ease-in-out infinite; }
 .yuno-qr-pulse  { animation: yuno-qr-pulse 1.5s ease-in-out infinite; }
+
+/* Print: hide interactive chrome so a DJ's EPK prints / saves to PDF cleanly. */
+@media print {
+  .no-print { display: none !important; }
+}

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
@@ -10,25 +11,57 @@ import {
   DJPage, DJHeading, ZoneHeading, PCard, Sparkline, Pill,
   POS, T1, T2, T3, WARN, INNER_BG, BORDER,
 } from '@/components/dj/dj-ui';
+import type { DJSet } from '@/contexts/DJDataContext';
 
 export default function DJOverview() {
   const { language, t } = useLanguage();
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
-  const { dj, sets, upcomingSets, pendingAmount, totalPaid, chartData, isProfileIncomplete } = useDJData();
+  // KPIs read the unified agenda (every venue + organizer profile this DJ has),
+  // not just the selected venue — otherwise a DJ whose upcoming gigs and earnings
+  // sit on another roster sees all zeros. Money is computed from the gig fees
+  // (fee_paid flag) which is where the real "paid / owed" signal lives.
+  const { dj, allSets, venues, isProfileIncomplete } = useDJData();
+
+  const multiVenue = venues.length > 1;
+
+  const upcoming = useMemo(
+    () => allSets.filter(s => new Date(s.start_time) >= new Date()),
+    [allSets],
+  );
+  const pending = useMemo(
+    () => allSets.filter(s => !s.fee_paid && s.fee > 0).reduce((sum, s) => sum + s.fee, 0),
+    [allSets],
+  );
+  const received = useMemo(
+    () => allSets.filter(s => s.fee_paid && s.fee > 0).reduce((sum, s) => sum + s.fee, 0),
+    [allSets],
+  );
+  // Monthly earnings series for the sparkline — paid gig fees grouped by gig month.
+  // allSets is ordered ascending by start_time, so insertion order is chronological.
+  const earnSeries = useMemo(() => {
+    const grouped: Record<string, number> = {};
+    allSets.filter(s => s.fee_paid && s.fee > 0).forEach(s => {
+      const m = format(new Date(s.start_time), 'MMM yyyy', { locale: dateLocale });
+      grouped[m] = (grouped[m] || 0) + s.fee;
+    });
+    return Object.values(grouped);
+  }, [allSets, dateLocale]);
 
   if (!dj) return null;
   const displayName = dj.stage_name || `${dj.first_name} ${dj.last_name}`;
 
   const kpis = [
-    { label: t('dj.upcomingSets'), val: String(upcomingSets.length), icon: <Calendar className="w-4 h-4" />, color: T1, spark: [] as number[] },
-    { label: t('dj.totalSets'), val: String(sets.length), icon: <Clock className="w-4 h-4" />, color: T1, spark: [] as number[] },
-    { label: t('dj.pending'), val: `${pendingAmount} €`, icon: <Euro className="w-4 h-4" />, color: pendingAmount > 0 ? WARN : T1, spark: [] as number[] },
-    { label: t('dj.totalReceived'), val: `${totalPaid} €`, icon: <TrendingUp className="w-4 h-4" />, color: totalPaid > 0 ? POS : T1, spark: chartData.map(d => d.amount) },
+    { label: t('dj.upcomingSets'), val: String(upcoming.length), icon: <Calendar className="w-4 h-4" />, color: T1, spark: [] as number[] },
+    { label: t('dj.totalSets'), val: String(allSets.length), icon: <Clock className="w-4 h-4" />, color: T1, spark: [] as number[] },
+    { label: t('dj.pending'), val: `${pending} €`, icon: <Euro className="w-4 h-4" />, color: pending > 0 ? WARN : T1, spark: [] as number[] },
+    { label: t('dj.totalReceived'), val: `${received} €`, icon: <TrendingUp className="w-4 h-4" />, color: received > 0 ? POS : T1, spark: earnSeries },
   ];
+
+  const venueLabel = (s: DJSet) => s.venue?.name || s.event?.title || t('dj.planning.booking');
 
   return (
     <DJPage>
-      <DJHeading title={displayName} subtitle={dj.venue?.name} />
+      <DJHeading title={displayName} subtitle={multiVenue ? t('dj.planning.allVenues') : dj.venue?.name} />
 
       {isProfileIncomplete && (
         <Link to="/dj/profile"
@@ -72,43 +105,42 @@ export default function DJOverview() {
       <PCard
         icon={<Calendar className="w-4 h-4" />}
         title={t('dj.upcomingSets')}
+        sub={multiVenue ? t('dj.planning.allVenues') : undefined}
         right={
           <Link to="/dj/planning" className="text-[13px] font-medium inline-flex items-center gap-1 transition-colors hover:text-white" style={{ color: T3 }}>
             {t('dj.mySchedule')}<ArrowRight className="h-3.5 w-3.5" />
           </Link>
         }
       >
-        {upcomingSets.length === 0 ? (
+        {upcoming.length === 0 ? (
           <p className="text-sm" style={{ color: T3 }}>{t('dj.noSets')}</p>
         ) : (
           <div className="space-y-2">
-            {upcomingSets.slice(0, 5).map((set, i) => (
+            {upcoming.slice(0, 5).map((set, i) => (
               <motion.div
                 key={set.id}
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.04 }}
-                className="rounded-xl p-3.5 space-y-2"
+                className="flex items-center justify-between gap-3 rounded-xl px-3.5 py-3"
                 style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}
               >
-                <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
                   <p className="font-[560] text-sm truncate" style={{ color: T1 }}>
-                    {set.event?.title || format(new Date(set.start_time), 'EEEE d MMMM', { locale: dateLocale })}
+                    {set.event?.title || set.title || format(new Date(set.start_time), 'EEEE d MMMM', { locale: dateLocale })}
                   </p>
-                  {set.fee > 0 && <Pill tone={set.fee_paid ? 'pos' : 'warn'}>{set.fee} € {set.fee_paid ? `· ${t('dj.paid')}` : ''}</Pill>}
-                </div>
-                <div className="flex items-center gap-2 text-sm" style={{ color: T2 }}>
-                  <Clock className="h-3.5 w-3.5" style={{ color: T3 }} />
-                  <span className="tabular-nums">{format(new Date(set.start_time), 'HH:mm')} - {format(new Date(set.end_time), 'HH:mm')}</span>
-                  {set.music_genre && <span style={{ color: T3 }}>• {set.music_genre}</span>}
-                </div>
-                {set.venue?.address && (
-                  <div className="flex items-center gap-2 text-sm" style={{ color: T2 }}>
-                    <MapPin className="h-3.5 w-3.5" style={{ color: T3 }} />
-                    {set.venue.address}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5 text-xs" style={{ color: T3 }}>
+                    <span className="inline-flex items-center gap-1 tabular-nums">
+                      <Clock className="h-3 w-3" />
+                      {format(new Date(set.start_time), 'EEE d MMM', { locale: dateLocale })} · {format(new Date(set.start_time), 'HH:mm')}
+                    </span>
+                    <span className="inline-flex items-center gap-1 truncate" style={{ color: T2 }}>
+                      <MapPin className="h-3 w-3" />
+                      {venueLabel(set)}
+                    </span>
                   </div>
-                )}
-                {set.notes && <p className="text-xs italic" style={{ color: T3 }}>{set.notes}</p>}
+                </div>
+                {set.fee > 0 && <Pill tone={set.fee_paid ? 'pos' : 'warn'}>{set.fee} €</Pill>}
               </motion.div>
             ))}
           </div>

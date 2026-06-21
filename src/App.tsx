@@ -131,6 +131,7 @@ const DJAudience = lazyWithRetry(() => import("./pages/dj-app/DJAudience"));
 const DJPayments = lazyWithRetry(() => import("./pages/dj-app/DJPayments"));
 const DJProfile = lazyWithRetry(() => import("./pages/dj-app/DJProfile"));
 const DJPublicPage = lazyWithRetry(() => import("./pages/DJPublicPage"));
+const DJEpkPage = lazyWithRetry(() => import("./pages/DJEpkPage"));
 const ManagerDashboardPage = lazyWithRetry(() => import("./pages/ManagerDashboard"));
 const VipHostDashboard = lazyWithRetry(() => import("./pages/VipHostDashboard"));
 const CloakroomDashboard = lazyWithRetry(() => import("./pages/CloakroomDashboard"));
@@ -412,6 +413,7 @@ const App = () => (
                 <Route path="/club/:slug/leaderboard" element={<VenueLeaderboard />} />
                 
                 {/* DJ public page */}
+                <Route path="/dj/:slug/epk" element={<DJEpkPage />} />
                 <Route path="/dj/:slug" element={<DJPublicPage />} />
                 
                 {/* Legacy /org/:slug removed — public organizer profile lives at /o/:slug */}
