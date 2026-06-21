@@ -1884,6 +1884,52 @@ export type Database = {
           },
         ]
       }
+      dj_lineup_notifications: {
+        Row: {
+          dj_id: string
+          event_id: string
+          id: string
+          sent_at: string
+          user_id: string
+        }
+        Insert: {
+          dj_id: string
+          event_id: string
+          id?: string
+          sent_at?: string
+          user_id: string
+        }
+        Update: {
+          dj_id?: string
+          event_id?: string
+          id?: string
+          sent_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dj_lineup_notifications_dj_id_fkey"
+            columns: ["dj_id"]
+            isOneToOne: false
+            referencedRelation: "djs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_lineup_notifications_dj_id_fkey"
+            columns: ["dj_id"]
+            isOneToOne: false
+            referencedRelation: "djs_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_lineup_notifications_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dj_payments: {
         Row: {
           amount: number
@@ -3187,6 +3233,7 @@ export type Database = {
           event_id: string | null
           favorite_type: string
           id: string
+          notify_all_locations: boolean
           user_id: string
           venue_id: string | null
         }
@@ -3199,6 +3246,7 @@ export type Database = {
           event_id?: string | null
           favorite_type: string
           id?: string
+          notify_all_locations?: boolean
           user_id: string
           venue_id?: string | null
         }
@@ -3211,6 +3259,7 @@ export type Database = {
           event_id?: string | null
           favorite_type?: string
           id?: string
+          notify_all_locations?: boolean
           user_id?: string
           venue_id?: string | null
         }
@@ -8237,6 +8286,7 @@ export type Database = {
           code: string
           created_at: string
           created_by: string
+          dj_id: string | null
           event_id: string | null
           id: string
           is_active: boolean
@@ -8256,6 +8306,7 @@ export type Database = {
           code: string
           created_at?: string
           created_by?: string
+          dj_id?: string | null
           event_id?: string | null
           id?: string
           is_active?: boolean
@@ -8275,6 +8326,7 @@ export type Database = {
           code?: string
           created_at?: string
           created_by?: string
+          dj_id?: string | null
           event_id?: string | null
           id?: string
           is_active?: boolean
@@ -8290,6 +8342,20 @@ export type Database = {
           venue_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "tracked_links_dj_id_fkey"
+            columns: ["dj_id"]
+            isOneToOne: false
+            referencedRelation: "djs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracked_links_dj_id_fkey"
+            columns: ["dj_id"]
+            isOneToOne: false
+            referencedRelation: "djs_public"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tracked_links_event_id_fkey"
             columns: ["event_id"]
@@ -9415,7 +9481,9 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean | null
+          max_mixers: number
           name: string
+          needs_mixer: boolean
           position: number | null
           price: number
           updated_at: string | null
@@ -9430,7 +9498,9 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          max_mixers?: number
           name: string
+          needs_mixer?: boolean
           position?: number | null
           price?: number
           updated_at?: string | null
@@ -9445,7 +9515,9 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean | null
+          max_mixers?: number
           name?: string
+          needs_mixer?: boolean
           position?: number | null
           price?: number
           updated_at?: string | null
@@ -10473,6 +10545,15 @@ export type Database = {
           ts: string
         }[]
       }
+      get_dj_lineup_notification_targets: {
+        Args: { p_dj_id: string; p_event_id: string }
+        Returns: {
+          auth: string
+          endpoint: string
+          p256dh: string
+          user_id: string
+        }[]
+      }
       get_event_managing_organizer: {
         Args: { _event_id: string }
         Returns: string
@@ -10582,6 +10663,7 @@ export type Database = {
       }
       get_tracked_link_stats: {
         Args: {
+          p_dj_id?: string
           p_event_id?: string
           p_organizer_user_id?: string
           p_owner_kind: string
@@ -10911,6 +10993,10 @@ export type Database = {
       resolve_venue_customer: {
         Args: { p_email: string; p_user_id: string; p_venue_id: string }
         Returns: string
+      }
+      seed_dj_event_tracked_link: {
+        Args: { p_dj_id: string; p_event_id: string }
+        Returns: undefined
       }
       seed_event_tracked_links: {
         Args: { p_event_id: string }
