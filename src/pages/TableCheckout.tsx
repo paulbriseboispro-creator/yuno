@@ -455,6 +455,16 @@ export default function TableCheckout() {
       if (user && phone.trim()) {
         await supabase.from('profiles').update({ phone: phone.trim() }).eq('id', user.id).is('phone', null);
       }
+
+      // Capture the buyer's name onto their profile if it's still empty (e.g. they
+      // signed up with just email + password). Guarded so we never overwrite an
+      // existing name.
+      if (user && fullName.trim()) {
+        const parts = fullName.trim().split(/\s+/);
+        const firstName = parts.shift() || '';
+        const lastName = parts.join(' ');
+        await supabase.from('profiles').update({ first_name: firstName, last_name: lastName || null }).eq('id', user.id).is('first_name', null);
+      }
       
       if (data?.testMode && data?.redirectUrl) {
         toast.success(t('tables.reservationSuccess') || 'Réservation confirmée !');

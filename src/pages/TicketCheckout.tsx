@@ -622,6 +622,21 @@ export default function TicketCheckout() {
           .is('phone', null);
       }
 
+      // Capture the buyer's name onto their profile if it's still empty (e.g. they
+      // signed up with just email + password). The single `fullName` field splits
+      // back into first/last; `.is('first_name', null)` guards against overwriting
+      // a name they already set.
+      if (user && attendees[0].fullName.trim()) {
+        const parts = attendees[0].fullName.trim().split(/\s+/);
+        const firstName = parts.shift() || '';
+        const lastName = parts.join(' ');
+        await supabase
+          .from('profiles')
+          .update({ first_name: firstName, last_name: lastName || null })
+          .eq('id', user.id)
+          .is('first_name', null);
+      }
+
       if (data?.testMode && data?.redirectUrl) {
         toast.success(t('tickets.purchaseSuccess'));
         window.location.href = data.redirectUrl;
