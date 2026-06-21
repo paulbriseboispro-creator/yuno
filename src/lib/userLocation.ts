@@ -17,6 +17,7 @@ export interface Coords {
 const MANUAL_COORDS_KEY = 'yuno_manual_coords';
 const MANUAL_CITY_KEY = 'yuno_manual_city';
 const CITY_KEY = 'yuno_city';
+const CITY_PERSISTED_KEY = 'yuno_city_persisted';
 
 /** Coords the visitor manually picked this session, or null. */
 export function getManualCoords(): Coords | null {
@@ -46,6 +47,30 @@ export function setManualLocation(city: string, coords?: Coords): void {
   localStorage.setItem(CITY_KEY, city);
   sessionStorage.setItem(MANUAL_CITY_KEY, city);
   if (coords) sessionStorage.setItem(MANUAL_COORDS_KEY, JSON.stringify(coords));
+  void persistCityToProfile(city);
+}
+
+/**
+ * A2 — best-effort write of the visitor's city to their profile so SERVER-side features
+ * (DJ line-up notifications, geo-filtered messaging) can target by location. The browser
+ * keeps location in localStorage; without this the DB never learns where a follower is, so
+ * the geo filter would match nobody. Guarded so it only writes when the city actually
+ * changed and a session exists. Never blocks the UX.
+ */
+export async function persistCityToProfile(city: string): Promise<void> {
+  try {
+    const c = (city || '').trim();
+    if (!c) return;
+    if (localStorage.getItem(CITY_PERSISTED_KEY) === c) return;
+    const { supabase } = await import('@/integrations/supabase/client');
+    const { data } = await supabase.auth.getSession();
+    const uid = data.session?.user?.id;
+    if (!uid) return;
+    const { error } = await supabase.from('profiles').update({ city: c }).eq('id', uid);
+    if (!error) localStorage.setItem(CITY_PERSISTED_KEY, c);
+  } catch {
+    /* best-effort: location persistence must never break discovery surfaces */
+  }
 }
 
 /** Clear the manual pick so both surfaces fall back to device GPS (used by "use my location"). */
@@ -57,6 +82,7 @@ export function clearManualLocation(): void {
 /** Remember the city resolved from GPS / profile. Stays in auto-mode (no manual flag set). */
 export function setResolvedCity(city: string): void {
   localStorage.setItem(CITY_KEY, city);
+  void persistCityToProfile(city);
 }
 
 /**

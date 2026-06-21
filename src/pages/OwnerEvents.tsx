@@ -11,6 +11,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { fr, es, enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { PARIS_TIMEZONE, toParisTime, fromParisTime, nowInParis } from '@/lib/timezone';
+import { notifyDjLineup } from '@/lib/djNotify';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
@@ -237,7 +238,10 @@ export default function OwnerEvents() {
     }
     if (savedId) {
       await supabase.from('event_djs').delete().eq('event_id', savedId);
-      if (lineupDJIds.length > 0) await supabase.from('event_djs').insert(lineupDJIds.map((djId) => ({ event_id: savedId!, dj_id: djId })));
+      if (lineupDJIds.length > 0) {
+        await supabase.from('event_djs').insert(lineupDJIds.map((djId) => ({ event_id: savedId!, dj_id: djId })));
+        notifyDjLineup(savedId, lineupDJIds);
+      }
     }
     toast.success(editingEvent ? t('owner.toastEventUpdated') : t('owner.toastEventCreated'));
   };
@@ -286,6 +290,9 @@ export default function OwnerEvents() {
         const oldDjIds = (oldDjs || []).map(d => d.dj_id).sort();
         await supabase.from('event_djs').delete().eq('event_id', editingEvent.id);
         if (lineupDJIds.length > 0) await supabase.from('event_djs').insert(lineupDJIds.map(djId => ({ event_id: editingEvent.id, dj_id: djId })));
+        // Notify followers only for DJs newly added to this line-up (not on every edit).
+        const addedDjIds = lineupDJIds.filter(id => !oldDjIds.includes(id));
+        if (addedDjIds.length > 0) notifyDjLineup(editingEvent.id, addedDjIds);
         const newDjIdsSorted = [...lineupDJIds].sort();
         const djsChanged = JSON.stringify(oldDjIds) !== JSON.stringify(newDjIdsSorted);
         const timeChanged = new Date(editingEvent.startAt).toISOString() !== startAtUTC || new Date(editingEvent.endAt).toISOString() !== endAtUTC;
@@ -308,7 +315,10 @@ export default function OwnerEvents() {
           venue_id: venueId, minors_disabled: minorsDisabled, music_genres: formData.musicGenres, event_type: formData.eventType,
         }).select('id').single();
         if (error) throw error;
-        if (newEvent && lineupDJIds.length > 0) await supabase.from('event_djs').insert(lineupDJIds.map(djId => ({ event_id: newEvent.id, dj_id: djId })));
+        if (newEvent && lineupDJIds.length > 0) {
+          await supabase.from('event_djs').insert(lineupDJIds.map(djId => ({ event_id: newEvent.id, dj_id: djId })));
+          notifyDjLineup(newEvent.id, lineupDJIds);
+        }
         toast.success(t('owner.toastEventCreated'));
       }
       setIsDialogOpen(false);

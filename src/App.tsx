@@ -124,7 +124,12 @@ const OwnerPartnerships = lazyWithRetry(() => import("./pages/OwnerPartnerships"
 const OwnerCollaborations = lazyWithRetry(() => import("./pages/OwnerCollaborations"));
 const OwnerCollabEventDashboard = lazyWithRetry(() => import("./pages/OwnerCollabEventDashboard"));
 const AcceptOrganizerInvitation = lazyWithRetry(() => import("./pages/AcceptOrganizerInvitation"));
-const DJDashboard = lazyWithRetry(() => import("./pages/DJDashboard"));
+const DJLayout = lazyWithRetry(() => import("./pages/dj-app/DJLayout"));
+const DJOverview = lazyWithRetry(() => import("./pages/dj-app/DJOverview"));
+const DJPlanning = lazyWithRetry(() => import("./pages/dj-app/DJPlanning"));
+const DJAudience = lazyWithRetry(() => import("./pages/dj-app/DJAudience"));
+const DJPayments = lazyWithRetry(() => import("./pages/dj-app/DJPayments"));
+const DJProfile = lazyWithRetry(() => import("./pages/dj-app/DJProfile"));
 const DJPublicPage = lazyWithRetry(() => import("./pages/DJPublicPage"));
 const ManagerDashboardPage = lazyWithRetry(() => import("./pages/ManagerDashboard"));
 const VipHostDashboard = lazyWithRetry(() => import("./pages/VipHostDashboard"));
@@ -617,12 +622,18 @@ const App = () => (
                   <Route path="drinks/:category" element={<CategoryDrinks />} />
                 </Route>
 
-                {/* DJ routes */}
+                {/* DJ app (sidebar layout + routed sections) */}
                 <Route path="/dj" element={
                   <DJRoute>
-                    <DJDashboard />
+                    <DJLayout />
                   </DJRoute>
-                } />
+                }>
+                  <Route index element={<DJOverview />} />
+                  <Route path="planning" element={<DJPlanning />} />
+                  <Route path="audience" element={<DJAudience />} />
+                  <Route path="payments" element={<DJPayments />} />
+                  <Route path="profile" element={<DJProfile />} />
+                </Route>
                 
                 {/* Cloakroom routes */}
                 <Route path="/cloakroom" element={

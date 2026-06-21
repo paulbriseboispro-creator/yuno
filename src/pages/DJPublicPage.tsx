@@ -10,6 +10,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { fr, es, enUS } from 'date-fns/locale';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { FavoriteButton } from '@/components/FavoriteButton';
+import { DJNotifyAllToggle } from '@/components/dj/DJNotifyAllToggle';
 import { BottomNav } from '@/components/BottomNav';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { toast } from 'sonner';
@@ -375,6 +376,9 @@ export default function DJPublicPage() {
               </span>
             )}
           </div>
+
+          {/* A2: superfan opt-in — only shows once the viewer follows this DJ */}
+          <DJNotifyAllToggle djId={dj.id} />
         </motion.div>
 
         {/* ===== GENRES — .genre-tag ===== */}

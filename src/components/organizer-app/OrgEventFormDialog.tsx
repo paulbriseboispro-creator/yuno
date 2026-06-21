@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { notifyDjLineup } from '@/lib/djNotify';
 import type { TablesUpdate } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
@@ -398,6 +399,7 @@ export function OrgEventFormDialog({
           await supabase
             .from('event_djs')
             .insert(lineupDJIds.map((djId) => ({ event_id: savedId!, dj_id: djId })));
+          notifyDjLineup(savedId, lineupDJIds);
         }
       }
 

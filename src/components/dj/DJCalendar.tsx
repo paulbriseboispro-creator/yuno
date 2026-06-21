@@ -1,11 +1,8 @@
-import { useState, useMemo } from 'react';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfYear, endOfYear, eachDayOfInterval, eachMonthOfInterval, eachWeekOfInterval, isSameDay, isSameMonth, addMonths, subMonths, addYears, subYears, addWeeks, subWeeks, addDays, subDays, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+import { useState } from 'react';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfYear, endOfYear, eachDayOfInterval, eachMonthOfInterval, isSameDay, isSameMonth, addMonths, subMonths, addYears, subYears, addWeeks, subWeeks, addDays, subDays, isWithinInterval } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Music, Plus, MapPin, Euro, User, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Music, Plus, MapPin, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -13,6 +10,21 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+
+// ─── Yuno Design Tokens ───────────────────────────────────────────────────────
+const RED       = '#E8192C';
+const POS       = '#34D399';
+const NEG       = '#FF5C63';
+const T1        = 'rgba(255,255,255,0.96)';
+const T2        = 'rgba(255,255,255,0.58)';
+const T3        = 'rgba(255,255,255,0.36)';
+const C_FAINT   = 'rgba(255,255,255,0.06)';
+const BORDER    = 'rgba(255,255,255,0.085)';
+const F_BORDER  = 'rgba(255,255,255,0.055)';
+const INNER_BG  = 'rgba(255,255,255,0.032)';
+const TILE_BG   = 'rgba(255,255,255,0.025)';
+const CARD_BG   = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
+const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
 
 type ViewMode = 'year' | 'month' | 'week' | 'day';
 
@@ -71,6 +83,20 @@ interface DJCalendarProps {
   canDeleteSets?: boolean;
 }
 
+// ─── Small pill ───────────────────────────────────────────────────────────────
+function Pill({ children, tone = 'default' }: { children: React.ReactNode; tone?: 'default' | 'pos' | 'warn' | 'accent' }) {
+  const style: React.CSSProperties =
+    tone === 'pos' ? { background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: POS }
+    : tone === 'warn' ? { background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.25)', color: '#FCD34D' }
+    : tone === 'accent' ? { background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.25)', color: RED }
+    : { background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 };
+  return (
+    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums" style={style}>
+      {children}
+    </span>
+  );
+}
+
 export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetClick, onDateClick, onAddSet, onDeleteSet, showDJNames = true, canAddSets = false, canDeleteSets = false }: DJCalendarProps) {
   const { t, language } = useLanguage();
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -82,7 +108,7 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
   const [selectedEventForSet, setSelectedEventForSet] = useState<Event | null>(null);
   const [setToDelete, setSetToDelete] = useState<DJSet | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  
+
   // Form state for adding a new set
   const [newSetDjId, setNewSetDjId] = useState('');
   const [newSetEventId, setNewSetEventId] = useState('');
@@ -91,7 +117,7 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
   const [newSetGenre, setNewSetGenre] = useState('');
   const [newSetFee, setNewSetFee] = useState('');
   const [newSetNotes, setNewSetNotes] = useState('');
-  
+
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
 
   const labels = {
@@ -143,11 +169,6 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
     });
   };
 
-  // Check if a date has any events
-  const dateHasEvent = (date: Date) => {
-    return getEventsForDate(date).length > 0;
-  };
-
   // Open event selection dialog first
   const handleOpenEventSelectDialog = () => {
     setShowEventSelectDialog(true);
@@ -157,7 +178,7 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
   const handleSelectEventForSet = (event: Event) => {
     const eventStart = new Date(event.startAt);
     const eventEnd = event.endAt ? new Date(event.endAt) : new Date(eventStart.getTime() + 6 * 60 * 60 * 1000); // Default 6h if no end
-    
+
     setSelectedEventForSet(event);
     setAddSetDate(eventStart);
     setNewSetDjId('');
@@ -172,43 +193,24 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
     setShowAddSetDialog(true);
   };
 
-  const handleOpenAddSet = (date: Date) => {
-    const dateEvents = getEventsForDate(date);
-    
-    // If no events on this date, show error
-    if (dateEvents.length === 0) {
-      return; // Will be handled by the button disable state
-    }
-    
-    // If only one event, directly open with that event
-    if (dateEvents.length === 1) {
-      handleSelectEventForSet(dateEvents[0]);
-      return;
-    }
-    
-    // Multiple events, let user pick
-    setAddSetDate(date);
-    handleOpenEventSelectDialog();
-  };
-
   const handleAddSet = async () => {
     if (!newSetDjId || !onAddSet) return;
-    
+
     setAddSetLoading(true);
     try {
       const startDateTime = new Date(addSetDate);
       const [startH, startM] = newSetStartTime.split(':').map(Number);
       startDateTime.setHours(startH, startM, 0, 0);
-      
+
       const endDateTime = new Date(addSetDate);
       const [endH, endM] = newSetEndTime.split(':').map(Number);
       endDateTime.setHours(endH, endM, 0, 0);
-      
+
       // If end time is before start time, it's the next day
       if (endDateTime <= startDateTime) {
         endDateTime.setDate(endDateTime.getDate() + 1);
       }
-      
+
       await onAddSet({
         dj_id: newSetDjId,
         event_id: newSetEventId, // Now required
@@ -218,7 +220,7 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
         fee: parseFloat(newSetFee) || 0,
         notes: newSetNotes || undefined,
       });
-      
+
       setShowAddSetDialog(false);
     } catch (error) {
       console.error('Error adding set:', error);
@@ -229,7 +231,7 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
 
   const handleDeleteSet = async () => {
     if (!setToDelete || !onDeleteSet) return;
-    
+
     setDeleteLoading(true);
     try {
       await onDeleteSet(setToDelete.id);
@@ -251,44 +253,37 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
         return format(currentDate, 'yyyy', { locale: dateLocale });
       case 'month':
         return format(currentDate, 'MMMM yyyy', { locale: dateLocale });
-      case 'week':
+      case 'week': {
         const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
         const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
         return `${format(weekStart, 'd', { locale: dateLocale })} - ${format(weekEnd, 'd MMMM yyyy', { locale: dateLocale })}`;
+      }
       case 'day':
         return format(currentDate, 'EEEE d MMMM yyyy', { locale: dateLocale });
     }
   };
 
+  const setChipLabel = (set: DJSet) =>
+    showDJNames && set.dj ? (set.dj.stage_name || `${set.dj.first_name} ${set.dj.last_name}`) : format(new Date(set.start_time), 'HH:mm');
+
   const renderYearView = () => {
-    const months = eachMonthOfInterval({
-      start: startOfYear(currentDate),
-      end: endOfYear(currentDate),
-    });
+    const months = eachMonthOfInterval({ start: startOfYear(currentDate), end: endOfYear(currentDate) });
 
     return (
       <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
         {months.map(month => {
           const monthSets = getSetsInRange(startOfMonth(month), endOfMonth(month));
+          const isCurrent = isSameMonth(month, new Date());
           return (
-            <Card
+            <button
               key={month.toISOString()}
-              className={cn(
-                "p-3 cursor-pointer hover:bg-muted/50 transition-colors",
-                isSameMonth(month, new Date()) && "ring-2 ring-primary"
-              )}
-              onClick={() => {
-                setCurrentDate(month);
-                setViewMode('month');
-              }}
+              onClick={() => { setCurrentDate(month); setViewMode('month'); }}
+              className="text-left rounded-xl p-3 cursor-pointer transition-all duration-150 hover:bg-white/[0.05]"
+              style={{ background: TILE_BG, border: isCurrent ? `1px solid rgba(232,25,44,0.4)` : `1px solid ${BORDER}` }}
             >
-              <p className="font-medium text-sm">{format(month, 'MMMM', { locale: dateLocale })}</p>
-              {monthSets.length > 0 && (
-                <Badge variant="secondary" className="mt-1 text-xs">
-                  {monthSets.length} sets
-                </Badge>
-              )}
-            </Card>
+              <p className="text-sm font-[560] capitalize" style={{ color: T1 }}>{format(month, 'MMMM', { locale: dateLocale })}</p>
+              {monthSets.length > 0 && <div className="mt-1.5"><Pill tone="accent">{monthSets.length} sets</Pill></div>}
+            </button>
           );
         })}
       </div>
@@ -300,7 +295,7 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
     const monthEnd = endOfMonth(currentDate);
     const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
     const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
-    
+
     const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
     const weekDays = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
@@ -308,9 +303,7 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
       <div>
         <div className="grid grid-cols-7 gap-1 mb-2">
           {weekDays.map((day, i) => (
-            <div key={i} className="text-center text-xs text-muted-foreground font-medium py-2">
-              {day}
-            </div>
+            <div key={i} className="text-center text-[11px] font-semibold py-2" style={{ color: T3 }}>{day}</div>
           ))}
         </div>
         <div className="grid grid-cols-7 gap-1">
@@ -322,40 +315,28 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
             return (
               <div
                 key={day.toISOString()}
-                className={cn(
-                  "min-h-[80px] p-1 rounded-lg cursor-pointer transition-colors",
-                  isCurrentMonth ? "bg-muted/30" : "bg-muted/10",
-                  isToday && "ring-2 ring-primary",
-                  "hover:bg-muted/50"
-                )}
-                onClick={() => {
-                  setCurrentDate(day);
-                  onDateClick?.(day);
-                  setViewMode('day');
+                onClick={() => { setCurrentDate(day); onDateClick?.(day); setViewMode('day'); }}
+                className="min-h-[80px] p-1.5 rounded-lg cursor-pointer transition-colors duration-150 hover:bg-white/[0.05]"
+                style={{
+                  background: isCurrentMonth ? TILE_BG : 'transparent',
+                  border: isToday ? `1px solid rgba(232,25,44,0.45)` : `1px solid ${F_BORDER}`,
                 }}
               >
-                <p className={cn(
-                  "text-sm font-medium mb-1",
-                  !isCurrentMonth && "text-muted-foreground"
-                )}>
+                <p className="text-[13px] font-[560] mb-1 tabular-nums" style={{ color: isCurrentMonth ? (isToday ? RED : T1) : T3 }}>
                   {format(day, 'd')}
                 </p>
                 <div className="space-y-0.5 overflow-hidden">
                   {daySets.slice(0, 2).map(set => (
                     <div
                       key={set.id}
-                      className="text-[10px] bg-primary/20 text-primary rounded px-1 py-0.5 truncate cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onSetClick?.(set);
-                      }}
+                      onClick={(e) => { e.stopPropagation(); onSetClick?.(set); }}
+                      className="text-[10px] rounded px-1 py-0.5 truncate cursor-pointer tabular-nums"
+                      style={{ background: 'rgba(232,25,44,0.16)', color: '#FF8A93' }}
                     >
-                      {showDJNames && set.dj ? (set.dj.stage_name || `${set.dj.first_name} ${set.dj.last_name}`) : format(new Date(set.start_time), 'HH:mm')}
+                      {setChipLabel(set)}
                     </div>
                   ))}
-                  {daySets.length > 2 && (
-                    <p className="text-[10px] text-muted-foreground">+{daySets.length - 2}</p>
-                  )}
+                  {daySets.length > 2 && <p className="text-[10px]" style={{ color: T3 }}>+{daySets.length - 2}</p>}
                 </div>
               </div>
             );
@@ -377,44 +358,39 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
           {/* Header */}
           <div className="grid grid-cols-8 gap-1 mb-2">
             <div className="w-16" />
-            {days.map(day => (
-              <div
-                key={day.toISOString()}
-                className={cn(
-                  "text-center p-2 rounded-lg cursor-pointer",
-                  isSameDay(day, new Date()) && "bg-primary text-primary-foreground"
-                )}
-                onClick={() => {
-                  setCurrentDate(day);
-                  setViewMode('day');
-                }}
-              >
-                <p className="text-xs font-medium">{format(day, 'EEE', { locale: dateLocale })}</p>
-                <p className="text-lg font-bold">{format(day, 'd')}</p>
-              </div>
-            ))}
+            {days.map(day => {
+              const isToday = isSameDay(day, new Date());
+              return (
+                <button
+                  key={day.toISOString()}
+                  onClick={() => { setCurrentDate(day); setViewMode('day'); }}
+                  className="text-center p-2 rounded-lg cursor-pointer transition-colors duration-150 hover:bg-white/[0.05]"
+                  style={isToday ? { background: RED } : { background: TILE_BG, border: `1px solid ${F_BORDER}` }}
+                >
+                  <p className="text-[11px] font-medium capitalize" style={{ color: isToday ? '#fff' : T3 }}>{format(day, 'EEE', { locale: dateLocale })}</p>
+                  <p className="text-lg font-[640] tabular-nums" style={{ color: isToday ? '#fff' : T1 }}>{format(day, 'd')}</p>
+                </button>
+              );
+            })}
           </div>
 
           {/* Time slots */}
           <div className="relative">
             {hours.map(hour => (
-              <div key={hour} className="grid grid-cols-8 gap-1 h-12 border-t border-border/50">
-                <div className="w-16 text-xs text-muted-foreground flex items-start justify-end pr-2 pt-1">
+              <div key={hour} className="grid grid-cols-8 gap-1 h-12" style={{ borderTop: `1px solid ${F_BORDER}` }}>
+                <div className="w-16 text-[11px] flex items-start justify-end pr-2 pt-1 tabular-nums" style={{ color: T3 }}>
                   {hour.toString().padStart(2, '0')}:00
                 </div>
                 {days.map(day => {
-                  const dayHourSets = getSetsForDate(day).filter(set => {
-                    const setHour = new Date(set.start_time).getHours();
-                    return setHour === hour;
-                  });
-
+                  const dayHourSets = getSetsForDate(day).filter(set => new Date(set.start_time).getHours() === hour);
                   return (
                     <div key={`${day.toISOString()}-${hour}`} className="relative">
                       {dayHourSets.map(set => (
                         <div
                           key={set.id}
-                          className="absolute inset-x-0 top-0 bg-primary/80 text-primary-foreground rounded px-1 py-0.5 text-[10px] truncate cursor-pointer hover:bg-primary z-10"
                           onClick={() => onSetClick?.(set)}
+                          className="absolute inset-x-0 top-0 rounded px-1 py-0.5 text-[10px] truncate cursor-pointer z-10 transition-opacity hover:opacity-90"
+                          style={{ background: RED, color: '#fff' }}
                         >
                           {showDJNames && set.dj ? (set.dj.stage_name || set.dj.first_name) : format(new Date(set.start_time), 'HH:mm')}
                         </div>
@@ -448,21 +424,20 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
 
               return (
                 <div key={hour} className="flex gap-2 h-10">
-                  <div className="w-12 text-xs text-muted-foreground flex items-center justify-end pr-2">
+                  <div className="w-12 text-[11px] flex items-center justify-end pr-2 tabular-nums" style={{ color: T3 }}>
                     {hour.toString().padStart(2, '0')}:00
                   </div>
-                  <div className="flex-1 relative border-l border-border/50 pl-2">
+                  <div className="flex-1 relative pl-2" style={{ borderLeft: `1px solid ${F_BORDER}` }}>
                     {hourSets.map(set => (
                       <div
                         key={set.id}
-                        className="absolute inset-y-0 left-2 right-0 bg-primary/80 text-primary-foreground rounded px-2 flex items-center text-sm cursor-pointer hover:bg-primary"
                         onClick={() => onSetClick?.(set)}
+                        className="absolute inset-y-0 left-2 right-0 rounded px-2 flex items-center text-sm cursor-pointer transition-opacity hover:opacity-90"
+                        style={{ background: RED, color: '#fff' }}
                       >
                         <Music className="h-3 w-3 mr-1" />
-                        {showDJNames && set.dj ? (set.dj.stage_name || `${set.dj.first_name} ${set.dj.last_name}`) : set.title}
-                        {set.music_genre && (
-                          <Badge variant="secondary" className="ml-2 text-[10px]">{set.music_genre}</Badge>
-                        )}
+                        <span className="truncate">{showDJNames && set.dj ? (set.dj.stage_name || `${set.dj.first_name} ${set.dj.last_name}`) : set.title}</span>
+                        {set.music_genre && <span className="ml-2"><Pill>{set.music_genre}</Pill></span>}
                       </div>
                     ))}
                   </div>
@@ -473,68 +448,50 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
 
           {/* Sets list */}
           <div className="space-y-2">
-            <h3 className="font-semibold text-sm">{t('djCalendar.daySets')}</h3>
+            <h3 className="text-sm font-semibold" style={{ color: T1 }}>{t('djCalendar.daySets')}</h3>
             {daySets.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('djCalendar.noSetsScheduled')}</p>
+              <p className="text-sm" style={{ color: T3 }}>{t('djCalendar.noSetsScheduled')}</p>
             ) : (
               daySets.map(set => (
-                <Card
-                  key={set.id}
-                  className="p-3 hover:bg-muted/50"
-                >
+                <div key={set.id} className="rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
                   <div className="flex items-start gap-3">
                     {set.dj?.profile_image_url ? (
-                      <img 
-                        src={set.dj.profile_image_url} 
-                        alt="" 
-                        className="w-10 h-10 rounded-full object-cover cursor-pointer" 
-                        onClick={() => onSetClick?.(set)}
-                      />
+                      <img src={set.dj.profile_image_url} alt="" className="w-10 h-10 rounded-full object-cover cursor-pointer flex-none" onClick={() => onSetClick?.(set)} />
                     ) : (
-                      <div 
-                        className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center cursor-pointer"
-                        onClick={() => onSetClick?.(set)}
-                      >
-                        <Music className="h-5 w-5 text-primary" />
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center cursor-pointer flex-none"
+                        style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }} onClick={() => onSetClick?.(set)}>
+                        <Music className="h-5 w-5" style={{ color: RED }} />
                       </div>
                     )}
                     <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onSetClick?.(set)}>
-                      <p className="font-medium truncate">
+                      <p className="font-[560] truncate" style={{ color: T1 }}>
                         {set.dj ? (set.dj.stage_name || `${set.dj.first_name} ${set.dj.last_name}`) : set.title}
                       </p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
+                      <div className="flex items-center gap-2 text-xs tabular-nums" style={{ color: T2 }}>
+                        <Clock className="h-3 w-3" style={{ color: T3 }} />
                         {format(new Date(set.start_time), 'HH:mm')} - {format(new Date(set.end_time), 'HH:mm')}
                       </div>
-                      {set.music_genre && (
-                        <Badge variant="outline" className="mt-1 text-[10px]">{set.music_genre}</Badge>
-                      )}
+                      {set.music_genre && <div className="mt-1"><Pill>{set.music_genre}</Pill></div>}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-none">
                       {set.fee > 0 && (
                         <div className="text-right">
-                          <p className="font-semibold">{set.fee} €</p>
-                          <Badge variant={set.fee_paid ? "default" : "destructive"} className="text-[10px]">
-                            {set.fee_paid ? (t('ownerDj.paid')) : (t('ownerDj.pending'))}
-                          </Badge>
+                          <p className="font-[640] tabular-nums" style={{ color: T1 }}>{set.fee} €</p>
+                          <Pill tone={set.fee_paid ? 'pos' : 'warn'}>{set.fee_paid ? t('ownerDj.paid') : t('ownerDj.pending')}</Pill>
                         </div>
                       )}
                       {canDeleteSets && isUpcomingSet(set) && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSetToDelete(set);
-                          }}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setSetToDelete(set); }}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg cursor-pointer transition-colors hover:bg-white/[0.06]"
+                          style={{ color: NEG }}
                         >
                           <Trash2 className="h-4 w-4" />
-                        </Button>
+                        </button>
                       )}
                     </div>
                   </div>
-                </Card>
+                </div>
               ))
             )}
           </div>
@@ -548,106 +505,107 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
       {/* Navigation */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => navigate('prev')}>
+          <button onClick={() => navigate('prev')}
+            className="flex h-9 w-9 items-center justify-center rounded-xl cursor-pointer transition-colors hover:bg-white/[0.06]"
+            style={{ background: TILE_BG, border: `1px solid ${BORDER}`, color: T2 }}>
             <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <h2 className="text-lg font-semibold min-w-[200px] text-center capitalize">{getTitle()}</h2>
-          <Button variant="outline" size="icon" onClick={() => navigate('next')}>
+          </button>
+          <h2 className="text-base font-semibold min-w-[180px] text-center capitalize" style={{ color: T1, letterSpacing: '-0.01em' }}>{getTitle()}</h2>
+          <button onClick={() => navigate('next')}
+            className="flex h-9 w-9 items-center justify-center rounded-xl cursor-pointer transition-colors hover:bg-white/[0.06]"
+            style={{ background: TILE_BG, border: `1px solid ${BORDER}`, color: T2 }}>
             <ChevronRight className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={goToToday}>
+          </button>
+          <button onClick={goToToday}
+            className="rounded-xl px-3 py-1.5 text-[13px] font-medium cursor-pointer transition-colors hover:bg-white/[0.06]"
+            style={{ color: T2 }}>
             {labels.today}
-          </Button>
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
           {canAddSets && events.length > 0 && (
-            <Button 
-              size="sm" 
-              onClick={handleOpenEventSelectDialog}
-            >
-              <Plus className="h-4 w-4 mr-2" />
+            <button onClick={handleOpenEventSelectDialog}
+              className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13px] font-semibold cursor-pointer transition-all duration-150"
+              style={{ background: RED, color: '#fff', boxShadow: `0 0 16px -5px ${RED}88` }}>
+              <Plus className="h-4 w-4" />
               {t('djCalendar.addDjSet')}
-            </Button>
+            </button>
           )}
-          <div className="flex gap-1">
+          {/* View-mode segment control */}
+          <div className="inline-flex gap-0.5 p-1 rounded-xl" style={{ background: TILE_BG, border: `1px solid ${BORDER}` }}>
             {(['year', 'month', 'week', 'day'] as ViewMode[]).map(mode => (
-              <Button
+              <button
                 key={mode}
-                variant={viewMode === mode ? "default" : "ghost"}
-                size="sm"
                 onClick={() => setViewMode(mode)}
+                className="px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer transition-all duration-150"
+                style={viewMode === mode
+                  ? { color: T1, background: 'linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.07))', boxShadow: '0 1px 0 rgba(255,255,255,.08) inset,0 4px 10px -6px #000' }
+                  : { color: T3 }}
               >
                 {labels[mode]}
-              </Button>
+              </button>
             ))}
           </div>
         </div>
       </div>
 
       {/* View content */}
-      <Card className="p-4">
+      <div className="overflow-hidden" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 18 }}>
         {viewMode === 'year' && renderYearView()}
         {viewMode === 'month' && renderMonthView()}
         {viewMode === 'week' && renderWeekView()}
         {viewMode === 'day' && renderDayView()}
-      </Card>
+      </div>
 
       {/* Event Selection Dialog - First step */}
       <Dialog open={showEventSelectDialog} onOpenChange={setShowEventSelectDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {t('djCalendar.selectEventTitle')}
-            </DialogTitle>
+            <DialogTitle>{t('djCalendar.selectEventTitle')}</DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-2 py-2 max-h-[400px] overflow-y-auto">
-            <p className="text-sm text-muted-foreground mb-3">
-              {t('djCalendar.selectEventDesc')}
-            </p>
+            <p className="text-sm mb-3" style={{ color: T3 }}>{t('djCalendar.selectEventDesc')}</p>
             {events.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                {t('djCalendar.noEventsAvailable')}
-              </p>
+              <p className="text-sm text-center py-4" style={{ color: T3 }}>{t('djCalendar.noEventsAvailable')}</p>
             ) : (
               events
                 .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
                 .map(event => {
                   const eventDate = new Date(event.startAt);
                   const eventEnd = event.endAt ? new Date(event.endAt) : null;
-                  
                   return (
-                    <Card
+                    <button
                       key={event.id}
-                      className="p-3 cursor-pointer hover:bg-muted/50 transition-colors"
                       onClick={() => handleSelectEventForSet(event)}
+                      className="w-full text-left rounded-xl p-3 cursor-pointer transition-colors duration-150 hover:bg-white/[0.05]"
+                      style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="flex-shrink-0 w-12 h-12 bg-primary/10 rounded-lg flex flex-col items-center justify-center">
-                          <span className="text-xs text-muted-foreground">{format(eventDate, 'MMM', { locale: dateLocale })}</span>
-                          <span className="text-lg font-bold text-primary">{format(eventDate, 'd')}</span>
+                        <div className="flex-shrink-0 w-12 h-12 rounded-lg flex flex-col items-center justify-center"
+                          style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}>
+                          <span className="text-[10px] uppercase" style={{ color: T3 }}>{format(eventDate, 'MMM', { locale: dateLocale })}</span>
+                          <span className="text-lg font-[640] tabular-nums" style={{ color: RED }}>{format(eventDate, 'd')}</span>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{event.title}</p>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <p className="font-[560] truncate" style={{ color: T1 }}>{event.title}</p>
+                          <div className="flex items-center gap-2 text-xs tabular-nums" style={{ color: T3 }}>
                             <Clock className="h-3 w-3" />
                             {format(eventDate, 'HH:mm')}
                             {eventEnd && ` - ${format(eventEnd, 'HH:mm')}`}
                           </div>
                         </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        <ChevronRight className="h-4 w-4" style={{ color: T3 }} />
                       </div>
-                    </Card>
+                    </button>
                   );
                 })
             )}
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEventSelectDialog(false)}>
-              {t('djCalendar.cancelBtn')}
-            </Button>
+            <Button variant="outline" onClick={() => setShowEventSelectDialog(false)}>{t('djCalendar.cancelBtn')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -656,20 +614,18 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
       <Dialog open={showAddSetDialog} onOpenChange={setShowAddSetDialog}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              {t('djCalendar.addDJSetTitle')}
-            </DialogTitle>
+            <DialogTitle>{t('djCalendar.addDJSetTitle')}</DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-2">
             {/* Event info banner */}
             {selectedEventForSet && (
-              <div className="p-3 bg-primary/10 border border-primary/20 rounded-lg">
+              <div className="p-3 rounded-xl" style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.2)' }}>
                 <div className="flex items-center gap-3">
-                  <CalendarIcon className="h-5 w-5 text-primary" />
+                  <CalendarIcon className="h-5 w-5" style={{ color: RED }} />
                   <div>
-                    <p className="font-medium text-primary">{selectedEventForSet.title}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="font-[560]" style={{ color: RED }}>{selectedEventForSet.title}</p>
+                    <p className="text-xs tabular-nums" style={{ color: T3 }}>
                       {format(new Date(selectedEventForSet.startAt), 'EEEE d MMMM yyyy', { locale: dateLocale })}
                       {' • '}
                       {format(new Date(selectedEventForSet.startAt), 'HH:mm')}
@@ -699,48 +655,29 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>{t('djCalendar.startTimeLabel')}</Label>
-                <Input
-                  type="time"
-                  value={newSetStartTime}
-                  onChange={(e) => setNewSetStartTime(e.target.value)}
-                />
-                <p className="text-[10px] text-muted-foreground mt-1">
-                  {t('djCalendar.withinRange')}
-                </p>
+                <Input type="time" value={newSetStartTime} onChange={(e) => setNewSetStartTime(e.target.value)} />
+                <p className="text-[10px] mt-1" style={{ color: T3 }}>{t('djCalendar.withinRange')}</p>
               </div>
               <div>
                 <Label>{t('djCalendar.endTimeLabel')}</Label>
-                <Input
-                  type="time"
-                  value={newSetEndTime}
-                  onChange={(e) => setNewSetEndTime(e.target.value)}
-                />
+                <Input type="time" value={newSetEndTime} onChange={(e) => setNewSetEndTime(e.target.value)} />
               </div>
             </div>
 
             <div>
               <Label>{t('djCalendar.musicGenre')}</Label>
-              <Input
-                value={newSetGenre}
-                onChange={(e) => setNewSetGenre(e.target.value)}
-                placeholder="House, Techno, Hip-Hop..."
-              />
+              <Input value={newSetGenre} onChange={(e) => setNewSetGenre(e.target.value)} placeholder="House, Techno, Hip-Hop..." />
             </div>
 
             <div>
               <Label>{t('djCalendar.feeEuro')}</Label>
-              <Input
-                type="number"
-                value={newSetFee}
-                onChange={(e) => setNewSetFee(e.target.value)}
-                placeholder="0"
-              />
+              <Input type="number" value={newSetFee} onChange={(e) => setNewSetFee(e.target.value)} placeholder="0" />
             </div>
 
             {venueAddress && (
-              <div className="p-3 bg-muted rounded-lg">
-                <div className="flex items-center gap-2 text-sm">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
+              <div className="p-3 rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+                <div className="flex items-center gap-2 text-sm" style={{ color: T2 }}>
+                  <MapPin className="h-4 w-4" style={{ color: T3 }} />
                   <span>{venueAddress}</span>
                 </div>
               </div>
@@ -748,20 +685,13 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
 
             <div>
               <Label>{t('djCalendar.notes')}</Label>
-              <Textarea
-                value={newSetNotes}
-                onChange={(e) => setNewSetNotes(e.target.value)}
-                placeholder={t('djCalendar.notesPlaceholderAlt')}
-                rows={2}
-              />
+              <Textarea value={newSetNotes} onChange={(e) => setNewSetNotes(e.target.value)} placeholder={t('djCalendar.notesPlaceholderAlt')} rows={2} />
             </div>
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setShowAddSetDialog(false)}>
-              {t('djCalendar.cancelBtn')}
-            </Button>
-            <Button onClick={handleAddSet} disabled={!newSetDjId || !newSetEventId || addSetLoading}>
+            <Button variant="outline" onClick={() => setShowAddSetDialog(false)}>{t('djCalendar.cancelBtn')}</Button>
+            <Button onClick={handleAddSet} disabled={!newSetDjId || !newSetEventId || addSetLoading} style={{ background: RED, color: '#fff' }}>
               {addSetLoading ? '...' : t('djCalendar.addBtn')}
             </Button>
           </DialogFooter>
@@ -772,52 +702,41 @@ export function DJCalendar({ sets, djs = [], events = [], venueAddress, onSetCli
       <AlertDialog open={!!setToDelete} onOpenChange={(open) => !open && setSetToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t('djCalendar.deleteSetTitle')}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {setToDelete && (
-                <>
-                  <span className="block font-medium text-foreground">
-                    {setToDelete.dj 
-                      ? (setToDelete.dj.stage_name || `${setToDelete.dj.first_name} ${setToDelete.dj.last_name}`)
-                      : setToDelete.title
-                    }
-                  </span>
-                  <span className="block text-sm">
-                    {format(new Date(setToDelete.start_time), 'EEEE d MMMM yyyy', { locale: dateLocale })}
-                    {' • '}
-                    {format(new Date(setToDelete.start_time), 'HH:mm')} - {format(new Date(setToDelete.end_time), 'HH:mm')}
-                  </span>
-                  {setToDelete.fee > 0 && (
-                    <span className="block text-sm mt-2">
-                      {t('djCalendar.feeDisplay')}: {setToDelete.fee} €
-                      {!setToDelete.fee_paid && (
-                        <span className="text-orange-500 ml-2">
-                          ({t('djCalendar.unpaidLabel')})
-                        </span>
-                      )}
+            <AlertDialogTitle>{t('djCalendar.deleteSetTitle')}</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div>
+                {setToDelete && (
+                  <>
+                    <span className="block font-[560]" style={{ color: T1 }}>
+                      {setToDelete.dj
+                        ? (setToDelete.dj.stage_name || `${setToDelete.dj.first_name} ${setToDelete.dj.last_name}`)
+                        : setToDelete.title}
                     </span>
-                  )}
-                </>
-              )}
-              <span className="block mt-3 text-muted-foreground">
-                {t('djCalendar.deleteSetDesc')}
-              </span>
+                    <span className="block text-sm tabular-nums" style={{ color: T2 }}>
+                      {format(new Date(setToDelete.start_time), 'EEEE d MMMM yyyy', { locale: dateLocale })}
+                      {' • '}
+                      {format(new Date(setToDelete.start_time), 'HH:mm')} - {format(new Date(setToDelete.end_time), 'HH:mm')}
+                    </span>
+                    {setToDelete.fee > 0 && (
+                      <span className="block text-sm mt-2 tabular-nums" style={{ color: T2 }}>
+                        {t('djCalendar.feeDisplay')}: {setToDelete.fee} €
+                        {!setToDelete.fee_paid && <span className="ml-2" style={{ color: '#FCD34D' }}>({t('djCalendar.unpaidLabel')})</span>}
+                      </span>
+                    )}
+                  </>
+                )}
+                <span className="block mt-3" style={{ color: T3 }}>{t('djCalendar.deleteSetDesc')}</span>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteLoading}>
-              {t('djCalendar.cancelBtn')}
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteLoading}>{t('djCalendar.cancelBtn')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteSet}
               disabled={deleteLoading}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleteLoading 
-                ? t('djCalendar.deletingLabel') 
-                : t('djCalendar.deleteBtn')}
+              {deleteLoading ? t('djCalendar.deletingLabel') : t('djCalendar.deleteBtn')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
