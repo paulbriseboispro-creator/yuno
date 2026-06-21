@@ -174,6 +174,62 @@ async function sendToSubscription(
 }
 
 const APP_BASE_URL = 'https://yunoapp.eu';
+const EMAIL_DOMAIN = Deno.env.get('EMAIL_DOMAIN') || 'yunoapp.eu';
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+
+// Inline dark email for "your followed DJ is playing in your city".
+// No shared template dependency — keeps this function self-contained.
+function buildDjLineupEmail(opts: {
+  lang: string; djName: string; djPhoto: string | null | undefined;
+  eventTitle: string | null; dateStr: string; city: string | null;
+  eventUrl: string; firstName: string | null | undefined; unsubscribeToken: string | null | undefined;
+}): string {
+  const { lang, djName, djPhoto, eventTitle, dateStr, city, eventUrl, firstName, unsubscribeToken } = opts;
+  const greeting = firstName ? (lang === 'fr' ? `Salut ${firstName} 👋` : lang === 'es' ? `Hola ${firstName} 👋` : `Hey ${firstName} 👋`) : '👋';
+  const headline = lang === 'fr'
+    ? `<strong>${djName}</strong> mixe dans ta ville`
+    : lang === 'es'
+    ? `<strong>${djName}</strong> pincha en tu ciudad`
+    : `<strong>${djName}</strong> is playing in your city`;
+  const sub = city && dateStr ? `${city} · ${dateStr}` : (city || dateStr || '');
+  const ctaLabel = lang === 'fr' ? 'Voir la soirée' : lang === 'es' ? 'Ver el evento' : 'See the event';
+  const unsub = lang === 'fr' ? 'Se désabonner' : lang === 'es' ? 'Cancelar suscripción' : 'Unsubscribe';
+  const unsubUrl = unsubscribeToken ? `${APP_BASE_URL}/unsubscribe?token=${unsubscribeToken}` : `${APP_BASE_URL}/unsubscribe`;
+
+  const photoBlock = djPhoto
+    ? `<img src="${djPhoto}" alt="${djName}" width="80" height="80" style="border-radius:50%;object-fit:cover;display:block;margin:0 auto 16px;" />`
+    : `<div style="width:80px;height:80px;border-radius:50%;background:#1a1a1a;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:32px;line-height:80px;text-align:center;">🎧</div>`;
+
+  return `<!DOCTYPE html>
+<html lang="${lang}">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="100%" style="max-width:480px;background:#111111;border-radius:16px;overflow:hidden;">
+        <!-- Header -->
+        <tr><td style="padding:32px 32px 24px;text-align:center;border-bottom:1px solid #222;">
+          <span style="color:#ef4444;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;">YUNO</span>
+        </td></tr>
+        <!-- Body -->
+        <tr><td style="padding:32px;text-align:center;">
+          ${photoBlock}
+          <p style="color:#9ca3af;font-size:14px;margin:0 0 12px;">${greeting}</p>
+          <p style="color:#ffffff;font-size:22px;font-weight:700;margin:0 0 8px;line-height:1.3;">${headline}</p>
+          ${sub ? `<p style="color:#6b7280;font-size:14px;margin:0 0 24px;">${sub}</p>` : '<div style="height:24px;"></div>'}
+          ${eventTitle ? `<p style="color:#e5e7eb;font-size:16px;font-weight:600;margin:0 0 24px;">${eventTitle}</p>` : ''}
+          <a href="${eventUrl}" style="display:inline-block;background:#ef4444;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:10px;">${ctaLabel}</a>
+        </td></tr>
+        <!-- Footer -->
+        <tr><td style="padding:20px 32px;text-align:center;border-top:1px solid #1f1f1f;">
+          <a href="${unsubUrl}" style="color:#4b5563;font-size:12px;text-decoration:none;">${unsub}</a>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
 
 /**
  * A2 — fan out a "your followed DJ just got added to a line-up" push to a DJ's
@@ -201,7 +257,7 @@ async function handleDjLineup(req: Request, supabase: any, vapidPublicKey: strin
 
   const { data: event } = await supabase
     .from('events')
-    .select('id, title, start_at, venue_id, organizer_user_id')
+    .select('id, title, start_at, venue_id, organizer_user_id, location_city')
     .eq('id', eventId)
     .maybeSingle();
   if (!event) {
@@ -274,6 +330,73 @@ async function handleDjLineup(req: Request, supabase: any, vapidPublicKey: strin
       await supabase.from('notification_log').insert(
         ids.map((uid) => ({ user_id: uid, notification_type: 'dj_lineup', title: djName })),
       );
+    }
+  }
+
+  // Email fallback: reach subscribers who didn't get push (no push sub or city unknown
+  // for push, but they have an email and a matching city). Same dedup table — each
+  // subscriber gets at most one notification (push wins, email covers the rest).
+  if (RESEND_API_KEY) {
+    for (const djId of djIds) {
+      const { data: emailTargets, error: eErr } = await supabase.rpc('get_dj_lineup_email_targets', {
+        p_event_id: eventId,
+        p_dj_id: djId,
+      });
+      if (eErr) { console.error('[Email] targets RPC error:', eErr); continue; }
+      if (!emailTargets?.length) continue;
+
+      const { data: dj } = await supabase
+        .from('djs').select('stage_name, first_name, last_name, profile_image_url')
+        .eq('id', djId).maybeSingle();
+      const djName = dj?.stage_name || `${dj?.first_name || ''} ${dj?.last_name || ''}`.trim() || 'DJ';
+      const { data: link } = await supabase
+        .from('tracked_links').select('code')
+        .eq('event_id', eventId).eq('dj_id', djId).eq('owner_kind', 'dj')
+        .maybeSingle();
+      const eventUrl = link?.code ? `${APP_BASE_URL}/l/${link.code}` : `${APP_BASE_URL}/event/${eventId}`;
+
+      // deno-lint-ignore no-explicit-any
+      const batch = (emailTargets as any[]).map((r) => {
+        const lang = r.preferred_language === 'fr' ? 'fr' : r.preferred_language === 'es' ? 'es' : 'en';
+        const city: string = event.location_city || '';
+        const subject = lang === 'fr'
+          ? `🎧 ${djName} mixe à ${city}${dateStr ? ' · ' + dateStr : ''}`
+          : lang === 'es'
+          ? `🎧 ${djName} pincha en ${city}${dateStr ? ' · ' + dateStr : ''}`
+          : `🎧 ${djName} is playing in ${city}${dateStr ? ' · ' + dateStr : ''}`;
+        const html = buildDjLineupEmail({
+          lang, djName, djPhoto: dj?.profile_image_url,
+          eventTitle: event.title, dateStr, city,
+          eventUrl, firstName: r.first_name, unsubscribeToken: r.unsubscribe_token,
+        });
+        const headers: Record<string, string> = {};
+        if (r.unsubscribe_token) {
+          const url = `${APP_BASE_URL}/unsubscribe?token=${r.unsubscribe_token}`;
+          headers['List-Unsubscribe'] = `<${url}>`;
+          headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
+        }
+        return { from: `Yuno <noreply@${EMAIL_DOMAIN}>`, to: [r.email], subject, html, headers };
+      });
+
+      // Send in chunks of 100 (Resend batch limit).
+      for (let i = 0; i < batch.length; i += 100) {
+        const chunk = batch.slice(i, i + 100);
+        const res = await fetch('https://api.resend.com/emails/batch', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(chunk),
+        });
+        if (!res.ok) console.error('[Email] Resend batch error:', await res.text().catch(() => ''));
+      }
+
+      // Mark emailed users as notified so they don't receive push next time.
+      // deno-lint-ignore no-explicit-any
+      const emailUserIds = (emailTargets as any[]).map((r) => r.user_id);
+      await supabase.from('dj_lineup_notifications').upsert(
+        emailUserIds.map((uid: string) => ({ user_id: uid, event_id: eventId, dj_id: djId })),
+        { onConflict: 'user_id,event_id,dj_id', ignoreDuplicates: true },
+      );
+      totalTargeted += emailUserIds.length;
     }
   }
 
