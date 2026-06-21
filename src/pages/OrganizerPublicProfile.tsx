@@ -88,7 +88,14 @@ export default function OrganizerPublicProfile() {
         .eq('is_public', true)
         .maybeSingle();
 
-      if (!prof) { setLoading(false); return; }
+      if (!prof) {
+        // Ancien slug (orga renommée, ex. bde-d-mo-paris-ef75) -> résoudre vers le slug
+        // canonique courant et rediriger. Aucun lien partagé ne casse.
+        const { data: canonical } = await supabase.rpc('resolve_organizer_slug', { p_slug: slug! });
+        if (canonical && canonical !== slug) { navigate(`/o/${canonical}`, { replace: true }); return; }
+        setLoading(false);
+        return;
+      }
       setProfile(prof as OrgProfile);
 
       // Events organised by this user — on affiche tous les events publics de cet orga
