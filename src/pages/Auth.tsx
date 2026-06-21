@@ -34,9 +34,6 @@ export default function Auth() {
   const { t } = useLanguage();
   const [email, setEmail] = useState(inviteEmailParam ?? '');
   const [password, setPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [city, setCity] = useState('');
   const [isSignUp, setIsSignUp] = useState(!!inviteToken || !!platformInviteToken || !!affiliateInviteToken || !!affiliateMemberInviteToken || searchParams.get('signup') === 'true');
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -272,16 +269,14 @@ export default function Auth() {
         getAuthSchema(t).parse({ email, password });
 
         if (isSignUp) {
+          // Friction-minimal signup: email + password only. The buyer's name is
+          // captured at first checkout (written back to the profile there), and
+          // their city resolves from GPS in Explore — so we ask for neither here.
           const { error } = await supabase.auth.signUp({
             email,
             password,
             options: {
               emailRedirectTo: `${window.location.origin}/auth`,
-              data: {
-                first_name: firstName,
-                last_name: lastName,
-                city: city,
-              }
             }
           });
 
@@ -297,13 +292,16 @@ export default function Auth() {
             description: t('auth.autoLogin'),
           });
 
-          // Sign in after successful signup - redirection will be handled by useEffect
+          // Sign in after successful signup - redirection will be handled by useEffect.
+          // With email confirmation OFF (the recommended setting) this succeeds
+          // immediately and the user lands in the app. If confirmation is still
+          // required, fall back to a clear, non-blocking "confirm your email" toast.
           const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
           if (signInError) {
             if (signInError.message.toLowerCase().includes('not confirmed')) {
               toast({
-                title: 'Vérifiez vos emails',
-                description: 'Un email de confirmation a été envoyé. Confirmez votre adresse puis revenez sur ce lien d\'invitation.',
+                title: t('auth.confirmEmailTitle'),
+                description: t('auth.confirmEmailDesc'),
               });
             } else {
               throw signInError;
@@ -346,6 +344,17 @@ export default function Auth() {
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // OAuth sign-in (Google live; Apple pending a developer account). Returns the
+  // user to /auth, preserving any guest-checkout redirect param — the role-based
+  // redirect effect above takes over once the session lands.
+  const handleOAuth = async (provider: 'google' | 'apple') => {
+    const redirectTo = `${window.location.origin}/auth${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`;
+    const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo } });
+    if (error) {
+      toast({ title: t('auth.errors.error'), description: error.message, variant: 'destructive' });
     }
   };
 
@@ -479,14 +488,6 @@ export default function Auth() {
 
           {/* Form */}
           <form onSubmit={handleAuth} className="space-y-3">
-            {isSignUp && !isForgotPassword && (
-              <>
-                <input type="text" placeholder={t('auth.placeholders.firstName')} value={firstName} onChange={(e) => setFirstName(e.target.value)} required disabled={isLoading} style={{ ...inputStyle, borderColor: firstName ? 'rgba(232,25,44,0.4)' : 'rgba(255,255,255,0.08)' }} />
-                <input type="text" placeholder={t('auth.placeholders.lastName')} value={lastName} onChange={(e) => setLastName(e.target.value)} required disabled={isLoading} style={{ ...inputStyle, borderColor: lastName ? 'rgba(232,25,44,0.4)' : 'rgba(255,255,255,0.08)' }} />
-                <input type="text" placeholder={t('auth.placeholders.city')} value={city} onChange={(e) => setCity(e.target.value)} disabled={isLoading} style={{ ...inputStyle, borderColor: city ? 'rgba(232,25,44,0.4)' : 'rgba(255,255,255,0.08)' }} />
-              </>
-            )}
-
             {!isReset && (
               <input type="email" placeholder={t('auth.placeholders.email')} value={email} onChange={(e) => setEmail(e.target.value)} required disabled={isLoading} style={{ ...inputStyle, borderColor: email ? 'rgba(232,25,44,0.4)' : 'rgba(255,255,255,0.08)' }} />
             )}
@@ -517,7 +518,7 @@ export default function Auth() {
               {!isForgotPassword && (
                 <>
                   <button
-                    onClick={() => { setIsSignUp(!isSignUp); setIsForgotPassword(false); setFirstName(''); setLastName(''); }}
+                    onClick={() => { setIsSignUp(!isSignUp); setIsForgotPassword(false); }}
                     type="button"
                     disabled={isLoading}
                     className="font-mono block w-full transition-colors"
@@ -564,32 +565,35 @@ export default function Auth() {
               </div>
               <div className="space-y-2.5">
                 {[
-                  { label: t('auth.continueWithGoogle'), icon: <svg className="h-4 w-4" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg> },
-                  { label: t('auth.continueWithApple'), icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg> },
-                ].map(({ label, icon }) => (
+                  { label: t('auth.continueWithGoogle'), provider: 'google' as const, soon: false, icon: <svg className="h-4 w-4" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg> },
+                  { label: t('auth.continueWithApple'), provider: 'apple' as const, soon: true, icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg> },
+                ].map(({ label, icon, provider, soon }) => (
                   <button
                     key={label}
                     type="button"
-                    disabled
-                    className="w-full flex items-center justify-between px-4 cursor-not-allowed"
+                    disabled={soon || isLoading}
+                    onClick={soon ? undefined : () => handleOAuth(provider)}
+                    className={`w-full flex items-center justify-between px-4 transition-colors ${soon ? 'cursor-not-allowed' : 'hover:bg-white/[0.06] active:scale-[0.99]'}`}
                     style={{
                       height: '44px',
                       borderRadius: '8px',
                       background: 'rgba(255,255,255,0.03)',
                       border: '1px solid rgba(255,255,255,0.07)',
-                      opacity: 0.5,
+                      opacity: soon ? 0.5 : 1,
                     }}
                   >
                     <span className="flex items-center gap-2.5">
                       {icon}
                       <span className="font-mono" style={{ fontSize: '12px', color: '#E5E5E5', letterSpacing: '0.04em' }}>{label}</span>
                     </span>
-                    <span
-                      className="font-mono font-bold"
-                      style={{ fontSize: '9px', color: '#E8192C', letterSpacing: '0.10em', background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.25)', padding: '2px 7px', borderRadius: '999px' }}
-                    >
-                      SOON
-                    </span>
+                    {soon && (
+                      <span
+                        className="font-mono font-bold"
+                        style={{ fontSize: '9px', color: '#E8192C', letterSpacing: '0.10em', background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.25)', padding: '2px 7px', borderRadius: '999px' }}
+                      >
+                        SOON
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
