@@ -374,7 +374,7 @@ export const organizerHelpCategories: OwnerHelpCategory[] = [
         keywords: ['accounting', 'comptabilité', 'compta', 'revenue', 'revenu', 'fees', 'frais', 'contabilidad'],
         sections: [
           { headingKey: 'ohelp.org.accounting.s1h', bodyKey: 'ohelp.org.accounting.s1b' },
-          { headingKey: 'ohelp.org.accounting.s2h', bodyKey: 'ohelp.org.accounting.s2b' },
+          { headingKey: 'ohelp.org.accounting.s2h', bodyKey: 'ohelp.org.accounting.s2b', screenshotUrl: '/help/org-accounting.png' },
           { headingKey: 'ohelp.org.accounting.s3h', bodyKey: 'ohelp.org.accounting.s3b' },
           { headingKey: 'ohelp.org.accounting.s4h', bodyKey: 'ohelp.org.accounting.s4b', type: 'tip' },
         ],

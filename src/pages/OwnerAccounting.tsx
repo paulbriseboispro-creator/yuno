@@ -330,7 +330,7 @@ export default function OwnerAccounting() {
   if (venueLoading || (loading && reports.length === 0)) {
     return (
       <div>
-        <OwnerHeader title={t('acct.title')} />
+        {!isOrganizerScope && <OwnerHeader title={t('acct.title')} />}
         <OwnerPageSkeleton />
       </div>
     );
@@ -341,23 +341,31 @@ export default function OwnerAccounting() {
     color: T1, fontSize: 13, padding: '8px 11px', outline: 'none', cursor: 'pointer',
   };
 
+  const periodVatControls = (
+    <div className="flex items-center gap-2">
+      <select value={period} onChange={e => setPeriod(e.target.value)} style={selectStyle}>
+        {periodOptions.map(o => <option key={o.value} value={o.value} style={{ background: '#0a0a0c' }}>{o.label}</option>)}
+      </select>
+      <select value={vatRate} onChange={e => setVatRate(Number(e.target.value))} style={selectStyle}>
+        {[20, 10, 5.5, 0].map(rt => <option key={rt} value={rt} style={{ background: '#0a0a0c' }}>{t('acct.vat')} {rt}%</option>)}
+      </select>
+    </div>
+  );
+
   return (
     <div>
-      <OwnerHeader
-        title={t('acct.title')}
-        rightContent={
-          <div className="flex items-center gap-2">
-            <select value={period} onChange={e => setPeriod(e.target.value)} style={selectStyle}>
-              {periodOptions.map(o => <option key={o.value} value={o.value} style={{ background: '#0a0a0c' }}>{o.label}</option>)}
-            </select>
-            <select value={vatRate} onChange={e => setVatRate(Number(e.target.value))} style={selectStyle}>
-              {[20, 10, 5.5, 0].map(rt => <option key={rt} value={rt} style={{ background: '#0a0a0c' }}>{t('acct.vat')} {rt}%</option>)}
-            </select>
-          </div>
-        }
-      />
+      {/* Organizer scope renders inside the org shell (which already has its own
+          header + OwnerVenueProvider-free context), so we surface the title and
+          controls in-body instead of via OwnerHeader to avoid the provider crash. */}
+      {!isOrganizerScope && <OwnerHeader title={t('acct.title')} rightContent={periodVatControls} />}
 
       <div className="mx-auto max-w-5xl px-4 pb-16">
+        {isOrganizerScope && (
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <h1 style={{ color: T1, fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em', margin: 0 }}>{t('acct.title')}</h1>
+            {periodVatControls}
+          </div>
+        )}
         <p style={{ color: T3, fontSize: 13, marginBottom: 16 }}>{t('acct.subtitle')}</p>
 
         {/* Global summary */}

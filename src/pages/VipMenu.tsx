@@ -1,10 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -17,12 +14,13 @@ import {
   Plus,
   Minus,
   Loader2,
-  Crown,
   Lock,
   Check,
   ArrowLeft,
   User,
   AlertTriangle,
+  Search,
+  X,
 } from 'lucide-react';
 
 interface VipMenuItem {
@@ -35,6 +33,8 @@ interface VipMenuItem {
   price: number;
   image_url: string | null;
   is_active: boolean;
+  needs_mixer: boolean;
+  max_mixers: number;
 }
 
 interface TableReservation {
@@ -73,8 +73,7 @@ const CATEGORY_LABELS: Record<string, { label: string; icon: string }> = {
   other: { label: 'Autres', icon: '📦' },
 };
 
-// Categories that should trigger mixer suggestion
-const SPIRIT_CATEGORIES = ['vodka', 'whisky', 'gin', 'rum', 'tequila', 'cognac'];
+// Mixer/soft categories — shown only inside the mixer selection step, not the main list.
 const MIXER_CATEGORIES = ['soft', 'mixer'];
 
 export default function VipMenu() {
@@ -91,6 +90,7 @@ export default function VipMenu() {
   const [showCart, setShowCart] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [activeCategory, setActiveCategory] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [noReservation, setNoReservation] = useState(false);
   
   // Mixer suggestion dialog state
@@ -148,8 +148,20 @@ export default function VipMenu() {
 
     let items = [...displayableItems];
 
-    // Filter by category
-    if (activeCategory !== 'all') {
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      // A search looks across the whole menu, ignoring the active category.
+      items = items.filter(i => {
+        const catLabel = (CATEGORY_LABELS[i.category]?.label || '').toLowerCase();
+        return (
+          i.name.toLowerCase().includes(q) ||
+          (i.brand?.toLowerCase().includes(q) ?? false) ||
+          (i.description?.toLowerCase().includes(q) ?? false) ||
+          i.category.toLowerCase().includes(q) ||
+          catLabel.includes(q)
+        );
+      });
+    } else if (activeCategory !== 'all') {
       items = items.filter(i => i.category === activeCategory);
     }
 
@@ -168,7 +180,7 @@ export default function VipMenu() {
       // Within same category, sort by price ascending
       return priceA - priceB;
     });
-  }, [displayableItems, activeCategory, includedBudget]);
+  }, [displayableItems, activeCategory, includedBudget, searchQuery]);
 
   // Category counts for filters
   const categoryCounts = useMemo(() => {
@@ -355,8 +367,8 @@ export default function VipMenu() {
       return;
     }
 
-    // Check if it's a spirit and we should suggest mixers
-    if (!skipMixerSuggestion && SPIRIT_CATEGORIES.includes(item.category) && mixerItems.length > 0) {
+    // Bottles flagged by the owner require the customer to pick a mixer first.
+    if (!skipMixerSuggestion && item.needs_mixer && mixerItems.length > 0) {
       setPendingSpirit(item);
       setMixerDialogOpen(true);
       return;
@@ -376,46 +388,26 @@ export default function VipMenu() {
     toast.success(`${item.name} ${t('vipBudget.added')}`);
   };
 
-  const handleMixerSelection = (mixer: { id: string; name: string; price: number }) => {
-    if (pendingSpirit) {
-      // Add the spirit
+  const handleMixerConfirm = (selected: { id: string; name: string }[]) => {
+    const spirit = pendingSpirit;
+    if (spirit) {
       setCart(prev => {
-        const existing = prev.find(c => c.menuItem.id === pendingSpirit.id);
-        if (existing) {
-          return prev.map(c =>
-            c.menuItem.id === pendingSpirit.id
-              ? { ...c, quantity: c.quantity + 1 }
-              : c
-          );
-        }
-        return [...prev, { menuItem: pendingSpirit, quantity: 1 }];
+        const map = new Map(prev.map(c => [c.menuItem.id, { ...c }]));
+        const bump = (mi: VipMenuItem) => {
+          const existing = map.get(mi.id);
+          if (existing) existing.quantity += 1;
+          else map.set(mi.id, { menuItem: mi, quantity: 1 });
+        };
+        bump(spirit);
+        selected.forEach(s => {
+          const mixerMenuItem = menuItems.find(m => m.id === s.id);
+          if (mixerMenuItem) bump(mixerMenuItem);
+        });
+        return Array.from(map.values());
       });
 
-      // Add the mixer
-      const mixerMenuItem = menuItems.find(m => m.id === mixer.id);
-      if (mixerMenuItem) {
-        setCart(prev => {
-          const existing = prev.find(c => c.menuItem.id === mixer.id);
-          if (existing) {
-            return prev.map(c =>
-              c.menuItem.id === mixer.id
-                ? { ...c, quantity: c.quantity + 1 }
-                : c
-            );
-          }
-          return [...prev, { menuItem: mixerMenuItem, quantity: 1 }];
-        });
-      }
-
-      toast.success(`${pendingSpirit.name} + ${mixer.name} ${t('vipBudget.added')}`);
-    }
-    setPendingSpirit(null);
-    setMixerDialogOpen(false);
-  };
-
-  const handleSkipMixer = () => {
-    if (pendingSpirit) {
-      addToCart(pendingSpirit, true);
+      const mixerNames = selected.map(s => s.name).join(' + ');
+      toast.success(`${spirit.name}${mixerNames ? ` + ${mixerNames}` : ''} ${t('vipBudget.added')}`);
     }
     setPendingSpirit(null);
     setMixerDialogOpen(false);
@@ -483,75 +475,92 @@ export default function VipMenu() {
 
   if (menuLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0A0A' }}>
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: '#E8192C' }} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-gradient-to-b from-background via-background to-background/95 backdrop-blur-xl border-b border-border/30">
-        <div className="px-4 py-3">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="shrink-0 h-9 w-9" onClick={() => navigate('/')}>
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-lg font-bold tracking-tight">{t('vipMenu.title')}</h1>
+    <div className="min-h-screen pb-28" style={{ background: '#0A0A0A' }}>
+      {/* Header — editorial glassmorphe */}
+      <header
+        className="sticky top-0 z-40"
+        style={{
+          background: 'rgba(10,10,10,0.90)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderBottom: '1px solid rgba(255,255,255,0.07)',
+        }}
+      >
+        <div className="flex items-center gap-3 px-4 py-3" style={{ maxWidth: 768, margin: '0 auto' }}>
+          <button
+            onClick={() => navigate('/')}
+            className="shrink-0 flex items-center justify-center transition-transform active:scale-95"
+            style={{ width: 36, height: 36, borderRadius: 2, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' }}
+          >
+            <ArrowLeft className="h-4 w-4 text-white" />
+          </button>
+          <h1 className="flex-1 min-w-0 truncate font-display font-bold text-white uppercase" style={{ fontSize: 19, letterSpacing: '-0.02em' }}>
+            {t('vipMenu.title')}
+          </h1>
+          {reservation && (
+            <div
+              className="flex items-center gap-1.5 shrink-0 font-mono uppercase"
+              style={{ fontSize: 10, color: '#9A9A9A', letterSpacing: '0.06em', padding: '6px 11px', borderRadius: 999, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              <User className="h-3 w-3" />
+              <span className="truncate" style={{ maxWidth: 110 }}>{reservation.full_name}</span>
             </div>
-            {reservation && (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/40 rounded-full px-3 py-1.5">
-                <User className="h-3 w-3" />
-                <span className="truncate max-w-[100px] font-medium">{reservation.full_name}</span>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </header>
 
-      {/* Content */}
-      <main className="p-4 space-y-4">
+      {/* Content — reading column */}
+      <main className="px-4 py-5 space-y-6" style={{ maxWidth: 768, margin: '0 auto' }}>
         {/* Login prompt */}
         {!authLoading && !user && (
-          <Card className="p-4 bg-surface border-0 flex items-center justify-between gap-3">
+          <div className="yuno-card flex items-center justify-between gap-3 p-4">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="h-10 w-10 rounded-xl bg-muted/30 flex items-center justify-center flex-shrink-0">
-                <Lock className="h-5 w-5 text-muted-foreground" />
+              <div className="flex items-center justify-center shrink-0" style={{ width: 40, height: 40, borderRadius: 4, background: 'rgba(232,25,44,0.10)' }}>
+                <Lock className="h-5 w-5" style={{ color: '#E8192C' }} />
               </div>
               <div className="min-w-0">
-                <p className="font-medium truncate">{t('vipBudget.connectToOrder')}</p>
-                <p className="text-sm text-muted-foreground truncate">
+                <p className="font-display font-bold text-white uppercase truncate" style={{ fontSize: 14, letterSpacing: '-0.005em' }}>
+                  {t('vipBudget.connectToOrder')}
+                </p>
+                <p className="font-sans truncate" style={{ fontSize: 13, color: '#9A9A9A', marginTop: 2 }}>
                   {t('vipBudget.menuVisibleAfterLogin')}
                 </p>
               </div>
             </div>
-            <Button onClick={goToLogin} className="flex-shrink-0">
+            <button onClick={goToLogin} className="btn btn--primary shrink-0" style={{ height: 40 }}>
               {t('auth.login')}
-            </Button>
-          </Card>
+            </button>
+          </div>
         )}
 
         {/* No reservation warning */}
         {!authLoading && user && noReservation && (
-          <Card className="p-4 bg-surface border-0 flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-amber-400 mt-0.5" />
-            <div className="flex-1">
-              <p className="font-medium">{t('vipBudget.noActiveReservation')}</p>
-              <p className="text-sm text-muted-foreground">
+          <div className="yuno-card flex items-start gap-3 p-4">
+            <AlertTriangle className="h-5 w-5 mt-0.5 shrink-0" style={{ color: '#F0A92C' }} />
+            <div className="flex-1 min-w-0">
+              <p className="font-display font-bold text-white uppercase" style={{ fontSize: 14, letterSpacing: '-0.005em' }}>
+                {t('vipBudget.noActiveReservation')}
+              </p>
+              <p className="font-sans" style={{ fontSize: 13, color: '#9A9A9A', marginTop: 4, lineHeight: 1.5 }}>
                 {t('vipBudget.waitForAssignment')}
               </p>
-              <div className="mt-3 flex gap-2">
-                <Button size="sm" onClick={() => navigate('/my-orders')}>
+              <div className="mt-4 flex gap-2">
+                <button onClick={() => navigate('/my-orders')} className="btn btn--primary" style={{ height: 40 }}>
                   {t('vipBudget.viewMyOrders')}
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => navigate('/')}>
+                </button>
+                <button onClick={() => navigate('/')} className="btn btn--ghost" style={{ height: 40 }}>
                   {t('common.backToHome')}
-                </Button>
+                </button>
               </div>
             </div>
-          </Card>
+          </div>
         )}
 
         {/* Credit Budget Bar - only show when reservation exists */}
@@ -568,152 +577,209 @@ export default function VipMenu() {
           </>
         )}
 
-        {/* Category Filters */}
+        {/* Bottles */}
         <section>
-          <div className="flex items-center gap-2 mb-3">
-            <Crown className="h-4 w-4 text-amber-400" />
-            <h2 className="font-semibold">{t('vipMenu.bottles')}</h2>
+          <p className="section-label-ruled mb-4">{t('vipMenu.bottles')}</p>
+
+          {/* Search */}
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: '#5A5A5E' }} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder={t('vipMenu.searchPlaceholder')}
+              className="w-full font-sans text-white outline-none"
+              style={{
+                height: 42,
+                paddingLeft: 38,
+                paddingRight: searchQuery ? 38 : 14,
+                background: '#1F1F22',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 10,
+                fontSize: 14,
+              }}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                aria-label={t('vipMenu.clearSearch')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center justify-center transition-transform active:scale-90"
+                style={{ width: 26, height: 26, borderRadius: 999, background: 'rgba(255,255,255,0.06)' }}
+              >
+                <X className="h-3.5 w-3.5" style={{ color: '#9A9A9A' }} />
+              </button>
+            )}
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-              <Button
-                variant={activeCategory === 'all' ? 'default' : 'outline'}
-                size="sm"
-                className="shrink-0"
-                onClick={() => setActiveCategory('all')}
-              >
-                {t('vipMenu.allItems')} ({displayableItems.length})
-              </Button>
-              {Object.entries(CATEGORY_LABELS).map(([key, { label, icon }]) => {
-                const count = categoryCounts[key] || 0;
-                if (count === 0) return null;
-                return (
-                  <Button
-                    key={key}
-                    variant={activeCategory === key ? 'default' : 'outline'}
-                    size="sm"
-                    className="shrink-0"
-                    onClick={() => setActiveCategory(key)}
-                  >
-                    {icon} {label} ({count})
-                  </Button>
-                );
-              })}
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            <button
+              onClick={() => setActiveCategory('all')}
+              className="shrink-0 font-mono font-medium uppercase whitespace-nowrap transition-colors"
+              style={{
+                fontSize: 11, letterSpacing: '0.04em', padding: '6px 13px', borderRadius: 10,
+                background: activeCategory === 'all' ? '#E8192C' : 'rgba(255,255,255,0.05)',
+                color: activeCategory === 'all' ? '#fff' : '#E5E5E5',
+                border: `1px solid ${activeCategory === 'all' ? '#E8192C' : 'rgba(255,255,255,0.10)'}`,
+              }}
+            >
+              {t('vipMenu.allItems')} ({displayableItems.length})
+            </button>
+            {Object.entries(CATEGORY_LABELS).map(([key, { label, icon }]) => {
+              const count = categoryCounts[key] || 0;
+              if (count === 0) return null;
+              const active = activeCategory === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setActiveCategory(key)}
+                  className="shrink-0 font-mono font-medium uppercase whitespace-nowrap transition-colors"
+                  style={{
+                    fontSize: 11, letterSpacing: '0.04em', padding: '6px 13px', borderRadius: 10,
+                    background: active ? '#E8192C' : 'rgba(255,255,255,0.05)',
+                    color: active ? '#fff' : '#E5E5E5',
+                    border: `1px solid ${active ? '#E8192C' : 'rgba(255,255,255,0.10)'}`,
+                  }}
+                >
+                  {icon} {label} ({count})
+                </button>
+              );
+            })}
           </div>
         </section>
 
         {/* Menu Items */}
         <section className="space-y-3">
-          {sortedAndFilteredItems.map(item => (
-            <MenuItemCard
-              key={item.id}
-              item={item}
-              budget={availableBudget}
-              cartTotal={cartTotal}
-              onAdd={() => addToCart(item)}
-              t={t}
-            />
-          ))}
+          {sortedAndFilteredItems.length === 0 ? (
+            <div className="py-12 text-center">
+              <p className="font-mono uppercase" style={{ fontSize: 11, color: '#5A5A5E', letterSpacing: '0.10em' }}>
+                {searchQuery ? t('vipMenu.noSearchResults') : t('vipMenu.noItems')}
+              </p>
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="btn btn--ghost mt-4"
+                  style={{ height: 38 }}
+                >
+                  {t('vipMenu.clearSearch')}
+                </button>
+              )}
+            </div>
+          ) : (
+            sortedAndFilteredItems.map(item => (
+              <MenuItemCard
+                key={item.id}
+                item={item}
+                budget={availableBudget}
+                cartTotal={cartTotal}
+                onAdd={() => addToCart(item)}
+                t={t}
+              />
+            ))
+          )}
         </section>
       </main>
 
       {/* Cart FAB */}
       {canOrder && cart.length > 0 && (
-        <div className="fixed bottom-4 left-4 right-4 z-50">
-          <Button
-            className="w-full h-14 text-lg bg-amber-500 hover:bg-amber-600 text-black font-semibold"
-            onClick={() => setShowCart(true)}
-          >
-            <ShoppingCart className="h-5 w-5 mr-2" />
-            {t('vipMenu.viewCart')} ({cartItemCount})
-            <span className="ml-auto">
-              {extraAmount > 0 ? (
-                <span>+{extraAmount}€ {t('vipBudget.extra')}</span>
-              ) : (
-                <span>{t('vipBudget.covered')}</span>
-              )}
-            </span>
-          </Button>
+        <div className="fixed-bottom-bar z-50 px-4" style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
+          <div style={{ maxWidth: 768, margin: '0 auto' }}>
+            <button onClick={() => setShowCart(true)} className="btn btn--primary w-full" style={{ height: 54 }}>
+              <ShoppingCart className="h-5 w-5" />
+              <span className="font-mono font-bold uppercase" style={{ fontSize: 12, letterSpacing: '0.08em' }}>
+                {t('vipMenu.viewCart')} ({cartItemCount})
+              </span>
+              <span className="ml-auto font-mono font-bold" style={{ fontSize: 13, letterSpacing: '0.02em' }}>
+                {extraAmount > 0 ? `+${extraAmount}€` : t('vipBudget.covered')}
+              </span>
+            </button>
+          </div>
         </div>
       )}
 
       {/* Cart Sheet */}
       <Sheet open={showCart} onOpenChange={setShowCart}>
-        <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl">
-          <SheetHeader className="pb-4">
-            <SheetTitle>{t('vipMenu.myOrder')}</SheetTitle>
-          </SheetHeader>
+        <SheetContent
+          side="bottom"
+          className="h-[82vh] border-0 p-0"
+          style={{ background: '#0A0A0A', borderTopLeftRadius: 16, borderTopRightRadius: 16, borderTop: '1px solid rgba(255,255,255,0.08)' }}
+        >
+          <div className="px-4 pt-6 pb-3" style={{ maxWidth: 768, margin: '0 auto' }}>
+            <SheetTitle className="sr-only">{t('vipMenu.myOrder')}</SheetTitle>
+            <p className="section-label-ruled">{t('vipMenu.myOrder')}</p>
+          </div>
 
-          <ScrollArea className="h-[calc(100%-150px)]">
-            <div className="space-y-3">
+          <ScrollArea className="h-[calc(100%-205px)]">
+            <div className="px-4 space-y-2.5" style={{ maxWidth: 768, margin: '0 auto' }}>
               {cart.map(item => (
-                <Card key={item.menuItem.id} className="p-3 bg-surface border-0">
-                  <div className="flex items-center gap-3">
-                    {item.menuItem.image_url && (
+                <div key={item.menuItem.id} className="yuno-card flex items-center gap-3 p-2.5">
+                  {item.menuItem.image_url && (
+                    <div className="relative w-16 h-16 shrink-0 overflow-hidden bg-gradient-to-b from-white/[0.06] to-black/40 ring-1 ring-white/5" style={{ borderRadius: 4 }}>
                       <img
                         src={item.menuItem.image_url}
                         alt={item.menuItem.name}
-                        className="w-16 h-16 object-cover rounded-lg"
+                        className="w-full h-full object-contain p-1 drop-shadow-[0_4px_10px_rgba(0,0,0,0.5)]"
                       />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium truncate">{item.menuItem.name}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {(item.menuItem.price * item.quantity).toFixed(0)}€
-                        {item.quantity > 1 && <span className="text-xs ml-1">({item.menuItem.price}€ × {item.quantity})</span>}
-                      </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => updateCartQuantity(item.menuItem.id, -1)}
-                      >
-                        <Minus className="h-3 w-3" />
-                      </Button>
-                      <span className="w-6 text-center font-medium">{item.quantity}</span>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => updateCartQuantity(item.menuItem.id, 1)}
-                      >
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-display font-bold text-white uppercase truncate" style={{ fontSize: 14, letterSpacing: '-0.005em' }}>
+                      {item.menuItem.name}
+                    </h4>
+                    <p className="font-mono mt-0.5" style={{ fontSize: 12, color: '#E8192C', letterSpacing: '0.02em' }}>
+                      {(item.menuItem.price * item.quantity).toFixed(0)}€
+                      {item.quantity > 1 && <span style={{ color: '#5A5A5E', marginLeft: 6 }}>({item.menuItem.price}€ × {item.quantity})</span>}
+                    </p>
                   </div>
-                </Card>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => updateCartQuantity(item.menuItem.id, -1)}
+                      className="flex items-center justify-center transition-transform active:scale-90"
+                      style={{ width: 30, height: 30, borderRadius: 3, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)' }}
+                    >
+                      <Minus className="h-3.5 w-3.5 text-white" />
+                    </button>
+                    <span className="font-mono font-bold text-white text-center" style={{ width: 22, fontSize: 13 }}>{item.quantity}</span>
+                    <button
+                      onClick={() => updateCartQuantity(item.menuItem.id, 1)}
+                      className="flex items-center justify-center transition-transform active:scale-90"
+                      style={{ width: 30, height: 30, borderRadius: 3, background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.30)' }}
+                    >
+                      <Plus className="h-3.5 w-3.5" style={{ color: '#E8192C' }} />
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           </ScrollArea>
 
           {/* Cart Footer */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t bg-background">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-muted-foreground">{t('vipBudget.cart')}</span>
-              <span className="font-medium">{cartTotal}€</span>
+          <div
+            className="absolute bottom-0 left-0 right-0 px-4 pt-4"
+            style={{ background: '#0A0A0A', borderTop: '1px solid rgba(255,255,255,0.08)', paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}
+          >
+            <div style={{ maxWidth: 768, margin: '0 auto' }}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-mono uppercase" style={{ fontSize: 10, color: '#9A9A9A', letterSpacing: '0.08em' }}>{t('vipBudget.cart')}</span>
+                <span className="font-mono font-bold text-white" style={{ fontSize: 13 }}>{cartTotal}€</span>
+              </div>
+              <div className="flex items-center justify-between mb-3">
+                <span className="font-mono uppercase" style={{ fontSize: 10, color: '#9A9A9A', letterSpacing: '0.08em' }}>{t('vipBudget.extraAmount')}</span>
+                <span className="font-display font-bold" style={{ fontSize: 24, color: extraAmount > 0 ? '#E8192C' : '#E5E5E5', letterSpacing: '-0.02em', lineHeight: 1 }}>
+                  {extraAmount > 0 ? `+${extraAmount}€` : t('vipBudget.covered')}
+                </span>
+              </div>
+              <button onClick={handleSubmitOrder} disabled={submitting} className="btn btn--primary w-full" style={{ height: 50 }}>
+                {submitting ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <>
+                    <Check className="h-5 w-5" />
+                    <span className="font-mono font-bold uppercase" style={{ fontSize: 12, letterSpacing: '0.08em' }}>{t('vipMenu.sendOrder')}</span>
+                  </>
+                )}
+              </button>
             </div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="font-semibold">{t('vipBudget.extraAmount')}</span>
-              <span className="text-xl font-bold text-amber-400">
-                {extraAmount > 0 ? `+${extraAmount}€` : t('vipBudget.covered')}
-              </span>
-            </div>
-            <Button
-              className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-black font-semibold"
-              onClick={handleSubmitOrder}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <>
-                  <Check className="h-5 w-5 mr-2" />
-                  {t('vipMenu.sendOrder')}
-                </>
-              )}
-            </Button>
           </div>
         </SheetContent>
       </Sheet>
@@ -721,11 +787,11 @@ export default function VipMenu() {
       {/* Mixer Suggestion Dialog */}
       <MixerSuggestionDialog
         open={mixerDialogOpen}
-        onOpenChange={setMixerDialogOpen}
+        onOpenChange={(o) => { setMixerDialogOpen(o); if (!o) setPendingSpirit(null); }}
         spiritName={pendingSpirit?.name || ''}
         mixers={mixerItems}
-        onSelectMixer={handleMixerSelection}
-        onSkip={handleSkipMixer}
+        maxMixers={pendingSpirit?.max_mixers || 1}
+        onConfirm={handleMixerConfirm}
       />
     </div>
   );
@@ -749,48 +815,54 @@ function MenuItemCard({ item, budget, cartTotal, onAdd, t }: MenuItemCardProps) 
   const extraForThisItem = wouldExceed ? item.price - remainingBudget : 0;
 
   return (
-    <Card className="p-3 bg-surface border-0 transition-all duration-200 hover:bg-primary/5 hover:ring-1 hover:ring-primary/20 hover:shadow-[0_0_20px_hsla(0,85%,50%,0.08)] cursor-pointer group">
-      <div className="flex gap-3">
-        {item.image_url ? (
+    <article onClick={onAdd} className="event-card group flex gap-4 p-3">
+      {item.image_url ? (
+        <div className="relative w-24 h-32 shrink-0 overflow-hidden bg-gradient-to-b from-white/[0.06] to-black/40 ring-1 ring-white/5" style={{ borderRadius: 4 }}>
           <img
             src={item.image_url}
             alt={item.name}
-            className="w-20 h-20 object-cover rounded-lg flex-shrink-0 transition-transform duration-200 group-hover:scale-105"
+            className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105 drop-shadow-[0_6px_14px_rgba(0,0,0,0.55)]"
           />
-        ) : (
-          <div className="w-20 h-20 rounded-lg bg-muted/30 flex items-center justify-center flex-shrink-0">
-            <span className="text-2xl">{categoryInfo.icon}</span>
-          </div>
+        </div>
+      ) : (
+        <div className="w-24 h-32 shrink-0 flex items-center justify-center bg-gradient-to-b from-white/[0.06] to-black/40 ring-1 ring-white/5" style={{ borderRadius: 4 }}>
+          <span className="text-3xl">{categoryInfo.icon}</span>
+        </div>
+      )}
+      <div className="flex-1 min-w-0 flex flex-col">
+        {item.brand && (
+          <p className="font-mono uppercase truncate" style={{ fontSize: 10, color: '#9A9A9A', letterSpacing: '0.06em' }}>{item.brand}</p>
         )}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <h3 className="font-medium leading-tight">{item.name}</h3>
-              {item.brand && <p className="text-xs text-muted-foreground">{item.brand}</p>}
-              {item.volume_cl && (
-                <p className="text-xs text-muted-foreground">{item.volume_cl}cl</p>
-              )}
-            </div>
-            <div className="text-right">
-              <span className="font-bold text-primary text-lg">{item.price}€</span>
-              {budget > 0 && wouldExceed && extraForThisItem > 0 && (
-                <p className="text-xs text-amber-400/80">
-                  +{Math.round(extraForThisItem)}€ {t('vipBudget.extra')}
-                </p>
-              )}
-            </div>
+        <h3 className="font-display font-bold text-white uppercase leading-tight" style={{ fontSize: 'clamp(15px, 2.5vw, 18px)', letterSpacing: '-0.01em', marginTop: item.brand ? 2 : 0 }}>
+          {item.name}
+        </h3>
+        {item.volume_cl && (
+          <p className="font-mono uppercase" style={{ fontSize: 10.5, color: '#5A5A5E', letterSpacing: '0.08em', marginTop: 3 }}>{item.volume_cl} CL</p>
+        )}
+        {item.description && (
+          <p className="font-sans line-clamp-2" style={{ fontSize: 12.5, color: '#9A9A9A', lineHeight: 1.4, marginTop: 6 }}>
+            {item.description}
+          </p>
+        )}
+        <div className="mt-auto pt-3 flex items-end justify-between gap-2">
+          <div className="min-w-0">
+            <p className="font-display font-bold leading-none" style={{ fontSize: 22, color: '#E8192C', letterSpacing: '-0.02em' }}>{item.price}€</p>
+            {budget > 0 && wouldExceed && extraForThisItem > 0 && (
+              <p className="font-mono uppercase" style={{ fontSize: 9.5, color: '#F0A92C', letterSpacing: '0.08em', marginTop: 4 }}>
+                +{Math.round(extraForThisItem)}€ {t('vipBudget.extra')}
+              </p>
+            )}
           </div>
-          {item.description && (
-            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-              {item.description}
-            </p>
-          )}
-          <Button size="sm" className="mt-2 h-8" onClick={onAdd}>
-            <Plus className="h-3 w-3 mr-1" />
+          <button
+            onClick={(e) => { e.stopPropagation(); onAdd(); }}
+            className="shrink-0 font-mono font-bold uppercase inline-flex items-center gap-1 transition-transform active:scale-95"
+            style={{ height: 36, padding: '0 16px', background: '#E8192C', color: '#fff', borderRadius: 3, fontSize: 10.5, letterSpacing: '0.10em' }}
+          >
+            <Plus className="h-3.5 w-3.5" />
             {t('vipBudget.add')}
-          </Button>
+          </button>
         </div>
       </div>
-    </Card>
+    </article>
   );
 }

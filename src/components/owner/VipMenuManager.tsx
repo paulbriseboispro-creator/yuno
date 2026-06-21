@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -25,6 +26,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
+import { BottleImageEditor } from './BottleImageEditor';
+import { composeBottleBlob, DEFAULT_BOTTLE_TRANSFORM, type BottleTransform } from '@/lib/bottleImage';
 import {
   Wine,
   Plus,
@@ -49,6 +52,8 @@ interface VipMenuItem {
   image_url: string | null;
   is_active: boolean;
   position: number;
+  needs_mixer: boolean;
+  max_mixers: number;
 }
 
 interface VipMenuEligibility {
@@ -108,6 +113,8 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
   const [saving, setSaving] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>('');
+  const [imageTransform, setImageTransform] = useState<BottleTransform>(DEFAULT_BOTTLE_TRANSFORM);
+  const [imageAdjusted, setImageAdjusted] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -117,6 +124,8 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
     volume_cl: 75,
     price: 0,
     image_url: '',
+    needs_mixer: false,
+    max_mixers: 1,
   });
 
   const getCategoryLabel = (cat: typeof CATEGORIES[number]) => {
@@ -156,15 +165,24 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
     const file = e.target.files?.[0];
     if (file) {
       setImageFile(file);
+      setImageTransform(DEFAULT_BOTTLE_TRANSFORM);
+      setImageAdjusted(false);
       const reader = new FileReader();
       reader.onloadend = () => setImagePreview(reader.result as string);
       reader.readAsDataURL(file);
     }
   };
 
+  const handleTransformChange = (t: BottleTransform) => {
+    setImageTransform(t);
+    setImageAdjusted(true);
+  };
+
   const clearImage = () => {
     setImageFile(null);
     setImagePreview('');
+    setImageTransform(DEFAULT_BOTTLE_TRANSFORM);
+    setImageAdjusted(false);
     setFormData(p => ({ ...p, image_url: '' }));
   };
 
@@ -182,20 +200,37 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
     try {
       let imageUrl = formData.image_url;
 
-      if (imageFile) {
-        const fileExt = imageFile.name.split('.').pop();
-        const fileName = `vip-menu/${venueId}/${Date.now()}.${fileExt}`;
-        const { error: uploadError } = await supabase.storage.from('drink-images').upload(fileName, imageFile);
-        if (uploadError) throw uploadError;
-        const { data: { publicUrl } } = supabase.storage.from('drink-images').getPublicUrl(fileName);
-        imageUrl = publicUrl;
+      // Bake the owner's chosen framing into a transparent WebP at the card ratio.
+      // Re-compose on a fresh upload, or when an existing image was re-framed.
+      const shouldCompose = !!imagePreview && (!!imageFile || imageAdjusted);
+      if (shouldCompose) {
+        try {
+          const blob = await composeBottleBlob(imagePreview, imageTransform);
+          const fileName = `vip-menu/${venueId}/${Date.now()}.webp`;
+          const { error: uploadError } = await supabase.storage
+            .from('drink-images')
+            .upload(fileName, blob, { contentType: 'image/webp' });
+          if (uploadError) throw uploadError;
+          const { data: { publicUrl } } = supabase.storage.from('drink-images').getPublicUrl(fileName);
+          imageUrl = publicUrl;
+        } catch (composeErr) {
+          // A new file must succeed; re-framing an existing cross-origin image may
+          // taint the canvas — in that case keep the current image silently.
+          if (imageFile) throw composeErr;
+          console.warn('Could not re-frame existing image, keeping current:', composeErr);
+        }
       }
+
+      // A mixer item can never itself require a mixer.
+      const needsMixer = !isMixerCategory(formData.category) && formData.needs_mixer;
+      const maxMixers = needsMixer ? Math.max(1, formData.max_mixers) : 1;
 
       if (editingItem) {
         const { error } = await supabase.from('vip_menu_items').update({
           name: formData.name, description: formData.description || null, category: formData.category,
           brand: formData.brand || null, volume_cl: formData.volume_cl || null, price: formData.price,
-          image_url: imageUrl || null, updated_at: new Date().toISOString(),
+          image_url: imageUrl || null, needs_mixer: needsMixer, max_mixers: maxMixers,
+          updated_at: new Date().toISOString(),
         }).eq('id', editingItem.id);
         if (error) throw error;
         toast.success(t('vipMenu.itemUpdated'));
@@ -203,7 +238,8 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
         const { error } = await supabase.from('vip_menu_items').insert({
           venue_id: venueId, name: formData.name, description: formData.description || null,
           category: formData.category, brand: formData.brand || null, volume_cl: formData.volume_cl || null,
-          price: formData.price, image_url: imageUrl || null, position: items.length,
+          price: formData.price, image_url: imageUrl || null, needs_mixer: needsMixer, max_mixers: maxMixers,
+          position: items.length,
         });
         if (error) throw error;
         toast.success(t('vipMenu.itemAdded'));
@@ -290,9 +326,11 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
   };
 
   const resetForm = () => {
-    setFormData({ name: '', description: '', category: 'champagne', brand: '', volume_cl: 75, price: 0, image_url: '' });
+    setFormData({ name: '', description: '', category: 'champagne', brand: '', volume_cl: 75, price: 0, image_url: '', needs_mixer: false, max_mixers: 1 });
     setImageFile(null);
     setImagePreview('');
+    setImageTransform(DEFAULT_BOTTLE_TRANSFORM);
+    setImageAdjusted(false);
   };
 
   const openEditDialog = (item: VipMenuItem) => {
@@ -300,9 +338,12 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
     setFormData({
       name: item.name, description: item.description || '', category: item.category,
       brand: item.brand || '', volume_cl: item.volume_cl || 75, price: item.price, image_url: item.image_url || '',
+      needs_mixer: item.needs_mixer ?? false, max_mixers: item.max_mixers ?? 1,
     });
     setImageFile(null);
     setImagePreview(item.image_url || '');
+    setImageTransform(DEFAULT_BOTTLE_TRANSFORM);
+    setImageAdjusted(false);
     setShowAddDialog(true);
   };
 
@@ -374,9 +415,9 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
             return (
               <Card key={item.id} className={`p-4 bg-surface border-0 ${!item.is_active ? 'opacity-50' : ''}`}>
                 <div className="flex items-start gap-3">
-                  <div className="w-16 h-16 rounded-lg bg-muted/50 flex items-center justify-center shrink-0 overflow-hidden">
+                  <div className="w-16 h-16 rounded-lg bg-gradient-to-b from-white/[0.06] to-black/30 ring-1 ring-white/5 flex items-center justify-center shrink-0 overflow-hidden">
                     {item.image_url ? (
-                      <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                      <img src={item.image_url} alt={item.name} className="w-full h-full object-contain p-1 drop-shadow-[0_4px_10px_rgba(0,0,0,0.45)]" />
                     ) : (
                       <span className="text-2xl">{getCategoryIcon(item.category)}</span>
                     )}
@@ -389,11 +430,16 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
                       </div>
                       <span className="font-bold text-primary whitespace-nowrap">{item.price}€</span>
                     </div>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <Badge variant="outline" className="text-xs">
                         {getCategoryIcon(item.category)} {getCategoryLabel(CATEGORIES.find(c => c.value === item.category)!)}
                       </Badge>
                       {item.volume_cl && <span className="text-xs text-muted-foreground">{item.volume_cl}cl</span>}
+                      {item.needs_mixer && (
+                        <Badge variant="secondary" className="text-[10px] gap-1">
+                          🧊 {t('vipMenu.needsMixerBadge')}{item.max_mixers > 1 ? ` ×${item.max_mixers}` : ''}
+                        </Badge>
+                      )}
                     </div>
                     {itemEligibilities.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
@@ -438,7 +484,7 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
 
       {/* Add/Edit Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingItem ? t('vipMenu.editItem') : t('vipMenu.newItem')}</DialogTitle>
             <DialogDescription>
@@ -490,15 +536,46 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
                     <Label>{t('vipMenu.descriptionLabel')}</Label>
                     <Textarea value={formData.description} onChange={e => setFormData(p => ({ ...p, description: e.target.value }))} placeholder={t('vipMenu.descPlaceholder')} rows={2} />
                   </div>
+
+                  {/* Mixer rule */}
+                  <div className="col-span-2 rounded-lg border border-border bg-muted/20 p-3 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <Label className="cursor-pointer">{t('vipMenu.needsMixer')}</Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">{t('vipMenu.needsMixerHint')}</p>
+                      </div>
+                      <Switch
+                        checked={formData.needs_mixer}
+                        onCheckedChange={v => setFormData(p => ({ ...p, needs_mixer: v }))}
+                      />
+                    </div>
+                    {formData.needs_mixer && (
+                      <div className="flex items-center justify-between gap-3 pt-1">
+                        <div className="min-w-0">
+                          <Label>{t('vipMenu.maxMixers')}</Label>
+                          <p className="text-xs text-muted-foreground mt-0.5">{t('vipMenu.maxMixersHint')}</p>
+                        </div>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={10}
+                          className="w-20 shrink-0"
+                          value={formData.max_mixers}
+                          onChange={e => setFormData(p => ({ ...p, max_mixers: Math.max(1, parseInt(e.target.value) || 1) }))}
+                        />
+                      </div>
+                    )}
+                  </div>
+
                   <div className="col-span-2">
                     <Label>{t('vipMenu.image')}</Label>
                     {imagePreview ? (
-                      <div className="relative w-full h-32 rounded-lg overflow-hidden border border-border">
-                        <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                        <Button type="button" size="icon" variant="destructive" className="absolute top-2 right-2 h-7 w-7" onClick={clearImage}>
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <BottleImageEditor
+                        src={imagePreview}
+                        transform={imageTransform}
+                        onChange={handleTransformChange}
+                        onClear={clearImage}
+                      />
                     ) : (
                       <div className="w-full h-32 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary/50 transition-colors cursor-pointer"
                         onClick={() => document.getElementById('vip-menu-image')?.click()}>
@@ -507,12 +584,13 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
                       </div>
                     )}
                     <Input type="file" accept="image/*" onChange={handleImageChange} className="hidden" id="vip-menu-image" />
+                    <p className="text-xs text-muted-foreground mt-1.5 leading-snug">{t('vipMenu.imageFormatHint')}</p>
                   </div>
                 </>
               )}
             </div>
 
-            <div className="flex justify-end gap-2 pt-4">
+            <div className="flex justify-end gap-2 sticky bottom-0 -mx-6 -mb-6 px-6 py-4 bg-card border-t border-border">
               <Button variant="outline" onClick={() => setShowAddDialog(false)}>{t('common.cancel')}</Button>
               <Button onClick={handleSaveItem} disabled={saving || !formData.name || (!isMixerCategory(formData.category) && formData.price <= 0)}>
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : t('common.save')}
@@ -524,7 +602,7 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
 
       {/* Eligibility Dialog */}
       <Dialog open={showEligibilityDialog} onOpenChange={setShowEligibilityDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('vipMenu.eligibilityFor').replace('{name}', selectedItemForEligibility?.name || '')}</DialogTitle>
             <DialogDescription>{t('vipMenu.eligibilityDesc')}</DialogDescription>

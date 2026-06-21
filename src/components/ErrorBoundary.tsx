@@ -1,5 +1,16 @@
 import { Component, type ReactNode } from "react";
 import { purgeServiceWorkersAndReload } from "@/lib/swRecovery";
+import { translations } from "@/i18n/data";
+
+// Class component → no hooks. Resolve i18n from the persisted language the same
+// way LanguageContext's out-of-provider fallback does, so the crash screen is
+// localized (EN/FR/ES) instead of hardcoded French.
+function tr(key: string): string {
+  let lang = "en";
+  try { lang = localStorage.getItem("language") || "en"; } catch { /* storage denied */ }
+  return (translations as Record<string, Record<string, string>>)[lang]?.[key]
+    ?? translations["en"]?.[key] ?? key;
+}
 
 interface Props {
   children: ReactNode;
@@ -51,15 +62,15 @@ export class ErrorBoundary extends Component<Props, State> {
       if (this.state.isChunkError) {
         return (
           <div className="flex flex-col items-center justify-center min-h-screen gap-4 p-6 text-center">
-            <p className="text-lg font-semibold text-white">Erreur de chargement</p>
+            <p className="text-lg font-semibold text-white">{tr('errBoundary.chunkTitle')}</p>
             <p className="text-sm text-muted-foreground max-w-xs">
-              Une ressource n'a pas pu être chargée. Recharge la page pour continuer.
+              {tr('errBoundary.chunkDesc')}
             </p>
             <button
               className="px-4 py-2 rounded-lg bg-primary text-white text-sm"
               onClick={() => { void purgeServiceWorkersAndReload(); }}
             >
-              Recharger
+              {tr('errBoundary.reload')}
             </button>
           </div>
         );
@@ -67,12 +78,12 @@ export class ErrorBoundary extends Component<Props, State> {
 
       return (
         <div className="flex flex-col items-center justify-center min-h-screen gap-4 p-6 text-center">
-          <p className="text-lg font-semibold text-white">Une erreur est survenue.</p>
+          <p className="text-lg font-semibold text-white">{tr('errBoundary.title')}</p>
           <button
             className="px-4 py-2 rounded-lg bg-primary text-white text-sm"
             onClick={() => this.setState({ hasError: false, isChunkError: false })}
           >
-            Réessayer
+            {tr('errBoundary.retry')}
           </button>
         </div>
       );

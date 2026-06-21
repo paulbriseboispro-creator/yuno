@@ -17,6 +17,7 @@ import { ExploreRankCard } from '@/components/explore/ExploreRankCard';
 import { ExploreDJCard, ExploreDJItem } from '@/components/explore/ExploreDJCard';
 import { ExploreVenueCard, ExploreVenueItem } from '@/components/explore/ExploreVenueCard';
 import { ExplorePopularClubCard } from '@/components/explore/ExplorePopularClubCard';
+import { ExploreSeeAllCard } from '@/components/explore/ExploreSeeAllCard';
 import { ExploreDayTabs, WeekDayData } from '@/components/explore/ExploreDayTabs';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -1133,9 +1134,6 @@ export default function Explore() {
                 <ExploreSectionTitle
                   kicker={language === 'fr' ? 'LES PLUS SUIVIS' : language === 'es' ? 'LOS MÁS SEGUIDOS' : 'MOST FOLLOWED'}
                   title={language === 'fr' ? 'Les DJs à ne pas manquer' : language === 'es' ? 'DJs que no te puedes perder' : 'DJs not to miss'}
-                  titleNoWrap
-                  action={language === 'fr' ? 'Tout voir' : language === 'es' ? 'Ver todo' : 'See all'}
-                  onAction={() => navigate('/djs')}
                 />
                 <div
                   className="flex overflow-x-auto"
@@ -1144,6 +1142,16 @@ export default function Explore() {
                   {topDjs.map((dj, i) => (
                     <ExploreDJCard key={dj.id} dj={dj} rank={i + 1} />
                   ))}
+                  {/* "Tout voir" en fin de carrousel — seulement si la liste est au max (cap 10) */}
+                  {topDjs.length >= 10 && (
+                    <ExploreSeeAllCard
+                      label={language === 'fr' ? 'Tout voir' : language === 'es' ? 'Ver todo' : 'See all'}
+                      onClick={() => navigate('/djs')}
+                      width={140}
+                      minHeight={198}
+                      borderRadius={14}
+                    />
+                  )}
                 </div>
               </div>
             )}
@@ -1154,8 +1162,6 @@ export default function Explore() {
                 <ExploreSectionTitle
                   kicker={language === 'fr' ? 'LES INCONTOURNABLES' : language === 'es' ? 'IMPRESCINDIBLES' : 'THE ESSENTIALS'}
                   title={language === 'fr' ? 'Clubs populaires' : language === 'es' ? 'Clubs populares' : 'Popular clubs'}
-                  action={language === 'fr' ? 'Tout voir' : language === 'es' ? 'Ver todo' : 'See all'}
-                  onAction={() => navigate('/map')}
                 />
                 <div
                   className="flex overflow-x-auto"
@@ -1174,6 +1180,16 @@ export default function Explore() {
                       slug={v.slug}
                     />
                   ))}
+                  {/* "Tout voir" en fin de carrousel — seulement si la liste est au max (cap 10) */}
+                  {venueItems.length >= 10 && (
+                    <ExploreSeeAllCard
+                      label={language === 'fr' ? 'Tout voir' : language === 'es' ? 'Ver todo' : 'See all'}
+                      onClick={() => navigate('/map')}
+                      width={282}
+                      minHeight={258}
+                      borderRadius={20}
+                    />
+                  )}
                 </div>
               </div>
             )}

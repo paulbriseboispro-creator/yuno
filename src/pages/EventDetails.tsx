@@ -789,44 +789,38 @@ export default function EventDetails() {
           )}
         </div>
 
-        {/* ── Sales status + availability ── */}
-        {(eventSalesStatus === 'coming_soon' || eventSalesStatus === 'presale' || eventSalesStatus === 'sold_out' || availability) && (
+        {/* ── Sales status (coming soon / presale / sold out) ── */}
+        {/* Generic availability lives in the ticket callout kicker below; only special
+            states surface here to avoid repeating "tickets and tables available". */}
+        {(eventSalesStatus === 'coming_soon' || eventSalesStatus === 'presale' || eventSalesStatus === 'sold_out') && (
           <div style={{ padding: '16px 20px 0' }}>
-            {(eventSalesStatus === 'coming_soon' || eventSalesStatus === 'presale' || eventSalesStatus === 'sold_out') && (
-              <EventSalesStatus
-                event={{
-                  presaleStartAt: event.presaleStartAt,
-                  publicSaleStartAt: event.publicSaleStartAt,
-                  waitlistEnabled: event.waitlistEnabled,
-                }}
-                allRoundsSoldOut={isSoldOut}
-                hasPresaleAccess={hasPresaleAccess}
-              />
-            )}
-            {availability && (
-              <div className={`flex items-center gap-2 mt-2 text-sm font-medium ${availability.color}`}>
-                {availability.urgent && <span className="inline-block h-2 w-2 rounded-full bg-current animate-pulse" />}
-                <span>{availability.text}</span>
-              </div>
-            )}
+            <EventSalesStatus
+              event={{
+                presaleStartAt: event.presaleStartAt,
+                publicSaleStartAt: event.publicSaleStartAt,
+                waitlistEnabled: event.waitlistEnabled,
+              }}
+              allRoundsSoldOut={isSoldOut}
+              hasPresaleAccess={hasPresaleAccess}
+            />
           </div>
         )}
 
         {/* ── INLINE TICKET CALLOUT ── */}
         {canUserAccessSales && hasTicketsOrTables && minPrice > 0 && (
           <section style={{ padding: '20px 20px 0' }}>
+            <p className="section-label-ruled mb-3">
+              {hasTickets && hasTables ? t('event.ticketsAndTables') : hasTickets ? t('event.ticketsAvailable') : t('event.tablesAvailable')}
+            </p>
             <div style={{ border: '1px solid rgba(232,25,44,0.28)', borderRadius: 4, padding: '16px 20px', background: 'rgba(232,25,44,0.04)' }}>
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="font-mono uppercase mb-1" style={{ fontSize: '9px', color: '#E8192C', letterSpacing: '0.14em' }}>
-                    {hasTickets && hasTables ? t('event.ticketsAndTables') : hasTickets ? t('event.ticketsAvailable') : t('event.tablesAvailable')}
-                  </p>
                   <p className="font-display font-bold text-white" style={{ fontSize: 'clamp(22px, 5vw, 32px)', letterSpacing: '-0.025em', lineHeight: 1 }}>
                     {t('event.startingFrom')} {minPrice.toFixed(2)}€
                   </p>
-                  {availability && (
+                  {availability?.urgent && (
                     <p className={`font-mono mt-1.5 ${availability.color}`} style={{ fontSize: '11px', letterSpacing: '0.04em' }}>
-                      {availability.urgent && <span className="inline-block h-1.5 w-1.5 rounded-full bg-current mr-1.5 animate-pulse" style={{ verticalAlign: 'middle' }} />}
+                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-current mr-1.5 animate-pulse" style={{ verticalAlign: 'middle' }} />
                       {availability.text}
                     </p>
                   )}

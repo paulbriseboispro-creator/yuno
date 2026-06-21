@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Badge } from '@/components/ui/badge';
 import { Loader2, Clock, ChefHat } from 'lucide-react';
 
 interface OrderItem {
@@ -16,21 +15,21 @@ interface TrackedOrder {
   items: OrderItem[];
 }
 
-const STATUS_CONFIG: Record<string, { label: string; icon: typeof Clock; className: string }> = {
+const STATUS_CONFIG: Record<string, { label: string; icon: typeof Clock; color: string }> = {
   pending: {
     label: 'Demandée',
     icon: Clock,
-    className: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    color: '#F0A92C',
   },
   confirmed: {
     label: 'Confirmée',
     icon: Clock,
-    className: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    color: '#E5E5E5',
   },
   preparing: {
     label: 'En préparation',
     icon: ChefHat,
-    className: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+    color: '#E8192C',
   },
 };
 
@@ -129,25 +128,27 @@ export function VipOrderTracking({ reservationId, onOrderServed }: VipOrderTrack
 
   return (
     <div className="space-y-2">
-      <h3 className="text-xs uppercase tracking-wide text-muted-foreground font-medium px-1">
+      <p className="font-mono uppercase" style={{ fontSize: 10, color: '#5A5A5E', letterSpacing: '0.14em', paddingLeft: 2 }}>
         Suivi de commandes
-      </h3>
+      </p>
       {orders.map(order => {
         const config = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
         const Icon = config.icon;
         return (
-          <div
-            key={order.id}
-            className="rounded-xl bg-muted/30 border border-border/50 p-3 space-y-1.5"
-          >
+          <div key={order.id} className="yuno-card p-3 space-y-1.5">
             <div className="flex items-center gap-2">
-              <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-              <Badge className={config.className}>{config.label}</Badge>
+              <Icon className="h-3.5 w-3.5" style={{ color: config.color }} />
+              <span
+                className="font-mono font-bold uppercase"
+                style={{ fontSize: 10, letterSpacing: '0.08em', color: config.color, padding: '3px 8px', borderRadius: 999, background: `${config.color}1A`, border: `1px solid ${config.color}40` }}
+              >
+                {config.label}
+              </span>
             </div>
             <div className="pl-5 space-y-0.5">
               {order.items.map(item => (
-                <p key={item.id} className="text-sm text-muted-foreground">
-                  {item.quantity > 1 && `${item.quantity}x `}
+                <p key={item.id} className="font-sans" style={{ fontSize: 13, color: '#9A9A9A' }}>
+                  {item.quantity > 1 && `${item.quantity}× `}
                   {item.item_name}
                 </p>
               ))}
