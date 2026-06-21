@@ -1805,6 +1805,39 @@ export type Database = {
           },
         ]
       }
+      dj_handle_aliases: {
+        Row: {
+          created_at: string
+          handle: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          handle: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          handle?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dj_handle_aliases_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_handle_aliases_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dj_handles: {
         Row: {
           created_at: string
@@ -3574,6 +3607,7 @@ export type Database = {
       guest_lists: {
         Row: {
           created_at: string
+          dj_id: string | null
           entry_deadline: string | null
           event_id: string
           free_before_time: string
@@ -3591,6 +3625,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          dj_id?: string | null
           entry_deadline?: string | null
           event_id: string
           free_before_time?: string
@@ -3608,6 +3643,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          dj_id?: string | null
           entry_deadline?: string | null
           event_id?: string
           free_before_time?: string
@@ -3625,9 +3661,23 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "guest_lists_dj_id_fkey"
+            columns: ["dj_id"]
+            isOneToOne: false
+            referencedRelation: "djs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_lists_dj_id_fkey"
+            columns: ["dj_id"]
+            isOneToOne: false
+            referencedRelation: "djs_public"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "guest_lists_event_id_fkey"
             columns: ["event_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
@@ -5327,6 +5377,32 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "profiles_public"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizer_slug_aliases: {
+        Row: {
+          created_at: string
+          slug: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          slug: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          slug?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organizer_slug_aliases_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "organizer_profiles"
+            referencedColumns: ["user_id"]
           },
         ]
       }
@@ -10175,6 +10251,7 @@ export type Database = {
           cover_image_url: string | null
           description: string | null
           first_name: string | null
+          handle: string | null
           id: string | null
           instagram_url: string | null
           is_active: boolean | null
@@ -10189,50 +10266,6 @@ export type Database = {
           tiktok_url: string | null
           venue_id: string | null
           youtube_url: string | null
-        }
-        Insert: {
-          bio?: string | null
-          city?: string | null
-          country?: string | null
-          cover_image_url?: string | null
-          description?: string | null
-          first_name?: string | null
-          id?: string | null
-          instagram_url?: string | null
-          is_active?: boolean | null
-          is_verified?: boolean | null
-          last_name?: string | null
-          music_genres?: string[] | null
-          profile_image_url?: string | null
-          slug?: string | null
-          soundcloud_url?: string | null
-          spotify_url?: string | null
-          stage_name?: string | null
-          tiktok_url?: string | null
-          venue_id?: string | null
-          youtube_url?: string | null
-        }
-        Update: {
-          bio?: string | null
-          city?: string | null
-          country?: string | null
-          cover_image_url?: string | null
-          description?: string | null
-          first_name?: string | null
-          id?: string | null
-          instagram_url?: string | null
-          is_active?: boolean | null
-          is_verified?: boolean | null
-          last_name?: string | null
-          music_genres?: string[] | null
-          profile_image_url?: string | null
-          slug?: string | null
-          soundcloud_url?: string | null
-          spotify_url?: string | null
-          stage_name?: string | null
-          tiktok_url?: string | null
-          venue_id?: string | null
-          youtube_url?: string | null
         }
         Relationships: [
           {
@@ -10624,7 +10657,14 @@ export type Database = {
         Args: { p_contest_id: string }
         Returns: Json
       }
-      gen_dj_handle: { Args: { p_name: string }; Returns: string }
+      gen_dj_handle: {
+        Args: { p_exclude?: string; p_name: string }
+        Returns: string
+      }
+      gen_organizer_slug: {
+        Args: { p_exclude?: string; p_name: string }
+        Returns: string
+      }
       gen_tracked_link_code: { Args: never; Returns: string }
       generate_invoice_number:
         | { Args: { p_venue_id: string }; Returns: string }
@@ -10652,6 +10692,25 @@ export type Database = {
           ref_id: string
           ref_type: string
           ts: string
+        }[]
+      }
+      get_dj_audience: {
+        Args: never
+        Returns: {
+          clicks: number
+          conversions: number
+          event_id: string
+          event_title: string
+          gl_id: string
+          gl_quota: number
+          gl_scanned: number
+          gl_share_token: string
+          gl_signups: number
+          link_code: string
+          location_name: string
+          poster_url: string
+          revenue: number
+          start_at: string
         }[]
       }
       get_dj_lineup_notification_targets: {
@@ -10685,6 +10744,7 @@ export type Database = {
         Args: { _token: string }
         Returns: {
           created_at: string
+          dj_id: string | null
           entry_deadline: string | null
           event_id: string
           free_before_time: string
@@ -11100,6 +11160,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      resolve_organizer_slug: { Args: { p_slug: string }; Returns: string }
       resolve_sms_campaign_recipients: {
         Args: {
           p_event_id?: string
