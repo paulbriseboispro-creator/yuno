@@ -45,11 +45,21 @@ export default function ClaimOrder() {
   const { toast } = useToast();
   const { t } = useLanguage();
 
+  // Reference prefix per purchase type. The prefix is shown as a fixed, locked
+  // adornment on the input so the user only ever types the 6-char suffix and can
+  // never accidentally drop it.
+  const prefixFor = (type: 'order' | 'ticket' | 'table') =>
+    type === 'ticket' ? 'TK-' : type === 'table' ? 'VP-' : 'DR-';
+  // Strip a leading prefix so pasting a full code (TK-91175F, or a legacy
+  // TK-<uuid>) lands in the suffix field cleanly without doubling the prefix.
+  const stripPrefix = (v: string) => v.toUpperCase().replace(/^(TK-|VP-|DR-)/, '');
+
   const [step, setStep] = useState<'lookup' | 'otp' | 'result'>('lookup');
   const [purchaseType, setPurchaseType] = useState<'order' | 'ticket' | 'table'>(
-    (searchParams.get('type') as any) || 'order'
+    (searchParams.get('type') as any) || 'ticket'
   );
-  const [orderNumber, setOrderNumber] = useState(searchParams.get('order') || searchParams.get('ref') || '');
+  // `orderNumber` holds only the suffix (everything after the prefix).
+  const [orderNumber, setOrderNumber] = useState(stripPrefix(searchParams.get('order') || searchParams.get('ref') || ''));
   const [lastName, setLastName] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [maskedEmail, setMaskedEmail] = useState('');
@@ -58,13 +68,8 @@ export default function ClaimOrder() {
   const [isLoading, setIsLoading] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
 
-  const getPlaceholder = () => {
-    // Ticket/table references are `TK-`/`VP-` + a full UUID, so show an ellipsis
-    // to signal it's a long code (best pasted from the confirmation email).
-    if (purchaseType === 'ticket') return 'TK-xxxxxxxx-…';
-    if (purchaseType === 'table') return 'VP-xxxxxxxx-…';
-    return 'DR-XXXXXX';
-  };
+  // Full reference (prefix + typed suffix) sent to the backend lookup.
+  const fullReference = () => `${prefixFor(purchaseType)}${orderNumber.trim()}`;
 
   const getTitle = () => {
     if (purchaseType === 'ticket') return t('claim.findTitle.ticket');
@@ -77,7 +82,7 @@ export default function ClaimOrder() {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('claim-guest-order', {
-        body: { action: 'lookup', orderNumber: orderNumber.trim(), lastName: lastName.trim(), purchaseType },
+        body: { action: 'lookup', orderNumber: fullReference(), lastName: lastName.trim(), purchaseType },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -95,7 +100,7 @@ export default function ClaimOrder() {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('claim-guest-order', {
-        body: { action: 'verify', orderNumber: orderNumber.trim(), otpCode, purchaseType },
+        body: { action: 'verify', orderNumber: fullReference(), otpCode, purchaseType },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -123,7 +128,7 @@ export default function ClaimOrder() {
     setIsLinking(true);
     try {
       const { data, error } = await supabase.functions.invoke('claim-guest-order', {
-        body: { action: 'link', orderNumber: orderNumber.trim(), purchaseType },
+        body: { action: 'link', orderNumber: fullReference(), purchaseType },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -225,28 +230,32 @@ export default function ClaimOrder() {
               </p>
             </div>
 
-            <Tabs value={purchaseType} onValueChange={(v) => setPurchaseType(v as any)}>
+            <Tabs value={purchaseType} onValueChange={(v) => { setPurchaseType(v as any); setOrderNumber(''); }}>
               <TabsList className="w-full grid grid-cols-3">
-                <TabsTrigger value="order">{t('claim.tabDrinks')}</TabsTrigger>
                 <TabsTrigger value="ticket">{t('claim.tabTickets')}</TabsTrigger>
                 <TabsTrigger value="table">{t('claim.tabTables')}</TabsTrigger>
+                <TabsTrigger value="order">{t('claim.tabDrinks')}</TabsTrigger>
               </TabsList>
             </Tabs>
 
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>{t('claim.reference')}</Label>
-                <Input
-                  placeholder={getPlaceholder()}
-                  value={orderNumber}
-                  // DR- order numbers are uppercase; TK-/VP- QR codes are
-                  // case-sensitive (lowercase UUID), so don't force-uppercase them.
-                  onChange={(e) => setOrderNumber(purchaseType === 'order' ? e.target.value.toUpperCase() : e.target.value)}
-                  className={`text-center text-lg font-mono ${purchaseType === 'order' ? 'tracking-widest uppercase' : 'tracking-tight'}`}
-                />
-                {purchaseType !== 'order' && (
-                  <p className="text-xs text-muted-foreground">{t('claim.refHintLong')}</p>
-                )}
+                {/* Locked prefix + 6-char suffix. The prefix is a fixed adornment
+                    so it can never be deleted; the user only types the code. */}
+                <div className="flex items-center h-12 rounded-xl border border-input bg-background px-3 focus-within:ring-2 focus-within:ring-ring/50">
+                  <span className="text-lg font-mono font-bold tracking-widest text-muted-foreground select-none">{prefixFor(purchaseType)}</span>
+                  <Input
+                    placeholder="XXXXXX"
+                    value={orderNumber}
+                    // Strip any pasted prefix so it never doubles up; uppercasing
+                    // is safe even for legacy long codes (backend matches those
+                    // case-insensitively).
+                    onChange={(e) => setOrderNumber(stripPrefix(e.target.value))}
+                    className="h-full border-0 bg-transparent px-1 text-lg font-mono tracking-widest uppercase shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">{t('claim.refHint')}</p>
               </div>
 
               <div className="space-y-2">
@@ -342,7 +351,7 @@ export default function ClaimOrder() {
                 <p className="text-xs text-muted-foreground mb-2">
                   {t('claim.createAccountHint')}
                 </p>
-                <Button variant="ghost" onClick={() => navigate('/auth?redirect=/claim?order=' + orderNumber + '&type=' + purchaseType)} className="text-sm text-primary">
+                <Button variant="ghost" onClick={() => navigate('/auth?redirect=/claim?order=' + fullReference() + '&type=' + purchaseType)} className="text-sm text-primary">
                   {t('claim.createAccount')}
                 </Button>
               </div>
