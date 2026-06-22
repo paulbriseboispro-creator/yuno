@@ -243,8 +243,8 @@ export default function ClaimOrder() {
                 <Label>{t('claim.reference')}</Label>
                 {/* Locked prefix + 6-char suffix. The prefix is a fixed adornment
                     so it can never be deleted; the user only types the code. */}
-                <div className="flex items-center h-12 rounded-xl border border-input bg-background px-3 focus-within:ring-2 focus-within:ring-ring/50">
-                  <span className="text-lg font-mono font-bold tracking-widest text-muted-foreground select-none">{prefixFor(purchaseType)}</span>
+                <div className="flex items-center justify-center h-12 rounded-xl border border-input bg-background px-3 focus-within:ring-2 focus-within:ring-ring/50">
+                  <span className="text-lg font-mono text-muted-foreground select-none">{prefixFor(purchaseType)}</span>
                   <Input
                     placeholder="XXXXXX"
                     value={orderNumber}
@@ -252,7 +252,10 @@ export default function ClaimOrder() {
                     // is safe even for legacy long codes (backend matches those
                     // case-insensitively).
                     onChange={(e) => setOrderNumber(stripPrefix(e.target.value))}
-                    className="h-full border-0 bg-transparent px-1 text-lg font-mono tracking-widest uppercase shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                    // Width tracks the typed code so prefix + code stay centered as
+                    // one block. Plain ch sizing — no CSS field-sizing (iOS Safari safe).
+                    style={{ width: `${Math.max(orderNumber.length, 6) + 1}ch` }}
+                    className="h-full border-0 bg-transparent px-1 text-lg font-mono uppercase shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">{t('claim.refHint')}</p>
