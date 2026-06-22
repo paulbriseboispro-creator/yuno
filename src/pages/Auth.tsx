@@ -33,6 +33,7 @@ export default function Auth() {
   const { toast } = useToast();
   const { t } = useLanguage();
   const [email, setEmail] = useState(inviteEmailParam ?? '');
+  const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(!!inviteToken || !!platformInviteToken || !!affiliateInviteToken || !!affiliateMemberInviteToken || searchParams.get('signup') === 'true');
   const [isForgotPassword, setIsForgotPassword] = useState(false);
@@ -269,14 +270,22 @@ export default function Auth() {
         getAuthSchema(t).parse({ email, password });
 
         if (isSignUp) {
-          // Friction-minimal signup: email + password only. The buyer's name is
-          // captured at first checkout (written back to the profile there), and
-          // their city resolves from GPS in Explore — so we ask for neither here.
+          // We collect the buyer's full name at signup (first token = first name,
+          // the rest = last name). The handle_new_user trigger reads these from
+          // raw_user_meta_data into the profile. City still resolves from GPS in Explore.
+          const trimmedName = fullName.trim();
+          const [firstNamePart, ...lastNameParts] = trimmedName.split(/\s+/);
+          const lastNamePart = lastNameParts.join(' ');
+
           const { error } = await supabase.auth.signUp({
             email,
             password,
             options: {
               emailRedirectTo: `${window.location.origin}/auth`,
+              data: {
+                first_name: firstNamePart || undefined,
+                last_name: lastNamePart || undefined,
+              },
             }
           });
 
@@ -488,6 +497,10 @@ export default function Auth() {
 
           {/* Form */}
           <form onSubmit={handleAuth} className="space-y-3">
+            {isSignUp && !isReset && !isForgotPassword && (
+              <input type="text" autoComplete="name" placeholder={t('auth.placeholders.fullName')} value={fullName} onChange={(e) => setFullName(e.target.value)} required disabled={isLoading} style={{ ...inputStyle, borderColor: fullName ? 'rgba(232,25,44,0.4)' : 'rgba(255,255,255,0.08)' }} />
+            )}
+
             {!isReset && (
               <input type="email" placeholder={t('auth.placeholders.email')} value={email} onChange={(e) => setEmail(e.target.value)} required disabled={isLoading} style={{ ...inputStyle, borderColor: email ? 'rgba(232,25,44,0.4)' : 'rgba(255,255,255,0.08)' }} />
             )}
