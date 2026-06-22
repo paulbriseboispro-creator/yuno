@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { EmailLanguage, t, wrapEmailWithBranding, escapeHtml } from "../_shared/email-branding.ts";
+import { loadOptIns, optInToken, unsubscribeHeaders } from "../_shared/email-compliance.ts";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 const corsHeaders = {
@@ -54,7 +55,7 @@ serve(async (req) => {
     if (!resendApiKey) throw new Error("RESEND_API_KEY not configured");
 
     const rawFrom = Deno.env.get('RESEND_FROM_EMAIL');
-    const from = rawFrom ? (rawFrom.includes('<') ? rawFrom : `Yuno <${rawFrom}>`) : 'Yuno <onboarding@resend.dev>';
+    const from = rawFrom ? (rawFrom.includes('<') ? rawFrom : `Yuno <${rawFrom}>`) : 'Yuno <noreply@yunoapp.eu>';
 
     const now = new Date().toISOString();
     const twoWeeksFromNow = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
@@ -66,7 +67,7 @@ serve(async (req) => {
 
     const { data: upcomingEvents } = await supabaseAdmin
       .from('events')
-      .select('id, title, start_at, venue_id, music_genre, music_genres, poster_url, ticketing_enabled, venues(name)')
+      .select('id, title, start_at, venue_id, organizer_user_id, music_genre, music_genres, poster_url, ticketing_enabled, venues(name)')
       .eq('is_active', true)
       .gt('start_at', now)
       .lt('start_at', twoWeeksFromNow)
@@ -119,6 +120,8 @@ serve(async (req) => {
       }
     }
 
+    const optins = await loadOptIns(supabaseAdmin, [...userEvents.values()].map(u => u.email));
+
     let sentCount = 0;
 
     for (const [userId, userData] of userEvents) {
@@ -147,10 +150,14 @@ serve(async (req) => {
             return { ...e, score };
           })
           .filter(e => e.score > 0)
+          // Marketing: only recommend events from venues/organizers the user opted in to.
+          .filter(e => optInToken(optins, userData.email, { venueId: e.venue_id, organizerUserId: (e as any).organizer_user_id }) !== null)
           .sort((a, b) => b.score - a.score)
           .slice(0, 3);
 
         if (scoredEvents.length === 0) continue;
+
+        const unsubToken = optInToken(optins, userData.email, { venueId: scoredEvents[0].venue_id, organizerUserId: (scoredEvents[0] as any).organizer_user_id });
 
         let lang: EmailLanguage = 'fr';
         const { data: profile } = await supabaseAdmin
@@ -213,7 +220,7 @@ serve(async (req) => {
         const res = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
-          body: JSON.stringify({ from, to: [userData.email], subject, html }),
+          body: JSON.stringify({ from, to: [userData.email], subject, html, headers: unsubscribeHeaders(unsubToken) }),
         });
         if (res.ok) {
           await markSent(supabaseAdmin, userId, 'next_event_rec', weekKey);

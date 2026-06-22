@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { EmailLanguage, t, wrapEmailWithBranding, escapeHtml } from "../_shared/email-branding.ts";
+import { loadOptIns, optInToken, unsubscribeHeaders } from "../_shared/email-compliance.ts";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 const corsHeaders = {
@@ -54,14 +55,14 @@ serve(async (req) => {
     if (!resendApiKey) throw new Error("RESEND_API_KEY not configured");
 
     const rawFrom = Deno.env.get('RESEND_FROM_EMAIL');
-    const from = rawFrom ? (rawFrom.includes('<') ? rawFrom : `Yuno <${rawFrom}>`) : 'Yuno <onboarding@resend.dev>';
+    const from = rawFrom ? (rawFrom.includes('<') ? rawFrom : `Yuno <${rawFrom}>`) : 'Yuno <noreply@yunoapp.eu>';
 
     const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
     const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
 
     const { data: recentEvents } = await supabaseAdmin
       .from('events')
-      .select('id, title, start_at, venue_id, poster_url, venues(name)')
+      .select('id, title, start_at, venue_id, organizer_user_id, poster_url, venues(name)')
       .lte('end_at', twelveHoursAgo)
       .gte('end_at', fortyEightHoursAgo);
 
@@ -89,11 +90,18 @@ serve(async (req) => {
 
       if (!noShowTickets || noShowTickets.length === 0) continue;
 
-      const { count: attendeeCount } = await supabaseAdmin
+      // Exclude anyone who actually showed up: a user holding a 'used' ticket for
+      // this event attended, even if a separate 'paid' ticket of theirs was never
+      // scanned. Without this, real attendees get a "you missed it" email.
+      const { data: attendedRows } = await supabaseAdmin
         .from('tickets')
-        .select('id', { count: 'exact', head: true })
+        .select('user_id, user_email')
         .eq('event_id', event.id)
         .eq('status', 'used');
+      const attendedUserIds = new Set((attendedRows || []).map((r: any) => r.user_id).filter(Boolean));
+      const attendedEmails = new Set((attendedRows || []).map((r: any) => r.user_email).filter(Boolean));
+
+      const attendeeCount = attendedRows?.length ?? 0;
 
       const { data: nextEvents } = await supabaseAdmin
         .from('events')
@@ -106,9 +114,15 @@ serve(async (req) => {
 
       const nextEvent = nextEvents?.[0];
 
+      const optins = await loadOptIns(supabaseAdmin, noShowTickets.map((tk: any) => tk.user_email));
+
       const seen = new Set<string>();
       for (const ticket of noShowTickets) {
         if (!ticket.user_email || !ticket.user_id || seen.has(ticket.user_email)) continue;
+        if (attendedUserIds.has(ticket.user_id) || attendedEmails.has(ticket.user_email)) continue;
+        // Marketing: send ONLY to recipients who opted in for this venue/organizer.
+        const unsubToken = optInToken(optins, ticket.user_email, { venueId: event.venue_id, organizerUserId: (event as any).organizer_user_id });
+        if (unsubToken === null) continue;
         seen.add(ticket.user_email);
 
         const alreadySent = await wasAlreadySent(supabaseAdmin, ticket.user_id, 'missed_you', event.id);
@@ -196,7 +210,7 @@ serve(async (req) => {
           const res = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
-            body: JSON.stringify({ from, to: [ticket.user_email], subject, html }),
+            body: JSON.stringify({ from, to: [ticket.user_email], subject, html, headers: unsubscribeHeaders(unsubToken) }),
           });
           if (res.ok) {
             await markSent(supabaseAdmin, ticket.user_id, 'missed_you', event.id);

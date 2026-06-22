@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { EmailLanguage, t, wrapEmailWithBranding, escapeHtml } from "../_shared/email-branding.ts";
+import { loadOptIns, optInToken, unsubscribeHeaders } from "../_shared/email-compliance.ts";
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 
 const corsHeaders = {
@@ -53,7 +54,7 @@ serve(async (req) => {
     if (!resendApiKey) throw new Error("RESEND_API_KEY not configured");
 
     const rawFrom = Deno.env.get('RESEND_FROM_EMAIL');
-    const from = rawFrom ? (rawFrom.includes('<') ? rawFrom : `Yuno <${rawFrom}>`) : 'Yuno <onboarding@resend.dev>';
+    const from = rawFrom ? (rawFrom.includes('<') ? rawFrom : `Yuno <${rawFrom}>`) : 'Yuno <noreply@yunoapp.eu>';
 
     // Find tickets purchased in the last 45 minutes
     const fortyFiveMinAgo = new Date(Date.now() - 45 * 60 * 1000).toISOString();
@@ -83,6 +84,8 @@ serve(async (req) => {
       return true;
     });
 
+    const optins = await loadOptIns(supabaseAdmin, uniqueTickets.map(tk => tk.user_email));
+
     let sentCount = 0;
 
     for (const ticket of uniqueTickets) {
@@ -105,11 +108,15 @@ serve(async (req) => {
 
         const { data: event } = await supabaseAdmin
           .from('events')
-          .select('id, title, venue_id, tables_enabled, venues(name, address)')
+          .select('id, title, venue_id, organizer_user_id, tables_enabled, venues(name, address)')
           .eq('id', ticket.event_id)
           .single();
 
         if (!event) continue;
+
+        // Marketing (upsell): send ONLY to recipients who opted in for this venue/organizer.
+        const unsubToken = optInToken(optins, ticket.user_email, { venueId: event.venue_id, organizerUserId: (event as any).organizer_user_id });
+        if (unsubToken === null) continue;
 
         const venueName = (event.venues as any)?.name || '';
         const venueSlug = event.venue_id;
@@ -181,7 +188,7 @@ serve(async (req) => {
         const res = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
-          body: JSON.stringify({ from, to: [ticket.user_email], subject, html }),
+          body: JSON.stringify({ from, to: [ticket.user_email], subject, html, headers: unsubscribeHeaders(unsubToken) }),
         });
 
         if (res.ok) {
