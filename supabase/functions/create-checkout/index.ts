@@ -584,9 +584,11 @@ serve(async (req) => {
           partnership_id: partnershipId ?? "",
         };
         // SEPARATE mode (co-event drink split): charge stays on the platform, webhook
-        // fires a transfer to each connected account.
+        // fires a transfer to each connected account. `on_behalf_of` = the venue → the
+        // venue is the merchant of record (alcohol seller; customer statement = venue).
         if (split.splitMode === "separate") {
           return {
+            ...(split.onBehalfOf ? { on_behalf_of: split.onBehalfOf } : {}),
             transfer_group: transferGroup,
             metadata: sharedMetadata,
           } as Stripe.Checkout.SessionCreateParams.PaymentIntentData;

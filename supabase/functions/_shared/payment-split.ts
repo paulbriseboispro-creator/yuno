@@ -65,6 +65,15 @@ export interface SplitResult {
    *                transfers fired by the webhook to primary + secondary.
    */
   splitMode: SplitMode;
+  /**
+   * In "separate" mode: the connected account to set as `on_behalf_of` on the charge,
+   * making it the MERCHANT OF RECORD (statement descriptor + settlement + legal seller).
+   * Always the VENUE for a co-event — the venue holds the alcohol licence and serves the
+   * bottles/conso, so the venue must be the seller of record even though the charge runs
+   * on the platform and is split. Null in "direct" mode (the charge already runs on the
+   * recipient's own account).
+   */
+  onBehalfOf: string | null;
   primary: {
     accountId: string;
     amountCents: number;
@@ -167,6 +176,7 @@ export function resolvePaymentSplit(input: SplitInput): SplitResult {
     yunoFeeCents,
     stripeFeeEstimatedCents,
     splitMode: "direct",
+    onBehalfOf: null,
     primary: { accountId, amountCents: netAfterStripeCents, kind, venueId: vId, organizerId: oId },
     secondary: null,
     effectiveSplit: effective,
@@ -267,6 +277,9 @@ export function resolvePaymentSplit(input: SplitInput): SplitResult {
     yunoFeeCents,
     stripeFeeEstimatedCents,
     splitMode: "separate",
+    // The venue is the merchant of record (alcohol licence holder) even though the
+    // platform holds the charge and splits it. Customer statement = venue.
+    onBehalfOf: venueStripeAccountId,
     primary: primaryIsVenue ? venueLeg : organizerLeg,
     secondary: primaryIsVenue ? organizerLeg : venueLeg,
     effectiveSplit: split,
