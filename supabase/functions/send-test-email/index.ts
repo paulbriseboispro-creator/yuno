@@ -1,11 +1,15 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { PREVIEW_SAMPLES } from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Design-preview only ever delivers to the owner's inbox — anti open-relay guard.
+const PREVIEW_RECIPIENT = 'paul.brisebois.pro@gmail.com';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -19,7 +23,36 @@ serve(async (req) => {
     }
 
     const resend = new Resend(resendApiKey);
-    const { templateId, recipientEmail } = await req.json();
+    const reqBody = await req.json().catch(() => ({}));
+
+    // ── Design-preview mode: render the new editorial templates with mock data
+    //    and send each to the owner's inbox (recipient is hardcoded, not trusted). ──
+    if (reqBody.action === 'preview') {
+      const rawFrom = Deno.env.get('RESEND_FROM_EMAIL');
+      const from = rawFrom ? (rawFrom.includes('<') ? rawFrom : `Yuno <${rawFrom}>`) : 'Yuno <noreply@yunoapp.eu>';
+      const which: string[] = reqBody.template && reqBody.template !== 'all'
+        ? [reqBody.template]
+        : Object.keys(PREVIEW_SAMPLES);
+      const results: Array<{ template: string; ok: boolean; error?: string }> = [];
+      for (const name of which) {
+        const builder = PREVIEW_SAMPLES[name];
+        if (!builder) { results.push({ template: name, ok: false, error: 'unknown template' }); continue; }
+        const mail = builder();
+        const r = await resend.emails.send({
+          from,
+          to: [PREVIEW_RECIPIENT],
+          subject: `[PREVIEW] ${mail.subject}`,
+          html: mail.html,
+        });
+        results.push({ template: name, ok: !r?.error, error: r?.error?.message });
+        // Resend caps at 5 req/s — throttle so a full "all" run never trips it.
+        await new Promise((res) => setTimeout(res, 280));
+      }
+      return new Response(JSON.stringify({ success: true, sentTo: PREVIEW_RECIPIENT, results }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const { templateId, recipientEmail } = reqBody;
 
     if (!templateId || !recipientEmail) {
       throw new Error("templateId and recipientEmail are required");
