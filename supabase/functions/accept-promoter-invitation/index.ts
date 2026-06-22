@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
           });
 
           if (resetData?.properties?.action_link) {
-            await fetch('https://api.resend.com/emails', {
+            const res = await fetch('https://api.resend.com/emails', {
               method: 'POST',
               headers: {
                 'Authorization': `Bearer ${resendApiKey}`,
@@ -194,7 +194,12 @@ Deno.serve(async (req) => {
                 `,
               }),
             });
-            passwordResetSent = true;
+            if (res.ok) {
+              passwordResetSent = true;
+            } else {
+              const body = await res.text().catch(() => '');
+              console.error('accept-promoter-invitation password email send failed:', res.status, body);
+            }
           }
         }
 
@@ -323,6 +328,9 @@ Deno.serve(async (req) => {
       promo_code: invitation.promo_code,
       account_created: accountCreated,
       password_reset_sent: passwordResetSent,
+      warning: accountCreated && !passwordResetSent
+        ? "L'email pour définir votre mot de passe n'a pas pu être envoyé. Utilisez « Mot de passe oublié » sur la page de connexion."
+        : undefined,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

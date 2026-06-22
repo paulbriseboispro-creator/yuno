@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
             options: { redirectTo: `${appUrl}/auth` },
           });
           if (resetData?.properties?.action_link) {
-            await fetch('https://api.resend.com/emails', {
+            const res = await fetch('https://api.resend.com/emails', {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -140,7 +140,12 @@ Deno.serve(async (req) => {
                   </div>`,
               }),
             });
-            passwordResetSent = true;
+            if (res.ok) {
+              passwordResetSent = true;
+            } else {
+              const body = await res.text().catch(() => '');
+              console.error('accept-staff-invitation password email send failed:', res.status, body);
+            }
           }
         }
       }
@@ -190,6 +195,9 @@ Deno.serve(async (req) => {
       organizer_name: organizerDisplayName,
       account_created: accountCreated,
       password_reset_sent: passwordResetSent,
+      warning: accountCreated && !passwordResetSent
+        ? "L'email pour définir votre mot de passe n'a pas pu être envoyé. Utilisez « Mot de passe oublié » sur la page de connexion."
+        : undefined,
       message: accountCreated
         ? 'Compte créé ! Vérifiez votre email pour définir votre mot de passe, puis votre code PIN.'
         : 'Invitation acceptée ! Connectez-vous et définissez votre code PIN.',

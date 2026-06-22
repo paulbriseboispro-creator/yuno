@@ -217,7 +217,7 @@ Deno.serve(async (req) => {
           </div>
         </div>`;
 
-      await fetch('https://api.resend.com/emails', {
+      const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -227,6 +227,13 @@ Deno.serve(async (req) => {
           html: emailHtml,
         }),
       });
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        console.error('invite-promoter email send failed:', res.status, body);
+        return new Response(JSON.stringify({ error: "Échec de l'envoi de l'invitation par email" }), {
+          status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     return new Response(JSON.stringify({

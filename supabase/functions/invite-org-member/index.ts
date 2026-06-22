@@ -119,10 +119,10 @@ serve(async (req) => {
         </div>
       `;
 
-      const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL") ?? "onboarding@resend.dev";
+      const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL") ?? "noreply@yunoapp.eu";
       const from = resendFromEmail.includes("<") ? resendFromEmail : `Yuno <${resendFromEmail}>`;
 
-      await fetch("https://api.resend.com/emails", {
+      const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${resendApiKey}`,
@@ -135,6 +135,13 @@ serve(async (req) => {
           html: emailHtml,
         }),
       });
+      if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        console.error("invite-org-member email send failed:", res.status, body);
+        return new Response(JSON.stringify({ error: "Échec de l'envoi de l'invitation par email" }), {
+          status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     return new Response(

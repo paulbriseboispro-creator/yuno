@@ -84,6 +84,7 @@ serve(async (req) => {
 
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@yunoapp.eu";
+    let emailSent = false;
     if (resendApiKey) {
       const content = `
         <div style="padding: 32px 24px;">
@@ -93,11 +94,20 @@ serve(async (req) => {
           <p style="color:#888;font-size:12px;line-height:1.6;margin:24px 0 0;">${copy.ignore}</p>
         </div>`;
       const html = wrapEmailWithBranding(content, lang);
-      await fetch("https://api.resend.com/emails", {
+      const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendApiKey}` },
         body: JSON.stringify({ from: `Yuno <${fromEmail}>`, to: [target.email], subject: copy.subject, html }),
       });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        console.error("[ADMIN-ACCOUNT-RECOVERY] Resend send failed:", res.status, body);
+        return new Response(
+          JSON.stringify({ error: "Échec de l'envoi de l'email de récupération" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 502 }
+        );
+      }
+      emailSent = true;
     }
 
     // Journal d'audit
@@ -109,7 +119,7 @@ serve(async (req) => {
       metadata: { email: target.email },
     });
 
-    return new Response(JSON.stringify({ success: true, emailSent: !!resendApiKey }), {
+    return new Response(JSON.stringify({ success: true, emailSent }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
