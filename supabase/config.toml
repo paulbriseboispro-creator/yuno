@@ -153,12 +153,6 @@ verify_jwt = false
 [functions.send-missed-you]
 verify_jwt = false
 
-[functions.send-owner-night-summary]
-verify_jwt = false
-
-[functions.send-owner-weekly-report]
-verify_jwt = false
-
 [functions.invite-club-collab]
 verify_jwt = true
 
