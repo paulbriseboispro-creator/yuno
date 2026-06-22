@@ -956,7 +956,7 @@ serve(async (req) => {
       }
     }
 
-    const origin = req.headers.get("origin") || "https://yuno.app";
+    const origin = req.headers.get("origin") || "https://yunoapp.eu";
 
     // Serialize upsells for Stripe metadata (max 500 chars per value)
     const upsellMeta = JSON.stringify(validatedUpsells.map(u => ({
@@ -1003,15 +1003,13 @@ serve(async (req) => {
         });
         const clientTotalCents = split.grossAmountCents;
         const stripeFee = Math.round(clientTotalCents * STRIPE_PERCENT) + STRIPE_FIXED_CENTS;
-        // Application fee = Yuno fee + Stripe fee — only meaningful in destination mode.
-        const applicationFee = split.yunoFeeCents + stripeFee;
         const transferGroup = `EVENT_${event.id}_TK_${ticket.id}`;
         logStep("Split + fee", {
           mode: split.splitMode,
           gross: split.grossAmountCents,
           yunoFee: split.yunoFeeCents,
           stripeFee,
-          applicationFee,
+          recipientReceives: split.primary.amountCents,
           primary: split.primary,
           secondary: split.secondary,
           transferGroup,
@@ -1048,13 +1046,14 @@ serve(async (req) => {
             metadata: sharedMetadata,
           };
         }
-        // DESTINATION mode (single recipient): direct destination charge with
-        // on_behalf_of so Stripe debits its processing fee from the connected
-        // account — Yuno keeps exactly `application_fee_amount`.
+        // DESTINATION mode (single recipient): the charge lands on Yuno's PLATFORM
+        // account (Yuno is merchant of record — no on_behalf_of). Yuno collects the
+        // full customer payment, pays the Stripe fee, keeps its commission, and
+        // transfers the recipient ONLY its own share (split.primary.amountCents =
+        // gross − Yuno fee − Stripe fee). The recipient never sees the gross amount
+        // transit its books, and there is no separate "Yuno fee" line on its side.
         return {
-          application_fee_amount: applicationFee,
-          transfer_data: { destination: split.primary.accountId },
-          on_behalf_of: split.primary.accountId,
+          transfer_data: { destination: split.primary.accountId, amount: split.primary.amountCents },
           transfer_group: transferGroup,
           metadata: sharedMetadata,
         };

@@ -132,11 +132,14 @@ export function resolvePaymentSplit(input: SplitInput): SplitResult {
   const grossCents = Math.round(grossAmount * 100);
   const yunoFeeCents = computeYunoFeeCents(itemType, grossAmount);
   const stripeFeeEstimatedCents = estimateStripeFeeCents(grossCents);
-  // For destination charges (single recipient), Stripe debits its processing fee
-  // directly from the connected account when `on_behalf_of` is set on the PI.
-  // So `netCents` (gross − Yuno fee) is the correct transfer_data amount and
-  // we do NOT pre-deduct the estimated stripe fee here.
   const netCents = grossCents - yunoFeeCents;
+  // DESTINATION mode (single recipient): the charge lands on Yuno's PLATFORM account
+  // (no `on_behalf_of`). Yuno is the merchant of record — it pays the Stripe fee and
+  // transfers the recipient ONLY its own share via `transfer_data[amount]`. So the
+  // recipient never sees the gross customer payment transit its books, and Yuno keeps
+  // exactly `yunoFeeCents`. We therefore pre-deduct the estimated Stripe fee here:
+  //   gross − yunoFee − stripeFee  =  what the recipient actually receives.
+  const netAfterStripeCents = Math.max(0, netCents - stripeFeeEstimatedCents);
 
   // Determine if this is a co-event
   const isCoEvent =
@@ -157,7 +160,7 @@ export function resolvePaymentSplit(input: SplitInput): SplitResult {
         splitMode: "destination",
         primary: {
           accountId: venueStripeAccountId,
-          amountCents: netCents,
+          amountCents: netAfterStripeCents,
           kind: "venue",
           venueId: event.venue_id,
           organizerId: null,
@@ -175,7 +178,7 @@ export function resolvePaymentSplit(input: SplitInput): SplitResult {
         splitMode: "destination",
         primary: {
           accountId: organizerStripeAccountId,
-          amountCents: netCents,
+          amountCents: netAfterStripeCents,
           kind: "organizer",
           venueId: null,
           organizerId: event.organizer_user_id,
@@ -230,8 +233,9 @@ export function resolvePaymentSplit(input: SplitInput): SplitResult {
   const needsSecondaryTransfer = secondaryAmountBeforeFee > 0 && primaryAmountBeforeFee > 0 && !!secondaryAccountId;
 
   // Pre-deduct estimated Stripe fee from each party pro-rata to their share.
-  // Only applies in separate mode; destination mode lets Stripe handle it natively.
-  let primaryAmountCents = needsSecondaryTransfer ? primaryAmountBeforeFee : netCents;
+  // In separate mode it is split across both parties; in the destination fallback
+  // (one side gets 0%) the single recipient absorbs it via `netAfterStripeCents`.
+  let primaryAmountCents = needsSecondaryTransfer ? primaryAmountBeforeFee : netAfterStripeCents;
   let secondaryAmountCents = secondaryAmountBeforeFee;
 
   if (needsSecondaryTransfer) {

@@ -580,7 +580,7 @@ serve(async (req) => {
     logStep("Pending reservation created", { reservationId: reservation.id });
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-    const origin = req.headers.get("origin") || "https://yuno.app";
+    const origin = req.headers.get("origin") || "https://yunoapp.eu";
 
     const session = await stripe.checkout.sessions.create({
       line_items: [
@@ -613,14 +613,13 @@ serve(async (req) => {
           organizerStripeAccountId,
         });
         const stripeFee = Math.round(split.grossAmountCents * STRIPE_PERCENT) + STRIPE_FIXED_CENTS;
-        const applicationFee = split.yunoFeeCents + stripeFee;
         const transferGroup = `EVENT_${event.id}_TBL_${reservation.id}`;
         logStep("Split + fee", {
           mode: split.splitMode,
           gross: split.grossAmountCents,
           yunoFee: split.yunoFeeCents,
           stripeFee,
-          applicationFee,
+          recipientReceives: split.primary.amountCents,
           primary: split.primary,
           secondary: split.secondary,
           transferGroup,
@@ -655,11 +654,13 @@ serve(async (req) => {
             metadata: sharedMetadata,
           };
         }
+        // DESTINATION mode (single recipient): the charge lands on Yuno's PLATFORM
+        // account (Yuno is merchant of record — no on_behalf_of). Yuno collects the
+        // full customer payment, pays the Stripe fee, keeps its commission, and
+        // transfers the recipient ONLY its own share (split.primary.amountCents =
+        // gross − Yuno fee − Stripe fee). The recipient never sees the gross amount.
         return {
-          application_fee_amount: applicationFee,
-          transfer_data: { destination: split.primary.accountId },
-          // on_behalf_of: Stripe debits its processing fee from the connected account.
-          on_behalf_of: split.primary.accountId,
+          transfer_data: { destination: split.primary.accountId, amount: split.primary.amountCents },
           transfer_group: transferGroup,
           metadata: sharedMetadata,
         };

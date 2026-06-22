@@ -500,7 +500,7 @@ serve(async (req) => {
       quantity: 1,
     });
 
-    const origin = req.headers.get("origin") || "https://yuno.app";
+    const origin = req.headers.get("origin") || "https://yunoapp.eu";
 
     // Create Stripe checkout session
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
@@ -539,13 +539,13 @@ serve(async (req) => {
         });
         const clientTotalCents = Math.round(clientTotal * 100);
         const stripeFee = Math.round(clientTotalCents * STRIPE_PERCENT) + STRIPE_FIXED_CENTS;
-        const applicationFee = split.yunoFeeCents + stripeFee;
         const transferGroup = `EVENT_${eventId || "no-event"}_DR_${order.id}`;
         logStep("Drinks split + fee", {
           mode: split.splitMode,
           gross: split.grossAmountCents,
           yunoFee: split.yunoFeeCents,
           stripeFee,
+          recipientReceives: split.primary.amountCents,
           primary: split.primary,
           secondary: split.secondary,
           transferGroup,
@@ -581,12 +581,13 @@ serve(async (req) => {
             metadata: sharedMetadata,
           } as Stripe.Checkout.SessionCreateParams.PaymentIntentData;
         }
+        // DESTINATION mode (single recipient): the charge lands on Yuno's PLATFORM
+        // account (Yuno is merchant of record — no on_behalf_of). Yuno collects the
+        // full customer payment, pays the Stripe fee, keeps its commission, and
+        // transfers the recipient ONLY its own share (split.primary.amountCents =
+        // gross − Yuno fee − Stripe fee). The recipient never sees the gross amount.
         return {
-          application_fee_amount: applicationFee,
-          transfer_data: { destination: split.primary.accountId },
-          // on_behalf_of makes Stripe debit its processing fee from the connected
-          // account, so Yuno keeps exactly `application_fee_amount` (its commission).
-          on_behalf_of: split.primary.accountId,
+          transfer_data: { destination: split.primary.accountId, amount: split.primary.amountCents },
           transfer_group: transferGroup,
           metadata: sharedMetadata,
         } as Stripe.Checkout.SessionCreateParams.PaymentIntentData;
