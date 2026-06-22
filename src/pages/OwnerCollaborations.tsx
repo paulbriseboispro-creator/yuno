@@ -483,13 +483,16 @@ function OrganizersTab({ venueId }: { venueId: string }) {
     if (search.trim().length < 2) return;
     setSearching(true);
     const term = search.trim();
-    const { data } = await supabase.from('profiles')
-      .select('id, first_name, last_name, organization_name, avatar_url')
-      .eq('profile_type', 'organizer')
-      .or(`organization_name.ilike.%${term}%,first_name.ilike.%${term}%,last_name.ilike.%${term}%`)
-      .limit(10);
+    // RPC SECURITY DEFINER : la RLS de `profiles` n'expose pas les profils orga
+    // aux owners (filtrage silencieux -> 0 résultat). Voir migration
+    // 20260623120000_search_organizers_rpc.sql.
+    const { data, error } = await supabase.rpc('search_organizers', { search_term: term });
     setSearching(false);
-    setResults((data || []) as any);
+    if (error) {
+      sonnerToast.error(t('common.error'), { description: error.message });
+      return;
+    }
+    setResults((data || []) as OrganizerSearchResult[]);
   };
 
   const handleSend = async () => {

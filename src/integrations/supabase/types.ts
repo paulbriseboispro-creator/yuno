@@ -1998,7 +1998,7 @@ export type Database = {
           {
             foreignKeyName: "dj_booking_contracts_dj_set_id_fkey"
             columns: ["dj_set_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "dj_sets"
             referencedColumns: ["id"]
           },
@@ -3362,6 +3362,137 @@ export type Database = {
         }
         Relationships: []
       }
+      event_collab_contracts: {
+        Row: {
+          auto_release_at: string | null
+          cancellation_policy: string
+          closed_at: string | null
+          contract_pdf_url: string | null
+          created_at: string
+          created_by: string
+          currency: string
+          event_id: string
+          id: string
+          org_signed_at: string | null
+          org_signed_by: string | null
+          org_signed_ip: string | null
+          org_signed_user_agent: string | null
+          organizer_user_id: string
+          partnership_id: string | null
+          split_rules: Json
+          status: string
+          terms_snapshot: Json | null
+          updated_at: string
+          venue_id: string
+          venue_signed_at: string | null
+          venue_signed_by: string | null
+          venue_signed_ip: string | null
+          venue_signed_user_agent: string | null
+        }
+        Insert: {
+          auto_release_at?: string | null
+          cancellation_policy?: string
+          closed_at?: string | null
+          contract_pdf_url?: string | null
+          created_at?: string
+          created_by?: string
+          currency?: string
+          event_id: string
+          id?: string
+          org_signed_at?: string | null
+          org_signed_by?: string | null
+          org_signed_ip?: string | null
+          org_signed_user_agent?: string | null
+          organizer_user_id: string
+          partnership_id?: string | null
+          split_rules: Json
+          status?: string
+          terms_snapshot?: Json | null
+          updated_at?: string
+          venue_id: string
+          venue_signed_at?: string | null
+          venue_signed_by?: string | null
+          venue_signed_ip?: string | null
+          venue_signed_user_agent?: string | null
+        }
+        Update: {
+          auto_release_at?: string | null
+          cancellation_policy?: string
+          closed_at?: string | null
+          contract_pdf_url?: string | null
+          created_at?: string
+          created_by?: string
+          currency?: string
+          event_id?: string
+          id?: string
+          org_signed_at?: string | null
+          org_signed_by?: string | null
+          org_signed_ip?: string | null
+          org_signed_user_agent?: string | null
+          organizer_user_id?: string
+          partnership_id?: string | null
+          split_rules?: Json
+          status?: string
+          terms_snapshot?: Json | null
+          updated_at?: string
+          venue_id?: string
+          venue_signed_at?: string | null
+          venue_signed_by?: string | null
+          venue_signed_ip?: string | null
+          venue_signed_user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_collab_contracts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_collab_contracts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_collab_contracts_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_collab_contracts_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_collab_contracts_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_collab_contracts_partnership_id_fkey"
+            columns: ["partnership_id"]
+            isOneToOne: false
+            referencedRelation: "venue_organizer_partnerships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_collab_contracts_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_collab_invitations: {
         Row: {
           created_at: string
@@ -3751,6 +3882,7 @@ export type Database = {
           public_sale_start_at: string | null
           recurring_template_id: string | null
           requires_access_code: boolean
+          reveal_address_in_email: boolean
           revenue_split_proposal: Json | null
           revenue_split_rules: Json | null
           rounds_visibility: string | null
@@ -3809,6 +3941,7 @@ export type Database = {
           public_sale_start_at?: string | null
           recurring_template_id?: string | null
           requires_access_code?: boolean
+          reveal_address_in_email?: boolean
           revenue_split_proposal?: Json | null
           revenue_split_rules?: Json | null
           rounds_visibility?: string | null
@@ -3867,6 +4000,7 @@ export type Database = {
           public_sale_start_at?: string | null
           recurring_template_id?: string | null
           requires_access_code?: boolean
+          reveal_address_in_email?: boolean
           revenue_split_proposal?: Json | null
           revenue_split_rules?: Json | null
           rounds_visibility?: string | null
@@ -5499,6 +5633,7 @@ export type Database = {
           served_at: string | null
           service_fee: number | null
           status: string
+          stripe_connected_account_id: string | null
           stripe_payment_intent_id: string | null
           stripe_session_id: string | null
           token: string | null
@@ -5540,6 +5675,7 @@ export type Database = {
           served_at?: string | null
           service_fee?: number | null
           status: string
+          stripe_connected_account_id?: string | null
           stripe_payment_intent_id?: string | null
           stripe_session_id?: string | null
           token?: string | null
@@ -5581,6 +5717,7 @@ export type Database = {
           served_at?: string | null
           service_fee?: number | null
           status?: string
+          stripe_connected_account_id?: string | null
           stripe_payment_intent_id?: string | null
           stripe_session_id?: string | null
           token?: string | null
@@ -7218,6 +7355,7 @@ export type Database = {
       revenue_distributions: {
         Row: {
           checkout_session_id: string | null
+          collab_contract_id: string | null
           created_at: string
           event_id: string | null
           gross_amount_cents: number
@@ -7260,6 +7398,7 @@ export type Database = {
         }
         Insert: {
           checkout_session_id?: string | null
+          collab_contract_id?: string | null
           created_at?: string
           event_id?: string | null
           gross_amount_cents: number
@@ -7302,6 +7441,7 @@ export type Database = {
         }
         Update: {
           checkout_session_id?: string | null
+          collab_contract_id?: string | null
           created_at?: string
           event_id?: string | null
           gross_amount_cents?: number
@@ -7343,6 +7483,13 @@ export type Database = {
           yuno_fee_cents?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "revenue_distributions_collab_contract_id_fkey"
+            columns: ["collab_contract_id"]
+            isOneToOne: false
+            referencedRelation: "event_collab_contracts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "revenue_distributions_event_id_fkey"
             columns: ["event_id"]
@@ -8070,6 +8217,7 @@ export type Database = {
           placement_status: string | null
           purchase_source: string | null
           qr_code: string | null
+          reference_code: string | null
           refund_amount: number | null
           refund_reason: string | null
           refunded_at: string | null
@@ -8079,6 +8227,7 @@ export type Database = {
           service_fee: number
           sms_opt_in: boolean
           status: string
+          stripe_connected_account_id: string | null
           stripe_payment_intent_id: string | null
           stripe_session_id: string | null
           table_id: string | null
@@ -8122,6 +8271,7 @@ export type Database = {
           placement_status?: string | null
           purchase_source?: string | null
           qr_code?: string | null
+          reference_code?: string | null
           refund_amount?: number | null
           refund_reason?: string | null
           refunded_at?: string | null
@@ -8131,6 +8281,7 @@ export type Database = {
           service_fee?: number
           sms_opt_in?: boolean
           status?: string
+          stripe_connected_account_id?: string | null
           stripe_payment_intent_id?: string | null
           stripe_session_id?: string | null
           table_id?: string | null
@@ -8174,6 +8325,7 @@ export type Database = {
           placement_status?: string | null
           purchase_source?: string | null
           qr_code?: string | null
+          reference_code?: string | null
           refund_amount?: number | null
           refund_reason?: string | null
           refunded_at?: string | null
@@ -8183,6 +8335,7 @@ export type Database = {
           service_fee?: number
           sms_opt_in?: boolean
           status?: string
+          stripe_connected_account_id?: string | null
           stripe_payment_intent_id?: string | null
           stripe_session_id?: string | null
           table_id?: string | null
@@ -8930,6 +9083,7 @@ export type Database = {
           purchase_source: string | null
           qr_code: string | null
           quantity: number
+          reference_code: string | null
           refund_amount: number | null
           refund_reason: string | null
           refunded_at: string | null
@@ -8938,6 +9092,7 @@ export type Database = {
           service_fee: number
           sms_opt_in: boolean
           status: string
+          stripe_connected_account_id: string | null
           stripe_payment_intent_id: string | null
           stripe_session_id: string | null
           ticket_round_id: string
@@ -8981,6 +9136,7 @@ export type Database = {
           purchase_source?: string | null
           qr_code?: string | null
           quantity?: number
+          reference_code?: string | null
           refund_amount?: number | null
           refund_reason?: string | null
           refunded_at?: string | null
@@ -8989,6 +9145,7 @@ export type Database = {
           service_fee?: number
           sms_opt_in?: boolean
           status?: string
+          stripe_connected_account_id?: string | null
           stripe_payment_intent_id?: string | null
           stripe_session_id?: string | null
           ticket_round_id: string
@@ -9032,6 +9189,7 @@ export type Database = {
           purchase_source?: string | null
           qr_code?: string | null
           quantity?: number
+          reference_code?: string | null
           refund_amount?: number | null
           refund_reason?: string | null
           refunded_at?: string | null
@@ -9040,6 +9198,7 @@ export type Database = {
           service_fee?: number
           sms_opt_in?: boolean
           status?: string
+          stripe_connected_account_id?: string | null
           stripe_payment_intent_id?: string | null
           stripe_session_id?: string | null
           ticket_round_id?: string
@@ -11289,6 +11448,10 @@ export type Database = {
         Returns: undefined
       }
       cancel_dj_booking_request: { Args: { p_id: string }; Returns: undefined }
+      cancel_event_collab_contract: {
+        Args: { p_contract_id: string }
+        Returns: undefined
+      }
       cancel_ticket_reservation: {
         Args: { _reservation_id: string }
         Returns: undefined
@@ -11305,6 +11468,13 @@ export type Database = {
       clear_dj_availability_block: {
         Args: { p_date: string }
         Returns: undefined
+      }
+      collab_event_parties: {
+        Args: { p_event_id: string }
+        Returns: {
+          organizer_user_id: string
+          venue_id: string
+        }[]
       }
       confirm_ticket_reservation: {
         Args: { _reservation_id: string }
@@ -11365,6 +11535,14 @@ export type Database = {
           p_requested_genres?: string[]
           p_start?: string
           p_venue_id?: string
+        }
+        Returns: string
+      }
+      create_event_collab_contract: {
+        Args: {
+          p_cancellation_policy?: string
+          p_event_id: string
+          p_split_rules?: Json
         }
         Returns: string
       }
@@ -11435,6 +11613,8 @@ export type Database = {
         Args: { p_template_id?: string }
         Returns: number
       }
+      generate_table_reference: { Args: never; Returns: string }
+      generate_ticket_reference: { Args: never; Returns: string }
       get_customer_timeline: {
         Args: {
           p_limit?: number
@@ -12011,6 +12191,16 @@ export type Database = {
           user_id: string
         }[]
       }
+      search_organizers: {
+        Args: { search_term: string }
+        Returns: {
+          avatar_url: string
+          first_name: string
+          id: string
+          last_name: string
+          organization_name: string
+        }[]
+      }
       seed_dj_event_tracked_link: {
         Args: { p_dj_id: string; p_event_id: string }
         Returns: undefined
@@ -12032,6 +12222,10 @@ export type Database = {
         Returns: Json
       }
       sign_dj_booking_contract: {
+        Args: { p_contract_id: string; p_ip?: string; p_user_agent?: string }
+        Returns: string
+      }
+      sign_event_collab_contract: {
         Args: { p_contract_id: string; p_ip?: string; p_user_agent?: string }
         Returns: string
       }
