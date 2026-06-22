@@ -13,7 +13,7 @@ export default defineConfig({
       "X-Frame-Options": "DENY",
       "X-Content-Type-Options": "nosniff",
       "Referrer-Policy": "strict-origin-when-cross-origin",
-      "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; worker-src 'self' blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://*.mapbox.com https://resend.com; img-src 'self' data: blob: https://*.supabase.co https://*.stripe.com https://*.mapbox.com; font-src 'self' data: https://fonts.gstatic.com; frame-src https://js.stripe.com https://hooks.stripe.com; object-src 'none'; base-uri 'self'; form-action 'self'",
+      "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; worker-src 'self' blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://*.mapbox.com https://resend.com; img-src 'self' data: blob: https://*.supabase.co https://*.stripe.com https://*.mapbox.com; media-src 'self' blob: https://*.supabase.co; font-src 'self' data: https://fonts.gstatic.com; frame-src https://js.stripe.com https://hooks.stripe.com; object-src 'none'; base-uri 'self'; form-action 'self'",
     },
   },
   plugins: [
@@ -82,27 +82,33 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/~oauth/],
         runtimeCaching: [
           {
-            // Never cache auth — critical for iOS PWA session persistence
-            urlPattern: /^https:\/\/.*\.supabase\.co\/auth\/.*/i,
-            handler: 'NetworkOnly',
-          },
-          {
-            // Never cache Edge Functions (payments, orders, checkout, webhooks)
-            urlPattern: /^https:\/\/.*\.supabase\.co\/functions\/.*/i,
-            handler: 'NetworkOnly',
-          },
-          {
-            // Never cache transactional tables (orders, purchases, tickets, payments)
-            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/(orders|purchases|tickets|payments|stripe_sessions|security_logs|staff_pin_rate_limits)/i,
-            handler: 'NetworkOnly',
-          },
-          {
-            // NetworkFirst for other Supabase REST/Storage (events, profiles, venues)
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            // Cache ONLY non-sensitive, cacheable Supabase REST (events, venues,
+            // profiles, catalogs...). Auth (/auth/), Edge Functions (/functions/)
+            // and transactional tables are deliberately matched by NO route, so the
+            // service worker never sits in their request path. That makes it
+            // impossible for a stale SW to break login or a payment checkout — the
+            // silent "Failed to send a request to the Edge Function" bug where a
+            // returning visitor on an old precached SW could not pay (2026-06).
+            // Unmatched requests go straight to the network, exactly as if no SW
+            // were installed. The negative lookahead keeps transactional tables out
+            // of the cache too.
+            urlPattern: /^https:\/\/[a-z0-9-]+\.supabase\.co\/rest\/v1\/(?!orders|purchases|tickets|payments|stripe_sessions|security_logs|staff_pin_rate_limits)[a-z_]/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'supabase-api-cache',
               expiration: { maxEntries: 100, maxAgeSeconds: 3600 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // Public Storage objects (event posters, bottle images) — safe to cache
+            // and a real perf win on repeat views. Never sensitive, never in front
+            // of /functions.
+            urlPattern: /^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\//i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'supabase-storage-cache',
+              expiration: { maxEntries: 200, maxAgeSeconds: 604800 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },
