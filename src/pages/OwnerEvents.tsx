@@ -81,6 +81,9 @@ export default function OwnerEvents() {
   const [locationCity, setLocationCity] = useState('');
   const [locationAddress, setLocationAddress] = useState('');
   const [locationIsSecret, setLocationIsSecret] = useState(false);
+  // Secret-location reveal: true = address in the booking confirmation email,
+  // false = the organizer reveals it via their own scheduled/manual email.
+  const [revealAddressInEmail, setRevealAddressInEmail] = useState(true);
   // Minors / alcohol-free: global lives on the venue (owner) or organizer profile.
   // Per-event opt-out is only offered when the global is on.
   const [globalMinorsAllowed, setGlobalMinorsAllowed] = useState(false);
@@ -220,7 +223,8 @@ export default function OwnerEvents() {
       location_name: locationName.trim() || null,
       location_city: locationCity.trim() || null,
       location_address: locationAddress.trim() || null,
-      location_is_secret: eventKind === 'private_event' ? locationIsSecret : false,
+      location_is_secret: (isOrganizerScope && !requiresPartner) ? locationIsSecret : false,
+      reveal_address_in_email: (isOrganizerScope && !requiresPartner && locationIsSecret) ? revealAddressInEmail : true,
       is_active: formData.isActive,
       minors_disabled: minorsDisabled,
       music_genres: formData.musicGenres,
@@ -266,6 +270,11 @@ export default function OwnerEvents() {
     if (parsedEnd <= parsedStart) { toast.error(t('owner.toastEndAfterStart')); return; }
     if (!scopeReady) { toast.error(t('owner.toastVenueNotFound')); return; }
     if (requiresPartner && !partnerVenueId) { toast.error(t('owner.ev.selectPartnerClub')); return; }
+    // Organizer events that define their own location must be placeable in a city
+    // (kept even when the location is secret — the city is what filters the event).
+    if (isOrganizerScope && !requiresPartner && (!locationName.trim() || !locationCity.trim() || !locationAddress.trim())) {
+      toast.error(t('owner.ev.locationRequired')); return;
+    }
     setIsSaving(true);
     try {
       // ── Organizer scope: visibility / collab / secret venue (mirrors the org event flow) ──
@@ -547,6 +556,7 @@ export default function OwnerEvents() {
         setLocationCity(ev.location_city || '');
         setLocationAddress(ev.location_address || '');
         setLocationIsSecret(!!(ev as any).location_is_secret);
+        setRevealAddressInEmail((ev as any).reveal_address_in_email !== false);
       }
     }
     setIsDialogOpen(true);
@@ -556,7 +566,7 @@ export default function OwnerEvents() {
     setEditingEvent(null); setPosterFile(null); setPosterPreview(''); setPosterPosition(null); setLineupDJIds([]);
     setFormData({ title: '', description: '', posterUrl: '', startAt: '', endAt: '', isActive: true, musicGenres: ['Open Format'], eventType: 'club' });
     setEventKind('public_event'); setCollabMode('solo'); setPartnerVenueId('');
-    setLocationName(''); setLocationCity(''); setLocationAddress(''); setLocationIsSecret(false); setMinorsDisabled(false);
+    setLocationName(''); setLocationCity(''); setLocationAddress(''); setLocationIsSecret(false); setRevealAddressInEmail(true); setMinorsDisabled(false);
   };
 
   const handlePosterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -967,7 +977,7 @@ export default function OwnerEvents() {
               </div>
             )}
 
-            {isOrganizerScope && eventKind === 'private_event' && (
+            {isOrganizerScope && !requiresPartner && (
               <button type="button" onClick={() => setLocationIsSecret(!locationIsSecret)}
                 className="w-full text-left rounded-xl p-4 transition-all duration-150"
                 style={{ background: 'rgba(232,25,44,0.05)', border: '1px solid rgba(232,25,44,0.25)' }}>
@@ -984,6 +994,26 @@ export default function OwnerEvents() {
               </button>
             )}
 
+            {/* How the exact address reaches confirmed attendees (secret events only) */}
+            {isOrganizerScope && !requiresPartner && locationIsSecret && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {[
+                  { val: true, title: t('owner.ev.revealConfirmTitle'), desc: t('owner.ev.revealConfirmDesc') },
+                  { val: false, title: t('owner.ev.revealManualTitle'), desc: t('owner.ev.revealManualDesc') },
+                ].map((opt) => {
+                  const active = revealAddressInEmail === opt.val;
+                  return (
+                    <button key={String(opt.val)} type="button" onClick={() => setRevealAddressInEmail(opt.val)}
+                      className="text-left rounded-xl p-3 transition-all duration-150"
+                      style={{ background: active ? 'rgba(232,25,44,0.08)' : INNER_BG, border: `1px solid ${active ? RED : BORDER}` }}>
+                      <p style={{ color: T1, fontSize: 12.5, fontWeight: 560 }}>{opt.title}</p>
+                      <p style={{ color: T3, fontSize: 11, marginTop: 2, lineHeight: 1.4 }}>{opt.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
             {isOrganizerScope && (() => {
               const selectedPartner = activePartnerships.find((p) => p.venue_id === partnerVenueId);
               const lockedToPartner = requiresPartner && !!selectedPartner;
@@ -998,17 +1028,17 @@ export default function OwnerEvents() {
                     </p>
                   )}
                   <div>
-                    <FieldLabel>{t('owner.ev.venue')}</FieldLabel>
+                    <FieldLabel>{t('owner.ev.venue')}{!lockedToPartner ? ' *' : ''}</FieldLabel>
                     <input value={displayName} onChange={(e) => setLocationName(e.target.value)} disabled={lockedToPartner} placeholder={t('owner.ev.venuePlaceholder')}
                       className="w-full px-3 py-2.5 rounded-xl text-[13px] disabled:opacity-50" style={inputStyle} />
                   </div>
                   <div>
-                    <FieldLabel>{t('owner.ev.city')}</FieldLabel>
+                    <FieldLabel>{t('owner.ev.city')}{!lockedToPartner ? ' *' : ''}</FieldLabel>
                     <input value={displayCity} onChange={(e) => setLocationCity(e.target.value)} disabled={lockedToPartner} placeholder={t('owner.ev.cityPlaceholder')}
                       className="w-full px-3 py-2.5 rounded-xl text-[13px] disabled:opacity-50" style={inputStyle} />
                   </div>
                   <div className="sm:col-span-2">
-                    <FieldLabel>{t('owner.ev.address')}</FieldLabel>
+                    <FieldLabel>{t('owner.ev.address')}{!lockedToPartner ? ' *' : ''}</FieldLabel>
                     <input value={locationAddress} onChange={(e) => setLocationAddress(e.target.value)} disabled={lockedToPartner} placeholder={t('owner.ev.addressPlaceholder')}
                       className="w-full px-3 py-2.5 rounded-xl text-[13px] disabled:opacity-50" style={inputStyle} />
                   </div>

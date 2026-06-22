@@ -168,8 +168,12 @@ export function OrgEventFormDialog({
   const [locationName, setLocationName] = useState('');
   const [locationCity, setLocationCity] = useState('');
   const [locationAddress, setLocationAddress] = useState('');
-  /** Private events only: hide the exact venue / city / address from the public page. */
+  /** Hide the exact venue name + address on the public page (revealed to confirmed
+   *  attendees). The city stays visible so the event still appears in the right city. */
   const [locationIsSecret, setLocationIsSecret] = useState(false);
+  /** Secret-location reveal: true = address in the booking confirmation email,
+   *  false = the organizer reveals it via their own scheduled/manual email. */
+  const [revealAddressInEmail, setRevealAddressInEmail] = useState(true);
   /** Private events only: hide the top "back to Yuno" button so visitors stay on the event page. */
   const [hideYunoNavigation, setHideYunoNavigation] = useState(false);
   const [isActive, setIsActive] = useState(true);
@@ -205,6 +209,7 @@ export function OrgEventFormDialog({
       setLocationCity('');
       setLocationAddress('');
       setLocationIsSecret(false);
+      setRevealAddressInEmail(true);
       setHideYunoNavigation(false);
       setIsActive(true);
       setMusicGenres(['Open Format']);
@@ -235,6 +240,7 @@ export function OrgEventFormDialog({
         setLocationCity(ev.location_city || '');
         setLocationAddress(ev.location_address || '');
         setLocationIsSecret(!!(ev as any).location_is_secret);
+        setRevealAddressInEmail((ev as any).reveal_address_in_email !== false);
         setHideYunoNavigation(!!(ev as any).hide_yuno_navigation);
         setIsActive(ev.is_active);
         setMusicGenres(
@@ -308,6 +314,14 @@ export function OrgEventFormDialog({
       toast.error(t('Sélectionne un club partenaire', 'Select a partner club'));
       return;
     }
+    // Every event must be placeable in a city. Off-platform / solo & private events
+    // define their own location, so require venue + city + address (kept even when
+    // the location is secret — the city is what filters the event to the right city).
+    // Partner-led events inherit the club's venue + city automatically.
+    if (!requiresPartner && (!locationName.trim() || !locationCity.trim() || !locationAddress.trim())) {
+      toast.error(t('Lieu, ville et adresse requis', 'Venue, city and address required', 'Lugar, ciudad y dirección obligatorios'));
+      return;
+    }
 
     const parsedStart = new Date(startAt);
     const parsedEnd = new Date(endAt);
@@ -354,7 +368,8 @@ export function OrgEventFormDialog({
         location_name: locationName.trim() || null,
         location_city: locationCity.trim() || null,
         location_address: locationAddress.trim() || null,
-        location_is_secret: eventKind === 'private_event' ? locationIsSecret : false,
+        location_is_secret: !requiresPartner ? locationIsSecret : false,
+        reveal_address_in_email: (!requiresPartner && locationIsSecret) ? revealAddressInEmail : true,
         hide_yuno_navigation: eventKind === 'private_event' ? hideYunoNavigation : false,
         is_active: isActive,
         music_genres: musicGenres,
@@ -651,8 +666,9 @@ export function OrgEventFormDialog({
               </div>
             )}
 
-            {/* Secret location toggle (private events only) */}
-            {eventKind === 'private_event' && (
+            {/* Secret location toggle — available for solo / off-platform & private
+                events. Not shown for partner-club events: that venue is already public. */}
+            {!requiresPartner && (
               <button
                 type="button"
                 onClick={() => setLocationIsSecret(!locationIsSecret)}
@@ -673,13 +689,42 @@ export function OrgEventFormDialog({
                     <p style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{t('Lieu secret', 'Secret location')}</p>
                     <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>
                       {t(
-                        "Cache le nom du lieu, la ville et l'adresse sur la page publique. Révélés uniquement aux participants confirmés (e-mail / push).",
-                        'Hide the venue name, city and address on the public page. Revealed only to confirmed attendees (email / push).'
+                        "Cache le nom du lieu et l'adresse exacte sur la page publique, révélés aux participants confirmés (e-mail / push). La ville reste visible et l'événement apparaît quand même dans la bonne ville.",
+                        'Hide the venue name and exact address on the public page, revealed to confirmed attendees (email / push). The city stays visible and the event still appears in the right city.',
+                        "Oculta el nombre del lugar y la dirección exacta en la página pública, revelados a los asistentes confirmados (correo / push). La ciudad sigue visible y el evento aparece igualmente en la ciudad correcta."
                       )}
                     </p>
                   </div>
                 </div>
               </button>
+            )}
+
+            {/* How the exact address reaches confirmed attendees (secret events only) */}
+            {!requiresPartner && locationIsSecret && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {[
+                  {
+                    val: true,
+                    title: t("Dans l'email de confirmation", 'In the confirmation email', 'En el email de confirmación'),
+                    desc: t('Envoyée automatiquement dès la réservation.', 'Sent automatically the moment a guest reserves.', 'Enviada automáticamente en cuanto se reserva.'),
+                  },
+                  {
+                    val: false,
+                    title: t('Je la révèle moi-même', "I'll reveal it myself", 'La revelo yo mismo'),
+                    desc: t("Pas envoyée auto. Tu dévoiles l'adresse via ton propre email programmé.", 'Not auto-sent. You drop the address via your own scheduled email.', 'No se envía sola. Tú envías la dirección con tu propio email programado.'),
+                  },
+                ].map((opt) => {
+                  const active = revealAddressInEmail === opt.val;
+                  return (
+                    <button key={String(opt.val)} type="button" onClick={() => setRevealAddressInEmail(opt.val)}
+                      className="text-left rounded-xl p-3 transition-all duration-150"
+                      style={{ background: active ? 'rgba(232,25,44,0.08)' : INNER_BG, border: `1px solid ${active ? RED : BORDER}` }}>
+                      <p style={{ color: T1, fontSize: 12.5, fontWeight: 560 }}>{opt.title}</p>
+                      <p style={{ color: T3, fontSize: 11, marginTop: 2, lineHeight: 1.4 }}>{opt.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
             )}
 
             {/* Lock visitors to the event page (private events only) */}
@@ -731,7 +776,7 @@ export function OrgEventFormDialog({
                     </p>
                   )}
                   <div>
-                    <FieldLabel>{t('Lieu', 'Venue')}</FieldLabel>
+                    <FieldLabel>{t('Lieu', 'Venue')}{!lockedToPartner ? ' *' : ''}</FieldLabel>
                     <DarkInput
                       id="loc-name"
                       value={displayName}
@@ -741,7 +786,7 @@ export function OrgEventFormDialog({
                     />
                   </div>
                   <div>
-                    <FieldLabel>{t('Ville', 'City')}</FieldLabel>
+                    <FieldLabel>{t('Ville', 'City')}{!lockedToPartner ? ' *' : ''}</FieldLabel>
                     <DarkInput
                       id="loc-city"
                       value={displayCity}
@@ -751,7 +796,7 @@ export function OrgEventFormDialog({
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <FieldLabel>{t('Adresse', 'Address')}</FieldLabel>
+                    <FieldLabel>{t('Adresse', 'Address')}{!lockedToPartner ? ' *' : ''}</FieldLabel>
                     <DarkInput
                       id="loc-addr"
                       value={displayAddress}
