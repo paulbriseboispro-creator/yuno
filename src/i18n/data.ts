@@ -4592,6 +4592,21 @@ export const translations: Record<Language, Record<string, string>> = {
     'verify.ticketConfirmedToast': 'Ticket confirmed 🎟️',
     'verify.ticketRedirectingToast': 'Redirecting to your ticket...',
 
+    // Guest ticket confirmation — account-creation incentive (public DA)
+    'tconf.kicker': 'Ticket confirmed',
+    'tconf.headline': "You're in.",
+    'tconf.emailNote': 'Your ticket is on its way to your inbox.',
+    'tconf.accountLabel': 'Your Yuno account',
+    'tconf.accountPitch': 'Keep every ticket in one place.',
+    'tconf.perkTickets': 'All your tickets, one tap away',
+    'tconf.perkLoyalty': 'Earn loyalty points every night out',
+    'tconf.perkCheckout': 'One-tap checkout next time',
+    'tconf.perkAlerts': 'First access to the next nights',
+    'tconf.createCta': 'Create my account',
+    'tconf.viewTicket': 'View my ticket',
+    'tconf.skipNote': 'You can create your account later, anytime.',
+    'tconf.accountFor': 'Linked to',
+
     // Verify table payment
     'verify.reservationConfirmed': 'Reservation confirmed!',
     'verify.reservationRedirecting': 'Redirecting to your reservation...',
@@ -14853,6 +14868,21 @@ export const translations: Record<Language, Record<string, string>> = {
     'verify.ticketConfirmedToast': 'Entrada confirmada 🎟️',
     'verify.ticketRedirectingToast': 'Redirigiendo a tu entrada...',
 
+    // Confirmación de entrada de invitado — incentivo de creación de cuenta (DA pública)
+    'tconf.kicker': 'Entrada confirmada',
+    'tconf.headline': 'Ya estás dentro.',
+    'tconf.emailNote': 'Tu entrada va camino a tu correo.',
+    'tconf.accountLabel': 'Tu cuenta Yuno',
+    'tconf.accountPitch': 'Guarda todas tus entradas en un solo lugar.',
+    'tconf.perkTickets': 'Todas tus entradas, a un toque',
+    'tconf.perkLoyalty': 'Gana puntos de fidelidad en cada salida',
+    'tconf.perkCheckout': 'Pago exprés la próxima vez',
+    'tconf.perkAlerts': 'Acceso prioritario a las próximas fiestas',
+    'tconf.createCta': 'Crear mi cuenta',
+    'tconf.viewTicket': 'Ver mi entrada',
+    'tconf.skipNote': 'Puedes crear tu cuenta más tarde, cuando quieras.',
+    'tconf.accountFor': 'Vinculada a',
+
     'verify.reservationConfirmed': '¡Reserva confirmada!',
     'verify.reservationRedirecting': 'Redirigiendo a tu reserva...',
     'verify.viewReservations': 'Ver mis reservas',
@@ -24774,6 +24804,21 @@ export const translations: Record<Language, Record<string, string>> = {
     'verify.viewTickets': 'Voir mes billets',
     'verify.ticketConfirmedToast': 'Billet confirmé 🎟️',
     'verify.ticketRedirectingToast': 'Redirection vers votre billet...',
+
+    // Confirmation billet invité — incitation à créer un compte (DA publique)
+    'tconf.kicker': 'Billet confirmé',
+    'tconf.headline': 'Tu y es.',
+    'tconf.emailNote': 'Ton billet arrive dans ta boîte mail.',
+    'tconf.accountLabel': 'Ton compte Yuno',
+    'tconf.accountPitch': 'Garde tous tes billets au même endroit.',
+    'tconf.perkTickets': 'Tous tes billets, à portée de doigt',
+    'tconf.perkLoyalty': 'Gagne des points de fidélité à chaque sortie',
+    'tconf.perkCheckout': 'Paiement express la prochaine fois',
+    'tconf.perkAlerts': 'Accès prioritaire aux prochaines soirées',
+    'tconf.createCta': 'Créer mon compte',
+    'tconf.viewTicket': 'Voir mon billet',
+    'tconf.skipNote': 'Tu peux créer ton compte plus tard, quand tu veux.',
+    'tconf.accountFor': 'Lié à',
 
     'verify.reservationConfirmed': 'Réservation confirmée !',
     'verify.reservationRedirecting': 'Redirection vers votre réservation...',

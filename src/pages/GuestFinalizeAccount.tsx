@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { useGuestSignup } from '@/hooks/useGuestSignup';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface GuestContext {
@@ -24,24 +24,23 @@ interface GuestContext {
 export default function GuestFinalizeAccount() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { t } = useLanguage();
+  const { submitting, error, signup } = useGuestSignup();
 
   const type = searchParams.get('type') || 'order';
   const id = searchParams.get('id') || '';
 
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
   const [context, setContext] = useState<GuestContext | null>(null);
+  const [contextError, setContextError] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
   const [done, setDone] = useState(false);
 
   useEffect(() => {
     if (!id) {
-      setError(t('finalize.missingInfo'));
+      setContextError(t('finalize.missingInfo'));
       setLoading(false);
       return;
     }
@@ -57,82 +56,33 @@ export default function GuestFinalizeAccount() {
       if (data?.error) throw new Error(data.error);
       setContext(data);
     } catch (err: any) {
-      setError(err.message || t('finalize.createError'));
+      setContextError(err.message || t('finalize.createError'));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = async () => {
-    setError('');
-
-    if (password.length < 6) {
-      setError(t('finalize.passwordMinLength'));
-      return;
-    }
-    if (password !== confirmPassword) {
-      setError(t('finalize.passwordMismatch'));
-      return;
-    }
+  const handleSubmit = () => {
     if (!context) return;
-
-    setSubmitting(true);
-    try {
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+    signup(
+      {
         email: context.email,
-        password,
-        options: {
-          data: {
-            first_name: context.firstName || undefined,
-            last_name: context.lastName || undefined,
-          },
-        },
-      });
-
-      if (signUpError) {
-        if (signUpError.message?.includes('already registered') || signUpError.message?.includes('User already registered')) {
-          toast({
-            title: t('finalize.existingAccount'),
-            description: t('finalize.existingAccountDesc'),
-          });
-          navigate(`/auth?redirect=/claim?order=${encodeURIComponent(context.reference)}&type=${type}&email=${encodeURIComponent(context.email)}`);
-          return;
-        }
-        throw signUpError;
-      }
-
-      if (authData.user && authData.session) {
-        try {
-          await supabase.functions.invoke('claim-guest-order', {
-            body: {
-              action: 'link_after_signup',
-              purchaseId: id,
-              purchaseType: type,
-              userId: authData.user.id,
-            },
-          });
-        } catch (linkError) {
-          console.error('Link error (non-blocking):', linkError);
-        }
-
+        firstName: context.firstName,
+        lastName: context.lastName,
+        reference: context.reference,
+        purchaseId: id,
+        purchaseType: type,
+      },
+      password,
+      confirmPassword,
+      () => {
         setDone(true);
-
         const tab = type === 'ticket' ? 'tickets' : type === 'table' ? 'vip' : 'drinks';
         setTimeout(() => {
           navigate(`/my-orders?tab=${tab}`);
         }, 2000);
-      } else {
-        toast({
-          title: t('finalize.checkEmail'),
-          description: t('finalize.confirmEmail'),
-        });
-        navigate('/');
-      }
-    } catch (err: any) {
-      setError(err.message || t('finalize.createError'));
-    } finally {
-      setSubmitting(false);
-    }
+      },
+    );
   };
 
   if (loading) {
@@ -156,10 +106,10 @@ export default function GuestFinalizeAccount() {
     );
   }
 
-  if (error && !context) {
+  if (contextError && !context) {
     return (
       <div className="min-h-[100dvh] bg-background flex flex-col items-center justify-center p-6 gap-4">
-        <p className="text-destructive text-center">{error}</p>
+        <p className="text-destructive text-center">{contextError}</p>
         <Button variant="outline" onClick={() => navigate('/')}>{t('finalize.back')}</Button>
       </div>
     );
