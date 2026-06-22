@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization');
     const body = await req.json();
-    const { campaign_id, send_test, test_email, scheduled } = body;
+    const { campaign_id, send_test, test_email, test_emails, scheduled } = body;
     if (!campaign_id) {
       return new Response(JSON.stringify({ error: 'campaign_id required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
@@ -120,14 +120,33 @@ Deno.serve(async (req) => {
     // Build recipients
     let recipients: Recipient[] = [];
     if (send_test) {
-      const target = test_email || ownerProfile?.email;
-      if (!target) throw new Error('No test email available');
-      recipients = [{
-        email: target,
+      // Owner's own address is always included ("send a test to my address"),
+      // plus up to 5 extra addresses chosen in the UI. test_email kept for back-compat.
+      const candidates: string[] = [];
+      if (ownerProfile?.email) candidates.push(ownerProfile.email);
+      if (typeof test_email === 'string' && test_email.trim()) candidates.push(test_email.trim());
+      if (Array.isArray(test_emails)) {
+        for (const e of test_emails) {
+          if (typeof e === 'string' && e.trim()) candidates.push(e.trim());
+        }
+      }
+      // Dedupe case-insensitively, cap at 6 (owner + 5 custom)
+      const seen = new Set<string>();
+      const targets: string[] = [];
+      for (const e of candidates) {
+        const lower = e.toLowerCase();
+        if (seen.has(lower)) continue;
+        seen.add(lower);
+        targets.push(e);
+        if (targets.length >= 6) break;
+      }
+      if (targets.length === 0) throw new Error('No test email available');
+      recipients = targets.map((email) => ({
+        email,
         first_name: ownerProfile?.first_name,
         last_name: ownerProfile?.last_name,
         unsubscribe_token: '00000000-0000-0000-0000-000000000000',
-      }];
+      }));
     } else {
       // Use unified RPC; fallback to legacy logic if missing
       const { data: rows, error: rErr } = await admin.rpc('resolve_campaign_audience', { p_campaign_id: campaign_id });

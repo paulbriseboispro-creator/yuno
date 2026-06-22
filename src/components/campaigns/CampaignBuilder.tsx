@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Send, Loader2, Eye, ChevronLeft, ChevronRight,
   Sparkles, Users, Crown, UserCheck, UserX, Zap, TrendingUp, Calendar,
+  Plus, X,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -76,12 +77,23 @@ export default function CampaignBuilder({ scope, basePath }: Props) {
   const [sending, setSending] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [scheduledAt, setScheduledAt] = useState<string>('');
+  const [testEmails, setTestEmails] = useState<string[]>([]);
+
+  const addTestEmail = () => setTestEmails(prev => (prev.length < 5 ? [...prev, ''] : prev));
+  const updateTestEmail = (i: number, val: string) =>
+    setTestEmails(prev => prev.map((e, idx) => (idx === i ? val : e)));
+  const removeTestEmail = (i: number) =>
+    setTestEmails(prev => prev.filter((_, idx) => idx !== i));
 
   const folder = scope.kind === 'venue' ? `venue/${scope.venueId}` : `org/${scope.organizerId}`;
 
-  // Load events
+  // Load events — only upcoming ones (campaigns target nights still to come)
   useEffect(() => {
-    let q = supabase.from('events').select('id,title,start_at').order('start_at', { ascending: false }).limit(80);
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    let q = supabase.from('events').select('id,title,start_at')
+      .gte('start_at', todayStart.toISOString())
+      .order('start_at', { ascending: true }).limit(80);
     if (scope.kind === 'venue') {
       q = q.or(`venue_id.eq.${scope.venueId},partner_venue_id.eq.${scope.venueId}`);
     } else {
@@ -102,6 +114,14 @@ export default function CampaignBuilder({ scope, basePath }: Props) {
         setPreheader(data.preheader || '');
         setAudienceType(data.audience_type || 'event_buyers');
         setEventId(data.event_id || '');
+        // The upcoming-only list may not contain this campaign's event if it's
+        // already past — fetch it so it stays visible/selectable while editing.
+        if (data.event_id) {
+          supabase.from('events').select('id,title,start_at').eq('id', data.event_id).maybeSingle()
+            .then(({ data: ev }) => {
+              if (ev) setEvents(prev => (prev.some(e => e.id === ev.id) ? prev : [ev, ...prev]));
+            });
+        }
         setBlocks((data.blocks_json as any) || []);
         setTheme({ ...DEFAULT_THEME, ...((data as any).theme_json || {}) });
         setSocialLinks(((data as any).social_links_json || {}) as SocialLinks);
@@ -191,11 +211,17 @@ export default function CampaignBuilder({ scope, basePath }: Props) {
   };
 
   const sendTest = async () => {
+    const extras = testEmails.map(e => e.trim()).filter(Boolean);
+    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const invalid = extras.find(e => !emailRe.test(e));
+    if (invalid) { toast.error(`${t('em.builder.testInvalidEmail')} ${invalid}`); return; }
     const id = await save();
     if (!id) return;
     setSending(true);
     try {
-      const { error } = await supabase.functions.invoke('send-campaign', { body: { campaign_id: id, send_test: true } });
+      const { error } = await supabase.functions.invoke('send-campaign', {
+        body: { campaign_id: id, send_test: true, test_emails: extras.length ? extras : undefined },
+      });
       if (error) throw error;
       toast.success(t('em.toast.testSent'));
     } catch (e: any) {
@@ -413,7 +439,32 @@ export default function CampaignBuilder({ scope, basePath }: Props) {
                 <p className="text-xs text-muted-foreground">{t('em.builder.schedulingHelp')}</p>
               </CardContent></Card>
 
-              <Card><CardContent className="p-4 space-y-2">
+              <Card><CardContent className="p-4 space-y-3">
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">{t('em.builder.testExtraLabel')}</Label>
+                  {testEmails.map((em, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <Input
+                        type="email" inputMode="email" value={em}
+                        placeholder={t('em.builder.testExtraPlaceholder')}
+                        onChange={e => updateTestEmail(i, e.target.value)}
+                        className="h-9"
+                      />
+                      <Button
+                        variant="ghost" size="icon" className="h-9 w-9 shrink-0"
+                        onClick={() => removeTestEmail(i)}
+                        aria-label={t('em.builder.testExtraRemove')}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  {testEmails.length < 5 && (
+                    <Button variant="ghost" size="sm" onClick={addTestEmail} className="h-8 gap-1 text-xs">
+                      <Plus className="w-3.5 h-3.5" /> {t('em.builder.testExtraAdd')}
+                    </Button>
+                  )}
+                </div>
+
                 <Button variant="outline" onClick={sendTest} disabled={sending || saving} className="w-full">
                   {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Eye className="w-4 h-4 mr-2" />}
                   {t('em.builder.sendTestMine')}
