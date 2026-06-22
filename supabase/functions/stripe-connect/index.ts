@@ -1,11 +1,15 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { releaseDjBookingBalance, refundDjBookingContract } from "../_shared/dj-payout.ts";
 
 // Unified Stripe Connect dispatcher.
 // Replaces: organizer-stripe-connect-onboard, organizer-stripe-connect-status,
 // stripe-connect-dashboard, stripe-connect-refresh.
 // Route via body.action: "onboard" | "status" | "dashboard" | "refresh".
+// Also hosts DJ secured-booking escrow actions (actor_type "dj" onboarding +
+// "dj_booking_checkout" | "dj_booking_release" | "dj_booking_cancel") so no new
+// edge function is needed — the 402 deploy cap blocks new functions.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -102,6 +106,50 @@ serve(async (req) => {
         return json({ success: true, url: accountLink.url, accountId });
       }
 
+      // ─── DJ path (secured-booking payee) ──────────────────────────────────────
+      // A DJ's Stripe account is PER PERSON (keyed on user_id), not per djs row
+      // (a person has N djs rows, one per venue). Stored in dj_stripe_accounts.
+      if (actorType === "dj") {
+        const { data: acct } = await supabaseAdmin
+          .from("dj_stripe_accounts")
+          .select("stripe_account_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        let accountId = acct?.stripe_account_id ?? null;
+        if (!accountId) {
+          log("Creating new DJ Express account");
+          const account = await stripe.accounts.create({
+            type: "express",
+            country: "FR",
+            email: user.email,
+            business_type: "individual",
+            capabilities: {
+              card_payments: { requested: true },
+              transfers: { requested: true },
+            },
+            business_profile: {
+              product_description: "Prestation de DJ (cachet)",
+              mcc: "7929",
+            },
+            metadata: { user_id: user.id, profile_type: "dj", platform: "yuno" },
+          });
+          accountId = account.id;
+          await supabaseAdmin
+            .from("dj_stripe_accounts")
+            .upsert({ user_id: user.id, stripe_account_id: accountId, status: "pending" });
+          log("DJ Stripe account created", { accountId });
+        }
+
+        const accountLink = await stripe.accountLinks.create({
+          account: accountId,
+          refresh_url: `${origin}/dj/bookings?stripe=refresh`,
+          return_url: `${origin}/dj/bookings?stripe=success`,
+          type: "account_onboarding",
+        });
+        return json({ success: true, url: accountLink.url, accountId });
+      }
+
       // ─── Owner path ─────────────────────────────────────────────────────────
       const { venueId, refreshUrl, returnUrl } = body;
       let targetVenueId = venueId;
@@ -181,6 +229,49 @@ serve(async (req) => {
     // action: "status"  (← organizer-stripe-connect-status)
     // ─────────────────────────────────────────────────────────────────────────
     if (action === "status") {
+      // ─── DJ status (dj_stripe_accounts, keyed on user_id) ────────────────────
+      if (body.actor_type === "dj") {
+        const { data: acct } = await supabaseAdmin
+          .from("dj_stripe_accounts")
+          .select("stripe_account_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (!acct?.stripe_account_id) {
+          return json({ connected: false, status: "none", chargesEnabled: false, payoutsEnabled: false });
+        }
+
+        const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+        const account = await stripe.accounts.retrieve(acct.stripe_account_id);
+        const chargesEnabled = !!account.charges_enabled;
+        const payoutsEnabled = !!account.payouts_enabled;
+        const detailsSubmitted = !!account.details_submitted;
+        const hasRequirements =
+          (account.requirements?.currently_due?.length ?? 0) > 0 ||
+          (account.requirements?.past_due?.length ?? 0) > 0;
+        let djStatus: "none" | "pending" | "active" | "restricted" = "pending";
+        if (chargesEnabled && payoutsEnabled) djStatus = "active";
+        else if (detailsSubmitted && hasRequirements) djStatus = "restricted";
+
+        await supabaseAdmin
+          .from("dj_stripe_accounts")
+          .update({
+            status: djStatus,
+            charges_enabled: chargesEnabled,
+            payouts_enabled: payoutsEnabled,
+            onboarding_complete: detailsSubmitted,
+            onboarded_at: djStatus === "active" ? new Date().toISOString() : null,
+          })
+          .eq("user_id", user.id);
+
+        // Onboarding done → unblock any contracts waiting on the DJ's Stripe setup.
+        if (payoutsEnabled) {
+          await supabaseAdmin.rpc("advance_dj_contracts_after_onboarding", { p_user_id: user.id });
+        }
+
+        return json({ connected: true, status: djStatus, chargesEnabled, payoutsEnabled, detailsSubmitted, requirements: account.requirements });
+      }
+
       const { data: profile, error: profileErr } = await supabaseAdmin
         .from("profiles")
         .select("stripe_connect_account_id, stripe_connect_status, stripe_connect_charges_enabled, stripe_connect_payouts_enabled")
@@ -241,6 +332,28 @@ serve(async (req) => {
     if (action === "dashboard") {
       const actorType: string = body.actor_type || "owner";
       const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+
+      if (actorType === "dj") {
+        const { data: acct } = await supabaseAdmin
+          .from("dj_stripe_accounts")
+          .select("stripe_account_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (!acct?.stripe_account_id) throw new Error("Stripe Connect non configuré.");
+
+        const account = await stripe.accounts.retrieve(acct.stripe_account_id);
+        if (!account.details_submitted) {
+          const link = await stripe.accountLinks.create({
+            account: acct.stripe_account_id,
+            refresh_url: `${origin}/dj/bookings?stripe=refresh`,
+            return_url: `${origin}/dj/bookings?stripe=success`,
+            type: "account_onboarding",
+          });
+          return json({ success: true, url: link.url, needsOnboarding: true });
+        }
+        const loginLink = await stripe.accounts.createLoginLink(acct.stripe_account_id);
+        return json({ success: true, url: loginLink.url });
+      }
 
       if (actorType === "organizer") {
         const { data: profile } = await supabaseAdmin
@@ -399,6 +512,98 @@ serve(async (req) => {
         onboardingComplete,
         requiresAction: !chargesEnabled || !onboardingComplete,
       });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // DJ secured booking — escrow actions (club side, JWT-authenticated).
+    // Authorization reuses RLS: a user-scoped client can only SELECT the contract
+    // if they are the booker or the DJ. Paying/releasing is booker-only, so we
+    // also require the caller is NOT the DJ.
+    // ─────────────────────────────────────────────────────────────────────────
+    if (action === "dj_booking_checkout" || action === "dj_booking_release" || action === "dj_booking_cancel") {
+      const contractId: string = body.contractId || body.contract_id;
+      if (!contractId) throw new Error("contractId is required");
+
+      const userClient = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+        { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } },
+      );
+      const { data: visible } = await userClient
+        .from("dj_booking_contracts")
+        .select("id, dj_user_id")
+        .eq("id", contractId)
+        .maybeSingle();
+      if (!visible) throw new Error("Contract not found or unauthorized");
+      const callerIsDj = visible.dj_user_id === user.id;
+
+      const { data: contract } = await supabaseAdmin
+        .from("dj_booking_contracts")
+        .select("*, dj:djs(stage_name, first_name, last_name)")
+        .eq("id", contractId)
+        .maybeSingle();
+      if (!contract) throw new Error("Contract not found");
+
+      const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+
+      // ── Checkout: the club pays the cachet (+ Stripe fee) into Yuno escrow. ──
+      if (action === "dj_booking_checkout") {
+        if (callerIsDj) throw new Error("Only the booker can pay");
+        if (contract.status !== "pending_payment") {
+          throw new Error(`Contract not ready for payment (status=${contract.status})`);
+        }
+        const { data: djAcct } = await supabaseAdmin
+          .from("dj_stripe_accounts")
+          .select("payouts_enabled")
+          .eq("user_id", contract.dj_user_id)
+          .maybeSingle();
+        if (!djAcct?.payouts_enabled) throw new Error("DJ Stripe account not ready for payouts");
+
+        const total = contract.cachet_cents + contract.stripe_fee_cents;
+        const djName = contract.dj?.stage_name
+          || `${contract.dj?.first_name ?? ""} ${contract.dj?.last_name ?? ""}`.trim()
+          || "DJ";
+
+        const session = await stripe.checkout.sessions.create({
+          mode: "payment",
+          line_items: [{
+            price_data: {
+              currency: contract.currency,
+              product_data: { name: `Cachet DJ — ${djName}`, description: "Paiement sécurisé Yuno (séquestre)" },
+              unit_amount: total,
+            },
+            quantity: 1,
+          }],
+          success_url: body.successUrl || `${origin}/owner/djs?booking=paid`,
+          cancel_url: body.cancelUrl || `${origin}/owner/djs?booking=cancelled`,
+          customer_email: user.email ?? undefined,
+          payment_method_types: ["card"],
+          payment_intent_data: {
+            metadata: {
+              escrow: "dj_booking",
+              contract_id: contract.id,
+              dj_user_id: contract.dj_user_id,
+              cachet_cents: String(contract.cachet_cents),
+              acompte_cents: String(contract.acompte_cents),
+            },
+          },
+          metadata: { escrow: "dj_booking", contract_id: contract.id },
+        });
+        return json({ success: true, url: session.url });
+      }
+
+      // ── Release: the club confirms the gig happened → transfer the balance. ──
+      if (action === "dj_booking_release") {
+        if (callerIsDj) throw new Error("Only the booker can confirm the gig");
+        const res = await releaseDjBookingBalance(stripe, supabaseAdmin, contract);
+        return json({ success: res.released, reason: res.reason });
+      }
+
+      // ── Cancel after funding: refund the held balance to the club. ──
+      if (action === "dj_booking_cancel") {
+        const res = await refundDjBookingContract(stripe, supabaseAdmin, contract);
+        return json({ success: res.refunded, reason: res.reason });
+      }
     }
 
     throw new Error(`Unknown or missing action: ${action ?? "(none)"}`);

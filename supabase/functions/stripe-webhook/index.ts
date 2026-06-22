@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { fundDjBookingContract, releaseDjBookingBalance, type DjContract } from "../_shared/dj-payout.ts";
+import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 
 // Pinned to the account's API version. Newer than the SDK's bundled types
 // (which top out at basil), hence the cast. On clover+, a subscription's billing
@@ -22,7 +24,7 @@ function periodBoundsOf(subscription: Stripe.Subscription): { start: number | nu
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature, x-cron-secret",
 };
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
@@ -67,6 +69,54 @@ serve(async (req) => {
     if (!webhookSecret) throw new Error("STRIPE_WEBHOOK_SECRET is not set");
 
     const stripe = new Stripe(stripeKey, { apiVersion: STRIPE_API_VERSION });
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Cron-invoked task path (no Stripe signature; authorized via x-cron-secret).
+    // Hosts the DJ secured-booking auto-release: X days after the gig, any contract
+    // still held but never confirmed by the club is released to the DJ (the safety
+    // net so a passive club can't strand a paid DJ).
+    // ─────────────────────────────────────────────────────────────────────────
+    if (req.headers.get("x-cron-secret")) {
+      const auth = await authorizeCronRequest(req);
+      if (!auth.ok) {
+        return new Response(JSON.stringify({ error: auth.message }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: auth.status,
+        });
+      }
+      const payload = await req.json().catch(() => ({}));
+      const admin = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+        { auth: { persistSession: false } },
+      );
+
+      if (payload.task === "dj_booking_auto_release") {
+        const { data: due } = await admin
+          .from("dj_booking_contracts")
+          .select("*")
+          .eq("status", "funds_held")
+          .lte("auto_release_at", new Date().toISOString());
+        let released = 0;
+        for (const c of (due ?? []) as DjContract[]) {
+          try {
+            const r = await releaseDjBookingBalance(stripe, admin, c);
+            if (r.released) released++;
+          } catch (err) {
+            logStep("DJ auto-release failed", { contractId: c.id, error: (err as Error).message });
+          }
+        }
+        logStep("DJ auto-release run", { due: due?.length ?? 0, released });
+        return new Response(JSON.stringify({ success: true, due: due?.length ?? 0, released }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ error: "Unknown task" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+      });
+    }
 
     const body = await req.text();
     const signature = req.headers.get("stripe-signature");
@@ -153,6 +203,29 @@ serve(async (req) => {
           logStep("Organizer Stripe status updated", { status: orgStatus, chargesEnabled, payoutsEnabled });
         } else {
           logStep("Venue Stripe status updated");
+        }
+
+        // DJ secured-booking payee accounts (dj_stripe_accounts, keyed on stripe_account_id).
+        // Same push/poll mirroring as venues/organizers; on completion, unblock contracts
+        // that were waiting on this DJ's onboarding.
+        const { data: djAcctRows } = await supabaseClient
+          .from("dj_stripe_accounts")
+          .update({
+            status: orgStatus,
+            charges_enabled: chargesEnabled,
+            payouts_enabled: payoutsEnabled,
+            onboarding_complete: detailsSubmitted,
+            onboarded_at: orgStatus === "active" ? new Date().toISOString() : null,
+          })
+          .eq("stripe_account_id", account.id)
+          .select("user_id");
+        if (djAcctRows && djAcctRows.length > 0) {
+          logStep("DJ Stripe status updated", { status: orgStatus, payoutsEnabled });
+          if (payoutsEnabled) {
+            for (const row of djAcctRows) {
+              await supabaseClient.rpc("advance_dj_contracts_after_onboarding", { p_user_id: row.user_id });
+            }
+          }
         }
         break;
       }
@@ -325,6 +398,15 @@ serve(async (req) => {
         logStep("Payment intent succeeded", { id: pi.id, amount: pi.amount });
 
         const md = pi.metadata || {};
+
+        // DJ secured booking escrow: the charge lands on the platform (no transfer_data,
+        // no revenue_distributions row). Mark funds held and release the acompte to the
+        // DJ now; the balance waits for the gig confirmation / auto-release.
+        if (md.escrow === "dj_booking") {
+          await fundDjBookingContract(stripe, supabaseClient, pi);
+          break;
+        }
+
         const itemType = md.item_type;
         if (!itemType) {
           logStep("No split metadata, skipping ledger");
