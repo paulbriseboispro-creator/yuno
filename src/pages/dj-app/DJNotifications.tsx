@@ -1,10 +1,10 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Bell, BellOff, CheckCheck, CalendarClock, AlertTriangle, Euro, UserCog, ChevronRight,
+  Bell, BellOff, CheckCheck, CalendarClock, AlertTriangle, Euro, UserCog, ChevronRight, Inbox,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -16,7 +16,7 @@ import {
   RED, POS, WARN, T1, T2, T3, INNER_BG, BORDER,
 } from '@/components/dj/dj-ui';
 
-type Kind = 'profile' | 'unpaid' | 'upcoming' | 'paid';
+type Kind = 'profile' | 'unpaid' | 'upcoming' | 'paid' | 'booking';
 type Tab = 'all' | 'unread' | 'action';
 
 interface DJNotif {
@@ -36,6 +36,7 @@ const KIND_META: Record<Kind, { icon: typeof Bell; color: string }> = {
   unpaid:   { icon: AlertTriangle, color: WARN },
   upcoming: { icon: CalendarClock, color: 'rgba(96,165,250,0.95)' },
   paid:     { icon: Euro,          color: POS },
+  booking:  { icon: Inbox,         color: RED },
 };
 
 const readKey = (uid: string) => `dj_notif_read_${uid}`;
@@ -51,7 +52,7 @@ export default function DJNotifications() {
   const { language } = useLanguage();
   const tt = makeDjT(language);
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
-  const { dj, allSets, payments, isProfileIncomplete } = useDJData();
+  const { dj, allSets, payments, isProfileIncomplete, bookingRequests } = useDJData();
 
   const uid = dj?.user_id ?? '';
   const [read, setRead] = useState<Set<string>>(() => loadRead(uid));
@@ -62,6 +63,22 @@ export default function DJNotifications() {
   const notifs = useMemo<DJNotif[]>(() => {
     const now = new Date();
     const out: DJNotif[] = [];
+
+    // Incoming booking requests — the marketplace's reason to come back. Action-tier.
+    for (const r of bookingRequests) {
+      if (r.status !== 'pending') continue;
+      const booker = r.venue?.name || tt('Un organisateur', 'An organizer', 'Un organizador');
+      const when = format(new Date(`${r.requested_date}T00:00:00`), 'd MMM yyyy', { locale: dateLocale });
+      out.push({
+        id: `booking:${r.id}`,
+        kind: 'booking',
+        title: tt('Nouvelle demande de booking', 'New booking request', 'Nueva solicitud de reserva'),
+        message: `${booker} — ${when}${r.agreed_fee != null ? ` · ${Math.round(r.agreed_fee)} ${r.currency}` : ''}`,
+        date: r.created_at,
+        priority: 'high',
+        pinned: true,
+      });
+    }
 
     if (isProfileIncomplete) {
       out.push({
@@ -128,14 +145,15 @@ export default function DJNotifications() {
       if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
       return new Date(b.date).getTime() - new Date(a.date).getTime();
     });
-  }, [allSets, payments, isProfileIncomplete, dateLocale, tt]);
+  }, [allSets, payments, isProfileIncomplete, bookingRequests, dateLocale, tt]);
 
+  const isAction = (k: Kind) => k === 'unpaid' || k === 'profile' || k === 'booking';
   const unreadCount = notifs.filter(n => !read.has(n.id)).length;
-  const actionCount = notifs.filter(n => (n.kind === 'unpaid' || n.kind === 'profile') && !read.has(n.id)).length;
+  const actionCount = notifs.filter(n => isAction(n.kind) && !read.has(n.id)).length;
 
   const filtered = notifs.filter(n => {
     if (tab === 'unread') return !read.has(n.id);
-    if (tab === 'action') return n.kind === 'unpaid' || n.kind === 'profile';
+    if (tab === 'action') return isAction(n.kind);
     return true;
   });
 
@@ -275,6 +293,13 @@ export default function DJNotifications() {
                           className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors hover:bg-white/[0.06]"
                           style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.25)', color: RED }}>
                           {tt('Compléter', 'Complete', 'Completar')} <ChevronRight className="h-3.5 w-3.5" />
+                        </Link>
+                      )}
+                      {n.kind === 'booking' && (
+                        <Link to="/dj/bookings"
+                          className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors hover:bg-white/[0.06]"
+                          style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.25)', color: RED }}>
+                          {tt('Voir la demande', 'View request', 'Ver solicitud')} <ChevronRight className="h-3.5 w-3.5" />
                         </Link>
                       )}
                       {n.kind === 'upcoming' && (

@@ -16,7 +16,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { makeDjT } from '@/i18n/djTranslate';
 import {
   LayoutDashboard, CalendarDays, MousePointerClick, BarChart2, LineChart, Bell,
-  Users, User, LogOut, LifeBuoy,
+  Users, User, LogOut, LifeBuoy, Inbox,
 } from 'lucide-react';
 
 export function DJAppSidebar() {
@@ -36,6 +36,7 @@ export function DJAppSidebar() {
     {
       label: t('dj.nav.activity'),
       items: [
+        { title: tt('Réservations', 'Bookings', 'Reservas'), path: '/dj/bookings', icon: <Inbox /> },
         { title: t('dj.links.tab'), path: '/dj/audience', icon: <MousePointerClick /> },
         { title: t('dj.myPayments'), path: '/dj/payments', icon: <BarChart2 /> },
         { title: tt('Notifications', 'Notifications', 'Notificaciones'), path: '/dj/notifications', icon: <Bell /> },

@@ -18,6 +18,7 @@ import { FavoriteButton } from '@/components/FavoriteButton';
 import { StickyCheckoutFooter } from '@/components/StickyCheckoutFooter';
 import { useFavorites } from '@/hooks/useFavorites';
 import { EventCountdown } from '@/components/EventCountdown';
+import { formatCompactCount } from '@/components/formater';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePromoterTracking } from '@/hooks/usePromoterTracking';
 import { useResolvePurchaseSource, useResolveTrackedLink } from '@/hooks/usePurchaseSourceTracking';
@@ -32,6 +33,7 @@ type EventDJ = {
   slug: string | null;
   handle: string | null;
   profile_image_url: string | null;
+  music_genres: string[] | null;
 };
 
 export default function EventDetails() {
@@ -57,6 +59,7 @@ export default function EventDetails() {
   const [hasPresaleAccess, setHasPresaleAccess] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [djs, setDjs] = useState<EventDJ[]>([]);
+  const [djFollowers, setDjFollowers] = useState<Record<string, number>>({});
   const [eventOrganizers, setEventOrganizers] = useState<{ id: string; name: string; slug: string | null; logo_url: string | null }[]>([]);
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -284,11 +287,18 @@ export default function EventDetails() {
       if (djIds.length > 0) {
         const { data: djRows } = await supabase
           .from('djs_public')
-          .select('id, stage_name, first_name, last_name, slug, handle, profile_image_url')
+          .select('id, stage_name, first_name, last_name, slug, handle, profile_image_url, music_genres')
           .in('id', djIds);
         // Preserve event_djs ordering (headliner first); .in() returns arbitrary order.
         const byId = new Map((djRows ?? []).map((d: any) => [d.id, d]));
         setDjs(djIds.map((id) => byId.get(id)).filter(Boolean) as EventDJ[]);
+
+        // Follower counts per dj (social proof on the line-up). Same aggregation the
+        // Explore "Top DJs" module uses: get_public_favorite_counts keyed by dj id.
+        const { data: counts } = await supabase.rpc('get_public_favorite_counts', { _favorite_type: 'dj' });
+        const followerMap: Record<string, number> = {};
+        (counts ?? []).forEach((c: any) => { if (c.target_id) followerMap[c.target_id] = c.total_count; });
+        setDjFollowers(followerMap);
       }
 
       // Note: previously we fetched the partner club drinks here for organizer-led events.
@@ -986,11 +996,19 @@ export default function EventDetails() {
               {djs.map((dj) => {
                 const djName = dj.stage_name || `${dj.first_name} ${dj.last_name}`;
                 const isFollowing = isFavorite('dj', dj.id);
+                const genre = (dj.music_genres ?? [])[0];
+                const followers = djFollowers[dj.id] ?? 0;
+                // Social proof: genre + follower count under the name. Both optional —
+                // a brand-new DJ shows just the name, no empty "0 followers" noise.
+                const meta = [
+                  genre || null,
+                  followers > 0 ? `${formatCompactCount(followers, language)} ${t('djPublic.followers')}` : null,
+                ].filter(Boolean).join(' · ');
                 return (
                   <button
                     key={dj.id}
                     onClick={() => (dj.handle || dj.slug) && navigate(`/dj/${dj.handle || dj.slug}`)}
-                    className="flex flex-col items-center gap-3 flex-shrink-0 active:opacity-70 transition-opacity"
+                    className="flex flex-col items-center gap-2 flex-shrink-0 active:opacity-70 transition-opacity"
                     style={{ width: 116 }}
                   >
                     <div className="overflow-hidden" style={{ width: 108, height: 108, borderRadius: 14, border: isFollowing ? '2px solid #E8192C' : '1px solid rgba(255,255,255,0.12)', background: '#191919' }}>
@@ -999,9 +1017,14 @@ export default function EventDetails() {
                         : <div className="w-full h-full flex items-center justify-center"><Music className="h-9 w-9" style={{ color: '#5A5A5E' }} /></div>
                       }
                     </div>
-                    <p className="font-mono text-center leading-tight" style={{ fontSize: '13px', color: '#E5E5E5', letterSpacing: '0.05em', textTransform: 'uppercase', maxWidth: 116 }}>
+                    <p className="font-mono text-center leading-tight mt-1" style={{ fontSize: '13px', color: '#E5E5E5', letterSpacing: '0.05em', textTransform: 'uppercase', maxWidth: 116 }}>
                       {djName}
                     </p>
+                    {meta && (
+                      <p className="font-mono text-center leading-tight" style={{ fontSize: '10px', color: '#7A7A7E', letterSpacing: '0.04em', maxWidth: 116 }}>
+                        {meta}
+                      </p>
+                    )}
                   </button>
                 );
               })}

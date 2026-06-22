@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
+import { formatCompactCount } from '@/components/formater';
 
 export interface ExploreDJItem {
   id: string;
@@ -17,7 +18,7 @@ export interface ExploreDJItem {
   followersCount: number;
 }
 
-export function ExploreDJCard({ dj, rank }: { dj: ExploreDJItem; rank: number }) {
+export function ExploreDJCard({ dj, rank }: { dj: ExploreDJItem; rank?: number }) {
   const navigate = useNavigate();
   const { t, language } = useLanguage();
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -82,22 +83,24 @@ export function ExploreDJCard({ dj, rank }: { dj: ExploreDJItem; rank: number })
           <Bell className={cn('h-3.5 w-3.5 transition-all', following ? 'fill-primary text-primary' : 'text-white/70')} />
         </button>
 
-        {/* Numéro de classement fantôme — bas-gauche */}
-        <span
-          className="font-display font-bold"
-          style={{
-            position: 'absolute',
-            bottom: 4,
-            left: 8,
-            fontSize: '52px',
-            lineHeight: 0.85,
-            color: 'transparent',
-            WebkitTextStroke: '1.5px rgba(255,255,255,0.32)',
-            pointerEvents: 'none',
-          }}
-        >
-          {rank}
-        </span>
+        {/* Numéro de classement fantôme — bas-gauche (seulement dans un classement) */}
+        {rank != null && (
+          <span
+            className="font-display font-bold"
+            style={{
+              position: 'absolute',
+              bottom: 4,
+              left: 8,
+              fontSize: '52px',
+              lineHeight: 0.85,
+              color: 'transparent',
+              WebkitTextStroke: '1.5px rgba(255,255,255,0.32)',
+              pointerEvents: 'none',
+            }}
+          >
+            {rank}
+          </span>
+        )}
       </div>
 
       {/* Info */}
@@ -127,7 +130,7 @@ export function ExploreDJCard({ dj, rank }: { dj: ExploreDJItem; rank: number })
           style={{ fontSize: '10px', color: dj.followersCount > 0 ? '#9A9AA4' : '#4A4A54' }}
         >
           <Users className="h-3 w-3 shrink-0" />
-          {dj.followersCount.toLocaleString(language)} {t('djPublic.followers')}
+          {formatCompactCount(dj.followersCount, language)} {t('djPublic.followers')}
         </span>
       </div>
     </div>

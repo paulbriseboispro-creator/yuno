@@ -12,6 +12,8 @@ import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { FavoriteButton } from '@/components/FavoriteButton';
 import { BottomNav } from '@/components/BottomNav';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
+import { DJTrackPlayer } from '@/components/dj/DJTrackPlayer';
+import { formatCompactCount } from '@/components/formater';
 import { toast } from 'sonner';
 
 const COUNTRY_TRANSLATIONS: Record<string, Record<string, string>> = {
@@ -74,7 +76,13 @@ interface DJProfile {
   country: string | null;
   is_verified: boolean;
   slug: string;
+  featured_track_url: string | null;
+  featured_track_title: string | null;
 }
+
+interface DJVenueChip { id: string; name: string; city: string | null; logo_url: string | null; followers: number }
+interface DJOrgChip { slug: string | null; display_name: string; avatar_url: string | null; followers: number }
+interface DJExtras { photos: { url: string }[]; venues: DJVenueChip[]; organizers: DJOrgChip[] }
 
 interface DJEvent {
   id: string;
@@ -111,8 +119,8 @@ export default function DJPublicPage() {
   const [pastCount, setPastCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [djId, setDjId] = useState<string | null>(null);
-  const [showAllPast, setShowAllPast] = useState(false);
   const [bioExpanded, setBioExpanded] = useState(false);
+  const [extras, setExtras] = useState<DJExtras>({ photos: [], venues: [], organizers: [] });
 
   useEffect(() => {
     if (slug) fetchDJ();
@@ -165,6 +173,18 @@ export default function DJPublicPage() {
       if (profile.handle && profile.handle !== slug) {
         navigate(`/dj/${profile.handle}`, { replace: true });
       }
+
+      // Extras (galerie + clubs joués + orgas), un seul appel. Non bloquant pour le reste.
+      const rpcExtras = supabase.rpc.bind(supabase) as unknown as (
+        fn: 'get_dj_public_extras', args: { p_slug: string },
+      ) => Promise<{ data: DJExtras | null; error: unknown }>;
+      rpcExtras('get_dj_public_extras', { p_slug: slug! }).then(({ data }) => {
+        if (data) setExtras({
+          photos: data.photos ?? [],
+          venues: data.venues ?? [],
+          organizers: data.organizers ?? [],
+        });
+      });
 
       const { data: events } = await rpcEvents('get_dj_public_events', { p_slug: slug! });
       const now = new Date().toISOString();
@@ -236,7 +256,7 @@ export default function DJPublicPage() {
     { url: dj.youtube_url, icon: SiYoutube, label: 'YouTube' },
   ].filter(s => s.url);
 
-  const visiblePast = showAllPast ? pastEvents : pastEvents.slice(0, 3);
+  const visiblePast = pastEvents.slice(0, 3);
   const heroSrc = dj.cover_image_url || dj.profile_image_url;
   const aboutText = dj.description || dj.bio;
   // Dedupe genres case-insensitively — stored data can hold variants like
@@ -389,6 +409,15 @@ export default function DJPublicPage() {
               ))}
             </div>
           </div>
+        )}
+
+        {/* ===== DÉCOUVRIR — titre vedette, lecteur audio natif (sous les réseaux) ===== */}
+        {dj.featured_track_url && (
+          <DJTrackPlayer
+            url={dj.featured_track_url}
+            title={dj.featured_track_title}
+            label={t('djPublic.listen')}
+          />
         )}
 
         {/* ===== ABOUT ===== */}
@@ -555,10 +584,10 @@ export default function DJPublicPage() {
                 </motion.div>
               ))}
             </div>
-            {pastEvents.length > 3 && !showAllPast && (
+            {pastEvents.length > 3 && (
               <div className="px-5 pt-4">
                 <button
-                  onClick={() => setShowAllPast(true)}
+                  onClick={() => navigate(`/dj/${slug}/past`)}
                   className="w-full flex items-center justify-center font-mono uppercase"
                   style={{ fontSize: '11px', color: '#5A5A5E', letterSpacing: '0.08em', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4, padding: '10px 0' }}
                 >
@@ -566,6 +595,96 @@ export default function DJPublicPage() {
                 </button>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ===== CLUBS — classés par abonnés (bas de page) ===== */}
+        {extras.venues.length > 0 && (
+          <div className="pt-10">
+            <p className="section-label-ruled mb-4 px-5">{t('djPublic.clubsPlayed')}</p>
+            <div className="flex gap-3 overflow-x-auto pb-1 px-5 scrollbar-hide" style={{ scrollSnapType: 'x mandatory', scrollPaddingLeft: '20px' }}>
+              {extras.venues.map((v) => (
+                <button
+                  key={v.id}
+                  onClick={() => navigate(`/club/${v.id}`)}
+                  className="flex flex-col items-center gap-2 shrink-0 active:opacity-70 transition-opacity"
+                  style={{ width: 96, scrollSnapAlign: 'start' }}
+                >
+                  <div
+                    className="overflow-hidden flex items-center justify-center"
+                    style={{ width: 80, height: 80, borderRadius: 14, background: '#191919', border: '1px solid rgba(255,255,255,0.12)' }}
+                  >
+                    {v.logo_url
+                      ? <img src={getOptimizedImageUrl(v.logo_url, { width: 160, height: 160 })} alt={v.name} loading="lazy" className="w-full h-full object-cover" />
+                      : <span className="font-display font-bold" style={{ fontSize: 24, color: '#5A5A5E' }}>{v.name?.[0]?.toUpperCase() || '?'}</span>}
+                  </div>
+                  <p className="font-mono text-center leading-tight truncate w-full" style={{ fontSize: '11px', color: '#E5E5E5', letterSpacing: '0.03em' }}>{v.name}</p>
+                  {v.followers > 0 && (
+                    <p className="font-mono text-center leading-tight" style={{ fontSize: '9px', color: '#7A7A7E' }}>
+                      {formatCompactCount(v.followers, language)}
+                    </p>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ===== COLLECTIFS / ORGAS — classés par abonnés (bas de page) ===== */}
+        {extras.organizers.length > 0 && (
+          <div className="pt-7">
+            <p className="section-label-ruled mb-4 px-5">{t('djPublic.organizersPlayed')}</p>
+            <div className="flex gap-3 overflow-x-auto pb-1 px-5 scrollbar-hide" style={{ scrollSnapType: 'x mandatory', scrollPaddingLeft: '20px' }}>
+              {extras.organizers.map((o, i) => (
+                <button
+                  key={o.slug || i}
+                  onClick={() => o.slug && navigate(`/o/${o.slug}`)}
+                  className="flex flex-col items-center gap-2 shrink-0 active:opacity-70 transition-opacity"
+                  style={{ width: 96, cursor: o.slug ? 'pointer' : 'default', scrollSnapAlign: 'start' }}
+                >
+                  <div
+                    className="overflow-hidden flex items-center justify-center"
+                    style={{ width: 80, height: 80, borderRadius: 14, background: '#191919', border: '1px solid rgba(255,255,255,0.12)' }}
+                  >
+                    {o.avatar_url
+                      ? <img src={getOptimizedImageUrl(o.avatar_url, { width: 160, height: 160 })} alt={o.display_name} loading="lazy" className="w-full h-full object-cover" />
+                      : <span className="font-display font-bold" style={{ fontSize: 24, color: '#5A5A5E' }}>{o.display_name?.[0]?.toUpperCase() || '?'}</span>}
+                  </div>
+                  <p className="font-mono text-center leading-tight truncate w-full" style={{ fontSize: '11px', color: '#E5E5E5', letterSpacing: '0.03em' }}>{o.display_name}</p>
+                  {o.followers > 0 && (
+                    <p className="font-mono text-center leading-tight" style={{ fontSize: '9px', color: '#7A7A7E' }}>
+                      {formatCompactCount(o.followers, language)}
+                    </p>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ===== GALERIE — slider scroll-snap (bas de page, sous les orgas) ===== */}
+        {extras.photos.length > 0 && (
+          <div className="pt-7">
+            <p className="section-label-ruled mb-4 px-5">{t('djPublic.gallery')}</p>
+            <div
+              className="flex gap-3 overflow-x-auto pb-1 px-5 scrollbar-hide"
+              style={{ scrollSnapType: 'x mandatory', scrollPaddingLeft: '20px' }}
+            >
+              {extras.photos.map((p, i) => (
+                <div
+                  key={i}
+                  className="shrink-0 overflow-hidden"
+                  style={{ width: 152, aspectRatio: '3 / 4', borderRadius: 12, background: '#191919', border: '1px solid rgba(255,255,255,0.08)', scrollSnapAlign: 'start' }}
+                >
+                  <img
+                    src={getOptimizedImageUrl(p.url, { width: 320, height: 426, quality: 78 })}
+                    alt=""
+                    loading="lazy"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
