@@ -136,7 +136,10 @@ const DJHelp = lazyWithRetry(() => import("./pages/dj-app/DJHelp"));
 const DJTeam = lazyWithRetry(() => import("./pages/dj-app/DJTeam"));
 const DJOnboarding = lazyWithRetry(() => import("./pages/dj-app/DJOnboarding"));
 const DJTeamAccept = lazyWithRetry(() => import("./pages/dj-app/DJTeamAccept"));
+const DJBookings = lazyWithRetry(() => import("./pages/dj-app/DJBookings"));
+const BookDJPage = lazyWithRetry(() => import("./pages/BookDJPage"));
 const DJPublicPage = lazyWithRetry(() => import("./pages/DJPublicPage"));
+const DJPastEventsPage = lazyWithRetry(() => import("./pages/DJPastEventsPage"));
 const DJEpkPage = lazyWithRetry(() => import("./pages/DJEpkPage"));
 const ManagerDashboardPage = lazyWithRetry(() => import("./pages/ManagerDashboard"));
 const VipHostDashboard = lazyWithRetry(() => import("./pages/VipHostDashboard"));
@@ -420,6 +423,7 @@ const App = () => (
                 
                 {/* DJ public page */}
                 <Route path="/dj/:slug/epk" element={<DJEpkPage />} />
+                <Route path="/dj/:slug/past" element={<DJPastEventsPage />} />
                 <Route path="/dj/:slug" element={<DJPublicPage />} />
                 
                 {/* Legacy /org/:slug removed — public organizer profile lives at /o/:slug */}
@@ -466,6 +470,7 @@ const App = () => (
                   <Route path="ticketing" element={<OwnerTicketing />} />
                   <Route path="djs" element={<OwnerDJs />} />
                   <Route path="djs/:djId" element={<OwnerDJDetail />} />
+                  <Route path="book-dj" element={<BookDJPage />} />
                   <Route path="checkin" element={<OrgAppCheckin />} />
                   <Route path="analytics" element={<OrgAppAnalytics />} />
                   <Route path="partners" element={<OrgAppPartners />} />
@@ -583,6 +588,7 @@ const App = () => (
                   <Route path="tables" element={<PlanGuard feature="vip_tables_basic"><OwnerTables /></PlanGuard>} />
                   <Route path="djs" element={<PlanGuard feature="djs"><OwnerDJs /></PlanGuard>} />
                   <Route path="djs/:id" element={<OwnerDJDetail />} />
+                  <Route path="book-dj" element={<PlanGuard feature="djs"><BookDJPage /></PlanGuard>} />
                   <Route path="collaborations" element={<OwnerCollaborations />} />
                   <Route path="collab/event/:eventId" element={<OwnerCollabEventDashboard />} />
                   <Route path="scarcity" element={<OwnerScarcity />} />
@@ -641,6 +647,7 @@ const App = () => (
                   <Route path="analytics" element={<DJAnalytics />} />
                   <Route path="audience" element={<DJAudience />} />
                   <Route path="payments" element={<DJPayments />} />
+                  <Route path="bookings" element={<DJBookings />} />
                   <Route path="notifications" element={<DJNotifications />} />
                   <Route path="team" element={<DJTeam />} />
                   <Route path="help" element={<DJHelp />} />

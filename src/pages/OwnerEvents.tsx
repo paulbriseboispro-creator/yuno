@@ -144,6 +144,7 @@ export default function OwnerEvents() {
         organizerUserId: (event as any).organizer_user_id ?? null,
         ticketingEnabled: (event as any).ticketing_enabled ?? false,
         tablesEnabled: (event as any).tables_enabled ?? false,
+        guestListEnabled: false,
         ticketSellingMode: (event as any).ticket_selling_mode || 'rounds',
         roundsCount: 0,
       }));
@@ -159,6 +160,16 @@ export default function OwnerEvents() {
         const counts: Record<string, number> = {};
         (roundsData || []).forEach(r => { counts[r.event_id] = (counts[r.event_id] || 0) + 1; });
         mappedEvents.forEach(e => { e.roundsCount = counts[e.id] || 0; });
+
+        // Club guest list presence + active state per event (drives the inline toggle).
+        const { data: glData } = await supabase
+          .from('guest_lists')
+          .select('event_id, is_active')
+          .eq('holder_type', 'club')
+          .in('event_id', eventIds);
+        const glMap: Record<string, boolean> = {};
+        (glData || []).forEach(gl => { glMap[gl.event_id] = gl.is_active; });
+        mappedEvents.forEach(e => { e.guestListEnabled = glMap[e.id] ?? false; });
       }
 
       setEvents(mappedEvents);
@@ -388,6 +399,39 @@ export default function OwnerEvents() {
       fetchEvents();
       return true;
     } catch { toast.error(t('owner.toastSaveError')); return true; }
+  };
+
+  // Publish/unpublish the club guest list in 2s. ON: reactivate it, or create it from
+  // the default club preset (falling back to sane defaults). OFF: just deactivate it.
+  const handleToggleGuestList = async (event: OwnerEventRow): Promise<void> => {
+    try {
+      const { data: existing } = await supabase.from('guest_lists')
+        .select('id, is_active').eq('event_id', event.id).eq('holder_type', 'club').maybeSingle();
+      if (existing) {
+        const { error } = await supabase.from('guest_lists').update({ is_active: !existing.is_active }).eq('id', existing.id);
+        if (error) throw error;
+        toast.success(existing.is_active ? t('owner.ev.guestListRemoved') : t('owner.ev.guestListOnline'));
+      } else {
+        const base = supabase.from('guest_list_templates')
+          .select('quota, quota_female, quota_male, free_before_time, entry_deadline, includes_drink, visible_on_club_page')
+          .eq('holder_type', 'club').eq('is_default', true);
+        const { data: tpl } = isOrganizerScope
+          ? await base.eq('organizer_user_id', organizerUserId as string).maybeSingle()
+          : await base.eq('venue_id', venueId as string).maybeSingle();
+        const cfg = tpl ?? { quota: 100, quota_female: null, quota_male: null, free_before_time: '02:00', entry_deadline: null, includes_drink: false, visible_on_club_page: true };
+        const { error } = await supabase.from('guest_lists').insert({
+          event_id: event.id,
+          venue_id: isOrganizerScope ? (event.venueId ?? null) : venueId,
+          organizer_user_id: isOrganizerScope ? organizerUserId : null,
+          holder_type: 'club',
+          is_active: true,
+          ...cfg,
+        });
+        if (error) throw error;
+        toast.success(t('owner.ev.guestListOnline'));
+      }
+      fetchEvents();
+    } catch { toast.error(t('owner.toastSaveError')); }
   };
 
   // Toggle ticketing. Returns false when activation needs a preset (no rounds yet)
@@ -697,6 +741,7 @@ export default function OwnerEvents() {
                       onToggle={() => handleToggleActive(event)}
                       onToggleTicketing={() => handleToggleTicketing(event)}
                       onToggleTables={() => handleToggleTables(event)}
+                      onToggleGuestList={() => handleToggleGuestList(event)}
                       onApplyPreset={(preset) => handleApplyPresetAndPublish(event, preset)}
                       presets={presets}
                       onNavigate={navigate}
@@ -1036,13 +1081,14 @@ const BORDER_C  = 'rgba(255,255,255,0.085)';
 const CARD_BG_C = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
 const CARD_SHADOW_C = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
 
-function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onToggleTables, onApplyPreset, presets, onNavigate, onDetails, basePath, t, ownerKind, venueId, organizerUserId }: {
+function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onToggleTables, onToggleGuestList, onApplyPreset, presets, onNavigate, onDetails, basePath, t, ownerKind, venueId, organizerUserId }: {
   event: OwnerEventRow;
   onEdit: () => void;
   onDelete: () => void;
   onToggle: () => void;
   onToggleTicketing: () => Promise<boolean>;
   onToggleTables: () => Promise<boolean>;
+  onToggleGuestList: () => Promise<void>;
   onApplyPreset: (preset: VenuePreset) => void;
   presets: VenuePreset[];
   onNavigate: (path: string) => void;
@@ -1158,10 +1204,10 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
         </div>
       )}
 
-      {/* Quick publishing — tickets & tables online, no tab navigation needed */}
+      {/* Quick publishing — tickets, tables & guest list online, no tab navigation needed */}
       {!event.isPartnerHosted && !isPast && (
         <div className="px-5 pb-1">
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-3 gap-2.5">
             {/* Ticketing */}
             <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl"
               style={{ background: event.ticketingEnabled ? 'rgba(232,25,44,0.08)' : C_FAINT_C, border: `1px solid ${event.ticketingEnabled ? 'rgba(232,25,44,0.22)' : BORDER_C}` }}>
@@ -1187,6 +1233,18 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
                 </div>
               </div>
               <Switch checked={!!event.tablesEnabled} onCheckedChange={handleTablesClick} />
+            </div>
+            {/* Guest list — publish the club list in 2s (from the default preset) */}
+            <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl"
+              style={{ background: event.guestListEnabled ? 'rgba(52,211,153,0.08)' : C_FAINT_C, border: `1px solid ${event.guestListEnabled ? 'rgba(52,211,153,0.22)' : BORDER_C}` }}>
+              <div className="flex items-center gap-2 min-w-0">
+                <Users className="w-4 h-4 flex-shrink-0" style={{ color: event.guestListEnabled ? '#34D399' : T3_C }} />
+                <div className="min-w-0">
+                  <p style={{ color: T1_C, fontSize: 12.5, fontWeight: 560 }} className="truncate">{t('owner.ev.guestList')}</p>
+                  <p style={{ color: T3_C, fontSize: 10.5 }} className="truncate">{event.guestListEnabled ? t('owner.ev.online') : t('owner.ev.offline')}</p>
+                </div>
+              </div>
+              <Switch checked={!!event.guestListEnabled} onCheckedChange={() => onToggleGuestList()} />
             </div>
           </div>
 

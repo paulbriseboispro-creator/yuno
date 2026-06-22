@@ -1805,6 +1805,370 @@ export type Database = {
           },
         ]
       }
+      dj_availability: {
+        Row: {
+          blocked_date: string
+          created_at: string
+          id: string
+          reason: string | null
+          source: string
+          user_id: string
+        }
+        Insert: {
+          blocked_date: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+          source?: string
+          user_id: string
+        }
+        Update: {
+          blocked_date?: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dj_availability_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_availability_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dj_booking_contracts: {
+        Row: {
+          acompte_cents: number
+          acompte_released_at: string | null
+          acompte_transfer_id: string | null
+          auto_release_at: string | null
+          balance_transfer_id: string | null
+          booking_request_id: string | null
+          cachet_cents: number
+          cancellation_policy: string
+          charge_id: string | null
+          club_signed_at: string | null
+          club_signed_by: string | null
+          club_signed_ip: string | null
+          club_signed_user_agent: string | null
+          contract_pdf_url: string | null
+          created_at: string
+          created_by: string
+          currency: string
+          dj_id: string
+          dj_set_id: string
+          dj_signed_at: string | null
+          dj_signed_by: string | null
+          dj_signed_ip: string | null
+          dj_signed_user_agent: string | null
+          dj_user_id: string
+          id: string
+          organizer_user_id: string | null
+          payment_intent_id: string | null
+          refund_id: string | null
+          refunded_at: string | null
+          released_at: string | null
+          status: string
+          stripe_fee_cents: number
+          terms_snapshot: Json | null
+          updated_at: string
+          venue_id: string | null
+        }
+        Insert: {
+          acompte_cents?: number
+          acompte_released_at?: string | null
+          acompte_transfer_id?: string | null
+          auto_release_at?: string | null
+          balance_transfer_id?: string | null
+          booking_request_id?: string | null
+          cachet_cents: number
+          cancellation_policy?: string
+          charge_id?: string | null
+          club_signed_at?: string | null
+          club_signed_by?: string | null
+          club_signed_ip?: string | null
+          club_signed_user_agent?: string | null
+          contract_pdf_url?: string | null
+          created_at?: string
+          created_by?: string
+          currency?: string
+          dj_id: string
+          dj_set_id: string
+          dj_signed_at?: string | null
+          dj_signed_by?: string | null
+          dj_signed_ip?: string | null
+          dj_signed_user_agent?: string | null
+          dj_user_id: string
+          id?: string
+          organizer_user_id?: string | null
+          payment_intent_id?: string | null
+          refund_id?: string | null
+          refunded_at?: string | null
+          released_at?: string | null
+          status?: string
+          stripe_fee_cents?: number
+          terms_snapshot?: Json | null
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Update: {
+          acompte_cents?: number
+          acompte_released_at?: string | null
+          acompte_transfer_id?: string | null
+          auto_release_at?: string | null
+          balance_transfer_id?: string | null
+          booking_request_id?: string | null
+          cachet_cents?: number
+          cancellation_policy?: string
+          charge_id?: string | null
+          club_signed_at?: string | null
+          club_signed_by?: string | null
+          club_signed_ip?: string | null
+          club_signed_user_agent?: string | null
+          contract_pdf_url?: string | null
+          created_at?: string
+          created_by?: string
+          currency?: string
+          dj_id?: string
+          dj_set_id?: string
+          dj_signed_at?: string | null
+          dj_signed_by?: string | null
+          dj_signed_ip?: string | null
+          dj_signed_user_agent?: string | null
+          dj_user_id?: string
+          id?: string
+          organizer_user_id?: string | null
+          payment_intent_id?: string | null
+          refund_id?: string | null
+          refunded_at?: string | null
+          released_at?: string | null
+          status?: string
+          stripe_fee_cents?: number
+          terms_snapshot?: Json | null
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dj_booking_contracts_booking_request_id_fkey"
+            columns: ["booking_request_id"]
+            isOneToOne: false
+            referencedRelation: "dj_booking_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_booking_contracts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_booking_contracts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_booking_contracts_dj_id_fkey"
+            columns: ["dj_id"]
+            isOneToOne: false
+            referencedRelation: "djs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_booking_contracts_dj_id_fkey"
+            columns: ["dj_id"]
+            isOneToOne: false
+            referencedRelation: "djs_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_booking_contracts_dj_set_id_fkey"
+            columns: ["dj_set_id"]
+            isOneToOne: true
+            referencedRelation: "dj_sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_booking_contracts_dj_user_id_fkey"
+            columns: ["dj_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_booking_contracts_dj_user_id_fkey"
+            columns: ["dj_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_booking_contracts_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_booking_contracts_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_booking_contracts_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dj_booking_requests: {
+        Row: {
+          agreed_fee: number | null
+          created_at: string
+          created_by: string
+          created_dj_set_id: string | null
+          currency: string
+          dj_response_note: string | null
+          dj_user_id: string
+          end_time: string | null
+          event_id: string | null
+          expires_at: string
+          id: string
+          message: string | null
+          organizer_user_id: string | null
+          requested_date: string
+          responded_at: string | null
+          start_time: string | null
+          status: string
+          updated_at: string
+          venue_id: string | null
+        }
+        Insert: {
+          agreed_fee?: number | null
+          created_at?: string
+          created_by?: string
+          created_dj_set_id?: string | null
+          currency?: string
+          dj_response_note?: string | null
+          dj_user_id: string
+          end_time?: string | null
+          event_id?: string | null
+          expires_at?: string
+          id?: string
+          message?: string | null
+          organizer_user_id?: string | null
+          requested_date: string
+          responded_at?: string | null
+          start_time?: string | null
+          status?: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Update: {
+          agreed_fee?: number | null
+          created_at?: string
+          created_by?: string
+          created_dj_set_id?: string | null
+          currency?: string
+          dj_response_note?: string | null
+          dj_user_id?: string
+          end_time?: string | null
+          event_id?: string | null
+          expires_at?: string
+          id?: string
+          message?: string | null
+          organizer_user_id?: string | null
+          requested_date?: string
+          responded_at?: string | null
+          start_time?: string | null
+          status?: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dj_booking_requests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_booking_requests_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_booking_requests_created_dj_set_id_fkey"
+            columns: ["created_dj_set_id"]
+            isOneToOne: false
+            referencedRelation: "dj_sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_booking_requests_dj_user_id_fkey"
+            columns: ["dj_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_booking_requests_dj_user_id_fkey"
+            columns: ["dj_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_booking_requests_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_booking_requests_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_booking_requests_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_booking_requests_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dj_handle_aliases: {
         Row: {
           created_at: string
@@ -2048,6 +2412,162 @@ export type Database = {
           },
         ]
       }
+      dj_photos: {
+        Row: {
+          created_at: string
+          id: string
+          sort_order: number
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          sort_order?: number
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          sort_order?: number
+          url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dj_photos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_photos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dj_rate_card: {
+        Row: {
+          currency: string
+          is_public: boolean
+          max_fee: number | null
+          min_fee: number | null
+          rate_note: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          currency?: string
+          is_public?: boolean
+          max_fee?: number | null
+          min_fee?: number | null
+          rate_note?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          currency?: string
+          is_public?: boolean
+          max_fee?: number | null
+          min_fee?: number | null
+          rate_note?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dj_rate_card_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_rate_card_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dj_residencies: {
+        Row: {
+          created_at: string
+          created_by: string
+          dj_user_id: string
+          ended_at: string | null
+          id: string
+          organizer_user_id: string | null
+          started_at: string | null
+          status: string
+          venue_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string
+          dj_user_id: string
+          ended_at?: string | null
+          id?: string
+          organizer_user_id?: string | null
+          started_at?: string | null
+          status?: string
+          venue_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          dj_user_id?: string
+          ended_at?: string | null
+          id?: string
+          organizer_user_id?: string | null
+          started_at?: string | null
+          status?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dj_residencies_dj_user_id_fkey"
+            columns: ["dj_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_residencies_dj_user_id_fkey"
+            columns: ["dj_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_residencies_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_residencies_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_residencies_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dj_sets: {
         Row: {
           created_at: string | null
@@ -2061,6 +2581,7 @@ export type Database = {
           music_genre: string | null
           notes: string | null
           organizer_user_id: string | null
+          show_on_profile: boolean
           start_time: string
           title: string | null
           updated_at: string | null
@@ -2078,6 +2599,7 @@ export type Database = {
           music_genre?: string | null
           notes?: string | null
           organizer_user_id?: string | null
+          show_on_profile?: boolean
           start_time: string
           title?: string | null
           updated_at?: string | null
@@ -2095,6 +2617,7 @@ export type Database = {
           music_genre?: string | null
           notes?: string | null
           organizer_user_id?: string | null
+          show_on_profile?: boolean
           start_time?: string
           title?: string | null
           updated_at?: string | null
@@ -2141,6 +2664,57 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dj_stripe_accounts: {
+        Row: {
+          charges_enabled: boolean
+          created_at: string
+          onboarded_at: string | null
+          onboarding_complete: boolean
+          payouts_enabled: boolean
+          status: string
+          stripe_account_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          charges_enabled?: boolean
+          created_at?: string
+          onboarded_at?: string | null
+          onboarding_complete?: boolean
+          payouts_enabled?: boolean
+          status?: string
+          stripe_account_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          charges_enabled?: boolean
+          created_at?: string
+          onboarded_at?: string | null
+          onboarding_complete?: boolean
+          payouts_enabled?: boolean
+          status?: string
+          stripe_account_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dj_stripe_accounts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_stripe_accounts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles_public"
             referencedColumns: ["id"]
           },
         ]
@@ -2222,6 +2796,8 @@ export type Database = {
           cover_image_url: string | null
           created_at: string | null
           description: string | null
+          featured_track_title: string | null
+          featured_track_url: string | null
           first_name: string
           id: string
           instagram_url: string | null
@@ -2251,6 +2827,8 @@ export type Database = {
           cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
+          featured_track_title?: string | null
+          featured_track_url?: string | null
           first_name: string
           id?: string
           instagram_url?: string | null
@@ -2280,6 +2858,8 @@ export type Database = {
           cover_image_url?: string | null
           created_at?: string | null
           description?: string | null
+          featured_track_title?: string | null
+          featured_track_url?: string | null
           first_name?: string
           id?: string
           instagram_url?: string | null
@@ -3604,20 +4184,101 @@ export type Database = {
           },
         ]
       }
+      guest_list_templates: {
+        Row: {
+          created_at: string
+          entry_deadline: string | null
+          entry_kind: string
+          free_before_time: string
+          holder_type: string
+          id: string
+          includes_drink: boolean
+          is_default: boolean
+          name: string
+          organizer_user_id: string | null
+          quota: number
+          quota_drink: number
+          quota_female: number | null
+          quota_male: number | null
+          quota_normal: number
+          quota_table: number
+          target_mode: string
+          venue_id: string | null
+          visible_on_club_page: boolean
+        }
+        Insert: {
+          created_at?: string
+          entry_deadline?: string | null
+          entry_kind?: string
+          free_before_time?: string
+          holder_type?: string
+          id?: string
+          includes_drink?: boolean
+          is_default?: boolean
+          name: string
+          organizer_user_id?: string | null
+          quota?: number
+          quota_drink?: number
+          quota_female?: number | null
+          quota_male?: number | null
+          quota_normal?: number
+          quota_table?: number
+          target_mode?: string
+          venue_id?: string | null
+          visible_on_club_page?: boolean
+        }
+        Update: {
+          created_at?: string
+          entry_deadline?: string | null
+          entry_kind?: string
+          free_before_time?: string
+          holder_type?: string
+          id?: string
+          includes_drink?: boolean
+          is_default?: boolean
+          name?: string
+          organizer_user_id?: string | null
+          quota?: number
+          quota_drink?: number
+          quota_female?: number | null
+          quota_male?: number | null
+          quota_normal?: number
+          quota_table?: number
+          target_mode?: string
+          venue_id?: string | null
+          visible_on_club_page?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_list_templates_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guest_lists: {
         Row: {
           created_at: string
           dj_id: string | null
           entry_deadline: string | null
+          entry_kind: string
           event_id: string
           free_before_time: string
+          holder_label: string | null
+          holder_type: string
           id: string
           includes_drink: boolean
           is_active: boolean
           organizer_user_id: string | null
+          promoter_id: string | null
           quota: number
+          quota_drink: number
           quota_female: number | null
           quota_male: number | null
+          quota_normal: number
+          quota_table: number
           share_token: string
           updated_at: string
           venue_id: string | null
@@ -3627,15 +4288,22 @@ export type Database = {
           created_at?: string
           dj_id?: string | null
           entry_deadline?: string | null
+          entry_kind?: string
           event_id: string
           free_before_time?: string
+          holder_label?: string | null
+          holder_type?: string
           id?: string
           includes_drink?: boolean
           is_active?: boolean
           organizer_user_id?: string | null
+          promoter_id?: string | null
           quota?: number
+          quota_drink?: number
           quota_female?: number | null
           quota_male?: number | null
+          quota_normal?: number
+          quota_table?: number
           share_token?: string
           updated_at?: string
           venue_id?: string | null
@@ -3645,15 +4313,22 @@ export type Database = {
           created_at?: string
           dj_id?: string | null
           entry_deadline?: string | null
+          entry_kind?: string
           event_id?: string
           free_before_time?: string
+          holder_label?: string | null
+          holder_type?: string
           id?: string
           includes_drink?: boolean
           is_active?: boolean
           organizer_user_id?: string | null
+          promoter_id?: string | null
           quota?: number
+          quota_drink?: number
           quota_female?: number | null
           quota_male?: number | null
+          quota_normal?: number
+          quota_table?: number
           share_token?: string
           updated_at?: string
           venue_id?: string | null
@@ -3679,6 +4354,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_lists_promoter_id_fkey"
+            columns: ["promoter_id"]
+            isOneToOne: false
+            referencedRelation: "promoters"
             referencedColumns: ["id"]
           },
         ]
@@ -5648,6 +6330,7 @@ export type Database = {
           email: string
           employee_pin: string | null
           first_name: string | null
+          gender: string | null
           id: string
           invoice_prefix: string | null
           is_click_collect_manager: boolean | null
@@ -5688,6 +6371,7 @@ export type Database = {
           email: string
           employee_pin?: string | null
           first_name?: string | null
+          gender?: string | null
           id: string
           invoice_prefix?: string | null
           is_click_collect_manager?: boolean | null
@@ -5728,6 +6412,7 @@ export type Database = {
           email?: string
           employee_pin?: string | null
           first_name?: string | null
+          gender?: string | null
           id?: string
           invoice_prefix?: string | null
           is_click_collect_manager?: boolean | null
@@ -10482,6 +11167,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      accept_dj_booking_request: {
+        Args: { p_id: string; p_note?: string }
+        Returns: string
+      }
       add_sms_credits: {
         Args: {
           p_amount: number
@@ -10511,12 +11200,20 @@ export type Database = {
         Returns: undefined
       }
       admin_reset_user_mfa: { Args: { _user_id: string }; Returns: undefined }
+      admin_set_dj_verified: {
+        Args: { p_dj_user_id: string; p_reason?: string; p_verified: boolean }
+        Returns: undefined
+      }
       admin_set_event_published: {
         Args: { _event_id: string; _published: boolean }
         Returns: undefined
       }
       admin_set_user_suspended: {
         Args: { _reason?: string; _suspended: boolean; _user_id: string }
+        Returns: undefined
+      }
+      advance_dj_contracts_after_onboarding: {
+        Args: { p_user_id: string }
         Returns: undefined
       }
       archive_expired_event_orders: { Args: never; Returns: undefined }
@@ -10584,6 +11281,11 @@ export type Database = {
         Args: { _organizer_user_id: string; _user_id: string }
         Returns: boolean
       }
+      cancel_dj_booking_contract: {
+        Args: { p_contract_id: string }
+        Returns: undefined
+      }
+      cancel_dj_booking_request: { Args: { p_id: string }; Returns: undefined }
       cancel_ticket_reservation: {
         Args: { _reservation_id: string }
         Returns: undefined
@@ -10597,6 +11299,10 @@ export type Database = {
       cleanup_expired_mfa_pending: { Args: never; Returns: undefined }
       cleanup_old_visitor_events: { Args: never; Returns: undefined }
       cleanup_stale_live_pings: { Args: never; Returns: undefined }
+      clear_dj_availability_block: {
+        Args: { p_date: string }
+        Returns: undefined
+      }
       confirm_ticket_reservation: {
         Args: { _reservation_id: string }
         Returns: undefined
@@ -10635,7 +11341,34 @@ export type Database = {
         }
         Returns: number
       }
+      create_dj_booking_contract: {
+        Args: {
+          p_acompte_cents?: number
+          p_cachet_cents: number
+          p_cancellation_policy?: string
+          p_dj_set_id: string
+        }
+        Returns: string
+      }
+      create_dj_booking_request: {
+        Args: {
+          p_agreed_fee?: number
+          p_dj_user_id: string
+          p_end?: string
+          p_event_id?: string
+          p_message?: string
+          p_organizer_user_id?: string
+          p_requested_date: string
+          p_start?: string
+          p_venue_id?: string
+        }
+        Returns: string
+      }
       current_affiliate_id: { Args: never; Returns: string }
+      decline_dj_booking_request: {
+        Args: { p_id: string; p_note?: string }
+        Returns: undefined
+      }
       decrement_balance: {
         Args: { amount: number; current_val: number }
         Returns: number
@@ -10672,6 +11405,7 @@ export type Database = {
         }
         Returns: Json
       }
+      expire_dj_booking_requests: { Args: never; Returns: undefined }
       expire_stale_ticket_reservations: { Args: never; Returns: number }
       finalize_leaderboard_contest: {
         Args: { p_contest_id: string }
@@ -10733,6 +11467,23 @@ export type Database = {
           start_at: string
         }[]
       }
+      get_dj_availability: {
+        Args: { p_from: string; p_to: string; p_user_id: string }
+        Returns: {
+          d: string
+          status: string
+        }[]
+      }
+      get_dj_lineup_email_targets: {
+        Args: { p_dj_id: string; p_event_id: string }
+        Returns: {
+          email: string
+          first_name: string
+          preferred_language: string
+          unsubscribe_token: string
+          user_id: string
+        }[]
+      }
       get_dj_lineup_notification_targets: {
         Args: { p_dj_id: string; p_event_id: string }
         Returns: {
@@ -10755,7 +11506,22 @@ export type Database = {
           venue_name: string
         }[]
       }
+      get_dj_public_extras: { Args: { p_slug: string }; Returns: Json }
       get_dj_public_profile: { Args: { p_slug: string }; Returns: Json }
+      get_dj_tiers: { Args: { p_user_id: string }; Returns: Json }
+      get_dj_top_past_events: {
+        Args: { p_slug: string }
+        Returns: {
+          id: string
+          interest_count: number
+          poster_url: string
+          start_at: string
+          title: string
+          venue_city: string
+          venue_id: string
+          venue_name: string
+        }[]
+      }
       get_event_managing_organizer: {
         Args: { _event_id: string }
         Returns: string
@@ -10766,15 +11532,22 @@ export type Database = {
           created_at: string
           dj_id: string | null
           entry_deadline: string | null
+          entry_kind: string
           event_id: string
           free_before_time: string
+          holder_label: string | null
+          holder_type: string
           id: string
           includes_drink: boolean
           is_active: boolean
           organizer_user_id: string | null
+          promoter_id: string | null
           quota: number
+          quota_drink: number
           quota_female: number | null
           quota_male: number | null
+          quota_normal: number
+          quota_table: number
           share_token: string
           updated_at: string
           venue_id: string | null
@@ -11198,12 +11971,52 @@ export type Database = {
         Args: { p_email: string; p_user_id: string; p_venue_id: string }
         Returns: string
       }
+      search_djs_marketplace: {
+        Args: {
+          p_available_on?: string
+          p_booker_mode?: boolean
+          p_city?: string
+          p_genre?: string
+          p_limit?: number
+          p_max_fee?: number
+          p_min_fee?: number
+          p_min_followers?: number
+          p_offset?: number
+          p_played_venue?: string
+        }
+        Returns: {
+          available: boolean
+          city: string
+          completeness_pct: number
+          country: string
+          currency: string
+          followers_count: number
+          handle: string
+          is_verified: boolean
+          max_fee: number
+          min_fee: number
+          music_genres: string[]
+          profile_image_url: string
+          rank_score: number
+          rate_note: string
+          resident: boolean
+          resident_scopes: Json
+          rising: boolean
+          slug: string
+          stage_name: string
+          user_id: string
+        }[]
+      }
       seed_dj_event_tracked_link: {
         Args: { p_dj_id: string; p_event_id: string }
         Returns: undefined
       }
       seed_event_tracked_links: {
         Args: { p_event_id: string }
+        Returns: undefined
+      }
+      set_dj_availability_block: {
+        Args: { p_date: string; p_reason?: string }
         Returns: undefined
       }
       set_event_sale_password: {
@@ -11213,6 +12026,10 @@ export type Database = {
       settle_promoter_payout: {
         Args: { p_period_label?: string; p_promoter_id: string }
         Returns: Json
+      }
+      sign_dj_booking_contract: {
+        Args: { p_contract_id: string; p_ip?: string; p_user_agent?: string }
+        Returns: string
       }
       staff_ban_customer: {
         Args: {

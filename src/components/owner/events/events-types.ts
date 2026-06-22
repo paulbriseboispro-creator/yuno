@@ -9,6 +9,7 @@ export type OwnerEventRow = Event & {
   organizerUserId?: string | null;
   ticketingEnabled?: boolean;
   tablesEnabled?: boolean;
+  guestListEnabled?: boolean;
   ticketSellingMode?: string;
   roundsCount?: number;
   /** Organizer private events: their only shareable URL is the direct link, surfaced on the card. */

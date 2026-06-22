@@ -225,8 +225,12 @@ export default function TicketSelection() {
         }
       }
 
-      const { data: glData } = await supabase.from('guest_lists').select('id, quota, quota_female, quota_male, free_before_time, includes_drink, share_token, visible_on_club_page')
-        .eq('event_id', eventId!).eq('is_active', true).eq('visible_on_club_page', true).maybeSingle();
+      const { data: glRows } = await supabase.from('guest_lists').select('id, quota, quota_female, quota_male, free_before_time, includes_drink, share_token, visible_on_club_page, holder_type')
+        .eq('event_id', eventId!).eq('is_active', true).eq('visible_on_club_page', true);
+      // La liste club est prioritaire ; sinon on affiche la première part marquée
+      // « publique » (une part déléguée dont le preset a choisi la visibilité publique).
+      // Les parts non visibles restent accessibles seulement via leur lien (RPC token).
+      const glData = (glRows || []).find(r => r.holder_type === 'club') ?? (glRows || [])[0] ?? null;
       if (glData) {
         const { count: c } = await supabase.from('guest_list_entries').select('*', { count: 'exact', head: true })
           .eq('guest_list_id', glData.id).neq('status', 'cancelled');

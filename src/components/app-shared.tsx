@@ -99,6 +99,11 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					icon: <Music2Icon />,
 				},
 				{
+					title: t('sidebar.bookDJ'),
+					path: "/owner/book-dj",
+					icon: <WandIcon />,
+				},
+				{
 					title: t('sidebar.collaborations'),
 					path: "/owner/collaborations",
 					icon: <HandshakeIcon />,

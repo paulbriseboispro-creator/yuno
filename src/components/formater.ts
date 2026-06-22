@@ -93,3 +93,18 @@ export function formatInteger(value: number) {
 export function formatPercent(value: number, fractionDigits = 2) {
 	return `${value.toFixed(fractionDigits)}%`;
 }
+
+const PUBLIC_LOCALES: Record<string, string> = { en: "en-US", fr: "fr-FR", es: "es-ES" };
+
+/**
+ * Compact, locale-aware count for PUBLIC pages (followers, etc.).
+ * e.g. 2300 -> "2,3 k" in fr, "2.3K" in en. Locale-aware on purpose,
+ * unlike the dashboard formatters above which are hardcoded to en-US.
+ */
+export function formatCompactCount(value: number, language = "en"): string {
+	const locale = PUBLIC_LOCALES[language] ?? "en-US";
+	return new Intl.NumberFormat(locale, {
+		maximumFractionDigits: 1,
+		notation: "compact",
+	}).format(value ?? 0);
+}
