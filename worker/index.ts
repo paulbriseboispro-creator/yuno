@@ -115,6 +115,28 @@ async function resolveOG(url: URL, env: Env): Promise<OG | null> {
     };
   }
 
+  // /club/:slug  (bare venue page — the club's own shareable link).
+  // Must come AFTER the /club/:slug/event/:id check above, which returns first for
+  // event URLs; here we only reach the club card for the venue page and its
+  // sub-routes (leaderboard, promo, drinks...). venues.id IS the slug.
+  if ((m = path.match(/^\/club\/([^/?#]+)/))) {
+    const v = await fetchRow(
+      env,
+      `venues?id=eq.${encodeURIComponent(m[1])}&select=name,description,short_description,cover_url,logo_url,city`,
+    );
+    if (!v) return null;
+    const name = (v.name as string) || 'Club';
+    const city = (v.city as string) || '';
+    return {
+      title: `${name} · Yuno`,
+      description:
+        clean((v.short_description as string) || (v.description as string)) ||
+        `Soirées, tables VIP et boissons à ${name}${city ? ` · ${city}` : ''}. Réserve sur Yuno.`,
+      image: (v.cover_url as string) || (v.logo_url as string) || undefined,
+      url: here,
+    };
+  }
+
   // /o/:slug
   if ((m = path.match(/^\/o\/([^/?#]+)/))) {
     const org = await fetchRow(
