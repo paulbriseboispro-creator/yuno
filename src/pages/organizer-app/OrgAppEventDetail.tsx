@@ -97,7 +97,7 @@ export default function OrgAppEventDetail() {
       </header>
 
       <div className="space-y-4">
-        <SplitContractBanner eventId={event.id} />
+        <SplitContractBanner eventId={event.id} side="organizer" />
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           <StatCard icon={Ticket} label={t('Vendus', 'Sold')} value={stats.sold} />

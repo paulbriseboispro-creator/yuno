@@ -32,6 +32,7 @@ import { EventAnalyticsModule } from '@/components/owner/co-event/EventAnalytics
 import { EventLiveModule } from '@/components/owner/co-event/EventLiveModule';
 import { EventTicketingSetupModule } from '@/components/owner/co-event/EventTicketingSetupModule';
 import { EventTablesSetupModule } from '@/components/owner/co-event/EventTablesSetupModule';
+import { SplitContractBanner } from '@/components/SplitContractBanner';
 import { toast } from 'sonner';
 
 interface EventData {
@@ -240,6 +241,9 @@ export default function OwnerCollabEventDashboard() {
             </div>
           )}
         </Card>
+
+        {/* COLLAB CONTRACT */}
+        <SplitContractBanner eventId={event.id} side="venue" />
 
         {/* KPI BAND */}
         <KpiBand eventId={event.id} venueId={myVenueId} />
