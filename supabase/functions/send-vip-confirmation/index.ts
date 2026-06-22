@@ -55,10 +55,10 @@ serve(async (req) => {
     const { data: reservation, error: resError } = await supabaseAdmin
       .from('table_reservations')
       .select(`
-        id, user_email, user_id, full_name, minimum_spend, total_price, qr_code,
+        id, user_email, user_id, full_name, minimum_spend, total_price, qr_code, reference_code,
         zone_id,
         table_zones(name, venue_id),
-        events!inner(id, title, start_at, venue_id, poster_url, venues!events_venue_id_fkey(name, address))
+        events!inner(id, title, start_at, venue_id, poster_url, location_name, location_address, location_is_secret, reveal_address_in_email, venues!events_venue_id_fkey(name, address))
       `)
       .eq('id', reservationId)
       .single();
@@ -68,10 +68,16 @@ serve(async (req) => {
     const event = reservation.events as any;
     const zone = reservation.table_zones as any;
     const venue = event?.venues;
-    const venueName = venue?.name || '';
+    const venueName = venue?.name || event?.location_name || '';
     const eventTitle = event?.title || '';
     const customerEmail = reservation.user_email;
-    const venueAddress = escapeHtml(venue?.address);
+    // Secret-location reveal: show the exact address only when the event isn't
+    // secret, or when the organizer chose to reveal it in the confirmation email.
+    const isSecret = !!event?.location_is_secret;
+    const revealInEmail = event?.reveal_address_in_email !== false;
+    const rawAddress = venue?.address || event?.location_address || '';
+    const venueAddress = rawAddress && (!isSecret || revealInEmail) ? escapeHtml(rawAddress) : '';
+    const addressDeferred = isSecret && !revealInEmail;
 
     if (!customerEmail) throw new Error("No customer email");
 
@@ -92,10 +98,31 @@ serve(async (req) => {
       firstName = reservation.full_name.split(' ')[0] || '';
     }
 
+    const addressDeferredText = lang === 'fr'
+      ? "L'adresse exacte vous sera communiquée par email par l'organisateur avant l'événement."
+      : lang === 'es'
+      ? "La dirección exacta te será comunicada por email por el organizador antes del evento."
+      : "The exact address will be sent to you by email by the host before the event.";
+
     const safeEventTitle = escapeHtml(eventTitle);
     const safeVenueName = escapeHtml(venueName);
     const nameStr = firstName ? ` ${firstName}` : '';
     const eventImageUrl = event?.poster_url || null;
+
+    // Guest reservations (no linked account) can't use /my-orders. Give them the
+    // short reference + a "Find my order" claim link, same as the ticket email.
+    const appBaseUrl = Deno.env.get("APP_BASE_URL") || "https://yunoapp.eu";
+    const isGuest = !reservation.user_id;
+    const reservationRef = reservation.reference_code || reservation.qr_code || '';
+    const guestClaimBlock = (isGuest && reservationRef) ? `
+      <div style="background: rgba(220, 38, 38, 0.08); border: 1px solid rgba(220, 38, 38, 0.2); border-radius: 12px; padding: 20px; margin: 0 0 24px; text-align: center;">
+        <p style="color: #fff; font-size: 15px; font-weight: 600; margin: 0 0 8px;">${t('vip.guestClaimTitle', lang)}</p>
+        <p style="color: #999; font-size: 13px; margin: 0 0 16px;">${t('vip.guestClaimDesc', lang)}</p>
+        <a href="${appBaseUrl}/claim?type=table&ref=${encodeURIComponent(reservationRef)}" style="display: inline-block; background: #dc2626; color: #fff; text-decoration: none; padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: 14px;">
+          ${t('vip.guestClaimCta', lang)} →
+        </a>
+      </div>
+    ` : '';
 
     const dateLocales: Record<EmailLanguage, string> = { en: 'en-GB', es: 'es-ES', fr: 'fr-FR' };
     let formattedDate = '';
@@ -166,7 +193,7 @@ serve(async (req) => {
             </div>
             <div style="margin-top: 16px; background: #f5f5f5; border-radius: 8px; padding: 12px 16px; display: inline-block;">
               <p style="color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 4px;">${t('ticket.reference', lang)}</p>
-              <p style="color: #0a0a0a; font-size: 20px; font-weight: 800; font-family: 'Courier New', monospace; letter-spacing: 2px; margin: 0;">${escapeHtml(reservation.qr_code)}</p>
+              <p style="color: #0a0a0a; font-size: 20px; font-weight: 800; font-family: 'Courier New', monospace; letter-spacing: 2px; margin: 0;">${escapeHtml(reservation.reference_code || reservation.qr_code)}</p>
             </div>
             <p style="color: #999; font-size: 12px; margin-top: 12px;">${t('ticket.showAtEntry', lang)}</p>
           </div>
@@ -176,6 +203,12 @@ serve(async (req) => {
           <div style="background-color: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0;">
             <p style="margin: 0; color: #f59e0b; font-size: 14px;">
               <strong>📍</strong> ${venueAddress}
+            </p>
+          </div>
+          ` : addressDeferred ? `
+          <div style="background-color: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+            <p style="margin: 0; color: #f59e0b; font-size: 14px;">
+              <strong>📍</strong> ${addressDeferredText}
             </p>
           </div>
           ` : ''}
@@ -235,12 +268,14 @@ serve(async (req) => {
         </p>
         
         ${extraContent}
-        
-        ${type !== 'refused' ? `
+
+        ${guestClaimBlock}
+
+        ${(type !== 'refused' && !isGuest) ? `
         <table cellpadding="0" cellspacing="0" style="margin: 0 0 24px;">
           <tr>
             <td>
-              <a href="https://yunoapp.eu/my-orders" 
+              <a href="${appBaseUrl}/my-orders"
                  style="display: inline-block; background: #dc2626; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 10px; font-weight: 600; font-size: 14px;">
                 ${t('vip.viewReservation', lang)}
               </a>
@@ -276,7 +311,7 @@ serve(async (req) => {
     const rawFrom = Deno.env.get('RESEND_FROM_EMAIL');
     const from = rawFrom
       ? (rawFrom.includes('<') ? rawFrom : `Yuno <${rawFrom}>`)
-      : 'Yuno <onboarding@resend.dev>';
+      : 'Yuno <noreply@yunoapp.eu>';
 
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST',

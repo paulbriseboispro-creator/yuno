@@ -53,10 +53,10 @@ serve(async (req) => {
     const { data: ticket, error: ticketError } = await supabaseAdmin
       .from("tickets")
       .select(`
-        id, qr_code, quantity, unit_price, total_price, full_name, user_email, user_id, status,
+        id, qr_code, reference_code, quantity, unit_price, total_price, full_name, user_email, user_id, status,
         ticket_round_id, event_id,
         ticket_rounds(name),
-        events!inner(id, title, start_at, venue_id, poster_url, venues!events_venue_id_fkey(name, address))
+        events!inner(id, title, start_at, venue_id, poster_url, location_name, location_address, location_is_secret, reveal_address_in_email, venues!events_venue_id_fkey(name, address))
       `)
       .eq("id", ticketId)
       .single();
@@ -75,7 +75,7 @@ serve(async (req) => {
     const event = ticket.events as any;
     const venue = event?.venues;
     const round = ticket.ticket_rounds as any;
-    const venueName = venue?.name || "";
+    const venueName = venue?.name || event?.location_name || "";
     const eventTitle = event?.title || "";
 
     // Get user's preferred language
@@ -98,7 +98,19 @@ serve(async (req) => {
     const safeVenueName = escapeHtml(venueName);
     const safeEventTitle = escapeHtml(eventTitle);
     const safeRoundName = escapeHtml(round?.name);
-    const venueAddress = escapeHtml(venue?.address);
+    // Secret-location reveal: show the exact address only when the event isn't
+    // secret, or when the organizer chose to reveal it in the confirmation email.
+    // Otherwise the organizer sends it themselves (e.g. a scheduled campaign).
+    const isSecret = !!event?.location_is_secret;
+    const revealInEmail = event?.reveal_address_in_email !== false;
+    const rawAddress = venue?.address || event?.location_address || "";
+    const venueAddress = rawAddress && (!isSecret || revealInEmail) ? escapeHtml(rawAddress) : "";
+    const addressDeferred = isSecret && !revealInEmail;
+    const addressDeferredText = lang === "fr"
+      ? "L'adresse exacte vous sera communiquée par email par l'organisateur avant l'événement."
+      : lang === "es"
+      ? "La dirección exacta te será comunicada por email por el organizador antes del evento."
+      : "The exact address will be sent to you by email by the host before the event.";
 
     // Format event date
     const dateLocales: Record<EmailLanguage, string> = {
@@ -134,8 +146,11 @@ serve(async (req) => {
     });
     const qrCodeDataUrl = `data:image/svg+xml;base64,${btoa(qrCodeSvg)}`;
 
-    // Extract reference from qr_code (TK-XXXX...)
-    const ticketRef = ticket.qr_code || ticketId.slice(0, 8).toUpperCase();
+    // Short human reference (TK-XXXXXX) shown in the email and typed into the
+    // "Find my order" claim flow. The QR itself still encodes the full qr_code
+    // (above) for door scanning. Fall back to the legacy long qr_code for any
+    // ticket created before reference_code existed.
+    const ticketRef = ticket.reference_code || ticket.qr_code || ticketId.slice(0, 8).toUpperCase();
 
     const eventImageUrl = event?.poster_url || null;
 
@@ -273,6 +288,12 @@ serve(async (req) => {
             <strong>📍</strong> ${venueAddress}
           </p>
         </div>
+        ` : addressDeferred ? `
+        <div style="background-color: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+          <p style="margin: 0; color: #f59e0b; font-size: 14px;">
+            <strong>📍</strong> ${addressDeferredText}
+          </p>
+        </div>
         ` : ""}
 
         ${guestBlock}
@@ -306,7 +327,7 @@ serve(async (req) => {
       ? rawFrom.includes("<")
         ? rawFrom
         : `Yuno <${rawFrom}>`
-      : "Yuno <onboarding@resend.dev>";
+      : "Yuno <noreply@yunoapp.eu>";
 
     const subject = t("ticket.confirmedSubject", lang, { eventTitle });
 

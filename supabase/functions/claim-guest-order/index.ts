@@ -30,34 +30,42 @@ serve(async (req) => {
     // purchaseType: 'order' (default), 'ticket', 'table'
     const type = purchaseType || 'order';
 
-    // Helper to find a purchase by reference
+    const TICKET_COLS = "id, qr_code, reference_code, user_email, guest_last_name, guest_first_name, guest_phone, full_name, phone, status, is_guest, user_id, event_id, claimed_by_user_id";
+    const TABLE_COLS = "id, qr_code, reference_code, user_email, guest_last_name, guest_first_name, guest_phone, full_name, phone, status, is_guest, user_id, event_id, claimed_by_user_id";
+
+    // Helper to find a purchase by reference.
+    // Tickets/tables now carry a short `reference_code` (TK-XXXXXX / VP-XXXXXX,
+    // stored uppercase) shown in the confirmation email. We match that first,
+    // then fall back to the legacy full `qr_code` (TK-/VP- + UUID) so links and
+    // codes from older emails keep working. `qr_code` is matched case-insensitively
+    // because the UUID part is stored lowercase.
     const findPurchase = async (ref?: string) => {
       const trimmedRef = (ref || "").trim();
-      // Drink order numbers (DR-XXXXXX) are uppercase hex. Ticket/table QR codes
-      // are `TK-`/`VP-` + a lowercase UUID and are case-sensitive, so uppercasing
-      // them would break the match.
-      const normalizedRef = type === 'order' ? trimmedRef.toUpperCase() : trimmedRef;
+      const upperRef = trimmedRef.toUpperCase();
       if (type === 'ticket') {
-        const { data, error } = await supabaseAdmin
-          .from("tickets")
-          .select("id, qr_code, user_email, guest_last_name, guest_first_name, guest_phone, full_name, phone, status, is_guest, user_id, event_id, claimed_by_user_id")
-          .eq("qr_code", normalizedRef)
-          .single();
-        if (error || !data) return null;
-        return { ...data, reference: data.qr_code, email: data.user_email, table: 'tickets' };
+        let { data } = await supabaseAdmin
+          .from("tickets").select(TICKET_COLS).eq("reference_code", upperRef).maybeSingle();
+        if (!data) {
+          ({ data } = await supabaseAdmin
+            .from("tickets").select(TICKET_COLS).ilike("qr_code", trimmedRef).maybeSingle());
+        }
+        if (!data) return null;
+        return { ...data, reference: data.reference_code || data.qr_code, email: data.user_email, table: 'tickets' };
       } else if (type === 'table') {
-        const { data, error } = await supabaseAdmin
-          .from("table_reservations")
-          .select("id, qr_code, user_email, guest_last_name, guest_first_name, guest_phone, full_name, phone, status, is_guest, user_id, event_id, claimed_by_user_id")
-          .eq("qr_code", normalizedRef)
-          .single();
-        if (error || !data) return null;
-        return { ...data, reference: data.qr_code, email: data.user_email, table: 'table_reservations' };
+        let { data } = await supabaseAdmin
+          .from("table_reservations").select(TABLE_COLS).eq("reference_code", upperRef).maybeSingle();
+        if (!data) {
+          ({ data } = await supabaseAdmin
+            .from("table_reservations").select(TABLE_COLS).ilike("qr_code", trimmedRef).maybeSingle());
+        }
+        if (!data) return null;
+        return { ...data, reference: data.reference_code || data.qr_code, email: data.user_email, table: 'table_reservations' };
       } else {
+        // Drink order numbers (DR-XXXXXX) are uppercase hex.
         const { data, error } = await supabaseAdmin
           .from("orders")
           .select("id, order_number, guest_last_name, guest_first_name, guest_phone, user_email, status, is_guest, user_id, claimed_by_user_id, venue_id, event_id")
-          .eq("order_number", normalizedRef)
+          .eq("order_number", upperRef)
           .single();
         if (error || !data) return null;
         return { ...data, reference: data.order_number, email: data.user_email, table: 'orders' };
@@ -69,19 +77,19 @@ serve(async (req) => {
       if (type === 'ticket') {
         const { data, error } = await supabaseAdmin
           .from("tickets")
-          .select("id, qr_code, user_email, guest_last_name, guest_first_name, guest_phone, full_name, phone, status, is_guest, user_id, event_id, claimed_by_user_id")
+          .select(TICKET_COLS)
           .eq("id", pid)
           .single();
         if (error || !data) return null;
-        return { ...data, reference: data.qr_code, email: data.user_email, table: 'tickets' };
+        return { ...data, reference: data.reference_code || data.qr_code, email: data.user_email, table: 'tickets' };
       } else if (type === 'table') {
         const { data, error } = await supabaseAdmin
           .from("table_reservations")
-          .select("id, qr_code, user_email, guest_last_name, guest_first_name, guest_phone, full_name, phone, status, is_guest, user_id, event_id, claimed_by_user_id")
+          .select(TABLE_COLS)
           .eq("id", pid)
           .single();
         if (error || !data) return null;
-        return { ...data, reference: data.qr_code, email: data.user_email, table: 'table_reservations' };
+        return { ...data, reference: data.reference_code || data.qr_code, email: data.user_email, table: 'table_reservations' };
       } else {
         const { data, error } = await supabaseAdmin
           .from("orders")
@@ -345,13 +353,13 @@ serve(async (req) => {
       const rawFrom = Deno.env.get("RESEND_FROM_EMAIL");
       const from = rawFrom
         ? rawFrom.includes("<") ? rawFrom : `Yuno <${rawFrom}>`
-        : "Yuno <onboarding@resend.dev>";
+        : "Yuno <noreply@yunoapp.eu>";
 
       const maskedEmail = purchase.email
         ? purchase.email.replace(/(.{2})(.*)(@.*)/, "$1***$3")
         : "***";
 
-      await fetch("https://api.resend.com/emails", {
+      const otpRes = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -373,6 +381,15 @@ serve(async (req) => {
           `,
         }),
       });
+
+      if (!otpRes.ok) {
+        const body = await otpRes.text().catch(() => '');
+        logStep("OTP send failed", { purchaseId: purchase.id, status: otpRes.status, body });
+        return new Response(
+          JSON.stringify({ error: "Échec de l'envoi du code, réessaie" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 502 }
+        );
+      }
 
       logStep("OTP sent", { purchaseId: purchase.id, maskedEmail });
 
@@ -435,52 +452,69 @@ serve(async (req) => {
       let responseData: any = { id: purchase.id, reference: purchase.reference };
 
       if (type === 'ticket') {
+        // NOTE: the FK column is `ticket_round_id` (not `round_id`). Selecting a
+        // non-existent column errors the whole query, which is why the claim
+        // result used to come back empty (0€, no QR).
         const { data: ticket } = await supabaseAdmin
           .from("tickets")
-          .select("id, qr_code, quantity, total_price, status, paid_at, event_id, round_id, ticket_rounds(name)")
+          .select("id, qr_code, reference_code, quantity, unit_price, total_price, ticket_type, full_name, status, paid_at, event_id, ticket_round_id, ticket_rounds(name)")
           .eq("id", purchase.id)
           .single();
-        
-        let eventTitle = "", venueName = "";
+
+        let eventTitle = "", venueName = "", eventStartAt: string | null = null, eventPoster: string | null = null, venueAddress = "";
         if (ticket?.event_id) {
-          const { data: event } = await supabaseAdmin.from("events").select("title, venue_id").eq("id", ticket.event_id).single();
+          const { data: event } = await supabaseAdmin.from("events").select("title, start_at, poster_url, venue_id").eq("id", ticket.event_id).single();
           eventTitle = event?.title || "";
+          eventStartAt = event?.start_at || null;
+          eventPoster = event?.poster_url || null;
           if (event?.venue_id) {
-            const { data: venue } = await supabaseAdmin.from("venues").select("name").eq("id", event.venue_id).single();
+            const { data: venue } = await supabaseAdmin.from("venues").select("name, address").eq("id", event.venue_id).single();
             venueName = venue?.name || "";
+            venueAddress = venue?.address || "";
           }
         }
         responseData = {
           ...responseData,
           type: 'ticket',
+          reference: ticket?.reference_code || ticket?.qr_code || purchase.reference,
           qrCode: ticket?.qr_code,
           quantity: ticket?.quantity,
+          unitPrice: ticket?.unit_price,
           totalPrice: ticket?.total_price,
+          ticketType: ticket?.ticket_type,
+          fullName: ticket?.full_name,
           status: ticket?.status,
           paidAt: ticket?.paid_at,
           roundName: (ticket?.ticket_rounds as any)?.name,
           eventTitle,
           venueName,
+          eventStartAt,
+          eventPoster,
+          venueAddress,
         };
       } else if (type === 'table') {
         const { data: reservation } = await supabaseAdmin
           .from("table_reservations")
-          .select("id, qr_code, guest_count, total_price, deposit, status, paid_at, event_id, full_name, table_zones(name), table_packs(name)")
+          .select("id, qr_code, reference_code, guest_count, total_price, deposit, status, paid_at, event_id, full_name, table_zones(name), table_packs(name)")
           .eq("id", purchase.id)
           .single();
-        
-        let eventTitle = "", venueName = "";
+
+        let eventTitle = "", venueName = "", eventStartAt: string | null = null, eventPoster: string | null = null, venueAddress = "";
         if (reservation?.event_id) {
-          const { data: event } = await supabaseAdmin.from("events").select("title, venue_id").eq("id", reservation.event_id).single();
+          const { data: event } = await supabaseAdmin.from("events").select("title, start_at, poster_url, venue_id").eq("id", reservation.event_id).single();
           eventTitle = event?.title || "";
+          eventStartAt = event?.start_at || null;
+          eventPoster = event?.poster_url || null;
           if (event?.venue_id) {
-            const { data: venue } = await supabaseAdmin.from("venues").select("name").eq("id", event.venue_id).single();
+            const { data: venue } = await supabaseAdmin.from("venues").select("name, address").eq("id", event.venue_id).single();
             venueName = venue?.name || "";
+            venueAddress = venue?.address || "";
           }
         }
         responseData = {
           ...responseData,
           type: 'table',
+          reference: reservation?.reference_code || reservation?.qr_code || purchase.reference,
           qrCode: reservation?.qr_code,
           guestCount: reservation?.guest_count,
           totalPrice: reservation?.total_price,
@@ -488,6 +522,9 @@ serve(async (req) => {
           status: reservation?.status,
           paidAt: reservation?.paid_at,
           fullName: reservation?.full_name,
+          eventStartAt,
+          eventPoster,
+          venueAddress,
           zoneName: (reservation?.table_zones as any)?.name,
           packName: (reservation?.table_packs as any)?.name,
           eventTitle,
