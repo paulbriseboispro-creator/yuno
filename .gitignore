@@ -36,3 +36,13 @@ supabase/.temp/
 *.backup
 # macOS Finder duplicates ("name 2.ext", "name 3.ext", ...)
 * [0-9].*
+
+# Local agent tooling (kept local, never committed)
+.agents/
+.claude/
+skills-lock.json
+
+# Business / strategy docs (kept local, never committed)
+AUDIT_ANALYTICS_OWNER.md
+Analyse-Strategique-Yuno.pdf
+Cartographie-Yuno.pdf
