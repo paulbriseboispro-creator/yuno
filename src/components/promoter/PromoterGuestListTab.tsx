@@ -14,11 +14,13 @@ import { UserPlus, Users, Loader2, BarChart3, Calendar, Zap, Clock, Mail } from 
 interface PromoterProfile {
   id: string;
   user_id: string;
-  venue_id: string;
+  venue_id: string | null;
+  organizer_user_id?: string | null;
   promo_code: string;
   is_active: boolean;
   default_commission_template_id?: string;
   venue?: { id: string; name: string; logo_url?: string };
+  organizerName?: string;
 }
 
 interface PromoterGuestListTabProps {
@@ -54,7 +56,8 @@ interface EventOption {
   title: string;
   startAt: string;
   endAt: string;
-  venueId: string;
+  venueId: string | null;
+  organizerUserId: string | null;
   venueName: string;
 }
 
@@ -73,10 +76,14 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
   const [quota, setQuota] = useState<QuotaBreakdown>({ globalQuota: null, normalQuota: null, tableQuota: null, drinkQuota: null });
   const [usage, setUsage] = useState<QuotaUsage>({ total: 0, normal: 0, table: 0, drink: 0 });
 
-  // Get the promoter for the selected event's venue
+  // Get the promoter profile that owns the selected event — by venue for club events,
+  // by organizer for organizer events.
   const selectedEvent = events.find(e => e.id === selectedEventId);
   const activePromoter = selectedEvent
-    ? promoterProfiles.find(p => p.venue_id === selectedEvent.venueId)
+    ? promoterProfiles.find(p =>
+        selectedEvent.venueId
+          ? p.venue_id === selectedEvent.venueId
+          : !!p.organizer_user_id && p.organizer_user_id === selectedEvent.organizerUserId)
     : null;
 
   // Fetch events across all venues
@@ -87,25 +94,40 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
   async function fetchEvents() {
     setLoading(true);
     try {
-      const venueIds = [...new Set(promoterProfiles.map(p => p.venue_id))];
-      if (!venueIds.length) { setEvents([]); setLoading(false); return; }
+      const venueIds = [...new Set(promoterProfiles.map(p => p.venue_id).filter(Boolean))] as string[];
+      const orgIds = [...new Set(promoterProfiles.map(p => p.organizer_user_id).filter(Boolean))] as string[];
+      if (!venueIds.length && !orgIds.length) { setEvents([]); setLoading(false); return; }
+
+      // Cover both scopes: club events (venue_id) and organizer events (own or partner).
+      const orParts: string[] = [];
+      if (venueIds.length) orParts.push(`venue_id.in.(${venueIds.join(',')})`);
+      if (orgIds.length) {
+        orParts.push(`organizer_user_id.in.(${orgIds.join(',')})`);
+        orParts.push(`partner_organizer_id.in.(${orgIds.join(',')})`);
+      }
 
       const now = new Date().toISOString();
       const { data } = await supabase.from('events')
-        .select('id, title, start_at, end_at, venue_id, venues!events_venue_id_fkey(name)')
-        .in('venue_id', venueIds)
+        .select('id, title, start_at, end_at, venue_id, organizer_user_id, venues!events_venue_id_fkey(name)')
+        .or(orParts.join(','))
         .gte('end_at', now)
         .order('start_at', { ascending: true })
         .limit(30);
 
-      const mapped: EventOption[] = (data || []).map((e: any) => ({
-        id: e.id,
-        title: e.title,
-        startAt: e.start_at,
-        endAt: e.end_at,
-        venueId: e.venue_id,
-        venueName: e.venues?.name || '',
-      }));
+      const mapped: EventOption[] = (data || []).map((e: any) => {
+        const orgProfile = !e.venue_id && e.organizer_user_id
+          ? promoterProfiles.find(p => p.organizer_user_id === e.organizer_user_id)
+          : null;
+        return {
+          id: e.id,
+          title: e.title,
+          startAt: e.start_at,
+          endAt: e.end_at,
+          venueId: e.venue_id ?? null,
+          organizerUserId: e.organizer_user_id ?? null,
+          venueName: e.venues?.name || orgProfile?.organizerName || '',
+        };
+      });
       setEvents(mapped);
     } catch (err) {
       console.error(err);
@@ -128,51 +150,34 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
   async function fetchQuotaAndEntries() {
     if (!activePromoter || !selectedEventId) return;
     try {
-      // Fetch quota from commission template
-      let q: QuotaBreakdown = { globalQuota: null, normalQuota: null, tableQuota: null, drinkQuota: null };
-      // Fetch guest_list_template_id from promoter record (dedicated preset)
-      const { data: promoterRecord } = await supabase.from('promoters')
-        .select('guest_list_template_id')
-        .eq('id', activePromoter.id)
-        .single();
-      const glTemplateId = (promoterRecord as any)?.guest_list_template_id;
-      if (glTemplateId) {
-        const { data: tmpl } = await supabase.from('commission_templates')
-          .select('rules')
-          .eq('id', glTemplateId)
-          .single();
-        const rules = tmpl?.rules as any;
-        if (rules?.guest_list) {
-          q = {
-            globalQuota: rules.guest_list.quota ?? null,
-            normalQuota: rules.guest_list.normalQuota ?? null,
-            tableQuota: rules.guest_list.tableQuota ?? null,
-            drinkQuota: rules.guest_list.drinkQuota ?? null,
-          };
-        }
-      } else {
-        // No guest list preset assigned — show explicit message
-        setQuota({ globalQuota: null, normalQuota: null, tableQuota: null, drinkQuota: null });
-      }
-      setQuota(q);
-
-      // Fetch guest list for the event
-      const { data: gl } = await supabase.from('guest_lists')
-        .select('id')
+      // The promoter's guest list is now their OWN allocation: a guest_lists "part"
+      // with holder_type='promoter', created and capped by the club on the Guest List
+      // page (single global quota). No part = no allocation yet.
+      const { data: part } = await supabase.from('guest_lists')
+        .select('id, quota, quota_normal, quota_drink, quota_table')
         .eq('event_id', selectedEventId)
-        .eq('is_active', true)
+        .eq('holder_type', 'promoter')
+        .eq('promoter_id', activePromoter.id)
         .maybeSingle();
 
-      if (!gl) {
+      if (!part) {
+        setQuota({ globalQuota: null, normalQuota: null, tableQuota: null, drinkQuota: null });
         setEntries([]);
         setUsage({ total: 0, normal: 0, table: 0, drink: 0 });
         return;
       }
+      // Per-type allocation set by the club on the Guest List page (e.g. 10 normal + 2 VIP).
+      setQuota({
+        globalQuota: part.quota,
+        normalQuota: part.quota_normal || null,
+        drinkQuota: part.quota_drink || null,
+        tableQuota: part.quota_table || null,
+      });
 
-      // Fetch entries by this promoter
+      // Fetch entries by this promoter on their part
       const { data: entriesData } = await supabase.from('guest_list_entries')
         .select('id, full_name, email, entry_type, created_at')
-        .eq('guest_list_id', gl.id)
+        .eq('guest_list_id', part.id)
         .eq('promoter_id', activePromoter.id)
         .neq('status', 'cancelled')
         .order('created_at', { ascending: false });
@@ -209,6 +214,12 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
     setAdding(true);
     try {
       const fullName = `${firstName.trim()} ${lastName.trim()}`;
+      // Send a type the allocation actually offers (per-type quotas set by the club).
+      const offered: EntryType[] = [];
+      if ((quota.normalQuota ?? 0) > 0) offered.push('normal');
+      if ((quota.tableQuota ?? 0) > 0) offered.push('table');
+      if ((quota.drinkQuota ?? 0) > 0) offered.push('drink');
+      const sendType: EntryType = offered.includes(entryType) ? entryType : (offered[0] ?? 'normal');
       const { data, error } = await supabase.functions.invoke('promoter-add-guest', {
         body: {
           promoterId: activePromoter.id,
@@ -216,7 +227,7 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
           fullName,
           gender: null,
           email: email.trim() || null,
-          entryType,
+          entryType: sendType,
         },
       });
 
@@ -262,17 +273,12 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
     });
   };
 
-  // Available entry types based on quota
+  // Available entry types from the club's per-type allocation (only kinds with quota > 0).
   const availableEntryTypes: Array<{ value: EntryType; label: string }> = [];
-  if (quota.normalQuota == null || quota.normalQuota > 0) {
-    availableEntryTypes.push({ value: 'normal', label: 'Entrée standard' });
-  }
-  if (quota.tableQuota != null && quota.tableQuota > 0) {
-    availableEntryTypes.push({ value: 'table', label: 'Entrée Table VIP' });
-  }
-  if (quota.drinkQuota != null && quota.drinkQuota > 0) {
-    availableEntryTypes.push({ value: 'drink', label: 'Entrée + Boisson offerte' });
-  }
+  if ((quota.normalQuota ?? 0) > 0) availableEntryTypes.push({ value: 'normal', label: 'Entrée standard' });
+  if ((quota.tableQuota ?? 0) > 0) availableEntryTypes.push({ value: 'table', label: 'Entrée Table VIP' });
+  if ((quota.drinkQuota ?? 0) > 0) availableEntryTypes.push({ value: 'drink', label: 'Entrée + Boisson offerte' });
+  if (availableEntryTypes.length === 0 && (quota.globalQuota ?? 0) > 0) availableEntryTypes.push({ value: 'normal', label: 'Entrée standard' });
 
   const globalQuotaPercent = quota.globalQuota ? Math.min(100, (usage.total / quota.globalQuota) * 100) : 0;
   const isQuotaFull = quota.globalQuota != null && usage.total >= quota.globalQuota;
@@ -396,8 +402,8 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
                 )}
               </div>
 
-              {quota.globalQuota == null && quota.normalQuota == null && quota.tableQuota == null && quota.drinkQuota == null && (
-                <p className="text-xs text-amber-500">Aucun preset Guest List assigne — demandez a votre manager de configurer vos droits.</p>
+              {quota.globalQuota == null && (
+                <p className="text-xs text-amber-500">Aucune guest list allouée pour cette soirée — demande à ton club de t'en attribuer une.</p>
               )}
 
               {isQuotaFull && (

@@ -30,7 +30,8 @@ type DateRange = '7d' | '30d' | '90d' | 'all';
 interface Promoter {
   id: string;
   user_id: string;
-  venue_id: string;
+  venue_id: string | null;
+  organizer_user_id?: string | null;
   promo_code: string;
   is_active: boolean;
   iban: string | null;
@@ -44,6 +45,8 @@ interface Promoter {
   can_scan_entries?: boolean;
   default_commission_template_id?: string;
   venue?: { id: string; name: string; logo_url?: string; custom_domain?: string };
+  /** Resolved organizer name for organizer-scoped profiles (no venue). */
+  organizerName?: string;
 }
 
 interface TemplateRules {
@@ -84,6 +87,9 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const navigate = useNavigate();
   const venue = promoter.venue;
+  // A promoter profile is scoped either to a club (venue_id) or to an organizer.
+  const isOrg = !promoter.venue_id && !!promoter.organizer_user_id;
+  const scopeName = venue?.name || promoter.organizerName || 'Organisateur';
   const [tab, setTab] = useState('overview');
   const [dateRange, setDateRange] = useState<DateRange>('30d');
   const [eventFilter, setEventFilter] = useState<string | null>(null);
@@ -131,32 +137,39 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
 
   const getBaseUrl = () => 'https://yunoapp.eu';
 
+  // Public ref link for one event — organizer events use the venue-agnostic /event/:id page;
+  // venue events open the club page with the event highlighted.
+  const eventRefLink = (eventId: string) =>
+    isOrg
+      ? `${getBaseUrl()}/event/${eventId}?ref=${promoter.promo_code}${sourceTag ? `&src=${sourceTag}` : ''}`
+      : `${getBaseUrl()}/club/${venue?.id}?ref=${promoter.promo_code}&event=${eventId}${sourceTag ? `&src=${sourceTag}` : ''}`;
+
   // General promo link uses the /promoteur/ route
   const promoLink = promoter.promo_code
     ? `${getBaseUrl()}/promoteur/${promoter.promo_code}${sourceTag ? `?src=${sourceTag}` : ''}`
     : null;
 
   // Event-specific link
-  const eventPromoLink = venue?.id && eventFilter
-    ? `${getBaseUrl()}/club/${venue.id}?ref=${promoter.promo_code}&event=${eventFilter}${sourceTag ? `&src=${sourceTag}` : ''}`
-    : null;
+  const eventPromoLink = eventFilter ? eventRefLink(eventFilter) : null;
 
-  // Fetch upcoming/active events for venue only
+  // Fetch upcoming/active events — by venue for club promoters, by organizer for organizer promoters.
   useEffect(() => {
-    if (!venue?.id) return;
+    if (!venue?.id && !promoter.organizer_user_id) return;
     setEventsLoading(true);
     (async () => {
       const now = new Date().toISOString();
-      const { data } = await supabase.from('events')
+      const base = supabase.from('events')
         .select('id, title, start_at, end_at')
-        .eq('venue_id', venue.id)
         .gte('end_at', now)
         .order('start_at', { ascending: true })
         .limit(50);
+      const { data } = isOrg
+        ? await base.or(`organizer_user_id.eq.${promoter.organizer_user_id},partner_organizer_id.eq.${promoter.organizer_user_id}`)
+        : await base.eq('venue_id', venue!.id);
       setEvents(data || []);
       setEventsLoading(false);
     })();
-  }, [venue?.id]);
+  }, [venue?.id, promoter.organizer_user_id, isOrg]);
 
   // Fetch commission template
   useEffect(() => {
@@ -400,7 +413,7 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
   const shareLink = async () => {
     if (!promoLink || !navigator.share) { copyLink(); return; }
     try {
-      await navigator.share({ title: `${venue?.name} — ${promoter.promo_code}`, url: promoLink });
+      await navigator.share({ title: `${scopeName} — ${promoter.promo_code}`, url: promoLink });
     } catch { /* cancelled */ }
   };
 
@@ -539,7 +552,7 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Gift className="h-4 w-4" />
-                {t('promoter.commission')} — {venue?.name}
+                {t('promoter.commission')} — {scopeName}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
@@ -623,35 +636,7 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
             </CardContent>
           </Card>
 
-          {/* Guest List Perks */}
-          {templateRules && (templateRules as any).guest_list && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <UserPlus className="h-4 w-4" />
-                  Guest List
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Quota d'invitations</span>
-                  <span className="font-medium">{(templateRules as any).guest_list.quota}</span>
-                </div>
-                {(templateRules as any).guest_list.vipAccess && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Acces VIP</span>
-                    <Badge variant="secondary" className="text-xs">Inclus</Badge>
-                  </div>
-                )}
-                {(templateRules as any).guest_list.includesDrink && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Boisson offerte</span>
-                    <Badge variant="secondary" className="text-xs">{(templateRules as any).guest_list.drinkCount || 1} boisson(s)</Badge>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+          {/* Guest-list allocation is managed on the club's Guest List page now. */}
 
           {teamInfo && (
             <Card>
@@ -674,7 +659,7 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2">
                   <Megaphone className="h-4 w-4" />
-                  {venue?.name}
+                  {scopeName}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -715,7 +700,6 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
                 const evtData = events.find(e => e.id === es.eventId);
                 const status = getEventStatus(es.eventDate, evtData?.end_at);
                 const isExpanded = expandedEvent === es.eventId;
-                const eventLink = `${getBaseUrl()}/club/${venue?.id}?ref=${promoter.promo_code}&event=${es.eventId}`;
                 return (
                   <Card key={es.eventId} className="overflow-hidden cursor-pointer hover:border-primary/50 transition-colors"
 >

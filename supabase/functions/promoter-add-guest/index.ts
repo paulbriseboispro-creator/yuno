@@ -65,7 +65,7 @@ serve(async (req) => {
 
     const { data: promoter } = await supabaseAdmin
       .from("promoters")
-      .select("id, user_id, venue_id, is_active, default_commission_template_id, promo_code")
+      .select("id, user_id, venue_id, organizer_user_id, is_active, default_commission_template_id, promo_code")
       .eq("id", promoterId)
       .single();
 
@@ -76,47 +76,38 @@ serve(async (req) => {
       throw new Error("Promoter account is inactive");
     }
 
-    logStep("Promoter verified", { promoterId, venueId: promoter.venue_id });
+    logStep("Promoter verified", { promoterId, venueId: promoter.venue_id, organizerUserId: promoter.organizer_user_id });
 
     const { data: event } = await supabaseAdmin
       .from("events")
-      .select("id, title, venue_id, start_at, poster_url")
+      .select("id, title, venue_id, organizer_user_id, partner_organizer_id, start_at, poster_url")
       .eq("id", eventId)
       .maybeSingle();
 
     if (!event) throw new Error("Event not found");
-    if (event.venue_id !== promoter.venue_id) {
-      throw new Error("Unauthorized: this event is not linked to your venue");
+
+    // A promoter is scoped to a club (venue_id) OR an organizer. Authorize accordingly.
+    const venueMatch = !!promoter.venue_id && event.venue_id === promoter.venue_id;
+    const orgMatch = !!promoter.organizer_user_id &&
+      (event.organizer_user_id === promoter.organizer_user_id || event.partner_organizer_id === promoter.organizer_user_id);
+    if (!venueMatch && !orgMatch) {
+      throw new Error("Unauthorized: this event is not linked to your account");
     }
 
-    let guestList: { id: string; quota: number; is_active: boolean } | null = null;
-    const { data: guestLists } = await supabaseAdmin
+    // The promoter's guest list is now their OWN allocation: a guest_lists "part" with
+    // holder_type='promoter', created and capped by the club on the Guest List page. The
+    // commission template no longer carries any guest-list config — it is purely money.
+    // No allocation = the promoter can't add (they ask the club to set one up).
+    const { data: promoterParts } = await supabaseAdmin
       .from("guest_lists")
-      .select("id, quota, is_active")
+      .select("id, quota, includes_drink, is_active, entry_deadline, quota_normal, quota_drink, quota_table")
       .eq("event_id", eventId)
-      .eq("is_active", true)
+      .eq("holder_type", "promoter")
+      .eq("promoter_id", promoterId)
       .limit(1);
-
-    if (guestLists && guestLists.length > 0) {
-      guestList = guestLists[0];
-    } else {
-      const { data: newGl, error: createGlError } = await supabaseAdmin
-        .from("guest_lists")
-        .insert({
-          event_id: eventId,
-          venue_id: promoter.venue_id,
-          quota: 99999,
-          free_before_time: "23:59",
-          is_active: true,
-          visible_on_club_page: false,
-        })
-        .select("id, quota, is_active")
-        .single();
-      if (createGlError || !newGl) {
-        throw new Error("Failed to create guest list for promoter entries");
-      }
-      guestList = newGl;
-      logStep("Auto-created guest list for promoter entries", { glId: newGl.id });
+    const guestList = promoterParts?.[0] as { id: string; quota: number; includes_drink: boolean; is_active: boolean; entry_deadline: string | null; quota_normal: number; quota_drink: number; quota_table: number } | undefined;
+    if (!guestList || !guestList.is_active) {
+      throw new Error("No guest list allocation for this event. Ask your club to set it up.");
     }
     const normalizedName = fullName.trim();
     const normalizedEmail = (email || "").trim().toLowerCase();
@@ -138,75 +129,39 @@ serve(async (req) => {
 
     const isUpdate = Boolean(existingEntry);
 
-    const { data: promoterFull } = await supabaseAdmin
-      .from("promoters")
-      .select("guest_list_template_id")
-      .eq("id", promoterId)
-      .single();
-
-    const glTemplateId = (promoterFull as any)?.guest_list_template_id;
-
-    if (glTemplateId) {
-      const { data: tmpl } = await supabaseAdmin
-        .from("commission_templates")
-        .select("rules")
-        .eq("id", glTemplateId)
-        .single();
-
-      const rules = tmpl?.rules as any;
-      if (rules?.guest_list) {
-        const gl = rules.guest_list;
-        let typeQuota: number | null = null;
-
-        if (resolvedEntryType === "normal" && gl.normalQuota != null) typeQuota = gl.normalQuota;
-        else if (resolvedEntryType === "table" && gl.tableQuota != null) typeQuota = gl.tableQuota;
-        else if (resolvedEntryType === "drink" && gl.drinkQuota != null) typeQuota = gl.drinkQuota;
-
-        const globalQuota = gl.quota ?? null;
-
-        if (typeQuota != null) {
-          let typeCountQuery = supabaseAdmin
-            .from("guest_list_entries")
-            .select("*", { count: "exact", head: true })
-            .eq("guest_list_id", guestList.id)
-            .eq("promoter_id", promoterId)
-            .eq("entry_type", resolvedEntryType)
-            .neq("status", "cancelled");
-
-          if (isUpdate && existingEntry) {
-            typeCountQuery = typeCountQuery.neq("id", existingEntry.id);
-          }
-
-          const { count: typeCount } = await typeCountQuery;
-          if ((typeCount ?? 0) >= typeQuota) {
-            throw new Error(`Quota atteint pour le type "${resolvedEntryType}"`);
-          }
+    // Enforce the promoter part's quotas (set by the club on the Guest List page):
+    // the per-type allocation (e.g. 10 normal + 2 VIP) AND the global total.
+    // Legacy parts created before per-type allocation have all-zero per-type quotas —
+    // treat those as standard-only against the global quota (no per-type rejection).
+    const hasPerType = ((guestList.quota_normal ?? 0) + (guestList.quota_drink ?? 0) + (guestList.quota_table ?? 0)) > 0;
+    if (!isUpdate && hasPerType) {
+      const typeQuota = resolvedEntryType === "table" ? guestList.quota_table
+        : resolvedEntryType === "drink" ? guestList.quota_drink
+        : guestList.quota_normal;
+      if (typeQuota != null && typeQuota > 0) {
+        const { count: typeCount } = await supabaseAdmin
+          .from("guest_list_entries")
+          .select("*", { count: "exact", head: true })
+          .eq("guest_list_id", guestList.id)
+          .eq("entry_type", resolvedEntryType)
+          .neq("status", "cancelled");
+        if ((typeCount ?? 0) >= typeQuota) {
+          throw new Error(`Quota reached for "${resolvedEntryType}" entries`);
         }
-
-        if (globalQuota != null && !isUpdate) {
-          const { count: totalByPromoter } = await supabaseAdmin
-            .from("guest_list_entries")
-            .select("*", { count: "exact", head: true })
-            .eq("guest_list_id", guestList.id)
-            .eq("promoter_id", promoterId)
-            .neq("status", "cancelled");
-
-          if ((totalByPromoter ?? 0) >= globalQuota) {
-            throw new Error("Quota global de guest list atteint");
-          }
-        }
+      } else if (typeQuota === 0) {
+        // The allocation doesn't offer this entry kind at all.
+        throw new Error(`This guest list doesn't offer "${resolvedEntryType}" entries`);
       }
     }
-
+    // Global total cap always applies (per-type or legacy single-quota parts alike).
     if (!isUpdate && guestList.quota != null) {
       const { count: totalEntries } = await supabaseAdmin
         .from("guest_list_entries")
         .select("*", { count: "exact", head: true })
         .eq("guest_list_id", guestList.id)
         .neq("status", "cancelled");
-
       if ((totalEntries ?? 0) >= guestList.quota) {
-        throw new Error("Guest list is full");
+        throw new Error("Guest list quota reached");
       }
     }
 
@@ -228,18 +183,8 @@ serve(async (req) => {
     let reservationCode = existingEntry?.reservation_code || "";
     let wasUpdated = false;
 
-    let entryDeadlineValue: string | null = null;
-    if (glTemplateId) {
-      const { data: tmplForDeadline } = await supabaseAdmin
-        .from("commission_templates")
-        .select("rules")
-        .eq("id", glTemplateId)
-        .single();
-      const deadlineRules = tmplForDeadline?.rules as any;
-      if (deadlineRules?.guest_list?.entryDeadline) {
-        entryDeadlineValue = deadlineRules.guest_list.entryDeadline;
-      }
-    }
+    // Entry deadline now comes from the promoter part itself (set by the club).
+    const entryDeadlineValue: string | null = guestList.entry_deadline ?? null;
 
     if (isUpdate && existingEntry) {
       const updatePayload: Record<string, unknown> = {
@@ -303,25 +248,18 @@ serve(async (req) => {
       logStep("Guest added", { entryId, entryType: resolvedEntryType, reservationCode, linkedUserId });
     }
 
-    if (resolvedEntryType === "drink" && linkedUserId) {
-      let creditCount = 1;
-      if (glTemplateId) {
-        const { data: tmplDrink } = await supabaseAdmin
-          .from("commission_templates")
-          .select("rules")
-          .eq("id", glTemplateId)
-          .single();
-        const drinkRules = tmplDrink?.rules as any;
-        creditCount = drinkRules?.guest_list?.drinkCount || 1;
-      }
-
+    // Drink credits need a venue to be redeemable at the bar. Organizer-only events with
+    // no host venue can't carry bar credits, so skip them (the invite still stands).
+    const creditVenueId = event.venue_id ?? promoter.venue_id ?? null;
+    if (resolvedEntryType === "drink" && linkedUserId && creditVenueId) {
+      const creditCount = 1;
       const expiresAt = new Date(new Date(event.start_at).getTime() + 24 * 60 * 60 * 1000).toISOString();
 
       await supabaseAdmin
         .from("order_pack_credits")
         .upsert({
           user_id: linkedUserId,
-          venue_id: promoter.venue_id,
+          venue_id: creditVenueId,
           event_id: eventId,
           pack_id: `gl-drink-${entryId}`,
           total_credits: creditCount,

@@ -17,7 +17,8 @@ import type { PromoterStats } from '@/types/promoter';
 interface Promoter {
   id: string;
   user_id: string;
-  venue_id: string;
+  venue_id: string | null;
+  organizer_user_id?: string | null;
   promo_code: string;
   is_active: boolean;
   iban: string | null;
@@ -29,7 +30,13 @@ interface Promoter {
   table_commission_type: string;
   table_commission_value: number;
   venue?: { id: string; name: string; logo_url?: string; custom_domain?: string };
+  /** Resolved organizer name for organizer-scoped profiles (no venue). */
+  organizerName?: string;
 }
+
+/** Stable key for a profile's tab — venue-scoped uses venue_id, organizer-scoped uses the org id. */
+const scopeKey = (p: Pick<Promoter, 'venue_id' | 'organizer_user_id'>) =>
+  p.venue_id ?? (p.organizer_user_id ? `org:${p.organizer_user_id}` : 'unknown');
 
 interface Announcement {
   id: string;
@@ -103,8 +110,8 @@ export default function PromoterDashboard() {
   useEffect(() => {
     if (allPromoterProfiles.length > 0 && !activeTab) {
       const saved = localStorage.getItem(STORAGE_KEY);
-      const valid = allPromoterProfiles.find(p => p.venue_id === saved);
-      setActiveTab(valid ? saved! : allPromoterProfiles[0].venue_id);
+      const valid = allPromoterProfiles.find(p => scopeKey(p) === saved);
+      setActiveTab(valid ? saved! : scopeKey(allPromoterProfiles[0]));
     }
   }, [allPromoterProfiles, activeTab]);
 
@@ -133,11 +140,27 @@ export default function PromoterDashboard() {
         return;
       }
 
+      // Resolve organizer display names for organizer-scoped profiles (no venue) so the
+      // tab reads as the organizer, not a generic "Club".
+      const orgIds = [...new Set(activeProfiles
+        .filter(p => !p.venue_id && p.organizer_user_id)
+        .map(p => p.organizer_user_id as string))];
+      const orgNames: Record<string, string> = {};
+      if (orgIds.length) {
+        const { data: orgs } = await supabase.from('organizer_profiles')
+          .select('user_id, display_name').in('user_id', orgIds);
+        (orgs || []).forEach(o => { if (o.display_name) orgNames[o.user_id] = o.display_name; });
+      }
+      const enriched = activeProfiles.map(p => ({
+        ...p,
+        organizerName: !p.venue_id && p.organizer_user_id ? orgNames[p.organizer_user_id] : undefined,
+      }));
+
       setProfileError(null);
-      setAllPromoterProfiles(activeProfiles);
-      await Promise.all(activeProfiles.map(async (p) => {
+      setAllPromoterProfiles(enriched);
+      await Promise.all(enriched.map(async (p) => {
         await fetchStats(p.id, p.venue_id);
-        await fetchAnnouncements(p.venue_id);
+        if (p.venue_id) await fetchAnnouncements(p.venue_id);
       }));
     } catch (error) {
       console.error('Error fetching promoter data:', error);
@@ -147,7 +170,7 @@ export default function PromoterDashboard() {
     }
   }
 
-  async function fetchStats(promoterId: string, _venueId: string) {
+  async function fetchStats(promoterId: string, _venueId: string | null) {
     try {
       const { count: totalClicks } = await supabase.from('promoter_clicks').select('*', { count: 'exact', head: true }).eq('promoter_id', promoterId);
       const { data: conversions } = await supabase.from('promoter_conversions').select('*').eq('promoter_id', promoterId);
@@ -262,24 +285,24 @@ export default function PromoterDashboard() {
           <div className="overflow-x-auto -mx-4 px-4 scrollbar-hide">
             <TabsList className="inline-flex w-max h-auto p-1 bg-muted/50 gap-0.5">
               {allPromoterProfiles.map((p) => (
-                <TabsTrigger key={p.venue_id} value={p.venue_id} className="gap-2 px-4 py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm whitespace-nowrap">
+                <TabsTrigger key={scopeKey(p)} value={scopeKey(p)} className="gap-2 px-4 py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm whitespace-nowrap">
                   {p.venue?.logo_url ? (
                     <img src={p.venue.logo_url} alt={p.venue.name} className="h-5 w-5 rounded-full object-cover" />
                   ) : (
                     <Building2 className="h-4 w-4" />
                   )}
-                  <span className="font-medium">{p.venue?.name || 'Club'}</span>
+                  <span className="font-medium">{p.venue?.name || p.organizerName || 'Organisateur'}</span>
                   {!p.is_active && <Badge variant="secondary" className="ml-1 text-xs">{t('promoter.inactive')}</Badge>}
                 </TabsTrigger>
               ))}
             </TabsList>
           </div>
           {allPromoterProfiles.map((promoterProfile) => (
-            <TabsContent key={promoterProfile.venue_id} value={promoterProfile.venue_id} className="mt-4">
+            <TabsContent key={scopeKey(promoterProfile)} value={scopeKey(promoterProfile)} className="mt-4">
               <VenuePromoterContent
                 promoter={promoterProfile}
                 stats={statsMap[promoterProfile.id] || defaultStats}
-                announcements={announcementsMap[promoterProfile.venue_id] || []}
+                announcements={promoterProfile.venue_id ? (announcementsMap[promoterProfile.venue_id] || []) : []}
                 onProfileSaved={() => fetchAllPromoterProfiles()}
                 allPromoterProfiles={allPromoterProfiles}
               />
