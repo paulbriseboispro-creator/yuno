@@ -107,6 +107,8 @@ serve(async (req) => {
     let customerLastName = '';
     let customerPhone = '';
     let venueId = '';
+    // Connected account the charge ran on (DIRECT charge) — null for platform/separate charges.
+    let connectedAccountId: string | null = null;
     let venueName = '';
     let eventTitle = '';
     let paymentIntentId = '';
@@ -137,6 +139,7 @@ serve(async (req) => {
       customerLastName = ticket.full_name?.split(' ').slice(1).join(' ') || '';
       customerPhone = ticket.phone || '';
       paymentIntentId = ticket.stripe_payment_intent_id || '';
+      connectedAccountId = (ticket.stripe_connected_account_id as string | null) || null;
 
       // New formula: refund = (totalPrice - serviceFee) - stripeFee
       originalAmount = Number(ticket.total_price);
@@ -170,7 +173,7 @@ serve(async (req) => {
         try {
           const { data: linkedOrders } = await adminClient
             .from('orders')
-            .select('id, total, service_fee, stripe_payment_intent_id, status, served_at, token_used')
+            .select('id, total, service_fee, stripe_payment_intent_id, stripe_connected_account_id, status, served_at, token_used')
             .eq('user_id', ticket.user_id)
             .eq('event_id', ticket.events.id)
             .eq('status', 'paid')
@@ -186,13 +189,14 @@ serve(async (req) => {
             // Stripe refund for linked order
             if (linkedOrder.stripe_payment_intent_id && orderRefund > 0) {
               try {
+                const linkedAccount = (linkedOrder.stripe_connected_account_id as string | null) || null;
                 await stripe.refunds.create({
                   payment_intent: linkedOrder.stripe_payment_intent_id,
                   amount: Math.round(orderRefund * 100),
-                  reverse_transfer: true,
+                  ...(linkedAccount ? {} : { reverse_transfer: true }),
                   refund_application_fee: false,
-                });
-                logStep("Linked order Stripe refund", { orderId: linkedOrder.id, amount: orderRefund });
+                }, linkedAccount ? { stripeAccount: linkedAccount } : undefined);
+                logStep("Linked order Stripe refund", { orderId: linkedOrder.id, amount: orderRefund, direct: !!linkedAccount });
               } catch (stripeErr: any) {
                 logStep("Linked order Stripe refund error", { orderId: linkedOrder.id, error: stripeErr.message });
               }
@@ -247,6 +251,7 @@ serve(async (req) => {
       customerEmail = order.user_email || '';
       customerUserId = order.user_id || '';
       paymentIntentId = order.stripe_payment_intent_id || '';
+      connectedAccountId = (order.stripe_connected_account_id as string | null) || null;
 
       // Fetch event title if available
       if (order.event_id) {
@@ -313,13 +318,15 @@ serve(async (req) => {
     if (paymentIntentId && refundAmount > 0) {
       try {
         const refundAmountCents = Math.round(refundAmount * 100);
+        // DIRECT charge → refund on the connected account (no transfer to reverse).
+        // SEPARATE/platform charge → refund on the platform and reverse the transfers.
         await stripe.refunds.create({
           payment_intent: paymentIntentId,
           amount: refundAmountCents,
-          reverse_transfer: true,
+          ...(connectedAccountId ? {} : { reverse_transfer: true }),
           refund_application_fee: false,
-        });
-        logStep("Stripe refund processed", { paymentIntentId, refundAmountCents });
+        }, connectedAccountId ? { stripeAccount: connectedAccountId } : undefined);
+        logStep("Stripe refund processed", { paymentIntentId, refundAmountCents, direct: !!connectedAccountId });
       } catch (stripeError: any) {
         logStep("Stripe refund error", { error: stripeError.message, type });
         // For drink orders the DB write happens AFTER this, so aborting here

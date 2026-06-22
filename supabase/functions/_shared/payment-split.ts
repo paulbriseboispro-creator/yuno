@@ -31,9 +31,16 @@ export interface SplitInput {
   /** Stripe account ids resolved by caller */
   venueStripeAccountId?: string | null;
   organizerStripeAccountId?: string | null;
+  /**
+   * Amount (EUR) inside `grossAmount` that belongs 100% to the VENUE and must NOT
+   * be split with the organizer — e.g. a drink/conso bundled into a co-event ticket.
+   * The venue owns its bar/alcohol, so its revenue never goes to the organizer.
+   * Only meaningful in a co-event "separate" split; ignored otherwise.
+   */
+  venueDirectAmount?: number;
 }
 
-export type SplitMode = "destination" | "separate";
+export type SplitMode = "direct" | "separate";
 
 export interface SplitResult {
   /** Yuno commission in cents */
@@ -49,8 +56,13 @@ export interface SplitResult {
   grossAmountCents: number;
   /**
    * Stripe Connect mode to use:
-   *  - "destination": single recipient → use transfer_data.destination + application_fee_amount
-   *  - "separate": two recipients → charge stays on platform, transfers fired by webhook
+   *  - "direct":   single recipient → charge created ON the connected account
+   *                (stripeAccount), application_fee_amount = yunoFeeCents. The
+   *                recipient is merchant of record, pays the Stripe fee, and sees
+   *                a "Frais Stripe" + commission line. `primary.accountId` is the
+   *                account the charge runs on.
+   *  - "separate": two recipients (co-event split) → charge stays on the platform,
+   *                transfers fired by the webhook to primary + secondary.
    */
   splitMode: SplitMode;
   primary: {
@@ -127,19 +139,38 @@ export function resolvePaymentSplit(input: SplitInput): SplitResult {
     partnershipRules,
     venueStripeAccountId,
     organizerStripeAccountId,
+    venueDirectAmount = 0,
   } = input;
 
   const grossCents = Math.round(grossAmount * 100);
   const yunoFeeCents = computeYunoFeeCents(itemType, grossAmount);
   const stripeFeeEstimatedCents = estimateStripeFeeCents(grossCents);
   const netCents = grossCents - yunoFeeCents;
-  // DESTINATION mode (single recipient): the charge lands on Yuno's PLATFORM account
-  // (no `on_behalf_of`). Yuno is the merchant of record — it pays the Stripe fee and
-  // transfers the recipient ONLY its own share via `transfer_data[amount]`. So the
-  // recipient never sees the gross customer payment transit its books, and Yuno keeps
-  // exactly `yunoFeeCents`. We therefore pre-deduct the estimated Stripe fee here:
-  //   gross − yunoFee − stripeFee  =  what the recipient actually receives.
+  // Informational only: what a single recipient nets after Yuno commission + the
+  // Stripe fee. In "direct" mode Stripe debits its fee straight from the connected
+  // account, so this is what actually lands. (Not used to size any transfer.)
   const netAfterStripeCents = Math.max(0, netCents - stripeFeeEstimatedCents);
+
+  // Build a single-recipient DIRECT-charge result. The Stripe charge is created ON
+  // the recipient's connected account (caller passes { stripeAccount }); the recipient
+  // is merchant of record, pays the Stripe fee, and Yuno collects `yunoFeeCents` as the
+  // application fee. The recipient's dashboard shows a real "Frais Stripe" line + the
+  // Yuno commission line — and Yuno is never the seller of record.
+  const directResult = (
+    accountId: string,
+    kind: RecipientKind,
+    vId: string | null,
+    oId: string | null,
+    effective: { organizer_pct: number; venue_pct: number } | null,
+  ): SplitResult => ({
+    grossAmountCents: grossCents,
+    yunoFeeCents,
+    stripeFeeEstimatedCents,
+    splitMode: "direct",
+    primary: { accountId, amountCents: netAfterStripeCents, kind, venueId: vId, organizerId: oId },
+    secondary: null,
+    effectiveSplit: effective,
+  });
 
   // Determine if this is a co-event
   const isCoEvent =
@@ -149,50 +180,22 @@ export function resolvePaymentSplit(input: SplitInput): SplitResult {
     (!!event.venue_id && !!event.partner_organizer_id) ||
     (!!event.organizer_user_id && !!event.partner_venue_id);
 
-  // Solo cases — no split (single destination charge)
+  // Solo cases — single recipient → DIRECT charge on that account.
   if (!isCoEvent) {
     if (event.venue_id) {
       if (!venueStripeAccountId) throw new Error("Venue has no Stripe account");
-      return {
-        grossAmountCents: grossCents,
-        yunoFeeCents,
-        stripeFeeEstimatedCents,
-        splitMode: "destination",
-        primary: {
-          accountId: venueStripeAccountId,
-          amountCents: netAfterStripeCents,
-          kind: "venue",
-          venueId: event.venue_id,
-          organizerId: null,
-        },
-        secondary: null,
-        effectiveSplit: null,
-      };
+      return directResult(venueStripeAccountId, "venue", event.venue_id, null, null);
     }
     if (event.organizer_user_id) {
       if (!organizerStripeAccountId) throw new Error("Organizer has no Stripe account");
-      return {
-        grossAmountCents: grossCents,
-        yunoFeeCents,
-        stripeFeeEstimatedCents,
-        splitMode: "destination",
-        primary: {
-          accountId: organizerStripeAccountId,
-          amountCents: netAfterStripeCents,
-          kind: "organizer",
-          venueId: null,
-          organizerId: event.organizer_user_id,
-        },
-        secondary: null,
-        effectiveSplit: null,
-      };
+      return directResult(organizerStripeAccountId, "organizer", null, event.organizer_user_id, null);
     }
     throw new Error("Event has no recipient (venue or organizer)");
   }
 
-  // Co-event: drinks REQUIRE a venue (the menu lives at the venue) but the revenue split
-  // is now configurable via the partnership / event split rules. If no rules exist for drinks,
-  // default to 100% venue (legacy behaviour).
+  // ── Co-event ────────────────────────────────────────────────────────────────
+  // Drinks REQUIRE a venue (the menu lives at the venue). The ticket/table split is
+  // configurable via the partnership / event rules; drinks default to 100% venue.
   const venueId = event.venue_id ?? event.partner_venue_id;
   const organizerId = event.organizer_user_id ?? event.partner_organizer_id;
 
@@ -203,72 +206,69 @@ export function resolvePaymentSplit(input: SplitInput): SplitResult {
   const rules = event.revenue_split_rules ?? partnershipRules ?? null;
   const split = getSplitForItem(rules, itemType) ?? defaultSplitForItem(itemType, event.event_mode);
 
-  const primaryIsVenue = itemType === "drink" ? true : !!event.venue_id;
-  const primaryAccountId = primaryIsVenue ? venueStripeAccountId : organizerStripeAccountId;
-  const secondaryAccountId = primaryIsVenue ? organizerStripeAccountId : venueStripeAccountId;
+  // The venue owns its bar/alcohol: any drink/conso amount bundled into THIS charge
+  // (venueDirectAmount, e.g. a conso inside a co-event ticket) goes 100% to the venue
+  // and is NOT split with the organizer. Only the rest is split per the rules.
+  const venueDirectCents = Math.min(Math.max(0, Math.round((venueDirectAmount ?? 0) * 100)), netCents);
+  const splitBaseCents = netCents - venueDirectCents;
+  const venueBaseCents = Math.round((splitBaseCents * split.venue_pct) / 100);
+  const organizerShareBeforeFee = splitBaseCents - venueBaseCents;
+  const venueShareBeforeFee = venueBaseCents + venueDirectCents;
 
-  if (!primaryAccountId) {
-    throw new Error("Primary party has no Stripe account");
+  const venueGetsMoney = venueShareBeforeFee > 0;
+  const organizerGetsMoney = organizerShareBeforeFee > 0;
+
+  // Only ONE effective recipient (100/0 split, or drinks → 100% venue) → DIRECT charge
+  // on that account. Cleanest legal + transparency, same as a solo event.
+  if (venueGetsMoney && !organizerGetsMoney) {
+    if (!venueStripeAccountId) throw new Error("Venue has no Stripe account");
+    return directResult(venueStripeAccountId, "venue", venueId, null, split);
+  }
+  if (organizerGetsMoney && !venueGetsMoney) {
+    if (!organizerStripeAccountId) throw new Error("Organizer has no Stripe account");
+    return directResult(organizerStripeAccountId, "organizer", null, organizerId, split);
   }
 
-  // SEPARATE-CHARGES-AND-TRANSFERS mode (used when both parties owe money):
-  //   - The PaymentIntent is created on the platform account WITHOUT transfer_data.
-  //   - Stripe debits its processing fee from the platform balance.
-  //   - The webhook fires two manual transfers to the connected accounts.
-  //   - => We MUST pre-deduct the estimated Stripe fee here so that Yuno recovers it
-  //        from the recipients' share. Otherwise Yuno absorbs the Stripe fee.
-  //
-  // DESTINATION fallback (when one side gets 0%): single recipient, Stripe handles
-  // its fee on the connected account via on_behalf_of (configured by the caller).
-  const venueShareCentsBeforeFee = Math.round((netCents * split.venue_pct) / 100);
-  const organizerShareCentsBeforeFee = netCents - venueShareCentsBeforeFee;
-
-  const primaryAmountBeforeFee = primaryIsVenue ? venueShareCentsBeforeFee : organizerShareCentsBeforeFee;
-  const secondaryAmountBeforeFee = primaryIsVenue ? organizerShareCentsBeforeFee : venueShareCentsBeforeFee;
-
-  if (secondaryAmountBeforeFee > 0 && !secondaryAccountId) {
-    throw new Error("Partner party has no Stripe account — cannot create co-event payment");
+  // BOTH parties owe money → SEPARATE charges and transfers: the charge stays on the
+  // platform (Stripe can't direct-charge two accounts at once) and the webhook fires
+  // a transfer to each connected account. The Stripe fee is pre-deducted pro-rata so
+  // Yuno keeps exactly `yunoFeeCents` and the recipients absorb the Stripe fee.
+  if (!venueStripeAccountId || !organizerStripeAccountId) {
+    throw new Error("Both parties need a Stripe account for a co-event split");
   }
 
-  const needsSecondaryTransfer = secondaryAmountBeforeFee > 0 && primaryAmountBeforeFee > 0 && !!secondaryAccountId;
+  const totalShareForFee = venueShareBeforeFee + organizerShareBeforeFee; // === netCents
+  const venueFeeShare = totalShareForFee > 0
+    ? Math.round((stripeFeeEstimatedCents * venueShareBeforeFee) / totalShareForFee)
+    : 0;
+  const organizerFeeShare = stripeFeeEstimatedCents - venueFeeShare;
+  const venueAmountCents = Math.max(0, venueShareBeforeFee - venueFeeShare);
+  const organizerAmountCents = Math.max(0, organizerShareBeforeFee - organizerFeeShare);
 
-  // Pre-deduct estimated Stripe fee from each party pro-rata to their share.
-  // In separate mode it is split across both parties; in the destination fallback
-  // (one side gets 0%) the single recipient absorbs it via `netAfterStripeCents`.
-  let primaryAmountCents = needsSecondaryTransfer ? primaryAmountBeforeFee : netAfterStripeCents;
-  let secondaryAmountCents = secondaryAmountBeforeFee;
+  const venueLeg = {
+    accountId: venueStripeAccountId,
+    amountCents: venueAmountCents,
+    kind: "venue" as RecipientKind,
+    venueId,
+    organizerId: null,
+  };
+  const organizerLeg = {
+    accountId: organizerStripeAccountId,
+    amountCents: organizerAmountCents,
+    kind: "organizer" as RecipientKind,
+    venueId: null,
+    organizerId,
+  };
 
-  if (needsSecondaryTransfer) {
-    const totalShareForFee = primaryAmountBeforeFee + secondaryAmountBeforeFee;
-    const primaryFeeShare = totalShareForFee > 0
-      ? Math.round((stripeFeeEstimatedCents * primaryAmountBeforeFee) / totalShareForFee)
-      : 0;
-    const secondaryFeeShare = stripeFeeEstimatedCents - primaryFeeShare;
-    primaryAmountCents = Math.max(0, primaryAmountBeforeFee - primaryFeeShare);
-    secondaryAmountCents = Math.max(0, secondaryAmountBeforeFee - secondaryFeeShare);
-  }
-
+  // Primary = the event host's side (venue if it created the event, else organizer).
+  const primaryIsVenue = !!event.venue_id;
   return {
     grossAmountCents: grossCents,
     yunoFeeCents,
     stripeFeeEstimatedCents,
-    splitMode: needsSecondaryTransfer ? "separate" : "destination",
-    primary: {
-      accountId: primaryAccountId,
-      amountCents: primaryAmountCents,
-      kind: primaryIsVenue ? "venue" : "organizer",
-      venueId: primaryIsVenue ? venueId : null,
-      organizerId: primaryIsVenue ? null : organizerId,
-    },
-    secondary: needsSecondaryTransfer
-      ? {
-          accountId: secondaryAccountId!,
-          amountCents: secondaryAmountCents,
-          kind: primaryIsVenue ? "organizer" : "venue",
-          venueId: primaryIsVenue ? null : venueId,
-          organizerId: primaryIsVenue ? organizerId : null,
-        }
-      : null,
+    splitMode: "separate",
+    primary: primaryIsVenue ? venueLeg : organizerLeg,
+    secondary: primaryIsVenue ? organizerLeg : venueLeg,
     effectiveSplit: split,
   };
 }

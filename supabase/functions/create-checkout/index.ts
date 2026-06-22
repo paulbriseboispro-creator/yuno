@@ -474,6 +474,33 @@ serve(async (req) => {
       }
     }
 
+    // Resolve the Stripe Connect split. Drinks belong to the venue → DIRECT charge on
+    // the venue's connected account (the venue is the seller / alcohol merchant of
+    // record). Only a co-event with a configured drink split routes to SEPARATE mode.
+    const split = resolvePaymentSplit({
+      itemType: "drink",
+      grossAmount: clientTotal,
+      event: eventForSplit ?? {
+        id: "",
+        venue_id: venueId,
+        organizer_user_id: null,
+        partner_venue_id: null,
+        partner_organizer_id: null,
+        event_mode: "solo_venue",
+        revenue_split_rules: null,
+      },
+      partnershipRules,
+      venueStripeAccountId: venue.stripe_account_id,
+      organizerStripeAccountId,
+    });
+    const connectedAccountId = split.splitMode === "direct" ? split.primary.accountId : null;
+    // Direct charges run ON the connected account, so coupons + the Checkout Session
+    // must be created with the same stripeAccount context.
+    const stripeRequestOptions = connectedAccountId ? { stripeAccount: connectedAccountId } : undefined;
+    if (connectedAccountId) {
+      await supabaseAdmin.from("orders").update({ stripe_connected_account_id: connectedAccountId }).eq("id", order.id);
+    }
+
     // Build line items from validated items with server-side prices
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
       validatedItems.map((item) => ({
@@ -519,24 +546,6 @@ serve(async (req) => {
         isGuest: isGuest ? "true" : "false",
       },
       payment_intent_data: (() => {
-        // The "gross" Yuno actually owes to recipients = drinks net (clientTotal − Yuno fee).
-        // Yuno fee + Stripe fee always stay on the platform.
-        const split = resolvePaymentSplit({
-          itemType: "drink",
-          grossAmount: clientTotal,
-          event: eventForSplit ?? {
-            id: "",
-            venue_id: venueId,
-            organizer_user_id: null,
-            partner_venue_id: null,
-            partner_organizer_id: null,
-            event_mode: "solo_venue",
-            revenue_split_rules: null,
-          },
-          partnershipRules,
-          venueStripeAccountId: venue.stripe_account_id,
-          organizerStripeAccountId,
-        });
         const clientTotalCents = Math.round(clientTotal * 100);
         const stripeFee = Math.round(clientTotalCents * STRIPE_PERCENT) + STRIPE_FIXED_CENTS;
         const transferGroup = `EVENT_${eventId || "no-event"}_DR_${order.id}`;
@@ -574,20 +583,20 @@ serve(async (req) => {
           organizer_pct_applied: split.effectiveSplit ? String(split.effectiveSplit.organizer_pct) : "",
           partnership_id: partnershipId ?? "",
         };
+        // SEPARATE mode (co-event drink split): charge stays on the platform, webhook
+        // fires a transfer to each connected account.
         if (split.splitMode === "separate") {
-          // Co-event with two recipients: charge stays on platform, webhook fires both transfers.
           return {
             transfer_group: transferGroup,
             metadata: sharedMetadata,
           } as Stripe.Checkout.SessionCreateParams.PaymentIntentData;
         }
-        // DESTINATION mode (single recipient): the charge lands on Yuno's PLATFORM
-        // account (Yuno is merchant of record — no on_behalf_of). Yuno collects the
-        // full customer payment, pays the Stripe fee, keeps its commission, and
-        // transfers the recipient ONLY its own share (split.primary.amountCents =
-        // gross − Yuno fee − Stripe fee). The recipient never sees the gross amount.
+        // DIRECT mode: the charge runs ON the venue's connected account (via the
+        // `stripeAccount` request option below). The venue is the seller of record
+        // (and the alcohol merchant), pays the Stripe fee, and Yuno collects
+        // `yunoFeeCents` as the application fee.
         return {
-          transfer_data: { destination: split.primary.accountId, amount: split.primary.amountCents },
+          application_fee_amount: split.yunoFeeCents,
           transfer_group: transferGroup,
           metadata: sharedMetadata,
         } as Stripe.Checkout.SessionCreateParams.PaymentIntentData;
@@ -602,7 +611,7 @@ serve(async (req) => {
           currency: "eur",
           duration: "once",
           name: "Réduction promo",
-        });
+        }, stripeRequestOptions);
         sessionParams.discounts = [{ coupon: coupon.id }];
         logStep("Stripe coupon created for discount", {
           couponId: coupon.id,
@@ -615,14 +624,15 @@ serve(async (req) => {
       }
     }
 
-    const session = await stripe.checkout.sessions.create(sessionParams);
+    const session = await stripe.checkout.sessions.create(sessionParams, stripeRequestOptions);
 
     logStep("Stripe session created", {
       sessionId: session.id,
       yunoCommission,
       totalDiscount,
       clientTotal,
-      destination: venue.stripe_account_id,
+      mode: split.splitMode,
+      destination: split.primary.accountId,
     });
 
     return new Response(

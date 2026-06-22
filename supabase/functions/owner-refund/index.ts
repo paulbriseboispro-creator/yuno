@@ -187,13 +187,16 @@ serve(async (req) => {
 
         try {
           const refundAmountCents = Math.round(refundAmount * 100);
+          // DIRECT charge → refund on the connected account (no transfer to reverse).
+          // SEPARATE/platform charge → refund on the platform and reverse the transfers.
+          const connectedAccount = (record.stripe_connected_account_id as string | null) || null;
           await stripe.refunds.create({
             payment_intent: paymentIntentId,
             amount: refundAmountCents,
-            reverse_transfer: true,
+            ...(connectedAccount ? {} : { reverse_transfer: true }),
             refund_application_fee: false,
-          });
-          logStep("Stripe refund created", { paymentIntentId, refundAmount, refundAmountCents });
+          }, connectedAccount ? { stripeAccount: connectedAccount } : undefined);
+          logStep("Stripe refund created", { paymentIntentId, refundAmount, refundAmountCents, direct: !!connectedAccount });
         } catch (stripeError: any) {
           logStep("Stripe refund error", { error: stripeError.message });
           results.push({ id: item.id, type: item.type, success: false, error: `Stripe: ${stripeError.message}` }); continue;

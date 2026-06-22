@@ -53,16 +53,8 @@ serve(async (req) => {
       logStep("No user auth - checking via Stripe metadata");
     }
 
-    // Retrieve the session from Stripe first to validate
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-    logStep("Stripe session retrieved", { paymentStatus: session.payment_status });
-
-    // Verify session metadata matches order
-    if (session.metadata?.orderId !== orderId) {
-      throw new Error('Session does not match order');
-    }
-
-    // Fetch order using admin (works for both guest and authenticated)
+    // Fetch order first — a DIRECT-charge session lives on the connected account,
+    // so we need the account to retrieve it.
     const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .select('*')
@@ -72,6 +64,19 @@ serve(async (req) => {
     if (orderError || !order) {
       console.error('Order not found:', orderError);
       throw new Error('Order not found');
+    }
+
+    // Retrieve the session from Stripe to validate. Direct charges live on the
+    // connected account → pass { stripeAccount } when the order carries one.
+    const retrieveOpts = order.stripe_connected_account_id
+      ? { stripeAccount: order.stripe_connected_account_id as string }
+      : undefined;
+    const session = await stripe.checkout.sessions.retrieve(sessionId, retrieveOpts);
+    logStep("Stripe session retrieved", { paymentStatus: session.payment_status, direct: !!retrieveOpts });
+
+    // Verify session metadata matches order
+    if (session.metadata?.orderId !== orderId) {
+      throw new Error('Session does not match order');
     }
 
     // If user is authenticated, verify ownership

@@ -50,16 +50,8 @@ serve(async (req) => {
     const { sessionId, ticketId } = await req.json();
     logStep("Verifying payment", { sessionId, ticketId });
 
-    // Retrieve the session from Stripe first to validate
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-    logStep("Stripe session retrieved", { paymentStatus: session.payment_status });
-
-    // Verify session metadata matches ticket
-    if (session.metadata?.ticketId !== ticketId) {
-      throw new Error('Session does not match ticket');
-    }
-
-    // Fetch ticket using admin (works for both guest and authenticated)
+    // Fetch ticket first (works for both guest and authenticated) — a DIRECT-charge
+    // session lives on the connected account, so we need the account to retrieve it.
     const { data: ticket, error: ticketError } = await supabaseAdmin
       .from('tickets')
       .select('*')
@@ -68,6 +60,19 @@ serve(async (req) => {
 
     if (ticketError || !ticket) {
       throw new Error('Ticket not found');
+    }
+
+    // Retrieve the session from Stripe to validate. Direct charges live on the
+    // connected account → pass { stripeAccount } when the ticket carries one.
+    const retrieveOpts = ticket.stripe_connected_account_id
+      ? { stripeAccount: ticket.stripe_connected_account_id as string }
+      : undefined;
+    const session = await stripe.checkout.sessions.retrieve(sessionId, retrieveOpts);
+    logStep("Stripe session retrieved", { paymentStatus: session.payment_status, direct: !!retrieveOpts });
+
+    // Verify session metadata matches ticket
+    if (session.metadata?.ticketId !== ticketId) {
+      throw new Error('Session does not match ticket');
     }
 
     // If user is authenticated, verify ownership (skip for guests)

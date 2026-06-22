@@ -416,7 +416,13 @@ serve(async (req) => {
         const grossCents = pi.amount;
         const yunoFeeCents = parseInt(md.yuno_fee_cents || "0", 10) || 0;
         const stripeFeeEstimatedCents = parseInt(md.stripe_fee_estimated_cents || "0", 10) || 0;
-        const splitMode = (md.split_mode === "separate" ? "separate" : "destination") as "separate" | "destination";
+        // "separate" → platform charge + webhook transfers. "direct" → charge already
+        // on the connected account (no transfer to fire). Legacy rows → "destination".
+        const splitMode = (md.split_mode === "separate"
+          ? "separate"
+          : md.split_mode === "direct"
+            ? "direct"
+            : "destination") as "separate" | "destination" | "direct";
         const transferGroup = md.transfer_group || null;
         const primaryAccount = md.split_primary_account || null;
         const primaryAmountCents = parseInt(md.split_primary_amount || "0", 10) || (grossCents - yunoFeeCents);
@@ -553,7 +559,13 @@ serve(async (req) => {
         try {
           const chargeId = pi.latest_charge as string | null;
           if (chargeId) {
-            const ch = await stripe.charges.retrieve(chargeId, { expand: ["balance_transaction"] });
+            // DIRECT charges live on the connected account → retrieve with its context
+            // (event.account is set for Connect events; undefined for platform events).
+            const ch = await stripe.charges.retrieve(
+              chargeId,
+              { expand: ["balance_transaction"] },
+              event.account ? { stripeAccount: event.account } : undefined,
+            );
             const bt = ch.balance_transaction as Stripe.BalanceTransaction | null;
             if (bt && typeof bt === "object" && typeof bt.fee === "number") {
               await supabaseClient.from("revenue_distributions").update({

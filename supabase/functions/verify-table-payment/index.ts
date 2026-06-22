@@ -53,15 +53,8 @@ serve(async (req) => {
     const { sessionId, reservationId } = await req.json();
     logStep("Verifying payment", { sessionId, reservationId });
 
-    // Retrieve the session from Stripe first
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-    logStep("Stripe session retrieved", { paymentStatus: session.payment_status });
-
-    if (session.metadata?.reservationId !== reservationId) {
-      throw new Error('Session does not match reservation');
-    }
-
-    // Fetch reservation using admin
+    // Fetch reservation first — a DIRECT-charge session lives on the connected
+    // account, so we need the account to retrieve it.
     const { data: reservation, error: reservationError } = await supabaseAdmin
       .from('table_reservations')
       .select('*')
@@ -70,6 +63,18 @@ serve(async (req) => {
 
     if (reservationError || !reservation) {
       throw new Error('Reservation not found');
+    }
+
+    // Retrieve the session from Stripe. Direct charges live on the connected
+    // account → pass { stripeAccount } when the reservation carries one.
+    const retrieveOpts = reservation.stripe_connected_account_id
+      ? { stripeAccount: reservation.stripe_connected_account_id as string }
+      : undefined;
+    const session = await stripe.checkout.sessions.retrieve(sessionId, retrieveOpts);
+    logStep("Stripe session retrieved", { paymentStatus: session.payment_status, direct: !!retrieveOpts });
+
+    if (session.metadata?.reservationId !== reservationId) {
+      throw new Error('Session does not match reservation');
     }
 
     // If user is authenticated, verify ownership

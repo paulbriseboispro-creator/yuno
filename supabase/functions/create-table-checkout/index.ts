@@ -582,6 +582,31 @@ serve(async (req) => {
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     const origin = req.headers.get("origin") || "https://yunoapp.eu";
 
+    // Resolve the Stripe Connect split up front. DIRECT = single recipient → the
+    // charge runs ON their connected account (they're the seller of record);
+    // SEPARATE = co-event split → charge on the platform + webhook transfers.
+    const grossAmount = discountedDeposit + managementFee;
+    const split = resolvePaymentSplit({
+      itemType: "table",
+      grossAmount,
+      event: {
+        id: event.id,
+        venue_id: event.venue_id,
+        organizer_user_id: event.organizer_user_id,
+        partner_venue_id: event.partner_venue_id,
+        partner_organizer_id: event.partner_organizer_id,
+        event_mode: event.event_mode,
+        revenue_split_rules: event.revenue_split_rules,
+      },
+      partnershipRules,
+      venueStripeAccountId: venue.stripe_account_id,
+      organizerStripeAccountId,
+    });
+    const connectedAccountId = split.splitMode === "direct" ? split.primary.accountId : null;
+    if (connectedAccountId) {
+      await supabaseAdmin.from("table_reservations").update({ stripe_connected_account_id: connectedAccountId }).eq('id', reservation.id);
+    }
+
     const session = await stripe.checkout.sessions.create({
       line_items: [
         // Only add deposit line if there's a deposit to pay
@@ -595,23 +620,6 @@ serve(async (req) => {
       payment_method_types: ['card', 'link'],
       metadata: { reservationId: reservation.id, eventId, packId, userId: user?.id || '', venueId: effectiveVenueId, promoterId: promoterId || '', promoCode: promoCode || '', trackedLinkId: safeTrackedLinkId || '', isGuest: isGuestCheckout ? 'true' : 'false' },
       payment_intent_data: (() => {
-        const grossAmount = discountedDeposit + managementFee;
-        const split = resolvePaymentSplit({
-          itemType: "table",
-          grossAmount,
-          event: {
-            id: event.id,
-            venue_id: event.venue_id,
-            organizer_user_id: event.organizer_user_id,
-            partner_venue_id: event.partner_venue_id,
-            partner_organizer_id: event.partner_organizer_id,
-            event_mode: event.event_mode,
-            revenue_split_rules: event.revenue_split_rules,
-          },
-          partnershipRules,
-          venueStripeAccountId: venue.stripe_account_id,
-          organizerStripeAccountId,
-        });
         const stripeFee = Math.round(split.grossAmountCents * STRIPE_PERCENT) + STRIPE_FIXED_CENTS;
         const transferGroup = `EVENT_${event.id}_TBL_${reservation.id}`;
         logStep("Split + fee", {
@@ -648,24 +656,24 @@ serve(async (req) => {
           organizer_pct_applied: split.effectiveSplit ? String(split.effectiveSplit.organizer_pct) : "",
           partnership_id: partnershipId ?? "",
         };
+        // SEPARATE mode (co-event split): charge stays on the platform, webhook fires
+        // a transfer to each connected account.
         if (split.splitMode === "separate") {
           return {
             transfer_group: transferGroup,
             metadata: sharedMetadata,
           };
         }
-        // DESTINATION mode (single recipient): the charge lands on Yuno's PLATFORM
-        // account (Yuno is merchant of record — no on_behalf_of). Yuno collects the
-        // full customer payment, pays the Stripe fee, keeps its commission, and
-        // transfers the recipient ONLY its own share (split.primary.amountCents =
-        // gross − Yuno fee − Stripe fee). The recipient never sees the gross amount.
+        // DIRECT mode: the charge runs ON the recipient's connected account (via the
+        // `stripeAccount` request option below). The recipient is the seller of record,
+        // pays the Stripe fee, and Yuno collects `yunoFeeCents` as the application fee.
         return {
-          transfer_data: { destination: split.primary.accountId, amount: split.primary.amountCents },
+          application_fee_amount: split.yunoFeeCents,
           transfer_group: transferGroup,
           metadata: sharedMetadata,
         };
       })(),
-    });
+    }, split.splitMode === "direct" ? { stripeAccount: split.primary.accountId } : undefined);
 
     logStep("Stripe session created", { 
       sessionId: session.id, 
