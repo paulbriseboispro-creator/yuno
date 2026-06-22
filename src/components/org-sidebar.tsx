@@ -57,7 +57,7 @@ function buildOrgNavGroups(tt: TT): SidebarNavGroup[] {
 				{ title: tt("Guest List", "Guest List"), path: "/organizer-app/guest-list", icon: <UsersIcon /> },
 				{ title: tt("Check-in", "Check-in"), path: "/organizer-app/checkin", icon: <ScanLineIcon /> },
 				{ title: tt("DJs", "DJs"), path: "/organizer-app/djs", icon: <Music2Icon /> },
-				{ title: tt("Réserver un DJ", "Book a DJ"), path: "/organizer-app/book-dj", icon: <WandIcon /> },
+				{ title: tt("Booking DJ", "Booking DJ"), path: "/organizer-app/book-dj", icon: <WandIcon /> },
 			],
 		},
 		{

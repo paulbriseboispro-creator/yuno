@@ -12,7 +12,7 @@ export default function BookDJPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <OwnerHeader title={tt('Réserver un DJ', 'Book a DJ', 'Reservar un DJ')} />
+      <OwnerHeader title={tt('Booking DJ', 'Booking DJ', 'Booking DJ')} />
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
         <p className="mb-5 text-sm text-muted-foreground">
           {tt(
