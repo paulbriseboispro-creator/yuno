@@ -35,6 +35,7 @@ import type {
 } from '@/components/orders/myorders-types';
 import { EditOrderDialog } from '@/components/orders/EditOrderDialog';
 import { CancelTicketDialog } from '@/components/orders/CancelTicketDialog';
+import { getGuestTickets, removeGuestTicket, type GuestTicket } from '@/lib/guestTickets';
 
 export default function MyOrders() {
   const { user, loading: authLoading } = useAuth();
@@ -68,6 +69,10 @@ export default function MyOrders() {
   const [selectedGuestEntry, setSelectedGuestEntry] = useState<GuestListEntryWithDetails | null>(null);
   const [waitlistEntries, setWaitlistEntries] = useState<{ id: string; eventId: string; eventTitle: string; eventStartAt: string; eventPosterUrl?: string; venueName: string; venueSlug: string; createdAt: string; presaleStartAt?: string; publicSaleStartAt?: string }[]>([]);
   const [seg, setSeg] = useState<OrderBucket>('pending');
+  // Guest purchases claimed via /claim and saved to this device's local cache.
+  const [guestTickets, setGuestTickets] = useState<GuestTicket[]>([]);
+  const [guestQR, setGuestQR] = useState<GuestTicket | null>(null);
+  const [guestQRImages, setGuestQRImages] = useState<Record<string, string>>({});
 
   // Handle URL params for tab selection and success messages
   const tabFromUrl = searchParams.get('tab');
@@ -92,6 +97,31 @@ export default function MyOrders() {
   };
 
   // Don't redirect — show inline unauthenticated state instead
+
+  // Load guest-claimed purchases from the local cache (works without an account)
+  // and pre-generate their QR images.
+  useEffect(() => {
+    const gts = getGuestTickets();
+    setGuestTickets(gts);
+    (async () => {
+      const imgs: Record<string, string> = {};
+      for (const g of gts) {
+        if (g.qrCode) {
+          try {
+            imgs[g.reference] = await QRCode.toDataURL(g.qrCode, {
+              width: 220, margin: 2, color: { dark: '#000000', light: '#ffffff' },
+            });
+          } catch { /* ignore */ }
+        }
+      }
+      setGuestQRImages(imgs);
+    })();
+  }, []);
+
+  const handleRemoveGuestTicket = (g: GuestTicket) => {
+    removeGuestTicket(g.reference, g.type);
+    setGuestTickets((prev) => prev.filter((x) => !(x.reference === g.reference && x.type === g.type)));
+  };
 
   const [clickCollectModeByVenue, setClickCollectModeByVenue] = useState<Record<string, boolean>>({});
 
@@ -1120,6 +1150,123 @@ export default function MyOrders() {
     return (
       <div className="flex min-h-screen items-center justify-center" style={{ background: '#0A0A0A' }}>
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" style={{ borderColor: '#E8192C', borderTopColor: 'transparent' }} />
+      </div>
+    );
+  }
+
+  // Guest with locally-saved purchases — render them as real ticket cards.
+  if (!user && guestTickets.length > 0) {
+    const guestLabels = {
+      scanThisQR: t('orders.scanThisQR'),
+      shareThisQR: t('orders.shareThisQR'),
+      valid: t('orders.valid'),
+      scanned: t('orders.scannedLabel'),
+    };
+    const fmtGuest = (iso?: string) => {
+      if (!iso) return '';
+      try { return format(new Date(iso), 'EEE d MMM · HH:mm', { locale: getLocale() }); } catch { return ''; }
+    };
+    const shareGuest = (title: string) => {
+      if (navigator.share) navigator.share({ title: 'Yuno', text: title }).catch(() => {});
+      else toast.success(title);
+    };
+    const typeFallback = (g: GuestTicket) =>
+      g.type === 'table' ? t('claim.tabTables') : g.type === 'order' ? t('claim.tabDrinks') : t('claim.tabTickets');
+
+    return (
+      <div className="min-h-screen pb-24" style={{ background: '#0A0A0A' }}>
+        <header
+          className="sticky top-0 z-40"
+          style={{ background: 'rgba(10,10,10,0.90)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+        >
+          <div className="mx-auto flex h-14 max-w-md items-center gap-3 px-4">
+            <button
+              onClick={() => navigate('/')}
+              className="grid place-items-center cursor-pointer"
+              style={{ width: 36, height: 36, borderRadius: 2, background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.10)', color: '#fff' }}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <span className="font-mono uppercase" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.14em', color: '#9A9A9A' }}>{t('orders.myOrders')}</span>
+          </div>
+        </header>
+
+        <div className="mx-auto max-w-md px-4 py-4 space-y-4">
+          <div className="px-1">
+            <h2 className="font-display uppercase" style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-.025em', lineHeight: 1, color: '#FFFFFF' }}>
+              {t('orders.myOrders')}
+            </h2>
+            <p className="font-mono uppercase" style={{ fontSize: 10.5, letterSpacing: '.08em', color: '#9A9A9A', marginTop: 7 }}>
+              {guestTickets.length} · {t('guest.savedOnDevice')}
+            </p>
+          </div>
+
+          {/* Save-to-account nudge */}
+          <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">{t('guest.saveToAccountHint')}</p>
+            <button onClick={() => navigate('/auth?redirect=/my-orders')} className="text-xs font-semibold text-primary whitespace-nowrap">
+              {t('guest.loginOption')}
+            </button>
+          </div>
+
+          {/* Ticket cards */}
+          <div className="flex flex-col gap-3">
+            {guestTickets.map((g) => (
+              <div key={`${g.type}-${g.reference}`} className="overflow-hidden rounded-2xl border" style={{ borderColor: 'rgba(255,255,255,0.08)', background: '#141414' }}>
+                {g.eventPoster && <img src={g.eventPoster} alt={g.eventTitle || ''} className="w-full h-28 object-cover" />}
+                <div className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-white truncate">{g.eventTitle || typeFallback(g)}</p>
+                      {g.venueName && <p className="text-sm text-muted-foreground truncate">{g.venueName}</p>}
+                      {g.eventStartAt && <p className="text-xs text-muted-foreground mt-0.5">{fmtGuest(g.eventStartAt)}</p>}
+                      {(g.roundName || g.zoneName) && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{g.roundName || [g.zoneName, g.packName].filter(Boolean).join(' — ')}</p>
+                      )}
+                    </div>
+                    <button onClick={() => handleRemoveGuestTicket(g)} className="shrink-0 p-1 text-muted-foreground/60 hover:text-muted-foreground" aria-label="Remove">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <p className="mt-2 font-mono text-xs text-muted-foreground">{g.reference}</p>
+                  <button
+                    onClick={() => setGuestQR(g)}
+                    disabled={!g.qrCode}
+                    className="mt-3 w-full flex items-center justify-center gap-2 h-11 rounded-xl bg-primary text-white text-sm font-semibold disabled:opacity-50"
+                  >
+                    <QrCode className="h-4 w-4" />{t('orders.openMyQR')}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={() => navigate('/claim')}
+            className="w-full flex items-center justify-center gap-2 cursor-pointer font-mono font-bold uppercase"
+            style={{ height: 48, borderRadius: 999, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', color: '#E5E5E5', fontSize: 11.5, letterSpacing: '.1em' }}
+          >
+            <QrCode className="h-4 w-4" />
+            {t('guest.findOrder')}
+          </button>
+        </div>
+
+        {guestQR && (
+          <OrderQROverlay
+            kind={guestQR.type === 'table' ? 'vip' : guestQR.type === 'order' ? 'drink' : 'ticket'}
+            title={guestQR.eventTitle || typeFallback(guestQR)}
+            venueName={guestQR.venueName || ''}
+            idLabel={guestQR.type === 'table'
+              ? [guestQR.zoneName, guestQR.packName].filter(Boolean).join(' — ')
+              : `${guestQR.quantity || 1}× ${guestQR.roundName || ''}`}
+            slides={[{ qrImage: guestQRImages[guestQR.reference] }]}
+            labels={guestLabels}
+            onClose={() => setGuestQR(null)}
+            onShare={() => shareGuest(guestQR.eventTitle || 'Yuno')}
+          />
+        )}
+
+        <BottomNav />
       </div>
     );
   }

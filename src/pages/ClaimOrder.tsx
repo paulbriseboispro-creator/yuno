@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Search, ArrowLeft, CheckCircle, Package, Loader2, LinkIcon, Ticket, Users } from 'lucide-react';
+import { Search, ArrowLeft, CheckCircle, Package, Loader2, LinkIcon, Ticket, Users, CalendarDays, MapPin, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { saveGuestTicket } from '@/lib/guestTickets';
 import QRCode from 'qrcode';
 
 interface ClaimedPurchase {
@@ -33,6 +34,11 @@ interface ClaimedPurchase {
   status: string;
   venueName: string;
   eventTitle: string;
+  eventStartAt?: string;
+  eventPoster?: string;
+  venueAddress?: string;
+  ticketType?: string;
+  unitPrice?: number;
   createdAt?: string;
   paidAt?: string;
   reference?: string;
@@ -43,7 +49,19 @@ export default function ClaimOrder() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+
+  const formatEventDate = (iso?: string) => {
+    if (!iso) return '';
+    try {
+      return new Date(iso).toLocaleDateString(
+        language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB',
+        { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }
+      );
+    } catch {
+      return '';
+    }
+  };
 
   // Reference prefix per purchase type. The prefix is shown as a fixed, locked
   // adornment on the input so the user only ever types the 6-char suffix and can
@@ -142,22 +160,65 @@ export default function ClaimOrder() {
     }
   };
 
+  // Guests (no account) save the verified purchase to the local cache so it
+  // appears in /my-orders. No backend write — it's a device-local snapshot.
+  const handleAddToGuestTickets = () => {
+    if (!purchase) return;
+    saveGuestTicket({
+      id: purchase.id,
+      type: purchase.type,
+      reference: purchase.reference || fullReference(),
+      qrCode: purchase.qrCode || purchase.token,
+      eventTitle: purchase.eventTitle,
+      venueName: purchase.venueName,
+      venueAddress: purchase.venueAddress,
+      eventStartAt: purchase.eventStartAt,
+      eventPoster: purchase.eventPoster,
+      roundName: purchase.roundName,
+      ticketType: purchase.ticketType,
+      zoneName: purchase.zoneName,
+      packName: purchase.packName,
+      quantity: purchase.quantity,
+      guestCount: purchase.guestCount,
+      totalPrice: purchase.totalPrice,
+      fullName: purchase.fullName,
+      status: purchase.status,
+    });
+    toast({ title: t('claim.savedToOrders'), description: t('claim.savedToOrdersDesc') });
+    const tab = purchaseType === 'ticket' ? 'tickets' : purchaseType === 'table' ? 'vip' : 'drinks';
+    navigate(`/my-orders?tab=${tab}`);
+  };
+
   const renderPurchaseDetails = () => {
     if (!purchase) return null;
-    
+
     if (purchase.type === 'ticket') {
       return (
-        <Card className="p-4 border border-border/30 bg-surface">
-          <div className="flex items-center gap-2 mb-3">
-            <Ticket className="h-4 w-4 text-primary" />
-            <h3 className="font-semibold">{t('claim.ticketDetails')}</h3>
-          </div>
-          {purchase.venueName && <p className="text-sm text-muted-foreground mb-1">{purchase.venueName}</p>}
-          {purchase.eventTitle && <p className="text-sm font-medium mb-1">{purchase.eventTitle}</p>}
-          {purchase.roundName && <p className="text-sm text-muted-foreground mb-3">{purchase.roundName}</p>}
-          <div className="border-t border-border/30 mt-3 pt-3 flex justify-between font-semibold">
-            <span>{purchase.quantity || 1}x {t('claim.tabTickets')}</span>
-            <span className="text-primary">{Number(purchase.totalPrice || 0).toFixed(2)}€</span>
+        <Card className="overflow-hidden border border-border/30 bg-surface">
+          {purchase.eventPoster && (
+            <img src={purchase.eventPoster} alt={purchase.eventTitle} className="w-full h-32 object-cover" />
+          )}
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Ticket className="h-4 w-4 text-primary" />
+              <h3 className="font-semibold">{t('claim.ticketDetails')}</h3>
+            </div>
+            {purchase.eventTitle && <p className="text-base font-semibold mb-1">{purchase.eventTitle}</p>}
+            {purchase.venueName && (
+              <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 shrink-0" />{purchase.venueName}
+              </p>
+            )}
+            {purchase.eventStartAt && (
+              <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1.5">
+                <CalendarDays className="h-3.5 w-3.5 shrink-0" />{formatEventDate(purchase.eventStartAt)}
+              </p>
+            )}
+            {purchase.roundName && <p className="text-sm text-muted-foreground">{purchase.roundName}</p>}
+            <div className="border-t border-border/30 mt-3 pt-3 flex justify-between font-semibold">
+              <span>{purchase.quantity || 1}× {purchase.roundName || t('claim.tabTickets')}</span>
+              <span className="text-primary">{Number(purchase.totalPrice || 0).toFixed(2)}€</span>
+            </div>
           </div>
         </Card>
       );
@@ -165,18 +226,32 @@ export default function ClaimOrder() {
 
     if (purchase.type === 'table') {
       return (
-        <Card className="p-4 border border-border/30 bg-surface">
-          <div className="flex items-center gap-2 mb-3">
-            <Users className="h-4 w-4 text-primary" />
-            <h3 className="font-semibold">{t('claim.reservationDetails')}</h3>
-          </div>
-          {purchase.venueName && <p className="text-sm text-muted-foreground mb-1">{purchase.venueName}</p>}
-          {purchase.eventTitle && <p className="text-sm font-medium mb-1">{purchase.eventTitle}</p>}
-          {purchase.zoneName && <p className="text-sm text-muted-foreground">{purchase.zoneName} — {purchase.packName}</p>}
-          {purchase.fullName && <p className="text-sm text-muted-foreground mb-3">{purchase.fullName}</p>}
-          <div className="border-t border-border/30 mt-3 pt-3 flex justify-between font-semibold">
-            <span>{t('claim.deposit')}</span>
-            <span className="text-primary">{Number(purchase.totalPrice || 0).toFixed(2)}€</span>
+        <Card className="overflow-hidden border border-border/30 bg-surface">
+          {purchase.eventPoster && (
+            <img src={purchase.eventPoster} alt={purchase.eventTitle} className="w-full h-32 object-cover" />
+          )}
+          <div className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Users className="h-4 w-4 text-primary" />
+              <h3 className="font-semibold">{t('claim.reservationDetails')}</h3>
+            </div>
+            {purchase.eventTitle && <p className="text-base font-semibold mb-1">{purchase.eventTitle}</p>}
+            {purchase.venueName && (
+              <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 shrink-0" />{purchase.venueName}
+              </p>
+            )}
+            {purchase.eventStartAt && (
+              <p className="text-sm text-muted-foreground mb-1 flex items-center gap-1.5">
+                <CalendarDays className="h-3.5 w-3.5 shrink-0" />{formatEventDate(purchase.eventStartAt)}
+              </p>
+            )}
+            {purchase.zoneName && <p className="text-sm text-muted-foreground">{purchase.zoneName}{purchase.packName ? ` — ${purchase.packName}` : ''}</p>}
+            {purchase.fullName && <p className="text-sm text-muted-foreground">{purchase.fullName}</p>}
+            <div className="border-t border-border/30 mt-3 pt-3 flex justify-between font-semibold">
+              <span>{t('claim.deposit')}</span>
+              <span className="text-primary">{Number(purchase.totalPrice || 0).toFixed(2)}€</span>
+            </div>
           </div>
         </Card>
       );
@@ -341,8 +416,7 @@ export default function ClaimOrder() {
               <Button
                 onClick={handleLink}
                 disabled={isLinking}
-                variant="outline"
-                className="w-full h-12 rounded-xl border-primary/30 text-primary"
+                className="w-full h-12 rounded-xl bg-primary text-base font-semibold"
               >
                 <LinkIcon className="h-4 w-4 mr-2" />
                 {isLinking ? <Loader2 className="h-4 w-4 animate-spin" /> : t('claim.addToAccount')}
@@ -350,13 +424,23 @@ export default function ClaimOrder() {
             )}
 
             {!user && (
-              <div className="text-center">
-                <p className="text-xs text-muted-foreground mb-2">
-                  {t('claim.createAccountHint')}
-                </p>
-                <Button variant="ghost" onClick={() => navigate('/auth?redirect=/claim?order=' + fullReference() + '&type=' + purchaseType)} className="text-sm text-primary">
-                  {t('claim.createAccount')}
+              <div className="space-y-3">
+                <Button
+                  onClick={handleAddToGuestTickets}
+                  className="w-full h-12 rounded-xl bg-primary text-base font-semibold"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  {t('claim.addToMyTickets')}
                 </Button>
+                <p className="text-center text-xs text-muted-foreground">
+                  {t('claim.createAccountHint')}{' '}
+                  <button
+                    onClick={() => navigate('/auth?redirect=/claim?order=' + fullReference() + '&type=' + purchaseType)}
+                    className="text-primary underline underline-offset-2"
+                  >
+                    {t('claim.createAccount')}
+                  </button>
+                </p>
               </div>
             )}
           </motion.div>
