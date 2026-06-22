@@ -33,6 +33,28 @@ function clean(s: string | null | undefined, max = 200): string {
   return (s || '').replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
+// WhatsApp (and other social crawlers) drop link-preview images larger than a few
+// hundred KB and silently fall back to the site's app icon — that's why a 2.9 MB
+// event poster rendered the generic Yuno logo on WhatsApp while iMessage (no such
+// cap) showed the real poster. Route every Supabase public image through the Storage
+// render transform → a small WebP (~30-200 KB) so the real artwork renders on every
+// platform. format=webp is forced via the query param (NOT the Accept header, which
+// crawlers don't reliably send); WebP is safe here — Yuno's own social-card.webp is
+// WebP and already renders in WhatsApp. Works on both the live project and the legacy
+// Lovable bucket; non-Supabase URLs (e.g. Unsplash) pass through untouched.
+function ogImage(raw: string | undefined): string | undefined {
+  if (!raw) return raw;
+  const marker = '/storage/v1/object/public/';
+  const i = raw.indexOf(marker);
+  if (i === -1) return raw;
+  const origin = raw.slice(0, i);
+  const rest = raw.slice(i + marker.length); // objectPath[?query]
+  const qIdx = rest.indexOf('?');
+  const objectPath = qIdx === -1 ? rest : rest.slice(0, qIdx);
+  const passthrough = qIdx === -1 ? '' : `&${rest.slice(qIdx + 1)}`;
+  return `${origin}/storage/v1/render/image/public/${objectPath}?width=1200&quality=72&format=webp${passthrough}`;
+}
+
 async function fetchRow(env: Env, query: string): Promise<Record<string, unknown> | null> {
   try {
     const r = await fetch(`${env.SUPABASE_URL}/rest/v1/${query}`, {
@@ -195,6 +217,9 @@ export default {
         const url = new URL(request.url);
         const og = await resolveOG(url, env);
         if (og) {
+          // Shrink the entity image to a crawler-safe WebP (see ogImage) so big
+          // posters/covers don't get dropped by WhatsApp's preview size cap.
+          og.image = ogImage(og.image);
           const asset = await env.ASSETS.fetch(request);
           const ct = asset.headers.get('content-type') || '';
           if (ct.includes('text/html')) {
