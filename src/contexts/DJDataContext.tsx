@@ -35,6 +35,8 @@ export interface DJ {
   country?: string;
   description?: string;
   slug?: string;
+  featured_track_url?: string | null;
+  featured_track_title?: string | null;
   is_active: boolean;
   pending_amount: number;
   total_paid: number;
@@ -71,6 +73,48 @@ export interface DJVenue {
   logo_url?: string;
 }
 
+export interface DJBookingRequest {
+  id: string;
+  venue_id: string | null;
+  organizer_user_id: string | null;
+  dj_user_id: string;
+  requested_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  agreed_fee: number | null;
+  currency: string;
+  message: string | null;
+  event_id: string | null;
+  status: 'pending' | 'accepted' | 'declined' | 'expired' | 'cancelled';
+  dj_response_note: string | null;
+  responded_at: string | null;
+  expires_at: string;
+  created_at: string;
+  venue?: { name: string } | null;
+}
+
+export interface DJSecuredContract {
+  id: string;
+  dj_set_id: string;
+  dj_id: string;
+  dj_user_id: string;
+  venue_id: string | null;
+  organizer_user_id: string | null;
+  status: 'draft' | 'pending_dj_setup' | 'pending_signatures' | 'pending_payment'
+        | 'funds_held' | 'released' | 'cancelled' | 'refunded';
+  cachet_cents: number;
+  acompte_cents: number;
+  stripe_fee_cents: number;
+  cancellation_policy: 'acompte_to_dj' | 'full_refund';
+  contract_pdf_url: string | null;
+  club_signed_at: string | null;
+  dj_signed_at: string | null;
+  acompte_released_at: string | null;
+  released_at: string | null;
+  created_at: string;
+  dj_set?: { start_time: string; end_time: string; event?: { title: string } | null; venue?: { name: string } | null } | null;
+}
+
 interface DJDataValue {
   loading: boolean;
   dj: DJ | null;
@@ -84,6 +128,10 @@ interface DJDataValue {
   /** B1 — every gig across ALL of this DJ's venue + organizer profiles, one timeline. */
   allSets: DJSet[];
   payments: DJPayment[];
+  /** Booking requests addressed to this person (any of their djs rows), newest first. */
+  bookingRequests: DJBookingRequest[];
+  /** Secured-payment contracts where this person is the DJ payee, newest first. */
+  securedContracts: DJSecuredContract[];
   isProfileIncomplete: boolean;
   upcomingSets: DJSet[];
   pendingAmount: number;
@@ -93,6 +141,8 @@ interface DJDataValue {
   refetchSets: () => Promise<void>;
   refetchAllSets: () => Promise<void>;
   refetchPayments: () => Promise<void>;
+  refetchBookingRequests: () => Promise<void>;
+  refetchSecuredContracts: () => Promise<void>;
 }
 
 const DJDataContext = createContext<DJDataValue | null>(null);
@@ -116,6 +166,8 @@ export function DJDataProvider({ children }: { children: ReactNode }) {
   const [sets, setSets] = useState<DJSet[]>([]);
   const [allSets, setAllSets] = useState<DJSet[]>([]);
   const [payments, setPayments] = useState<DJPayment[]>([]);
+  const [bookingRequests, setBookingRequests] = useState<DJBookingRequest[]>([]);
+  const [securedContracts, setSecuredContracts] = useState<DJSecuredContract[]>([]);
   const [handle, setHandle] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -204,6 +256,45 @@ export function DJDataProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Booking requests target the PERSON (dj_user_id = current user), so they're fetched
+  // once per user, independent of the selected venue profile.
+  const fetchBookingRequests = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('dj_booking_requests')
+        .select('*, venue:venues(name)')
+        .eq('dj_user_id', userId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setBookingRequests((data as unknown as DJBookingRequest[]) || []);
+    } catch (error) {
+      console.error('Error fetching booking requests:', error);
+    }
+  };
+
+  // Secured-payment contracts target the PERSON (dj_user_id). The table isn't in the
+  // generated Supabase types until the migration is pushed, so we use the bound-this
+  // cast the rest of this context already relies on for new RPCs/tables.
+  const fetchSecuredContracts = async (userId: string) => {
+    try {
+      const fromAny = supabase.from.bind(supabase) as unknown as (table: string) => {
+        select: (cols: string) => {
+          eq: (col: string, val: string) => {
+            order: (col: string, opts: { ascending: boolean }) => Promise<{ data: unknown; error: unknown }>;
+          };
+        };
+      };
+      const { data, error } = await fromAny('dj_booking_contracts')
+        .select('*, dj_set:dj_sets(start_time, end_time, event:events(title), venue:venues(name))')
+        .eq('dj_user_id', userId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setSecuredContracts((data as DJSecuredContract[]) || []);
+    } catch (error) {
+      console.error('Error fetching secured contracts:', error);
+    }
+  };
+
   // B1 — every gig the DJ has, across all their venue + organizer profiles, in one
   // timeline. This is what makes Yuno the single place a multi-club DJ's schedule lives.
   const fetchAllSets = async (profileIds: string[]) => {
@@ -231,6 +322,8 @@ export function DJDataProvider({ children }: { children: ReactNode }) {
     }
     if (user) {
       fetchAllDJProfiles();
+      fetchBookingRequests(user.id);
+      fetchSecuredContracts(user.id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading]);
@@ -301,6 +394,8 @@ export function DJDataProvider({ children }: { children: ReactNode }) {
     sets,
     allSets,
     payments,
+    bookingRequests,
+    securedContracts,
     isProfileIncomplete,
     upcomingSets,
     pendingAmount,
@@ -310,6 +405,8 @@ export function DJDataProvider({ children }: { children: ReactNode }) {
     refetchSets: async () => { if (dj) await fetchSets(dj.id); },
     refetchAllSets: async () => { await fetchAllSets(allDJProfiles.map(p => p.id)); },
     refetchPayments: async () => { if (dj) await fetchPayments(dj.id); },
+    refetchBookingRequests: async () => { if (user) await fetchBookingRequests(user.id); },
+    refetchSecuredContracts: async () => { if (user) await fetchSecuredContracts(user.id); },
   };
 
   return <DJDataContext.Provider value={value}>{children}</DJDataContext.Provider>;
