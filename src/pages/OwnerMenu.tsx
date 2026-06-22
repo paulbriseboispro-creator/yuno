@@ -187,6 +187,8 @@ export default function OwnerMenu() {
   const [imagePreview, setImagePreview] = useState('');
   const [clickCollectMode, setClickCollectMode] = useState(false);
   const [togglingCC, setTogglingCC] = useState(false);
+  const [menuEnabled, setMenuEnabled] = useState(true);
+  const [togglingMenu, setTogglingMenu] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '', price: 0, promoPrice: null as number | null,
@@ -197,8 +199,11 @@ export default function OwnerMenu() {
 
   useEffect(() => {
     if (!venueId) return;
-    supabase.from('venues').select('click_collect_mode').eq('id', venueId).maybeSingle().then(({ data }) => {
-      if (data) setClickCollectMode(data.click_collect_mode === true);
+    supabase.from('venues').select('click_collect_mode, menu_enabled').eq('id', venueId).maybeSingle().then(({ data }) => {
+      if (data) {
+        setClickCollectMode(data.click_collect_mode === true);
+        setMenuEnabled(data.menu_enabled !== false);
+      }
     });
   }, [venueId]);
 
@@ -213,6 +218,21 @@ export default function OwnerMenu() {
       toast.success(newValue ? t('owner.clickCollectEnabled') : t('owner.clickCollectDisabled'));
     } catch (err) { toast.error(t('owner.errorSaving')); }
     finally { setTogglingCC(false); }
+  };
+
+  // Master on/off for drink sales — gates the public club page AND its events
+  // (reads/writes venues.menu_enabled, the same flag enforced on VenuePage / CategoryDrinks).
+  const handleToggleMenuEnabled = async () => {
+    if (!venueId || togglingMenu) return;
+    setTogglingMenu(true);
+    const newValue = !menuEnabled;
+    try {
+      const { error } = await supabase.from('venues').update({ menu_enabled: newValue }).eq('id', venueId);
+      if (error) throw error;
+      setMenuEnabled(newValue);
+      toast.success(newValue ? t('owner.menuActivated') : t('owner.menuDeactivated'));
+    } catch (err) { toast.error(t('owner.errorSaving')); }
+    finally { setTogglingMenu(false); }
   };
 
   useEffect(() => {
@@ -378,11 +398,28 @@ export default function OwnerMenu() {
                 </div>
               ))}
             </div>
-            {/* Click & Collect toggle */}
-            <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
-              <Package className="w-4 h-4" style={{ color: T3 }} />
-              <span style={{ color: T2, fontSize: 12.5 }}>{t('owner.clickCollectMode')}</span>
-              <Switch checked={clickCollectMode} onCheckedChange={handleToggleClickCollect} disabled={togglingCC} />
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Drink-sales master toggle — enables/disables ordering for the club and its events */}
+              <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
+                style={{
+                  background: menuEnabled ? 'rgba(52,211,153,0.08)' : INNER_BG,
+                  border: `1px solid ${menuEnabled ? 'rgba(52,211,153,0.22)' : BORDER}`,
+                }}>
+                <Wine className="w-4 h-4" style={{ color: menuEnabled ? '#34D399' : T3 }} />
+                <div className="leading-tight">
+                  <div style={{ color: T2, fontSize: 12.5 }}>{t('owner.menuEnabledTitle')}</div>
+                  <div style={{ color: T3, fontSize: 11 }}>
+                    {menuEnabled ? t('owner.drinkSalesOnHint') : t('owner.drinkSalesOffHint')}
+                  </div>
+                </div>
+                <Switch checked={menuEnabled} onCheckedChange={handleToggleMenuEnabled} disabled={togglingMenu} />
+              </div>
+              {/* Click & Collect toggle */}
+              <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+                <Package className="w-4 h-4" style={{ color: T3 }} />
+                <span style={{ color: T2, fontSize: 12.5 }}>{t('owner.clickCollectMode')}</span>
+                <Switch checked={clickCollectMode} onCheckedChange={handleToggleClickCollect} disabled={togglingCC} />
+              </div>
             </div>
           </div>
         </div>
