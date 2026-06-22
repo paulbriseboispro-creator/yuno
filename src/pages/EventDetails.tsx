@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { usePreviewNavigate } from '@/contexts/OwnerPreviewContext';
-import { ArrowLeft, AlertCircle, MapPin, ChevronDown, ChevronUp, Music, Ticket, UserCheck, Share2, Bell } from 'lucide-react';
+import { ArrowLeft, AlertCircle, MapPin, ChevronDown, ChevronUp, Music, Ticket, UserCheck, Share2, Bell, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -942,16 +942,11 @@ export default function EventDetails() {
 
           {/* Compact details */}
           <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '0 16px' }}>
-            {event.locationIsSecret ? (
-              <div className="flex items-center gap-2.5" style={{ padding: '14px 0' }}>
-                <MapPin className="h-4 w-4 shrink-0" style={{ color: '#E8192C' }} />
-                <span className="font-mono" style={{ fontSize: '12px', color: '#9A9A9A', letterSpacing: '0.02em' }}>
-                  {t('event.secretLocation')}
-                </span>
-              </div>
-            ) : ([
-              venue.address ? [t('event.address'), venue.address] : null,
-              venue.city ? ['Ville', venue.city] : null,
+            {([
+              // Exact address is hidden for secret events; the city always shows so
+              // the attendee knows where to travel and the event stays city-filtered.
+              !event.locationIsSecret && venue.address ? [t('event.address'), venue.address] : null,
+              venue.city ? [t('event.city'), venue.city] : null,
             ].filter(Boolean) as [string, string][]).map(([k, v], i, arr) => (
               <div
                 key={k}
@@ -974,6 +969,19 @@ export default function EventDetails() {
                 )}
               </div>
             ))}
+            {event.locationIsSecret && (
+              <div style={{ padding: '16px 0', borderTop: venue.city ? '1px solid rgba(255,255,255,0.07)' : 'none' }}>
+                <div className="flex items-center gap-2.5">
+                  <Lock className="h-3.5 w-3.5 shrink-0" style={{ color: '#E8192C' }} />
+                  <span className="font-mono uppercase" style={{ fontSize: '11px', color: '#FFFFFF', letterSpacing: '0.14em', fontWeight: 600 }}>
+                    {t('event.secretLocationTitle')}
+                  </span>
+                </div>
+                <p className="font-mono" style={{ fontSize: '11.5px', color: '#8A8A8E', letterSpacing: '0.02em', lineHeight: 1.55, marginTop: 8, paddingLeft: 24 }}>
+                  {t('event.secretLocationDesc')}
+                </p>
+              </div>
+            )}
             {!event.locationIsSecret && venue.address && (
               <a
                 href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue.address)}`}
@@ -995,7 +1003,6 @@ export default function EventDetails() {
             <div className="flex gap-6 overflow-x-auto pb-2 scrollbar-hide" style={{ margin: '0 -20px', padding: '0 20px' }}>
               {djs.map((dj) => {
                 const djName = dj.stage_name || `${dj.first_name} ${dj.last_name}`;
-                const isFollowing = isFavorite('dj', dj.id);
                 const genre = (dj.music_genres ?? [])[0];
                 const followers = djFollowers[dj.id] ?? 0;
                 // Social proof: genre + follower count under the name. Both optional —
@@ -1011,7 +1018,7 @@ export default function EventDetails() {
                     className="flex flex-col items-center gap-2 flex-shrink-0 active:opacity-70 transition-opacity"
                     style={{ width: 116 }}
                   >
-                    <div className="overflow-hidden" style={{ width: 108, height: 108, borderRadius: 14, border: isFollowing ? '2px solid #E8192C' : '1px solid rgba(255,255,255,0.12)', background: '#191919' }}>
+                    <div className="overflow-hidden" style={{ width: 108, height: 108, borderRadius: 14, border: '1px solid rgba(255,255,255,0.12)', background: '#191919' }}>
                       {dj.profile_image_url
                         ? <img src={dj.profile_image_url} alt={djName} loading="lazy" className="w-full h-full object-cover object-top" />
                         : <div className="w-full h-full flex items-center justify-center"><Music className="h-9 w-9" style={{ color: '#5A5A5E' }} /></div>
