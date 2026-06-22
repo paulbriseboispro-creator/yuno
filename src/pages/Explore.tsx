@@ -547,7 +547,7 @@ export default function Explore() {
         await Promise.all([
           supabase
             .from('events')
-            .select('id, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, max_tickets, ticketing_enabled, tables_enabled, music_genre, music_genres, event_type')
+            .select('id, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, max_tickets, ticketing_enabled, tables_enabled, music_genre, music_genres, event_type, location_city')
             .eq('is_active', true)
             .eq('visibility', 'public')
             .eq('is_discoverable', true)
@@ -556,7 +556,7 @@ export default function Explore() {
             .order('start_at', { ascending: true }),
           supabase
             .from('events')
-            .select('id, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, max_tickets, ticketing_enabled, tables_enabled, music_genre, music_genres, event_type')
+            .select('id, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, max_tickets, ticketing_enabled, tables_enabled, music_genre, music_genres, event_type, location_city')
             .eq('is_active', true)
             .eq('visibility', 'public')
             .eq('is_discoverable', true)
@@ -712,7 +712,10 @@ export default function Explore() {
           endAt: e.end_at,
           venueName,
           venueSlug: venue?.id || '',
-          venueCity: venue?.city || '',
+          // Organizer-led events without a club venue carry their own city in
+          // events.location_city. Fall back to it so they filter by city instead
+          // of slipping through with an empty city.
+          venueCity: venue?.city || (e as any).location_city || '',
           minPrice: minPriceMap[e.id] ?? null,
           genres: eventGenres,
           interestedCount,
@@ -817,7 +820,7 @@ export default function Explore() {
       const [eventsRes, venuesRes, ticketRes, affiliateEventsRes, favCountsRes, affiliateFavCountsRes] = await Promise.all([
         supabase
           .from('events')
-          .select('id, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, music_genre, music_genres, event_type')
+          .select('id, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, music_genre, music_genres, event_type, location_city')
           .eq('is_active', true)
           .eq('visibility', 'public')
           .eq('is_discoverable', true)
@@ -865,10 +868,7 @@ export default function Explore() {
       (affiliateEventsRes.data ?? []).forEach((ae: any) => {
         const venue = ae.affiliate_venues;
         if (!venue) return;
-        if (city) {
-          const venueCity = venue.city || '';
-          if (venueCity && !venueCity.toLowerCase().includes(city.toLowerCase())) return;
-        }
+        if (city && !(venue.city || '').toLowerCase().includes(city.toLowerCase())) return;
         const startAt = `${ae.event_date}T${(ae.start_time || '22:00').substring(0, 5)}:00`;
         const endAt = `${ae.event_date}T${(ae.end_time || '05:30').substring(0, 5)}:00`;
         const card: EventCardData = {
@@ -910,10 +910,12 @@ export default function Explore() {
             const isOrganizerLed = !!e.organizer_user_id;
             const displayVenueId = e.venue_id || (isOrganizerLed ? (e as any).partner_venue_id : null);
             const venue = displayVenueId ? venueMap.get(displayVenueId) : undefined;
-            if (city) {
-              const venueCity = venue?.city || '';
-              if (venueCity && !venueCity.toLowerCase().includes(city.toLowerCase())) return null;
-            }
+            // Resolve city from the venue, falling back to the event's own
+            // location_city (organizer-led events without a club venue). Filter
+            // strictly: an event we can't place in the selected city is hidden,
+            // not shown in every city.
+            const venueCity = venue?.city || (e as any).location_city || '';
+            if (city && !venueCity.toLowerCase().includes(city.toLowerCase())) return null;
             const genres =
               (e.music_genres && e.music_genres.length > 0)
                 ? (e.music_genres as string[])
@@ -929,7 +931,7 @@ export default function Explore() {
               endAt: e.end_at,
               venueName: venue?.name || '',
               venueSlug: displayVenueId || '',
-              venueCity: venue?.city || '',
+              venueCity,
               minPrice: minPriceMap[e.id] ?? null,
               genres,
               interestedCount: weekFavCounts[e.id] || 0,

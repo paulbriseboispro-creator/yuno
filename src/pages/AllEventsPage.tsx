@@ -155,7 +155,7 @@ export default function AllEventsPage() {
         await Promise.all([
           supabase
             .from('events')
-            .select('id, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, music_genre, music_genres, event_type')
+            .select('id, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, music_genre, music_genres, event_type, location_city')
             .eq('is_active', true)
             .eq('visibility', 'public')
             .eq('is_discoverable', true)
@@ -201,7 +201,11 @@ export default function AllEventsPage() {
         const isOrganizerLed = !!e.organizer_user_id;
         const displayVenueId = e.venue_id || (isOrganizerLed ? (e as any).partner_venue_id : null);
         const venue = displayVenueId ? venueMap.get(displayVenueId) : undefined;
-        if (city && venue?.city && !venue.city.toLowerCase().includes(city.toLowerCase())) return [];
+        // Organizer-led events without a club venue carry their own city in
+        // events.location_city. Use it as a fallback and filter strictly so an
+        // event we can't place in the selected city is hidden, not shown in all.
+        const venueCity = venue?.city || (e as any).location_city || '';
+        if (city && !venueCity.toLowerCase().includes(city.toLowerCase())) return [];
         const genres =
           (e.music_genres && e.music_genres.length > 0)
             ? (e.music_genres as string[])
@@ -214,7 +218,7 @@ export default function AllEventsPage() {
           endAt: e.end_at,
           venueName: venue?.name || '',
           venueSlug: displayVenueId || '',
-          venueCity: venue?.city || '',
+          venueCity,
           minPrice: minPriceMap[e.id] ?? null,
           genres,
           interestedCount: favCounts[e.id] || 0,
@@ -229,7 +233,7 @@ export default function AllEventsPage() {
       const affiliateCards: EventCardData[] = (affiliateRes.data || []).flatMap((ae: any) => {
         const venue = ae.affiliate_venues;
         if (!venue) return [];
-        if (city && venue.city && !venue.city.toLowerCase().includes(city.toLowerCase())) return [];
+        if (city && !(venue.city || '').toLowerCase().includes(city.toLowerCase())) return [];
         const startAt = `${ae.event_date}T${(ae.start_time || '22:00').substring(0, 5)}:00`;
         return [{
           id: ae.id,
