@@ -222,7 +222,7 @@ const handler = async (req: Request): Promise<Response> => {
       const rawFrom = Deno.env.get("RESEND_FROM_EMAIL");
       const from = rawFrom
         ? (rawFrom.includes("<") ? rawFrom : `Yuno <${rawFrom}>`)
-        : "Yuno <onboarding@resend.dev>";
+        : "Yuno <noreply@yunoapp.eu>";
 
       const ctaUrl = kind === "event"
         ? `https://yunoapp.eu/organizer/events/${id}`

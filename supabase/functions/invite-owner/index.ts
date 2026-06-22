@@ -149,7 +149,7 @@ serve(async (req: Request) => {
       // Send notification email with Yuno branding
       if (resendApiKey) {
         const resend = new Resend(resendApiKey);
-        const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL") ?? "onboarding@resend.dev";
+        const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL") ?? "noreply@yunoapp.eu";
         const from = resendFromEmail.includes("<")
           ? resendFromEmail
           : `Yuno <${resendFromEmail}>`;
@@ -236,7 +236,7 @@ serve(async (req: Request) => {
     // Send invitation email with Yuno branding
     if (resendApiKey) {
       const resend = new Resend(resendApiKey);
-      const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL") ?? "onboarding@resend.dev";
+      const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL") ?? "noreply@yunoapp.eu";
       const from = resendFromEmail.includes("<")
         ? resendFromEmail
         : `Yuno <${resendFromEmail}>`;

@@ -106,7 +106,7 @@ serve(async (req) => {
     // If you provide a full header (ex: "Yuno <no-reply@yourdomain.com>"), it will be used as-is.
     const from = rawFrom
       ? (rawFrom.includes('<') ? rawFrom : `Yuno <${rawFrom}>`)
-      : 'Yuno <onboarding@resend.dev>';
+      : 'Yuno <noreply@yunoapp.eu>';
 
     // Send test email
     const emailResponse = await resend.emails.send({

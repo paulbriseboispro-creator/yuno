@@ -383,7 +383,7 @@ serve(async (req) => {
         try {
           const from = resendFrom
             ? (resendFrom.includes('<') ? resendFrom : `Yuno <${resendFrom}>`)
-            : 'Yuno <onboarding@resend.dev>';
+            : 'Yuno <noreply@yunoapp.eu>';
 
           const sendResp = await resend.emails.send({
             from,

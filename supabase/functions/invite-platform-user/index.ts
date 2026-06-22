@@ -79,7 +79,7 @@ const brandedEmail = (opts: {
 `;
 
 const sendEmail = async (apiKey: string, to: string, subject: string, html: string) => {
-  const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL") ?? "onboarding@resend.dev";
+  const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL") ?? "noreply@yunoapp.eu";
   const from = resendFromEmail.includes("<") ? resendFromEmail : `Yuno <${resendFromEmail}>`;
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",

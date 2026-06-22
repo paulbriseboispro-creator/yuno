@@ -91,7 +91,7 @@ serve(async (req) => {
     const rawFrom = Deno.env.get('RESEND_FROM_EMAIL');
     const from = rawFrom
       ? (rawFrom.includes('<') ? rawFrom : `Yuno <${rawFrom}>`)
-      : 'Yuno <onboarding@resend.dev>';
+      : 'Yuno <noreply@yunoapp.eu>';
 
     let sentCount = 0;
 

@@ -142,7 +142,7 @@ serve(async (req) => {
 
           try {
             await resend.emails.send({
-              from: "Yuno <notifications@resend.dev>",
+              from: "Yuno <noreply@yunoapp.eu>",
               to: [entry.email],
               subject: `🚨 Dernière chance - ${event.title} commence bientôt!`,
               html: `

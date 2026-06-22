@@ -66,7 +66,7 @@ serve(async (req) => {
     if (!resendApiKey) throw new Error("RESEND_API_KEY not configured");
 
     const rawFrom = Deno.env.get('RESEND_FROM_EMAIL');
-    const from = rawFrom ? (rawFrom.includes('<') ? rawFrom : `Yuno <${rawFrom}>`) : 'Yuno <onboarding@resend.dev>';
+    const from = rawFrom ? (rawFrom.includes('<') ? rawFrom : `Yuno <${rawFrom}>`) : 'Yuno <noreply@yunoapp.eu>';
 
     // Find active future events
     const now = new Date().toISOString();

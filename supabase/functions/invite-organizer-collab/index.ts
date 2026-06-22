@@ -102,7 +102,7 @@ const handler = async (req: Request): Promise<Response> => {
       const rawFrom = Deno.env.get("RESEND_FROM_EMAIL");
       const from = rawFrom
         ? (rawFrom.includes("<") ? rawFrom : `Yuno <${rawFrom}>`)
-        : "Yuno <onboarding@resend.dev>";
+        : "Yuno <noreply@yunoapp.eu>";
 
       const html = `
 <!DOCTYPE html><html><body style="margin:0;background:#0a0a0a;font-family:system-ui,sans-serif;color:#fff">

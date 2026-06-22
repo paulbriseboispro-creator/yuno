@@ -21,7 +21,7 @@ function emailFrom(): string {
   const rawFrom = Deno.env.get("RESEND_FROM_EMAIL");
   return rawFrom
     ? rawFrom.includes("<") ? rawFrom : `Yuno <${rawFrom}>`
-    : "Yuno <onboarding@resend.dev>";
+    : "Yuno <noreply@yunoapp.eu>";
 }
 
 serve(async (req) => {

@@ -178,7 +178,7 @@ serve(async (req) => {
     );
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
-    const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'noreply@yuno.app';
+    const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'noreply@yunoapp.eu';
 
     const { eventId, type, email: targetEmail } = await req.json();
 

@@ -151,7 +151,7 @@ serve(async (req) => {
       // Send email with Yuno branding (red/black theme)
       try {
         const emailResponse = await resend.emails.send({
-          from: "Yuno <notifications@resend.dev>",
+          from: "Yuno <noreply@yunoapp.eu>",
           to: [entry.email],
           subject: `🎟️ Place disponible pour ${round.events.title}!`,
           html: `
