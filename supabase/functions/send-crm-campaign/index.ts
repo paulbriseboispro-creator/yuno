@@ -190,6 +190,20 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // DISABLED — legacy CRM email path. It blasted venue_customers filtered only by
+  // loyalty tier, with NO marketing-consent check and no unsubscribe link, which
+  // violates the opt-in policy (never email marketing to people who didn't accept it).
+  // The supported, consent-gated path is `send-campaign`: promotional audiences are
+  // resolved through resolve_campaign_audience which requires opted_in = true.
+  return new Response(
+    JSON.stringify({
+      error: 'send-crm-campaign is deprecated and disabled. Use send-campaign (consent-gated).',
+      disabled: true,
+    }),
+    { status: 410, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+  );
+
+  // eslint-disable-next-line no-unreachable
   try {
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) {
@@ -260,7 +274,7 @@ serve(async (req) => {
       const rawFrom = Deno.env.get('RESEND_FROM_EMAIL');
       const from = rawFrom
         ? (rawFrom.includes('<') ? rawFrom : `${venue.name} <${rawFrom}>`)
-        : `${venue.name} <onboarding@resend.dev>`;
+        : `${venue.name} <noreply@yunoapp.eu>`;
 
       const emailResponse = await resend.emails.send({
         from,
@@ -329,7 +343,7 @@ serve(async (req) => {
     const rawFrom = Deno.env.get('RESEND_FROM_EMAIL');
     const from = rawFrom
       ? (rawFrom.includes('<') ? rawFrom : `${venue.name} <${rawFrom}>`)
-      : `${venue.name} <onboarding@resend.dev>`;
+      : `${venue.name} <noreply@yunoapp.eu>`;
 
     let sentCount = 0;
     const errors: string[] = [];
