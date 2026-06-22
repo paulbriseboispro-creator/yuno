@@ -84,6 +84,7 @@ export interface DJBookingRequest {
   agreed_fee: number | null;
   currency: string;
   message: string | null;
+  requested_genres: string[] | null;
   event_id: string | null;
   status: 'pending' | 'accepted' | 'declined' | 'expired' | 'cancelled';
   dj_response_note: string | null;

@@ -4,7 +4,7 @@ import { fr, enUS, es } from 'date-fns/locale';
 import { toast } from 'sonner';
 import {
   Check, X, Inbox, CalendarDays, Euro, Clock, CreditCard, ShieldCheck, FileSignature,
-  Loader2, ExternalLink, AlertCircle, Banknote, Lock, FileDown,
+  Loader2, ExternalLink, AlertCircle, Banknote, Lock, FileDown, Music,
 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { supabase } from '@/integrations/supabase/client';
@@ -148,6 +148,8 @@ export default function DJBookings() {
     r.venue?.name || tt('Organisateur', 'Organizer', 'Organizador');
 
   const fmtDate = (iso: string) => format(new Date(`${iso}T00:00:00`), 'EEEE d MMMM yyyy', { locale: dateLocale });
+  const fmtSlot = (r: DJBookingRequest) =>
+    r.start_time && r.end_time ? `${format(new Date(r.start_time), 'HH:mm')} – ${format(new Date(r.end_time), 'HH:mm')}` : null;
 
   if (loading) return <DJSpinner />;
 
@@ -301,9 +303,24 @@ export default function DJBookings() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 4, fontSize: 12.5, color: T2 }}>
                     <CalendarDays size={13} />{fmtDate(r.requested_date)}
                   </div>
+                  {fmtSlot(r) && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3, fontSize: 12.5, color: T2 }}>
+                      <Clock size={13} />{fmtSlot(r)}
+                    </div>
+                  )}
                   {r.agreed_fee != null && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3, fontSize: 12.5, color: T2 }}>
                       <Euro size={13} />{Math.round(r.agreed_fee)} {r.currency}
+                    </div>
+                  )}
+                  {r.requested_genres && r.requested_genres.length > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 7 }}>
+                      <Music size={13} style={{ color: T2 }} />
+                      {r.requested_genres.map((g) => (
+                        <span key={g} style={{ fontSize: 11, fontWeight: 600, color: T2, border: `1px solid ${BORDER}`, background: INNER_BG, padding: '2px 8px', borderRadius: 999 }}>
+                          {g}
+                        </span>
+                      ))}
                     </div>
                   )}
                   {r.message && <p style={{ marginTop: 8, fontSize: 13, color: T2, lineHeight: 1.5 }}>{r.message}</p>}

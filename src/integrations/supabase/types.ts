@@ -2055,6 +2055,7 @@ export type Database = {
           message: string | null
           organizer_user_id: string | null
           requested_date: string
+          requested_genres: string[]
           responded_at: string | null
           start_time: string | null
           status: string
@@ -2076,6 +2077,7 @@ export type Database = {
           message?: string | null
           organizer_user_id?: string | null
           requested_date: string
+          requested_genres?: string[]
           responded_at?: string | null
           start_time?: string | null
           status?: string
@@ -2097,6 +2099,7 @@ export type Database = {
           message?: string | null
           organizer_user_id?: string | null
           requested_date?: string
+          requested_genres?: string[]
           responded_at?: string | null
           start_time?: string | null
           status?: string
@@ -11359,6 +11362,7 @@ export type Database = {
           p_message?: string
           p_organizer_user_id?: string
           p_requested_date: string
+          p_requested_genres?: string[]
           p_start?: string
           p_venue_id?: string
         }
