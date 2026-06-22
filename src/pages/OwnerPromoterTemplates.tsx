@@ -28,7 +28,6 @@ function emptyTier(): CommissionRuleTier { return { min: 0, max: null, reward_ty
 function sectionsOf(rules: CommissionRules) {
   return {
     sales: !!(rules.reward_type || rules.ticket || (rules.tiers && rules.tiers.length > 0)),
-    guestList: !!rules.guest_list,
     clientDiscount: !!rules.customer_discount,
   };
 }
@@ -50,9 +49,9 @@ export default function OwnerPromoterTemplates() {
   const [name, setName] = useState('');
   const [isDefault, setIsDefault] = useState(false);
 
-  // Section toggles
+  // Section toggles. Guest-list config moved out of commission templates: a promoter's
+  // guest list is now their allocation (a 'promoter' part) on the Guest List page.
   const [enableSales, setEnableSales] = useState(true);
-  const [enableGuestList, setEnableGuestList] = useState(false);
   const [enableClientDiscount, setEnableClientDiscount] = useState(false);
 
   // Sales-commission state
@@ -68,13 +67,6 @@ export default function OwnerPromoterTemplates() {
   const [bonusAmount, setBonusAmount] = useState(0);
   const [timeWindows, setTimeWindows] = useState<CommissionTimeWindow[]>([]);
 
-  // Guest-list state
-  const [glNormalQuota, setGlNormalQuota] = useState(20);
-  const [glTableQuota, setGlTableQuota] = useState(0);
-  const [glDrinkQuota, setGlDrinkQuota] = useState(0);
-  const [glVipAccess, setGlVipAccess] = useState(false);
-  const [glDrinkCount, setGlDrinkCount] = useState(1);
-  const [glEntryDeadline, setGlEntryDeadline] = useState('');
 
   // Client-discount state
   const [cdType, setCdType] = useState<'percentage' | 'fixed'>('percentage');
@@ -114,7 +106,7 @@ export default function OwnerPromoterTemplates() {
     setIsDefault(tpl.isDefault);
     const r = tpl.rules;
     const s = sectionsOf(r);
-    setEnableSales(s.sales); setEnableGuestList(s.guestList); setEnableClientDiscount(s.clientDiscount);
+    setEnableSales(s.sales); setEnableClientDiscount(s.clientDiscount);
 
     if (s.sales) {
       setRewardType(r.reward_type || 'money');
@@ -128,15 +120,6 @@ export default function OwnerPromoterTemplates() {
       setBonusThreshold(r.bonus?.threshold || 0);
       setBonusAmount(r.bonus?.bonusAmount || 0);
       setTimeWindows(r.time_windows || []);
-    }
-    if (s.guestList && r.guest_list) {
-      const gl = r.guest_list;
-      setGlNormalQuota(gl.normalQuota ?? gl.quota ?? 20);
-      setGlTableQuota(gl.tableQuota ?? 0);
-      setGlDrinkQuota(gl.drinkQuota ?? 0);
-      setGlVipAccess(gl.vipAccess ?? false);
-      setGlDrinkCount(gl.drinkCount ?? 1);
-      setGlEntryDeadline(gl.entryDeadline ?? '');
     }
     if (s.clientDiscount && r.customer_discount) {
       const cd = r.customer_discount;
@@ -159,14 +142,6 @@ export default function OwnerPromoterTemplates() {
       if (bonusThreshold > 0) rules.bonus = { threshold: bonusThreshold, bonusAmount };
       if (timeWindows.length > 0) rules.time_windows = timeWindows;
     }
-    if (enableGuestList) {
-      rules.guest_list = {
-        quota: glNormalQuota + glTableQuota + glDrinkQuota,
-        normalQuota: glNormalQuota, tableQuota: glTableQuota, drinkQuota: glDrinkQuota,
-        vipAccess: glVipAccess, includesDrink: glDrinkQuota > 0, drinkCount: glDrinkCount,
-        entryDeadline: glEntryDeadline || undefined,
-      };
-    }
     if (enableClientDiscount) {
       rules.customer_discount = { type: cdType, value: cdValue, appliesTo: cdAppliesTo, label: cdLabel || undefined };
     }
@@ -175,7 +150,7 @@ export default function OwnerPromoterTemplates() {
 
   async function handleSave() {
     if (!sid || !name.trim()) return;
-    if (!enableSales && !enableGuestList && !enableClientDiscount) {
+    if (!enableSales && !enableClientDiscount) {
       toast.error(t('owner.promo.enableOneSection'));
       return;
     }
@@ -234,10 +209,6 @@ export default function OwnerPromoterTemplates() {
       }
       if (rules.time_windows && rules.time_windows.length > 0) parts.push(t('owner.promo.timeBased'));
     }
-    if (s.guestList && rules.guest_list) {
-      const gl = rules.guest_list;
-      parts.push(`${t('owner.promo.guestList')} ${(gl.normalQuota ?? gl.quota ?? 0) + (gl.tableQuota ?? 0) + (gl.drinkQuota ?? 0)}`);
-    }
     if (s.clientDiscount && rules.customer_discount) {
       const cd = rules.customer_discount;
       parts.push(`${t('owner.promo.customer')} ${cd.type === 'percentage' ? `-${cd.value}%` : `-${cd.value}€`}`);
@@ -278,7 +249,6 @@ export default function OwnerPromoterTemplates() {
                       </div>
                       <div className="flex items-center gap-1.5 flex-wrap" style={{ marginTop: 6 }}>
                         {s.sales && <PromoPill tone="muted"><span className="inline-flex items-center gap-1"><Euro className="h-3 w-3" />{t('owner.promo.sales')}</span></PromoPill>}
-                        {s.guestList && <PromoPill tone="muted"><span className="inline-flex items-center gap-1"><UserPlus className="h-3 w-3" />{t('owner.promo.guestList')}</span></PromoPill>}
                         {s.clientDiscount && <PromoPill tone="muted"><span className="inline-flex items-center gap-1"><Tag className="h-3 w-3" />{t('owner.promo.perks')}</span></PromoPill>}
                       </div>
                       <p style={{ color: T2, fontSize: 12.5, margin: 0, marginTop: 7 }}>{rulesLabel(tpl.rules)}</p>
@@ -465,35 +435,9 @@ export default function OwnerPromoterTemplates() {
               )}
             </SectionCard>
 
-            {/* SECTION 2 — Guest list */}
-            <SectionCard
-              icon={<UserPlus className="h-4 w-4 text-primary" />}
-              title={t('owner.promo.guestList')}
-              desc={t('owner.promo.guestListDesc')}
-              enabled={enableGuestList} onToggle={setEnableGuestList}
-            >
-              <div className="grid grid-cols-3 gap-2">
-                <div><Label className="text-[11px]">{t('owner.promo.entries')}</Label><Input type="number" min={0} value={glNormalQuota} onChange={e => setGlNormalQuota(parseInt(e.target.value) || 0)} /></div>
-                <div><Label className="text-[11px]">{t('owner.promo.tables')}</Label><Input type="number" min={0} value={glTableQuota} onChange={e => setGlTableQuota(parseInt(e.target.value) || 0)} /></div>
-                <div><Label className="text-[11px]">{t('owner.promo.withDrink')}</Label><Input type="number" min={0} value={glDrinkQuota} onChange={e => setGlDrinkQuota(parseInt(e.target.value) || 0)} /></div>
-              </div>
-              {glDrinkQuota > 0 && (
-                <div><Label className="text-[11px]">{t('owner.promo.drinksPerGuest')}</Label><Input type="number" min={1} value={glDrinkCount} onChange={e => setGlDrinkCount(parseInt(e.target.value) || 1)} /></div>
-              )}
-              <div className="flex items-center justify-between">
-                <Label className="text-xs">{t('owner.promo.vipAccessIncluded')}</Label>
-                <Switch checked={glVipAccess} onCheckedChange={setGlVipAccess} />
-              </div>
-              <div>
-                <Label className="text-[11px]">{t('owner.promo.entryCutoffTime')}</Label>
-                <Input type="time" value={glEntryDeadline} onChange={e => setGlEntryDeadline(e.target.value)} className="w-40" />
-              </div>
-              <div className="rounded-lg bg-muted/40 p-2 text-xs text-muted-foreground">
-                {t('owner.promo.total')} : {glNormalQuota + glTableQuota + glDrinkQuota} {t('owner.promo.invites')}
-              </div>
-            </SectionCard>
+            {/* Guest-list config moved to the Guest List page (promoter parts). */}
 
-            {/* SECTION 3 — Customer perks */}
+            {/* SECTION 2 — Customer perks */}
             <SectionCard
               icon={<Tag className="h-4 w-4 text-primary" />}
               title={t('owner.promo.customerPerks')}

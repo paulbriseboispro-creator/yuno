@@ -92,9 +92,10 @@ export default function GuestListCheckout() {
         clearInterval(timer);
         return;
       }
-      const h = Math.floor(diff / (1000 * 60 * 60));
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      setTimeLeft(`${h}h ${m}min`);
+      setTimeLeft(days > 0 ? `${days}${t('guestList.unitDay')} ${h}h ${m}min` : `${h}h ${m}min`);
     }, 1000);
     return () => clearInterval(timer);
   }, [guestList, t]);
@@ -103,13 +104,15 @@ export default function GuestListCheckout() {
     if (!eventId) { setLoading(false); return; }
     try {
       // Public-only gate: a direct URL must point at a list the club chose to show.
-      const { data: gl } = await supabase
+      const { data: glRows } = await supabase
         .from('guest_lists')
-        .select('id, quota, quota_female, quota_male, free_before_time, includes_drink, share_token, events!inner(id, title, start_at, end_at, venue_id, poster_url)')
+        .select('id, quota, quota_female, quota_male, free_before_time, includes_drink, share_token, holder_type, events!inner(id, title, start_at, end_at, venue_id, poster_url)')
         .eq('event_id', eventId)
         .eq('is_active', true)
-        .eq('visible_on_club_page', true)
-        .maybeSingle();
+        .eq('visible_on_club_page', true);
+      // Liste club prioritaire ; sinon la première part marquée « publique » (visibilité
+      // choisie dans son preset). Les parts non visibles restent accessibles par lien.
+      const gl = (glRows || []).find((r: { holder_type?: string }) => r.holder_type === 'club') ?? (glRows || [])[0] ?? null;
 
       if (!gl) { setLoading(false); return; }
 

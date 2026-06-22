@@ -283,7 +283,7 @@ export default function OwnerPromoterDetail() {
         table_commission_value: editForm.tableCommissionValue,
         is_active: editForm.isActive,
         default_commission_template_id: tplId,
-        guest_list_template_id: tplId && selRules.guest_list ? tplId : null,
+        guest_list_template_id: null, // guest-list allocation lives on the Guest List page now
         client_discount_template_id: tplId && selRules.customer_discount ? tplId : null,
         can_scan_entries: editForm.canScanEntries,
       }).eq('id', id);
@@ -650,7 +650,6 @@ export default function OwnerPromoterDetail() {
                       const r = sel.rules as any;
                       const chips = [
                         (r.reward_type || r.ticket || (r.tiers && r.tiers.length)) ? tt('Ventes', 'Sales') : null,
-                        r.guest_list ? tt('Guest list', 'Guest list') : null,
                         r.customer_discount ? tt('Avantages clients', 'Customer perks') : null,
                       ].filter(Boolean);
                       return chips.length > 0 ? (

@@ -5,41 +5,33 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
-import { toast } from 'sonner';
-import { Users, Copy, Link2, Clock, Wine, Eye, Trash2, CheckCircle, QrCode, ChevronDown, Music, UserCheck } from 'lucide-react';
-import { format } from 'date-fns';
-import { fr, es, enUS } from 'date-fns/locale';
+import { ChevronDown, Plus, QrCode, Calendar, FolderOpen } from 'lucide-react';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
+import { toast } from 'sonner';
+import { useGuestListParts, type Part, type HolderType } from '@/hooks/useGuestListParts';
+import { useGuestListTemplates, type GuestListTemplate, type TemplateInput, type TemplateHolderType, type TargetMode } from '@/hooks/useGuestListTemplates';
+import { PartCard } from '@/components/owner/guest-list/PartCard';
+import { AddPartSheet } from '@/components/owner/guest-list/AddPartSheet';
+import { PresetBar } from '@/components/owner/guest-list/PresetBar';
+import { GuestListPresetDialog } from '@/components/owner/guest-list/GuestListPresetDialog';
+import { PresetsManager } from '@/components/owner/guest-list/PresetsManager';
+import { DistributeSheet } from '@/components/owner/guest-list/DistributeSheet';
+import { partSlug } from '@/lib/guestListShare';
+import { RED, T1, T2, T3, BORDER, F_BORDER, C_FAINT, INNER_BG, CARD_BG, CARD_SHADOW } from '@/components/owner/guest-list/ui';
 
-// ─── Yuno Design Tokens ──────────────────────────────────────────────────────
-const RED         = '#E8192C';
-const POS         = '#34D399';
-const NEG         = '#FF5C63';
-const T1          = 'rgba(255,255,255,0.96)';
-const T2          = 'rgba(255,255,255,0.58)';
-const T3          = 'rgba(255,255,255,0.36)';
-const BORDER      = 'rgba(255,255,255,0.085)';
-const F_BORDER    = 'rgba(255,255,255,0.055)';
-const C_FAINT     = 'rgba(255,255,255,0.06)';
-const INNER_BG    = 'rgba(255,255,255,0.032)';
-const TILE_BG     = 'rgba(255,255,255,0.025)';
-const CARD_BG     = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
-const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
+interface EventOption { id: string; title: string; startAt: string; endAt: string }
 
-function YunoSwitch({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)}
-      style={{ width: 44, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer', background: checked ? RED : 'rgba(255,255,255,0.14)', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-      <span style={{ position: 'absolute', top: 3, left: checked ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.3)' }} />
-    </button>
-  );
+/** A preset's reusable config (everything a part insert carries, minus quota/holder). */
+function presetExtra(tpl: GuestListTemplate): Record<string, unknown> {
+  return {
+    quota_female: tpl.quota_female, quota_male: tpl.quota_male,
+    quota_normal: tpl.quota_normal, quota_drink: tpl.quota_drink, quota_table: tpl.quota_table,
+    free_before_time: tpl.free_before_time, entry_deadline: tpl.entry_deadline,
+    includes_drink: tpl.includes_drink, visible_on_club_page: tpl.visible_on_club_page,
+    entry_kind: tpl.entry_kind,
+  };
 }
-
-interface EventOption  { id: string; title: string; startAt: string; endAt: string }
-interface GuestListData { id: string; event_id: string; venue_id: string; quota: number; quota_female: number | null; quota_male: number | null; free_before_time: string; entry_deadline: string | null; includes_drink: boolean; visible_on_club_page: boolean; is_active: boolean; share_token: string }
-interface EntryData    { id: string; full_name: string; email: string; phone: string; gender: string | null; status: string; entry_scanned: boolean; entry_scanned_at: string | null; created_at: string; promoter_id: string | null; entry_type: string | null }
-interface PromoterGLEntry extends EntryData { promoterName?: string }
 
 function EventSelector({ events, value, onChange, t }: { events: EventOption[]; value: string; onChange: (v: string) => void; t: (key: string) => string }) {
   const [open, setOpen] = useState(false);
@@ -54,8 +46,7 @@ function EventSelector({ events, value, onChange, t }: { events: EventOption[]; 
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
-      <button type="button" onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between cursor-pointer"
+      <button type="button" onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between cursor-pointer"
         style={{ background: INNER_BG, border: `1px solid ${open ? 'rgba(255,255,255,0.2)' : BORDER}`, borderRadius: 10, padding: '10px 14px', color: T1, fontSize: 13.5, fontFamily: 'inherit' }}>
         <span style={{ color: selected ? T1 : T3 }}>
           {selected ? `${selected.title} — ${formatInTimeZone(new Date(selected.startAt), PARIS_TIMEZONE, 'dd/MM/yyyy HH:mm')}` : t('guestList.selectEventPlaceholder')}
@@ -64,23 +55,15 @@ function EventSelector({ events, value, onChange, t }: { events: EventOption[]; 
       </button>
       <AnimatePresence>
         {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.12 }}
-            style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: '#111', border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.6)', maxHeight: 240, overflowY: 'auto', marginTop: 4 }}
-          >
+          <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.12 }}
+            style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50, background: '#111', border: `1px solid ${BORDER}`, borderRadius: 12, overflow: 'hidden', boxShadow: '0 8px 32px rgba(0,0,0,0.6)', maxHeight: 240, overflowY: 'auto', marginTop: 4 }}>
             {events.map(evt => (
-              <button key={evt.id} type="button"
-                onClick={() => { onChange(evt.id); setOpen(false); }}
-                className="w-full text-left cursor-pointer"
+              <button key={evt.id} type="button" onClick={() => { onChange(evt.id); setOpen(false); }} className="w-full text-left cursor-pointer"
                 style={{ padding: '10px 14px', background: evt.id === value ? C_FAINT : 'none', border: 'none', color: T1, fontSize: 13, fontFamily: 'inherit' }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = C_FAINT)}
-                onMouseLeave={(e) => (e.currentTarget.style.background = evt.id === value ? C_FAINT : 'none')}
-              >
+                onMouseLeave={(e) => (e.currentTarget.style.background = evt.id === value ? C_FAINT : 'none')}>
                 <span style={{ color: T1, fontWeight: evt.id === value ? 600 : 400 }}>{evt.title}</span>
-                <span style={{ color: T3, fontSize: 11.5, marginLeft: 8 }}>
-                  {formatInTimeZone(new Date(evt.startAt), PARIS_TIMEZONE, 'dd/MM/yyyy HH:mm')}
-                </span>
+                <span style={{ color: T3, fontSize: 11.5, marginLeft: 8 }}>{formatInTimeZone(new Date(evt.startAt), PARIS_TIMEZONE, 'dd/MM/yyyy HH:mm')}</span>
               </button>
             ))}
           </motion.div>
@@ -90,249 +73,31 @@ function EventSelector({ events, value, onChange, t }: { events: EventOption[]; 
   );
 }
 
-// Cosmetic club-slug for the DJ guest-list share URL (resolved by token, slug is display-only).
-function glSlugify(name: string | null): string {
-  const s = (name || 'event').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-  return s || 'event';
-}
-
-interface DJLineupEntry { id: string; name: string; image: string | null }
-interface DJGLRow { id: string; dj_id: string; quota: number; share_token: string; is_active: boolean }
-
-/**
- * The new DJ <-> owner/organizer relationship: the host grants a lineup DJ a
- * personal guest list for this event and caps its quota. The DJ then shares their
- * private link and tracks signups from their own dashboard (Audience). The guests
- * land in the same guest_list_entries table (host venue_id), so the door scanner
- * and the owner's headcount include them automatically.
- */
-function DJGuestListSection({ eventId, venueId, organizerUserId, isOrganizerScope, venueName, t }: {
-  eventId: string; venueId: string | null; organizerUserId: string | null; isOrganizerScope: boolean; venueName: string | null; t: (key: string) => string;
-}) {
-  const [djs, setDjs] = useState<DJLineupEntry[]>([]);
-  const [lists, setLists] = useState<Record<string, DJGLRow>>({});
-  const [counts, setCounts] = useState<Record<string, { signups: number; scanned: number }>>({});
-  const [quotaDraft, setQuotaDraft] = useState<Record<string, number>>({});
-  const [busy, setBusy] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (eventId) load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventId]);
-
-  const load = async () => {
-    setLoading(true);
-    // Lineup = DJs on the public line-up (event_djs) plus DJs with a scheduled set
-    // (dj_sets) for this event. Either makes them eligible for a personal guest list.
-    const [{ data: ed }, { data: ds }] = await Promise.all([
-      supabase.from('event_djs').select('dj_id').eq('event_id', eventId),
-      supabase.from('dj_sets').select('dj_id').eq('event_id', eventId),
-    ]);
-    const ids = [...new Set([...(ed || []).map(r => r.dj_id), ...(ds || []).map(r => r.dj_id)].filter(Boolean))] as string[];
-    if (ids.length === 0) { setDjs([]); setLists({}); setCounts({}); setLoading(false); return; }
-
-    const { data: djRows } = await supabase.from('djs').select('id, stage_name, first_name, last_name, profile_image_url').in('id', ids);
-    setDjs((djRows || []).map(d => ({
-      id: d.id,
-      name: d.stage_name || `${d.first_name || ''} ${d.last_name || ''}`.trim() || 'DJ',
-      image: d.profile_image_url || null,
-    })));
-
-    const { data: glRows } = await supabase.from('guest_lists').select('id, dj_id, quota, share_token, is_active').eq('event_id', eventId).not('dj_id', 'is', null);
-    const map: Record<string, DJGLRow> = {};
-    (glRows || []).forEach(g => { if (g.dj_id) map[g.dj_id] = g as DJGLRow; });
-    setLists(map);
-
-    const glIds = (glRows || []).map(g => g.id);
-    if (glIds.length) {
-      const { data: entries } = await supabase.from('guest_list_entries').select('guest_list_id, status, entry_scanned').in('guest_list_id', glIds);
-      const c: Record<string, { signups: number; scanned: number }> = {};
-      (entries || []).forEach(e => {
-        const k = e.guest_list_id as string;
-        if (!c[k]) c[k] = { signups: 0, scanned: 0 };
-        if (e.status !== 'cancelled') c[k].signups++;
-        if (e.entry_scanned) c[k].scanned++;
-      });
-      setCounts(c);
-    } else setCounts({});
-    setLoading(false);
-  };
-
-  const resolveHost = async (): Promise<{ venue_id: string | null; organizer_user_id: string | null }> => {
-    if (isOrganizerScope) {
-      const { data: ev } = await supabase.from('events').select('venue_id').eq('id', eventId).maybeSingle();
-      return { venue_id: ev?.venue_id ?? null, organizer_user_id: organizerUserId ?? null };
-    }
-    return { venue_id: venueId ?? null, organizer_user_id: null };
-  };
-
-  const toggle = async (djId: string, on: boolean) => {
-    setBusy(djId);
-    try {
-      const row = lists[djId];
-      if (on) {
-        if (row) {
-          const { error } = await supabase.from('guest_lists').update({ is_active: true }).eq('id', row.id);
-          if (error) throw error;
-          setLists(p => ({ ...p, [djId]: { ...row, is_active: true } }));
-        } else {
-          const host = await resolveHost();
-          const quota = quotaDraft[djId] ?? 20;
-          const { data, error } = await supabase.from('guest_lists').insert({
-            event_id: eventId, dj_id: djId, venue_id: host.venue_id, organizer_user_id: host.organizer_user_id,
-            quota, free_before_time: '02:00', includes_drink: false, visible_on_club_page: false, is_active: true,
-          }).select('id, dj_id, quota, share_token, is_active').single();
-          if (error) throw error;
-          setLists(p => ({ ...p, [djId]: data as DJGLRow }));
-        }
-        toast.success(t('guestList.dj.granted'));
-      } else if (row) {
-        const { error } = await supabase.from('guest_lists').update({ is_active: false }).eq('id', row.id);
-        if (error) throw error;
-        setLists(p => ({ ...p, [djId]: { ...row, is_active: false } }));
-      }
-    } catch (e) { toast.error(e instanceof Error ? e.message : t('guestList.saveError')); }
-    finally { setBusy(null); }
-  };
-
-  const saveQuota = async (djId: string, q: number) => {
-    const row = lists[djId];
-    if (!row || !q || q === row.quota) return;
-    try {
-      const { error } = await supabase.from('guest_lists').update({ quota: q }).eq('id', row.id);
-      if (error) throw error;
-      setLists(p => ({ ...p, [djId]: { ...row, quota: q } }));
-      toast.success(t('guestList.saved'));
-    } catch (e) { toast.error(e instanceof Error ? e.message : t('guestList.saveError')); }
-  };
-
-  const shareLink = (token: string) =>
-    `${window.location.origin}/club/${glSlugify(venueName)}/event/${eventId}/guestlist?token=${token}`;
-
-  return (
-    <div style={{ background: CARD_BG, border: `1px solid rgba(232,25,44,0.18)`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px' }}>
-      <h3 className="flex items-center gap-2 mb-1" style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0 }}>
-        <Music className="h-4 w-4" style={{ color: RED }} />
-        {t('guestList.dj.title')}
-      </h3>
-      <p style={{ color: T3, fontSize: 12, marginBottom: 14 }}>{t('guestList.dj.desc')}</p>
-
-      {loading ? (
-        <div className="flex justify-center py-6"><div className="h-6 w-6 animate-spin rounded-full border-2" style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} /></div>
-      ) : djs.length === 0 ? (
-        <div className="text-center py-8">
-          <Music className="h-9 w-9 mx-auto mb-2" style={{ color: T3, opacity: 0.3 }} />
-          <p style={{ color: T3, fontSize: 13 }}>{t('guestList.dj.noLineup')}</p>
-        </div>
-      ) : (
-        <div className="space-y-2.5">
-          {djs.map(dj => {
-            const row = lists[dj.id];
-            const active = !!row?.is_active;
-            const cnt = row ? counts[row.id] : undefined;
-            const quotaVal = quotaDraft[dj.id] ?? row?.quota ?? 20;
-            const full = active && row && cnt && cnt.signups >= row.quota;
-            return (
-              <div key={dj.id} style={{ padding: '12px', borderRadius: 12, background: TILE_BG, border: `1px solid ${F_BORDER}` }}>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    {dj.image ? (
-                      <img src={dj.image} alt="" className="h-9 w-9 rounded-full object-cover flex-none" style={{ border: `1px solid ${BORDER}` }} />
-                    ) : (
-                      <div className="h-9 w-9 rounded-full flex items-center justify-center flex-none" style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}>
-                        <Music className="h-4 w-4" style={{ color: RED }} />
-                      </div>
-                    )}
-                    <p className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 500 }}>{dj.name}</p>
-                  </div>
-                  <div className="flex-none" style={{ opacity: busy === dj.id ? 0.5 : 1 }}>
-                    <YunoSwitch checked={active} onChange={(v) => toggle(dj.id, v)} />
-                  </div>
-                </div>
-
-                {active && row && (
-                  <div className="mt-3 space-y-2.5">
-                    <div className="flex items-center gap-2">
-                      <span style={{ color: T3, fontSize: 12 }}>{t('guestList.dj.quota')}</span>
-                      <input type="number" min={1} max={1000} value={quotaVal}
-                        onChange={e => setQuotaDraft(p => ({ ...p, [dj.id]: Math.max(1, Number(e.target.value)) }))}
-                        onBlur={e => saveQuota(dj.id, Math.max(1, Number(e.target.value)))}
-                        className="outline-none"
-                        style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '5px 10px', color: T1, fontSize: 13, fontFamily: 'inherit', width: 80 }} />
-                      <span className="ml-auto tabular-nums" style={{ color: full ? NEG : T2, fontSize: 12 }}>
-                        {full && <span className="mr-1.5 font-semibold">{t('guestList.quotaFull')}</span>}
-                        {cnt?.signups ?? 0}/{row.quota} · <UserCheck className="inline h-3 w-3" style={{ color: POS }} /> {cnt?.scanned ?? 0}
-                      </span>
-                    </div>
-                    <div className="flex gap-2">
-                      <input value={shareLink(row.share_token)} readOnly className="flex-1 outline-none"
-                        style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '6px 10px', color: T2, fontSize: 11, fontFamily: 'monospace', minWidth: 0 }} />
-                      <button onClick={() => { navigator.clipboard.writeText(shareLink(row.share_token)); toast.success(t('common.copied')); }}
-                        style={{ width: 36, height: 34, background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: T2 }}>
-                        <Copy className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function OwnerGuestList() {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
   const { venueId, venue, organizerUserId, scope, loading: venueLoading } = useVenueContext();
   const isOrganizerScope = scope === 'organizer';
   const scopeReady = isOrganizerScope ? !!organizerUserId : !!venueId;
-  const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
 
   const [events, setEvents] = useState<EventOption[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState<string>('');
-  const [guestList, setGuestList] = useState<GuestListData | null>(null);
-  const [entries, setEntries] = useState<EntryData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState('');
+  const [loadingEvents, setLoadingEvents] = useState(true);
+  const [addOpen, setAddOpen] = useState(false);
+  const [tab, setTab] = useState<'events' | 'templates'>('events');
 
-  const [quota, setQuota] = useState(100);
-  const [enableGenderQuota, setEnableGenderQuota] = useState(false);
-  const [quotaMode, setQuotaMode] = useState<'number' | 'percentage'>('number');
-  const [quotaFemale, setQuotaFemale] = useState<number>(70);
-  const [quotaMale, setQuotaMale] = useState<number>(30);
-  const [pctFemale, setPctFemale] = useState<number>(70);
-  const [pctMale, setPctMale] = useState<number>(30);
-  const [freeBeforeTime, setFreeBeforeTime] = useState('02:00');
-  const [entryDeadline, setEntryDeadline] = useState('');
-  const [includesDrink, setIncludesDrink] = useState(false);
-  const [visibleOnClubPage, setVisibleOnClubPage] = useState(false);
-  const [isActive, setIsActive] = useState(true);
-  const [promoterEntries, setPromoterEntries] = useState<PromoterGLEntry[]>([]);
-
-  const effectiveFemale = quotaMode === 'percentage' ? Math.round(quota * pctFemale / 100) : quotaFemale;
-  const effectiveMale   = quotaMode === 'percentage' ? Math.round(quota * pctMale   / 100) : quotaMale;
-  const genderSum = effectiveFemale + effectiveMale;
-  const genderExceedsQuota = enableGenderQuota && genderSum > quota;
-
-  useEffect(() => { if (scopeReady) fetchEvents(); }, [venueId, organizerUserId, isOrganizerScope, scopeReady]);
-  useEffect(() => { if (selectedEventId) fetchGuestList(); }, [selectedEventId]);
-  useEffect(() => { if (selectedEventId) fetchPromoterEntries(); }, [selectedEventId]);
+  const ctx = { isOrganizerScope, venueId: venueId ?? null, organizerUserId: organizerUserId ?? null };
+  const {
+    parts, entriesByPart, loading,
+    createClubPart, createDjPart, createDjPartsBulk, createPromoterPart, createPromoterPartsBulk, createCustomPart, updatePart, deletePart, setActive,
+  } = useGuestListParts(selectedEventId, ctx);
+  const { templates, createTemplate, updateTemplate, deleteTemplate } = useGuestListTemplates(ctx);
+  const [presetDialog, setPresetDialog] = useState<{ editing: GuestListTemplate | null; initial?: Partial<TemplateInput> } | null>(null);
+  const [distribute, setDistribute] = useState<{ tpl: GuestListTemplate; holderType: 'dj' | 'promoter'; mode: TargetMode } | null>(null);
 
   useEffect(() => {
-    if (!guestList?.id) return;
-    const refreshEntries = async () => {
-      const { data } = await supabase.from('guest_list_entries').select('*').eq('guest_list_id', guestList.id).order('created_at', { ascending: false });
-      setEntries((data || []) as EntryData[]);
-    };
-    const channel = supabase.channel(`owner-guest-list-${guestList.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'guest_list_entries', filter: `guest_list_id=eq.${guestList.id}` }, refreshEntries)
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [guestList?.id]);
+    if (scopeReady) fetchEvents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [venueId, organizerUserId, isOrganizerScope, scopeReady]);
 
   const fetchEvents = async () => {
     if (!scopeReady) return;
@@ -344,114 +109,63 @@ export default function OwnerGuestList() {
       setEvents(data.map(e => ({ id: e.id, title: e.title, startAt: e.start_at, endAt: e.end_at })));
       if (data.length > 0 && !selectedEventId) setSelectedEventId(data[0].id);
     }
-    setLoading(false);
+    setLoadingEvents(false);
   };
 
-  const fetchGuestList = async () => {
-    if (!selectedEventId) return;
-    // dj_id IS NULL = the host (venue/organizer) list. DJ-scoped lists are separate
-    // rows on the same event and are managed in the DJ guest-list section below.
-    const { data: gl } = await supabase.from('guest_lists').select('*').eq('event_id', selectedEventId).is('dj_id', null).maybeSingle();
-    if (gl) {
-      setGuestList(gl as GuestListData);
-      setQuota(gl.quota);
-      setQuotaFemale(gl.quota_female !== null && gl.quota_female !== undefined ? gl.quota_female : 70);
-      setQuotaMale(gl.quota_male !== null && gl.quota_male !== undefined ? gl.quota_male : 30);
-      setEnableGenderQuota(gl.quota_female !== null || gl.quota_male !== null);
-      setFreeBeforeTime(gl.free_before_time?.substring(0, 5) || '02:00');
-      setEntryDeadline(gl.entry_deadline?.substring(0, 5) || '');
-      setIncludesDrink(gl.includes_drink);
-      setVisibleOnClubPage(gl.visible_on_club_page);
-      setIsActive(gl.is_active);
-      const { data: entriesData } = await supabase.from('guest_list_entries').select('*').eq('guest_list_id', gl.id).order('created_at', { ascending: false });
-      setEntries((entriesData || []) as EntryData[]);
-    } else {
-      setGuestList(null); setEntries([]);
-      setQuota(100); setEnableGenderQuota(false); setQuotaFemale(70); setQuotaMale(30);
-      setFreeBeforeTime('02:00'); setEntryDeadline(''); setIncludesDrink(false); setVisibleOnClubPage(false); setIsActive(true);
-    }
+  const slug = partSlug({ isOrganizerScope, organizerUserId, venueName: venue?.name ?? null });
+  const clubPart = parts.find(p => p.holder_type === 'club') ?? null;
+  const otherParts = parts.filter(p => p.holder_type !== 'club');
+  const existingDjIds = parts.filter(p => p.holder_type === 'dj' && p.dj_id).map(p => p.dj_id!) as string[];
+  const existingPromoterIds = parts.filter(p => p.holder_type === 'promoter' && p.promoter_id).map(p => p.promoter_id!) as string[];
+
+  const totalAllocated = parts.reduce((s, p) => s + (p.is_active ? p.quota : 0), 0);
+  const totalSignups = Object.values(entriesByPart).flat().filter(e => e.status !== 'cancelled').length;
+
+  const displayName = (p: Part) =>
+    p.holder_type === 'club' ? (venue?.name || t('guestList.holderType.club'))
+    : p.holder_type === 'custom' ? (p.holder_label || '')
+    : (p.displayName || p.holder_label || '');
+
+  // Apply a CLUB preset to the club list: create it (one-click publish) if none
+  // exists, else overwrite the current club config with the preset.
+  const applyPresetToClub = (tpl: GuestListTemplate) => {
+    const config = { quota: tpl.quota, ...presetExtra(tpl) };
+    const action = clubPart ? updatePart(clubPart.id, config) : createClubPart(config);
+    action.then(() => toast.success(t('guestList.presets.applied'))).catch(e => toast.error(e instanceof Error ? e.message : t('guestList.saveError')));
   };
 
-  const fetchPromoterEntries = async () => {
-    if (!selectedEventId) return;
-    const { data: glIds } = await supabase.from('guest_lists').select('id').eq('event_id', selectedEventId);
-    if (!glIds || glIds.length === 0) { setPromoterEntries([]); return; }
-    const { data: pEntries } = await supabase.from('guest_list_entries').select('*').in('guest_list_id', glIds.map(g => g.id)).not('promoter_id', 'is', null).neq('status', 'cancelled').order('created_at', { ascending: false });
-    if (!pEntries || pEntries.length === 0) { setPromoterEntries([]); return; }
-    const promoterIds = [...new Set(pEntries.map(e => e.promoter_id).filter(Boolean))] as string[];
-    const { data: promoters } = await supabase.from('promoters').select('id,user_id').in('id', promoterIds);
-    let nameMap: Record<string, string> = {};
-    if (promoters && promoters.length > 0) {
-      const userIds = promoters.map(p => p.user_id);
-      const { data: profiles } = await supabase.from('profiles').select('id,first_name,last_name').in('id', userIds);
-      if (profiles) {
-        const profileMap = new Map(profiles.map(p => [p.id, `${p.first_name || ''} ${p.last_name || ''}`.trim()]));
-        promoters.forEach(p => { nameMap[p.id] = profileMap.get(p.user_id) || t('guestList.promoterFallback'); });
-      }
-    }
-    setPromoterEntries(pEntries.map(e => ({ ...e, promoterName: e.promoter_id ? nameMap[e.promoter_id] || t('guestList.promoterFallback') : undefined })) as PromoterGLEntry[]);
+  // DJ / promoter presets open the distribute chooser LOCKED to the template's target
+  // mode (set in the template form): DJ → all|select ; promoter → all|select|agency.
+  const onDjPreset = (tpl: GuestListTemplate) =>
+    setDistribute({ tpl, holderType: 'dj', mode: tpl.target_mode === 'agency' ? 'select' : tpl.target_mode });
+  const onPromoterPreset = (tpl: GuestListTemplate) =>
+    setDistribute({ tpl, holderType: 'promoter', mode: tpl.target_mode });
+
+  const confirmDistributeTargets = async (items: { id: string; label: string }[]) => {
+    if (!distribute) return;
+    if (items.length === 0) { toast.error(t('guestList.promoDist.noneSelected')); return; }
+    const n = distribute.holderType === 'dj'
+      ? await createDjPartsBulk(items.map(i => i.id), distribute.tpl.quota, presetExtra(distribute.tpl))
+      : await createPromoterPartsBulk(items, distribute.tpl.quota, presetExtra(distribute.tpl));
+    toast.success(t('guestList.presets.distributed').replace('{n}', String(n)));
+  };
+  const confirmDistributeAgency = async (name: string) => {
+    if (!distribute) return;
+    await createCustomPart(name, distribute.tpl.quota, presetExtra(distribute.tpl));
+    toast.success(t('guestList.parts.created'));
+  };
+  // "Save as preset" from a part's config opens the full editor, pre-filled.
+  const openPresetFromConfig = (config: Record<string, unknown>, holderType: HolderType) => {
+    const ht: TemplateHolderType = holderType === 'custom' ? 'club' : holderType;
+    setPresetDialog({ editing: null, initial: { ...(config as Partial<TemplateInput>), holder_type: ht } });
+  };
+  const savePreset = (input: TemplateInput, id: string | null) =>
+    (id ? updateTemplate(id, input) : createTemplate(input)).then(() => toast.success(t('guestList.presets.saved')));
+  const removePreset = (id: string) => {
+    deleteTemplate(id).catch(e => toast.error(e instanceof Error ? e.message : t('guestList.deleteError')));
   };
 
-  const handleSave = async () => {
-    if (!scopeReady || !selectedEventId) return;
-    if (enableGenderQuota && genderExceedsQuota) { toast.error(t('guestList.quotaExceedsTotal')); return; }
-    setSaving(true);
-    // Resolve the guest-list owner columns per scope. Org events may be solo (no venue)
-    // or co-events at a partner club — keep the event's venue_id if any, and tag the organizer.
-    let payloadVenueId: string | null = venueId ?? null;
-    let payloadOrganizerId: string | null = null;
-    if (isOrganizerScope) {
-      const { data: ev } = await supabase.from('events').select('venue_id').eq('id', selectedEventId).maybeSingle();
-      payloadVenueId = ev?.venue_id ?? null;
-      payloadOrganizerId = organizerUserId ?? null;
-    }
-    const payload = { event_id: selectedEventId, venue_id: payloadVenueId, organizer_user_id: payloadOrganizerId, quota, quota_female: enableGenderQuota ? effectiveFemale : null, quota_male: enableGenderQuota ? effectiveMale : null, free_before_time: freeBeforeTime, entry_deadline: entryDeadline || null, includes_drink: includesDrink, visible_on_club_page: visibleOnClubPage, is_active: isActive };
-    try {
-      if (guestList) {
-        const { error } = await supabase.from('guest_lists').update(payload).eq('id', guestList.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('guest_lists').insert(payload);
-        if (error) throw error;
-      }
-      toast.success(t('guestList.saved'));
-      fetchGuestList();
-    } catch (error: any) { toast.error(error.message || t('guestList.saveError')); }
-    finally { setSaving(false); }
-  };
-
-  const handleDelete = async () => {
-    if (!guestList) return;
-    if (!confirm(t('guestList.confirmDelete'))) return;
-    const { error } = await supabase.from('guest_lists').delete().eq('id', guestList.id);
-    if (error) toast.error(t('guestList.deleteError'));
-    else { toast.success(t('guestList.deleted')); setGuestList(null); setEntries([]); }
-  };
-
-  const getShareLink = (genderParam?: 'female' | 'male') => {
-    if (!guestList) return '';
-    // The public signup page (GuestListSignup) loads by ?token=, so the slug segment is
-    // cosmetic. Venues use their name-slug; organizers (no venue) use their id as the slug.
-    const slug = isOrganizerScope
-      ? (organizerUserId ?? 'organizer')
-      : (venue ? venue.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') : '');
-    if (!isOrganizerScope && !slug) return '';
-    const base = `${window.location.origin}/club/${slug}/event/${selectedEventId}/guestlist?token=${guestList.share_token}`;
-    return genderParam ? `${base}&gender=${genderParam}` : base;
-  };
-
-  const copyShareLink = (genderParam?: 'female' | 'male') => {
-    navigator.clipboard.writeText(getShareLink(genderParam));
-    toast.success(t('common.copied'));
-  };
-
-  const activeEntries = entries.filter(e => e.status !== 'cancelled');
-  const clubEntries   = activeEntries.filter(e => !e.promoter_id);
-  const enteredCount  = entries.filter(e => e.entry_scanned).length;
-  const femaleCount   = activeEntries.filter(e => e.gender === 'female').length;
-  const maleCount     = activeEntries.filter(e => e.gender === 'male').length;
-
-  if (venueLoading || loading) return <OwnerPageSkeleton />;
+  if (venueLoading || loadingEvents) return <OwnerPageSkeleton />;
 
   return (
     <div className={isOrganizerScope ? 'pb-12' : 'min-h-screen pb-24'} style={isOrganizerScope ? undefined : { background: '#000' }}>
@@ -462,6 +176,27 @@ export default function OwnerGuestList() {
           <h1 className="mb-1" style={{ color: T1, fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em' }}>{t('guestList.title')}</h1>
         )}
 
+        {/* Tab bar — listes live (Événements) vs presets (Templates) */}
+        <div className="flex gap-0.5" style={{ borderBottom: `1px solid ${BORDER}` }}>
+          {[
+            { id: 'events' as const, label: t('guestList.tabs.events'), icon: Calendar },
+            { id: 'templates' as const, label: t('guestList.tabs.templates'), icon: FolderOpen },
+          ].map(tb => {
+            const Icon = tb.icon;
+            const active = tab === tb.id;
+            return (
+              <button key={tb.id} type="button" onClick={() => setTab(tb.id)}
+                className="relative inline-flex items-center gap-2 px-4 py-3 cursor-pointer"
+                style={{ color: active ? T1 : T3, background: 'transparent', border: 'none', fontSize: 13.5, fontWeight: 560 }}>
+                <Icon className="w-4 h-4" />{tb.label}
+                {active && <span className="absolute left-3 right-3 rounded-full" style={{ bottom: -1, height: 2, background: RED, boxShadow: '0 0 10px rgba(232,25,44,0.6)' }} />}
+              </button>
+            );
+          })}
+        </div>
+
+        {tab === 'events' && (
+          <div className="space-y-5">
         {/* Event Selector */}
         <div>
           <p style={{ color: T2, fontSize: 13, fontWeight: 500, marginBottom: 8 }}>{t('guestList.selectEvent')}</p>
@@ -471,380 +206,133 @@ export default function OwnerGuestList() {
           }
         </div>
 
-        {selectedEventId && (
+        {selectedEventId && !loading && (
           <>
-            {/* Configuration */}
-            <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '20px' }}>
-              <h3 className="flex items-center gap-2 mb-5" style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0, marginBottom: 20 }}>
-                <Users className="h-4 w-4" style={{ color: RED }} />
-                {guestList ? t('guestList.editConfig') : t('guestList.createConfig')}
-              </h3>
-              <div className="space-y-5">
-
-                {/* Total Quota */}
-                <div>
-                  <p style={{ color: T2, fontSize: 13, fontWeight: 500, marginBottom: 6 }}>{t('guestList.totalQuota')}</p>
-                  <input type="number" min={1} max={10000} value={quota} onChange={e => setQuota(Number(e.target.value))}
-                    className="outline-none"
-                    style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '9px 14px', color: T1, fontSize: 14, fontFamily: 'inherit', width: '100%' }} />
-                </div>
-
-                {/* Gender Quotas */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p style={{ color: T2, fontSize: 13, fontWeight: 500, margin: 0 }}>{t('guestList.genderQuotas')}</p>
-                    <YunoSwitch checked={enableGenderQuota} onChange={setEnableGenderQuota} />
-                  </div>
-                  {enableGenderQuota && (
-                    <div className="space-y-3">
-                      {/* Mode toggle */}
-                      <div className="flex gap-2">
-                        {[{ v: 'number' as const, l: t('guestList.modeNumber') }, { v: 'percentage' as const, l: t('guestList.modePercentage') }].map(opt => (
-                          <button key={opt.v} type="button" onClick={() => setQuotaMode(opt.v)}
-                            style={{ flex: 1, padding: '7px', borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', background: quotaMode === opt.v ? 'rgba(232,25,44,0.14)' : TILE_BG, border: `1px solid ${quotaMode === opt.v ? RED : F_BORDER}`, color: quotaMode === opt.v ? '#ff4d5a' : T2 }}>
-                            {opt.l}
-                          </button>
-                        ))}
-                      </div>
-                      {quotaMode === 'number' ? (
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <p style={{ color: T3, fontSize: 11.5, marginBottom: 4 }}>{t('guestList.female')}</p>
-                            <input type="number" min={0} max={quota} value={quotaFemale}
-                              onChange={e => setQuotaFemale(Math.max(0, Number(e.target.value)))}
-                              className="w-full outline-none"
-                              style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '8px 12px', color: T1, fontSize: 14, fontFamily: 'inherit' }} />
-                          </div>
-                          <div>
-                            <p style={{ color: T3, fontSize: 11.5, marginBottom: 4 }}>{t('guestList.male')}</p>
-                            <input type="number" min={0} max={quota} value={quotaMale}
-                              onChange={e => setQuotaMale(Math.max(0, Number(e.target.value)))}
-                              className="w-full outline-none"
-                              style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '8px 12px', color: T1, fontSize: 14, fontFamily: 'inherit' }} />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <p style={{ color: T3, fontSize: 11.5, marginBottom: 4 }}>{t('guestList.female')} (%)</p>
-                            <input type="number" min={0} max={100} value={pctFemale}
-                              onChange={e => setPctFemale(Math.min(100, Math.max(0, Number(e.target.value))))}
-                              className="w-full outline-none"
-                              style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '8px 12px', color: T1, fontSize: 14, fontFamily: 'inherit' }} />
-                          </div>
-                          <div>
-                            <p style={{ color: T3, fontSize: 11.5, marginBottom: 4 }}>{t('guestList.male')} (%)</p>
-                            <input type="number" min={0} max={100} value={pctMale}
-                              onChange={e => setPctMale(Math.min(100, Math.max(0, Number(e.target.value))))}
-                              className="w-full outline-none"
-                              style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '8px 12px', color: T1, fontSize: 14, fontFamily: 'inherit' }} />
-                          </div>
-                        </div>
-                      )}
-                      {quotaMode === 'percentage' && (
-                        <p style={{ color: T3, fontSize: 11.5 }}>
-                          = {effectiveFemale} {t('guestList.female').toLowerCase()} + {effectiveMale} {t('guestList.male').toLowerCase()} ({genderSum} {t('guestList.totalLabel')})
-                        </p>
-                      )}
-                      {genderExceedsQuota && (
-                        <div className="flex items-start gap-2" style={{ padding: '10px 12px', borderRadius: 10, background: 'rgba(255,92,99,0.08)', border: '1px solid rgba(255,92,99,0.25)' }}>
-                          <span style={{ color: NEG }}>⚠️</span>
-                          <p style={{ color: NEG, fontSize: 12, margin: 0 }}>
-                            {t('guestList.quotaExceedsTotal')} ({genderSum} &gt; {quota})
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Free Before Time */}
-                <div>
-                  <p className="flex items-center gap-2" style={{ color: T2, fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
-                    <Clock className="h-4 w-4" style={{ color: T3 }} />
-                    {t('guestList.freeBeforeTime')}
-                  </p>
-                  <input type="time" value={freeBeforeTime} onChange={e => setFreeBeforeTime(e.target.value)}
-                    className="outline-none"
-                    style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '8px 12px', color: T1, fontSize: 14, fontFamily: 'inherit', colorScheme: 'dark', width: 160 }} />
-                  <p style={{ color: T3, fontSize: 11.5, marginTop: 4 }}>{t('guestList.freeBeforeTimeDesc')}</p>
-                </div>
-
-                {/* Entry Deadline */}
-                <div>
-                  <p className="flex items-center gap-2" style={{ color: T2, fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
-                    <Clock className="h-4 w-4" style={{ color: T3 }} />
-                    {t('guestList.entryDeadline')}
-                  </p>
-                  <input type="time" value={entryDeadline} onChange={e => setEntryDeadline(e.target.value)} placeholder="--:--"
-                    className="outline-none"
-                    style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '8px 12px', color: T1, fontSize: 14, fontFamily: 'inherit', colorScheme: 'dark', width: 160 }} />
-                  <p style={{ color: T3, fontSize: 11.5, marginTop: 4 }}>
-                    {t('guestList.entryDeadlineDesc')}
-                  </p>
-                </div>
-
-                {/* Includes Drink */}
-                <div className="flex items-center justify-between">
-                  <p className="flex items-center gap-2" style={{ color: T2, fontSize: 13, fontWeight: 500, margin: 0 }}>
-                    <Wine className="h-4 w-4" style={{ color: T3 }} />
-                    {t('guestList.includesDrink')}
-                  </p>
-                  <YunoSwitch checked={includesDrink} onChange={setIncludesDrink} />
-                </div>
-
-                {/* Visible on Club Page */}
-                <div className="flex items-center justify-between">
-                  <p className="flex items-center gap-2" style={{ color: T2, fontSize: 13, fontWeight: 500, margin: 0 }}>
-                    <Eye className="h-4 w-4" style={{ color: T3 }} />
-                    {t('guestList.visibleOnPage')}
-                  </p>
-                  <YunoSwitch checked={visibleOnClubPage} onChange={setVisibleOnClubPage} />
-                </div>
-
-                {/* Active */}
-                <div className="flex items-center justify-between">
-                  <p style={{ color: T2, fontSize: 13, fontWeight: 500, margin: 0 }}>{t('guestList.active')}</p>
-                  <YunoSwitch checked={isActive} onChange={setIsActive} />
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-2 pt-1">
-                  <button onClick={handleSave} disabled={saving || genderExceedsQuota}
-                    style={{ flex: 1, background: (saving || genderExceedsQuota) ? INNER_BG : RED, border: 'none', borderRadius: 12, padding: '12px', color: '#fff', fontSize: 14, fontWeight: 600, cursor: (saving || genderExceedsQuota) ? 'not-allowed' : 'pointer', opacity: (saving || genderExceedsQuota) ? 0.6 : 1 }}>
-                    {saving ? '…' : guestList ? t('owner.save') : t('guestList.create')}
-                  </button>
-                  {guestList && (
-                    <button onClick={handleDelete}
-                      style={{ width: 44, height: 44, background: 'rgba(255,92,99,0.10)', border: '1px solid rgba(255,92,99,0.25)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: NEG }}>
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
+            {/* Totals — modèle parts indépendantes (lecture seule) */}
+            <div className="flex items-center gap-4" style={{ padding: '12px 16px', borderRadius: 14, background: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: CARD_SHADOW }}>
+              <div>
+                <p style={{ color: T1, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>{totalAllocated}</p>
+                <p style={{ color: T3, fontSize: 10.5, margin: 0 }}>{t('guestList.parts.totalAllocated')}</p>
+              </div>
+              <div style={{ width: 1, height: 28, background: BORDER }} />
+              <div>
+                <p style={{ color: T1, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>{totalSignups}</p>
+                <p style={{ color: T3, fontSize: 10.5, margin: 0 }}>{t('guestList.parts.totalSignups')}</p>
               </div>
             </div>
 
-            {/* Share Link */}
-            {guestList && !enableGenderQuota && (
-              <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '20px' }}>
-                <h3 className="flex items-center gap-2 mb-4" style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0, marginBottom: 16 }}>
-                  <Link2 className="h-4 w-4" style={{ color: RED }} />
-                  {t('guestList.shareLink')}
-                </h3>
-                <div className="flex gap-2">
-                  <input value={getShareLink()} readOnly
-                    className="flex-1 outline-none"
-                    style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '8px 12px', color: T2, fontSize: 11.5, fontFamily: 'monospace', minWidth: 0 }} />
-                  <button onClick={() => copyShareLink()}
-                    style={{ width: 40, height: 40, background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: T2 }}>
-                    <Copy className="h-4 w-4" />
-                  </button>
-                </div>
-                <p style={{ color: T3, fontSize: 11.5, marginTop: 6 }}>{t('guestList.shareLinkDesc')}</p>
-              </div>
-            )}
-
-            {/* Share Links — Genre séparé */}
-            {guestList && enableGenderQuota && (
-              <div className="space-y-3">
-                {/* Guest List Femme */}
-                {effectiveFemale > 0 && (
-                  <div style={{ background: CARD_BG, border: `1px solid ${femaleCount >= effectiveFemale ? 'rgba(255,92,99,0.3)' : BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px 20px' }}>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="flex items-center gap-2" style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0 }}>
-                        <Link2 className="h-4 w-4" style={{ color: RED }} />
-                        ♀ {t('guestList.femaleList')}
-                      </h3>
-                      {femaleCount >= effectiveFemale && (
-                        <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, color: NEG, background: 'rgba(255,92,99,0.12)', border: '1px solid rgba(255,92,99,0.3)' }}>
-                          {t('guestList.quotaFull')}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <input value={getShareLink('female')} readOnly
-                        className="flex-1 outline-none"
-                        style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '8px 12px', color: T2, fontSize: 11.5, fontFamily: 'monospace', minWidth: 0 }} />
-                      <button onClick={() => copyShareLink('female')}
-                        style={{ width: 40, height: 40, background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: T2 }}>
-                        <Copy className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <p style={{ color: T3, fontSize: 11.5, marginTop: 6 }}>{femaleCount}/{effectiveFemale} {t('guestList.signedUpFemale')}</p>
-                  </div>
-                )}
-
-                {/* Guest List Homme */}
-                {effectiveMale > 0 && (
-                  <div style={{ background: CARD_BG, border: `1px solid ${maleCount >= effectiveMale ? 'rgba(255,92,99,0.3)' : BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px 20px' }}>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="flex items-center gap-2" style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0 }}>
-                        <Link2 className="h-4 w-4" style={{ color: RED }} />
-                        ♂ {t('guestList.maleList')}
-                      </h3>
-                      {maleCount >= effectiveMale && (
-                        <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700, color: NEG, background: 'rgba(255,92,99,0.12)', border: '1px solid rgba(255,92,99,0.3)' }}>
-                          {t('guestList.quotaFull')}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <input value={getShareLink('male')} readOnly
-                        className="flex-1 outline-none"
-                        style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '8px 12px', color: T2, fontSize: 11.5, fontFamily: 'monospace', minWidth: 0 }} />
-                      <button onClick={() => copyShareLink('male')}
-                        style={{ width: 40, height: 40, background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, color: T2 }}>
-                        <Copy className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <p style={{ color: T3, fontSize: 11.5, marginTop: 6 }}>{maleCount}/{effectiveMale} {t('guestList.signedUpMale')}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Stats */}
-            {guestList && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {[
-                  { value: `${activeEntries.length}/${quota}`, label: t('guestList.registered'), color: T1 },
-                  { value: enteredCount,                        label: t('guestList.entered'),    color: POS },
-                  ...(enableGenderQuota
-                    ? [
-                        { value: `${femaleCount}/${effectiveFemale}`, label: t('guestList.female'), color: T1 },
-                        { value: `${maleCount}/${effectiveMale}`,     label: t('guestList.male'),   color: T1 },
-                      ]
-                    : [
-                        { value: activeEntries.length - enteredCount, label: t('guestList.noShow'), color: '#FCD34D' },
-                      ]
-                  ),
-                ].map((s, i) => (
-                  <div key={i} style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 14, boxShadow: CARD_SHADOW, padding: '14px', textAlign: 'center' }}>
-                    <p style={{ color: s.color as string, fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>{s.value}</p>
-                    <p style={{ color: T3, fontSize: 10.5, margin: 0 }}>{s.label}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Club Entries */}
-            {guestList && clubEntries.length > 0 && (
-              <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px' }}>
-                <h3 style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0, marginBottom: 12 }}>
-                  {t('guestList.clubRegistered')} ({clubEntries.length})
-                </h3>
-                <div className="space-y-1.5" style={{ maxHeight: 384, overflowY: 'auto' }}>
-                  {clubEntries.map(entry => (
-                    <div key={entry.id} className="flex items-center justify-between"
-                      style={{ padding: '10px 12px', borderRadius: 10, background: TILE_BG, border: `1px solid ${F_BORDER}` }}>
-                      <div className="min-w-0 flex-1">
-                        <p style={{ color: T1, fontSize: 13, fontWeight: 500, margin: 0 }} className="truncate">{entry.full_name}</p>
-                        <p style={{ color: T3, fontSize: 11.5, margin: 0 }} className="truncate">{entry.email}</p>
-                        {entry.gender && (
-                          <span style={{ padding: '1px 6px', borderRadius: 5, fontSize: 10, fontWeight: 600, color: T3, background: INNER_BG, border: `1px solid ${F_BORDER}` }}>
-                            {entry.gender === 'female' ? '♀' : '♂'} {t(`guestList.${entry.gender}`)}
-                          </span>
-                        )}
-                      </div>
-                      <div className="shrink-0 ml-3">
-                        {entry.entry_scanned ? (
-                          <span className="flex items-center gap-1" style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, color: POS, background: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.25)' }}>
-                            <CheckCircle className="h-3 w-3" />{t('guestList.scanned')}
-                          </span>
-                        ) : entry.status === 'cancelled' ? (
-                          <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, color: NEG, background: 'rgba(255,92,99,0.08)', border: '1px solid rgba(255,92,99,0.2)' }}>
-                            {t('guestList.cancelled')}
-                          </span>
-                        ) : (
-                          <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, color: T3, background: INNER_BG, border: `1px solid ${F_BORDER}` }}>
-                            {t('guestList.waiting')}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {guestList && clubEntries.length === 0 && (
-              <div className="text-center py-10">
-                <QrCode className="h-10 w-10 mx-auto mb-2" style={{ color: T3, opacity: 0.3 }} />
-                <p style={{ color: T3, fontSize: 13 }}>{t('guestList.noEntries')}</p>
-              </div>
-            )}
-
-            {/* Promoter Entries */}
-            <div style={{ background: CARD_BG, border: `1px solid rgba(232,25,44,0.18)`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px' }}>
-              <h3 className="flex items-center gap-2 mb-1" style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0 }}>
-                <Users className="h-4 w-4" style={{ color: RED }} />
-                {t('guestList.promoterList')}
-              </h3>
-              <p style={{ color: T3, fontSize: 12, marginBottom: 12 }}>
-                {t('guestList.promoterListDesc')}
-              </p>
-              {promoterEntries.length > 0 ? (
-                <>
-                  <div className="space-y-1.5" style={{ maxHeight: 384, overflowY: 'auto' }}>
-                    {promoterEntries.map(entry => (
-                      <div key={entry.id} className="flex items-center justify-between"
-                        style={{ padding: '10px 12px', borderRadius: 10, background: TILE_BG, border: `1px solid ${F_BORDER}` }}>
-                        <div className="min-w-0 flex-1">
-                          <p style={{ color: T1, fontSize: 13, fontWeight: 500, margin: 0 }} className="truncate">{entry.full_name}</p>
-                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                            <p style={{ color: T3, fontSize: 11.5, margin: 0 }} className="truncate">{entry.email}</p>
-                            {entry.entry_type && entry.entry_type !== 'normal' && (
-                              <span style={{ padding: '1px 6px', borderRadius: 5, fontSize: 10, fontWeight: 600, color: T2, background: INNER_BG, border: `1px solid ${F_BORDER}` }}>
-                                {entry.entry_type === 'table' ? '🪩 VIP' : entry.entry_type === 'drink' ? `🍹 ${t('guestList.drinkBadge')}` : entry.entry_type}
-                              </span>
-                            )}
-                          </div>
-                          <p style={{ color: 'rgba(232,25,44,0.8)', fontSize: 11, margin: 0 }}>{t('guestList.invitedBy').replace('{name}', String(entry.promoterName))}</p>
-                        </div>
-                        <div className="shrink-0 ml-3">
-                          {entry.entry_scanned ? (
-                            <span className="flex items-center gap-1" style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, color: POS, background: 'rgba(52,211,153,0.10)', border: '1px solid rgba(52,211,153,0.25)' }}>
-                              <CheckCircle className="h-3 w-3" />{t('guestList.scanned')}
-                            </span>
-                          ) : (
-                            <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, color: T3, background: INNER_BG, border: `1px solid ${F_BORDER}` }}>
-                              {t('guestList.waiting')}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-3 mt-3" style={{ color: T3, fontSize: 11.5 }}>
-                    <span>{promoterEntries.length} {t('guestList.guestsCount')}</span>
-                    <span>·</span>
-                    <span>{promoterEntries.filter(e => e.entry_scanned).length} {t('guestList.enteredCount')}</span>
-                    <span>·</span>
-                    <span>{promoterEntries.filter(e => e.entry_type === 'table').length} VIP</span>
-                    <span>·</span>
-                    <span>{promoterEntries.filter(e => e.entry_type === 'drink').length} {t('guestList.withDrink')}</span>
-                  </div>
-                </>
-              ) : (
-                <div className="text-center py-10">
-                  <Users className="h-10 w-10 mx-auto mb-2" style={{ color: T3, opacity: 0.3 }} />
-                  <p style={{ color: T3, fontSize: 13 }}>{t('guestList.noPromoterGuests')}</p>
-                </div>
-              )}
-            </div>
-
-            {/* DJ Guest Lists — owner grants a lineup DJ a capped personal guest list */}
-            <DJGuestListSection
-              eventId={selectedEventId}
-              venueId={venueId ?? null}
-              organizerUserId={organizerUserId ?? null}
-              isOrganizerScope={isOrganizerScope}
-              venueName={isOrganizerScope ? null : (venue?.name ?? null)}
+            {/* Presets — appliquer un preset club en un clic (gestion dans l'onglet Templates) */}
+            <PresetBar
+              templates={templates}
+              hasClubPart={!!clubPart}
+              onApplyClub={applyPresetToClub}
+              onDistributeDj={onDjPreset}
+              onPromoterPreset={onPromoterPreset}
+              onGoToTemplates={() => setTab('templates')}
               t={t}
             />
+
+            {/* Club part (toujours en tête — créée à la volée si absente) */}
+            <PartCard
+              part={clubPart}
+              holderType="club"
+              displayName={venue?.name || t('guestList.holderType.club')}
+              entries={clubPart ? (entriesByPart[clubPart.id] || []) : []}
+              slug={slug}
+              eventId={selectedEventId}
+              t={t}
+              onCreate={createClubPart}
+              onUpdate={updatePart}
+              onToggleActive={setActive}
+              onSaveAsPreset={openPresetFromConfig}
+              defaultOpen={!clubPart}
+            />
+
+            {/* Other parts */}
+            {otherParts.map(p => (
+              <PartCard
+                key={p.id}
+                part={p}
+                holderType={p.holder_type}
+                displayName={displayName(p)}
+                entries={entriesByPart[p.id] || []}
+                slug={slug}
+                eventId={selectedEventId}
+                t={t}
+                onUpdate={updatePart}
+                onDelete={deletePart}
+                onToggleActive={setActive}
+                onSaveAsPreset={openPresetFromConfig}
+              />
+            ))}
+
+            {/* Add a part */}
+            <button onClick={() => setAddOpen(true)} className="w-full flex items-center justify-center gap-2"
+              style={{ padding: '14px', borderRadius: 14, background: 'rgba(232,25,44,0.08)', border: `1px dashed rgba(232,25,44,0.35)`, color: '#ff5d68', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+              <Plus className="h-4 w-4" />{t('guestList.parts.addPart')}
+            </button>
+
+            {parts.length === 0 && !clubPart && (
+              <div className="text-center py-6">
+                <QrCode className="h-10 w-10 mx-auto mb-2" style={{ color: T3, opacity: 0.3 }} />
+                <p style={{ color: T3, fontSize: 13 }}>{t('guestList.parts.title')}</p>
+              </div>
+            )}
           </>
         )}
+          </div>
+        )}
+
+        {tab === 'templates' && (
+          <PresetsManager
+            templates={templates}
+            onNew={() => setPresetDialog({ editing: null })}
+            onEdit={(tpl) => setPresetDialog({ editing: tpl })}
+            onDelete={removePreset}
+            t={t}
+          />
+        )}
       </div>
+
+      {addOpen && selectedEventId && (
+        <AddPartSheet
+          eventId={selectedEventId}
+          ctx={ctx}
+          existingDjIds={existingDjIds}
+          existingPromoterIds={existingPromoterIds}
+          t={t}
+          onClose={() => setAddOpen(false)}
+          onCreateDj={createDjPart}
+          onCreatePromoter={createPromoterPart}
+          onCreateCustom={createCustomPart}
+          presets={templates}
+        />
+      )}
+
+      {presetDialog && (
+        <GuestListPresetDialog
+          editing={presetDialog.editing}
+          initial={presetDialog.initial}
+          t={t}
+          onClose={() => setPresetDialog(null)}
+          onSave={savePreset}
+        />
+      )}
+
+      {distribute && (
+        <DistributeSheet
+          tpl={distribute.tpl}
+          holderType={distribute.holderType}
+          mode={distribute.mode}
+          ctx={ctx}
+          eventId={selectedEventId}
+          existingIds={distribute.holderType === 'dj' ? existingDjIds : existingPromoterIds}
+          t={t}
+          onClose={() => setDistribute(null)}
+          onConfirmTargets={confirmDistributeTargets}
+          onConfirmAgency={confirmDistributeAgency}
+        />
+      )}
     </div>
   );
 }

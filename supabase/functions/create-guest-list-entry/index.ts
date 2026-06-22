@@ -146,6 +146,24 @@ serve(async (req) => {
       throw new Error("Guest list is full");
     }
 
+    // A public self-signup takes the list's primary available kind (normal preferred);
+    // the drink/VIP slots are filled by the promoter (app) or the owner. Enforce that
+    // kind's per-type quota so a "10 normal + 2 VIP" list keeps its split.
+    const qn = guestList.quota_normal ?? 0, qd = guestList.quota_drink ?? 0, qtb = guestList.quota_table ?? 0;
+    const resolvedEntryType = qn > 0 ? "normal" : qd > 0 ? "drink" : qtb > 0 ? "table" : (guestList.entry_kind || "normal");
+    const typeQuota = resolvedEntryType === "table" ? qtb : resolvedEntryType === "drink" ? qd : qn;
+    if (typeQuota > 0) {
+      const { count: typeCount } = await supabaseAdmin
+        .from("guest_list_entries")
+        .select("*", { count: "exact", head: true })
+        .eq("guest_list_id", guestList.id)
+        .eq("entry_type", resolvedEntryType)
+        .neq("status", "cancelled");
+      if ((typeCount ?? 0) >= typeQuota) {
+        throw new Error("Guest list is full");
+      }
+    }
+
     // Check gender quotas
     if (gender && (guestList.quota_female || guestList.quota_male)) {
       if (gender === "female" && guestList.quota_female) {
@@ -175,7 +193,11 @@ serve(async (req) => {
       }
     }
 
-    // Resolve promoter ID
+    // Resolve promoter ID. Precedence:
+    //   1. explicit ?ref= promoterCode (a promoter link layered on any part) — wins
+    //   2. the part's own holder (holder_type='promoter') — the part link IS the
+    //      promoter's link, so a signup through it attributes to that promoter and the
+    //      door scan fires the commission (read from guest_list_entries.promoter_id).
     let promoterId: string | null = null;
     if (promoterCode) {
       const { data: promoter } = await supabaseAdmin
@@ -185,6 +207,9 @@ serve(async (req) => {
         .eq("venue_id", guestList.venue_id)
         .maybeSingle();
       if (promoter) promoterId = promoter.id;
+    }
+    if (!promoterId && guestList.holder_type === "promoter" && guestList.promoter_id) {
+      promoterId = guestList.promoter_id;
     }
 
     // Create/update venue_customer (works for guests too — user_id is optional)
@@ -215,6 +240,9 @@ serve(async (req) => {
         reservation_code: reservationCode,
         status: "reserved",
         promoter_id: promoterId,
+        // The resolved entry kind (normal | drink | table=VIP) is stamped so the door
+        // scanner and drink credits know what the guest is entitled to.
+        entry_type: resolvedEntryType,
       })
       .select()
       .single();
@@ -229,7 +257,7 @@ serve(async (req) => {
     // ── Grant drink credits if guest list includes_drink AND venue uses credits mode ──
     // Credits key on user_id, so only logged-in registrants get them here. A guest
     // who later creates an account (via /guest/finalize) can claim the drink then.
-    if (guestList.includes_drink && user) {
+    if (resolvedEntryType === "drink" && user) {
       // Check venue free_drink_mode
       const { data: venueForDrink } = await supabaseAdmin
         .from("venues")
