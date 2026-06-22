@@ -58,7 +58,7 @@ serve(async (req) => {
         id, user_email, user_id, full_name, minimum_spend, total_price, qr_code,
         zone_id,
         table_zones(name, venue_id),
-        events!inner(id, title, start_at, venue_id, poster_url, venues(name, address))
+        events!inner(id, title, start_at, venue_id, poster_url, venues!events_venue_id_fkey(name, address))
       `)
       .eq('id', reservationId)
       .single();

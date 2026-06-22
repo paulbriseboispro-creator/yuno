@@ -56,7 +56,7 @@ serve(async (req) => {
         id, qr_code, quantity, unit_price, total_price, full_name, user_email, user_id, status,
         ticket_round_id, event_id,
         ticket_rounds(name),
-        events!inner(id, title, start_at, venue_id, poster_url, venues(name, address))
+        events!inner(id, title, start_at, venue_id, poster_url, venues!events_venue_id_fkey(name, address))
       `)
       .eq("id", ticketId)
       .single();
