@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Search, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { makeDjT } from '@/i18n/djTranslate';
+import { Search, ExternalLink, ChevronLeft, ChevronRight, BadgeCheck } from 'lucide-react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED        = '#E8192C';
@@ -37,19 +39,40 @@ function StatusPill({ active, on, off }: { active: boolean; on: string; off: str
 const PAGE_SIZE = 25;
 
 export default function DirectoryDJs() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const tt = makeDjT(language);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [data, setData] = useState<any[]>([]);
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [verifyingId, setVerifyingId] = useState<string | null>(null);
+
+  // Verification is per PERSON (user_id), so admin_set_dj_verified flips every row
+  // of the person — update all local rows sharing the user_id to match.
+  const verifyDj = async (userId: string, next: boolean) => {
+    setVerifyingId(userId);
+    try {
+      const { error } = await supabase.rpc('admin_set_dj_verified', { p_dj_user_id: userId, p_verified: next });
+      if (error) throw error;
+      setData(prev => prev.map(d => (d.user_id === userId ? { ...d, is_verified: next } : d)));
+      toast.success(next
+        ? tt('DJ vérifié', 'DJ verified', 'DJ verificado')
+        : tt('Vérification retirée', 'Verification removed', 'Verificación retirada'));
+    } catch (e) {
+      toast.error(tt('Action échouée', 'Action failed', 'Acción fallida'));
+      console.error('verify dj failed', e);
+    } finally {
+      setVerifyingId(null);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
     let query = supabase
       .from('djs')
-      .select('id, stage_name, first_name, last_name, city, venue_id, is_active, created_at, slug', { count: 'exact' });
+      .select('id, user_id, stage_name, first_name, last_name, city, venue_id, is_active, is_verified, created_at, slug', { count: 'exact' });
 
     if (search) {
       query = query.or(`stage_name.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%,city.ilike.%${search}%`);
@@ -114,14 +137,15 @@ export default function DirectoryDJs() {
                 <th className="px-3 py-2.5 text-left" style={thStyle}>Venue</th>
                 <th className="px-3 py-2.5 text-right" style={thStyle}>Events</th>
                 <th className="px-3 py-2.5 text-left" style={thStyle}>Status</th>
+                <th className="px-3 py-2.5 text-center" style={thStyle}>{tt('Vérifié', 'Verified', 'Verificado')}</th>
                 <th className="px-3 py-2.5 text-right" style={thStyle}>{t('admin.dir.created')}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} className="text-center py-8" style={{ color: T3, fontSize: 12.5 }}>{t('admin.dir.loading')}</td></tr>
+                <tr><td colSpan={7} className="text-center py-8" style={{ color: T3, fontSize: 12.5 }}>{t('admin.dir.loading')}</td></tr>
               ) : data.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-8" style={{ color: T3, fontSize: 12.5 }}>{t('admin.dir.noResults')}</td></tr>
+                <tr><td colSpan={7} className="text-center py-8" style={{ color: T3, fontSize: 12.5 }}>{t('admin.dir.noResults')}</td></tr>
               ) : data.map((d, i) => (
                 <tr key={d.id} style={{ borderBottom: i < data.length - 1 ? `1px solid ${F_BORDER}` : 'none' }}>
                   <td className="px-3 py-3 font-medium">
@@ -139,6 +163,23 @@ export default function DirectoryDJs() {
                   <td className="px-3 py-3 text-right tabular-nums" style={{ color: T2 }}>{d.eventCount}</td>
                   <td className="px-3 py-3">
                     <StatusPill active={d.is_active} on={t('admin.dir.active')} off={t('admin.dir.inactive')} />
+                  </td>
+                  <td className="px-3 py-3 text-center">
+                    <button
+                      onClick={() => verifyDj(d.user_id, !d.is_verified)}
+                      disabled={verifyingId === d.user_id}
+                      title={d.is_verified ? tt('Retirer la vérification', 'Remove verification', 'Quitar verificación') : tt('Vérifier ce DJ', 'Verify this DJ', 'Verificar este DJ')}
+                      className="inline-flex items-center gap-1.5 cursor-pointer transition-all disabled:opacity-40"
+                      style={{
+                        fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999,
+                        background: d.is_verified ? 'rgba(232,25,44,0.1)' : 'rgba(255,255,255,0.045)',
+                        border: `1px solid ${d.is_verified ? 'rgba(232,25,44,0.3)' : BORDER}`,
+                        color: d.is_verified ? RED : T3,
+                      }}
+                    >
+                      <BadgeCheck className="h-3.5 w-3.5" />
+                      {d.is_verified ? tt('Vérifié', 'Verified', 'Verificado') : tt('Vérifier', 'Verify', 'Verificar')}
+                    </button>
                   </td>
                   <td className="px-3 py-3 text-right tabular-nums" style={{ color: T3 }}>{format(new Date(d.created_at), 'dd/MM/yyyy')}</td>
                 </tr>
