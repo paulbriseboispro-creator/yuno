@@ -11,6 +11,7 @@ import { useStore } from '@/store/useStore';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { getTranslatedDrinkName } from '@/lib/drinkTranslations';
 import { TermsAcceptance } from '@/components/TermsAcceptance';
 import { AgeGate } from '@/components/AgeGate';
@@ -123,7 +124,7 @@ export default function GuestDrinkCheckout() {
       const eventId = selectedEventId || cart[0]?.eventId;
       const items = cart.map(item => ({ id: item.drinkId, quantity: item.qty, collection: item.collection }));
 
-      const { data, error } = await supabase.functions.invoke('create-checkout', {
+      const { data, error } = await invokeEdgeFunction('create-checkout', {
         body: {
           items,
           eventId,

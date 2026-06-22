@@ -6,6 +6,7 @@ import { getEventSalesStatus } from '@/types/ticketing';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
 import { enUS, es, fr } from 'date-fns/locale';
@@ -562,7 +563,7 @@ export default function TicketCheckout() {
       const purchaseSource = getPurchaseSource(event.id);
       const trackedLinkId = getTrackedLinkForCheckout(event.id);
 
-      const { data, error } = await supabase.functions.invoke('create-ticket-checkout', {
+      const { data, error } = await invokeEdgeFunction('create-ticket-checkout', {
         body: {
           eventId: event.id,
           language,

@@ -17,6 +17,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslatedDrinkName } from '@/lib/drinkTranslations';
@@ -289,7 +290,7 @@ export default function Cart() {
         body.guestPhone = guestPhone.trim() || undefined;
       }
 
-      const { data, error } = await supabase.functions.invoke('create-checkout', { body });
+      const { data, error } = await invokeEdgeFunction('create-checkout', { body });
       if (error) throw error;
 
       if (data?.code === 'ACCOUNT_EXISTS') {

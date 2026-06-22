@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { uniqueChannel } from '@/lib/realtime';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -985,7 +986,7 @@ export default function MyOrders() {
         return;
       }
 
-      const response = await supabase.functions.invoke('create-checkout', {
+      const response = await invokeEdgeFunction('create-checkout', {
         body: { orderId: order.id },
       });
 

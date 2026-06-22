@@ -18,6 +18,7 @@ import { VipCheckoutSteps } from '@/components/vip/VipCheckoutSteps';
 import { ClientFloorPlanPicker } from '@/components/vip/ClientFloorPlanPicker';
 import { useTableAvailability } from '@/hooks/useTableAvailability';
 import { supabase } from '@/integrations/supabase/client';
+import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
 import { enUS, es, fr } from 'date-fns/locale';
@@ -412,7 +413,7 @@ export default function TableCheckout() {
       const purchaseSource = getPurchaseSource(eventId);
       const trackedLinkId = getTrackedLinkForCheckout(eventId);
 
-      const { data, error } = await supabase.functions.invoke('create-table-checkout', {
+      const { data, error } = await invokeEdgeFunction('create-table-checkout', {
         body: {
           eventId, packId, zoneId,
           purchaseSource,
