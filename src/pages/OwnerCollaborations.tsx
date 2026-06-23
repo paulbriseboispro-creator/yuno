@@ -14,7 +14,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Handshake, User, Send, Check, X, Trash2, Inbox, Search, Settings2,
   Building2, Mail, UserPlus, Calendar, Sparkles, Clock, ExternalLink,
-  ChevronDown, ChevronUp, Lock, FileText, BarChart3, Ticket, Wine,
+  ChevronDown, ChevronUp, Lock, FileText, BarChart3, Ticket, Wine, Pause, Play,
 } from 'lucide-react';
 import { toast as sonnerToast } from 'sonner';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -148,6 +148,8 @@ interface CollabEvent {
   // Acceptance is driven by the signed collaboration contract, NOT the event's
   // publish state. null = no contract row (legacy co-event).
   contract_status: string | null;
+  // Set when the collaboration is paused (frozen, reversible).
+  collab_paused_at: string | null;
   organizer: { display_name: string | null; avatar_url: string | null; slug: string | null } | null;
 }
 
@@ -282,7 +284,7 @@ function CollabEventsTab({ venueId, canPropose }: { venueId: string; canPropose:
   const fetchEvents = async () => {
     setLoading(true);
     const { data, error } = await supabase.from('events')
-      .select('id, title, description, poster_url, start_at, end_at, is_active, organizer_user_id, partner_organizer_id, venue_id, partner_venue_id, event_mode')
+      .select('id, title, description, poster_url, start_at, end_at, is_active, organizer_user_id, partner_organizer_id, venue_id, partner_venue_id, event_mode, collab_paused_at')
       .or(`partner_venue_id.eq.${venueId},and(venue_id.eq.${venueId},partner_organizer_id.not.is.null)`)
       .order('start_at', { ascending: false });
     if (error) { console.error(error); setLoading(false); return; }
@@ -312,7 +314,7 @@ function CollabEventsTab({ venueId, canPropose }: { venueId: string; canPropose:
     }
     const mapped: CollabEvent[] = (data || []).map((e) => {
       const orgId = e.organizer_user_id ?? e.partner_organizer_id;
-      return { id: e.id, title: e.title, description: e.description, poster_url: e.poster_url, start_at: e.start_at, end_at: e.end_at, is_active: e.is_active, organizer_user_id: e.organizer_user_id, partner_organizer_id: e.partner_organizer_id, venue_id: e.venue_id, partner_venue_id: e.partner_venue_id, event_mode: e.event_mode, initiated_by_venue: e.venue_id === venueId && !!e.partner_organizer_id, contract_status: contractMap.get(e.id) ?? null, organizer: orgId ? (orgMap.get(orgId) ?? null) : null };
+      return { id: e.id, title: e.title, description: e.description, poster_url: e.poster_url, start_at: e.start_at, end_at: e.end_at, is_active: e.is_active, organizer_user_id: e.organizer_user_id, partner_organizer_id: e.partner_organizer_id, venue_id: e.venue_id, partner_venue_id: e.partner_venue_id, event_mode: e.event_mode, initiated_by_venue: e.venue_id === venueId && !!e.partner_organizer_id, contract_status: contractMap.get(e.id) ?? null, collab_paused_at: e.collab_paused_at, organizer: orgId ? (orgMap.get(orgId) ?? null) : null };
     });
     setEvents(mapped);
     setLoading(false);
@@ -422,13 +424,43 @@ function CollabEventCard({ event, venueId }: { event: CollabEvent; venueId: stri
   const cs = event.contract_status;
   const accepted = cs === 'active' || cs === 'locked' || cs === 'closed';
   const awaiting  = cs === 'pending_signatures';
-  const statusChip = accepted
+  const isPaused  = !!event.collab_paused_at;
+  const statusChip = isPaused
+    ? { label: t('collab.event.paused'), color: AMBER, bg: 'rgba(245,166,35,0.12)', border: 'rgba(245,166,35,0.30)' }
+    : accepted
     ? { label: t('collab.event.statusActive'), color: POS, bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.25)' }
     : awaiting
       ? { label: isLead ? t('collab.event.awaitingPartner') : t('collab.event.toAccept'), color: AMBER, bg: 'rgba(245,166,35,0.12)', border: 'rgba(245,166,35,0.30)' }
       : event.is_active
         ? { label: t('collab.event.statusActive'), color: POS, bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.25)' }
         : { label: isLead ? t('collab.event.pendingOrga') : t('collab.event.pendingActivation'), color: T3, bg: INNER_BG, border: BORDER };
+
+  // Pause / resume / remove this co-event collaboration. The RPC is the authority:
+  // it blocks pause+remove once the event has real sales, so the UI just relays
+  // the result (and the COLLAB_LOCKED_BY_SALES error as a clear message).
+  const [collabBusy, setCollabBusy] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const manageBtn: React.CSSProperties = { padding: '6px 10px', borderRadius: 9, background: TILE_BG, border: `1px solid ${F_BORDER}`, color: T2, fontSize: 11.5, fontWeight: 560, opacity: collabBusy ? 0.6 : 1 };
+
+  const collabAction = async (action: 'pause' | 'resume' | 'remove') => {
+    setCollabBusy(true);
+    try {
+      const { error } = await supabase.rpc('manage_event_collaboration', { p_event_id: event.id, p_action: action });
+      if (error) throw error;
+      sonnerToast.success(
+        action === 'remove' ? t('collab.event.removedToast')
+          : action === 'pause' ? t('collab.event.pausedToast')
+            : t('collab.event.resumedToast'),
+      );
+      setConfirmRemove(false);
+      // The events row update fires the realtime channel → the list refetches.
+    } catch (e) {
+      const msg = String((e as { message?: string })?.message ?? '');
+      sonnerToast.error(msg.includes('COLLAB_LOCKED_BY_SALES') ? t('collab.event.lockedBySales') : (msg || t('proposeEvent.createError')));
+    } finally {
+      setCollabBusy(false);
+    }
+  };
 
   return (
     <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, overflow: 'hidden' }}>
@@ -497,6 +529,36 @@ function CollabEventCard({ event, venueId }: { event: CollabEvent; venueId: stri
         <div>
           <p style={{ color: T3, fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600, marginBottom: 8 }}>{t('collab.event.salesBreakdown')}</p>
           <PurchaseSourceBreakdown eventId={event.id} />
+        </div>
+
+        {/* Manage the collaboration — pause/resume + remove. The server RPC blocks
+            pause & remove once the event has real sales (clear error relayed). */}
+        <div className="flex flex-wrap items-center gap-1.5" style={{ borderTop: `1px solid ${F_BORDER}`, paddingTop: 12 }}>
+          {isPaused ? (
+            <button onClick={() => collabAction('resume')} disabled={collabBusy} className="cursor-pointer" style={manageBtn}>
+              <span className="flex items-center gap-1.5"><Play className="h-3 w-3" /> {t('collab.event.resume')}</span>
+            </button>
+          ) : (
+            <button onClick={() => collabAction('pause')} disabled={collabBusy} className="cursor-pointer" style={manageBtn}>
+              <span className="flex items-center gap-1.5"><Pause className="h-3 w-3" /> {t('collab.event.pause')}</span>
+            </button>
+          )}
+          <div className="flex-1" />
+          {confirmRemove ? (
+            <>
+              <span style={{ color: T3, fontSize: 11 }}>{t('collab.event.removeConfirm')}</span>
+              <button onClick={() => collabAction('remove')} disabled={collabBusy} className="cursor-pointer" style={{ ...manageBtn, color: NEG, background: 'rgba(255,92,99,0.10)', border: '1px solid rgba(255,92,99,0.25)' }}>
+                {t('collab.event.removeYes')}
+              </button>
+              <button onClick={() => setConfirmRemove(false)} disabled={collabBusy} className="cursor-pointer" style={manageBtn}>
+                {t('common.cancel')}
+              </button>
+            </>
+          ) : (
+            <button onClick={() => setConfirmRemove(true)} disabled={collabBusy} className="cursor-pointer" style={{ ...manageBtn, color: NEG }}>
+              <span className="flex items-center gap-1.5"><Trash2 className="h-3 w-3" /> {t('collab.event.remove')}</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

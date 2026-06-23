@@ -3861,6 +3861,7 @@ export type Database = {
           banner_position: Json | null
           cancellation_reason: string | null
           cancelled_at: string | null
+          collab_paused_at: string | null
           created_at: string
           description: string | null
           discovery_status: Database["public"]["Enums"]["discovery_status"]
@@ -3920,6 +3921,7 @@ export type Database = {
           banner_position?: Json | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
+          collab_paused_at?: string | null
           created_at?: string
           description?: string | null
           discovery_status?: Database["public"]["Enums"]["discovery_status"]
@@ -3979,6 +3981,7 @@ export type Database = {
           banner_position?: Json | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
+          collab_paused_at?: string | null
           created_at?: string
           description?: string | null
           discovery_status?: Database["public"]["Enums"]["discovery_status"]
@@ -12140,6 +12143,10 @@ export type Database = {
           _entity_type?: string
           _metadata?: Json
         }
+        Returns: undefined
+      }
+      manage_event_collaboration: {
+        Args: { p_action: string; p_event_id: string }
         Returns: undefined
       }
       manager_has_permission: {
