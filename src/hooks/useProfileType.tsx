@@ -8,6 +8,7 @@ export interface OrgProfile {
   profileType: ProfileType;
   organizationName: string | null;
   organizationLogoUrl: string | null;
+  avatarUrl: string | null;
   onboardingCompleted: boolean;
 }
 
@@ -32,7 +33,7 @@ export function useProfileType() {
     (async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('profile_type, organization_name, organization_logo_url, onboarding_completed')
+        .select('profile_type, organization_name, organization_logo_url, avatar_url, onboarding_completed')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -47,6 +48,7 @@ export function useProfileType() {
           profileType: (data.profile_type ?? 'club') as ProfileType,
           organizationName: data.organization_name,
           organizationLogoUrl: data.organization_logo_url,
+          avatarUrl: data.avatar_url,
           onboardingCompleted: data.onboarding_completed ?? false,
         });
       }

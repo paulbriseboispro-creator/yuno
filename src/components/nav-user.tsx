@@ -23,6 +23,7 @@ import {
   LifeBuoyIcon,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfileType } from "@/hooks/useProfileType";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 
@@ -31,6 +32,7 @@ const ITEM_CLS =
 
 export function NavUser() {
   const { user } = useAuth();
+  const { profile } = useProfileType();
 
   const fullName: string =
     user?.user_metadata?.full_name ||
@@ -40,7 +42,10 @@ export function NavUser() {
 
   const email = user?.email || "";
 
+  // Surface the account's own profile photo (profiles.avatar_url — the same one
+  // members set from their personal profile), then fall back to auth metadata.
   const avatarUrl: string | undefined =
+    profile?.avatarUrl ||
     user?.user_metadata?.avatar_url ||
     user?.user_metadata?.picture ||
     undefined;

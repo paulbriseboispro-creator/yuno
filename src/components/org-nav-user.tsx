@@ -47,6 +47,7 @@ export function OrgNavUser() {
 
   const avatarUrl: string | undefined =
     profile?.organizationLogoUrl ||
+    profile?.avatarUrl ||
     user?.user_metadata?.avatar_url ||
     user?.user_metadata?.picture ||
     undefined;
