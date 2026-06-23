@@ -1,8 +1,12 @@
 import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
+import { useVenueContext } from '@/hooks/useVenueContext';
 import { HeaderActions } from '@/components/HeaderActions';
+import { LanguageSelector } from '@/components/LanguageSelector';
+import { NavUser } from '@/components/nav-user';
 
 interface OwnerHeaderProps {
   title: string;
@@ -18,11 +22,17 @@ export function OwnerHeader({
   rightContent
 }: OwnerHeaderProps) {
   const { basePath } = useDashboardMode();
+  const { mode } = useVenueContext();
   const location = useLocation();
   const defaultBackTo = `${basePath}/dashboard`;
   const actualBackTo = backTo || defaultBackTo;
   // On the notifications page itself the bell popover is redundant — hide it.
   const isOnNotifPage = location.pathname.endsWith('/notifications');
+  // Language + profile menu live in this page header for owners so every owner
+  // sub-page shows the full action cluster, identical to the dashboard home
+  // (AppHeader). Organizers already get them from OrgAppHeader at the layout
+  // level, and managers use a different profile surface — so gate to owner mode.
+  const isOwnerMode = mode === 'owner';
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-background/60 backdrop-blur-xl">
@@ -40,6 +50,20 @@ export function OwnerHeader({
         <div className="flex items-center gap-0.5 sm:gap-1">
           {rightContent}
           <HeaderActions hideBell={isOnNotifPage} />
+          {isOwnerMode && (
+            <>
+              <Separator
+                orientation="vertical"
+                className="mx-1 h-4 data-[orientation=vertical]:self-center"
+              />
+              <LanguageSelector />
+              <Separator
+                orientation="vertical"
+                className="mx-1 h-4 data-[orientation=vertical]:self-center"
+              />
+              <NavUser />
+            </>
+          )}
         </div>
       </div>
     </header>
