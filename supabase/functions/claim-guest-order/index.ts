@@ -215,8 +215,21 @@ serve(async (req) => {
         throw new Error("Cet achat est déjà lié à un autre compte");
       }
 
-      // 2. Require a previously-verified OTP for this purchase
-      // (the user must have proved control of the guest email via the lookup/verify flow)
+      // 2. Proof of ownership. The link is allowed when EITHER:
+      //   (a) the authenticated account's email exactly matches the email the
+      //       purchase was made under. This is the inline post-payment signup
+      //       case: the buyer just paid with this email at checkout and signed
+      //       up with the same email, so the account == the buyer. No OTP needed.
+      //   (b) a verified OTP exists for this purchase. This is the /claim recovery
+      //       flow (GuestFinalizeAccount), where the buyer proved control of the
+      //       guest email by entering a code we emailed them.
+      // Requiring an OTP for BOTH paths used to silently break the inline flow:
+      // it never has an OTP, so link_after_signup threw, the error was swallowed
+      // client-side, and the just-paid ticket was never attached to the account.
+      const purchaseEmail = (purchase.email || "").toLowerCase();
+      const authEmail = (authUser.email || "").toLowerCase();
+      const emailMatches = !!purchaseEmail && !!authEmail && purchaseEmail === authEmail;
+
       const { data: verifiedOtp } = await supabaseAdmin
         .from("guest_claim_otps")
         .select("id, email")
@@ -225,18 +238,22 @@ serve(async (req) => {
         .limit(1)
         .maybeSingle();
 
-      if (!verifiedOtp) {
-        throw new Error("Vérification OTP requise avant de lier l'achat");
+      if (!emailMatches && !verifiedOtp) {
+        logStep("link_after_signup blocked — no email match, no verified OTP", {
+          purchaseId: purchase.id,
+          authEmail,
+        });
+        throw new Error("Impossible de lier cet achat à votre compte");
       }
 
-      // 3. Best-effort: ensure the verified email matches the authenticated user's email
-      // (prevents a logged-in attacker from claiming a guest order they OTP-verified
-      // through someone else's email — defense in depth).
-      if (verifiedOtp.email && authUser.email
-          && verifiedOtp.email.toLowerCase() !== authUser.email.toLowerCase()) {
+      // 3. Defense in depth: if an OTP was used, its email must still match the
+      // authenticated account (prevents claiming a guest order OTP-verified
+      // through someone else's email).
+      if (verifiedOtp?.email && authEmail
+          && verifiedOtp.email.toLowerCase() !== authEmail) {
         logStep("link_after_signup email mismatch between OTP and auth", {
           otpEmail: verifiedOtp.email,
-          authEmail: authUser.email,
+          authEmail,
         });
         throw new Error("L'email vérifié ne correspond pas à votre compte");
       }
