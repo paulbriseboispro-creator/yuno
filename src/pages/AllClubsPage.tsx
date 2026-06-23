@@ -7,6 +7,7 @@ import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { haversineKm, cityMatches, NEAR_RADIUS_KM } from '@/lib/userLocation';
+import { FadeInView } from '@/components/motion';
 
 interface ClubRow {
   id: string;
@@ -138,11 +139,11 @@ export default function AllClubsPage() {
             {emptyMsg}
           </p>
         ) : (
-          visible.map((c) => {
+          visible.map((c, i) => {
             const img = c.coverUrl || c.logoUrl;
             return (
+              <FadeInView key={c.id} index={i < 6 ? i : 0}>
               <button
-                key={c.id}
                 onClick={() => {
                   sessionStorage.setItem('yuno_club_origin', 'explore');
                   navigate(`/club/${c.id}`);
@@ -184,6 +185,7 @@ export default function AllClubsPage() {
                 </div>
                 <span style={{ color: '#5A5A5E', fontSize: 18, flexShrink: 0 }}>→</span>
               </button>
+              </FadeInView>
             );
           })
         )}

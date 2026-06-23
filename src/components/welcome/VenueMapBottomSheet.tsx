@@ -1,5 +1,5 @@
 import { useRef, useMemo, useCallback, useState, useEffect } from 'react';
-import { motion, useMotionValue, useTransform, animate, PanInfo, useDragControls } from 'framer-motion';
+import { motion, useMotionValue, useTransform, animate, PanInfo, useDragControls, useReducedMotion } from 'framer-motion';
 import { MapPin, Music, ChevronUp, ChevronDown } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { MapVenue } from './VenueMap';
@@ -20,6 +20,7 @@ type SheetState = 'collapsed' | 'half' | 'expanded';
 
 export default function VenueMapBottomSheet({ venues, userLocation, onVenueSelect }: VenueMapBottomSheetProps) {
   const { t } = useLanguage();
+  const reduceMotion = useReducedMotion();
   const sheetState = useRef<SheetState>('collapsed');
   const height = useMotionValue(COLLAPSED_H);
   const dragControls = useDragControls();
@@ -38,8 +39,8 @@ export default function VenueMapBottomSheet({ venues, userLocation, onVenueSelec
     const heights = getHeights();
     sheetState.current = state;
     setCurrentState(state);
-    animate(height, heights[state], { type: 'spring', stiffness: 300, damping: 30 });
-  }, [getHeights, height]);
+    animate(height, heights[state], reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 300, damping: 30 });
+  }, [getHeights, height, reduceMotion]);
 
   // Auto-open to half when venues arrive
   // No auto-open: sheet starts collapsed

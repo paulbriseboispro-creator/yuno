@@ -7,6 +7,7 @@ import { makeDjT } from '@/i18n/djTranslate';
 import { DJFilterBar } from './DJFilterBar';
 import { DJMarketplaceCard } from './DJMarketplaceCard';
 import { BookingRequestDialog } from './BookingRequestDialog';
+import { FadeInView } from '@/components/motion';
 import { EMPTY_FILTERS, DEFAULT_BOOKER_RADIUS_KM, type MarketplaceDJ, type MarketplaceFilters, type DiscoveryMode, type ResidentScope } from './types';
 import { geocodeCity } from '@/lib/geocode';
 
@@ -135,15 +136,16 @@ export function DJDiscovery({
         </p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {djs.map((dj) => (
-            <DJMarketplaceCard
-              key={dj.user_id}
-              dj={dj}
-              mode={mode}
-              showAvailability={!!filters.availableOn}
-              onBook={setBookTarget}
-              onViewProfile={setViewTarget}
-            />
+          {djs.map((dj, i) => (
+            <FadeInView key={dj.user_id} index={i < 6 ? i : 0}>
+              <DJMarketplaceCard
+                dj={dj}
+                mode={mode}
+                showAvailability={!!filters.availableOn}
+                onBook={setBookTarget}
+                onViewProfile={setViewTarget}
+              />
+            </FadeInView>
           ))}
           {hasMore && (
             <button

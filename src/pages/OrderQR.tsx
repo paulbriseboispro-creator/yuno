@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import QRCode from 'qrcode';
 import { CheckCircle2, Home, ArrowLeft, Copy, CheckCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,6 +22,7 @@ export default function OrderQR() {
   const orderId = pathOrderId || searchParams.get('orderId');
   const sessionId = searchParams.get('session_id');
   const clearCart = useStore((state) => state.clearCart);
+  const reduceMotion = useReducedMotion();
   
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
@@ -284,13 +285,18 @@ export default function OrderQR() {
             
             {qrDataUrl ? (
               <div className="relative mb-4 inline-block">
-                <div className={`bg-white p-4 rounded-lg ${clickCollectMode && !order.prep_requested ? 'blur-xl opacity-30' : ''}`}>
+                <motion.div
+                  initial={reduceMotion ? { opacity: 0 } : { scale: 0.9, opacity: 0 }}
+                  animate={reduceMotion ? { opacity: 1 } : { scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+                  className={`bg-white p-4 rounded-lg ${clickCollectMode && !order.prep_requested ? 'blur-xl opacity-30' : ''}`}
+                >
                   <img
                     src={qrDataUrl}
                     alt="QR Code"
                     className="w-48 h-48 mx-auto"
                   />
-                </div>
+                </motion.div>
                 {clickCollectMode && !order.prep_requested && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <div className="bg-primary text-primary-foreground px-6 py-4 rounded-2xl shadow-primary text-center">

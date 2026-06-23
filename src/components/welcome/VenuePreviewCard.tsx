@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { MapPin, Calendar, ChevronRight, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -22,6 +22,7 @@ interface VenuePreviewCardProps {
 
 export default function VenuePreviewCard({ venue, onClose, onNavigate }: VenuePreviewCardProps) {
   const { t, language } = useLanguage();
+  const reduceMotion = useReducedMotion();
   const [events, setEvents] = useState<UpcomingEvent[]>([]);
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
 
@@ -45,10 +46,10 @@ export default function VenuePreviewCard({ venue, onClose, onNavigate }: VenuePr
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ y: 100, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 100, opacity: 0 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+        initial={reduceMotion ? { opacity: 0 } : { y: 100, opacity: 0 }}
+        animate={reduceMotion ? { opacity: 1 } : { y: 0, opacity: 1 }}
+        exit={reduceMotion ? { opacity: 0 } : { y: 100, opacity: 0 }}
+        transition={reduceMotion ? { duration: 0.2 } : { type: 'spring', damping: 25, stiffness: 300 }}
         className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+72px)] left-3 right-3 z-30"
       >
         <div className="bg-card border border-border rounded-2xl shadow-xl overflow-hidden">

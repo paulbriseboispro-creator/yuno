@@ -9,6 +9,7 @@ import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { formatCompactCount } from '@/components/formater';
 import { BottomNav } from '@/components/BottomNav';
+import { FadeInView } from '@/components/motion';
 
 interface TopEvent {
   id: string; title: string; start_at: string; poster_url: string | null;
@@ -142,8 +143,8 @@ export default function DJPastEventsPage() {
           </div>
           {past.length > 0 ? (
             <div className="px-5 pt-4">
-              {past.map((e) => (
-                <div key={e.id} className="flex items-center gap-3 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              {past.map((e, i) => (
+                <FadeInView key={e.id} index={i < 6 ? i : 0} className="flex items-center gap-3 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                   <div className="h-14 w-12 shrink-0 overflow-hidden" style={{ borderRadius: 3, background: 'rgba(255,255,255,0.05)' }}>
                     {e.poster_url ? (
                       <img src={getOptimizedImageUrl(e.poster_url, { width: 120, height: 140, quality: 75 })} alt="" loading="lazy" className="w-full h-full object-cover" />
@@ -158,7 +159,7 @@ export default function DJPastEventsPage() {
                       {e.venue_name ? ` · ${e.venue_name}` : ''}
                     </p>
                   </div>
-                </div>
+                </FadeInView>
               ))}
             </div>
           ) : (
