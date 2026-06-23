@@ -102,6 +102,18 @@
   --transition-fast: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-smooth: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
 
+  /* ── Motion language (Yuno) ──────────────────────────────────
+     Courbes custom (les built-in CSS sont trop molles).
+     ease-out = entrées/sorties · ease-in-out = mouvement à l'écran ·
+     ease-drawer = bottom sheets. Jamais ease-in sur de l'UI. */
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);    /* signature Yuno */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);   /* morph / déplacement */
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);   /* drawers / sheets (iOS) */
+  --dur-press:    130ms;   /* feedback press bouton/carte (100–160) */
+  --dur-pop:      180ms;   /* tooltips / petits popovers */
+  --dur-dropdown: 220ms;   /* dropdowns / selects */
+  --dur-modal:    260ms;   /* modales / drawers (gardé serré) */
+
   /* shadcn chart color tokens — Yuno palette */
   --chart-1: 354 84% 51%;   /* Yuno red */
   --chart-2: 354 70% 68%;   /* red-light */
@@ -147,7 +159,13 @@
   }
 
   button, a {
-    @apply transition-all duration-200 ease-out;
+    /* Propriétés explicites (jamais transition: all) — voir motion language */
+    transition: color 150ms var(--ease-out),
+                background-color 150ms var(--ease-out),
+                border-color 150ms var(--ease-out),
+                box-shadow 150ms var(--ease-out),
+                transform var(--dur-press) var(--ease-out),
+                opacity 150ms var(--ease-out);
   }
 
   button:active {
@@ -271,6 +289,40 @@
 }
 
 /* ============================================================
+   REDUCED MOTION (ciblé — pas de sélecteur * universel)
+   ------------------------------------------------------------
+   "réduit" = opacité/couleur conservées, mouvement supprimé.
+   On NE touche PAS aux indicateurs d'état continus (.dot-live,
+   .animate-pulse-dot, .animate-marquee, .yuno-scan-line, .yuno-qr-pulse)
+   qui restent légitimes. Le côté framer-motion est géré par
+   useReducedMotion() dans chaque wrapper (src/lib/motion.ts).
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+
+  /* Entrées : on garde le fondu, on coupe le déplacement */
+  .animate-hero-label,
+  .animate-hero-h1,
+  .animate-hero-body,
+  .animate-hero-cta,
+  .stagger-grid > *,
+  .reveal.is-visible,
+  .animate-fade-up {
+    animation: fade-in-fast 0.2s ease forwards !important;
+    animation-delay: 0ms !important;
+  }
+
+  /* Hovers à base de transform : neutralisés (couleur conservée) */
+  .event-card:hover,
+  .event-card:active,
+  .btn--primary:hover,
+  .btn--ghost:hover,
+  .btn--secondary:hover {
+    transform: none !important;
+  }
+}
+
+/* ============================================================
    BUTTONS
    ============================================================ */
 
@@ -351,7 +403,15 @@
   cursor: pointer;
 }
 .event-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,0.4); border-color: rgba(232, 25, 44, 0.28); }
-.event-card:active { transform: translateY(-2px); }
+/* Press : scale-down subtil (feedback "on entre dans l'écran"), GPU, mobile-first */
+.event-card:active { transform: scale(0.985); }
+
+/* Zoom image au survol — gardé pour le desktop hover-capable uniquement
+   (évite le hover collant au tap sur tactile) ET coupé en reduced-motion. */
+.event-card-img { transition: transform 700ms var(--ease-out); }
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .event-card:hover .event-card-img { transform: scale(1.04); }
+}
 
 /* ============================================================
    BADGE LIVE
