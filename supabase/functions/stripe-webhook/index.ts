@@ -57,6 +57,119 @@ function resolvePlanFromSubscription(subscription: Stripe.Subscription): string 
   return "essential";
 }
 
+// P0-6 — Was the underlying sale refunded before its held transfers were released?
+// If so, the refund handler already cancelled the legs; this is a belt-and-braces
+// check so the release cron never pays out a refunded sale.
+async function saleIsRefunded(
+  admin: ReturnType<typeof createClient>,
+  row: { ticket_id: string | null; table_reservation_id: string | null; order_id: string | null },
+): Promise<boolean> {
+  if (row.ticket_id) {
+    const { data } = await admin.from("tickets").select("status").eq("id", row.ticket_id).maybeSingle();
+    return data?.status === "refunded";
+  }
+  if (row.table_reservation_id) {
+    const { data } = await admin.from("table_reservations").select("status").eq("id", row.table_reservation_id).maybeSingle();
+    return data?.status === "cancelled" || data?.status === "refunded";
+  }
+  if (row.order_id) {
+    const { data } = await admin.from("orders").select("status").eq("id", row.order_id).maybeSingle();
+    return data?.status === "refunded" || data?.status === "cancelled";
+  }
+  return false;
+}
+
+// P0-6 — Release co-event transfers whose refund window has closed. Called by the
+// 'release-held-co-event-transfers' pg_cron job. Fires the held ('scheduled') primary
+// and secondary transfers from the platform balance to the connected accounts, unless
+// the sale was refunded in the meantime (then the legs are cancelled, money stays put).
+async function releaseHeldTransfers(stripe: Stripe, admin: ReturnType<typeof createClient>) {
+  const nowIso = new Date().toISOString();
+  const { data: due } = await admin
+    .from("revenue_distributions")
+    .select("id, payment_intent_id, transfer_group_id, event_id, item_type, ticket_id, table_reservation_id, order_id, primary_account_id, primary_amount_cents, primary_transfer_status, secondary_account_id, secondary_amount_cents, secondary_transfer_status")
+    .lte("transfers_release_at", nowIso)
+    .or("primary_transfer_status.eq.scheduled,secondary_transfer_status.eq.scheduled")
+    .limit(200);
+
+  let released = 0;
+  let skipped = 0;
+  for (const row of (due ?? []) as Array<Record<string, any>>) {
+    // Refunded before release → cancel any still-scheduled legs, never pay out.
+    if (await saleIsRefunded(admin, row)) {
+      await admin.from("revenue_distributions").update({
+        primary_transfer_status: row.primary_transfer_status === "scheduled" ? "cancelled" : row.primary_transfer_status,
+        secondary_transfer_status: row.secondary_transfer_status === "scheduled" ? "cancelled" : row.secondary_transfer_status,
+      }).eq("id", row.id);
+      skipped++;
+      continue;
+    }
+
+    // The transfer needs the charge as source_transaction.
+    let charge: string | null = null;
+    let currency = "eur";
+    try {
+      const pi = await stripe.paymentIntents.retrieve(row.payment_intent_id);
+      charge = (pi.latest_charge as string) ?? null;
+      currency = pi.currency || "eur";
+    } catch (e) {
+      logStep("release: PI retrieve failed", { pi: row.payment_intent_id, error: (e as Error).message });
+      continue;
+    }
+    if (!charge) continue;
+
+    const fireLeg = async (
+      role: "primary" | "secondary",
+      accountId: string | null,
+      amountCents: number,
+    ) => {
+      const statusCol = role === "primary" ? "primary_transfer_status" : "secondary_transfer_status";
+      const idCol = role === "primary" ? "primary_transfer_id" : "secondary_transfer_id";
+      const errCol = role === "primary" ? "primary_transfer_error" : "secondary_transfer_error";
+      if (!accountId || amountCents <= 0) {
+        await admin.from("revenue_distributions").update({ [statusCol]: "not_required" }).eq("id", row.id);
+        return;
+      }
+      try {
+        const transfer = await stripe.transfers.create({
+          amount: amountCents,
+          currency,
+          destination: accountId,
+          source_transaction: charge!,
+          transfer_group: row.transfer_group_id ?? undefined,
+          metadata: {
+            payment_intent_id: row.payment_intent_id,
+            event_id: row.event_id || "",
+            item_type: row.item_type || "",
+            role,
+            released: "1",
+          },
+        });
+        await admin.from("revenue_distributions").update({
+          [idCol]: transfer.id,
+          [statusCol]: "succeeded",
+          [errCol]: null,
+        }).eq("id", row.id);
+      } catch (e) {
+        await admin.from("revenue_distributions").update({
+          [statusCol]: "failed",
+          [errCol]: (e as Error).message,
+        }).eq("id", row.id);
+        logStep("release: transfer failed", { role, pi: row.payment_intent_id, error: (e as Error).message });
+      }
+    };
+
+    if (row.primary_transfer_status === "scheduled") {
+      await fireLeg("primary", row.primary_account_id, row.primary_amount_cents || 0);
+    }
+    if (row.secondary_transfer_status === "scheduled") {
+      await fireLeg("secondary", row.secondary_account_id, row.secondary_amount_cents || 0);
+    }
+    released++;
+  }
+  return { due: due?.length ?? 0, released, skipped };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -108,6 +221,14 @@ serve(async (req) => {
         }
         logStep("DJ auto-release run", { due: due?.length ?? 0, released });
         return new Response(JSON.stringify({ success: true, due: due?.length ?? 0, released }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (payload.task === "release_held_transfers") {
+        const result = await releaseHeldTransfers(stripe, admin);
+        logStep("Held-transfer release run", result);
+        return new Response(JSON.stringify({ success: true, ...result }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -443,8 +564,29 @@ serve(async (req) => {
         const organizerPctApplied = md.organizer_pct_applied ? Number(md.organizer_pct_applied) : null;
         const partnershipId = md.partnership_id || null;
 
+        // P0-6 — HOLD: we no longer transfer to the connected accounts at sale time.
+        // Compute a release date (event end + refund window) and mark transfers
+        // 'scheduled'. The 'release_held_transfers' cron task fires them once the window
+        // has closed and the sale wasn't refunded. A refund before release reverses
+        // nothing (no money ever left the platform) → eliminates the refund-after-payout
+        // loss (R1). DIRECT charges are unaffected (single recipient, money already on
+        // their own account, no platform-held split to protect).
+        const REFUND_WINDOW_DAYS = 2;
+        let transfersReleaseAt: string | null = null;
+        if (needsPrimaryTransfer || needsSecondary) {
+          let endIso: string | null = null;
+          if (md.event_id) {
+            const { data: evRow } = await supabaseClient
+              .from("events").select("end_at, start_at").eq("id", md.event_id).maybeSingle();
+            endIso = (evRow?.end_at as string | null) ?? (evRow?.start_at as string | null) ?? null;
+          }
+          const nowMs = Date.now();
+          const baseMs = endIso ? new Date(endIso).getTime() : nowMs;
+          transfersReleaseAt = new Date(Math.max(baseMs, nowMs) + REFUND_WINDOW_DAYS * 86400000).toISOString();
+        }
+
         // Insert ledger row (idempotent on payment_intent_id)
-        const { data: ledger, error: ledgerErr } = await supabaseClient
+        const { error: ledgerErr } = await supabaseClient
           .from("revenue_distributions")
           .upsert({
             payment_intent_id: pi.id,
@@ -462,94 +604,35 @@ serve(async (req) => {
             primary_recipient_kind: md.split_primary_kind || null,
             primary_recipient_venue_id: md.split_primary_venue_id || null,
             primary_recipient_organizer_id: md.split_primary_organizer_id || null,
-            primary_transfer_status: needsPrimaryTransfer ? "pending" : "not_required",
+            primary_transfer_status: needsPrimaryTransfer ? "scheduled" : "not_required",
             secondary_account_id: secondaryAccount,
             secondary_amount_cents: secondaryAmountCents,
             secondary_recipient_kind: md.split_secondary_kind || null,
             secondary_recipient_venue_id: md.split_secondary_venue_id || null,
             secondary_recipient_organizer_id: md.split_secondary_organizer_id || null,
-            secondary_transfer_status: needsSecondary ? "pending" : "not_required",
+            secondary_transfer_status: needsSecondary ? "scheduled" : "not_required",
+            transfers_release_at: transfersReleaseAt,
             // Audit snapshot — what contract was actually applied at sale time
             split_rules_applied: splitRulesApplied,
             venue_pct_applied: venuePctApplied,
             organizer_pct_applied: organizerPctApplied,
             partnership_id: partnershipId,
             stripe_fee_estimated_cents: stripeFeeEstimatedCents,
-          }, { onConflict: "payment_intent_id" })
-          .select("id, primary_transfer_status, secondary_transfer_status")
-          .maybeSingle();
+          }, { onConflict: "payment_intent_id" });
 
         if (ledgerErr) {
           logStep("Ledger upsert error", { error: ledgerErr.message });
         }
 
-        // SEPARATE mode → fire PRIMARY transfer first (charge sits on the platform).
-        if (needsPrimaryTransfer && ledger?.primary_transfer_status === "pending") {
-          try {
-            const charge = pi.latest_charge as string;
-            const transfer = await stripe.transfers.create({
-              amount: primaryAmountCents,
-              currency: pi.currency,
-              destination: primaryAccount!,
-              source_transaction: charge,
-              transfer_group: transferGroup ?? undefined,
-              metadata: {
-                payment_intent_id: pi.id,
-                event_id: md.event_id || "",
-                item_type: itemType,
-                role: "primary",
-              },
-            });
-            await supabaseClient.from("revenue_distributions").update({
-              primary_transfer_id: transfer.id,
-              primary_transfer_status: "succeeded",
-              primary_transfer_attempts: 1,
-            }).eq("payment_intent_id", pi.id);
-            logStep("Primary transfer succeeded", { transferId: transfer.id, amount: primaryAmountCents });
-          } catch (transferErr) {
-            const errMsg = (transferErr as Error).message;
-            await supabaseClient.from("revenue_distributions").update({
-              primary_transfer_status: "failed",
-              primary_transfer_error: errMsg,
-              primary_transfer_attempts: 1,
-            }).eq("payment_intent_id", pi.id);
-            logStep("Primary transfer FAILED", { error: errMsg });
-          }
-        }
-
-        // Fire SECONDARY transfer if needed (works for both modes —
-        // separate uses platform charge, destination uses on_behalf_of constraints).
-        if (needsSecondary && ledger?.secondary_transfer_status === "pending") {
-          try {
-            const charge = pi.latest_charge as string;
-            const transfer = await stripe.transfers.create({
-              amount: secondaryAmountCents,
-              currency: pi.currency,
-              destination: secondaryAccount!,
-              source_transaction: charge,
-              transfer_group: transferGroup ?? undefined,
-              metadata: {
-                payment_intent_id: pi.id,
-                event_id: md.event_id || "",
-                item_type: itemType,
-                role: "secondary",
-              },
-            });
-            await supabaseClient.from("revenue_distributions").update({
-              secondary_transfer_id: transfer.id,
-              secondary_transfer_status: "succeeded",
-              secondary_transfer_attempts: 1,
-            }).eq("payment_intent_id", pi.id);
-            logStep("Secondary transfer succeeded", { transferId: transfer.id, amount: secondaryAmountCents });
-          } catch (transferErr) {
-            const errMsg = (transferErr as Error).message;
-            await supabaseClient.from("revenue_distributions").update({
-              secondary_transfer_status: "failed",
-              secondary_transfer_error: errMsg,
-              secondary_transfer_attempts: 1,
-            }).eq("payment_intent_id", pi.id);
-            logStep("Secondary transfer FAILED", { error: errMsg });
-          }
+        // P0-6 — transfers are NOT fired here anymore. They are held ('scheduled') and
+        // released by the 'release_held_transfers' cron task once the refund window has
+        // closed and the sale wasn't refunded. See releaseHeldTransfers() below.
+        if (needsPrimaryTransfer || needsSecondary) {
+          logStep("Co-event transfers held until release", {
+            releaseAt: transfersReleaseAt,
+            primaryCents: needsPrimaryTransfer ? primaryAmountCents : 0,
+            secondaryCents: needsSecondary ? secondaryAmountCents : 0,
+          });
         }
 
         // Reconcile actual Stripe processing fee from balance_transaction.
@@ -625,7 +708,7 @@ serve(async (req) => {
           try {
             const { data: dist } = await supabaseClient
               .from("revenue_distributions")
-              .select("id, split_mode, primary_transfer_id, primary_transfer_status, primary_amount_cents, secondary_transfer_id, secondary_transfer_status, secondary_amount_cents, gross_amount_cents")
+              .select("id, split_mode, primary_transfer_id, primary_transfer_status, primary_amount_cents, primary_account_id, secondary_transfer_id, secondary_transfer_status, secondary_amount_cents, secondary_account_id, gross_amount_cents")
               .eq("payment_intent_id", piId)
               .maybeSingle();
 
@@ -634,79 +717,75 @@ serve(async (req) => {
               const grossCents = dist.gross_amount_cents || charge.amount;
               const isFull = refundedCents >= grossCents;
 
-              // 1) Reverse PRIMARY transfer (only exists in separate mode — destination
-              //    mode is auto-handled by Stripe via reverse_transfer on the refund itself)
-              if (dist.primary_transfer_id && dist.primary_transfer_status === "succeeded") {
-                const primaryCents = dist.primary_amount_cents || 0;
-                const primaryReversal = grossCents > 0
-                  ? Math.min(primaryCents, Math.round((primaryCents * refundedCents) / grossCents))
-                  : 0;
-                if (primaryReversal > 0) {
-                  const reversal = await stripe.transfers.createReversal(dist.primary_transfer_id, {
-                    amount: primaryReversal,
-                    metadata: {
-                      payment_intent_id: piId,
-                      refund_amount_cents: String(refundedCents),
-                      reason: "client_refund_symmetric",
-                      role: "primary",
-                    },
-                  });
-                  await supabaseClient
-                    .from("revenue_distributions")
-                    .update({
-                      primary_transfer_status: isFull ? "refunded" : "partially_refunded",
-                      primary_transfer_error: null,
-                    })
-                    .eq("id", dist.id);
-                  logStep("Primary transfer reversed", {
-                    transferId: dist.primary_transfer_id,
-                    reversalId: reversal.id,
-                    amount: primaryReversal,
-                    full: isFull,
-                  });
+              // Reverse one leg.
+              //  - 'scheduled' (held, never fired) → just cancel: no money left the
+              //    platform, nothing to claw back. This is the safe-by-design path when
+              //    the refund happens before the release window closes.
+              //  - 'succeeded' (already paid out) → attempt the reversal; on failure
+              //    record a clawback (tracked debt) instead of losing money silently.
+              const handleLeg = async (
+                role: "primary" | "secondary",
+                transferId: string | null,
+                status: string | null,
+                accountId: string | null,
+                amountCents: number,
+              ) => {
+                const statusCol = role === "primary" ? "primary_transfer_status" : "secondary_transfer_status";
+                if (status === "scheduled") {
+                  await supabaseClient.from("revenue_distributions")
+                    .update({ [statusCol]: "cancelled" }).eq("id", dist.id);
+                  logStep(`${role} transfer cancelled (was held, never fired)`, { piId });
+                  return;
                 }
-              }
-
-              // 2) Reverse SECONDARY transfer
-              if (dist.secondary_transfer_id && dist.secondary_transfer_status === "succeeded") {
-                const secondaryCents = dist.secondary_amount_cents || 0;
+                if (!transferId || status !== "succeeded") return;
                 const reversalAmount = grossCents > 0
-                  ? Math.min(secondaryCents, Math.round((secondaryCents * refundedCents) / grossCents))
+                  ? Math.min(amountCents, Math.round((amountCents * refundedCents) / grossCents))
                   : 0;
-                if (reversalAmount > 0) {
-                  const reversal = await stripe.transfers.createReversal(dist.secondary_transfer_id, {
+                if (reversalAmount <= 0) return;
+                try {
+                  const reversal = await stripe.transfers.createReversal(transferId, {
                     amount: reversalAmount,
                     metadata: {
                       payment_intent_id: piId,
                       refund_amount_cents: String(refundedCents),
                       reason: "client_refund_symmetric",
-                      role: "secondary",
+                      role,
                     },
                   });
-                  await supabaseClient
-                    .from("revenue_distributions")
-                    .update({
-                      secondary_transfer_status: isFull ? "refunded" : "partially_refunded",
-                      secondary_transfer_error: null,
-                    })
+                  await supabaseClient.from("revenue_distributions")
+                    .update({ [statusCol]: isFull ? "refunded" : "partially_refunded" })
                     .eq("id", dist.id);
-                  logStep("Secondary transfer reversed", {
-                    transferId: dist.secondary_transfer_id,
-                    reversalId: reversal.id,
-                    amount: reversalAmount,
-                    full: isFull,
+                  logStep(`${role} transfer reversed`, { transferId, reversalId: reversal.id, amount: reversalAmount, full: isFull });
+                } catch (revErr) {
+                  // Money is OUT and could not be clawed back → record the debt, never lose it silently.
+                  const errMsg = (revErr as Error).message;
+                  await supabaseClient.from("transfer_clawbacks").insert({
+                    payment_intent_id: piId,
+                    revenue_distribution_id: dist.id,
+                    role,
+                    account_id: accountId,
+                    transfer_id: transferId,
+                    amount_cents: reversalAmount,
+                    reason: "client_refund_reversal_failed",
+                    error: errMsg,
                   });
+                  logStep(`${role} transfer reversal FAILED → clawback recorded`, { transferId, amount: reversalAmount, error: errMsg });
                 }
-              }
+              };
+
+              await handleLeg("primary", dist.primary_transfer_id, dist.primary_transfer_status, dist.primary_account_id, dist.primary_amount_cents || 0);
+              await handleLeg("secondary", dist.secondary_transfer_id, dist.secondary_transfer_status, dist.secondary_account_id, dist.secondary_amount_cents || 0);
             }
           } catch (revErr) {
             const errMsg = (revErr as Error).message;
-            logStep("Transfer reversal FAILED", { error: errMsg, piId });
-            // Best-effort: log but do not throw — client refund must succeed regardless.
-            await supabaseClient
-              .from("revenue_distributions")
-              .update({ secondary_transfer_error: `Reversal failed: ${errMsg}` })
-              .eq("payment_intent_id", piId);
+            logStep("Transfer reversal handler FAILED", { error: errMsg, piId });
+            // Never throw — the client refund must succeed regardless. Record the debt.
+            await supabaseClient.from("transfer_clawbacks").insert({
+              payment_intent_id: piId,
+              role: "secondary",
+              reason: "refund_handler_exception",
+              error: errMsg,
+            });
           }
         }
         break;
