@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { buildWaitlistOpen, fmtDateParts } from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -148,58 +149,25 @@ serve(async (req) => {
       // Build purchase URL
       const purchaseUrl = `${appUrl}/club/${venue?.id || venueId}/event/${round.event_id}/tickets/${roundId}?waitlist=true`;
 
-      // Send email with Yuno branding (red/black theme)
+      // Build meta (date · time) from event start
+      const lang = 'fr';
+      const dp = fmtDateParts(round.events.start_at, lang);
+      const meta = [`${dp.day} ${dp.month}`.trim(), dp.time].filter(Boolean).join(' · ');
+
+      // Send email with Yuno editorial template
       try {
+        const mail = buildWaitlistOpen({
+          lang,
+          eventTitle: round.events.title,
+          venueName: venue?.name || 'Yuno',
+          meta,
+          url: purchaseUrl,
+        });
         const emailResponse = await resend.emails.send({
           from: "Yuno <noreply@yunoapp.eu>",
           to: [entry.email],
-          subject: `🎟️ Place disponible pour ${round.events.title}!`,
-          html: `
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta charset="utf-8">
-              <style>
-                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #050505; color: #fff; }
-                .container { max-width: 500px; margin: 0 auto; background: #0a0a0a; border-radius: 16px; padding: 32px; border: 1px solid rgba(255,255,255,0.05); }
-                .logo { text-align: center; margin-bottom: 24px; font-size: 28px; font-weight: bold; color: #dc2626; }
-                h1 { color: #fff; margin: 0 0 16px 0; font-size: 24px; }
-                p { color: #a0a0a0; line-height: 1.6; margin: 0 0 16px 0; }
-                .highlight { color: #dc2626; font-weight: bold; }
-                .price { font-size: 32px; font-weight: bold; color: #fff; margin: 24px 0; text-align: center; }
-                .timer { background: #1a1a1a; border-radius: 8px; padding: 12px 16px; margin: 16px 0; border-left: 4px solid #f59e0b; }
-                .timer p { color: #f59e0b; margin: 0; font-weight: 500; }
-                .button { display: inline-block; background: #dc2626; color: #fff !important; text-decoration: none; padding: 16px 32px; border-radius: 12px; font-weight: bold; font-size: 16px; margin: 24px 0; }
-                .button:hover { background: #b91c1c; }
-                .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 12px; color: #666; }
-              </style>
-            </head>
-            <body>
-              <div class="container">
-                <div class="logo">YUNO</div>
-                <h1>🎉 Une place s'est libérée!</h1>
-                <p>Bonne nouvelle! Une place est disponible pour <span class="highlight">${round.events.title}</span>.</p>
-                <p>Vous étiez en position <strong style="color:#fff;">#${entry.position}</strong> sur la liste d'attente.</p>
-                
-                <div class="price">${purchasePrice} €</div>
-                
-                <div class="timer">
-                  <p>⏱️ Vous avez 30 minutes pour réserver votre place!</p>
-                </div>
-                
-                <center>
-                  <a href="${purchaseUrl}" class="button">Acheter maintenant →</a>
-                </center>
-                
-                <p style="font-size: 14px;">Si vous n'achetez pas dans les 30 minutes, la place sera proposée à la personne suivante.</p>
-                
-                <div class="footer">
-                  <p>Cet email a été envoyé car vous étiez inscrit sur la liste d'attente pour ${round.events.title}.</p>
-                </div>
-              </div>
-            </body>
-            </html>
-          `,
+          subject: mail.subject,
+          html: mail.html,
         });
 
         logStep("Email sent", { email: entry.email, position: entry.position });

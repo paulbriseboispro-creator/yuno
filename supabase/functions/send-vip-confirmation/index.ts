@@ -1,11 +1,12 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
-import { 
-  EmailLanguage, 
-  t, 
+import {
+  EmailLanguage,
+  t,
   wrapEmailWithBranding,
-  escapeHtml 
+  escapeHtml
 } from "../_shared/email-branding.ts";
+import { buildVipConfirmation, fmtDateParts } from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -55,7 +56,7 @@ serve(async (req) => {
     const { data: reservation, error: resError } = await supabaseAdmin
       .from('table_reservations')
       .select(`
-        id, user_email, user_id, full_name, minimum_spend, total_price, qr_code, reference_code,
+        id, user_email, user_id, full_name, minimum_spend, total_price, guest_count, qr_code, reference_code,
         zone_id,
         table_zones(name, venue_id),
         events!inner(id, title, start_at, venue_id, poster_url, location_name, location_address, location_is_secret, reveal_address_in_email, venues!events_venue_id_fkey(name, address))
@@ -306,7 +307,41 @@ serve(async (req) => {
       </div>
     `;
 
-    const html = wrapEmailWithBranding(emailContent, lang, venueName);
+    // For the "confirmed" (booked) email, render via the new shared editorial
+    // builder. The other types (request_received / modified / refused) have no
+    // dedicated builder, so they keep the inline emailContent above.
+    let html: string;
+    let finalSubject = subject;
+    if (type === 'confirmed') {
+      const dp = fmtDateParts(event.start_at, lang);
+      const gc = reservation.guest_count ?? 0;
+      const guestsStr = gc > 0
+        ? (lang === 'fr'
+            ? `${gc} ${gc > 1 ? 'personnes' : 'personne'}`
+            : lang === 'es'
+            ? `${gc} ${gc > 1 ? 'personas' : 'persona'}`
+            : `${gc} ${gc > 1 ? 'guests' : 'guest'}`)
+        : '—';
+      const mail = buildVipConfirmation({
+        lang,
+        firstName: firstName || undefined,
+        eventTitle,
+        venueName,
+        posterUrl: event?.poster_url || undefined,
+        day: dp.day,
+        month: dp.month,
+        arrivalTime: dp.time,
+        tableName: zone?.name || (lang === 'fr' ? 'Table VIP' : lang === 'es' ? 'Mesa VIP' : 'VIP table'),
+        guests: guestsStr,
+        total: `€${(reservation.total_price ?? reservation.minimum_spend ?? 0).toFixed(2)}`,
+        reference: reservation.reference_code || reservation.qr_code || '',
+        manageUrl: `${appBaseUrl}/my-orders`,
+      });
+      html = mail.html;
+      finalSubject = mail.subject;
+    } else {
+      html = wrapEmailWithBranding(emailContent, lang, venueName);
+    }
 
     const rawFrom = Deno.env.get('RESEND_FROM_EMAIL');
     const from = rawFrom
@@ -319,7 +354,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${resendApiKey}`,
       },
-      body: JSON.stringify({ from, to: [customerEmail], subject, html }),
+      body: JSON.stringify({ from, to: [customerEmail], subject: finalSubject, html }),
     });
 
     if (!res.ok) {

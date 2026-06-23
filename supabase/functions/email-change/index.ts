@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { wrapEmailWithBranding, type EmailLanguage } from "../_shared/email-branding.ts";
+import { type EmailLanguage } from "../_shared/email-branding.ts";
+import { buildSecureLink } from "../_shared/email-templates.ts";
 
 // Unified email-change dispatcher.
 // Replaces: request-email-change, submit-new-email, verify-email-change.
@@ -160,55 +161,31 @@ serve(async (req) => {
         en: "Email change verification",
         es: "Verificación de cambio de email",
       };
-
-      const bodies: Record<EmailLanguage, string> = {
-        fr: `
-          <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 30px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">Changement d'email</h1>
-          </div>
-          <div style="padding: 32px;">
-            <p style="color: #a0a0a0; line-height: 1.6;">Tu as demandé à changer ton adresse email. Clique sur le bouton ci-dessous pour confirmer que c'est bien toi.</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${verifyUrl}" style="display: inline-block; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: #fff !important; text-decoration: none; padding: 16px 32px; border-radius: 12px; font-weight: bold; font-size: 16px;">
-                Confirmer →
-              </a>
-            </div>
-            <p style="color: #666; font-size: 12px;">Ce lien expire dans 15 minutes. Si tu n'as pas fait cette demande, ignore cet email.</p>
-          </div>`,
-        en: `
-          <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 30px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">Email Change</h1>
-          </div>
-          <div style="padding: 32px;">
-            <p style="color: #a0a0a0; line-height: 1.6;">You requested to change your email address. Click the button below to confirm it's you.</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${verifyUrl}" style="display: inline-block; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: #fff !important; text-decoration: none; padding: 16px 32px; border-radius: 12px; font-weight: bold; font-size: 16px;">
-                Confirm →
-              </a>
-            </div>
-            <p style="color: #666; font-size: 12px;">This link expires in 15 minutes. If you didn't make this request, ignore this email.</p>
-          </div>`,
-        es: `
-          <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 30px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">Cambio de email</h1>
-          </div>
-          <div style="padding: 32px;">
-            <p style="color: #a0a0a0; line-height: 1.6;">Has solicitado cambiar tu dirección de email. Haz clic en el botón de abajo para confirmar que eres tú.</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${verifyUrl}" style="display: inline-block; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: #fff !important; text-decoration: none; padding: 16px 32px; border-radius: 12px; font-weight: bold; font-size: 16px;">
-                Confirmar →
-              </a>
-            </div>
-            <p style="color: #666; font-size: 12px;">Este enlace expira en 15 minutos. Si no hiciste esta solicitud, ignora este email.</p>
-          </div>`,
+      const messages: Record<EmailLanguage, string> = {
+        fr: "Tu as demandé à changer ton adresse email. Confirme que c'est bien toi ci-dessous. Ce lien expire dans 15 minutes.",
+        en: "You requested to change your email address. Confirm it's you below. This link expires in 15 minutes.",
+        es: "Has solicitado cambiar tu dirección de email. Confirma que eres tú abajo. Este enlace caduca en 15 minutos.",
+      };
+      const ctaLabels: Record<EmailLanguage, string> = { fr: "Confirmer", en: "Confirm", es: "Confirmar" };
+      const footnotes: Record<EmailLanguage, string> = {
+        fr: "Si tu n'as pas fait cette demande, ignore cet email.",
+        en: "If you didn't make this request, ignore this email.",
+        es: "Si no hiciste esta solicitud, ignora este email.",
       };
 
-      const html = wrapEmailWithBranding(bodies[lang], lang);
+      const mail = buildSecureLink({
+        lang,
+        title: subjects[lang],
+        message: messages[lang],
+        ctaLabel: ctaLabels[lang],
+        ctaUrl: verifyUrl,
+        footnote: footnotes[lang],
+      });
 
       const emailRes = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${RESEND_API_KEY}` },
-        body: JSON.stringify({ from: emailFrom(), to: [user.email], subject: subjects[lang], html }),
+        body: JSON.stringify({ from: emailFrom(), to: [user.email], subject: mail.subject, html: mail.html }),
       });
 
       if (!emailRes.ok) {
@@ -295,55 +272,31 @@ serve(async (req) => {
         en: "Confirm your new email address",
         es: "Confirma tu nueva dirección de email",
       };
-
-      const bodies: Record<EmailLanguage, string> = {
-        fr: `
-          <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 30px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">Nouvelle adresse email</h1>
-          </div>
-          <div style="padding: 32px;">
-            <p style="color: #a0a0a0; line-height: 1.6;">Clique sur le bouton ci-dessous pour confirmer ta nouvelle adresse email.</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${verifyUrl}" style="display: inline-block; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: #fff !important; text-decoration: none; padding: 16px 32px; border-radius: 12px; font-weight: bold; font-size: 16px;">
-                Confirmer →
-              </a>
-            </div>
-            <p style="color: #666; font-size: 12px;">Ce lien expire dans 15 minutes.</p>
-          </div>`,
-        en: `
-          <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 30px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">New Email Address</h1>
-          </div>
-          <div style="padding: 32px;">
-            <p style="color: #a0a0a0; line-height: 1.6;">Click the button below to confirm your new email address.</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${verifyUrl}" style="display: inline-block; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: #fff !important; text-decoration: none; padding: 16px 32px; border-radius: 12px; font-weight: bold; font-size: 16px;">
-                Confirm →
-              </a>
-            </div>
-            <p style="color: #666; font-size: 12px;">This link expires in 15 minutes.</p>
-          </div>`,
-        es: `
-          <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 30px; text-align: center;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">Nueva dirección de email</h1>
-          </div>
-          <div style="padding: 32px;">
-            <p style="color: #a0a0a0; line-height: 1.6;">Haz clic en el botón de abajo para confirmar tu nueva dirección de email.</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${verifyUrl}" style="display: inline-block; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: #fff !important; text-decoration: none; padding: 16px 32px; border-radius: 12px; font-weight: bold; font-size: 16px;">
-                Confirmar →
-              </a>
-            </div>
-            <p style="color: #666; font-size: 12px;">Este enlace expira en 15 minutos.</p>
-          </div>`,
+      const messages: Record<EmailLanguage, string> = {
+        fr: "Confirme ta nouvelle adresse email ci-dessous. Ce lien expire dans 15 minutes.",
+        en: "Confirm your new email address below. This link expires in 15 minutes.",
+        es: "Confirma tu nueva dirección de email abajo. Este enlace caduca en 15 minutos.",
+      };
+      const ctaLabels: Record<EmailLanguage, string> = { fr: "Confirmer", en: "Confirm", es: "Confirmar" };
+      const footnotes: Record<EmailLanguage, string> = {
+        fr: "Si tu n'as pas fait cette demande, ignore cet email.",
+        en: "If you didn't make this request, ignore this email.",
+        es: "Si no hiciste esta solicitud, ignora este email.",
       };
 
-      const html = wrapEmailWithBranding(bodies[lang], lang);
+      const mail = buildSecureLink({
+        lang,
+        title: subjects[lang],
+        message: messages[lang],
+        ctaLabel: ctaLabels[lang],
+        ctaUrl: verifyUrl,
+        footnote: footnotes[lang],
+      });
 
       const emailRes = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${RESEND_API_KEY}` },
-        body: JSON.stringify({ from: emailFrom(), to: [new_email], subject: subjects[lang], html }),
+        body: JSON.stringify({ from: emailFrom(), to: [new_email], subject: mail.subject, html: mail.html }),
       });
 
       if (!emailRes.ok) {

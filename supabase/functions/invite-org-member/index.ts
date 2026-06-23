@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildInvitation } from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -98,26 +99,12 @@ serve(async (req) => {
       const acceptUrl = `${appUrl}/accept-org-member?token=${invitation.invitation_token}`;
       const roleLabel = role === "admin" ? "Administrateur" : role === "editor" ? "Éditeur" : "Scanner";
 
-      const emailHtml = `
-        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
-          <div style="background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%); padding: 48px 32px; text-align: center;">
-            <h1 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: 700;">Rejoignez l'équipe</h1>
-          </div>
-          <div style="padding: 40px 32px;">
-            <p style="color: #0a0a0a; font-size: 16px; line-height: 1.6; margin: 0 0 16px;">
-              <strong style="color: #dc2626;">${profile.organization_name}</strong> vous invite à rejoindre son équipe sur Yuno en tant que <strong>${roleLabel}</strong>.
-            </p>
-            <div style="text-align: center; margin: 32px 0;">
-              <a href="${acceptUrl}" style="display: inline-block; background: #dc2626; color: white; padding: 16px 36px; text-decoration: none; border-radius: 10px; font-weight: 600;">
-                Rejoindre l'équipe
-              </a>
-            </div>
-            <p style="color: #a3a3a3; font-size: 13px; text-align: center; margin: 24px 0 0;">
-              Cette invitation expire dans 14 jours.
-            </p>
-          </div>
-        </div>
-      `;
+      const mail = buildInvitation({
+        lang: "fr",
+        orgName: profile.organization_name,
+        roleLabel,
+        acceptUrl,
+      });
 
       const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL") ?? "noreply@yunoapp.eu";
       const from = resendFromEmail.includes("<") ? resendFromEmail : `Yuno <${resendFromEmail}>`;
@@ -131,8 +118,8 @@ serve(async (req) => {
         body: JSON.stringify({
           from,
           to: [normalizedEmail],
-          subject: `Invitation équipe · ${profile.organization_name}`,
-          html: emailHtml,
+          subject: mail.subject,
+          html: mail.html,
         }),
       });
       if (!res.ok) {

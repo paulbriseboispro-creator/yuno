@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { buildInvitation } from '../_shared/email-templates.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -142,7 +143,6 @@ Deno.serve(async (req) => {
     const { data: existingInvitation } = await invitationQuery.limit(1);
 
     let invitationToken: string;
-    let usedPromoCode = finalPromoCode;
 
     if (existingInvitation && existingInvitation.length > 0) {
       if (resend) {
@@ -152,7 +152,6 @@ Deno.serve(async (req) => {
           .update({ token: newToken, expires_at: newExpiry.toISOString() })
           .eq('id', existingInvitation[0].id);
         invitationToken = newToken;
-        usedPromoCode = existingInvitation[0].promo_code;
       } else {
         return new Response(JSON.stringify({
           error: 'Une invitation a déjà été envoyée.', code: 'invitation_pending',
@@ -191,31 +190,12 @@ Deno.serve(async (req) => {
 
     if (resendApiKey) {
       const acceptUrl = `${appUrl}/accept-promoter-invitation?token=${invitationToken}`;
-      const accountNote = hasYunoAccount
-        ? 'Votre profil promoteur existant sera utilisé.'
-        : 'Un compte Yuno sera créé pour vous lors de l\'acceptation.';
-      const inviterLabel = isOrganizerScope ? `L'organisation ${inviterDisplayName}` : `Le club ${inviterDisplayName}`;
-
-      const emailHtml = `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; background: #0a0a0a; padding: 40px; border-radius: 16px;">
-          <div style="text-align: center; margin-bottom: 30px;"><h1 style="color: #ffffff; margin: 0;">🎉 Invitation Promoteur</h1></div>
-          <div style="background: #1a1a1a; padding: 30px; border-radius: 12px; border: 1px solid #333;">
-            <p style="color: #ffffff; font-size: 16px; line-height: 1.6;">
-              ${inviterLabel} vous invite à devenir promoteur sur Yuno.
-            </p>
-            <div style="background: #262626; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center;">
-              <p style="color: #a0a0a0; font-size: 12px; margin: 0 0 5px 0;">Votre code promo</p>
-              <p style="color: #dc2626; font-size: 24px; font-weight: bold; margin: 0; letter-spacing: 2px;">${usedPromoCode}</p>
-            </div>
-            <p style="color: #a0a0a0; font-size: 14px; line-height: 1.6;">${accountNote}</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${acceptUrl}" style="display: inline-block; background: #dc2626; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
-                Accepter l'invitation
-              </a>
-            </div>
-            <p style="color: #666; font-size: 12px; text-align: center;">Cette invitation expire dans 7 jours.</p>
-          </div>
-        </div>`;
+      const mail = buildInvitation({
+        lang: 'fr',
+        orgName: inviterDisplayName,
+        roleLabel: 'Promoteur',
+        acceptUrl,
+      });
 
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -223,8 +203,8 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           from: 'Yuno <contact@yunoapp.eu>',
           to: [normalizedEmail],
-          subject: `Invitation Promoteur - ${inviterDisplayName}`,
-          html: emailHtml,
+          subject: mail.subject,
+          html: mail.html,
         }),
       });
       if (!res.ok) {

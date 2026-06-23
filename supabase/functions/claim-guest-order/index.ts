@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { buildOtp } from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -359,6 +360,14 @@ serve(async (req) => {
         ? purchase.email.replace(/(.{2})(.*)(@.*)/, "$1***$3")
         : "***";
 
+      const mail = buildOtp({
+        lang: "fr",
+        code: otp,
+        purposeLabel: "Retrouve ta commande",
+        context: `Voici ton code pour retrouver ta commande ${purchase.reference}.`,
+        expiresMin: 10,
+      });
+
       const otpRes = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -368,17 +377,8 @@ serve(async (req) => {
         body: JSON.stringify({
           from,
           to: [purchase.email],
-          subject: `Yuno - Code de vérification : ${otp}`,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 30px; background: #0a0a0a; color: #fff; border-radius: 12px;">
-              <h2 style="color: #dc2626; margin-bottom: 20px;">Vérification de votre commande</h2>
-              <p style="color: #a0a0a0; margin-bottom: 20px;">Voici votre code de vérification pour retrouver votre commande <strong style="color:#fff;">${purchase.reference}</strong> :</p>
-              <div style="background: #1a1a1a; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0;">
-                <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #dc2626;">${otp}</span>
-              </div>
-              <p style="color: #666; font-size: 12px;">Ce code expire dans 10 minutes.</p>
-            </div>
-          `,
+          subject: mail.subject,
+          html: mail.html,
         }),
       });
 

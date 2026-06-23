@@ -1,11 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { Resend } from "https://esm.sh/resend@2.0.0";
-import { 
-  EmailLanguage, 
-  t, 
-  wrapEmailWithBranding 
+import {
+  EmailLanguage
 } from "../_shared/email-branding.ts";
+import { buildPostVisitLoyalty } from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -214,140 +213,48 @@ serve(async (req) => {
           nextTierProgress: nextTierProgress || undefined
         };
 
-        // Send email
-        const tierColors: Record<string, string> = {
-          bronze: '#CD7F32',
-          silver: '#C0C0C0',
-          gold: '#FFD700',
-          platinum: '#E5E4E2'
-        };
+        // Build a localized next-reward hint from the tier progress, if any
+        let rewardHint: string | undefined;
+        if (summary.nextTierProgress) {
+          const ntp = summary.nextTierProgress;
+          const tierName = ntp.nextTier.charAt(0).toUpperCase() + ntp.nextTier.slice(1);
+          if (ntp.pointsNeeded > 0) {
+            const amt = ntp.pointsNeeded.toFixed(0);
+            rewardHint = {
+              en: `Spend €${amt} more to reach ${tierName}.`,
+              es: `Gasta €${amt} más para alcanzar ${tierName}.`,
+              fr: `Dépense ${amt}€ de plus pour atteindre ${tierName}.`,
+            }[lang];
+          } else {
+            rewardHint = {
+              en: `You're almost at ${tierName}!`,
+              es: `¡Casi llegas a ${tierName}!`,
+              fr: `Tu y es presque, niveau ${tierName} !`,
+            }[lang];
+          }
+        }
 
-        const emailContent = `
-          <!-- Header -->
-          <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 30px; text-align: center;">
-            <h1 style="color: #ffffff; margin: 0; font-size: 26px; font-weight: 700;">
-              ${t('postVisit.thanks', lang)}${summary.firstName ? `, ${summary.firstName}` : ''}! 🎉
-            </h1>
-            <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 16px;">
-              ${summary.venueName}
-            </p>
-          </div>
-
-          <!-- Content -->
-          <div style="padding: 30px;">
-            <!-- Points Earned Card -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 24px;">
-              <tr>
-                <td style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); border-radius: 12px; padding: 24px; text-align: center;">
-                  <p style="color: rgba(255,255,255,0.8); margin: 0 0 8px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">
-                    ${t('postVisit.pointsEarnedToday', lang)}
-                  </p>
-                  <p style="color: #ffffff; margin: 0; font-size: 48px; font-weight: 800;">
-                    +${summary.pointsEarned}
-                  </p>
-                  <p style="color: rgba(255,255,255,0.7); margin: 8px 0 0; font-size: 14px;">
-                    ${t('postVisit.fromSpent', lang, { amount: summary.totalSpent.toFixed(2) })}
-                  </p>
-                </td>
-              </tr>
-            </table>
-
-            <!-- Current Balance -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 24px;">
-              <tr>
-                <td style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 20px;">
-                  <table width="100%" cellpadding="0" cellspacing="0">
-                    <tr>
-                      <td style="width: 50%; text-align: center; border-right: 1px solid rgba(255,255,255,0.1);">
-                        <p style="color: #a0a0a0; margin: 0 0 4px; font-size: 12px; text-transform: uppercase;">
-                          ${t('postVisit.yourBalance', lang)}
-                        </p>
-                        <p style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700;">
-                          ${summary.currentBalance}
-                        </p>
-                        <p style="color: #a0a0a0; margin: 0; font-size: 12px;">${t('postVisit.points', lang)}</p>
-                      </td>
-                      <td style="width: 50%; text-align: center;">
-                        <p style="color: #a0a0a0; margin: 0 0 4px; font-size: 12px; text-transform: uppercase;">
-                          ${t('postVisit.yourTier', lang)}
-                        </p>
-                        <p style="color: ${tierColors[summary.tier] || '#ffffff'}; margin: 0; font-size: 24px; font-weight: 700; text-transform: capitalize;">
-                          ${summary.tier}
-                        </p>
-                        <p style="color: #a0a0a0; margin: 0; font-size: 12px;">${t('postVisit.member', lang)}</p>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
-
-            ${summary.nextTierProgress ? `
-            <!-- Next Tier Progress -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 24px;">
-              <tr>
-                <td style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 16px;">
-                  <p style="color: #a0a0a0; margin: 0 0 12px; font-size: 14px;">
-                    ${summary.nextTierProgress.pointsNeeded > 0 
-                      ? `${t('postVisit.spendMore', lang, { amount: summary.nextTierProgress.pointsNeeded.toFixed(0) })} <span style="color: ${tierColors[summary.nextTierProgress.nextTier]}; text-transform: capitalize; font-weight: 600;">${summary.nextTierProgress.nextTier}</span>`
-                      : `${t('postVisit.almostThere', lang)} <span style="color: ${tierColors[summary.nextTierProgress.nextTier]}; text-transform: capitalize; font-weight: 600;">${summary.nextTierProgress.nextTier}</span>!`
-                    }
-                  </p>
-                  <div style="background: rgba(255,255,255,0.1); border-radius: 8px; height: 8px; overflow: hidden;">
-                    <div style="background: linear-gradient(90deg, #dc2626, #ef4444); height: 100%; width: ${summary.nextTierProgress.progressPercent}%; border-radius: 8px;"></div>
-                  </div>
-                </td>
-              </tr>
-            </table>
-            ` : ''}
-
-            <!-- CTA -->
-            <table width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <td style="text-align: center; padding: 16px 0;">
-                  <p style="color: #a0a0a0; margin: 0 0 16px; font-size: 14px;">
-                    ${t('postVisit.redeemPoints', lang)}
-                  </p>
-                  <a href="https://yunoapp.eu/profile" 
-                     style="display: inline-block; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
-                    ${t('postVisit.viewRewards', lang)}
-                  </a>
-                </td>
-              </tr>
-            </table>
-
-            <!-- Venue Footer -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.1);">
-              <tr>
-                <td style="text-align: center;">
-                  <p style="color: #666666; margin: 0; font-size: 13px;">
-                    ${t('postVisit.seeYouNext', lang)} ${summary.venueName}!
-                  </p>
-                </td>
-              </tr>
-            </table>
-          </div>
-        `;
-
-        const html = wrapEmailWithBranding(emailContent, lang, venue.name);
+        const mail = buildPostVisitLoyalty({
+          lang,
+          firstName: summary.firstName || undefined,
+          venueName: summary.venueName,
+          pointsEarned: String(summary.pointsEarned),
+          totalPoints: String(summary.currentBalance),
+          tier: summary.tier ? summary.tier.charAt(0).toUpperCase() + summary.tier.slice(1) : undefined,
+          rewardHint,
+          loyaltyUrl: 'https://yunoapp.eu/profile',
+        });
 
         const rawFrom = Deno.env.get('RESEND_FROM_EMAIL');
         const from = rawFrom
           ? (rawFrom.includes('<') ? rawFrom : `Yuno <${rawFrom}>`)
           : 'Yuno <noreply@yunoapp.eu>';
 
-        // Localized subject
-        const subjectMap: Record<EmailLanguage, string> = {
-          en: `Thanks for your visit! You earned ${pointsEarned} points 🎉`,
-          es: `¡Gracias por tu visita! Has ganado ${pointsEarned} puntos 🎉`,
-          fr: `Merci pour ta visite ! Tu as gagné ${pointsEarned} points 🎉`
-        };
-
         await resend.emails.send({
           from,
           to: [email],
-          subject: subjectMap[lang],
-          html
+          subject: mail.subject,
+          html: mail.html
         });
 
         logStep("Email sent", { email, pointsEarned, lang });

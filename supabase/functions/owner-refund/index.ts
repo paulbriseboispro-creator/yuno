@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { wrapEmailWithBranding, t as emailT, type EmailLanguage } from "../_shared/email-branding.ts";
+import { type EmailLanguage } from "../_shared/email-branding.ts";
+import { buildRefund } from "../_shared/email-templates.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 
 const logStep = (step: string, details?: any) => {
@@ -298,61 +299,18 @@ serve(async (req) => {
               }
             }
 
-            const itemTypeLabels: Record<string, string> = {
-              order: emailT('refund.typeOrder', lang),
-              ticket: emailT('refund.typeTicket', lang),
-              table_reservation: emailT('refund.typeTable', lang),
-            };
-
-            const emailContent = `
-              <div style="padding: 32px 24px;">
-                <h1 style="color: #fff; font-size: 22px; margin: 0 0 16px;">
-                  ${emailT('refund.title', lang)}
-                </h1>
-                <p style="color: #ccc; font-size: 14px; line-height: 1.6; margin: 0 0 20px;">
-                  ${emailT('refund.body', lang, { venueName })}
-                </p>
-                
-                <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 20px;">
-                  <tr>
-                    <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                      <p style="color: #888; font-size: 12px; margin: 0;">${emailT('refund.amount', lang)}</p>
-                      <p style="color: #22c55e; font-size: 24px; font-weight: 700; margin: 4px 0 0;">${refundAmount.toFixed(2)} €</p>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                      <p style="color: #888; font-size: 12px; margin: 0;">${emailT('refund.itemType', lang)}</p>
-                      <p style="color: #fff; font-size: 14px; margin: 4px 0 0;">${itemTypeLabels[item.type] || item.type}</p>
-                    </td>
-                  </tr>
-                  ${eventTitle ? `<tr>
-                    <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                      <p style="color: #888; font-size: 12px; margin: 0;">${emailT('refund.event', lang)}</p>
-                      <p style="color: #fff; font-size: 14px; margin: 4px 0 0;">${eventTitle}</p>
-                    </td>
-                  </tr>` : ""}
-                  <tr>
-                    <td style="padding: 12px 16px;">
-                      <p style="color: #888; font-size: 12px; margin: 0;">${emailT('refund.reason', lang)}</p>
-                      <p style="color: #fff; font-size: 14px; margin: 4px 0 0;">${reason.trim()}</p>
-                    </td>
-                  </tr>
-                </table>
-                
-                <p style="color: #888; font-size: 12px; line-height: 1.6;">
-                  ${emailT('refund.delay', lang)}
-                </p>
-              </div>
-            `;
-
-            const html = wrapEmailWithBranding(emailContent, lang, venueName);
+            const mail = buildRefund({
+              lang,
+              eventTitle: eventTitle || undefined,
+              venueName,
+              amount: `${refundAmount.toFixed(2)} €`,
+              reason: reason.trim(),
+            });
 
             const resendApiKey = Deno.env.get("RESEND_API_KEY");
             const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@yunoapp.eu";
 
             if (resendApiKey) {
-              const subject = emailT('refund.subject', lang, { amount: refundAmount.toFixed(2) }) + ` - ${eventTitle || venueName}`;
               await fetch("https://api.resend.com/emails", {
                 method: "POST",
                 headers: {
@@ -362,8 +320,8 @@ serve(async (req) => {
                 body: JSON.stringify({
                   from: `Yuno <${fromEmail}>`,
                   to: [customerEmail],
-                  subject,
-                  html,
+                  subject: mail.subject,
+                  html: mail.html,
                 }),
               });
               logStep("Refund email sent", { to: customerEmail, refundAmount, lang });

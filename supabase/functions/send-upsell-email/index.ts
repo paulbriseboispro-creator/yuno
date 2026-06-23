@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { EmailLanguage, t, wrapEmailWithBranding, escapeHtml } from "../_shared/email-branding.ts";
 import { loadOptIns, optInToken, unsubscribeHeaders } from "../_shared/email-compliance.ts";
+import { buildUpsell } from "../_shared/email-templates.ts";
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 
 const corsHeaders = {
@@ -182,8 +183,19 @@ serve(async (req) => {
           </table>
         `;
 
-        const html = wrapEmailWithBranding(emailContent, lang, venueName);
-        const subject = t('upsell.subject', lang, { eventTitle: event.title });
+        const unsubUrl = `${Deno.env.get('PUBLIC_URL') || Deno.env.get('APP_BASE_URL') || 'https://yunoapp.eu'}/unsubscribe?token=${unsubToken}`;
+        const mail = buildUpsell({
+          lang,
+          firstName: firstName || undefined,
+          eventTitle: event.title,
+          venueName,
+          vipEnabled: !!event.tables_enabled,
+          venueUrl: `https://yunoapp.eu/club/${venueSlug}`,
+          unsubscribeUrl: unsubUrl,
+          recipientEmail: ticket.user_email,
+        });
+        const html = mail.html;
+        const subject = mail.subject;
 
         const res = await fetch('https://api.resend.com/emails', {
           method: 'POST',

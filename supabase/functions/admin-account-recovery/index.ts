@@ -7,7 +7,7 @@
 // `db-cleanup` (le cap edge limite le NOMBRE de fonctions, pas les mises à jour).
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { wrapEmailWithBranding } from "../_shared/email-branding.ts";
+import { buildSecureLink } from "../_shared/email-templates.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 
 const APP_URL = "https://yunoapp.eu";
@@ -86,18 +86,18 @@ serve(async (req) => {
     const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@yunoapp.eu";
     let emailSent = false;
     if (resendApiKey) {
-      const content = `
-        <div style="padding: 32px 24px;">
-          <h1 style="color:#fff;font-size:22px;margin:0 0 16px;">${copy.title}</h1>
-          <p style="color:#ccc;font-size:14px;line-height:1.6;margin:0 0 24px;">${copy.body}</p>
-          <a href="${actionLink}" style="display:inline-block;background:#E8192C;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 22px;border-radius:10px;">${copy.cta}</a>
-          <p style="color:#888;font-size:12px;line-height:1.6;margin:24px 0 0;">${copy.ignore}</p>
-        </div>`;
-      const html = wrapEmailWithBranding(content, lang);
+      const mail = buildSecureLink({
+        lang,
+        title: copy.title,
+        message: copy.body,
+        ctaLabel: copy.cta,
+        ctaUrl: actionLink,
+        footnote: copy.ignore,
+      });
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendApiKey}` },
-        body: JSON.stringify({ from: `Yuno <${fromEmail}>`, to: [target.email], subject: copy.subject, html }),
+        body: JSON.stringify({ from: `Yuno <${fromEmail}>`, to: [target.email], subject: copy.subject, html: mail.html }),
       });
       if (!res.ok) {
         const body = await res.text().catch(() => "");

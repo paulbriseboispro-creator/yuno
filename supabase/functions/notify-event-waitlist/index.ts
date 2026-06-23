@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { wrapEmailWithBranding, t, escapeHtml, type EmailLanguage } from '../_shared/email-branding.ts';
+import { buildWaitlistOpen, fmtDateParts } from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -65,103 +66,19 @@ function buildWaitlistOpeningEmail(
   eventDescription: string | null,
   lang: EmailLanguage = 'fr'
 ): { subject: string; html: string } {
-  const name = escapeHtml(entry.full_name) || '';
-  const safeEventTitle = escapeHtml(eventTitle);
-  const safeVenueName = escapeHtml(venueName);
+  const dp = eventDate ? fmtDateParts(eventDate, lang) : null;
+  const meta = dp ? [`${dp.day} ${dp.month}`.trim(), dp.time].filter(Boolean).join(' · ') : '';
 
-  const subject = t('waitlist.openingSubject', lang, { eventTitle: safeEventTitle });
+  const mail = buildWaitlistOpen({
+    lang,
+    eventTitle,
+    venueName,
+    posterUrl: eventImageUrl || undefined,
+    meta,
+    url: eventUrl || '',
+  });
 
-  let formattedDate = '';
-  if (eventDate) {
-    try {
-      const d = new Date(eventDate);
-      const options: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' };
-      formattedDate = d.toLocaleDateString(lang === 'es' ? 'es-ES' : lang === 'en' ? 'en-GB' : 'fr-FR', options);
-    } catch { formattedDate = ''; }
-  }
-
-  const safeDescription = eventDescription ? escapeHtml(eventDescription).substring(0, 200) : '';
-
-  const content = `
-    ${eventImageUrl ? `
-    <table width="100%" cellpadding="0" cellspacing="0">
-      <tr>
-        <td>
-          <img src="${eventImageUrl}" alt="${safeEventTitle}" style="width: 100%; max-height: 200px; object-fit: cover; display: block;" />
-        </td>
-      </tr>
-    </table>
-    ` : ''}
-
-    <!-- Header gradient -->
-    <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 24px 28px; text-align: center;">
-      <div style="font-size: 20px; font-weight: bold; color: #fff; margin-bottom: 4px;">${safeVenueName}</div>
-      <h1 style="color: white; margin: 0; font-size: 22px;">${t('waitlist.openingTitle', lang)}</h1>
-    </div>
-
-    <!-- Content -->
-    <div style="padding: 28px;">
-      <p style="color: #fff; font-size: 16px; margin-bottom: 16px;">
-        ${name ? `${t('ticket.greeting', lang)} ${name}!` : `${t('ticket.greeting', lang)}!`}
-      </p>
-
-      <p style="color: #a0a0a0; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
-        ${t('waitlist.openingBody', lang, { eventTitle: safeEventTitle })}
-      </p>
-
-      <!-- Details Card -->
-      <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 24px;">
-        ${formattedDate ? `
-        <tr>
-          <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-            <p style="color: #888; font-size: 12px; margin: 0;">📅 ${t('ticket.eventDate', lang)}</p>
-            <p style="color: #fff; font-size: 14px; font-weight: 500; margin: 4px 0 0;">${formattedDate}</p>
-          </td>
-        </tr>
-        ` : ''}
-        ${safeDescription ? `
-        <tr>
-          <td style="padding: 12px 16px;">
-            <p style="color: #888; font-size: 12px; margin: 0;">📝</p>
-            <p style="color: #ccc; font-size: 13px; line-height: 1.5; margin: 4px 0 0;">${safeDescription}${eventDescription && eventDescription.length > 200 ? '…' : ''}</p>
-          </td>
-        </tr>
-        ` : ''}
-      </table>
-
-      <p style="color: #dc2626; font-size: 15px; font-weight: 600; line-height: 1.6; margin: 0 0 16px;">
-        ${t('waitlist.openingPriority', lang)}
-      </p>
-      
-      ${eventUrl ? `
-      <table cellpadding="0" cellspacing="0" style="margin: 0 0 24px;">
-        <tr>
-          <td>
-            <a href="${eventUrl}" 
-               style="display: inline-block; background: #dc2626; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 10px; font-weight: 600; font-size: 14px;">
-              ${t('waitlist.buyTickets', lang)}
-            </a>
-          </td>
-        </tr>
-      </table>
-      ` : ''}
-      
-      <!-- Footer -->
-      <div style="text-align: center; margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
-        <p style="color: #fff; font-size: 14px; margin: 5px 0;">
-          ${t('ticket.thanks', lang)}
-        </p>
-        <p style="color: #666; font-size: 13px; margin: 8px 0 0;">
-          ${t('waitlist.teamSign', lang)}
-        </p>
-      </div>
-    </div>
-  `;
-
-  return {
-    subject,
-    html: wrapEmailWithBranding(content, lang, safeVenueName),
-  };
+  return { subject: mail.subject, html: mail.html };
 }
 
 serve(async (req) => {

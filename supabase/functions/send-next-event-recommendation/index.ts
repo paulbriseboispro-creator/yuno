@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { EmailLanguage, t, wrapEmailWithBranding, escapeHtml } from "../_shared/email-branding.ts";
 import { loadOptIns, optInToken, unsubscribeHeaders } from "../_shared/email-compliance.ts";
+import { buildNextEventRec, fmtDateParts } from "../_shared/email-templates.ts";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 const corsHeaders = {
@@ -214,8 +215,20 @@ serve(async (req) => {
           </div>
         `;
 
-        const html = wrapEmailWithBranding(emailContent, lang);
-        const subject = t('nextEvent.subject', lang);
+        const unsubUrl = `${Deno.env.get('PUBLIC_URL') || Deno.env.get('APP_BASE_URL') || 'https://yunoapp.eu'}/unsubscribe?token=${unsubToken}`;
+        const mail = buildNextEventRec({
+          lang,
+          firstName: profile?.first_name || undefined,
+          events: scoredEvents.map((e) => {
+            const dp = fmtDateParts(e.start_at, lang);
+            const vName = (e.venues as any)?.name || '';
+            return { title: e.title, meta: `${dp.day} ${dp.month}${vName ? ' · ' + vName : ''}`, url: `https://yunoapp.eu/event/${e.id}`, img: e.poster_url || undefined };
+          }),
+          unsubscribeUrl: unsubUrl,
+          recipientEmail: userData.email,
+        });
+        const html = mail.html;
+        const subject = mail.subject;
 
         const res = await fetch('https://api.resend.com/emails', {
           method: 'POST',

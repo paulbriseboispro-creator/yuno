@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
-import { EmailLanguage, t, wrapEmailWithBranding, escapeHtml } from "../_shared/email-branding.ts";
+import { EmailLanguage } from "../_shared/email-branding.ts";
+import { buildPreNightChecklist, fmtDateParts } from "../_shared/email-templates.ts";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 const corsHeaders = {
@@ -89,10 +90,7 @@ serve(async (req) => {
     for (const event of upcomingEvents) {
       const venueName = (event.venues as any)?.name || '';
       const venueAddress = (event.venues as any)?.address || '';
-      const eventImageUrl = event.poster_url || null;
-      const safeEventTitle = escapeHtml(event.title);
-      const safeVenueName = escapeHtml(venueName);
-      const safeAddress = escapeHtml(venueAddress);
+      const eventImageUrl = event.poster_url || undefined;
 
       const { data: tickets } = await supabaseAdmin
         .from('tickets')
@@ -136,121 +134,24 @@ serve(async (req) => {
             firstName = profile?.first_name || '';
           }
 
-          const nameStr = firstName ? ` ${firstName}` : '';
-          const dateLocales: Record<EmailLanguage, string> = { en: 'en-GB', es: 'es-ES', fr: 'fr-FR' };
-          const eventTime = new Date(event.start_at).toLocaleTimeString(dateLocales[lang], { hour: '2-digit', minute: '2-digit' });
+          const dp = fmtDateParts(event.start_at, lang);
 
-          const qrSection = qrCode ? `
-            <!-- QR Code -->
-            <div style="text-align: center; margin: 24px 0; padding: 24px 20px; background-color: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
-              <h3 style="color: #0a0a0a; margin-bottom: 16px; font-size: 17px; font-weight: 700;">${t('checklist.qrTitle', lang)}</h3>
-              <div style="background: #f8f8f8; border-radius: 12px; padding: 20px; display: inline-block;">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCode)}" alt="QR Code" style="width: 220px; height: 220px; display: block;" />
-              </div>
-              <div style="margin-top: 16px; background: #f5f5f5; border-radius: 8px; padding: 12px 16px; display: inline-block;">
-                <p style="color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 4px;">${t('ticket.reference', lang)}</p>
-                <p style="color: #0a0a0a; font-size: 20px; font-weight: 800; font-family: 'Courier New', monospace; letter-spacing: 2px; margin: 0;">${escapeHtml(qrCode)}</p>
-              </div>
-              <p style="color: #999; font-size: 12px; margin-top: 12px;">${t('checklist.qrNote', lang)}</p>
-            </div>
-          ` : '';
-
-          const emailContent = `
-            ${eventImageUrl ? `
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr><td><img src="${eventImageUrl}" alt="${safeEventTitle}" style="width: 100%; max-height: 200px; object-fit: cover; display: block;" /></td></tr>
-              </table>
-            ` : ''}
-
-            <!-- Header gradient -->
-            <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 24px 28px; text-align: center;">
-              <div style="font-size: 20px; font-weight: bold; color: #fff; margin-bottom: 4px;">${safeVenueName}</div>
-              <h1 style="color: white; margin: 0; font-size: 22px;">${t('checklist.title', lang)}</h1>
-            </div>
-
-            <!-- Content -->
-            <div style="padding: 28px;">
-              <p style="color: #fff; font-size: 16px; margin-bottom: 16px;">
-                ${nameStr ? `${t('ticket.greeting', lang)}${nameStr}!` : `${t('ticket.greeting', lang)}!`}
-              </p>
-
-              <p style="color: #a0a0a0; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
-                ${t('checklist.body', lang, { eventTitle: safeEventTitle, venueName: safeVenueName })}
-              </p>
-              
-              <!-- Details Card -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 24px;">
-                <tr>
-                  <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <p style="color: #888; font-size: 12px; margin: 0;">🕐 ${t('checklist.doorsOpen', lang)}</p>
-                    <p style="color: #fff; font-size: 14px; font-weight: 500; margin: 4px 0 0;">${eventTime}</p>
-                  </td>
-                </tr>
-                ${safeAddress ? `
-                <tr>
-                  <td style="padding: 12px 16px;">
-                    <p style="color: #888; font-size: 12px; margin: 0;">📍 ${t('checklist.address', lang)}</p>
-                    <p style="color: #fff; font-size: 14px; font-weight: 500; margin: 4px 0 0;">${safeAddress}</p>
-                  </td>
-                </tr>
-                ` : ''}
-              </table>
-
-              ${qrSection}
-
-              <!-- How to enter -->
-              <div style="background: #1a1a1a; padding: 20px; border-radius: 12px; margin: 24px 0; border-left: 4px solid #dc2626;">
-                <h3 style="color: #fff; margin-top: 0; margin-bottom: 15px; font-size: 16px;">
-                  ${t('ticket.howToEnter', lang)}
-                </h3>
-                <ol style="color: #a0a0a0; line-height: 1.8; margin: 0; padding-left: 20px;">
-                  <li style="margin-bottom: 8px;">
-                    <strong style="color:#fff;">${t('ticket.enterStep1Title', lang)}</strong> ${t('ticket.enterStep1Desc', lang)}
-                  </li>
-                  <li style="margin-bottom: 8px;">
-                    <strong style="color:#fff;">${t('ticket.enterStep2Title', lang)}</strong> ${t('ticket.enterStep2Desc', lang)} ${safeVenueName}.
-                  </li>
-                  <li>
-                    <strong style="color:#fff;">${t('ticket.enterStep3Title', lang)}</strong> ${t('ticket.enterStep3Desc', lang)}
-                  </li>
-                </ol>
-              </div>
-
-              ${safeAddress ? `
-              <div style="background-color: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0;">
-                <p style="margin: 0; color: #f59e0b; font-size: 14px;">
-                  <strong>📍</strong> ${safeAddress}
-                </p>
-              </div>
-              ` : ''}
-
-              <table cellpadding="0" cellspacing="0" style="margin: 24px 0;">
-                <tr><td>
-                  <a href="https://yunoapp.eu/club/${event.venue_id}" style="display: inline-block; background: #dc2626; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 10px; font-weight: 600; font-size: 14px;">
-                    ${t('checklist.viewEvent', lang)}
-                  </a>
-                </td></tr>
-              </table>
-              
-              <!-- Footer -->
-              <div style="text-align: center; margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
-                <p style="color: #fff; font-size: 14px; margin: 5px 0;">
-                  ${t('ticket.thanks', lang)}
-                </p>
-                <p style="color: #666; font-size: 13px; margin: 8px 0 0;">
-                  ${t('checklist.teamSign', lang)}
-                </p>
-              </div>
-            </div>
-          `;
-
-          const html = wrapEmailWithBranding(emailContent, lang, venueName);
-          const subject = t('checklist.subject', lang, { eventTitle: event.title });
+          const mail = buildPreNightChecklist({
+            lang,
+            firstName: firstName || undefined,
+            eventTitle: event.title,
+            venueName,
+            posterUrl: eventImageUrl,
+            doorsTime: dp.time || undefined,
+            address: venueAddress || undefined,
+            reference: qrCode || '',
+            ticketUrl: `https://yunoapp.eu/club/${event.venue_id}`,
+          });
 
           const res = await fetch('https://api.resend.com/emails', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
-            body: JSON.stringify({ from, to: [email], subject, html }),
+            body: JSON.stringify({ from, to: [email], subject: mail.subject, html: mail.html }),
           });
 
           if (res.ok) {

@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { buildInvitation } from '../_shared/email-templates.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -192,31 +193,12 @@ Deno.serve(async (req) => {
 
     if (resendApiKey) {
       const acceptUrl = `${appUrl}/accept-staff-invitation?token=${invitationToken}`;
-      const accountNote = hasYunoAccount
-        ? 'Votre compte Yuno existant sera utilisé. Vous choisirez votre code PIN après connexion.'
-        : 'Un compte Yuno sera créé pour vous. Vous définirez votre mot de passe puis votre propre code PIN.';
-      const inviterLabel = isOrganizerScope ? `L'organisation ${inviterDisplayName}` : `Le club ${inviterDisplayName}`;
-
-      const emailHtml = `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; background: #0a0a0a; padding: 40px; border-radius: 16px;">
-          <div style="text-align: center; margin-bottom: 30px;"><h1 style="color: #ffffff; margin: 0;">👋 Invitation Équipe</h1></div>
-          <div style="background: #1a1a1a; padding: 30px; border-radius: 12px; border: 1px solid #333;">
-            <p style="color: #ffffff; font-size: 16px; line-height: 1.6;">
-              ${inviterLabel} vous invite à rejoindre son équipe sur Yuno.
-            </p>
-            <div style="background: #262626; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center;">
-              <p style="color: #a0a0a0; font-size: 12px; margin: 0 0 5px 0;">Votre rôle</p>
-              <p style="color: #dc2626; font-size: 22px; font-weight: bold; margin: 0; letter-spacing: 1px;">${roleLabel}</p>
-            </div>
-            <p style="color: #a0a0a0; font-size: 14px; line-height: 1.6;">${accountNote}</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${acceptUrl}" style="display: inline-block; background: #dc2626; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
-                Accepter l'invitation
-              </a>
-            </div>
-            <p style="color: #666; font-size: 12px; text-align: center;">Cette invitation expire dans 7 jours.</p>
-          </div>
-        </div>`;
+      const mail = buildInvitation({
+        lang: 'fr',
+        orgName: inviterDisplayName,
+        roleLabel,
+        acceptUrl,
+      });
 
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -224,8 +206,8 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           from: 'Yuno <contact@yunoapp.eu>',
           to: [email],
-          subject: `Invitation ${roleLabel} - ${inviterDisplayName}`,
-          html: emailHtml,
+          subject: mail.subject,
+          html: mail.html,
         }),
       });
       if (!res.ok) {

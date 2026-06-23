@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { buildInvitation } from '../_shared/email-templates.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -201,33 +202,12 @@ Deno.serve(async (req) => {
 
     if (resendApiKey) {
       const acceptUrl = `${appUrl}/accept-dj-invitation?token=${invitationToken}`;
-      const headline = isVenueScope ? 'Invitation DJ' : 'Invitation Organisation';
-      const bodyText = isVenueScope
-        ? `Le club <strong style="color: #dc2626;">${inviterLabel}</strong> vous invite à rejoindre leur équipe de DJs sur Yuno.`
-        : `L'organisation <strong style="color: #dc2626;">${inviterLabel}</strong> vous invite à rejoindre son roster de DJs sur Yuno.`;
-
-      const emailHtml = `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; background: #0a0a0a; padding: 40px; border-radius: 16px;">
-          <div style="text-align: center; margin-bottom: 30px;">
-            <h1 style="color: #ffffff; margin: 0;">🎧 ${headline}</h1>
-          </div>
-          <div style="background: #1a1a1a; padding: 30px; border-radius: 12px; border: 1px solid #333;">
-            <p style="color: #ffffff; font-size: 16px; line-height: 1.6;">${bodyText}</p>
-            <p style="color: #a0a0a0; font-size: 14px; line-height: 1.6;">
-              Votre profil DJ existant sera automatiquement partagé. Acceptez pour apparaître dans la programmation.
-            </p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${acceptUrl}" style="display: inline-block; background: #dc2626; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
-                Accepter l'invitation
-              </a>
-            </div>
-            <p style="color: #666; font-size: 12px; text-align: center;">Cette invitation expire dans 7 jours.</p>
-          </div>
-          <p style="color: #666; font-size: 12px; text-align: center; margin-top: 20px;">
-            Si vous n'attendiez pas cette invitation, vous pouvez l'ignorer.
-          </p>
-        </div>
-      `;
+      const mail = buildInvitation({
+        lang: 'fr',
+        orgName: inviterLabel,
+        roleLabel: 'DJ',
+        acceptUrl,
+      });
 
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -238,8 +218,8 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           from: 'Yuno <contact@yunoapp.eu>',
           to: [normalizedEmail],
-          subject: `${headline} - ${inviterLabel}`,
-          html: emailHtml,
+          subject: mail.subject,
+          html: mail.html,
         }),
       });
       if (!res.ok) {

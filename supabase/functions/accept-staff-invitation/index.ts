@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { buildPasswordSetup } from '../_shared/email-templates.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -116,28 +117,20 @@ Deno.serve(async (req) => {
             options: { redirectTo: `${appUrl}/auth` },
           });
           if (resetData?.properties?.action_link) {
+            const mail = buildPasswordSetup({
+              lang: 'fr',
+              orgName: invitation.venues?.name ?? organizerDisplayName ?? undefined,
+              roleLabel: invitation.role ?? undefined,
+              setupUrl: resetData.properties.action_link,
+            });
             const res = await fetch('https://api.resend.com/emails', {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 from: 'Yuno <contact@yunoapp.eu>',
                 to: [invitation.email.toLowerCase()],
-                subject: 'Bienvenue sur Yuno - Créez votre mot de passe',
-                html: `
-                  <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; background: #0a0a0a; padding: 40px; border-radius: 16px;">
-                    <div style="text-align: center; margin-bottom: 30px;"><h1 style="color: #ffffff; margin: 0;">🎉 Bienvenue sur Yuno !</h1></div>
-                    <div style="background: #1a1a1a; padding: 30px; border-radius: 12px; border: 1px solid #333;">
-                      <p style="color: #ffffff; font-size: 16px; line-height: 1.6;">Votre compte a été créé avec succès !</p>
-                      <p style="color: #a0a0a0; font-size: 14px; line-height: 1.6;">
-                        Cliquez ci-dessous pour définir votre mot de passe. Vous choisirez ensuite votre propre code PIN.
-                      </p>
-                      <div style="text-align: center; margin: 30px 0;">
-                        <a href="${resetData.properties.action_link}" style="display: inline-block; background: #dc2626; color: white; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
-                          Créer mon mot de passe
-                        </a>
-                      </div>
-                    </div>
-                  </div>`,
+                subject: mail.subject,
+                html: mail.html,
               }),
             });
             if (res.ok) {

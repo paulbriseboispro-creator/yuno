@@ -2,18 +2,16 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
-import { 
-  UserStats, 
-  TicketDetail, 
+import {
+  UserStats,
+  TicketDetail,
   DrinkDetail,
-  selectBestStats, 
-  generateStatsHtml, 
-  selectTemplate 
+  selectBestStats
 } from "../_shared/recap-stats.ts";
-import { 
-  EmailLanguage, 
-  wrapEmailWithBranding 
+import {
+  EmailLanguage
 } from "../_shared/email-branding.ts";
+import { buildEventRecap } from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -81,21 +79,6 @@ serve(async (req) => {
       );
     }
 
-    // Get all active templates
-    const { data: templates, error: templatesError } = await supabaseAdmin
-      .from('email_templates')
-      .select('*')
-      .eq('is_active', true);
-
-    if (templatesError || !templates || templates.length === 0) {
-      logStep("Templates not found or inactive");
-      return new Response(
-        JSON.stringify({ success: false, message: "Email templates not found" }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const templateMap = new Map(templates.map(t => [t.slug, t]));
     let totalSent = 0;
 
     for (const event of endedEvents) {
@@ -229,18 +212,6 @@ serve(async (req) => {
           lang = profile.preferred_language as EmailLanguage;
         }
 
-        // Format date in user's language
-        const dateLocales: Record<EmailLanguage, string> = {
-          en: 'en-GB',
-          es: 'es-ES',
-          fr: 'fr-FR'
-        };
-        const eventDate = new Date(event.start_at).toLocaleDateString(dateLocales[lang], { 
-          day: 'numeric', 
-          month: 'long', 
-          year: 'numeric' 
-        });
-
         // Get loyalty data
         const { data: loyalty } = await supabaseAdmin
           .from('customer_loyalty')
@@ -306,79 +277,25 @@ serve(async (req) => {
           tableSavings: 0
         };
 
-        // Select best template and stats
-        const templateSlug = selectTemplate(userStats);
-        const template = templateMap.get(templateSlug) || templateMap.get('end-of-night-recap');
-        
-        // Fallback: if no template found in DB, use a hardcoded minimal recap
-        const fallbackHtml = `
-          <div style="max-width:600px;margin:0 auto;padding:40px 20px;font-family:Arial,sans-serif;">
-            <h1 style="color:#fff;font-size:24px;margin-bottom:16px;">{{#if first_name}}Hey {{first_name}} 👋{{/if}}</h1>
-            <p style="color:#ccc;font-size:16px;line-height:1.6;">Merci d'être venu(e) à <strong style="color:#dc2626;">{{event_name}}</strong> chez <strong>{{venue_name}}</strong> le {{event_date}} !</p>
-            {{stats_section}}
-            <div style="margin-top:32px;padding:20px;background:rgba(255,255,255,0.05);border-radius:12px;">
-              <p style="color:#9ca3af;font-size:14px;margin:0;">🏆 Tier: <strong style="color:#fff;">{{tier}}</strong> · {{total_lifetime_points}} points</p>
-            </div>
-            <div style="margin-top:32px;text-align:center;">
-              <a href="https://yunoapp.eu/club/{{venue_slug}}" style="display:inline-block;padding:14px 32px;background:#dc2626;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;">Voir le club</a>
-            </div>
-          </div>
-        `;
-        
-        const finalTemplate = template || { 
-          html_content: fallbackHtml, 
-          subject: 'Ta soirée chez {{venue_name}} 🌙' 
-        };
-
-        if (!finalTemplate) continue;
-
+        // Select the best stats to surface (localized wording lives in selectBestStats)
         const bestStats = selectBestStats(userStats);
-        const statsHtml = generateStatsHtml(bestStats);
 
-        logStep("Selected for user", { 
-          userId, 
-          template: templateSlug, 
+        logStep("Selected for user", {
+          userId,
           stats: bestStats.map(s => s.label),
           drinks: drinksCount,
           tickets: ticketsCount,
           lang
         });
 
-        // Build email with all replacements
-        let htmlContent = finalTemplate.html_content
-          .replace(/\{\{venue_name\}\}/g, venueName)
-          .replace(/\{\{venue_slug\}\}/g, venueSlug)
-          .replace(/\{\{event_name\}\}/g, event.title)
-          .replace(/\{\{event_date\}\}/g, eventDate)
-          .replace(/\{\{first_name\}\}/g, profile?.first_name || '')
-          .replace(/\{\{visit_count\}\}/g, String(userStats.visitCount))
-          .replace(/\{\{tier\}\}/g, userStats.tier.charAt(0).toUpperCase() + userStats.tier.slice(1))
-          .replace(/\{\{total_lifetime_points\}\}/g, String(userStats.lifetimePoints))
-          .replace(/\{\{stats_section\}\}/g, statsHtml);
-
-        // Handle conditional blocks
-        htmlContent = htmlContent
-          .replace(/\{\{#if first_name\}\}(.*?)\{\{\/if\}\}/gs, profile?.first_name ? '$1' : '');
-
-        // Wrap content with Yuno branding
-        const finalHtml = wrapEmailWithBranding(`
-          <div style="background: #0a0a0a;">
-            ${htmlContent}
-          </div>
-        `, lang, venueName);
-
-        // Localized subject
-        const subjectTemplates: Record<EmailLanguage, string> = {
-          en: `Your night at ${venueName} 🌙`,
-          es: `Tu noche en ${venueName} 🌙`,
-          fr: `Ta soirée chez ${venueName} 🌙`
-        };
-
-        const subject = finalTemplate.subject
-          .replace(/\{\{venue_name\}\}/g, venueName)
-          .replace(/\{\{event_name\}\}/g, event.title)
-          .replace(/\{\{first_name\}\}/g, profile?.first_name || '') 
-          || subjectTemplates[lang];
+        const mail = buildEventRecap({
+          lang,
+          firstName: profile?.first_name || undefined,
+          eventTitle: event.title,
+          venueName,
+          stats: bestStats.map(s => ({ k: s.label, v: s.value })),
+          venueUrl: `https://yunoapp.eu/club/${venueSlug}`,
+        });
 
         try {
           const from = resendFrom
@@ -388,8 +305,8 @@ serve(async (req) => {
           const sendResp = await resend.emails.send({
             from,
             to: [userData.email],
-            subject,
-            html: finalHtml
+            subject: mail.subject,
+            html: mail.html
           });
 
           if (sendResp?.error) {
@@ -404,7 +321,7 @@ serve(async (req) => {
               email: userData.email
             });
 
-          logStep("Email sent", { email: userData.email, template: templateSlug, lang });
+          logStep("Email sent", { email: userData.email, lang });
           totalSent++;
         } catch (emailError) {
           console.error('Error sending email:', emailError);

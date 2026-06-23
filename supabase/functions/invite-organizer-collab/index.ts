@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { buildInvitation } from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -104,32 +105,13 @@ const handler = async (req: Request): Promise<Response> => {
         ? (rawFrom.includes("<") ? rawFrom : `Yuno <${rawFrom}>`)
         : "Yuno <noreply@yunoapp.eu>";
 
-      const html = `
-<!DOCTYPE html><html><body style="margin:0;background:#0a0a0a;font-family:system-ui,sans-serif;color:#fff">
-  <div style="max-width:560px;margin:0 auto;padding:24px">
-    <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:24px;border-radius:16px 16px 0 0;text-align:center">
-      <h1 style="margin:0;font-size:22px">🤝 ${venue.name} t'invite à collaborer</h1>
-    </div>
-    <div style="background:#161616;padding:24px;border-radius:0 0 16px 16px;line-height:1.6">
-      <p style="margin:0 0 12px;color:#ddd">Bonjour ${contact_first_name || ""},</p>
-      <p style="margin:0 0 12px;color:#bbb">
-        <strong style="color:#fff">${venue.name}</strong>${venue.city ? ` (${venue.city})` : ""} aimerait collaborer avec toi sur Yuno.
-      </p>
-      ${invitation_message ? `<div style="background:#0d0d0d;border-left:3px solid #dc2626;padding:12px 16px;margin:16px 0;color:#ccc;font-style:italic">« ${invitation_message} »</div>` : ""}
-      <p style="margin:16px 0;color:#bbb">
-        Yuno est la plateforme tout-en-un pour la nightlife : billetterie, tables VIP, paiements, fidélité.
-        En acceptant, tu créeras ton compte organisateur en quelques clics.
-      </p>
-      <div style="text-align:center;margin:24px 0">
-        <a href="${acceptUrl}" style="display:inline-block;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;text-decoration:none;padding:14px 28px;border-radius:12px;font-weight:bold">Accepter l'invitation</a>
-      </div>
-      <p style="color:#666;font-size:12px;text-align:center">
-        Ou copie ce lien : <br><a href="${acceptUrl}" style="color:#dc2626;word-break:break-all">${acceptUrl}</a>
-      </p>
-      <p style="color:#666;font-size:12px;margin-top:16px">Cette invitation expire dans 14 jours.</p>
-    </div>
-  </div>
-</body></html>`;
+      const mail = buildInvitation({
+        lang: "fr",
+        inviterName: venue.name,
+        orgName: venue.name,
+        roleLabel: "Collaboration",
+        acceptUrl,
+      });
 
       const resp = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -137,8 +119,8 @@ const handler = async (req: Request): Promise<Response> => {
         body: JSON.stringify({
           from,
           to: [organizer_email],
-          subject: `🤝 ${venue.name} t'invite à collaborer sur Yuno`,
-          html,
+          subject: mail.subject,
+          html: mail.html,
         }),
       });
       if (!resp.ok) {

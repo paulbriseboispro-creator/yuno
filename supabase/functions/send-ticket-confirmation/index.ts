@@ -7,6 +7,7 @@ import {
   wrapEmailWithBranding,
   escapeHtml,
 } from "../_shared/email-branding.ts";
+import { buildTicketConfirmation, fmtDateParts } from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -320,7 +321,28 @@ serve(async (req) => {
       </div>
     `;
 
-    const html = wrapEmailWithBranding(emailContent, lang, venueName);
+    const dp = fmtDateParts(event.start_at, lang);
+    const mail = buildTicketConfirmation({
+      lang,
+      firstName: firstName || ticket.full_name?.split(" ")[0] || undefined,
+      eventTitle,
+      venueName,
+      posterUrl: event?.poster_url || undefined,
+      day: dp.day,
+      month: dp.month,
+      openTime: dp.time,
+      city: event?.location_city || venue?.city || undefined,
+      ticketType: round?.name || (lang === "fr" ? "Billet" : lang === "es" ? "Entrada" : "Ticket"),
+      price: `€${(ticket.total_price ?? 0).toFixed(2)}`,
+      reference: ticketRef,
+      ticketUrl: isGuest
+        ? `${appBaseUrl}/claim?type=ticket&ref=${encodeURIComponent(ticketRef)}`
+        : `${appBaseUrl}/order-confirmation?type=ticket&id=${ticketId}`,
+      qrDataUrl: qrCodeDataUrl,
+      recipientEmail: email,
+      address: venueAddress || (addressDeferred ? addressDeferredText : undefined),
+    });
+    const html = mail.html;
 
     const rawFrom = Deno.env.get("RESEND_FROM_EMAIL");
     const from = rawFrom
@@ -329,7 +351,7 @@ serve(async (req) => {
         : `Yuno <${rawFrom}>`
       : "Yuno <noreply@yunoapp.eu>";
 
-    const subject = t("ticket.confirmedSubject", lang, { eventTitle });
+    const subject = mail.subject;
 
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",

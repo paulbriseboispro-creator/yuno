@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { buildSplitProposal } from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -35,19 +36,6 @@ const ACTION_LABEL: Record<string, { fr: string; emoji: string }> = {
   accepted: { fr: "Proposition de répartition acceptée", emoji: "✅" },
   declined: { fr: "Proposition de répartition refusée", emoji: "❌" },
 };
-
-function buildRulesHtml(rules?: SplitRules | null): string {
-  if (!rules) return "";
-  const row = (label: string, o?: number, v?: number) =>
-    `<tr><td style="padding:6px 12px;color:#bbb">${label}</td>
-       <td style="padding:6px 12px;color:#fff;text-align:right">Orga ${o ?? 0}% · Club ${v ?? 0}%</td></tr>`;
-  return `
-    <table width="100%" style="border-collapse:collapse;background:#0d0d0d;border-radius:10px;margin:16px 0;font-size:14px">
-      ${row("Billets", rules.tickets?.organizer_pct, rules.tickets?.venue_pct)}
-      ${row("Tables / VIP", rules.tables?.organizer_pct, rules.tables?.venue_pct)}
-      ${row("Boissons", rules.drinks?.organizer_pct ?? 0, rules.drinks?.venue_pct ?? 100)}
-    </table>`;
-}
 
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -228,13 +216,35 @@ const handler = async (req: Request): Promise<Response> => {
         ? `https://yunoapp.eu/organizer/events/${id}`
         : `https://yunoapp.eu/owner/partnerships`;
 
-      const intro = action === "proposed"
-        ? `<strong style="color:#fff">${proposerName}</strong> propose une nouvelle répartition des revenus pour ${contextLabel}. Vous devez accepter ou refuser pour activer (ou ré-activer) les ventes.`
-        : action === "accepted"
-        ? `<strong style="color:#fff">${proposerName}</strong> a accepté la proposition de répartition pour ${contextLabel}. Le contrat est maintenant actif et appliqué automatiquement aux paiements Stripe.`
-        : `<strong style="color:#fff">${proposerName}</strong> a refusé la proposition de répartition pour ${contextLabel}. La répartition précédente reste en vigueur.`;
+      // Map the split rules into builder terms (only used for the 'proposed' email).
+      const r = rules as SplitRules | null | undefined;
+      const splitTerms = r
+        ? [
+            { k: "Billets", v: `Orga ${r.tickets?.organizer_pct ?? 0}% · Club ${r.tickets?.venue_pct ?? 0}%` },
+            { k: "Tables / VIP", v: `Orga ${r.tables?.organizer_pct ?? 0}% · Club ${r.tables?.venue_pct ?? 0}%` },
+            { k: "Boissons", v: `Orga ${r.drinks?.organizer_pct ?? 0}% · Club ${r.drinks?.venue_pct ?? 100}%` },
+          ]
+        : undefined;
 
-      const html = `
+      let emailSubject: string;
+      let html: string;
+      if (action === "proposed") {
+        const mail = buildSplitProposal({
+          lang: "fr",
+          fromOrg: proposerName || "Votre partenaire",
+          eventTitle: eventTitle || contextLabel,
+          terms: splitTerms,
+          reviewUrl: ctaUrl,
+        });
+        emailSubject = mail.subject;
+        html = mail.html;
+      } else {
+        // accepted / declined have no dedicated editorial builder — keep inline HTML.
+        emailSubject = subject;
+        const intro = action === "accepted"
+          ? `<strong style="color:#fff">${proposerName}</strong> a accepté la proposition de répartition pour ${contextLabel}. Le contrat est maintenant actif et appliqué automatiquement aux paiements Stripe.`
+          : `<strong style="color:#fff">${proposerName}</strong> a refusé la proposition de répartition pour ${contextLabel}. La répartition précédente reste en vigueur.`;
+        html = `
 <!DOCTYPE html><html><body style="margin:0;background:#050505;font-family:system-ui,-apple-system,sans-serif;color:#fff">
   <div style="max-width:560px;margin:0 auto;padding:24px">
     <div style="background:linear-gradient(135deg,#dc2626,#b91c1c);padding:24px;border-radius:16px 16px 0 0;text-align:center">
@@ -243,22 +253,22 @@ const handler = async (req: Request): Promise<Response> => {
     <div style="background:#161616;padding:24px;border-radius:0 0 16px 16px;line-height:1.6">
       <p style="margin:0 0 12px;color:#ddd">Bonjour ${recipientName ? recipientName : ""},</p>
       <p style="margin:0 0 12px;color:#bbb">${intro}</p>
-      ${action === "proposed" ? buildRulesHtml(rules as SplitRules) : ""}
       <div style="text-align:center;margin:24px 0">
         <a href="${ctaUrl}" style="display:inline-block;background:linear-gradient(135deg,#dc2626,#b91c1c);color:#fff;text-decoration:none;padding:14px 28px;border-radius:12px;font-weight:bold">
-          ${action === "proposed" ? "Examiner la proposition" : "Voir le contrat"}
+          Voir le contrat
         </a>
       </div>
       <p style="color:#666;font-size:12px;text-align:center">Yuno — Plateforme nightlife</p>
     </div>
   </div>
 </body></html>`;
+      }
 
       try {
         const resp = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${RESEND_API_KEY}` },
-          body: JSON.stringify({ from, to: [recipientEmail], subject, html }),
+          body: JSON.stringify({ from, to: [recipientEmail], subject: emailSubject, html }),
         });
         if (!resp.ok) log("resend error", await resp.text());
         else log("email sent", { to: recipientEmail });

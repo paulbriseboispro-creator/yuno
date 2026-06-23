@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { buildWaitlistOpen, fmtDateParts } from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -132,7 +133,12 @@ serve(async (req) => {
         const appUrl = Deno.env.get("APP_BASE_URL") || "https://yunoapp.eu";
         const purchaseUrl = `${appUrl}/club/${venue?.id || event.venue_id}/event/${event.id}/tickets/${round.id}?waitlist=true`;
 
-        // Send bulk email to all waitlist entries with Yuno branding
+        // Build meta (date · time) from event start
+        const lang = 'fr';
+        const dp = fmtDateParts(event.start_at, lang);
+        const meta = [`${dp.day} ${dp.month}`.trim(), dp.time].filter(Boolean).join(' · ');
+
+        // Send bulk email to all waitlist entries with Yuno editorial template
         for (const entry of waitlistEntries) {
           // Mark as notified (no expiry for bulk notification - first come first served)
           await supabaseClient
@@ -141,63 +147,18 @@ serve(async (req) => {
             .eq('id', entry.id);
 
           try {
+            const mail = buildWaitlistOpen({
+              lang,
+              eventTitle: event.title,
+              venueName: venue?.name || 'Yuno',
+              meta,
+              url: purchaseUrl,
+            });
             await resend.emails.send({
               from: "Yuno <noreply@yunoapp.eu>",
               to: [entry.email],
-              subject: `🚨 Dernière chance - ${event.title} commence bientôt!`,
-              html: `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                  <meta charset="utf-8">
-                  <style>
-                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #050505; color: #fff; }
-                    .container { max-width: 500px; margin: 0 auto; background: #0a0a0a; border-radius: 16px; padding: 32px; border: 1px solid rgba(255,255,255,0.05); }
-                    .logo { text-align: center; margin-bottom: 24px; font-size: 28px; font-weight: bold; color: #dc2626; }
-                    h1 { color: #fff; margin: 0 0 16px 0; font-size: 24px; }
-                    p { color: #a0a0a0; line-height: 1.6; margin: 0 0 16px 0; }
-                    .highlight { color: #dc2626; font-weight: bold; }
-                    .stats { background: #1a1a1a; border-radius: 12px; padding: 20px; margin: 20px 0; display: flex; justify-content: space-around; text-align: center; }
-                    .stat-value { font-size: 28px; font-weight: bold; color: #fff; }
-                    .stat-label { font-size: 12px; color: #888; margin-top: 4px; }
-                    .urgent { background: #dc2626; border-radius: 8px; padding: 16px; margin: 20px 0; text-align: center; }
-                    .urgent p { color: #fff; margin: 0; font-weight: bold; font-size: 16px; }
-                    .button { display: inline-block; background: #dc2626; color: #fff !important; text-decoration: none; padding: 16px 32px; border-radius: 12px; font-weight: bold; font-size: 16px; margin: 24px 0; }
-                    .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 12px; color: #666; }
-                  </style>
-                </head>
-                <body>
-                  <div class="container">
-                    <div class="logo">YUNO</div>
-                    <h1>🚨 Dernière chance!</h1>
-                    <p><span class="highlight">${event.title}</span> commence dans moins de 2 heures et des places se sont libérées!</p>
-                    
-                    <div class="stats">
-                      <div>
-                        <div class="stat-value">${availableTickets}</div>
-                        <div class="stat-label">places disponibles</div>
-                      </div>
-                      <div>
-                        <div class="stat-value">${round.price}€</div>
-                        <div class="stat-label">par place</div>
-                      </div>
-                    </div>
-                    
-                    <div class="urgent">
-                      <p>⚡ Premier arrivé, premier servi!</p>
-                    </div>
-                    
-                    <center>
-                      <a href="${purchaseUrl}" class="button">Réserver maintenant →</a>
-                    </center>
-                    
-                    <div class="footer">
-                      <p>Vous recevez cet email car vous étiez inscrit sur la liste d'attente pour ${event.title}.</p>
-                    </div>
-                  </div>
-                </body>
-                </html>
-              `,
+              subject: mail.subject,
+              html: mail.html,
             });
             totalNotified++;
           } catch (emailError) {

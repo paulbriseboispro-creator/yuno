@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { buildInvitation } from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,50 +26,6 @@ const getAppOrigin = (req: Request) => {
   }
   return DEFAULT_APP_ORIGIN;
 };
-
-const brandedEmail = (opts: {
-  title: string;
-  intro: string;
-  body: string;
-  cta: { label: string; url: string };
-  expireNote?: string;
-}) => `
-  <!DOCTYPE html>
-  <html>
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-      body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 0; padding: 0; background: #ffffff; color: #1a1a1a; }
-      .wrapper { background: #ffffff; padding: 40px 20px; }
-      .container { max-width: 480px; margin: 0 auto; }
-      .logo { font-size: 15px; font-weight: 800; letter-spacing: 4px; color: #dc2626; margin-bottom: 32px; }
-      .divider { height: 3px; width: 40px; background: #dc2626; border-radius: 2px; margin-bottom: 32px; }
-      h1 { color: #0a0a0a; margin: 0 0 20px 0; font-size: 26px; font-weight: 700; line-height: 1.2; }
-      .body-text { color: #4a4a4a; line-height: 1.7; margin: 0 0 16px 0; font-size: 15px; }
-      .accent { color: #dc2626; font-weight: 600; }
-      .button-wrap { text-align: center; margin: 36px 0; }
-      .button { display: inline-block; background: #dc2626; color: #ffffff !important; text-decoration: none; padding: 14px 40px; border-radius: 8px; font-weight: 600; font-size: 15px; }
-      .expire { background: #fef9f0; border-radius: 8px; padding: 14px 18px; margin: 24px 0; border-left: 4px solid #f59e0b; }
-      .expire p { color: #92660d; margin: 0; font-size: 13px; font-weight: 500; }
-      .footer { margin-top: 40px; padding-top: 24px; border-top: 1px solid #e5e5e5; }
-      .footer p { color: #999; font-size: 12px; margin: 0; }
-    </style>
-  </head>
-  <body>
-    <div class="wrapper"><div class="container">
-      <div class="logo">YUNO</div>
-      <div class="divider"></div>
-      <h1>${opts.title}</h1>
-      <p class="body-text">${opts.intro}</p>
-      <p class="body-text">${opts.body}</p>
-      <div class="button-wrap"><a href="${opts.cta.url}" class="button">${opts.cta.label} →</a></div>
-      ${opts.expireNote ? `<div class="expire"><p>⏱️ ${opts.expireNote}</p></div>` : ""}
-      <div class="footer"><p>L'équipe Yuno — yunoapp.eu</p></div>
-    </div></div>
-  </body>
-  </html>
-`;
 
 const sendEmail = async (apiKey: string, to: string, subject: string, html: string) => {
   const resendFromEmail = Deno.env.get("RESEND_FROM_EMAIL") ?? "noreply@yunoapp.eu";
@@ -154,17 +111,13 @@ serve(async (req) => {
 
       if (resendApiKey) {
         try {
-          await sendEmail(
-            resendApiKey,
-            normalizedEmail,
-            `Votre espace Affilié Yuno est prêt — ${name}`,
-            brandedEmail({
-              title: "Votre espace affilié est activé",
-              intro: `Votre compte Yuno est désormais configuré en tant qu'affilié pour <span class="accent">${name}</span>.`,
-              body: "Connectez-vous pour accéder à votre tableau de bord : gérez vos clubs partenaires, publiez des soirées avec vos liens billetterie, et suivez vos performances.",
-              cta: { label: "Accéder à mon espace", url: `${appOrigin}/auth?redirect=/affiliate` },
-            })
-          );
+          const mail = buildInvitation({
+            lang: "fr",
+            orgName: name,
+            roleLabel: "Affilié",
+            acceptUrl: `${appOrigin}/auth?redirect=/affiliate`,
+          });
+          await sendEmail(resendApiKey, normalizedEmail, mail.subject, mail.html);
         } catch (emailErr) {
           console.error("Email notification failed (non-blocking):", emailErr);
         }
@@ -239,18 +192,13 @@ serve(async (req) => {
       console.warn("RESEND_API_KEY not configured — skipping invitation email");
     } else {
       try {
-        await sendEmail(
-          resendApiKey,
-          normalizedEmail,
-          `Invitation Yuno — devenez affilié pour ${name}`,
-          brandedEmail({
-            title: "Bienvenue sur Yuno",
-            intro: `Vous êtes invité à rejoindre Yuno en tant qu'affilié pour <span class="accent">${name}</span>.`,
-            body: "Créez votre compte et accédez à votre tableau de bord : gérez vos clubs partenaires, publiez des soirées avec vos liens billetterie (Shotgun, Resident Advisor, etc.), et suivez vos statistiques.",
-            cta: { label: "Activer mon compte affilié", url: inviteLink },
-            expireNote: "Cette invitation expire dans 14 jours.",
-          })
-        );
+        const mail = buildInvitation({
+          lang: "fr",
+          orgName: name,
+          roleLabel: "Affilié",
+          acceptUrl: inviteLink,
+        });
+        await sendEmail(resendApiKey, normalizedEmail, mail.subject, mail.html);
         console.log(`Invitation email sent to ${normalizedEmail}`);
       } catch (emailErr) {
         // Email failure is non-blocking — the invitation is saved in DB.

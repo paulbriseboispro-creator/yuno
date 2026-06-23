@@ -1,11 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
-import { 
-  EmailLanguage, 
-  t, 
-  wrapEmailWithBranding,
-  escapeHtml 
+import {
+  EmailLanguage
 } from "../_shared/email-branding.ts";
+import { buildEventUpdate } from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -55,9 +53,6 @@ serve(async (req) => {
     if (eventError || !event) throw new Error("Event not found");
 
     const venueName = (event.venues as any)?.name || '';
-    const safeEventTitle = escapeHtml(event.title);
-    const safeVenueName = escapeHtml(venueName);
-    const eventImageUrl = event.poster_url || null;
 
     const { data: tickets } = await supabaseAdmin
       .from('tickets')
@@ -98,107 +93,44 @@ serve(async (req) => {
     for (const [recipientEmail, userId] of emailMap) {
       try {
         let lang: EmailLanguage = 'fr';
-        let firstName = '';
         if (userId) {
           const { data: profile } = await supabaseAdmin
             .from('profiles')
-            .select('first_name, preferred_language')
+            .select('preferred_language')
             .eq('id', userId)
             .single();
           if (profile?.preferred_language && ['en', 'es', 'fr'].includes(profile.preferred_language)) {
             lang = profile.preferred_language as EmailLanguage;
           }
-          firstName = profile?.first_name || '';
         }
 
-        const changeTypeLabels: Record<string, string> = {
-          time: t('eventUpdate.timeChanged', lang),
-          dj: t('eventUpdate.djChanged', lang),
-          details: t('eventUpdate.detailsChanged', lang),
+        const changeTypeLabels: Record<string, { en: string; fr: string; es: string }> = {
+          time: { en: 'Time changed', fr: "Horaire modifié", es: 'Horario cambiado' },
+          dj: { en: 'DJ lineup changed', fr: 'Line-up DJ modifié', es: 'Lineup de DJs cambiado' },
+          details: { en: 'Details updated', fr: 'Détails mis à jour', es: 'Detalles actualizados' },
         };
 
-        const changesHtml = changes.map(change => `
-          <tr>
-            <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-              <p style="color: #dc2626; font-weight: 600; font-size: 14px; margin: 0 0 8px;">
-                ${changeTypeLabels[change.type] || change.type}
-              </p>
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td style="width: 48%;">
-                    <p style="color: #888; font-size: 11px; margin: 0 0 2px; text-transform: uppercase;">${t('eventUpdate.from', lang)}</p>
-                    <p style="color: #999; font-size: 13px; margin: 0; text-decoration: line-through;">${escapeHtml(change.oldValue)}</p>
-                  </td>
-                  <td style="width: 4%; text-align: center; color: #555;">→</td>
-                  <td style="width: 48%;">
-                    <p style="color: #888; font-size: 11px; margin: 0 0 2px; text-transform: uppercase;">${t('eventUpdate.to', lang)}</p>
-                    <p style="color: #fff; font-size: 13px; margin: 0; font-weight: 600;">${escapeHtml(change.newValue)}</p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-        `).join('');
+        // Map each change into a k/v row: "Old → New"
+        const changeRows = changes.map(change => ({
+          k: (changeTypeLabels[change.type] || { en: change.type, fr: change.type, es: change.type })[lang],
+          v: `${change.oldValue} → ${change.newValue}`,
+        }));
 
-        const nameStr = firstName ? ` ${firstName}` : '';
+        // The change text (the builder prepends the event title itself)
+        const updateMessage = {
+          en: 'some details just changed.',
+          fr: 'des infos viennent de changer.',
+          es: 'algunos detalles acaban de cambiar.',
+        }[lang];
 
-        const emailContent = `
-          ${eventImageUrl ? `
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td>
-                <img src="${eventImageUrl}" alt="${safeEventTitle}" style="width: 100%; max-height: 200px; object-fit: cover; display: block;" />
-              </td>
-            </tr>
-          </table>
-          ` : ''}
-
-          <!-- Header gradient -->
-          <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 24px 28px; text-align: center;">
-            <div style="font-size: 20px; font-weight: bold; color: #fff; margin-bottom: 4px;">${safeVenueName}</div>
-            <h1 style="color: white; margin: 0; font-size: 22px;">${t('eventUpdate.title', lang)}</h1>
-          </div>
-
-          <!-- Content -->
-          <div style="padding: 28px;">
-            <p style="color: #fff; font-size: 16px; margin-bottom: 16px;">
-              ${nameStr ? `${t('ticket.greeting', lang)}${nameStr}!` : `${t('ticket.greeting', lang)}!`}
-            </p>
-
-            <p style="color: #a0a0a0; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
-              ${t('eventUpdate.body', lang, { eventTitle: safeEventTitle, venueName: safeVenueName })}
-            </p>
-            
-            <!-- Changes Card -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(255,255,255,0.05); border-radius: 12px; overflow: hidden; margin-bottom: 24px;">
-              ${changesHtml}
-            </table>
-            
-            <table cellpadding="0" cellspacing="0" style="margin: 0 0 24px;">
-              <tr>
-                <td>
-                  <a href="https://yunoapp.eu/club/${event.venue_id}" 
-                     style="display: inline-block; background: #dc2626; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 10px; font-weight: 600; font-size: 14px;">
-                    ${t('eventUpdate.viewEvent', lang)}
-                  </a>
-                </td>
-              </tr>
-            </table>
-            
-            <!-- Footer -->
-            <div style="text-align: center; margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
-              <p style="color: #fff; font-size: 14px; margin: 5px 0;">
-                ${t('ticket.thanks', lang)}
-              </p>
-              <p style="color: #666; font-size: 13px; margin: 8px 0 0;">
-                ${t('eventUpdate.teamSign', lang)}
-              </p>
-            </div>
-          </div>
-        `;
-
-        const html = wrapEmailWithBranding(emailContent, lang, venueName);
-        const subject = t('eventUpdate.subject', lang, { eventTitle: event.title });
+        const mail = buildEventUpdate({
+          lang,
+          eventTitle: event.title,
+          venueName,
+          updateMessage,
+          changes: changeRows,
+          eventUrl: `https://yunoapp.eu/club/${event.venue_id}`,
+        });
 
         const res = await fetch('https://api.resend.com/emails', {
           method: 'POST',
@@ -206,7 +138,7 @@ serve(async (req) => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${resendApiKey}`,
           },
-          body: JSON.stringify({ from, to: [recipientEmail], subject, html }),
+          body: JSON.stringify({ from, to: [recipientEmail], subject: mail.subject, html: mail.html }),
         });
 
         if (res.ok) {

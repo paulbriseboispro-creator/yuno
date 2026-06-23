@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { buildInvitation } from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -153,50 +154,17 @@ serve(async (req: Request) => {
         const from = resendFromEmail.includes("<")
           ? resendFromEmail
           : `Yuno <${resendFromEmail}>`;
+        const mail = buildInvitation({
+          lang: "fr",
+          orgName: venue_name,
+          roleLabel: "Propriétaire",
+          acceptUrl: `${appOrigin}/auth`,
+        });
         const emailResponse = await resend.emails.send({
           from,
           to: [normalizedEmail],
-          subject: `Vous êtes maintenant propriétaire de ${venue_name}`,
-          html: `
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <style>
-                body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 0; padding: 0; background: #ffffff; color: #1a1a1a; -webkit-font-smoothing: antialiased; }
-                .wrapper { background: #ffffff; padding: 40px 20px; }
-                .container { max-width: 480px; margin: 0 auto; }
-                .logo { font-size: 15px; font-weight: 800; letter-spacing: 4px; color: #dc2626; margin-bottom: 32px; }
-                .divider { height: 3px; width: 40px; background: #dc2626; border-radius: 2px; margin-bottom: 32px; }
-                h1 { color: #0a0a0a; margin: 0 0 20px 0; font-size: 26px; font-weight: 700; line-height: 1.2; letter-spacing: -0.3px; }
-                .body-text { color: #4a4a4a; line-height: 1.7; margin: 0 0 16px 0; font-size: 15px; }
-                .venue-name { color: #dc2626; font-weight: 600; }
-                .button-wrap { text-align: center; margin: 36px 0; }
-                .button { display: inline-block; background: #dc2626; color: #ffffff !important; text-decoration: none; padding: 14px 40px; border-radius: 8px; font-weight: 600; font-size: 15px; letter-spacing: 0.3px; }
-                .footer { margin-top: 40px; padding-top: 24px; border-top: 1px solid #e5e5e5; }
-                .footer p { color: #999; font-size: 12px; margin: 0; line-height: 1.5; }
-              </style>
-            </head>
-            <body>
-              <div class="wrapper">
-                <div class="container">
-                  <div class="logo">YUNO</div>
-                  <div class="divider"></div>
-                  <h1>Bienvenue dans l'univers Yuno</h1>
-                  <p class="body-text">Vous avez été assigné comme propriétaire du club <span class="venue-name">${venue_name}</span>.</p>
-                  <p class="body-text">Connectez-vous à votre espace pour accéder au tableau de bord et commencer à gérer votre établissement.</p>
-                  <div class="button-wrap">
-                    <a href="${appOrigin}/auth" class="button">Accéder à mon espace →</a>
-                  </div>
-                  <div class="footer">
-                    <p>L'équipe Yuno — yunoapp.eu</p>
-                  </div>
-                </div>
-              </div>
-            </body>
-            </html>
-          `,
+          subject: mail.subject,
+          html: mail.html,
         });
         // Resend returns { data, error }
         if ((emailResponse as any)?.error) {
@@ -241,56 +209,18 @@ serve(async (req: Request) => {
         ? resendFromEmail
         : `Yuno <${resendFromEmail}>`;
       const inviteLink = `${appOrigin}/auth?invite=${invitation.token}`;
-      
+      const mail = buildInvitation({
+        lang: "fr",
+        orgName: venue_name,
+        roleLabel: "Propriétaire",
+        acceptUrl: inviteLink,
+      });
+
       const emailResponse = await resend.emails.send({
         from,
         to: [normalizedEmail],
-        subject: `Invitation à rejoindre Yuno comme propriétaire de ${venue_name}`,
-        html: `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-              body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 0; padding: 0; background: #ffffff; color: #1a1a1a; -webkit-font-smoothing: antialiased; }
-              .wrapper { background: #ffffff; padding: 40px 20px; }
-              .container { max-width: 480px; margin: 0 auto; }
-              .logo { font-size: 15px; font-weight: 800; letter-spacing: 4px; color: #dc2626; margin-bottom: 32px; }
-              .divider { height: 3px; width: 40px; background: #dc2626; border-radius: 2px; margin-bottom: 32px; }
-              h1 { color: #0a0a0a; margin: 0 0 20px 0; font-size: 26px; font-weight: 700; line-height: 1.2; letter-spacing: -0.3px; }
-              .body-text { color: #4a4a4a; line-height: 1.7; margin: 0 0 16px 0; font-size: 15px; }
-              .venue-name { color: #dc2626; font-weight: 600; }
-              .button-wrap { text-align: center; margin: 36px 0; }
-              .button { display: inline-block; background: #dc2626; color: #ffffff !important; text-decoration: none; padding: 14px 40px; border-radius: 8px; font-weight: 600; font-size: 15px; letter-spacing: 0.3px; }
-              .expire { background: #fef9f0; border-radius: 8px; padding: 14px 18px; margin: 24px 0; border-left: 4px solid #f59e0b; }
-              .expire p { color: #92660d; margin: 0; font-size: 13px; font-weight: 500; }
-              .footer { margin-top: 40px; padding-top: 24px; border-top: 1px solid #e5e5e5; }
-              .footer p { color: #999; font-size: 12px; margin: 0; line-height: 1.5; }
-            </style>
-          </head>
-          <body>
-            <div class="wrapper">
-              <div class="container">
-                <div class="logo">YUNO</div>
-                <div class="divider"></div>
-                <h1>Vous êtes invité à rejoindre Yuno</h1>
-                <p class="body-text">Vous avez été invité à devenir propriétaire du club <span class="venue-name">${venue_name}</span> sur la plateforme Yuno.</p>
-                <p class="body-text">Créez votre compte en un clic pour accéder à votre tableau de bord propriétaire.</p>
-                <div class="button-wrap">
-                  <a href="${inviteLink}" class="button">Accepter l'invitation →</a>
-                </div>
-                <div class="expire">
-                  <p>⏱️ Cette invitation expire dans 7 jours.</p>
-                </div>
-                <div class="footer">
-                  <p>L'équipe Yuno — yunoapp.eu</p>
-                </div>
-              </div>
-            </div>
-          </body>
-          </html>
-        `,
+        subject: mail.subject,
+        html: mail.html,
       });
       if ((emailResponse as any)?.error) {
         console.error("Resend error (invitation):", (emailResponse as any).error);

@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { EmailLanguage, t, wrapEmailWithBranding, escapeHtml } from "../_shared/email-branding.ts";
 import { loadOptIns, optInToken, unsubscribeHeaders } from "../_shared/email-compliance.ts";
+import { buildWinBack, fmtDateParts } from "../_shared/email-templates.ts";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 const corsHeaders = {
@@ -204,8 +205,25 @@ serve(async (req) => {
             </div>
           `;
 
-          const html = wrapEmailWithBranding(emailContent, lang, venueName);
-          const subject = t('missed.subject', lang, { eventTitle: event.title });
+          const nextEventBuilt = nextEvent ? {
+            title: nextEvent.title,
+            meta: (() => { const dp = fmtDateParts(nextEvent.start_at, lang); return `${dp.day} ${dp.month}`; })(),
+            url: `https://yunoapp.eu/event/${nextEvent.id}`,
+          } : undefined;
+          const unsubUrl = `${Deno.env.get('PUBLIC_URL') || Deno.env.get('APP_BASE_URL') || 'https://yunoapp.eu'}/unsubscribe?token=${unsubToken}`;
+          const mail = buildWinBack({
+            lang,
+            pastEventTitle: event.title,
+            venueName,
+            posterUrl: eventImageUrl || undefined,
+            attendeeCount: attendeeCount ? String(attendeeCount) : undefined,
+            nextEvent: nextEventBuilt,
+            venueUrl: `https://yunoapp.eu/club/${event.venue_id}`,
+            unsubscribeUrl: unsubUrl,
+            recipientEmail: ticket.user_email,
+          });
+          const html = mail.html;
+          const subject = mail.subject;
 
           const res = await fetch('https://api.resend.com/emails', {
             method: 'POST',

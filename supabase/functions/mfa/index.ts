@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { Resend } from "npm:resend@2.0.0";
 import { wrapEmailWithBranding } from "../_shared/email-branding.ts";
+import { buildSecureLink } from "../_shared/email-templates.ts";
 import { generateSecret, generateOTPAuthURL, verifyTOTP } from "../_shared/totp.ts";
 import { encode } from "https://deno.land/std@0.190.0/encoding/hex.ts";
 
@@ -192,27 +193,21 @@ serve(async (req) => {
       const resend = new Resend(resendApiKey);
       const origin = req.headers.get("origin") || "https://yunoapp.eu";
       const confirmUrl = `${origin}/mfa-disable-confirm?token=${token}`;
-      const firstName = profile.first_name || "there";
 
-      const emailContent = `<div style="padding:32px 24px">
-        <h1 style="color:#fff;font-size:22px;margin:0 0 16px">🔓 Désactivation de la 2FA</h1>
-        <p style="color:#ccc;font-size:14px;line-height:1.6;margin:0 0 8px">Salut ${firstName},</p>
-        <p style="color:#ccc;font-size:14px;line-height:1.6;margin:0 0 24px">Tu as demandé à désactiver l'authentification à deux facteurs (2FA) sur ton compte Yuno. Clique sur le bouton ci-dessous pour confirmer cette action :</p>
-        <table cellpadding="0" cellspacing="0" style="margin:0 auto 24px"><tr><td>
-          <a href="${confirmUrl}" style="display:inline-block;background:linear-gradient(135deg,#dc2626 0%,#b91c1c 100%);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;font-size:15px">Confirmer la désactivation →</a>
-        </td></tr></table>
-        <p style="color:#888;font-size:12px;margin:0 0 8px">⏳ Ce lien expire dans 15 minutes.</p>
-        <p style="color:#dc2626;font-size:11px;word-break:break-all;margin:0 0 24px">${confirmUrl}</p>
-        <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:16px">
-          <p style="color:#666;font-size:11px;margin:0">⚠️ Si tu n'as pas fait cette demande, ignore cet email. Ton compte reste sécurisé.</p>
-        </div>
-      </div>`;
+      const mail = buildSecureLink({
+        lang: "fr",
+        title: "Désactivation de la 2FA",
+        message: "Tu as demandé à désactiver l'authentification à deux facteurs (2FA) sur ton compte Yuno. Confirme cette action ci-dessous. Ce lien expire dans 15 minutes.",
+        ctaLabel: "Confirmer la désactivation",
+        ctaUrl: confirmUrl,
+        footnote: "Si tu n'as pas fait cette demande, ignore cet email. Ton compte reste sécurisé.",
+      });
 
       await resend.emails.send({
         from: `Yuno Sécurité <${fromEmail}>`,
         to: [user.email!],
         subject: "🔓 Confirme la désactivation de ta 2FA — Yuno",
-        html: wrapEmailWithBranding(emailContent, "fr"),
+        html: mail.html,
       });
 
       await serviceClient.from("security_logs").insert({

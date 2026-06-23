@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import Stripe from "https://esm.sh/stripe@18.5.0";
-import { wrapEmailWithBranding, type EmailLanguage } from "../_shared/email-branding.ts";
+import { type EmailLanguage } from "../_shared/email-branding.ts";
+import { buildRefund } from "../_shared/email-templates.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -85,9 +86,6 @@ serve(async (req) => {
     if (!isAllowed) {
       throw new Error('Unauthorized: Staff role required');
     }
-
-    // Determine if staff is a bouncer (for email context)
-    const isBouncer = roles?.some(r => r.role === 'bouncer') || false;
 
     const user = { id: authenticatedUserId };
     if (!type || !['ticket', 'order'].includes(type)) throw new Error('type must be "ticket" or "order"');
@@ -364,7 +362,6 @@ serve(async (req) => {
     }
 
     // Include linked orders info for email
-    const linkedCancelledCount = type === 'ticket' ? (linkedOrdersCancelled || 0) : 0;
     const linkedRefundAmt = type === 'ticket' ? (linkedOrdersRefundTotal || 0) : 0;
     const totalEmailRefund = refundAmount + linkedRefundAmt;
 
@@ -372,54 +369,15 @@ serve(async (req) => {
     if (customerEmail) {
       try {
         const lang: EmailLanguage = "fr";
-        const isBouncerRefusal = isBouncer && type === 'ticket';
-        
-        const contextMessage = isBouncerRefusal
-          ? `Tu as été refusé(e) à l'entrée de <strong>${venueName}</strong>. Conformément à notre politique, tu es remboursé(e) du montant de ta réservation, déduction faite des frais de gestion et de fonctionnement liés à ta réservation.`
-          : `Ta ${type === 'ticket' ? 'réservation' : 'commande'} a été annulée par le staff de <strong>${venueName}</strong>. Tu es remboursé(e) du montant total, déduction faite des frais de gestion et de fonctionnement.`;
 
-        const linkedOrdersNote = linkedCancelledCount > 0
-          ? `<p style="color: #f59e0b; font-size: 13px; line-height: 1.5; margin: 0 0 16px;">⚠️ ${linkedCancelledCount} commande(s) de boisson(s) associée(s) ont également été annulée(s) et remboursée(s) pour un montant de ${linkedRefundAmt.toFixed(2)} €.</p>`
-          : '';
-
-        const emailContent = `
-          <div style="padding: 32px 24px;">
-            <h1 style="color: #fff; font-size: 22px; margin: 0 0 16px;">
-              💸 ${isBouncerRefusal ? 'Entrée refusée — Remboursement' : 'Annulation — Remboursement'}
-            </h1>
-            <p style="color: #ccc; font-size: 14px; line-height: 1.6; margin: 0 0 20px;">
-              ${contextMessage}
-            </p>
-            ${linkedOrdersNote}
-            
-            <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
-              <tr>
-                <td style="padding: 8px 16px;">
-                  <p style="color: #888; font-size: 12px; margin: 0;">Montant total remboursé</p>
-                  <p style="color: #22c55e; font-size: 24px; font-weight: 700; margin: 4px 0 0;">${totalEmailRefund.toFixed(2)} €</p>
-                </td>
-              </tr>
-              ${eventTitle ? `<tr>
-                <td style="padding: 8px 16px;">
-                  <p style="color: #888; font-size: 12px; margin: 0;">Événement</p>
-                  <p style="color: #fff; font-size: 14px; margin: 4px 0 0;">${eventTitle}</p>
-                </td>
-              </tr>` : ""}
-              ${reason ? `<tr>
-                <td style="padding: 8px 16px;">
-                  <p style="color: #888; font-size: 12px; margin: 0;">Motif</p>
-                  <p style="color: #fff; font-size: 14px; margin: 4px 0 0;">${reason}</p>
-                </td>
-              </tr>` : ""}
-            </table>
-            
-            <p style="color: #888; font-size: 12px; line-height: 1.6;">
-              Le remboursement apparaîtra sur ton compte sous 5 à 10 jours ouvrés. Les frais de service Yuno et les frais de transaction ne sont pas remboursables.
-            </p>
-          </div>
-        `;
-
-        const html = wrapEmailWithBranding(emailContent, lang, venueName);
+        const mail = buildRefund({
+          lang,
+          firstName: customerFirstName || undefined,
+          eventTitle: eventTitle || undefined,
+          venueName,
+          amount: `${totalEmailRefund.toFixed(2)} €`,
+          reason: reason || undefined,
+        });
 
         const resendApiKey = Deno.env.get("RESEND_API_KEY");
         const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@yunoapp.eu";
@@ -434,8 +392,8 @@ serve(async (req) => {
             body: JSON.stringify({
               from: `Yuno <${fromEmail}>`,
               to: [customerEmail],
-              subject: `💸 Remboursement de ${refundAmount.toFixed(2)}€ - ${eventTitle || venueName}`,
-              html,
+              subject: mail.subject,
+              html: mail.html,
             }),
           });
           logStep("Refund email sent", { to: customerEmail });

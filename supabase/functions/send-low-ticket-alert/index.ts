@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
-import { EmailLanguage, t, wrapEmailWithBranding, escapeHtml } from "../_shared/email-branding.ts";
+import { EmailLanguage } from "../_shared/email-branding.ts";
+import { buildLowTicketAlert, fmtDateParts } from "../_shared/email-templates.ts";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 const corsHeaders = {
@@ -99,14 +100,11 @@ serve(async (req) => {
       if (totalMax === 0) continue;
 
       const percent = Math.round((totalSold / totalMax) * 100);
-      const remaining = totalMax - totalSold;
 
       if (percent < 80) continue;
 
       const venueName = (event.venues as any)?.name || '';
       const ownerId = (event.venues as any)?.owner_id;
-      const safeEventTitle = escapeHtml(event.title);
-      const safeVenueName = escapeHtml(venueName);
 
       // 1. Notify owner (dedup check)
       if (ownerId) {
@@ -120,40 +118,19 @@ serve(async (req) => {
 
           if (ownerProfile?.email) {
             const lang = (ownerProfile.preferred_language as EmailLanguage) || 'fr';
-            const ownerContent = `
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr><td style="padding: 32px 28px;">
-                  <h1 style="color: #fff; font-size: 22px; font-weight: 700; margin: 0 0 16px;">${t('lowTicket.title', lang)}</h1>
-                  <p style="color: #ccc; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
-                    ${t('lowTicket.ownerBody', lang, { eventTitle: safeEventTitle, sold: String(totalSold), total: String(totalMax), percent: String(percent) })}
-                  </p>
-                  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 24px;">
-                    <tr>
-                      <td style="background:rgba(34,197,94,0.1);border-radius:12px;padding:20px;text-align:center;width:33%">
-                        <p style="color:#22c55e;margin:0;font-size:28px;font-weight:800">${totalSold}</p>
-                        <p style="color:#9ca3af;margin:4px 0 0;font-size:13px">${t('nightSummary.tickets', lang)}</p>
-                      </td>
-                      <td style="width:8px"></td>
-                      <td style="background:rgba(220,38,38,0.1);border-radius:12px;padding:20px;text-align:center;width:33%">
-                        <p style="color:#dc2626;margin:0;font-size:28px;font-weight:800">${remaining}</p>
-                        <p style="color:#9ca3af;margin:4px 0 0;font-size:13px">remaining</p>
-                      </td>
-                      <td style="width:8px"></td>
-                      <td style="background:rgba(245,158,11,0.1);border-radius:12px;padding:20px;text-align:center;width:33%">
-                        <p style="color:#f59e0b;margin:0;font-size:28px;font-weight:800">${percent}%</p>
-                        <p style="color:#9ca3af;margin:4px 0 0;font-size:13px">sold</p>
-                      </td>
-                    </tr>
-                  </table>
-                  <p style="color: #666; font-size: 13px; margin: 0;">${t('nightSummary.teamSign', lang)}</p>
-                </td></tr>
-              </table>
-            `;
-            const ownerHtml = wrapEmailWithBranding(ownerContent, lang, venueName);
+            const mail = buildLowTicketAlert({
+              lang,
+              audience: 'owner',
+              eventTitle: event.title,
+              venueName,
+              pctSold: `${percent}%`,
+              meta: '',
+              url: 'https://yunoapp.eu/owner',
+            });
             const res = await fetch('https://api.resend.com/emails', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
-              body: JSON.stringify({ from, to: [ownerProfile.email], subject: t('lowTicket.ownerSubject', lang, { eventTitle: event.title }), html: ownerHtml }),
+              body: JSON.stringify({ from, to: [ownerProfile.email], subject: mail.subject, html: mail.html }),
             });
             if (res.ok) {
               await markSent(supabaseAdmin, ownerId, 'low_ticket_owner', event.id);
@@ -199,27 +176,19 @@ serve(async (req) => {
           }
         }
 
-        const content = `
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr><td style="padding: 32px 28px; text-align: center;">
-              <h1 style="color: #fff; font-size: 24px; font-weight: 700; margin: 0 0 16px;">${t('lowTicket.title', lang)}</h1>
-              <p style="color: #ccc; font-size: 15px; line-height: 1.6; margin: 0 0 24px;">
-                ${t('lowTicket.body', lang, { eventTitle: safeEventTitle, venueName: safeVenueName, remaining: String(remaining) })}
-              </p>
-              <a href="https://yunoapp.eu/club/${event.venue_id}" style="display: inline-block; background: #dc2626; color: #fff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 15px;">
-                ${t('lowTicket.cta', lang)}
-              </a>
-              <div style="border-top: 1px solid rgba(255,255,255,0.08); margin: 24px 0 20px;"></div>
-              <p style="color: #666; font-size: 13px; margin: 0;">${t('lowTicket.teamSign', lang)}</p>
-            </td></tr>
-          </table>
-        `;
-
-        const html = wrapEmailWithBranding(content, lang, venueName);
+        const dp = fmtDateParts(event.start_at, lang);
+        const mail = buildLowTicketAlert({
+          lang,
+          audience: 'fan',
+          eventTitle: event.title,
+          venueName,
+          meta: `${dp.day} ${dp.month} · ${dp.time}`,
+          url: `https://yunoapp.eu/club/${event.venue_id}`,
+        });
         const res = await fetch('https://api.resend.com/emails', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
-          body: JSON.stringify({ from, to: [member.email], subject: t('lowTicket.subject', lang, { eventTitle: event.title }), html }),
+          body: JSON.stringify({ from, to: [member.email], subject: mail.subject, html: mail.html }),
         });
         if (res.ok) {
           await markSent(supabaseAdmin, recipientId, 'low_ticket_user', event.id);

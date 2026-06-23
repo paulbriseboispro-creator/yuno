@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { wrapEmailWithBranding, type EmailLanguage } from "../_shared/email-branding.ts";
+import { buildInvitation } from "../_shared/email-templates.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
@@ -131,62 +131,16 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
     if (insErr) throw insErr;
 
-    // Optional: language preference (defaults to fr)
-    const lang: EmailLanguage = "fr";
-
     const baseUrl = origin || "https://yunoapp.eu";
     const acceptUrl = `${baseUrl}/club-invitation?token=${invitation.token}`;
 
-    const subject = `${organizerLabel} t'invite à rejoindre Yuno pour collaborer`;
-
-    const greetingName = contact_first_name
-      ? `Bonjour ${contact_first_name},`
-      : "Bonjour,";
-
-    const bodyHtml = `
-      <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 30px; text-align: center;">
-        <h1 style="color: white; margin: 0; font-size: 24px;">🤝 Invitation à collaborer</h1>
-        <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 14px;">
-          ${organizerLabel} t'invite à rejoindre Yuno
-        </p>
-      </div>
-      <div style="padding: 32px;">
-        <p style="color: #e5e5e5; font-size: 15px; line-height: 1.6;">${greetingName}</p>
-        <p style="color: #a0a0a0; font-size: 14px; line-height: 1.7;">
-          <strong style="color: #fff;">${organizerLabel}</strong> souhaite organiser une soirée
-          dans ton établissement <strong style="color: #fff;">${club_name}</strong> et t'invite
-          à rejoindre <strong style="color: #dc2626;">Yuno</strong> pour gérer cette collaboration.
-        </p>
-        ${
-          invitation_message
-            ? `<div style="background: #1a1a1a; border-left: 3px solid #dc2626; padding: 14px 18px; margin: 18px 0; border-radius: 6px;">
-                 <p style="color: #d1d1d1; font-style: italic; margin: 0; font-size: 14px; line-height: 1.6;">
-                   « ${invitation_message.replace(/</g, "&lt;")} »
-                 </p>
-               </div>`
-            : ""
-        }
-        <p style="color: #a0a0a0; font-size: 14px; line-height: 1.7;">
-          En acceptant, ton club est créé automatiquement sur Yuno avec un accès
-          <strong style="color: #fff;">Yuno Collaboration</strong> gratuit :
-        </p>
-        <ul style="color: #a0a0a0; font-size: 14px; line-height: 1.8; padding-left: 18px;">
-          <li>Page publique de ton club avec la soirée co-organisée</li>
-          <li>Statistiques de la collaboration en temps réel</li>
-          <li>Paiements directs via Stripe Connect</li>
-          <li>Possibilité d'activer plus tard un plan Yuno complet (menu, billetterie, VIP, fidélité…)</li>
-        </ul>
-        <div style="text-align: center; margin: 32px 0 12px;">
-          <a href="${acceptUrl}" style="display: inline-block; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: #fff !important; text-decoration: none; padding: 16px 36px; border-radius: 12px; font-weight: bold; font-size: 16px;">
-            Accepter l'invitation →
-          </a>
-        </div>
-        <p style="color: #666; font-size: 12px; text-align: center; margin-top: 18px;">
-          Cette invitation expire dans 14 jours. Si tu n'attendais pas ce message, ignore-le simplement.
-        </p>
-      </div>`;
-
-    const html = wrapEmailWithBranding(bodyHtml, lang);
+    const mail = buildInvitation({
+      lang: "fr",
+      inviterName: organizerLabel,
+      orgName: club_name.trim(),
+      roleLabel: "Collaboration partenaire",
+      acceptUrl,
+    });
 
     const rawFrom = Deno.env.get("RESEND_FROM_EMAIL");
     const from = rawFrom
@@ -203,8 +157,8 @@ const handler = async (req: Request): Promise<Response> => {
         body: JSON.stringify({
           from,
           to: [normalizedEmail],
-          subject,
-          html,
+          subject: mail.subject,
+          html: mail.html,
         }),
       });
       if (!emailRes.ok) {
