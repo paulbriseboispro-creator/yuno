@@ -532,7 +532,12 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
       });
 
       const allDjs = [...(djsRes.data || []), ...djsByGenre];
-      const uniqueDjs = Array.from(new Map(allDjs.map((d: any) => [d.id, d])).values()).slice(0, 5);
+      // Dédup par personne (handle/stage_name), pas par id : un même DJ a souvent
+      // 2 lignes djs (profil perso venue_id NULL + entrée roster d'un club) qui
+      // remonteraient toutes les deux. handle est joint par user_id donc identique.
+      const uniqueDjs = Array.from(
+        new Map(allDjs.map((d: any) => [d.handle || d.stage_name || d.id, d])).values()
+      ).slice(0, 5);
 
       setResults({
         events: Array.from(mergedEventsMap.values()).slice(0, 12),
