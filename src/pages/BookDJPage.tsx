@@ -1,6 +1,7 @@
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { makeDjT } from '@/i18n/djTranslate';
+import { useVenueContext } from '@/hooks/useVenueContext';
 import { DJDiscovery } from '@/components/dj-marketplace/DJDiscovery';
 
 // "Book a DJ" — the booker-facing marketplace. Mounted under both /owner and
@@ -9,10 +10,23 @@ import { DJDiscovery } from '@/components/dj-marketplace/DJDiscovery';
 export default function BookDJPage() {
   const { language } = useLanguage();
   const tt = makeDjT(language);
+  // OwnerHeader consumes OwnerVenueProvider, which is mounted only in the /owner
+  // subtree. Organizers run under OrgAppLayout (no such provider) and already get
+  // its OrgAppHeader, so rendering OwnerHeader in organizer scope throws and
+  // white-screens the page. Show an inline title for them instead.
+  const { scope } = useVenueContext();
+  const isOrganizerScope = scope === 'organizer';
+  const title = tt('Booking DJ', 'Booking DJ', 'Booking DJ');
 
   return (
     <div className="min-h-screen bg-background">
-      <OwnerHeader title={tt('Booking DJ', 'Booking DJ', 'Booking DJ')} />
+      {isOrganizerScope ? (
+        <header className="mx-auto max-w-3xl px-4 pt-6 sm:px-6">
+          <h1 className="text-xl font-semibold">{title}</h1>
+        </header>
+      ) : (
+        <OwnerHeader title={title} />
+      )}
       <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
         <p className="mb-5 text-sm text-muted-foreground">
           {tt(
