@@ -31,11 +31,14 @@ export default function OrgAppEventDetail() {
   useEffect(() => {
     if (!user || !eventId) return;
     (async () => {
+      // Match events I lead (organizer_user_id) AND co-events a club proposed to
+      // me (partner_organizer_id) — otherwise a proposed collaboration couldn't be
+      // opened, so its accept/decline banner stayed invisible.
       const { data: ev } = await supabase
         .from('events')
         .select('*')
         .eq('id', eventId)
-        .eq('organizer_user_id', user.id)
+        .or(`organizer_user_id.eq.${user.id},partner_organizer_id.eq.${user.id}`)
         .maybeSingle();
 
       if (!ev) { navigate('/organizer-app/events'); return; }

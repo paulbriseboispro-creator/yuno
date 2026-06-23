@@ -11,6 +11,7 @@ import {
   Activity, Users, ArrowRight, Sparkles, MapPin, Clock, Wine,
 } from 'lucide-react';
 import { useOrganizerStripe } from '@/hooks/useOrganizerStripe';
+import { OrgPendingProposals } from '@/components/organizer-app/OrgPendingProposals';
 import { format, formatDistanceToNow, subDays, startOfDay } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
@@ -360,6 +361,9 @@ export default function OrgAppDashboard() {
             </Link>
           </div>
         )}
+
+        {/* ─── Pending co-event proposals (awaiting my acceptance) ──────────────── */}
+        <OrgPendingProposals />
 
         {/* ─── KPI tiles (30d) ──────────────────────────────────────────────────── */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
