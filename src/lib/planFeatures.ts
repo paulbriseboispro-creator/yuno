@@ -5,7 +5,12 @@ export type PlanCode = 'core' | 'collab' | 'essential' | 'pro' | 'elite';
 export type FeatureKey =
   | 'events' | 'entry_qr' | 'guest_list' | 'orders_qr' | 'menu'
   | 'staff_pin' | 'invoices_refunds' | 'analytics_basic'
-  | 'djs' | 'organizations' | 'promoters' | 'analytics_advanced'
+  // Marketplace junctions split into connect (free, Core) / orchestrate (paid, Pro):
+  // connecting (discover, book, be booked, accept a collab) generates GMV → never paywalled;
+  // orchestrating (multi-DJ rosters, booking analytics, auto payouts) is growth tooling → Pro.
+  | 'djs_connect' | 'djs_orchestrate'
+  | 'organizations_connect' | 'organizations_orchestrate'
+  | 'promoters' | 'analytics_advanced'
   | 'exports_csv' | 'clients_basic' | 'live_night' | 'vip_tables_basic'
   | 'vip_tables' | 'vip_service' | 'offers_upsell' | 'loyalty_crm'
   | 'hype_analysis' | 'personalization_advanced' | 'client_leaderboard'
@@ -38,31 +43,40 @@ export interface PlanInfo {
   features: FeatureKey[];
 }
 
+// Core (OPÈRE): the club runs its night for free. We never paywall what makes
+// GMV — selling (tickets, drinks, basic VIP), urgency, and connecting (book a DJ,
+// accept a collab). Each transaction still earns Yuno a commission.
 const CORE_FEATURES: FeatureKey[] = [
-  'events', 'entry_qr', 'guest_list', 'promoters_basic', 'analytics_tickets',
-  'email_campaigns_informational',
+  'events', 'entry_qr', 'guest_list', 'analytics_tickets',
+  'orders_qr', 'menu', 'staff_pin', 'invoices_refunds', 'analytics_basic',
+  'vip_tables_basic', 'scarcity_tools',
+  'djs_connect', 'organizations_connect',
+  'promoters_basic', 'email_campaigns_informational',
 ];
 
+// Essential ("vraie business"): caps lifted (staff illimité + branding Yuno retiré,
+// enforced backend-side) plus the first marketing weapons.
 const ESSENTIAL_FEATURES: FeatureKey[] = [
   ...CORE_FEATURES,
-  'orders_qr', 'menu', 'staff_pin', 'invoices_refunds', 'analytics_basic',
-  'story_builder',
+  'email_campaigns_promotional', 'clients_basic', 'story_builder', 'promoters',
 ];
 
+// Pro (GRANDIS — complet): deep analytics, exports, full VIP, DJ/orga
+// orchestration, advanced story. Highest tier purchasable at launch.
 const PRO_FEATURES: FeatureKey[] = [
   ...ESSENTIAL_FEATURES,
-  'djs', 'organizations', 'promoters', 'analytics_advanced',
-  'exports_csv', 'clients_basic', 'live_night',
-  'story_builder_advanced',
-  'vip_tables_basic',
-  'email_campaigns_promotional',
+  'analytics_advanced', 'exports_csv', 'vip_tables', 'vip_service',
+  'djs_orchestrate', 'organizations_orchestrate',
+  'story_builder_advanced', 'live_night', 'offers_upsell',
+  // Loyalty/CRM, hype, client leaderboard and advanced personalization are all
+  // BUILT — they belong in the highest purchasable tier, not behind the unbuilt Elite.
+  'loyalty_crm', 'hype_analysis', 'client_leaderboard', 'personalization_advanced',
 ];
 
+// Elite (SCALE — "Bientôt"): multi-venue group + API. Both entirely to build →
+// no extra FeatureKeys yet (everything built lives in Pro). Not purchasable at launch.
 const ELITE_FEATURES: FeatureKey[] = [
   ...PRO_FEATURES,
-  'vip_tables', 'vip_service', 'offers_upsell', 'loyalty_crm',
-  'hype_analysis', 'personalization_advanced', 'client_leaderboard',
-  'scarcity_tools',
 ];
 
 /**
@@ -83,9 +97,24 @@ const ELITE_FEATURES: FeatureKey[] = [
  * Editable in collab: venue identity (logo, photos, address, description),
  * club's own profile, and consultation of every dashboard.
  */
-const COLLAB_FEATURES: FeatureKey[] = PRO_FEATURES.filter(
-  (f) => f !== 'exports_csv'
-);
+// FROZEN as an explicit static list (was previously derived from PRO_FEATURES).
+// Deriving it meant any re-bucket of Pro silently changed this free tier. This
+// list captures the intent directly: full management parity for a partnered club
+// (it co-runs the event, so it needs both *_connect AND *_orchestrate), minus
+// `exports_csv` (no bulk data extraction on a free demo tier). Edit deliberately.
+const COLLAB_FEATURES: FeatureKey[] = [
+  'events', 'entry_qr', 'guest_list', 'analytics_tickets',
+  'orders_qr', 'menu', 'staff_pin', 'invoices_refunds', 'analytics_basic',
+  'vip_tables_basic', 'scarcity_tools',
+  'djs_connect', 'djs_orchestrate',
+  'organizations_connect', 'organizations_orchestrate',
+  'promoters_basic', 'promoters', 'email_campaigns_informational',
+  'email_campaigns_promotional', 'clients_basic',
+  'story_builder', 'story_builder_advanced',
+  'analytics_advanced', 'vip_tables', 'vip_service',
+  'live_night', 'offers_upsell',
+  'loyalty_crm', 'hype_analysis', 'client_leaderboard', 'personalization_advanced',
+];
 
 // Stripe price IDs are NOT stored here. The frontend only sends { planCode,
 // billingCycle } to the `club-subscription` edge function, which resolves the
@@ -113,24 +142,27 @@ export const PLANS: Record<PlanCode, PlanInfo> = {
     code: 'essential',
     name: 'Essential',
     nameKey: 'plan.essential',
-    price: 39,
-    priceAnnual: 39 * ANNUAL_BILLED_MONTHS, // 390€ / an
+    price: 49,
+    priceAnnual: 49 * ANNUAL_BILLED_MONTHS, // 490€ / an
     features: ESSENTIAL_FEATURES,
   },
   pro: {
     code: 'pro',
     name: 'Pro',
     nameKey: 'plan.pro',
-    price: 69,
-    priceAnnual: 69 * ANNUAL_BILLED_MONTHS, // 690€ / an
+    price: 99,
+    priceAnnual: 99 * ANNUAL_BILLED_MONTHS, // 990€ / an
     features: PRO_FEATURES,
   },
+  // Elite is DEFINED (for display) but NOT purchasable at launch — its features
+  // (loyalty, predictive, multi-venue, API) are unbuilt. The billing UI shows it
+  // as "Bientôt" with no CTA, and club-subscription rejects planCode==='elite'.
   elite: {
     code: 'elite',
     name: 'Elite',
     nameKey: 'plan.elite',
-    price: 99,
-    priceAnnual: 99 * ANNUAL_BILLED_MONTHS, // 990€ / an
+    price: 199,
+    priceAnnual: 199 * ANNUAL_BILLED_MONTHS, // 1990€ / an
     features: ELITE_FEATURES,
   },
 };
@@ -172,8 +204,10 @@ export function requiredPlan(feature: FeatureKey): PlanCode {
 
 /** Feature key to route path mapping */
 export const FEATURE_ROUTES: Partial<Record<FeatureKey, string[]>> = {
-  djs: ['/owner/djs'],
-  organizations: ['/owner/organizations'],
+  djs_connect: ['/owner/book-dj'],
+  djs_orchestrate: ['/owner/djs'],
+  organizations_connect: ['/owner/collaborations'],
+  // organizations_orchestrate: reserved for symmetry — no /owner/organizations page yet.
   promoters: ['/owner/promoters'],
   analytics_advanced: ['/owner/analytics'],
   clients_basic: ['/owner/customers'],
@@ -197,8 +231,10 @@ export const FEATURE_DESCRIPTIONS: Record<FeatureKey, string> = {
   staff_pin: 'plan.feature.staffPin',
   invoices_refunds: 'plan.feature.invoicesRefunds',
   analytics_basic: 'plan.feature.analyticsBasic',
-  djs: 'plan.feature.djs',
-  organizations: 'plan.feature.organizations',
+  djs_connect: 'plan.feature.djsConnect',
+  djs_orchestrate: 'plan.feature.djsOrchestrate',
+  organizations_connect: 'plan.feature.organizationsConnect',
+  organizations_orchestrate: 'plan.feature.organizationsOrchestrate',
   promoters: 'plan.feature.promoters',
   analytics_advanced: 'plan.feature.analyticsAdvanced',
   exports_csv: 'plan.feature.exportsCsv',

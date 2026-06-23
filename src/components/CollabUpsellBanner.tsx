@@ -29,12 +29,12 @@ export function CollabUpsellBanner() {
               Démo Yuno gratuite via votre orga partenaire
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Pendant cette soirée collab, vous découvrez les modules clés de Yuno : <span className="font-medium text-foreground">analytics, soirée en direct, hype, fidélité & CRM, clients</span>. De quoi mesurer la vraie valeur de Yuno pour votre club.
+              Pendant cette soirée collab, vous découvrez les modules clés de Yuno : <span className="font-medium text-foreground">analytics avancées, soirée en direct, VIP service, story builder, clients & CRM</span>. De quoi mesurer la vraie valeur de Yuno pour votre club.
             </p>
           </div>
         </div>
         <div className="rounded-lg bg-background/40 border border-border/50 px-3 py-2 text-[11px] text-muted-foreground">
-          <span className="font-medium text-foreground">Limites de la démo :</span> la création (événements, tickets, tables, menu) est gérée par l'orga, et certains outils avancés (Story Builder, rareté, VIP service, offres, promoteurs…) restent réservés aux abonnements payants. Passez à Yuno {target.name} pour tout débloquer.
+          <span className="font-medium text-foreground">Limites de la démo :</span> la création (événements, tickets, tables, menu) est gérée par l'orga, et l'export de données en masse (CSV / PDF) reste réservé aux abonnements payants. Passez à Yuno {target.name} pour votre propre établissement et tout débloquer.
         </div>
         <Button asChild size="sm" className="w-full sm:w-auto">
           <Link to="/owner/billing">

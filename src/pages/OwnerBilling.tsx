@@ -26,39 +26,60 @@ const CARD_BG  = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,
 const INNER_BG = 'rgba(255,255,255,0.032)';
 const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
 
-const CORE_FEATURES_LIST: { key: FeatureKey; labelKey: string }[] = [
+// Display-only feature lists for the pricing page. The functional gate lives in
+// planFeatures.ts — these must mirror that bucketing. `key` is optional so we can
+// list cap-based perks (unlimited staff, branding removed) that aren't FeatureKeys.
+type DisplayFeature = { key?: FeatureKey; labelKey: string };
+
+// Core does a LOT for free (the strategy: never paywall what makes GMV).
+const CORE_FEATURES_LIST: DisplayFeature[] = [
   { key: 'events', labelKey: 'plan.feature.events' },
   { key: 'entry_qr', labelKey: 'plan.feature.entryQr' },
   { key: 'guest_list', labelKey: 'plan.feature.guestList' },
-  { key: 'promoters_basic', labelKey: 'plan.feature.promotersBasic' },
-  { key: 'analytics_tickets', labelKey: 'plan.feature.analyticsTickets' },
-];
-
-const ESSENTIAL_FEATURES: { key: FeatureKey; labelKey: string }[] = [
   { key: 'orders_qr', labelKey: 'plan.feature.ordersQr' },
   { key: 'menu', labelKey: 'plan.feature.menu' },
+  { key: 'vip_tables_basic', labelKey: 'plan.feature.vipTablesBasic' },
+  { key: 'scarcity_tools', labelKey: 'plan.feature.scarcityTools' },
+  { key: 'djs_connect', labelKey: 'plan.feature.djsConnect' },
+  { key: 'organizations_connect', labelKey: 'plan.feature.organizationsConnect' },
+  { key: 'promoters_basic', labelKey: 'plan.feature.promotersBasic' },
   { key: 'staff_pin', labelKey: 'plan.feature.staffPin' },
   { key: 'invoices_refunds', labelKey: 'plan.feature.invoicesRefunds' },
+  { key: 'analytics_tickets', labelKey: 'plan.feature.analyticsTickets' },
   { key: 'analytics_basic', labelKey: 'plan.feature.analyticsBasic' },
+  { key: 'email_campaigns_informational', labelKey: 'plan.feature.emailCampaignsInfo' },
 ];
 
-const PRO_ONLY_FEATURES: { key: FeatureKey; labelKey: string }[] = [
-  { key: 'djs', labelKey: 'plan.feature.djs' },
-  { key: 'organizations', labelKey: 'plan.feature.organizations' },
+// Essential: caps lifted (unlimited staff + branding removed) + first marketing tools.
+const ESSENTIAL_FEATURES: DisplayFeature[] = [
+  { labelKey: 'plan.feature.unlimitedStaff' },
+  { labelKey: 'plan.feature.noBranding' },
+  { key: 'email_campaigns_promotional', labelKey: 'plan.feature.emailCampaignsPromo' },
+  { key: 'clients_basic', labelKey: 'plan.feature.clientsBasic' },
+  { key: 'story_builder', labelKey: 'plan.feature.storyBuilder' },
   { key: 'promoters', labelKey: 'plan.feature.promoters' },
+];
+
+const PRO_ONLY_FEATURES: DisplayFeature[] = [
   { key: 'analytics_advanced', labelKey: 'plan.feature.analyticsAdvanced' },
   { key: 'exports_csv', labelKey: 'plan.feature.exportsCsv' },
-  { key: 'clients_basic', labelKey: 'plan.feature.clientsBasic' },
-  { key: 'live_night', labelKey: 'plan.feature.liveNight' },
-];
-
-const ELITE_ONLY_FEATURES: { key: FeatureKey; labelKey: string }[] = [
   { key: 'vip_tables', labelKey: 'plan.feature.vipTables' },
   { key: 'vip_service', labelKey: 'plan.feature.vipService' },
+  { key: 'djs_orchestrate', labelKey: 'plan.feature.djsOrchestrate' },
+  { key: 'organizations_orchestrate', labelKey: 'plan.feature.organizationsOrchestrate' },
+  { key: 'story_builder_advanced', labelKey: 'plan.feature.storyBuilderAdvanced' },
+  { key: 'live_night', labelKey: 'plan.feature.liveNight' },
   { key: 'offers_upsell', labelKey: 'plan.feature.offersUpsell' },
   { key: 'loyalty_crm', labelKey: 'plan.feature.loyaltyCrm' },
   { key: 'hype_analysis', labelKey: 'plan.feature.hypeAnalysis' },
+  { key: 'client_leaderboard', labelKey: 'plan.feature.clientLeaderboard' },
   { key: 'personalization_advanced', labelKey: 'plan.feature.personalizationAdvanced' },
+];
+
+// Elite adds only unbuilt pillars — shown as "Bientôt", the tier is not purchasable.
+const ELITE_ONLY_FEATURES: DisplayFeature[] = [
+  { labelKey: 'plan.feature.multiVenue' },
+  { labelKey: 'plan.feature.api' },
 ];
 
 const PLAN_ICONS: Record<PlanCode, typeof Zap> = {
@@ -114,6 +135,8 @@ export default function OwnerBilling() {
 
   const handleSubscribe = async (planCode: PlanCode) => {
     if (!venueId) return;
+    // Elite is not purchasable at launch — the backend rejects it too (defense in depth).
+    if (planCode === 'elite') { toast.info(t('plan.comingSoon')); return; }
     setSubscribing(planCode);
     try {
       const { data, error } = await supabase.functions.invoke('club-subscription', { body: { action: 'create', venueId, planCode, billingCycle: cycle } });
@@ -322,16 +345,6 @@ export default function OwnerBilling() {
             </div>
           </div>
 
-          {/* Commissions */}
-          <div className="mt-4 p-4 rounded-xl space-y-1.5" style={{ background: INNER_BG, border: `1px solid ${F_BORDER}` }}>
-            <p style={{ color: T2, fontSize: 12, fontWeight: 600 }}>{t('plan.commissions')}</p>
-            {[t('plan.commissionDrinks'), t('plan.commissionTickets'), t('plan.commissionTables')].map((c, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <span className="w-1 h-1 rounded-full flex-shrink-0" style={{ background: T3 }} />
-                <span style={{ color: T3, fontSize: 12 }}>{c}</span>
-              </div>
-            ))}
-          </div>
         </div>
 
         {/* Plan Comparison */}
@@ -369,6 +382,7 @@ export default function OwnerBilling() {
               const acc = PLAN_ACCENTS[code];
               const Icon = PLAN_ICONS[code];
               const isPopular = code === 'pro';
+              const isComingSoon = code === 'elite'; // not purchasable at launch (features unbuilt)
               const isUpgrade = code !== 'core' && PLAN_ORDER.indexOf(code) > PLAN_ORDER.indexOf(plan);
               const isDowngrade = PLAN_ORDER.indexOf(code) < PLAN_ORDER.indexOf(plan) && !isCore && isActive;
 
@@ -384,12 +398,20 @@ export default function OwnerBilling() {
                     boxShadow: isCurrent ? `0 0 28px -8px ${acc.glow}, ${CARD_SHADOW}` : CARD_SHADOW,
                     overflow: 'hidden',
                     position: 'relative',
+                    opacity: isComingSoon ? 0.82 : 1,
                   }}>
                   {/* Popular ribbon */}
                   {isPopular && !isCurrent && (
                     <div className="absolute top-0 right-0 px-3 py-1 text-[10px] font-bold uppercase tracking-widest"
                       style={{ background: RED, color: '#fff', borderBottomLeftRadius: 10 }}>
                       {t('plan.popular')}
+                    </div>
+                  )}
+                  {/* Coming-soon ribbon — Elite is defined but not purchasable at launch */}
+                  {isComingSoon && !isCurrent && (
+                    <div className="absolute top-0 right-0 px-3 py-1 text-[10px] font-bold uppercase tracking-widest"
+                      style={{ background: acc.accent, color: '#fff', borderBottomLeftRadius: 10 }}>
+                      {t('plan.comingSoon')}
                     </div>
                   )}
                   {/* Current ribbon */}
@@ -413,19 +435,17 @@ export default function OwnerBilling() {
                       </div>
                     </div>
 
-                    {/* Price */}
+                    {/* Price — always lead with a per-month number; show yearly savings below */}
                     <div style={{ borderTop: `1px solid ${F_BORDER}`, paddingTop: 14 }}>
                       {code === 'core' ? (
                         <p style={{ color: T1, fontSize: 13, fontWeight: 500 }}>{t('plan.ticketFeesOnly')}</p>
                       ) : cycle === 'annual' ? (
                         <div>
                           <div className="flex items-baseline gap-1">
-                            <span style={{ color: T1, fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>{planPrice(code, 'annual')}€</span>
-                            <span style={{ color: T3, fontSize: 12 }}>/{t('plan.year')}</span>
+                            <span style={{ color: T1, fontSize: 28, fontWeight: 800, letterSpacing: '-0.03em' }}>{Math.round(planPrice(code, 'annual') / 12)}€</span>
+                            <span style={{ color: T3, fontSize: 12 }}>/{t('plan.month')}</span>
                           </div>
-                          <p style={{ color: T3, fontSize: 11, marginTop: 3 }}>
-                            {t('plan.perMonthEquiv').replace('{price}', String(Math.round(planPrice(code, 'annual') / 12)))}
-                          </p>
+                          <p style={{ color: T3, fontSize: 11, marginTop: 3 }}>{t('plan.billedAnnually')}</p>
                           <p style={{ color: POS, fontSize: 11, fontWeight: 600, marginTop: 2 }}>
                             {t('plan.savePerYear').replace('{amount}', String(annualSavings(code)))}
                           </p>
@@ -438,8 +458,13 @@ export default function OwnerBilling() {
                       )}
                     </div>
 
-                    {/* CTA */}
-                    {!isCurrent && code !== 'core' && (
+                    {/* CTA — Elite has none (not purchasable at launch) */}
+                    {isComingSoon ? (
+                      <div className="w-full py-2.5 rounded-xl text-[12.5px] font-semibold text-center"
+                        style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T3 }}>
+                        {t('plan.comingSoon')}
+                      </div>
+                    ) : !isCurrent && code !== 'core' && (
                       <button
                         onClick={() => handleSubscribe(code)}
                         disabled={subscribing !== null}

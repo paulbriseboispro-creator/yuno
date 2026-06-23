@@ -14,9 +14,9 @@ interface UpgradeModalProps {
 const PLAN_HIGHLIGHTS: Record<PlanCode, string[]> = {
   core: [],
   collab: [],
-  essential: [],
-  pro: ['plan.highlight.djs', 'plan.highlight.advancedAnalytics', 'plan.highlight.clientDatabase'],
-  elite: ['plan.highlight.vipService', 'plan.highlight.loyaltyCrm', 'plan.highlight.hypeAnalysis'],
+  essential: ['plan.highlight.unlimitedStaff', 'plan.highlight.promoEmail', 'plan.highlight.clientDatabase'],
+  pro: ['plan.highlight.loyaltyCrm', 'plan.highlight.advancedAnalytics', 'plan.highlight.djsOrchestrate'],
+  elite: ['plan.feature.multiVenue', 'plan.feature.api'],
 };
 
 export function UpgradeModal({ open, onOpenChange, feature }: UpgradeModalProps) {

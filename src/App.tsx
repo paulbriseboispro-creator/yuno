@@ -586,9 +586,9 @@ const App = () => (
                   <Route path="ticketing" element={<OwnerTicketing />} />
                   <Route path="guest-list" element={<OwnerGuestList />} />
                   <Route path="tables" element={<PlanGuard feature="vip_tables_basic"><OwnerTables /></PlanGuard>} />
-                  <Route path="djs" element={<PlanGuard feature="djs"><OwnerDJs /></PlanGuard>} />
+                  <Route path="djs" element={<PlanGuard feature="djs_orchestrate"><OwnerDJs /></PlanGuard>} />
                   <Route path="djs/:id" element={<OwnerDJDetail />} />
-                  <Route path="book-dj" element={<PlanGuard feature="djs"><BookDJPage /></PlanGuard>} />
+                  <Route path="book-dj" element={<PlanGuard feature="djs_connect"><BookDJPage /></PlanGuard>} />
                   <Route path="collaborations" element={<OwnerCollaborations />} />
                   <Route path="collab/event/:eventId" element={<OwnerCollabEventDashboard />} />
                   <Route path="scarcity" element={<OwnerScarcity />} />

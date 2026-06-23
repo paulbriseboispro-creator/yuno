@@ -307,6 +307,12 @@ serve(async (req) => {
       const planCode = body.planCode || "elite";
       const billingCycle: BillingCycle = body.billingCycle === "annual" ? "annual" : "monthly";
 
+      // Elite is defined but NOT purchasable at launch — its features are unbuilt.
+      // The billing UI hides its CTA; this rejects any direct attempt (defense in depth).
+      if (planCode === "elite") {
+        return json({ success: false, error: "Elite is not available yet.", code: "elite_not_available" }, 200);
+      }
+
       if (!targetVenueId) {
         const { data: venue } = await supabaseClient
           .from("venues").select("id").eq("owner_id", user.id).single();

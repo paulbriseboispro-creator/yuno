@@ -53,11 +53,12 @@ export function SubscriptionPlanProvider({ venueId, children }: { venueId: strin
       return;
     }
     try {
-      // Comptes démo @womber.fr : plan Elite forcé, indépendant de Stripe / edge function
+      // Comptes démo @womber.fr : plan Pro forcé (tier le plus haut ACHETABLE — Elite est
+      // « Bientôt » non-achetable), indépendant de Stripe / edge function
       // (l'edge function check-club-subscription est CORS-lock yunoapp.eu donc KO en local).
       const { data: { user: demoUser } } = await supabase.auth.getUser();
       if (demoUser?.email?.toLowerCase().endsWith('@womber.fr')) {
-        setPlan('elite');
+        setPlan('pro');
         setStatus('active');
         setIsTrial(false);
         setDaysRemaining(null);
