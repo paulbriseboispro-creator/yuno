@@ -29,6 +29,16 @@ export interface TicketPreset {
   updatedAt: string;
 }
 
+// Short type tag appended in parentheses to a preset name (e.g. "Early Birds (round)").
+// Returns the i18n key for the selling-mode label so callers can run it through t().
+export function presetTypeTagKey(mode: PresetSellingMode): string {
+  return mode === 'rounds'
+    ? 'tickets.presetTypeTagRounds'
+    : mode === 'timed_entry'
+      ? 'tickets.presetTypeTagTimed'
+      : 'tickets.presetTypeTagSimple';
+}
+
 // Shape of the round-creation form state (verbatim from OwnerTicketing useState).
 export interface RoundFormData {
   name: string;

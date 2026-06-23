@@ -27,6 +27,7 @@ import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { CollabReadOnlyBanner } from '@/components/CollabReadOnlyBanner';
 import { RED, POS, GOLD, T1, T2, T3, C_FAINT, BORDER, TILE_BG, CARD_SHADOW, MAIN_CARD, INNER_CARD, TILE, LABEL, DIALOG_SURFACE, DIALOG_TITLE, HINT } from '@/components/owner/ticketing/ticketing-ui';
 import type { PresetRound, TicketPreset, TicketSalesMode, SalesDraft, RoundFormData } from '@/components/owner/ticketing/ticketing-types';
+import { presetTypeTagKey } from '@/components/owner/ticketing/ticketing-types';
 import { toDateTimeLocalInput, toUtcIsoOrNull, resolveSalesMode } from '@/components/owner/ticketing/ticketing-utils';
 import { RoundDialog } from '@/components/owner/ticketing/RoundDialog';
 import { PresetDialog } from '@/components/owner/ticketing/PresetDialog';
@@ -1482,7 +1483,7 @@ export default function OwnerTicketing() {
                                 <div key={preset.id} className="p-4" style={MAIN_CARD}>
                                   <div className="flex items-start justify-between gap-2 mb-3">
                                     <div className="min-w-0">
-                                      <h4 className="truncate" style={{ color: T1, fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em' }}>{preset.name}</h4>
+                                      <h4 className="truncate" style={{ color: T1, fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em' }}>{preset.name} <span style={{ color: T3, fontWeight: 400 }}>({t(presetTypeTagKey(preset.sellingMode))})</span></h4>
                                       <p className="tabular-nums" style={{ color: T3, fontSize: 12, marginTop: 2 }}>
                                         {mode !== 'simple' && <>{preset.totalCapacity} {t('tickets.places')} · </>}
                                         {preset.rounds.length} {mode === 'simple' ? t('tickets.options') : t('tickets.rounds')}
@@ -1529,7 +1530,7 @@ export default function OwnerTicketing() {
                                   <div className="flex items-start justify-between gap-2 mb-3">
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-2">
-                                        <h4 className="truncate" style={{ color: T1, fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em' }}>{preset.name}</h4>
+                                        <h4 className="truncate" style={{ color: T1, fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em' }}>{preset.name} <span style={{ color: T3, fontWeight: 400 }}>({t(presetTypeTagKey(preset.sellingMode))})</span></h4>
                                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-semibold flex-none" style={{ background: 'rgba(252,211,153,0.12)', border: '1px solid rgba(252,211,153,0.3)', color: GOLD }}>VIP</span>
                                       </div>
                                       <p className="tabular-nums" style={{ color: T3, fontSize: 12, marginTop: 2 }}>
