@@ -7,7 +7,7 @@ import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import {
-  OrgCard, OrgEmptyState, POS, T1, T2, T3, BORDER, INNER_BG, C_FAINT,
+  OrgCard, OrgEmptyState, POS, RED, T1, T2, T3, BORDER, INNER_BG, C_FAINT,
 } from '@/components/org-ui';
 import { calcStripeFee } from '@/utils/fees';
 import {
@@ -22,6 +22,8 @@ import { toast } from 'sonner';
 const dfLocale = (lng: string) => (lng === 'fr' ? fr : lng === 'es' ? es : enUS);
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const eur = (n: number) => `${(n || 0).toFixed(2)} €`;
+// CSV-escape a free-text cell (delimiter is ';'): quote + double inner quotes when needed.
+const csvCell = (s: string) => (/[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
 
 // Guard against malformed dates: a truthy-but-invalid `start_at`/`created_at`
 // string would make date-fns `format()` throw "Invalid time value" mid-render
@@ -62,6 +64,8 @@ interface InvoiceRow {
   ticket_id: string | null;
   table_reservation_id: string | null;
   order_id: string | null;
+  /** Resolved rate / package / drink label for CSV + tooltip (set during fetch). */
+  detail?: string;
 }
 
 interface ReportLine { label: string; qty: number; htShare: number; ttcShare: number; }
@@ -166,18 +170,55 @@ export default function OwnerAccounting() {
         ticket_id: i.ticket_id, table_reservation_id: i.table_reservation_id, order_id: i.order_id,
       })) as InvoiceRow[];
 
-      // Refund amounts live on the raw sales tables, not on invoices.
+      // Refund amounts live on the raw sales tables, not on invoices. We pull the
+      // same rows to also enrich each ticket/table line with its real rate /
+      // package name — the invoice `items` jsonb only stores a generic "Billet" /
+      // "Table VIP", so without this every ticket sale collapses into one line.
       const ticketIds = invoices.map(i => i.ticket_id).filter(Boolean) as string[];
       const tableIds = invoices.map(i => i.table_reservation_id).filter(Boolean) as string[];
       const orderIds = invoices.map(i => i.order_id).filter(Boolean) as string[];
       const refundMap = new Map<string, number>();
       const [tk, tb, od] = await Promise.all([
-        ticketIds.length ? supabase.from('tickets').select('id, refund_amount').in('id', ticketIds) : Promise.resolve({ data: [] }),
-        tableIds.length ? supabase.from('table_reservations').select('id, refund_amount').in('id', tableIds) : Promise.resolve({ data: [] }),
+        ticketIds.length ? supabase.from('tickets').select('id, refund_amount, ticket_round_id, ticket_type, quantity').in('id', ticketIds) : Promise.resolve({ data: [] }),
+        tableIds.length ? supabase.from('table_reservations').select('id, refund_amount, pack_id').in('id', tableIds) : Promise.resolve({ data: [] }),
         orderIds.length ? supabase.from('orders').select('id, refund_amount').in('id', orderIds) : Promise.resolve({ data: [] }),
       ]);
-      [...((tk as any).data || []), ...((tb as any).data || []), ...((od as any).data || [])]
+      const tkRows = ((tk as any).data || []) as any[];
+      const tbRows = ((tb as any).data || []) as any[];
+      [...tkRows, ...tbRows, ...((od as any).data || [])]
         .forEach((r: any) => { if (Number(r.refund_amount)) refundMap.set(r.id, Number(r.refund_amount)); });
+
+      // Resolve human rate / package names for the per-line breakdown. Best-effort:
+      // any read failure just falls back to the generic type label (no crash).
+      const roundIds = [...new Set(tkRows.map(r => r.ticket_round_id).filter(Boolean))] as string[];
+      const packIds = [...new Set(tbRows.map(r => r.pack_id).filter(Boolean))] as string[];
+      const [rd, tp] = await Promise.all([
+        roundIds.length ? supabase.from('ticket_rounds').select('id, name').in('id', roundIds) : Promise.resolve({ data: [] }),
+        packIds.length ? supabase.from('table_packs').select('id, name').in('id', packIds) : Promise.resolve({ data: [] }),
+      ]);
+      const roundName = new Map<string, string>(((rd as any).data || []).map((r) => [r.id, r.name]));
+      const packName = new Map<string, string>(((tp as any).data || []).map((r) => [r.id, r.name]));
+      // txn id → { label, qty } for tickets and tables.
+      const txnMeta = new Map<string, { label: string; qty: number }>();
+      tkRows.forEach(r => txnMeta.set(r.id, {
+        label: (r.ticket_round_id && roundName.get(r.ticket_round_id)) || r.ticket_type || t('acct.typeTicket'),
+        qty: Number(r.quantity) || 1,
+      }));
+      tbRows.forEach(r => txnMeta.set(r.id, {
+        label: (r.pack_id && packName.get(r.pack_id)) || t('acct.typeTable'),
+        qty: 1,
+      }));
+
+      // Stamp a human "detail" on each invoice for the CSV export + line grouping.
+      invoices.forEach(inv => {
+        if (inv.type === 'order') {
+          const its = Array.isArray(inv.items) ? inv.items as any[] : [];
+          inv.detail = its.map(i => i.description).filter(Boolean).join(', ') || t('acct.typeDrink');
+        } else {
+          const tid = txnId(inv);
+          inv.detail = (tid && txnMeta.get(tid)?.label) || labelForType(inv.type, t);
+        }
+      });
 
       // Group invoices per event and compute the viewer's share.
       const byEvent = new Map<string, InvoiceRow[]>();
@@ -209,9 +250,18 @@ export default function OwnerAccounting() {
           const tid = txnId(inv);
           refundTotal += r2((tid ? refundMap.get(tid) || 0 : 0) * factor);
 
-          // Distribute this invoice's share across its line items.
-          let items = Array.isArray(inv.items) ? inv.items as any[] : [];
-          if (items.length === 0) items = [{ description: inv.event_name || labelForType(inv.type, t), quantity: 1, total: inv.amount }];
+          // Distribute this invoice's share across its line items. Drinks keep
+          // their per-drink breakdown from the order; tickets/tables roll up under
+          // the rate / package name resolved above (their jsonb is generic).
+          let items: any[];
+          if (inv.type === 'order') {
+            items = Array.isArray(inv.items) && inv.items.length
+              ? inv.items as any[]
+              : [{ description: inv.event_name || labelForType(inv.type, t), quantity: 1, total: inv.amount }];
+          } else {
+            const meta = tid ? txnMeta.get(tid) : undefined;
+            items = [{ description: meta?.label || labelForType(inv.type, t), quantity: meta?.qty || 1, total: inv.amount }];
+          }
           const sumItems = items.reduce((s, it) => s + (Number(it.total) || 0), 0);
           items.forEach(it => {
             const weight = sumItems > 0 ? (Number(it.total) || 0) / sumItems : 1 / items.length;
@@ -294,7 +344,7 @@ export default function OwnerAccounting() {
     setExporting(true);
     try {
       const headers = [
-        t('acct.csvEvent'), t('acct.csvDate'), t('acct.csvInvoice'), t('acct.csvType'),
+        t('acct.csvEvent'), t('acct.csvDate'), t('acct.csvInvoice'), t('acct.csvType'), t('acct.csvDetail'),
         t('acct.csvClient'), t('acct.csvAmountTtc'), t('acct.csvShareTtc'), t('acct.csvShareHt'), t('acct.csvVat'),
       ];
       const rows: string[][] = [];
@@ -306,9 +356,9 @@ export default function OwnerAccounting() {
           const ttcShare = r2((inv.amount - computeYunoFee(inv.type, inv.amount)) * pct / 100);
           const htShare = r2(ttcShare / (1 + vatRate / 100));
           rows.push([
-            rep.event.title || '', safeFormat(inv.created_at, 'dd/MM/yyyy'),
-            inv.invoice_number, labelForType(inv.type, t),
-            inv.customer_name || inv.customer_email,
+            csvCell(rep.event.title || ''), safeFormat(inv.created_at, 'dd/MM/yyyy'),
+            inv.invoice_number, labelForType(inv.type, t), csvCell(inv.detail || ''),
+            csvCell(inv.customer_name || inv.customer_email),
             inv.amount.toFixed(2), ttcShare.toFixed(2), htShare.toFixed(2), r2(ttcShare - htShare).toFixed(2),
           ]);
         });
@@ -397,16 +447,20 @@ export default function OwnerAccounting() {
           <OrgEmptyState icon={Calculator} title={t('acct.emptyTitle')} description={t('acct.emptyDesc')} />
         ) : (
           <div className="space-y-4">
-            {displayReports.map(rep => (
+            {displayReports.map(rep => {
+              const co = isCoEvent(rep.event);
+              return (
               <OrgCard key={rep.event.id} style={{ padding: 22 }}>
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h3 style={{ color: T1, fontSize: 17, fontWeight: 700, letterSpacing: '-0.01em' }}>
-                      {rep.event.title || '—'}
-                    </h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 style={{ color: T1, fontSize: 17, fontWeight: 700, letterSpacing: '-0.01em' }}>
+                        {rep.event.title || '—'}
+                      </h3>
+                      <ModePill co={co} pct={rep.creatorPct} t={t} />
+                    </div>
                     <p style={{ color: T3, fontSize: 12, marginTop: 3 }}>
                       {safeFormat(rep.event.start_at, 'EEEE d MMMM yyyy', { locale: dfLocale(language) })}
-                      {'  ·  '}{t('acct.creatorShare')}: {rep.creatorPct.toFixed(2)}%
                       {'  ·  '}{t('acct.vat')}: {vatRate}%
                     </p>
                   </div>
@@ -452,7 +506,8 @@ export default function OwnerAccounting() {
                   </table>
                 </div>
               </OrgCard>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -464,6 +519,24 @@ export default function OwnerAccounting() {
 
 function labelForType(type: InvoiceType, t: (k: string) => string): string {
   return type === 'ticket' ? t('acct.typeTicket') : type === 'table' ? t('acct.typeTable') : t('acct.typeDrink');
+}
+
+/**
+ * Settlement-mode badge. Solo events are direct Stripe charges (the viewer is the
+ * merchant of record, money settles straight to their connected account); co-events
+ * settle by split/transfer, so we surface the viewer's share right on the card.
+ */
+function ModePill({ co, pct, t }: { co: boolean; pct: number; t: (k: string) => string }) {
+  const label = co ? `${t('acct.modeCoPro')} · ${pct.toFixed(0)}% ${t('acct.modeShare')}` : t('acct.modeSolo');
+  return (
+    <span style={{
+      fontSize: 10.5, fontWeight: 700, letterSpacing: '0.03em', textTransform: 'uppercase',
+      padding: '3px 8px', borderRadius: 999, whiteSpace: 'nowrap',
+      color: co ? RED : T3,
+      background: co ? 'rgba(232,25,44,0.12)' : C_FAINT,
+      border: `1px solid ${co ? 'rgba(232,25,44,0.28)' : BORDER}`,
+    }}>{label}</span>
+  );
 }
 
 function Kpi({ label, value, accent, muted }: { label: string; value: string; accent?: string; muted?: boolean }) {
