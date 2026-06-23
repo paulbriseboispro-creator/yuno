@@ -10,7 +10,10 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr, enUS, es } from 'date-fns/locale';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
-import { downloadInvoicePDF, type InvoiceData, type InvoiceItem } from '@/lib/generateInvoicePDF';
+import {
+  generateReceiptPDF, generateBilletPDF, downloadBlob, receiptLineLabels,
+  type ReceiptLine, type DocLang,
+} from '@/lib/generateDocuments';
 import { toast } from 'sonner';
 import QRCode from 'qrcode';
 import { WalletButtons } from '@/components/WalletButtons';
@@ -65,7 +68,8 @@ export default function OrderConfirmation() {
   const { t, language } = useLanguage();
   
   const [loading, setLoading] = useState(true);
-  const [downloadingInvoice, setDownloadingInvoice] = useState(false);
+  const [downloadingReceipt, setDownloadingReceipt] = useState(false);
+  const [downloadingBillet, setDownloadingBillet] = useState(false);
   const [data, setData] = useState<ConfirmationData | null>(null);
   const [qrCodeImage, setQrCodeImage] = useState<string>('');
   const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null);
@@ -414,134 +418,125 @@ export default function OrderConfirmation() {
     }
   };
 
-  const handleDownloadInvoice = async () => {
-    if (!data) return;
-    
-    setDownloadingInvoice(true);
-    try {
-      // Generate or fetch invoice number
-      let invoiceNum = invoiceNumber;
-      
-      if (!invoiceNum && data.venueId) {
-        // Generate new invoice number via RPC
-        const { data: newInvoiceNum, error: rpcError } = await supabase
+  // Resolve (and persist) the canonical order/invoice number for the receipt.
+  const ensureInvoiceNumber = async (): Promise<string> => {
+    if (invoiceNumber) return invoiceNumber;
+    if (data?.venueId) {
+      try {
+        const { data: newNum, error } = await supabase
           .rpc('generate_invoice_number', { p_venue_id: data.venueId });
-        
-        if (rpcError) throw rpcError;
-        invoiceNum = newInvoiceNum;
-
-        // Save to invoice_numbers table
-        const insertData: any = {
-          venue_id: data.venueId,
-          invoice_number: invoiceNum,
-        };
-
-        if (type === 'ticket') insertData.ticket_id = id;
-        else if (type === 'table') insertData.table_reservation_id = id;
-        else if (type === 'order') insertData.order_id = id;
-
-        await supabase.from('invoice_numbers').insert(insertData);
-        setInvoiceNumber(invoiceNum);
-      }
-
-      if (!invoiceNum) {
-        invoiceNum = `FAC-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
-      }
-
-      // Build invoice items
-      const items: InvoiceItem[] = [];
-      
-      if (type === 'ticket' && data.quantity && data.unitPrice) {
-        items.push({
-          description: `Billet ${data.details}`,
-          quantity: data.quantity,
-          unitPrice: data.unitPrice,
-          total: data.quantity * data.unitPrice,
-        });
-        // Add upsell selections to invoice
-        if (data.upsellSelections && data.upsellSelections.length > 0) {
-          data.upsellSelections.forEach(u => {
-            items.push({
-              description: u.name,
-              quantity: 1,
-              unitPrice: u.price,
-              total: u.price,
-            });
-          });
-        } else if (data.packName && data.packPrice) {
-          // Legacy pack
-          items.push({
-            description: `Pack Conso - ${data.packName}`,
-            quantity: 1,
-            unitPrice: data.packPrice,
-            total: data.packPrice,
-          });
+        if (!error && newNum) {
+          const insertData: any = { venue_id: data.venueId, invoice_number: newNum };
+          if (type === 'ticket') insertData.ticket_id = id;
+          else if (type === 'table') insertData.table_reservation_id = id;
+          else if (type === 'order') insertData.order_id = id;
+          await supabase.from('invoice_numbers').insert(insertData);
+          setInvoiceNumber(newNum);
+          return newNum;
         }
-      } else if (type === 'table' && data.unitPrice) {
-        items.push({
-          description: `${t('invoice.tableReservation')} - ${data.details}`,
-          quantity: 1,
-          unitPrice: data.unitPrice,
-          total: data.unitPrice,
-        });
-      } else if (type === 'order' && data.items) {
-        data.items.forEach(item => {
-          items.push({
-            description: item.name,
-            quantity: item.qty,
-            unitPrice: item.unitPrice,
-            total: item.qty * item.unitPrice,
-          });
-        });
+      } catch { /* fall through to a local fallback */ }
+    }
+    const fallback = `FAC-${new Date().getFullYear()}-${Date.now().toString().slice(-6)}`;
+    setInvoiceNumber(fallback);
+    return fallback;
+  };
+
+  // Build the fiscal receipt lines (ticket/table/drinks + Yuno fees), each at its
+  // VAT rate. Mirrors the server-side lines in send-ticket-confirmation.
+  const buildReceiptLines = (): ReceiptLine[] => {
+    if (!data) return [];
+    const VAT = 20;
+    const lines: ReceiptLine[] = [];
+    const fee = receiptLineLabels(language as DocLang);
+    if (data.type === 'ticket') {
+      const q = data.quantity || 1;
+      const u = data.unitPrice || 0;
+      lines.push({ label: data.details || t('confirmation.ticket') || 'Billet', qty: q, ttc: q * u, vatRate: VAT });
+      if (data.upsellSelections?.length) {
+        data.upsellSelections.forEach(uu => lines.push({ label: uu.name, qty: 1, ttc: uu.price, vatRate: VAT }));
+      } else if (data.packName && data.packPrice) {
+        lines.push({ label: data.packName, qty: 1, ttc: data.packPrice, vatRate: VAT });
       }
+    } else if (data.type === 'table') {
+      lines.push({ label: data.details || t('acct.typeTable') || 'Table VIP', qty: 1, ttc: data.unitPrice || 0, vatRate: VAT });
+    } else if (data.type === 'order' && data.items) {
+      data.items.forEach(it => lines.push({ label: it.name, qty: it.qty, ttc: it.qty * it.unitPrice, vatRate: VAT }));
+    }
+    if (data.serviceFee) lines.push({ label: fee.serviceFee, qty: 1, ttc: data.serviceFee, vatRate: VAT });
+    if (data.managementFee) lines.push({ label: fee.managementFee, qty: 1, ttc: data.managementFee, vatRate: VAT });
+    if (data.insuranceFee) lines.push({ label: fee.insurance, qty: 1, ttc: data.insuranceFee, vatRate: VAT });
+    return lines;
+  };
 
-      // Calculate totals
-      const itemsSubtotal = items.reduce((sum, item) => sum + item.total, 0);
-      const fees = (data.serviceFee || 0) + (data.managementFee || 0) + (data.insuranceFee || 0);
-      const totalTTC = data.totalPrice || (itemsSubtotal + fees);
-      const tva = totalTTC * 0.2 / 1.2; // Extract TVA from TTC (20%)
-      const totalHT = totalTTC - tva;
-
-      const invoiceData: InvoiceData = {
-        invoiceNumber: invoiceNum,
-        invoiceDate: new Date(),
+  // Fiscal "Reçu de transaction" — club is the sole seller. No QR.
+  const handleDownloadReceipt = async () => {
+    if (!data) return;
+    setDownloadingReceipt(true);
+    try {
+      const orderNumber = await ensureInvoiceNumber();
+      const blob = await generateReceiptPDF({
+        lang: language as DocLang,
+        orderNumber,
+        receiptDate: new Date(),
         paymentDate: data.paidAt ? new Date(data.paidAt) : new Date(),
-        
-        venueName: data.venueName || 'Établissement',
-        venueLegalName: data.venueLegalName,
-        venueAddress: data.venueLegalAddress || data.venueAddress,
-        venueSiret: data.venueSiret,
-        venueVatNumber: data.venueVatNumber,
-        venueLogoUrl: data.venueLogoUrl,
-        
-        customerName: data.customerName || 'Client',
+        sellerName: data.venueLegalName || data.venueName || 'Yuno',
+        sellerAddress: data.venueLegalAddress || data.venueAddress,
+        sellerSiret: data.venueSiret,
+        sellerVatNumber: data.venueVatNumber,
+        sellerLogoUrl: data.venueLogoUrl,
+        customerName: data.customerName || '',
         customerEmail: data.customerEmail || '',
         customerPhone: data.customerPhone,
-        
         eventTitle: data.eventTitle,
         eventDate: data.eventDate ? new Date(data.eventDate) : undefined,
-        eventPosterUrl: data.eventPosterUrl,
-        
-        type: data.type,
-        items,
-        serviceFee: data.serviceFee,
-        managementFee: data.managementFee,
-        insuranceFee: data.insuranceFee,
-        totalHT,
-        tva,
-        totalTTC,
-        
-        qrCode: data.qrCode,
-        attendees: data.attendees,
-      };
-
-      await downloadInvoicePDF(invoiceData, `facture-${invoiceNum}.pdf`, language);
-      toast.success(t('invoice.downloaded') || 'Facture téléchargée');
+        lines: buildReceiptLines(),
+      });
+      downloadBlob(blob, `Yuno-recu-${orderNumber}.pdf`);
+      toast.success(t('invoice.downloaded') || 'Reçu téléchargé');
     } catch (error) {
-      console.error('Error generating invoice:', error);
-      toast.error(t('invoice.error') || 'Erreur lors de la génération de la facture');
+      console.error('Error generating receipt:', error);
+      toast.error(t('invoice.error') || 'Erreur lors de la génération du reçu');
     } finally {
-      setDownloadingInvoice(false);
+      setDownloadingReceipt(false);
+    }
+  };
+
+  // Entry "Billet" — poster, event, QR. Tickets & VIP tables only.
+  const handleDownloadBillet = async () => {
+    if (!data) return;
+    setDownloadingBillet(true);
+    try {
+      // The page only carries the raw scan value; fetch the short human ref for display.
+      let reference = data.qrCode;
+      try {
+        const tbl = data.type === 'table' ? 'table_reservations' : 'tickets';
+        const { data: row } = await supabase.from(tbl).select('reference_code').eq('id', data.id).maybeSingle();
+        const ref = (row as { reference_code?: string } | null)?.reference_code;
+        if (ref) reference = ref;
+      } catch { /* keep raw qr value as the reference */ }
+      const blob = await generateBilletPDF({
+        lang: language as DocLang,
+        eventTitle: data.eventTitle || data.venueName || '',
+        organizerName: data.venueName || '',
+        eventStart: data.eventDate ? new Date(data.eventDate) : undefined,
+        address: data.venueAddress,
+        entranceName: data.details,
+        reference,
+        price: `${(data.totalPrice || 0).toFixed(2).replace('.', ',')} €`,
+        orderNumber: invoiceNumber || reference,
+        customerName: data.customerName,
+        posterUrl: data.eventPosterUrl,
+        qrValue: data.qrCode,
+        index: 1,
+        total: 1,
+      });
+      downloadBlob(blob, `Yuno-billet-${reference}.pdf`);
+      toast.success(t('confirmation.billetDownloaded') || 'Billet téléchargé');
+    } catch (error) {
+      console.error('Error generating billet:', error);
+      toast.error(t('invoice.error') || 'Erreur lors de la génération du billet');
+    } finally {
+      setDownloadingBillet(false);
     }
   };
 
@@ -775,18 +770,35 @@ export default function OrderConfirmation() {
             transition={{ delay: 0.4 }}
             className="space-y-3"
           >
-            {/* Download Invoice Button - Primary action */}
-            <Button 
-              className="w-full" 
-              onClick={handleDownloadInvoice}
-              disabled={downloadingInvoice}
+            {/* Billet (ticket / VIP table only) — primary action */}
+            {data.type !== 'order' && (
+              <Button
+                className="w-full"
+                onClick={handleDownloadBillet}
+                disabled={downloadingBillet}
+              >
+                {downloadingBillet ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent mr-2" />
+                ) : (
+                  <Ticket className="h-4 w-4 mr-2" />
+                )}
+                {t('confirmation.downloadBillet') || 'Télécharger le billet'}
+              </Button>
+            )}
+
+            {/* Reçu de transaction (fiscal) */}
+            <Button
+              className="w-full"
+              variant={data.type === 'order' ? 'default' : 'outline'}
+              onClick={handleDownloadReceipt}
+              disabled={downloadingReceipt}
             >
-              {downloadingInvoice ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent mr-2" />
+              {downloadingReceipt ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />
               ) : (
                 <FileText className="h-4 w-4 mr-2" />
               )}
-              {t('confirmation.downloadInvoice')}
+              {t('confirmation.downloadReceipt') || 'Télécharger le reçu'}
             </Button>
 
             {/* Add to Wallet Button - Native Apple/Google Wallet design */}

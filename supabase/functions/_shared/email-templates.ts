@@ -66,7 +66,7 @@ export function buildTicketConfirmation(d: {
   lang?: Lang; firstName?: string; eventTitle: string; venueName: string; posterUrl?: string;
   day: string; month: string; openTime?: string; city?: string;
   ticketType: string; price: string; reference: string; ticketUrl: string; recipientEmail?: string;
-  qrDataUrl?: string; address?: string;
+  qrDataUrl?: string; address?: string; attached?: boolean;
 }): BuiltEmail {
   const lang = L(d.lang || 'en');
   const hi = d.firstName ? `${d.firstName}, ` : '';
@@ -96,7 +96,11 @@ export function buildTicketConfirmation(d: {
       section(`${d.qrDataUrl
         ? qrCard(d.qrDataUrl, p(lang, { en: 'Scan at the door', fr: "À scanner à l'entrée", es: 'Escanear en la entrada' }), d.reference)
         : calloutPrice(p(lang, { en: 'Show at the door', fr: "À présenter à l'entrée", es: 'Mostrar en la entrada' }), d.reference)
-        }<div style="height:20px"></div>${ctaPill(p(lang, { en: 'View my ticket', fr: 'Voir mon billet', es: 'Ver mi entrada' }), d.ticketUrl)}`, { border: false }),
+        }${d.attached ? `<div style="height:14px"></div>${mono(p(lang, {
+          en: 'Your ticket + receipt are attached as PDF',
+          fr: 'Ton billet + ton reçu sont en pièce jointe (PDF)',
+          es: 'Tu entrada + tu recibo están adjuntos en PDF',
+        }), C.gray3, 11)}` : ''}<div style="height:20px"></div>${ctaPill(p(lang, { en: 'View my ticket', fr: 'Voir mon billet', es: 'Ver mi entrada' }), d.ticketUrl)}`, { border: false }),
       footer({ lang, venueName: d.venueName }),
     ].join(''),
   });
