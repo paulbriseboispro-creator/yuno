@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Gift, ChevronRight, Sparkles } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { TierBadge } from './TierBadge';
@@ -29,6 +29,7 @@ export function LoyaltyCard({
   className
 }: LoyaltyCardProps) {
   const { t } = useLanguage();
+  const reduceMotion = useReducedMotion();
 
   if (compact) {
     return (
@@ -82,8 +83,9 @@ export function LoyaltyCard({
             <div>
               <motion.p
                 key={balance}
-                initial={{ scale: 1.2, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
+                initial={reduceMotion ? { opacity: 0 } : { scale: 1.15, opacity: 0 }}
+                animate={reduceMotion ? { opacity: 1 } : { scale: 1, opacity: 1 }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
                 className="text-2xl font-bold leading-tight"
               >
                 {balance.toLocaleString()}

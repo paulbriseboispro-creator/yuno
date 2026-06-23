@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { FadeInView } from '@/components/motion';
 import { DrinkCard } from '@/components/DrinkCard';
 import { CartButton } from '@/components/CartButton';
 import { EventSelectionDialog } from '@/components/EventSelectionDialog';
@@ -833,13 +834,7 @@ export default function VenuePage() {
                 const hasMore = categoryDrinks.length > 8;
 
                 return (
-                  <motion.section
-                    key={key}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.1 }}
-                    className="mb-8"
-                  >
+                  <FadeInView as="section" key={key} className="mb-8">
                     {/* Section header — ruled */}
                     <div
                       className="flex items-center justify-between px-5"
@@ -889,7 +884,7 @@ export default function VenuePage() {
                         </button>
                       )}
                     </div>
-                  </motion.section>
+                  </FadeInView>
                 );
               })}
             </>
@@ -899,7 +894,7 @@ export default function VenuePage() {
 
         {/* ===== PHOTOS — snap carousel ===== */}
         {venue.galleryImages && venue.galleryImages.length > 0 && (
-          <div className="pt-10">
+          <FadeInView className="pt-10">
             <div className="px-5 mb-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
               <p className="yuno-rule">PHOTOS</p>
             </div>
@@ -954,7 +949,7 @@ export default function VenuePage() {
                 ))}
               </div>
             )}
-          </div>
+          </FadeInView>
         )}
 
         {/* ===== THE ROOM — full description ===== */}

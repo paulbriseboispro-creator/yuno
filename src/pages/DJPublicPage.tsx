@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { FadeInView } from '@/components/motion';
 import { ArrowLeft, BadgeCheck, Calendar, ChevronDown, ChevronUp, MapPin, Music, Share2 } from 'lucide-react';
 import { SiInstagram, SiTiktok, SiSoundcloud, SiSpotify, SiYoutube } from 'react-icons/si';
 import { Button } from '@/components/ui/button';
@@ -664,7 +665,7 @@ export default function DJPublicPage() {
 
         {/* ===== GALERIE — slider scroll-snap (bas de page, sous les orgas) ===== */}
         {extras.photos.length > 0 && (
-          <div className="pt-7">
+          <FadeInView className="pt-7">
             <p className="section-label-ruled mb-4 px-5">{t('djPublic.gallery')}</p>
             <div
               className="flex gap-3 overflow-x-auto pb-1 px-5 scrollbar-hide"
@@ -685,7 +686,7 @@ export default function DJPublicPage() {
                 </div>
               ))}
             </div>
-          </div>
+          </FadeInView>
         )}
 
         {/* Footer */}

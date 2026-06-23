@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
+import { FadeInView } from '@/components/motion';
 import { ArrowLeft, Calendar, Users, MapPin, Share2, Bell, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr, enUS, es } from 'date-fns/locale';
@@ -588,11 +589,7 @@ export default function OrganizerPublicProfile() {
           const categories = order.filter((k) => grouped[k]?.length > 0);
 
           return (
-            <motion.section
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="pt-8"
-            >
+            <FadeInView as="section" className="pt-8">
               <div className="px-5 mb-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
                 <p className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.14em', color: '#5A5A5E' }}>
                   {t('event.drinksMenu') || 'Boissons & cocktails'}
@@ -659,7 +656,7 @@ export default function OrganizerPublicProfile() {
                   </div>
                 ))}
               </div>
-            </motion.section>
+            </FadeInView>
           );
         })()}
 

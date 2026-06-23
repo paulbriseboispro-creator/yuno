@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { format, type Locale } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useAffiliateVisitorTracking, trackAffiliateClick } from '@/hooks/useAffiliateVisitorTracking';
+import { FadeInView } from '@/components/motion';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -425,6 +426,10 @@ function EventCard({
     }
   };
 
+  // Le hover (lift + bordure) ne s'applique que sur appareils hover-capable,
+  // sinon il reste figé après un tap sur tactile.
+  const canHover = typeof window !== 'undefined' && !!window.matchMedia?.('(hover: hover) and (pointer: fine)').matches;
+
   return (
     <div
       onClick={handleClick}
@@ -441,11 +446,12 @@ function EventCard({
         transition: 'border-color 250ms ease, transform 250ms cubic-bezier(0.16,1,0.3,1)',
       }}
       onMouseEnter={(e) => {
-        if (isSoldOut) return;
+        if (isSoldOut || !canHover) return;
         (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.14)';
         (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)';
       }}
       onMouseLeave={(e) => {
+        if (!canHover) return;
         (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)';
         (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
       }}
@@ -1120,14 +1126,15 @@ export default function AffiliateLinktree() {
                     </span>
                   </div>
 
-                  {group.items.map((ev) => (
-                    <EventCard
-                      key={ev.id}
-                      event={ev}
-                      affiliateId={affiliate?.id ?? ''}
-                      isOwner={isOwner}
-                      onNavigate={() => navigate(`/affiliate-event/${ev.slug}`)}
-                    />
+                  {group.items.map((ev, i) => (
+                    <FadeInView key={ev.id} index={i < 6 ? i : 0}>
+                      <EventCard
+                        event={ev}
+                        affiliateId={affiliate?.id ?? ''}
+                        isOwner={isOwner}
+                        onNavigate={() => navigate(`/affiliate-event/${ev.slug}`)}
+                      />
+                    </FadeInView>
                   ))}
                 </div>
               ))

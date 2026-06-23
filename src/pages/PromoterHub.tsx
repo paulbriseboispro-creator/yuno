@@ -89,6 +89,9 @@ function EventCard({
   })();
   const ctaLabel = event.ticketing_enabled ? 'Billets' : 'Voir';
   const img = event.poster_url;
+  // Le hover ne doit s'appliquer que sur appareils hover-capable, sinon il
+  // "colle" après un tap sur tactile (le lift reste figé). Cf. règle motion.
+  const canHover = typeof window !== 'undefined' && !!window.matchMedia?.('(hover: hover) and (pointer: fine)').matches;
 
   return (
     <div
@@ -106,10 +109,12 @@ function EventCard({
         transition: 'border-color 250ms ease, transform 250ms cubic-bezier(0.16,1,0.3,1)',
       }}
       onMouseEnter={(e) => {
+        if (!canHover) return;
         (e.currentTarget as HTMLElement).style.borderColor = live ? 'rgba(232,25,44,0.6)' : 'rgba(255,255,255,0.14)';
         (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)';
       }}
       onMouseLeave={(e) => {
+        if (!canHover) return;
         (e.currentTarget as HTMLElement).style.borderColor = live ? 'rgba(232,25,44,0.45)' : 'rgba(255,255,255,0.08)';
         (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
       }}

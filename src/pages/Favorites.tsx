@@ -10,6 +10,7 @@ import { fr, es, enUS } from 'date-fns/locale';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { BottomNav } from '@/components/BottomNav';
+import { FadeInView } from '@/components/motion';
 
 /* ── Design tokens (aligned with Yuno DS: index.css variables) ── */
 const D = {
@@ -1123,13 +1124,14 @@ export default function Favorites() {
                   <>
                     <SecLabel count={`${venues.length} ${t('favorites.unitSubscribers')}`}>{t('favorites.clubs').toUpperCase()}</SecLabel>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
-                      {venues.map((venue) => (
-                        <ClubCard
-                          key={venue.id}
-                          venue={venue}
-                          upcoming={upcomingByEntity[venue.id]}
-                          onClick={() => venue.isAffiliate ? navigate(`/affiliate-venue/${venue.slug}`) : navigate(`/club/${venue.id}`)}
-                        />
+                      {venues.map((venue, i) => (
+                        <FadeInView key={venue.id} index={i < 6 ? i : 0}>
+                          <ClubCard
+                            venue={venue}
+                            upcoming={upcomingByEntity[venue.id]}
+                            onClick={() => venue.isAffiliate ? navigate(`/affiliate-venue/${venue.slug}`) : navigate(`/club/${venue.id}`)}
+                          />
+                        </FadeInView>
                       ))}
                     </div>
                   </>
@@ -1139,9 +1141,9 @@ export default function Favorites() {
                   <div style={{ marginTop: venues.length > 0 ? 32 : 0 }}>
                     <SecLabel count={`${followedOrganizers.length} ${t('favorites.unitSubscribers')}`}>{t('favorites.tabOrganizers').toUpperCase()}</SecLabel>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
-                      {followedOrganizers.map((org) => (
+                      {followedOrganizers.map((org, i) => (
+                        <FadeInView key={org.id} index={i < 6 ? i : 0}>
                         <OrganizerCard
-                          key={org.id}
                           org={org}
                           upcoming={upcomingByEntity[org.id]}
                           onClick={() => org.slug && navigate(`/o/${org.slug}`)}
@@ -1153,6 +1155,7 @@ export default function Favorites() {
                             setFollowedOrganizers(prev => prev.filter(o => o.id !== org.id));
                           }}
                         />
+                        </FadeInView>
                       ))}
                     </div>
                   </div>
@@ -1185,18 +1188,19 @@ export default function Favorites() {
               <>
                 <SecLabel count={`${events.length} ${t('favorites.unitUpcoming')}`}>{t('favorites.tabParties').toUpperCase()}</SecLabel>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
-                  {events.map((event) => (
-                    <EventCard
-                      key={event.id}
-                      event={event}
-                      formatDate={formatEventDate}
-                      formatTime={formatEventTime}
-                      onClick={() =>
-                        event.isAffiliate
-                          ? navigate(`/affiliate-event/${event.affiliateSlug}`)
-                          : navigate(`/club/${event.venueId}/event/${event.id}`)
-                      }
-                    />
+                  {events.map((event, i) => (
+                    <FadeInView key={event.id} index={i < 6 ? i : 0}>
+                      <EventCard
+                        event={event}
+                        formatDate={formatEventDate}
+                        formatTime={formatEventTime}
+                        onClick={() =>
+                          event.isAffiliate
+                            ? navigate(`/affiliate-event/${event.affiliateSlug}`)
+                            : navigate(`/club/${event.venueId}/event/${event.id}`)
+                        }
+                      />
+                    </FadeInView>
                   ))}
                 </div>
               </>
@@ -1225,12 +1229,13 @@ export default function Favorites() {
               <>
                 <SecLabel count={`${djs.length} ${t('favorites.unitSubscribers')}`}>DJS</SecLabel>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
-                  {djs.map((dj) => (
-                    <DJCard
-                      key={dj.id}
-                      dj={dj}
-                      onClick={() => (dj.handle || dj.slug) ? navigate(`/dj/${dj.handle || dj.slug}`) : undefined}
-                    />
+                  {djs.map((dj, i) => (
+                    <FadeInView key={dj.id} index={i < 6 ? i : 0}>
+                      <DJCard
+                        dj={dj}
+                        onClick={() => (dj.handle || dj.slug) ? navigate(`/dj/${dj.handle || dj.slug}`) : undefined}
+                      />
+                    </FadeInView>
                   ))}
                 </div>
               </>
@@ -1259,8 +1264,10 @@ export default function Favorites() {
               <>
                 <SecLabel count={`${drinks.length} ${t('favorites.unitFavorites')}`}>{t('favorites.drinks').toUpperCase()}</SecLabel>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
-                  {drinks.map((drink) => (
-                    <DrinkCard key={drink.id} drink={drink} />
+                  {drinks.map((drink, i) => (
+                    <FadeInView key={drink.id} index={i < 6 ? i : 0}>
+                      <DrinkCard drink={drink} />
+                    </FadeInView>
                   ))}
                 </div>
               </>
