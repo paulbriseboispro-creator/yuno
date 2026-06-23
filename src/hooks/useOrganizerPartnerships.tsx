@@ -33,7 +33,7 @@ export interface VenueOrganizerPartnership {
   updated_at: string;
   // Joined data (optional)
   venue?: { id: string; name: string; logo_url: string | null; city: string | null };
-  organizer?: { id: string; first_name: string | null; last_name: string | null; organization_name: string | null; avatar_url: string | null };
+  organizer?: { id: string; first_name: string | null; last_name: string | null; organization_name: string | null; avatar_url: string | null; slug: string | null };
 }
 
 export type PartnershipSplitProposalStatus =
@@ -248,16 +248,30 @@ export function useVenuePartnerships(venueId: string | undefined) {
       if (error) throw error;
 
       const rows = (data || []) as unknown as VenueOrganizerPartnership[];
-      // Fetch organizer profiles
+      // Fetch organizer identity (name + avatar + slug).
       const orgIds = Array.from(new Set(rows.map((r) => r.organizer_user_id)));
       if (orgIds.length === 0) return rows;
 
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, organization_name, avatar_url')
-        .in('id', orgIds);
+      // Identity lives in `organizer_profiles` (publicly readable when is_public),
+      // NOT in `profiles` — whose RLS hides organizer rows from venue owners, so
+      // a `profiles` read silently returns 0 rows and the card shows a generic
+      // "Organizer" with no photo. CollabEventsTab uses this same table.
+      const { data: orgProfiles } = await supabase
+        .from('organizer_profiles' as any)
+        .select('user_id, display_name, avatar_url, slug')
+        .in('user_id', orgIds);
 
-      const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+      type OrgProfileRow = { user_id: string; display_name: string | null; avatar_url: string | null; slug: string | null };
+      const profileMap = new Map(
+        ((orgProfiles || []) as OrgProfileRow[]).map((p) => [p.user_id, {
+          id: p.user_id,
+          first_name: null,
+          last_name: null,
+          organization_name: p.display_name,
+          avatar_url: p.avatar_url,
+          slug: p.slug,
+        }]),
+      );
       return rows.map((r) => ({ ...r, organizer: profileMap.get(r.organizer_user_id) as any }));
     },
   });

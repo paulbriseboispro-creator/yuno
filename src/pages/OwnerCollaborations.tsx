@@ -255,10 +255,25 @@ export default function OwnerCollaborations() {
  * ========================================================================= */
 function CollabEventsTab({ venueId, canPropose }: { venueId: string; canPropose: boolean }) {
   const { t } = useLanguage();
+  const [params, setParams] = useSearchParams();
   const [events, setEvents] = useState<CollabEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPast, setShowPast] = useState(false);
   const [proposeOpen, setProposeOpen] = useState(false);
+  const [preselectOrg, setPreselectOrg] = useState<string | null>(null);
+
+  // Deeplink from a partnership card: `?tab=events&propose=<organizerUserId>`
+  // opens the propose dialog with that partner pre-selected, then clears the param.
+  const proposeParam = params.get('propose');
+  useEffect(() => {
+    if (!proposeParam) return;
+    setPreselectOrg(proposeParam);
+    setProposeOpen(true);
+    const next = new URLSearchParams(params);
+    next.delete('propose');
+    setParams(next, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proposeParam]);
 
   const fetchEvents = async () => {
     setLoading(true);
@@ -364,7 +379,7 @@ function CollabEventsTab({ venueId, canPropose }: { venueId: string; canPropose:
         </>
       )}
 
-      <ClubProposeEventDialog open={proposeOpen} onOpenChange={setProposeOpen} venueId={venueId} onCreated={fetchEvents} />
+      <ClubProposeEventDialog open={proposeOpen} onOpenChange={(o) => { setProposeOpen(o); if (!o) setPreselectOrg(null); }} venueId={venueId} preselectedOrganizerId={preselectOrg} onCreated={fetchEvents} />
     </div>
   );
 }
@@ -583,8 +598,13 @@ function OrganizersTab({ venueId }: { venueId: string }) {
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setInviteOpen(false)}
             />
+            {/* Flex wrapper centers reliably — framer-motion writes an inline
+                `transform` for the `y` animation, which would override Tailwind's
+                `-translate-x-1/2 -translate-y-1/2` centering and push the modal
+                into the lower-right quadrant. */}
+            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 pointer-events-none">
             <motion.div
-              className="fixed inset-x-4 bottom-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 z-50 sm:max-w-lg sm:w-full"
+              className="pointer-events-auto w-full sm:max-w-lg"
               initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 24 }}
               transition={{ duration: 0.22 }}
               style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, padding: '24px', maxHeight: '90vh', overflowY: 'auto' }}
@@ -647,6 +667,7 @@ function OrganizersTab({ venueId }: { venueId: string }) {
                 </PrimaryBtn>
               </div>
             </motion.div>
+            </div>
           </>
         )}
       </AnimatePresence>
@@ -689,9 +710,13 @@ function PartnershipCard({ partnership, showAccept, onAccept, onDecline, onRevok
   const orgName = (partnership.organizer?.organization_name
     ?? `${partnership.organizer?.first_name ?? ''} ${partnership.organizer?.last_name ?? ''}`.trim())
     || t('collab.organizer');
+  const slug = partnership.organizer?.slug;
+  const hasActions = showAccept || onProposeEvent || onEditSplit || onRevoke;
+  const canRevoke = onRevoke && partnership.status !== 'revoked' && partnership.status !== 'declined';
 
   return (
     <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 16 }}>
+      {/* ── Header : identity ─────────────────────────────────────────── */}
       <div className="flex items-start gap-3">
         {partnership.organizer?.avatar_url ? (
           <img src={partnership.organizer.avatar_url} alt="" className="h-12 w-12 rounded-full object-cover flex-none" style={{ border: `1px solid ${F_BORDER}` }} />
@@ -703,7 +728,7 @@ function PartnershipCard({ partnership, showAccept, onAccept, onDecline, onRevok
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <h3 className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 640 }}>{orgName}</h3>
+            <h3 className="truncate" style={{ color: T1, fontSize: 15, fontWeight: 680, letterSpacing: '-0.01em' }}>{orgName}</h3>
             <Chip label={statusStyle.label} color={statusStyle.color} bg={statusStyle.bg} border={statusStyle.border} />
             <Chip
               label={partnership.initiated_by === 'venue' ? t('collab.organizers.initiatedByYou') : t('collab.organizers.initiatedByOrga')}
@@ -711,28 +736,41 @@ function PartnershipCard({ partnership, showAccept, onAccept, onDecline, onRevok
             />
           </div>
 
-          {partnership.invitation_message && (
-            <p className="italic line-clamp-2" style={{ color: T3, fontSize: 11.5, marginBottom: 8 }}>« {partnership.invitation_message} »</p>
+          {slug && (
+            <Link to={`/o/${slug}`} className="inline-flex items-center gap-1" style={{ color: T3, fontSize: 11.5, textDecoration: 'none' }}>
+              {t('collab.organizers.viewProfile')} <ExternalLink className="h-3 w-3" />
+            </Link>
           )}
 
-          {partnership.status === 'active' && (
-            <>
-              <div className="grid grid-cols-3 gap-1.5 mt-2">
-                <SplitChip label={t('collab.organizers.splitTickets')} orgLabel={t('collab.organizers.splitOrgPct')} youLabel={t('collab.organizers.splitYouPct')} pct={partnership.default_split_rules?.tickets?.organizer_pct ?? 0} />
-                <SplitChip label={t('collab.organizers.splitTables')}  orgLabel={t('collab.organizers.splitOrgPct')} youLabel={t('collab.organizers.splitYouPct')} pct={partnership.default_split_rules?.tables?.organizer_pct ?? 0} />
-                <SplitChip label={t('collab.organizers.splitDrinks')}  orgLabel={t('collab.organizers.splitOrgPct')} youLabel={t('collab.organizers.splitYouPct')} pct={partnership.default_split_rules?.drinks?.organizer_pct ?? 0} />
-              </div>
-              {proposalStatus !== 'no_proposal' && onAcceptProposal && onDeclineProposal && (
-                <div className="mt-3">
-                  <PartnershipProposalBanner partnership={partnership} side="venue"
-                    onAccept={onAcceptProposal} onDecline={onDeclineProposal} isPending={proposalPending} />
-                </div>
-              )}
-            </>
+          {partnership.invitation_message && (
+            <p className="italic line-clamp-2" style={{ color: T3, fontSize: 11.5, marginTop: 6 }}>« {partnership.invitation_message} »</p>
           )}
         </div>
+      </div>
 
-        <div className="flex flex-col gap-1.5 flex-none">
+      {/* ── Revenue split — full width, readable ──────────────────────── */}
+      {partnership.status === 'active' && (
+        <div className="mt-4">
+          <p style={{ color: T3, fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600, marginBottom: 8 }}>
+            {t('collab.organizers.splitTitle')}
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            <SplitChip label={t('collab.organizers.splitTickets')} orgLabel={t('collab.organizers.splitOrgPct')} youLabel={t('collab.organizers.splitYouPct')} pct={partnership.default_split_rules?.tickets?.organizer_pct ?? 0} />
+            <SplitChip label={t('collab.organizers.splitTables')}  orgLabel={t('collab.organizers.splitOrgPct')} youLabel={t('collab.organizers.splitYouPct')} pct={partnership.default_split_rules?.tables?.organizer_pct ?? 0} />
+            <SplitChip label={t('collab.organizers.splitDrinks')}  orgLabel={t('collab.organizers.splitOrgPct')} youLabel={t('collab.organizers.splitYouPct')} pct={partnership.default_split_rules?.drinks?.organizer_pct ?? 0} />
+          </div>
+          {proposalStatus !== 'no_proposal' && onAcceptProposal && onDeclineProposal && (
+            <div className="mt-3">
+              <PartnershipProposalBanner partnership={partnership} side="venue"
+                onAccept={onAcceptProposal} onDecline={onDeclineProposal} isPending={proposalPending} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Actions — full width row ──────────────────────────────────── */}
+      {hasActions && (
+        <div className="flex flex-wrap items-center gap-2 mt-4" style={{ borderTop: `1px solid ${F_BORDER}`, paddingTop: 14 }}>
           {showAccept && (
             <>
               <PrimaryBtn onClick={onAccept}><Check className="h-3.5 w-3.5" />{t('collab.organizers.accept')}</PrimaryBtn>
@@ -740,25 +778,35 @@ function PartnershipCard({ partnership, showAccept, onAccept, onDecline, onRevok
             </>
           )}
           {onProposeEvent && (
-            <PrimaryBtn onClick={onProposeEvent}><Sparkles className="h-3.5 w-3.5" /><span className="hidden sm:inline">{t('collab.inviteModal.proposeEvent')}</span></PrimaryBtn>
+            <PrimaryBtn onClick={onProposeEvent}><Sparkles className="h-3.5 w-3.5" />{t('collab.organizers.proposeEventBtn')}</PrimaryBtn>
           )}
           {onEditSplit && proposalStatus === 'no_proposal' && (
-            <SecondaryBtn onClick={onEditSplit}><Settings2 className="h-3.5 w-3.5" /></SecondaryBtn>
+            <SecondaryBtn onClick={onEditSplit}><Settings2 className="h-3.5 w-3.5" />{t('collab.organizers.editSplit')}</SecondaryBtn>
           )}
-          {onRevoke && partnership.status !== 'revoked' && partnership.status !== 'declined' && (
-            <DangerBtn onClick={onRevoke}><Trash2 className="h-3.5 w-3.5" /></DangerBtn>
+          {canRevoke && (
+            <>
+              <div className="flex-1" />
+              <DangerBtn onClick={onRevoke}><Trash2 className="h-3.5 w-3.5" />{t('collab.organizers.revoke')}</DangerBtn>
+            </>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
 
 function SplitChip({ label, pct, orgLabel, youLabel }: { label: string; pct: number; orgLabel: string; youLabel: string }) {
   return (
-    <div style={{ background: TILE_BG, border: `1px solid ${F_BORDER}`, borderRadius: 8, padding: '6px 8px' }}>
-      <p style={{ color: T3, fontSize: 9.5, marginBottom: 2 }}>{label}</p>
-      <p className="tabular-nums" style={{ color: T2, fontSize: 10.5, fontWeight: 600 }}>{orgLabel} {pct}% · {youLabel} {100 - pct}%</p>
+    <div style={{ background: TILE_BG, border: `1px solid ${F_BORDER}`, borderRadius: 10, padding: '10px 11px' }}>
+      <p className="truncate" style={{ color: T3, fontSize: 10.5, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 7 }}>{label}</p>
+      <div className="flex items-baseline justify-between gap-1">
+        <span style={{ color: T2, fontSize: 11.5 }}>{orgLabel}</span>
+        <span className="tabular-nums" style={{ color: T1, fontSize: 14, fontWeight: 700 }}>{pct}%</span>
+      </div>
+      <div className="flex items-baseline justify-between gap-1" style={{ marginTop: 3 }}>
+        <span style={{ color: T2, fontSize: 11.5 }}>{youLabel}</span>
+        <span className="tabular-nums" style={{ color: RED, fontSize: 14, fontWeight: 700 }}>{100 - pct}%</span>
+      </div>
     </div>
   );
 }
