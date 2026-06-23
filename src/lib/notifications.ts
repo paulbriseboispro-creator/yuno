@@ -43,8 +43,9 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   tables_warning:        { icon: AlertTriangle, category: 'capacity', label: 'notif.type.tables_warning' },
   tables_sold_out:       { icon: Crown,         category: 'capacity', label: 'notif.type.tables_sold_out' },
   // 📅 Events
-  event_starting: { icon: Radio,     category: 'events', label: 'notif.type.event_starting' },
-  event_ended:    { icon: BarChart3, category: 'events', label: 'notif.type.event_ended' },
+  event_starting:  { icon: Radio,     category: 'events', label: 'notif.type.event_starting' },
+  event_ended:     { icon: BarChart3, category: 'events', label: 'notif.type.event_ended' },
+  lineup_reminder: { icon: Music,     category: 'events', label: 'notif.type.lineup_reminder' },
   // 🎧 Bookings (organizer-facing)
   dj_booking_accepted: { icon: Music, category: 'bookings', label: 'notif.type.dj_booking_accepted' },
   dj_booking_declined: { icon: Music, category: 'bookings', label: 'notif.type.dj_booking_declined' },
