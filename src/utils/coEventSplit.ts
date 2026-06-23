@@ -36,6 +36,9 @@ export function computeYunoFee(type: InvoiceType, gross: number): number {
 
 /** Default split per event mode, mirroring backend defaultSplitForItem(). */
 export function defaultSplit(type: InvoiceType, mode: string | null): EffectiveSplit {
+  // Drinks ('order') are ALWAYS 100% venue (alcohol licence) — overrides every mode,
+  // including org_hosted. Defense in depth, mirrors backend payment-split.ts.
+  if (type === 'order') return { organizer_pct: 0, venue_pct: 100 };
   if (mode === 'venue_rental') {
     return type === 'ticket' ? { organizer_pct: 100, venue_pct: 0 } : { organizer_pct: 0, venue_pct: 100 };
   }
@@ -47,6 +50,8 @@ export function defaultSplit(type: InvoiceType, mode: string | null): EffectiveS
 
 /** Normalize the stored revenue_split_rules jsonb into effective percentages. */
 export function getEffectiveSplit(rules: any, type: InvoiceType, mode: string | null): EffectiveSplit {
+  // Hard invariant: drinks ('order') never go to the organizer, regardless of stored rules.
+  if (type === 'order') return { organizer_pct: 0, venue_pct: 100 };
   if (!rules) return defaultSplit(type, mode);
   const key = type === 'ticket' ? 'tickets' : type === 'table' ? 'tables' : 'drinks';
   const block = rules[key];

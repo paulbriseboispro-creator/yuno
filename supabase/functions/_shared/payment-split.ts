@@ -214,7 +214,13 @@ export function resolvePaymentSplit(input: SplitInput): SplitResult {
   }
 
   const rules = event.revenue_split_rules ?? partnershipRules ?? null;
-  const split = getSplitForItem(rules, itemType) ?? defaultSplitForItem(itemType, event.event_mode);
+  // Drinks are ALWAYS 100% venue — the venue holds the alcohol licence and is the
+  // seller of record. This is a hard invariant: it overrides any stored rule or mode
+  // default (org_hosted would otherwise leak bar revenue to the organizer).
+  const split =
+    itemType === "drink"
+      ? { organizer_pct: 0, venue_pct: 100 }
+      : getSplitForItem(rules, itemType) ?? defaultSplitForItem(itemType, event.event_mode);
 
   // The venue owns its bar/alcohol: any drink/conso amount bundled into THIS charge
   // (venueDirectAmount, e.g. a conso inside a co-event ticket) goes 100% to the venue
@@ -291,6 +297,10 @@ function defaultSplitForItem(itemType: ItemType, mode: string | null) {
   // co_event:     50/50 tickets, 0/100 tables (club gets table revenue)
   // venue_rental: 100/0 tickets to organizer, 0/100 tables to venue
   // org_hosted:   100/0 tickets to organizer, 100/0 tables to organizer
+  // Drinks are ALWAYS 100% venue regardless of mode (alcohol licence). Defense in depth.
+  if (itemType === "drink") {
+    return { organizer_pct: 0, venue_pct: 100 };
+  }
   if (mode === "venue_rental") {
     return itemType === "ticket"
       ? { organizer_pct: 100, venue_pct: 0 }

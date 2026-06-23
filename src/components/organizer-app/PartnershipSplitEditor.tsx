@@ -28,7 +28,7 @@ export function PartnershipSplitEditor({ open, onOpenChange, partnership, side, 
   const current = partnership.default_split_rules ?? DEFAULT;
   const [tickets, setTickets] = useState<number>(current.tickets?.organizer_pct ?? 100);
   const [tables, setTables] = useState<number>(current.tables?.organizer_pct ?? 0);
-  const [drinks, setDrinks] = useState<number>(current.drinks?.organizer_pct ?? 0);
+  // Drinks are non-negotiable: always 100% club (alcohol licence). No slider.
 
   const { language } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
@@ -40,7 +40,7 @@ export function PartnershipSplitEditor({ open, onOpenChange, partnership, side, 
     const rules: PartnershipSplitRules = {
       tickets: { organizer_pct: tickets, venue_pct: 100 - tickets },
       tables: { organizer_pct: tables, venue_pct: 100 - tables },
-      drinks: { organizer_pct: drinks, venue_pct: 100 - drinks },
+      drinks: { organizer_pct: 0, venue_pct: 100 },
     };
     await onPropose(rules);
     onOpenChange(false);
@@ -79,12 +79,11 @@ export function PartnershipSplitEditor({ open, onOpenChange, partnership, side, 
         <div className="space-y-6 py-2">
           <SplitRow label={t('Billets', 'Tickets', 'Entradas')} organizerPct={tickets} onChange={setTickets} disabled={hasPendingProposal} />
           <SplitRow label={t('Tables / VIP', 'Tables / VIP', 'Mesas / VIP')} organizerPct={tables} onChange={setTables} disabled={hasPendingProposal} />
-          <SplitRow label={t('🍹 Boissons', '🍹 Drinks', '🍹 Bebidas')} organizerPct={drinks} onChange={setDrinks} disabled={hasPendingProposal} />
           <div className="rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T3, fontSize: 11.5 }}>
-            🍹 <strong style={{ color: T1 }}>{t('Boissons :', 'Drinks:', 'Bebidas:')}</strong> {t(
-              "les paiements arrivent toujours sur le compte du club (la carte des boissons lui appartient), puis l'éventuelle part de l'orga est reversée automatiquement.",
-              "drink payments always land in the club's account (the drinks menu belongs to them), then the organizer's share, if any, is paid out automatically.",
-              'los pagos de las bebidas siempre llegan a la cuenta del club (la carta de bebidas le pertenece), y luego la parte del organizador, si la hay, se abona automáticamente.',
+            🍹 <strong style={{ color: T1 }}>{t('Boissons : 100% club', 'Drinks: 100% club', 'Bebidas: 100% club')}</strong> — {t(
+              "le club est le vendeur d'alcool (licence) : les revenus boissons lui reviennent toujours intégralement. Non négociable.",
+              'the club is the alcohol seller (licence): drink revenue always goes entirely to the club. Non-negotiable.',
+              'el club es el vendedor de alcohol (licencia): los ingresos de bebidas siempre van íntegramente al club. No negociable.',
             )}
           </div>
         </div>
