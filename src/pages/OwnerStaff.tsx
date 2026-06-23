@@ -93,11 +93,16 @@ export default function OwnerStaff() {
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const { venueId: contextVenueId } = useVenueContext();
   const [venueId, setVenueId] = useState<string | null>(null);
-  const { hasFeature } = useSubscriptionPlan();
+  const { hasFeature, plan } = useSubscriptionPlan();
   const { isReadOnly: collabReadOnly } = useCollabReadOnly();
   const canAddVipHost = hasFeature('vip_service');
 
   const [pendingInvites, setPendingInvites] = useState<{ id: string; email: string; role: EmployeeRole; created_at: string }[]>([]);
+
+  // Core plan is capped at 5 staff (active + pending). Essential+ / collab are unlimited.
+  // Backend enforces this in invite-staff; this drives the proactive UI block.
+  const STAFF_CAP_CORE = 5;
+  const staffCapReached = plan === 'core' && (employees.length + pendingInvites.length) >= STAFF_CAP_CORE;
 
   const [formData, setFormData] = useState({
     email: '', firstName: '', roles: [] as EmployeeRole[],
@@ -353,10 +358,18 @@ export default function OwnerStaff() {
             <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>
               {t('owner.stf.activeCount').replace('{count}', String(employees.length))}
             </p>
+            {staffCapReached && (
+              <button onClick={() => navigate('/owner/billing')}
+                className="mt-1.5 inline-flex items-center gap-1.5 text-left cursor-pointer"
+                style={{ color: RED, fontSize: 11.5, fontWeight: 600 }}>
+                <Lock className="w-3 h-3" />
+                {t('owner.stf.coreStaffCap')}
+              </button>
+            )}
           </div>
           <button
             onClick={() => setIsDialogOpen(true)}
-            disabled={collabReadOnly}
+            disabled={collabReadOnly || staffCapReached}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold cursor-pointer transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ background: RED, color: '#fff', boxShadow: `0 0 18px -6px ${RED}88` }}
           >
@@ -525,7 +538,8 @@ export default function OwnerStaff() {
             )}
             <div className="flex gap-3 pt-1">
               <button onClick={handleCreateEmployee}
-                className="flex-1 py-3 rounded-xl text-[13.5px] font-semibold cursor-pointer transition-all duration-150"
+                disabled={staffCapReached}
+                className="flex-1 py-3 rounded-xl text-[13.5px] font-semibold cursor-pointer transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
                 style={{ background: RED, color: '#fff', boxShadow: `0 0 20px -6px ${RED}88` }}>
                 {t('owner.add')}
               </button>

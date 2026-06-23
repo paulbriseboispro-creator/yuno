@@ -150,6 +150,34 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Defensive Core-plan staff cap (club scope). Primary enforcement lives in
+    // invite-staff at invitation time; this backstops races where multiple pending
+    // invitations outlive a plan that only allows 5 staff. Counts staff already
+    // linked to the venue (excluding this accepting user).
+    if (!isOrganizerScope && invitation.venue_id) {
+      const { data: sub } = await supabase
+        .from('venue_subscriptions').select('subscription_plan').eq('venue_id', invitation.venue_id).maybeSingle();
+      if ((sub?.subscription_plan ?? 'core') === 'core') {
+        const { data: venueProfiles } = await supabase
+          .from('profiles').select('id').eq('venue_id', invitation.venue_id);
+        const profileIds = (venueProfiles ?? []).map((p) => p.id).filter((id) => id !== userId);
+        let activeStaff = 0;
+        if (profileIds.length) {
+          const { data: staffRoles } = await supabase
+            .from('user_roles').select('user_id')
+            .in('user_id', profileIds)
+            .in('role', ['barman', 'bouncer', 'cloakroom', 'vip_host', 'manager']);
+          activeStaff = new Set((staffRoles ?? []).map((r) => r.user_id)).size;
+        }
+        if (activeStaff >= 5) {
+          return new Response(JSON.stringify({
+            error: 'Le plan Core de ce club est limité à 5 membres du staff.',
+            code: 'core_staff_limit',
+          }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      }
+    }
+
     // Assign the role (idempotent). NO PIN is set — the employee sets it after login.
     await supabase.from('user_roles')
       .upsert({ user_id: userId, role: invitation.role, email: userEmail.toLowerCase() }, { onConflict: 'user_id,role' });

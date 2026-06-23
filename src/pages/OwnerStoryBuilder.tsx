@@ -120,8 +120,10 @@ function SectionCard({ icon, title, sub, accent, children, style }: {
 export default function OwnerStoryBuilder() {
   const { t, language } = useLanguage();
   const { venueId, venue } = useOwnerVenue();
-  const { hasFeature } = useSubscriptionPlan();
+  const { hasFeature, plan } = useSubscriptionPlan();
   const isAdvanced = hasFeature('story_builder_advanced');
+  // Branding cap: Core keeps "Powered by Yuno" on shared stories; Essential+ white-labels.
+  const hideStoryBranding = plan !== 'core';
 
   const [events, setEvents] = useState<EventOption[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string>('');
@@ -269,6 +271,7 @@ export default function OwnerStoryBuilder() {
               vipZones={isAdvanced ? vipZones.slice(0, maxZonesDisplay) : vipZones}
               ctaText={ctaText} statusText={statusText} language={language}
               salesMode={selectedEvent.ticket_selling_mode} globalMaxTickets={selectedEvent.max_tickets}
+              hideBranding={hideStoryBranding}
               {...customColors}
             />
           </StoryPreview>
@@ -282,6 +285,7 @@ export default function OwnerStoryBuilder() {
               eventTitle={selectedEvent.title} eventDate={selectedEvent.start_at} eventEndDate={selectedEvent.end_at}
               eventDescription={selectedEvent.description || ''} eventImageUrl={selectedEvent.poster_url || ''}
               musicGenre={selectedEvent.music_genre || ''} ctaText={ctaText} language={language} djs={djs} organizers={organizers}
+              hideBranding={hideStoryBranding}
               {...customColors}
             />
           </StoryPreview>
@@ -297,6 +301,7 @@ export default function OwnerStoryBuilder() {
               floorPlan={floorPlan} reservedTableIds={reservedTableIds}
               floorPlanBackgroundUrl={floorPlanBgUrl} floorPlanBgScale={floorPlanBgScale}
               floorPlanBgOffsetX={floorPlanBgOffsetX} floorPlanBgOffsetY={floorPlanBgOffsetY}
+              hideBranding={hideStoryBranding}
               {...customColors}
             />
           </StoryPreview>

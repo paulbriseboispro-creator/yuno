@@ -1,5 +1,6 @@
 import { EmailBlock } from './EmailBuilder';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 
 // Yuno brand colors - FIXED, clubs cannot change these
 const YUNO_COLORS = {
@@ -20,6 +21,10 @@ interface EmailPreviewProps {
 
 export function EmailPreview({ blocks, venueName, venueLogo, previewMode }: EmailPreviewProps) {
   const containerWidth = previewMode === 'mobile' ? '375px' : '600px';
+  // Branding cap: Core keeps "Powered by Yuno"; Essential+ white-labels. Mirrors the
+  // backend send path (send-crm-campaign) so the preview matches what recipients get.
+  const { plan } = useSubscriptionPlan();
+  const hideBranding = plan !== 'core';
 
   return (
     <div 
@@ -81,18 +86,20 @@ export function EmailPreview({ blocks, venueName, venueLogo, previewMode }: Emai
             </div>
           )}
 
-          {/* Yuno Footer - Fixed, non-editable */}
-          <div 
-            className="mt-8 pt-6 text-center"
-            style={{ borderTop: `1px solid ${YUNO_COLORS.border}` }}
-          >
-            <p 
-              className="text-xs"
-              style={{ color: YUNO_COLORS.textSecondary }}
+          {/* Footer — "Powered by Yuno" removed on Essential+ (branding cap) */}
+          {!hideBranding && (
+            <div
+              className="mt-8 pt-6 text-center"
+              style={{ borderTop: `1px solid ${YUNO_COLORS.border}` }}
             >
-              Powered by Yuno
-            </p>
-          </div>
+              <p
+                className="text-xs"
+                style={{ color: YUNO_COLORS.textSecondary }}
+              >
+                Powered by Yuno
+              </p>
+            </div>
+          )}
         </div>
       </ScrollArea>
     </div>

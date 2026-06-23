@@ -28,6 +28,8 @@ export interface EventPromoProps {
   bgColor1?: string;
   bgColor2?: string;
   textColor?: string;
+  /** Essential+ removes the "Powered by Yuno" mark (branding cap). */
+  hideBranding?: boolean;
 }
 
 const localeMap: Record<string, Locale> = { fr, en: enUS, es };
@@ -45,6 +47,7 @@ export function EventPromoTemplate({
   language,
   djs = [],
   organizers = [],
+  hideBranding = false,
 }: EventPromoProps) {
   const locale = localeMap[language] || enUS;
   const date = new Date(eventDate);
@@ -219,12 +222,14 @@ export function EventPromoTemplate({
 
         </div>{/* end card */}
 
-        {/* ── YUNO branding ── */}
-        <div style={{ textAlign: 'center', paddingTop: 24, paddingBottom: 4 }}>
-          <p style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.2)', letterSpacing: 5, marginBottom: 8, textTransform: 'uppercase' }}>Powered by</p>
-          <p style={{ fontSize: 56, fontWeight: 900, color: 'rgba(255,255,255,0.55)', letterSpacing: 16, marginBottom: 6, lineHeight: 1 }}>YUNO</p>
-          <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.2)', fontWeight: 700, letterSpacing: 4 }}>BUILT FOR NIGHTLIFE, MADE FOR YOUR NIGHT</p>
-        </div>
+        {/* ── YUNO branding (removed on Essential+) ── */}
+        {!hideBranding && (
+          <div style={{ textAlign: 'center', paddingTop: 24, paddingBottom: 4 }}>
+            <p style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.2)', letterSpacing: 5, marginBottom: 8, textTransform: 'uppercase' }}>Powered by</p>
+            <p style={{ fontSize: 56, fontWeight: 900, color: 'rgba(255,255,255,0.55)', letterSpacing: 16, marginBottom: 6, lineHeight: 1 }}>YUNO</p>
+            <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.2)', fontWeight: 700, letterSpacing: 4 }}>BUILT FOR NIGHTLIFE, MADE FOR YOUR NIGHT</p>
+          </div>
+        )}
       </div>
     </div>
   );

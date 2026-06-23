@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { buildCampaignHtml, slugifyVenueName, type EmailBlock } from '../_shared/campaign-html.ts';
+import { shouldHideYunoBranding } from '../_shared/venue-plan.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -206,6 +207,10 @@ Deno.serve(async (req) => {
     const theme = ((campaign as any).theme_json || {}) as any;
     const socialLinks = ((campaign as any).social_links_json || {}) as any;
 
+    // Branding cap (venue campaigns only): Core keeps "via Yuno"; Essential+ white-labels.
+    // Organizer campaigns keep Yuno branding (out of Phase 1 owner-pricing scope).
+    const hideBranding = campaign.venue_id ? await shouldHideYunoBranding(admin, campaign.venue_id) : false;
+
     const buildHtml = (r: Recipient) => buildCampaignHtml({
       blocks,
       preheader: campaign.preheader,
@@ -219,6 +224,7 @@ Deno.serve(async (req) => {
       unsubscribeUrl: r.unsubscribe_token ? `${PUBLIC_URL}/unsubscribe?token=${r.unsubscribe_token}` : undefined,
       theme,
       socialLinks,
+      hideBranding,
     });
 
     // Send by chunks of 100 (Resend batch limit)

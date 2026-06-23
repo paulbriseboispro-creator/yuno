@@ -156,6 +156,36 @@ Deno.serve(async (req) => {
         }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
     } else {
+      // Core-plan staff cap (club scope only): max 5 staff. Essential+ / collab are
+      // unlimited. Counts active staff (profiles linked to the venue holding a staff
+      // role) + pending invitations. Only gates NEW invitations — resends and
+      // already-linked members returned earlier, so they never hit this.
+      if (!isOrganizerScope) {
+        const { data: sub } = await supabase
+          .from('venue_subscriptions').select('subscription_plan').eq('venue_id', venue_id!).maybeSingle();
+        const planCode = sub?.subscription_plan ?? 'core';
+        if (planCode === 'core') {
+          const { data: venueProfiles } = await supabase
+            .from('profiles').select('id').eq('venue_id', venue_id!);
+          const profileIds = (venueProfiles ?? []).map((p) => p.id);
+          let activeStaff = 0;
+          if (profileIds.length) {
+            const { data: staffRoles } = await supabase
+              .from('user_roles').select('user_id').in('user_id', profileIds).in('role', [...ROLES]);
+            activeStaff = new Set((staffRoles ?? []).map((r) => r.user_id)).size;
+          }
+          const { count: pendingCount } = await supabase
+            .from('staff_invitations').select('id', { count: 'exact', head: true })
+            .eq('venue_id', venue_id!).eq('status', 'pending');
+          if (activeStaff + (pendingCount ?? 0) >= 5) {
+            return new Response(JSON.stringify({
+              error: 'Le plan Core est limité à 5 membres du staff. Passe à Essential pour un staff illimité.',
+              code: 'core_staff_limit',
+            }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+          }
+        }
+      }
+
       const insertPayload: Record<string, unknown> = {
         email,
         role,

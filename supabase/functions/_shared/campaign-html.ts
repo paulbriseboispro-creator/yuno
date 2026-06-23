@@ -159,18 +159,23 @@ export function buildLegalFooter(opts: {
   unsubscribeUrl?: string;
   platformName?: string;
   theme?: Required<EmailTheme>;
+  // Branding cap: on Essential+ / collab the "via Yuno" mentions are dropped
+  // (white-label). Compliance content (venue, recipient, unsubscribe) always stays.
+  hideBranding?: boolean;
 }): string {
   const theme = opts.theme || DEFAULT_THEME;
   const platform = opts.platformName || 'Yuno';
   const year = new Date().getFullYear();
   const reason = opts.emailType === 'promotional' ? 'vous êtes abonné à sa newsletter' : 'vous avez acheté un billet';
+  const onPlatform = opts.hideBranding ? '' : ` sur ${escape(platform)}`;
+  const viaPlatform = opts.hideBranding ? '' : ` via ${escape(platform)}`;
   const unsubLine = opts.emailType === 'promotional' && opts.unsubscribeUrl
     ? `<p style="margin:12px 0 0;font-size:11px;color:${theme.footer_link};">Vous ne souhaitez plus recevoir ces emails ? <a href="${opts.unsubscribeUrl}" style="color:${theme.footer_link};text-decoration:underline;">Se désabonner</a></p>`
     : '';
   return `<tr><td style="padding:24px;background:${theme.footer_bg};border-top:1px solid ${theme.divider_color};font-family:Arial,sans-serif;font-size:12px;color:${theme.footer_text};text-align:center;">
     <p style="margin:0 0 8px;font-weight:600;color:${theme.footer_text};">${escape(opts.venueName)}${opts.city ? ' — ' + escape(opts.city) : ''}</p>
-    <p style="margin:0 0 8px;">Cet email a été envoyé à <span style="color:${theme.footer_text};">${escape(opts.recipientEmail)}</span> car ${reason} sur ${escape(platform)}.</p>
-    <p style="margin:0;">© ${year} ${escape(opts.venueName)} via ${escape(platform)}. Tous droits réservés.</p>
+    <p style="margin:0 0 8px;">Cet email a été envoyé à <span style="color:${theme.footer_text};">${escape(opts.recipientEmail)}</span> car ${reason}${onPlatform}.</p>
+    <p style="margin:0;">© ${year} ${escape(opts.venueName)}${viaPlatform}. Tous droits réservés.</p>
     ${unsubLine}
   </td></tr>`;
 }
@@ -188,6 +193,7 @@ export function buildCampaignHtml(opts: {
   lastName?: string;
   theme?: EmailTheme;
   socialLinks?: SocialLinks;
+  hideBranding?: boolean;
 }): string {
   const theme: Required<EmailTheme> = { ...DEFAULT_THEME, ...(opts.theme || {}) };
 

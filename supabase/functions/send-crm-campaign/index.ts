@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { Resend } from "https://esm.sh/resend@2.0.0";
+import { shouldHideYunoBranding } from "../_shared/venue-plan.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -126,7 +127,8 @@ function generateBlockHtml(block: EmailBlock): string {
 function generateEmailHtml(
   venue: { name: string; logo_url?: string | null },
   blocks: EmailBlock[],
-  customerData: { first_name?: string; total_points?: number; tier?: string }
+  customerData: { first_name?: string; total_points?: number; tier?: string },
+  hideBranding = false
 ): string {
   const blocksHtml = blocks.map(generateBlockHtml).join('');
   
@@ -164,14 +166,15 @@ function generateEmailHtml(
             </td>
           </tr>
           
-          <!-- Yuno Footer - FIXED -->
+          <!-- Footer — "Powered by Yuno" removed on Essential+ (branding cap) -->
+          ${hideBranding ? '' : `
           <tr>
             <td style="padding: 24px 20px; text-align: center; border-top: 1px solid ${YUNO_COLORS.border};">
               <p style="color: ${YUNO_COLORS.textSecondary}; font-size: 12px; margin: 0;">
                 Powered by Yuno
               </p>
             </td>
-          </tr>
+          </tr>`}
           
         </table>
       </td>
@@ -245,6 +248,9 @@ serve(async (req) => {
       throw new Error("Venue not found");
     }
 
+    // Branding cap: Core keeps "Powered by Yuno"; Essential+ / collab white-label.
+    const hideBranding = await shouldHideYunoBranding(supabaseAdmin, venueId);
+
     // Parse email blocks from segment_config
     let blocks: EmailBlock[] = [];
     if (campaign.segment_config && typeof campaign.segment_config === 'object') {
@@ -269,7 +275,7 @@ serve(async (req) => {
         first_name: 'Test User',
         total_points: 150,
         tier: 'Gold'
-      });
+      }, hideBranding);
 
       const rawFrom = Deno.env.get('RESEND_FROM_EMAIL');
       const from = rawFrom
@@ -359,7 +365,7 @@ serve(async (req) => {
         first_name: venueCustomer?.first_name || undefined,
         total_points: customer.total_points_earned || 0,
         tier: customer.tier || 'Bronze'
-      });
+      }, hideBranding);
 
       try {
         const emailResponse = await resend.emails.send({
