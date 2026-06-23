@@ -173,7 +173,7 @@ const INVOICE_LABELS: Record<Language, Record<string, string>> = {
     netToSplit: 'Net à répartir', attendees: 'PARTICIPANTS', showAtEntry: "À présenter à l'entrée", legalMentions: 'MENTIONS LÉGALES',
     legalVatApplicable: 'TVA applicable selon le régime en vigueur', legalVatNotApplicable: 'TVA non applicable - Art. 293 B du CGI',
     legalProofOfPayment: 'Cette facture tient lieu de justificatif de paiement',
-    generatedVia: 'Édité via Yuno · yunoapp.eu',
+    tagline: 'Billets · Tables VIP · Boissons', generatedVia: 'Édité via Yuno · yunoapp.eu',
   },
   en: {
     invoice: 'INVOICE', invoiceNo: 'No.', dateLabel: 'Date', issuer: 'FROM', recipient: 'BILL TO',
@@ -186,7 +186,7 @@ const INVOICE_LABELS: Record<Language, Record<string, string>> = {
     netToSplit: 'Net to split', attendees: 'ATTENDEES', showAtEntry: 'Show at the door', legalMentions: 'LEGAL NOTICE',
     legalVatApplicable: 'VAT applicable under the current regime', legalVatNotApplicable: 'VAT not applicable - Art. 293 B French Tax Code',
     legalProofOfPayment: 'This invoice serves as proof of payment',
-    generatedVia: 'Issued via Yuno · yunoapp.eu',
+    tagline: 'Tickets · VIP tables · Drinks', generatedVia: 'Issued via Yuno · yunoapp.eu',
   },
   es: {
     invoice: 'FACTURA', invoiceNo: 'N.º', dateLabel: 'Fecha', issuer: 'EMISOR', recipient: 'DESTINATARIO',
@@ -199,7 +199,7 @@ const INVOICE_LABELS: Record<Language, Record<string, string>> = {
     netToSplit: 'Neto a repartir', attendees: 'ASISTENTES', showAtEntry: 'Mostrar en la entrada', legalMentions: 'INFORMACIÓN LEGAL',
     legalVatApplicable: 'IVA aplicable según el régimen vigente', legalVatNotApplicable: 'IVA no aplicable - Art. 293 B del CGI (Francia)',
     legalProofOfPayment: 'Esta factura sirve como justificante de pago',
-    generatedVia: 'Emitido vía Yuno · yunoapp.eu',
+    tagline: 'Entradas · Mesas VIP · Bebidas', generatedVia: 'Emitido vía Yuno · yunoapp.eu',
   },
 };
 
@@ -274,14 +274,15 @@ export const generateInvoicePDF = async (data: InvoiceData, languageOverride?: L
   const recipName = data.customerName || '—';
   const recipNameLines = wrap(recipName, CW * 0.5, 14, DISPLAY, 'bold').slice(0, 2);
 
-  const ISSUER_TOP = 16;
+  const BRAND_Y = 15;     // Yuno wordmark — platform letterhead
+  const ISSUER_TOP = 29;  // club issuer block, sits below the Yuno lockup
   const logoBlockH = logoData ? logoH + 6 : 0;
   // issuer: [logo] + label(+5) + name(+5) + addr(n*4) + siret(+4) + vat(+4)
   const issuerBottom = ISSUER_TOP + logoBlockH + 5 + 5
     + addrLines.length * 4
     + (data.venueSiret ? 4 : 0)
     + (data.venueVatNumber ? 4 : 0);
-  const titleBottom = ISSUER_TOP + 22; // FACTURE(+7) → no(+8) → date(+5)
+  const titleBottom = 33; // FACTURE(18) → no(26) → date(31)
   const row1Bottom = Math.max(issuerBottom, titleBottom);
 
   const dividerY = row1Bottom + 6;
@@ -292,9 +293,11 @@ export const generateInvoicePDF = async (data: InvoiceData, languageOverride?: L
   const row2Bottom = Math.max(recipBottom, payBottom);
   const panelH = row2Bottom + 8;
 
-  // Panel fill (full-bleed, sharp).
+  // Panel fill (full-bleed, sharp) + Yuno-red letterhead stripe at the top edge.
   fill(PANEL);
   doc.rect(0, 0, W, panelH, 'F');
+  fill(RED);
+  doc.rect(0, 0, W, 1.5, 'F');
 
   // ── Vertical brand spine (issuer name, reading upward in red) ─────────────────
   {
@@ -310,6 +313,10 @@ export const generateInvoicePDF = async (data: InvoiceData, languageOverride?: L
     if (str) T(str, 11, spineBottom, { size, style: 'bold', color: RED, angle: 90 });
   }
 
+  // ── Yuno brand lockup (platform letterhead, left) ─────────────────────────────
+  T('Yuno', LX, BRAND_Y, { size: 15, style: 'bold', color: RED });
+  T(L.tagline, LX, BRAND_Y + 4.6, { size: 6.5, font: MONO, color: MUTED });
+
   // ── Row 1: issuer (left) + invoice title/meta (right) ─────────────────────────
   let iy = ISSUER_TOP;
   if (logoData) {
@@ -322,9 +329,9 @@ export const generateInvoicePDF = async (data: InvoiceData, languageOverride?: L
   if (data.venueSiret) { T(`SIRET : ${data.venueSiret}`, LX, iy, { size: 8, font: MONO, color: MUTED }); iy += 4; }
   if (data.venueVatNumber) { T(`${L.vat} : ${data.venueVatNumber}`, LX, iy, { size: 8, font: MONO, color: MUTED }); iy += 4; }
 
-  T(L.invoice, RX, ISSUER_TOP + 4, { size: 21, style: 'bold', color: RED, align: 'right' });
-  T(`${L.invoiceNo} ${data.invoiceNumber}`, RX, ISSUER_TOP + 12, { size: 9, font: MONO, color: SUB, align: 'right' });
-  T(`${L.dateLabel} · ${formatDate(data.invoiceDate, locale)}`, RX, ISSUER_TOP + 17, { size: 8, font: MONO, color: MUTED, align: 'right' });
+  T(L.invoice, RX, 18, { size: 21, style: 'bold', color: RED, align: 'right' });
+  T(`${L.invoiceNo} ${data.invoiceNumber}`, RX, 26, { size: 9, font: MONO, color: SUB, align: 'right' });
+  T(`${L.dateLabel} · ${formatDate(data.invoiceDate, locale)}`, RX, 31, { size: 8, font: MONO, color: MUTED, align: 'right' });
 
   // Divider inside the panel.
   hr(LX, dividerY, RX, [222, 222, 227], 0.3);
@@ -514,20 +521,21 @@ export const generateInvoicePDF = async (data: InvoiceData, languageOverride?: L
     y += cardH + 8;
   }
 
-  // ── Legal footer (pinned) ─────────────────────────────────────────────────────
-  let fy = H - 30;
-  hr(LX, fy, RX, HAIR, 0.3); fy += 5;
+  // ── Footer: legal (left) + Yuno brand lockup (right), pinned ──────────────────
+  const fy0 = H - 30;
+  hr(LX, fy0, RX, HAIR, 0.3);
+  // Legal mentions — left
+  let fy = fy0 + 5;
   T(L.legalMentions, LX, fy, { size: 7, font: MONO, style: 'bold', color: MUTED }); fy += 4;
-  const sellerLegal = data.venueLegalName || data.venueName;
   const legalMentions = [
     paidByCardLine(lang, formatDate(data.paymentDate, locale)) + '.',
     data.venueVatNumber ? L.legalVatApplicable : L.legalVatNotApplicable,
     L.legalProofOfPayment,
   ];
   for (const m of legalMentions) { T(`• ${m}`, LX, fy, { size: 7, font: MONO, color: MUTED }); fy += 3.5; }
-  fy += 2;
-  T(L.generatedVia, LX, fy, { size: 7, font: MONO, color: MUTED });
-  T(sellerLegal, RX, fy, { size: 7, font: MONO, color: MUTED, align: 'right' });
+  // Yuno brand lockup — right
+  T('Yuno', RX, fy0 + 9, { size: 13, style: 'bold', color: RED, align: 'right' });
+  T(L.generatedVia, RX, fy0 + 14, { size: 6.5, font: MONO, color: MUTED, align: 'right' });
 
   return doc.output('blob');
 };
