@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { releaseDjBookingBalance, refundDjBookingContract } from "../_shared/dj-payout.ts";
+import { releaseDjBookingBalance, refundDjBookingContract, computeDjEscrowFeeCents } from "../_shared/dj-payout.ts";
 
 // Unified Stripe Connect dispatcher.
 // Replaces: organizer-stripe-connect-onboard, organizer-stripe-connect-status,
@@ -559,21 +559,38 @@ serve(async (req) => {
           .maybeSingle();
         if (!djAcct?.payouts_enabled) throw new Error("DJ Stripe account not ready for payouts");
 
-        const total = contract.cachet_cents + contract.stripe_fee_cents;
+        // Yuno secured-booking add-on fee (4% of cachet, min 2€, cap 250€), paid by the
+        // club on top of the cachet. The DJ still receives 100%. Snapshot it on the contract.
+        const escrowFeeCents = computeDjEscrowFeeCents(contract.cachet_cents);
+        const cachetLineCents = contract.cachet_cents + contract.stripe_fee_cents;
+        await supabaseAdmin
+          .from("dj_booking_contracts")
+          .update({ yuno_fee_cents: escrowFeeCents })
+          .eq("id", contract.id);
         const djName = contract.dj?.stage_name
           || `${contract.dj?.first_name ?? ""} ${contract.dj?.last_name ?? ""}`.trim()
           || "DJ";
 
         const session = await stripe.checkout.sessions.create({
           mode: "payment",
-          line_items: [{
-            price_data: {
-              currency: contract.currency,
-              product_data: { name: `Cachet DJ — ${djName}`, description: "Paiement sécurisé Yuno (séquestre)" },
-              unit_amount: total,
+          line_items: [
+            {
+              price_data: {
+                currency: contract.currency,
+                product_data: { name: `Cachet DJ — ${djName}`, description: "Paiement sécurisé Yuno (séquestre)" },
+                unit_amount: cachetLineCents,
+              },
+              quantity: 1,
             },
-            quantity: 1,
-          }],
+            ...(escrowFeeCents > 0 ? [{
+              price_data: {
+                currency: contract.currency,
+                product_data: { name: "Frais de service Yuno", description: "Garantie de paiement sécurisé" },
+                unit_amount: escrowFeeCents,
+              },
+              quantity: 1,
+            }] : []),
+          ],
           success_url: body.successUrl || `${origin}/owner/djs?booking=paid`,
           cancel_url: body.cancelUrl || `${origin}/owner/djs?booking=cancelled`,
           customer_email: user.email ?? undefined,
@@ -585,6 +602,7 @@ serve(async (req) => {
               dj_user_id: contract.dj_user_id,
               cachet_cents: String(contract.cachet_cents),
               acompte_cents: String(contract.acompte_cents),
+              yuno_fee_cents: String(escrowFeeCents),
             },
           },
           metadata: { escrow: "dj_booking", contract_id: contract.id },

@@ -33,6 +33,17 @@ export interface DjContract {
   balance_transfer_id: string | null;
 }
 
+// Yuno secured-booking add-on fee: 4% of the cachet, min 2€, capped at 250€. Paid by
+// the CLUB (booker) on top of the cachet; the DJ still receives 100%. This is Yuno's
+// revenue for carrying the payment-guarantee + Stripe Connect cost on a big headliner.
+export function computeDjEscrowFeeCents(cachetCents: number): number {
+  if (cachetCents <= 0) return 0;
+  const RATE = 0.04;
+  const MIN_CENTS = 200;    // 2€
+  const CAP_CENTS = 25000;  // 250€
+  return Math.min(CAP_CENTS, Math.max(MIN_CENTS, Math.round(cachetCents * RATE)));
+}
+
 async function djStripeAccount(admin: SupabaseClient, djUserId: string): Promise<string | null> {
   const { data } = await admin
     .from("dj_stripe_accounts")
