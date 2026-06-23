@@ -17,13 +17,14 @@ import { Send, Building2, Users, Sparkles, Clock, Image as ImageIcon, User } fro
 
 type CollabMode = 'co_event' | 'venue_rental' | 'org_hosted';
 
-interface DraftEvent {
+interface ProposableEvent {
   id: string;
   title: string;
   description: string | null;
   poster_url: string | null;
   start_at: string;
   end_at: string;
+  is_active: boolean;
 }
 
 interface Props {
@@ -36,13 +37,14 @@ interface Props {
 }
 
 /**
- * Lets a venue owner propose one of its existing DRAFT nights to an active
- * organizer partner. The owner first creates a night (left unpublished) so the
- * partner has something concrete to review — image, title, description, schedule.
+ * Lets a venue owner propose one of its existing nights to an active organizer
+ * partner — either an already-created event (published or draft) or, if none
+ * fits, a freshly created draft — so the partner has something concrete to
+ * review: image, title, description, schedule.
  *
- * Proposing links the draft to the partner: `partner_organizer_id = orga`,
- * `event_mode = chosen`, while `is_active` stays false until the organizer
- * accepts and publishes it from their dashboard.
+ * Proposing links the chosen night to the partner: `partner_organizer_id = orga`
+ * and `event_mode = chosen`. Publish state is left untouched (a draft stays a
+ * draft until the organizer accepts; a live event keeps selling).
  */
 export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselectedOrganizerId, onCreated }: Props) {
   const { user } = useAuth();
@@ -54,8 +56,8 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
   const [organizerId, setOrganizerId] = useState<string>(preselectedOrganizerId || '');
   const [mode, setMode] = useState<CollabMode>('co_event');
   const [eventId, setEventId] = useState<string>('');
-  const [drafts, setDrafts] = useState<DraftEvent[]>([]);
-  const [loadingDrafts, setLoadingDrafts] = useState(true);
+  const [options, setOptions] = useState<ProposableEvent[]>([]);
+  const [loadingOptions, setLoadingOptions] = useState(true);
   const [saving, setSaving] = useState(false);
 
   // Keep the pre-selected partner in sync when (re)opening from a card.
@@ -63,29 +65,30 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
     if (open) setOrganizerId(preselectedOrganizerId || '');
   }, [open, preselectedOrganizerId]);
 
-  // Load the owner's draft nights that aren't linked to a partner yet.
+  // Load the owner's upcoming nights not yet linked to a partner — published
+  // OR draft. Recurring co-events already carry a partner so they're excluded.
   useEffect(() => {
     if (!open || !venueId) return;
     let cancelled = false;
-    setLoadingDrafts(true);
+    setLoadingOptions(true);
     setEventId('');
     (async () => {
       const { data } = await supabase
         .from('events')
-        .select('id, title, description, poster_url, start_at, end_at')
+        .select('id, title, description, poster_url, start_at, end_at, is_active')
         .eq('venue_id', venueId)
-        .eq('is_active', false)
         .is('partner_organizer_id', null)
+        .gte('end_at', new Date().toISOString())
         .order('start_at', { ascending: true });
       if (cancelled) return;
-      setDrafts((data || []) as DraftEvent[]);
-      setLoadingDrafts(false);
+      setOptions((data || []) as ProposableEvent[]);
+      setLoadingOptions(false);
     })();
     return () => { cancelled = true; };
   }, [open, venueId]);
 
-  const selectedDraft = drafts.find((d) => d.id === eventId) || null;
-  const hasDrafts = drafts.length > 0;
+  const selectedEvent = options.find((d) => d.id === eventId) || null;
+  const hasOptions = options.length > 0;
 
   const reset = () => {
     setOrganizerId(preselectedOrganizerId || '');
@@ -111,8 +114,7 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
 
     setSaving(true);
     try {
-      // Link the existing draft to the partner. is_active stays false until the
-      // organizer accepts and publishes it from their dashboard.
+      // Link the chosen night to the partner. Publish state stays as-is.
       const { error } = await supabase
         .from('events')
         .update({
@@ -141,6 +143,16 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
     (p.organizer?.organization_name
       ?? `${p.organizer?.first_name ?? ''} ${p.organizer?.last_name ?? ''}`.trim())
     || t('collab.organizer');
+
+  const StatusBadge = ({ live }: { live: boolean }) => (
+    <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+      live
+        ? 'bg-emerald-500/10 border border-emerald-500/25 text-emerald-400'
+        : 'bg-primary/10 border border-primary/25 text-primary'
+    }`}>
+      {live ? t('proposeEvent.liveBadge') : t('proposeEvent.draftBadge')}
+    </span>
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -186,14 +198,14 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
             )}
           </div>
 
-          {/* Draft event selection */}
+          {/* Event selection — pick an existing night or create a draft */}
           <div className="space-y-1.5">
             <Label>{t('proposeEvent.linkedEvent')}</Label>
-            {loadingDrafts ? (
+            {loadingOptions ? (
               <div className="rounded-md bg-muted/40 border border-border p-3 text-xs text-muted-foreground">
                 {t('collab.loading')}
               </div>
-            ) : !hasDrafts ? (
+            ) : !hasOptions ? (
               <div className="rounded-md bg-muted/40 border border-border p-3 space-y-2.5">
                 <p className="text-xs text-muted-foreground">{t('proposeEvent.noDrafts')}</p>
                 <Button size="sm" variant="outline" onClick={goCreateDraft}>
@@ -202,42 +214,55 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
                 </Button>
               </div>
             ) : (
-              <Select value={eventId} onValueChange={setEventId}>
-                <SelectTrigger><SelectValue placeholder={t('proposeEvent.chooseEvent')} /></SelectTrigger>
-                <SelectContent>
-                  {drafts.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>
-                      {d.title || t('proposeEvent.untitledEvent')}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <>
+                <Select value={eventId} onValueChange={setEventId}>
+                  <SelectTrigger><SelectValue placeholder={t('proposeEvent.chooseEvent')} /></SelectTrigger>
+                  <SelectContent>
+                    {options.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        <span className="flex items-center gap-2">
+                          <span className="truncate">{d.title || t('proposeEvent.untitledEvent')}</span>
+                          <span className="text-muted-foreground text-xs">
+                            · {formatInTimeZone(new Date(d.start_at), PARIS_TIMEZONE, 'dd MMM', { locale: fr })}
+                          </span>
+                          <StatusBadge live={d.is_active} />
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <button
+                  type="button"
+                  onClick={goCreateDraft}
+                  className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                >
+                  {t('proposeEvent.orCreateDraft')}
+                </button>
+              </>
             )}
           </div>
 
-          {/* Draft preview — what the partner will see */}
-          {selectedDraft && (
+          {/* Preview — what the partner will see */}
+          {selectedEvent && (
             <div className="rounded-lg border border-border bg-card/40 p-3 flex gap-3">
-              {selectedDraft.poster_url ? (
-                <img src={selectedDraft.poster_url} alt="" className="w-16 h-20 rounded-md object-cover flex-none border border-border" />
+              {selectedEvent.poster_url ? (
+                <img src={selectedEvent.poster_url} alt="" className="w-16 h-20 rounded-md object-cover flex-none border border-border" />
               ) : (
                 <div className="w-16 h-20 rounded-md bg-muted flex items-center justify-center flex-none">
                   <ImageIcon className="h-5 w-5 text-muted-foreground" />
                 </div>
               )}
               <div className="min-w-0 flex-1 space-y-1.5">
-                <span className="inline-block rounded bg-primary/10 border border-primary/25 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                  {t('proposeEvent.draftBadge')}
-                </span>
-                <p className="font-semibold text-sm truncate">{selectedDraft.title || t('proposeEvent.untitledEvent')}</p>
+                <StatusBadge live={selectedEvent.is_active} />
+                <p className="font-semibold text-sm truncate">{selectedEvent.title || t('proposeEvent.untitledEvent')}</p>
                 <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                   <Clock className="h-3 w-3 flex-none" />
-                  {formatInTimeZone(new Date(selectedDraft.start_at), PARIS_TIMEZONE, 'dd MMM · HH:mm', { locale: fr })}
+                  {formatInTimeZone(new Date(selectedEvent.start_at), PARIS_TIMEZONE, 'dd MMM · HH:mm', { locale: fr })}
                   {' → '}
-                  {formatInTimeZone(new Date(selectedDraft.end_at), PARIS_TIMEZONE, 'HH:mm', { locale: fr })}
+                  {formatInTimeZone(new Date(selectedEvent.end_at), PARIS_TIMEZONE, 'HH:mm', { locale: fr })}
                 </p>
-                {selectedDraft.description && (
-                  <p className="text-xs text-muted-foreground line-clamp-2">{selectedDraft.description}</p>
+                {selectedEvent.description && (
+                  <p className="text-xs text-muted-foreground line-clamp-2">{selectedEvent.description}</p>
                 )}
               </div>
             </div>
@@ -293,7 +318,7 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>{t('common.cancel')}</Button>
-          <Button onClick={handleSubmit} disabled={saving || !hasDrafts || !organizerId || !eventId}>
+          <Button onClick={handleSubmit} disabled={saving || !organizerId || !eventId}>
             <Send className="h-4 w-4 mr-2" />
             {saving ? t('proposeEvent.sending') : t('proposeEvent.sendProposal')}
           </Button>
