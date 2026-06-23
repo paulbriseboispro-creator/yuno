@@ -5,6 +5,7 @@ import { SlidersHorizontal } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { BottomNav } from '@/components/BottomNav';
 import { EventCardData } from '@/components/explore/EventCard';
+import { Tappable } from '@/components/motion';
 import { FilterPage, ExploreFilters, FilterDynamicData } from '@/components/explore/FilterPage';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -668,7 +669,9 @@ function EventRow({ event }: { event: EventCardData }) {
   const isLive = event.isLive;
 
   return (
-    <div
+    <Tappable
+      as="div"
+      pressScale={0.99}
       onClick={() => navigateToEvent(event, navigate)}
       style={{
         display: 'flex',
@@ -767,6 +770,6 @@ function EventRow({ event }: { event: EventCardData }) {
           <path d="M5 12h14M12 5l7 7-7 7" />
         </svg>
       </div>
-    </div>
+    </Tappable>
   );
 }

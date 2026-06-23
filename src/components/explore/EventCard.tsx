@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Heart, Zap, Users } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -34,15 +36,19 @@ export function EventCard({ event }: { event: EventCardData }) {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const { isFavorite, toggleFavorite } = useFavorites();
+  const reduceMotion = useReducedMotion();
   const favType = event.isAffiliate ? 'affiliate_event' : 'event';
   const liked = isFavorite(favType, event.id);
+  const [favPop, setFavPop] = useState(0);
 
   const dateLabel = format(new Date(event.startAt), 'dd MMM').toUpperCase();
   const timeLabel = format(new Date(event.startAt), 'HH:mm');
 
   const handleFavorite = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    const willActivate = !liked;
     await toggleFavorite(favType, event.id);
+    if (willActivate && !reduceMotion) setFavPop((k) => k + 1);
   };
 
   const handleClick = () => {
@@ -68,7 +74,7 @@ export function EventCard({ event }: { event: EventCardData }) {
             <img
               src={event.posterUrl}
               alt={event.title}
-              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+              className="event-card-img h-full w-full object-cover"
               loading="lazy"
             />
             <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.10)' }} />
@@ -137,9 +143,16 @@ export function EventCard({ event }: { event: EventCardData }) {
           }}
           aria-label={liked ? t('explore.removeFav') : t('explore.addFav')}
         >
-          <Heart
-            className={cn('h-3.5 w-3.5 transition-all', liked ? 'fill-primary text-primary' : 'text-white/60')}
-          />
+          <motion.span
+            key={favPop}
+            className="inline-flex"
+            animate={favPop > 0 ? { scale: [1, 1.3, 1] } : false}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <Heart
+              className={cn('h-3.5 w-3.5 transition-all', liked ? 'fill-primary text-primary' : 'text-white/60')}
+            />
+          </motion.span>
         </button>
       </div>
 

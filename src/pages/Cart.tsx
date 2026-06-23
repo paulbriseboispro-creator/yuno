@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useStore } from '@/store/useStore';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -40,6 +40,7 @@ export default function Cart() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { t, language } = useLanguage();
+  const reduceMotion = useReducedMotion();
   const cart = useStore((state) => state.cart);
   const incrementQty = useStore((state) => state.incrementQty);
   const decrementQty = useStore((state) => state.decrementQty);
@@ -497,6 +498,7 @@ export default function Cart() {
               animate="visible"
               variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.06 } } }}
             >
+              <AnimatePresence initial={false}>
               {items.map((item) => {
                 const discount = discountByDrink.get(item.drinkId);
                 const itemTotal = item.unitPrice * item.qty;
@@ -505,8 +507,9 @@ export default function Cart() {
                 return (
                   <motion.div
                     key={`${item.drinkId}-${item.eventId}`}
-                    layout
+                    layout={!reduceMotion}
                     variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}
+                    exit={reduceMotion ? { opacity: 0 } : { opacity: 0, x: -12, transition: { duration: 0.18, ease: [0.16, 1, 0.3, 1] } }}
                   >
                     <div
                       className="flex gap-3.5 p-3 overflow-hidden"
@@ -670,6 +673,7 @@ export default function Cart() {
                   </motion.div>
                 );
               })}
+              </AnimatePresence>
             </motion.div>
           </motion.section>
         ))}
@@ -1033,12 +1037,16 @@ export default function Cart() {
                   </span>
                 </div>
               ) : (
-                <span
+                <motion.span
+                  key={reduceMotion ? undefined : totalWithFees}
+                  initial={reduceMotion ? false : { opacity: 0.45 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
                   className="font-display tabular-nums"
                   style={{ fontSize: '23px', fontWeight: 700, letterSpacing: '-0.03em', color: '#FFFFFF', lineHeight: 1 }}
                 >
                   {totalWithFees.toFixed(2)} €
-                </span>
+                </motion.span>
               )}
 
               <span

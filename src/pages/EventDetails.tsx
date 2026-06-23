@@ -18,6 +18,7 @@ import { FavoriteButton } from '@/components/FavoriteButton';
 import { StickyCheckoutFooter } from '@/components/StickyCheckoutFooter';
 import { useFavorites } from '@/hooks/useFavorites';
 import { EventCountdown } from '@/components/EventCountdown';
+import { FadeInView } from '@/components/motion';
 import { formatCompactCount } from '@/components/formater';
 import { Skeleton } from '@/components/ui/skeleton';
 import { usePromoterTracking } from '@/hooks/usePromoterTracking';
@@ -908,7 +909,7 @@ export default function EventDetails() {
         )}
 
         {/* ── INFO TABLE ── */}
-        <section style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <FadeInView as="section" style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
           <p className="section-label-ruled mb-6">{t('event.date') || 'Infos'}</p>
 
           {/* Large typographic date + time */}
@@ -984,11 +985,11 @@ export default function EventDetails() {
               </a>
             )}
           </div>
-        </section>
+        </FadeInView>
 
         {/* ── DJ LINE-UP ── (right below the event info — the line-up is the headline of a night) */}
         {djs.length > 0 && (
-          <section style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          <FadeInView as="section" style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
             <p className="section-label-ruled mb-6">Line-up</p>
             <div className="flex gap-6 overflow-x-auto pb-2 scrollbar-hide" style={{ margin: '0 -20px', padding: '0 20px' }}>
               {djs.map((dj) => {
@@ -1026,12 +1027,12 @@ export default function EventDetails() {
                 );
               })}
             </div>
-          </section>
+          </FadeInView>
         )}
 
         {/* ── ORGANIZER + VENUE ── */}
         {(eventOrganizers.length > 0 || venue) && (
-          <section style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          <FadeInView as="section" style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
             <p className="section-label-ruled mb-6">
               {primaryEntity === 'organizer' ? t('event.organizedBy') : 'Venue'}
             </p>
@@ -1116,14 +1117,14 @@ export default function EventDetails() {
               </div>
               )}
             </div>
-          </section>
+          </FadeInView>
         )}
 
         {/* Partner venue drinks intentionally NOT shown on event pages. */}
 
         {/* ── DESCRIPTION ── */}
         {event.description && (
-          <section style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          <FadeInView as="section" style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
             <p className="section-label-ruled mb-5">{t('event.about') || 'À propos'}</p>
             <div className="relative">
               {translatingDesc && (
@@ -1153,12 +1154,12 @@ export default function EventDetails() {
                 </button>
               </div>
             )}
-          </section>
+          </FadeInView>
         )}
 
         {/* ── STATIC MAP ── */}
         {!event.locationIsSecret && venue.latitude && venue.longitude && venue.address && (
-          <section style={{ padding: 'clamp(32px, 5vw, 44px) 20px' }}>
+          <FadeInView as="section" style={{ padding: 'clamp(32px, 5vw, 44px) 20px' }}>
             <p className="section-label-ruled mb-5">{t('event.location')}</p>
             <a
               href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue.address)}`}
@@ -1178,7 +1179,7 @@ export default function EventDetails() {
                 );
               })()}
             </a>
-          </section>
+          </FadeInView>
         )}
 
       </div>{/* end content */}

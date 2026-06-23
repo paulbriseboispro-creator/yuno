@@ -2,7 +2,7 @@ import { Search, Heart, ShoppingBag, User, Building2, LucideIcon } from 'lucide-
 import { NavLink as RouterNavLink, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import { useVenueNav } from '@/contexts/VenueNavContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -26,6 +26,10 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
   const navRef = useRef<HTMLElement | null>(null);
   const { currentVenueSlug } = useVenueNav();
   const { t } = useLanguage();
+  const reduceMotion = useReducedMotion();
+  // Surface haute fréquence (onglets tapés des dizaines de fois/jour) → press
+  // subtil, état par la couleur. Reduced-motion → léger fondu, pas de scale.
+  const tabTap = reduceMotion ? { opacity: 0.6 } : { scale: 0.94 };
 
   // Preserve --bottom-nav-height CSS variable
   useEffect(() => {
@@ -107,8 +111,7 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
                 >
                   <motion.div
                     className="flex items-center justify-center rounded-full h-[48px] w-[48px] bg-primary"
-                    whileTap={{ scale: 0.88 }}
-                    whileHover={{ scale: 1.1 }}
+                    whileTap={tabTap}
                     transition={{ type: 'spring', stiffness: 400, damping: 20 }}
                     style={{
                       marginTop: '-22px',
@@ -142,12 +145,12 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
                 {({ isActive }) => (
                   <motion.div
                     className="relative flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl"
-                    whileTap={{ scale: 0.88 }}
+                    whileTap={tabTap}
                     transition={{ type: 'spring', stiffness: 400, damping: 20 }}
                   >
-                    {/* Red blur glow on hover (only when not active) */}
+                    {/* Red blur glow — desktop hover-capable only (évite le hover collant au tap) */}
                     {!isActive && (
-                      <span className="absolute inset-0 rounded-xl bg-primary/0 group-hover:bg-primary/15 blur-lg transition-all duration-300 pointer-events-none" />
+                      <span className="absolute inset-0 rounded-xl bg-primary/0 [@media(hover:hover)]:group-hover:bg-primary/15 blur-lg transition-colors duration-300 pointer-events-none" />
                     )}
                     <item.icon
                       className={cn(

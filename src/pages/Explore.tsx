@@ -19,6 +19,7 @@ import { ExploreVenueCard, ExploreVenueItem } from '@/components/explore/Explore
 import { ExplorePopularClubCard } from '@/components/explore/ExplorePopularClubCard';
 import { ExploreSeeAllCard } from '@/components/explore/ExploreSeeAllCard';
 import { ExploreDayTabs, WeekDayData } from '@/components/explore/ExploreDayTabs';
+import { FadeInView } from '@/components/motion';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 
@@ -1103,7 +1104,7 @@ export default function Explore() {
 
             {/* ═══ MODULE 2 : Recommandé — soirées à venir cette semaine ═══ */}
             {recoEvents.length > 0 && (
-              <div style={{ marginTop: 32 }}>
+              <FadeInView style={{ marginTop: 32 }}>
                 <ExploreSectionTitle kicker={language === 'fr' ? 'À NE PAS MANQUER' : language === 'es' ? 'NO TE LO PIERDAS' : "DON'T MISS"} title={t('filter.thisWeek')} />
                 <div
                   className="flex overflow-x-auto"
@@ -1113,12 +1114,12 @@ export default function Explore() {
                     <ExploreRailCard key={e.id} event={e} />
                   ))}
                 </div>
-              </div>
+              </FadeInView>
             )}
 
             {/* ═══ MODULE 3 : Les plus réservés — top 5 par popularité ═══ */}
             {trendingEvents.length > 0 && (
-              <div style={{ marginTop: 32 }}>
+              <FadeInView style={{ marginTop: 32 }}>
                 <ExploreSectionTitle kicker={language === 'fr' ? 'EN CE MOMENT' : language === 'es' ? 'AHORA MISMO' : 'RIGHT NOW'} title={language === 'fr' ? 'Les plus réservés' : language === 'es' ? 'Los más reservados' : 'Most booked'} />
                 <div
                   className="flex overflow-x-auto"
@@ -1128,12 +1129,12 @@ export default function Explore() {
                     <ExploreRankCard key={e.id} event={e} rank={i + 1} />
                   ))}
                 </div>
-              </div>
+              </FadeInView>
             )}
 
             {/* ═══ MODULE 3bis : Les DJs à ne pas manquer — top 10 des plus suivis qui jouent cette semaine ═══ */}
             {topDjs.length > 0 && (
-              <div style={{ marginTop: 32 }}>
+              <FadeInView style={{ marginTop: 32 }}>
                 <ExploreSectionTitle
                   kicker={language === 'fr' ? 'LES PLUS SUIVIS' : language === 'es' ? 'LOS MÁS SEGUIDOS' : 'MOST FOLLOWED'}
                   title={language === 'fr' ? 'Les DJs à ne pas manquer' : language === 'es' ? 'DJs que no te puedes perder' : 'DJs not to miss'}
@@ -1156,12 +1157,12 @@ export default function Explore() {
                     />
                   )}
                 </div>
-              </div>
+              </FadeInView>
             )}
 
             {/* ── Clubs populaires — TOUJOURS VISIBLE ── */}
             {venueItems.length > 0 && (
-              <div style={{ marginTop: 32 }}>
+              <FadeInView style={{ marginTop: 32 }}>
                 <ExploreSectionTitle
                   kicker={language === 'fr' ? 'LES INCONTOURNABLES' : language === 'es' ? 'IMPRESCINDIBLES' : 'THE ESSENTIALS'}
                   title={language === 'fr' ? 'Clubs populaires' : language === 'es' ? 'Clubs populares' : 'Popular clubs'}
@@ -1194,12 +1195,12 @@ export default function Explore() {
                     />
                   )}
                 </div>
-              </div>
+              </FadeInView>
             )}
 
             {/* ── Cette semaine — TOUJOURS VISIBLE ── */}
             {weekData.length > 0 && (
-              <div style={{ marginTop: 32 }}>
+              <FadeInView style={{ marginTop: 32 }}>
                 <ExploreSectionTitle kicker={language === 'fr' ? 'À VENIR' : language === 'es' ? 'PRÓXIMAMENTE' : 'UPCOMING'} title={t('filter.thisWeek')} />
                 <ExploreDayTabs
                   weekData={weekData}
@@ -1207,7 +1208,7 @@ export default function Explore() {
                   freeOnly={freeOnly}
                   exploreFilters={filters}
                 />
-              </div>
+              </FadeInView>
             )}
           </>
         )}

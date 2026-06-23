@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Heart, Bell } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { useFavorites, FavoriteType, isSubscriptionType } from '@/hooks/useFavorites';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -41,13 +43,19 @@ export function FavoriteButton({
 }: FavoriteButtonProps) {
   const { isFavorite, toggleFavorite } = useFavorites();
   const { t } = useLanguage();
+  const reduceMotion = useReducedMotion();
   const isActive = isFavorite(type, id);
   const subscription = isSubscriptionType(type);
+  // Pop "à la Instagram" uniquement à l'activation (pas au retrait), incrémenté
+  // pour rejouer le keyframe. Reduced-motion → aucun pop (juste le remplissage).
+  const [popKey, setPopKey] = useState(0);
 
   const handleClick = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    const willActivate = !isActive;
     await toggleFavorite(type, id);
+    if (willActivate && !reduceMotion) setPopKey((k) => k + 1);
     onToggle?.();
   };
 
@@ -79,13 +87,20 @@ export function FavoriteButton({
       style={style}
       aria-pressed={isActive}
     >
-      <Icon
-        className={cn(
-          "h-5 w-5 transition-all",
-          isActive && !isFollowButton ? "fill-primary text-primary" : "",
-          iconClassName
-        )}
-      />
+      <motion.span
+        key={popKey}
+        className="inline-flex"
+        animate={popKey > 0 ? { scale: [1, 1.25, 1] } : false}
+        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <Icon
+          className={cn(
+            "h-5 w-5 transition-all",
+            isActive && !isFollowButton ? "fill-primary text-primary" : "",
+            iconClassName
+          )}
+        />
+      </motion.span>
       {showLabel && (
         <span className="ml-1">
           {isActive ? activeLabel : inactiveLabel}

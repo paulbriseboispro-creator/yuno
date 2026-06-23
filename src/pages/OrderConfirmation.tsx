@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { transitions, useReducedMotion } from '@/lib/motion';
 import { CheckCircle, Calendar, Clock, MapPin, Users, Ticket, ArrowLeft, FileText, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -66,7 +67,18 @@ export default function OrderConfirmation() {
   const navigate = useNavigate();
   const location = useLocation();
   const { t, language } = useLanguage();
-  
+  const reduceMotion = useReducedMotion();
+
+  // Entrées de contenu (rares → célébration légitime). Reduced-motion → opacité seule.
+  const rise = (delay: number) =>
+    reduceMotion
+      ? { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { duration: 0.3 } }
+      : {
+          initial: { opacity: 0, y: 20 },
+          animate: { opacity: 1, y: 0 },
+          transition: { delay, duration: 0.45, ease: [0.16, 1, 0.3, 1] as const },
+        };
+
   const [loading, setLoading] = useState(true);
   const [downloadingReceipt, setDownloadingReceipt] = useState(false);
   const [downloadingBillet, setDownloadingBillet] = useState(false);
@@ -599,11 +611,12 @@ export default function OrderConfirmation() {
 
       <div style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 3.5rem)' }}>
         <div className="mx-auto max-w-lg px-4 py-8 w-full box-border" style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}>
-          {/* Success Animation */}
+          {/* Success Animation — moment rare + célébratoire : overshoot intentionnel.
+              Jamais scale(0) (rien n'apparaît "de nulle part") → part de 0.6 + opacity. */}
           <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+            initial={reduceMotion ? { opacity: 0 } : { scale: 0.6, opacity: 0 }}
+            animate={reduceMotion ? { opacity: 1 } : { scale: 1, opacity: 1 }}
+            transition={reduceMotion ? { duration: 0.3 } : transitions.celebrate}
             className="flex justify-center mb-6"
           >
             <div className="h-20 w-20 rounded-full bg-emerald-500/20 flex items-center justify-center">
@@ -611,12 +624,7 @@ export default function OrderConfirmation() {
             </div>
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-center mb-8"
-          >
+          <motion.div {...rise(0.2)} className="text-center mb-8">
             <h1 className="text-2xl font-bold mb-2">{getTypeLabel()}</h1>
             <p className="text-muted-foreground">
               {t('confirmation.emailSent') || 'Un email de confirmation vous a été envoyé'}
@@ -624,11 +632,7 @@ export default function OrderConfirmation() {
           </motion.div>
 
           {/* QR Code Card */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
+          <motion.div {...rise(0.3)}>
             <Card className="mb-6">
               <CardContent className="pt-6">
                 {/* Event Info */}
@@ -719,12 +723,7 @@ export default function OrderConfirmation() {
 
           {/* Access documents to download & fill before entry */}
           {data.type === 'ticket' && data.accessDocs && data.accessDocs.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.33 }}
-              className="mb-4"
-            >
+            <motion.div {...rise(0.33)} className="mb-4">
               <Card>
                 <CardContent className="pt-6">
                   <div className="flex items-start gap-3 mb-4">
@@ -753,23 +752,13 @@ export default function OrderConfirmation() {
 
           {/* Drink Credits from pack */}
           {data.type === 'ticket' && (data.packName || data.upsellSelections?.some(u => u.offerType === 'drink_pack' || u.offerType === 'single_drink_discount' || u.offerType === 'combo')) && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35 }}
-              className="mb-4"
-            >
+            <motion.div {...rise(0.35)} className="mb-4">
               <DrinkCreditsCard ticketId={data.id} venueId={data.venueId} />
             </motion.div>
           )}
 
           {/* Action Buttons */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="space-y-3"
-          >
+          <motion.div {...rise(0.4)} className="space-y-3">
             {/* Billet (ticket / VIP table only) — primary action */}
             {data.type !== 'order' && (
               <Button
@@ -806,12 +795,7 @@ export default function OrderConfirmation() {
           </motion.div>
 
           {/* Back to orders */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="mt-6 text-center"
-          >
+          <motion.div {...rise(0.5)} className="mt-6 text-center">
             <Button variant="link" onClick={() => navigate('/my-orders')}>
               {t('confirmation.viewAllOrders')}
             </Button>
