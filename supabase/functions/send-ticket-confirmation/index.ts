@@ -90,7 +90,7 @@ serve(async (req) => {
         id, qr_code, reference_code, quantity, unit_price, total_price, service_fee, insurance_fee, full_name, phone, user_email, user_id, status,
         ticket_round_id, event_id,
         ticket_rounds(name, group_label),
-        events!inner(id, title, start_at, end_time, venue_id, organizer_user_id, poster_url, location_name, location_address, location_city, location_is_secret, reveal_address_in_email, venues!events_venue_id_fkey(name, address, legal_name, legal_address, siret, vat_number, logo_url))
+        events!inner(id, title, start_at, venue_id, organizer_user_id, poster_url, location_name, location_address, location_city, location_is_secret, reveal_address_in_email, venues!events_venue_id_fkey(name, address, legal_name, legal_address, siret, vat_number, logo_url))
       `)
       .eq("id", ticketId)
       .single();
