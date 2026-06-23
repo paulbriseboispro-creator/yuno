@@ -13,7 +13,7 @@
 import {
   shell, brandBar, poster, ruleLabel, title, mono, body, section,
   ctaPill, ctaSharp, bigDate, calloutPrice, codeBlock, infoRows, eventMiniCard,
-  divider, spacer, footer, C, F,
+  qrCard, divider, spacer, footer, C, F,
 } from './email-kit.ts';
 
 export type Lang = 'en' | 'fr' | 'es';
@@ -47,11 +47,26 @@ const LBL = {
 const lbl = (lang: Lang, k: keyof typeof LBL) => p(lang, LBL[k]);
 const reasonTicket = (lang: Lang) => p(lang, { en: 'you bought a ticket', fr: 'tu as acheté un billet', es: 'compraste una entrada' });
 
+// Formatte une date ISO en {day:'22', month:'Juin 2026', time:'18:00'} selon la langue.
+// tz par défaut Europe/Paris (marché FR/ES de Yuno, parité avec l'ancien rendu).
+export function fmtDateParts(iso: string | Date, lang: Lang, tz = 'Europe/Paris'): { day: string; month: string; time: string } {
+  const dt = iso instanceof Date ? iso : new Date(iso);
+  if (isNaN(dt.getTime())) return { day: '—', month: '', time: '' };
+  const loc = ({ en: 'en-GB', fr: 'fr-FR', es: 'es-ES' } as const)[L(lang)];
+  const day = new Intl.DateTimeFormat(loc, { day: 'numeric', timeZone: tz }).format(dt);
+  const m = new Intl.DateTimeFormat(loc, { month: 'long', timeZone: tz }).format(dt);
+  const yr = new Intl.DateTimeFormat(loc, { year: 'numeric', timeZone: tz }).format(dt);
+  const month = `${m.charAt(0).toUpperCase()}${m.slice(1)} ${yr}`;
+  const time = new Intl.DateTimeFormat(loc, { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: tz }).format(dt);
+  return { day, month, time };
+}
+
 // ── 1. Confirmation de billet ────────────────────────────────────────────────
 export function buildTicketConfirmation(d: {
   lang?: Lang; firstName?: string; eventTitle: string; venueName: string; posterUrl?: string;
   day: string; month: string; openTime?: string; city?: string;
   ticketType: string; price: string; reference: string; ticketUrl: string; recipientEmail?: string;
+  qrDataUrl?: string; address?: string;
 }): BuiltEmail {
   const lang = L(d.lang || 'en');
   const hi = d.firstName ? `${d.firstName}, ` : '';
@@ -73,11 +88,15 @@ export function buildTicketConfirmation(d: {
       section(infoRows([
         { k: lbl(lang, 'event'), v: d.eventTitle },
         { k: lbl(lang, 'venue'), v: d.venueName },
+        ...(d.address ? [{ k: p(lang, { en: 'Address', fr: 'Adresse', es: 'Dirección' }), v: d.address }] : []),
         { k: lbl(lang, 'ticket'), v: d.ticketType },
         { k: lbl(lang, 'price'), v: d.price },
         { k: lbl(lang, 'reference'), v: d.reference },
       ])),
-      section(`${calloutPrice(p(lang, { en: 'Show at the door', fr: "À présenter à l'entrée", es: 'Mostrar en la entrada' }), d.reference)}<div style="height:20px"></div>${ctaPill(p(lang, { en: 'View my ticket', fr: 'Voir mon billet', es: 'Ver mi entrada' }), d.ticketUrl)}`, { border: false }),
+      section(`${d.qrDataUrl
+        ? qrCard(d.qrDataUrl, p(lang, { en: 'Scan at the door', fr: "À scanner à l'entrée", es: 'Escanear en la entrada' }), d.reference)
+        : calloutPrice(p(lang, { en: 'Show at the door', fr: "À présenter à l'entrée", es: 'Mostrar en la entrada' }), d.reference)
+        }<div style="height:20px"></div>${ctaPill(p(lang, { en: 'View my ticket', fr: 'Voir mon billet', es: 'Ver mi entrada' }), d.ticketUrl)}`, { border: false }),
       footer({ lang, venueName: d.venueName }),
     ].join(''),
   });
@@ -89,6 +108,7 @@ export function buildVipConfirmation(d: {
   lang?: Lang; firstName?: string; eventTitle: string; venueName: string; posterUrl?: string;
   day: string; month: string; arrivalTime?: string;
   tableName: string; guests: string; bottles?: string; total: string; reference: string; manageUrl: string;
+  qrDataUrl?: string;
 }): BuiltEmail {
   const lang = L(d.lang || 'en');
   const hi = d.firstName ? `${d.firstName}, ` : '';
@@ -116,6 +136,7 @@ export function buildVipConfirmation(d: {
         { k: lbl(lang, 'total'), v: d.total },
         { k: lbl(lang, 'reference'), v: d.reference },
       ])),
+      ...(d.qrDataUrl ? [section(qrCard(d.qrDataUrl, p(lang, { en: 'Scan at VIP entry', fr: "À scanner à l'entrée VIP", es: 'Escanear en entrada VIP' }), d.reference), { border: false, padBottom: 4 })] : []),
       section(ctaPill(p(lang, { en: 'Manage my booking', fr: 'Gérer ma réservation', es: 'Gestionar mi reserva' }), d.manageUrl), { border: false }),
       footer({ lang, venueName: d.venueName }),
     ].join(''),
@@ -440,6 +461,27 @@ export function buildPasswordSetup(d: {
   return { subject, preheader: '', html };
 }
 
+// ── 13b. Lien sécurisé générique (email-change, reset PIN par lien, recovery) ──
+// Copie déjà localisée par l'appelant (title/message/ctaLabel) ; lang sert au chrome.
+export function buildSecureLink(d: {
+  lang?: Lang; title: string; message: string; ctaLabel: string; ctaUrl: string; footnote?: string;
+}): BuiltEmail {
+  const lang = L(d.lang || 'en');
+  const html = shell({
+    title: d.title,
+    preheader: d.message.replace(/<[^>]+>/g, '').slice(0, 90),
+    body: [
+      brandBar(),
+      section(ruleLabel(p(lang, { en: 'Security', fr: 'Sécurité', es: 'Seguridad' })) + `<div style="height:16px"></div>` +
+        title(d.title, 26) + `<div style="height:14px"></div>` + body(d.message), { border: false }),
+      section(ctaPill(d.ctaLabel, d.ctaUrl), { border: false, padTop: 4 }),
+      ...(d.footnote ? [section(body(d.footnote, C.gray2), { border: false, padTop: 4 })] : []),
+      footer({ lang }),
+    ].join(''),
+  });
+  return { subject: d.title, preheader: '', html };
+}
+
 // ── 14. Code de vérification (OTP / reset PIN / MFA / recovery) — SÉCURITÉ ─────
 export function buildOtp(d: {
   lang?: Lang; code: string; purposeLabel?: string; expiresMin?: number; context?: string;
@@ -546,8 +588,8 @@ export function buildRefund(d: {
 // ── Données mock pour les previews (rendu FR) ─────────────────────────────────
 const POSTER = 'https://fulawxvdlwtdlpkycixe.supabase.co/storage/v1/object/public/event-images/events/1781542670364-poster.jpg';
 export const PREVIEW_SAMPLES: Record<string, () => BuiltEmail> = {
-  ticket: () => buildTicketConfirmation({ lang: 'fr', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, day: '22', month: 'Juin 2026', openTime: '18:00', city: 'Paris', ticketType: 'Early Bird', price: '18,00 €', reference: 'TK-7F3K9P', ticketUrl: `${APP}/tickets` }),
-  vip: () => buildVipConfirmation({ lang: 'fr', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, day: '22', month: 'Juin 2026', arrivalTime: '23:00', tableName: 'Carré VIP — Pont supérieur', guests: '6 personnes', bottles: '2 × Grey Goose', total: '890,00 €', reference: 'VP-2M8X4Q', manageUrl: `${APP}/reservations` }),
+  ticket: () => buildTicketConfirmation({ lang: 'fr', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, day: '22', month: 'Juin 2026', openTime: '18:00', city: 'Paris', ticketType: 'Early Bird', price: '18,00 €', reference: 'TK-7F3K9P', ticketUrl: `${APP}/tickets`, qrDataUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=YUNO-DEMO-TK-7F3K9P' }),
+  vip: () => buildVipConfirmation({ lang: 'fr', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, day: '22', month: 'Juin 2026', arrivalTime: '23:00', tableName: 'Carré VIP — Pont supérieur', guests: '6 personnes', bottles: '2 × Grey Goose', total: '890,00 €', reference: 'VP-2M8X4Q', manageUrl: `${APP}/reservations`, qrDataUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=YUNO-DEMO-VP-2M8X4Q' }),
   order: () => buildOrderConfirmation({ lang: 'fr', firstName: 'Paul', venueName: 'Night Square', items: [{ k: '2 × Mojito', v: '24,00 €' }, { k: '1 × Red Bull', v: '6,00 €' }], total: '30,00 €', reference: 'OR-9920XB', pickupInfo: 'Récupère au bar avec ta référence.', orderUrl: `${APP}/orders` }),
   winback: () => buildWinBack({ lang: 'fr', firstName: 'Paul', pastEventTitle: 'Techno Sundays #12', venueName: 'Night Square', posterUrl: POSTER, attendeeCount: '340', nextEvent: { title: 'Yuno Boat Party Seine', meta: '22 Juin · 18:00 · Paris', url: `${APP}/event/demo`, img: POSTER }, venueUrl: `${APP}/club/night-square`, unsubscribeUrl: `${APP}/unsubscribe?token=demo`, recipientEmail: 'paul.brisebois.pro@gmail.com' }),
   upsell: () => buildUpsell({ lang: 'fr', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', vipEnabled: true, venueUrl: `${APP}/club/night-square`, unsubscribeUrl: `${APP}/unsubscribe?token=demo`, recipientEmail: 'paul.brisebois.pro@gmail.com' }),

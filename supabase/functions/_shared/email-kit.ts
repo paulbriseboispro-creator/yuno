@@ -189,6 +189,16 @@ export function eventMiniCard(opts: { img?: string; title: string; meta: string;
   </table>`;
 }
 
+// ── Carte QR (fond clair obligatoire pour scan ; ref visible en fallback Gmail) ──
+export function qrCard(dataUrl: string, label: string, caption?: string): string {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+    <td align="center" style="background:#ffffff;border-radius:4px;padding:24px 16px;">
+      <div style="font-family:${F.mono};font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#5A5A5E;margin-bottom:14px;">${esc(label)}</div>
+      <img src="${esc(dataUrl)}" alt="QR" width="200" height="200" style="width:200px;height:200px;display:block;border:0;" />
+      ${caption ? `<div style="font-family:${F.mono};font-size:13px;font-weight:700;letter-spacing:0.10em;color:#0A0A0A;margin-top:14px;">${esc(caption)}</div>` : ''}
+    </td></tr></table>`;
+}
+
 export function divider(): string {
   return `<tr><td style="padding:0 28px;"><div style="border-top:1px solid ${C.border};font-size:0;line-height:0;">&nbsp;</div></td></tr>`;
 }
