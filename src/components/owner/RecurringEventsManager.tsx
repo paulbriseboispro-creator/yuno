@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { PosterCropper, PosterPosition } from '@/components/PosterCropper';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { normalizeSplitRules } from '@/lib/splitRules';
 
 // ─── Yuno Design Tokens (mirror OwnerEvents) ──────────────────────────────────
 const RED      = '#E8192C';
@@ -80,7 +81,9 @@ type TemplateRow = {
   vip_preset_id: string | null;
   auto_enable_tables: boolean;
   partner_organizer_id: string | null;
-  revenue_split_rules: { venue?: number; organizer?: number } | null;
+  // Canonical nested shape { tickets/tables/drinks: { organizer_pct, venue_pct } }.
+  // Legacy templates may still hold the flat { venue, organizer } shape — read via normalizeSplitRules.
+  revenue_split_rules: Record<string, unknown> | null;
   is_active: boolean;
 };
 
@@ -207,7 +210,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
       vipPresetId: tpl.vip_preset_id || '',
       autoEnableTables: tpl.auto_enable_tables,
       partnerOrganizerId: tpl.partner_organizer_id || '',
-      venueSplitPct: tpl.revenue_split_rules?.venue ?? 70,
+      venueSplitPct: normalizeSplitRules(tpl.revenue_split_rules)?.tickets.venue_pct ?? 70,
       isActive: tpl.is_active,
     });
     setPosterFile(null);
@@ -258,8 +261,15 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
         vip_preset_id: form.vipPresetId || null,
         auto_enable_tables: form.autoEnableTables,
         partner_organizer_id: !isOrg && form.partnerOrganizerId ? form.partnerOrganizerId : null,
+        // Write the canonical nested shape. The single club/partner slider sets the
+        // global split applied to tickets + tables; drinks stay 100% club (alcohol licence).
         revenue_split_rules: !isOrg && form.partnerOrganizerId
-          ? { venue: form.venueSplitPct, organizer: 100 - form.venueSplitPct } : null,
+          ? {
+              tickets: { organizer_pct: 100 - form.venueSplitPct, venue_pct: form.venueSplitPct },
+              tables: { organizer_pct: 100 - form.venueSplitPct, venue_pct: form.venueSplitPct },
+              drinks: { organizer_pct: 0, venue_pct: 100 },
+            }
+          : null,
         is_active: form.isActive,
       };
 

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Slider } from '@/components/ui/slider';
+import { supabase } from '@/integrations/supabase/client';
 import { Sparkles, Lock } from 'lucide-react';
 import type { PartnershipSplitRules, VenueOrganizerPartnership } from '@/hooks/useOrganizerPartnerships';
 import { getPartnershipProposalStatus } from '@/hooks/useOrganizerPartnerships';
@@ -28,10 +29,25 @@ export function PartnershipSplitEditor({ open, onOpenChange, partnership, side, 
   const current = partnership.default_split_rules ?? DEFAULT;
   const [tickets, setTickets] = useState<number>(current.tickets?.organizer_pct ?? 100);
   const [tables, setTables] = useState<number>(current.tables?.organizer_pct ?? 0);
-  // Drinks are non-negotiable: always 100% club (alcohol licence). No slider.
+  const [drinks, setDrinks] = useState<number>(current.drinks?.organizer_pct ?? 0);
+  // Drinks stay 100% club UNLESS the organizer attested their alcohol-sale licence.
+  const [orgCanSellAlcohol, setOrgCanSellAlcohol] = useState(false);
 
   const { language } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const { data } = await supabase
+        .from('organizer_profiles')
+        .select('can_sell_alcohol')
+        .eq('user_id', partnership.organizer_user_id)
+        .maybeSingle();
+      if (active) setOrgCanSellAlcohol(Boolean((data as { can_sell_alcohol?: boolean } | null)?.can_sell_alcohol));
+    })();
+    return () => { active = false; };
+  }, [partnership.organizer_user_id]);
 
   const status = getPartnershipProposalStatus(partnership);
   const hasPendingProposal = status !== 'no_proposal';
@@ -40,7 +56,9 @@ export function PartnershipSplitEditor({ open, onOpenChange, partnership, side, 
     const rules: PartnershipSplitRules = {
       tickets: { organizer_pct: tickets, venue_pct: 100 - tickets },
       tables: { organizer_pct: tables, venue_pct: 100 - tables },
-      drinks: { organizer_pct: 0, venue_pct: 100 },
+      drinks: orgCanSellAlcohol
+        ? { organizer_pct: drinks, venue_pct: 100 - drinks }
+        : { organizer_pct: 0, venue_pct: 100 },
     };
     await onPropose(rules);
     onOpenChange(false);
@@ -79,13 +97,17 @@ export function PartnershipSplitEditor({ open, onOpenChange, partnership, side, 
         <div className="space-y-6 py-2">
           <SplitRow label={t('Billets', 'Tickets', 'Entradas')} organizerPct={tickets} onChange={setTickets} disabled={hasPendingProposal} />
           <SplitRow label={t('Tables / VIP', 'Tables / VIP', 'Mesas / VIP')} organizerPct={tables} onChange={setTables} disabled={hasPendingProposal} />
-          <div className="rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T3, fontSize: 11.5 }}>
-            🍹 <strong style={{ color: T1 }}>{t('Boissons : 100% club', 'Drinks: 100% club', 'Bebidas: 100% club')}</strong> — {t(
-              "le club est le vendeur d'alcool (licence) : les revenus boissons lui reviennent toujours intégralement. Non négociable.",
-              'the club is the alcohol seller (licence): drink revenue always goes entirely to the club. Non-negotiable.',
-              'el club es el vendedor de alcohol (licencia): los ingresos de bebidas siempre van íntegramente al club. No negociable.',
-            )}
-          </div>
+          {orgCanSellAlcohol ? (
+            <SplitRow label={t('Boissons', 'Drinks', 'Bebidas')} organizerPct={drinks} onChange={setDrinks} disabled={hasPendingProposal} />
+          ) : (
+            <div className="rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T3, fontSize: 11.5 }}>
+              🍹 <strong style={{ color: T1 }}>{t('Boissons : 100% club', 'Drinks: 100% club', 'Bebidas: 100% club')}</strong> — {t(
+                "le club est le vendeur d'alcool (licence). L'organisateur peut attester ses documents légaux d'alcool dans son profil pour négocier une part.",
+                'the club is the alcohol seller (licence). The organizer can attest their alcohol-sale documents in their profile to negotiate a share.',
+                'el club es el vendedor de alcohol (licencia). El organizador puede acreditar sus documentos legales de alcohol en su perfil para negociar una parte.',
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter>

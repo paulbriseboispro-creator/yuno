@@ -78,16 +78,18 @@ export function useEventCollabContract(eventId: string | undefined, side?: 'venu
   const create = useMutation({
     mutationFn: async (vars: { rules: PartnershipSplitRules; cancellationPolicy?: string }) => {
       if (!eventId) throw new Error('No event');
-      const safe: PartnershipSplitRules = { ...vars.rules, drinks: { organizer_pct: 0, venue_pct: 100 } };
+      // Drinks are no longer force-zeroed client-side: the create_event_collab_contract
+      // RPC is the authoritative gate — it keeps the proposed drinks split only if the
+      // organizer attested their alcohol licence, else forces 100% club.
       const { error } = await rpc('create_event_collab_contract', {
         p_event_id: eventId,
-        p_split_rules: safe,
+        p_split_rules: vars.rules,
         p_cancellation_policy: vars.cancellationPolicy ?? 'pro_rata_refund',
       });
       if (error) throw error;
       try {
         await supabase.functions.invoke('notify-split-proposal', {
-          body: { kind: 'event', id: eventId, action: 'proposed', proposer_side: side, rules: safe },
+          body: { kind: 'event', id: eventId, action: 'proposed', proposer_side: side, rules: vars.rules },
         });
       } catch (e) { console.warn('[collab-contract] notify failed', e); }
     },

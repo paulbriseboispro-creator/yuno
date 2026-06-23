@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useEventCollabContract } from '@/hooks/useEventCollabContract';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { downloadContractPDF } from '@/lib/generateContractPDF';
 import { AlertTriangle, CheckCircle2, Lock, PenLine, Download, FileSignature } from 'lucide-react';
 import type { PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
+import { normalizeSplitRules } from '@/lib/splitRules';
 
 interface Props {
   eventId: string;
@@ -24,6 +25,30 @@ export function SplitContractBanner({ eventId, side }: Props) {
   const [editing, setEditing] = useState(false);
   const [ticketsOrg, setTicketsOrg] = useState(50);
   const [tablesOrg, setTablesOrg] = useState(0);
+  const [drinksOrg, setDrinksOrg] = useState(0);
+  // Drinks stay 100% club UNLESS the organizer attested their alcohol-sale licence.
+  const [orgCanSellAlcohol, setOrgCanSellAlcohol] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const { data: ev } = await supabase
+        .from('events')
+        .select('organizer_user_id, partner_organizer_id')
+        .eq('id', eventId)
+        .maybeSingle();
+      const orgId = (ev as { organizer_user_id?: string | null; partner_organizer_id?: string | null } | null)
+        ?.organizer_user_id ?? (ev as { partner_organizer_id?: string | null } | null)?.partner_organizer_id;
+      if (!orgId) { if (active) setOrgCanSellAlcohol(false); return; }
+      const { data: op } = await supabase
+        .from('organizer_profiles')
+        .select('can_sell_alcohol')
+        .eq('user_id', orgId)
+        .maybeSingle();
+      if (active) setOrgCanSellAlcohol(Boolean((op as { can_sell_alcohol?: boolean } | null)?.can_sell_alcohol));
+    })();
+    return () => { active = false; };
+  }, [eventId]);
 
   const card = 'rounded-xl border p-4 text-sm';
 
@@ -31,7 +56,9 @@ export function SplitContractBanner({ eventId, side }: Props) {
     const rules: PartnershipSplitRules = {
       tickets: { organizer_pct: ticketsOrg, venue_pct: 100 - ticketsOrg },
       tables: { organizer_pct: tablesOrg, venue_pct: 100 - tablesOrg },
-      drinks: { organizer_pct: 0, venue_pct: 100 },
+      drinks: orgCanSellAlcohol
+        ? { organizer_pct: drinksOrg, venue_pct: 100 - drinksOrg }
+        : { organizer_pct: 0, venue_pct: 100 },
     };
     create.mutate({ rules }, { onSuccess: () => setEditing(false) });
   };
@@ -51,7 +78,11 @@ export function SplitContractBanner({ eventId, side }: Props) {
       organizerName: orgName,
       eventTitle: (ev as any)?.title,
       eventDate: (ev as any)?.start_at ? new Date((ev as any).start_at) : null,
-      splitRules: contract.split_rules,
+      splitRules: normalizeSplitRules(contract.split_rules) ?? {
+        tickets: { organizer_pct: 0, venue_pct: 100 },
+        tables: { organizer_pct: 0, venue_pct: 100 },
+        drinks: { organizer_pct: 0, venue_pct: 100 },
+      },
       cancellationPolicy: contract.cancellation_policy,
       venueSignedAt: contract.venue_signed_at ? new Date(contract.venue_signed_at) : null,
       venueSignedName: (venue as any)?.name,
@@ -81,7 +112,14 @@ export function SplitContractBanner({ eventId, side }: Props) {
           <div className="ml-8 space-y-4">
             <SplitRow label="Billets" org={ticketsOrg} onChange={setTicketsOrg} />
             <SplitRow label="Tables / VIP" org={tablesOrg} onChange={setTablesOrg} />
-            <p className="text-xs text-muted-foreground">🍹 Boissons : 100% club (vendeur d'alcool — politique Yuno).</p>
+            {orgCanSellAlcohol ? (
+              <>
+                <SplitRow label="Boissons" org={drinksOrg} onChange={setDrinksOrg} />
+                <p className="text-xs text-muted-foreground">🍹 L'organisateur a attesté ses documents de vente d'alcool — la part boissons est négociable.</p>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">🍹 Boissons : 100% club (vendeur d'alcool). L'organisateur peut attester ses documents légaux d'alcool dans son profil pour négocier une part.</p>
+            )}
             <div className="flex gap-2">
               <Button size="sm" onClick={handlePropose} disabled={create.isPending}>
                 {create.isPending ? 'Envoi…' : 'Envoyer la proposition'}
@@ -95,7 +133,14 @@ export function SplitContractBanner({ eventId, side }: Props) {
   }
 
   if (!contract) return null;
-  const rules = contract.split_rules;
+  // Normalize: contracts created from legacy recurring templates / flat partnership
+  // defaults store a flat { organizer, venue } shape that lacks .tickets/.tables.
+  // Reading those directly white-screened the collab dashboard — normalize first.
+  const rules = normalizeSplitRules(contract.split_rules) ?? {
+    tickets: { organizer_pct: 0, venue_pct: 100 },
+    tables: { organizer_pct: 0, venue_pct: 100 },
+    drinks: { organizer_pct: 0, venue_pct: 100 },
+  };
 
   // ── Pending signatures ──
   if (status === 'pending_signatures') {
@@ -115,7 +160,7 @@ export function SplitContractBanner({ eventId, side }: Props) {
             <ul className="mt-2 text-xs text-muted-foreground space-y-0.5">
               <li>Billets : {rules.tickets.organizer_pct}% orga / {rules.tickets.venue_pct}% club</li>
               <li>Tables : {rules.tables.organizer_pct}% orga / {rules.tables.venue_pct}% club</li>
-              <li>Boissons : 100% club</li>
+              <li>Boissons : {rules.drinks.organizer_pct}% orga / {rules.drinks.venue_pct}% club</li>
             </ul>
           </div>
         </div>
@@ -150,7 +195,7 @@ export function SplitContractBanner({ eventId, side }: Props) {
             <ul className="mt-2 text-xs text-muted-foreground space-y-0.5">
               <li>Billets : {rules.tickets.organizer_pct}% orga / {rules.tickets.venue_pct}% club</li>
               <li>Tables : {rules.tables.organizer_pct}% orga / {rules.tables.venue_pct}% club</li>
-              <li>Boissons : 100% club</li>
+              <li>Boissons : {rules.drinks.organizer_pct}% orga / {rules.drinks.venue_pct}% club</li>
             </ul>
           </div>
         </div>

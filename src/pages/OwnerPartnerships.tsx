@@ -453,6 +453,22 @@ function SplitRulesDialog({
   const initial: PartnershipSplitRules = partnership.default_split_rules ?? DEFAULT_PARTNERSHIP_SPLIT;
   const [tickets, setTickets] = useState(initial.tickets.organizer_pct);
   const [tables, setTables] = useState(initial.tables.organizer_pct);
+  const [drinks, setDrinks] = useState(initial.drinks?.organizer_pct ?? 0);
+  // Drinks stay 100% club UNLESS the organizer attested their alcohol-sale licence.
+  const [orgCanSellAlcohol, setOrgCanSellAlcohol] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const { data } = await supabase
+        .from('organizer_profiles')
+        .select('can_sell_alcohol')
+        .eq('user_id', partnership.organizer_user_id)
+        .maybeSingle();
+      if (active) setOrgCanSellAlcohol(Boolean((data as { can_sell_alcohol?: boolean } | null)?.can_sell_alcohol));
+    })();
+    return () => { active = false; };
+  }, [partnership.organizer_user_id]);
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -467,18 +483,21 @@ function SplitRulesDialog({
         <div className="space-y-6 py-2">
           <SplitSlider label="Billets" value={tickets} onChange={setTickets} />
           <SplitSlider label="Tables VIP" value={tables} onChange={setTables} />
-          {/* Drinks: locked to 100% venue per Yuno commercial policy. */}
-          <div className="space-y-2 opacity-80">
-            <div className="flex items-center justify-between">
-              <Label>Boissons</Label>
-              <div className="text-sm font-mono text-muted-foreground">
-                100% club <span className="text-[10px] uppercase ml-1 text-primary">politique Yuno</span>
+          {orgCanSellAlcohol ? (
+            <SplitSlider label="Boissons" value={drinks} onChange={setDrinks} />
+          ) : (
+            <div className="space-y-2 opacity-80">
+              <div className="flex items-center justify-between">
+                <Label>Boissons</Label>
+                <div className="text-sm font-mono text-muted-foreground">
+                  100% club <span className="text-[10px] uppercase ml-1 text-primary">politique Yuno</span>
+                </div>
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                La carte des boissons appartient au club. L'organisateur peut attester ses documents légaux d'alcool dans son profil pour négocier une part.
               </div>
             </div>
-            <div className="text-[11px] text-muted-foreground">
-              La carte des boissons appartient au club — la totalité du revenu boissons lui revient toujours.
-            </div>
-          </div>
+          )}
           <p className="text-[11px] text-muted-foreground">
             ℹ️ Les frais Yuno et Stripe sont prélevés avant le split. Toute modification après acceptation par l'organisateur déclenchera une nouvelle proposition à valider.
           </p>
@@ -491,7 +510,9 @@ function SplitRulesDialog({
               onSave({
                 tickets: { organizer_pct: tickets, venue_pct: 100 - tickets },
                 tables: { organizer_pct: tables, venue_pct: 100 - tables },
-                drinks: { organizer_pct: 0, venue_pct: 100 },
+                drinks: orgCanSellAlcohol
+                  ? { organizer_pct: drinks, venue_pct: 100 - drinks }
+                  : { organizer_pct: 0, venue_pct: 100 },
               })
             }
           >

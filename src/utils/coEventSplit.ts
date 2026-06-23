@@ -13,6 +13,8 @@
  * report always agree to the cent.
  */
 
+import { normalizeSplitRules } from '@/lib/splitRules';
+
 export type InvoiceType = 'ticket' | 'table' | 'order';
 
 export interface EffectiveSplit { organizer_pct: number; venue_pct: number; }
@@ -50,11 +52,17 @@ export function defaultSplit(type: InvoiceType, mode: string | null): EffectiveS
 
 /** Normalize the stored revenue_split_rules jsonb into effective percentages. */
 export function getEffectiveSplit(rules: any, type: InvoiceType, mode: string | null): EffectiveSplit {
-  // Hard invariant: drinks ('order') never go to the organizer, regardless of stored rules.
-  if (type === 'order') return { organizer_pct: 0, venue_pct: 100 };
+  // Drinks ('order') default to 100% venue, but a stored drinks split is honored: an
+  // organizer who attested their alcohol licence can negotiate a drinks share. The
+  // attestation gate lives at write time (contract RPC + split editors), so we just
+  // read whatever drinks split is stored.
   if (!rules) return defaultSplit(type, mode);
+  // Coerce legacy flat { organizer, venue } rows into the canonical nested shape so
+  // a global split still produces correct per-category percentages (not the default).
+  const norm = normalizeSplitRules(rules);
+  if (!norm) return defaultSplit(type, mode);
   const key = type === 'ticket' ? 'tickets' : type === 'table' ? 'tables' : 'drinks';
-  const block = rules[key];
+  const block = norm[key];
   if (!block) return defaultSplit(type, mode);
   const o = Number(block.organizer_pct ?? 0);
   const v = Number(block.venue_pct ?? 0);

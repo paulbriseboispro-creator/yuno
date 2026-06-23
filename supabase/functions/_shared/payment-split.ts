@@ -225,13 +225,13 @@ export function resolvePaymentSplit(input: SplitInput): SplitResult {
   }
 
   const rules = event.revenue_split_rules ?? partnershipRules ?? null;
-  // Drinks are ALWAYS 100% venue — the venue holds the alcohol licence and is the
-  // seller of record. This is a hard invariant: it overrides any stored rule or mode
-  // default (org_hosted would otherwise leak bar revenue to the organizer).
-  const split =
-    itemType === "drink"
-      ? { organizer_pct: 0, venue_pct: 100 }
-      : getSplitForItem(rules, itemType) ?? defaultSplitForItem(itemType, event.event_mode);
+  // Drinks default to 100% venue (alcohol licence), but a stored drinks split IS
+  // honored when present. A drinks→organizer split can only reach event.revenue_split_rules
+  // via a signed contract created through create_event_collab_contract, which forces
+  // 100% club unless the organizer attested their alcohol-sale licence
+  // (organizer_profiles.can_sell_alcohol). The venue still stays merchant of record
+  // (on_behalf_of below) — this is a revenue share, not a transfer of the seller role.
+  const split = getSplitForItem(rules, itemType) ?? defaultSplitForItem(itemType, event.event_mode);
 
   // The venue owns its bar/alcohol: any drink/conso amount bundled into THIS charge
   // (venueDirectAmount, e.g. a conso inside a co-event ticket) goes 100% to the venue

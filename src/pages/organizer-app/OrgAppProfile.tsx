@@ -34,6 +34,8 @@ interface OrgProfile {
   minor_auth_doc_url: string | null;
   minor_auth_doc_name: string | null;
   absorb_yuno_fees: boolean;
+  can_sell_alcohol: boolean;
+  can_sell_alcohol_confirmed_at: string | null;
 }
 
 export default function OrgAppProfile() {
@@ -53,6 +55,7 @@ export default function OrgAppProfile() {
     instagram_url: '', website_url: '', is_public: true,
     legal_name: '', legal_address: '', siret: '', vat_number: '', billing_email: '', minors_allowed: false,
     minor_auth_doc_url: null, minor_auth_doc_name: null, absorb_yuno_fees: false,
+    can_sell_alcohol: false, can_sell_alcohol_confirmed_at: null,
   });
 
   useEffect(() => {
@@ -85,6 +88,8 @@ export default function OrgAppProfile() {
           minor_auth_doc_url: (data as any).minor_auth_doc_url ?? null,
           minor_auth_doc_name: (data as any).minor_auth_doc_name ?? null,
           absorb_yuno_fees: (data as any).absorb_yuno_fees ?? false,
+          can_sell_alcohol: (data as any).can_sell_alcohol ?? false,
+          can_sell_alcohol_confirmed_at: (data as any).can_sell_alcohol_confirmed_at ?? null,
         });
       } else {
         const { data: prof } = await supabase
@@ -188,6 +193,11 @@ export default function OrgAppProfile() {
         minor_auth_doc_url: profile.minor_auth_doc_url,
         minor_auth_doc_name: profile.minor_auth_doc_name,
         absorb_yuno_fees: profile.absorb_yuno_fees,
+        can_sell_alcohol: profile.can_sell_alcohol,
+        // Stamp the attestation date on first enable; keep it while enabled; clear when off.
+        can_sell_alcohol_confirmed_at: profile.can_sell_alcohol
+          ? (profile.can_sell_alcohol_confirmed_at ?? new Date().toISOString())
+          : null,
       };
       const { error } = await supabase
         .from('organizer_profiles')
@@ -349,6 +359,21 @@ export default function OrgAppProfile() {
               </p>
             </div>
             <Switch checked={profile.absorb_yuno_fees} onCheckedChange={(v) => setProfile((p) => ({ ...p, absorb_yuno_fees: v }))} />
+          </div>
+
+          {/* Alcohol-sale licence attestation — unlocks negotiating a drinks share in collabs */}
+          <div className="flex items-center justify-between rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+            <div>
+              <p style={{ color: T1, fontSize: 13, fontWeight: 540 }}>{t('Documents de vente d\'alcool', 'Alcohol-sale documents', 'Documentos de venta de alcohol')}</p>
+              <p className="mt-0.5" style={{ color: T3, fontSize: 11.5 }}>
+                {t(
+                  "J'atteste posséder les documents légaux pour la vente d'alcool. En collaboration avec un club, cela débloque la négociation d'une part des revenus boissons (sinon 100% club). Le club reste vendeur de référence.",
+                  'I attest that I hold the legal documents to sell alcohol. In a collaboration with a club, this unlocks negotiating a share of drink revenue (otherwise 100% club). The club stays the seller of record.',
+                  'Declaro que poseo los documentos legales para la venta de alcohol. En colaboración con un club, esto desbloquea negociar una parte de los ingresos de bebidas (si no, 100% club). El club sigue siendo el vendedor de referencia.',
+                )}
+              </p>
+            </div>
+            <Switch checked={profile.can_sell_alcohol} onCheckedChange={(v) => setProfile((p) => ({ ...p, can_sell_alcohol: v }))} />
           </div>
 
           {/* Minors allowed (alcohol-free) */}

@@ -33,6 +33,7 @@ import { EventLiveModule } from '@/components/owner/co-event/EventLiveModule';
 import { EventTicketingSetupModule } from '@/components/owner/co-event/EventTicketingSetupModule';
 import { EventTablesSetupModule } from '@/components/owner/co-event/EventTablesSetupModule';
 import { SplitContractBanner } from '@/components/SplitContractBanner';
+import { normalizeSplitRules } from '@/lib/splitRules';
 import { toast } from 'sonner';
 
 interface EventData {
@@ -421,8 +422,11 @@ function OverviewPanel({ eventId, splitRules }: { eventId: string; splitRules: a
 
 function SplitContractView({ rules }: { rules: any }) {
   const { t } = useLanguage();
-  if (!rules) return <p className="text-sm text-muted-foreground">{t('collabDash.noContract')}</p>;
-  const entries = Object.entries(rules).filter(([k]) => typeof rules[k] === 'object' && rules[k] !== null);
+  // Coerce legacy flat { organizer, venue } rules into the canonical nested shape
+  // so every category (tickets/tables/drinks) renders instead of just `drinks`.
+  const normalized = normalizeSplitRules(rules);
+  if (!normalized) return <p className="text-sm text-muted-foreground">{t('collabDash.noContract')}</p>;
+  const entries = Object.entries(normalized).filter(([, v]) => typeof v === 'object' && v !== null);
   return (
     <div className="space-y-2 text-sm">
       {entries.map(([key, val]: [string, any]) => (

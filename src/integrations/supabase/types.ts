@@ -1884,6 +1884,7 @@ export type Database = {
           terms_snapshot: Json | null
           updated_at: string
           venue_id: string | null
+          yuno_fee_cents: number
         }
         Insert: {
           acompte_cents?: number
@@ -1921,6 +1922,7 @@ export type Database = {
           terms_snapshot?: Json | null
           updated_at?: string
           venue_id?: string | null
+          yuno_fee_cents?: number
         }
         Update: {
           acompte_cents?: number
@@ -1958,6 +1960,7 @@ export type Database = {
           terms_snapshot?: Json | null
           updated_at?: string
           venue_id?: string | null
+          yuno_fee_cents?: number
         }
         Relationships: [
           {
@@ -5616,6 +5619,7 @@ export type Database = {
           claimed_by_user_id: string | null
           created_at: string
           event_id: string | null
+          fee_absorbed: boolean
           guest_first_name: string | null
           guest_last_name: string | null
           guest_phone: string | null
@@ -5658,6 +5662,7 @@ export type Database = {
           claimed_by_user_id?: string | null
           created_at?: string
           event_id?: string | null
+          fee_absorbed?: boolean
           guest_first_name?: string | null
           guest_last_name?: string | null
           guest_phone?: string | null
@@ -5700,6 +5705,7 @@ export type Database = {
           claimed_by_user_id?: string | null
           created_at?: string
           event_id?: string | null
+          fee_absorbed?: boolean
           guest_first_name?: string | null
           guest_last_name?: string | null
           guest_phone?: string | null
@@ -6058,6 +6064,62 @@ export type Database = {
         }
         Relationships: []
       }
+      organizer_notifications: {
+        Row: {
+          created_at: string
+          event_id: string | null
+          id: string
+          message: string
+          metadata: Json
+          notification_type: string
+          organizer_user_id: string
+          priority: string
+          read_at: string | null
+          read_by: string | null
+          reference_id: string | null
+          reference_type: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          message: string
+          metadata?: Json
+          notification_type: string
+          organizer_user_id: string
+          priority?: string
+          read_at?: string | null
+          read_by?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          message?: string
+          metadata?: Json
+          notification_type?: string
+          organizer_user_id?: string
+          priority?: string
+          read_at?: string | null
+          read_by?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organizer_notifications_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizer_onboarding: {
         Row: {
           completed_at: string | null
@@ -6126,9 +6188,12 @@ export type Database = {
       }
       organizer_profiles: {
         Row: {
+          absorb_yuno_fees: boolean
           avatar_url: string | null
           billing_email: string | null
           bio: string | null
+          can_sell_alcohol: boolean
+          can_sell_alcohol_confirmed_at: string | null
           city: string | null
           cover_url: string | null
           created_at: string
@@ -6148,9 +6213,12 @@ export type Database = {
           website_url: string | null
         }
         Insert: {
+          absorb_yuno_fees?: boolean
           avatar_url?: string | null
           billing_email?: string | null
           bio?: string | null
+          can_sell_alcohol?: boolean
+          can_sell_alcohol_confirmed_at?: string | null
           city?: string | null
           cover_url?: string | null
           created_at?: string
@@ -6170,9 +6238,12 @@ export type Database = {
           website_url?: string | null
         }
         Update: {
+          absorb_yuno_fees?: boolean
           avatar_url?: string | null
           billing_email?: string | null
           bio?: string | null
+          can_sell_alcohol?: boolean
+          can_sell_alcohol_confirmed_at?: string | null
           city?: string | null
           cover_url?: string | null
           created_at?: string
@@ -8204,6 +8275,7 @@ export type Database = {
           entry_scanned_at: string | null
           entry_scanned_by: string | null
           event_id: string
+          fee_absorbed: boolean
           finished_at: string | null
           full_name: string | null
           guest_count: number | null
@@ -8258,6 +8330,7 @@ export type Database = {
           entry_scanned_at?: string | null
           entry_scanned_by?: string | null
           event_id: string
+          fee_absorbed?: boolean
           finished_at?: string | null
           full_name?: string | null
           guest_count?: number | null
@@ -8312,6 +8385,7 @@ export type Database = {
           entry_scanned_at?: string | null
           entry_scanned_by?: string | null
           event_id?: string
+          fee_absorbed?: boolean
           finished_at?: string | null
           full_name?: string | null
           guest_count?: number | null
@@ -9075,6 +9149,7 @@ export type Database = {
           entry_scanned_at: string | null
           entry_scanned_by: string | null
           event_id: string
+          fee_absorbed: boolean
           full_name: string | null
           guest_first_name: string | null
           guest_last_name: string | null
@@ -9128,6 +9203,7 @@ export type Database = {
           entry_scanned_at?: string | null
           entry_scanned_by?: string | null
           event_id: string
+          fee_absorbed?: boolean
           full_name?: string | null
           guest_first_name?: string | null
           guest_last_name?: string | null
@@ -9181,6 +9257,7 @@ export type Database = {
           entry_scanned_at?: string | null
           entry_scanned_by?: string | null
           event_id?: string
+          fee_absorbed?: boolean
           full_name?: string | null
           guest_first_name?: string | null
           guest_last_name?: string | null
@@ -10249,6 +10326,7 @@ export type Database = {
       }
       venues: {
         Row: {
+          absorb_yuno_fees: boolean
           address: string | null
           bar_count: number | null
           bar_names: string[] | null
@@ -10296,6 +10374,7 @@ export type Database = {
           whatsapp_number: string | null
         }
         Insert: {
+          absorb_yuno_fees?: boolean
           address?: string | null
           bar_count?: number | null
           bar_names?: string[] | null
@@ -10343,6 +10422,7 @@ export type Database = {
           whatsapp_number?: string | null
         }
         Update: {
+          absorb_yuno_fees?: boolean
           address?: string | null
           bar_count?: number | null
           bar_names?: string[] | null
@@ -11890,6 +11970,7 @@ export type Database = {
           p_organizer_user_id?: string
           p_owner_kind: string
           p_promoter_id?: string
+          p_target_kind?: string
           p_venue_id?: string
         }
         Returns: {
@@ -12065,6 +12146,7 @@ export type Database = {
         Args: { _permission: string; _user_id: string; _venue_id: string }
         Returns: boolean
       }
+      normalize_split_rules: { Args: { rules: Json }; Returns: Json }
       org_member_has_permission: {
         Args: {
           _organizer_user_id: string
@@ -12153,6 +12235,7 @@ export type Database = {
           _capacity_zone_id: string
           _deposit: number
           _event_id: string
+          _fee_absorbed?: boolean
           _full_name: string
           _guest_count: number
           _is_guest: boolean
@@ -12272,6 +12355,10 @@ export type Database = {
       }
       seed_event_tracked_links: {
         Args: { p_event_id: string }
+        Returns: undefined
+      }
+      seed_venue_tracked_links: {
+        Args: { p_venue_id: string }
         Returns: undefined
       }
       set_dj_availability_block: {
