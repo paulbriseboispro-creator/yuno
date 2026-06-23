@@ -26,6 +26,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED       = '#E8192C';
 const POS       = '#34D399';
+const AMBER     = '#F5A623';
 const NEG       = '#FF5C63';
 const T1        = 'rgba(255,255,255,0.96)';
 const T2        = 'rgba(255,255,255,0.58)';
@@ -144,6 +145,9 @@ interface CollabEvent {
   organizer_user_id: string | null; partner_organizer_id: string | null;
   venue_id: string | null; partner_venue_id: string | null;
   event_mode: string | null; initiated_by_venue: boolean;
+  // Acceptance is driven by the signed collaboration contract, NOT the event's
+  // publish state. null = no contract row (legacy co-event).
+  contract_status: string | null;
   organizer: { display_name: string | null; avatar_url: string | null; slug: string | null } | null;
 }
 
@@ -291,9 +295,24 @@ function CollabEventsTab({ venueId, canPropose }: { venueId: string; canPropose:
         .select('user_id, display_name, avatar_url, slug').in('user_id', orgIds);
       (profs || []).forEach((p: any) => orgMap.set(p.user_id, p));
     }
+    // Collaboration acceptance status lives in the signed contract, not the event
+    // row. Pull the contract per event so the card can show "pending acceptance"
+    // vs "active" instead of leaking the publish flag.
+    const eventIds = (data || []).map((e) => e.id);
+    const contractMap = new Map<string, string>();
+    if (eventIds.length) {
+      // event_collab_contracts isn't in the generated types yet — query bound on
+      // `supabase` (never detach) and cast the result, like useEventCollabContract.
+      const { data: contracts } = await supabase
+        .from('event_collab_contracts' as never)
+        .select('event_id, status')
+        .in('event_id' as never, eventIds as never);
+      ((contracts as unknown as Array<{ event_id: string; status: string }>) || [])
+        .forEach((c) => contractMap.set(c.event_id, c.status));
+    }
     const mapped: CollabEvent[] = (data || []).map((e) => {
       const orgId = e.organizer_user_id ?? e.partner_organizer_id;
-      return { id: e.id, title: e.title, description: e.description, poster_url: e.poster_url, start_at: e.start_at, end_at: e.end_at, is_active: e.is_active, organizer_user_id: e.organizer_user_id, partner_organizer_id: e.partner_organizer_id, venue_id: e.venue_id, partner_venue_id: e.partner_venue_id, event_mode: e.event_mode, initiated_by_venue: e.venue_id === venueId && !!e.partner_organizer_id, organizer: orgId ? (orgMap.get(orgId) ?? null) : null };
+      return { id: e.id, title: e.title, description: e.description, poster_url: e.poster_url, start_at: e.start_at, end_at: e.end_at, is_active: e.is_active, organizer_user_id: e.organizer_user_id, partner_organizer_id: e.partner_organizer_id, venue_id: e.venue_id, partner_venue_id: e.partner_venue_id, event_mode: e.event_mode, initiated_by_venue: e.venue_id === venueId && !!e.partner_organizer_id, contract_status: contractMap.get(e.id) ?? null, organizer: orgId ? (orgMap.get(orgId) ?? null) : null };
     });
     setEvents(mapped);
     setLoading(false);
@@ -396,6 +415,21 @@ function CollabEventCard({ event, venueId }: { event: CollabEvent; venueId: stri
   };
   const modeChip = MODE_CHIP[event.event_mode ?? ''] ?? { label: t('collab.mode.collaboration'), color: RED, bg: 'rgba(232,25,44,0.10)', border: 'rgba(232,25,44,0.22)' };
 
+  // Acceptance reflects the signed contract, not whether the event is published.
+  // A proposed co-event is "pending acceptance" until the partner signs; only a
+  // double-signed (active/locked/closed) contract is truly "Active". Legacy
+  // co-events with no contract fall back to the old publish-state label.
+  const cs = event.contract_status;
+  const accepted = cs === 'active' || cs === 'locked' || cs === 'closed';
+  const awaiting  = cs === 'pending_signatures';
+  const statusChip = accepted
+    ? { label: t('collab.event.statusActive'), color: POS, bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.25)' }
+    : awaiting
+      ? { label: isLead ? t('collab.event.awaitingPartner') : t('collab.event.toAccept'), color: AMBER, bg: 'rgba(245,166,35,0.12)', border: 'rgba(245,166,35,0.30)' }
+      : event.is_active
+        ? { label: t('collab.event.statusActive'), color: POS, bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.25)' }
+        : { label: isLead ? t('collab.event.pendingOrga') : t('collab.event.pendingActivation'), color: T3, bg: INNER_BG, border: BORDER };
+
   return (
     <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, overflow: 'hidden' }}>
       {/* Top section */}
@@ -403,12 +437,7 @@ function CollabEventCard({ event, venueId }: { event: CollabEvent; venueId: stri
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap mb-2">
             <Chip label={modeChip.label} color={modeChip.color} bg={modeChip.bg} border={modeChip.border} />
-            <Chip
-              label={event.is_active ? t('collab.event.statusActive') : (isLead ? t('collab.event.pendingOrga') : t('collab.event.pendingActivation'))}
-              color={event.is_active ? POS : T3}
-              bg={event.is_active ? 'rgba(52,211,153,0.10)' : INNER_BG}
-              border={event.is_active ? 'rgba(52,211,153,0.25)' : BORDER}
-            />
+            <Chip label={statusChip.label} color={statusChip.color} bg={statusChip.bg} border={statusChip.border} />
             <Chip
               label={isLead ? t('collab.event.initiatedByYou') : `${t('collab.event.initiatedBy')} ${orgName}`}
               color={T3} bg={TILE_BG} border={F_BORDER}

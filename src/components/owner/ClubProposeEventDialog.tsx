@@ -114,7 +114,7 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
 
     setSaving(true);
     try {
-      // Link the chosen night to the partner. Publish state stays as-is.
+      // 1. Link the chosen night to the partner. Publish state stays as-is.
       const { error } = await supabase
         .from('events')
         .update({
@@ -124,6 +124,35 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
         .eq('id', eventId)
         .eq('venue_id', venueId);
       if (error) throw error;
+
+      // 2. Open a PENDING collaboration contract. create_event_collab_contract
+      // pre-signs whichever side calls it — here the proposing club — and leaves
+      // the contract in 'pending_signatures'. This is what makes "propose" a real
+      // request: the partner must accept (sign) before the co-event can sell, and
+      // sales stay blocked by the CONTRACT GUARD until they do. No more silent
+      // auto-accept. Split defaults to the partnership's terms (NULL payload).
+      // Called bound on `supabase` (never detach .rpc — see rpc-unbound gotcha).
+      const { error: contractErr } = await supabase.rpc(
+        'create_event_collab_contract' as never,
+        { p_event_id: eventId, p_cancellation_policy: 'pro_rata_refund' } as never,
+      );
+      if (contractErr) {
+        // Roll back the link so we never leave a half-formed co-event with no
+        // contract (which would render as a misleading "active" partnership).
+        await supabase.from('events')
+          .update({ partner_organizer_id: null, event_mode: null })
+          .eq('id', eventId).eq('venue_id', venueId);
+        throw contractErr;
+      }
+
+      // 3. Tell the organizer a proposal awaits review (email + web push).
+      // Best-effort: the contract is the source of truth, so a failed notice
+      // never blocks the proposal.
+      try {
+        await supabase.functions.invoke('notify-split-proposal', {
+          body: { kind: 'event', id: eventId, action: 'proposed', proposer_side: 'venue' },
+        });
+      } catch (e) { console.warn('Propose notify failed:', e); }
 
       toast.success(t('proposeEvent.sentSuccess'), {
         description: t('proposeEvent.sentSuccessDesc'),
