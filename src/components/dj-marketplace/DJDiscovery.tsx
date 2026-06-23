@@ -15,8 +15,21 @@ const PAGE = 40;
  * Shared DJ discovery surface. mode='fan' on the public /djs page (no rate, no CTA),
  * mode='booker' inside owner/organizer dashboards (price/availability filters + Book CTA).
  * Ranking is server-side (search_djs_marketplace) — the best-kept profiles rise.
+ *
+ * `initialCity` pre-seeds the city facet (the booker's home city) so a club/organizer
+ * first sees local DJs; it stays editable and clearable in the filter bar. `cityReady`
+ * holds the very first query until that city is known, so results never flash world
+ * then local. Both default to "no home city" for the public fan page.
  */
-export function DJDiscovery({ mode }: { mode: DiscoveryMode }) {
+export function DJDiscovery({
+  mode,
+  initialCity = null,
+  cityReady = true,
+}: {
+  mode: DiscoveryMode;
+  initialCity?: string | null;
+  cityReady?: boolean;
+}) {
   const { language } = useLanguage();
   const tt = makeDjT(language);
 
@@ -28,6 +41,16 @@ export function DJDiscovery({ mode }: { mode: DiscoveryMode }) {
   const [bookTarget, setBookTarget] = useState<MarketplaceDJ | null>(null);
   const [viewTarget, setViewTarget] = useState<MarketplaceDJ | null>(null);
   const reqId = useRef(0);
+  const seeded = useRef(false);
+
+  // Seed the city facet once from the booker's home city, the moment it's known.
+  // After this the user owns the filter — clearing or changing the city is never
+  // overridden (the one-shot `seeded` guard).
+  useEffect(() => {
+    if (seeded.current || !cityReady) return;
+    seeded.current = true;
+    if (initialCity) setFilters((f) => ({ ...f, city: initialCity }));
+  }, [cityReady, initialCity]);
 
   const openProfileTab = (dj: MarketplaceDJ) => {
     const target = dj.handle || dj.slug;
@@ -62,11 +85,13 @@ export function DJDiscovery({ mode }: { mode: DiscoveryMode }) {
     setLoading(false); setLoadingMore(false);
   }, [filters, mode]);
 
-  // Debounced refetch whenever filters change.
+  // Debounced refetch whenever filters change. Hold the first query until the
+  // home city is known so we don't fetch the world and then re-fetch local.
   useEffect(() => {
+    if (!cityReady) return;
     const h = setTimeout(() => fetchPage(0, true), 250);
     return () => clearTimeout(h);
-  }, [fetchPage]);
+  }, [fetchPage, cityReady]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

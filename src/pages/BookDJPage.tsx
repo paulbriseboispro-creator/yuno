@@ -1,12 +1,13 @@
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { makeDjT } from '@/i18n/djTranslate';
-import { useVenueContext } from '@/hooks/useVenueContext';
+import { useBookerHomeCity } from '@/hooks/useBookerHomeCity';
 import { DJDiscovery } from '@/components/dj-marketplace/DJDiscovery';
 
 // "Book a DJ" — the booker-facing marketplace. Mounted under both /owner and
-// /organizer-app; DJDiscovery + useVenueContext adapt the scope (venue XOR organizer)
-// automatically, so one page serves both clubs and organizers.
+// /organizer-app; DJDiscovery adapts the scope (venue XOR organizer) automatically,
+// so one page serves both clubs and organizers. The marketplace opens pre-filtered
+// to the booker's home city (club city / organizer city) — local DJs first.
 export default function BookDJPage() {
   const { language } = useLanguage();
   const tt = makeDjT(language);
@@ -14,7 +15,7 @@ export default function BookDJPage() {
   // subtree. Organizers run under OrgAppLayout (no such provider) and already get
   // its OrgAppHeader, so rendering OwnerHeader in organizer scope throws and
   // white-screens the page. Show an inline title for them instead.
-  const { scope } = useVenueContext();
+  const { scope, city: homeCity, ready: cityReady } = useBookerHomeCity();
   const isOrganizerScope = scope === 'organizer';
   const title = tt('Booking DJ', 'Booking DJ', 'Booking DJ');
 
@@ -35,7 +36,7 @@ export default function BookDJPage() {
             'Encuentra un DJ, comprueba su disponibilidad y envía una solicitud de reserva. Los perfiles mejor cuidados aparecen primero.',
           )}
         </p>
-        <DJDiscovery mode="booker" />
+        <DJDiscovery mode="booker" initialCity={homeCity} cityReady={cityReady} />
       </main>
     </div>
   );
