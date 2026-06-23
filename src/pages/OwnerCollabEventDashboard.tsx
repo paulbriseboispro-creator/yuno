@@ -429,8 +429,8 @@ function SplitContractView({ rules }: { rules: any }) {
         <div key={key} className="flex items-center justify-between p-2 rounded-md bg-muted/30">
           <span className="capitalize text-muted-foreground">{key.replace(/_/g, ' ')}</span>
           <div className="flex gap-2 text-xs">
-            <span>Club <strong className="text-foreground">{val.venue ?? 0}%</strong></span>
-            <span>{t('partnerships.org')} <strong className="text-foreground">{val.organizer ?? 0}%</strong></span>
+            <span>Club <strong className="text-foreground">{val.venue_pct ?? val.venue ?? 0}%</strong></span>
+            <span>{t('partnerships.org')} <strong className="text-foreground">{val.organizer_pct ?? val.organizer ?? 0}%</strong></span>
           </div>
         </div>
       ))}
