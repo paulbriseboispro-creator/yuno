@@ -141,7 +141,8 @@ serve(async (req) => {
 
       // New formula: refund = (totalPrice - serviceFee) - stripeFee
       originalAmount = Number(ticket.total_price);
-      serviceFee = Number(ticket.service_fee || 0);
+      // Absorbed commission was paid by the club, not the fan → fully refundable.
+      serviceFee = ticket.fee_absorbed ? 0 : Number(ticket.service_fee || 0);
       const refundableAmount = originalAmount - serviceFee;
       stripeFee = calcStripeFee(Math.round(originalAmount * 100));
       refundAmount = Math.round(Math.max(0, refundableAmount - stripeFee) * 100) / 100;
@@ -171,7 +172,7 @@ serve(async (req) => {
         try {
           const { data: linkedOrders } = await adminClient
             .from('orders')
-            .select('id, total, service_fee, stripe_payment_intent_id, stripe_connected_account_id, status, served_at, token_used')
+            .select('id, total, service_fee, fee_absorbed, stripe_payment_intent_id, stripe_connected_account_id, status, served_at, token_used')
             .eq('user_id', ticket.user_id)
             .eq('event_id', ticket.events.id)
             .eq('status', 'paid')
@@ -180,7 +181,7 @@ serve(async (req) => {
 
           for (const linkedOrder of linkedOrders || []) {
             const orderTotal = Number(linkedOrder.total);
-            const orderServiceFee = Number(linkedOrder.service_fee || 0);
+            const orderServiceFee = linkedOrder.fee_absorbed ? 0 : Number(linkedOrder.service_fee || 0);
             const orderStripeFee = orderTotal > 0 ? calcStripeFee(Math.round(orderTotal * 100)) : 0;
             const orderRefund = Math.round(Math.max(0, orderTotal - orderServiceFee - orderStripeFee) * 100) / 100;
 
@@ -259,7 +260,8 @@ serve(async (req) => {
 
       // New formula: refund = (total - serviceFee) - stripeFee
       originalAmount = Number(order.total);
-      serviceFee = Number(order.service_fee || 0);
+      // Absorbed commission was paid by the club, not the fan → fully refundable.
+      serviceFee = order.fee_absorbed ? 0 : Number(order.service_fee || 0);
       const refundableAmount = originalAmount - serviceFee;
       stripeFee = calcStripeFee(Math.round(originalAmount * 100));
       refundAmount = Math.round(Math.max(0, refundableAmount - stripeFee) * 100) / 100;

@@ -597,7 +597,7 @@ export default function TableCheckout() {
                     <span className="font-mono font-medium tabular-nums text-[#E5E5E5]">{pricing.deposit.toFixed(2)} €</span>
                   </div>
                   <div className="flex justify-between items-center gap-3 text-sm">
-                    <span className="text-[#9A9A9A]">{t('tableCheckout.managementFee')} ({Math.round(MANAGEMENT_FEE_RATE * 100)}%)</span>
+                    <span className="text-[#9A9A9A]">{t('tableCheckout.managementFee')}</span>
                     <span className="font-mono font-medium tabular-nums text-[#E5E5E5]">{pricing.managementFee.toFixed(2)} €</span>
                   </div>
 

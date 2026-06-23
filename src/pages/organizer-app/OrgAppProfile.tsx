@@ -33,6 +33,7 @@ interface OrgProfile {
   minors_allowed: boolean;
   minor_auth_doc_url: string | null;
   minor_auth_doc_name: string | null;
+  absorb_yuno_fees: boolean;
 }
 
 export default function OrgAppProfile() {
@@ -51,7 +52,7 @@ export default function OrgAppProfile() {
     user_id: '', display_name: '', slug: null, bio: '', city: '', avatar_url: '', cover_url: '',
     instagram_url: '', website_url: '', is_public: true,
     legal_name: '', legal_address: '', siret: '', vat_number: '', billing_email: '', minors_allowed: false,
-    minor_auth_doc_url: null, minor_auth_doc_name: null,
+    minor_auth_doc_url: null, minor_auth_doc_name: null, absorb_yuno_fees: false,
   });
 
   useEffect(() => {
@@ -83,6 +84,7 @@ export default function OrgAppProfile() {
           minors_allowed: (data as any).minors_allowed ?? false,
           minor_auth_doc_url: (data as any).minor_auth_doc_url ?? null,
           minor_auth_doc_name: (data as any).minor_auth_doc_name ?? null,
+          absorb_yuno_fees: (data as any).absorb_yuno_fees ?? false,
         });
       } else {
         const { data: prof } = await supabase
@@ -185,6 +187,7 @@ export default function OrgAppProfile() {
         minors_allowed: profile.minors_allowed,
         minor_auth_doc_url: profile.minor_auth_doc_url,
         minor_auth_doc_name: profile.minor_auth_doc_name,
+        absorb_yuno_fees: profile.absorb_yuno_fees,
       };
       const { error } = await supabase
         .from('organizer_profiles')
@@ -335,6 +338,17 @@ export default function OrgAppProfile() {
               </p>
             </div>
             <Switch checked={profile.is_public} onCheckedChange={(v) => setProfile((p) => ({ ...p, is_public: v }))} />
+          </div>
+
+          {/* Cover the Yuno commission (fee absorption) */}
+          <div className="flex items-center justify-between rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+            <div>
+              <p style={{ color: T1, fontSize: 13, fontWeight: 540 }}>{t('Prendre en charge la commission Yuno', 'Cover the Yuno commission', 'Asumir la comisión de Yuno')}</p>
+              <p className="mt-0.5" style={{ color: T3, fontSize: 11.5 }}>
+                {t('Sur vos événements sans club, vos clients ne paient que les frais de transaction au lieu de la commission Yuno : des frais réduits pour eux, à votre charge.', 'On your venue-less events, your customers only pay the transaction fee instead of the Yuno commission — lower fees for them, at your expense.', 'En tus eventos sin club, tus clientes solo pagan los gastos de transacción en lugar de la comisión de Yuno: tarifas más bajas para ellos, a tu cargo.')}
+              </p>
+            </div>
+            <Switch checked={profile.absorb_yuno_fees} onCheckedChange={(v) => setProfile((p) => ({ ...p, absorb_yuno_fees: v }))} />
           </div>
 
           {/* Minors allowed (alcohol-free) */}

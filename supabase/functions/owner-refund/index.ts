@@ -90,7 +90,9 @@ serve(async (req) => {
           venueName = record.venues.name || "";
           customerEmail = record.user_email || "";
           customerUserId = record.user_id || "";
-          const orderServiceFee = Number(record.service_fee) || 0;
+          // If the club absorbed the commission, the fan paid no separate fee → the
+          // full amount they paid is refundable. Otherwise the fee stays with Yuno.
+          const orderServiceFee = record.fee_absorbed ? 0 : (Number(record.service_fee) || 0);
           maxRefundable = Number(record.total) - orderServiceFee;
 
           if (record.event_id) {
@@ -116,9 +118,10 @@ serve(async (req) => {
           venueName = record.events?.venues?.name || "";
           customerEmail = record.user_email || "";
           customerUserId = record.user_id || "";
-          const ticketServiceFee = Number(record.service_fee) || 0;
+          // Absorbed commission was paid by the club, not the fan → don't subtract it.
+          const ticketServiceFee = record.fee_absorbed ? 0 : (Number(record.service_fee) || 0);
           const ticketInsuranceFee = Number(record.insurance_fee) || 0;
-          // Club-side cap: total paid minus ALL Yuno fees (service + insurance).
+          // Club-side cap: total paid minus the fan-paid Yuno fees (service + insurance).
           // Yuno never refunds its own fees, so they must not inflate the cap.
           maxRefundable = Number(record.total_price) - ticketServiceFee - ticketInsuranceFee;
           eventTitle = record.events.title || "";
@@ -141,7 +144,9 @@ serve(async (req) => {
           venueName = record.events?.venues?.name || "";
           customerEmail = record.user_email || "";
           customerUserId = record.user_id || "";
-          maxRefundable = Number(record.total_price) - Number(record.service_fee || 0) - Number(record.management_fee || 0);
+          // For tables the Yuno commission is management_fee; guard it with fee_absorbed.
+          const tableManagementFee = record.fee_absorbed ? 0 : Number(record.management_fee || 0);
+          maxRefundable = Number(record.total_price) - Number(record.service_fee || 0) - tableManagementFee;
           eventTitle = record.events.title || "";
         } else {
           results.push({ id: item.id, type: item.type, success: false, error: "Invalid type" }); continue;

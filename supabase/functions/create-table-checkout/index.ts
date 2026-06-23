@@ -1,8 +1,14 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { resolvePaymentSplit } from "../_shared/payment-split.ts";
+import { resolvePaymentSplit, estimateStripeFeeEur } from "../_shared/payment-split.ts";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
+// Yuno commission rate — single source of truth (4% min 0.99€ for tables).
+import {
+  YUNO_TICKET_TABLE_RATE as YUNO_COMMISSION_RATE,
+  YUNO_TICKET_TABLE_MIN as YUNO_COMMISSION_MIN,
+} from "../_shared/commission.ts";
+import { getAbsorbYunoFees } from "../_shared/merchant-fees.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,10 +17,6 @@ const corsHeaders = {
 
 // Production mode - payments go through Stripe Connect
 const TEST_MODE = false;
-
-// Yuno commission rate for tables: max(0.99€, 4%)
-const YUNO_COMMISSION_RATE = 0.04;
-const YUNO_COMMISSION_MIN = 0.99;
 
 // Stripe fee constants (charged to clubs)
 const STRIPE_PERCENT = 0.015;
@@ -363,7 +365,12 @@ serve(async (req) => {
       serviceFeeBase = (serverTotalPrice / 2) * YUNO_COMMISSION_RATE;
     }
     const managementFee = Math.round(Math.max(YUNO_COMMISSION_MIN, serviceFeeBase) * 100) / 100;
-    
+
+    // Fee absorption (co-event: the CLUB / effectiveVenueId is seller of record).
+    // When absorbed, the fan does not pay the management fee on top — it comes out of
+    // the club's net via the split. Default false → unchanged behavior.
+    const feeAbsorbed = await getAbsorbYunoFees(supabaseAdmin, effectiveVenueId);
+
     // total_price = table price (spending budget), NOT including management fees
     const finalTotalPrice = serverTotalPrice - validatedDiscount;
     const yunoCommission = Math.round(managementFee * 100);
@@ -408,6 +415,7 @@ serve(async (req) => {
         _requested_table_id: requestedTableId || null,
         _placement_status: placementStatus || "none",
         _purchase_source: safePurchaseSource,
+        _fee_absorbed: feeAbsorbed,
       });
 
       if (reservationError || !reservationId) {
@@ -565,6 +573,7 @@ serve(async (req) => {
       _requested_table_id: requestedTableId || null,
       _placement_status: placementStatus || "none",
       _purchase_source: safePurchaseSource,
+      _fee_absorbed: feeAbsorbed,
     });
 
     if (reservationError || !reservationId) {
@@ -585,10 +594,16 @@ serve(async (req) => {
     // Resolve the Stripe Connect split up front. DIRECT = single recipient → the
     // charge runs ON their connected account (they're the seller of record);
     // SEPARATE = co-event split → charge on the platform + webhook transfers.
-    const grossAmount = discountedDeposit + managementFee;
+    // Absorb: fan pays the Stripe transaction cost instead of the management fee; the
+    // club absorbs the commission (taken via the application_fee override). Default: fan
+    // pays the management fee, club absorbs the Stripe cost (unchanged).
+    const transactionFee = feeAbsorbed ? estimateStripeFeeEur(discountedDeposit) : managementFee;
+    const grossAmount = discountedDeposit + transactionFee;
     const split = resolvePaymentSplit({
       itemType: "table",
       grossAmount,
+      // In absorb mode the gross no longer contains the commission, so pass it explicitly.
+      yunoFeeCentsOverride: feeAbsorbed ? Math.round(managementFee * 100) : undefined,
       event: {
         id: event.id,
         venue_id: event.venue_id,

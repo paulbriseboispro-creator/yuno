@@ -1,15 +1,15 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { resolvePaymentSplit } from "../_shared/payment-split.ts";
+import { resolvePaymentSplit, estimateStripeFeeEur } from "../_shared/payment-split.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
+// Yuno commission rate — single source of truth (3% drinks).
+import { YUNO_DRINK_RATE as YUNO_COMMISSION_RATE } from "../_shared/commission.ts";
+import { getAbsorbYunoFees } from "../_shared/merchant-fees.ts";
 
 // Production mode - payments are processed via Stripe
 const TEST_MODE = false;
-
-// Yuno commission rate for drinks (3%)
-const YUNO_COMMISSION_RATE = 0.03;
 
 // Stripe fee constants (charged to clubs)
 const STRIPE_PERCENT = 0.015;
@@ -334,13 +334,21 @@ serve(async (req) => {
     const serviceFee =
       Math.round(discountedTotal * YUNO_COMMISSION_RATE * 100) / 100;
     const yunoCommission = Math.round(serviceFee * 100);
-    const clientTotal = discountedTotal + serviceFee;
+    // Fee absorption (invisible to the fan — they always pay a "transaction fee" line):
+    //  • default  → fan pays the Yuno commission; the club absorbs the Stripe cost.
+    //  • absorb   → fan pays only the Stripe transaction cost; the club absorbs the
+    //               Yuno commission (taken via the split's application_fee override).
+    const feeAbsorbed = await getAbsorbYunoFees(supabaseAdmin, venueId);
+    const transactionFee = feeAbsorbed ? estimateStripeFeeEur(discountedTotal) : serviceFee;
+    const clientTotal = discountedTotal + transactionFee;
 
     logStep("Service fee calculated", {
       discountedTotal,
       serviceFee,
+      transactionFee,
       clientTotal,
       yunoCommission,
+      feeAbsorbed,
     });
 
     // Build order insert data
@@ -352,6 +360,7 @@ serve(async (req) => {
       items: validatedItems,
       total: clientTotal,
       service_fee: serviceFee,
+      fee_absorbed: feeAbsorbed,
       status: simulate ? "paid" : "pending",
       is_guest: isGuest,
       tracked_link_id: safeTrackedLinkId,
@@ -480,6 +489,8 @@ serve(async (req) => {
     const split = resolvePaymentSplit({
       itemType: "drink",
       grossAmount: clientTotal,
+      // In absorb mode the gross no longer contains the commission, so pass it explicitly.
+      yunoFeeCentsOverride: feeAbsorbed ? Math.round(serviceFee * 100) : undefined,
       event: eventForSplit ?? {
         id: "",
         venue_id: venueId,

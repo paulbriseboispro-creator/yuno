@@ -95,7 +95,8 @@ serve(async (req) => {
     // Client paid: ticket price + insurance fee + service fee
     // Refund = totalPrice - serviceFee (i.e. ticket + insurance fee refunded, only Yuno keeps its cut)
     const totalPrice = Number(ticket.total_price);
-    const serviceFee = Number(ticket.service_fee || 0);
+    // If the club absorbed the commission, the fan paid no separate fee → fully refundable.
+    const serviceFee = ticket.fee_absorbed ? 0 : Number(ticket.service_fee || 0);
     const refundAmount = Math.round(Math.max(0, totalPrice - serviceFee) * 100) / 100;
 
     logStep("Refund calculation", { 

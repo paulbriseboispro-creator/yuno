@@ -1,17 +1,19 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { resolvePaymentSplit } from "../_shared/payment-split.ts";
+import { resolvePaymentSplit, estimateStripeFeeEur } from "../_shared/payment-split.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { t, resolveLang } from "../_shared/i18n.ts";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
+// Yuno commission rate — single source of truth (4% min 0.99€ for tickets).
+import {
+  YUNO_TICKET_TABLE_RATE as YUNO_COMMISSION_RATE,
+  YUNO_TICKET_TABLE_MIN as YUNO_COMMISSION_MIN,
+} from "../_shared/commission.ts";
+import { getAbsorbYunoFees } from "../_shared/merchant-fees.ts";
 
 // Production mode - payments go through Stripe Connect
 const TEST_MODE = false;
-
-// Yuno commission rate for tickets: max(0.99€, 4%)
-const YUNO_COMMISSION_RATE = 0.04;
-const YUNO_COMMISSION_MIN = 0.99;
 
 // Stripe fee constants (charged to clubs)
 const STRIPE_PERCENT = 0.015;
@@ -521,9 +523,18 @@ serve(async (req) => {
       logStep("Legacy pack validated", { packId: pack.id, packPrice, drinkCount: pack.drink_count });
     }
 
-    const totalPrice = discountedSubtotal + serviceFee + insuranceFee + upsellTotal;
+    // Fee absorption (co-event: the CLUB / effectiveVenueId is seller of record, so its
+    // flag governs). Invisible to the fan — they always pay a "transaction fee" line:
+    //  • default → that line is the Yuno commission; the club absorbs the Stripe cost.
+    //  • absorb  → that line is just the Stripe transaction cost; the club absorbs the
+    //              Yuno commission (taken via the split's application_fee override).
+    const feeAbsorbed = await getAbsorbYunoFees(supabaseAdmin, effectiveVenueId, effectiveOrganizerId);
+    const transactionFee = feeAbsorbed ? estimateStripeFeeEur(discountedSubtotal) : serviceFee;
+    const totalPrice = discountedSubtotal + transactionFee + insuranceFee + upsellTotal;
 
-    // Yuno commission (7% of total)
+    // Yuno commission, logged for observability only (4% of total). The actual
+    // application_fee charged on the Connect charge is computed by resolvePaymentSplit
+    // (single source of truth in _shared/commission.ts) — this value is not billed.
     const yunoCommission = Math.round(totalPrice * YUNO_COMMISSION_RATE * 100); // in cents
 
     logStep("Prices calculated server-side", { 
@@ -577,6 +588,7 @@ serve(async (req) => {
           unit_price: unitPrice,
           total_price: totalPrice,
           service_fee: serviceFee,
+          fee_absorbed: feeAbsorbed,
           has_insurance: hasInsurance,
           insurance_fee: insuranceFee,
           status: "paid",
@@ -859,6 +871,8 @@ serve(async (req) => {
     const split = resolvePaymentSplit({
       itemType: "ticket",
       grossAmount: totalPrice,
+      // In absorb mode the gross no longer contains the commission, so pass it explicitly.
+      yunoFeeCentsOverride: feeAbsorbed ? Math.round(serviceFee * 100) : undefined,
       event: {
         id: event.id,
         venue_id: event.venue_id,
@@ -888,6 +902,7 @@ serve(async (req) => {
         unit_price: unitPrice,
         total_price: totalPrice,
         service_fee: serviceFee,
+        fee_absorbed: feeAbsorbed,
         has_insurance: hasInsurance,
         insurance_fee: insuranceFee,
         status: "pending",

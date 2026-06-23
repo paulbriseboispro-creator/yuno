@@ -937,7 +937,7 @@ export default function Cart() {
                     )}
 
                     <div className="flex items-center justify-between gap-3" style={{ color: 'var(--yuno-gray-2)' }}>
-                      <span className="font-sans">{t('cart.serviceFee') || 'Frais de service (3%)'}</span>
+                      <span className="font-sans">{t('cart.serviceFee') || 'Frais de transaction'}</span>
                       <span className="font-mono font-semibold tabular-nums text-white">
                         {creditsCoverAll ? (
                           <>

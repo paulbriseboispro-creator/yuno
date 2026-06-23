@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Upload, X, MapPin, Loader2, Plus, Trash2, MessageCircle,
-  EyeOff, Wine, Bell, Coins, Image, Settings, Building2, Share2, FileText,
+  EyeOff, Wine, Bell, Coins, Image, Settings, Building2, Share2, FileText, Receipt,
 } from 'lucide-react';
 
 const Instagram = ({ className }: { className?: string }) => (
@@ -174,6 +174,8 @@ export default function OwnerVenue() {
   // Bar & menu
   const [menuEnabled, setMenuEnabled] = useState(true);
   const [freeDrinkMode, setFreeDrinkMode] = useState<'credits' | 'bouncer_notify'>('credits');
+  // Fee absorption: when true the club absorbs the Yuno commission (fan pays item price only).
+  const [absorbFees, setAbsorbFees] = useState(false);
 
   // Access documents (venue-level, attached to every ticket confirmation)
   type AccessDoc = { id: string; label: string; fileUrl: string; fileName: string };
@@ -228,6 +230,7 @@ export default function OwnerVenue() {
       setMinorAuthDoc((data as any).minor_auth_doc_url ? { url: (data as any).minor_auth_doc_url, name: (data as any).minor_auth_doc_name || 'Document' } : null);
       setMenuEnabled((data as any).menu_enabled !== false);
       setFreeDrinkMode((data as any).free_drink_mode || 'credits');
+      setAbsorbFees((data as any).absorb_yuno_fees === true);
       setLegalName((data as any).legal_name || '');
       setSiret((data as any).siret || '');
       setVatNumber((data as any).vat_number || '');
@@ -812,6 +815,25 @@ export default function OwnerVenue() {
               const { error } = await supabase.from('venues').update({ menu_enabled: checked } as any).eq('id', venueId);
               if (error) { setMenuEnabled(!checked); toast.error(t('owner.barConfigError')); }
               else { toast.success(checked ? t('owner.menuActivated') : t('owner.menuDeactivated')); }
+            }} />
+          </div>
+        </SectionCard>
+
+        {/* Absorption des frais Yuno */}
+        <SectionCard>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <Receipt className="h-4 w-4 mt-0.5 flex-shrink-0" style={{ color: T3 }} />
+              <div>
+                <p style={{ color: T1, fontSize: 13.5, fontWeight: 500 }}>{t('owner.absorbFeesTitle')}</p>
+                <p style={{ color: T3, fontSize: 12, marginTop: 2 }}>{t('owner.absorbFeesDescription')}</p>
+              </div>
+            </div>
+            <Switch checked={absorbFees} onCheckedChange={async checked => {
+              setAbsorbFees(checked);
+              const { error } = await supabase.from('venues').update({ absorb_yuno_fees: checked } as any).eq('id', venueId);
+              if (error) { setAbsorbFees(!checked); toast.error(t('owner.errorSaving')); }
+              else { toast.success(checked ? t('owner.absorbFeesOn') : t('owner.absorbFeesOff')); }
             }} />
           </div>
         </SectionCard>

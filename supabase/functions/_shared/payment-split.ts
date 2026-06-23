@@ -1,7 +1,7 @@
 // Shared payment split resolver for co-events.
 // Computes Yuno fee, primary destination, and optional secondary transfer.
 //
-// Item types:
+// Yuno commission rates live in _shared/commission.ts (single source of truth):
 //  - 'ticket' / 'table': 4% min 0.99€
 //  - 'drink':            3% (no minimum)
 //
@@ -9,6 +9,8 @@
 //  { tickets: { organizer_pct, venue_pct },
 //    tables:  { organizer_pct, venue_pct },
 //    drinks:  { organizer_pct, venue_pct } }
+
+import { computeCommissionCents } from "./commission.ts";
 
 export type ItemType = "ticket" | "table" | "drink";
 export type RecipientKind = "venue" | "organizer";
@@ -38,6 +40,14 @@ export interface SplitInput {
    * Only meaningful in a co-event "separate" split; ignored otherwise.
    */
   venueDirectAmount?: number;
+  /**
+   * Explicit Yuno commission in CENTS, overriding the rate-based computation.
+   * Used in fee-absorption mode: the fan pays a Stripe-cost transaction fee (not the
+   * Yuno commission), so `grossAmount` no longer contains the commission — but Yuno's
+   * application_fee must still equal the commission on the item. Pass it explicitly.
+   * Omit in the default (client-pays) flow to keep the existing computation untouched.
+   */
+  yunoFeeCentsOverride?: number;
 }
 
 export type SplitMode = "direct" | "separate";
@@ -92,10 +102,6 @@ export interface SplitResult {
   effectiveSplit: { organizer_pct: number; venue_pct: number } | null;
 }
 
-const YUNO_TICKET_TABLE_RATE = 0.04;
-const YUNO_TICKET_TABLE_MIN = 0.99;
-const YUNO_DRINK_RATE = 0.03;
-
 // Stripe FR card processing fee estimate. Slightly conservative so we never
 // under-estimate (any positive residual stays on the recipients, never on Yuno).
 // Real fee is reconciled post-charge from balance_transaction.fee.
@@ -107,13 +113,18 @@ function estimateStripeFeeCents(grossCents: number): number {
   return Math.round(grossCents * STRIPE_FEE_PCT) + STRIPE_FEE_FIXED_CENTS;
 }
 
+/**
+ * Estimated Stripe card-processing fee in EUR for an amount (≈1.5% + 0.25€). This is
+ * the "frais de transaction" a fan pays at checkout when a club absorbs the Yuno
+ * commission — the fan always covers the real cost of moving the money, never Yuno's cut.
+ */
+export function estimateStripeFeeEur(amountEur: number): number {
+  if (amountEur <= 0) return 0;
+  return Math.round((amountEur * STRIPE_FEE_PCT + STRIPE_FEE_FIXED_CENTS / 100) * 100) / 100;
+}
+
 function computeYunoFeeCents(itemType: ItemType, grossAmount: number): number {
-  if (itemType === "drink") {
-    return Math.round(grossAmount * YUNO_DRINK_RATE * 100);
-  }
-  const pct = grossAmount * YUNO_TICKET_TABLE_RATE;
-  const fee = Math.max(YUNO_TICKET_TABLE_MIN, pct);
-  return Math.round(fee * 100);
+  return computeCommissionCents(itemType, grossAmount);
 }
 
 function getSplitForItem(
@@ -152,7 +163,7 @@ export function resolvePaymentSplit(input: SplitInput): SplitResult {
   } = input;
 
   const grossCents = Math.round(grossAmount * 100);
-  const yunoFeeCents = computeYunoFeeCents(itemType, grossAmount);
+  const yunoFeeCents = input.yunoFeeCentsOverride ?? computeYunoFeeCents(itemType, grossAmount);
   const stripeFeeEstimatedCents = estimateStripeFeeCents(grossCents);
   const netCents = grossCents - yunoFeeCents;
   // Informational only: what a single recipient nets after Yuno commission + the
