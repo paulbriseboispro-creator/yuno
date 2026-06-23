@@ -81,12 +81,16 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
   );
 
   const fetchStats = useCallback(async () => {
-    return supabase.rpc('get_tracked_link_stats', {
+    // `as any` on the name: p_target_kind is newer than the generated RPC types.
+    return supabase.rpc('get_tracked_link_stats' as any, {
       p_owner_kind: ownerKind,
       p_venue_id: ownerKind === 'venue' ? venueId ?? null : null,
       p_organizer_user_id: ownerKind === 'organizer' ? organizerUserId ?? null : null,
       p_promoter_id: ownerKind === 'promoter' ? promoterId ?? null : null,
       p_event_id: targetKind === 'event' ? eventId ?? null : null,
+      // Scope to this surface: the club/profile page only shows permanent links,
+      // not the per-event links auto-seeded for every soirée.
+      p_target_kind: targetKind,
     });
   }, [ownerKind, venueId, organizerUserId, promoterId, targetKind, eventId]);
 
@@ -114,9 +118,22 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
         if (!refetchErr) result = (seeded ?? []) as LinkRow[];
       }
     }
+    // Same self-heal for a club page → one permanent link per channel (one per origin).
+    if (
+      result.length === 0 &&
+      targetKind === 'venue' && ownerKind === 'venue' && venueId &&
+      autoSeededRef.current !== venueId
+    ) {
+      autoSeededRef.current = venueId;
+      const { error: seedErr } = await supabase.rpc('seed_venue_tracked_links' as any, { p_venue_id: venueId });
+      if (!seedErr) {
+        const { data: seeded, error: refetchErr } = await fetchStats();
+        if (!refetchErr) result = (seeded ?? []) as LinkRow[];
+      }
+    }
     setRows(result);
     setLoading(false);
-  }, [fetchStats, ownerKind, targetKind, eventId, t]);
+  }, [fetchStats, ownerKind, targetKind, eventId, venueId, t]);
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
 
@@ -139,6 +156,11 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
   const save = async () => {
     const label = labelInput.trim();
     if (!label) { toast.error(t('tlink.labelRequired')); return; }
+    // One link per origin: block a second link for a channel that already exists.
+    if (!editing && rows.some((r) => r.label.trim().toLowerCase() === label.toLowerCase())) {
+      toast.error(t('tlink.duplicateChannel'));
+      return;
+    }
     setSaving(true);
 
     if (editing) {

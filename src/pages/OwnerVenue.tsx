@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
   Upload, X, MapPin, Loader2, Plus, Trash2, MessageCircle,
   EyeOff, Wine, Bell, Coins, Image, Settings, Building2, Share2, FileText, Receipt,
+  Copy, Check, ExternalLink,
 } from 'lucide-react';
 
 const Instagram = ({ className }: { className?: string }) => (
@@ -47,6 +48,9 @@ const CARD_BG  = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,
 const INNER_BG = 'rgba(255,255,255,0.032)';
 const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
 
+// Lien public partagé (bio) — toujours le domaine de prod, jamais localhost.
+const BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu';
+
 // ─── Shared UI atoms ──────────────────────────────────────────────────────────
 function DarkInput({ id, value, onChange, placeholder, type = 'text', maxLength }: {
   id?: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string; maxLength?: number;
@@ -81,6 +85,38 @@ function SectionCard({ title, description, children }: { title?: string; descrip
         </div>
       )}
       {children}
+    </div>
+  );
+}
+
+// Lien général vers la page club (pour la bio Insta/TikTok). Affichage + copie, non tracké.
+function ClubPageLink({ url }: { url: string }) {
+  const { t } = useLanguage();
+  const [copied, setCopied] = useState(false);
+  const display = url.replace(/^https?:\/\//, '');
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      toast.success(t('tlink.copied'));
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast.error(t('tlink.copyError'));
+    }
+  };
+  return (
+    <div className="flex items-center gap-2 rounded-xl px-4 py-3"
+      style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+      <Share2 className="h-4 w-4 flex-shrink-0" style={{ color: RED }} />
+      <code className="flex-1 truncate text-[13px]" style={{ color: T1 }}>{display}</code>
+      <button type="button" onClick={copy} title={t('tlink.copy')}
+        className="rounded-md p-1.5 transition-colors hover:bg-white/10" style={{ color: T2 }}>
+        {copied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+      </button>
+      <a href={url} target="_blank" rel="noreferrer" title={t('tlink.open')}
+        className="rounded-md p-1.5 transition-colors hover:bg-white/10" style={{ color: T2 }}>
+        <ExternalLink className="h-4 w-4" />
+      </a>
     </div>
   );
 }
@@ -496,6 +532,13 @@ export default function OwnerVenue() {
             </div>
           </div>
         </SectionCard>
+
+        {/* Lien général vers la page club — pour la bio (Insta/TikTok) */}
+        {venueId && (
+          <SectionCard title={t('tlink.bioTitle')} description={t('tlink.bioDesc')}>
+            <ClubPageLink url={`${BASE_URL}/club/${venueId}`} />
+          </SectionCard>
+        )}
 
         {/* Liens trackés permanents — attribuent tout achat futur fait via ce lien */}
         {venueId && (
