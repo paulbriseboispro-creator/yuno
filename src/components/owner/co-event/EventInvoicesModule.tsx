@@ -211,9 +211,19 @@ export function EventInvoicesModule({ eventId }: Props) {
   async function buildInvoiceData(invoice: Invoice): Promise<InvoiceData | null> {
     const { data: stored } = await supabase
       .from('invoices')
-      .select('items, service_fee, management_fee, insurance_fee, qr_code, venue_id')
+      .select('items, service_fee, management_fee, insurance_fee, qr_code, venue_id, ticket_id, table_reservation_id')
       .eq('id', invoice.id)
       .maybeSingle();
+
+    // Short claim reference (TK-/VP-XXXXXX), shown as the ticket number on the bill.
+    let referenceCode: string | undefined;
+    if (invoice.type === 'ticket' && stored?.ticket_id) {
+      const { data: tk } = await supabase.from('tickets').select('reference_code').eq('id', stored.ticket_id).maybeSingle();
+      referenceCode = tk?.reference_code || undefined;
+    } else if (invoice.type === 'table' && stored?.table_reservation_id) {
+      const { data: tr } = await supabase.from('table_reservations').select('reference_code').eq('id', stored.table_reservation_id).maybeSingle();
+      referenceCode = tr?.reference_code || undefined;
+    }
 
     const venueId = stored?.venue_id ?? eventCo?.venue_id ?? eventCo?.partner_venue_id ?? null;
     const { data: venue } = venueId ? await supabase
@@ -288,6 +298,7 @@ export function EventInvoicesModule({ eventId }: Props) {
       tva: invoice.amount - totalHT,
       totalTTC: invoice.amount,
       qrCode: (stored as any)?.qr_code || invoice.invoice_number,
+      referenceCode,
       coEvent,
     };
   }

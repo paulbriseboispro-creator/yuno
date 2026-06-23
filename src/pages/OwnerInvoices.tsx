@@ -371,7 +371,7 @@ export default function OwnerInvoices() {
     // Fetch stored items from invoices table
     const { data: storedInvoice } = await supabase
       .from('invoices')
-      .select('items, service_fee, management_fee, insurance_fee, qr_code')
+      .select('items, service_fee, management_fee, insurance_fee, qr_code, ticket_id, table_reservation_id')
       .eq('id', invoice.id)
       .maybeSingle();
 
@@ -380,6 +380,16 @@ export default function OwnerInvoices() {
     let managementFee = Number(storedInvoice?.management_fee) || 0;
     let insuranceFee = Number(storedInvoice?.insurance_fee) || 0;
     let qrCode = storedInvoice?.qr_code || invoice.invoice_number;
+
+    // Short claim reference (TK-/VP-XXXXXX), shown as the ticket number on the bill.
+    let referenceCode: string | undefined;
+    if (invoice.type === 'ticket' && storedInvoice?.ticket_id) {
+      const { data: tk } = await supabase.from('tickets').select('reference_code').eq('id', storedInvoice.ticket_id).maybeSingle();
+      referenceCode = tk?.reference_code || undefined;
+    } else if (invoice.type === 'table' && storedInvoice?.table_reservation_id) {
+      const { data: tr } = await supabase.from('table_reservations').select('reference_code').eq('id', storedInvoice.table_reservation_id).maybeSingle();
+      referenceCode = tr?.reference_code || undefined;
+    }
 
     if (storedInvoice?.items && Array.isArray(storedInvoice.items)) {
       items = (storedInvoice.items as any[]).map(item => ({
@@ -442,6 +452,7 @@ export default function OwnerInvoices() {
       tva,
       totalTTC: invoice.amount,
       qrCode,
+      referenceCode,
     };
   };
 
