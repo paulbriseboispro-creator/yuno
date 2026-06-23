@@ -5,6 +5,7 @@ import { Separator } from "@/components/ui/separator";
 import { CustomSidebarTrigger } from "@/components/custom-sidebar-trigger";
 import { NavUser } from "@/components/nav-user";
 import { LanguageSelector } from "@/components/LanguageSelector";
+import { HeaderActions } from "@/components/HeaderActions";
 
 export function AppHeader() {
 	return (
@@ -20,7 +21,12 @@ export function AppHeader() {
 					orientation="vertical"
 				/>
 			</div>
-			<div className="flex items-center gap-3">
+			<div className="flex items-center gap-2 sm:gap-3">
+				<HeaderActions />
+				<Separator
+					className="h-4 data-[orientation=vertical]:self-center"
+					orientation="vertical"
+				/>
 				<LanguageSelector />
 				<Separator
 					className="h-4 data-[orientation=vertical]:self-center"

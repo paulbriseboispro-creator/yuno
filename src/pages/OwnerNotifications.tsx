@@ -6,119 +6,27 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 const dfLocale = (lng: string) => (lng === 'fr' ? fr : lng === 'es' ? es : enUS);
 import {
-  Bell, BellOff, CheckCheck, RefreshCw,
-  ShoppingCart, Ticket, Crown, Users, Star,
-  Heart, Zap, BarChart3, Mail, Calendar,
-  AlertCircle, Info, Radio, TrendingUp,
-  ChevronRight, UserCheck, AlertTriangle, Receipt,
+  BellOff, CheckCheck, RefreshCw,
+  Zap, AlertCircle, ChevronRight,
 } from 'lucide-react';
 
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useVenueContext } from '@/hooks/useVenueContext';
+import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { supabase } from '@/integrations/supabase/client';
-
-// ─── Types ───────────────────────────────────────────────────────────────────
-
-interface OwnerNotif {
-  id: string;
-  title: string;
-  message: string;
-  notification_type: string;
-  priority: 'low' | 'normal' | 'high' | 'urgent';
-  target_role: string;
-  created_at: string;
-  read_at: string | null;
-  event_id: string | null;
-  reference_type: string | null;
-  reference_id: string | null;
-  metadata: Record<string, unknown>;
-}
+import {
+  type AppNotif, CATEGORY_META, PRIORITY_CONFIG, getNotifDef, getFeedConfig,
+} from '@/lib/notifications';
 
 type TabFilter = 'all' | 'unread' | 'urgent';
 
-// ─── Notification catalogue ───────────────────────────────────────────────────
-
-interface NotifDef {
-  icon: React.ElementType;
-  category: string;
-  label: string;
-}
-
-const NOTIF_CATALOGUE: Record<string, NotifDef> = {
-  // 💰 Revenue
-  new_order:      { icon: ShoppingCart, category: 'revenue',    label: 'notif.type.new_order' },
-  ticket_sale:    { icon: Ticket,       category: 'revenue',    label: 'notif.type.ticket_sale' },
-  table_booked:   { icon: Crown,        category: 'revenue',    label: 'notif.type.table_booked' },
-  promoter_sale:  { icon: TrendingUp,   category: 'revenue',    label: 'notif.type.promoter_sale' },
-  refund_issued:  { icon: Receipt,      category: 'revenue',    label: 'notif.type.refund_issued' },
-  // 🎟️ Capacity
-  ticket_round_warning:  { icon: AlertTriangle, category: 'capacity', label: 'notif.type.ticket_round_warning' },
-  ticket_round_sold_out: { icon: Ticket,        category: 'capacity', label: 'notif.type.ticket_round_sold_out' },
-  tables_warning:        { icon: AlertTriangle, category: 'capacity', label: 'notif.type.tables_warning' },
-  tables_sold_out:       { icon: Crown,         category: 'capacity', label: 'notif.type.tables_sold_out' },
-  // 📅 Events
-  event_starting: { icon: Radio,     category: 'events', label: 'notif.type.event_starting' },
-  event_ended:    { icon: BarChart3, category: 'events', label: 'notif.type.event_ended' },
-  // 🤝 People
-  connection_accepted: { icon: UserCheck, category: 'people', label: 'notif.type.connection_accepted' },
-  staff_login:         { icon: Users,     category: 'people', label: 'notif.type.staff_login' },
-  favorite_added:      { icon: Heart,     category: 'people', label: 'notif.type.favorite_added' },
-  // 📧 Marketing
-  campaign_sent: { icon: Mail, category: 'marketing', label: 'notif.type.campaign_sent' },
-};
-
-const CATEGORY_META: Record<string, { label: string; color: string }> = {
-  revenue:   { label: 'notif.cat.revenue',    color: 'text-emerald-400' },
-  capacity:  { label: 'notif.cat.capacity',   color: 'text-orange-400'  },
-  events:    { label: 'notif.cat.events',     color: 'text-blue-400'    },
-  people:    { label: 'notif.cat.people',     color: 'text-purple-400'  },
-  marketing: { label: 'notif.cat.marketing',  color: 'text-pink-400'    },
-};
-
-function getNotifDef(type: string): NotifDef {
-  return NOTIF_CATALOGUE[type] ?? { icon: Info, category: 'other', label: type };
-}
-
-// ─── Priority config ──────────────────────────────────────────────────────────
-
-const PRIORITY_CONFIG = {
-  urgent: {
-    dot: 'bg-[#E8192C]',
-    badge: 'bg-[rgba(232,25,44,0.15)] text-[#E8192C] border-[rgba(232,25,44,0.25)]',
-    glow: 'shadow-[0_0_12px_rgba(232,25,44,0.18)]',
-    icon: 'text-[#E8192C]',
-    label: 'notif.prio.urgent',
-  },
-  high: {
-    dot: 'bg-orange-400',
-    badge: 'bg-orange-400/10 text-orange-400 border-orange-400/20',
-    glow: 'shadow-[0_0_8px_rgba(251,146,60,0.12)]',
-    icon: 'text-orange-400',
-    label: 'notif.prio.high',
-  },
-  normal: {
-    dot: 'bg-blue-400',
-    badge: 'bg-blue-400/10 text-blue-400 border-blue-400/20',
-    glow: '',
-    icon: 'text-blue-400',
-    label: 'notif.prio.normal',
-  },
-  low: {
-    dot: 'bg-white/20',
-    badge: 'bg-white/5 text-white/30 border-white/10',
-    glow: '',
-    icon: 'text-white/30',
-    label: 'notif.prio.low',
-  },
-};
-
 // ─── Grouping helpers ─────────────────────────────────────────────────────────
 
-function groupByTime(notifications: OwnerNotif[]) {
+function groupByTime(notifications: AppNotif[]) {
   const now = new Date();
-  const groups: { label: string; items: OwnerNotif[] }[] = [
+  const groups: { label: string; items: AppNotif[] }[] = [
     { label: 'notif.today',     items: [] },
     { label: 'notif.yesterday', items: [] },
     { label: 'notif.thisWeek',  items: [] },
@@ -136,7 +44,7 @@ function groupByTime(notifications: OwnerNotif[]) {
 
 // ─── Notification card ────────────────────────────────────────────────────────
 
-function NotifCard({ notif, onMarkRead }: { notif: OwnerNotif; onMarkRead: (id: string) => void }) {
+function NotifCard({ notif, onMarkRead }: { notif: AppNotif; onMarkRead: (id: string) => void }) {
   const { t, language } = useLanguage();
   const def = getNotifDef(notif.notification_type);
   const Icon = def.icon;
@@ -228,7 +136,7 @@ function NotifCard({ notif, onMarkRead }: { notif: OwnerNotif; onMarkRead: (id: 
         <button
           onClick={() => onMarkRead(notif.id)}
           className="flex-shrink-0 self-start opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-white/[0.08] text-white/30 hover:text-white/60 cursor-pointer"
-          title="Marquer comme lu"
+          title={t('notif.markRead')}
         >
           <ChevronRight className="h-3.5 w-3.5" />
         </button>
@@ -265,24 +173,31 @@ function EmptyState({ tab }: { tab: TabFilter }) {
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
+// Scope-aware: clubs read the venue inbox (staff_notifications), organizers read
+// their own (organizer_notifications). The feed config picks the table + filter.
 
 export default function OwnerNotifications() {
   const { t } = useLanguage();
-  const { venueId, loading: venueLoading } = useVenueContext();
+  const { scope, venueId, organizerUserId, loading: venueLoading } = useVenueContext();
+  const { basePath } = useDashboardMode();
+  const config = getFeedConfig({ scope, venueId, organizerUserId, basePath });
 
-  const [notifications, setNotifications] = useState<OwnerNotif[]>([]);
+  const [notifications, setNotifications] = useState<AppNotif[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<TabFilter>('all');
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  const mapRow = (n: any): OwnerNotif => ({
+  const table = config?.table;
+  const filterColumn = config?.filterColumn;
+  const filterValue = config?.filterValue;
+
+  const mapRow = (n: any): AppNotif => ({
     id: n.id,
     title: n.title,
     message: n.message,
     notification_type: n.notification_type,
     priority: n.priority ?? 'normal',
-    target_role: n.target_role,
     created_at: n.created_at,
     read_at: n.read_at,
     event_id: n.event_id ?? null,
@@ -292,64 +207,65 @@ export default function OwnerNotifications() {
   });
 
   const fetchNotifications = useCallback(async (silent = false) => {
-    if (!venueId) return;
+    if (!table || !filterColumn || !filterValue) return;
     if (!silent) setLoading(true); else setRefreshing(true);
     try {
       const since = new Date();
       since.setDate(since.getDate() - 30);
-      const { data } = await supabase
-        .from('staff_notifications')
+      const { data } = await (supabase.from(table as any) as any)
         .select('*')
-        .eq('venue_id', venueId)
+        .eq(filterColumn, filterValue)
         .gte('created_at', since.toISOString())
         .order('created_at', { ascending: false })
         .limit(150);
       setNotifications((data ?? []).map(mapRow));
     } catch (e) {
-      console.error('Error fetching owner notifications:', e);
+      console.error('Error fetching notifications:', e);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [venueId]);
+  }, [table, filterColumn, filterValue]);
 
   useEffect(() => {
-    if (!venueId) return;
+    if (!table || !filterColumn || !filterValue || !config) return;
     fetchNotifications();
     channelRef.current = supabase
-      .channel(`owner_notifications_page_${venueId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'staff_notifications', filter: `venue_id=eq.${venueId}` },
+      .channel(`notifications_page_${config.channelKey}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table, filter: config.realtimeFilter },
         (payload) => setNotifications(prev => [mapRow(payload.new), ...prev])
       )
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'staff_notifications', filter: `venue_id=eq.${venueId}` },
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table, filter: config.realtimeFilter },
         (payload) => setNotifications(prev => prev.map(n => n.id === (payload.new as any).id ? mapRow(payload.new) : n))
       )
       .subscribe();
     return () => { if (channelRef.current) supabase.removeChannel(channelRef.current); };
-  }, [venueId, fetchNotifications]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [table, filterColumn, filterValue, config?.channelKey, config?.realtimeFilter, fetchNotifications]);
 
   const markAsRead = useCallback(async (id: string) => {
+    if (!table) return;
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      await supabase.from('staff_notifications')
+      await (supabase.from(table as any) as any)
         .update({ read_at: new Date().toISOString(), read_by: user?.id })
         .eq('id', id);
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
     } catch (e) { console.error(e); }
-  }, []);
+  }, [table]);
 
   const markAllAsRead = useCallback(async () => {
-    if (!venueId) return;
+    if (!table || !filterColumn || !filterValue) return;
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const unread = notifications.filter(n => !n.read_at);
       if (!unread.length) return;
-      await supabase.from('staff_notifications')
+      await (supabase.from(table as any) as any)
         .update({ read_at: new Date().toISOString(), read_by: user?.id })
         .in('id', unread.map(n => n.id));
       setNotifications(prev => prev.map(n => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })));
     } catch (e) { console.error(e); }
-  }, [venueId, notifications]);
+  }, [table, filterColumn, filterValue, notifications]);
 
   const filtered = notifications.filter(n => {
     if (tab === 'unread')  return !n.read_at;

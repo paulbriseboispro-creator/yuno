@@ -528,6 +528,92 @@ serve(async (req) => {
           console.error('Owner notif error (ticket):', notifErr);
         }
       }
+
+      // ── Organizer notifications ──────────────────────────────────────────
+      // Mirror of the owner block, into the organizer's own inbox. Fires for
+      // events that have an organizer (standalone org events and co-events).
+      if (resolvedOrganizerId) {
+        try {
+          const roundName = session.metadata?.roundName ?? 'Billet';
+          const qty = ticket.quantity ?? 1;
+          const totalPriceFormatted = Number(ticket.total_price ?? 0).toFixed(2);
+          await supabaseAdmin.from('organizer_notifications').insert({
+            organizer_user_id: resolvedOrganizerId,
+            notification_type: 'ticket_sale',
+            title: 'Nouveau billet vendu',
+            message: `${qty}x ${roundName} — ${totalPriceFormatted} €${ticket.full_name ? ` · ${ticket.full_name}` : ''}`,
+            priority: 'normal',
+            reference_type: 'ticket',
+            reference_id: ticketId,
+            event_id: ticket.event_id ?? null,
+            metadata: { quantity: qty, total_price: ticket.total_price, round_name: roundName },
+          });
+
+          // Ticket-round threshold checks (dedup once per round / 24h)
+          if (ticket.ticket_round_id) {
+            const { data: roundAfter } = await supabaseAdmin
+              .from('ticket_rounds')
+              .select('name, tickets_sold, max_tickets')
+              .eq('id', ticket.ticket_round_id)
+              .single();
+
+            if (roundAfter && roundAfter.max_tickets && roundAfter.max_tickets > 0) {
+              const sold = roundAfter.tickets_sold ?? 0;
+              const max = roundAfter.max_tickets;
+              const pct = sold / max;
+              const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+              if (sold >= max) {
+                const { count: soCount } = await supabaseAdmin
+                  .from('organizer_notifications')
+                  .select('id', { count: 'exact', head: true })
+                  .eq('organizer_user_id', resolvedOrganizerId)
+                  .eq('notification_type', 'ticket_round_sold_out')
+                  .eq('reference_id', ticket.ticket_round_id)
+                  .gte('created_at', sinceIso);
+                if ((soCount ?? 0) === 0) {
+                  await supabaseAdmin.from('organizer_notifications').insert({
+                    organizer_user_id: resolvedOrganizerId,
+                    notification_type: 'ticket_round_sold_out',
+                    title: 'Round de billets épuisé 🎟️',
+                    message: `"${roundAfter.name}" — complet (${max}/${max} billets vendus)`,
+                    priority: 'high',
+                    reference_type: 'ticket_round',
+                    reference_id: ticket.ticket_round_id,
+                    event_id: ticket.event_id ?? null,
+                    metadata: { round_name: roundAfter.name, tickets_sold: sold, max_tickets: max },
+                  });
+                }
+              } else if (pct >= 0.8) {
+                const { count: warnCount } = await supabaseAdmin
+                  .from('organizer_notifications')
+                  .select('id', { count: 'exact', head: true })
+                  .eq('organizer_user_id', resolvedOrganizerId)
+                  .eq('notification_type', 'ticket_round_warning')
+                  .eq('reference_id', ticket.ticket_round_id)
+                  .gte('created_at', sinceIso);
+                if ((warnCount ?? 0) === 0) {
+                  await supabaseAdmin.from('organizer_notifications').insert({
+                    organizer_user_id: resolvedOrganizerId,
+                    notification_type: 'ticket_round_warning',
+                    title: 'Billets presque épuisés',
+                    message: `"${roundAfter.name}" — ${sold}/${max} vendus (${Math.round(pct * 100)}%)`,
+                    priority: 'high',
+                    reference_type: 'ticket_round',
+                    reference_id: ticket.ticket_round_id,
+                    event_id: ticket.event_id ?? null,
+                    metadata: { round_name: roundAfter.name, tickets_sold: sold, max_tickets: max, pct: Math.round(pct * 100) },
+                  });
+                }
+              }
+            }
+          }
+
+          logStep("Organizer notifications sent for ticket payment");
+        } catch (notifErr) {
+          console.error('Organizer notif error (ticket):', notifErr);
+        }
+      }
       // ─────────────────────────────────────────────────────────────────────
 
       // Send ticket confirmation email

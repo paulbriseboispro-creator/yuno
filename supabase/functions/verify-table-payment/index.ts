@@ -306,6 +306,100 @@ serve(async (req) => {
           console.error('Owner notif error (table):', notifErr);
         }
       }
+
+      // ── Organizer notifications ──────────────────────────────────────────
+      // Mirror of the owner block, into the organizer's own inbox.
+      if (resolvedOrganizerId) {
+        try {
+          const packName = reservation.pack_name ?? 'Table VIP';
+          const depositFormatted = Number(reservation.deposit ?? reservation.total_price ?? 0).toFixed(2);
+          await supabaseAdmin.from('organizer_notifications').insert({
+            organizer_user_id: resolvedOrganizerId,
+            notification_type: 'table_booked',
+            title: 'Nouvelle réservation VIP',
+            message: `${packName} · ${reservation.full_name ?? 'Client'} · ${reservation.guest_count ?? 1} pers. — ${depositFormatted} €`,
+            priority: 'high',
+            reference_type: 'table_reservation',
+            reference_id: reservationId,
+            event_id: reservation.event_id ?? null,
+            metadata: {
+              pack_name: packName,
+              guest_count: reservation.guest_count,
+              deposit: reservation.deposit,
+              total_price: reservation.total_price,
+              full_name: reservation.full_name,
+            },
+          });
+
+          // Table capacity threshold checks (dedup once per event / 24h)
+          if (reservation.event_id) {
+            const { data: zones } = await supabaseAdmin
+              .from('table_zones')
+              .select('id, max_tables')
+              .eq('event_id', reservation.event_id);
+            const totalCapacity = (zones ?? []).reduce((sum: number, z: any) => sum + (z.max_tables ?? 0), 0);
+
+            if (totalCapacity > 0) {
+              const { count: confirmedCount } = await supabaseAdmin
+                .from('table_reservations')
+                .select('id', { count: 'exact', head: true })
+                .eq('event_id', reservation.event_id)
+                .in('status', ['paid', 'confirmed']);
+              const booked = confirmedCount ?? 0;
+              const pct = booked / totalCapacity;
+              const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+              if (booked >= totalCapacity) {
+                const { count: soCount } = await supabaseAdmin
+                  .from('organizer_notifications')
+                  .select('id', { count: 'exact', head: true })
+                  .eq('organizer_user_id', resolvedOrganizerId)
+                  .eq('notification_type', 'tables_sold_out')
+                  .eq('event_id', reservation.event_id)
+                  .gte('created_at', sinceIso);
+                if ((soCount ?? 0) === 0) {
+                  await supabaseAdmin.from('organizer_notifications').insert({
+                    organizer_user_id: resolvedOrganizerId,
+                    notification_type: 'tables_sold_out',
+                    title: 'Tables VIP épuisées 🥂',
+                    message: `Toutes les tables sont réservées pour cette soirée (${booked}/${totalCapacity})`,
+                    priority: 'high',
+                    reference_type: 'event',
+                    reference_id: reservation.event_id,
+                    event_id: reservation.event_id,
+                    metadata: { booked, total_capacity: totalCapacity },
+                  });
+                }
+              } else if (pct >= 0.8) {
+                const { count: warnCount } = await supabaseAdmin
+                  .from('organizer_notifications')
+                  .select('id', { count: 'exact', head: true })
+                  .eq('organizer_user_id', resolvedOrganizerId)
+                  .eq('notification_type', 'tables_warning')
+                  .eq('event_id', reservation.event_id)
+                  .gte('created_at', sinceIso);
+                if ((warnCount ?? 0) === 0) {
+                  await supabaseAdmin.from('organizer_notifications').insert({
+                    organizer_user_id: resolvedOrganizerId,
+                    notification_type: 'tables_warning',
+                    title: 'Tables VIP presque complètes',
+                    message: `${booked}/${totalCapacity} tables réservées (${Math.round(pct * 100)}%)`,
+                    priority: 'high',
+                    reference_type: 'event',
+                    reference_id: reservation.event_id,
+                    event_id: reservation.event_id,
+                    metadata: { booked, total_capacity: totalCapacity, pct: Math.round(pct * 100) },
+                  });
+                }
+              }
+            }
+          }
+
+          logStep("Organizer notifications sent for table payment");
+        } catch (notifErr) {
+          console.error('Organizer notif error (table):', notifErr);
+        }
+      }
       // ─────────────────────────────────────────────────────────────────────
 
       // Send VIP email
