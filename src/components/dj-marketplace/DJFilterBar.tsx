@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { makeDjT } from '@/i18n/djTranslate';
-import { DJ_GENRES, type MarketplaceFilters, type DiscoveryMode } from './types';
+import { DJ_GENRES, RADIUS_PRESETS, type MarketplaceFilters, type DiscoveryMode } from './types';
 
 /**
  * Faceted filters for the marketplace. Genre + city for everyone; booker mode adds
@@ -45,14 +45,16 @@ export function DJFilterBar({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* City search + advanced toggle */}
+      {/* City / zone search + advanced toggle */}
       <div style={{ display: 'flex', gap: 8 }}>
         <div style={{ flex: 1, position: 'relative' }}>
           <Search size={15} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#7A7A7E' }} />
           <input
             value={value.city ?? ''}
             onChange={(e) => set({ city: e.target.value || null })}
-            placeholder={tt('Ville', 'City', 'Ciudad')}
+            placeholder={mode === 'booker'
+              ? tt('Zone (ta ville)', 'Zone (your city)', 'Zona (tu ciudad)')
+              : tt('Ville', 'City', 'Ciudad')}
             style={{ ...inputStyle, paddingLeft: 34 }}
           />
         </div>
@@ -72,6 +74,31 @@ export function DJFilterBar({
           </button>
         )}
       </div>
+
+      {/* Radius around the booker's zone (booker only) */}
+      {mode === 'booker' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+          <span style={{ ...labelStyle, marginBottom: 0, marginRight: 2 }}>{tt('Rayon', 'Radius', 'Radio')}</span>
+          {RADIUS_PRESETS.map(({ km }) => {
+            const active = value.radiusKm === km;
+            const lbl = km == null ? tt('Partout', 'Anywhere', 'Todo') : `${km} km`;
+            return (
+              <button
+                key={km ?? 'all'}
+                onClick={() => set({ radiusKm: km })}
+                style={{
+                  flexShrink: 0, padding: '6px 11px', borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+                  background: active ? 'rgba(232,25,44,0.16)' : 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${active ? 'rgba(232,25,44,0.3)' : 'rgba(255,255,255,0.10)'}`,
+                  color: active ? '#fff' : '#B8B8BC',
+                }}
+              >
+                {lbl}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Genre chips */}
       <div style={{ display: 'flex', gap: 7, overflowX: 'auto', paddingBottom: 2, scrollbarWidth: 'none' }}>

@@ -2807,6 +2807,8 @@ export type Database = {
           is_active: boolean | null
           is_verified: boolean | null
           last_name: string
+          latitude: number | null
+          longitude: number | null
           music_genres: string[] | null
           organizer_user_id: string | null
           pending_amount: number | null
@@ -2838,6 +2840,8 @@ export type Database = {
           is_active?: boolean | null
           is_verified?: boolean | null
           last_name: string
+          latitude?: number | null
+          longitude?: number | null
           music_genres?: string[] | null
           organizer_user_id?: string | null
           pending_amount?: number | null
@@ -2869,6 +2873,8 @@ export type Database = {
           is_active?: boolean | null
           is_verified?: boolean | null
           last_name?: string
+          latitude?: number | null
+          longitude?: number | null
           music_genres?: string[] | null
           organizer_user_id?: string | null
           pending_amount?: number | null
@@ -7392,6 +7398,7 @@ export type Database = {
           table_reservation_id: string | null
           ticket_id: string | null
           transfer_group_id: string | null
+          transfers_release_at: string | null
           updated_at: string
           venue_pct_applied: number | null
           yuno_fee_cents: number
@@ -7435,6 +7442,7 @@ export type Database = {
           table_reservation_id?: string | null
           ticket_id?: string | null
           transfer_group_id?: string | null
+          transfers_release_at?: string | null
           updated_at?: string
           venue_pct_applied?: number | null
           yuno_fee_cents?: number
@@ -7478,6 +7486,7 @@ export type Database = {
           table_reservation_id?: string | null
           ticket_id?: string | null
           transfer_group_id?: string | null
+          transfers_release_at?: string | null
           updated_at?: string
           venue_pct_applied?: number | null
           yuno_fee_cents?: number
@@ -9407,6 +9416,59 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transfer_clawbacks: {
+        Row: {
+          account_id: string | null
+          amount_cents: number
+          created_at: string
+          error: string | null
+          id: string
+          payment_intent_id: string
+          reason: string | null
+          resolved_at: string | null
+          revenue_distribution_id: string | null
+          role: string
+          status: string
+          transfer_id: string | null
+        }
+        Insert: {
+          account_id?: string | null
+          amount_cents?: number
+          created_at?: string
+          error?: string | null
+          id?: string
+          payment_intent_id: string
+          reason?: string | null
+          resolved_at?: string | null
+          revenue_distribution_id?: string | null
+          role: string
+          status?: string
+          transfer_id?: string | null
+        }
+        Update: {
+          account_id?: string | null
+          amount_cents?: number
+          created_at?: string
+          error?: string | null
+          id?: string
+          payment_intent_id?: string
+          reason?: string | null
+          resolved_at?: string | null
+          revenue_distribution_id?: string | null
+          role?: string
+          status?: string
+          transfer_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfer_clawbacks_revenue_distribution_id_fkey"
+            columns: ["revenue_distribution_id"]
+            isOneToOne: false
+            referencedRelation: "revenue_distributions"
             referencedColumns: ["id"]
           },
         ]
@@ -12166,7 +12228,10 @@ export type Database = {
           p_min_fee?: number
           p_min_followers?: number
           p_offset?: number
+          p_origin_lat?: number
+          p_origin_lng?: number
           p_played_venue?: string
+          p_radius_km?: number
         }
         Returns: {
           available: boolean

@@ -9,6 +9,7 @@ import { DJShareCard } from '@/components/dj/DJShareCard';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
+import { geocodeCity } from '@/lib/geocode';
 import { toast } from 'sonner';
 import {
   DJPage, DJHeading, PCard, FieldLabel,
@@ -123,6 +124,9 @@ export default function DJProfile() {
     }
     setSaving(true);
     try {
+      // Geocode the city so the DJ is placed on the marketplace radius map. Keep
+      // any previous coordinates if geocoding fails (don't wipe a good location).
+      const coords = await geocodeCity(editForm.city);
       const { error } = await supabase
         .from('djs')
         .update({
@@ -141,6 +145,7 @@ export default function DJProfile() {
           country: editForm.country || null,
           description: editForm.description || null,
           is_active: true,
+          ...(coords ? { latitude: coords.lat, longitude: coords.lng } : {}),
         })
         .eq('id', dj.id);
       if (error) throw error;

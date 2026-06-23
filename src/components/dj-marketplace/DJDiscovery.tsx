@@ -7,7 +7,8 @@ import { makeDjT } from '@/i18n/djTranslate';
 import { DJFilterBar } from './DJFilterBar';
 import { DJMarketplaceCard } from './DJMarketplaceCard';
 import { BookingRequestDialog } from './BookingRequestDialog';
-import { EMPTY_FILTERS, type MarketplaceDJ, type MarketplaceFilters, type DiscoveryMode, type ResidentScope } from './types';
+import { EMPTY_FILTERS, DEFAULT_BOOKER_RADIUS_KM, type MarketplaceDJ, type MarketplaceFilters, type DiscoveryMode, type ResidentScope } from './types';
+import { geocodeCity } from '@/lib/geocode';
 
 const PAGE = 40;
 
@@ -43,14 +44,18 @@ export function DJDiscovery({
   const reqId = useRef(0);
   const seeded = useRef(false);
 
-  // Seed the city facet once from the booker's home city, the moment it's known.
-  // After this the user owns the filter — clearing or changing the city is never
-  // overridden (the one-shot `seeded` guard).
+  // Seed the city facet (booker's home city) + a default radius once, the moment
+  // the home city is known. After this the user owns the filters — clearing the
+  // city or changing the radius is never overridden (the one-shot `seeded` guard).
   useEffect(() => {
     if (seeded.current || !cityReady) return;
     seeded.current = true;
-    if (initialCity) setFilters((f) => ({ ...f, city: initialCity }));
-  }, [cityReady, initialCity]);
+    setFilters((f) => ({
+      ...f,
+      city: initialCity ?? f.city,
+      radiusKm: mode === 'booker' ? DEFAULT_BOOKER_RADIUS_KM : f.radiusKm,
+    }));
+  }, [cityReady, initialCity, mode]);
 
   const openProfileTab = (dj: MarketplaceDJ) => {
     const target = dj.handle || dj.slug;
@@ -61,15 +66,37 @@ export function DJDiscovery({
   const fetchPage = useCallback(async (offset: number, replace: boolean) => {
     const id = ++reqId.current;
     if (replace) setLoading(true); else setLoadingMore(true);
+
+    // Booker radius mode: geocode the origin (typed city, else the home city) and
+    // filter DJs by distance. The exact-city param is dropped — radius supersedes it.
+    // "Partout" (radiusKm null) skips geo entirely and falls back to exact city.
+    let p_city: string | undefined = filters.city ?? undefined;
+    let p_origin_lat: number | undefined;
+    let p_origin_lng: number | undefined;
+    let p_radius_km: number | undefined;
+    if (mode === 'booker' && filters.radiusKm != null) {
+      const coords = await geocodeCity(filters.city || initialCity);
+      if (id !== reqId.current) return; // superseded while geocoding
+      if (coords) {
+        p_origin_lat = coords.lat;
+        p_origin_lng = coords.lng;
+        p_radius_km = filters.radiusKm;
+        p_city = undefined;
+      }
+    }
+
     const { data, error } = await supabase.rpc('search_djs_marketplace', {
       p_genre: filters.genre ?? undefined,
-      p_city: filters.city ?? undefined,
+      p_city,
       p_played_venue: filters.playedVenue ?? undefined,
       p_min_followers: filters.minFollowers ?? undefined,
       p_min_fee: filters.minFee ?? undefined,
       p_max_fee: filters.maxFee ?? undefined,
       p_available_on: filters.availableOn ?? undefined,
       p_booker_mode: mode === 'booker',
+      p_origin_lat,
+      p_origin_lng,
+      p_radius_km,
       p_limit: PAGE,
       p_offset: offset,
     });
@@ -83,7 +110,7 @@ export function DJDiscovery({
     setHasMore(rows.length === PAGE);
     setDjs((prev) => (replace ? rows : [...prev, ...rows]));
     setLoading(false); setLoadingMore(false);
-  }, [filters, mode]);
+  }, [filters, mode, initialCity]);
 
   // Debounced refetch whenever filters change. Hold the first query until the
   // home city is known so we don't fetch the world and then re-fetch local.

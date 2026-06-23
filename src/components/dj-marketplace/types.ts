@@ -36,6 +36,9 @@ export interface MarketplaceFilters {
   minFee: number | null;
   maxFee: number | null;
   availableOn: string | null; // ISO date (yyyy-mm-dd)
+  // Booker only: radius (km) around the origin city (`city` || the booker's home
+  // city). null = "Partout" (no geo filter — exact `city` match falls back in).
+  radiusKm: number | null;
 }
 
 export const EMPTY_FILTERS: MarketplaceFilters = {
@@ -46,7 +49,15 @@ export const EMPTY_FILTERS: MarketplaceFilters = {
   minFee: null,
   maxFee: null,
   availableOn: null,
+  radiusKm: null,
 };
+
+// Booker radius presets (km). null = "Partout". Default seeded on the Booking DJ
+// page so a club/organizer first sees DJs around its own zone.
+export const RADIUS_PRESETS: Array<{ km: number | null }> = [
+  { km: 25 }, { km: 50 }, { km: 100 }, { km: 150 }, { km: null },
+];
+export const DEFAULT_BOOKER_RADIUS_KM = 50;
 
 // Genre facet — MUST mirror YUNO_MUSIC_GENRES in src/pages/dj-app/DJProfile.tsx exactly.
 // The server filter matches stored genres by case-insensitive equality, so any string
