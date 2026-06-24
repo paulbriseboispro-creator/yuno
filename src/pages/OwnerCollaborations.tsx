@@ -22,6 +22,7 @@ import { PARIS_TIMEZONE, toParisTime, nowInParis } from '@/lib/timezone';
 import { Link } from 'react-router-dom';
 import { fr } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { translate } from '@/i18n/orgTranslate';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED       = '#E8192C';
@@ -649,7 +650,7 @@ function OrganizersTab({ venueId }: { venueId: string }) {
         ) : (
           <div className="grid gap-3">
             {active.map((p) => (
-              <PartnershipCard key={p.id} partnership={p}
+              <PartnershipCard key={p.id} partnership={p} venueId={venueId}
                 onEditSplit={() => setSplitDialog(p)}
                 onProposeEvent={() => navigate(`/owner/collaborations?tab=events&propose=${p.organizer_user_id}`)}
                 onAcceptProposal={() => respondToSplitProposal.mutate({ partnership: p, accept: true })}
@@ -777,8 +778,9 @@ function OrganizersTab({ venueId }: { venueId: string }) {
   );
 }
 
-function PartnershipCard({ partnership, showAccept, onAccept, onDecline, onRevoke, onEditSplit, onProposeEvent, onAcceptProposal, onDeclineProposal, proposalPending }: {
+function PartnershipCard({ partnership, venueId, showAccept, onAccept, onDecline, onRevoke, onEditSplit, onProposeEvent, onAcceptProposal, onDeclineProposal, proposalPending }: {
   partnership: VenueOrganizerPartnership;
+  venueId?: string;
   showAccept?: boolean;
   onAccept?: () => void;
   onDecline?: () => void;
@@ -859,6 +861,11 @@ function PartnershipCard({ partnership, showAccept, onAccept, onDecline, onRevok
         </div>
       )}
 
+      {/* ── Track record — what this club and org built together ──────── */}
+      {partnership.status === 'active' && venueId && partnership.organizer_user_id && (
+        <PartnershipTrackRecord venueId={venueId} organizerUserId={partnership.organizer_user_id} />
+      )}
+
       {/* ── Actions — full width row ──────────────────────────────────── */}
       {hasActions && (
         <div className="flex flex-wrap items-center gap-2 mt-4" style={{ borderTop: `1px solid ${F_BORDER}`, paddingTop: 14 }}>
@@ -897,6 +904,79 @@ function SplitChip({ label, pct, orgLabel, youLabel }: { label: string; pct: num
       <div className="flex items-baseline justify-between gap-1" style={{ marginTop: 3 }}>
         <span style={{ color: T2, fontSize: 11.5 }}>{youLabel}</span>
         <span className="tabular-nums" style={{ color: RED, fontSize: 14, fontWeight: 700 }}>{100 - pct}%</span>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================================
+ * Partnership track record — "what you built together" across all co-events
+ * Frontend-only aggregation: counts the co-events for THIS club + org pair and
+ * sums attendance and gross revenue. Makes a long-running collab feel like a
+ * relationship with a history, not a one-off dashboard.
+ * ========================================================================= */
+function PartnershipTrackRecord({ venueId, organizerUserId }: { venueId: string; organizerUserId: string }) {
+  const { language } = useLanguage();
+  const tt = (frv: string, en: string, es?: string) => translate(language, frv, en, es);
+  const [stats, setStats] = useState<{ events: number; participants: number; gross: number; sinceYear: number | null } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      // Co-events for this exact club+org pair, in either direction (club-led or org-led).
+      const { data: evs } = await supabase.from('events')
+        .select('id, start_at')
+        .or(`and(venue_id.eq.${venueId},partner_organizer_id.eq.${organizerUserId}),and(partner_venue_id.eq.${venueId},organizer_user_id.eq.${organizerUserId})`);
+      if (cancelled) return;
+      const events = evs || [];
+      const ids = events.map((e) => e.id);
+      if (ids.length === 0) { setStats({ events: 0, participants: 0, gross: 0, sinceYear: null }); return; }
+
+      const [tk, tr, gl] = await Promise.all([
+        supabase.from('tickets').select('total_price, quantity').eq('status', 'paid').in('event_id', ids),
+        supabase.from('table_reservations').select('total_price, guests_count').eq('status', 'confirmed').in('event_id', ids),
+        supabase.from('guest_list_entries').select('id, guest_lists!inner(event_id)').in('guest_lists.event_id', ids),
+      ]);
+      if (cancelled) return;
+
+      const tickets = tk.data || [];
+      const tables = tr.data || [];
+      const entries = gl.data || [];
+      const ticketsSold = tickets.reduce((a, x: any) => a + (x.quantity || 1), 0);
+      const tableGuests = tables.reduce((a, x: any) => a + (x.guests_count || 0), 0);
+      const gross = tickets.reduce((a, x: any) => a + Number(x.total_price || 0), 0)
+        + tables.reduce((a, x: any) => a + Number(x.total_price || 0), 0);
+      const participants = ticketsSold + tableGuests + entries.length;
+      const sinceYear = events.reduce<number | null>((min, e) => {
+        const y = new Date(e.start_at).getFullYear();
+        return min === null || y < min ? y : min;
+      }, null);
+      setStats({ events: events.length, participants, gross, sinceYear });
+    })();
+    return () => { cancelled = true; };
+  }, [venueId, organizerUserId]);
+
+  if (!stats || stats.events === 0) return null;
+
+  const items = [
+    { label: tt('Soirées ensemble', 'Nights together', 'Noches juntos'), value: String(stats.events) },
+    { label: tt('Participants', 'Guests', 'Asistentes'), value: stats.participants.toLocaleString() },
+    { label: tt('CA généré', 'Revenue generated', 'Ingresos generados'), value: `${Math.round(stats.gross).toLocaleString()} €` },
+  ];
+
+  return (
+    <div className="mt-4">
+      <p style={{ color: T3, fontSize: 9.5, textTransform: 'uppercase', letterSpacing: '0.07em', fontWeight: 600, marginBottom: 8 }}>
+        {tt('Ce que vous avez construit ensemble', 'What you built together', 'Lo que han construido juntos')}
+        {stats.sinceYear ? ` · ${tt('depuis', 'since', 'desde')} ${stats.sinceYear}` : ''}
+      </p>
+      <div className="grid grid-cols-3 gap-2">
+        {items.map((it) => (
+          <div key={it.label} style={{ background: TILE_BG, border: `1px solid ${F_BORDER}`, borderRadius: 10, padding: '10px 11px' }}>
+            <p className="tabular-nums" style={{ color: T1, fontSize: 16, fontWeight: 700 }}>{it.value}</p>
+            <p className="truncate" style={{ color: T3, fontSize: 10.5, marginTop: 2 }}>{it.label}</p>
+          </div>
+        ))}
       </div>
     </div>
   );
