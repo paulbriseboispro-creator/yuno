@@ -156,3 +156,97 @@ export function getFeedConfig(params: {
     channelKey: `venue_${venueId}`,
   };
 }
+
+// ─── Click-through routing ────────────────────────────────────────────────────
+// Maps a notification to the most relevant in-app destination for the scope it
+// belongs to. Scope-aware because the same notification type lives behind
+// different routes for an owner (`/owner`), a manager (`/manager`) and an
+// organizer (`/organizer-app`) — e.g. only owners have a per-event collab
+// dashboard. Returns `null` when there is no good destination for this scope,
+// in which case a click just marks the notification as read without navigating.
+
+export function notifLink(n: AppNotif, config: FeedConfig): string | null {
+  const basePath = config.pagePath.replace(/\/notifications$/, '');
+  const isOrganizer = config.table === 'organizer_notifications';
+  const isOwner = basePath === '/owner';
+  const isManager = basePath === '/manager';
+  const metaEventId = typeof n.metadata?.event_id === 'string' ? n.metadata.event_id : null;
+  const eventId = n.event_id ?? metaEventId;
+
+  switch (n.notification_type) {
+    // Co-event collaboration (per-night). Owners get the per-event collab
+    // dashboard; organizers only have the collaborations list; managers have
+    // no collab surface.
+    case 'collab_request':
+    case 'collab_accepted':
+    case 'collab_action_request':
+    case 'collab_action_scheduled':
+    case 'collab_action_done':
+    case 'collab_action_rejected':
+    case 'collab_message':
+      if (isOwner) return eventId ? `/owner/collab/event/${eventId}` : '/owner/collaborations';
+      if (isOrganizer) return `${basePath}/collaborations`;
+      return null;
+
+    // Account-level partnerships.
+    case 'partner_request':
+    case 'partner_accepted':
+    case 'connection_accepted':
+      if (isOrganizer) return `${basePath}/partners`;
+      if (isOwner) return '/owner/collaborations';
+      return null;
+
+    // DJ booking responses (owner + organizer book DJs).
+    case 'dj_booking_accepted':
+    case 'dj_booking_declined':
+      return isManager ? null : `${basePath}/book-dj`;
+
+    // Ticketing.
+    case 'ticket_sale':
+    case 'ticket_round_warning':
+    case 'ticket_round_sold_out':
+      return `${basePath}/ticketing`;
+
+    // VIP tables (no organizer route).
+    case 'table_booked':
+    case 'tables_warning':
+    case 'tables_sold_out':
+      return isOrganizer ? null : `${basePath}/tables`;
+
+    // Drink orders / refunds.
+    case 'new_order':
+      return isOrganizer ? null : `${basePath}/orders`;
+    case 'refund_issued':
+      return `${basePath}/refunds`;
+
+    // Promoter conversions.
+    case 'promoter_sale':
+      return eventId ? `${basePath}/promoters/event/${eventId}` : `${basePath}/guest-list`;
+
+    // Line-up reminder.
+    case 'lineup_reminder':
+      if (isOrganizer && eventId) return `${basePath}/events/${eventId}`;
+      return `${basePath}/events`;
+
+    // Event lifecycle.
+    case 'event_starting':
+    case 'event_ended':
+      if (isOrganizer && eventId) return `${basePath}/events/${eventId}`;
+      return `${basePath}/analytics`;
+
+    // Marketing.
+    case 'campaign_sent':
+      return isManager ? null : `${basePath}/campaigns`;
+
+    // CRM.
+    case 'favorite_added':
+      return `${basePath}/customers`;
+
+    // Staff (owner/manager only).
+    case 'staff_login':
+      return isOrganizer ? null : `${basePath}/staff`;
+
+    default:
+      return null;
+  }
+}

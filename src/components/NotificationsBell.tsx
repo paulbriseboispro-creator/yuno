@@ -1,15 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
-import { Bell, ChevronRight, CheckCheck } from 'lucide-react';
+import { Bell, ChevronRight, CheckCheck, Check } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { type AppNotif, type FeedConfig, getNotifDef, PRIORITY_CONFIG } from '@/lib/notifications';
+import { type AppNotif, type FeedConfig, getNotifDef, notifLink, PRIORITY_CONFIG } from '@/lib/notifications';
 
 const dfLocale = (lng: string) => (lng === 'fr' ? fr : lng === 'es' ? es : enUS);
 const PREVIEW_LIMIT = 6;
@@ -38,6 +38,7 @@ function mapRow(n: any): AppNotif {
  */
 export function NotificationsBell({ config }: { config: FeedConfig | null }) {
   const { t, language } = useLanguage();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<AppNotif[]>([]);
@@ -78,6 +79,9 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
       .subscribe();
 
     return () => { active = false; supabase.removeChannel(channel); };
+    // config is read via its stable primitive fields (channelKey / realtimeFilter);
+    // depending on the object itself would re-subscribe every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [table, filterColumn, filterValue, config?.channelKey, config?.realtimeFilter]);
 
   const fetchPreview = useCallback(async () => {
@@ -124,6 +128,19 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
     setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n)));
     setUnread((p) => Math.max(0, p - 1));
   }, [table]);
+
+  // Clicking a notification row marks it read and routes to the relevant page.
+  // The dedicated mark-read button (below) stops propagation so "just reading"
+  // never triggers a redirect.
+  const handleRowClick = useCallback((n: AppNotif) => {
+    if (!config) return;
+    if (!n.read_at) markOneRead(n.id);
+    const link = notifLink(n, config);
+    if (link) {
+      setOpen(false);
+      navigate(link);
+    }
+  }, [config, markOneRead, navigate]);
 
   // No feed available for this scope (e.g. owner without a venue yet).
   if (!config) return null;
@@ -194,11 +211,16 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
                 const p = PRIORITY_CONFIG[n.priority] ?? PRIORITY_CONFIG.normal;
                 const isUnread = !n.read_at;
                 return (
-                  <button
+                  <div
                     key={n.id}
-                    onClick={() => isUnread && markOneRead(n.id)}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleRowClick(n)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRowClick(n); }
+                    }}
                     className={[
-                      'group flex w-full gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors',
+                      'group flex w-full cursor-pointer gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors',
                       isUnread ? 'bg-white/[0.035] hover:bg-white/[0.06]' : 'hover:bg-white/[0.03]',
                     ].join(' ')}
                   >
@@ -222,7 +244,18 @@ export function NotificationsBell({ config }: { config: FeedConfig | null }) {
                         {formatDistanceToNow(new Date(n.created_at), { addSuffix: true, locale: dfLocale(language) })}
                       </span>
                     </div>
-                  </button>
+                    {isUnread && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); markOneRead(n.id); }}
+                        title={t('notif.markRead')}
+                        aria-label={t('notif.markRead')}
+                        className="-mr-1 flex h-6 w-6 flex-shrink-0 items-center justify-center self-center rounded-md text-white/30 transition-colors hover:bg-white/[0.10] hover:text-white/80 cursor-pointer"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
                 );
               })}
             </div>
