@@ -1,14 +1,37 @@
 import jsPDF from 'jspdf';
+import { getCollabTerms, pickL, clauseBody, type Lang, type L } from './collabContractTerms';
 
 /**
- * Digital club ↔ organizer collaboration contract. Self-contained A4 PDF snapshot of
- * the agreed revenue split + both electronic signatures (name, timestamp, IP).
+ * Digital club ↔ organizer collaboration contract. Self-contained multi-page A4 PDF
+ * snapshot of the legal parties, the agreed revenue split, the fee/refund/cancellation
+ * terms, and both electronic signatures (name, timestamp, IP).
+ *
+ * The legal article TEXT lives in collabContractTerms.ts (single source of truth, shared
+ * with the pre-signature review dialog). The version frozen at signature
+ * (event_collab_contracts.terms_snapshot.terms_version) is passed in `termsVersion` so a
+ * re-download renders the terms AS SIGNED, not the latest template.
+ *
  * Electronic signature = "signature électronique simple" (eIDAS): the click + the stored
  * timestamp/IP/user-agent are the legal evidence; the PDF is the artifact.
- * Mirrors generateDJContractPDF.ts (kept separate to avoid touching the deployed DJ PDF).
+ *
+ * The fee / chargeback / seller-of-record wording mirrors the payment engine
+ * (supabase/functions/_shared/payment-split.ts + src/utils/fees.ts) — keep them in sync.
  */
 
 interface SplitPct { organizer_pct: number; venue_pct: number }
+
+/** Legal identity of a contracting party, as stored on venues / organizer_profiles. */
+export interface PartyLegal {
+  /** Registered company name (legal_name). */
+  legalName?: string | null;
+  /** Registered legal address (legal_address). */
+  legalAddress?: string | null;
+  /** Company registration number — SIRET (FR) / NIF·CIF (ES) (siret). */
+  registrationNumber?: string | null;
+  /** VAT / intra-community number (vat_number). */
+  vatNumber?: string | null;
+}
+
 export interface CollabContractPDFData {
   contractId: string;
   venueName: string;
@@ -17,29 +40,45 @@ export interface CollabContractPDFData {
   eventDate?: Date | null;
   splitRules: { tickets: SplitPct; tables: SplitPct; drinks: SplitPct };
   cancellationPolicy: 'pro_rata_refund' | 'no_refund_after_event';
+  /** Legal identity of the club (rendered when filled, omitted line-by-line otherwise). */
+  venueLegal?: PartyLegal;
+  /** Legal identity of the organizer (rendered when filled, omitted line-by-line otherwise). */
+  organizerLegal?: PartyLegal;
   venueSignedAt?: Date | null;
   venueSignedName?: string;
   venueSignedIp?: string | null;
   orgSignedAt?: Date | null;
   orgSignedName?: string;
   orgSignedIp?: string | null;
-  language?: 'fr' | 'en' | 'es';
+  language?: Lang;
+  /** Frozen terms version (from terms_snapshot.terms_version). Falls back to latest. */
+  termsVersion?: string | null;
 }
 
-type L = { fr: string; en: string; es: string };
-const pick = (lang: string, l: L) => (lang === 'en' ? l.en : lang === 'es' ? l.es : l.fr);
 const fmtDate = (d?: Date | null) =>
   d ? d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
 const fmtDateTime = (d?: Date | null) =>
   d ? `${d.toLocaleDateString('fr-FR')} ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}` : '—';
 
 export function generateContractPDF(data: CollabContractPDFData): Blob {
-  const lang = data.language ?? 'fr';
+  const lang: Lang = data.language ?? 'fr';
+  const terms = getCollabTerms(data.termsVersion);
+  const labels = terms.labels;
+  const pick = (l: L) => pickL(lang, l);
+
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const M = 20;
+  const PAGE_W = 210;
+  const CONTENT_W = PAGE_W - M * 2; // 170mm
+  const MAX_Y = 274; // content floor (footer lives below)
   let y = M;
 
-  // ── Header ──
+  // Line height in mm for a given point size (jsPDF default lineHeightFactor 1.15).
+  const LH = (s: number) => (s * 1.15) / 72 * 25.4;
+  // Add a page break when the next block (height h) would cross the content floor.
+  const ensure = (h: number) => { if (y + h > MAX_Y) { doc.addPage(); y = M; } };
+
+  // ── Header (page 1) ──
   doc.setTextColor(232, 25, 44);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
@@ -47,96 +86,140 @@ export function generateContractPDF(data: CollabContractPDFData): Blob {
   doc.setTextColor(120, 120, 120);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-  doc.text(pick(lang, { fr: 'Collaboration', en: 'Collaboration', es: 'Colaboración' }), 200 - M, y, { align: 'right' });
+  doc.text(pick(labels.collaboration), PAGE_W - M, y, { align: 'right' });
   y += 12;
 
   doc.setTextColor(20, 20, 20);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  doc.text(pick(lang, {
-    fr: 'Contrat de collaboration de soirée',
-    en: 'Event collaboration contract',
-    es: 'Contrato de colaboración de evento',
-  }), M, y);
+  doc.text(pick(labels.docTitle), M, y);
   y += 6;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(140, 140, 140);
   doc.text(`Réf. ${data.contractId}`, M, y);
-  y += 10;
+  y += 9;
 
-  const row = (label: string, value: string) => {
+  // ── shared drawing helpers ──
+  const heading = (num: number, title: L) => {
+    ensure(11);
+    y += 1;
+    doc.setDrawColor(232, 232, 232);
+    doc.line(M, y, PAGE_W - M, y);
+    y += 5;
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(90, 90, 90);
-    doc.text(label, M, y);
-    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10.5);
     doc.setTextColor(20, 20, 20);
-    doc.setFontSize(10);
-    doc.text(value || '—', M + 60, y);
-    y += 7;
+    doc.text(`${num}. ${pick(title)}`, M, y);
+    y += 6;
   };
 
-  doc.setDrawColor(230, 230, 230);
-  doc.line(M, y - 2, 200 - M, y - 2);
-  y += 4;
+  // "Term — body" clause used for definitions and legal articles.
+  const renderClause = (term: L, body: L) => {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    const bodyLines = doc.splitTextToSize(pick(body), CONTENT_W) as string[];
+    ensure(4.5 + bodyLines.length * LH(8.5) + 4);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(55, 55, 55);
+    doc.text(pick(term), M, y);
+    y += 4.5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(100, 100, 100);
+    doc.text(bodyLines, M, y);
+    y += bodyLines.length * LH(8.5) + 4;
+  };
 
-  row(pick(lang, { fr: 'Club (lieu, vendeur)', en: 'Club (venue, seller)', es: 'Club (local, vendedor)' }), data.venueName);
-  row(pick(lang, { fr: 'Organisateur', en: 'Organizer', es: 'Organizador' }), data.organizerName);
-  if (data.eventTitle) row(pick(lang, { fr: 'Soirée', en: 'Event', es: 'Evento' }), data.eventTitle);
-  row(pick(lang, { fr: 'Date', en: 'Date', es: 'Fecha' }), fmtDate(data.eventDate));
+  const para = (l: L, size = 8.5) => {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(size);
+    doc.setTextColor(100, 100, 100);
+    const lines = doc.splitTextToSize(pick(l), CONTENT_W) as string[];
+    ensure(lines.length * LH(size) + 4);
+    doc.text(lines, M, y);
+    y += lines.length * LH(size) + 4;
+  };
 
-  y += 4;
-  doc.line(M, y - 2, 200 - M, y - 2);
-  y += 6;
+  // label : value, single line (event / date / split rows)
+  const infoRow = (label: L, value: string) => {
+    ensure(6.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(120, 120, 120);
+    doc.text(pick(label), M, y);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9.5);
+    doc.setTextColor(20, 20, 20);
+    doc.text(value || '—', M + 55, y);
+    y += 6.5;
+  };
 
-  // ── Revenue split ──
+  // Optional legal-detail line — only drawn when the value is present.
+  const detailLine = (label: L, val?: string | null) => {
+    if (!val) return;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(115, 115, 115);
+    const lines = doc.splitTextToSize(`${pick(label)} : ${val}`, CONTENT_W) as string[];
+    ensure(lines.length * 4 + 0.5);
+    doc.text(lines, M, y);
+    y += lines.length * 4;
+  };
+
+  const partyBlock = (role: L, name: string, legal?: PartyLegal) => {
+    ensure(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(120, 120, 120);
+    doc.text(pick(role), M, y);
+    y += 4.5;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(20, 20, 20);
+    doc.text(name || '—', M, y);
+    y += 5;
+    detailLine(labels.denom, legal?.legalName);
+    detailLine(labels.address, legal?.legalAddress);
+    detailLine(labels.reg, legal?.registrationNumber);
+    detailLine(labels.vat, legal?.vatNumber);
+    y += 3.5;
+  };
+
+  const splitRow = (label: L, s: SplitPct) =>
+    infoRow(label, `${pick(labels.orgShort)} ${s.organizer_pct}%  ·  Club ${s.venue_pct}%`);
+
+  // ── Articles (driven by the versioned terms structure) ──
+  for (const article of terms.articles) {
+    heading(article.num, article.title);
+    if (article.kind === 'parties') {
+      partyBlock(labels.clubRole, data.venueName, data.venueLegal);
+      partyBlock(labels.orgRole, data.organizerName, data.organizerLegal);
+      if (data.eventTitle) infoRow(labels.event, data.eventTitle);
+      infoRow(labels.date, fmtDate(data.eventDate));
+    } else if (article.kind === 'split') {
+      splitRow(labels.ticketsRow, data.splitRules.tickets);
+      splitRow(labels.tablesRow, data.splitRules.tables);
+      splitRow(labels.drinksRow, data.splitRules.drinks);
+      y += 1.5;
+      para(article.note);
+    } else {
+      if (article.intro) para(article.intro);
+      for (const c of article.clauses ?? []) renderClause(c.term, clauseBody(c, data.cancellationPolicy));
+    }
+  }
+
+  // ── Electronic signatures ──
+  ensure(48); // keep the signature block together on one page
+  y += 1;
+  doc.setDrawColor(232, 232, 232);
+  doc.line(M, y, PAGE_W - M, y);
+  y += 5;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(20, 20, 20);
-  doc.text(pick(lang, { fr: 'Répartition des revenus', en: 'Revenue split', es: 'Reparto de ingresos' }), M, y);
-  y += 8;
-
-  const splitRow = (label: string, s: SplitPct) =>
-    row(label, `${pick(lang, { fr: 'Orga', en: 'Org', es: 'Org' })} ${s.organizer_pct}%  ·  Club ${s.venue_pct}%`);
-  splitRow(pick(lang, { fr: 'Billets', en: 'Tickets', es: 'Entradas' }), data.splitRules.tickets);
-  splitRow(pick(lang, { fr: 'Tables / VIP', en: 'Tables / VIP', es: 'Mesas / VIP' }), data.splitRules.tables);
-  splitRow(pick(lang, { fr: 'Boissons', en: 'Drinks', es: 'Bebidas' }), data.splitRules.drinks);
-
-  y += 2;
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8.5);
-  doc.setTextColor(110, 110, 110);
-  doc.text(doc.splitTextToSize(pick(lang, {
-    fr: "Les paiements sont encaissés au nom du Club (vendeur de record, alcool inclus). Yuno reverse automatiquement à chaque vente la part de l'organisateur selon les pourcentages ci-dessus. Les boissons reviennent toujours à 100% au Club.",
-    en: "Payments are collected under the Club (seller of record, alcohol included). Yuno automatically pays out the organizer's share on each sale per the percentages above. Drinks are always 100% the Club's.",
-    es: "Los pagos se cobran a nombre del Club (vendedor de registro, alcohol incluido). Yuno abona automáticamente la parte del organizador en cada venta según los porcentajes anteriores. Las bebidas son siempre 100% del Club.",
-  }), 200 - M * 2), M, y);
-  y += 16;
-
-  const cancelText = data.cancellationPolicy === 'no_refund_after_event'
-    ? pick(lang, {
-        fr: 'Annulation : aucun remboursement après la tenue de la soirée.',
-        en: 'Cancellation: no refund after the event has taken place.',
-        es: 'Cancelación: sin reembolso tras la celebración del evento.',
-      })
-    : pick(lang, {
-        fr: "Annulation / remboursement : chaque remboursement reprend proportionnellement la part de chaque partie.",
-        en: 'Cancellation / refund: each refund proportionally reverses each party\'s share.',
-        es: 'Cancelación / reembolso: cada reembolso revierte proporcionalmente la parte de cada parte.',
-      });
-  doc.setTextColor(110, 110, 110);
-  doc.text(doc.splitTextToSize(cancelText, 200 - M * 2), M, y);
-  y += 14;
-
-  // ── Signatures ──
-  doc.setDrawColor(230, 230, 230);
-  doc.line(M, y - 2, 200 - M, y - 2);
-  y += 6;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(20, 20, 20);
-  doc.text(pick(lang, { fr: 'Signatures électroniques', en: 'Electronic signatures', es: 'Firmas electrónicas' }), M, y);
+  doc.text(pick(labels.signaturesTitle), M, y);
   y += 8;
 
   const sigBlock = (title: string, name?: string, at?: Date | null, ip?: string | null) => {
@@ -152,21 +235,23 @@ export function generateContractPDF(data: CollabContractPDFData): Blob {
     y += 5;
     doc.setTextColor(130, 130, 130);
     doc.setFontSize(8);
-    doc.text(`${at ? pick(lang, { fr: 'Signé le', en: 'Signed on', es: 'Firmado el' }) + ' ' + fmtDateTime(at) : pick(lang, { fr: 'Non signé', en: 'Not signed', es: 'Sin firmar' })}${ip ? ` · IP ${ip}` : ''}`, M, y);
+    doc.text(`${at ? pick(labels.signedOn) + ' ' + fmtDateTime(at) : pick(labels.notSigned)}${ip ? ` · IP ${ip}` : ''}`, M, y);
     y += 10;
   };
 
-  sigBlock(pick(lang, { fr: 'Pour le Club', en: 'For the Club', es: 'Por el Club' }), data.venueSignedName, data.venueSignedAt, data.venueSignedIp);
-  sigBlock(pick(lang, { fr: "Pour l'Organisateur", en: 'For the Organizer', es: 'Por el Organizador' }), data.orgSignedName, data.orgSignedAt, data.orgSignedIp);
+  sigBlock(pick(labels.forClub), data.venueSignedName, data.venueSignedAt, data.venueSignedIp);
+  sigBlock(pick(labels.forOrg), data.orgSignedName, data.orgSignedAt, data.orgSignedIp);
 
-  // ── Footer ──
-  doc.setFontSize(7.5);
-  doc.setTextColor(160, 160, 160);
-  doc.text(pick(lang, {
-    fr: "Document généré par Yuno. Signature électronique simple (eIDAS) — la preuve juridique est l'horodatage et l'adresse IP enregistrés.",
-    en: 'Document generated by Yuno. Simple electronic signature (eIDAS) — the legal evidence is the recorded timestamp and IP address.',
-    es: 'Documento generado por Yuno. Firma electrónica simple (eIDAS) — la prueba legal es la marca de tiempo y la IP registradas.',
-  }), M, 285, { maxWidth: 200 - M * 2 });
+  // ── Footer on every page (eIDAS note + terms version + page number) ──
+  const pages = doc.getNumberOfPages();
+  for (let p = 1; p <= pages; p++) {
+    doc.setPage(p);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(160, 160, 160);
+    doc.text(doc.splitTextToSize(pick(labels.footer), CONTENT_W - 28) as string[], M, 284);
+    doc.text(`v${terms.version} · ${p} / ${pages}`, PAGE_W - M, 284, { align: 'right' });
+  }
 
   return doc.output('blob');
 }
@@ -177,4 +262,10 @@ export function downloadContractPDF(data: CollabContractPDFData) {
   link.href = URL.createObjectURL(blob);
   link.download = `contrat-collab-${data.contractId.slice(0, 8)}.pdf`;
   link.click();
+}
+
+/** Open the PDF in a new tab for pre-signature preview (no download). */
+export function previewContractPDF(data: CollabContractPDFData) {
+  const blob = generateContractPDF(data);
+  window.open(URL.createObjectURL(blob), '_blank', 'noopener');
 }
