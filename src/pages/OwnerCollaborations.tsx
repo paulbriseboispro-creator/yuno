@@ -8,6 +8,7 @@ import { isCollabPlan } from '@/lib/planFeatures';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { ClubProposeEventDialog } from '@/components/owner/ClubProposeEventDialog';
 import { PurchaseSourceBreakdown } from '@/components/analytics/PurchaseSourceBreakdown';
+import { CollabActionControls } from '@/components/collab/CollabActionControls';
 import { PartnershipSplitEditor, PartnershipProposalBanner } from '@/components/organizer-app/PartnershipSplitEditor';
 import { getPartnershipProposalStatus } from '@/hooks/useOrganizerPartnerships';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -436,33 +437,6 @@ function CollabEventCard({ event, venueId }: { event: CollabEvent; venueId: stri
         ? { label: t('collab.event.statusActive'), color: POS, bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.25)' }
         : { label: isLead ? t('collab.event.pendingOrga') : t('collab.event.pendingActivation'), color: T3, bg: INNER_BG, border: BORDER };
 
-  // Pause / resume / remove this co-event collaboration. The RPC is the authority:
-  // it blocks pause+remove once the event has real sales, so the UI just relays
-  // the result (and the COLLAB_LOCKED_BY_SALES error as a clear message).
-  const [collabBusy, setCollabBusy] = useState(false);
-  const [confirmRemove, setConfirmRemove] = useState(false);
-  const manageBtn: React.CSSProperties = { padding: '6px 10px', borderRadius: 9, background: TILE_BG, border: `1px solid ${F_BORDER}`, color: T2, fontSize: 11.5, fontWeight: 560, opacity: collabBusy ? 0.6 : 1 };
-
-  const collabAction = async (action: 'pause' | 'resume' | 'remove') => {
-    setCollabBusy(true);
-    try {
-      const { error } = await supabase.rpc('manage_event_collaboration', { p_event_id: event.id, p_action: action });
-      if (error) throw error;
-      sonnerToast.success(
-        action === 'remove' ? t('collab.event.removedToast')
-          : action === 'pause' ? t('collab.event.pausedToast')
-            : t('collab.event.resumedToast'),
-      );
-      setConfirmRemove(false);
-      // The events row update fires the realtime channel → the list refetches.
-    } catch (e) {
-      const msg = String((e as { message?: string })?.message ?? '');
-      sonnerToast.error(msg.includes('COLLAB_LOCKED_BY_SALES') ? t('collab.event.lockedBySales') : (msg || t('proposeEvent.createError')));
-    } finally {
-      setCollabBusy(false);
-    }
-  };
-
   return (
     <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, overflow: 'hidden' }}>
       {/* Top section */}
@@ -532,34 +506,11 @@ function CollabEventCard({ event, venueId }: { event: CollabEvent; venueId: stri
           <PurchaseSourceBreakdown eventId={event.id} />
         </div>
 
-        {/* Manage the collaboration — pause/resume + remove. The server RPC blocks
-            pause & remove once the event has real sales (clear error relayed). */}
-        <div className="flex flex-wrap items-center gap-1.5" style={{ borderTop: `1px solid ${F_BORDER}`, paddingTop: 12 }}>
-          {isPaused ? (
-            <button onClick={() => collabAction('resume')} disabled={collabBusy} className="cursor-pointer" style={manageBtn}>
-              <span className="flex items-center gap-1.5"><Play className="h-3 w-3" /> {t('collab.event.resume')}</span>
-            </button>
-          ) : (
-            <button onClick={() => collabAction('pause')} disabled={collabBusy} className="cursor-pointer" style={manageBtn}>
-              <span className="flex items-center gap-1.5"><Pause className="h-3 w-3" /> {t('collab.event.pause')}</span>
-            </button>
-          )}
-          <div className="flex-1" />
-          {confirmRemove ? (
-            <>
-              <span style={{ color: T3, fontSize: 11 }}>{t('collab.event.removeConfirm')}</span>
-              <button onClick={() => collabAction('remove')} disabled={collabBusy} className="cursor-pointer" style={{ ...manageBtn, color: NEG, background: 'rgba(255,92,99,0.10)', border: '1px solid rgba(255,92,99,0.25)' }}>
-                {t('collab.event.removeYes')}
-              </button>
-              <button onClick={() => setConfirmRemove(false)} disabled={collabBusy} className="cursor-pointer" style={manageBtn}>
-                {t('common.cancel')}
-              </button>
-            </>
-          ) : (
-            <button onClick={() => setConfirmRemove(true)} disabled={collabBusy} className="cursor-pointer" style={{ ...manageBtn, color: NEG }}>
-              <span className="flex items-center gap-1.5"><Trash2 className="h-3 w-3" /> {t('collab.event.remove')}</span>
-            </button>
-          )}
+        {/* Manage the collaboration under DOUBLE CONSENT — pause/delete need the
+            organizer to approve too; a live event defers the action until it ends.
+            Resume stays unilateral. (CollabActionControls is shared with the org hub.) */}
+        <div style={{ borderTop: `1px solid ${F_BORDER}`, paddingTop: 12 }}>
+          <CollabActionControls eventId={event.id} myRole="venue" isPaused={isPaused} />
         </div>
       </div>
     </div>
