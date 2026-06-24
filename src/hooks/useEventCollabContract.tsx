@@ -126,6 +126,28 @@ export function useEventCollabContract(eventId: string | undefined, side?: 'venu
     onError: (e: any) => toast({ title: 'Erreur', description: e.message, variant: 'destructive' }),
   });
 
+  // Amend the split before any sale locks it → contract drops back to
+  // pending_signatures, the amender has signed their version, the OTHER party
+  // must re-sign. Sales re-block until the new double signature.
+  const amend = useMutation({
+    mutationFn: async (vars: { rules: PartnershipSplitRules; cancellationPolicy?: string }) => {
+      if (!c) throw new Error('No contract');
+      const { error } = await rpc('amend_event_collab_contract', {
+        p_contract_id: c.id,
+        p_split_rules: vars.rules,
+        p_cancellation_policy: vars.cancellationPolicy ?? null,
+      });
+      if (error) throw error;
+      try {
+        await supabase.functions.invoke('notify-split-proposal', {
+          body: { kind: 'event', id: c.event_id, action: 'proposed', proposer_side: side, rules: vars.rules },
+        });
+      } catch (e) { console.warn('[collab-contract] notify failed', e); }
+    },
+    onSuccess: () => { invalidate(); toast({ title: 'Contrat modifié', description: 'Le partenaire doit re-signer pour ouvrir les ventes.' }); },
+    onError: (e: any) => toast({ title: 'Erreur', description: e.message, variant: 'destructive' }),
+  });
+
   return {
     contract: c,
     isLoading: query.isLoading,
@@ -136,6 +158,7 @@ export function useEventCollabContract(eventId: string | undefined, side?: 'venu
     create,
     sign,
     cancel,
+    amend,
     refetch: query.refetch,
   };
 }
