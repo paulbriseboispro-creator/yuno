@@ -7,7 +7,7 @@ import {
   ShoppingCart, Ticket, Crown, Users, Star,
   Heart, Zap, BarChart3, Mail, Calendar,
   AlertCircle, Info, Radio, TrendingUp,
-  UserCheck, AlertTriangle, Receipt, Music, Handshake,
+  UserCheck, AlertTriangle, Receipt, Music, Handshake, MessageSquare,
 } from 'lucide-react';
 
 export interface AppNotif {
@@ -59,6 +59,7 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   collab_action_scheduled: { icon: Calendar,      category: 'people', label: 'notif.type.collab_action_scheduled' },
   collab_action_done:      { icon: Calendar,      category: 'people', label: 'notif.type.collab_action_done' },
   collab_action_rejected:  { icon: AlertCircle,   category: 'people', label: 'notif.type.collab_action_rejected' },
+  collab_message:          { icon: MessageSquare, category: 'people', label: 'notif.type.collab_message' },
   connection_accepted: { icon: UserCheck, category: 'people', label: 'notif.type.connection_accepted' },
   staff_login:         { icon: Users,     category: 'people', label: 'notif.type.staff_login' },
   favorite_added:      { icon: Heart,     category: 'people', label: 'notif.type.favorite_added' },
