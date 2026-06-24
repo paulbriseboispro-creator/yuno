@@ -26,6 +26,7 @@ import {
 	MailIcon,
 	MegaphoneIcon,
 	Building2Icon,
+	HandshakeIcon,
 	ShieldIcon,
 	UserCircleIcon,
 	FileTextIcon,
@@ -72,6 +73,7 @@ function buildOrgNavGroups(tt: TT): SidebarNavGroup[] {
 			label: tt("Écosystème", "Ecosystem"),
 			items: [
 				{ title: tt("Clubs partenaires", "Partner clubs"), path: "/organizer-app/partners", icon: <Building2Icon /> },
+				{ title: tt("Collaborations", "Collaborations"), path: "/organizer-app/collaborations", icon: <HandshakeIcon /> },
 				{ title: tt("Équipe", "Team"), path: "/organizer-app/team", icon: <ShieldIcon /> },
 				{ title: tt("Profil public", "Public profile"), path: "/organizer-app/profile", icon: <UserCircleIcon /> },
 			],

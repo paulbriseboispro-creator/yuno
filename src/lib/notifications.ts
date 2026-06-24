@@ -52,6 +52,13 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   // 🤝 People
   partner_request:     { icon: Handshake, category: 'people', label: 'notif.type.partner_request' },
   partner_accepted:    { icon: Handshake, category: 'people', label: 'notif.type.partner_accepted' },
+  // co-event collaboration (per-night)
+  collab_request:          { icon: Handshake,     category: 'people', label: 'notif.type.collab_request' },
+  collab_accepted:         { icon: Handshake,     category: 'people', label: 'notif.type.collab_accepted' },
+  collab_action_request:   { icon: AlertTriangle, category: 'people', label: 'notif.type.collab_action_request' },
+  collab_action_scheduled: { icon: Calendar,      category: 'people', label: 'notif.type.collab_action_scheduled' },
+  collab_action_done:      { icon: Calendar,      category: 'people', label: 'notif.type.collab_action_done' },
+  collab_action_rejected:  { icon: AlertCircle,   category: 'people', label: 'notif.type.collab_action_rejected' },
   connection_accepted: { icon: UserCheck, category: 'people', label: 'notif.type.connection_accepted' },
   staff_login:         { icon: Users,     category: 'people', label: 'notif.type.staff_login' },
   favorite_added:      { icon: Heart,     category: 'people', label: 'notif.type.favorite_added' },
