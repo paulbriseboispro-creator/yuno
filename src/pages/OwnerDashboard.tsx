@@ -56,6 +56,7 @@ import { useStripeConnect } from '@/hooks/useStripeConnect';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { UpgradeModal } from '@/components/UpgradeModal';
 import { CollabUpsellBanner } from '@/components/CollabUpsellBanner';
+import { CollabWelcomeOverlay } from '@/components/collab/CollabWelcomeOverlay';
 import { isCollabPlan } from '@/lib/planFeatures';
 import type { FeatureKey } from '@/lib/planFeatures';
 import { formatChartAxisTick } from '@/components/formater';
@@ -564,6 +565,7 @@ export default function OwnerDashboard() {
           </Link>
         )}
         {!planLoading && isCollabPlan(currentPlan) && <CollabUpsellBanner />}
+        <CollabWelcomeOverlay venueId={venueId} venueName={venue?.name} />
         {currentPlan === 'core' && !planLoading && (
           <Link to="/owner/billing" className="block" style={{ textDecoration: 'none' }}>
             <div className="flex items-center justify-between gap-3 rounded-xl px-4 py-3" style={{ background: 'rgba(232,25,44,0.06)', border: '1px solid rgba(232,25,44,0.22)' }}>
