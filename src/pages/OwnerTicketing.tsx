@@ -1194,7 +1194,7 @@ export default function OwnerTicketing() {
         <div className="flex gap-0.5" style={{ borderBottom: `1px solid ${BORDER}` }}>
           {([
             { id: 'events', label: t('tickets.events'), icon: Ticket, show: true },
-            { id: 'presets', label: t('tickets.presets'), icon: FolderOpen, show: !isOrganizerScope },
+            { id: 'presets', label: t('tickets.presets'), icon: FolderOpen, show: true },
           ] as const)
             .filter((tb) => tb.show)
             .map((tb) => {
