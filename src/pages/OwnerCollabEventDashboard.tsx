@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   ArrowLeft, Handshake, Lock, Eye, Ticket, Wine, FileText, Megaphone,
   Clock, ExternalLink, Users, TrendingUp, Euro, Radio, Sparkles, Trophy,
-  UsersRound, ChevronDown, UserPlus, ScanLine, Target, Pencil, Check, X,
+  UsersRound, ChevronDown, UserPlus, ScanLine, Target, Pencil, Check, X, MessageSquare,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
@@ -31,6 +31,7 @@ import { EventPostAnalysisView } from '@/components/owner/co-event/EventPostAnal
 import { EventAudienceDemographics } from '@/components/analytics/EventAudienceDemographics';
 import { SplitContractBanner } from '@/components/SplitContractBanner';
 import { CollabConversionClose } from '@/components/collab/CollabConversionClose';
+import { CollabMessageThread } from '@/components/collab/CollabMessageThread';
 import { normalizeSplitRules } from '@/lib/splitRules';
 
 type Phase = 'before' | 'live' | 'after';
@@ -351,6 +352,15 @@ export default function OwnerCollabEventDashboard() {
               </CardContent>
             </Card>
           )}
+        </Section>
+
+        {/* ── COMMUNICATION — club ↔ organizer thread, synced both sides ───── */}
+        <Section
+          icon={MessageSquare}
+          title={tt('Communication', 'Communication', 'Comunicación')}
+          sub={tt('Échangez avec votre organisateur partenaire sur cette soirée.', 'Talk to your partner organizer about this night.', 'Habla con tu organizador asociado sobre esta noche.')}
+        >
+          <CollabMessageThread eventId={event.id} authorRole="venue" venueLabel={clubName} organizerLabel={orgName} />
         </Section>
 
         {/* ── CONVERSION CLOSE — only for clubs on the free collab plan ─────── */}

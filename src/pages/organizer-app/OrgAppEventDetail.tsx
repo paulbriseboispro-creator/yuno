@@ -8,6 +8,7 @@ import { ArrowLeft, Copy, ExternalLink, Ticket, BarChart3, ScanLine, AlertCircle
 import { toast } from 'sonner';
 import { useOrganizerStripe } from '@/hooks/useOrganizerStripe';
 import { SplitContractBanner } from '@/components/SplitContractBanner';
+import { CollabMessageThread } from '@/components/collab/CollabMessageThread';
 import { OrgEventTablesPanel } from '@/components/organizer-app/OrgEventTablesPanel';
 import { OrgEventDrinksMenu } from '@/components/organizer-app/OrgEventDrinksMenu';
 import { PurchaseSourceBreakdown } from '@/components/analytics/PurchaseSourceBreakdown';
@@ -23,6 +24,7 @@ export default function OrgAppEventDetail() {
   const { language } = useLanguage();
   const navigate = useNavigate();
   const [event, setEvent] = useState<any>(null);
+  const [clubName, setClubName] = useState<string>('');
   const [stats, setStats] = useState({ sold: 0, revenue: 0, checkins: 0 });
   const [loading, setLoading] = useState(true);
   const { canSell, status: stripeStatus, loading: stripeLoading } = useOrganizerStripe(user?.id);
@@ -43,6 +45,13 @@ export default function OrgAppEventDetail() {
 
       if (!ev) { navigate('/organizer-app/events'); return; }
       setEvent(ev);
+
+      // For the collab thread: resolve the partner club's name (lead or partner venue).
+      const clubVenueId = ev.partner_venue_id ?? ev.venue_id;
+      if (clubVenueId) {
+        const { data: v } = await supabase.from('venues').select('name').eq('id', clubVenueId).maybeSingle();
+        if (v) setClubName(v.name);
+      }
 
       const { data: tickets } = await supabase
         .from('tickets')
@@ -109,6 +118,10 @@ export default function OrgAppEventDetail() {
           <StatCard icon={Sparkles} label={t('Mon gain net', 'My net share')} value={netGain.loading ? '…' : `${netGain.netEuros.toFixed(2)} €`}
             sub={t('Après frais Stripe & Yuno + part partenaire', 'After Stripe & Yuno fees + partner share')} accent />
         </div>
+
+        {(event.event_mode === 'co_event' || event.partner_venue_id || event.partner_organizer_id) && (
+          <CollabMessageThread eventId={event.id} authorRole="organizer" venueLabel={clubName} />
+        )}
 
         <OrgCard>
           <div className="p-6">
