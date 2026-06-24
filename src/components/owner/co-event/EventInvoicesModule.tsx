@@ -83,7 +83,7 @@ export function EventInvoicesModule({ eventId }: Props) {
     // Load event co-event metadata
     const { data: ev } = await supabase
       .from('events')
-      .select('venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, event_mode, revenue_split_rules')
+      .select('venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, event_mode, revenue_split_rules, is_bde')
       .eq('id', eventId)
       .maybeSingle();
 
@@ -178,7 +178,7 @@ export function EventInvoicesModule({ eventId }: Props) {
 
   /** Compute the viewer's share for an invoice given current viewMode. */
   function computeShare(inv: Invoice, side: 'venue' | 'organizer'): { share: number; pct: number; net: number; yuno: number } {
-    return computeShareUtil(inv.amount, inv.type, side, eventCo?.revenue_split_rules, eventCo?.event_mode ?? null);
+    return computeShareUtil(inv.amount, inv.type, side, eventCo?.revenue_split_rules, eventCo?.event_mode ?? null, (eventCo as any)?.is_bde ?? false);
   }
 
   /** Adaptive totals depending on the active viewMode. */
@@ -255,7 +255,7 @@ export function EventInvoicesModule({ eventId }: Props) {
     let coEvent: InvoiceData['coEvent'] = undefined;
     if (isCoEvent && eventCo && (viewMode === 'venue' || viewMode === 'organizer')) {
       const split = getEffectiveSplit(eventCo.revenue_split_rules, invoice.type, eventCo.event_mode);
-      const yuno = computeYunoFee(invoice.type, invoice.amount);
+      const yuno = computeYunoFee(invoice.type, invoice.amount, (eventCo as any)?.is_bde ?? false);
       const net = invoice.amount - yuno;
       const venueShare = Math.round((net * split.venue_pct) / 100 * 100) / 100;
       const organizerShare = Math.round((net * split.organizer_pct) / 100 * 100) / 100;

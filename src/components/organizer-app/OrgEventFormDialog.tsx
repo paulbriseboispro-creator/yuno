@@ -187,6 +187,9 @@ export function OrgEventFormDialog({
   const [eventKind, setEventKind] = useState<EventKind>('public_event');
   const [collabMode, setCollabMode] = useState<CollabMode>('solo');
   const [partnerVenueId, setPartnerVenueId] = useState<string>('');
+  /** BDE account (super-admin flag). BDE soirées are private by default; going public
+   *  is a request validated by a super admin before it appears in Explore. */
+  const [isBde, setIsBde] = useState(false);
 
   // Visuals — events use a single 1:1 square photo (poster)
   const [posterFile, setPosterFile] = useState<File | null>(null);
@@ -195,6 +198,25 @@ export function OrgEventFormDialog({
 
   const isEdit = !!eventId;
   const requiresPartner = eventKind === 'public_event' && collabMode !== 'solo';
+
+  // BDE status of the current organizer. BDE soirées default to private; on a new
+  // event we flip the default once the flag loads (the reset effect sets 'public_event').
+  useEffect(() => {
+    if (!open || !organizerUserId) return;
+    let cancelled = false;
+    supabase
+      .from('organizer_profiles')
+      .select('bde_verified')
+      .eq('user_id', organizerUserId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const bde = (data as { bde_verified?: boolean } | null)?.bde_verified === true;
+        setIsBde(bde);
+        if (bde && !eventId) setEventKind('private_event');
+      });
+    return () => { cancelled = true; };
+  }, [open, organizerUserId, eventId]);
 
   // Reset on open
   useEffect(() => {
@@ -352,8 +374,11 @@ export function OrgEventFormDialog({
       // The DB trigger evaluate_event_discoverability() recomputes is_discoverable / discovery_status
       // server-side based on quality criteria (poster + title + description + future date + active).
       // We optimistically mark public events as approved so they appear immediately in Explore once the trigger validates them.
-      const isDiscoverable = eventKind === 'public_event';
-      const discoveryStatus = eventKind === 'public_event' ? 'approved' : 'approved';
+      // BDE soirées are the exception: going public is a REQUEST → 'pending', kept link-only
+      // until a super admin approves. The trigger enforces this regardless of the payload.
+      const isBdePublicRequest = isBde && eventKind === 'public_event';
+      const isDiscoverable = eventKind === 'public_event' && !isBdePublicRequest;
+      const discoveryStatus = isBdePublicRequest ? 'pending' : 'approved';
 
       const payload: Record<string, any> = {
         organizer_user_id: organizerUserId,
@@ -570,8 +595,12 @@ export function OrgEventFormDialog({
                   selected={eventKind === 'public_event'}
                   onClick={() => setEventKind('public_event')}
                   icon={Eye}
-                  title={t('Public', 'Public')}
-                  description={t(
+                  title={isBde ? t('Demander la publication publique', 'Request public publication') : t('Public', 'Public')}
+                  description={isBde ? t(
+                    'Soumis à validation par Yuno avant d\'apparaître dans Explore. En attendant, la soirée reste accessible par lien.',
+                    'Reviewed by Yuno before it appears in Explore. Until then, the event stays accessible by link.',
+                    'Sujeto a validación de Yuno antes de aparecer en Explore. Mientras tanto, la fiesta sigue accesible por enlace.'
+                  ) : t(
                     'Ouvert à tous, peut apparaître dans Yuno Explore.',
                     'Open to all, may appear in Yuno Explore.'
                   )}
@@ -580,13 +609,22 @@ export function OrgEventFormDialog({
                   selected={eventKind === 'private_event'}
                   onClick={() => setEventKind('private_event')}
                   icon={Lock}
-                  title={t('Privé', 'Private')}
+                  title={isBde ? t('Privé (recommandé)', 'Private (recommended)') : t('Privé', 'Private')}
                   description={t(
                     'Accessible uniquement par lien direct, non listé dans Yuno Explore.',
                     'Accessible by direct link only, not listed in Yuno Explore.'
                   )}
                 />
               </div>
+              {isBde && eventKind === 'public_event' && (
+                <p className="mt-2 text-[12px] leading-snug" style={{ color: T3 }}>
+                  {t(
+                    'Ta demande de publication sera examinée par Yuno. La soirée reste privée (accès par lien) tant qu\'elle n\'est pas approuvée.',
+                    'Your publication request will be reviewed by Yuno. The event stays private (link access) until it is approved.',
+                    'Tu solicitud de publicación será revisada por Yuno. La fiesta permanece privada (acceso por enlace) hasta que se apruebe.'
+                  )}
+                </p>
+              )}
             </div>
 
             {/* Collab mode */}

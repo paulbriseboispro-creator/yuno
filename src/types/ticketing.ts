@@ -137,6 +137,9 @@ export type EventWithTicketing = {
   /** Event-level: minors allowed → alcohol-free. Derived from the creator's global
    *  setting minus a per-event opt-out; maintained denormalized in events.alcohol_free. */
   alcoholFree?: boolean;
+  /** BDE event (organizer is bde_verified). Lowers the ticket/table commission floor
+   *  to 0.49€. Stamped server-side onto events.is_bde — read-only signal for the buyer UI. */
+  isBde?: boolean;
   ticketSellingMode?: TicketSellingMode;
   // Sales timing fields
   presaleStartAt?: string;
@@ -182,22 +185,53 @@ export type GuestListEntry = {
   createdAt: string;
 };
 
-// Service fee rates
+// Service fee rates. BDE-verified organizers (events.is_bde) pay the same 4% rate
+// but a reduced per-item floor (0.49€ vs 0.99€) on tickets/tables. Mirror of the
+// backend single source of truth in supabase/functions/_shared/commission.ts.
 export const SERVICE_FEE_RATES = {
   DRINKS: 0.03,
   TICKETS: 0.04,
   TABLES: 0.04,
   TICKETS_MIN: 0.99,
   TABLES_MIN: 0.99,
+  TICKETS_MIN_BDE: 0.49,
+  TABLES_MIN_BDE: 0.49,
 } as const;
 
-export const calculateServiceFee = (amount: number, type: 'drinks' | 'tickets' | 'tables'): number => {
+export const calculateServiceFee = (
+  amount: number,
+  type: 'drinks' | 'tickets' | 'tables',
+  isBde = false,
+): number => {
   if (type === 'drinks') {
     return Math.round(amount * SERVICE_FEE_RATES.DRINKS * 100) / 100;
   }
-  // Tickets & Tables: max(0.99€, 4% of amount)
-  return Math.round(Math.max(SERVICE_FEE_RATES.TICKETS_MIN, amount * SERVICE_FEE_RATES.TICKETS) * 100) / 100;
+  // Tickets & Tables: max(floor, 4% of amount). BDE gets a reduced floor; rate is unchanged.
+  const min = isBde ? SERVICE_FEE_RATES.TICKETS_MIN_BDE : SERVICE_FEE_RATES.TICKETS_MIN;
+  return Math.round(Math.max(min, amount * SERVICE_FEE_RATES.TICKETS) * 100) / 100;
 };
+
+// Stripe FR card-processing fee estimate. MUST mirror the edge-function
+// `estimateStripeFeeEur` in supabase/functions/_shared/payment-split.ts so the
+// fan-facing total on our pages equals what Stripe actually charges.
+export const STRIPE_FEE_PCT = 0.015;
+export const STRIPE_FEE_FIXED = 0.25;
+export const estimateStripeFee = (amount: number): number =>
+  amount <= 0 ? 0 : Math.round((amount * STRIPE_FEE_PCT + STRIPE_FEE_FIXED) * 100) / 100;
+
+/**
+ * Customer-facing transaction fee shown before checkout.
+ *  - feeAbsorbed = false (default): the Yuno commission (calculateServiceFee).
+ *  - feeAbsorbed = true: only the Stripe transaction cost — the club/organizer has
+ *    opted to absorb the Yuno commission. Mirrors the edge-function `transactionFee`
+ *    so the displayed total matches the real Stripe charge.
+ */
+export const customerTransactionFee = (
+  amount: number,
+  type: 'drinks' | 'tickets' | 'tables',
+  feeAbsorbed: boolean,
+  isBde = false,
+): number => (feeAbsorbed ? estimateStripeFee(amount) : calculateServiceFee(amount, type, isBde));
 
 // Helper: compute event sales status from timestamps + waitlist mode
 export function getEventSalesStatus(

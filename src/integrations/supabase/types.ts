@@ -3553,6 +3553,41 @@ export type Database = {
           },
         ]
       }
+      event_collab_messages: {
+        Row: {
+          author_role: string
+          author_user_id: string
+          body: string
+          created_at: string
+          event_id: string
+          id: string
+        }
+        Insert: {
+          author_role: string
+          author_user_id: string
+          body: string
+          created_at?: string
+          event_id: string
+          id?: string
+        }
+        Update: {
+          author_role?: string
+          author_user_id?: string
+          body?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_collab_messages_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_djs: {
         Row: {
           created_at: string
@@ -3861,6 +3896,8 @@ export type Database = {
           banner_position: Json | null
           cancellation_reason: string | null
           cancelled_at: string | null
+          collab_goal_type: string | null
+          collab_goal_value: number | null
           collab_paused_at: string | null
           created_at: string
           description: string | null
@@ -3873,6 +3910,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean
+          is_bde: boolean
           is_discoverable: boolean
           location_address: string | null
           location_city: string | null
@@ -3921,6 +3959,8 @@ export type Database = {
           banner_position?: Json | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
+          collab_goal_type?: string | null
+          collab_goal_value?: number | null
           collab_paused_at?: string | null
           created_at?: string
           description?: string | null
@@ -3933,6 +3973,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          is_bde?: boolean
           is_discoverable?: boolean
           location_address?: string | null
           location_city?: string | null
@@ -3981,6 +4022,8 @@ export type Database = {
           banner_position?: Json | null
           cancellation_reason?: string | null
           cancelled_at?: string | null
+          collab_goal_type?: string | null
+          collab_goal_value?: number | null
           collab_paused_at?: string | null
           created_at?: string
           description?: string | null
@@ -3993,6 +4036,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          is_bde?: boolean
           is_discoverable?: boolean
           location_address?: string | null
           location_city?: string | null
@@ -6193,6 +6237,8 @@ export type Database = {
         Row: {
           absorb_yuno_fees: boolean
           avatar_url: string | null
+          bde_verified: boolean
+          bde_verified_at: string | null
           billing_email: string | null
           bio: string | null
           can_sell_alcohol: boolean
@@ -6218,6 +6264,8 @@ export type Database = {
         Insert: {
           absorb_yuno_fees?: boolean
           avatar_url?: string | null
+          bde_verified?: boolean
+          bde_verified_at?: string | null
           billing_email?: string | null
           bio?: string | null
           can_sell_alcohol?: boolean
@@ -6243,6 +6291,8 @@ export type Database = {
         Update: {
           absorb_yuno_fees?: boolean
           avatar_url?: string | null
+          bde_verified?: boolean
+          bde_verified_at?: string | null
           billing_email?: string | null
           bio?: string | null
           can_sell_alcohol?: boolean
@@ -11511,8 +11561,24 @@ export type Database = {
         Args: { p_dj_user_id: string; p_reason?: string; p_verified: boolean }
         Returns: undefined
       }
+      admin_set_event_discovery_status: {
+        Args: {
+          _event_id: string
+          _reason?: string
+          _status: Database["public"]["Enums"]["discovery_status"]
+        }
+        Returns: undefined
+      }
       admin_set_event_published: {
         Args: { _event_id: string; _published: boolean }
+        Returns: undefined
+      }
+      admin_set_organizer_bde_verified: {
+        Args: {
+          p_organizer_user_id: string
+          p_reason?: string
+          p_verified: boolean
+        }
         Returns: undefined
       }
       admin_set_user_suspended: {
@@ -12092,6 +12158,10 @@ export type Database = {
       }
       is_email_banned_org: {
         Args: { p_email: string; p_organizer_user_id: string }
+        Returns: boolean
+      }
+      is_event_collab_participant: {
+        Args: { p_event_id: string; p_user: string }
         Returns: boolean
       }
       is_event_organizer: {

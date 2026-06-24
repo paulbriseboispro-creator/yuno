@@ -533,7 +533,10 @@ serve(async (req) => {
         product_data: {
           name: "Frais de service (3%)",
         },
-        unit_amount: Math.round(serviceFee * 100),
+        // Mirror `transactionFee`, not the raw commission: in absorb mode the fan pays
+        // the Stripe transaction cost and the club absorbs the Yuno commission (via the
+        // application_fee override). Default path keeps the two equal, so unchanged.
+        unit_amount: Math.round(transactionFee * 100),
       },
       quantity: 1,
     });

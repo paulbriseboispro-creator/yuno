@@ -11,7 +11,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
 import { enUS, es, fr } from 'date-fns/locale';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
-import { TicketRound, EventWithTicketing, calculateServiceFee } from '@/types/ticketing';
+import { TicketRound, EventWithTicketing, customerTransactionFee } from '@/types/ticketing';
+import { useAbsorbYunoFees } from '@/hooks/useAbsorbYunoFees';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
@@ -296,6 +297,7 @@ export default function TicketCheckout() {
         maxTickets: eventData.max_tickets,
         tablesEnabled: eventData.tables_enabled,
         alcoholFree: (eventData as any).alcohol_free ?? false,
+        isBde: (eventData as any).is_bde ?? false,
         createdAt: eventData.created_at,
         updatedAt: eventData.updated_at,
       });
@@ -412,7 +414,10 @@ export default function TicketCheckout() {
   
   const discount = calculateDiscount();
   const discountedSubtotal = subtotal - discount;
-  const serviceFee = calculateServiceFee(discountedSubtotal, 'tickets');
+  // Absorb mode: the club covers the Yuno commission, so the fan only pays the Stripe
+  // transaction fee. Mirrors create-ticket-checkout so this total matches the charge.
+  const feeAbsorbed = useAbsorbYunoFees(venue?.id ?? null);
+  const serviceFee = customerTransactionFee(discountedSubtotal, 'tickets', feeAbsorbed, event?.isBde ?? false);
   const insuranceFee = hasInsurance ? Math.round(discountedSubtotal * INSURANCE_RATE * 100) / 100 : 0;
   const upsellTotal = selectedUpsells.reduce((sum, u) => sum + u.price, 0);
   const total = discountedSubtotal + serviceFee + insuranceFee + upsellTotal;

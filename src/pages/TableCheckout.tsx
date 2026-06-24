@@ -25,7 +25,7 @@ import { enUS, es, fr } from 'date-fns/locale';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
-import { TablePack, TableZone } from '@/types/ticketing';
+import { TablePack, TableZone, estimateStripeFee } from '@/types/ticketing';
 import { VenueFloorPlan } from '@/types';
 import { getStoredPromoCode } from '@/hooks/usePromoterTracking';
 
@@ -341,7 +341,13 @@ export default function TableCheckout() {
       }
     }
     const feeBase = deposit > 0 ? deposit * MANAGEMENT_FEE_RATE : (totalPrice / 2) * MANAGEMENT_FEE_RATE;
-    const managementFee = Math.round(Math.max(MANAGEMENT_FEE_MIN, feeBase) * 100) / 100;
+    // Absorb mode: the club covers the Yuno commission, so the fan pays only the Stripe
+    // transaction cost on the deposit charged now. Mirrors create-table-checkout's
+    // `transactionFee`; the default path is left byte-identical.
+    const feeAbsorbed = venue?.absorb_yuno_fees === true;
+    const managementFee = feeAbsorbed
+      ? estimateStripeFee(deposit)
+      : Math.round(Math.max(MANAGEMENT_FEE_MIN, feeBase) * 100) / 100;
     const toPay = deposit + managementFee;
     const remainingBalance = totalPrice - deposit;
     return { totalPrice, deposit, managementFee, toPay, remainingBalance, discount };

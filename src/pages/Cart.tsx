@@ -24,6 +24,8 @@ import { getTranslatedDrinkName } from '@/lib/drinkTranslations';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { useCartRules } from '@/hooks/useCartRules';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
+import { useAbsorbYunoFees } from '@/hooks/useAbsorbYunoFees';
+import { customerTransactionFee } from '@/types/ticketing';
 
 import { CartSuggestions } from '@/components/upsell/CartSuggestions';
 import { CartOffersBanner } from '@/components/upsell/CartOffersBanner';
@@ -128,7 +130,10 @@ export default function Cart() {
   const { rules, totalDiscount, discountedItems } = useCartRules(venueInfo?.id || null, cartItems);
 
   const discountedTotal = total - totalDiscount;
-  const discountedServiceFee = Math.round(discountedTotal * 0.03 * 100) / 100;
+  // Absorb mode: the club covers the Yuno commission, so the fan only pays the Stripe
+  // transaction fee. Mirrors create-checkout so this total matches the real charge.
+  const feeAbsorbed = useAbsorbYunoFees(venueInfo?.id ?? null);
+  const discountedServiceFee = customerTransactionFee(discountedTotal, 'drinks', feeAbsorbed);
   const totalWithFees = discountedTotal + discountedServiceFee;
 
   const discountByDrink = useMemo(() => {

@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Search, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, ExternalLink, ChevronLeft, ChevronRight, GraduationCap } from 'lucide-react';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED        = '#E8192C';
@@ -44,12 +45,33 @@ export default function DirectoryOrganizers() {
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [bdeBusyId, setBdeBusyId] = useState<string | null>(null);
+
+  // BDE status is a manually-assigned super-admin flag on the organizer account.
+  // It unlocks the reduced commission floor (0.49€) + private-by-default events.
+  const setBdeVerified = async (userId: string, next: boolean) => {
+    setBdeBusyId(userId);
+    try {
+      const { error } = await supabase.rpc('admin_set_organizer_bde_verified', {
+        p_organizer_user_id: userId,
+        p_verified: next,
+      });
+      if (error) throw error;
+      setData(prev => prev.map(o => (o.user_id === userId ? { ...o, bde_verified: next } : o)));
+      toast.success(next ? 'BDE activé' : 'Statut BDE retiré');
+    } catch (e) {
+      toast.error('Action échouée');
+      console.error('set bde_verified failed', e);
+    } finally {
+      setBdeBusyId(null);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
     let query = supabase
       .from('organizer_profiles')
-      .select('user_id, display_name, slug, avatar_url, is_public, created_at', { count: 'exact' });
+      .select('user_id, display_name, slug, avatar_url, is_public, bde_verified, created_at', { count: 'exact' });
 
     if (search) {
       query = query.ilike('display_name', `%${search}%`);
@@ -123,14 +145,15 @@ export default function DirectoryOrganizers() {
                 <th className="px-3 py-2.5 text-right" style={thStyle}>Events</th>
                 <th className="px-3 py-2.5 text-right" style={thStyle}>Venues</th>
                 <th className="px-3 py-2.5 text-left" style={thStyle}>Status</th>
+                <th className="px-3 py-2.5 text-center" style={thStyle}>BDE</th>
                 <th className="px-3 py-2.5 text-right" style={thStyle}>{t('admin.dir.created')}</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="text-center py-8" style={{ color: T3, fontSize: 12.5 }}>{t('admin.dir.loading')}</td></tr>
+                <tr><td colSpan={6} className="text-center py-8" style={{ color: T3, fontSize: 12.5 }}>{t('admin.dir.loading')}</td></tr>
               ) : data.length === 0 ? (
-                <tr><td colSpan={5} className="text-center py-8" style={{ color: T3, fontSize: 12.5 }}>{t('admin.dir.noResults')}</td></tr>
+                <tr><td colSpan={6} className="text-center py-8" style={{ color: T3, fontSize: 12.5 }}>{t('admin.dir.noResults')}</td></tr>
               ) : data.map((o, i) => (
                 <tr key={o.user_id} style={{ borderBottom: i < data.length - 1 ? `1px solid ${F_BORDER}` : 'none' }}>
                   <td className="px-3 py-3 font-medium">
@@ -147,6 +170,23 @@ export default function DirectoryOrganizers() {
                   <td className="px-3 py-3 text-right tabular-nums" style={{ color: T2 }}>{o.venueCount}</td>
                   <td className="px-3 py-3">
                     <StatusPill active={o.is_public} on={t('admin.dir.active')} off={t('admin.dir.inactive')} />
+                  </td>
+                  <td className="px-3 py-3 text-center">
+                    <button
+                      onClick={() => setBdeVerified(o.user_id, !o.bde_verified)}
+                      disabled={bdeBusyId === o.user_id}
+                      title={o.bde_verified ? 'Retirer le statut BDE (plancher réduit + soirées privées)' : 'Marquer comme BDE (plancher 0,49€ + soirées privées par défaut)'}
+                      className="inline-flex items-center gap-1.5 cursor-pointer transition-all disabled:opacity-40"
+                      style={{
+                        fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999,
+                        background: o.bde_verified ? 'rgba(232,25,44,0.1)' : 'rgba(255,255,255,0.045)',
+                        border: `1px solid ${o.bde_verified ? 'rgba(232,25,44,0.3)' : BORDER}`,
+                        color: o.bde_verified ? RED : T3,
+                      }}
+                    >
+                      <GraduationCap className="h-3.5 w-3.5" />
+                      {o.bde_verified ? 'BDE' : 'Non'}
+                    </button>
                   </td>
                   <td className="px-3 py-3 text-right tabular-nums" style={{ color: T3 }}>{format(new Date(o.created_at), 'dd/MM/yyyy')}</td>
                 </tr>

@@ -9,6 +9,7 @@ import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-g
 import {
   YUNO_TICKET_TABLE_RATE as YUNO_COMMISSION_RATE,
   YUNO_TICKET_TABLE_MIN as YUNO_COMMISSION_MIN,
+  YUNO_TICKET_TABLE_MIN_BDE as YUNO_COMMISSION_MIN_BDE,
 } from "../_shared/commission.ts";
 import { getAbsorbYunoFees } from "../_shared/merchant-fees.ts";
 
@@ -114,7 +115,7 @@ serve(async (req) => {
     // Get event details
     const { data: event, error: eventError } = await supabaseAdmin
       .from("events")
-      .select("id, title, venue_id, organizer_user_id, partner_venue_id, partner_organizer_id, event_mode, revenue_split_rules, is_active, presale_start_at, public_sale_start_at, waitlist_enabled, end_at, ticket_selling_mode, max_tickets, rounds_visibility")
+      .select("id, title, venue_id, organizer_user_id, partner_venue_id, partner_organizer_id, event_mode, revenue_split_rules, is_active, is_bde, presale_start_at, public_sale_start_at, waitlist_enabled, end_at, ticket_selling_mode, max_tickets, rounds_visibility")
       .eq("id", eventId)
       .single();
 
@@ -443,7 +444,9 @@ serve(async (req) => {
 
     const discountedSubtotal = subtotal - validatedDiscount;
     
-    const serviceFee = Math.round(Math.max(YUNO_COMMISSION_MIN, discountedSubtotal * YUNO_COMMISSION_RATE) * 100) / 100; // max(0.99€, 4%) service fee
+    // BDE-verified organizers get a reduced floor (0.49€ vs 0.99€); the 4% rate is unchanged.
+    const commissionMin = event.is_bde ? YUNO_COMMISSION_MIN_BDE : YUNO_COMMISSION_MIN;
+    const serviceFee = Math.round(Math.max(commissionMin, discountedSubtotal * YUNO_COMMISSION_RATE) * 100) / 100; // max(floor, 4%) service fee
     const insuranceFee = hasInsurance ? Math.round(discountedSubtotal * 0.10 * 100) / 100 : 0; // 10% insurance
 
     // Validate upsell selections from ticket_upsell_offers
@@ -873,6 +876,8 @@ serve(async (req) => {
       grossAmount: totalPrice,
       // In absorb mode the gross no longer contains the commission, so pass it explicitly.
       yunoFeeCentsOverride: feeAbsorbed ? Math.round(serviceFee * 100) : undefined,
+      // BDE floor must match the serviceFee floor so application_fee == charged fee.
+      isBde: event.is_bde === true,
       event: {
         id: event.id,
         venue_id: event.venue_id,
@@ -958,7 +963,13 @@ serve(async (req) => {
             name: "Frais de service",
             description: "Frais de gestion et de traitement",
           },
-          unit_amount: Math.round(serviceFee * 100),
+          // The fan-facing fee line MUST mirror `transactionFee`, not the raw Yuno
+          // commission. In absorb mode (`feeAbsorbed`) `transactionFee` is the Stripe
+          // transaction cost and the club eats the Yuno commission (taken via the
+          // application_fee override). In the default path the two are equal, so this
+          // is unchanged. Using `serviceFee` here would charge the fan the commission
+          // even when the club opted to absorb it — and break gross == grossAmountCents.
+          unit_amount: Math.round(transactionFee * 100),
         },
         quantity: 1,
       },

@@ -48,6 +48,7 @@ interface EventRow {
   partner_venue_id: string | null;
   organizer_user_id: string | null;
   partner_organizer_id: string | null;
+  is_bde: boolean | null;
 }
 
 interface InvoiceRow {
@@ -143,7 +144,7 @@ export default function OwnerAccounting() {
 
       const { data: evData, error: evErr } = await supabase
         .from('events')
-        .select('id, title, start_at, event_mode, revenue_split_rules, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id')
+        .select('id, title, start_at, event_mode, revenue_split_rules, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, is_bde')
         .or(`${ownCol}.eq.${scopeId},${partnerCol}.eq.${scopeId}`)
         .order('start_at', { ascending: false });
       if (evErr) throw evErr;
@@ -239,7 +240,7 @@ export default function OwnerAccounting() {
         for (const inv of invs) {
           const split = getEffectiveSplit(ev.revenue_split_rules, inv.type, ev.event_mode);
           const pct = co ? (side === 'venue' ? split.venue_pct : split.organizer_pct) : 100;
-          const yuno = computeYunoFee(inv.type, inv.amount);
+          const yuno = computeYunoFee(inv.type, inv.amount, ev.is_bde ?? false);
           const grossClub = inv.amount - yuno;
           const ttc = r2(grossClub * pct / 100);
           const factor = pct / 100;
@@ -353,7 +354,7 @@ export default function OwnerAccounting() {
         rep.invoices.forEach(inv => {
           const split = getEffectiveSplit(rep.event.revenue_split_rules, inv.type, rep.event.event_mode);
           const pct = co ? (side === 'venue' ? split.venue_pct : split.organizer_pct) : 100;
-          const ttcShare = r2((inv.amount - computeYunoFee(inv.type, inv.amount)) * pct / 100);
+          const ttcShare = r2((inv.amount - computeYunoFee(inv.type, inv.amount, rep.event.is_bde ?? false)) * pct / 100);
           const htShare = r2(ttcShare / (1 + vatRate / 100));
           rows.push([
             csvCell(rep.event.title || ''), safeFormat(inv.created_at, 'dd/MM/yyyy'),

@@ -16,6 +16,8 @@ import { getTranslatedDrinkName } from '@/lib/drinkTranslations';
 import { TermsAcceptance } from '@/components/TermsAcceptance';
 import { AgeGate } from '@/components/AgeGate';
 import { useCartRules } from '@/hooks/useCartRules';
+import { useAbsorbYunoFees } from '@/hooks/useAbsorbYunoFees';
+import { customerTransactionFee } from '@/types/ticketing';
 import { useEffect } from 'react';
 
 interface VenueInfo {
@@ -52,7 +54,10 @@ export default function GuestDrinkCheckout() {
 
   const { totalDiscount, discountedItems } = useCartRules(venueInfo?.id || null, cartItems);
   const discountedTotal = total - totalDiscount;
-  const serviceFee = Math.round(discountedTotal * 0.03 * 100) / 100;
+  // Absorb mode: the club covers the Yuno commission, so the fan only pays the Stripe
+  // transaction fee. Mirrors create-checkout so this total matches the real charge.
+  const feeAbsorbed = useAbsorbYunoFees(venueInfo?.id ?? null);
+  const serviceFee = customerTransactionFee(discountedTotal, 'drinks', feeAbsorbed);
   const totalWithFees = discountedTotal + serviceFee;
 
   // Fetch venue info

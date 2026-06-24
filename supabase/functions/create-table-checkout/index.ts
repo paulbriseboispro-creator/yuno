@@ -3,10 +3,11 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentSplit, estimateStripeFeeEur } from "../_shared/payment-split.ts";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
-// Yuno commission rate — single source of truth (4% min 0.99€ for tables).
+// Yuno commission rate — single source of truth (4% min 0.99€, 0.49€ for BDE).
 import {
   YUNO_TICKET_TABLE_RATE as YUNO_COMMISSION_RATE,
   YUNO_TICKET_TABLE_MIN as YUNO_COMMISSION_MIN,
+  YUNO_TICKET_TABLE_MIN_BDE as YUNO_COMMISSION_MIN_BDE,
 } from "../_shared/commission.ts";
 import { getAbsorbYunoFees } from "../_shared/merchant-fees.ts";
 
@@ -130,7 +131,7 @@ serve(async (req) => {
 
     const { data: event } = await supabaseAdmin
       .from("events")
-      .select("id, title, venue_id, organizer_user_id, partner_venue_id, partner_organizer_id, event_mode, revenue_split_rules, is_active, tables_mode, tables_enabled")
+      .select("id, title, venue_id, organizer_user_id, partner_venue_id, partner_organizer_id, event_mode, revenue_split_rules, is_active, is_bde, tables_mode, tables_enabled")
       .eq("id", eventId)
       .single();
     if (!event || !event.is_active) throw new Error("Event not found or inactive");
@@ -357,14 +358,15 @@ serve(async (req) => {
 
     const discountedDeposit = serverDeposit - validatedDiscount;
     
-    // Service fee: max(0.99€, 4% of deposit)
+    // Service fee: max(floor, 4% of deposit). BDE events get a reduced floor (0.49€ vs 0.99€).
+    const commissionMin = event.is_bde ? YUNO_COMMISSION_MIN_BDE : YUNO_COMMISSION_MIN;
     let serviceFeeBase: number;
     if (discountedDeposit > 0) {
       serviceFeeBase = discountedDeposit * YUNO_COMMISSION_RATE;
     } else {
       serviceFeeBase = (serverTotalPrice / 2) * YUNO_COMMISSION_RATE;
     }
-    const managementFee = Math.round(Math.max(YUNO_COMMISSION_MIN, serviceFeeBase) * 100) / 100;
+    const managementFee = Math.round(Math.max(commissionMin, serviceFeeBase) * 100) / 100;
 
     // Fee absorption (co-event: the CLUB / effectiveVenueId is seller of record).
     // When absorbed, the fan does not pay the management fee on top — it comes out of
@@ -604,6 +606,8 @@ serve(async (req) => {
       grossAmount,
       // In absorb mode the gross no longer contains the commission, so pass it explicitly.
       yunoFeeCentsOverride: feeAbsorbed ? Math.round(managementFee * 100) : undefined,
+      // BDE floor must match the managementFee floor so application_fee == charged fee.
+      isBde: event.is_bde === true,
       event: {
         id: event.id,
         venue_id: event.venue_id,
@@ -626,7 +630,10 @@ serve(async (req) => {
       line_items: [
         // Only add deposit line if there's a deposit to pay
         ...(discountedDeposit > 0 ? [{ price_data: { currency: "eur", product_data: { name: `${pack.name} - ${event.title}` }, unit_amount: Math.round(discountedDeposit * 100) }, quantity: 1 }] : []),
-        { price_data: { currency: "eur", product_data: { name: "Frais de service" }, unit_amount: Math.round(managementFee * 100) }, quantity: 1 },
+        // Fan-facing fee line mirrors `transactionFee`: in absorb mode that's the Stripe
+        // transaction cost (club absorbs the commission via the application_fee override);
+        // in the default path it equals `managementFee`, so this is unchanged.
+        { price_data: { currency: "eur", product_data: { name: "Frais de service" }, unit_amount: Math.round(transactionFee * 100) }, quantity: 1 },
       ],
       mode: "payment",
       success_url: `${origin}/verify-table-payment?session_id={CHECKOUT_SESSION_ID}&reservation_id=${reservation.id}`,

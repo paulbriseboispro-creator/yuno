@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { TicketRound, TableZone, TablePack, TicketSellingMode, getEventSalesStatus, calculateServiceFee } from '@/types/ticketing';
+import { TicketRound, TableZone, TablePack, TicketSellingMode, getEventSalesStatus, customerTransactionFee } from '@/types/ticketing';
+import { useAbsorbYunoFees } from '@/hooks/useAbsorbYunoFees';
 import { EventSalesStatus } from '@/components/ticketing/EventSalesStatus';
 import { EventWaitlistForm } from '@/components/ticketing/EventWaitlistForm';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
@@ -110,7 +111,7 @@ export default function TicketSelection() {
     try {
       const { data: ev, error } = await supabase
         .from('events')
-        .select('title, poster_url, start_at, ticketing_enabled, tables_enabled, venue_id, partner_venue_id, tables_mode, ticket_selling_mode, presale_start_at, public_sale_start_at, waitlist_enabled, max_tickets, rounds_visibility, alcohol_free, max_tickets_per_person, sale_password_enabled')
+        .select('title, poster_url, start_at, ticketing_enabled, tables_enabled, venue_id, partner_venue_id, tables_mode, ticket_selling_mode, presale_start_at, public_sale_start_at, waitlist_enabled, max_tickets, rounds_visibility, alcohol_free, is_bde, max_tickets_per_person, sale_password_enabled')
         .eq('id', eventId)
         .single();
       if (error) throw error;
@@ -127,6 +128,7 @@ export default function TicketSelection() {
         waitlistEnabled: ev.waitlist_enabled || false, maxTickets: ev.max_tickets ?? null,
         roundsVisibility: ((ev as any).rounds_visibility as 'sequential' | 'preview_upcoming' | 'all_open') ?? 'sequential',
         alcoholFree: (ev as any).alcohol_free ?? false,
+        isBde: (ev as any).is_bde ?? false,
         maxTicketsPerPerson: (ev as any).max_tickets_per_person ?? null,
         salePasswordEnabled: (ev as any).sale_password_enabled ?? false,
       };
@@ -428,6 +430,9 @@ export default function TicketSelection() {
     navigate(`/club/${slug}/event/${eventId}/table/${selection.id}?${tableParams.toString()}`);
   };
 
+  // When the club absorbs the Yuno commission, the fan-facing fee line becomes just the
+  // Stripe transaction cost — keep this preview in lockstep with the checkout edge fn.
+  const feeAbsorbed = useAbsorbYunoFees(eventData?.venueId ?? null);
   const total = selection ? selection.price * selection.quantity : 0;
   const totalWithFees = (() => {
     if (total <= 0 || !selection) return 0;
@@ -438,9 +443,9 @@ export default function TicketSelection() {
       } else {
         depositAmount = selection.deposit;
       }
-      return total + calculateServiceFee(depositAmount, 'tables');
+      return total + customerTransactionFee(depositAmount, 'tables', feeAbsorbed, eventData?.isBde ?? false);
     }
-    return total + calculateServiceFee(total, selection.type === 'table' ? 'tables' : 'tickets');
+    return total + customerTransactionFee(total, selection.type === 'table' ? 'tables' : 'tickets', feeAbsorbed, eventData?.isBde ?? false);
   })();
 
   if (loading) {

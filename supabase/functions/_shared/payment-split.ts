@@ -30,6 +30,14 @@ export interface SplitInput {
   };
   /** Optional partnership defaults if event.revenue_split_rules is null */
   partnershipRules?: Record<string, unknown> | null;
+  /**
+   * BDE event (organizer is bde_verified — i.e. events.is_bde). Lowers the Yuno
+   * commission floor on tickets/tables (0.49€ instead of 0.99€); the 4% rate is
+   * unchanged. Must match the floor used to compute the customer-facing serviceFee,
+   * otherwise the application_fee and the charged fee disagree. Ignored when
+   * `yunoFeeCentsOverride` is supplied (fee-absorption mode passes the fee explicitly).
+   */
+  isBde?: boolean;
   /** Stripe account ids resolved by caller */
   venueStripeAccountId?: string | null;
   organizerStripeAccountId?: string | null;
@@ -123,8 +131,8 @@ export function estimateStripeFeeEur(amountEur: number): number {
   return Math.round((amountEur * STRIPE_FEE_PCT + STRIPE_FEE_FIXED_CENTS / 100) * 100) / 100;
 }
 
-function computeYunoFeeCents(itemType: ItemType, grossAmount: number): number {
-  return computeCommissionCents(itemType, grossAmount);
+function computeYunoFeeCents(itemType: ItemType, grossAmount: number, isBde = false): number {
+  return computeCommissionCents(itemType, grossAmount, isBde);
 }
 
 function getSplitForItem(
@@ -163,7 +171,7 @@ export function resolvePaymentSplit(input: SplitInput): SplitResult {
   } = input;
 
   const grossCents = Math.round(grossAmount * 100);
-  const yunoFeeCents = input.yunoFeeCentsOverride ?? computeYunoFeeCents(itemType, grossAmount);
+  const yunoFeeCents = input.yunoFeeCentsOverride ?? computeYunoFeeCents(itemType, grossAmount, input.isBde === true);
   const stripeFeeEstimatedCents = estimateStripeFeeCents(grossCents);
   const netCents = grossCents - yunoFeeCents;
   // Informational only: what a single recipient nets after Yuno commission + the

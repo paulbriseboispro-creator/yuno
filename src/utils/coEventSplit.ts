@@ -30,10 +30,11 @@ export interface ShareResult {
   yuno: number;
 }
 
-/** Yuno fee model — kept in sync with supabase/functions/_shared/payment-split.ts. */
-export function computeYunoFee(type: InvoiceType, gross: number): number {
+/** Yuno fee model — kept in sync with supabase/functions/_shared/commission.ts.
+ *  BDE events (events.is_bde) keep the 4% rate but a reduced 0.49€ floor. */
+export function computeYunoFee(type: InvoiceType, gross: number, isBde = false): number {
   if (type === 'order') return Math.round(gross * 0.03 * 100) / 100;
-  return Math.max(0.99, gross * 0.04);
+  return Math.max(isBde ? 0.49 : 0.99, gross * 0.04);
 }
 
 /** Default split per event mode, mirroring backend defaultSplitForItem(). */
@@ -85,8 +86,9 @@ export function computeShare(
   side: 'venue' | 'organizer',
   rules: any,
   mode: string | null,
+  isBde = false,
 ): ShareResult {
-  const yuno = computeYunoFee(type, amount);
+  const yuno = computeYunoFee(type, amount, isBde);
   const net = amount - yuno;
   const split = getEffectiveSplit(rules, type, mode);
   const pct = side === 'venue' ? split.venue_pct : split.organizer_pct;

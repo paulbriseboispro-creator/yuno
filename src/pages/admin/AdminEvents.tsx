@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Pagination, PaginationContent, PaginationItem, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-import { Search, RefreshCw, CalendarDays, EyeOff, Eye, Ban, Clock, ShieldAlert, type LucideIcon } from 'lucide-react';
+import { Search, RefreshCw, CalendarDays, EyeOff, Eye, Ban, Clock, ShieldAlert, Check, X, type LucideIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -136,6 +136,22 @@ export default function AdminEvents() {
     }
   };
 
+  // BDE publication requests: a BDE event set to "public" lands as discovery_status
+  // 'pending'. Approving makes it discoverable; rejecting keeps it link-only.
+  const handleSetDiscovery = async (ev: EventRow, status: 'approved' | 'rejected') => {
+    setBusyId(ev.id);
+    try {
+      const { error } = await supabase.rpc('admin_set_event_discovery_status', { _event_id: ev.id, _status: status });
+      if (error) throw error;
+      toast.success(status === 'approved' ? 'Publication approuvée' : 'Demande rejetée');
+      refresh();
+    } catch (err: any) {
+      toast.error(err.message || 'Erreur');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const handleCancel = async (ev: EventRow) => {
     if (ev.status === 'cancelled') { toast.info('Événement déjà annulé'); return; }
     if (!window.confirm(`ANNULER « ${ev.title || 'cet événement'} » ?\n\nIl sera retiré du public et marqué annulé. Le remboursement des billets/tables se fait séparément (cf. AUDIT_SUPERADMIN.md).`)) return;
@@ -251,6 +267,30 @@ export default function AdminEvents() {
                       <td className="px-4 py-3"><VisibilityPill ev={ev} /></td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-2">
+                          {ev.discovery_status === 'pending' && ev.status !== 'cancelled' && (
+                            <>
+                              <button
+                                onClick={() => handleSetDiscovery(ev, 'approved')}
+                                disabled={busy}
+                                title="Approuver la publication publique"
+                                className="inline-flex items-center gap-1.5 rounded-lg cursor-pointer transition-all"
+                                style={{ padding: '6px 10px', background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.28)', color: POS, fontSize: 12, fontWeight: 600, opacity: busy ? 0.5 : 1 }}
+                              >
+                                <Check className="h-3.5 w-3.5" />
+                                Approuver
+                              </button>
+                              <button
+                                onClick={() => handleSetDiscovery(ev, 'rejected')}
+                                disabled={busy}
+                                title="Rejeter la demande (l'événement reste accessible par lien)"
+                                className="inline-flex items-center gap-1.5 rounded-lg cursor-pointer transition-all"
+                                style={{ padding: '6px 10px', background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, fontSize: 12, fontWeight: 560, opacity: busy ? 0.5 : 1 }}
+                              >
+                                <X className="h-3.5 w-3.5" />
+                                Rejeter
+                              </button>
+                            </>
+                          )}
                           {ev.status !== 'cancelled' && (
                             <button
                               onClick={() => handleTogglePublish(ev)}
