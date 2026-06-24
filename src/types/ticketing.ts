@@ -216,8 +216,12 @@ export const calculateServiceFee = (
 // fan-facing total on our pages equals what Stripe actually charges.
 export const STRIPE_FEE_PCT = 0.015;
 export const STRIPE_FEE_FIXED = 0.25;
+// Gross-up: the fan must cover Stripe's fee on the TOTAL they pay (item + this fee),
+// not just on the item — otherwise the club is short ~1 cent. Solve F such that
+// (item + F) − stripeFee(item + F) = item  →  F = (item·pct + fixed) / (1 − pct).
+// Always rounded to 2 decimals (the cent).
 export const estimateStripeFee = (amount: number): number =>
-  amount <= 0 ? 0 : Math.round((amount * STRIPE_FEE_PCT + STRIPE_FEE_FIXED) * 100) / 100;
+  amount <= 0 ? 0 : Math.round((amount * STRIPE_FEE_PCT + STRIPE_FEE_FIXED) / (1 - STRIPE_FEE_PCT) * 100) / 100;
 
 /**
  * Customer-facing transaction fee shown before checkout.

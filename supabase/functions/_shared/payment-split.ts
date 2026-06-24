@@ -128,7 +128,11 @@ function estimateStripeFeeCents(grossCents: number): number {
  */
 export function estimateStripeFeeEur(amountEur: number): number {
   if (amountEur <= 0) return 0;
-  return Math.round((amountEur * STRIPE_FEE_PCT + STRIPE_FEE_FIXED_CENTS / 100) * 100) / 100;
+  // Gross-up: the fan must cover Stripe's fee on the TOTAL they pay (item + this fee),
+  // not just on the item — otherwise the club is short ~1 cent. Solve F such that
+  // (item + F) − stripeFee(item + F) = item  →  F = (item·pct + fixed) / (1 − pct).
+  // Always rounded to 2 decimals (the cent).
+  return Math.round((amountEur * STRIPE_FEE_PCT + STRIPE_FEE_FIXED_CENTS / 100) / (1 - STRIPE_FEE_PCT) * 100) / 100;
 }
 
 function computeYunoFeeCents(itemType: ItemType, grossAmount: number, isBde = false): number {
