@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { OwnerHeader } from '@/components/OwnerHeader';
@@ -76,6 +76,11 @@ export default function OwnerCollabEventDashboard() {
   const { t, language } = useLanguage();
   const tt = (frv: string, en: string, es?: string) => translate(language, frv, en, es);
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  // Legacy deep-links from the collaborations hub (?tab=tickets|tables|guestlist|
+  // invoices|scans|promoters) used to open a dedicated tab. The vitrine folds all
+  // operational data into one drawer — honor those links by opening it on arrival.
+  const opsDeepLink = ['tickets', 'tables', 'guestlist', 'invoices', 'scans', 'promoters'].includes(params.get('tab') ?? '');
 
   const [event, setEvent] = useState<EventData | null>(null);
   const [organizer, setOrganizer] = useState<PartnerProfile | null>(null);
@@ -334,7 +339,7 @@ export default function OwnerCollabEventDashboard() {
         <CollabConversionClose venueName={myVenue?.name} phase={phase} />
 
         {/* ── DETAILS — all operational tables behind one drawer ───────────── */}
-        <DetailsDrawer eventId={event.id} isPartnerVenue={isPartnerVenue} />
+        <DetailsDrawer eventId={event.id} isPartnerVenue={isPartnerVenue} initialOpen={opsDeepLink} />
       </div>
     </div>
   );
@@ -486,10 +491,10 @@ function SplitContractView({ rules }: { rules: any }) {
 /* =========================================================================
  * DETAILS DRAWER — every operational table behind one toggle
  * ========================================================================= */
-function DetailsDrawer({ eventId, isPartnerVenue }: { eventId: string; isPartnerVenue: boolean }) {
+function DetailsDrawer({ eventId, isPartnerVenue, initialOpen = false }: { eventId: string; isPartnerVenue: boolean; initialOpen?: boolean }) {
   const { language } = useLanguage();
   const tt = (frv: string, en: string, es?: string) => translate(language, frv, en, es);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen);
 
   return (
     <div className="space-y-3">
