@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
-import { ArrowLeft, Copy, ExternalLink, Ticket, BarChart3, ScanLine, AlertCircle, CreditCard, Sparkles, Radio, Loader2 } from 'lucide-react';
+import { ArrowLeft, Copy, ExternalLink, Ticket, BarChart3, ScanLine, AlertCircle, CreditCard, Sparkles, Radio, Loader2, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { useOrganizerStripe } from '@/hooks/useOrganizerStripe';
 import { SplitContractBanner } from '@/components/SplitContractBanner';
@@ -127,13 +127,22 @@ export default function OrgAppEventDetail() {
           <div className="p-6">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <h2 style={{ color: T1, fontSize: 16, fontWeight: 600 }}>{t('Billetterie', 'Ticketing')}</h2>
-              {(stripeLoading || canSell) && (
+              {event.event_mode !== 'org_hosted' && (stripeLoading || canSell) && (
                 <OrgButton size="sm" variant="primary" onClick={() => navigate('/organizer-app/ticketing')}>
                   <Ticket className="h-4 w-4" />{t('Gérer la billetterie', 'Manage ticketing')}
                 </OrgButton>
               )}
             </div>
-            {!stripeLoading && !canSell ? (
+            {event.event_mode === 'org_hosted' ? (
+              <p className="flex items-start gap-2" style={{ color: T3, fontSize: 13 }}>
+                <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+                {t(
+                  'Sur cette soirée, le club gère seul la billetterie. Vous vous concentrez sur le marketing et le partage.',
+                  'For this event the club alone manages ticketing. You focus on marketing and sharing.',
+                  'En esta noche, el club gestiona solo la venta de entradas. Tú te enfocas en el marketing y la difusión.',
+                )}
+              </p>
+            ) : !stripeLoading && !canSell ? (
               <div className="space-y-3 rounded-xl p-4" style={{ background: 'rgba(232,25,44,0.06)', border: '1px solid rgba(232,25,44,0.22)' }}>
                 <div className="flex items-start gap-2">
                   <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" style={{ color: RED }} />

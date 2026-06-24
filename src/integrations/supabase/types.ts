@@ -3371,6 +3371,72 @@ export type Database = {
         }
         Relationships: []
       }
+      event_collab_action_requests: {
+        Row: {
+          action: string
+          created_at: string
+          event_id: string
+          id: string
+          organizer_approved: boolean
+          organizer_user_id: string
+          requested_by: string
+          requested_by_role: string
+          resolved_at: string | null
+          scheduled_for: string | null
+          status: string
+          updated_at: string
+          venue_approved: boolean
+          venue_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          event_id: string
+          id?: string
+          organizer_approved?: boolean
+          organizer_user_id: string
+          requested_by: string
+          requested_by_role: string
+          resolved_at?: string | null
+          scheduled_for?: string | null
+          status?: string
+          updated_at?: string
+          venue_approved?: boolean
+          venue_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          organizer_approved?: boolean
+          organizer_user_id?: string
+          requested_by?: string
+          requested_by_role?: string
+          resolved_at?: string | null
+          scheduled_for?: string | null
+          status?: string
+          updated_at?: string
+          venue_approved?: boolean
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_collab_action_requests_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_collab_action_requests_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_collab_contracts: {
         Row: {
           auto_release_at: string | null
@@ -3943,6 +4009,7 @@ export type Database = {
           start_at: string
           status: string
           tables_enabled: boolean
+          tables_locked_to_venue: boolean
           tables_mode: string | null
           tables_owner_user_id: string | null
           ticket_selling_mode: string | null
@@ -4006,6 +4073,7 @@ export type Database = {
           start_at: string
           status?: string
           tables_enabled?: boolean
+          tables_locked_to_venue?: boolean
           tables_mode?: string | null
           tables_owner_user_id?: string | null
           ticket_selling_mode?: string | null
@@ -4069,6 +4137,7 @@ export type Database = {
           start_at?: string
           status?: string
           tables_enabled?: boolean
+          tables_locked_to_venue?: boolean
           tables_mode?: string | null
           tables_owner_user_id?: string | null
           ticket_selling_mode?: string | null
@@ -11501,6 +11570,10 @@ export type Database = {
         }
         Returns: string
       }
+      _execute_event_collab_action: {
+        Args: { p_request_id: string }
+        Returns: undefined
+      }
       _insert_recurring_rounds: {
         Args: {
           p_event_id: string
@@ -11588,6 +11661,14 @@ export type Database = {
       advance_dj_contracts_after_onboarding: {
         Args: { p_user_id: string }
         Returns: undefined
+      }
+      amend_event_collab_contract: {
+        Args: {
+          p_cancellation_policy?: string
+          p_contract_id: string
+          p_split_rules: Json
+        }
+        Returns: string
       }
       archive_expired_event_orders: { Args: never; Returns: undefined }
       auto_finalize_leaderboard_contests: { Args: never; Returns: number }
@@ -11778,6 +11859,10 @@ export type Database = {
       dj_revoke_team_invitation: { Args: { p_id: string }; Returns: Json }
       dj_team_owner_ids: { Args: never; Returns: string[] }
       dj_user_from_slug: { Args: { p_slug: string }; Returns: string }
+      enable_collab_basic_tables: {
+        Args: { p_event_id: string }
+        Returns: undefined
+      }
       event_audience_demographics: {
         Args: {
           p_event_id?: string
@@ -12011,6 +12096,35 @@ export type Database = {
         }[]
       }
       get_owner_venue_ids: { Args: { _owner_id: string }; Returns: string[] }
+      get_partner_venue_ticket_presets: {
+        Args: { p_event_id: string }
+        Returns: {
+          created_at: string
+          drink_cutoff_time: string | null
+          drink_deadline_hours: number | null
+          drink_deadline_type: string | null
+          id: string
+          includes_drink: boolean | null
+          name: string
+          organizer_user_id: string | null
+          rounds: Json
+          selling_mode: string | null
+          ticket_type: string
+          total_capacity: number
+          updated_at: string
+          venue_id: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "ticket_presets"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_platform_audience_stats: {
+        Args: { p_from: string; p_to: string; p_venue_id?: string }
+        Returns: Json
+      }
       get_public_favorite_count: {
         Args: {
           _dj_id?: string
@@ -12224,6 +12338,22 @@ export type Database = {
         Returns: boolean
       }
       normalize_split_rules: { Args: { rules: Json }; Returns: Json }
+      notify_collab_party: {
+        Args: {
+          p_event_id: string
+          p_message: string
+          p_metadata: Json
+          p_organizer_user_id: string
+          p_priority: string
+          p_recipient_role: string
+          p_reference_id: string
+          p_reference_type: string
+          p_title: string
+          p_type: string
+          p_venue_id: string
+        }
+        Returns: undefined
+      }
       org_member_has_permission: {
         Args: {
           _organizer_user_id: string
@@ -12265,6 +12395,7 @@ export type Database = {
           scope_name: string
         }[]
       }
+      process_due_collab_actions: { Args: never; Returns: undefined }
       purge_expired_personal_data: { Args: never; Returns: undefined }
       recalc_all_leaderboards: { Args: never; Returns: number }
       record_promoter_conversion: {
@@ -12306,6 +12437,10 @@ export type Database = {
       release_pack_credit: {
         Args: { p_amount: number; p_credit_id: string }
         Returns: undefined
+      }
+      request_event_collab_action: {
+        Args: { p_action: string; p_event_id: string }
+        Returns: string
       }
       reserve_table_slot: {
         Args: {
@@ -12375,6 +12510,10 @@ export type Database = {
       }
       resolve_venue_customer: {
         Args: { p_email: string; p_user_id: string; p_venue_id: string }
+        Returns: string
+      }
+      respond_event_collab_action: {
+        Args: { p_approve: boolean; p_request_id: string }
         Returns: string
       }
       search_djs_marketplace: {

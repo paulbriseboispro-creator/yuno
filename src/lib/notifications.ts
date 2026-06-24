@@ -60,6 +60,8 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   collab_action_done:      { icon: Calendar,      category: 'people', label: 'notif.type.collab_action_done' },
   collab_action_rejected:  { icon: AlertCircle,   category: 'people', label: 'notif.type.collab_action_rejected' },
   collab_message:          { icon: MessageSquare, category: 'people', label: 'notif.type.collab_message' },
+  collab_tables_online:    { icon: Crown,          category: 'people', label: 'notif.type.collab_tables_online' },
+  collab_tickets_online:   { icon: Ticket,         category: 'people', label: 'notif.type.collab_tickets_online' },
   connection_accepted: { icon: UserCheck, category: 'people', label: 'notif.type.connection_accepted' },
   staff_login:         { icon: Users,     category: 'people', label: 'notif.type.staff_login' },
   favorite_added:      { icon: Heart,     category: 'people', label: 'notif.type.favorite_added' },
@@ -186,6 +188,15 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
     case 'collab_message':
       if (isOwner) return eventId ? `/owner/collab/event/${eventId}` : '/owner/collaborations';
       if (isOrganizer) return `${basePath}/collaborations`;
+      return null;
+
+    // Co-event ops going live (tables / ticketing). Point each party straight at
+    // the relevant event surface: owners to the per-event collab dashboard,
+    // organizers to their event detail page.
+    case 'collab_tables_online':
+    case 'collab_tickets_online':
+      if (isOwner) return eventId ? `/owner/collab/event/${eventId}` : '/owner/collaborations';
+      if (isOrganizer) return eventId ? `${basePath}/events/${eventId}` : `${basePath}/collaborations`;
       return null;
 
     // Account-level partnerships.

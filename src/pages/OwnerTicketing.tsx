@@ -73,6 +73,9 @@ export default function OwnerTicketing() {
   const [wizardStep, setWizardStep] = useState<1 | 2 | 2.5 | 3>(1);
   const [wizardSellingMode, setWizardSellingMode] = useState<TicketSellingMode | null>(null);
   const [wizardEventId, setWizardEventId] = useState<string | null>(null);
+  // Co-event only: the partner club's ticket templates, merged into the wizard's
+  // preset picker so the organizer can copy one instead of building from scratch.
+  const [clubPresets, setClubPresets] = useState<TicketPreset[]>([]);
   const [wizardSelectedPresets, setWizardSelectedPresets] = useState<{ standard?: string; vip?: string }>({});
   const [wizardSalesDraft, setWizardSalesDraft] = useState<SalesDraft>({ mode: 'normal', presaleStartAt: '', publicSaleStartAt: '', waitlistEnabled: false });
   const [wizardModeChange, setWizardModeChange] = useState(false);
@@ -306,6 +309,36 @@ export default function OwnerTicketing() {
     }
   };
 
+  // Co-event: pull the partner club's venue templates so the organizer can copy
+  // one. Empty for solo events (the RPC returns nothing without a partner venue).
+  // Names get a 🏛 marker so they read as the club's templates in the picker.
+  const fetchClubPresetsForEvent = async (eventId: string) => {
+    if (!isOrganizerScope) { setClubPresets([]); return; }
+    try {
+      const { data, error } = await supabase.rpc('get_partner_venue_ticket_presets', { p_event_id: eventId });
+      if (error) throw error;
+      const mapped: TicketPreset[] = (data || []).map(p => ({
+        id: p.id,
+        venueId: p.venue_id,
+        name: `🏛 ${p.name}`,
+        totalCapacity: p.total_capacity,
+        rounds: (p.rounds as unknown as PresetRound[]) || [],
+        ticketType: (p.ticket_type as TicketType) || 'standard',
+        sellingMode: (p.selling_mode as PresetSellingMode) || 'rounds',
+        includesDrink: p.includes_drink ?? false,
+        drinkDeadlineType: (p.drink_deadline_type as 'hours_after_start' | 'fixed_time') ?? 'fixed_time',
+        drinkDeadlineHours: p.drink_deadline_hours ?? 2,
+        drinkCutoffTime: p.drink_cutoff_time ?? '02:00',
+        createdAt: p.created_at,
+        updatedAt: p.updated_at,
+      }));
+      setClubPresets(mapped);
+    } catch (error) {
+      console.error('Error fetching club presets:', error);
+      setClubPresets([]);
+    }
+  };
+
   const fetchTicketRounds = async (eventId: string) => {
     const { data, error } = await supabase
       .from('ticket_rounds')
@@ -501,6 +534,7 @@ export default function OwnerTicketing() {
         setWizardSelectedPresets({});
         setWizardCustomRounds([]);
         setWizardSalesDraft({ mode: 'normal', presaleStartAt: '', publicSaleStartAt: '', waitlistEnabled: false });
+        fetchClubPresetsForEvent(event.id);
         setIsActivationWizardOpen(true);
         return;
       }
@@ -525,11 +559,12 @@ export default function OwnerTicketing() {
   const handleWizardApplyModeChange = async () => {
     if (!wizardEventId) return;
     try {
+      const presetPool = clubPresets.length > 0 ? [...presets, ...clubPresets] : presets;
       // Update selling mode + global capacity
       const updateData: TablesUpdate<'events'> = { ticket_selling_mode: wizardSellingMode };
       if (wizardSellingMode === 'simple') {
         const selectedPresetId = wizardSelectedPresets.standard || wizardSelectedPresets.vip;
-        const selectedPreset = selectedPresetId ? presets.find(p => p.id === selectedPresetId) : null;
+        const selectedPreset = selectedPresetId ? presetPool.find(p => p.id === selectedPresetId) : null;
         if (selectedPreset?.totalCapacity) {
           updateData.max_tickets = selectedPreset.totalCapacity;
         }
@@ -548,7 +583,7 @@ export default function OwnerTicketing() {
         for (const type of ['standard', 'vip'] as const) {
           const presetId = wizardSelectedPresets[type];
           if (presetId) {
-            const preset = presets.find(p => p.id === presetId);
+            const preset = presetPool.find(p => p.id === presetId);
             if (preset) {
               await handleApplyPreset(preset, event);
             }
@@ -572,6 +607,9 @@ export default function OwnerTicketing() {
     if (!wizardEventId) return;
 
     try {
+      // Resolve selected ids against the same pool the wizard rendered — includes
+      // the partner club's templates for a co-event, otherwise a club pick no-ops.
+      const presetPool = clubPresets.length > 0 ? [...presets, ...clubPresets] : presets;
       const hasSelectedPreset = !!(wizardSelectedPresets.standard || wizardSelectedPresets.vip);
       const validCustomRounds = wizardCustomRounds.filter(
         r => r.name.trim() && r.price.trim() && (wizardSellingMode === 'simple' || r.maxTickets.trim()),
@@ -582,7 +620,7 @@ export default function OwnerTicketing() {
       const updateData: TablesUpdate<'events'> = { ticket_selling_mode: wizardSellingMode };
       if (wizardSellingMode === 'simple') {
         const selectedPresetId = wizardSelectedPresets.standard || wizardSelectedPresets.vip;
-        const selectedPreset = selectedPresetId ? presets.find(p => p.id === selectedPresetId) : null;
+        const selectedPreset = selectedPresetId ? presetPool.find(p => p.id === selectedPresetId) : null;
         if (selectedPreset?.totalCapacity) {
           updateData.max_tickets = selectedPreset.totalCapacity;
         } else if (usingCustomRounds) {
@@ -599,7 +637,7 @@ export default function OwnerTicketing() {
         for (const type of ['standard', 'vip'] as const) {
           const presetId = wizardSelectedPresets[type];
           if (presetId) {
-            const preset = presets.find(p => p.id === presetId);
+            const preset = presetPool.find(p => p.id === presetId);
             if (preset) {
               await handleApplyPreset(preset, event);
             }
@@ -673,6 +711,7 @@ export default function OwnerTicketing() {
     setWizardSelectedPresets({});
     setWizardModeChange(true);
     setWizardStep(2);
+    fetchClubPresetsForEvent(event.id);
     setIsActivationWizardOpen(true);
   };
 
@@ -1645,7 +1684,7 @@ export default function OwnerTicketing() {
           setWizardCustomRounds={setWizardCustomRounds}
           wizardSalesDraft={wizardSalesDraft}
           setWizardSalesDraft={setWizardSalesDraft}
-          presets={presets}
+          presets={clubPresets.length > 0 ? [...presets, ...clubPresets] : presets}
           handleWizardApplyModeChange={handleWizardApplyModeChange}
           handleWizardPublish={handleWizardPublish}
         />
