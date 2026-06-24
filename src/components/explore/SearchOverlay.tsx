@@ -273,7 +273,10 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
       // ── Build event queries ──────────────────────────────────
       // Helper to apply common constraints to an event query
       const applyEventConstraints = (baseQ: any) => {
-        let q2 = baseQ.eq('is_active', true);
+        // BDE soirées are private by default and must never surface in public search.
+        // Non-BDE events keep their current behavior; BDE events appear only once a
+        // super admin has approved them (is_discoverable = true), like in Explore.
+        let q2 = baseQ.eq('is_active', true).or('is_bde.eq.false,is_discoverable.eq.true');
         if (dateRange) {
           q2 = q2.gte('start_at', dateRange.start).lte('start_at', dateRange.end);
         } else {
@@ -422,6 +425,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
               .from('organizer_profiles')
               .select('user_id, display_name, avatar_url, slug')
               .eq('is_public', true)
+              .eq('bde_verified', false) // BDE accounts stay private — never in public search
               .ilike('display_name', searchTerm)
               .limit(5)
           : Promise.resolve({ data: [] }),
