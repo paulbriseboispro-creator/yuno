@@ -7,8 +7,9 @@ import {
   LineChart, Line, PieChart, Pie, Cell,
 } from 'recharts';
 import { motion } from 'framer-motion';
-import { DollarSign, Zap, Activity, TrendingUp, Ticket, Crown, ShoppingBag, CreditCard, BarChart3, Building2, type LucideIcon } from 'lucide-react';
+import { DollarSign, Zap, Activity, TrendingUp, Ticket, Crown, ShoppingBag, CreditCard, BarChart3, Building2, Users, Clock, Gauge, TrendingDown, Smartphone, Tablet, Monitor, Repeat, MapPin, Share2, Percent, CalendarClock, type LucideIcon } from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
+import { Heatmap, DeviceBar } from '@/components/analytics/behaviorPrimitives';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED        = '#E8192C';
@@ -30,6 +31,18 @@ const PIE_PALETTE = [RED, '#F59E0B', '#818CF8'] as const;
 const AXIS_TICK = { fill: 'rgba(255,255,255,0.36)', fontSize: 10.5 } as const;
 
 interface Venue { id: string; name: string; }
+
+interface AudienceStats {
+  funnel: { visitors: number; carts: number; checkouts: number; conversions: number };
+  engagement: { unique_visitors: number; avg_duration_s: number; avg_scroll: number; bounce_count: number; returning_count: number; abandoned_carts: number; abandoned_value_cents: number };
+  devices: { mobile: number; tablet: number; desktop: number; mobile_conv: number; tablet_conv: number; desktop_conv: number };
+  sources: { referrer_category: string; visits: number; conversions: number }[];
+  top_campaigns: { utm_campaign: string; utm_source: string | null; visits: number; conversions: number }[];
+  entry_pages: { entry_page_type: string; visits: number; conversions: number }[];
+  new_vs_returning: { new_visits: number; new_conv: number; returning_visits: number; returning_conv: number };
+  trend: { day: string; visits: number; conversions: number }[];
+  heatmap: { dow: number; hour: number; count: number }[];
+}
 
 // ─── Card primitives ──────────────────────────────────────────────────────────
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -152,8 +165,106 @@ function ChartLegend({ items }: { items: { name: string; color: string }[] }) {
   );
 }
 
+// ─── Funnel with step-to-step drop-off ────────────────────────────────────────
+function FunnelView({ funnel, t }: { funnel: AudienceStats['funnel']; t: (k: string) => string }) {
+  const steps = [
+    { label: t('adminAnalytics.visitors'), value: funnel.visitors },
+    { label: t('adminAnalytics.addToCart'), value: funnel.carts },
+    { label: t('adminAnalytics.checkout'), value: funnel.checkouts },
+    { label: t('adminAnalytics.ordered'), value: funnel.conversions },
+  ];
+  const top = steps[0].value || 1;
+  const transitions = steps.slice(1).map((s, i) => {
+    const prev = steps[i].value;
+    const dropPct = prev > 0 ? ((prev - s.value) / prev) * 100 : 0;
+    return { idx: i + 1, from: steps[i].label, to: s.label, dropPct };
+  });
+  const worst = transitions.length
+    ? transitions.reduce((a, b) => (b.dropPct > a.dropPct ? b : a))
+    : null;
+
+  return (
+    <div className="space-y-4">
+      {worst && worst.dropPct > 0 && (
+        <div
+          className="flex items-center gap-2.5 rounded-xl px-3.5 py-2.5"
+          style={{ background: 'linear-gradient(135deg,rgba(232,25,44,0.14),rgba(232,25,44,0.04))', border: '1px solid rgba(232,25,44,0.24)' }}
+        >
+          <TrendingDown className="h-4 w-4 flex-none" style={{ color: RED }} />
+          <span style={{ color: T2, fontSize: 12.5 }}>
+            {t('adminAnalytics.biggestLeak')}:{' '}
+            <span style={{ color: T1, fontWeight: 600 }}>{worst.from} → {worst.to}</span>
+          </span>
+          <span className="tabular-nums ml-auto" style={{ color: RED, fontWeight: 700, fontSize: 14 }}>
+            −{worst.dropPct.toFixed(0)}%
+          </span>
+        </div>
+      )}
+      {steps.map((step, i) => {
+        const widthPct = ((step.value / top) * 100).toFixed(0);
+        const ofVisitors = top > 0 ? ((step.value / top) * 100).toFixed(0) : '0';
+        const tr = i > 0 ? transitions[i - 1] : null;
+        const isWorst = worst && tr && tr.idx === worst.idx;
+        return (
+          <div key={step.label} className="space-y-1.5">
+            <div className="flex items-center justify-between" style={{ fontSize: 13 }}>
+              <span style={{ color: T2 }}>{step.label}</span>
+              <span className="flex items-center gap-2">
+                {tr && tr.dropPct > 0 && (
+                  <span
+                    className="tabular-nums rounded-md px-1.5 py-0.5"
+                    title={t('adminAnalytics.vsPrevStep')}
+                    style={{
+                      fontSize: 10.5, fontWeight: 600,
+                      color: isWorst ? RED : T3,
+                      background: isWorst ? 'rgba(232,25,44,0.12)' : 'rgba(255,255,255,0.05)',
+                    }}
+                  >
+                    −{tr.dropPct.toFixed(0)}%
+                  </span>
+                )}
+                <span className="tabular-nums" style={{ color: T1, fontWeight: 600 }}>
+                  {step.value.toLocaleString()} <span style={{ color: T3, fontWeight: 400 }}>({ofVisitors}%)</span>
+                </span>
+              </span>
+            </div>
+            <div className="h-3 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${widthPct}%`, background: 'linear-gradient(90deg, rgba(232,25,44,0.75), rgba(232,25,44,0.35))' }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Horizontal labeled bar (sources / entry pages) ────────────────────────────
+function BarRow({ label, value, max, conv, accent }: { label: string; value: number; max: number; conv?: string; accent?: boolean }) {
+  const pct = max > 0 ? (value / max) * 100 : 0;
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between" style={{ fontSize: 12.5 }}>
+        <span className="truncate pr-2" style={{ color: T2 }}>{label}</span>
+        <span className="tabular-nums flex-none" style={{ color: T1 }}>
+          {value.toLocaleString()}
+          {conv !== undefined && <span style={{ color: T3 }}> · {conv}</span>}
+        </span>
+      </div>
+      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+        <div
+          className="h-full rounded-full transition-all duration-700"
+          style={{ width: `${pct}%`, background: accent ? 'linear-gradient(90deg, rgba(232,25,44,0.8), rgba(232,25,44,0.4))' : 'rgba(255,255,255,0.28)' }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function AdminAnalytics() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const uid = useId().replace(/:/g, '');
   const [venues, setVenues] = useState<Venue[]>([]);
   const [selectedVenue, setSelectedVenue] = useState<string>('all');
@@ -161,7 +272,7 @@ export default function AdminAnalytics() {
   const [loading, setLoading] = useState(true);
   const [dailyData, setDailyData] = useState<{ date: string; drinks: number; tickets: number; tables: number; total: number; drinkOrders: number; ticketOrders: number; tableOrders: number }[]>([]);
   const [venueComparison, setVenueComparison] = useState<{ name: string; revenue: number }[]>([]);
-  const [conversionData, setConversionData] = useState<{ name: string; value: number }[]>([]);
+  const [audience, setAudience] = useState<AudienceStats | null>(null);
   const [pieData, setPieData] = useState<{ name: string; value: number }[]>([]);
   const [kpiData, setKpiData] = useState({ totalRevenue: 0, yunoRevenue: 0, totalTransactions: 0, conversionRate: '0', ticketsSold: 0, tablesBooked: 0, avgOrder: 0, activeSubscriptions: 0 });
 
@@ -204,10 +315,16 @@ export default function AdminAnalytics() {
         ? (allTables || []).filter(t => eventVenueMap.get(t.event_id) === selectedVenue)
         : allTables || [];
 
-      // Visitors
-      let visitorsQ = supabase.from('visitor_sessions').select('venue_id, added_to_cart, proceeded_to_checkout, completed_order').gte('created_at', startDate).lte('created_at', endDate);
-      if (selectedVenue !== 'all') visitorsQ = visitorsQ.eq('venue_id', selectedVenue);
-      const { data: visitors } = await visitorsQ;
+      // Audience / behavior — server-side aggregation across all sessions
+      // (bypasses the 10k client cap + per-row RLS; gated on super-admin).
+      const { data: audienceData, error: audErr } = await supabase.rpc('get_platform_audience_stats' as any, {
+        p_from: startDate,
+        p_to: endDate,
+        p_venue_id: selectedVenue === 'all' ? null : selectedVenue,
+      });
+      if (audErr) console.warn('[AdminAnalytics] audience stats error', audErr);
+      const aud = (audienceData as AudienceStats | null) ?? null;
+      setAudience(aud);
 
       // Subscriptions
       const { count: subsCount } = await supabase.from('venue_subscriptions').select('id', { count: 'exact', head: true }).in('status', ['active', 'trialing']);
@@ -254,9 +371,8 @@ export default function AdminAnalytics() {
       const totalTransactions = (orders || []).length + ticketsData.length + tablesData.length;
       const avgOrder = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
 
-      const visitorsList = visitors || [];
-      const totalVisitors = visitorsList.length;
-      const completed = visitorsList.filter(v => v.completed_order).length;
+      const totalVisitors = aud?.funnel.visitors ?? 0;
+      const completed = aud?.funnel.conversions ?? 0;
       const conversionRate = totalVisitors > 0 ? ((completed / totalVisitors) * 100).toFixed(1) : '0';
 
       setKpiData({ totalRevenue, yunoRevenue, totalTransactions, conversionRate, ticketsSold: ticketsData.length, tablesBooked: tablesData.length, avgOrder, activeSubscriptions: subsCount || 0 });
@@ -267,14 +383,6 @@ export default function AdminAnalytics() {
         { name: t('adminAnalytics.tickets'), value: ticketTotal },
         { name: t('adminAnalytics.tables'), value: tableTotal },
       ].filter(d => d.value > 0));
-
-      // Conversion funnel
-      setConversionData([
-        { name: t('adminAnalytics.visitors'), value: totalVisitors },
-        { name: t('adminAnalytics.addToCart'), value: visitorsList.filter(v => v.added_to_cart).length },
-        { name: t('adminAnalytics.checkout'), value: visitorsList.filter(v => v.proceeded_to_checkout).length },
-        { name: t('adminAnalytics.ordered'), value: completed },
-      ]);
 
       // Venue comparison
       if (selectedVenue === 'all') {
@@ -310,6 +418,29 @@ export default function AdminAnalytics() {
   const ticketsColor = '#818CF8';
   const tablesColor = '#F59E0B';
   const totalColor = C_HI;
+
+  // ─── Audience-derived values ─────────────────────────────────────────────────
+  const hasAudience = !!audience && audience.funnel.visitors > 0;
+  const fmtDur = (s: number) => `${Math.floor(s / 60)}m ${s % 60}s`;
+  const convPct = (conv: number, v: number) => (v > 0 ? `${((conv / v) * 100).toFixed(1)}%` : '0%');
+  const SRC_KEYS = new Set(['direct', 'social', 'search', 'qr', 'email', 'paid', 'affiliate', 'referral', 'unknown']);
+  const srcLabel = (c: string) => (SRC_KEYS.has(c) ? t(`adminAnalytics.src_${c}`) : c);
+  const entryLabel = (c: string) => (c === 'unknown' ? t('adminAnalytics.other') : c.charAt(0).toUpperCase() + c.slice(1));
+  const bounceRate = audience && audience.funnel.visitors > 0
+    ? Math.round((audience.engagement.bounce_count / audience.funnel.visitors) * 100)
+    : 0;
+  const devTotal = audience ? audience.devices.mobile + audience.devices.tablet + audience.devices.desktop : 0;
+  const srcMax = Math.max(1, ...(audience?.sources ?? []).map(s => s.visits));
+  const entryMax = Math.max(1, ...(audience?.entry_pages ?? []).map(s => s.visits));
+  const trendData = (audience?.trend ?? []).map(p => ({
+    date: `${p.day.slice(8, 10)}/${p.day.slice(5, 7)}`,
+    rate: p.visits > 0 ? Number(((p.conversions / p.visits) * 100).toFixed(2)) : 0,
+  }));
+  const heatMatrix: number[][] = Array(7).fill(0).map(() => Array(24).fill(0));
+  (audience?.heatmap ?? []).forEach(h => {
+    const d = (h.dow + 6) % 7;
+    if (heatMatrix[d] && h.hour >= 0 && h.hour < 24) heatMatrix[d][h.hour] = h.count;
+  });
 
   return (
     <div className="min-h-screen pb-16" style={{ background: '#000' }}>
@@ -448,30 +579,144 @@ export default function AdminAnalytics() {
               </Card>
             </div>
 
-            {/* Conversion funnel */}
-            <Card>
-              <CardTitle icon={Activity}>{t('adminAnalytics.conversionFunnel')}</CardTitle>
-              <div className="space-y-4">
-                {conversionData.map((item, index) => {
-                  const maxValue = conversionData[0]?.value || 1;
-                  const percentage = ((item.value / maxValue) * 100).toFixed(0);
-                  return (
-                    <div key={item.name} className="space-y-1.5">
-                      <div className="flex justify-between" style={{ fontSize: 13 }}>
-                        <span style={{ color: T2 }}>{item.name}</span>
-                        <span className="tabular-nums" style={{ color: T1, fontWeight: 600 }}>{item.value} <span style={{ color: T3, fontWeight: 400 }}>({percentage}%)</span></span>
-                      </div>
-                      <div className="h-3 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                        <div
-                          className="h-full rounded-full transition-all duration-700"
-                          style={{ width: `${percentage}%`, background: `linear-gradient(90deg, rgba(232,25,44,0.75), rgba(232,25,44,0.35))` }}
+            {/* ───── Audience & behavior ───── */}
+            <div className="flex items-center gap-3 pt-2">
+              <Users className="h-4 w-4" style={{ color: T2 }} />
+              <h2 style={{ color: T1, fontSize: 16, fontWeight: 650, letterSpacing: '-0.02em' }}>{t('adminAnalytics.audience')}</h2>
+              <div className="flex-1 h-px" style={{ background: BORDER }} />
+            </div>
+
+            {!hasAudience ? (
+              <Card>
+                <div className="text-center py-8">
+                  <Activity className="h-9 w-9 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.12)' }} />
+                  <p className="text-xs" style={{ color: T3 }}>{t('adminAnalytics.noVisitorData')}</p>
+                </div>
+              </Card>
+            ) : (
+              <>
+                {/* Conversion funnel with step-to-step drop-off */}
+                <Card>
+                  <CardTitle icon={Activity} sub={t('adminAnalytics.funnelSub')}>{t('adminAnalytics.conversionFunnel')}</CardTitle>
+                  <FunnelView funnel={audience!.funnel} t={t} />
+                </Card>
+
+                {/* Engagement tiles */}
+                <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+                  <StatCard label={t('adminAnalytics.uniqueVisitors')} value={audience!.engagement.unique_visitors.toLocaleString()} icon={Users} />
+                  <StatCard label={t('adminAnalytics.avgDuration')} value={fmtDur(audience!.engagement.avg_duration_s)} icon={Clock} />
+                  <StatCard label={t('adminAnalytics.avgScroll')} value={`${audience!.engagement.avg_scroll}%`} icon={Gauge} />
+                  <StatCard label={t('adminAnalytics.bounceRate')} value={`${bounceRate}%`} icon={TrendingDown} />
+                </div>
+
+                {/* Conversion rate over time */}
+                <Card>
+                  <CardTitle icon={Percent}>{t('adminAnalytics.conversionTrend')}</CardTitle>
+                  <div style={{ width: '100%', height: 220 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={trendData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.055)" />
+                        <XAxis dataKey="date" axisLine={false} tickLine={false} tickMargin={8} tick={AXIS_TICK} />
+                        <YAxis hide domain={[0, 'auto']} />
+                        <Tooltip content={<CountTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.08)', strokeWidth: 1 }} />
+                        <Line type="monotone" dataKey="rate" name={t('adminAnalytics.conversionRate')} stroke={RED} strokeWidth={2.5} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </Card>
+
+                <div className="grid gap-6 lg:grid-cols-2">
+                  {/* Traffic sources */}
+                  <Card>
+                    <CardTitle icon={Share2}>{t('adminAnalytics.trafficSources')}</CardTitle>
+                    <div className="space-y-3">
+                      {audience!.sources.map(s => (
+                        <BarRow
+                          key={s.referrer_category}
+                          label={srcLabel(s.referrer_category)}
+                          value={s.visits}
+                          max={srcMax}
+                          conv={`${convPct(s.conversions, s.visits)} ${t('adminAnalytics.convShort')}`}
+                          accent
                         />
-                      </div>
+                      ))}
                     </div>
-                  );
-                })}
-              </div>
-            </Card>
+                    {audience!.top_campaigns.length > 0 && (
+                      <div className="mt-5 pt-4" style={{ borderTop: `1px solid ${F_BORDER}` }}>
+                        <p className="text-[10px] uppercase tracking-wider mb-2.5" style={{ color: T3 }}>{t('adminAnalytics.topCampaigns')}</p>
+                        <div className="space-y-2">
+                          {audience!.top_campaigns.map(c => (
+                            <div key={c.utm_campaign} className="flex items-center justify-between" style={{ fontSize: 12 }}>
+                              <span className="truncate pr-2" style={{ color: T2 }}>{c.utm_campaign}{c.utm_source ? <span style={{ color: T3 }}> · {c.utm_source}</span> : null}</span>
+                              <span className="tabular-nums flex-none" style={{ color: T1 }}>{c.visits.toLocaleString()} <span style={{ color: T3 }}>· {convPct(c.conversions, c.visits)}</span></span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </Card>
+
+                  {/* Entry pages */}
+                  <Card>
+                    <CardTitle icon={MapPin} sub={t('adminAnalytics.entryPagesSub')}>{t('adminAnalytics.entryPages')}</CardTitle>
+                    <div className="space-y-3">
+                      {audience!.entry_pages.map(e => (
+                        <BarRow
+                          key={e.entry_page_type}
+                          label={entryLabel(e.entry_page_type)}
+                          value={e.visits}
+                          max={entryMax}
+                          conv={`${convPct(e.conversions, e.visits)} ${t('adminAnalytics.convShort')}`}
+                        />
+                      ))}
+                    </div>
+                  </Card>
+                </div>
+
+                <div className="grid gap-6 lg:grid-cols-2">
+                  {/* Devices + abandoned carts */}
+                  <Card>
+                    <CardTitle icon={Smartphone}>{t('adminAnalytics.devices')}</CardTitle>
+                    <div className="space-y-3">
+                      <DeviceBar icon={Smartphone} label="Mobile" value={audience!.devices.mobile} total={devTotal} color={RED} sub={convPct(audience!.devices.mobile_conv, audience!.devices.mobile)} />
+                      <DeviceBar icon={Tablet} label="Tablet" value={audience!.devices.tablet} total={devTotal} color="rgba(255,255,255,0.45)" sub={convPct(audience!.devices.tablet_conv, audience!.devices.tablet)} />
+                      <DeviceBar icon={Monitor} label="Desktop" value={audience!.devices.desktop} total={devTotal} color="rgba(255,255,255,0.26)" sub={convPct(audience!.devices.desktop_conv, audience!.devices.desktop)} />
+                    </div>
+                    <div className="mt-5 pt-4" style={{ borderTop: `1px solid ${F_BORDER}` }}>
+                      <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: T3 }}>{t('adminAnalytics.abandonedCarts')}</p>
+                      <div className="text-[22px] font-bold tabular-nums" style={{ color: T1, letterSpacing: '-0.025em' }}>{audience!.engagement.abandoned_carts.toLocaleString()}</div>
+                      <p className="text-xs mt-1 font-medium" style={{ color: RED }}>≈ {(audience!.engagement.abandoned_value_cents / 100).toFixed(0)}€ {t('adminAnalytics.toRecover')}</p>
+                    </div>
+                  </Card>
+
+                  {/* New vs returning */}
+                  <Card>
+                    <CardTitle icon={Repeat}>{t('adminAnalytics.newVsReturning')}</CardTitle>
+                    <div className="space-y-3">
+                      <BarRow
+                        label={t('adminAnalytics.newVisitors')}
+                        value={audience!.new_vs_returning.new_visits}
+                        max={Math.max(1, audience!.new_vs_returning.new_visits, audience!.new_vs_returning.returning_visits)}
+                        conv={`${convPct(audience!.new_vs_returning.new_conv, audience!.new_vs_returning.new_visits)} ${t('adminAnalytics.convShort')}`}
+                        accent
+                      />
+                      <BarRow
+                        label={t('adminAnalytics.returningVisitors')}
+                        value={audience!.new_vs_returning.returning_visits}
+                        max={Math.max(1, audience!.new_vs_returning.new_visits, audience!.new_vs_returning.returning_visits)}
+                        conv={`${convPct(audience!.new_vs_returning.returning_conv, audience!.new_vs_returning.returning_visits)} ${t('adminAnalytics.convShort')}`}
+                      />
+                    </div>
+                  </Card>
+                </div>
+
+                {/* Activity heatmap (day × hour) */}
+                <Card>
+                  <CardTitle icon={CalendarClock} sub={t('adminAnalytics.heatmapSub')}>{t('adminAnalytics.activityHeatmap')}</CardTitle>
+                  <Heatmap matrix={heatMatrix} language={language} />
+                </Card>
+              </>
+            )}
 
             {/* Club comparison */}
             {selectedVenue === 'all' && venueComparison.length > 0 && (

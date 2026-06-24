@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOrganizerEventIds } from '@/hooks/useOrganizerEventIds';
 import { buildOrganizerScopeOr } from './scopeFilter';
+import { Heatmap, DeviceBar } from './behaviorPrimitives';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const RED = '#E8192C';
@@ -208,68 +209,3 @@ function StatTile({
   );
 }
 
-// ─── Device bar ───────────────────────────────────────────────────────────────
-function DeviceBar({
-  icon: Icon, label, value, total, color,
-}: { icon: any; label: string; value: number; total: number; color: string }) {
-  const pct = total ? (value / total) * 100 : 0;
-  return (
-    <div>
-      <div className="flex items-center justify-between text-xs mb-1.5">
-        <span className="flex items-center gap-1.5" style={{ color: T2 }}>
-          <Icon className="h-3 w-3" style={{ color }} />
-          {label}
-        </span>
-        <span className="tabular-nums" style={{ color: T1 }}>
-          {value}{' '}
-          <span style={{ color: T3 }}>({pct.toFixed(0)}%)</span>
-        </span>
-      </div>
-      <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
-      </div>
-    </div>
-  );
-}
-
-// ─── Heatmap ──────────────────────────────────────────────────────────────────
-function Heatmap({ matrix, language }: { matrix: number[][]; language: string }) {
-  const days = language === 'fr'
-    ? ['L', 'M', 'M', 'J', 'V', 'S', 'D']
-    : ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-  const max = Math.max(...matrix.flat(), 1);
-  return (
-    <div className="overflow-x-auto">
-      <div className="grid grid-cols-[20px,repeat(24,minmax(14px,1fr))] gap-[2px] text-[9px] min-w-[400px]">
-        <div />
-        {Array.from({ length: 24 }, (_, h) => (
-          <div key={h} className="text-center tabular-nums" style={{ color: T3 }}>
-            {h % 6 === 0 ? h : ''}
-          </div>
-        ))}
-        {matrix.map((row, di) => (
-          <>
-            <div key={`d${di}`} className="flex items-center justify-center" style={{ color: T3 }}>
-              {days[di]}
-            </div>
-            {row.map((v, hi) => {
-              const intensity = v / max;
-              return (
-                <div
-                  key={`${di}-${hi}`}
-                  className="aspect-square rounded-sm transition"
-                  style={{
-                    background: v > 0
-                      ? `rgba(232,25,44,${0.10 + intensity * 0.68})`
-                      : 'rgba(255,255,255,0.03)',
-                  }}
-                  title={`${days[di]} ${hi}h — ${v}`}
-                />
-              );
-            })}
-          </>
-        ))}
-      </div>
-    </div>
-  );
-}
