@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
 import type { PartnershipSplitRules } from './useOrganizerPartnerships';
+import { COLLAB_TERMS_VERSION } from '@/lib/collabContractTerms';
 
 /**
  * Club ↔ organizer collaboration CONTRACT (digital, signed, locked).
@@ -104,6 +105,8 @@ export function useEventCollabContract(eventId: string | undefined, side?: 'venu
         p_contract_id: c.id,
         p_ip: null,
         p_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent.slice(0, 300) : null,
+        // Freeze the legal-terms version in force at signature → terms_snapshot.terms_version.
+        p_terms_version: COLLAB_TERMS_VERSION,
       });
       if (error) throw error;
       try {

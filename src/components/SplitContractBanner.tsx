@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { supabase } from '@/integrations/supabase/client';
 import { downloadContractPDF } from '@/lib/generateContractPDF';
+import { loadCollabContractPdfData } from '@/lib/collabContractData';
+import { CollabContractTermsDialog } from '@/components/CollabContractTermsDialog';
 import { AlertTriangle, CheckCircle2, Lock, PenLine, Download, FileSignature, Pencil } from 'lucide-react';
 import type { PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
 import { normalizeSplitRules } from '@/lib/splitRules';
@@ -25,6 +27,7 @@ export function SplitContractBanner({ eventId, side }: Props) {
   const { contract, status, iSigned, partnerSigned, isMyTurn, create, sign, cancel, amend } =
     useEventCollabContract(eventId, side);
   const [editing, setEditing] = useState(false);
+  const [signDialogOpen, setSignDialogOpen] = useState(false);
   const [ticketsOrg, setTicketsOrg] = useState(50);
   const [tablesOrg, setTablesOrg] = useState(0);
   const [drinksOrg, setDrinksOrg] = useState(0);
@@ -96,33 +99,7 @@ export function SplitContractBanner({ eventId, side }: Props) {
 
   const handleDownload = async () => {
     if (!contract) return;
-    const [{ data: ev }, { data: venue }, { data: org }] = await Promise.all([
-      supabase.from('events').select('title, start_at').eq('id', contract.event_id).maybeSingle(),
-      supabase.from('venues').select('name').eq('id', contract.venue_id).maybeSingle(),
-      supabase.from('profiles').select('*').eq('id', contract.organizer_user_id).maybeSingle(),
-    ]);
-    const o = org as Record<string, any> | null;
-    const orgName = o?.full_name || [o?.first_name, o?.last_name].filter(Boolean).join(' ') || o?.business_name || 'Organisateur';
-    downloadContractPDF({
-      contractId: contract.id,
-      venueName: (venue as any)?.name || 'Club',
-      organizerName: orgName,
-      eventTitle: (ev as any)?.title,
-      eventDate: (ev as any)?.start_at ? new Date((ev as any).start_at) : null,
-      splitRules: normalizeSplitRules(contract.split_rules) ?? {
-        tickets: { organizer_pct: 0, venue_pct: 100 },
-        tables: { organizer_pct: 0, venue_pct: 100 },
-        drinks: { organizer_pct: 0, venue_pct: 100 },
-      },
-      cancellationPolicy: contract.cancellation_policy,
-      venueSignedAt: contract.venue_signed_at ? new Date(contract.venue_signed_at) : null,
-      venueSignedName: (venue as any)?.name,
-      venueSignedIp: contract.venue_signed_ip,
-      orgSignedAt: contract.org_signed_at ? new Date(contract.org_signed_at) : null,
-      orgSignedName: orgName,
-      orgSignedIp: contract.org_signed_ip,
-      language: 'fr',
-    });
+    downloadContractPDF(await loadCollabContractPdfData(contract, 'fr'));
   };
 
   // ── No contract yet → propose ──
@@ -183,8 +160,8 @@ export function SplitContractBanner({ eventId, side }: Props) {
         ) : (
           <div className="flex flex-wrap gap-2 pl-8">
             {isMyTurn && (
-              <Button size="sm" onClick={() => sign.mutate()} disabled={sign.isPending}>
-                <PenLine className="h-4 w-4 mr-1.5" /> Signer le contrat
+              <Button size="sm" onClick={() => setSignDialogOpen(true)} disabled={sign.isPending}>
+                <PenLine className="h-4 w-4 mr-1.5" /> Lire et signer le contrat
               </Button>
             )}
             {side && (
@@ -197,6 +174,13 @@ export function SplitContractBanner({ eventId, side }: Props) {
             )}
           </div>
         )}
+        <CollabContractTermsDialog
+          open={signDialogOpen}
+          onOpenChange={setSignDialogOpen}
+          contract={contract}
+          onConfirm={() => sign.mutate(undefined, { onSuccess: () => setSignDialogOpen(false) })}
+          confirming={sign.isPending}
+        />
       </div>
     );
   }
