@@ -2,10 +2,9 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { transitions, useReducedMotion } from '@/lib/motion';
-import { CheckCircle, Calendar, Clock, MapPin, Users, Ticket, ArrowLeft, FileText, Download } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+import { Check, Clock, MapPin, Ticket, ArrowLeft, FileText, Download, CalendarPlus, Navigation, Share2, Mail, QrCode } from 'lucide-react';
+import { FavoriteButton } from '@/components/FavoriteButton';
+import { downloadICS } from '@/lib/calendar';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -30,6 +29,7 @@ interface ConfirmationData {
   type: 'ticket' | 'table' | 'order';
   id: string;
   qrCode: string;
+  eventId?: string;
   eventTitle?: string;
   eventDate?: string;
   eventPosterUrl?: string;
@@ -116,7 +116,7 @@ export default function OrderConfirmation() {
           .from('tickets')
           .select(`
             *,
-            events!inner(title, start_at, venue_id, poster_url, alcohol_free, organizer_user_id),
+            events!inner(id, title, start_at, venue_id, poster_url, alcohol_free, organizer_user_id),
             ticket_rounds!inner(name, price)
           `)
           .eq('id', id)
@@ -129,6 +129,7 @@ export default function OrderConfirmation() {
             type: 'ticket',
             id: gd.id,
             qrCode: gd.qrCode,
+            eventId: gd.eventId,
             eventTitle: gd.eventTitle,
             eventDate: gd.eventDate,
             eventPosterUrl: gd.eventPosterUrl,
@@ -263,6 +264,7 @@ export default function OrderConfirmation() {
           accessDocs: accessDocs.length > 0 ? accessDocs : undefined,
           id: ticket.id,
           qrCode: ticket.qr_code,
+          eventId: ticket.events.id,
           eventTitle: ticket.events.title,
           eventDate: ticket.events.start_at,
           eventPosterUrl: ticket.events.poster_url,
@@ -302,7 +304,7 @@ export default function OrderConfirmation() {
           .from('table_reservations')
           .select(`
             *,
-            events!inner(title, start_at, venue_id, poster_url),
+            events!inner(id, title, start_at, venue_id, poster_url),
             table_packs!inner(name, deposit),
             table_zones(name)
           `)
@@ -332,6 +334,7 @@ export default function OrderConfirmation() {
           type: 'table',
           id: reservation.id,
           qrCode: reservation.qr_code,
+          eventId: reservation.events.id,
           eventTitle: reservation.events.title,
           eventDate: reservation.events.start_at,
           eventPosterUrl: reservation.events.poster_url,
@@ -361,7 +364,7 @@ export default function OrderConfirmation() {
       } else if (type === 'order') {
         const { data: order, error } = await supabase
           .from('orders')
-          .select('*, venues!inner(id, name, address, logo_url, legal_name, siret, vat_number, legal_address), events(title, start_at, poster_url)')
+          .select('*, venues!inner(id, name, address, logo_url, legal_name, siret, vat_number, legal_address), events(id, title, start_at, poster_url)')
           .eq('id', id)
           .single();
 
@@ -397,6 +400,7 @@ export default function OrderConfirmation() {
           venueLegalAddress: order.venues.legal_address,
           venueLogoUrl: order.venues.logo_url,
           venueId: order.venues.id,
+          eventId: order.events?.id,
           eventTitle: order.events?.title,
           eventDate: order.events?.start_at,
           eventPosterUrl: order.events?.poster_url,
@@ -416,18 +420,71 @@ export default function OrderConfirmation() {
     }
   };
 
+  // Public, shareable event URL (NOT this private confirmation page). Lets friends
+  // grab their own spot — the viral loop. Degrades gracefully if the deep-link is unknown.
+  const buildEventUrl = (): string => {
+    const origin = window.location.origin;
+    if (data?.eventId && data?.venueId) return `${origin}/club/${data.venueId}/event/${data.eventId}`;
+    if (data?.eventId) return `${origin}/event/${data.eventId}`;
+    return origin;
+  };
+
+  // Share the event with friends; clipboard fallback when the native sheet is unavailable.
   const handleShare = async () => {
-    if (navigator.share && data) {
+    if (!data) return;
+    const url = buildEventUrl();
+    const shareData = {
+      title: data.eventTitle || data.venueName || 'Yuno',
+      text: [data.eventTitle, data.venueName].filter(Boolean).join(' · '),
+      url,
+    };
+    if (navigator.share) {
       try {
-        await navigator.share({
-          title: data.eventTitle || 'Ma commande',
-          text: `${data.eventTitle} - ${data.venueName}`,
-          url: window.location.href,
-        });
+        await navigator.share(shareData);
+        return;
       } catch {
-        /* share dismissed by user */
+        /* share dismissed by user → fall through to copy */
       }
     }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success(t('confirmation.linkCopied') || 'Lien copié');
+    } catch {
+      /* clipboard blocked — nothing more we can do */
+    }
+  };
+
+  // Add the night to the user's calendar (universal .ics download).
+  const handleAddToCalendar = () => {
+    if (!data?.eventDate) return;
+    downloadICS(
+      {
+        title: data.eventTitle || data.venueName || 'Yuno',
+        start: new Date(data.eventDate),
+        location: [data.venueName, data.venueAddress].filter(Boolean).join(', ') || undefined,
+        details: data.details,
+        url: buildEventUrl(),
+      },
+      `Yuno-${(data.eventTitle || 'event').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 40)}.ics`,
+    );
+  };
+
+  // Maps deep-link to the venue (same pattern used across EventDetails / VenuePage).
+  const directionsUrl = data?.venueAddress
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.venueAddress)}`
+    : data?.venueName
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(data.venueName)}`
+      : null;
+
+  // Countdown label for the hero badge (always-on, unlike EventCountdown which hides > 7d).
+  const countdownLabel = (): string | null => {
+    if (!data?.eventDate) return null;
+    const diff = new Date(data.eventDate).getTime() - Date.now();
+    if (diff <= 0) return t('countdown.live') || 'LIVE';
+    const days = Math.floor(diff / 86_400_000);
+    if (days === 0) return t('confirmation.today') || 'Ce soir';
+    if (days === 1) return t('confirmation.tomorrow') || 'Demain';
+    return `${t('confirmation.inPrefix')} ${days} ${t('confirmation.daysWord')}`;
   };
 
   // Resolve (and persist) the canonical order/invoice number for the receipt.
@@ -552,233 +609,335 @@ export default function OrderConfirmation() {
     }
   };
 
-  const handleDownloadQR = () => {
-    if (qrCodeImage) {
-      const link = document.createElement('a');
-      link.download = `qr-${data?.id}.png`;
-      link.href = qrCodeImage;
-      link.click();
-    }
-  };
-
   if (loading) {
     return (
-      <div className="min-h-[100dvh] bg-background flex items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      <div className="min-h-[100dvh] flex items-center justify-center" style={{ background: '#0A0A0A' }}>
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: '#E8192C', borderTopColor: 'transparent' }} />
       </div>
     );
   }
 
   if (!data) {
     return (
-      <div className="min-h-[100dvh] bg-background flex flex-col items-center justify-center p-4">
-        <p className="text-muted-foreground mb-4">{t('confirmation.notFound') || 'Confirmation non trouvée'}</p>
-        <Button variant="outline" onClick={() => navigate('/')}>
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center p-6 text-center" style={{ background: '#0A0A0A' }}>
+        <p className="font-mono uppercase mb-5" style={{ fontSize: '12px', letterSpacing: '0.06em', color: '#9A9A9A' }}>
+          {t('confirmation.notFound') || 'Confirmation non trouvée'}
+        </p>
+        <button className="btn btn--secondary" onClick={() => navigate('/')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           {t('common.back') || 'Retour'}
-        </Button>
+        </button>
       </div>
     );
   }
 
-  const getTypeLabel = () => {
-    switch (data.type) {
-      case 'ticket': return t('confirmation.ticketConfirmed') || 'Billet confirmé !';
-      case 'table': return t('confirmation.tableConfirmed') || 'Réservation confirmée !';
-      case 'order': return t('confirmation.orderConfirmed') || 'Commande confirmée !';
-    }
+  const surface: React.CSSProperties = {
+    background: '#141414',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 10,
   };
+  const posterFallback = 'linear-gradient(160deg, #1a0a0d, #7a1428)';
+  const cd = countdownLabel();
+  const dayLabel = data.eventDate
+    ? formatInTimeZone(new Date(data.eventDate), PARIS_TIMEZONE, 'EEE d MMM', { locale: getLocale() }).toUpperCase()
+    : null;
+  const timeLabel = data.eventDate
+    ? formatInTimeZone(new Date(data.eventDate), PARIS_TIMEZONE, 'HH:mm')
+    : null;
+  const heroTitle = data.eventTitle || data.venueName || 'Yuno';
 
-  const getTypeIcon = () => {
-    switch (data.type) {
-      case 'ticket': return <Ticket className="h-5 w-5" />;
-      case 'table': return <Users className="h-5 w-5" />;
-      case 'order': return <CheckCircle className="h-5 w-5" />;
-    }
-  };
+  // Timeline « Et maintenant ? » — the three things that happen next.
+  const steps = [
+    { icon: Mail, title: t('confirmation.step1Title'), desc: t('confirmation.step1Desc'), extra: data.customerEmail, done: true },
+    { icon: QrCode, title: t('confirmation.step2Title'), desc: t('confirmation.step2Desc'), extra: null, done: false },
+    {
+      icon: Clock,
+      title: t('confirmation.step3Title'),
+      desc: t('confirmation.step3Desc'),
+      extra: timeLabel ? `${t('confirmation.doorsAt')} ${timeLabel}` : null,
+      done: false,
+    },
+  ];
 
   return (
-    <div className="min-h-[100dvh] bg-background overflow-x-hidden">
-      {/* Header */}
-      <header className="fixed top-0 z-40 w-full border-b border-border/40 bg-surface/80 backdrop-blur-md" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <div className="mx-auto flex h-14 sm:h-16 max-w-7xl items-center px-3 sm:px-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/my-orders')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            {t('confirmation.myOrders')}
-          </Button>
-        </div>
-      </header>
+    <div className="min-h-[100dvh] overflow-x-hidden" style={{ background: '#0A0A0A', paddingBottom: 'calc(2.5rem + env(safe-area-inset-bottom))' }}>
+      {/* Floating back control over the hero */}
+      <div className="absolute left-0 right-0 z-30 flex px-4" style={{ top: 'calc(env(safe-area-inset-top, 0px) + 14px)' }}>
+        <button
+          onClick={() => navigate('/my-orders')}
+          className="flex items-center gap-2 font-mono uppercase active:scale-[0.97]"
+          style={{
+            height: 36, padding: '0 14px', borderRadius: 2, fontSize: '10.5px', letterSpacing: '0.10em',
+            color: '#fff', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255,255,255,0.14)', transition: 'transform 160ms cubic-bezier(0.16,1,0.3,1)',
+          }}
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          {t('confirmation.myOrders')}
+        </button>
+      </div>
 
-      <div style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 3.5rem)' }}>
-        <div className="mx-auto max-w-lg px-4 py-8 w-full box-border" style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))' }}>
-          {/* Success Animation — moment rare + célébratoire : overshoot intentionnel.
-              Jamais scale(0) (rien n'apparaît "de nulle part") → part de 0.6 + opacity. */}
-          <motion.div
-            initial={reduceMotion ? { opacity: 0 } : { scale: 0.6, opacity: 0 }}
-            animate={reduceMotion ? { opacity: 1 } : { scale: 1, opacity: 1 }}
-            transition={reduceMotion ? { duration: 0.3 } : transitions.celebrate}
-            className="flex justify-center mb-6"
-          >
-            <div className="h-20 w-20 rounded-full bg-emerald-500/20 flex items-center justify-center">
-              <CheckCircle className="h-12 w-12 text-emerald-500" />
-            </div>
-          </motion.div>
+      {/* ── HERO : the affiche of the night they just secured ── */}
+      <section
+        className="relative w-full overflow-hidden"
+        style={{ aspectRatio: '4 / 5', maxHeight: '64vh', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+      >
+        <div
+          className="absolute inset-0"
+          style={{
+            background: data.eventPosterUrl ? `url(${data.eventPosterUrl}) center/cover` : posterFallback,
+          }}
+        />
+        {/* Overlay gradient — content anchored at bottom */}
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(to top, rgba(10,10,10,0.97) 0%, rgba(10,10,10,0.2) 52%, rgba(10,10,10,0.55) 100%)' }}
+        />
 
-          <motion.div {...rise(0.2)} className="text-center mb-8">
-            <h1 className="text-2xl font-bold mb-2">{getTypeLabel()}</h1>
-            <p className="text-muted-foreground">
-              {t('confirmation.emailSent') || 'Un email de confirmation vous a été envoyé'}
+        <div className="absolute inset-x-0 bottom-0 px-5 pb-7" style={{ maxWidth: 600, margin: '0 auto' }}>
+          {/* Confirmed badge + countdown */}
+          <div className="flex items-center gap-2.5 mb-3 animate-hero-label">
+            <motion.span
+              initial={reduceMotion ? { opacity: 0 } : { scale: 0.6, opacity: 0 }}
+              animate={reduceMotion ? { opacity: 1 } : { scale: 1, opacity: 1 }}
+              transition={reduceMotion ? { duration: 0.3 } : transitions.celebrate}
+              className="inline-flex items-center gap-1.5 font-mono font-bold uppercase"
+              style={{
+                fontSize: '10px', letterSpacing: '0.10em', color: '#fff', padding: '5px 10px 5px 6px',
+                borderRadius: 999, background: '#E8192C', boxShadow: '0 8px 22px rgba(232,25,44,0.32)',
+              }}
+            >
+              <span className="inline-flex items-center justify-center rounded-full" style={{ width: 16, height: 16, background: 'rgba(255,255,255,0.22)' }}>
+                <Check className="h-3 w-3" strokeWidth={3} />
+              </span>
+              {t('confirmation.confirmed')}
+            </motion.span>
+            {cd && (
+              <span
+                className="inline-flex items-center font-mono font-semibold uppercase"
+                style={{
+                  fontSize: '10px', letterSpacing: '0.08em', color: '#E5E5E5', padding: '5px 10px',
+                  borderRadius: 999, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.14)',
+                }}
+              >
+                {cd}
+              </span>
+            )}
+          </div>
+
+          {data.details && (
+            <p className="font-mono uppercase mb-2 animate-hero-label" style={{ fontSize: '10px', letterSpacing: '0.10em', color: '#9A9A9A' }}>
+              {data.details}
             </p>
-          </motion.div>
+          )}
 
-          {/* QR Code Card */}
-          <motion.div {...rise(0.3)}>
-            <Card className="mb-6">
-              <CardContent className="pt-6">
-                {/* Event Info */}
-                {data.eventTitle && (
-                  <div className="text-center mb-4">
-                    <div className="flex items-center justify-center gap-2 text-primary mb-1">
-                      {getTypeIcon()}
-                      <span className="font-medium">{data.details}</span>
+          <h1
+            className="font-display text-white uppercase animate-hero-h1"
+            style={{ fontSize: 'clamp(30px, 8vw, 52px)', fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 0.92 }}
+          >
+            {heroTitle}
+          </h1>
+
+          {(dayLabel || data.venueName) && (
+            <p className="font-mono uppercase mt-3 animate-hero-body" style={{ fontSize: '11px', letterSpacing: '0.05em', color: '#9A9A9A' }}>
+              {[dayLabel && timeLabel ? `${dayLabel} · ${timeLabel}` : dayLabel, data.eventTitle ? data.venueName : null]
+                .filter(Boolean)
+                .join('  —  ')}
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* ── Reading column ── */}
+      <div className="mx-auto px-5 w-full box-border" style={{ maxWidth: 600 }}>
+
+        {/* TON PASS — the QR / utility centerpiece */}
+        <motion.section {...rise(0.1)} className="py-7" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          <p className="section-label-ruled mb-5">{t('confirmation.yourPass')}</p>
+
+          <div className="flex flex-col items-center">
+            {data.type === 'ticket' && data.quantity && data.quantity > 1 ? (
+              <TicketQRCarousel
+                ticketId={data.id}
+                ticketQrCode={data.qrCode}
+                quantity={data.quantity}
+                roundName={data.details || ''}
+                eventTitle={data.eventTitle || ''}
+                venueName={data.venueName || ''}
+                onClose={() => {}}
+                embedded
+              />
+            ) : (
+              qrCodeImage && (
+                <div className="bg-white p-4 mb-4" style={{ borderRadius: 8 }}>
+                  <img src={qrCodeImage} alt="QR Code" className="w-48 h-48" />
+                </div>
+              )
+            )}
+            <p className="font-mono uppercase text-center mb-5" style={{ fontSize: '10px', letterSpacing: '0.08em', color: '#5A5A5E' }}>
+              {t('confirmation.showQR') || 'Présentez ce QR code à l\'entrée'}
+            </p>
+
+            {/* Details rows */}
+            <div className="w-full" style={{ ...surface, padding: '4px 16px' }}>
+              {data.quantity && (
+                <div className="flex justify-between items-center" style={{ padding: '11px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <span className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#9A9A9A' }}>{t('confirmation.quantity') || 'Quantité'}</span>
+                  <span className="font-sans font-medium text-white" style={{ fontSize: '14px' }}>{data.quantity} {data.quantity > 1 ? (t('tickets.tickets') || 'billets') : (t('tickets.ticket') || 'billet')}</span>
+                </div>
+              )}
+              {data.guestCount && (
+                <div className="flex justify-between items-center" style={{ padding: '11px 0', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                  <span className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#9A9A9A' }}>{t('confirmation.guests') || 'Invités'}</span>
+                  <span className="font-sans font-medium text-white" style={{ fontSize: '14px' }}>{data.guestCount}</span>
+                </div>
+              )}
+              {data.totalPrice != null && (
+                <div className="flex justify-between items-center" style={{ padding: '11px 0' }}>
+                  <span className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#9A9A9A' }}>{t('confirmation.total') || 'Total payé'}</span>
+                  <span className="font-display font-bold" style={{ fontSize: '17px', color: '#E8192C', letterSpacing: '-0.01em' }}>{data.totalPrice.toFixed(2)} €</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.section>
+
+        {/* ET MAINTENANT ? — what happens next */}
+        <motion.section {...rise(0.15)} className="py-7" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          <p className="section-label-ruled mb-6">{t('confirmation.nextTitle')}</p>
+          <div>
+            {steps.map((step, i) => {
+              const Icon = step.icon;
+              const isLast = i === steps.length - 1;
+              return (
+                <div key={i} className="flex gap-4">
+                  <div className="flex flex-col items-center flex-none">
+                    <div
+                      className="flex items-center justify-center"
+                      style={{
+                        width: 38, height: 38, borderRadius: 8,
+                        background: step.done ? '#E8192C' : 'rgba(255,255,255,0.05)',
+                        border: step.done ? 'none' : '1px solid rgba(255,255,255,0.12)',
+                        color: step.done ? '#fff' : '#E5E5E5',
+                      }}
+                    >
+                      {step.done ? <Check className="h-4 w-4" strokeWidth={2.5} /> : <Icon className="h-4 w-4" />}
                     </div>
-                    <h2 className="text-xl font-bold">{data.eventTitle}</h2>
+                    {!isLast && <div style={{ width: 1, flex: 1, minHeight: 18, background: 'rgba(255,255,255,0.10)', margin: '4px 0' }} />}
                   </div>
-                )}
-
-                {/* Date & Location */}
-                {data.eventDate && (
-                  <div className="flex flex-wrap justify-center gap-4 text-sm text-muted-foreground mb-4">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      {formatInTimeZone(new Date(data.eventDate), PARIS_TIMEZONE, 'EEEE d MMMM yyyy', { locale: getLocale() })}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      {formatInTimeZone(new Date(data.eventDate), PARIS_TIMEZONE, 'HH:mm')}
-                    </div>
-                  </div>
-                )}
-
-                {data.venueName && (
-                  <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mb-6">
-                    <MapPin className="h-4 w-4" />
-                    {data.venueName}
-                  </div>
-                )}
-
-                <Separator className="mb-6" />
-
-                {/* QR Code - Carousel for multi-ticket, single for others */}
-                <div className="flex flex-col items-center">
-                  {data.type === 'ticket' && data.quantity && data.quantity > 1 ? (
-                    <TicketQRCarousel
-                      ticketId={data.id}
-                      ticketQrCode={data.qrCode}
-                      quantity={data.quantity}
-                      roundName={data.details || ''}
-                      eventTitle={data.eventTitle || ''}
-                      venueName={data.venueName || ''}
-                      onClose={() => {}}
-                      embedded
-                    />
-                  ) : (
-                    <>
-                      {qrCodeImage && (
-                        <div className="bg-white p-4 rounded-xl mb-4">
-                          <img src={qrCodeImage} alt="QR Code" className="w-48 h-48" />
-                        </div>
-                      )}
-                    </>
-                  )}
-                  <p className="text-sm text-muted-foreground text-center mb-4">
-                    {t('confirmation.showQR') || 'Présentez ce QR code à l\'entrée'}
-                  </p>
-
-                  {/* Details */}
-                  <div className="w-full space-y-2 text-sm">
-                    {data.quantity && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">{t('confirmation.quantity') || 'Quantité'}</span>
-                        <span className="font-medium">{data.quantity} {data.quantity > 1 ? (t('tickets.tickets') || 'billets') : (t('tickets.ticket') || 'billet')}</span>
-                      </div>
-                    )}
-                    {data.guestCount && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">{t('confirmation.guests') || 'Invités'}</span>
-                        <span className="font-medium">{data.guestCount} personnes</span>
-                      </div>
-                    )}
-                    {data.totalPrice && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">{t('confirmation.total') || 'Total payé'}</span>
-                        <span className="font-bold text-primary">{data.totalPrice.toFixed(2)} €</span>
-                      </div>
+                  <div style={{ paddingBottom: isLast ? 0 : 18 }}>
+                    <h4 className="font-display font-bold text-white" style={{ fontSize: '15px', letterSpacing: '-0.01em' }}>{step.title}</h4>
+                    <p className="font-sans mt-1" style={{ fontSize: '13.5px', lineHeight: 1.5, color: '#9A9A9A' }}>{step.desc}</p>
+                    {step.extra && (
+                      <p className="font-mono mt-1.5 truncate" style={{ fontSize: '11px', letterSpacing: '0.02em', color: '#5A5A5E' }}>{step.extra}</p>
                     )}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+              );
+            })}
+          </div>
+        </motion.section>
 
-          {/* Access documents to download & fill before entry */}
-          {data.type === 'ticket' && data.accessDocs && data.accessDocs.length > 0 && (
-            <motion.div {...rise(0.33)} className="mb-4">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-start gap-3 mb-4">
-                    <FileText className="h-5 w-5 text-primary flex-none mt-0.5" />
-                    <div>
-                      <h3 className="font-semibold">{t('confirmation.accessDocsTitle')}</h3>
-                      <p className="text-sm text-muted-foreground">{t('confirmation.accessDocsDesc')}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    {data.accessDocs.map(doc => (
-                      <a key={doc.id} href={doc.fileUrl} target="_blank" rel="noopener noreferrer" download
-                        className="flex items-center justify-between gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors">
-                        <span className="flex items-center gap-2 min-w-0">
-                          <FileText className="h-4 w-4 text-muted-foreground flex-none" />
-                          <span className="truncate text-sm font-medium">{doc.label}</span>
-                        </span>
-                        <Download className="h-4 w-4 text-primary flex-none" />
-                      </a>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
+        {/* PRÉPARE TA SOIRÉE — calendar + directions */}
+        {(data.eventDate || directionsUrl) && (
+          <motion.section {...rise(0.2)} className="py-7" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <p className="section-label-ruled mb-5">{t('confirmation.prepTitle')}</p>
+            <div className="grid grid-cols-2 gap-3">
+              {data.eventDate && (
+                <button
+                  onClick={handleAddToCalendar}
+                  className="flex flex-col items-start gap-3 text-left active:scale-[0.98]"
+                  style={{ ...surface, padding: '16px', transition: 'transform 160ms cubic-bezier(0.16,1,0.3,1), border-color 200ms' }}
+                >
+                  <CalendarPlus className="h-5 w-5" style={{ color: '#E8192C' }} />
+                  <span className="font-mono uppercase" style={{ fontSize: '10.5px', letterSpacing: '0.06em', color: '#E5E5E5' }}>{t('confirmation.addToCalendar')}</span>
+                </button>
+              )}
+              {directionsUrl && (
+                <a
+                  href={directionsUrl} target="_blank" rel="noopener noreferrer"
+                  className="flex flex-col items-start gap-3 active:scale-[0.98]"
+                  style={{ ...surface, padding: '16px', transition: 'transform 160ms cubic-bezier(0.16,1,0.3,1), border-color 200ms' }}
+                >
+                  <Navigation className="h-5 w-5" style={{ color: '#E8192C' }} />
+                  <span className="font-mono uppercase" style={{ fontSize: '10.5px', letterSpacing: '0.06em', color: '#E5E5E5' }}>{t('confirmation.getDirections')}</span>
+                </a>
+              )}
+            </div>
+            {data.venueName && (
+              <div className="flex items-center gap-1.5 mt-4 font-mono uppercase" style={{ fontSize: '10.5px', letterSpacing: '0.05em', color: '#9A9A9A' }}>
+                <MapPin className="h-3.5 w-3.5 flex-none" />
+                <span className="truncate">{data.venueAddress || data.venueName}</span>
+              </div>
+            )}
+          </motion.section>
+        )}
 
-          {/* Drink Credits from pack */}
-          {data.type === 'ticket' && (data.packName || data.upsellSelections?.some(u => u.offerType === 'drink_pack' || u.offerType === 'single_drink_discount' || u.offerType === 'combo')) && (
-            <motion.div {...rise(0.35)} className="mb-4">
-              <DrinkCreditsCard ticketId={data.id} venueId={data.venueId} />
-            </motion.div>
-          )}
+        {/* Access documents to download & fill before entry */}
+        {data.type === 'ticket' && data.accessDocs && data.accessDocs.length > 0 && (
+          <motion.section {...rise(0.25)} className="py-7" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <p className="section-label-ruled mb-2">{t('confirmation.accessDocsTitle')}</p>
+            <p className="font-sans mb-5" style={{ fontSize: '13.5px', lineHeight: 1.5, color: '#9A9A9A' }}>{t('confirmation.accessDocsDesc')}</p>
+            <div className="space-y-2.5">
+              {data.accessDocs.map(doc => (
+                <a key={doc.id} href={doc.fileUrl} target="_blank" rel="noopener noreferrer" download
+                  className="flex items-center justify-between gap-3 active:scale-[0.99]"
+                  style={{ ...surface, padding: '14px 16px', transition: 'transform 160ms cubic-bezier(0.16,1,0.3,1)' }}>
+                  <span className="flex items-center gap-2.5 min-w-0">
+                    <FileText className="h-4 w-4 flex-none" style={{ color: '#9A9A9A' }} />
+                    <span className="truncate font-sans font-medium text-white" style={{ fontSize: '14px' }}>{doc.label}</span>
+                  </span>
+                  <Download className="h-4 w-4 flex-none" style={{ color: '#E8192C' }} />
+                </a>
+              ))}
+            </div>
+          </motion.section>
+        )}
 
-          {/* Action Buttons */}
-          <motion.div {...rise(0.4)} className="space-y-3">
-            {/* Billet (ticket / VIP table only) — primary action */}
+        {/* Drink Credits from pack */}
+        {data.type === 'ticket' && (data.packName || data.upsellSelections?.some(u => u.offerType === 'drink_pack' || u.offerType === 'single_drink_discount' || u.offerType === 'combo')) && (
+          <motion.section {...rise(0.28)} className="py-7" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <DrinkCreditsCard ticketId={data.id} venueId={data.venueId} />
+          </motion.section>
+        )}
+
+        {/* VIENS AVEC TA TEAM — share the event (viral loop) */}
+        <motion.section {...rise(0.32)} className="py-7" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          <p className="section-label-ruled mb-3">{t('confirmation.crewTitle')}</p>
+          <p className="font-sans mb-5" style={{ fontSize: '14px', lineHeight: 1.55, color: '#E5E5E5' }}>{t('confirmation.crewDesc')}</p>
+          <button className="btn btn--primary w-full" onClick={handleShare}>
+            <Share2 className="h-4 w-4 mr-2" />
+            {t('confirmation.shareEvent')}
+          </button>
+        </motion.section>
+
+        {/* RESTE DANS LA BOUCLE — follow the club */}
+        {data.venueId && data.venueName && (
+          <motion.section {...rise(0.36)} className="py-7" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <p className="section-label-ruled mb-3">{t('confirmation.followTitle')}</p>
+            <p className="font-sans mb-5" style={{ fontSize: '14px', lineHeight: 1.55, color: '#E5E5E5' }}>
+              {t('confirmation.followDescPrefix')} <span className="text-white font-medium">{data.venueName}</span> {t('confirmation.followDescSuffix')}
+            </p>
+            <FavoriteButton type="club" id={data.venueId} variant="default" size="lg" showLabel className="w-full" />
+          </motion.section>
+        )}
+
+        {/* TES DOCUMENTS — billet + receipt + wallet */}
+        <motion.section {...rise(0.4)} className="py-7">
+          <p className="section-label-ruled mb-5">{t('confirmation.documentsTitle')}</p>
+          <div className="space-y-3">
             {data.type !== 'order' && (
-              <Button
-                className="w-full"
-                onClick={handleDownloadBillet}
-                disabled={downloadingBillet}
-              >
+              <button className="btn btn--primary w-full" onClick={handleDownloadBillet} disabled={downloadingBillet}>
                 {downloadingBillet ? (
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent mr-2" />
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />
                 ) : (
                   <Ticket className="h-4 w-4 mr-2" />
                 )}
                 {t('confirmation.downloadBillet') || 'Télécharger le billet'}
-              </Button>
+              </button>
             )}
-
-            {/* Reçu de transaction (fiscal) */}
-            <Button
-              className="w-full"
-              variant={data.type === 'order' ? 'default' : 'outline'}
+            <button
+              className={data.type === 'order' ? 'btn btn--primary w-full' : 'btn btn--ghost w-full'}
               onClick={handleDownloadReceipt}
               disabled={downloadingReceipt}
             >
@@ -788,19 +947,20 @@ export default function OrderConfirmation() {
                 <FileText className="h-4 w-4 mr-2" />
               )}
               {t('confirmation.downloadReceipt') || 'Télécharger le reçu'}
-            </Button>
-
-            {/* Add to Wallet Button - Native Apple/Google Wallet design */}
+            </button>
             <WalletButtons type={data.type} id={data.id} />
-          </motion.div>
+          </div>
 
-          {/* Back to orders */}
-          <motion.div {...rise(0.5)} className="mt-6 text-center">
-            <Button variant="link" onClick={() => navigate('/my-orders')}>
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => navigate('/my-orders')}
+              className="font-mono uppercase link-slide"
+              style={{ fontSize: '11px', letterSpacing: '0.08em', color: '#9A9A9A' }}
+            >
               {t('confirmation.viewAllOrders')}
-            </Button>
-          </motion.div>
-        </div>
+            </button>
+          </div>
+        </motion.section>
       </div>
     </div>
   );
