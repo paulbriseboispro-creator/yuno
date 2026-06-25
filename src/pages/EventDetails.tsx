@@ -241,6 +241,28 @@ export default function EventDetails() {
         }
       }
 
+      // Co-organizer : sur une co-soirée menée par le club (organizer_user_id NULL),
+      // l'orga partenaire vit dans partner_organizer_id et n'était jamais affiché.
+      // On le montre publiquement à côté de la salle dès qu'il a un profil public.
+      const partnerOrgId = (eventData as any).partner_organizer_id as string | null;
+      if (partnerOrgId && partnerOrgId !== eventData.organizer_user_id) {
+        const { data: coOrg } = await supabase
+          .from('organizer_profiles')
+          .select('user_id, display_name, slug, avatar_url')
+          .eq('user_id', partnerOrgId)
+          .eq('is_public', true)
+          .maybeSingle();
+        if (coOrg) {
+          if (!loadedOrganizer) { loadedOrganizer = coOrg; setPrimaryOrganizer(coOrg); }
+          setEventOrganizers(prev =>
+            prev.some(o => o.id === coOrg.user_id)
+              ? prev
+              : [...prev, { id: coOrg.user_id, name: coOrg.display_name, slug: coOrg.slug, logo_url: coOrg.avatar_url }],
+          );
+          orgIds.push(coOrg.user_id);
+        }
+      }
+
       // Set primary entity flag based on whether the event is organizer-led
       setPrimaryEntity(isOrganizerLed && loadedOrganizer ? 'organizer' : 'venue');
 
