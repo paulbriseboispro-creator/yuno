@@ -3,12 +3,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Layers, Package, Image as ImageIcon, Upload, Sparkles, Lock } from 'lucide-react';
+import { Plus, Pencil, Trash2, Layers, Package, Image as ImageIcon, Upload, Sparkles, Lock, Map as MapIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   OrgCard, OrgButton, OrgPill, OrgTabs, FieldLabel, DarkInput, DarkTextarea,
   RED, RED_SOFT, T1, T2, T3, BORDER, INNER_BG,
 } from '@/components/org-ui';
+import { ClientFloorPlanPicker } from '@/components/vip/ClientFloorPlanPicker';
+import { OwnerVipOrders } from '@/components/owner/OwnerVipOrders';
+import { useTableAvailability } from '@/hooks/useTableAvailability';
+import type { VenueFloorPlan } from '@/types';
 
 interface OrgEventTablesPanelProps {
   eventId: string;
@@ -58,8 +62,14 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
   const [zones, setZones] = useState<BasicZone[]>([]);
   const [packs, setPacks] = useState<BasicPack[]>([]);
   const [floorPlanUrl, setFloorPlanUrl] = useState<string | null>(null);
+  // Full plan object (with interactive layout) — used in elite mode.
+  const [floorPlan, setFloorPlan] = useState<VenueFloorPlan | null>(null);
   const [uploading, setUploading] = useState(false);
   const [tab, setTab] = useState<'zones' | 'packs' | 'plan'>('zones');
+
+  // Live availability for the interactive (elite) plan — taken vs free tables.
+  const isElite = tablesEnabled && tablesMode === 'elite';
+  const { unavailableTableIds } = useTableAvailability(isElite ? eventId : undefined);
 
   // Zone dialog
   const [zoneOpen, setZoneOpen] = useState(false);
@@ -93,7 +103,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
         supabase.from('events').select('tables_enabled, tables_mode, tables_owner_user_id, event_mode, tables_locked_to_venue').eq('id', eventId).maybeSingle(),
         supabase.from('table_zones').select('id, name, color, tables_count, position').eq('event_id', eventId).order('position', { ascending: true, nullsFirst: false }),
         supabase.from('table_packs').select('id, zone_id, name, description, base_price, base_capacity, deposit, included_items, is_active').eq('event_id', eventId),
-        supabase.from('venue_floor_plans').select('background_image_url').eq('event_id', eventId).maybeSingle(),
+        supabase.from('venue_floor_plans').select('id, venue_id, layout, background_image_url').eq('event_id', eventId).maybeSingle(),
       ]);
       setTablesEnabled(!!ev?.tables_enabled);
       setTablesMode(ev?.tables_mode ?? null);
@@ -103,6 +113,13 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
       setZones((zs ?? []) as BasicZone[]);
       setPacks((ps ?? []) as BasicPack[]);
       setFloorPlanUrl(fp?.background_image_url ?? null);
+      setFloorPlan(fp ? {
+        id: fp.id,
+        venueId: (fp as any).venue_id ?? '',
+        backgroundImageUrl: fp.background_image_url ?? null,
+        layout: (fp.layout ?? { tables: [] }) as VenueFloorPlan['layout'],
+        createdAt: '', updatedAt: '',
+      } : null);
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -111,9 +128,10 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
   };
 
   const enableBasicTables = async () => {
-    // RPC (vs direct update): clones the club's floor plan + zones into the event
-    // and locks the structure so the organizer only sets packs/prices on top.
-    const { error } = await supabase.rpc('enable_collab_basic_tables', { p_event_id: eventId });
+    // RPC: if the club has an interactive floor plan → ELITE (the client picks a
+    // table on the club's plan); otherwise BASIC (club zones cloned + locked, the
+    // organizer only sets packs/prices). Returns the resolved mode.
+    const { error } = await supabase.rpc('enable_collab_tables', { p_event_id: eventId });
     if (error) {
       toast.error(error.message);
       return;
@@ -304,6 +322,73 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
             'En esta noche, el club gestiona solo la venta de mesas. Tú te enfocas en el marketing y la difusión.',
           )}
         </p>
+      </OrgCard>
+    );
+  }
+
+  // ÉLITE — the co-event reuses the club's interactive plan: the client picks a
+  // table at checkout. Here the organizer sees the plan (read-only) + the live
+  // reservations. Pricing/zones stay the club's (venue-scoped).
+  if (isElite) {
+    const hasInteractivePlan = (floorPlan?.layout?.tables?.length ?? 0) > 0;
+    return (
+      <OrgCard style={{ padding: 24 }}>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2" style={{ color: T1, fontSize: 16, fontWeight: 600 }}>
+              <MapIcon className="h-5 w-5" style={{ color: RED }} />
+              {tt('Tables VIP — Plan du club', 'VIP Tables — Club floor plan')}
+            </h2>
+            <p className="mt-0.5 flex items-center gap-1.5" style={{ color: T3, fontSize: 11.5 }}>
+              <Lock className="h-3.5 w-3.5" />
+              {tt(
+                'Plan interactif du club — le client choisit sa table. Tarifs et zones gérés par le club.',
+                'Club interactive plan — the client picks their table. Pricing & zones managed by the club.',
+                'Plano interactivo del club — el cliente elige su mesa. Precios y zonas gestionados por el club.',
+              )}
+            </p>
+          </div>
+          <OrgButton variant="ghost" size="sm" onClick={disableBasicTables}>
+            {tt('Désactiver', 'Disable')}
+          </OrgButton>
+        </div>
+
+        {hasInteractivePlan ? (
+          <>
+            <div className="overflow-hidden rounded-xl" style={{ border: `1px solid ${BORDER}`, background: INNER_BG }}>
+              <ClientFloorPlanPicker
+                floorPlan={floorPlan}
+                unavailableTableIds={unavailableTableIds}
+                selectedTableId={null}
+                onSelectTable={() => {}}
+                onSkip={() => {}}
+                readOnly
+              />
+            </div>
+            <p className="mt-2" style={{ color: T3, fontSize: 11 }}>
+              {tt(
+                'Les tables déjà réservées apparaissent indisponibles. Aperçu identique à celui du client.',
+                'Already-booked tables show as unavailable. Same view your customers see.',
+                'Las mesas ya reservadas aparecen como no disponibles. Misma vista que ve tu cliente.',
+              )}
+            </p>
+          </>
+        ) : (
+          <p style={{ color: T3, fontSize: 12.5 }}>
+            {tt(
+              "Le club n'a pas encore publié de plan de salle interactif.",
+              'The club has not published an interactive floor plan yet.',
+              'El club aún no ha publicado un plano de sala interactivo.',
+            )}
+          </p>
+        )}
+
+        <div className="mt-5">
+          <h3 className="mb-2" style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>
+            {tt('Réservations', 'Reservations')}
+          </h3>
+          <OwnerVipOrders eventId={eventId} />
+        </div>
       </OrgCard>
     );
   }
