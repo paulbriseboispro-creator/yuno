@@ -59,6 +59,8 @@ interface VipOrder {
 interface OwnerVipOrdersProps {
   venueId?: string;
   eventId?: string;
+  /** Aggregate reservations across a set of events (organizer scope — no single venue). */
+  eventIds?: string[];
 }
 
 function DarkSelect({ value, onChange, options }: {
@@ -83,7 +85,7 @@ function DarkSelect({ value, onChange, options }: {
   );
 }
 
-export function OwnerVipOrders({ venueId, eventId }: OwnerVipOrdersProps) {
+export function OwnerVipOrders({ venueId, eventId, eventIds }: OwnerVipOrdersProps) {
   const { t, language } = useLanguage();
   const [reservations, setReservations] = useState<VipOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,9 +98,10 @@ export function OwnerVipOrders({ venueId, eventId }: OwnerVipOrdersProps) {
   const statusLabel = (s: string) => t(STATUS_KEY[s] ?? 'orders.status.pending');
 
   useEffect(() => {
-    if (!venueId && !eventId) return;
+    if (!venueId && !eventId && !eventIds?.length) return;
     fetchReservations();
-  }, [venueId, eventId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [venueId, eventId, eventIds?.join(',')]);
 
   const fetchReservations = async () => {
     try {
@@ -108,6 +111,7 @@ export function OwnerVipOrders({ venueId, eventId }: OwnerVipOrdersProps) {
         .in('status', ['paid', 'confirmed', 'cancelled', 'refunded'])
         .order('created_at', { ascending: false });
       if (eventId) query = query.eq('event_id', eventId);
+      else if (eventIds?.length) query = query.in('event_id', eventIds);
       else if (venueId) query = query.eq('events.venue_id', venueId);
       const { data, error } = await query;
       if (error) throw error;
