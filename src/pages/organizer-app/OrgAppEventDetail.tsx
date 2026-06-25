@@ -184,8 +184,11 @@ export default function OrgAppEventDetail() {
                   </div>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                     <ToolTile icon={Radio} label={t('Live', 'Live')} onClick={() => navigate(`/organizer-app/events/${eventId}/live`)} />
-                    <ToolTile icon={Ticket} label={t('Billetterie', 'Ticketing')}
-                      onClick={() => (ticketingLive ? openTicketing() : setBilletterieOpen(true))} />
+                    {/* org_hosted: le club gère la billetterie → pas de tuile de gestion côté orga. */}
+                    {event.event_mode !== 'org_hosted' && (
+                      <ToolTile icon={Ticket} label={t('Billetterie', 'Ticketing')}
+                        onClick={() => (ticketingLive ? openTicketing() : setBilletterieOpen(true))} />
+                    )}
                     <ToolTile icon={BarChart3} label={t('Analyse', 'Analytics', 'Análisis')} onClick={() => navigate(`/organizer-app/analytics?event=${eventId}`)} />
                     <ToolTile icon={Megaphone} label={t('Promoteurs', 'Promoters', 'Promotores')} onClick={() => navigate(`/organizer-app/promoters/event/${eventId}`)} />
                     <ToolTile icon={Users} label={t('Guest list', 'Guest list')} onClick={() => navigate('/organizer-app/guest-list')} />
