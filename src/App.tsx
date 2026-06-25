@@ -116,6 +116,7 @@ const OrgAppCollaborations = lazyWithRetry(() => import("./pages/organizer-app/O
 const OrgAppProfile = lazyWithRetry(() => import("./pages/organizer-app/OrgAppProfile"));
 const OrgAppTeam = lazyWithRetry(() => import("./pages/organizer-app/OrgAppTeam"));
 const OrgAppCustomers = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCustomers"));
+const OrgAppTables = lazyWithRetry(() => import("./pages/organizer-app/OrgAppTables"));
 const OrgAppCampaigns = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCampaigns").then(m => ({ default: m.default })));
 const OrgAppCampaignEditor = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCampaigns").then(m => ({ default: m.OrgAppCampaignEditor })));
 const OrgAppCampaignReport = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCampaigns").then(m => ({ default: m.OrgAppCampaignReport })));
@@ -469,6 +470,7 @@ const App = () => (
                   <Route path="events/:eventId" element={<OrgAppEventDetail />} />
                   <Route path="events/:eventId/live" element={<OrgAppEventLive />} />
                   <Route path="ticketing" element={<OwnerTicketing />} />
+                  <Route path="tables" element={<OrgAppTables />} />
                   <Route path="djs" element={<OwnerDJs />} />
                   <Route path="djs/:djId" element={<OwnerDJDetail />} />
                   <Route path="book-dj" element={<BookDJPage />} />

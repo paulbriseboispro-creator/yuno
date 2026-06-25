@@ -19,6 +19,7 @@ import {
 	BarChart3Icon,
 	CalendarIcon,
 	TicketIcon,
+	CrownIcon,
 	UsersIcon,
 	ScanLineIcon,
 	Music2Icon,
@@ -55,6 +56,7 @@ function buildOrgNavGroups(tt: TT): SidebarNavGroup[] {
 			items: [
 				{ title: tt("Événements", "Events"), path: "/organizer-app/events", icon: <CalendarIcon /> },
 				{ title: tt("Billetterie", "Ticketing"), path: "/organizer-app/ticketing", icon: <TicketIcon /> },
+				{ title: tt("Tables VIP", "VIP Tables"), path: "/organizer-app/tables", icon: <CrownIcon /> },
 				{ title: tt("Guest List", "Guest List"), path: "/organizer-app/guest-list", icon: <UsersIcon /> },
 				{ title: tt("Check-in", "Check-in"), path: "/organizer-app/checkin", icon: <ScanLineIcon /> },
 				{ title: tt("DJs", "DJs"), path: "/organizer-app/djs", icon: <Music2Icon /> },
