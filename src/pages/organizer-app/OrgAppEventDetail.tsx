@@ -4,9 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
-import { ArrowLeft, Copy, ExternalLink, Ticket, BarChart3, ScanLine, AlertCircle, CreditCard, Sparkles, Radio, Loader2, Lock } from 'lucide-react';
+import { ArrowLeft, Copy, ExternalLink, Ticket, BarChart3, ScanLine, AlertCircle, CreditCard, Sparkles, Radio, Loader2, Lock, Eye, CalendarClock, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useOrganizerStripe } from '@/hooks/useOrganizerStripe';
+import { useEventCollabContract } from '@/hooks/useEventCollabContract';
 import { SplitContractBanner } from '@/components/SplitContractBanner';
 import { CollabMessageThread } from '@/components/collab/CollabMessageThread';
 import { OrgEventTablesPanel } from '@/components/organizer-app/OrgEventTablesPanel';
@@ -29,6 +30,7 @@ export default function OrgAppEventDetail() {
   const [loading, setLoading] = useState(true);
   const { canSell, status: stripeStatus, loading: stripeLoading } = useOrganizerStripe(user?.id);
   const netGain = useEventNetGain(user?.id ? eventId : null, { kind: 'organizer', organizerUserId: user?.id || '' });
+  const { status: contractStatus, isLoading: contractLoading } = useEventCollabContract(eventId, 'organizer');
 
   useEffect(() => {
     if (!user || !eventId) return;
@@ -77,6 +79,25 @@ export default function OrgAppEventDetail() {
     return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" style={{ color: T3 }} /></div>;
   }
 
+  // Co-event access gate. A club can PROPOSE a co-event to this organizer; until the
+  // organizer signs the contract, they get a READ-ONLY preview (check the details +
+  // the proposed split via the contract banner) instead of full management. Only the
+  // event owner (org-led events) or an accepted contract unlocks ticketing/tables/
+  // drinks editing — otherwise the partner could reshape the club's billetterie before
+  // ever agreeing to the deal.
+  const isOwner = !!user && event.organizer_user_id === user.id;
+  // Wait for the contract before deciding for non-owners, else an accepted co-event
+  // briefly flashes the read-only preview before the management UI loads in.
+  if (!isOwner && contractLoading) {
+    return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" style={{ color: T3 }} /></div>;
+  }
+  const contractAccepted = contractStatus === 'active' || contractStatus === 'locked' || contractStatus === 'closed';
+  const canManage = isOwner || contractAccepted;
+  const fmtWhen = (iso: string) => new Date(iso).toLocaleString(
+    language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-US',
+    { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' },
+  );
+
   return (
     <OrgPage className="mx-auto max-w-5xl">
       <button onClick={() => navigate('/organizer-app/events')} className="mb-4 inline-flex items-center gap-1 text-[13px]" style={{ color: T3 }}>
@@ -93,15 +114,20 @@ export default function OrgAppEventDetail() {
             {event.discovery_status === 'pending' && event.visibility === 'public' && (
               <OrgPill tone="warn">{t('En attente de validation', 'Pending review')}</OrgPill>
             )}
+            {!canManage && <OrgPill tone="warn">{t('Aperçu', 'Preview', 'Vista previa')}</OrgPill>}
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <OrgButton size="sm" variant="secondary" onClick={() => navigate(`/organizer-app/events/${eventId}/live`)}>
-            <Radio className="h-4 w-4" /> {t('Live', 'Live')}
-          </OrgButton>
-          <OrgButton size="sm" variant="secondary" onClick={copyLink}>
-            <Copy className="h-4 w-4" /> {t('Copier le lien', 'Copy link')}
-          </OrgButton>
+          {canManage && (
+            <OrgButton size="sm" variant="secondary" onClick={() => navigate(`/organizer-app/events/${eventId}/live`)}>
+              <Radio className="h-4 w-4" /> {t('Live', 'Live')}
+            </OrgButton>
+          )}
+          {canManage && (
+            <OrgButton size="sm" variant="secondary" onClick={copyLink}>
+              <Copy className="h-4 w-4" /> {t('Copier le lien', 'Copy link')}
+            </OrgButton>
+          )}
           <OrgButton size="sm" variant="secondary" href={eventLink}>
             <ExternalLink className="h-4 w-4" /> {t('Voir', 'View')}
           </OrgButton>
@@ -109,68 +135,124 @@ export default function OrgAppEventDetail() {
       </header>
 
       <div className="space-y-4">
-        <SplitContractBanner eventId={event.id} side="organizer" />
+        {!canManage && (
+          <OrgCard>
+            <div className="flex items-start gap-3 p-5">
+              <Eye className="mt-0.5 h-5 w-5 shrink-0" style={{ color: RED }} />
+              <div>
+                <p style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{t('Aperçu de la soirée', 'Event preview', 'Vista previa del evento')}</p>
+                <p className="mt-1" style={{ color: T3, fontSize: 12.5, lineHeight: 1.5 }}>
+                  {t(
+                    `${clubName || 'Un club'} te propose de co-organiser cette soirée. Consulte les détails et le contrat ci-dessous, puis signe-le pour ouvrir la gestion de la billetterie, des tables et des boissons. Tant que tu n'as pas signé, rien n'est modifiable.`,
+                    `${clubName || 'A club'} invites you to co-host this event. Review the details and the contract below, then sign it to unlock ticketing, tables and drinks management. Nothing is editable until you sign.`,
+                    `${clubName || 'Un club'} te propone coorganizar este evento. Revisa los detalles y el contrato y fírmalo para gestionar entradas, mesas y bebidas. Nada es editable hasta que firmes.`,
+                  )}
+                </p>
+              </div>
+            </div>
+          </OrgCard>
+        )}
 
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          <StatCard icon={Ticket} label={t('Vendus', 'Sold')} value={stats.sold} />
-          <StatCard icon={BarChart3} label={t('Revenu', 'Revenue')} value={`${stats.revenue.toFixed(2)} €`} />
-          <StatCard icon={ScanLine} label={t('Check-ins', 'Check-ins')} value={stats.checkins} />
-          <StatCard icon={Sparkles} label={t('Mon gain net', 'My net share')} value={netGain.loading ? '…' : `${netGain.netEuros.toFixed(2)} €`}
-            sub={t('Après frais Stripe & Yuno + part partenaire', 'After Stripe & Yuno fees + partner share')} accent />
-        </div>
+        <SplitContractBanner eventId={event.id} side="organizer" />
 
         {(event.event_mode === 'co_event' || event.partner_venue_id || event.partner_organizer_id) && (
           <CollabMessageThread eventId={event.id} authorRole="organizer" venueLabel={clubName} />
         )}
 
-        <OrgCard>
-          <div className="p-6">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <h2 style={{ color: T1, fontSize: 16, fontWeight: 600 }}>{t('Billetterie', 'Ticketing')}</h2>
-              {event.event_mode !== 'org_hosted' && (stripeLoading || canSell) && (
-                <OrgButton size="sm" variant="primary" onClick={() => navigate('/organizer-app/ticketing')}>
-                  <Ticket className="h-4 w-4" />{t('Gérer la billetterie', 'Manage ticketing')}
-                </OrgButton>
-              )}
+        {canManage ? (
+          <>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              <StatCard icon={Ticket} label={t('Vendus', 'Sold')} value={stats.sold} />
+              <StatCard icon={BarChart3} label={t('Revenu', 'Revenue')} value={`${stats.revenue.toFixed(2)} €`} />
+              <StatCard icon={ScanLine} label={t('Check-ins', 'Check-ins')} value={stats.checkins} />
+              <StatCard icon={Sparkles} label={t('Mon gain net', 'My net share')} value={netGain.loading ? '…' : `${netGain.netEuros.toFixed(2)} €`}
+                sub={t('Après frais Stripe & Yuno + part partenaire', 'After Stripe & Yuno fees + partner share')} accent />
             </div>
-            {event.event_mode === 'org_hosted' ? (
-              <p className="flex items-start gap-2" style={{ color: T3, fontSize: 13 }}>
-                <Lock className="mt-0.5 h-4 w-4 shrink-0" />
-                {t(
-                  'Sur cette soirée, le club gère seul la billetterie. Vous vous concentrez sur le marketing et le partage.',
-                  'For this event the club alone manages ticketing. You focus on marketing and sharing.',
-                  'En esta noche, el club gestiona solo la venta de entradas. Tú te enfocas en el marketing y la difusión.',
+
+            <OrgCard>
+              <div className="p-6">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                  <h2 style={{ color: T1, fontSize: 16, fontWeight: 600 }}>{t('Billetterie', 'Ticketing')}</h2>
+                  {event.event_mode !== 'org_hosted' && (stripeLoading || canSell) && (
+                    <OrgButton size="sm" variant="primary" onClick={() => navigate('/organizer-app/ticketing')}>
+                      <Ticket className="h-4 w-4" />{t('Gérer la billetterie', 'Manage ticketing')}
+                    </OrgButton>
+                  )}
+                </div>
+                {event.event_mode === 'org_hosted' ? (
+                  <p className="flex items-start gap-2" style={{ color: T3, fontSize: 13 }}>
+                    <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+                    {t(
+                      'Sur cette soirée, le club gère seul la billetterie. Vous vous concentrez sur le marketing et le partage.',
+                      'For this event the club alone manages ticketing. You focus on marketing and sharing.',
+                      'En esta noche, el club gestiona solo la venta de entradas. Tú te enfocas en el marketing y la difusión.',
+                    )}
+                  </p>
+                ) : !stripeLoading && !canSell ? (
+                  <div className="space-y-3 rounded-xl p-4" style={{ background: 'rgba(232,25,44,0.06)', border: '1px solid rgba(232,25,44,0.22)' }}>
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" style={{ color: RED }} />
+                      <div className="flex-1">
+                        <p style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{t('Activez Stripe pour vendre des billets', 'Activate Stripe to sell tickets')}</p>
+                        <p className="mt-1" style={{ color: T3, fontSize: 11.5 }}>
+                          {stripeStatus === 'pending'
+                            ? t('Onboarding incomplet — terminez la configuration dans Réglages.', 'Onboarding incomplete — finish configuration in Settings.')
+                            : t('Vous devez configurer vos paiements avant de créer des billets.', 'You must configure payments before creating tickets.')}
+                        </p>
+                      </div>
+                    </div>
+                    <OrgButton size="sm" variant="primary" onClick={() => navigate('/organizer-app/payments')}>
+                      <CreditCard className="h-4 w-4" />{t('Configurer les paiements', 'Configure payments')}
+                    </OrgButton>
+                  </div>
+                ) : (
+                  <p style={{ color: T3, fontSize: 13 }}>
+                    {t('Configurez vos tarifs, palliers de prix, présale et liste privée depuis la page Billetterie unifiée.',
+                       'Configure your tiers, price rounds, presale and private list from the unified Ticketing page.')}
+                  </p>
                 )}
-              </p>
-            ) : !stripeLoading && !canSell ? (
-              <div className="space-y-3 rounded-xl p-4" style={{ background: 'rgba(232,25,44,0.06)', border: '1px solid rgba(232,25,44,0.22)' }}>
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" style={{ color: RED }} />
-                  <div className="flex-1">
-                    <p style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{t('Activez Stripe pour vendre des billets', 'Activate Stripe to sell tickets')}</p>
-                    <p className="mt-1" style={{ color: T3, fontSize: 11.5 }}>
-                      {stripeStatus === 'pending'
-                        ? t('Onboarding incomplet — terminez la configuration dans Réglages.', 'Onboarding incomplete — finish configuration in Settings.')
-                        : t('Vous devez configurer vos paiements avant de créer des billets.', 'You must configure payments before creating tickets.')}
-                    </p>
+              </div>
+            </OrgCard>
+
+            {user && <OrgEventTablesPanel eventId={event.id} organizerUserId={user.id} />}
+            <OrgEventDrinksMenu eventId={event.id} />
+            <PurchaseSourceBreakdown eventId={event.id} />
+          </>
+        ) : (
+          <OrgCard>
+            <div className="p-6">
+              <div className="flex gap-4">
+                {event.poster_url ? (
+                  <img src={event.poster_url} alt="" className="h-28 w-20 flex-none rounded-lg object-cover" style={{ border: '1px solid rgba(255,255,255,0.08)' }} />
+                ) : (
+                  <div className="flex h-28 w-20 flex-none items-center justify-center rounded-lg" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                    <Building2 className="h-6 w-6" style={{ color: T3 }} />
+                  </div>
+                )}
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex items-center gap-2" style={{ color: T1, fontSize: 13 }}>
+                    <CalendarClock className="h-4 w-4 shrink-0" style={{ color: T3 }} />
+                    <span className="capitalize">{fmtWhen(event.start_at)}</span>
+                  </div>
+                  {clubName && (
+                    <div className="flex items-center gap-2" style={{ color: T1, fontSize: 13 }}>
+                      <Building2 className="h-4 w-4 shrink-0" style={{ color: T3 }} />
+                      <span>{clubName}</span>
+                    </div>
+                  )}
+                  {event.description && (
+                    <p style={{ color: T3, fontSize: 12.5, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>{event.description}</p>
+                  )}
+                  <div className="pt-1">
+                    <OrgButton size="sm" variant="secondary" href={eventLink}>
+                      <ExternalLink className="h-4 w-4" /> {t('Voir la page de la soirée', 'View the event page', 'Ver la página del evento')}
+                    </OrgButton>
                   </div>
                 </div>
-                <OrgButton size="sm" variant="primary" onClick={() => navigate('/organizer-app/payments')}>
-                  <CreditCard className="h-4 w-4" />{t('Configurer les paiements', 'Configure payments')}
-                </OrgButton>
               </div>
-            ) : (
-              <p style={{ color: T3, fontSize: 13 }}>
-                {t('Configurez vos tarifs, palliers de prix, présale et liste privée depuis la page Billetterie unifiée.',
-                   'Configure your tiers, price rounds, presale and private list from the unified Ticketing page.')}
-              </p>
-            )}
-          </div>
-        </OrgCard>
-
-        {user && <OrgEventTablesPanel eventId={event.id} organizerUserId={user.id} />}
-        <OrgEventDrinksMenu eventId={event.id} />
-        <PurchaseSourceBreakdown eventId={event.id} />
+            </div>
+          </OrgCard>
+        )}
       </div>
     </OrgPage>
   );
