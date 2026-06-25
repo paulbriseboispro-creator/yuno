@@ -207,9 +207,13 @@ export default function OwnerTicketing() {
         .gte('end_at', nowInParis().toISOString())
         .order('start_at', { ascending: true });
 
-      // For venue scope: include co-events where the venue is partner_venue_id
+      // Org scope: events I lead (organizer_user_id) PLUS club-led co-events I
+      // partner on (partner_organizer_id) — except org_hosted, where the club
+      // alone manages ticketing. Without this, a club-led co-event never showed
+      // up in the organizer's ticketing tab.
+      // Venue scope: include co-events where the venue is partner_venue_id.
       const { data, error } = isOrganizerScope
-        ? await baseQuery.eq('organizer_user_id', organizerUserId!)
+        ? await baseQuery.or(`organizer_user_id.eq.${organizerUserId},and(partner_organizer_id.eq.${organizerUserId},event_mode.neq.org_hosted)`)
         : await baseQuery.or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`);
 
       if (error) throw error;
