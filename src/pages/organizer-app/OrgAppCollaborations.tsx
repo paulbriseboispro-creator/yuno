@@ -202,7 +202,7 @@ function CoEventCard({ event, onChanged }: { event: CoEvent; onChanged: () => vo
           className="inline-flex flex-none items-center gap-1 self-start rounded-lg px-3 py-2"
           style={{ background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.30)', color: '#FF5C63', fontSize: 12, fontWeight: 600, textDecoration: 'none' }}
         >
-          {t('Ouvrir', 'Open', 'Abrir')} <ArrowRight className="h-3.5 w-3.5" />
+          {accepted ? t('Ouvrir', 'Open', 'Abrir') : t('Aperçu', 'Preview', 'Vista previa')} <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
     </OrgCard>
