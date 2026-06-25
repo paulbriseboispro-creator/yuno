@@ -102,10 +102,13 @@ export default function OrganizerPublicProfile() {
       // Events organised by this user — on affiche tous les events publics de cet orga
       // (le filtre is_discoverable concerne uniquement la page Explorer, pas le profil orga
       // qu'un visiteur consulte volontairement).
+      // Events I LEAD (organizer_user_id) AND co-events a club leads where I'm the
+      // partner (partner_organizer_id) — a co-soirée is public on BOTH sides,
+      // symmetrically, whoever launched it.
       const { data: evs } = await supabase
         .from('events')
         .select('id, title, start_at, end_at, poster_url, location_city, venue_id, partner_venue_id')
-        .eq('organizer_user_id', prof.user_id)
+        .or(`organizer_user_id.eq.${prof.user_id},partner_organizer_id.eq.${prof.user_id}`)
         .eq('visibility', 'public')
         .eq('is_active', true)
         .order('start_at', { ascending: true });

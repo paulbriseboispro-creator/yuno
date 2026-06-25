@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { useParams } from 'react-router-dom';
 import { usePreviewNavigate } from '@/contexts/OwnerPreviewContext';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, ChevronRight, ChevronDown, ChevronUp, Share2, MapPin, Calendar } from 'lucide-react';
+import { ArrowLeft, ChevronRight, ChevronDown, ChevronUp, Share2, MapPin, Calendar, Handshake } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr } from 'date-fns/locale';
@@ -793,6 +793,15 @@ export default function VenuePage() {
                         <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                         <span className="text-[11px] text-muted-foreground truncate">
                           {venue.city}
+                        </span>
+                      </div>
+                    )}
+                    {/* Co-soirée : montrer l'orga partenaire → la soirée se lit comme une collab. */}
+                    {isCoOrganized && organizer && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <Handshake className="h-3 w-3 flex-shrink-0" style={{ color: '#E8192C' }} />
+                        <span className="text-[11px] truncate" style={{ color: '#E8192C' }}>
+                          {organizer.name}
                         </span>
                       </div>
                     )}
