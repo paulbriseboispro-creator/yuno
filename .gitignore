@@ -32,6 +32,9 @@ dist-ssr
 # Supabase CLI temp
 supabase/.temp/
 
+# Cloudflare Wrangler local cache (build artifact, like node_modules)
+.wrangler/
+
 # Backup / duplicate artifacts
 *.backup
 # macOS Finder duplicates ("name 2.ext", "name 3.ext", ...)
@@ -46,3 +49,5 @@ skills-lock.json
 AUDIT_ANALYTICS_OWNER.md
 Analyse-Strategique-Yuno.pdf
 Cartographie-Yuno.pdf
+docs/Yuno_Pricing_Strategie.md
+docs/Yuno_Pricing_Strategie.pdf
