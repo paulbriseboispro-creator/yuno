@@ -78,7 +78,23 @@ serve(async (req) => {
       });
     }
 
-    if (new Date(event.end_at || event.start_at) < new Date()) {
+    // Drink credits are spendable only DURING the event night. Open the window
+    // a couple of hours before the official start (early arrivals / doors) and
+    // keep it open a couple of hours past the end (bar collection grace). A free
+    // welcome drink can't be claimed days early, nor after the party is over.
+    const REDEEM_LEAD_MS = 2 * 60 * 60 * 1000;
+    const REDEEM_GRACE_MS = 2 * 60 * 60 * 1000;
+    const nowMs = Date.now();
+    const startMs = new Date(event.start_at).getTime();
+    const endMs = new Date(event.end_at || event.start_at).getTime();
+
+    if (nowMs < startMs - REDEEM_LEAD_MS) {
+      return new Response(
+        JSON.stringify({ error: "Cette conso est utilisable uniquement le soir de l'événement." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (nowMs > endMs + REDEEM_GRACE_MS) {
       return new Response(JSON.stringify({ error: "L'événement est déjà terminé" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

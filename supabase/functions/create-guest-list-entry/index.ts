@@ -267,7 +267,11 @@ serve(async (req) => {
       const drinkMode = venueForDrink?.free_drink_mode || 'credits';
       
       if (drinkMode === 'credits') {
-        const expiresAt = new Date(new Date(guestList.events.end_at).getTime()).toISOString();
+        // Bind the credit to the soirée: expire at the event end, or (no end_at)
+        // 8h after start. Never NULL — that would make the credit unredeemable.
+        const expiresAt = guestList.events.end_at
+          ? new Date(guestList.events.end_at).toISOString()
+          : new Date(new Date(guestList.events.start_at).getTime() + 8 * 60 * 60 * 1000).toISOString();
         await supabaseAdmin
           .from("order_pack_credits")
           .upsert({

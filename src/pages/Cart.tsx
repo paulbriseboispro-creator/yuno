@@ -54,6 +54,10 @@ export default function Cart() {
   const [venueInfo, setVenueInfo] = useState<VenueInfo | null>(null);
   const [heroImage, setHeroImage] = useState<string | null>(null);
   const [availableCredits, setAvailableCredits] = useState(0);
+  // Credits exist but the event night hasn't opened yet (free drink is bound to
+  // the soirée — only spendable during the event). Drives a "locked" banner.
+  const [creditsLockedForNight, setCreditsLockedForNight] = useState(false);
+  const [creditsNightStart, setCreditsNightStart] = useState<string | null>(null);
   const [pendingCardCheckout, setPendingCardCheckout] = useState(false);
   const cleanExpiredItems = useStore((state) => state.cleanExpiredItems);
   const [acceptCgv, setAcceptCgv] = useState(false);
@@ -185,8 +189,27 @@ export default function Cart() {
   }, [cart]);
 
   const fetchCredits = async () => {
-    if (!user || !venueInfo?.id) { setAvailableCredits(0); return; }
+    if (!user || !venueInfo?.id) { setAvailableCredits(0); setCreditsLockedForNight(false); return; }
     const eventId = cart[0]?.eventId;
+
+    // The free drink is bound to the soirée: only spendable during the event
+    // night (mirrors the server gate in use-drink-credit). Open a 2h lead
+    // before start (doors) and a 2h grace past the end (bar collection).
+    let usableNow = true;
+    let startIso: string | null = null;
+    if (eventId) {
+      const { data: ev } = await supabase
+        .from('events').select('start_at, end_at').eq('id', eventId).single();
+      if (ev?.start_at) {
+        startIso = ev.start_at;
+        const LEAD = 2 * 60 * 60 * 1000;
+        const now = Date.now();
+        const start = new Date(ev.start_at).getTime() - LEAD;
+        const end = new Date(ev.end_at || ev.start_at).getTime() + LEAD;
+        usableNow = now >= start && now <= end;
+      }
+    }
+
     let query = supabase
       .from('order_pack_credits')
       .select('total_credits, used_credits')
@@ -195,10 +218,17 @@ export default function Cart() {
       .gt('expires_at', new Date().toISOString());
     if (eventId) query = query.eq('event_id', eventId);
     const { data } = await query;
-    if (data) {
-      const cr = data.reduce((sum, c) => sum + (c.total_credits - c.used_credits), 0);
+    const cr = data ? data.reduce((sum, c) => sum + (c.total_credits - c.used_credits), 0) : 0;
+
+    if (cr > 0 && !usableNow) {
+      // Hold the credit back from checkout, but tell the user it's coming.
+      setAvailableCredits(0);
+      setCreditsLockedForNight(true);
+      setCreditsNightStart(startIso);
+    } else {
       setAvailableCredits(cr);
-    } else { setAvailableCredits(0); }
+      setCreditsLockedForNight(false);
+    }
   };
 
   useEffect(() => { fetchCredits(); }, [user, venueInfo?.id, cart]);
@@ -722,6 +752,42 @@ export default function Cart() {
                     ? t('upsell.creditsCoverAll')
                     : t('upsell.creditsCoverSome').replace('{count}', String(creditsCanCover))}
                 </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── Credits locked until the event night ─────────────── */}
+        {creditsLockedForNight && (
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+            <div
+              className="flex items-center gap-3 p-4"
+              style={{
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.10)',
+                borderRadius: 'var(--radius-sm)',
+              }}
+            >
+              <div
+                className="flex h-10 w-10 shrink-0 items-center justify-center"
+                style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 'var(--radius-sm)' }}
+              >
+                <Wine className="h-5 w-5" style={{ color: 'var(--yuno-gray-2)' }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-display text-sm font-bold text-white">
+                  {t('upsell.creditNotYetUsable')}
+                </p>
+                {creditsNightStart && (
+                  <p className="font-sans text-[11px] mt-0.5" style={{ color: 'var(--yuno-gray-2)' }}>
+                    {t('upsell.creditUsableOn').replace(
+                      '{date}',
+                      new Date(creditsNightStart).toLocaleDateString(language, {
+                        weekday: 'long', day: 'numeric', month: 'long',
+                      })
+                    )}
+                  </p>
+                )}
               </div>
             </div>
           </motion.div>
