@@ -750,7 +750,7 @@ serve(async (req) => {
           // Get event end_at for expiration
           const { data: eventForExpiry } = await supabaseAdmin
             .from("events")
-            .select("end_at")
+            .select("start_at, end_at")
             .eq("id", eventId)
             .single();
 
@@ -781,7 +781,10 @@ serve(async (req) => {
                   total_credits: upsell.drinkCount,
                   used_credits: 0,
                   event_id: eventId,
-                  expires_at: eventForExpiry?.end_at || null,
+                  expires_at: eventForExpiry?.end_at
+                    || (eventForExpiry?.start_at
+                      ? new Date(new Date(eventForExpiry.start_at).getTime() + 8 * 60 * 60 * 1000).toISOString()
+                      : null),
                 });
               logStep("Pack credits created for upsell", { offerId: upsell.offerId, credits: upsell.drinkCount });
             }
@@ -820,7 +823,10 @@ serve(async (req) => {
                 total_credits: quantity,
                 used_credits: 0,
                 event_id: eventId,
-                expires_at: eventForExpiry?.end_at || null,
+                expires_at: eventForExpiry?.end_at
+                  || (eventForExpiry?.start_at
+                    ? new Date(new Date(eventForExpiry.start_at).getTime() + 8 * 60 * 60 * 1000).toISOString()
+                    : null),
               });
             logStep("Free drink credits created (test mode)", { ticketId: ticket.id, credits: quantity });
           } catch (drinkCreditError) {

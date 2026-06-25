@@ -144,14 +144,21 @@ serve(async (req) => {
           }
 
           if (drinkMode === 'credits') {
+            // Bind the credit to the event night: expire at the event end, or
+            // (no end_at) 8h after it starts. Never leave this NULL — a NULL
+            // expiry makes the credit unredeemable (cart/use-drink-credit both
+            // require expires_at > now()) while still showing on the orders page.
             let drinkExpiresAt: string | null = null;
             if (metaEventIdForDrink) {
               const { data: eventForDrink } = await supabaseAdmin
                 .from('events')
-                .select('end_at')
+                .select('start_at, end_at')
                 .eq('id', metaEventIdForDrink)
                 .single();
-              drinkExpiresAt = eventForDrink?.end_at || null;
+              drinkExpiresAt = eventForDrink?.end_at
+                || (eventForDrink?.start_at
+                  ? new Date(new Date(eventForDrink.start_at).getTime() + 8 * 60 * 60 * 1000).toISOString()
+                  : null);
             }
 
             if (metaVenueIdForDrink) {
@@ -177,23 +184,27 @@ serve(async (req) => {
         console.error('Error creating free drink credits:', drinkCreditError);
       }
 
-      // Upsells
+      // Upsells. Fall back to the ticket's own event so pack credits stay bound
+      // to the soirée even if checkout metadata omitted eventId.
       const upsellsJson = session.metadata?.upsells;
-      const metaEventId = session.metadata?.eventId;
+      const metaEventId = session.metadata?.eventId || ticket.event_id;
       const metaVenueId = session.metadata?.venueId;
 
       if (upsellsJson) {
         try {
           const upsells = JSON.parse(upsellsJson) as Array<{ id: string; t: string; p: number; d: number; n: string }>;
-          
+
           let expiresAt: string | null = null;
           if (metaEventId) {
             const { data: eventForExpiry } = await supabaseAdmin
               .from('events')
-              .select('end_at')
+              .select('start_at, end_at')
               .eq('id', metaEventId)
               .single();
-            expiresAt = eventForExpiry?.end_at || null;
+            expiresAt = eventForExpiry?.end_at
+              || (eventForExpiry?.start_at
+                ? new Date(new Date(eventForExpiry.start_at).getTime() + 8 * 60 * 60 * 1000).toISOString()
+                : null);
           }
 
           for (const upsell of upsells) {
@@ -239,10 +250,13 @@ serve(async (req) => {
             if (metaEventId) {
               const { data: eventForExpiry } = await supabaseAdmin
                 .from('events')
-                .select('end_at')
+                .select('start_at, end_at')
                 .eq('id', metaEventId)
                 .single();
-              expiresAt = eventForExpiry?.end_at || null;
+              expiresAt = eventForExpiry?.end_at
+                || (eventForExpiry?.start_at
+                  ? new Date(new Date(eventForExpiry.start_at).getTime() + 8 * 60 * 60 * 1000).toISOString()
+                  : null);
             }
 
             await supabaseAdmin
