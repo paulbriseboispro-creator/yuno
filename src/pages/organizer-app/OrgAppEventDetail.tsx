@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
-import { ArrowLeft, Copy, ExternalLink, Ticket, BarChart3, ScanLine, AlertCircle, CreditCard, Sparkles, Radio, Loader2, Lock, Eye, CalendarClock, Building2 } from 'lucide-react';
+import { ArrowLeft, Copy, ExternalLink, Ticket, BarChart3, ScanLine, AlertCircle, CreditCard, Sparkles, Radio, Loader2, Lock, Eye, CalendarClock, Building2, Megaphone, Music, Users, LayoutGrid } from 'lucide-react';
 import { toast } from 'sonner';
 import { useOrganizerStripe } from '@/hooks/useOrganizerStripe';
 import { useEventCollabContract } from '@/hooks/useEventCollabContract';
@@ -12,6 +12,7 @@ import { SplitContractBanner } from '@/components/SplitContractBanner';
 import { CollabMessageThread } from '@/components/collab/CollabMessageThread';
 import { OrgEventTablesPanel } from '@/components/organizer-app/OrgEventTablesPanel';
 import { OrgEventDrinksMenu } from '@/components/organizer-app/OrgEventDrinksMenu';
+import { OrgBilletterieDialog } from '@/components/organizer-app/OrgBilletterieDialog';
 import { PurchaseSourceBreakdown } from '@/components/analytics/PurchaseSourceBreakdown';
 import { useEventNetGain } from '@/hooks/useEventNetGain';
 import {
@@ -28,6 +29,7 @@ export default function OrgAppEventDetail() {
   const [clubName, setClubName] = useState<string>('');
   const [stats, setStats] = useState({ sold: 0, revenue: 0, checkins: 0 });
   const [loading, setLoading] = useState(true);
+  const [billetterieOpen, setBilletterieOpen] = useState(false);
   const { canSell, status: stripeStatus, loading: stripeLoading } = useOrganizerStripe(user?.id);
   const netGain = useEventNetGain(user?.id ? eventId : null, { kind: 'organizer', organizerUserId: user?.id || '' });
   const { status: contractStatus, isLoading: contractLoading } = useEventCollabContract(eventId, 'organizer');
@@ -93,6 +95,9 @@ export default function OrgAppEventDetail() {
   }
   const contractAccepted = contractStatus === 'active' || contractStatus === 'locked' || contractStatus === 'closed';
   const canManage = isOwner || contractAccepted;
+  const isCollab = !!(event.partner_venue_id || event.partner_organizer_id || event.event_mode === 'co_event');
+  const ticketingLive = !!event.ticketing_enabled;
+  const openTicketing = () => navigate('/organizer-app/ticketing');
   const fmtWhen = (iso: string) => new Date(iso).toLocaleString(
     language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-US',
     { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' },
@@ -169,14 +174,43 @@ export default function OrgAppEventDetail() {
                 sub={t('Après frais Stripe & Yuno + part partenaire', 'After Stripe & Yuno fees + partner share')} accent />
             </div>
 
+            {/* Collab mini-dashboard — quick access to every tool for this night. */}
+            {isCollab && (
+              <OrgCard>
+                <div className="p-5">
+                  <div className="mb-3 flex items-center gap-2">
+                    <LayoutGrid className="h-4 w-4" style={{ color: RED }} />
+                    <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('Outils de la soirée', 'Event tools', 'Herramientas de la noche')}</h2>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                    <ToolTile icon={Radio} label={t('Live', 'Live')} onClick={() => navigate(`/organizer-app/events/${eventId}/live`)} />
+                    <ToolTile icon={Ticket} label={t('Billetterie', 'Ticketing')}
+                      onClick={() => (ticketingLive ? openTicketing() : setBilletterieOpen(true))} />
+                    <ToolTile icon={BarChart3} label={t('Analyse', 'Analytics', 'Análisis')} onClick={() => navigate(`/organizer-app/analytics?event=${eventId}`)} />
+                    <ToolTile icon={Megaphone} label={t('Promoteurs', 'Promoters', 'Promotores')} onClick={() => navigate(`/organizer-app/promoters/event/${eventId}`)} />
+                    <ToolTile icon={Users} label={t('Guest list', 'Guest list')} onClick={() => navigate('/organizer-app/guest-list')} />
+                    <ToolTile icon={ScanLine} label={t('Check-in', 'Check-in')} onClick={() => navigate('/organizer-app/checkin')} />
+                    <ToolTile icon={Music} label={t('Booking DJ', 'Book DJ')} onClick={() => navigate('/organizer-app/book-dj')} />
+                    <ToolTile icon={ExternalLink} label={t('Page publique', 'Public page', 'Página pública')} href={eventLink} />
+                  </div>
+                </div>
+              </OrgCard>
+            )}
+
             <OrgCard>
               <div className="p-6">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                   <h2 style={{ color: T1, fontSize: 16, fontWeight: 600 }}>{t('Billetterie', 'Ticketing')}</h2>
                   {event.event_mode !== 'org_hosted' && (stripeLoading || canSell) && (
-                    <OrgButton size="sm" variant="primary" onClick={() => navigate('/organizer-app/ticketing')}>
-                      <Ticket className="h-4 w-4" />{t('Gérer la billetterie', 'Manage ticketing')}
-                    </OrgButton>
+                    ticketingLive ? (
+                      <OrgButton size="sm" variant="primary" onClick={openTicketing}>
+                        <Ticket className="h-4 w-4" />{t('Gérer la billetterie', 'Manage ticketing')}
+                      </OrgButton>
+                    ) : (
+                      <OrgButton size="sm" variant="primary" onClick={() => setBilletterieOpen(true)}>
+                        <Ticket className="h-4 w-4" />{t('Activer la billetterie', 'Activate ticketing')}
+                      </OrgButton>
+                    )
                   )}
                 </div>
                 {event.event_mode === 'org_hosted' ? (
@@ -254,7 +288,31 @@ export default function OrgAppEventDetail() {
           </OrgCard>
         )}
       </div>
+
+      <OrgBilletterieDialog
+        eventId={event.id}
+        open={billetterieOpen}
+        onOpenChange={setBilletterieOpen}
+        onCreate={() => { setBilletterieOpen(false); openTicketing(); }}
+        onActivated={() => setEvent((e: any) => (e ? { ...e, ticketing_enabled: true } : e))}
+      />
     </OrgPage>
+  );
+}
+
+function ToolTile({ icon: Icon, label, onClick, href }: { icon: any; label: string; onClick?: () => void; href?: string }) {
+  const inner = (
+    <>
+      <Icon className="h-5 w-5" style={{ color: RED }} />
+      <span style={{ color: T1, fontSize: 12, fontWeight: 540 }}>{label}</span>
+    </>
+  );
+  const cls = 'flex flex-col items-center justify-center gap-2 rounded-xl p-4 text-center transition-colors hover:bg-white/[0.03]';
+  const style = { border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.015)' } as const;
+  return href ? (
+    <a href={href} target="_blank" rel="noreferrer" className={cls} style={style}>{inner}</a>
+  ) : (
+    <button onClick={onClick} className={cls} style={style}>{inner}</button>
   );
 }
 

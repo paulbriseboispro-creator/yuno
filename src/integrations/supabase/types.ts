@@ -11863,6 +11863,7 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: undefined
       }
+      enable_collab_tables: { Args: { p_event_id: string }; Returns: string }
       event_audience_demographics: {
         Args: {
           p_event_id?: string
@@ -12594,7 +12595,12 @@ export type Database = {
         Returns: string
       }
       sign_event_collab_contract: {
-        Args: { p_contract_id: string; p_ip?: string; p_user_agent?: string }
+        Args: {
+          p_contract_id: string
+          p_ip?: string
+          p_terms_version?: string
+          p_user_agent?: string
+        }
         Returns: string
       }
       staff_ban_customer: {

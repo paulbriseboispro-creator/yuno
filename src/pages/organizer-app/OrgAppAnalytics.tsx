@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, subMinutes, subHours, subDays, startOfDay } from 'date-fns';
 import { fr, enUS } from 'date-fns/locale';
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAnalyticsData, type AnalyticsMode, type DateRange, dateRangeToWindow } from '@/hooks/useAnalyticsData';
 import { useOrganizerEventIds } from '@/hooks/useOrganizerEventIds';
 import { buildOrganizerScopeOr } from '@/components/analytics/scopeFilter';
@@ -338,9 +339,17 @@ export default function OrgAppAnalytics() {
   const tt = (fr2: string, en: string, es?: string) => translate(language, fr2, en, es);
   const dateLocale = language === 'fr' ? fr : enUS;
 
+  const [searchParams] = useSearchParams();
   const [dateRange, setDateRange] = useState<DateRange>('7days');
   const [mode, setMode] = useState<AnalyticsMode>('global');
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+
+  // Deep-link: /organizer-app/analytics?event=<id> jumps straight to that night's
+  // verdict (e.g. from the event page's "Analyse" tile).
+  useEffect(() => {
+    const ev = searchParams.get('event');
+    if (ev) { setMode('event'); setSelectedEventId(ev); }
+  }, [searchParams]);
   const [exporting, setExporting] = useState(false);
   const [liveVisitors, setLiveVisitors] = useState(0);
   const [funnel, setFunnel] = useState({ visitors: 0, addedToCart: 0, proceededToCheckout: 0, completed: 0, conversionRate: 0 });
