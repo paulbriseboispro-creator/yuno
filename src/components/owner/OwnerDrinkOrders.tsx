@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { format } from 'date-fns';
@@ -40,6 +40,8 @@ const STATUS_KEY: Record<string, string> = {
 interface OwnerDrinkOrdersProps {
   venueId?: string;
   eventId?: string;
+  /** When set, auto-open the detail dialog for this order id (notification deep-link). */
+  focusOrderId?: string;
 }
 
 function DarkSelect({ value, onChange, options }: {
@@ -70,7 +72,7 @@ function DarkSelect({ value, onChange, options }: {
   );
 }
 
-export function OwnerDrinkOrders({ venueId, eventId }: OwnerDrinkOrdersProps) {
+export function OwnerDrinkOrders({ venueId, eventId, focusOrderId }: OwnerDrinkOrdersProps) {
   const { t, language } = useLanguage();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -145,6 +147,14 @@ export function OwnerDrinkOrders({ venueId, eventId }: OwnerDrinkOrdersProps) {
       setLoading(false);
     }
   };
+
+  // Notification deep-link: open the matching order's detail dialog once it loads.
+  const lastFocusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusOrderId || lastFocusRef.current === focusOrderId) return;
+    const match = orders.find((o) => o.id === focusOrderId);
+    if (match) { setSelectedOrder(match); lastFocusRef.current = focusOrderId; }
+  }, [focusOrderId, orders]);
 
   const uniqueDrinks = Array.from(new Set(orders.flatMap((o) => o.items.map((item) => item.name))));
 

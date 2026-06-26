@@ -471,6 +471,7 @@ const App = () => (
                   <Route path="events/:eventId/live" element={<OrgAppEventLive />} />
                   <Route path="ticketing" element={<OwnerTicketing />} />
                   <Route path="tables" element={<OrgAppTables />} />
+                  <Route path="orders" element={<OwnerOrders />} />
                   <Route path="djs" element={<OwnerDJs />} />
                   <Route path="djs/:djId" element={<OwnerDJDetail />} />
                   <Route path="book-dj" element={<BookDJPage />} />
