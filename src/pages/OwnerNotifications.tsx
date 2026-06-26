@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { formatDistanceToNow, isToday, isYesterday, isAfter, subDays } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,7 +18,7 @@ import { useVenueContext } from '@/hooks/useVenueContext';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  type AppNotif, CATEGORY_META, PRIORITY_CONFIG, getNotifDef, getFeedConfig,
+  type AppNotif, CATEGORY_META, PRIORITY_CONFIG, getNotifDef, getFeedConfig, notifLink,
 } from '@/lib/notifications';
 
 type TabFilter = 'all' | 'unread' | 'urgent';
@@ -44,7 +45,7 @@ function groupByTime(notifications: AppNotif[]) {
 
 // ─── Notification card ────────────────────────────────────────────────────────
 
-function NotifCard({ notif, onMarkRead }: { notif: AppNotif; onMarkRead: (id: string) => void }) {
+function NotifCard({ notif, onMarkRead, onOpen }: { notif: AppNotif; onMarkRead: (id: string) => void; onOpen: (n: AppNotif) => void }) {
   const { t, language } = useLanguage();
   const def = getNotifDef(notif.notification_type);
   const Icon = def.icon;
@@ -63,8 +64,9 @@ function NotifCard({ notif, onMarkRead }: { notif: AppNotif; onMarkRead: (id: st
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.98 }}
       transition={{ duration: 0.18 }}
+      onClick={() => onOpen(notif)}
       className={[
-        'group relative flex gap-3 rounded-xl border p-4 transition-all duration-200 cursor-default',
+        'group relative flex gap-3 rounded-xl border p-4 transition-all duration-200 cursor-pointer',
         isUnread
           ? `bg-white/[0.04] border-white/[0.08] hover:bg-white/[0.06] hover:border-white/[0.12] ${notif.priority === 'urgent' || notif.priority === 'high' ? p.glow : ''}`
           : 'bg-transparent border-white/[0.03] hover:bg-white/[0.02]',
@@ -134,7 +136,7 @@ function NotifCard({ notif, onMarkRead }: { notif: AppNotif; onMarkRead: (id: st
       {/* Mark read button */}
       {isUnread && (
         <button
-          onClick={() => onMarkRead(notif.id)}
+          onClick={(e) => { e.stopPropagation(); onMarkRead(notif.id); }}
           className="flex-shrink-0 self-start opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-white/[0.08] text-white/30 hover:text-white/60 cursor-pointer"
           title={t('notif.markRead')}
         >
@@ -253,6 +255,15 @@ export default function OwnerNotifications() {
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
     } catch (e) { console.error(e); }
   }, [table]);
+
+  // Row click → mark read + deep-link to the relevant surface (orders, ticketing…).
+  const navigate = useNavigate();
+  const handleOpen = useCallback((n: AppNotif) => {
+    if (!n.read_at) markAsRead(n.id);
+    if (!config) return;
+    const link = notifLink(n, config);
+    if (link) navigate(link);
+  }, [config, markAsRead, navigate]);
 
   const markAllAsRead = useCallback(async () => {
     if (!table || !filterColumn || !filterValue) return;
@@ -397,7 +408,7 @@ export default function OwnerNotifications() {
                   </p>
                   <div className="space-y-1.5">
                     {group.items.map(notif => (
-                      <NotifCard key={notif.id} notif={notif} onMarkRead={markAsRead} />
+                      <NotifCard key={notif.id} notif={notif} onMarkRead={markAsRead} onOpen={handleOpen} />
                     ))}
                   </div>
                 </motion.section>

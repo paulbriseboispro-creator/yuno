@@ -174,6 +174,9 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
   const isManager = basePath === '/manager';
   const metaEventId = typeof n.metadata?.event_id === 'string' ? n.metadata.event_id : null;
   const eventId = n.event_id ?? metaEventId;
+  // Sale notifications carry the order/ticket/reservation id in reference_id, so
+  // the orders page can auto-open that exact order's detail (the one just placed).
+  const orderFocus = n.reference_id ? `&focus=${n.reference_id}` : '';
 
   switch (n.notification_type) {
     // Co-event collaboration (per-night). Owners get the per-event collab
@@ -212,21 +215,25 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
     case 'dj_booking_declined':
       return isManager ? null : `${basePath}/book-dj`;
 
-    // Ticketing.
+    // Ticket sale → the orders page, tickets tab, opened on the sale just made.
     case 'ticket_sale':
+      return `${basePath}/orders?tab=tickets${orderFocus}`;
+    // Ticketing capacity alerts stay on the ticketing management page.
     case 'ticket_round_warning':
     case 'ticket_round_sold_out':
       return `${basePath}/ticketing`;
 
-    // VIP tables (no organizer route).
+    // VIP table booked → the orders page, VIP tab, opened on the new reservation.
     case 'table_booked':
+      return `${basePath}/orders?tab=vip${orderFocus}`;
+    // VIP capacity alerts (owner has a tables page; organizer has no such surface).
     case 'tables_warning':
     case 'tables_sold_out':
       return isOrganizer ? null : `${basePath}/tables`;
 
-    // Drink orders / refunds.
+    // Drink order (venue scope only) → the orders page, drinks tab.
     case 'new_order':
-      return isOrganizer ? null : `${basePath}/orders`;
+      return isOrganizer ? null : `${basePath}/orders?tab=drinks${orderFocus}`;
     case 'refund_issued':
       return `${basePath}/refunds`;
 

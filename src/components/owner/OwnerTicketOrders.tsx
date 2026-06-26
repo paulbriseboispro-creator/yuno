@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { format } from 'date-fns';
@@ -59,6 +59,10 @@ interface TicketOrder {
 interface OwnerTicketOrdersProps {
   venueId?: string;
   eventId?: string;
+  /** Aggregate ticket sales across a set of events (organizer scope — no single venue). */
+  eventIds?: string[];
+  /** When set, auto-open the detail dialog for this ticket id (notification deep-link). */
+  focusOrderId?: string;
 }
 
 function DarkSelect({ value, onChange, options }: {
@@ -83,8 +87,10 @@ function DarkSelect({ value, onChange, options }: {
   );
 }
 
-export function OwnerTicketOrders({ venueId, eventId }: OwnerTicketOrdersProps) {
+export function OwnerTicketOrders({ venueId, eventId, eventIds, focusOrderId }: OwnerTicketOrdersProps) {
   const { t, language } = useLanguage();
+  // `eventIds` defined (even empty) means organizer scope: filter by this event set.
+  const orgScope = eventIds !== undefined;
   const [tickets, setTickets] = useState<TicketOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -100,18 +106,30 @@ export function OwnerTicketOrders({ venueId, eventId }: OwnerTicketOrdersProps) 
   const minorDocFor = (ticket: TicketOrder) => minorDocs.get(minorDocKey(ticket.eventId, ticket.userEmail));
 
   useEffect(() => {
-    if (!venueId && !eventId) return;
+    if (!venueId && !eventId && !orgScope) return;
     fetchTickets();
-  }, [venueId, eventId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [venueId, eventId, eventIds?.join(',')]);
+
+  // Notification deep-link: open the matching ticket's detail dialog once it loads.
+  const lastFocusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusOrderId || lastFocusRef.current === focusOrderId) return;
+    const match = tickets.find((tk) => tk.id === focusOrderId);
+    if (match) { setSelectedTicket(match); lastFocusRef.current = focusOrderId; }
+  }, [focusOrderId, tickets]);
 
   const fetchTickets = async () => {
     try {
+      // Organizer with no events yet → nothing to show (avoids an unfiltered query).
+      if (orgScope && eventIds!.length === 0) { setTickets([]); setMinorDocs(new Map()); return; }
       let query = supabase
         .from('tickets')
         .select(`*, events!inner(title, start_at, venue_id), ticket_rounds!inner(name)`)
         .in('status', ['paid', 'cancelled', 'refunded'])
         .order('created_at', { ascending: false });
       if (eventId) query = query.eq('event_id', eventId);
+      else if (orgScope) query = query.in('event_id', eventIds!);
       else if (venueId) query = query.eq('events.venue_id', venueId);
       const { data, error } = await query;
       if (error) throw error;
@@ -138,8 +156,8 @@ export function OwnerTicketOrders({ venueId, eventId }: OwnerTicketOrdersProps) 
       setTickets(mapped);
 
       // Enrich with minor-ticket records for the events in view.
-      const eventIds = [...new Set(mapped.map((m) => m.eventId).filter(Boolean))];
-      setMinorDocs(await fetchMinorDocsByEvents(eventIds));
+      const docEventIds = [...new Set(mapped.map((m) => m.eventId).filter(Boolean))];
+      setMinorDocs(await fetchMinorDocsByEvents(docEventIds));
     } catch (error) {
       console.error('Error fetching tickets:', error);
     } finally {

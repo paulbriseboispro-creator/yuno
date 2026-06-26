@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { format } from 'date-fns';
@@ -61,6 +61,8 @@ interface OwnerVipOrdersProps {
   eventId?: string;
   /** Aggregate reservations across a set of events (organizer scope — no single venue). */
   eventIds?: string[];
+  /** When set, auto-open the detail dialog for this reservation id (notification deep-link). */
+  focusOrderId?: string;
 }
 
 function DarkSelect({ value, onChange, options }: {
@@ -85,8 +87,10 @@ function DarkSelect({ value, onChange, options }: {
   );
 }
 
-export function OwnerVipOrders({ venueId, eventId, eventIds }: OwnerVipOrdersProps) {
+export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: OwnerVipOrdersProps) {
   const { t, language } = useLanguage();
+  // `eventIds` defined (even empty) means organizer scope: filter by this event set.
+  const orgScope = eventIds !== undefined;
   const [reservations, setReservations] = useState<VipOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -98,20 +102,30 @@ export function OwnerVipOrders({ venueId, eventId, eventIds }: OwnerVipOrdersPro
   const statusLabel = (s: string) => t(STATUS_KEY[s] ?? 'orders.status.pending');
 
   useEffect(() => {
-    if (!venueId && !eventId && !eventIds?.length) return;
+    if (!venueId && !eventId && !orgScope) return;
     fetchReservations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [venueId, eventId, eventIds?.join(',')]);
 
+  // Notification deep-link: open the matching reservation's detail dialog once it loads.
+  const lastFocusRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusOrderId || lastFocusRef.current === focusOrderId) return;
+    const match = reservations.find((r) => r.id === focusOrderId);
+    if (match) { setSelectedReservation(match); lastFocusRef.current = focusOrderId; }
+  }, [focusOrderId, reservations]);
+
   const fetchReservations = async () => {
     try {
+      // Organizer with no events yet → nothing to show (avoids an unfiltered query).
+      if (orgScope && eventIds!.length === 0) { setReservations([]); return; }
       let query = supabase
         .from('table_reservations')
         .select(`*, events!inner(title, start_at, venue_id), table_zones(name)`)
         .in('status', ['paid', 'confirmed', 'cancelled', 'refunded'])
         .order('created_at', { ascending: false });
       if (eventId) query = query.eq('event_id', eventId);
-      else if (eventIds?.length) query = query.in('event_id', eventIds);
+      else if (orgScope) query = query.in('event_id', eventIds!);
       else if (venueId) query = query.eq('events.venue_id', venueId);
       const { data, error } = await query;
       if (error) throw error;
