@@ -18,7 +18,7 @@ export const pickL = (lang: Lang | string, l: L): string =>
   (lang === 'en' ? l.en : lang === 'es' ? l.es : l.fr);
 
 /** Bump + add a REGISTRY entry whenever the article wording changes. */
-export const COLLAB_TERMS_VERSION = '2026-06-24';
+export const COLLAB_TERMS_VERSION = '2026-06-26';
 
 export interface TermsClause {
   term: L;
@@ -268,19 +268,55 @@ const ARTICLES_2026_06_24: TermsArticle[] = [
 ];
 
 const TERMS_2026_06_24: CollabTerms = {
-  version: COLLAB_TERMS_VERSION,
+  version: '2026-06-24',
   articles: ARTICLES_2026_06_24,
+  labels: LABELS_2026_06_24,
+};
+
+// ── v2026-06-26 — explicit payout-timing (held-transfer) disclosure ───────────
+// Co-event funds settle on the Yuno platform and each party's share is transferred
+// a couple of days AFTER the event (refund-window retention), not on each sale.
+// The 2026-06-24 split note implied an on-each-sale payout, which the retention
+// model made inaccurate — corrected here, plus a dedicated payout-timing clause so
+// signers are explicitly told WHEN they are paid. Labels are unchanged.
+const SPLIT_NOTE_2026_06_26: L = {
+  fr: "Les paiements sont encaissés au nom du Club (vendeur de record, alcool inclus). La part de l'organisateur lui revient selon les pourcentages ci-dessus, reversée selon les modalités d'encaissement et de versement de l'article 4. Les boissons reviennent toujours à 100% au Club, sauf si l'organisateur a attesté ses propres documents de vente d'alcool.",
+  en: "Payments are collected under the Club (seller of record, alcohol included). The organizer's share follows the percentages above and is paid out per the collection and payout terms in Article 4. Drinks are always 100% the Club's, unless the organizer has attested their own alcohol-sale documents.",
+  es: "Los pagos se cobran a nombre del Club (vendedor de registro, alcohol incluido). La parte del organizador sigue los porcentajes anteriores y se abona según las condiciones de cobro y abono del artículo 4. Las bebidas son siempre 100% del Club, salvo que el organizador haya acreditado sus propios documentos de venta de alcohol.",
+};
+
+const PAYOUT_TIMING_CLAUSE: TermsClause = {
+  term: { fr: 'Encaissement & versement des parts', en: 'Collection & payout of shares', es: 'Cobro y abono de las partes' },
+  body: {
+    fr: "Les ventes de la soirée co-organisée sont encaissées par Yuno au nom du Club (vendeur de record), via Stripe, prestataire de services de paiement agréé. La part revenant à chaque partie est conservée sur le solde Stripe de la plateforme — et non sur un compte bancaire personnel de Yuno — où elle reste identifiée, traçable et due à la partie bénéficiaire, puis lui est virée sur son compte Stripe connecté à l'issue d'un délai de 2 jours suivant la fin de l'événement.\n\nCe délai de versement est nécessaire à la bonne gestion des remboursements, annulations et rétrofacturations (chargebacks) : tant que la fenêtre de contestation reste ouverte, un remboursement éventuel est simplement prélevé sur les fonds encore détenus, sans avoir à réclamer à une partie de l'argent déjà versé. Il protège ainsi les deux parties contre les impayés et les reprises de fonds. Chaque partie doit disposer d'un compte de paiement (Stripe Connect) actif pour recevoir sa part ; à défaut, sa part reste détenue en sécurité jusqu'à l'activation du compte.",
+    en: "Sales for the co-organized event are collected by Yuno under the Club (seller of record), through Stripe, a licensed payment service provider. Each party's share is held on the platform's Stripe balance — not in any personal Yuno bank account — where it remains identified, traceable and owed to the beneficiary party, and is then transferred to its connected Stripe account after a 2-day period following the end of the event.\n\nThis payout delay is necessary for the proper handling of refunds, cancellations and chargebacks: while the dispute window remains open, any refund is simply taken from the funds still held, without having to claw back money already paid out to a party. It thereby protects both parties against unpaid amounts and fund reversals. Each party must hold an active payment account (Stripe Connect) to receive its share; otherwise its share remains held securely until the account is activated.",
+    es: "Las ventas del evento co-organizado las cobra Yuno a nombre del Club (vendedor de registro), a través de Stripe, proveedor de servicios de pago autorizado. La parte correspondiente a cada parte se conserva en el saldo de Stripe de la plataforma — y no en una cuenta bancaria personal de Yuno — donde permanece identificada, trazable y debida a la parte beneficiaria, y luego se transfiere a su cuenta Stripe conectada tras un plazo de 2 días después del fin del evento.\n\nEste plazo de abono es necesario para la correcta gestión de reembolsos, cancelaciones y contracargos (chargebacks): mientras la ventana de disputa permanece abierta, cualquier reembolso se toma simplemente de los fondos aún retenidos, sin tener que reclamar a una parte el dinero ya abonado. Así protege a ambas partes frente a impagos y reversiones de fondos. Cada parte debe disponer de una cuenta de pago (Stripe Connect) activa para recibir su parte; en su defecto, su parte permanece retenida de forma segura hasta la activación de la cuenta.",
+  },
+};
+
+const ARTICLES_2026_06_26: TermsArticle[] = ARTICLES_2026_06_24.map((a) => {
+  // Article 3 (split): correct the "paid out on each sale" wording.
+  if (a.kind === 'split' && a.num === 3) return { ...a, note: SPLIT_NOTE_2026_06_26 };
+  // Article 4 (base, fees & commission): append the payout-timing clause.
+  if (a.kind === 'static' && a.num === 4) return { ...a, clauses: [...(a.clauses ?? []), PAYOUT_TIMING_CLAUSE] };
+  return a;
+});
+
+const TERMS_2026_06_26: CollabTerms = {
+  version: '2026-06-26',
+  articles: ARTICLES_2026_06_26,
   labels: LABELS_2026_06_24,
 };
 
 /** Every published version is kept here forever so signed contracts re-render as signed. */
 const REGISTRY: Record<string, CollabTerms> = {
-  [COLLAB_TERMS_VERSION]: TERMS_2026_06_24,
+  '2026-06-24': TERMS_2026_06_24,
+  '2026-06-26': TERMS_2026_06_26,
 };
 
 /** Resolve the terms for a frozen version; unknown / legacy-null falls back to latest. */
 export function getCollabTerms(version?: string | null): CollabTerms {
-  return (version && REGISTRY[version]) || TERMS_2026_06_24;
+  return (version && REGISTRY[version]) || TERMS_2026_06_26;
 }
 
 /** Pick the clause body, honoring the policy-dependent alternate when it applies. */
