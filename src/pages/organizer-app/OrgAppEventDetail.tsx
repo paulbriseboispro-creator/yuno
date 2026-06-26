@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
-import { ArrowLeft, Copy, ExternalLink, Ticket, BarChart3, ScanLine, AlertCircle, CreditCard, Sparkles, Radio, Loader2, Lock, Eye, CalendarClock, Building2, Megaphone, Music, Users, LayoutGrid } from 'lucide-react';
+import { ArrowLeft, Copy, ExternalLink, Ticket, BarChart3, ScanLine, AlertCircle, CreditCard, Sparkles, Radio, Loader2, Lock, Eye, CalendarClock, Building2, Megaphone, Music, Users, LayoutGrid, TrendingUp } from 'lucide-react';
 import { toast } from 'sonner';
 import { useOrganizerStripe } from '@/hooks/useOrganizerStripe';
 import { useEventCollabContract } from '@/hooks/useEventCollabContract';
@@ -15,6 +15,9 @@ import { OrgEventDrinksMenu } from '@/components/organizer-app/OrgEventDrinksMen
 import { OrgBilletterieDialog } from '@/components/organizer-app/OrgBilletterieDialog';
 import { PurchaseSourceBreakdown } from '@/components/analytics/PurchaseSourceBreakdown';
 import { useEventNetGain } from '@/hooks/useEventNetGain';
+import { PayoutStatusNote } from '@/components/collab/PayoutStatusNote';
+import { ticketRevenue, tableRevenue } from '@/utils/fees';
+import { getEffectiveSplit } from '@/utils/coEventSplit';
 import {
   OrgPage, OrgCard, OrgPill, OrgButton,
   RED, T1, T3,
@@ -27,7 +30,7 @@ export default function OrgAppEventDetail() {
   const navigate = useNavigate();
   const [event, setEvent] = useState<any>(null);
   const [clubName, setClubName] = useState<string>('');
-  const [stats, setStats] = useState({ sold: 0, revenue: 0, checkins: 0 });
+  const [stats, setStats] = useState({ sold: 0, caSoiree: 0, myShare: 0, checkins: 0 });
   const [loading, setLoading] = useState(true);
   const [billetterieOpen, setBilletterieOpen] = useState(false);
   const { canSell, status: stripeStatus, loading: stripeLoading } = useOrganizerStripe(user?.id);
@@ -57,16 +60,30 @@ export default function OrgAppEventDetail() {
         if (v) setClubName(v.name);
       }
 
-      const { data: tickets } = await supabase
-        .from('tickets')
-        .select('total_price, service_fee, insurance_fee, entry_scanned')
-        .eq('event_id', eventId)
-        .eq('status', 'paid');
+      const [{ data: tickets }, { data: reservations }] = await Promise.all([
+        supabase
+          .from('tickets')
+          .select('total_price, service_fee, insurance_fee, entry_scanned')
+          .eq('event_id', eventId)
+          .eq('status', 'paid'),
+        supabase
+          .from('table_reservations')
+          .select('total_price, service_fee, management_fee')
+          .eq('event_id', eventId)
+          .eq('status', 'confirmed'),
+      ]);
+
+      // CA de la soirée = billets + tables, HORS frais Yuno (jamais le TTC : les frais
+      // Yuno ne sont pas du revenu). Ma part = la part orga du split appliquée à ce CA.
+      const ticketCA = (tickets ?? []).reduce((s, t: any) => s + ticketRevenue(t).gross, 0);
+      const tableCA = (reservations ?? []).reduce((s, r: any) => s + tableRevenue(r).gross, 0);
+      const ticketPct = getEffectiveSplit(ev.revenue_split_rules, 'ticket', ev.event_mode).organizer_pct / 100;
+      const tablePct = getEffectiveSplit(ev.revenue_split_rules, 'table', ev.event_mode).organizer_pct / 100;
 
       setStats({
         sold: tickets?.length ?? 0,
-        // Club revenue excludes Yuno fees (service + insurance) — never Yuno's cut.
-        revenue: (tickets ?? []).reduce((s, t: any) => s + (Number(t.total_price ?? 0) - Number(t.service_fee ?? 0) - Number(t.insurance_fee ?? 0)), 0),
+        caSoiree: ticketCA + tableCA,
+        myShare: ticketCA * ticketPct + tableCA * tablePct,
         checkins: (tickets ?? []).filter((t: any) => t.entry_scanned).length,
       });
       setLoading(false);
@@ -166,13 +183,18 @@ export default function OrgAppEventDetail() {
 
         {canManage ? (
           <>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
               <StatCard icon={Ticket} label={t('Vendus', 'Sold')} value={stats.sold} />
-              <StatCard icon={BarChart3} label={t('Revenu', 'Revenue')} value={`${stats.revenue.toFixed(2)} €`} />
+              <StatCard icon={BarChart3} label={t('CA de la soirée', 'Night revenue', 'Ingresos de la noche')} value={`${stats.caSoiree.toFixed(2)} €`}
+                sub={t('Billets + tables, hors frais Yuno', 'Tickets + tables, excl. Yuno fees', 'Entradas + mesas, sin comisión Yuno')} />
+              <StatCard icon={TrendingUp} label={t('Ma part du CA', 'My revenue share', 'Mi parte de ingresos')} value={`${stats.myShare.toFixed(2)} €`}
+                sub={t('Avant frais Stripe', 'Before Stripe fees', 'Antes de comisiones Stripe')} />
               <StatCard icon={ScanLine} label={t('Check-ins', 'Check-ins')} value={stats.checkins} />
               <StatCard icon={Sparkles} label={t('Mon gain net', 'My net share')} value={netGain.loading ? '…' : `${netGain.netEuros.toFixed(2)} €`}
                 sub={t('Après frais Stripe & Yuno + part partenaire', 'After Stripe & Yuno fees + partner share')} accent />
             </div>
+
+            <PayoutStatusNote gain={netGain} className="-mt-1" />
 
             {/* Collab mini-dashboard — quick access to every tool for this night. */}
             {isCollab && (

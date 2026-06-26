@@ -6,12 +6,13 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { format } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
-import { Handshake, Clock, Building2, ArrowRight, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { Handshake, Clock, Building2, ArrowRight, ChevronDown, ChevronUp, Loader2, Sparkles } from 'lucide-react';
 import {
-  OrgPage, OrgPageHeader, OrgCard, OrgPill, OrgSectionLabel, OrgEmptyState,
+  OrgPage, OrgPageHeader, OrgCard, OrgPill, OrgButton, OrgSectionLabel, OrgEmptyState,
   T1, T2, T3, BORDER, INNER_BG,
 } from '@/components/org-ui';
 import { OrgPendingProposals } from '@/components/organizer-app/OrgPendingProposals';
+import { OrgProposeEventDialog } from '@/components/organizer-app/OrgProposeEventDialog';
 import { CollabActionControls } from '@/components/collab/CollabActionControls';
 
 const dateFnsLocale = (lng: string) => (lng === 'fr' ? fr : lng === 'es' ? es : enUS);
@@ -26,6 +27,8 @@ interface CoEvent {
   collab_paused_at: string | null;
   clubName: string;
   contractStatus: string | null;
+  /** True when this org initiated the co-event (org-led) — vs a club proposal. */
+  initiatedByMe: boolean;
 }
 
 /**
@@ -42,6 +45,7 @@ export default function OrgAppCollaborations() {
   const [events, setEvents] = useState<CoEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPast, setShowPast] = useState(false);
+  const [proposeOpen, setProposeOpen] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) { setLoading(false); return; }
@@ -69,6 +73,7 @@ export default function OrgAppCollaborations() {
       is_active: e.is_active, collab_paused_at: e.collab_paused_at,
       clubName: vMap.get((e.venue_id ?? e.partner_venue_id) as string) || t('Un club', 'A club', 'Un club'),
       contractStatus: cMap.get(e.id) ?? null,
+      initiatedByMe: e.organizer_user_id === user.id && !!e.partner_venue_id,
     })));
     setLoading(false);
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -97,6 +102,11 @@ export default function OrgAppCollaborations() {
           'Events co-hosted with Yuno clubs: incoming proposals and active co-events.',
           'Eventos coorganizados con clubes Yuno: propuestas recibidas y coeventos activos.',
         )}
+        actions={
+          <OrgButton variant="primary" size="sm" onClick={() => setProposeOpen(true)}>
+            <Sparkles className="h-4 w-4" /> <span className="hidden sm:inline">{t('Proposer une soirée', 'Propose an event', 'Proponer un evento')}</span>
+          </OrgButton>
+        }
       />
 
       <div className="space-y-6">
@@ -110,10 +120,15 @@ export default function OrgAppCollaborations() {
             icon={Handshake}
             title={t('Aucune co-soirée pour le moment.', 'No co-events yet.', 'Aún no hay coeventos.')}
             description={t(
-              'Quand un club Yuno te propose de co-organiser une soirée, elle apparaît ici. Tu peux aussi proposer un partenariat depuis « Clubs partenaires ».',
-              'When a Yuno club proposes to co-host an event, it shows up here. You can also request a partnership from “Partner clubs”.',
-              'Cuando un club Yuno te propone coorganizar un evento, aparece aquí. También puedes solicitar un partenariado desde “Clubes asociados”.',
+              'Propose une de tes soirées à un club partenaire, ou attends qu’un club Yuno t’en propose une — elle apparaîtra ici.',
+              'Propose one of your events to a partner club, or wait for a Yuno club to propose one — it shows up here.',
+              'Propón uno de tus eventos a un club asociado, o espera a que un club Yuno te proponga uno — aparecerá aquí.',
             )}
+            action={
+              <OrgButton variant="primary" size="sm" onClick={() => setProposeOpen(true)}>
+                <Sparkles className="h-4 w-4" /> {t('Proposer une soirée', 'Propose an event', 'Proponer un evento')}
+              </OrgButton>
+            }
           />
         ) : (
           <>
@@ -152,6 +167,8 @@ export default function OrgAppCollaborations() {
           </>
         )}
       </div>
+
+      <OrgProposeEventDialog open={proposeOpen} onOpenChange={setProposeOpen} onCreated={load} />
     </OrgPage>
   );
 }
@@ -169,7 +186,9 @@ function CoEventCard({ event, onChanged }: { event: CoEvent; onChanged: () => vo
     : accepted
       ? { tone: 'success' as const, label: t('Active', 'Active', 'Activa') }
       : awaiting
-        ? { tone: 'warn' as const, label: t('À valider', 'To review', 'Por revisar') }
+        ? event.initiatedByMe
+          ? { tone: 'warn' as const, label: t('En attente du club', 'Awaiting club', 'Esperando al club') }
+          : { tone: 'warn' as const, label: t('À valider', 'To review', 'Por revisar') }
         : { tone: 'muted' as const, label: t('En préparation', 'Draft', 'Borrador') };
 
   return (

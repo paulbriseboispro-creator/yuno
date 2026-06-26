@@ -6,6 +6,7 @@ import { fr, es, enUS } from 'date-fns/locale';
 import { Search, Eye, Crown, Users, ChevronDown } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
+import { tableRevenue } from '@/utils/fees';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED     = '#E8192C';
@@ -168,7 +169,12 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
       : b.totalPrice - a.totalPrice
     );
 
-  const totalRevenue = filteredReservations.reduce((s, r) => s + r.totalPrice, 0);
+  // CA club = montant payé par le client − frais Yuno (service + gestion). Les frais
+  // Yuno transitent par Stripe mais ne sont jamais du revenu club — ne pas afficher le TTC.
+  const totalRevenue = filteredReservations.reduce(
+    (s, r) => s + tableRevenue({ total_price: r.totalPrice, service_fee: r.serviceFee, management_fee: r.managementFee }).gross,
+    0,
+  );
   const totalGuests = filteredReservations.reduce((s, r) => s + (r.guestCount ?? 0), 0);
 
   return (

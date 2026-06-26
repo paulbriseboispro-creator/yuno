@@ -32,7 +32,10 @@ import { EventAudienceDemographics } from '@/components/analytics/EventAudienceD
 import { SplitContractBanner } from '@/components/SplitContractBanner';
 import { CollabConversionClose } from '@/components/collab/CollabConversionClose';
 import { CollabMessageThread } from '@/components/collab/CollabMessageThread';
+import { PayoutStatusNote } from '@/components/collab/PayoutStatusNote';
 import { normalizeSplitRules } from '@/lib/splitRules';
+import { ticketRevenue as ticketRow, tableRevenue as tableRow } from '@/utils/fees';
+import { getEffectiveSplit } from '@/utils/coEventSplit';
 
 type Phase = 'before' | 'live' | 'after';
 
@@ -286,6 +289,8 @@ export default function OwnerCollabEventDashboard() {
         <VitrineHeadline
           eventId={event.id}
           venueId={myVenueId}
+          eventMode={event.event_mode}
+          splitRules={event.revenue_split_rules}
           phase={phase}
           goalType={event.collab_goal_type}
           goalValue={event.collab_goal_value}
@@ -396,9 +401,11 @@ function Section({ icon: Icon, title, sub, children }: { icon: any; title: strin
 /* =========================================================================
  * HEADLINE — phase-aware money hook (net gain front and center) + KPI strip
  * ========================================================================= */
-function VitrineHeadline({ eventId, venueId, phase, goalType, goalValue, canEditGoal, onGoalSaved }: {
+function VitrineHeadline({ eventId, venueId, eventMode, splitRules, phase, goalType, goalValue, canEditGoal, onGoalSaved }: {
   eventId: string;
   venueId: string | null;
+  eventMode: string | null;
+  splitRules: any;
   phase: Phase;
   goalType: string | null;
   goalValue: number | null;
@@ -411,6 +418,7 @@ function VitrineHeadline({ eventId, venueId, phase, goalType, goalValue, canEdit
     ticketRevenue: number; ticketsSold: number; ticketsScanned: number;
     tableRevenue: number; tablesBooked: number; tableGuests: number;
     glEntries: number; glScanned: number;
+    myShare: number;
   } | null>(null);
 
   const netGain = useEventNetGain(
@@ -422,27 +430,34 @@ function VitrineHeadline({ eventId, venueId, phase, goalType, goalValue, canEdit
     let cancelled = false;
     (async () => {
       const [tk, tr, gl] = await Promise.all([
-        supabase.from('tickets').select('total_price, quantity, entry_scanned, status').eq('event_id', eventId).eq('status', 'paid'),
-        supabase.from('table_reservations').select('total_price, guests_count, status').eq('event_id', eventId).eq('status', 'confirmed'),
+        supabase.from('tickets').select('total_price, service_fee, insurance_fee, quantity, entry_scanned, status').eq('event_id', eventId).eq('status', 'paid'),
+        supabase.from('table_reservations').select('total_price, service_fee, management_fee, guests_count, status').eq('event_id', eventId).eq('status', 'confirmed'),
         supabase.from('guest_list_entries').select('id, entry_scanned, guest_lists!inner(event_id)').eq('guest_lists.event_id', eventId),
       ]);
       if (cancelled) return;
       const tickets = tk.data || [];
       const reservations = tr.data || [];
       const entries = (gl.data || []) as any[];
+      // CA hors frais Yuno (les frais Yuno ne sont jamais du revenu club).
+      const ticketCA = tickets.reduce((a, x: any) => a + ticketRow(x).gross, 0);
+      const tableCA = reservations.reduce((a, x: any) => a + tableRow(x).gross, 0);
+      // Ma part du CA = part club du split appliquée au CA hors Yuno (avant frais Stripe).
+      const ticketPct = getEffectiveSplit(splitRules, 'ticket', eventMode).venue_pct / 100;
+      const tablePct = getEffectiveSplit(splitRules, 'table', eventMode).venue_pct / 100;
       setData({
-        ticketRevenue: tickets.reduce((a, x: any) => a + Number(x.total_price || 0), 0),
+        ticketRevenue: ticketCA,
         ticketsSold: tickets.reduce((a, x: any) => a + (x.quantity || 1), 0),
         ticketsScanned: tickets.filter((x: any) => x.entry_scanned).length,
-        tableRevenue: reservations.reduce((a, x: any) => a + Number(x.total_price || 0), 0),
+        tableRevenue: tableCA,
         tablesBooked: reservations.length,
         tableGuests: reservations.reduce((a, x: any) => a + (x.guests_count || 0), 0),
         glEntries: entries.length,
         glScanned: entries.filter((e: any) => e.entry_scanned).length,
+        myShare: ticketCA * ticketPct + tableCA * tablePct,
       });
     })();
     return () => { cancelled = true; };
-  }, [eventId]);
+  }, [eventId, eventMode, splitRules]);
 
   const heading =
     phase === 'after' ? tt('Verdict de la soirée', 'Night verdict', 'Veredicto de la noche')
@@ -472,6 +487,13 @@ function VitrineHeadline({ eventId, venueId, phase, goalType, goalValue, canEdit
               <div className="text-4xl sm:text-5xl font-bold tracking-tight text-primary tabular-nums">
                 {netGain.loading ? '…' : `${netGain.netEuros.toFixed(2)} €`}
               </div>
+              {/* CA total de la soirée vs ma part du CA — les frais Stripe/Yuno + le split
+                  expliquent l'écart entre la part brute et le gain net affiché en gros. */}
+              <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-muted-foreground">
+                <span>{tt('Ma part du CA', 'My revenue share', 'Mi parte de ingresos')} <b className="text-foreground tabular-nums">{data.myShare.toFixed(0)} €</b></span>
+                <span>{tt('CA de la soirée', 'Night revenue', 'Ingresos de la noche')} <b className="text-foreground tabular-nums">{totalRevenue.toFixed(0)} €</b></span>
+              </div>
+              <PayoutStatusNote gain={netGain} className="mt-1.5" />
             </div>
           </div>
 
@@ -480,7 +502,7 @@ function VitrineHeadline({ eventId, venueId, phase, goalType, goalValue, canEdit
             <Kpi icon={Ticket} label={t('collabDash.kpiTicketRevenue')} value={`${data.ticketRevenue.toFixed(0)} €`} sub={`${data.ticketsSold} ${t('collabDash.soldWord')} · ${data.ticketsScanned} ${t('collabDash.scannedWord')}`} />
             <Kpi icon={Wine} label={t('collabDash.kpiTableRevenue')} value={`${data.tableRevenue.toFixed(0)} €`} sub={`${data.tablesBooked} ${t('collabDash.bookedWord')}`} />
             <Kpi icon={UserPlus} label={tt('Guest list', 'Guest list', 'Guest list')} value={`${data.glEntries}`} sub={`${data.glScanned} ${t('collabDash.enteredWord')}`} />
-            <Kpi icon={TrendingUp} label={t('collabDash.kpiTotalRevenue')} value={`${totalRevenue.toFixed(0)} €`} sub={t('collabDash.ticketsPlusTables')} />
+            <Kpi icon={TrendingUp} label={tt('CA de la soirée', 'Night revenue', 'Ingresos de la noche')} value={`${totalRevenue.toFixed(0)} €`} sub={tt('Billets + tables, hors frais Yuno', 'Tickets + tables, excl. Yuno fees', 'Entradas + mesas, sin comisión Yuno')} />
           </div>
 
           <CollabGoal

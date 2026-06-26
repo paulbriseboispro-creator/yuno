@@ -81,12 +81,20 @@ export function EventAudienceDemographics({ scope, eventId, from, to }: Props) {
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [data, setData] = useState<DemographicsData | null>(null);
+  const [capacity, setCapacity] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      // Per-event view: pull the event's max capacity so the ring can show real fill.
+      let cap: number | null = null;
+      if (eventId) {
+        const { data: ev } = await supabase.from('events').select('max_tickets').eq('id', eventId).maybeSingle();
+        const mt = (ev as { max_tickets: number | null } | null)?.max_tickets ?? null;
+        cap = mt && mt > 0 ? mt : null;
+      }
       const { data: res } = await supabase.rpc('event_audience_demographics', {
         p_scope: scope.kind,
         p_scope_id: scope.id,
@@ -97,6 +105,7 @@ export function EventAudienceDemographics({ scope, eventId, from, to }: Props) {
       if (cancelled) return;
       const parsed = res as unknown as DemographicsData | null;
       setData(parsed && parsed.ok ? parsed : null);
+      setCapacity(cap);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -225,11 +234,15 @@ export function EventAudienceDemographics({ scope, eventId, from, to }: Props) {
             {tt('Participants', 'Participants', 'Participantes')}
           </h3>
           <div className="flex-1 flex flex-col items-center justify-center py-3">
-            <ParticipantRing value={data.total} />
+            <ParticipantRing value={data.total} capacity={capacity} />
             <p className="mt-3 text-[12px] text-center" style={{ color: T3 }}>
-              {eventId
-                ? tt('À cette soirée', 'At this event', 'En este evento')
-                : tt('Sur tes événements', 'Across your events', 'En tus eventos')}
+              {capacity
+                ? tt(`${Math.round(Math.min(1, data.total / capacity) * 100)}% de la capacité`,
+                      `${Math.round(Math.min(1, data.total / capacity) * 100)}% of capacity`,
+                      `${Math.round(Math.min(1, data.total / capacity) * 100)}% de la capacidad`)
+                : eventId
+                  ? tt('À cette soirée', 'At this event', 'En este evento')
+                  : tt('Sur tes événements', 'Across your events', 'En tus eventos')}
             </p>
           </div>
         </div>
@@ -256,26 +269,39 @@ export function EventAudienceDemographics({ scope, eventId, from, to }: Props) {
 }
 
 // ─── Participant count ring ────────────────────────────────────────────────────
-function ParticipantRing({ value }: { value: number }) {
+// Track = the event's max capacity. Red arc = real fill (participants / capacity).
+// When no capacity is configured, the arc falls back to a decorative sweep.
+function ParticipantRing({ value, capacity }: { value: number; capacity: number | null }) {
   const size = 132;
   const stroke = 9;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
+  const hasCap = capacity != null && capacity > 0;
+  const ratio = hasCap ? Math.min(1, value / capacity!) : null;
+  // ratio known → fill that fraction of the circle; otherwise keep the old decorative sweep.
+  const offset = ratio != null ? c * (1 - ratio) : c * 0.18;
   return (
     <div className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={FAINT} strokeWidth={stroke} />
-        <circle
-          cx={size / 2} cy={size / 2} r={r} fill="none" stroke={RED} strokeWidth={stroke}
-          strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * 0.18}
-          style={{ filter: `drop-shadow(0 0 8px ${RED}66)` }}
-        />
+        {(ratio == null || ratio > 0) && (
+          <circle
+            cx={size / 2} cy={size / 2} r={r} fill="none" stroke={RED} strokeWidth={stroke}
+            strokeLinecap="round" strokeDasharray={c} strokeDashoffset={offset}
+            style={{ filter: `drop-shadow(0 0 8px ${RED}66)`, transition: 'stroke-dashoffset .6s ease' }}
+          />
+        )}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-[clamp(26px,4vw,34px)] font-[680] tabular-nums leading-none"
           style={{ color: T1, letterSpacing: '-0.03em' }}>
           {value.toLocaleString()}
         </span>
+        {hasCap && (
+          <span className="mt-1 text-[12px] font-[560] tabular-nums leading-none" style={{ color: T3 }}>
+            / {capacity!.toLocaleString()}
+          </span>
+        )}
       </div>
     </div>
   );

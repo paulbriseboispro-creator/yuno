@@ -9,6 +9,7 @@ import { OwnerHeader } from '@/components/OwnerHeader';
 import { ClubProposeEventDialog } from '@/components/owner/ClubProposeEventDialog';
 import { PurchaseSourceBreakdown } from '@/components/analytics/PurchaseSourceBreakdown';
 import { CollabActionControls } from '@/components/collab/CollabActionControls';
+import { CollabProposalsInbox } from '@/components/collab/CollabProposalsInbox';
 import { PartnershipSplitEditor, PartnershipProposalBanner } from '@/components/organizer-app/PartnershipSplitEditor';
 import { getPartnershipProposalStatus } from '@/hooks/useOrganizerPartnerships';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,6 +25,7 @@ import { Link } from 'react-router-dom';
 import { fr } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
+import { ticketRevenue, tableRevenue } from '@/utils/fees';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED       = '#E8192C';
@@ -337,6 +339,9 @@ function CollabEventsTab({ venueId, canPropose }: { venueId: string; canPropose:
 
   return (
     <div className="space-y-4">
+      {/* Incoming co-event proposals from organizers (symmetric with the org hub). */}
+      <CollabProposalsInbox role="venue" venueId={venueId} onChanged={fetchEvents} />
+
       <div className="flex items-center justify-between flex-wrap gap-2">
         <p style={{ color: T3, fontSize: 12 }}>{t('collab.events.subtitle')}</p>
         {canPropose ? (
@@ -884,8 +889,8 @@ function PartnershipTrackRecord({ venueId, organizerUserId }: { venueId: string;
       if (ids.length === 0) { setStats({ events: 0, participants: 0, gross: 0, sinceYear: null }); return; }
 
       const [tk, tr, gl] = await Promise.all([
-        supabase.from('tickets').select('total_price, quantity').eq('status', 'paid').in('event_id', ids),
-        supabase.from('table_reservations').select('total_price, guests_count').eq('status', 'confirmed').in('event_id', ids),
+        supabase.from('tickets').select('total_price, quantity, service_fee, insurance_fee').eq('status', 'paid').in('event_id', ids),
+        supabase.from('table_reservations').select('total_price, guests_count, service_fee, management_fee').eq('status', 'confirmed').in('event_id', ids),
         supabase.from('guest_list_entries').select('id, guest_lists!inner(event_id)').in('guest_lists.event_id', ids),
       ]);
       if (cancelled) return;
@@ -895,8 +900,9 @@ function PartnershipTrackRecord({ venueId, organizerUserId }: { venueId: string;
       const entries = gl.data || [];
       const ticketsSold = tickets.reduce((a, x: any) => a + (x.quantity || 1), 0);
       const tableGuests = tables.reduce((a, x: any) => a + (x.guests_count || 0), 0);
-      const gross = tickets.reduce((a, x: any) => a + Number(x.total_price || 0), 0)
-        + tables.reduce((a, x: any) => a + Number(x.total_price || 0), 0);
+      // CA = montant client − frais Yuno (jamais le TTC : les frais Yuno ne sont pas du revenu).
+      const gross = tickets.reduce((a, x: any) => a + ticketRevenue(x).gross, 0)
+        + tables.reduce((a, x: any) => a + tableRevenue(x).gross, 0);
       const participants = ticketsSold + tableGuests + entries.length;
       const sinceYear = events.reduce<number | null>((min, e) => {
         const y = new Date(e.start_at).getFullYear();
