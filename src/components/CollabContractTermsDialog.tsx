@@ -12,7 +12,12 @@ import type { EventCollabContractRow } from '@/hooks/useEventCollabContract';
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  contract: EventCollabContractRow;
+  /** An event contract to load + render. Mutually exclusive with `pdfData`. */
+  contract?: EventCollabContractRow;
+  /** Pre-built contract data (e.g. a recurring SERIES contract). Skips the loader. */
+  pdfData?: CollabContractPDFData;
+  /** Optional dialog title override (e.g. "Lis et signe le contrat-cadre"). */
+  title?: L;
   language?: Lang;
   /** Fired once the viewer has read + ticked acceptance and clicks "Signer". */
   onConfirm: () => void;
@@ -24,18 +29,23 @@ interface Props {
  * article) from the same versioned source the PDF uses, then gates the "Signer" button
  * behind an explicit "I have read and accept" checkbox — so the signer actually sees the
  * terms they're bound by before the eIDAS click, instead of only the split percentages.
+ *
+ * Works for a per-soirée event contract (`contract`) OR a recurring framework contract
+ * (`pdfData` pre-built via loadCollabSeriesContractPdfData, with recurring=true).
  */
-export function CollabContractTermsDialog({ open, onOpenChange, contract, language = 'fr', onConfirm, confirming }: Props) {
+export function CollabContractTermsDialog({ open, onOpenChange, contract, pdfData, title, language = 'fr', onConfirm, confirming }: Props) {
   const [data, setData] = useState<CollabContractPDFData | null>(null);
   const [accepted, setAccepted] = useState(false);
 
   useEffect(() => {
     if (!open) { setAccepted(false); return; }
+    if (pdfData) { setData(pdfData); return; }
+    if (!contract) { setData(null); return; }
     let active = true;
     setData(null);
     loadCollabContractPdfData(contract, language).then((d) => { if (active) setData(d); });
     return () => { active = false; };
-  }, [open, contract, language]);
+  }, [open, contract, pdfData, language]);
 
   const t = (l: L) => pickL(language, l);
 
@@ -43,7 +53,7 @@ export function CollabContractTermsDialog({ open, onOpenChange, contract, langua
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{t({ fr: 'Lis et signe le contrat', en: 'Read and sign the contract', es: 'Lee y firma el contrato' })}</DialogTitle>
+          <DialogTitle>{t(title ?? { fr: 'Lis et signe le contrat', en: 'Read and sign the contract', es: 'Lee y firma el contrato' })}</DialogTitle>
         </DialogHeader>
 
         {!data ? (
@@ -88,7 +98,7 @@ export function CollabContractTermsDialog({ open, onOpenChange, contract, langua
 
 /** Readable HTML mirror of the PDF — same versioned terms, same order. */
 function ContractTermsView({ data, language }: { data: CollabContractPDFData; language: Lang }) {
-  const terms = getCollabTerms(data.termsVersion);
+  const terms = getCollabTerms(data.termsVersion, { recurring: data.recurring });
   const { labels } = terms;
   const t = (l: L) => pickL(language, l);
   const fmtDate = (d?: Date | null) =>

@@ -18,7 +18,7 @@ export const pickL = (lang: Lang | string, l: L): string =>
   (lang === 'en' ? l.en : lang === 'es' ? l.es : l.fr);
 
 /** Bump + add a REGISTRY entry whenever the article wording changes. */
-export const COLLAB_TERMS_VERSION = '2026-06-26';
+export const COLLAB_TERMS_VERSION = '2026-06-27';
 
 export interface TermsClause {
   term: L;
@@ -60,6 +60,13 @@ export interface CollabTerms {
   version: string;
   articles: TermsArticle[];
   labels: CollabTermsLabels;
+  /**
+   * Optional article inserted (right after "Parties") ONLY when rendering a RECURRING
+   * framework contract (contrat-cadre) — getCollabTerms(version, { recurring: true }).
+   * Stored per-version so a signed series contract re-renders its frozen wording.
+   * A per-event contract (no recurring opt) never sees it → its text is unchanged.
+   */
+  recurringArticle?: TermsArticle;
 }
 
 // ── v2026-06-24 — first fully-articled contract ──────────────────────────────
@@ -308,15 +315,75 @@ const TERMS_2026_06_26: CollabTerms = {
   labels: LABELS_2026_06_24,
 };
 
+// ── v2026-06-27 — support du CONTRAT-CADRE récurrent (résidences co-soirée) ────
+// Base par-soirée STRICTEMENT identique à 2026-06-26 (un contrat par-soirée signé
+// sous cette version rend le même texte). Nouveauté : un article « Engagement
+// récurrent » rendu UNIQUEMENT pour un contrat-cadre (getCollabTerms(..,{recurring:true})).
+// Une signature électronique unique du cadre vaut acceptation de chaque occurrence
+// de la série tant qu'il est actif → preuve eIDAS (horodatage + IP du cadre) propagée
+// à chaque soirée, qui conserve un enregistrement signé autonome.
+const RECURRING_ARTICLE_2026_06_27: TermsArticle = {
+  num: 0, // renuméroté à l'insertion par getCollabTerms
+  kind: 'static',
+  title: { fr: 'Engagement récurrent (contrat-cadre)', en: 'Recurring engagement (framework contract)', es: 'Compromiso recurrente (contrato marco)' },
+  intro: {
+    fr: "Le présent contrat est un contrat-cadre : il régit l'ensemble des soirées d'une série récurrente (même jour et même horaire), présentes et à venir, aux conditions de répartition convenues ci-dessous. Il est signé une seule fois et s'applique automatiquement à chaque occurrence générée.",
+    en: 'This contract is a framework contract: it governs all events of a recurring series (same day and time), present and future, under the revenue-split terms agreed below. It is signed once and applies automatically to each generated occurrence.',
+    es: 'El presente contrato es un contrato marco: regula todos los eventos de una serie recurrente (mismo día y horario), presentes y futuros, según las condiciones de reparto acordadas a continuación. Se firma una sola vez y se aplica automáticamente a cada ocurrencia generada.',
+  },
+  clauses: [
+    {
+      term: { fr: 'Acceptation de chaque occurrence', en: 'Acceptance of each occurrence', es: 'Aceptación de cada ocurrencia' },
+      body: {
+        fr: "La signature électronique du présent contrat-cadre par chaque partie vaut acceptation et signature, par les deux parties, de chaque occurrence de la série tant que le contrat-cadre est actif. Chaque occurrence est réputée signée à la date, à l'adresse IP et selon la version des conditions figées dans le présent contrat-cadre, qui constituent la preuve juridique (signature électronique simple, eIDAS) pour cette occurrence.",
+        en: "Each party's electronic signature of this framework contract constitutes acceptance and signature, by both parties, of each occurrence of the series for as long as the framework contract is active. Each occurrence is deemed signed at the date, IP address and terms version frozen in this framework contract, which constitute the legal evidence (simple electronic signature, eIDAS) for that occurrence.",
+        es: 'La firma electrónica del presente contrato marco por cada parte equivale a la aceptación y firma, por ambas partes, de cada ocurrencia de la serie mientras el contrato marco esté activo. Cada ocurrencia se considera firmada en la fecha, dirección IP y versión de las condiciones congeladas en el presente contrato marco, que constituyen la prueba legal (firma electrónica simple, eIDAS) para esa ocurrencia.',
+      },
+    },
+    {
+      term: { fr: "Résiliation pour l'avenir", en: 'Termination for the future', es: 'Resolución para el futuro' },
+      body: {
+        fr: "Chaque partie peut résilier le contrat-cadre à tout moment pour les soirées à venir, en informant l'autre partie. La résiliation est sans effet sur les soirées déjà ouvertes à la vente ou déjà tenues, qui restent régies par le présent contrat-cadre.",
+        en: 'Either party may terminate the framework contract at any time for future events, by notifying the other party. Termination has no effect on events already open for sale or already held, which remain governed by this framework contract.',
+        es: 'Cualquiera de las partes puede resolver el contrato marco en cualquier momento para los eventos futuros, notificando a la otra parte. La resolución no afecta a los eventos ya abiertos a la venta o ya celebrados, que siguen rigiéndose por el presente contrato marco.',
+      },
+    },
+    {
+      term: { fr: 'Verrouillage à la première vente', en: 'Lock on first sale', es: 'Bloqueo en la primera venta' },
+      body: {
+        fr: "Dès la première vente sur une occurrence, la répartition de cette occurrence est verrouillée et ne peut plus être modifiée, indépendamment du contrat-cadre. Une modification des conditions ne vaut que pour les occurrences futures non encore vendues.",
+        en: 'As soon as the first sale occurs on an occurrence, that occurrence\'s split is locked and can no longer be changed, independently of the framework contract. A change of terms applies only to future, not-yet-sold occurrences.',
+        es: 'En cuanto se produce la primera venta en una ocurrencia, el reparto de esa ocurrencia queda bloqueado y ya no puede modificarse, con independencia del contrato marco. Un cambio de condiciones solo se aplica a las ocurrencias futuras aún no vendidas.',
+      },
+    },
+  ],
+};
+
+const TERMS_2026_06_27: CollabTerms = {
+  version: '2026-06-27',
+  articles: ARTICLES_2026_06_26, // base par-soirée inchangée
+  labels: LABELS_2026_06_24,
+  recurringArticle: RECURRING_ARTICLE_2026_06_27,
+};
+
 /** Every published version is kept here forever so signed contracts re-render as signed. */
 const REGISTRY: Record<string, CollabTerms> = {
   '2026-06-24': TERMS_2026_06_24,
   '2026-06-26': TERMS_2026_06_26,
+  '2026-06-27': TERMS_2026_06_27,
 };
 
-/** Resolve the terms for a frozen version; unknown / legacy-null falls back to latest. */
-export function getCollabTerms(version?: string | null): CollabTerms {
-  return (version && REGISTRY[version]) || TERMS_2026_06_26;
+/**
+ * Resolve the terms for a frozen version; unknown / legacy-null falls back to latest.
+ * `opts.recurring` inserts the version's recurring-framework article right after "Parties"
+ * and renumbers — used for a contrat-cadre and for occurrence contracts derived from one.
+ */
+export function getCollabTerms(version?: string | null, opts?: { recurring?: boolean }): CollabTerms {
+  const base = (version && REGISTRY[version]) || TERMS_2026_06_27;
+  if (!opts?.recurring || !base.recurringArticle) return base;
+  const merged = [base.articles[0], base.recurringArticle, ...base.articles.slice(1)]
+    .map((a, i) => ({ ...a, num: i + 1 }) as TermsArticle);
+  return { ...base, articles: merged };
 }
 
 /** Pick the clause body, honoring the policy-dependent alternate when it applies. */

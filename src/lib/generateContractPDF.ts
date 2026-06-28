@@ -53,6 +53,12 @@ export interface CollabContractPDFData {
   language?: Lang;
   /** Frozen terms version (from terms_snapshot.terms_version). Falls back to latest. */
   termsVersion?: string | null;
+  /**
+   * Recurring framework contract (contrat-cadre) — adds the "Engagement récurrent"
+   * article. True for a series contract AND for occurrence contracts derived from one
+   * (terms_snapshot.via_series). Default false → unchanged per-event contract.
+   */
+  recurring?: boolean;
 }
 
 const fmtDate = (d?: Date | null) =>
@@ -62,7 +68,7 @@ const fmtDateTime = (d?: Date | null) =>
 
 export function generateContractPDF(data: CollabContractPDFData): Blob {
   const lang: Lang = data.language ?? 'fr';
-  const terms = getCollabTerms(data.termsVersion);
+  const terms = getCollabTerms(data.termsVersion, { recurring: data.recurring });
   const labels = terms.labels;
   const pick = (l: L) => pickL(lang, l);
 

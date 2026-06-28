@@ -14,6 +14,7 @@ import {
 import { OrgPendingProposals } from '@/components/organizer-app/OrgPendingProposals';
 import { OrgProposeEventDialog } from '@/components/organizer-app/OrgProposeEventDialog';
 import { CollabActionControls } from '@/components/collab/CollabActionControls';
+import { CollabSeriesContracts } from '@/components/collab/CollabSeriesContracts';
 
 const dateFnsLocale = (lng: string) => (lng === 'fr' ? fr : lng === 'es' ? es : enUS);
 
@@ -110,8 +111,11 @@ export default function OrgAppCollaborations() {
       />
 
       <div className="space-y-6">
-        {/* Incoming proposals to accept/decline */}
+        {/* Incoming proposals to accept/decline (per-event + sign-once recurring framework) */}
         <OrgPendingProposals />
+
+        {/* Active recurring frameworks — download the contract or terminate for the future */}
+        <CollabSeriesContracts role="organizer" onChanged={load} />
 
         {loading ? (
           <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" style={{ color: T3 }} /></div>

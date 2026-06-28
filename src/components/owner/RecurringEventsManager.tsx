@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Plus, Pencil, Trash2, Clock, Upload, Info, Music, Tag, Ticket, Crown, Sparkles, ChevronDown, Zap, Handshake } from 'lucide-react';
+import { RefreshCw, Plus, Pencil, Trash2, Clock, Upload, Info, Music, Tag, Ticket, Crown, Sparkles, ChevronDown, Zap, Handshake, Repeat } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
@@ -126,13 +126,17 @@ const inputStyle: React.CSSProperties = {
 };
 
 export function RecurringEventsManager({ venueId, organizerUserId, onEventsChanged }: { venueId?: string | null; organizerUserId?: string | null; onEventsChanged?: () => void }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  // Inline tri-lingual helper for the few series-contract strings (avoids growing data.ts).
+  const tl = (frTxt: string, en: string, esTxt: string) => (language === 'en' ? en : language === 'es' ? esTxt : frTxt);
   // A recurring template belongs to a venue (club owner) OR an organizer.
   const isOrg = !!organizerUserId;
   const scopeReady = isOrg ? !!organizerUserId : !!venueId;
   const [templates, setTemplates] = useState<TemplateRow[]>([]);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [partners, setPartners] = useState<{ id: string; name: string }[]>([]);
+  // Contrat-cadre récurrent par template (co-event club-led) : pending | active.
+  const [seriesByTemplate, setSeriesByTemplate] = useState<Map<string, { id: string; status: string }>>(new Map());
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<TemplateRow | null>(null);
@@ -157,6 +161,21 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
       if (tplRes.error) throw tplRes.error;
       setTemplates((tplRes.data || []) as unknown as TemplateRow[]);
       setPresets((presetRes.data || []) as Preset[]);
+
+      // Contrats-cadres récurrents (co-event club-led) → état affiché par template.
+      if (!isOrg) {
+        const coIds = ((tplRes.data || []) as unknown as TemplateRow[]).filter((tp) => tp.partner_organizer_id).map((tp) => tp.id);
+        if (coIds.length) {
+          const { data: sc } = await supabase
+            .from('event_collab_series_contracts' as never)
+            .select('id, template_id, status')
+            .in('template_id' as never, coIds as never)
+            .in('status' as never, ['pending_signatures', 'active'] as never);
+          setSeriesByTemplate(new Map(((sc as unknown as { id: string; template_id: string; status: string }[]) || []).map((s) => [s.template_id, { id: s.id, status: s.status }])));
+        } else {
+          setSeriesByTemplate(new Map());
+        }
+      }
 
       // Partenaires organisateurs actifs (scope club) → co-events récurrents
       if (!isOrg && venueId) {
@@ -288,6 +307,28 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
         await supabase.rpc('generate_recurring_events', { p_template_id: templateId });
       }
 
+      // Co-soirée récurrente : ouvrir un CONTRAT-CADRE signé une fois pour TOUTE la série.
+      // Le club pré-signe ici ; l'organisateur signe une seule fois (inbox collab) → toutes
+      // les occurrences en attente s'activent et les suivantes naissent actives (plus de
+      // signature par-soirée). On ne crée qu'un seul cadre vivant par template.
+      if (!isOrg && form.partnerOrganizerId && templateId) {
+        try {
+          const { data: existing } = await supabase
+            .from('event_collab_series_contracts' as never)
+            .select('id')
+            .eq('template_id' as never, templateId as never)
+            .in('status' as never, ['draft', 'pending_signatures', 'active'] as never)
+            .limit(1);
+          if (!existing || (existing as unknown[]).length === 0) {
+            await supabase.rpc('create_event_collab_series_contract' as never, {
+              p_template_id: templateId,
+              p_split_rules: payload.revenue_split_rules,
+              p_cancellation_policy: 'pro_rata_refund',
+            } as never);
+          }
+        } catch (e) { console.warn('[series-contract] create failed', e); }
+      }
+
       toast.success(editing ? t('owner.recur.updated') : t('owner.recur.created'));
       setDialogOpen(false);
       fetchData();
@@ -309,6 +350,21 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
       fetchData();
       onEventsChanged?.();
     } catch { toast.error(t('owner.recur.error')); }
+  };
+
+  // Résilier le contrat-cadre récurrent (pour l'avenir). Les soirées déjà actives restent.
+  const handleTerminateSeries = async (seriesId: string) => {
+    if (!confirm(tl(
+      'Résilier le contrat-cadre récurrent ? Les prochaines soirées ne seront plus auto-acceptées (les soirées déjà ouvertes restent inchangées).',
+      'Terminate the recurring framework contract? Future events will no longer be auto-accepted (events already open stay unchanged).',
+      '¿Resolver el contrato marco recurrente? Los próximos eventos ya no se aceptarán automáticamente (los eventos ya abiertos no cambian).',
+    ))) return;
+    try {
+      const { error } = await supabase.rpc('terminate_event_collab_series_contract' as never, { p_contract_id: seriesId } as never);
+      if (error) throw error;
+      toast.success(tl('Contrat-cadre résilié', 'Framework contract terminated', 'Contrato marco resuelto'));
+      fetchData();
+    } catch (e) { toast.error((e as { message?: string }).message || t('owner.recur.error')); }
   };
 
   const handleDelete = async (tpl: TemplateRow) => {
@@ -411,6 +467,19 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                           <Handshake className="w-3 h-3" />Co-event{partners.find(p => p.id === tpl.partner_organizer_id)?.name ? ` · ${partners.find(p => p.id === tpl.partner_organizer_id)!.name}` : ''}
                         </span>
                       )}
+                      {tpl.partner_organizer_id && seriesByTemplate.get(tpl.id) && (
+                        seriesByTemplate.get(tpl.id)!.status === 'active' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                            style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: '#34D399' }}>
+                            <Repeat className="w-3 h-3" />{tl('Contrat-cadre signé · soirées auto-acceptées', 'Framework signed · events auto-accepted', 'Contrato marco firmado · eventos auto-aceptados')}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                            style={{ background: 'rgba(245,166,35,0.12)', border: '1px solid rgba(245,166,35,0.28)', color: '#F5A623' }}>
+                            <Repeat className="w-3 h-3" />{tl("Contrat-cadre en attente de signature", 'Framework awaiting signature', 'Contrato marco pendiente de firma')}
+                          </span>
+                        )
+                      )}
                       {!tpl.ticket_preset_id && !tpl.vip_preset_id && (
                         <span style={{ color: T3, fontSize: 11.5 }}>{t('owner.recur.noAutoTicketing')}</span>
                       )}
@@ -433,6 +502,13 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                     style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.2)', color: '#FF5C63' }}>
                     <Trash2 className="w-3.5 h-3.5" /><span className="hidden sm:inline">{t('common.delete')}</span>
                   </button>
+                  {tpl.partner_organizer_id && seriesByTemplate.get(tpl.id)?.status === 'active' && (
+                    <button onClick={() => handleTerminateSeries(seriesByTemplate.get(tpl.id)!.id)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium cursor-pointer transition-all duration-150"
+                      style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 }}>
+                      <Repeat className="w-3.5 h-3.5" /><span className="hidden sm:inline">{tl('Résilier le contrat-cadre', 'Terminate framework', 'Resolver contrato marco')}</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </motion.div>
