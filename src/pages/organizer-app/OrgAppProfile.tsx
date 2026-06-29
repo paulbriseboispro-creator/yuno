@@ -454,7 +454,10 @@ export default function OrgAppProfile() {
         onOpenChange={(o) => { if (!o) { setCropperType(null); setPendingFile(null); } }}
         imageFile={pendingFile}
         aspectRatio={cropperType === 'cover' ? 4 / 3 : 1}
-        shape={cropperType === 'avatar' ? 'circle' : 'rect'}
+        // Le logo orga s'affiche en carré (rounded-2xl), pas en rond : on montre
+        // donc un cadre carré dans l'éditeur pour que l'aperçu corresponde au
+        // rendu final (un masque rond donnait l'illusion d'un logo circulaire).
+        shape="rect"
         outputSize={cropperType === 'avatar' ? 512 : 1500}
         title={cropperType === 'avatar' ? t('Cadrer le logo', 'Crop logo') : t('Cadrer la bannière', 'Crop banner')}
         helperText={t('Glissez pour déplacer · pincez ou utilisez le curseur pour zoomer', 'Drag to move · pinch or use slider to zoom')}
