@@ -160,7 +160,7 @@ function ContractTermsView({ data, language }: { data: CollabContractPDFData; la
               {(article.clauses ?? []).map((c, i) => (
                 <div key={i}>
                   <div className="text-xs font-semibold text-foreground">{t(c.term)}</div>
-                  <p className="text-xs text-muted-foreground whitespace-pre-line">{t(clauseBody(c, data.cancellationPolicy))}</p>
+                  <p className="text-xs text-muted-foreground whitespace-pre-line">{t(clauseBody(c, { cancellationPolicy: data.cancellationPolicy, isBde: data.isBde }))}</p>
                 </div>
               ))}
             </div>

@@ -23,7 +23,7 @@ export async function loadCollabContractPdfData(
     supabase.from('events').select('title, start_at').eq('id', contract.event_id).maybeSingle(),
     supabase.from('venues').select('name, legal_name, legal_address, siret, vat_number').eq('id', contract.venue_id).maybeSingle(),
     supabase.from('profiles').select('*').eq('id', contract.organizer_user_id).maybeSingle(),
-    supabase.from('organizer_profiles').select('legal_name, legal_address, siret, vat_number').eq('user_id', contract.organizer_user_id).maybeSingle(),
+    supabase.from('organizer_profiles').select('legal_name, legal_address, siret, vat_number, bde_verified').eq('user_id', contract.organizer_user_id).maybeSingle(),
   ]);
   const orgName = resolveOrgName(org as OrgProfileName);
   const ev2 = ev as { title?: string | null; start_at?: string | null } | null;
@@ -61,6 +61,7 @@ export async function loadCollabContractPdfData(
     orgSignedIp: contract.org_signed_ip,
     language,
     termsVersion,
+    isBde: !!(orgProfile as { bde_verified?: boolean } | null)?.bde_verified,
   };
 }
 
@@ -78,7 +79,7 @@ export async function loadCollabSeriesContractPdfData(
   const [{ data: venue }, { data: org }, { data: orgProfile }] = await Promise.all([
     supabase.from('venues').select('name, legal_name, legal_address, siret, vat_number').eq('id', contract.venue_id).maybeSingle(),
     supabase.from('profiles').select('*').eq('id', contract.organizer_user_id).maybeSingle(),
-    supabase.from('organizer_profiles').select('legal_name, legal_address, siret, vat_number').eq('user_id', contract.organizer_user_id).maybeSingle(),
+    supabase.from('organizer_profiles').select('legal_name, legal_address, siret, vat_number, bde_verified').eq('user_id', contract.organizer_user_id).maybeSingle(),
   ]);
   const orgName = resolveOrgName(org as OrgProfileName);
   const termsVersion = (contract.terms_snapshot as { terms_version?: string } | null)?.terms_version ?? null;
@@ -116,5 +117,6 @@ export async function loadCollabSeriesContractPdfData(
     language,
     termsVersion,
     recurring: true,
+    isBde: !!(orgProfile as { bde_verified?: boolean } | null)?.bde_verified,
   };
 }

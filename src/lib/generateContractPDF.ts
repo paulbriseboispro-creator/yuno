@@ -59,6 +59,11 @@ export interface CollabContractPDFData {
    * (terms_snapshot.via_series). Default false → unchanged per-event contract.
    */
   recurring?: boolean;
+  /**
+   * Organizer is a verified BDE (student union) → the commission clause shows the BDE
+   * fee floor. Default false → no BDE mention at all (avoids friction in normal contracts).
+   */
+  isBde?: boolean;
 }
 
 const fmtDate = (d?: Date | null) =>
@@ -212,7 +217,7 @@ export function generateContractPDF(data: CollabContractPDFData): Blob {
       para(article.note);
     } else {
       if (article.intro) para(article.intro);
-      for (const c of article.clauses ?? []) renderClause(c.term, clauseBody(c, data.cancellationPolicy));
+      for (const c of article.clauses ?? []) renderClause(c.term, clauseBody(c, { cancellationPolicy: data.cancellationPolicy, isBde: data.isBde }));
     }
   }
 

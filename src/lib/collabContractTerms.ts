@@ -18,7 +18,7 @@ export const pickL = (lang: Lang | string, l: L): string =>
   (lang === 'en' ? l.en : lang === 'es' ? l.es : l.fr);
 
 /** Bump + add a REGISTRY entry whenever the article wording changes. */
-export const COLLAB_TERMS_VERSION = '2026-06-27';
+export const COLLAB_TERMS_VERSION = '2026-06-29';
 
 export interface TermsClause {
   term: L;
@@ -26,6 +26,8 @@ export interface TermsClause {
   /** Alternate body used when the contract's cancellation policy === altWhen. */
   bodyAlt?: L;
   altWhen?: 'no_refund_after_event' | 'pro_rata_refund';
+  /** Alternate body used when the organizer is a verified BDE (student union). */
+  bdeBody?: L;
 }
 
 export type TermsArticle =
@@ -366,11 +368,62 @@ const TERMS_2026_06_27: CollabTerms = {
   recurringArticle: RECURRING_ARTICLE_2026_06_27,
 };
 
+// ── v2026-06-29 — deux corrections de friction/clarté ────────────────────────
+// 1) La commission ne mentionne plus le tarif BDE dans un contrat NON-BDE (friction).
+//    Le tarif BDE n'apparaît que si l'organisateur est BDE vérifié (getCollabTerms isBde).
+// 2) Le cas « billet incluant de l'alcool » est explicité : la part alcool est vendue
+//    par le Club (vendeur de record, licence) et suit la répartition Boissons, même
+//    intégrée à un billet.
+const COMMISSION_CLAUSE_2026_06_29: TermsClause = {
+  term: { fr: 'Commission Yuno', en: 'Yuno commission', es: 'Comisión Yuno' },
+  body: {
+    fr: "4 % sur les billets et les tables (minimum 0,99 € par vente) et 3 % sur les boissons. Cette commission est ajoutée au prix et réglée par le client lors de l'achat ; Yuno la conserve intégralement.",
+    en: '4% on tickets and tables (minimum €0.99 per sale) and 3% on drinks. This commission is added on top of the price and paid by the customer at checkout; Yuno keeps it in full.',
+    es: '4 % en entradas y mesas (mínimo 0,99 € por venta) y 3 % en bebidas. Esta comisión se añade al precio y la paga el cliente en la compra; Yuno la conserva íntegramente.',
+  },
+  bdeBody: {
+    fr: "4 % sur les billets et les tables (minimum 0,49 € par vente, tarif BDE vérifié) et 3 % sur les boissons. Cette commission est ajoutée au prix et réglée par le client lors de l'achat ; Yuno la conserve intégralement.",
+    en: '4% on tickets and tables (minimum €0.49 per sale, verified student-union (BDE) rate) and 3% on drinks. This commission is added on top of the price and paid by the customer at checkout; Yuno keeps it in full.',
+    es: '4 % en entradas y mesas (mínimo 0,49 € por venta, tarifa BDE verificada) y 3 % en bebidas. Esta comisión se añade al precio y la paga el cliente en la compra; Yuno la conserva íntegramente.',
+  },
+};
+
+const BUNDLE_CLAUSE_2026_06_29: TermsClause = {
+  term: { fr: 'Offre groupée', en: 'Bundle', es: 'Paquete' },
+  body: {
+    fr: "Pour une offre combinant plusieurs catégories (ex. « entrée + boisson », « entrée + bouteille » ou prévente avec consommation incluse), chaque composante est ventilée séparément : la valeur du droit d'entrée suit la répartition Billets, et la valeur de la consommation suit la répartition Boissons. Lorsqu'un billet inclut de l'alcool, la part alcool est réputée vendue par le Club — qui détient la licence et demeure le vendeur de record des boissons — et suit la répartition Boissons (100% Club, sauf attestation alcool de l'Organisateur), même intégrée à un billet.",
+    en: 'For an offer combining several categories (e.g. "entry + drink", "entry + bottle" or a presale with a drink included), each component is allocated separately: the entry value follows the Tickets split and the drink value follows the Drinks split. When a ticket includes alcohol, the alcohol portion is deemed sold by the Club — which holds the licence and remains the seller of record of the drinks — and follows the Drinks split (100% Club, unless the Organizer has attested its alcohol documents), even when bundled into a ticket.',
+    es: 'Para una oferta que combine varias categorías (p. ej. «entrada + bebida», «entrada + botella» o preventa con consumición incluida), cada componente se imputa por separado: el valor de la entrada sigue el reparto de Entradas y el valor de la consumición sigue el reparto de Bebidas. Cuando una entrada incluye alcohol, la parte de alcohol se considera vendida por el Club — que posee la licencia y sigue siendo el vendedor de registro de las bebidas — y sigue el reparto de Bebidas (100% Club, salvo acreditación de alcohol del Organizador), aunque esté integrada en una entrada.',
+  },
+};
+
+const ARTICLES_2026_06_29: TermsArticle[] = ARTICLES_2026_06_24.map((a) => {
+  // Article 2 (Objet & définitions) : clarifier le billet incluant de l'alcool.
+  if (a.kind === 'static' && a.num === 2) {
+    return { ...a, clauses: (a.clauses ?? []).map((c) => (c.term.fr === 'Offre groupée' ? BUNDLE_CLAUSE_2026_06_29 : c)) };
+  }
+  // Article 3 (split) : note payout-timing corrigée (comme 2026-06-26).
+  if (a.kind === 'split' && a.num === 3) return { ...a, note: SPLIT_NOTE_2026_06_26 };
+  // Article 4 (frais) : commission BDE-conditionnelle + clause payout-timing.
+  if (a.kind === 'static' && a.num === 4) {
+    return { ...a, clauses: [COMMISSION_CLAUSE_2026_06_29, ...(a.clauses ?? []).slice(1), PAYOUT_TIMING_CLAUSE] };
+  }
+  return a;
+});
+
+const TERMS_2026_06_29: CollabTerms = {
+  version: '2026-06-29',
+  articles: ARTICLES_2026_06_29,
+  labels: LABELS_2026_06_24,
+  recurringArticle: RECURRING_ARTICLE_2026_06_27,
+};
+
 /** Every published version is kept here forever so signed contracts re-render as signed. */
 const REGISTRY: Record<string, CollabTerms> = {
   '2026-06-24': TERMS_2026_06_24,
   '2026-06-26': TERMS_2026_06_26,
   '2026-06-27': TERMS_2026_06_27,
+  '2026-06-29': TERMS_2026_06_29,
 };
 
 /**
@@ -379,15 +432,16 @@ const REGISTRY: Record<string, CollabTerms> = {
  * and renumbers — used for a contrat-cadre and for occurrence contracts derived from one.
  */
 export function getCollabTerms(version?: string | null, opts?: { recurring?: boolean }): CollabTerms {
-  const base = (version && REGISTRY[version]) || TERMS_2026_06_27;
+  const base = (version && REGISTRY[version]) || TERMS_2026_06_29;
   if (!opts?.recurring || !base.recurringArticle) return base;
   const merged = [base.articles[0], base.recurringArticle, ...base.articles.slice(1)]
     .map((a, i) => ({ ...a, num: i + 1 }) as TermsArticle);
   return { ...base, articles: merged };
 }
 
-/** Pick the clause body, honoring the policy-dependent alternate when it applies. */
-export function clauseBody(c: TermsClause, cancellationPolicy?: string): L {
-  if (c.altWhen && c.bodyAlt && cancellationPolicy === c.altWhen) return c.bodyAlt;
+/** Pick the clause body, honoring the policy- and BDE-dependent alternates when they apply. */
+export function clauseBody(c: TermsClause, opts?: { cancellationPolicy?: string; isBde?: boolean }): L {
+  if (c.altWhen && c.bodyAlt && opts?.cancellationPolicy === c.altWhen) return c.bodyAlt;
+  if (c.bdeBody && opts?.isBde) return c.bdeBody;
   return c.body;
 }
