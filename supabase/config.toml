@@ -12,9 +12,6 @@ verify_jwt = false
 [functions.create-owner-recurring-events]
 verify_jwt = false
 
-[functions.sms-send]
-verify_jwt = true
-
 [functions.sms-twilio-status-webhook]
 verify_jwt = false
 
@@ -27,14 +24,8 @@ verify_jwt = true
 [functions.send-order-confirmation]
 verify_jwt = false
 
-[functions.create-order]
-verify_jwt = true
-
 [functions.verify-pin]
 verify_jwt = true
-
-[functions.staff-pin-login]
-verify_jwt = false
 
 [functions.create-ticket-checkout]
 verify_jwt = false
@@ -81,9 +72,6 @@ verify_jwt = true
 [functions.yuno-assistant]
 verify_jwt = true
 
-[functions.mfa-disable]
-verify_jwt = false
-
 [functions.send-push-notification]
 verify_jwt = false
 
@@ -103,15 +91,6 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.cart-abandonment-check]
-verify_jwt = false
-
-[functions.request-email-change]
-verify_jwt = false
-
-[functions.verify-email-change]
-verify_jwt = false
-
-[functions.submit-new-email]
 verify_jwt = false
 
 [functions.send-event-recap]
@@ -192,3 +171,138 @@ verify_jwt = false
 
 [functions.email-change]
 verify_jwt = false
+
+# ── Réconciliation : fonctions DÉPLOYÉES en prod (vérifié via `supabase functions
+# list`) mais qui manquaient dans ce fichier. Sans entrée ici, un redéploiement les
+# remet au défaut gateway verify_jwt = true, ce qui bloque les appels guest (checkout
+# VIP invité) et serveur-à-serveur (verify-ticket-payment → send-ticket-confirmation,
+# d'où "le client paie et ne reçoit pas son billet"). On aligne sur les fonctions
+# sœurs, toutes en verify_jwt = false (elles font leur propre authentification).
+[functions.send-ticket-confirmation]
+verify_jwt = false
+
+[functions.create-table-checkout]
+verify_jwt = false
+
+[functions.verify-table-payment]
+verify_jwt = false
+
+[functions.use-drink-credit]
+verify_jwt = false
+
+# ── Réconciliation complète : fonctions DÉPLOYÉES (vérifié `supabase functions
+# list`) qui n'avaient pas d'entrée ici. Sans déclaration, un redéploiement les
+# remet au défaut gateway verify_jwt = true. CRITIQUE pour l'onboarding : les
+# accept-*-invitation sont des liens publics (le partenaire n'a pas encore de
+# session) → DOIVENT être false, sinon le lien d'invitation renvoie 401.
+# Convention : accept-* / liens publics / reset PIN / tracking = false ;
+# invite-* (admin authentifié) / actions sensibles = true.
+
+# Acceptation d'invitation (lien public, pas de session) → false
+[functions.accept-owner-invitation]
+verify_jwt = false
+
+[functions.accept-staff-invitation]
+verify_jwt = false
+
+[functions.accept-org-member]
+verify_jwt = false
+
+[functions.accept-dj-invitation]
+verify_jwt = false
+
+[functions.accept-promoter-invitation]
+verify_jwt = false
+
+[functions.accept-affiliate-invitation]
+verify_jwt = false
+
+[functions.accept-platform-invitation]
+verify_jwt = false
+
+# Envoi d'invitation (admin authentifié) → true
+[functions.invite-owner]
+verify_jwt = true
+
+[functions.invite-staff]
+verify_jwt = true
+
+[functions.invite-org-member]
+verify_jwt = true
+
+[functions.invite-organizer-collab]
+verify_jwt = true
+
+[functions.invite-dj]
+verify_jwt = true
+
+[functions.invite-promoter]
+verify_jwt = true
+
+[functions.invite-affiliate-member]
+verify_jwt = true
+
+[functions.invite-platform-user]
+verify_jwt = true
+
+# Réinitialisation PIN (utilisateur verrouillé, pas de session) → false
+[functions.request-pin-reset]
+verify_jwt = false
+
+[functions.reset-pin-with-token]
+verify_jwt = false
+
+# Définition PIN (utilisateur/org authentifié) → true
+[functions.set-own-pin]
+verify_jwt = true
+
+[functions.set-org-scanner-pin]
+verify_jwt = true
+
+# Liens promoteur publics + tracking → false
+[functions.track-promoter-click]
+verify_jwt = false
+
+[functions.resolve-promoter-link]
+verify_jwt = false
+
+# Notifications déclenchées (convention notify-* = false) → false
+[functions.notify-split-proposal]
+verify_jwt = false
+
+[functions.notify-top-customer-scan]
+verify_jwt = false
+
+# Acceptation CGU au checkout (invité possible) → false
+[functions.record-terms-acceptance]
+verify_jwt = false
+
+# Gate maintenance (saisie d'un mot de passe, pas de session) → false
+[functions.verify-maintenance-password]
+verify_jwt = false
+
+# Actions authentifiées sensibles → true
+[functions.staff-cancel]
+verify_jwt = true
+
+[functions.promoter-add-guest]
+verify_jwt = true
+
+[functions.send-crm-campaign]
+verify_jwt = true
+
+[functions.send-sms-campaign]
+verify_jwt = true
+
+[functions.analytics-export]
+verify_jwt = true
+
+[functions.delete-employee]
+verify_jwt = true
+
+[functions.db-cleanup]
+verify_jwt = true
+
+# Outil de traduction de contenu (owner authentifié) → true
+[functions.translate-text]
+verify_jwt = true
