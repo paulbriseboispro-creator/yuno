@@ -225,6 +225,8 @@ serve(async (req) => {
 
     if (roundError || !ticketRound) throw new Error("Ticket round not found");
     if (!ticketRound.is_active) throw new Error("Ticket round is not active");
+    // Épuisé forcé manuellement par le club/orga → non achetable même si capacité dispo.
+    if ((ticketRound as any).manually_sold_out) throw new Error(t("checkout.soldOut", lang));
 
     // Enforce rounds_visibility rules (only meaningful for 'rounds' selling mode)
     if (event.ticket_selling_mode === 'rounds') {
@@ -233,13 +235,13 @@ serve(async (req) => {
         // Only the first non-sold-out active round in `position` order is buyable
         const { data: orderedRounds } = await supabaseAdmin
           .from("ticket_rounds")
-          .select("id, position, is_active, tickets_sold, max_tickets, ticket_type")
+          .select("id, position, is_active, tickets_sold, max_tickets, ticket_type, manually_sold_out")
           .eq("event_id", eventId)
           .eq("ticket_type", ticketRound.ticket_type)
           .order("position", { ascending: true });
 
         const firstAvailable = (orderedRounds || []).find((r: any) =>
-          r.is_active && r.tickets_sold < r.max_tickets
+          r.is_active && !r.manually_sold_out && r.tickets_sold < r.max_tickets
         );
         if (!firstAvailable || firstAvailable.id !== ticketRound.id) {
           logStep("Round not yet buyable (visibility rule)", {
