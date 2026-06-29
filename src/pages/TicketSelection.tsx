@@ -146,6 +146,7 @@ export default function TicketSelection() {
             id: r.id, eventId: r.event_id, name: r.name, description: r.description,
             price: Number(r.price), maxTickets: r.max_tickets, ticketsSold: r.tickets_sold,
             position: r.position, isActive: r.is_active, autoActivate: r.auto_activate,
+            manuallySoldOut: (r as any).manually_sold_out ?? false,
             lastTicketsThreshold: r.last_tickets_threshold ?? 20, includesDrink: r.includes_drink ?? false,
             drinkDeadlineType: (r.drink_deadline_type as 'hours_after_start' | 'fixed_time') ?? 'hours_after_start',
             drinkDeadlineHours: r.drink_deadline_hours, drinkCutoffTime: r.drink_cutoff_time,
@@ -293,7 +294,9 @@ export default function TicketSelection() {
   const isSimple = eventData?.ticketSellingMode === 'simple';
   const totalSoldAllRounds = ticketRounds.reduce((sum, r) => sum + r.ticketsSold, 0);
   const simpleGlobalSoldOut = isSimple && eventData?.maxTickets ? totalSoldAllRounds >= eventData.maxTickets : false;
-  const allRoundsSoldOut = simpleGlobalSoldOut || (ticketRounds.length > 0 && ticketRounds.every(r => r.ticketsSold >= r.maxTickets));
+  // Un round est épuisé s'il a atteint sa capacité OU s'il a été marqué épuisé manuellement.
+  const isRoundSoldOut = (r: TicketRound) => r.manuallySoldOut || r.ticketsSold >= r.maxTickets;
+  const allRoundsSoldOut = simpleGlobalSoldOut || (ticketRounds.length > 0 && ticketRounds.every(isRoundSoldOut));
   const salesStatus = eventData
     ? getEventSalesStatus({ presaleStartAt: eventData.presaleStartAt, publicSaleStartAt: eventData.publicSaleStartAt, waitlistEnabled: eventData.waitlistEnabled }, allRoundsSoldOut)
     : 'public_sale' as const;
@@ -306,7 +309,7 @@ export default function TicketSelection() {
       const visible: Array<TicketRound & { _previewOnly?: boolean }> = [];
       let foundAvailable = false;
       for (const r of rounds) {
-        const soldOut = r.ticketsSold >= r.maxTickets;
+        const soldOut = isRoundSoldOut(r);
         if (soldOut) { visible.push(r); }
         else if (!foundAvailable) { visible.push(r); foundAvailable = true; }
       }
@@ -315,7 +318,7 @@ export default function TicketSelection() {
     const visible: Array<TicketRound & { _previewOnly?: boolean }> = [];
     let foundAvailable = false;
     for (const r of rounds) {
-      const soldOut = r.ticketsSold >= r.maxTickets;
+      const soldOut = isRoundSoldOut(r);
       if (soldOut) { visible.push(r); continue; }
       if (!foundAvailable) { visible.push(r); foundAvailable = true; }
       else { visible.push({ ...r, _previewOnly: true }); }
@@ -873,7 +876,7 @@ function TicketCard({
   t: (key: string) => string; isVip?: boolean; scarcity?: ScarcitySettings | null;
   isSimple?: boolean; globalMaxTickets?: number | null; totalSold?: number; previewOnly?: boolean; maxQuantity?: number;
 }) {
-  const isSoldOut = round.ticketsSold >= round.maxTickets;
+  const isSoldOut = round.manuallySoldOut || round.ticketsSold >= round.maxTickets;
   const [showDesc, setShowDesc] = useState(false);
 
   const effectiveMax = isSimple && round.maxTickets >= 999999 && globalMaxTickets ? globalMaxTickets : round.maxTickets;

@@ -62,6 +62,7 @@ function getNextOccurrences(dayOfWeek: number, count = 5): Date[] {
 }
 
 type Preset = { id: string; name: string; ticket_type: string; total_capacity: number; selling_mode: string | null };
+type TablePreset = { id: string; name: string };
 
 type TemplateRow = {
   id: string;
@@ -79,6 +80,7 @@ type TemplateRow = {
   advance_days: number;
   ticket_preset_id: string | null;
   vip_preset_id: string | null;
+  table_preset_id: string | null;
   auto_enable_tables: boolean;
   partner_organizer_id: string | null;
   // Canonical nested shape { tickets/tables/drinks: { organizer_pct, venue_pct } }.
@@ -99,6 +101,7 @@ type FormState = {
   advanceDays: number;
   ticketPresetId: string;
   vipPresetId: string;
+  tablePresetId: string;
   autoEnableTables: boolean;
   partnerOrganizerId: string;
   venueSplitPct: number;
@@ -108,7 +111,7 @@ type FormState = {
 const EMPTY_FORM: FormState = {
   name: '', description: '', posterUrl: '', musicGenres: ['Open Format'], eventType: 'club',
   dayOfWeek: 5, startTime: '23:00', endTime: '06:00', advanceDays: 7,
-  ticketPresetId: '', vipPresetId: '', autoEnableTables: false,
+  ticketPresetId: '', vipPresetId: '', tablePresetId: '', autoEnableTables: false,
   partnerOrganizerId: '', venueSplitPct: 70, isActive: true,
 };
 
@@ -134,6 +137,8 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
   const scopeReady = isOrg ? !!organizerUserId : !!venueId;
   const [templates, setTemplates] = useState<TemplateRow[]>([]);
   const [presets, setPresets] = useState<Preset[]>([]);
+  // Presets de tables VIP (bottle service) — venue-scoped uniquement (club).
+  const [tablePresets, setTablePresets] = useState<TablePreset[]>([]);
   const [partners, setPartners] = useState<{ id: string; name: string }[]>([]);
   // Contrat-cadre récurrent par template (co-event club-led) : pending | active.
   const [seriesByTemplate, setSeriesByTemplate] = useState<Map<string, { id: string; status: string }>>(new Map());
@@ -161,6 +166,18 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
       if (tplRes.error) throw tplRes.error;
       setTemplates((tplRes.data || []) as unknown as TemplateRow[]);
       setPresets((presetRes.data || []) as Preset[]);
+
+      // Presets de tables VIP (club uniquement — table_pack_presets est venue-scoped).
+      if (!isOrg && venueId) {
+        const { data: tpData } = await supabase
+          .from('table_pack_presets')
+          .select('id, name')
+          .eq('venue_id', venueId)
+          .order('created_at', { ascending: false });
+        setTablePresets((tpData || []) as TablePreset[]);
+      } else {
+        setTablePresets([]);
+      }
 
       // Contrats-cadres récurrents (co-event club-led) → état affiché par template.
       if (!isOrg) {
@@ -227,6 +244,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
       advanceDays: tpl.advance_days ?? 7,
       ticketPresetId: tpl.ticket_preset_id || '',
       vipPresetId: tpl.vip_preset_id || '',
+      tablePresetId: tpl.table_preset_id || '',
       autoEnableTables: tpl.auto_enable_tables,
       partnerOrganizerId: tpl.partner_organizer_id || '',
       venueSplitPct: normalizeSplitRules(tpl.revenue_split_rules)?.tickets.venue_pct ?? 70,
@@ -278,7 +296,9 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
         advance_days: form.advanceDays,
         ticket_preset_id: form.ticketPresetId || null,
         vip_preset_id: form.vipPresetId || null,
-        auto_enable_tables: form.autoEnableTables,
+        table_preset_id: !isOrg && form.tablePresetId ? form.tablePresetId : null,
+        // Choisir un preset de tables implique des tables en ligne sur chaque occurrence.
+        auto_enable_tables: form.autoEnableTables || (!isOrg && !!form.tablePresetId),
         partner_organizer_id: !isOrg && form.partnerOrganizerId ? form.partnerOrganizerId : null,
         // Write the canonical nested shape. The single club/partner slider sets the
         // global split applied to tickets + tables; drinks stay 100% club (alcohol licence).
@@ -294,10 +314,10 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
 
       let templateId = editing?.id;
       if (editing) {
-        const { error } = await supabase.from('owner_recurring_templates').update(payload).eq('id', editing.id);
+        const { error } = await supabase.from('owner_recurring_templates').update(payload as any).eq('id', editing.id);
         if (error) throw error;
       } else {
-        const { data, error } = await supabase.from('owner_recurring_templates').insert(payload).select('id').single();
+        const { data, error } = await supabase.from('owner_recurring_templates').insert(payload as any).select('id').single();
         if (error) throw error;
         templateId = data.id;
       }
@@ -457,7 +477,13 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                           <Crown className="w-3 h-3" />{presetLabel(tpl.vip_preset_id)}
                         </span>
                       )}
-                      {tpl.auto_enable_tables && (
+                      {tpl.table_preset_id && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
+                          style={{ background: 'rgba(252,211,77,0.1)', border: '1px solid rgba(252,211,77,0.22)', color: '#FCD34D' }}>
+                          <Crown className="w-3 h-3" />{tablePresets.find(p => p.id === tpl.table_preset_id)?.name || t('owner.recur.vipTablePreset')}
+                        </span>
+                      )}
+                      {tpl.auto_enable_tables && !tpl.table_preset_id && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
                           style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 }}>{t('owner.recur.vipTablesOnline')}</span>
                       )}
@@ -687,16 +713,33 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                   <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
                 </div>
               </div>
-              {vipPresets.length > 0 && (
+              <div>
+                <FieldLabel><Crown className="w-3 h-3 inline mr-1" />{t('owner.recur.vipTicketPreset')}</FieldLabel>
+                <div className="relative">
+                  <select value={form.vipPresetId} onChange={e => set('vipPresetId', e.target.value)} className="appearance-none cursor-pointer" style={inputStyle}>
+                    <option value="" style={{ background: '#0a0a0c' }}>{t('owner.recur.noneOption')}</option>
+                    {vipPresets.map(p => <option key={p.id} value={p.id} style={{ background: '#0a0a0c' }}>{p.name}</option>)}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
+                </div>
+                {vipPresets.length === 0 && (
+                  <p style={{ color: T3, fontSize: 11, marginTop: 4 }}>{t('owner.recur.noVipPresetHint')}</p>
+                )}
+              </div>
+              {/* Preset de TABLES VIP (bottle service) — auto-appliqué à chaque occurrence (club uniquement). */}
+              {!isOrg && (
                 <div>
-                  <FieldLabel><Crown className="w-3 h-3 inline mr-1" />{t('owner.recur.vipTicketPreset')}</FieldLabel>
+                  <FieldLabel><Crown className="w-3 h-3 inline mr-1" />{t('owner.recur.vipTablePreset')}</FieldLabel>
                   <div className="relative">
-                    <select value={form.vipPresetId} onChange={e => set('vipPresetId', e.target.value)} className="appearance-none cursor-pointer" style={inputStyle}>
+                    <select value={form.tablePresetId} onChange={e => set('tablePresetId', e.target.value)} className="appearance-none cursor-pointer" style={inputStyle}>
                       <option value="" style={{ background: '#0a0a0c' }}>{t('owner.recur.noneOption')}</option>
-                      {vipPresets.map(p => <option key={p.id} value={p.id} style={{ background: '#0a0a0c' }}>{p.name}</option>)}
+                      {tablePresets.map(p => <option key={p.id} value={p.id} style={{ background: '#0a0a0c' }}>{p.name}</option>)}
                     </select>
                     <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
                   </div>
+                  <p style={{ color: T3, fontSize: 11, marginTop: 4 }}>
+                    {tablePresets.length === 0 ? t('owner.recur.noTablePresetHint') : t('owner.recur.vipTablePresetHint')}
+                  </p>
                 </div>
               )}
               {presets.length === 0 && (
@@ -712,7 +755,11 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                   <Zap className="w-3.5 h-3.5" style={{ color: T3 }} />
                   <span style={{ color: T2, fontSize: 12.5 }}>{t('owner.recur.enableVipTables')}</span>
                 </div>
-                <Switch checked={form.autoEnableTables} onCheckedChange={v => set('autoEnableTables', v)} />
+                <Switch
+                  checked={form.autoEnableTables || (!isOrg && !!form.tablePresetId)}
+                  disabled={!isOrg && !!form.tablePresetId}
+                  onCheckedChange={v => set('autoEnableTables', v)}
+                />
               </div>
             </div>
 

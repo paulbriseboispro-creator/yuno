@@ -130,6 +130,28 @@ export function RoundDialog({
                 </>
               )}
 
+              {/* Marquer comme épuisé (manuel) — disponible dans tous les modes.
+                  En mode rounds, si auto-activate est ON, marquer épuisé ouvre le round suivant. */}
+              <div className="flex items-center justify-between pt-3" style={{ borderTop: `1px solid ${BORDER}` }}>
+                <div className="pr-3">
+                  <Label htmlFor="manuallySoldOut">{t('tickets.markSoldOut')}</Label>
+                  <p style={HINT}>
+                    {(() => {
+                      const mode = selectedEvent ? events.find(e => e.id === selectedEvent.id)?.ticketSellingMode : undefined;
+                      const isRounds = !mode || mode === 'rounds';
+                      return isRounds && roundFormData.autoActivate
+                        ? t('tickets.markSoldOutDescRounds')
+                        : t('tickets.markSoldOutDesc');
+                    })()}
+                  </p>
+                </div>
+                <Switch
+                  id="manuallySoldOut"
+                  checked={roundFormData.manuallySoldOut}
+                  onCheckedChange={(checked) => setRoundFormData({ ...roundFormData, manuallySoldOut: checked })}
+                />
+              </div>
+
               <div>
                 <Label htmlFor="lastTicketsThreshold">{t('tickets.lastTicketsThreshold')}</Label>
                 <p style={{ ...HINT, marginBottom: 8 }}>{t('tickets.lastTicketsThresholdDesc')}</p>

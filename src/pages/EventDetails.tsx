@@ -411,6 +411,7 @@ export default function EventDetails() {
             position: r.position,
             isActive: r.is_active,
             autoActivate: r.auto_activate,
+            manuallySoldOut: (r as any).manually_sold_out ?? false,
             lastTicketsThreshold: r.last_tickets_threshold ?? 20,
             includesDrink: r.includes_drink ?? false,
             drinkDeadlineType: (r.drink_deadline_type as 'hours_after_start' | 'fixed_time') ?? 'hours_after_start',
@@ -610,7 +611,7 @@ export default function EventDetails() {
   //   preview_upcoming → all rounds visible; only first not-sold-out is buyable, others "Bientôt"
   //   all_open         → every active round is buyable in parallel
   const visibility = event.roundsVisibility ?? 'sequential';
-  const buyableRounds = ticketRounds.filter(r => r.isActive && r.ticketsSold < r.maxTickets);
+  const buyableRounds = ticketRounds.filter(r => r.isActive && !r.manuallySoldOut && r.ticketsSold < r.maxTickets);
   const activeRounds = visibility === 'all_open'
     ? buyableRounds
     : buyableRounds.slice(0, 1);

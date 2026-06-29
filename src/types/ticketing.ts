@@ -17,6 +17,8 @@ export type TicketRound = {
   position: number;
   isActive: boolean;
   autoActivate: boolean;
+  /** Épuisé forcé par le club/orga, indépendamment de ticketsSold/maxTickets. */
+  manuallySoldOut: boolean;
   lastTicketsThreshold: number;
   includesDrink?: boolean;
   drinkDeadlineHours?: number;

@@ -46,6 +46,7 @@ export interface RoundFormData {
   maxTickets: string;
   isActive: boolean;
   autoActivate: boolean;
+  manuallySoldOut: boolean;
   lastTicketsThreshold: string;
   includesDrink: boolean;
   drinkDeadlineType: 'hours_after_start' | 'fixed_time' | 'none';

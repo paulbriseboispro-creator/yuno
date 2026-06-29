@@ -90,6 +90,7 @@ export default function OwnerTicketing() {
     maxTickets: '',
     isActive: false,
     autoActivate: true,
+    manuallySoldOut: false,
     lastTicketsThreshold: '20',
     includesDrink: false,
     drinkDeadlineType: 'hours_after_start',
@@ -366,6 +367,7 @@ export default function OwnerTicketing() {
       position: r.position,
       isActive: r.is_active,
       autoActivate: r.auto_activate,
+      manuallySoldOut: (r as any).manually_sold_out ?? false,
       lastTicketsThreshold: r.last_tickets_threshold ?? 20,
       includesDrink: r.includes_drink ?? false,
       drinkDeadlineHours: r.drink_deadline_hours ?? 2,
@@ -729,6 +731,7 @@ export default function OwnerTicketing() {
       maxTickets: '',
       isActive: isSimpleMode ? true : false,
       autoActivate: isSimpleMode ? false : true,
+      manuallySoldOut: false,
       lastTicketsThreshold: '20',
       includesDrink: false,
       drinkDeadlineType: 'hours_after_start',
@@ -749,6 +752,7 @@ export default function OwnerTicketing() {
       maxTickets: round.maxTickets.toString(),
       isActive: round.isActive,
       autoActivate: round.autoActivate,
+      manuallySoldOut: round.manuallySoldOut,
       lastTicketsThreshold: round.lastTicketsThreshold.toString(),
       includesDrink: round.includesDrink || false,
       drinkDeadlineType: round.drinkDeadlineType || 'hours_after_start',
@@ -758,6 +762,28 @@ export default function OwnerTicketing() {
       entryDeadline: round.entryDeadline || '',
     });
     setIsRoundDialogOpen(true);
+  };
+
+  // Bascule "épuisé (manuel)" en un clic depuis la liste des rounds. En mode rounds, le
+  // trigger SQL ouvre le round suivant si celui-ci a auto-activate. Re-fetch pour refléter
+  // l'éventuelle activation en cascade.
+  const handleToggleSoldOut = async (round: TicketRound, eventId: string) => {
+    try {
+      const next = !round.manuallySoldOut;
+      // Marquer épuisé : le trigger SQL désactive le round (et ouvre le suivant si auto-activate).
+      // Rouvrir : on réactive explicitement le round pour qu'il revende.
+      const patch = next ? { manually_sold_out: true } : { manually_sold_out: false, is_active: true };
+      const { error } = await supabase
+        .from('ticket_rounds')
+        .update(patch as any)
+        .eq('id', round.id);
+      if (error) throw error;
+      toast.success(round.manuallySoldOut ? t('tickets.soldOutCleared') : t('tickets.soldOutMarked'));
+      await fetchTicketRounds(eventId);
+    } catch (error) {
+      console.error('Error toggling sold out:', error);
+      toast.error(t('tickets.errorSaving'));
+    }
   };
 
   const handleDeleteRound = async (roundId: string, eventId: string) => {
@@ -795,8 +821,10 @@ export default function OwnerTicketing() {
         name: roundFormData.name,
         price: parseFloat(roundFormData.price),
         max_tickets: isSimpleMode ? 999999 : parseInt(roundFormData.maxTickets),
-        is_active: isSimpleMode ? true : roundFormData.isActive,
+        // Invariant : un round épuisé manuellement n'est jamais actif (cohérent avec le trigger SQL).
+        is_active: roundFormData.manuallySoldOut ? false : (isSimpleMode ? true : roundFormData.isActive),
         auto_activate: isSimpleMode ? false : roundFormData.autoActivate,
+        manually_sold_out: roundFormData.manuallySoldOut,
         last_tickets_threshold: parseInt(roundFormData.lastTicketsThreshold) || 20,
         includes_drink: roundFormData.includesDrink,
         drink_deadline_type: roundFormData.includesDrink ? roundFormData.drinkDeadlineType : null,
@@ -814,7 +842,7 @@ export default function OwnerTicketing() {
       if (editingRound) {
         const { error } = await supabase
           .from('ticket_rounds')
-          .update(roundData)
+          .update(roundData as any)
           .eq('id', editingRound.id);
 
         if (error) throw error;
@@ -822,7 +850,7 @@ export default function OwnerTicketing() {
       } else {
         const { error } = await supabase
           .from('ticket_rounds')
-          .insert(roundData);
+          .insert(roundData as any);
 
         if (error) throw error;
         toast.success(t('tickets.roundCreated'));
@@ -1397,6 +1425,7 @@ export default function OwnerTicketing() {
                                     isVip={false}
                                     onEdit={handleEditRound}
                                     onDelete={handleDeleteRound}
+                                    onToggleSoldOut={handleToggleSoldOut}
                                   />
                                 ))}
                               </div>
@@ -1418,6 +1447,7 @@ export default function OwnerTicketing() {
                                     isVip={true}
                                     onEdit={handleEditRound}
                                     onDelete={handleDeleteRound}
+                                    onToggleSoldOut={handleToggleSoldOut}
                                   />
                                 ))}
                               </div>

@@ -338,6 +338,7 @@ export default function TicketCheckout() {
         position: roundData.position,
         isActive: roundData.is_active,
         autoActivate: roundData.auto_activate,
+        manuallySoldOut: (roundData as any).manually_sold_out ?? false,
         lastTicketsThreshold: roundData.last_tickets_threshold ?? 20,
         createdAt: roundData.created_at,
         updatedAt: roundData.updated_at,
@@ -421,7 +422,8 @@ export default function TicketCheckout() {
   const insuranceFee = hasInsurance ? Math.round(discountedSubtotal * INSURANCE_RATE * 100) / 100 : 0;
   const upsellTotal = selectedUpsells.reduce((sum, u) => sum + u.price, 0);
   const total = discountedSubtotal + serviceFee + insuranceFee + upsellTotal;
-  const remainingTickets = round ? round.maxTickets - round.ticketsSold : 0;
+  // Un round marqué épuisé manuellement n'a aucune dispo, même si la capacité n'est pas atteinte.
+  const remainingTickets = round ? (round.manuallySoldOut ? 0 : round.maxTickets - round.ticketsSold) : 0;
   // Per-person allowance: limit minus what this buyer already holds. No limit → 10.
   const perOrderAllowance = perPersonLimit != null ? perPersonLimit - alreadyPurchased : 10;
   const maxQuantity = Math.min(Math.max(perOrderAllowance, 0), remainingTickets);
