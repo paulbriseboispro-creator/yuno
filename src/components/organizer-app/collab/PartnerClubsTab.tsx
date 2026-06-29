@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useOrganizerPartnerships, type VenueOrganizerPartnership, type PartnershipSplitRules, getPartnershipProposalStatus } from '@/hooks/useOrganizerPartnerships';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Building2, Send, Check, X, Trash2, Inbox, Search, Mail, UserPlus, Settings2, Loader2 } from 'lucide-react';
+import { Building2, Send, Check, X, Trash2, Inbox, Search, Settings2, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -10,7 +10,7 @@ import { PartnershipSplitEditor, PartnershipProposalBanner } from '@/components/
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import {
-  OrgPage, OrgPageHeader, OrgCard, OrgPill, OrgButton, OrgSectionLabel, OrgEmptyState,
+  OrgCard, OrgPill, OrgButton, OrgSectionLabel, OrgEmptyState,
   FieldLabel, DarkInput, DarkTextarea,
   T1, T2, T3, BORDER, INNER_BG,
 } from '@/components/org-ui';
@@ -35,25 +35,25 @@ const statusMeta: Record<string, { fr: string; en: string; es: string; tone: Pil
 
 const dialogStyle = { background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18 } as const;
 
-export default function OrgAppPartners() {
+/**
+ * "Clubs partenaires" tab of the organizer Collaborations hub — parity with the
+ * club's /owner/collaborations?tab=organizers. Manage partnerships with Yuno clubs:
+ * received invitations, active partnerships (with editable revenue splits), pending
+ * requests, and history. Inviting a brand-new club not yet on Yuno lives in the
+ * separate "Inviter" tab.
+ */
+export function PartnerClubsTab() {
   const { partnerships, isLoading, requestPartnership, respond, revoke, proposeSplitUpdate, respondToSplitProposal } = useOrganizerPartnerships();
   const { toast } = useToast();
   const { language } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [editSplitFor, setEditSplitFor] = useState<VenueOrganizerPartnership | null>(null);
   const [requestOpen, setRequestOpen] = useState(false);
-  const [inviteOpen, setInviteOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [results, setResults] = useState<VenueSearchResult[]>([]);
   const [selectedVenue, setSelectedVenue] = useState<VenueSearchResult | null>(null);
   const [message, setMessage] = useState('');
   const [searching, setSearching] = useState(false);
-
-  const [inviteForm, setInviteForm] = useState({
-    club_name: '', club_email: '', club_city: '', club_address: '',
-    contact_first_name: '', contact_last_name: '', invitation_message: '',
-  });
-  const [inviting, setInviting] = useState(false);
 
   const incoming = partnerships.filter((p) => p.status === 'pending' && p.initiated_by === 'venue');
   const outgoing = partnerships.filter((p) => p.status === 'pending' && p.initiated_by === 'organizer');
@@ -86,55 +86,20 @@ export default function OrgAppPartners() {
     setResults([]);
   };
 
-  const handleInviteExternal = async () => {
-    if (!inviteForm.club_name.trim() || !inviteForm.club_email.trim()) {
-      toast({ title: t('Champs requis', 'Required fields', 'Campos obligatorios'), description: t('Nom et email du club sont obligatoires.', 'Club name and email are required.', 'El nombre y el correo del club son obligatorios.'), variant: 'destructive' });
-      return;
-    }
-    setInviting(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('invite-club-collab', {
-        body: { ...inviteForm, origin: window.location.origin },
-      });
-      if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
-      toast({
-        title: t('Invitation envoyée 📧', 'Invitation sent 📧', 'Invitación enviada 📧'),
-        description: t(
-          `Un email a été envoyé à ${inviteForm.club_email}.`,
-          `An email was sent to ${inviteForm.club_email}.`,
-          `Se ha enviado un correo a ${inviteForm.club_email}.`,
-        ),
-      });
-      setInviteOpen(false);
-      setInviteForm({ club_name: '', club_email: '', club_city: '', club_address: '', contact_first_name: '', contact_last_name: '', invitation_message: '' });
-    } catch (err: any) {
-      toast({ title: t('Erreur', 'Error', 'Error'), description: err.message, variant: 'destructive' });
-    } finally {
-      setInviting(false);
-    }
-  };
-
   return (
-    <OrgPage className="mx-auto max-w-[1340px]">
-      <OrgPageHeader
-        title={t('Clubs partenaires', 'Partner clubs', 'Clubes asociados')}
-        subtitle={t(
-          'Connecte-toi à des clubs Yuno ou invite un nouveau club à rejoindre la plateforme.',
-          'Connect with Yuno clubs or invite a new club to join the platform.',
-          'Conéctate con clubes Yuno o invita a un nuevo club a unirse a la plataforma.',
-        )}
-        actions={
-          <>
-            <OrgButton variant="secondary" size="sm" onClick={() => setInviteOpen(true)}>
-              <UserPlus className="h-4 w-4" /> <span className="hidden sm:inline">{t('Inviter un club externe', 'Invite an external club', 'Invitar a un club externo')}</span>
-            </OrgButton>
-            <OrgButton variant="primary" size="sm" onClick={() => setRequestOpen(true)}>
-              <Send className="h-4 w-4" /> <span className="hidden sm:inline">{t('Demander un partenariat', 'Request a partnership', 'Solicitar un partenariado')}</span>
-            </OrgButton>
-          </>
-        }
-      />
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p style={{ color: T3, fontSize: 13 }}>
+          {t(
+            'Connecte-toi à des clubs Yuno et gère vos partenariats et règles de partage.',
+            'Connect with Yuno clubs and manage your partnerships and split rules.',
+            'Conéctate con clubes Yuno y gestiona vuestros partenariados y reglas de reparto.',
+          )}
+        </p>
+        <OrgButton variant="primary" size="sm" onClick={() => setRequestOpen(true)}>
+          <Send className="h-4 w-4" /> {t('Demander un partenariat', 'Request a partnership', 'Solicitar un partenariado')}
+        </OrgButton>
+      </div>
 
       {isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" style={{ color: T3 }} /></div>
@@ -273,54 +238,6 @@ export default function OrgAppPartners() {
         </DialogContent>
       </Dialog>
 
-      {/* Invite external club dialog */}
-      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-        <DialogContent className="border-0 p-0" style={{ ...dialogStyle, maxWidth: 512 }}>
-          <div className="max-h-[85vh] overflow-y-auto p-6">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2" style={{ color: T1, fontSize: 15.5, fontWeight: 600 }}>
-                <Mail className="h-5 w-5" style={{ color: '#E8192C' }} /> {t('Inviter un club externe', 'Invite an external club', 'Invitar a un club externo')}
-              </DialogTitle>
-              <DialogDescription style={{ color: T3, fontSize: 12 }}>
-                {t(
-                  "Invite par email un établissement qui n'est pas encore sur Yuno. Il recevra un lien pour créer son compte et collaborer avec toi.",
-                  'Invite a venue that is not on Yuno yet by email. They will get a link to create their account and collaborate with you.',
-                  'Invita por correo a un establecimiento que aún no está en Yuno. Recibirá un enlace para crear su cuenta y colaborar contigo.',
-                )}
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="mt-4 space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2"><FieldLabel>{t('Nom du club *', 'Club name *', 'Nombre del club *')}</FieldLabel><DarkInput value={inviteForm.club_name} onChange={(v) => setInviteForm((f) => ({ ...f, club_name: v }))} placeholder="Le Bistro" /></div>
-                <div className="col-span-2"><FieldLabel>{t('Email du club *', 'Club email *', 'Correo del club *')}</FieldLabel><DarkInput type="email" value={inviteForm.club_email} onChange={(v) => setInviteForm((f) => ({ ...f, club_email: v }))} placeholder="contact@lebistro.fr" /></div>
-                <div><FieldLabel>{t('Prénom contact', 'Contact first name', 'Nombre del contacto')}</FieldLabel><DarkInput value={inviteForm.contact_first_name} onChange={(v) => setInviteForm((f) => ({ ...f, contact_first_name: v }))} /></div>
-                <div><FieldLabel>{t('Nom contact', 'Contact last name', 'Apellido del contacto')}</FieldLabel><DarkInput value={inviteForm.contact_last_name} onChange={(v) => setInviteForm((f) => ({ ...f, contact_last_name: v }))} /></div>
-                <div><FieldLabel>{t('Ville', 'City', 'Ciudad')}</FieldLabel><DarkInput value={inviteForm.club_city} onChange={(v) => setInviteForm((f) => ({ ...f, club_city: v }))} placeholder="Paris" /></div>
-                <div><FieldLabel>{t('Adresse', 'Address', 'Dirección')}</FieldLabel><DarkInput value={inviteForm.club_address} onChange={(v) => setInviteForm((f) => ({ ...f, club_address: v }))} placeholder={t('12 rue…', '12 Main St…', 'C/ Mayor 12…')} /></div>
-                <div className="col-span-2"><FieldLabel>{t('Message personnalisé (optionnel)', 'Custom message (optional)', 'Mensaje personalizado (opcional)')}</FieldLabel><DarkTextarea value={inviteForm.invitation_message} onChange={(v) => setInviteForm((f) => ({ ...f, invitation_message: v }))} placeholder={t('Présente ton projet, la soirée envisagée, ta communauté…', 'Introduce your project, the event you have in mind, your community…', 'Presenta tu proyecto, el evento previsto, tu comunidad…')} rows={4} /></div>
-              </div>
-
-              <div className="rounded-xl p-3" style={{ background: 'rgba(232,25,44,0.05)', border: '1px solid rgba(232,25,44,0.2)', color: T3, fontSize: 11.5 }}>
-                💡 {t('Le club recevra un accès', 'The club will get a', 'El club recibirá un acceso')} <strong style={{ color: T1 }}>Yuno Collaboration</strong> {t(
-                  'gratuit (page publique, stats, paiements). Il pourra activer un plan complet plus tard.',
-                  'free access (public page, stats, payments). They can activate a full plan later.',
-                  'gratuito (página pública, estadísticas, pagos). Podrá activar un plan completo más tarde.',
-                )}
-              </div>
-            </div>
-
-            <DialogFooter className="mt-5 gap-2">
-              <OrgButton variant="secondary" onClick={() => setInviteOpen(false)}>{t('Annuler', 'Cancel', 'Cancelar')}</OrgButton>
-              <OrgButton variant="primary" onClick={handleInviteExternal} disabled={inviting}>
-                {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
-                {inviting ? t('Envoi…', 'Sending…', 'Enviando…') : t("Envoyer l'invitation", 'Send invitation', 'Enviar la invitación')}
-              </OrgButton>
-            </DialogFooter>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {editSplitFor && (
         <PartnershipSplitEditor
           open={!!editSplitFor}
@@ -331,7 +248,7 @@ export default function OrgAppPartners() {
           isPending={proposeSplitUpdate.isPending}
         />
       )}
-    </OrgPage>
+    </div>
   );
 }
 

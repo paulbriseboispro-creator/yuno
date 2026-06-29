@@ -8,7 +8,7 @@ import { format } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
 import { Handshake, Clock, Building2, ArrowRight, ChevronDown, ChevronUp, Loader2, Sparkles } from 'lucide-react';
 import {
-  OrgPage, OrgPageHeader, OrgCard, OrgPill, OrgButton, OrgSectionLabel, OrgEmptyState,
+  OrgCard, OrgPill, OrgButton, OrgSectionLabel, OrgEmptyState,
   T1, T2, T3, BORDER, INNER_BG,
 } from '@/components/org-ui';
 import { OrgPendingProposals } from '@/components/organizer-app/OrgPendingProposals';
@@ -33,13 +33,12 @@ interface CoEvent {
 }
 
 /**
- * Organizer collaborations hub — parity with the club's /owner/collaborations.
- * Two zones: incoming co-event proposals to accept/decline (OrgPendingProposals)
- * and the organizer's active co-events, each with the double-consent pause/delete
- * controls. Before this page, an organizer had no persistent surface for co-events
- * sent by Yuno clubs — only a transient dashboard banner — and no notification.
+ * "Soirées" tab of the organizer Collaborations hub — parity with the club's
+ * /owner/collaborations?tab=events. Incoming co-event proposals to accept/decline,
+ * the sign-once recurring frameworks, and the organizer's active co-events with the
+ * double-consent pause/delete controls.
  */
-export default function OrgAppCollaborations() {
+export function CollabEventsTab() {
   const { user } = useAuth();
   const { language } = useLanguage();
   const t = (frTxt: string, en: string, esTxt?: string) => translate(language, frTxt, en, esTxt);
@@ -95,85 +94,82 @@ export default function OrgAppCollaborations() {
   const past = events.filter((e) => new Date(e.end_at).getTime() < now);
 
   return (
-    <OrgPage className="mx-auto max-w-[1340px]">
-      <OrgPageHeader
-        title={t('Collaborations', 'Collaborations', 'Colaboraciones')}
-        subtitle={t(
-          'Les soirées co-organisées avec des clubs Yuno : propositions reçues et co-soirées en cours.',
-          'Events co-hosted with Yuno clubs: incoming proposals and active co-events.',
-          'Eventos coorganizados con clubes Yuno: propuestas recibidas y coeventos activos.',
-        )}
-        actions={
-          <OrgButton variant="primary" size="sm" onClick={() => setProposeOpen(true)}>
-            <Sparkles className="h-4 w-4" /> <span className="hidden sm:inline">{t('Proposer une soirée', 'Propose an event', 'Proponer un evento')}</span>
-          </OrgButton>
-        }
-      />
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p style={{ color: T3, fontSize: 13 }}>
+          {t(
+            'Les soirées co-organisées avec des clubs Yuno : propositions reçues et co-soirées en cours.',
+            'Events co-hosted with Yuno clubs: incoming proposals and active co-events.',
+            'Eventos coorganizados con clubes Yuno: propuestas recibidas y coeventos activos.',
+          )}
+        </p>
+        <OrgButton variant="primary" size="sm" onClick={() => setProposeOpen(true)}>
+          <Sparkles className="h-4 w-4" /> {t('Proposer une soirée', 'Propose an event', 'Proponer un evento')}
+        </OrgButton>
+      </div>
 
-      <div className="space-y-6">
-        {/* Incoming proposals to accept/decline (per-event + sign-once recurring framework) */}
-        <OrgPendingProposals />
+      {/* Incoming proposals to accept/decline (per-event + sign-once recurring framework) */}
+      <OrgPendingProposals />
 
-        {/* Active recurring frameworks — download the contract or terminate for the future */}
-        <CollabSeriesContracts role="organizer" onChanged={load} />
+      {/* Active recurring frameworks — download the contract or terminate for the future */}
+      <CollabSeriesContracts role="organizer" onChanged={load} />
 
-        {loading ? (
-          <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" style={{ color: T3 }} /></div>
-        ) : events.length === 0 ? (
-          <OrgEmptyState
-            icon={Handshake}
-            title={t('Aucune co-soirée pour le moment.', 'No co-events yet.', 'Aún no hay coeventos.')}
-            description={t(
-              'Propose une de tes soirées à un club partenaire, ou attends qu’un club Yuno t’en propose une — elle apparaîtra ici.',
-              'Propose one of your events to a partner club, or wait for a Yuno club to propose one — it shows up here.',
-              'Propón uno de tus eventos a un club asociado, o espera a que un club Yuno te proponga uno — aparecerá aquí.',
+      {loading ? (
+        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin" style={{ color: T3 }} /></div>
+      ) : events.length === 0 ? (
+        <OrgEmptyState
+          icon={Handshake}
+          title={t('Aucune co-soirée pour le moment.', 'No co-events yet.', 'Aún no hay coeventos.')}
+          description={t(
+            'Propose une de tes soirées à un club partenaire, ou attends qu’un club Yuno t’en propose une — elle apparaîtra ici.',
+            'Propose one of your events to a partner club, or wait for a Yuno club to propose one — it shows up here.',
+            'Propón uno de tus eventos a un club asociado, o espera a que un club Yuno te proponga uno — aparecerá aquí.',
+          )}
+          action={
+            <OrgButton variant="primary" size="sm" onClick={() => setProposeOpen(true)}>
+              <Sparkles className="h-4 w-4" /> {t('Proposer une soirée', 'Propose an event', 'Proponer un evento')}
+            </OrgButton>
+          }
+        />
+      ) : (
+        <>
+          <section>
+            <div className="mb-3"><OrgSectionLabel>{t('Co-soirées', 'Co-events', 'Coeventos')} ({upcoming.length})</OrgSectionLabel></div>
+            {upcoming.length === 0 ? (
+              <OrgEmptyState icon={Handshake} title={t('Aucune co-soirée à venir.', 'No upcoming co-events.', 'No hay coeventos próximos.')} />
+            ) : (
+              <div className="grid gap-3">
+                {upcoming.map((e) => <CoEventCard key={e.id} event={e} onChanged={load} />)}
+              </div>
             )}
-            action={
-              <OrgButton variant="primary" size="sm" onClick={() => setProposeOpen(true)}>
-                <Sparkles className="h-4 w-4" /> {t('Proposer une soirée', 'Propose an event', 'Proponer un evento')}
-              </OrgButton>
-            }
-          />
-        ) : (
-          <>
+          </section>
+
+          {past.length > 0 && (
             <section>
-              <div className="mb-3"><OrgSectionLabel>{t('Co-soirées', 'Co-events', 'Coeventos')} ({upcoming.length})</OrgSectionLabel></div>
-              {upcoming.length === 0 ? (
-                <OrgEmptyState icon={Handshake} title={t('Aucune co-soirée à venir.', 'No upcoming co-events.', 'No hay coeventos próximos.')} />
-              ) : (
-                <div className="grid gap-3">
-                  {upcoming.map((e) => <CoEventCard key={e.id} event={e} onChanged={load} />)}
+              <button
+                onClick={() => setShowPast(!showPast)}
+                className="flex w-full items-center justify-between"
+                style={{ padding: '10px 16px', borderRadius: 12, background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, fontSize: 13 }}
+              >
+                <span className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" style={{ color: T3 }} />
+                  {t('Co-soirées passées', 'Past co-events', 'Coeventos pasados')}
+                  <span style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 6, padding: '1px 8px', fontSize: 11, color: T3 }}>{past.length}</span>
+                </span>
+                {showPast ? <ChevronUp className="h-4 w-4" style={{ color: T3 }} /> : <ChevronDown className="h-4 w-4" style={{ color: T3 }} />}
+              </button>
+              {showPast && (
+                <div className="mt-3 grid gap-3" style={{ opacity: 0.7 }}>
+                  {past.map((e) => <CoEventCard key={e.id} event={e} onChanged={load} />)}
                 </div>
               )}
             </section>
-
-            {past.length > 0 && (
-              <section>
-                <button
-                  onClick={() => setShowPast(!showPast)}
-                  className="flex w-full items-center justify-between"
-                  style={{ padding: '10px 16px', borderRadius: 12, background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, fontSize: 13 }}
-                >
-                  <span className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" style={{ color: T3 }} />
-                    {t('Co-soirées passées', 'Past co-events', 'Coeventos pasados')}
-                    <span style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 6, padding: '1px 8px', fontSize: 11, color: T3 }}>{past.length}</span>
-                  </span>
-                  {showPast ? <ChevronUp className="h-4 w-4" style={{ color: T3 }} /> : <ChevronDown className="h-4 w-4" style={{ color: T3 }} />}
-                </button>
-                {showPast && (
-                  <div className="mt-3 grid gap-3" style={{ opacity: 0.7 }}>
-                    {past.map((e) => <CoEventCard key={e.id} event={e} onChanged={load} />)}
-                  </div>
-                )}
-              </section>
-            )}
-          </>
-        )}
-      </div>
+          )}
+        </>
+      )}
 
       <OrgProposeEventDialog open={proposeOpen} onOpenChange={setProposeOpen} onCreated={load} />
-    </OrgPage>
+    </div>
   );
 }
 

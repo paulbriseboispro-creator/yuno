@@ -111,8 +111,7 @@ const OrgAppAnalytics = lazyWithRetry(() => import("./pages/organizer-app/OrgApp
 const OrgAppOrganization = lazyWithRetry(() => import("./pages/organizer-app/OrgAppOrganization"));
 const OrgAppPayments = lazyWithRetry(() => import("./pages/organizer-app/OrgAppPayments"));
 const OrgAppOnboarding = lazyWithRetry(() => import("./pages/organizer-app/OrgAppOnboarding"));
-const OrgAppPartners = lazyWithRetry(() => import("./pages/organizer-app/OrgAppPartners"));
-const OrgAppCollaborations = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCollaborations"));
+const OrgAppCollabHub = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCollabHub"));
 const OrgAppProfile = lazyWithRetry(() => import("./pages/organizer-app/OrgAppProfile"));
 const OrgAppTeam = lazyWithRetry(() => import("./pages/organizer-app/OrgAppTeam"));
 const OrgAppCustomers = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCustomers"));
@@ -477,8 +476,9 @@ const App = () => (
                   <Route path="book-dj" element={<BookDJPage />} />
                   <Route path="checkin" element={<OrgAppCheckin />} />
                   <Route path="analytics" element={<OrgAppAnalytics />} />
-                  <Route path="partners" element={<OrgAppPartners />} />
-                  <Route path="collaborations" element={<OrgAppCollaborations />} />
+                  {/* Legacy split partner-clubs page → unified Collaborations hub (Partner clubs tab) */}
+                  <Route path="partners" element={<Navigate to="/organizer-app/collaborations?tab=partners" replace />} />
+                  <Route path="collaborations" element={<OrgAppCollabHub />} />
                   <Route path="profile" element={<OrgAppProfile />} />
                   <Route path="team" element={<OrgAppTeam />} />
                   <Route path="customers" element={<OrgAppCustomers />} />
