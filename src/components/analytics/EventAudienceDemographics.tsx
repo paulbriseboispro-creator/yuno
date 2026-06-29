@@ -34,6 +34,8 @@ const crd: React.CSSProperties = {
 interface DemographicsData {
   ok: boolean;
   total: number;
+  /** Combined event capacity (tickets + VIP tables + guest list). Single-event view only; null otherwise. */
+  capacity: number | null;
   age_known: number;
   gender_known: number;
   age_buckets: { bucket: string; count: number }[];
@@ -81,20 +83,12 @@ export function EventAudienceDemographics({ scope, eventId, from, to }: Props) {
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [data, setData] = useState<DemographicsData | null>(null);
-  const [capacity, setCapacity] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      // Per-event view: pull the event's max capacity so the ring can show real fill.
-      let cap: number | null = null;
-      if (eventId) {
-        const { data: ev } = await supabase.from('events').select('max_tickets').eq('id', eventId).maybeSingle();
-        const mt = (ev as { max_tickets: number | null } | null)?.max_tickets ?? null;
-        cap = mt && mt > 0 ? mt : null;
-      }
       const { data: res } = await supabase.rpc('event_audience_demographics', {
         p_scope: scope.kind,
         p_scope_id: scope.id,
@@ -105,11 +99,13 @@ export function EventAudienceDemographics({ scope, eventId, from, to }: Props) {
       if (cancelled) return;
       const parsed = res as unknown as DemographicsData | null;
       setData(parsed && parsed.ok ? parsed : null);
-      setCapacity(cap);
       setLoading(false);
     })();
     return () => { cancelled = true; };
   }, [scope.kind, scope.id, eventId, from, to]);
+
+  const capacity = data && data.capacity && data.capacity > 0 ? data.capacity : null;
+  const fillPct = capacity ? Math.round(Math.min(1, (data?.total ?? 0) / capacity) * 100) : null;
 
   if (loading) {
     return (
@@ -236,10 +232,8 @@ export function EventAudienceDemographics({ scope, eventId, from, to }: Props) {
           <div className="flex-1 flex flex-col items-center justify-center py-3">
             <ParticipantRing value={data.total} capacity={capacity} />
             <p className="mt-3 text-[12px] text-center" style={{ color: T3 }}>
-              {capacity
-                ? tt(`${Math.round(Math.min(1, data.total / capacity) * 100)}% de la capacité`,
-                      `${Math.round(Math.min(1, data.total / capacity) * 100)}% of capacity`,
-                      `${Math.round(Math.min(1, data.total / capacity) * 100)}% de la capacidad`)
+              {fillPct != null
+                ? tt(`${fillPct}% de la capacité`, `${fillPct}% of capacity`, `${fillPct}% de la capacidad`)
                 : eventId
                   ? tt('À cette soirée', 'At this event', 'En este evento')
                   : tt('Sur tes événements', 'Across your events', 'En tus eventos')}
