@@ -234,20 +234,16 @@ export default function TicketSelection() {
       // Les parts non visibles restent accessibles seulement via leur lien (RPC token).
       const glData = (glRows || []).find(r => r.holder_type === 'club') ?? (glRows || [])[0] ?? null;
       if (glData) {
-        const { count: c } = await supabase.from('guest_list_entries').select('*', { count: 'exact', head: true })
-          .eq('guest_list_id', glData.id).neq('status', 'cancelled');
-        // Gendered guest lists are published as two separate cards (Femme / Homme),
-        // so we need each gender's fill to show remaining + sold-out per card.
-        const hasGenderSplit = glData.quota_female !== null || glData.quota_male !== null;
-        let fCount = 0, mCount = 0;
-        if (hasGenderSplit) {
-          const [{ count: fc }, { count: mc }] = await Promise.all([
-            supabase.from('guest_list_entries').select('*', { count: 'exact', head: true }).eq('guest_list_id', glData.id).eq('gender', 'female').neq('status', 'cancelled'),
-            supabase.from('guest_list_entries').select('*', { count: 'exact', head: true }).eq('guest_list_id', glData.id).eq('gender', 'male').neq('status', 'cancelled'),
-          ]);
-          fCount = fc || 0; mCount = mc || 0;
-        }
-        setGuestList({ id: glData.id, quota: glData.quota, quotaFemale: glData.quota_female, quotaMale: glData.quota_male, freeBeforeTime: glData.free_before_time?.substring(0, 5) || '02:00', includesDrink: glData.includes_drink, shareToken: glData.share_token, count: c || 0, femaleCount: fCount, maleCount: mCount });
+        // Fill counts via SECURITY DEFINER RPC. Anon visitors can't read
+        // guest_list_entries under RLS (a direct count silently returns 0 → a full
+        // list would look wide open on the public ticket page). The RPC returns
+        // aggregate counts only (no guest PII) and normalizes gender variants
+        // (F/M/female/male/femme/homme) so the Femme/Homme cards fill correctly.
+        const { data: fillRaw } = await supabase
+          .rpc('get_guest_list_public_fill', { _guest_list_id: glData.id })
+          .maybeSingle();
+        const fill = fillRaw as { total_count: number; female_count: number; male_count: number } | null;
+        setGuestList({ id: glData.id, quota: glData.quota, quotaFemale: glData.quota_female, quotaMale: glData.quota_male, freeBeforeTime: glData.free_before_time?.substring(0, 5) || '02:00', includesDrink: glData.includes_drink, shareToken: glData.share_token, count: fill?.total_count || 0, femaleCount: fill?.female_count || 0, maleCount: fill?.male_count || 0 });
       }
 
       // DJ guest list via private link (?dj=<share_token>). Resolved by a SECURITY
