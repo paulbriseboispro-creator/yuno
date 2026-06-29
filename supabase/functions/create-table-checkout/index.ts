@@ -10,6 +10,7 @@ import {
   YUNO_TICKET_TABLE_MIN_BDE as YUNO_COMMISSION_MIN_BDE,
 } from "../_shared/commission.ts";
 import { getAbsorbYunoFees } from "../_shared/merchant-fees.ts";
+import { resolveAgeDeclaration, AgeDeclarationError, AGE_DECLARATION_REQUIRED_CODE } from "../_shared/age-declaration.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -75,6 +76,8 @@ serve(async (req) => {
       placementStatus,
       // Source tracking
       purchaseSource, trackedLinkId,
+      // Déclaration sur l'honneur de majorité
+      ageDeclaration,
     } = await req.json();
 
     const ALLOWED_SOURCES = ['venue_profile','organizer_profile','dj_profile','explore','promoter','direct'];
@@ -82,6 +85,27 @@ serve(async (req) => {
     const safePurchaseSource = ALLOWED_SOURCES.includes(purchaseSource) ? purchaseSource : 'direct';
     // Tracked-link attribution: a UUID or null. Stamped onto the reservation post-create.
     const safeTrackedLinkId = (typeof trackedLinkId === 'string' && /^[0-9a-f-]{36}$/i.test(trackedLinkId)) ? trackedLinkId : null;
+
+    // ── Déclaration sur l'honneur de majorité (bouteilles / bottle service) ───
+    // Obligatoire et enregistrée côté serveur, comme pour la commande de boissons.
+    // Le vrai contrôle d'identité reste fait par l'établissement à l'entrée.
+    let ageRecord: { declaredAt: string; birthDate: string | null; ip: string | null };
+    try {
+      ageRecord = resolveAgeDeclaration(ageDeclaration, req);
+    } catch (e) {
+      if (e instanceof AgeDeclarationError) {
+        logStep("Age declaration missing — table checkout refused");
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Vous devez certifier être majeur. L'établissement vérifiera votre pièce d'identité à l'entrée.",
+            code: AGE_DECLARATION_REQUIRED_CODE,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+        );
+      }
+      throw e;
+    }
 
     // Try to authenticate user
     let user: { id: string; email: string | null } | null = null;
@@ -429,6 +453,11 @@ serve(async (req) => {
       if (safeTrackedLinkId) {
         await supabaseAdmin.from("table_reservations").update({ tracked_link_id: safeTrackedLinkId }).eq('id', reservation.id);
       }
+      await supabaseAdmin.from("table_reservations").update({
+        age_declared_at: ageRecord.declaredAt,
+        age_declaration_birth_date: ageRecord.birthDate,
+        age_declaration_ip: ageRecord.ip,
+      }).eq('id', reservation.id);
 
       // Upsert SMS contact if buyer opted in
       if (smsOptIn && event.venue_id && phone) {
@@ -587,6 +616,11 @@ serve(async (req) => {
     if (safeTrackedLinkId) {
       await supabaseAdmin.from("table_reservations").update({ tracked_link_id: safeTrackedLinkId }).eq('id', reservation.id);
     }
+    await supabaseAdmin.from("table_reservations").update({
+      age_declared_at: ageRecord.declaredAt,
+      age_declaration_birth_date: ageRecord.birthDate,
+      age_declaration_ip: ageRecord.ip,
+    }).eq('id', reservation.id);
 
     logStep("Pending reservation created", { reservationId: reservation.id });
 

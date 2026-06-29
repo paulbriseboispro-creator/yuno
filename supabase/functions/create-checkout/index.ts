@@ -7,6 +7,7 @@ import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-g
 // Yuno commission rate — single source of truth (3% drinks).
 import { YUNO_DRINK_RATE as YUNO_COMMISSION_RATE } from "../_shared/commission.ts";
 import { getAbsorbYunoFees } from "../_shared/merchant-fees.ts";
+import { resolveAgeDeclaration, AgeDeclarationError, AGE_DECLARATION_REQUIRED_CODE } from "../_shared/age-declaration.ts";
 
 // Production mode - payments are processed via Stripe
 const TEST_MODE = false;
@@ -130,12 +131,34 @@ serve(async (req) => {
     );
 
     // Parse request body
-    const { items, venueId, eventId, cancelUrl, guestEmail, guestFullName, guestPhone, trackedLinkId } = await req.json();
+    const { items, venueId, eventId, cancelUrl, guestEmail, guestFullName, guestPhone, trackedLinkId, ageDeclaration } = await req.json();
     // Tracked-link attribution: a UUID or null. Persisted on the order for revenue attribution.
     const safeTrackedLinkId = (typeof trackedLinkId === 'string' && /^[0-9a-f-]{36}$/i.test(trackedLinkId)) ? trackedLinkId : null;
 
     if (!items || !venueId || !Array.isArray(items) || items.length === 0) {
       throw new Error("Missing required fields");
+    }
+
+    // ── Déclaration sur l'honneur de majorité (alcool) ────────────────────────
+    // Obligatoire et enregistrée côté serveur : le front gate déjà, mais on refuse
+    // ici aussi pour qu'un appel API direct ne puisse pas vendre d'alcool sans
+    // déclaration. Le vrai contrôle d'identité reste fait par l'établissement à l'entrée.
+    let ageRecord: { declaredAt: string; birthDate: string | null; ip: string | null };
+    try {
+      ageRecord = resolveAgeDeclaration(ageDeclaration, req);
+    } catch (e) {
+      if (e instanceof AgeDeclarationError) {
+        logStep("Age declaration missing — checkout refused", { venueId });
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "Vous devez certifier être majeur. L'établissement vérifiera votre pièce d'identité à l'entrée.",
+            code: AGE_DECLARATION_REQUIRED_CODE,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+        );
+      }
+      throw e;
     }
 
     // Authenticate user OR handle guest checkout
@@ -364,6 +387,10 @@ serve(async (req) => {
       status: simulate ? "paid" : "pending",
       is_guest: isGuest,
       tracked_link_id: safeTrackedLinkId,
+      // Déclaration sur l'honneur de majorité (contrôle réel par l'établissement à l'entrée).
+      age_declared_at: ageRecord.declaredAt,
+      age_declaration_birth_date: ageRecord.birthDate,
+      age_declaration_ip: ageRecord.ip,
     };
 
     if (isGuest) {

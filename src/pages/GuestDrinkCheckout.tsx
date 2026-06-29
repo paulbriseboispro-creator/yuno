@@ -40,6 +40,8 @@ export default function GuestDrinkCheckout() {
   const [guestPhone, setGuestPhone] = useState('');
   const [acceptCgv, setAcceptCgv] = useState(false);
   const [ageVerified, setAgeVerified] = useState(false);
+  // Self-declared birth date (honor system) — recorded server-side at checkout.
+  const [ageBirthDate, setAgeBirthDate] = useState<string | undefined>(undefined);
   const [isProcessing, setIsProcessing] = useState(false);
   const [venueInfo, setVenueInfo] = useState<VenueInfo | null>(null);
 
@@ -138,6 +140,7 @@ export default function GuestDrinkCheckout() {
           guestEmail: guestEmail.trim(),
           guestFullName: `${guestFirstName.trim()} ${guestLastName.trim()}`,
           guestPhone: guestPhone.trim() || undefined,
+          ageDeclaration: { confirmed: true, birthDate: ageBirthDate },
         },
       });
 
@@ -314,7 +317,7 @@ export default function GuestDrinkCheckout() {
 
           {/* Age verification + CGV — inside scrollable form, NOT in sticky footer */}
           <div className="mt-4 space-y-3">
-            <AgeGate onVerified={setAgeVerified} />
+            <AgeGate onVerified={(v, bd) => { setAgeVerified(v); if (bd) setAgeBirthDate(bd); }} />
             <TermsAcceptance guestEmail={guestEmail} context="drink" onAcceptedChange={setAcceptCgv} />
           </div>
 

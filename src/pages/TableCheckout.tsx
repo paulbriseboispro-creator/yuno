@@ -81,6 +81,8 @@ export default function TableCheckout() {
   const [smsOptIn, setSmsOptIn] = useState(false);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [ageVerified, setAgeVerified] = useState(false);
+  // Self-declared birth date (honor system) — recorded server-side at checkout.
+  const [ageBirthDate, setAgeBirthDate] = useState<string | undefined>(undefined);
   
   const [guestCount, setGuestCount] = useState(1);
   const { unavailableTableIds, reservationsByZone } = useTableAvailability(eventId);
@@ -441,6 +443,7 @@ export default function TableCheckout() {
           // Placement data
           requestedTableId: selectedTableId,
           placementStatus: placementStatus,
+          ageDeclaration: { confirmed: true, birthDate: ageBirthDate },
           ...guestCheckout,
         }
       });
@@ -721,7 +724,7 @@ export default function TableCheckout() {
                     <Label htmlFor="remarks" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[#5A5A5E]">{t('tableCheckout.remarks')}</Label>
                     <Textarea id="remarks" value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder={t('tableCheckout.remarksPlaceholder')} rows={3} className="rounded-lg bg-[#1F1F22] border-white/[0.08] text-white placeholder:text-[#5A5A5E] focus-visible:ring-0 focus-visible:border-primary/50" />
                   </div>
-                  <AgeGate userId={user?.id} onVerified={setAgeVerified} />
+                  <AgeGate userId={user?.id} onVerified={(v, bd) => { setAgeVerified(v); if (bd) setAgeBirthDate(bd); }} />
                   <MarketingOptIns
                     newsletterOptIn={newsletterOptIn}
                     onNewsletterChange={setNewsletterOptIn}

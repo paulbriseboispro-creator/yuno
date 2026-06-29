@@ -62,6 +62,8 @@ export default function Cart() {
   const cleanExpiredItems = useStore((state) => state.cleanExpiredItems);
   const [acceptCgv, setAcceptCgv] = useState(false);
   const [ageVerified, setAgeVerified] = useState(false);
+  // Self-declared birth date (honor system) — recorded server-side at checkout.
+  const [ageBirthDate, setAgeBirthDate] = useState<string | undefined>(undefined);
   const [showDetails, setShowDetails] = useState(false);
   const { trackCheckout } = useVisitorTracking(venueInfo?.id);
 
@@ -318,7 +320,7 @@ export default function Cart() {
       const { getTrackedLinkForCheckout } = await import('@/hooks/usePurchaseSourceTracking');
       const trackedLinkId = getTrackedLinkForCheckout(eventId);
       const cartItemsPayload = cart.map(item => ({ id: item.drinkId, quantity: item.qty, collection: item.collection }));
-      const body: any = { items: cartItemsPayload, eventId, venueId: venueInfo?.id, cancelUrl: '/cart', trackedLinkId };
+      const body: any = { items: cartItemsPayload, eventId, venueId: venueInfo?.id, cancelUrl: '/cart', trackedLinkId, ageDeclaration: { confirmed: true, birthDate: ageBirthDate } };
 
       if (!user) {
         body.guestEmail = guestEmail.trim();
@@ -1050,7 +1052,7 @@ export default function Cart() {
 
                 {/* Age Gate & Terms */}
                 <div className="space-y-3">
-                  <AgeGate userId={user?.id} onVerified={setAgeVerified} />
+                  <AgeGate userId={user?.id} onVerified={(v, bd) => { setAgeVerified(v); if (bd) setAgeBirthDate(bd); }} />
                   <TermsAcceptance userId={user?.id} context="drink" onAcceptedChange={setAcceptCgv} />
                 </div>
               </div>

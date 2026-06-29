@@ -7,7 +7,10 @@ import { useLanguage } from '@/contexts/LanguageContext';
 
 interface AgeGateProps {
   userId?: string | null;
-  onVerified: (verified: boolean) => void;
+  // Honor-system declaration: emits the self-declared birth date when freshly entered
+  // (or already on file) so the checkout can record it server-side. The real ID check
+  // is done by the venue at the door.
+  onVerified: (verified: boolean, birthDate?: string) => void;
 }
 
 // Age in full years from a YYYY-MM-DD string, or null if unparseable.
@@ -43,13 +46,13 @@ export function AgeGate({ userId, onVerified }: AgeGateProps) {
         .single();
       if (data?.age_verified_at) {
         setAlreadyVerified(true);
-        onVerified(true);
+        onVerified(true, data.birth_date ?? undefined);
       } else if (data?.birth_date) {
         const age = ageFromDate(data.birth_date);
         if (age !== null && age >= 18) {
           // Birth date already on file (e.g. set in profile settings) — treat as verified.
           setAlreadyVerified(true);
-          onVerified(true);
+          onVerified(true, data.birth_date);
           supabase.from('profiles').update({ age_verified_at: new Date().toISOString() }).eq('id', userId).then(() => {});
         } else if (age !== null) {
           setStoredMinor(true);
@@ -76,7 +79,7 @@ export function AgeGate({ userId, onVerified }: AgeGateProps) {
       return;
     }
     setInvalidDate(false);
-    onVerified(true);
+    onVerified(true, birthDate);
 
     // Save to profile if logged in
     if (userId) {
@@ -150,6 +153,9 @@ export function AgeGate({ userId, onVerified }: AgeGateProps) {
           {t('ageGate.attestation')}
         </span>
       </button>
+      <p className="text-[11px] text-[#5A5A5E] leading-relaxed">
+        {t('ageGate.venueChecksId')}
+      </p>
     </div>
   );
 }
