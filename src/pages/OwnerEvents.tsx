@@ -38,6 +38,24 @@ import {
 import { cropToSquare } from '@/components/owner/events/events-utils';
 import { EventGenrePicker } from '@/components/owner/events/EventGenrePicker';
 
+// A saved club guest-list template, used by the inline picker on each event card.
+type GuestPreset = {
+  id: string;
+  name: string;
+  is_default: boolean;
+  quota: number;
+  quota_normal: number;
+  quota_drink: number;
+  quota_table: number;
+  quota_female: number | null;
+  quota_male: number | null;
+  free_before_time: string;
+  entry_deadline: string | null;
+  includes_drink: boolean;
+  visible_on_club_page: boolean;
+  entry_kind: string;
+};
+
 export default function OwnerEvents() {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
@@ -59,6 +77,7 @@ export default function OwnerEvents() {
   const [events, setEvents] = useState<OwnerEventRow[]>([]);
   const [view, setView] = useState<'events' | 'recurring'>('events');
   const [presets, setPresets] = useState<VenuePreset[]>([]);
+  const [guestPresets, setGuestPresets] = useState<GuestPreset[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -95,6 +114,7 @@ export default function OwnerEvents() {
     if (!isOrganizerScope && planLoading) return; // venues wait for the subscription plan
     fetchEvents();
     fetchPresets();
+    fetchGuestPresets();
     const scopeId = isOrganizerScope ? organizerUserId! : venueId!;
     const ownCol = isOrganizerScope ? 'organizer_user_id' : 'venue_id';
     const partnerCol = isOrganizerScope ? 'partner_organizer_id' : 'partner_venue_id';
@@ -194,6 +214,22 @@ export default function OwnerEvents() {
       ? await base.eq('organizer_user_id', organizerUserId!)
       : await base.eq('venue_id', venueId!);
     setPresets((data || []) as VenuePreset[]);
+  };
+
+  // Saved club guest-list templates — feed the inline picker that appears when a
+  // card publishes its guest list for the first time (default sorted first).
+  const fetchGuestPresets = async () => {
+    if (!scopeReady) return;
+    const base = supabase
+      .from('guest_list_templates')
+      .select('id, name, is_default, quota, quota_normal, quota_drink, quota_table, quota_female, quota_male, free_before_time, entry_deadline, includes_drink, visible_on_club_page, entry_kind')
+      .eq('holder_type', 'club')
+      .order('is_default', { ascending: false })
+      .order('created_at', { ascending: false });
+    const { data } = isOrganizerScope
+      ? await base.eq('organizer_user_id', organizerUserId!)
+      : await base.eq('venue_id', venueId!);
+    setGuestPresets((data || []) as GuestPreset[]);
   };
 
   // Upload an organizer event photo (single 1:1 square poster) to the 'event-posters' bucket.
@@ -410,35 +446,53 @@ export default function OwnerEvents() {
     } catch { toast.error(t('owner.toastSaveError')); return true; }
   };
 
-  // Publish/unpublish the club guest list in 2s. ON: reactivate it, or create it from
-  // the default club preset (falling back to sane defaults). OFF: just deactivate it.
-  const handleToggleGuestList = async (event: OwnerEventRow): Promise<void> => {
+  // Toggle the club guest list. Returns false when activation needs a template (no
+  // list created yet) so the card opens its inline picker — we never silently spin
+  // up a list with guessed quotas. ON (existing): reactivate. OFF: deactivate.
+  const handleToggleGuestList = async (event: OwnerEventRow): Promise<boolean> => {
     try {
       const { data: existing } = await supabase.from('guest_lists')
         .select('id, is_active').eq('event_id', event.id).eq('holder_type', 'club').maybeSingle();
+      if (!existing) return false; // caller opens the inline guest-list picker
+      const { error } = await supabase.from('guest_lists').update({ is_active: !existing.is_active }).eq('id', existing.id);
+      if (error) throw error;
+      toast.success(existing.is_active ? t('owner.ev.guestListRemoved') : t('owner.ev.guestListOnline'));
+      fetchEvents();
+      return true;
+    } catch { toast.error(t('owner.toastSaveError')); return true; }
+  };
+
+  // Create the club guest list from a chosen template, then publish it — all inline.
+  const handleApplyGuestListPresetAndPublish = async (event: OwnerEventRow, tpl: GuestPreset) => {
+    try {
+      // Guard against a race where a list was created between toggle and publish.
+      const { data: existing } = await supabase.from('guest_lists')
+        .select('id').eq('event_id', event.id).eq('holder_type', 'club').maybeSingle();
       if (existing) {
-        const { error } = await supabase.from('guest_lists').update({ is_active: !existing.is_active }).eq('id', existing.id);
+        const { error } = await supabase.from('guest_lists').update({ is_active: true }).eq('id', existing.id);
         if (error) throw error;
-        toast.success(existing.is_active ? t('owner.ev.guestListRemoved') : t('owner.ev.guestListOnline'));
       } else {
-        const base = supabase.from('guest_list_templates')
-          .select('quota, quota_female, quota_male, free_before_time, entry_deadline, includes_drink, visible_on_club_page')
-          .eq('holder_type', 'club').eq('is_default', true);
-        const { data: tpl } = isOrganizerScope
-          ? await base.eq('organizer_user_id', organizerUserId as string).maybeSingle()
-          : await base.eq('venue_id', venueId as string).maybeSingle();
-        const cfg = tpl ?? { quota: 100, quota_female: null, quota_male: null, free_before_time: '02:00', entry_deadline: null, includes_drink: false, visible_on_club_page: true };
         const { error } = await supabase.from('guest_lists').insert({
           event_id: event.id,
           venue_id: isOrganizerScope ? (event.venueId ?? null) : venueId,
           organizer_user_id: isOrganizerScope ? organizerUserId : null,
           holder_type: 'club',
           is_active: true,
-          ...cfg,
+          quota: tpl.quota,
+          quota_normal: tpl.quota_normal,
+          quota_drink: tpl.quota_drink,
+          quota_table: tpl.quota_table,
+          quota_female: tpl.quota_female,
+          quota_male: tpl.quota_male,
+          free_before_time: tpl.free_before_time,
+          entry_deadline: tpl.entry_deadline,
+          includes_drink: tpl.includes_drink,
+          visible_on_club_page: tpl.visible_on_club_page,
+          entry_kind: tpl.entry_kind,
         });
         if (error) throw error;
-        toast.success(t('owner.ev.guestListOnline'));
       }
+      toast.success(t('owner.ev.guestListOnline'));
       fetchEvents();
     } catch { toast.error(t('owner.toastSaveError')); }
   };
@@ -753,7 +807,9 @@ export default function OwnerEvents() {
                       onToggleTables={() => handleToggleTables(event)}
                       onToggleGuestList={() => handleToggleGuestList(event)}
                       onApplyPreset={(preset) => handleApplyPresetAndPublish(event, preset)}
+                      onApplyGuestListPreset={(tpl) => handleApplyGuestListPresetAndPublish(event, tpl)}
                       presets={presets}
+                      guestPresets={guestPresets}
                       onNavigate={navigate}
                       onDetails={isOrganizerScope ? () => navigate(`${basePath}/events/${event.id}`) : undefined}
                       basePath={basePath}
@@ -1103,6 +1159,7 @@ export default function OwnerEvents() {
 
 // ─── Event Card ────────────────────────────────────────────────────────────────
 const RED_C = '#E8192C';
+const GUEST_C = '#34D399';
 const T1_C  = 'rgba(255,255,255,0.96)';
 const T2_C  = 'rgba(255,255,255,0.58)';
 const T3_C  = 'rgba(255,255,255,0.36)';
@@ -1111,16 +1168,18 @@ const BORDER_C  = 'rgba(255,255,255,0.085)';
 const CARD_BG_C = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
 const CARD_SHADOW_C = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
 
-function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onToggleTables, onToggleGuestList, onApplyPreset, presets, onNavigate, onDetails, basePath, t, ownerKind, venueId, organizerUserId }: {
+function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onToggleTables, onToggleGuestList, onApplyPreset, onApplyGuestListPreset, presets, guestPresets, onNavigate, onDetails, basePath, t, ownerKind, venueId, organizerUserId }: {
   event: OwnerEventRow;
   onEdit: () => void;
   onDelete: () => void;
   onToggle: () => void;
   onToggleTicketing: () => Promise<boolean>;
   onToggleTables: () => Promise<boolean>;
-  onToggleGuestList: () => Promise<void>;
+  onToggleGuestList: () => Promise<boolean>;
   onApplyPreset: (preset: VenuePreset) => void;
+  onApplyGuestListPreset: (tpl: GuestPreset) => void;
   presets: VenuePreset[];
+  guestPresets: GuestPreset[];
   onNavigate: (path: string) => void;
   onDetails?: () => void;
   basePath: string;
@@ -1132,11 +1191,23 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
   const [showPresetPanel, setShowPresetPanel] = useState(false);
   const [showLinks, setShowLinks] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState('');
+  const [showGuestListPanel, setShowGuestListPanel] = useState(false);
+  const [selectedGuestPresetId, setSelectedGuestPresetId] = useState('');
   const isPast = toParisTime(event.endAt) < nowInParis();
 
   const handleTicketingClick = async () => {
     const handled = await onToggleTicketing();
     if (!handled) setShowPresetPanel(true); // needs a preset first
+  };
+
+  const handleGuestListClick = async () => {
+    const handled = await onToggleGuestList();
+    if (!handled) {
+      // No list created yet → open the picker, pre-selecting the default template.
+      const def = guestPresets.find(p => p.is_default) ?? guestPresets[0];
+      setSelectedGuestPresetId(def?.id ?? '');
+      setShowGuestListPanel(true);
+    }
   };
 
   const handleTablesClick = async () => {
@@ -1274,7 +1345,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
                   <p style={{ color: T3_C, fontSize: 10.5 }} className="truncate">{event.guestListEnabled ? t('owner.ev.online') : t('owner.ev.offline')}</p>
                 </div>
               </div>
-              <Switch checked={!!event.guestListEnabled} onCheckedChange={() => onToggleGuestList()} />
+              <Switch checked={!!event.guestListEnabled} onCheckedChange={handleGuestListClick} />
             </div>
           </div>
 
@@ -1328,6 +1399,64 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
                         className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-semibold cursor-pointer"
                         style={{ background: RED_C, color: '#fff' }}>
                         <ExternalLink className="w-3.5 h-3.5" />{t('owner.ev.configureTicketing')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Inline guest-list picker — appears when publishing the list with none created yet */}
+          <AnimatePresence>
+            {showGuestListPanel && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }} className="overflow-hidden">
+                <div className="mt-2.5 p-3 rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER_C}` }}>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Users className="w-3.5 h-3.5" style={{ color: GUEST_C }} />
+                    <p style={{ color: T1_C, fontSize: 12, fontWeight: 600 }}>{t('owner.ev.publishGuestList')}</p>
+                  </div>
+                  {guestPresets.length > 0 ? (
+                    <>
+                      <p style={{ color: T3_C, fontSize: 11, marginBottom: 8 }}>{t('owner.ev.selectGuestPresetToApply')}</p>
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <select value={selectedGuestPresetId} onChange={e => setSelectedGuestPresetId(e.target.value)}
+                            className="w-full appearance-none px-3 py-2 rounded-lg text-[12.5px] cursor-pointer"
+                            style={{ background: '#0a0a0c', border: `1px solid ${BORDER_C}`, color: T1_C, outline: 'none' }}>
+                            <option value="">{t('owner.ev.selectGuestPresetOption')}</option>
+                            {guestPresets.map(p => <option key={p.id} value={p.id}>{p.is_default ? `★ ${p.name}` : p.name}</option>)}
+                          </select>
+                          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: T3_C }} />
+                        </div>
+                        <button
+                          disabled={!selectedGuestPresetId}
+                          onClick={() => {
+                            const tpl = guestPresets.find(p => p.id === selectedGuestPresetId);
+                            if (tpl) { onApplyGuestListPreset(tpl); setShowGuestListPanel(false); setSelectedGuestPresetId(''); }
+                          }}
+                          className="px-3 py-2 rounded-lg text-[12px] font-semibold cursor-pointer transition-all duration-150"
+                          style={{ background: selectedGuestPresetId ? GUEST_C : 'rgba(52,211,153,0.35)', color: '#04150d' }}>
+                          {t('owner.ev.publish')}
+                        </button>
+                      </div>
+                      <button onClick={() => onNavigate(`${basePath}/guest-list`)}
+                        className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium cursor-pointer"
+                        style={{ color: T3_C }}>
+                        <ExternalLink className="w-3 h-3" />{t('owner.ev.advancedConfig')}
+                      </button>
+                    </>
+                  ) : (
+                    <div>
+                      <p style={{ color: T2_C, fontSize: 11.5, marginBottom: 8 }}>
+                        {t('owner.ev.noGuestPresetsExist')}
+                      </p>
+                      <button onClick={() => onNavigate(`${basePath}/guest-list`)}
+                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-semibold cursor-pointer"
+                        style={{ background: GUEST_C, color: '#04150d' }}>
+                        <ExternalLink className="w-3.5 h-3.5" />{t('owner.ev.configureGuestList')}
                       </button>
                     </div>
                   )}
