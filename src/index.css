@@ -293,7 +293,7 @@
    ------------------------------------------------------------
    "réduit" = opacité/couleur conservées, mouvement supprimé.
    On NE touche PAS aux indicateurs d'état continus (.dot-live,
-   .animate-pulse-dot, .animate-marquee, .yuno-scan-line, .yuno-qr-pulse)
+   .animate-pulse-dot, .animate-marquee, .yuno-qr-pulse)
    qui restent légitimes. Le côté framer-motion est géré par
    useReducedMotion() dans chaque wrapper (src/lib/motion.ts).
    ============================================================ */
@@ -746,16 +746,10 @@
 /* ============================================================
    ORDERS V2 — temporal commandes page (QR scan overlay)
    ============================================================ */
-@keyframes yuno-scan-line {
-  0%   { top: 2%; }
-  50%  { top: calc(100% - 4px); }
-  100% { top: 2%; }
-}
 @keyframes yuno-qr-pulse {
   0%, 100% { opacity: 1;  box-shadow: 0 0 7px hsl(var(--primary) / 0.9); }
   50%      { opacity: .4; box-shadow: 0 0 2px hsl(var(--primary) / 0.3); }
 }
-.yuno-scan-line { animation: yuno-scan-line 2.2s ease-in-out infinite; }
 .yuno-qr-pulse  { animation: yuno-qr-pulse 1.5s ease-in-out infinite; }
 
 /* Print: hide interactive chrome so a DJ's EPK prints / saves to PDF cleanly. */

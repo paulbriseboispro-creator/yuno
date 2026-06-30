@@ -8,7 +8,7 @@ import { uniqueChannel } from '@/lib/realtime';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Bell } from 'lucide-react';
-import { ArrowLeft, Clock, CheckCircle2, QrCode, Trash2, CreditCard, Archive, Ticket, ChevronDown, ChevronUp, Wine, Calendar, Shield, X, Users, Sparkles, Gift, LogIn, ShoppingBag, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle2, QrCode, Trash2, CreditCard, Archive, Ticket, ChevronDown, ChevronUp, Wine, Calendar, Shield, X, Users, Sparkles, Gift, LogIn, ShoppingBag, ArrowRight, MapPin, Info, Share2 } from 'lucide-react';
 import { DrinkOrderDetailModal } from '@/components/DrinkOrderDetailModal';
 import { FreeDrinkRewardModal } from '@/components/FreeDrinkRewardModal';
 import { BottomNav } from '@/components/BottomNav';
@@ -27,8 +27,9 @@ import { DrinkCreditsCard } from '@/components/upsell/DrinkCreditsCard';
 import { TicketQROverlay } from '@/components/orders/TicketQROverlay';
 import {
   SegControl, PendingCard, UpcomingCard, PastCard, OrderQROverlay,
-  type UnifiedOrderEntry, type OrderBucket,
+  type UnifiedOrderEntry, type OrderBucket, type QRAction,
 } from '@/components/orders/TemporalOrders';
+import { buildVenueMapsUrl, buildCalendarUrl, venueLocationText } from '@/lib/ticketActions';
 import type {
   LoyaltyTransaction, PendingReward, Order, OrderItem,
   TicketWithDetails, VipReservationWithDetails, GuestListEntryWithDetails,
@@ -297,22 +298,29 @@ export default function MyOrders() {
 
       if (error) throw error;
 
-      // Fetch venue names (fallback to partner_venue_id for organizer-led co-events)
+      // Fetch venue info (fallback to partner_venue_id for organizer-led co-events)
       const venueIds = [...new Set(ticketsData?.map(t => (t.events as any).venue_id ?? (t.events as any).partner_venue_id).filter(Boolean) || [])];
       const { data: venuesData } = await supabase
         .from('venues')
-        .select('id, name')
+        .select('id, name, address, city, latitude, longitude')
         .in('id', venueIds);
 
-      const venueMap = new Map(venuesData?.map(v => [v.id, v.name]) || []);
+      const venueMap = new Map(venuesData?.map(v => [v.id, v]) || []);
 
-      const formattedTickets: TicketWithDetails[] = (ticketsData || []).map(t => ({
+      const formattedTickets: TicketWithDetails[] = (ticketsData || []).map(t => {
+        const v = venueMap.get((t.events as any).venue_id ?? (t.events as any).partner_venue_id);
+        return ({
         id: t.id,
+        eventId: t.event_id,
         eventTitle: (t.events as any).title,
         eventStartAt: (t.events as any).start_at,
         eventEndAt: (t.events as any).end_at,
         eventPosterUrl: (t.events as any).poster_url,
-        venueName: venueMap.get((t.events as any).venue_id ?? (t.events as any).partner_venue_id) || '',
+        venueName: v?.name || '',
+        venueAddress: v?.address ?? null,
+        venueCity: v?.city ?? null,
+        venueLat: v?.latitude ?? null,
+        venueLng: v?.longitude ?? null,
         roundName: (t.ticket_rounds as any).name,
         quantity: t.quantity,
         totalPrice: Number(t.total_price),
@@ -332,7 +340,8 @@ export default function MyOrders() {
         entryScannedAt: t.entry_scanned_at || undefined,
         refundAmount: t.refund_amount ? Number(t.refund_amount) : undefined,
         refundReason: t.refund_reason || undefined,
-      }));
+      });
+      });
 
       // Fetch upsell selections for cloakroom badges
       const ticketIds = formattedTickets.map(t => t.id);
@@ -411,22 +420,29 @@ export default function MyOrders() {
 
       if (error) throw error;
 
-      // Fetch venue names (fallback to partner_venue_id for organizer-led co-events)
+      // Fetch venue info (fallback to partner_venue_id for organizer-led co-events)
       const venueIds = [...new Set(reservationsData?.map(r => (r.events as any).venue_id ?? (r.events as any).partner_venue_id).filter(Boolean) || [])];
       const { data: venuesData } = await supabase
         .from('venues')
-        .select('id, name')
+        .select('id, name, address, city, latitude, longitude')
         .in('id', venueIds);
 
-      const venueMap = new Map(venuesData?.map(v => [v.id, v.name]) || []);
+      const venueMap = new Map(venuesData?.map(v => [v.id, v]) || []);
 
-      const formattedReservations: VipReservationWithDetails[] = (reservationsData || []).map(r => ({
+      const formattedReservations: VipReservationWithDetails[] = (reservationsData || []).map(r => {
+        const v = venueMap.get((r.events as any).venue_id ?? (r.events as any).partner_venue_id);
+        return ({
         id: r.id,
+        eventId: r.event_id,
         eventTitle: (r.events as any).title,
         eventStartAt: (r.events as any).start_at,
         eventEndAt: (r.events as any).end_at,
         eventPosterUrl: (r.events as any).poster_url,
-        venueName: venueMap.get((r.events as any).venue_id ?? (r.events as any).partner_venue_id) || '',
+        venueName: v?.name || '',
+        venueAddress: v?.address ?? null,
+        venueCity: v?.city ?? null,
+        venueLat: v?.latitude ?? null,
+        venueLng: v?.longitude ?? null,
         zoneName: (r.table_zones as any)?.name || '',
         packName: (r.table_packs as any)?.name || '',
         guestCount: r.guest_count || 1,
@@ -446,7 +462,8 @@ export default function MyOrders() {
         requestedTableName: undefined, // Would need floor plan to resolve
         assignedTableName: undefined,
         placementNote: (r as any).placement_note || undefined,
-      }));
+      });
+      });
 
       setVipReservations(formattedReservations);
 
@@ -486,7 +503,7 @@ export default function MyOrders() {
           guest_lists!inner (
             free_before_time,
             includes_drink,
-            events!inner (title, start_at, end_at, venue_id, partner_venue_id, poster_url)
+            events!inner (id, title, start_at, end_at, venue_id, partner_venue_id, poster_url)
           )
         `)
         .eq('user_id', user?.id)
@@ -495,21 +512,29 @@ export default function MyOrders() {
 
       if (error) throw error;
 
-      // Fetch venue names (fallback to partner_venue_id)
+      // Fetch venue info (fallback to partner_venue_id)
       const venueIds = [...new Set(entries?.map(e => (e.guest_lists as any).events.venue_id ?? (e.guest_lists as any).events.partner_venue_id).filter(Boolean) || [])];
       const { data: venuesData } = await supabase
         .from('venues')
-        .select('id, name')
+        .select('id, name, address, city, latitude, longitude')
         .in('id', venueIds);
-      const venueMap = new Map(venuesData?.map(v => [v.id, v.name]) || []);
+      const venueMap = new Map(venuesData?.map(v => [v.id, v]) || []);
 
-      const formatted: GuestListEntryWithDetails[] = (entries || []).map(e => ({
+      const formatted: GuestListEntryWithDetails[] = (entries || []).map(e => {
+        const ev = (e.guest_lists as any).events;
+        const v = venueMap.get(ev.venue_id ?? ev.partner_venue_id);
+        return ({
         id: e.id,
-        eventTitle: (e.guest_lists as any).events.title,
-        eventStartAt: (e.guest_lists as any).events.start_at,
-        eventEndAt: (e.guest_lists as any).events.end_at,
-        eventPosterUrl: (e.guest_lists as any).events.poster_url || undefined,
-        venueName: venueMap.get((e.guest_lists as any).events.venue_id ?? (e.guest_lists as any).events.partner_venue_id) || '',
+        eventId: ev.id,
+        eventTitle: ev.title,
+        eventStartAt: ev.start_at,
+        eventEndAt: ev.end_at,
+        eventPosterUrl: ev.poster_url || undefined,
+        venueName: v?.name || '',
+        venueAddress: v?.address ?? null,
+        venueCity: v?.city ?? null,
+        venueLat: v?.latitude ?? null,
+        venueLng: v?.longitude ?? null,
         freeBeforeTime: (e.guest_lists as any).free_before_time?.substring(0, 5) || '02:00',
         includesDrink: (e.guest_lists as any).includes_drink || (e as any).entry_type === 'drink',
         qrCode: e.qr_code || '',
@@ -519,7 +544,8 @@ export default function MyOrders() {
         entryScannedAt: e.entry_scanned_at || undefined,
         createdAt: e.created_at,
         entryType: (e as any).entry_type || 'normal',
-      }));
+      });
+      });
 
       setGuestListEntries(formatted);
 
@@ -663,7 +689,7 @@ export default function MyOrders() {
           metadata,
           venue_id,
           loyalty_rewards (name, reward_type, reward_value),
-          venues:venue_id (name)
+          venues:venue_id (name, address, city, latitude, longitude)
         `)
         .eq('user_id', user.id)
         .eq('status', 'pending')
@@ -674,8 +700,8 @@ export default function MyOrders() {
         const venueIds = [...new Set(redemptions.map((r: any) => r.venue_id))];
         
         // Fetch the next active event for each venue (for free_ticket rewards)
-        const venueEventsMap: Record<string, { title: string; startAt: string; endAt: string; posterUrl: string | null }> = {};
-        
+        const venueEventsMap: Record<string, { id: string; title: string; startAt: string; endAt: string; posterUrl: string | null }> = {};
+
         if (venueIds.length > 0) {
           const { data: eventsData } = await supabase
             .from('events')
@@ -684,12 +710,13 @@ export default function MyOrders() {
             .eq('is_active', true)
             .gte('start_at', new Date().toISOString())
             .order('start_at', { ascending: true });
-          
+
           if (eventsData) {
             // For each venue, take the first (next) event
             eventsData.forEach(e => {
               if (!venueEventsMap[e.venue_id]) {
                 venueEventsMap[e.venue_id] = {
+                  id: e.id,
                   title: e.title,
                   startAt: e.start_at,
                   endAt: e.end_at,
@@ -717,8 +744,12 @@ export default function MyOrders() {
             createdAt: r.created_at,
             venueName: r.venues?.name || '',
             venueId: r.venue_id,
+            venueAddress: r.venues?.address ?? null,
+            venueCity: r.venues?.city ?? null,
+            venueLat: r.venues?.latitude ?? null,
+            venueLng: r.venues?.longitude ?? null,
             metadata: r.metadata as PendingReward['metadata'],
-            eventDetails,
+            eventDetails: eventDetails ? { id: eventDetails.id, ...eventDetails } : undefined,
           };
         });
         setPendingRewards(formattedRewards);
@@ -1532,6 +1563,36 @@ export default function MyOrders() {
     }
   };
 
+  // "SAT 14 JUN · 23:00" — shown inside the QR overlay info card
+  const fmtWhen = (iso?: string) =>
+    (iso ? format(new Date(iso), 'EEE d MMM · HH:mm', { locale: getLocale() }).toUpperCase() : undefined);
+
+  // Interactive quick actions for an open QR overlay: itinéraire (Maps),
+  // la soirée (event page), agenda (Google Calendar), partage.
+  const buildQRActions = (opts: {
+    eventId?: string | null;
+    title: string;
+    startAt?: string | null;
+    endAt?: string | null;
+    venue: { name?: string | null; address?: string | null; city?: string | null; lat?: number | null; lng?: number | null };
+    onClose: () => void;
+  }): QRAction[] => {
+    const acts: QRAction[] = [];
+    const mapsUrl = buildVenueMapsUrl(opts.venue);
+    if (mapsUrl) {
+      acts.push({ icon: MapPin, label: t('orders.directions'), accent: true, onClick: () => window.open(mapsUrl, '_blank', 'noopener,noreferrer') });
+    }
+    if (opts.eventId) {
+      acts.push({ icon: Info, label: t('orders.viewEvent'), onClick: () => { opts.onClose(); navigate(`/event/${opts.eventId}`); } });
+    }
+    const calUrl = buildCalendarUrl({ title: opts.title, startAt: opts.startAt, endAt: opts.endAt, location: venueLocationText(opts.venue) });
+    if (calUrl) {
+      acts.push({ icon: Calendar, label: t('orders.addToCal'), onClick: () => window.open(calUrl, '_blank', 'noopener,noreferrer') });
+    }
+    acts.push({ icon: Share2, label: t('orders.shareShort'), onClick: () => shareQR(opts.title) });
+    return acts;
+  };
+
   return (
     <div className="min-h-screen pb-24" style={{ background: '#0A0A0A' }}>
       <header
@@ -1699,6 +1760,21 @@ export default function MyOrders() {
           labels={qrOverlayLabels}
           onClose={() => setSelectedTicket(null)}
           onShare={() => shareQR(selectedTicket.eventTitle)}
+          whenLabel={fmtWhen(selectedTicket.eventStartAt)}
+          actions={buildQRActions({
+            eventId: selectedTicket.eventId,
+            title: selectedTicket.eventTitle,
+            startAt: selectedTicket.eventStartAt,
+            endAt: selectedTicket.eventEndAt,
+            venue: {
+              name: selectedTicket.venueName,
+              address: selectedTicket.venueAddress,
+              city: selectedTicket.venueCity,
+              lat: selectedTicket.venueLat,
+              lng: selectedTicket.venueLng,
+            },
+            onClose: () => setSelectedTicket(null),
+          })}
         />
       )}
 
@@ -1714,6 +1790,21 @@ export default function MyOrders() {
           labels={qrOverlayLabels}
           onClose={() => setSelectedVipReservation(null)}
           onShare={() => shareQR(selectedVipReservation.eventTitle)}
+          whenLabel={fmtWhen(selectedVipReservation.eventStartAt)}
+          actions={buildQRActions({
+            eventId: selectedVipReservation.eventId,
+            title: selectedVipReservation.eventTitle,
+            startAt: selectedVipReservation.eventStartAt,
+            endAt: selectedVipReservation.eventEndAt,
+            venue: {
+              name: selectedVipReservation.venueName,
+              address: selectedVipReservation.venueAddress,
+              city: selectedVipReservation.venueCity,
+              lat: selectedVipReservation.venueLat,
+              lng: selectedVipReservation.venueLng,
+            },
+            onClose: () => setSelectedVipReservation(null),
+          })}
           footer={
             <div
               className="text-left"
@@ -1746,6 +1837,21 @@ export default function MyOrders() {
           labels={qrOverlayLabels}
           onClose={() => setSelectedGuestEntry(null)}
           onShare={() => shareQR(selectedGuestEntry.eventTitle)}
+          whenLabel={fmtWhen(selectedGuestEntry.eventStartAt)}
+          actions={buildQRActions({
+            eventId: selectedGuestEntry.eventId,
+            title: selectedGuestEntry.eventTitle,
+            startAt: selectedGuestEntry.eventStartAt,
+            endAt: selectedGuestEntry.eventEndAt,
+            venue: {
+              name: selectedGuestEntry.venueName,
+              address: selectedGuestEntry.venueAddress,
+              city: selectedGuestEntry.venueCity,
+              lat: selectedGuestEntry.venueLat,
+              lng: selectedGuestEntry.venueLng,
+            },
+            onClose: () => setSelectedGuestEntry(null),
+          })}
         />
       )}
 
@@ -1813,6 +1919,21 @@ export default function MyOrders() {
           labels={qrOverlayLabels}
           onClose={() => setSelectedReward(null)}
           onShare={() => shareQR(selectedReward.eventDetails?.title || selectedReward.rewardName)}
+          whenLabel={fmtWhen(selectedReward.eventDetails?.startAt)}
+          actions={buildQRActions({
+            eventId: selectedReward.eventDetails?.id || selectedReward.metadata?.eventId,
+            title: selectedReward.eventDetails?.title || selectedReward.metadata?.eventTitle || selectedReward.rewardName,
+            startAt: selectedReward.eventDetails?.startAt,
+            endAt: selectedReward.eventDetails?.endAt,
+            venue: {
+              name: selectedReward.venueName,
+              address: selectedReward.venueAddress,
+              city: selectedReward.venueCity,
+              lat: selectedReward.venueLat,
+              lng: selectedReward.venueLng,
+            },
+            onClose: () => setSelectedReward(null),
+          })}
         />
       )}
 

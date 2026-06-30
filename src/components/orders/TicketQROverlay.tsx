@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import QRCode from 'qrcode';
-import { OrderQROverlay, type QRSlide } from './TemporalOrders';
+import { OrderQROverlay, type QRSlide, type QRAction } from './TemporalOrders';
 
 interface TicketQROverlayProps {
   ticketId: string;
@@ -14,6 +14,10 @@ interface TicketQROverlayProps {
   labels: { scanThisQR: string; shareThisQR: string; valid: string; scanned: string };
   onClose: () => void;
   onShare?: () => void;
+  /** quick actions (directions, event page, calendar, share…) */
+  actions?: QRAction[];
+  /** date + time line, e.g. "SAT 14 JUN · 23:00" */
+  whenLabel?: string;
 }
 
 const QR_OPTS = { width: 240, margin: 2, color: { dark: '#000000', light: '#ffffff' } };
@@ -25,7 +29,7 @@ const QR_OPTS = { width: 240, margin: 2, color: { dark: '#000000', light: '#ffff
  */
 export function TicketQROverlay({
   ticketId, ticketQrCode, quantity, roundName, eventTitle, venueName,
-  entryScanned, labels, onClose, onShare,
+  entryScanned, labels, onClose, onShare, actions, whenLabel,
 }: TicketQROverlayProps) {
   const [slides, setSlides] = useState<QRSlide[]>([]);
 
@@ -82,6 +86,8 @@ export function TicketQROverlay({
       labels={labels}
       onClose={onClose}
       onShare={onShare}
+      actions={actions}
+      whenLabel={whenLabel}
     />
   );
 }

@@ -11,7 +11,7 @@ import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   Ticket, Crown, Wine, Users, Gift, Bell, QrCode, ArrowRight, CheckCircle2,
-  X, Share2, CreditCard, User, ChevronLeft, ChevronRight, type LucideIcon,
+  X, Share2, CreditCard, User, ChevronLeft, ChevronRight, Clock, type LucideIcon,
 } from 'lucide-react';
 
 export type OrderKind = 'ticket' | 'vip' | 'guestlist' | 'reward' | 'drink' | 'waitlist';
@@ -324,8 +324,17 @@ export interface QRSlide {
   scanned?: boolean;
 }
 
+/** A quick-action tile rendered in the overlay's bottom action bar. */
+export interface QRAction {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+  /** highlight in red (primary action, e.g. directions) */
+  accent?: boolean;
+}
+
 export function OrderQROverlay({
-  kind, title, venueName, qrImage, idLabel, scanned, footer, labels, onClose, onShare, slides,
+  kind, title, venueName, qrImage, idLabel, scanned, footer, labels, onClose, onShare, slides, actions, whenLabel,
 }: {
   kind: OrderKind;
   title: string;
@@ -333,13 +342,17 @@ export function OrderQROverlay({
   qrImage?: string;
   idLabel?: string;
   scanned?: boolean;
-  /** extra info rows shown above the share button */
+  /** extra info rows shown above the action bar */
   footer?: React.ReactNode;
   labels: { scanThisQR: string; shareThisQR: string; valid: string; scanned: string };
   onClose: () => void;
   onShare?: () => void;
   /** optional per-attendee carousel — when 2+ entries, shows swipe + dots */
   slides?: QRSlide[];
+  /** interactive quick actions (directions, event page, calendar, share…) */
+  actions?: QRAction[];
+  /** date + time line shown inside the info card, e.g. "SAT 14 JUN · 23:00" */
+  whenLabel?: string;
 }) {
   const [index, setIndex] = useState(0);
   const touchStartX = useRef(0);
@@ -399,20 +412,11 @@ export function OrderQROverlay({
           onTouchEnd={handleTouchEnd}
         >
           <div
-            style={{ background: '#fff', borderRadius: 6, padding: 16, position: 'relative', overflow: 'hidden', boxShadow: '0 32px 70px -20px rgba(0,0,0,.95), 0 0 0 1px rgba(255,255,255,.05)' }}
+            style={{ background: '#fff', borderRadius: 6, padding: 16, position: 'relative', boxShadow: '0 32px 70px -20px rgba(0,0,0,.95), 0 0 0 1px rgba(255,255,255,.05)' }}
           >
             {activeQr
               ? <img src={activeQr} alt="QR" style={{ display: 'block', width: 216, height: 216 }} />
               : <div style={{ width: 216, height: 216, display: 'grid', placeItems: 'center' }}><QrCode style={{ width: 72, height: 72, color: '#bbb' }} /></div>}
-            {/* Ligne de scan animée */}
-            <div
-              className="yuno-scan-line"
-              style={{
-                position: 'absolute', left: 0, right: 0, height: 2.5, pointerEvents: 'none',
-                background: 'linear-gradient(to right, transparent 0%, rgba(232,25,44,0.4) 10%, #E8192C 45%, #E8192C 55%, rgba(232,25,44,0.4) 90%, transparent 100%)',
-                boxShadow: '0 0 12px #E8192C',
-              }}
-            />
           </div>
           <ScanCorner pos="tl" /><ScanCorner pos="tr" /><ScanCorner pos="bl" /><ScanCorner pos="br" />
         </div>
@@ -465,9 +469,15 @@ export function OrderQROverlay({
           <div className="flex-1 min-w-0">
             <div className="font-mono uppercase" style={{ fontSize: 9.5, color: G2, letterSpacing: '.06em', marginBottom: 3 }}>{venueName}</div>
             <div className="font-display uppercase truncate" style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.12, letterSpacing: '-.005em', color: WHITE }}>{title}</div>
+            {whenLabel && (
+              <div className="flex items-center gap-1.5" style={{ marginTop: 5 }}>
+                <Clock style={{ width: 11, height: 11, color: G3, flexShrink: 0 }} strokeWidth={2} />
+                <span className="font-mono uppercase truncate" style={{ fontSize: 9.5, color: G2, letterSpacing: '.06em' }}>{whenLabel}</span>
+              </div>
+            )}
           </div>
           <span
-            className="font-mono uppercase"
+            className="font-mono uppercase self-start"
             style={{
               fontSize: 9.5, fontWeight: 600, letterSpacing: '.1em', padding: '4px 9px', borderRadius: 999, flexShrink: 0,
               color: activeScanned ? G2 : RED,
@@ -481,7 +491,37 @@ export function OrderQROverlay({
 
         {footer}
 
-        {onShare && (
+        {/* Barre d'actions — itinéraire / soirée / agenda / partage */}
+        {actions && actions.length > 0 ? (
+          <div
+            style={{
+              display: 'grid', gridTemplateColumns: `repeat(${actions.length}, 1fr)`, gap: 8,
+              marginTop: footer ? 10 : 0,
+            }}
+          >
+            {actions.map((a, i) => (
+              <motion.button
+                key={i}
+                whileTap={{ scale: 0.95 }}
+                onClick={a.onClick}
+                className="flex flex-col items-center justify-start gap-1.5 cursor-pointer border-0"
+                style={{
+                  padding: '11px 4px 10px', borderRadius: 10, minHeight: 62,
+                  background: a.accent ? RED_TINT : 'rgba(255,255,255,0.05)',
+                  border: `1px solid ${a.accent ? RED_SOFT : BORDER_STRONG}`,
+                }}
+              >
+                <a.icon style={{ width: 18, height: 18, color: a.accent ? RED : G1 }} strokeWidth={1.9} />
+                <span
+                  className="font-mono uppercase text-center"
+                  style={{ fontSize: 8.5, fontWeight: 600, letterSpacing: '.05em', lineHeight: 1.2, color: a.accent ? RED : G2 }}
+                >
+                  {a.label}
+                </span>
+              </motion.button>
+            ))}
+          </div>
+        ) : onShare && (
           <button
             onClick={onShare}
             className="w-full flex items-center justify-center gap-2 cursor-pointer font-mono uppercase"

@@ -27,11 +27,16 @@ export interface PendingReward {
     roundName?: string;
   };
   eventDetails?: {
+    id?: string;
     title: string;
     startAt: string;
     endAt: string;
     posterUrl: string | null;
   };
+  venueAddress?: string | null;
+  venueCity?: string | null;
+  venueLat?: number | null;
+  venueLng?: number | null;
 }
 
 export type Order = Tables<'orders'> & {
@@ -53,7 +58,16 @@ export interface OrderItem {
   imgUrl?: string;
 }
 
-export interface TicketWithDetails {
+/** Fields shared by every event-bound order (used to power QR overlay actions). */
+export interface EventVenueRef {
+  eventId: string;
+  venueAddress?: string | null;
+  venueCity?: string | null;
+  venueLat?: number | null;
+  venueLng?: number | null;
+}
+
+export interface TicketWithDetails extends EventVenueRef {
   id: string;
   eventTitle: string;
   eventStartAt: string;
@@ -82,7 +96,7 @@ export interface TicketWithDetails {
   hasCloakroom?: boolean;
 }
 
-export interface VipReservationWithDetails {
+export interface VipReservationWithDetails extends EventVenueRef {
   id: string;
   eventTitle: string;
   eventStartAt: string;
@@ -110,7 +124,7 @@ export interface VipReservationWithDetails {
   placementNote?: string;
 }
 
-export interface GuestListEntryWithDetails {
+export interface GuestListEntryWithDetails extends EventVenueRef {
   id: string;
   eventTitle: string;
   eventStartAt: string;
