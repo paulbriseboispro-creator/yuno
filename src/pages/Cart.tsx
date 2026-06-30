@@ -438,8 +438,7 @@ export default function Cart() {
           <img
             src={getOptimizedImageUrl(heroImage, { width: 900, quality: 65 })}
             alt=""
-            className="absolute inset-0 h-full w-full object-cover"
-            style={{ transform: 'scale(1.05)' }}
+            className="absolute inset-0 h-full w-full object-cover blur-2xl scale-110 opacity-50"
           />
         ) : (
           <div
