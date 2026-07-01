@@ -7,6 +7,7 @@ import { useStore } from '@/store/useStore';
 import { Drink, Event } from '@/types';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { hasFeature, type PlanCode } from '@/lib/planFeatures';
 import { Button } from '@/components/ui/button';
 import { useParams } from 'react-router-dom';
 import { usePreviewNavigate } from '@/contexts/OwnerPreviewContext';
@@ -32,7 +33,9 @@ export default function CategoryDrinks() {
   
   const favoriteDrinkIds = getFavoritesByType('drink').map(f => f.drinkId).filter(Boolean) as string[];
 
-  // Check venue plan - redirect if Core
+  // Redirect only if the venue's plan lacks the drink menu feature. Menu is a Core
+  // feature (free on every plan, see planFeatures.ts), so this no longer bounces
+  // Core clubs — drinks stay gated purely by the owner's menu_enabled toggle below.
   useEffect(() => {
     if (!slug) return;
     const checkPlan = async () => {
@@ -42,7 +45,8 @@ export default function CategoryDrinks() {
         .eq('venue_id', slug)
         .in('status', ['active', 'trialing'])
         .maybeSingle();
-      if (!data || data.subscription_plan === 'core') {
+      const plan = ((data?.subscription_plan as PlanCode) || 'core');
+      if (!hasFeature(plan, 'menu')) {
         navigate(`/club/${slug}`, { replace: true });
         return;
       }

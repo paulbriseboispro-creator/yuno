@@ -13,6 +13,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { FavoriteButton } from '@/components/FavoriteButton';
 import { toast } from 'sonner';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
+import { hasFeature, type PlanCode } from '@/lib/planFeatures';
 import { useTagEventsSource } from '@/hooks/usePurchaseSourceTracking';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { DrinkCard } from '@/components/DrinkCard';
@@ -198,7 +199,7 @@ export default function OrganizerPublicProfile() {
           (subRows ?? []).forEach((s: any) => { planByVenue[s.venue_id] = s.subscription_plan; });
 
           const eligibleVenues = (vRows ?? []).filter((v: any) =>
-            v.menu_enabled === true && (planByVenue[v.id] || 'core') !== 'core'
+            v.menu_enabled === true && hasFeature((planByVenue[v.id] || 'core') as PlanCode, 'menu')
           );
 
           if (eligibleVenues.length > 0) {

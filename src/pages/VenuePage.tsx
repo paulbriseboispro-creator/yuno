@@ -20,6 +20,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { fr } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PARIS_TIMEZONE, nowInParis } from '@/lib/timezone';
+import { hasFeature, type PlanCode } from '@/lib/planFeatures';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { usePromoterTracking } from '@/hooks/usePromoterTracking';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
@@ -254,7 +255,9 @@ export default function VenuePage() {
     fetchPlan();
   }, [slug]);
 
-  const isDrinksEnabled = venuePlan !== 'core' && menuEnabled;
+  // Drinks are a Core feature (free for every plan) — see CORE_FEATURES in planFeatures.ts.
+  // Public visibility is gated ONLY by the owner's menu_enabled toggle, not by the plan tier.
+  const isDrinksEnabled = hasFeature(venuePlan as PlanCode, 'menu') && menuEnabled;
 
   useEffect(() => {
     if (!slug || notFound || !isDrinksEnabled) {
