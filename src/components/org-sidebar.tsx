@@ -70,6 +70,7 @@ function buildOrgNavGroups(tt: TT): SidebarNavGroup[] {
 				{ title: tt("Clients", "Customers"), path: "/organizer-app/customers", icon: <UsersIcon /> },
 				{ title: tt("Campagnes Email", "Email Campaigns"), path: "/organizer-app/campaigns", icon: <MailIcon /> },
 				{ title: tt("Promoteurs", "Promoters"), path: "/organizer-app/promoters", icon: <MegaphoneIcon /> },
+				{ title: tt("Agences", "Agencies"), path: "/organizer-app/agencies", icon: <HandshakeIcon /> },
 			],
 		},
 		{

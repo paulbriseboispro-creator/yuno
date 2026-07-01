@@ -89,7 +89,7 @@ export default function OwnerPromoterEventView() {
         assignments!.forEach(a => assignmentMap.set(a.promoter_id, a));
       } else {
         const { data: allPromoters } = await supabase.from('promoters')
-          .select('id').eq(scopeFilter.column, sid).eq('is_active', true);
+          .select('id').eq(scopeFilter.column, sid).eq('is_active', true).is('agency_id', null);
         promoterIds = (allPromoters || []).map(p => p.id);
       }
 
@@ -160,7 +160,7 @@ export default function OwnerPromoterEventView() {
 
   async function openAddDialog() {
     if (!sid || !eventId) return;
-    const { data: allPromoters } = await supabase.from('promoters').select('id, user_id, promo_code').eq(scopeFilter.column, sid).eq('is_active', true);
+    const { data: allPromoters } = await supabase.from('promoters').select('id, user_id, promo_code').eq(scopeFilter.column, sid).eq('is_active', true).is('agency_id', null);
     const assignedIds = performers.map(p => p.promoterId);
     const unassigned = (allPromoters || []).filter(p => !assignedIds.includes(p.id));
     const userIds = unassigned.map(p => p.user_id);

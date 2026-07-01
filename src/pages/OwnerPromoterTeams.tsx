@@ -62,9 +62,10 @@ export default function OwnerPromoterTeams() {
 
   async function fetchPromoters() {
     if (!sid) return;
+    // Exclude agency-managed promoters — they belong to their agency, not the club's teams.
     const { data: promoData } = await supabase.from('promoters')
       .select('id, promo_code, team_id, user_id, first_name, last_name')
-      .eq(scopeFilter.column, sid).eq('is_active', true);
+      .eq(scopeFilter.column, sid).eq('is_active', true).is('agency_id', null);
     if (!promoData || promoData.length === 0) { setPromoters([]); return; }
 
     const userIds = promoData.map(p => p.user_id).filter(Boolean);

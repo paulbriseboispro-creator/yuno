@@ -11,6 +11,9 @@ interface InviteRequest {
   // Either venue_id (club context) OR organizer_user_id (organizer context)
   venue_id?: string;
   organizer_user_id?: string;
+  // When set, the promoter is managed by this agency (the caller must own the
+  // agency AND the agency must have an active contract with the venue/organizer).
+  agency_id?: string;
   venue_name?: string;
   promo_code?: string;
   first_name?: string;
@@ -53,7 +56,7 @@ Deno.serve(async (req) => {
     }
 
     const body: InviteRequest = await req.json();
-    const { email, venue_id, organizer_user_id, venue_name, promo_code, first_name, last_name, resend, commission_config } = body;
+    const { email, venue_id, organizer_user_id, agency_id, venue_name, promo_code, first_name, last_name, resend, commission_config } = body;
 
     if (!email || (!venue_id && !organizer_user_id)) {
       return new Response(JSON.stringify({ error: 'Email and venue_id or organizer_user_id required' }), {
@@ -62,9 +65,31 @@ Deno.serve(async (req) => {
     }
 
     const isOrganizerScope = !!organizer_user_id && !venue_id;
+    const isAgencyInvite = !!agency_id;
 
-    // Auth check based on scope
-    if (isOrganizerScope) {
+    // Auth check based on scope. Agency invites use a different owner check: the
+    // caller must own the agency and the agency must have an active contract
+    // with the target venue/organizer.
+    if (isAgencyInvite) {
+      const { data: agency } = await supabase
+        .from('agencies').select('id').eq('id', agency_id).eq('owner_user_id', user.id).maybeSingle();
+      if (!agency) {
+        return new Response(JSON.stringify({ error: 'Only the agency owner can invite agency promoters' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      let contractQuery = supabase
+        .from('agency_venue_contracts').select('id').eq('agency_id', agency_id).eq('status', 'active');
+      contractQuery = isOrganizerScope
+        ? contractQuery.eq('organizer_user_id', organizer_user_id!)
+        : contractQuery.eq('venue_id', venue_id!);
+      const { data: contract } = await contractQuery.limit(1);
+      if (!contract || contract.length === 0) {
+        return new Response(JSON.stringify({ error: 'No active contract between this agency and the venue', code: 'no_active_contract' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    } else if (isOrganizerScope) {
       // Must be the organizer themselves OR an org admin
       if (organizer_user_id !== user.id) {
         const { data: isAdmin } = await supabase.rpc('is_org_team_member', {
@@ -166,6 +191,7 @@ Deno.serve(async (req) => {
       };
       if (isOrganizerScope) insertPayload.organizer_user_id = organizer_user_id;
       else insertPayload.venue_id = venue_id;
+      if (isAgencyInvite) insertPayload.agency_id = agency_id;
 
       const { data: invitation, error: inviteError } = await supabase
         .from('promoter_invitations').insert(insertPayload).select('token').single();

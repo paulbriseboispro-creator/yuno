@@ -262,6 +262,8 @@ Deno.serve(async (req) => {
     };
     if (isOrganizerInvitation) promoterData.organizer_user_id = invitation.organizer_user_id;
     else promoterData.venue_id = invitation.venue_id;
+    // Agency-managed promoter: keep the venue/org scope, tag the managing agency.
+    if (invitation.agency_id) promoterData.agency_id = invitation.agency_id;
 
     // Copy data from existing promoter profile if exists, otherwise use user profile
     if (existingPromoterProfile) {

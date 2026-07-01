@@ -53,9 +53,10 @@ export default function OwnerPromoterFinance() {
   const fetchData = useCallback(async () => {
     if (!sid) return;
     try {
+      // Agency-managed promoters are settled by their agency, not the club.
       const { data: promoters } = await supabase.from('promoters')
         .select('id, user_id, iban, promo_code')
-        .eq(scopeFilter.column, sid);
+        .eq(scopeFilter.column, sid).is('agency_id', null);
       if (!promoters || promoters.length === 0) { setLoading(false); return; }
 
       const promoterIds = promoters.map(p => p.id);

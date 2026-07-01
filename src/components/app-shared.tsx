@@ -143,6 +143,11 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					path: "/owner/promoters",
 					icon: <MegaphoneIcon />,
 				},
+				{
+					title: t('sidebar.agencies'),
+					path: "/owner/agencies",
+					icon: <HandshakeIcon />,
+				},
 			],
 		},
 		{

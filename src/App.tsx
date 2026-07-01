@@ -20,6 +20,14 @@ const DJRoute = lazyWithRetry(() => import("./components/DJRoute").then(m => ({ 
 // Legacy OrganizerRoute removed — see OrgAppRoute.
 const OrgAppRoute = lazyWithRetry(() => import("./components/OrgAppRoute").then(m => ({ default: m.OrgAppRoute })));
 const PromoterRoute = lazyWithRetry(() => import("./components/PromoterRoute").then(m => ({ default: m.PromoterRoute })));
+const AgencyRoute = lazyWithRetry(() => import("./components/AgencyRoute").then(m => ({ default: m.AgencyRoute })));
+const AgencyAppLayout = lazyWithRetry(() => import("./pages/agency-app/AgencyAppLayout"));
+const AgencyStart = lazyWithRetry(() => import("./pages/agency-app/AgencyStart"));
+const AgencyDashboard = lazyWithRetry(() => import("./pages/agency-app/AgencyDashboard"));
+const AgencyRoster = lazyWithRetry(() => import("./pages/agency-app/AgencyRoster"));
+const AgencyClubs = lazyWithRetry(() => import("./pages/agency-app/AgencyClubs"));
+const AgencyFinance = lazyWithRetry(() => import("./pages/agency-app/AgencyFinance"));
+const OwnerAgencies = lazyWithRetry(() => import("./pages/OwnerAgencies"));
 const AffiliateRoute = lazyWithRetry(() => import("./components/AffiliateRoute").then(m => ({ default: m.AffiliateRoute })));
 const ManagerRoute = lazyWithRetry(() => import("./components/ManagerRoute").then(m => ({ default: m.ManagerRoute })));
 const VipHostRoute = lazyWithRetry(() => import("./components/VipHostRoute").then(m => ({ default: m.VipHostRoute })));
@@ -493,6 +501,7 @@ const App = () => (
                   <Route path="promoters/announcements" element={<OwnerPromoterAnnouncements />} />
                   <Route path="promoters/event/:eventId" element={<OwnerPromoterEventView />} />
                   <Route path="promoters/:id" element={<OwnerPromoterDetail />} />
+                  <Route path="agencies" element={<OwnerAgencies />} />
                   <Route path="campaigns" element={<OrgAppCampaigns />} />
                   <Route path="campaigns/new" element={<OrgAppCampaignEditor />} />
                   <Route path="campaigns/:id/edit" element={<OrgAppCampaignEditor />} />
@@ -506,6 +515,19 @@ const App = () => (
                   <Route path="notifications" element={<OwnerNotifications />} />
                   {/* Help center "back" target — org dashboard is the index route */}
                   <Route path="dashboard" element={<Navigate to="/organizer-app" replace />} />
+                </Route>
+
+                {/* Standalone autonomous Agency app (promoter agency tenant) */}
+                <Route path="/agency/start" element={<AgencyStart />} />
+                <Route path="/agency-app" element={
+                  <AgencyRoute>
+                    <AgencyAppLayout />
+                  </AgencyRoute>
+                }>
+                  <Route index element={<AgencyDashboard />} />
+                  <Route path="promoters" element={<AgencyRoster />} />
+                  <Route path="clubs" element={<AgencyClubs />} />
+                  <Route path="finance" element={<AgencyFinance />} />
                 </Route>
 
                 {/* Public organizer profile (slug-based) */}
@@ -614,6 +636,7 @@ const App = () => (
                   <Route path="promoters/teams" element={<OwnerPromoterTeams />} />
                   <Route path="promoters/event/:eventId" element={<OwnerPromoterEventView />} />
                   <Route path="promoters/:id" element={<OwnerPromoterDetail />} />
+                  <Route path="agencies" element={<PlanGuard feature="promoters"><OwnerAgencies /></PlanGuard>} />
                   <Route path="orders" element={<PlanGuard feature="orders_qr"><OwnerOrders /></PlanGuard>} />
                   <Route path="invoices" element={<PlanGuard feature="invoices_refunds"><OwnerInvoices /></PlanGuard>} />
                   <Route path="accounting" element={<PlanGuard feature="invoices_refunds"><OwnerAccounting /></PlanGuard>} />

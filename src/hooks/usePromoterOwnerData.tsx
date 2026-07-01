@@ -68,10 +68,12 @@ export function usePromoterOwnerData(scope: PromoterScope) {
     if (!ready || !sid) return;
     setLoading(true);
     try {
-      // Fetch promoters scoped to venue OR organizer
+      // Fetch promoters scoped to venue OR organizer. Agency-managed promoters
+      // (agency_id set) are excluded here — the club sees them aggregated under
+      // "Partner agencies" (OwnerAgencies), not mixed into its own direct roster.
       const { data: promotersData } = await supabase
         .from('promoters').select('id, user_id, promo_code, is_active, profile_image_url, instagram_url, whatsapp_number, pending_amount')
-        .eq(scopeColumn, sid).order('created_at', { ascending: false });
+        .eq(scopeColumn, sid).is('agency_id', null).order('created_at', { ascending: false });
 
       const userIds = (promotersData || []).map(p => p.user_id);
       const { data: profiles } = await supabase

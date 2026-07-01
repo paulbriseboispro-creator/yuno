@@ -82,7 +82,7 @@ export type Event = {
   updatedAt: string;
 };
 
-export type Role = 'client' | 'barman' | 'owner' | 'bouncer' | 'promoter' | 'dj' | 'manager' | 'vip_host' | 'cloakroom' | 'organizer' | 'affiliate';
+export type Role = 'client' | 'barman' | 'owner' | 'bouncer' | 'promoter' | 'dj' | 'manager' | 'vip_host' | 'cloakroom' | 'organizer' | 'affiliate' | 'agency';
 
 export type AffiliateType = 'yuno_internal' | 'city_agency' | 'independent';
 
