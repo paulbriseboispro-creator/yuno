@@ -25,6 +25,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
 import { BottleImageEditor } from './BottleImageEditor';
 import { composeBottleBlob, DEFAULT_BOTTLE_TRANSFORM, type BottleTransform } from '@/lib/bottleImage';
@@ -98,13 +99,17 @@ const CATEGORIES = [
 const isMixerCategory = (category: string) => category === 'mixer';
 
 export function VipMenuManager({ venueId }: VipMenuManagerProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<VipMenuItem[]>([]);
   const [eligibilities, setEligibilities] = useState<VipMenuEligibility[]>([]);
   const [zones, setZones] = useState<TableZone[]>([]);
   const [packs, setPacks] = useState<TablePack[]>([]);
-  
+  // Réglages club (idée #2 / #3) : vitrine menu dans le tunnel + pré-commande.
+  const [menuVisibility, setMenuVisibility] = useState<'hidden' | 'no_prices' | 'full'>('hidden');
+  const [preorderEnabled, setPreorderEnabled] = useState(false);
+
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEligibilityDialog, setShowEligibilityDialog] = useState(false);
   const [editingItem, setEditingItem] = useState<VipMenuItem | null>(null);
@@ -142,17 +147,22 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
     setLoading(true);
 
     try {
-      const [itemsRes, eligRes, zonesRes, packsRes] = await Promise.all([
+      const [itemsRes, eligRes, zonesRes, packsRes, venueRes] = await Promise.all([
         supabase.from('vip_menu_items').select('*').eq('venue_id', venueId).order('category').order('position'),
         supabase.from('vip_menu_eligibility').select('*'),
         supabase.from('table_zones').select('id, name, color').eq('venue_id', venueId),
         supabase.from('table_packs').select('id, name, zone_id, included_bottles_quota').eq('venue_id', venueId),
+        supabase.from('venues').select('vip_menu_visibility, vip_preorder_enabled').eq('id', venueId).single(),
       ]);
 
       setItems(itemsRes.data || []);
       setEligibilities(eligRes.data || []);
       setZones(zonesRes.data || []);
       setPacks(packsRes.data || []);
+      if (venueRes.data) {
+        setMenuVisibility((venueRes.data.vip_menu_visibility as 'hidden' | 'no_prices' | 'full') || 'hidden');
+        setPreorderEnabled(!!venueRes.data.vip_preorder_enabled);
+      }
     } catch (error) {
       console.error('Error fetching VIP menu data:', error);
       toast.error(t('common.error'));
@@ -367,6 +377,26 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
     );
   }
 
+  const saveVisibility = async (v: 'hidden' | 'no_prices' | 'full') => {
+    const prev = menuVisibility;
+    setMenuVisibility(v);
+    const { error } = await supabase.from('venues').update({ vip_menu_visibility: v }).eq('id', venueId);
+    if (error) { setMenuVisibility(prev); toast.error(t('common.error')); }
+    else toast.success(tt('Vitrine menu mise à jour', 'Menu preview updated', 'Vista del menú actualizada'));
+  };
+
+  const savePreorder = async (val: boolean) => {
+    setPreorderEnabled(val);
+    const { error } = await supabase.from('venues').update({ vip_preorder_enabled: val }).eq('id', venueId);
+    if (error) { setPreorderEnabled(!val); toast.error(t('common.error')); }
+  };
+
+  const VIS_OPTS: { v: 'hidden' | 'no_prices' | 'full'; label: string; desc: string }[] = [
+    { v: 'hidden', label: tt('Masquée', 'Hidden', 'Oculta'), desc: tt('Le client ne voit pas la carte avant de payer.', "Guests can't see the menu before paying.", 'El cliente no ve la carta antes de pagar.') },
+    { v: 'no_prices', label: tt('Sans prix', 'No prices', 'Sin precios'), desc: tt('Le client voit les bouteilles, sans les prix.', 'Guests see the bottles, without prices.', 'El cliente ve las botellas, sin precios.') },
+    { v: 'full', label: tt('Complète', 'Full', 'Completa'), desc: tt('Le client voit bouteilles et prix.', 'Guests see bottles and prices.', 'El cliente ve botellas y precios.') },
+  ];
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -382,6 +412,34 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
           <Plus className="h-4 w-4 mr-2" />
           {t('vipMenu.addItem')}
         </Button>
+      </div>
+
+      {/* Réglages vitrine — idée #2 / #3 */}
+      <div className="rounded-xl border border-border/60 bg-card/40 p-4 space-y-4">
+        <div>
+          <p className="text-sm font-medium mb-0.5">{tt('Carte visible pendant la réservation', 'Menu visible during booking', 'Carta visible durante la reserva')}</p>
+          <p className="text-xs text-muted-foreground">{tt("Laissez le client découvrir votre carte bouteilles dans le tunnel de réservation de table.", 'Let guests discover your bottle menu inside the table booking flow.', 'Deja que el cliente descubra tu carta de botellas en el flujo de reserva.')}</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {VIS_OPTS.map(opt => (
+            <button
+              key={opt.v}
+              type="button"
+              onClick={() => saveVisibility(opt.v)}
+              className={`text-left rounded-lg border p-3 transition-colors ${menuVisibility === opt.v ? 'border-primary bg-primary/10' : 'border-border/60 hover:bg-muted/40'}`}
+            >
+              <span className="text-sm font-semibold">{opt.label}</span>
+              <span className="block text-[11px] text-muted-foreground mt-0.5 leading-snug">{opt.desc}</span>
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center justify-between pt-1">
+          <div>
+            <p className="text-sm font-medium">{tt('Pré-commande de bouteilles', 'Bottle pre-ordering', 'Pre-pedido de botellas')}</p>
+            <p className="text-xs text-muted-foreground">{tt('Le client peut réserver ses bouteilles dès le paiement de la table.', 'Guests can reserve their bottles when they pay for the table.', 'El cliente puede reservar sus botellas al pagar la mesa.')}</p>
+          </div>
+          <Switch checked={preorderEnabled} onCheckedChange={savePreorder} />
+        </div>
       </div>
 
       {/* Category Tabs */}

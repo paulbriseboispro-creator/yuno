@@ -336,15 +336,24 @@ export function useVipHost() {
     itemType: 'bottle' | 'extra' | 'service',
     quantity: number,
     unitPrice: number,
-    notes?: string
-  ) => {
+    notes?: string,
+    // Métadonnées d'unification (Phase 0) : relient la conso au menu pour l'analytics.
+    // Optionnel + rétrocompatible : les anciens appels (saisie 100 % libre) restent valides.
+    opts?: {
+      menuItemId?: string | null;
+      category?: string | null;
+      brand?: string | null;
+      source?: 'staff' | 'preorder' | 'qr';
+      parentConsumptionId?: string | null;
+    }
+  ): Promise<string | null> => {
     if (!venueId) throw new Error('No venue ID');
 
     const reservation = data.reservations.find(r => r.id === reservationId);
-    
+
     const { data: { user } } = await supabase.auth.getUser();
 
-    const { error } = await supabase
+    const { data: inserted, error } = await supabase
       .from('vip_consumptions')
       .insert({
         table_reservation_id: reservationId,
@@ -357,7 +366,14 @@ export function useVipHost() {
         total_price: quantity * unitPrice,
         served_by: user?.id || null,
         notes,
-      });
+        menu_item_id: opts?.menuItemId ?? null,
+        category: opts?.category ?? null,
+        brand: opts?.brand ?? null,
+        source: opts?.source ?? 'staff',
+        parent_consumption_id: opts?.parentConsumptionId ?? null,
+      })
+      .select('id')
+      .single();
 
     if (error) throw error;
 
@@ -365,8 +381,9 @@ export function useVipHost() {
     if (reservation?.vipStatus === 'placed') {
       await updateReservationStatus(reservationId, 'active');
     }
-    
+
     await fetchData();
+    return inserted?.id ?? null;
   };
 
   // Move an already-placed guest to a different table. Errors propagate verbatim

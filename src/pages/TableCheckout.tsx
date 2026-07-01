@@ -16,6 +16,7 @@ import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { Separator } from '@/components/ui/separator';
 import { VipCheckoutSteps } from '@/components/vip/VipCheckoutSteps';
 import { ClientFloorPlanPicker } from '@/components/vip/ClientFloorPlanPicker';
+import { VipMenuPreview } from '@/components/vip/VipMenuPreview';
 import { useTableAvailability } from '@/hooks/useTableAvailability';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
@@ -619,6 +620,16 @@ export default function TableCheckout() {
                     {t('tableCheckout.remainingNote').replace('{amount}', pricing.remainingBalance.toFixed(2))}
                   </p>
                 </div>
+
+                {/* Vitrine carte bouteilles (idée #2) — pilotée par le réglage club */}
+                {venue?.id && (
+                  <VipMenuPreview
+                    venueId={venue.id}
+                    packId={pack?.id}
+                    zoneId={activeZoneId}
+                    visibility={venue.vip_menu_visibility}
+                  />
+                )}
 
                 {/* Interactive floor plan for table selection */}
                 {showPlacement && floorPlan && (

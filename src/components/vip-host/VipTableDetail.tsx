@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { MinimumSpendBar } from './MinimumSpendBar';
 import { VipTableOrders } from './VipTableOrders';
+import { VipGuestBlackBook } from './VipGuestBlackBook';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
@@ -319,6 +320,11 @@ export function VipTableDetail({
                 <div className="text-[10px]" style={{ color: T3 }}>{t('vipHost.consumedLabel')}</div>
               </div>
             </div>
+
+            {/* Carnet VIP — reconnaissance client (dépense vie, bouteilles préférées, notes) */}
+            {venueId && (reservation.userId || reservation.userEmail) && (
+              <VipGuestBlackBook venueId={venueId} userId={reservation.userId} email={reservation.userEmail} />
+            )}
 
             <Tabs defaultValue="add" className="w-full">
               <TabsList className="w-full">

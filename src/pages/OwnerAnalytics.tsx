@@ -27,6 +27,8 @@ import { EventAnalyticsPicker } from '@/components/analytics/EventAnalyticsPicke
 import { AnalyticsAnchorNav, type AnchorSection } from '@/components/analytics/AnalyticsAnchorNav';
 import { DrinkAnalyticsSection } from '@/components/analytics/DrinkAnalyticsSection';
 import { TableAnalyticsSection } from '@/components/analytics/TableAnalyticsSection';
+import { VipConsumptionSection } from '@/components/analytics/VipConsumptionSection';
+import { VipHostLeaderboard } from '@/components/analytics/VipHostLeaderboard';
 import { TicketAnalyticsOverview } from '@/components/analytics/TicketAnalyticsOverview';
 import { TicketAnalyticsLaunch } from '@/components/analytics/TicketAnalyticsLaunch';
 import { TicketAnalyticsTypes } from '@/components/analytics/TicketAnalyticsTypes';
@@ -1172,7 +1174,25 @@ export default function OwnerAnalytics() {
               </>
             )}
             {activeTab === 'tables' && (
-              <TableAnalyticsSection data={tableAnalytics} hasVipTables={hasVipTables} />
+              <div className="space-y-6">
+                <TableAnalyticsSection data={tableAnalytics} hasVipTables={hasVipTables} />
+                {hasVipTables && venueId && (
+                  <VipConsumptionSection
+                    venueId={venueId}
+                    eventId={mode === 'event' ? selectedEventId : null}
+                    from={webWindow.from}
+                    to={webWindow.to}
+                  />
+                )}
+                {hasVipTables && venueId && (
+                  <VipHostLeaderboard
+                    venueId={venueId}
+                    eventId={mode === 'event' ? selectedEventId : null}
+                    from={webWindow.from}
+                    to={webWindow.to}
+                  />
+                )}
+              </div>
             )}
             {activeTab === 'refunds' && (
               refundAnalytics

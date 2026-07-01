@@ -10492,7 +10492,9 @@ export type Database = {
           tiktok_url: string | null
           twitter_url: string | null
           vat_number: string | null
+          vip_menu_visibility: string
           vip_placement_enabled: boolean | null
+          vip_preorder_enabled: boolean
           whatsapp_number: string | null
         }
         Insert: {
@@ -10540,7 +10542,9 @@ export type Database = {
           tiktok_url?: string | null
           twitter_url?: string | null
           vat_number?: string | null
+          vip_menu_visibility?: string
           vip_placement_enabled?: boolean | null
+          vip_preorder_enabled?: boolean
           whatsapp_number?: string | null
         }
         Update: {
@@ -10588,24 +10592,30 @@ export type Database = {
           tiktok_url?: string | null
           twitter_url?: string | null
           vat_number?: string | null
+          vip_menu_visibility?: string
           vip_placement_enabled?: boolean | null
+          vip_preorder_enabled?: boolean
           whatsapp_number?: string | null
         }
         Relationships: []
       }
       vip_consumptions: {
         Row: {
+          brand: string | null
           category: string | null
           created_at: string
           event_id: string | null
           id: string
           item_name: string
           item_type: string
+          menu_item_id: string | null
           notes: string | null
+          parent_consumption_id: string | null
           photo_url: string | null
           quantity: number
           served_at: string
           served_by: string | null
+          source: string
           special_request: string | null
           staff_id: string | null
           table_reservation_id: string
@@ -10614,17 +10624,21 @@ export type Database = {
           venue_id: string
         }
         Insert: {
+          brand?: string | null
           category?: string | null
           created_at?: string
           event_id?: string | null
           id?: string
           item_name: string
           item_type?: string
+          menu_item_id?: string | null
           notes?: string | null
+          parent_consumption_id?: string | null
           photo_url?: string | null
           quantity?: number
           served_at?: string
           served_by?: string | null
+          source?: string
           special_request?: string | null
           staff_id?: string | null
           table_reservation_id: string
@@ -10633,17 +10647,21 @@ export type Database = {
           venue_id: string
         }
         Update: {
+          brand?: string | null
           category?: string | null
           created_at?: string
           event_id?: string | null
           id?: string
           item_name?: string
           item_type?: string
+          menu_item_id?: string | null
           notes?: string | null
+          parent_consumption_id?: string | null
           photo_url?: string | null
           quantity?: number
           served_at?: string
           served_by?: string | null
+          source?: string
           special_request?: string | null
           staff_id?: string | null
           table_reservation_id?: string
@@ -10872,6 +10890,7 @@ export type Database = {
           menu_item_id: string
           notes: string | null
           order_id: string
+          parent_order_item_id: string | null
           quantity: number
           unit_price: number
         }
@@ -10882,6 +10901,7 @@ export type Database = {
           menu_item_id: string
           notes?: string | null
           order_id: string
+          parent_order_item_id?: string | null
           quantity?: number
           unit_price: number
         }
@@ -10892,6 +10912,7 @@ export type Database = {
           menu_item_id?: string
           notes?: string | null
           order_id?: string
+          parent_order_item_id?: string | null
           quantity?: number
           unit_price?: number
         }
@@ -11870,6 +11891,33 @@ export type Database = {
           p_from?: string
           p_scope: string
           p_scope_id: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      get_vip_consumption_analytics: {
+        Args: {
+          p_venue_id: string
+          p_event_id?: string
+          p_from?: string
+          p_to?: string
+          p_tz?: string
+        }
+        Returns: Json
+      }
+      get_vip_guest_profile: {
+        Args: {
+          p_venue_id: string
+          p_user_id?: string
+          p_email?: string
+        }
+        Returns: Json
+      }
+      get_vip_host_leaderboard: {
+        Args: {
+          p_venue_id: string
+          p_event_id?: string
+          p_from?: string
           p_to?: string
         }
         Returns: Json
