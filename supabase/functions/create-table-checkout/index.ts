@@ -78,6 +78,8 @@ serve(async (req) => {
       purchaseSource, trackedLinkId,
       // Déclaration sur l'honneur de majorité
       ageDeclaration,
+      // Pré-commande de bouteilles (préparées pour l'arrivée, réglées à la table)
+      preOrderBottles,
     } = await req.json();
 
     const ALLOWED_SOURCES = ['venue_profile','organizer_profile','dj_profile','explore','promoter','direct'];
@@ -459,6 +461,42 @@ serve(async (req) => {
         age_declaration_ip: ageRecord.ip,
       }).eq('id', reservation.id);
 
+      // Pré-commande : enregistre les bouteilles choisies au checkout comme commande table
+      // (préparée pour l'arrivée, réglée à la table). Non bloquant.
+      if (Array.isArray(preOrderBottles) && preOrderBottles.length > 0) {
+        try {
+          const poTotal = preOrderBottles.reduce((s: number, b: any) => s + (Number(b.unitPrice) || 0) * (Number(b.quantity) || 0), 0);
+          const { data: poOrder, error: poErr } = await supabaseAdmin
+            .from("vip_table_orders")
+            .insert({
+              table_reservation_id: reservation.id,
+              venue_id: event.venue_id,
+              user_id: user?.id ?? null,
+              status: "confirmed",
+              total_amount: poTotal,
+              notes: "Pré-commande (checkout)",
+            })
+            .select("id")
+            .single();
+          if (!poErr && poOrder) {
+            const poItems = preOrderBottles
+              .filter((b: any) => b.menuItemId && (Number(b.quantity) || 0) > 0)
+              .map((b: any) => ({
+                order_id: poOrder.id,
+                menu_item_id: b.menuItemId,
+                quantity: Number(b.quantity),
+                unit_price: Number(b.unitPrice) || 0,
+                is_included: false,
+              }));
+            if (poItems.length > 0) await supabaseAdmin.from("vip_table_order_items").insert(poItems);
+          } else if (poErr) {
+            logStep("Pre-order insert failed (non-blocking)", { error: poErr.message });
+          }
+        } catch (e) {
+          logStep("Pre-order exception (non-blocking)", { error: String(e) });
+        }
+      }
+
       // Upsert SMS contact if buyer opted in
       if (smsOptIn && event.venue_id && phone) {
         const buyerPhone = phone.trim();
@@ -621,6 +659,42 @@ serve(async (req) => {
       age_declaration_birth_date: ageRecord.birthDate,
       age_declaration_ip: ageRecord.ip,
     }).eq('id', reservation.id);
+
+    // Pré-commande : enregistre les bouteilles choisies au checkout comme commande table
+    // (préparée pour l'arrivée, réglée à la table). Non bloquant ; survit au pending->paid.
+    if (Array.isArray(preOrderBottles) && preOrderBottles.length > 0) {
+      try {
+        const poTotal = preOrderBottles.reduce((s: number, b: any) => s + (Number(b.unitPrice) || 0) * (Number(b.quantity) || 0), 0);
+        const { data: poOrder, error: poErr } = await supabaseAdmin
+          .from("vip_table_orders")
+          .insert({
+            table_reservation_id: reservation.id,
+            venue_id: event.venue_id,
+            user_id: user?.id ?? null,
+            status: "confirmed",
+            total_amount: poTotal,
+            notes: "Pré-commande (checkout)",
+          })
+          .select("id")
+          .single();
+        if (!poErr && poOrder) {
+          const poItems = preOrderBottles
+            .filter((b: any) => b.menuItemId && (Number(b.quantity) || 0) > 0)
+            .map((b: any) => ({
+              order_id: poOrder.id,
+              menu_item_id: b.menuItemId,
+              quantity: Number(b.quantity),
+              unit_price: Number(b.unitPrice) || 0,
+              is_included: false,
+            }));
+          if (poItems.length > 0) await supabaseAdmin.from("vip_table_order_items").insert(poItems);
+        } else if (poErr) {
+          logStep("Pre-order insert failed (non-blocking)", { error: poErr.message });
+        }
+      } catch (e) {
+        logStep("Pre-order exception (non-blocking)", { error: String(e) });
+      }
+    }
 
     logStep("Pending reservation created", { reservationId: reservation.id });
 

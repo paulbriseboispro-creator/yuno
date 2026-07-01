@@ -10882,6 +10882,48 @@ export type Database = {
           },
         ]
       }
+      vip_service_moments: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          done_at: string | null
+          event_id: string | null
+          id: string
+          kind: string
+          label: string | null
+          scheduled_at: string | null
+          status: string
+          table_reservation_id: string | null
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          done_at?: string | null
+          event_id?: string | null
+          id?: string
+          kind?: string
+          label?: string | null
+          scheduled_at?: string | null
+          status?: string
+          table_reservation_id?: string | null
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          done_at?: string | null
+          event_id?: string | null
+          id?: string
+          kind?: string
+          label?: string | null
+          scheduled_at?: string | null
+          status?: string
+          table_reservation_id?: string | null
+          venue_id?: string
+        }
+        Relationships: []
+      }
       vip_table_order_items: {
         Row: {
           created_at: string | null
@@ -11043,6 +11085,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vip_table_waitlist: {
+        Row: {
+          created_at: string
+          email: string | null
+          event_id: string | null
+          full_name: string | null
+          guest_count: number
+          id: string
+          note: string | null
+          pack_id: string | null
+          phone: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+          venue_id: string
+          zone_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          event_id?: string | null
+          full_name?: string | null
+          guest_count?: number
+          id?: string
+          note?: string | null
+          pack_id?: string | null
+          phone?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          venue_id: string
+          zone_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          event_id?: string | null
+          full_name?: string | null
+          guest_count?: number
+          id?: string
+          note?: string | null
+          pack_id?: string | null
+          phone?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          venue_id?: string
+          zone_id?: string | null
+        }
+        Relationships: []
       }
       vip_upsell_stats: {
         Row: {

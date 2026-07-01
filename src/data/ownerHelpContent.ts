@@ -685,6 +685,22 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         ],
       },
       {
+        id: 'vip-new-options',
+        titleKey: 'ohelp.pg.vipplus.title',
+        descKey: 'ohelp.pg.vipplus.desc',
+        icon: 'Sparkles',
+        relatedArticleIds: ['vip-service-mgmt', 'tables-vip-setup', 'menu-setup'],
+        keywords: ['vip', 'analytics', 'analytique', 'consommation', 'consumption', 'carnet', 'black book', 'habitué', 'regular', 'pré-commande', 'preorder', 'pre-order', 'menu', 'carte', 'leaderboard', 'classement', 'moment', 'parade', 'waitlist', 'liste d\'attente', 'mixer', 'diluant'],
+        sections: [
+          { headingKey: 'ohelp.pg.vipplus.s1h', bodyKey: 'ohelp.pg.vipplus.s1b' },
+          { headingKey: 'ohelp.pg.vipplus.s2h', bodyKey: 'ohelp.pg.vipplus.s2b' },
+          { headingKey: 'ohelp.pg.vipplus.s3h', bodyKey: 'ohelp.pg.vipplus.s3b' },
+          { headingKey: 'ohelp.pg.vipplus.s4h', bodyKey: 'ohelp.pg.vipplus.s4b' },
+          { headingKey: 'ohelp.pg.vipplus.s5h', bodyKey: 'ohelp.pg.vipplus.s5b' },
+          { headingKey: 'ohelp.pg.vipplus.s6h', bodyKey: 'ohelp.pg.vipplus.s6b', type: 'tip' },
+        ],
+      },
+      {
         id: 'upsell-offers',
         titleKey: 'ohelp.pg.upsell.title',
         descKey: 'ohelp.pg.upsell.desc',

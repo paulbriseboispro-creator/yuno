@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
@@ -96,6 +96,9 @@ export default function VipMenu() {
   // Mixer suggestion dialog state
   const [mixerDialogOpen, setMixerDialogOpen] = useState(false);
   const [pendingSpirit, setPendingSpirit] = useState<VipMenuItem | null>(null);
+  // Pairing bouteille -> mixers choisis, capturé au moment du dialog. Le panier aplatit
+  // ces liens ; on les rejoue au submit pour renseigner parent_order_item_id (analytics mixer).
+  const mixerPairingsRef = useRef<Map<string, Set<string>>>(new Map());
 
   const goToLogin = useCallback(() => {
     const redirect = venueId ? `/vip-menu/${venueId}` : '/vip-menu';
@@ -406,6 +409,11 @@ export default function VipMenu() {
         return Array.from(map.values());
       });
 
+      // Mémorise le lien bouteille -> mixers pour le rejouer à l'envoi de la commande.
+      const set = mixerPairingsRef.current.get(spirit.id) ?? new Set<string>();
+      selected.forEach(s => set.add(s.id));
+      mixerPairingsRef.current.set(spirit.id, set);
+
       const mixerNames = selected.map(s => s.name).join(' + ');
       toast.success(`${spirit.name}${mixerNames ? ` + ${mixerNames}` : ''} ${t('vipBudget.added')}`);
     }
@@ -455,11 +463,38 @@ export default function VipMenu() {
         is_included: false, // With budget system, nothing is "included" in the old sense
       }));
 
-      const { error: itemsError } = await supabase
+      const { data: insertedItems, error: itemsError } = await supabase
         .from('vip_table_order_items')
-        .insert(orderItems);
+        .insert(orderItems)
+        .select('id, menu_item_id');
 
       if (itemsError) throw itemsError;
+
+      // Renseigne parent_order_item_id : relie chaque ligne mixer à sa bouteille parente
+      // (best-effort, ne bloque jamais la commande si ça échoue).
+      try {
+        const byMenuItem = new Map<string, string>();
+        (insertedItems ?? []).forEach(row => byMenuItem.set(row.menu_item_id, row.id));
+        const updates: Promise<unknown>[] = [];
+        mixerPairingsRef.current.forEach((mixerIds, spiritId) => {
+          const parentId = byMenuItem.get(spiritId);
+          if (!parentId) return;
+          mixerIds.forEach(mixerId => {
+            const childId = byMenuItem.get(mixerId);
+            if (childId) {
+              updates.push(
+                supabase.from('vip_table_order_items')
+                  .update({ parent_order_item_id: parentId })
+                  .eq('id', childId)
+              );
+            }
+          });
+        });
+        if (updates.length) await Promise.all(updates);
+      } catch (linkErr) {
+        console.error('Mixer link (non-blocking) failed:', linkErr);
+      }
+      mixerPairingsRef.current.clear();
 
       toast.success(t('vipMenu.orderSent'));
       toast.info(t('vipMenu.orderSentDesc'));

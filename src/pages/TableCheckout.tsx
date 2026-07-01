@@ -16,7 +16,8 @@ import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { Separator } from '@/components/ui/separator';
 import { VipCheckoutSteps } from '@/components/vip/VipCheckoutSteps';
 import { ClientFloorPlanPicker } from '@/components/vip/ClientFloorPlanPicker';
-import { VipMenuPreview } from '@/components/vip/VipMenuPreview';
+import { VipMenuPreview, type PreorderSelection } from '@/components/vip/VipMenuPreview';
+import { VipTableWaitlistDialog } from '@/components/vip/VipTableWaitlistDialog';
 import { useTableAvailability } from '@/hooks/useTableAvailability';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
@@ -86,6 +87,8 @@ export default function TableCheckout() {
   const [ageBirthDate, setAgeBirthDate] = useState<string | undefined>(undefined);
   
   const [guestCount, setGuestCount] = useState(1);
+  const [preOrderBottles, setPreOrderBottles] = useState<PreorderSelection[]>([]);
+  const [waitlistOpen, setWaitlistOpen] = useState(false);
   const { unavailableTableIds, reservationsByZone } = useTableAvailability(eventId);
 
   // Zone capacity guard — block once `tables_count` is reached for the selected zone.
@@ -445,6 +448,10 @@ export default function TableCheckout() {
           requestedTableId: selectedTableId,
           placementStatus: placementStatus,
           ageDeclaration: { confirmed: true, birthDate: ageBirthDate },
+          // Pré-commande bouteilles (préparées pour l'arrivée, réglées à la table)
+          preOrderBottles: preOrderBottles.map(b => ({
+            menuItemId: b.menuItemId, quantity: b.quantity, unitPrice: b.unitPrice, itemName: b.itemName,
+          })),
           ...guestCheckout,
         }
       });
@@ -487,6 +494,8 @@ export default function TableCheckout() {
     } catch (error: any) {
       console.error('Checkout error:', error);
       toast.error(error.message || t('tickets.checkoutError'));
+      // Échec de réservation (le plus souvent : zone complète) -> proposer la liste d'attente.
+      setWaitlistOpen(true);
     } finally {
       setSubmitting(false);
     }
@@ -628,6 +637,23 @@ export default function TableCheckout() {
                     packId={pack?.id}
                     zoneId={activeZoneId}
                     visibility={venue.vip_menu_visibility}
+                    preorderEnabled={!!venue.vip_preorder_enabled}
+                    onPreorderChange={setPreOrderBottles}
+                  />
+                )}
+
+                {venue?.id && (
+                  <VipTableWaitlistDialog
+                    open={waitlistOpen}
+                    onOpenChange={setWaitlistOpen}
+                    venueId={venue.id}
+                    eventId={eventId}
+                    zoneId={activeZoneId}
+                    packId={pack?.id}
+                    defaultName={fullName}
+                    defaultEmail={email}
+                    defaultPhone={phone}
+                    guestCount={guestCount}
                   />
                 )}
 

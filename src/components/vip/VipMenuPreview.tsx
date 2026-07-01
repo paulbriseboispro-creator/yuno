@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { translate } from '@/i18n/orgTranslate';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Wine, ChevronDown } from 'lucide-react';
+import { Wine, ChevronDown, Plus, Minus } from 'lucide-react';
 
 // Vitrine menu VIP dans le tunnel de réservation (idée #2).
 // Read-only. Respecte le réglage club `vip_menu_visibility` :
@@ -30,11 +30,22 @@ interface Eligibility {
   is_included: boolean | null;
 }
 
+export interface PreorderSelection {
+  menuItemId: string;
+  quantity: number;
+  unitPrice: number;
+  itemName: string;
+}
+
 interface Props {
   venueId: string;
   packId?: string | null;
   zoneId?: string | null;
   visibility: string | null | undefined;
+  /** Quand le club autorise la pré-commande ET que les prix sont visibles, le client peut
+   *  sélectionner des bouteilles à préparer pour son arrivée. */
+  preorderEnabled?: boolean;
+  onPreorderChange?: (items: PreorderSelection[]) => void;
 }
 
 const CAT_ORDER = ['champagne', 'cognac', 'whisky', 'vodka', 'gin', 'rum', 'tequila', 'wine', 'soft', 'mixer', 'extra', 'other'];
@@ -46,16 +57,37 @@ const CAT_LABEL: Record<string, [string, string, string]> = {
   other: ['Autre', 'Other', 'Otro'],
 };
 
-export function VipMenuPreview({ venueId, packId, zoneId, visibility }: Props) {
+export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEnabled, onPreorderChange }: Props) {
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [items, setItems] = useState<MenuItem[]>([]);
   const [elig, setElig] = useState<Eligibility[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [qty, setQty] = useState<Record<string, number>>({});
 
   const showMenu = visibility === 'no_prices' || visibility === 'full';
   const showPrices = visibility === 'full';
+  // Pré-commande possible seulement si le club l'autorise ET que les prix sont affichés
+  // (le client doit voir ce qu'il engage).
+  const preorderMode = !!preorderEnabled && showPrices && !!onPreorderChange;
+
+  // Remonte la sélection de pré-commande au parent (TableCheckout) à chaque changement.
+  useEffect(() => {
+    if (!preorderMode || !onPreorderChange) return;
+    const scopedE = elig.filter(e => (packId && e.pack_id === packId) || (zoneId && e.zone_id === zoneId));
+    const eById = new Map(scopedE.map(e => [e.menu_item_id, e]));
+    const itemsById = new Map(items.map(i => [i.id, i]));
+    const sel: PreorderSelection[] = Object.entries(qty).flatMap(([id, q]) => {
+      const it = itemsById.get(id);
+      if (!it || q <= 0) return [];
+      const e = eById.get(id);
+      const price = e?.custom_price != null ? e.custom_price : it.price;
+      return [{ menuItemId: id, quantity: q, unitPrice: price, itemName: it.name }];
+    });
+    onPreorderChange(sel);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qty, preorderMode, items, elig]);
 
   useEffect(() => {
     if (!showMenu || !venueId) { setLoading(false); return; }
@@ -106,6 +138,21 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility }: Props) {
   const catLabel = (c: string) => { const l = CAT_LABEL[c]; return l ? tt(l[0], l[1], l[2]) : c; };
   const fmt = (n: number) => (n % 1 === 0 ? `${n}€` : `${n.toFixed(2)}€`);
 
+  const bump = (id: string, delta: number) => {
+    setQty(prev => {
+      const nv = Math.max(0, (prev[id] || 0) + delta);
+      const next = { ...prev };
+      if (nv === 0) delete next[id]; else next[id] = nv;
+      return next;
+    });
+  };
+  const preorderTotal = preorderMode
+    ? visible.reduce((sum, it) => sum + priceOf(it) * (qty[it.id] || 0), 0)
+    : 0;
+  const preorderCount = preorderMode
+    ? Object.values(qty).reduce((a, b) => a + b, 0)
+    : 0;
+
   return (
     <div className="mt-5 border border-white/[0.08] bg-[#141414]" style={{ borderRadius: 10 }}>
       <button
@@ -140,25 +187,64 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility }: Props) {
                       {it.brand && <span className="text-white/40"> · {it.brand}</span>}
                       {it.volume_cl ? <span className="text-white/30 text-[11px]"> {it.volume_cl}cl</span> : null}
                     </span>
-                    <span className="flex-none text-[12px] tabular-nums">
-                      {isIncluded(it)
-                        ? <span className="font-mono uppercase text-[9px] font-bold tracking-[0.08em] text-primary">{tt('Inclus', 'Included', 'Incluido')}</span>
-                        : showPrices
-                          ? <span className="text-white/70">{fmt(priceOf(it))}</span>
-                          : <span className="text-white/30 font-mono text-[10px] tracking-[0.06em]">{tt('sur place', 'in venue', 'en el local')}</span>}
-                    </span>
+                    {preorderMode && !isIncluded(it) ? (
+                      <span className="flex-none flex items-center gap-2">
+                        <span className="text-[12px] tabular-nums text-white/70 w-14 text-right">{fmt(priceOf(it))}</span>
+                        {(qty[it.id] || 0) > 0 ? (
+                          <span className="flex items-center gap-1.5">
+                            <button type="button" onClick={() => bump(it.id, -1)} className="h-6 w-6 rounded-full flex items-center justify-center bg-white/[0.06] hover:bg-white/[0.12]">
+                              <Minus className="h-3 w-3 text-white" />
+                            </button>
+                            <span className="w-4 text-center text-[13px] font-bold tabular-nums text-white">{qty[it.id]}</span>
+                            <button type="button" onClick={() => bump(it.id, 1)} className="h-6 w-6 rounded-full flex items-center justify-center bg-primary hover:brightness-110">
+                              <Plus className="h-3 w-3 text-white" />
+                            </button>
+                          </span>
+                        ) : (
+                          <button type="button" onClick={() => bump(it.id, 1)} className="h-6 w-6 rounded-full flex items-center justify-center bg-white/[0.06] hover:bg-white/[0.12]">
+                            <Plus className="h-3 w-3 text-white" />
+                          </button>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="flex-none text-[12px] tabular-nums">
+                        {isIncluded(it)
+                          ? <span className="font-mono uppercase text-[9px] font-bold tracking-[0.08em] text-primary">{tt('Inclus', 'Included', 'Incluido')}</span>
+                          : showPrices
+                            ? <span className="text-white/70">{fmt(priceOf(it))}</span>
+                            : <span className="text-white/30 font-mono text-[10px] tracking-[0.06em]">{tt('sur place', 'in venue', 'en el local')}</span>}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
             </div>
           ))}
-          <p className="text-[11px] leading-relaxed pt-1" style={{ color: '#6A6A6E' }}>
-            {tt(
-              'Aperçu de la carte. Vous commanderez vos bouteilles à table, le soir même.',
-              'Menu preview. You\'ll order your bottles at the table on the night.',
-              'Vista previa de la carta. Pedirás tus botellas en la mesa esa misma noche.',
-            )}
-          </p>
+          {preorderMode ? (
+            <div className="pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+              {preorderCount > 0 && (
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[12px] text-white/60">{preorderCount} {tt('bouteille(s) pré-commandée(s)', 'bottle(s) pre-ordered', 'botella(s) pre-pedida(s)')}</span>
+                  <span className="font-display font-bold tabular-nums text-primary text-[15px]">{fmt(preorderTotal)}</span>
+                </div>
+              )}
+              <p className="text-[11px] leading-relaxed" style={{ color: '#6A6A6E' }}>
+                {tt(
+                  'Pré-commandez vos bouteilles : le club les prépare pour votre arrivée. Réglées à la table le soir même.',
+                  'Pre-order your bottles: the club prepares them for your arrival. Settled at the table on the night.',
+                  'Pre-pide tus botellas: el club las prepara para tu llegada. Se pagan en la mesa esa noche.',
+                )}
+              </p>
+            </div>
+          ) : (
+            <p className="text-[11px] leading-relaxed pt-1" style={{ color: '#6A6A6E' }}>
+              {tt(
+                'Aperçu de la carte. Vous commanderez vos bouteilles à table, le soir même.',
+                'Menu preview. You\'ll order your bottles at the table on the night.',
+                'Vista previa de la carta. Pedirás tus botellas en la mesa esa misma noche.',
+              )}
+            </p>
+          )}
         </div>
       )}
     </div>

@@ -20,6 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { MinimumSpendBar } from './MinimumSpendBar';
 import { VipTableOrders } from './VipTableOrders';
 import { VipGuestBlackBook } from './VipGuestBlackBook';
+import { VipServiceMomentButton } from './VipServiceMomentButton';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
@@ -618,6 +619,14 @@ export function VipTableDetail({
         {['placed', 'active'].includes(reservation.vipStatus) && (
           <div className="absolute bottom-0 left-0 right-0 p-4 backdrop-blur" style={{ background: 'rgba(10,10,12,0.92)', borderTop: `1px solid ${BORDER}`, paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
             <div className="flex gap-2">
+              {venueId && (
+                <VipServiceMomentButton
+                  venueId={venueId}
+                  reservationId={reservation.id}
+                  eventId={reservation.eventId}
+                  disabled={loading || actionsDisabled}
+                />
+              )}
               {canReassign && onReassign && (
                 <Button
                   className="flex-1 h-12"
