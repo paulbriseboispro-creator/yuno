@@ -10,6 +10,8 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
 } from '@/components/ui/sheet';
+import { PLANS, PlanCode } from '@/lib/planFeatures';
+import { getDemoPlan, setDemoPlan, DEMO_PLAN_EVENT } from '@/lib/demoPlan';
 
 /**
  * DemoSwitcher — bascule 1-clic entre les comptes démo (club, orga, promoteur,
@@ -52,6 +54,11 @@ type DemoAccount = {
   role?: string;
 };
 
+// Tiers proposés au switch démo : les trois abonnements aux gates de features
+// réellement distincts. Elite est volontairement exclu (« Bientôt », non achetable,
+// et fonctionnellement identique à Pro).
+const DEMO_PLAN_TIERS: PlanCode[] = ['core', 'essential', 'pro'];
+
 const ACCOUNTS: DemoAccount[] = [
   { email: 'owner@womber.fr',     label: 'Club Yuno (Owner)',   sub: 'Club Yuno',      route: '/owner/dashboard', icon: Building2 },
   { email: 'organizer@womber.fr', label: 'Orga Yuno',           sub: 'Yuno Events',    route: '/organizer-app',   icon: CalendarDays },
@@ -90,9 +97,17 @@ export function DemoSwitcher() {
   const [busy, setBusy] = useState<string | null>(null);
   const [live, setLive] = useState<boolean | null>(null);
   const [liveBusy, setLiveBusy] = useState(false);
+  const [demoPlan, setDemoPlanState] = useState<PlanCode>(getDemoPlan());
 
   const currentEmail = user?.email?.toLowerCase() ?? null;
   const isDemoUser = ACCOUNTS.some((a) => a.email === currentEmail);
+
+  // Garder la pastille du plan actif synchro si la page billing le change aussi.
+  useEffect(() => {
+    const handler = () => setDemoPlanState(getDemoPlan());
+    window.addEventListener(DEMO_PLAN_EVENT, handler);
+    return () => window.removeEventListener(DEMO_PLAN_EVENT, handler);
+  }, []);
 
   // Dès qu'on est sur un compte démo MFA-gated, poser le bypass MFA local.
   useEffect(() => {
@@ -122,6 +137,12 @@ export function DemoSwitcher() {
     } finally {
       setLiveBusy(false);
     }
+  }
+
+  function pickPlan(code: PlanCode) {
+    setDemoPlan(code);        // localStorage + event → le dashboard se re-gate en direct
+    setDemoPlanState(code);
+    toast.success(`Abonnement démo : ${PLANS[code].name}`);
   }
 
   async function switchTo(account: DemoAccount, routeOverride?: string) {
@@ -235,6 +256,39 @@ export function DemoSwitcher() {
             </span>
           )}
         </button>
+
+        {/* Switch d'abonnement démo : uniquement pour le club (owner), là où les
+            gates de features du dashboard s'appliquent. Bascule instantanée, sans Stripe. */}
+        {currentEmail === OWNER_EMAIL && (
+          <div className="mt-5">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/35">Abonnement du club</p>
+            <div className="grid grid-cols-3 gap-1.5">
+              {DEMO_PLAN_TIERS.map((code) => {
+                const active = demoPlan === code;
+                const p = PLANS[code];
+                return (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => pickPlan(code)}
+                    className={`flex flex-col items-center gap-0.5 rounded-xl border px-2 py-2 text-center transition ${
+                      active
+                        ? 'border-primary/50 bg-primary/15 text-white'
+                        : 'border-white/10 bg-white/[0.03] text-white/80 hover:bg-white/[0.07]'
+                    }`}
+                  >
+                    <span className="text-[12px] font-semibold">{p.name}</span>
+                    <span className="text-[10px] text-white/45">{p.price === 0 ? 'Gratuit' : `${p.price}€`}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed text-white/40">
+              Change le plan à la volée : les fonctionnalités du dashboard se verrouillent /
+              déverrouillent selon le tier. (Elite = « Bientôt », non achetable.)
+            </p>
+          </div>
+        )}
 
         <div className="mt-5 flex flex-col gap-1.5">
           {ACCOUNTS.map((a) => {

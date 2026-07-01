@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { hasFeature as checkFeature, requiredPlan as getRequiredPlan, PlanCode, FeatureKey, PLANS } from '@/lib/planFeatures';
+import { isDemoEmail, getDemoPlan, DEMO_PLAN_EVENT } from '@/lib/demoPlan';
 
 type BillingInterval = 'monthly' | 'annual';
 
@@ -53,12 +54,12 @@ export function SubscriptionPlanProvider({ venueId, children }: { venueId: strin
       return;
     }
     try {
-      // Comptes démo @womber.fr : plan Pro forcé (tier le plus haut ACHETABLE — Elite est
-      // « Bientôt » non-achetable), indépendant de Stripe / edge function
-      // (l'edge function check-club-subscription est CORS-lock yunoapp.eu donc KO en local).
+      // Comptes démo @womber.fr : plan piloté par un override localStorage (voir
+      // demoPlan.ts). Permet de switcher d'abonnement à la volée en démo de vente
+      // sans Stripe ni edge function (CORS-lock yunoapp.eu). Défaut = Pro.
       const { data: { user: demoUser } } = await supabase.auth.getUser();
-      if (demoUser?.email?.toLowerCase().endsWith('@womber.fr')) {
-        setPlan('pro');
+      if (isDemoEmail(demoUser?.email)) {
+        setPlan(getDemoPlan());
         setStatus('active');
         setIsTrial(false);
         setDaysRemaining(null);
@@ -91,6 +92,14 @@ export function SubscriptionPlanProvider({ venueId, children }: { venueId: strin
 
   useEffect(() => {
     fetchPlan();
+  }, [fetchPlan]);
+
+  // Démo : le DemoSwitcher / la page billing changent le plan via un event
+  // same-tab → on relit l'override et on met à jour le gate des features en direct.
+  useEffect(() => {
+    const handler = () => fetchPlan();
+    window.addEventListener(DEMO_PLAN_EVENT, handler);
+    return () => window.removeEventListener(DEMO_PLAN_EVENT, handler);
   }, [fetchPlan]);
 
   const value: SubscriptionPlanState = {

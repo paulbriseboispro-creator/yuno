@@ -4,6 +4,8 @@ import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { useOwnerVenue } from '@/hooks/useOwnerVenue';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { useStripeConnect } from '@/hooks/useStripeConnect';
+import { useAuth } from '@/hooks/useAuth';
+import { isDemoEmail, setDemoPlan } from '@/lib/demoPlan';
 import { PLANS, PLAN_ORDER, PlanCode, FeatureKey, BillingCycle, planPrice, annualSavings, ANNUAL_BILLED_MONTHS } from '@/lib/planFeatures';
 import { Check, AlertTriangle, CreditCard, ExternalLink, AlertCircle, Loader2, Crown, Zap, Rocket, Shield, RefreshCw, Sparkles, ShieldCheck, Banknote, Receipt, Lock, Gem } from 'lucide-react';
 import { format } from 'date-fns';
@@ -106,6 +108,7 @@ function FeatureRow({ label }: { label: string }) {
 
 export default function OwnerBilling() {
   const { t, language } = useLanguage();
+  const { user } = useAuth();
   const { venueId } = useOwnerVenue();
   const { plan, status, isTrial, daysRemaining, currentPeriodEnd, isEarlyAdopter, priceLocked, billingInterval, loading, refreshPlan } = useSubscriptionPlan();
   const { stripeStatus, loading: stripeLoading, startOnboarding, openDashboard, refreshStatus, manageSubscription } = useStripeConnect(venueId);
@@ -137,6 +140,14 @@ export default function OwnerBilling() {
     if (!venueId) return;
     // Elite is not purchasable at launch — the backend rejects it too (defense in depth).
     if (planCode === 'elite') { toast.info(t('plan.comingSoon')); return; }
+    // Comptes démo @womber.fr : bascule instantanée du plan, sans Stripe ni edge
+    // function (CORS-lock yunoapp.eu). Le hook relit l'override localStorage.
+    if (isDemoEmail(user?.email)) {
+      setDemoPlan(planCode);
+      toast.success(t('plan.planChanged'));
+      refreshPlan();
+      return;
+    }
     setSubscribing(planCode);
     try {
       const { data, error } = await supabase.functions.invoke('club-subscription', { body: { action: 'create', venueId, planCode, billingCycle: cycle } });
