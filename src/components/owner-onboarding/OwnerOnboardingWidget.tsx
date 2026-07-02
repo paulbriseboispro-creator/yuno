@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, ChevronUp, ChevronDown, X, Rocket, SkipForward, ChevronRight } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { translate } from '@/i18n/orgTranslate';
-import { useOrganizerOnboarding } from '@/hooks/useOrganizerOnboarding';
+import { useOwnerOnboarding } from '@/hooks/useOwnerOnboarding';
 
 const RED = '#E8192C';
 const POS = '#34D399';
@@ -14,90 +13,73 @@ const T3 = 'rgba(255,255,255,0.36)';
 const BORDER = 'rgba(255,255,255,0.085)';
 const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
 
-interface OrgOnboardingWidgetProps {
-  userId: string;
+interface OwnerOnboardingWidgetProps {
+  venueId: string;
 }
 
 const STEP_DEFS = [
   {
     key: '1',
-    fr: 'Organisation & ville',
-    en: 'Organization & city',
-    es: 'Organización y ciudad',
-    hintFr: 'Nommez et localisez votre orga',
-    hintEn: 'Name and locate your org',
-    hintEs: 'Nombre y ubica tu org',
-    page: '/organizer-app/organization',
+    label: { fr: 'Piliers & bienvenue', en: 'Pillars & welcome', es: 'Pilares y bienvenida' },
+    hint: { fr: 'Billets, tables VIP ou boissons ?', en: 'Tickets, VIP tables or drinks?', es: '¿Entradas, mesas VIP o bebidas?' },
+    page: '/owner/onboarding',
   },
   {
     key: '2',
-    fr: 'Profil public',
-    en: 'Public profile',
-    es: 'Perfil público',
-    hintFr: 'Photo, bio, réseaux sociaux',
-    hintEn: 'Photo, bio, social links',
-    hintEs: 'Foto, bio, redes sociales',
-    page: '/organizer-app/profile',
+    label: { fr: 'Votre établissement', en: 'Your venue', es: 'Tu establecimiento' },
+    hint: { fr: 'Nom, ville, adresse', en: 'Name, city, address', es: 'Nombre, ciudad, dirección' },
+    page: '/owner/venue',
   },
   {
     key: '3',
-    fr: 'Premier événement',
-    en: 'First event',
-    es: 'Primer evento',
-    hintFr: 'Créez votre première soirée',
-    hintEn: 'Create your first event',
-    hintEs: 'Crea tu primer evento',
-    page: '/organizer-app/events',
+    label: { fr: 'Votre offre', en: 'Your offer', es: 'Tu oferta' },
+    hint: { fr: 'Soirées, tables VIP, carte boissons', en: 'Events, VIP tables, drinks menu', es: 'Eventos, mesas VIP, carta de bebidas' },
+    page: '/owner/events',
   },
   {
     key: '4',
-    fr: 'Équipe & promoteurs',
-    en: 'Team & promoters',
-    es: 'Equipo y promotores',
-    hintFr: 'Invitez votre équipe',
-    hintEn: 'Invite your team',
-    hintEs: 'Invita a tu equipo',
-    page: '/organizer-app/team',
+    label: { fr: 'Page & image de marque', en: 'Page & branding', es: 'Página y marca' },
+    hint: { fr: 'Photo, description, réseaux', en: 'Cover photo, description, socials', es: 'Foto, descripción, redes' },
+    page: '/owner/venue',
   },
   {
     key: '5',
-    fr: 'Paiements Stripe',
-    en: 'Stripe payments',
-    es: 'Pagos Stripe',
-    hintFr: 'Recevez vos revenus directement',
-    hintEn: 'Receive your revenue directly',
-    hintEs: 'Recibe tus ingresos directamente',
-    page: '/organizer-app/payments',
+    label: { fr: 'Votre équipe', en: 'Your team', es: 'Tu equipo' },
+    hint: { fr: 'Staff, barmans, bouncer, hôte VIP', en: 'Staff, bartenders, bouncer, VIP host', es: 'Staff, bartenders, portero, anfitrión VIP' },
+    page: '/owner/staff',
   },
   {
     key: '6',
-    fr: "Découvrir l'app",
-    en: 'Explore the app',
-    es: 'Explorar la app',
-    hintFr: 'Tableau de bord, stats, outils',
-    hintEn: 'Dashboard, stats, tools',
-    hintEs: 'Panel, estadísticas, herramientas',
-    page: '/organizer-app',
+    label: { fr: 'Paiements Stripe', en: 'Stripe payments', es: 'Pagos Stripe' },
+    hint: { fr: 'Recevez vos revenus directement', en: 'Receive your revenue directly', es: 'Recibe tus ingresos directamente' },
+    page: '/owner/billing',
+  },
+  {
+    key: '7',
+    label: { fr: 'Mise en ligne', en: 'Go live', es: 'Publicar' },
+    hint: { fr: 'Publiez votre premier événement', en: 'Publish your first event', es: 'Publica tu primer evento' },
+    page: '/owner/events',
   },
 ];
 
 const STEP_COUNT = STEP_DEFS.length;
 
-export function OrgOnboardingWidget({ userId }: OrgOnboardingWidgetProps) {
-  const { language } = useLanguage();
+export function OwnerOnboardingWidget({ venueId }: OwnerOnboardingWidgetProps) {
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
-  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
-  // The hook auto-creates the organizer_onboarding row if missing
-  // and runs step detection from real data.
-  const { loading, stepStatuses } = useOrganizerOnboarding(userId);
+  // The hook auto-creates the venue_onboarding row if missing and runs detection.
+  const { loading, stepStatuses, isComplete } = useOwnerOnboarding(venueId);
 
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDismissed, setIsDismissed] = useState(() =>
-    sessionStorage.getItem('org_widget_dismissed') === '1',
+    sessionStorage.getItem('owner_widget_dismissed') === '1',
   );
 
-  if (loading || isDismissed) return null;
+  const l = (obj: { fr: string; en: string; es: string }) =>
+    language === 'fr' ? obj.fr : language === 'es' ? obj.es : obj.en;
+
+  if (loading || isDismissed || isComplete) return null;
 
   const doneCount = Object.values(stepStatuses).filter(
     s => s.status === 'completed' || s.status === 'skipped',
@@ -110,7 +92,6 @@ export function OrgOnboardingWidget({ userId }: OrgOnboardingWidgetProps) {
   const circ = 2 * Math.PI * r;
   const dash = (progressPct / 100) * circ;
 
-  // First step that still needs action
   const nextKey = STEP_DEFS.find(s => {
     const st = stepStatuses[s.key]?.status;
     return st !== 'completed' && st !== 'skipped';
@@ -118,7 +99,7 @@ export function OrgOnboardingWidget({ userId }: OrgOnboardingWidgetProps) {
 
   const handleDismiss = (e: React.MouseEvent) => {
     e.stopPropagation();
-    sessionStorage.setItem('org_widget_dismissed', '1');
+    sessionStorage.setItem('owner_widget_dismissed', '1');
     setIsDismissed(true);
   };
 
@@ -150,17 +131,17 @@ export function OrgOnboardingWidget({ userId }: OrgOnboardingWidgetProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <p style={{ color: T1, fontSize: 13, fontWeight: 600, margin: 0 }}>
-                  {tt('Finaliser la configuration', 'Complete your setup', 'Finaliza la configuración')}
+                  {t('onboarding.completeSetup')}
                 </p>
                 <p style={{ color: T3, fontSize: 11, marginTop: 1 }} className="tabular-nums">
-                  {doneCount}/{STEP_COUNT} {tt('étapes', 'steps', 'pasos')} · {progressPct}%
+                  {doneCount}/{STEP_COUNT} {t('onboarding.steps')} · {progressPct}%
                 </p>
               </div>
               <button
                 onClick={handleDismiss}
                 className="flex items-center justify-center w-6 h-6 rounded-md cursor-pointer transition-colors hover:bg-white/[0.06]"
                 style={{ color: T3 }}
-                aria-label={tt('Fermer', 'Close', 'Cerrar')}
+                aria-label={t('common.close')}
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -185,15 +166,14 @@ export function OrgOnboardingWidget({ userId }: OrgOnboardingWidgetProps) {
                 const status = stepStatuses[step.key]?.status ?? 'not_started';
                 const done = status === 'completed' || status === 'skipped';
                 const isNext = step.key === nextKey;
-                const label = tt(step.fr, step.en, step.es);
-                const hint = tt(step.hintFr, step.hintEn, step.hintEs);
+                const label = l(step.label);
+                const hint = l(step.hint);
                 return (
                   <button
                     key={step.key}
                     onClick={() => { navigate(step.page); setIsExpanded(false); }}
                     className="flex items-center gap-3 w-full px-4 py-2.5 cursor-pointer transition-colors hover:bg-white/[0.03] text-left"
                   >
-                    {/* Status icon */}
                     <div
                       className="flex-none w-5 h-5 rounded-full flex items-center justify-center"
                       style={
@@ -215,7 +195,6 @@ export function OrgOnboardingWidget({ userId }: OrgOnboardingWidgetProps) {
                       )}
                     </div>
 
-                    {/* Labels */}
                     <div className="flex-1 min-w-0">
                       <p style={{
                         fontSize: 12.5,
@@ -232,7 +211,6 @@ export function OrgOnboardingWidget({ userId }: OrgOnboardingWidgetProps) {
                       )}
                     </div>
 
-                    {/* Arrow */}
                     {!done && (
                       <ChevronRight
                         className="w-3.5 h-3.5 flex-none"
@@ -258,7 +236,7 @@ export function OrgOnboardingWidget({ userId }: OrgOnboardingWidgetProps) {
           padding: '8px 14px 8px 10px',
           boxShadow: '0 8px 24px -4px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04)',
         }}
-        aria-label={isExpanded ? tt('Réduire', 'Collapse', 'Contraer') : tt('Configuration', 'Setup', 'Configuración')}
+        aria-label={isExpanded ? t('common.collapse') : t('onboarding.setup')}
       >
         <svg width={36} height={36} viewBox="0 0 36 36" style={{ flexShrink: 0 }}>
           <circle cx={18} cy={18} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={3} />
@@ -277,7 +255,7 @@ export function OrgOnboardingWidget({ userId }: OrgOnboardingWidgetProps) {
           </text>
         </svg>
         <span style={{ color: T1, fontSize: 13, fontWeight: 600 }}>
-          {tt('Config.', 'Setup', 'Config.')}
+          {t('onboarding.setup')}
         </span>
         {isExpanded
           ? <ChevronDown className="w-3.5 h-3.5 flex-none" style={{ color: T2 }} />

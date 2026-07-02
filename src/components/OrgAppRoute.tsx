@@ -18,7 +18,7 @@ interface OrgAppRouteProps {
  */
 export function OrgAppRoute({ children }: OrgAppRouteProps) {
   const { user, loading: authLoading } = useAuth();
-  const { profile, loading: profileLoading, isOrganizer } = useProfileType();
+  const { loading: profileLoading, isOrganizer } = useProfileType();
   const location = useLocation();
 
   if (authLoading || profileLoading) {
@@ -36,11 +36,6 @@ export function OrgAppRoute({ children }: OrgAppRouteProps) {
   if (!isOrganizer) {
     // Clubs and clients should not be here
     return <Navigate to="/" replace />;
-  }
-
-  // Force onboarding completion
-  if (profile && !profile.onboardingCompleted && !location.pathname.startsWith('/organizer-app/onboarding')) {
-    return <Navigate to="/organizer-app/onboarding" replace />;
   }
 
   return <>{children}</>;
