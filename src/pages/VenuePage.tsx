@@ -1021,7 +1021,7 @@ export default function VenuePage() {
           aria-label="Powered by Yuno"
           style={{
             position: 'fixed',
-            bottom: '20px',
+            bottom: 'calc(var(--bottom-nav-height, 67px) + 16px)',
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 100,
