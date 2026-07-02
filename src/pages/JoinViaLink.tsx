@@ -40,9 +40,9 @@ const ROLE_CONTENT: Record<string, RoleContent> = {
     headline: 'Sell events.\nKeep what you earn.',
     sub: 'Your events, your revenue, your platform.',
     perks: [
-      { icon: Ticket, text: 'Sell tickets with zero upfront cost' },
-      { icon: Users, text: 'Real-time guest lists & digital check-in' },
+      { icon: Ticket, text: 'Sell tickets & VIP tables — zero upfront cost' },
       { icon: TrendingUp, text: 'Revenue analytics after every event' },
+      { icon: Users, text: 'DJs, promoters & staff — all in one ecosystem' },
     ],
   },
   dj: {
@@ -135,7 +135,7 @@ function VisualPanel({ info, t }: { info: LinkInfo | null; t: (k: string) => str
   const hasCover = !!info?.venue_cover;
 
   return (
-    <div className="relative lg:w-[55%] min-h-[42vh] lg:min-h-screen overflow-hidden flex flex-col">
+    <div className="relative lg:w-[55%] min-h-[52vw] lg:min-h-screen overflow-hidden flex flex-col" style={{ minHeight: 'clamp(260px, 52vw, 100vh)' }}>
       {/* Background */}
       {hasCover ? (
         <img
@@ -154,17 +154,17 @@ function VisualPanel({ info, t }: { info: LinkInfo | null; t: (k: string) => str
       <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent" />
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col h-full p-6 lg:p-10">
+      <div className="relative z-10 flex flex-col justify-between h-full p-5 lg:p-10">
         {/* Logo */}
         <div className="flex items-center gap-2">
           <img src="/yuno-icon-192.png" alt="Yuno" className="w-7 h-7 rounded-lg" />
           <span className="text-white font-bold text-lg tracking-tight">yuno</span>
         </div>
 
-        {/* Main content — pushed to bottom on desktop */}
-        <div className="mt-auto">
+        {/* Main content */}
+        <div className="mt-5 lg:mt-auto">
           {/* Role badge */}
-          <div className="inline-flex items-center gap-1.5 bg-[#E8192C]/20 border border-[#E8192C]/30 rounded-full px-3 py-1 mb-5">
+          <div className="inline-flex items-center gap-1.5 bg-[#E8192C]/20 border border-[#E8192C]/30 rounded-full px-3 py-1 mb-3 lg:mb-5">
             <div className="w-1.5 h-1.5 rounded-full bg-[#E8192C]" />
             <span className="text-[#E8192C] text-xs font-semibold uppercase tracking-wider">
               {info ? (t(`join.role.${info.role}`) || info.role) : 'Pro'}
@@ -172,31 +172,23 @@ function VisualPanel({ info, t }: { info: LinkInfo | null; t: (k: string) => str
           </div>
 
           {/* Headline */}
-          <h1 className="text-white font-bold leading-[1.1] mb-3 whitespace-pre-line"
-            style={{ fontSize: 'clamp(28px, 4vw, 46px)' }}>
+          <h1 className="text-white font-bold leading-[1.1] mb-2 lg:mb-3 whitespace-pre-line"
+            style={{ fontSize: 'clamp(22px, 5vw, 46px)' }}>
             {content.headline}
           </h1>
-          <p className="text-white/60 text-sm lg:text-base mb-7">{content.sub}</p>
+          <p className="text-white/60 text-xs lg:text-base mb-4 lg:mb-7">{content.sub}</p>
 
-          {/* Perks */}
-          <ul className="space-y-3 mb-8">
+          {/* Perks — hidden on very small mobile to keep panel tight */}
+          <ul className="space-y-2 lg:space-y-3">
             {content.perks.map(({ icon: Icon, text }) => (
-              <li key={text} className="flex items-center gap-3">
-                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-[#E8192C]/15 flex items-center justify-center">
-                  <Icon className="w-3.5 h-3.5 text-[#E8192C]" />
+              <li key={text} className="flex items-center gap-2.5 lg:gap-3">
+                <div className="flex-shrink-0 w-6 h-6 lg:w-7 lg:h-7 rounded-full bg-[#E8192C]/15 flex items-center justify-center">
+                  <Icon className="w-3 h-3 lg:w-3.5 lg:h-3.5 text-[#E8192C]" />
                 </div>
-                <span className="text-white/80 text-sm">{text}</span>
+                <span className="text-white/80 text-xs lg:text-sm">{text}</span>
               </li>
             ))}
           </ul>
-
-          {/* Inviter strip */}
-          {inviter && (
-            <div className="flex items-center gap-2 pt-5 border-t border-white/10">
-              <span className="text-white/40 text-xs">{t('join.invitedBy')}</span>
-              <span className="text-white/80 text-xs font-semibold">{inviter}</span>
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -404,9 +396,25 @@ export default function JoinViaLink() {
         <VisualPanel info={info} t={t} />
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="w-full max-w-sm">
-            <div className="mb-8">
-              <h2 className="text-white text-2xl font-bold mb-1">{t('join.youreInvited')}</h2>
-              <p className="text-white/40 text-sm">{t('join.joinTheTeam')}</p>
+            <div className="mb-6">
+              <div className="inline-flex items-center gap-1.5 bg-[#E8192C]/10 border border-[#E8192C]/20 rounded-full px-3 py-1 mb-4">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#E8192C]" />
+                <span className="text-[#E8192C] text-xs font-medium">{t('join.privateInvite')}</span>
+              </div>
+              {(info.venue_name || info.organizer_name) ? (
+                <>
+                  <p className="text-white/50 text-sm mb-0.5">{t('join.welcomeAt')}</p>
+                  <h2 className="text-white font-bold leading-tight mb-2" style={{ fontSize: 'clamp(22px, 6vw, 32px)' }}>
+                    {info.venue_name || info.organizer_name}
+                  </h2>
+                  <p className="text-white/40 text-sm">{t('join.forYouOnly')}</p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-white text-2xl font-bold mb-1">{t('join.youreInvited')}</h2>
+                  <p className="text-white/40 text-sm">{t('join.joinTheTeam')}</p>
+                </>
+              )}
             </div>
 
             {/* Account pill */}
@@ -463,27 +471,34 @@ export default function JoinViaLink() {
           {/* Step: overview */}
           {step === 'overview' && (
             <div className="animate-in fade-in duration-300">
-              <div className="mb-8">
-                <div className="inline-flex items-center gap-1.5 bg-white/5 border border-white/10 rounded-full px-3 py-1 mb-4">
-                  <span className="text-white/50 text-xs">{t('join.noAccountNeeded')}</span>
+              {/* Welcome header — personalized if inviter name exists */}
+              <div className="mb-6">
+                <div className="inline-flex items-center gap-1.5 bg-[#E8192C]/10 border border-[#E8192C]/20 rounded-full px-3 py-1 mb-4">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#E8192C]" />
+                  <span className="text-[#E8192C] text-xs font-medium">{t('join.privateInvite')}</span>
                 </div>
-                <h2 className="text-white text-2xl font-bold mb-2">{t('join.youreInvited')}</h2>
-                <p className="text-white/40 text-sm">{t('join.joinTheTeam')}</p>
+                {(info.venue_name || info.organizer_name) ? (
+                  <>
+                    <p className="text-white/50 text-sm mb-0.5">{t('join.welcomeAt')}</p>
+                    <h2 className="text-white font-bold leading-tight mb-2" style={{ fontSize: 'clamp(22px, 6vw, 32px)' }}>
+                      {info.venue_name || info.organizer_name}
+                    </h2>
+                    <p className="text-white/40 text-sm">{t('join.forYouOnly')}</p>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-white text-2xl font-bold mb-2">{t('join.youreInvited')}</h2>
+                    <p className="text-white/40 text-sm">{t('join.joinTheTeam')}</p>
+                  </>
+                )}
               </div>
 
               {/* Role card */}
-              <div className="p-4 rounded-xl bg-white/5 border border-white/10 mb-3">
+              <div className="p-4 rounded-xl bg-white/5 border border-white/10 mb-5">
                 <p className="text-white/40 text-xs mb-1">{t('join.yourRole')}</p>
                 <p className="text-white font-semibold text-lg">{roleLabel}</p>
                 {info.label && <p className="text-white/40 text-xs mt-0.5">{info.label}</p>}
               </div>
-
-              {(info.venue_name || info.organizer_name) && (
-                <div className="p-3 rounded-xl bg-white/3 border border-white/8 mb-6 flex items-center gap-2">
-                  <span className="text-white/30 text-xs">{t('join.invitedBy')}</span>
-                  <span className="text-white/70 text-xs font-medium">{info.venue_name || info.organizer_name}</span>
-                </div>
-              )}
 
               <Button
                 className="w-full bg-[#E8192C] hover:bg-[#FF2438] text-white font-semibold py-3.5 h-auto text-base mb-3"
