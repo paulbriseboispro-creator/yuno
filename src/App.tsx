@@ -631,13 +631,13 @@ const App = () => (
                   <Route path="campaigns/:id/report" element={<PlanGuard feature="email_campaigns_promotional"><OwnerCampaignReport /></PlanGuard>} />
                   <Route path="sms" element={<OwnerSmsCredits />} />
                   <Route path="sms-campaigns" element={<OwnerSmsCampaigns />} />
-                  <Route path="promoters" element={<PlanGuard feature="promoters"><OwnerPromoters /></PlanGuard>} />
-                  <Route path="promoters/announcements" element={<OwnerPromoterAnnouncements />} />
-                  <Route path="promoters/finance" element={<OwnerPromoterFinance />} />
-                  <Route path="promoters/templates" element={<OwnerPromoterTemplates />} />
-                  <Route path="promoters/teams" element={<OwnerPromoterTeams />} />
-                  <Route path="promoters/event/:eventId" element={<OwnerPromoterEventView />} />
-                  <Route path="promoters/:id" element={<OwnerPromoterDetail />} />
+                  <Route path="promoters" element={<PlanGuard feature="promoters_basic"><OwnerPromoters /></PlanGuard>} />
+                  <Route path="promoters/announcements" element={<PlanGuard feature="promoters"><OwnerPromoterAnnouncements /></PlanGuard>} />
+                  <Route path="promoters/finance" element={<PlanGuard feature="promoters"><OwnerPromoterFinance /></PlanGuard>} />
+                  <Route path="promoters/templates" element={<PlanGuard feature="promoters"><OwnerPromoterTemplates /></PlanGuard>} />
+                  <Route path="promoters/teams" element={<PlanGuard feature="promoters"><OwnerPromoterTeams /></PlanGuard>} />
+                  <Route path="promoters/event/:eventId" element={<PlanGuard feature="promoters_basic"><OwnerPromoterEventView /></PlanGuard>} />
+                  <Route path="promoters/:id" element={<PlanGuard feature="promoters_basic"><OwnerPromoterDetail /></PlanGuard>} />
                   <Route path="agencies" element={<PlanGuard feature="promoters"><OwnerAgencies /></PlanGuard>} />
                   <Route path="orders" element={<PlanGuard feature="orders_qr"><OwnerOrders /></PlanGuard>} />
                   <Route path="invoices" element={<PlanGuard feature="invoices_refunds"><OwnerInvoices /></PlanGuard>} />
