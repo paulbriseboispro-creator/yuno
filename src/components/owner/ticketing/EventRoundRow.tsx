@@ -55,18 +55,19 @@ export function EventRoundRow({ round, event, isSimpleMode, isVip, onEdit, onDel
         {onToggleSoldOut && (
           <Button
             variant="ghost"
-            size="icon"
+            size="icon-sm"
             onClick={() => onToggleSoldOut(round, event.id)}
             title={round.manuallySoldOut ? t('tickets.soldOutClear') : t('tickets.markSoldOut')}
+            className={round.manuallySoldOut ? 'hover:bg-[rgba(52,211,153,0.12)]' : 'hover:bg-[rgba(232,25,44,0.12)]'}
             style={{ color: round.manuallySoldOut ? POS : RED }}
           >
             {round.manuallySoldOut ? <RotateCcw className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
           </Button>
         )}
-        <Button variant="ghost" size="icon" onClick={() => onEdit(round, event)} style={{ color: T2 }}>
+        <Button variant="ghost" size="icon-sm" onClick={() => onEdit(round, event)} className="hover:bg-white/[0.06]" style={{ color: T2 }}>
           <Pencil className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" size="icon" onClick={() => onDelete(round.id, event.id)} style={{ color: RED }}>
+        <Button variant="ghost" size="icon-sm" onClick={() => onDelete(round.id, event.id)} className="hover:bg-[rgba(232,25,44,0.12)]" style={{ color: RED }}>
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>

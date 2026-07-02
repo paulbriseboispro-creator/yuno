@@ -314,6 +314,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.ev.ticketing.s6h', bodyKey: 'ohelp.ev.ticketing.s6b' },
           { headingKey: 'ohelp.ev.ticketing.s7h', bodyKey: 'ohelp.ev.ticketing.s7b', type: 'steps' },
           { headingKey: 'ohelp.ev.ticketing.s8h', bodyKey: 'ohelp.ev.ticketing.s8b' },
+          { headingKey: 'ohelp.ev.ticketing.s11h', bodyKey: 'ohelp.ev.ticketing.s11b' },
           { headingKey: 'ohelp.ev.ticketing.s9h', bodyKey: 'ohelp.ev.ticketing.s9b', type: 'tip' },
           { headingKey: 'ohelp.ev.ticketing.s10h', bodyKey: 'ohelp.ev.ticketing.s10b', type: 'warning' },
         ],
