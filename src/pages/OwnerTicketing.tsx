@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Pencil, Trash2, Ticket, Save, FolderOpen, Zap, Crown, Wine, ShieldCheck, Clock, ChevronDown, Users, Bell, Check, ArrowRight, ArrowLeft, Sparkles, Lock, Copy, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -64,6 +64,10 @@ export default function OwnerTicketing() {
   const [editingRound, setEditingRound] = useState<TicketRound | null>(null);
   const [editingPreset, setEditingPreset] = useState<TicketPreset | null>(null);
   const [activeTab, setActiveTab] = useState('events');
+  // Accordion: keep only one event expanded to full config at a time; the rest
+  // collapse to a compact preview so a long list of nights stays scannable.
+  const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
+  const didInitExpand = useRef(false);
   const [presetTicketType, setPresetTicketType] = useState<TicketType>('standard');
   const [presetSellingMode, setPresetSellingMode] = useState<PresetSellingMode>('rounds');
   const [presetTypeStep, setPresetTypeStep] = useState<'mode' | 'type'>('mode');
@@ -160,6 +164,15 @@ export default function OwnerTicketing() {
       });
     }
   }, [venueId, organizerUserId, isOrganizerScope]);
+
+  // Expand the soonest event by default, once, when events first load. After that
+  // the owner is in full control (including collapsing all).
+  useEffect(() => {
+    if (!didInitExpand.current && events.length > 0) {
+      didInitExpand.current = true;
+      setExpandedEventId(events[0].id);
+    }
+  }, [events]);
 
   const fetchWaitlistEntries = async (eventIds: string[]) => {
     if (eventIds.length === 0) return;
@@ -1307,16 +1320,46 @@ export default function OwnerTicketing() {
                   const isSimpleMode = event.ticketSellingMode === 'simple';
                   const totalTickets = isSimpleMode ? (event.maxTickets || 0) : rounds.reduce((sum, r) => sum + r.maxTickets, 0);
                   const soldTickets = rounds.reduce((sum, r) => sum + r.ticketsSold, 0);
+                  const isExpanded = expandedEventId === event.id;
+                  // Preview-strip data (shown when the card is collapsed).
+                  const prices = rounds.map(r => r.price);
+                  const minPrice = prices.length ? Math.min(...prices) : null;
+                  const maxPrice = prices.length ? Math.max(...prices) : null;
+                  const salesMode = resolveSalesMode({ presaleStartAt: event.presaleStartAt, publicSaleStartAt: event.publicSaleStartAt, waitlistEnabled: event.waitlistEnabled });
+                  const sellingModeLabel = event.ticketSellingMode === 'simple'
+                    ? t('tickets.sellingModeSimple')
+                    : event.ticketSellingMode === 'timed_entry'
+                      ? t('tickets.sellingModeTimed')
+                      : t('tickets.sellingModeRounds');
+                  const status = !event.ticketingEnabled
+                    ? { label: t('tickets.ticketingOff'), color: T3, bg: 'rgba(255,255,255,0.06)', border: BORDER }
+                    : salesMode === 'presale'
+                      ? { label: t('tickets.statusPresale'), color: GOLD, bg: 'rgba(252,211,153,0.1)', border: 'rgba(252,211,153,0.3)' }
+                      : salesMode === 'private'
+                        ? { label: t('tickets.statusPrivate'), color: T2, bg: 'rgba(255,255,255,0.06)', border: BORDER }
+                        : { label: t('tickets.statusOnSale'), color: POS, bg: 'rgba(52,211,153,0.1)', border: 'rgba(52,211,153,0.25)' };
 
                   return (
                     <div key={event.id} className="p-5 sm:p-6" style={MAIN_CARD}>
-                      <div className="flex items-start justify-between gap-4 mb-5">
-                        <div className="min-w-0">
-                          <h3 className="truncate" style={{ color: T1, fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em' }}>{event.title}</h3>
-                          <p style={{ color: T3, fontSize: 12.5, marginTop: 3 }}>
-                            {formatInTimeZone(new Date(event.startAt), PARIS_TIMEZONE, 'EEEE d MMMM yyyy, HH:mm', { locale: getLocale() })}
-                          </p>
-                        </div>
+                      <div className="flex items-start justify-between gap-4">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedEventId(prev => prev === event.id ? null : event.id)}
+                          className="flex items-start gap-3 min-w-0 flex-1 text-left cursor-pointer bg-transparent border-0 p-0"
+                          aria-expanded={isExpanded}
+                          title={isExpanded ? t('tickets.collapseEvent') : t('tickets.expandEvent')}
+                        >
+                          <ChevronDown
+                            className="h-4 w-4 flex-none mt-1.5 transition-transform duration-200"
+                            style={{ color: T3, transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+                          />
+                          <div className="min-w-0">
+                            <h3 className="truncate" style={{ color: T1, fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em' }}>{event.title}</h3>
+                            <p style={{ color: T3, fontSize: 12.5, marginTop: 3 }}>
+                              {formatInTimeZone(new Date(event.startAt), PARIS_TIMEZONE, 'EEEE d MMMM yyyy, HH:mm', { locale: getLocale() })}
+                            </p>
+                          </div>
+                        </button>
                         <div className="flex items-center gap-2 flex-none">
                           <span className="hidden sm:inline" style={{ color: T3, fontSize: 12.5 }}>{t('tickets.enableTicketing')}</span>
                           <Switch
@@ -1326,7 +1369,36 @@ export default function OwnerTicketing() {
                         </div>
                       </div>
 
-                      <div>
+                      {/* Collapsed preview: key info at a glance */}
+                      {!isExpanded && (
+                        <button
+                          type="button"
+                          onClick={() => setExpandedEventId(event.id)}
+                          className="mt-4 w-full flex flex-wrap items-center gap-2 text-left cursor-pointer bg-transparent border-0 p-0"
+                        >
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold" style={{ background: status.bg, border: `1px solid ${status.border}`, color: status.color }}>
+                            {status.label}
+                          </span>
+                          {event.ticketingEnabled && (
+                            <>
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium tabular-nums" style={{ background: TILE_BG, border: `1px solid ${BORDER}`, color: T2 }}>
+                                {isSimpleMode ? `${soldTickets}` : `${soldTickets}/${totalTickets}`} {t('tickets.sold')}
+                              </span>
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium" style={{ background: TILE_BG, border: `1px solid ${BORDER}`, color: T2 }}>
+                                {sellingModeLabel}
+                              </span>
+                              {minPrice !== null && (
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-medium tabular-nums" style={{ background: TILE_BG, border: `1px solid ${BORDER}`, color: T2 }}>
+                                  {minPrice === maxPrice ? `${minPrice}€` : `${minPrice}€ – ${maxPrice}€`}
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </button>
+                      )}
+
+                      {isExpanded && (
+                      <div className="mt-5">
                         {event.ticketingEnabled ? (
                           <div className="space-y-3">
                             {/* Selling mode toggle */}
@@ -1498,6 +1570,7 @@ export default function OwnerTicketing() {
                           </p>
                         )}
                       </div>
+                      )}
                     </div>
                   );
                 })}
