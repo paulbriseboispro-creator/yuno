@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Plus, Edit2, Trash2, User, Building2, ExternalLink, Mail, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Plus, Edit2, Trash2, User, Building2, ExternalLink, Mail, Loader2, Eye, EyeOff, Link2, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { GenerateOnboardingLinkButton } from '@/components/onboarding/GenerateOnboardingLinkButton';
@@ -137,10 +137,26 @@ export default function AdminVenues() {
     }
   };
 
+  // Onboarding link generated inline after creating an owner-less club.
+  const [createdLink, setCreatedLink] = useState<{ url: string; venueName: string } | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
+
   const openCreateDialog = () => {
     setEditingVenue(null);
+    setCreatedLink(null);
+    setLinkCopied(false);
     setFormData({ id: '', name: '', city: '', address: '', latitude: '', longitude: '', owner_email: '' });
     setDialogOpen(true);
+  };
+
+  const copyCreatedLink = async () => {
+    if (!createdLink) return;
+    try {
+      await navigator.clipboard.writeText(createdLink.url);
+      setLinkCopied(true);
+      toast.success(t('genLink.copied'));
+      setTimeout(() => setLinkCopied(false), 1800);
+    } catch { toast.error(t('genLink.copyFailed')); }
   };
 
   const openEditDialog = (venue: Venue) => {
@@ -171,6 +187,22 @@ export default function AdminVenues() {
         const { error } = await supabase.from('venues').insert({ id: venueId, name: formData.name, city: formData.city, address: formData.address || null, latitude: lat, longitude: lng });
         if (error) throw error;
         toast.success(lat && lng ? t('adminVenues.clubCreatedGPS') : t('adminVenues.clubCreated'));
+      }
+
+      // New club without an owner email → generate an owner onboarding link inline
+      // (a link needs the club id, which only exists once it's created). Keeps the
+      // dialog open to show the shareable URL. Email path + edits behave as before.
+      if (!editingVenue && !formData.owner_email) {
+        try {
+          const { data: linkData, error: linkErr } = await supabase.functions.invoke('accept-staff-invitation', {
+            body: { action: 'create_onboarding_link', role: 'owner', venue_id: venueId },
+          });
+          if (!linkErr && linkData?.url) {
+            setCreatedLink({ url: linkData.url, venueName: formData.name });
+            fetchData();
+            return;
+          }
+        } catch (e) { console.error('owner link generation failed:', e); }
       }
 
       if (formData.owner_email) await inviteOwnerToEmail(venueId, formData.name, formData.owner_email);
@@ -363,12 +395,24 @@ export default function AdminVenues() {
           ))}
         </div>
 
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) { setCreatedLink(null); setLinkCopied(false); } }}>
           <DialogContent className="max-w-md border-0" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: CARD_SHADOW }}>
             <DialogHeader>
-              <DialogTitle style={{ color: T1 }}>{editingVenue ? t('adminVenues.editClub') : t('adminVenues.newClubTitle')}</DialogTitle>
-              <DialogDescription style={{ color: T3 }}>{editingVenue ? t('adminVenues.editClubDesc') : t('adminVenues.newClubDesc')}</DialogDescription>
+              <DialogTitle style={{ color: T1 }}>{createdLink ? t('adminVenues.ownerLinkReady') : editingVenue ? t('adminVenues.editClub') : t('adminVenues.newClubTitle')}</DialogTitle>
+              <DialogDescription style={{ color: T3 }}>{createdLink ? t('adminVenues.ownerLinkReadyDesc').replace('{name}', createdLink.venueName) : editingVenue ? t('adminVenues.editClubDesc') : t('adminVenues.newClubDesc')}</DialogDescription>
             </DialogHeader>
+            {createdLink ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <input readOnly value={createdLink.url} onFocus={(e) => e.currentTarget.select()} style={{ ...inputStyle, fontSize: 12 }} />
+                  <button onClick={copyCreatedLink} style={{ ...secondaryBtnStyle, padding: '9px 12px' }} title={t('genLink.share')}>
+                    {linkCopied ? <Check className="h-4 w-4" style={{ color: '#34D399' }} /> : <Copy className="h-4 w-4" />}
+                  </button>
+                </div>
+                <p style={{ fontSize: 12, color: T3 }}>{t('genLink.ownerSingleUse')}</p>
+                <button onClick={() => setDialogOpen(false)} style={{ ...primaryBtnStyle, width: '100%' }}>{t('adminVenues.done')}</button>
+              </div>
+            ) : (
             <div className="space-y-4">
               {!editingVenue && (
                 <div>
@@ -406,6 +450,11 @@ export default function AdminVenues() {
                 <p style={{ fontSize: 12, color: T3, marginTop: 4 }}>
                   {editingVenue?.owner_email ? t('adminVenues.currentOwner').replace('{email}', editingVenue.owner_email) : t('adminVenues.inviteHint')}
                 </p>
+                {!editingVenue && (
+                  <p className="flex items-center gap-1.5" style={{ fontSize: 12, color: T3, marginTop: 6 }}>
+                    <Link2 className="h-3.5 w-3.5" style={{ color: RED }} />{t('adminVenues.orLinkHint')}
+                  </p>
+                )}
               </div>
               <div className="flex gap-2 pt-4">
                 <button onClick={() => setDialogOpen(false)} style={{ ...secondaryBtnStyle, flex: 1 }}>{t('adminVenues.cancel')}</button>
@@ -414,6 +463,7 @@ export default function AdminVenues() {
                 </button>
               </div>
             </div>
+            )}
           </DialogContent>
         </Dialog>
 
