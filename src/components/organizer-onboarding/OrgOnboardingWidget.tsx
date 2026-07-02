@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, ChevronUp, ChevronDown, X, Rocket, SkipForward, ChevronRight } from 'lucide-react';
+import {
+  Check, ChevronUp, ChevronDown, X, Rocket, SkipForward,
+  ChevronRight, ArrowLeft, ExternalLink,
+} from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { useOrganizerOnboarding } from '@/hooks/useOrganizerOnboarding';
@@ -15,38 +18,29 @@ const BORDER = 'rgba(255,255,255,0.085)';
 const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
 
 interface Sub {
-  fr: string;
-  en: string;
-  es: string;
+  fr: string; en: string; es: string;
   page: string;
+  // If present, clicking shows an explainer popup instead of navigating directly
+  descFr?: string; descEn?: string; descEs?: string;
 }
 
 interface StepDef {
-  key: string;
-  fr: string;
-  en: string;
-  es: string;
+  key: string; fr: string; en: string; es: string;
   page: string;
   subs: Sub[];
 }
 
 const STEP_DEFS: StepDef[] = [
   {
-    key: '1',
-    fr: 'Organisation & ville',
-    en: 'Organization & city',
-    es: 'Organización y ciudad',
+    key: '1', fr: 'Organisation & ville', en: 'Organization & city', es: 'Organización y ciudad',
     page: '/organizer-app/organization',
     subs: [
-      { fr: 'Nom & description de l\'orga', en: 'Org name & description', es: 'Nombre y descripción', page: '/organizer-app/organization' },
+      { fr: "Nom & description de l'orga", en: 'Org name & description', es: 'Nombre y descripción', page: '/organizer-app/organization' },
       { fr: 'Ville principale des soirées', en: 'Your main event city', es: 'Ciudad principal', page: '/organizer-app/organization' },
     ],
   },
   {
-    key: '2',
-    fr: 'Profil public',
-    en: 'Public profile',
-    es: 'Perfil público',
+    key: '2', fr: 'Profil public', en: 'Public profile', es: 'Perfil público',
     page: '/organizer-app/profile',
     subs: [
       { fr: 'Photo & bio publique', en: 'Photo & public bio', es: 'Foto y bio pública', page: '/organizer-app/profile' },
@@ -54,50 +48,86 @@ const STEP_DEFS: StepDef[] = [
     ],
   },
   {
-    key: '3',
-    fr: 'Premier événement',
-    en: 'First event',
-    es: 'Primer evento',
+    key: '3', fr: 'Premier événement', en: 'First event', es: 'Primer evento',
     page: '/organizer-app/events',
     subs: [
       { fr: 'Créer une soirée', en: 'Create an event', es: 'Crear un evento', page: '/organizer-app/events' },
-      { fr: 'Configurer la billetterie', en: 'Set up tickets', es: 'Configurar entradas', page: '/organizer-app/ticketing' },
-      { fr: 'Ouvrir la guest list', en: 'Open the guest list', es: 'Abrir la lista de invitados', page: '/organizer-app/guest-list' },
+      {
+        fr: 'Configurer la billetterie', en: 'Set up tickets', es: 'Configurar entradas',
+        page: '/organizer-app/ticketing',
+        descFr: "Créez plusieurs types de billets (normal, VIP, early bird) avec prix, quantités et dates de prévente. Chaque acheteur reçoit un QR code unique scannable à l'entrée par votre bouncer.",
+        descEn: 'Create ticket tiers (standard, VIP, early bird) with prices, quantities and presale dates. Each buyer gets a unique QR code your bouncer scans at the door.',
+        descEs: 'Crea tipos de entradas (normal, VIP, preventa) con precios, cantidades y fechas. Cada comprador recibe un QR único que el portero escanea en la puerta.',
+      },
+      {
+        fr: 'Ouvrir la guest list', en: 'Open the guest list', es: 'Abrir la lista de invitados',
+        page: '/organizer-app/guest-list',
+        descFr: "La guest list permet à vos invités de s'inscrire gratuitement via un lien partageable. Le jour J, votre bouncer valide les noms en un clic depuis son téléphone — pas de papier, pas d'impression.",
+        descEn: 'The guest list lets invitees register for free via a shareable link. On the night, your bouncer validates names in one tap from their phone — no paper, no printing.',
+        descEs: 'La lista de invitados permite inscribirse gratis con un enlace. El portero valida los nombres con un toque desde su móvil, sin papel.',
+      },
     ],
   },
   {
-    key: '4',
-    fr: 'Équipe & promoteurs',
-    en: 'Team & promoters',
-    es: 'Equipo y promotores',
+    key: '4', fr: 'Équipe & promoteurs', en: 'Team & promoters', es: 'Equipo y promotores',
     page: '/organizer-app/team',
     subs: [
       { fr: 'Inviter un collaborateur', en: 'Invite a collaborator', es: 'Invitar colaborador', page: '/organizer-app/team' },
-      { fr: 'Créer des liens promoteurs', en: 'Create promoter links', es: 'Crear links de promotores', page: '/organizer-app/promoters' },
+      {
+        fr: 'Créer des liens promoteurs', en: 'Create promoter links', es: 'Crear links de promotores',
+        page: '/organizer-app/promoters',
+        descFr: "Chaque promoteur reçoit un lien unique à partager. Quand un client achète un billet via ce lien, sa commission est calculée et versée automatiquement — vous gardez la main sur les taux.",
+        descEn: 'Each promoter gets a unique tracking link. When a customer buys through it, their commission is calculated and paid automatically — you control the rates.',
+        descEs: 'Cada promotor tiene un enlace único. Cuando alguien compra a través de él, la comisión se calcula y paga automáticamente.',
+      },
     ],
   },
   {
-    key: '5',
-    fr: 'Paiements Stripe',
-    en: 'Stripe payments',
-    es: 'Pagos Stripe',
+    key: '5', fr: 'Paiements Stripe', en: 'Stripe payments', es: 'Pagos Stripe',
     page: '/organizer-app/payments',
     subs: [
       { fr: 'Connecter votre compte Stripe', en: 'Connect your Stripe account', es: 'Conectar cuenta Stripe', page: '/organizer-app/payments' },
     ],
   },
   {
-    key: '6',
-    fr: "Découvrir l'app",
-    en: 'Explore the app',
-    es: 'Explorar la app',
+    key: '6', fr: "Découvrir l'app", en: 'Explore the app', es: 'Explorar la app',
     page: '/organizer-app',
     subs: [
-      { fr: 'QR Check-in en soirée', en: 'QR Check-in at events', es: 'QR Check-in en eventos', page: '/organizer-app/checkin' },
-      { fr: 'Tables VIP & bouteilles', en: 'VIP tables & bottles', es: 'Mesas VIP y botellas', page: '/organizer-app/tables' },
-      { fr: 'Campagnes email', en: 'Email campaigns', es: 'Campañas de email', page: '/organizer-app/campaigns' },
-      { fr: 'Analytique post-soirée', en: 'Post-event analytics', es: 'Analítica post-evento', page: '/organizer-app/analytics' },
-      { fr: 'Collaborer avec un club', en: 'Collaborate with a venue', es: 'Colaborar con un club', page: '/organizer-app/collaborations' },
+      {
+        fr: 'QR Check-in en soirée', en: 'QR Check-in at events', es: 'QR Check-in en eventos',
+        page: '/organizer-app/checkin',
+        descFr: "Le jour de la soirée, votre bouncer ouvre cette page sur son téléphone et scanne les QR codes des billets. Il voit instantanément si le billet est valide, déjà utilisé ou frauduleux. Aucune app à installer.",
+        descEn: "On the night, your bouncer opens this page on their phone and scans ticket QR codes. They see instantly if a ticket is valid, already used, or fake. No app to install.",
+        descEs: 'El portero abre esta página en su móvil y escanea los QR de las entradas. Ve al instante si son válidas. Sin apps.',
+      },
+      {
+        fr: 'Tables VIP & bouteilles', en: 'VIP tables & bottles', es: 'Mesas VIP y botellas',
+        page: '/organizer-app/tables',
+        descFr: "Proposez des réservations de tables avec packages bouteilles. Le client choisit sa table sur un plan, sélectionne ses bouteilles et diluants, puis paye en ligne. Le paiement est direct sur votre compte Stripe.",
+        descEn: 'Offer table bookings with bottle packages. Customers pick their table on a floorplan, choose their bottles and mixers, then pay online. Payment goes directly to your Stripe account.',
+        descEs: 'Ofrece reservas de mesa con packs de botellas. El cliente elige su mesa, botellas y mezcladores, y paga online directamente a tu Stripe.',
+      },
+      {
+        fr: 'Campagnes email', en: 'Email campaigns', es: 'Campañas de email',
+        page: '/organizer-app/campaigns',
+        descFr: "Envoyez des emails à votre base clients : annonce de soirée, promo de billets, newsletter mensuelle. Les stats d'ouverture et de clic sont disponibles après chaque envoi.",
+        descEn: 'Send emails to your customer base: event announcements, ticket promos, monthly newsletters. Open and click stats are available after each send.',
+        descEs: 'Envía emails a tus clientes: anuncios de eventos, promos, newsletters. Estadísticas de apertura y clics disponibles tras cada envío.',
+      },
+      {
+        fr: 'Analytique post-soirée', en: 'Post-event analytics', es: 'Analítica post-evento',
+        page: '/organizer-app/analytics',
+        descFr: "Après chaque soirée : billets vendus par tranche, revenus nets, taux de no-show, provenance géographique des acheteurs, et évolution sur la saison. Exportable en PDF.",
+        descEn: "After each event: tickets sold by tier, net revenue, no-show rate, buyer geography, and season trend. Exportable as PDF.",
+        descEs: 'Después de cada evento: entradas por tipo, ingresos netos, tasa de no-show, origen de compradores y tendencia de temporada. Exportable en PDF.',
+      },
+      {
+        fr: 'Collaborer avec un club', en: 'Collaborate with a venue', es: 'Colaborar con un club',
+        page: '/organizer-app/collaborations',
+        descFr: "Co-organisez une soirée avec un club partenaire. Vous définissez ensemble le partage des revenus (billets, tables, boissons). Les virements sont automatiques et séparés — chacun reçoit sa part directement.",
+        descEn: "Co-host an event with a partner venue. You set the revenue split together (tickets, tables, drinks). Payouts are automatic and separate — each party receives their share directly.",
+        descEs: 'Co-organiza un evento con un club. Acordáis el reparto de ingresos (entradas, mesas, bebidas). Los pagos son automáticos y separados.',
+      },
     ],
   },
 ];
@@ -116,6 +146,7 @@ export function OrgOnboardingWidget({ userId }: Props) {
   const { loading, stepStatuses } = useOrganizerOnboarding(userId);
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedStep, setExpandedStep] = useState<string | null>(null);
+  const [popup, setPopup] = useState<Sub | null>(null);
   const initRef = useRef(false);
   const [isDismissed, setIsDismissed] = useState(() =>
     sessionStorage.getItem('org_widget_dismissed') === '1',
@@ -130,13 +161,15 @@ export function OrgOnboardingWidget({ userId }: Props) {
     return st !== 'completed' && st !== 'skipped';
   })?.key ?? null;
 
-  // Auto-expand the next incomplete step once
   useEffect(() => {
     if (!loading && nextKey && !initRef.current) {
       initRef.current = true;
       setExpandedStep(nextKey);
     }
   }, [loading, nextKey]);
+
+  // Close popup when widget collapses
+  useEffect(() => { if (!isExpanded) setPopup(null); }, [isExpanded]);
 
   if (loading || isDismissed || doneCount >= STEP_COUNT) return null;
 
@@ -145,14 +178,24 @@ export function OrgOnboardingWidget({ userId }: Props) {
   const circ = 2 * Math.PI * r;
   const dash = (progressPct / 100) * circ;
 
-  const toggleStep = (key: string) =>
-    setExpandedStep(prev => (prev === key ? null : key));
+  const handleSubClick = (sub: Sub) => {
+    if (sub.descEn) {
+      setPopup(sub);
+    } else {
+      navigate(sub.page);
+      setIsExpanded(false);
+    }
+  };
 
   const handleDismiss = (e: React.MouseEvent) => {
     e.stopPropagation();
     sessionStorage.setItem('org_widget_dismissed', '1');
     setIsDismissed(true);
   };
+
+  const popupDesc = popup
+    ? (language === 'fr' ? popup.descFr : language === 'es' ? popup.descEs : popup.descEn) ?? ''
+    : '';
 
   return (
     <div className="fixed z-50 flex flex-col items-end gap-2" style={{ bottom: 24, right: 24 }}>
@@ -173,28 +216,41 @@ export function OrgOnboardingWidget({ userId }: Props) {
               boxShadow: '0 24px 60px -12px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.04)',
             }}
           >
-            {/* Header */}
+            {/* ── Sticky header ── */}
             <div
               className="flex items-center gap-3 px-4 py-3 sticky top-0 z-10"
               style={{ background: '#0a0a0c', borderBottom: `1px solid ${BORDER}` }}
             >
-              <div
-                className="flex items-center justify-center rounded-lg flex-none"
-                style={{ width: 30, height: 30, background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}
-              >
-                <Rocket className="w-4 h-4" style={{ color: RED }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p style={{ color: T1, fontSize: 13, fontWeight: 600, margin: 0 }}>
-                  {tt('Finaliser la configuration', 'Complete your setup', 'Finaliza la configuración')}
-                </p>
-                <p style={{ color: T3, fontSize: 11, marginTop: 1 }} className="tabular-nums">
-                  {doneCount}/{STEP_COUNT} {tt('étapes', 'steps', 'pasos')} · {progressPct}%
-                </p>
-              </div>
+              {popup ? (
+                <button
+                  onClick={() => setPopup(null)}
+                  className="flex items-center gap-1.5 cursor-pointer transition-colors hover:opacity-70"
+                  style={{ color: T2 }}
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span style={{ fontSize: 12 }}>{tt('Retour', 'Back', 'Volver')}</span>
+                </button>
+              ) : (
+                <>
+                  <div
+                    className="flex items-center justify-center rounded-lg flex-none"
+                    style={{ width: 30, height: 30, background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}
+                  >
+                    <Rocket className="w-4 h-4" style={{ color: RED }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p style={{ color: T1, fontSize: 13, fontWeight: 600, margin: 0 }}>
+                      {tt('Finaliser la configuration', 'Complete your setup', 'Finaliza la configuración')}
+                    </p>
+                    <p style={{ color: T3, fontSize: 11, marginTop: 1 }} className="tabular-nums">
+                      {doneCount}/{STEP_COUNT} {tt('étapes', 'steps', 'pasos')} · {progressPct}%
+                    </p>
+                  </div>
+                </>
+              )}
               <button
-                onClick={handleDismiss}
-                className="flex items-center justify-center w-6 h-6 rounded-md cursor-pointer transition-colors hover:bg-white/[0.06]"
+                onClick={popup ? () => setPopup(null) : handleDismiss}
+                className="flex items-center justify-center w-6 h-6 rounded-md cursor-pointer transition-colors hover:bg-white/[0.06] ml-auto flex-none"
                 style={{ color: T3 }}
               >
                 <X className="w-3.5 h-3.5" />
@@ -202,98 +258,134 @@ export function OrgOnboardingWidget({ userId }: Props) {
             </div>
 
             {/* Progress bar */}
-            <div style={{ height: 2, background: 'rgba(255,255,255,0.06)', flexShrink: 0 }}>
-              <div style={{ height: '100%', width: `${progressPct}%`, background: RED, boxShadow: `0 0 8px -1px ${RED}`, transition: 'width 0.4s ease' }} />
-            </div>
+            {!popup && (
+              <div style={{ height: 2, background: 'rgba(255,255,255,0.06)' }}>
+                <div style={{ height: '100%', width: `${progressPct}%`, background: RED, boxShadow: `0 0 8px -1px ${RED}`, transition: 'width 0.4s ease' }} />
+              </div>
+            )}
 
-            {/* Step list */}
-            <div className="py-1">
-              {STEP_DEFS.map((step) => {
-                const status = stepStatuses[step.key]?.status ?? 'not_started';
-                const done = status === 'completed' || status === 'skipped';
-                const isNext = step.key === nextKey;
-                const open = expandedStep === step.key;
+            <AnimatePresence mode="wait">
+              {popup ? (
+                /* ── Feature explainer popup ── */
+                <motion.div
+                  key="popup"
+                  initial={{ opacity: 0, x: 16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -16 }}
+                  transition={{ duration: 0.15 }}
+                  className="px-4 py-4"
+                >
+                  <p style={{ color: T1, fontSize: 13.5, fontWeight: 600, marginBottom: 10 }}>{l(popup)}</p>
+                  <p style={{ color: T2, fontSize: 12, lineHeight: 1.6, marginBottom: 16 }}>{popupDesc}</p>
+                  <button
+                    onClick={() => { navigate(popup.page); setPopup(null); setIsExpanded(false); }}
+                    className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl cursor-pointer transition-all"
+                    style={{ background: RED, color: '#fff', fontSize: 13, fontWeight: 600, boxShadow: `0 0 16px -4px ${RED}88` }}
+                  >
+                    {tt('Aller sur la page', 'Go to page', 'Ir a la página')}
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </button>
+                </motion.div>
+              ) : (
+                /* ── Step list ── */
+                <motion.div
+                  key="steps"
+                  initial={{ opacity: 0, x: -16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 16 }}
+                  transition={{ duration: 0.15 }}
+                  className="py-1"
+                >
+                  {STEP_DEFS.map((step) => {
+                    const status = stepStatuses[step.key]?.status ?? 'not_started';
+                    const done = status === 'completed' || status === 'skipped';
+                    const isNext = step.key === nextKey;
+                    const open = expandedStep === step.key;
 
-                return (
-                  <div key={step.key}>
-                    {/* Step header row */}
-                    <button
-                      onClick={() => toggleStep(step.key)}
-                      className="flex items-center gap-3 w-full px-4 py-2.5 cursor-pointer transition-colors hover:bg-white/[0.03] text-left"
-                    >
-                      {/* Status dot */}
-                      <div
-                        className="flex-none w-5 h-5 rounded-full flex items-center justify-center"
-                        style={
-                          done
-                            ? { background: status === 'skipped' ? 'rgba(255,255,255,0.06)' : POS }
-                            : isNext
-                            ? { border: `1.5px solid ${RED}`, background: 'rgba(232,25,44,0.08)' }
-                            : { border: `1px solid ${BORDER}` }
-                        }
-                      >
-                        {done ? (
-                          status === 'skipped'
-                            ? <SkipForward className="w-2.5 h-2.5" style={{ color: T3 }} />
-                            : <Check className="w-3 h-3" style={{ color: '#04130d' }} />
-                        ) : (
-                          <span style={{ fontSize: 9, fontWeight: 700, color: isNext ? RED : T3 }}>
-                            {step.key}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Label */}
-                      <span style={{
-                        flex: 1,
-                        fontSize: 12.5,
-                        fontWeight: isNext && !done ? 600 : 400,
-                        color: done ? T2 : isNext ? T1 : T2,
-                        textDecoration: done ? 'line-through' : 'none',
-                        textDecorationColor: 'rgba(255,255,255,0.2)',
-                      }}>
-                        {l(step)}
-                      </span>
-
-                      {/* Toggle chevron */}
-                      {open
-                        ? <ChevronDown className="w-3.5 h-3.5 flex-none" style={{ color: T3 }} />
-                        : <ChevronRight className="w-3.5 h-3.5 flex-none" style={{ color: isNext && !done ? RED : T3 }} />
-                      }
-                    </button>
-
-                    {/* Sub-steps */}
-                    <AnimatePresence>
-                      {open && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.15 }}
-                          style={{ overflow: 'hidden' }}
+                    return (
+                      <div key={step.key}>
+                        <button
+                          onClick={() => setExpandedStep(prev => prev === step.key ? null : step.key)}
+                          className="flex items-center gap-3 w-full px-4 py-2.5 cursor-pointer transition-colors hover:bg-white/[0.03] text-left"
                         >
                           <div
-                            className="pb-1"
-                            style={{ borderLeft: `1.5px solid ${isNext && !done ? `rgba(232,25,44,0.25)` : BORDER}`, marginLeft: 26, marginRight: 16 }}
+                            className="flex-none w-5 h-5 rounded-full flex items-center justify-center"
+                            style={
+                              done
+                                ? { background: status === 'skipped' ? 'rgba(255,255,255,0.06)' : POS }
+                                : isNext
+                                ? { border: `1.5px solid ${RED}`, background: 'rgba(232,25,44,0.08)' }
+                                : { border: `1px solid ${BORDER}` }
+                            }
                           >
-                            {step.subs.map((sub, si) => (
-                              <button
-                                key={si}
-                                onClick={() => { navigate(sub.page); setIsExpanded(false); }}
-                                className="flex items-center gap-2 w-full px-3 py-2 cursor-pointer transition-colors hover:bg-white/[0.04] text-left rounded-lg"
-                              >
-                                <ChevronRight className="w-3 h-3 flex-none" style={{ color: isNext && !done ? RED : T3 }} />
-                                <span style={{ fontSize: 11.5, color: done ? T3 : T2 }}>{l(sub)}</span>
-                              </button>
-                            ))}
+                            {done ? (
+                              status === 'skipped'
+                                ? <SkipForward className="w-2.5 h-2.5" style={{ color: T3 }} />
+                                : <Check className="w-3 h-3" style={{ color: '#04130d' }} />
+                            ) : (
+                              <span style={{ fontSize: 9, fontWeight: 700, color: isNext ? RED : T3 }}>{step.key}</span>
+                            )}
                           </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                );
-              })}
-            </div>
+                          <span style={{
+                            flex: 1, fontSize: 12.5,
+                            fontWeight: isNext && !done ? 600 : 400,
+                            color: done ? T2 : isNext ? T1 : T2,
+                            textDecoration: done ? 'line-through' : 'none',
+                            textDecorationColor: 'rgba(255,255,255,0.2)',
+                          }}>
+                            {l(step)}
+                          </span>
+                          {open
+                            ? <ChevronDown className="w-3.5 h-3.5 flex-none" style={{ color: T3 }} />
+                            : <ChevronRight className="w-3.5 h-3.5 flex-none" style={{ color: isNext && !done ? RED : T3 }} />
+                          }
+                        </button>
+
+                        <AnimatePresence>
+                          {open && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.14 }}
+                              style={{ overflow: 'hidden' }}
+                            >
+                              <div
+                                className="pb-1"
+                                style={{ borderLeft: `1.5px solid ${isNext && !done ? 'rgba(232,25,44,0.25)' : BORDER}`, marginLeft: 26, marginRight: 16 }}
+                              >
+                                {step.subs.map((sub, si) => (
+                                  <button
+                                    key={si}
+                                    onClick={() => handleSubClick(sub)}
+                                    className="flex items-center gap-2 w-full px-3 py-2 cursor-pointer transition-colors hover:bg-white/[0.04] text-left rounded-lg"
+                                  >
+                                    <ChevronRight className="w-3 h-3 flex-none" style={{ color: isNext && !done ? RED : T3 }} />
+                                    <span style={{ fontSize: 11.5, color: done ? T3 : T2, flex: 1 }}>{l(sub)}</span>
+                                    {sub.descEn && (
+                                      <span
+                                        style={{
+                                          fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
+                                          color: isNext && !done ? RED : T3,
+                                          border: `1px solid ${isNext && !done ? 'rgba(232,25,44,0.3)' : BORDER}`,
+                                          borderRadius: 4, padding: '1px 4px',
+                                        }}
+                                      >
+                                        {tt('INFO', 'INFO', 'INFO')}
+                                      </span>
+                                    )}
+                                  </button>
+                                ))}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  })}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
       </AnimatePresence>
