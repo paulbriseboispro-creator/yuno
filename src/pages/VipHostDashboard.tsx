@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { useVipHost } from '@/hooks/useVipHost';
 import { useVipMenuItems } from '@/hooks/useVipMenuItems';
 import { useStaffNotifications } from '@/hooks/useStaffNotifications';
@@ -58,6 +59,23 @@ export default function VipHostDashboard() {
   const [showStats, setShowStats] = useState(false);
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
   const [showFloorBackground, setShowFloorBackground] = useState(true);
+
+  // Réservations avec une pré-commande en attente -> pastille dorée sur le floor plan host.
+  const [preorderReservationIds, setPreorderReservationIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!venueId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('vip_table_orders')
+        .select('table_reservation_id')
+        .eq('venue_id', venueId)
+        .eq('status', 'preorder');
+      if (cancelled) return;
+      setPreorderReservationIds(new Set((data || []).map((o: any) => o.table_reservation_id)));
+    })();
+    return () => { cancelled = true; };
+  }, [venueId, reservations]);
 
   // Extract unique zones with counts
   const zones = useMemo(() => {
@@ -440,6 +458,7 @@ export default function VipHostDashboard() {
               reservations={reservations}
               consumptions={consumptions}
               mode="view"
+              preorderReservationIds={preorderReservationIds}
               showBackground={showFloorBackground}
               onTableSelect={(tableId) => {
                 const reservation = reservations.find(r => r.assignedTableId === tableId);

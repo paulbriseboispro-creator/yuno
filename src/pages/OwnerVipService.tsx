@@ -182,6 +182,16 @@ export default function OwnerVipService() {
     return orders.filter(o => resIds.has(o.reservationId));
   }, [orders, filteredReservations]);
 
+  // Réservations qui ont une pré-commande en attente -> pastille dorée sur le floor plan.
+  const preorderReservationIds = useMemo(() => {
+    const set = new Set<string>();
+    filteredOrders.forEach(o => {
+      const n = (o.notes || '').toLowerCase();
+      if (n.includes('pré-commande') || n.includes('pre-order') || n.includes('preorder')) set.add(o.reservationId);
+    });
+    return set;
+  }, [filteredOrders]);
+
   // Quick item handlers
   const handleAddQuickItem = async () => {
     if (!venueId || !newItem.name) return;
@@ -311,6 +321,7 @@ export default function OwnerVipService() {
                     reservations={filteredReservations as any}
                     consumptions={consumptionsMap}
                     mode="view"
+                    preorderReservationIds={preorderReservationIds}
                     selectedTableId={selectedTableReservation?.assignedTableId}
                     onTableSelect={(tableId) => {
                       const res = filteredReservations.find(r => r.assignedTableId === tableId);
@@ -531,6 +542,10 @@ export default function OwnerVipService() {
           reservation={selectedTableReservation}
           consumptions={selectedTableReservation
             ? filteredConsumptions.filter(c => c.reservationId === selectedTableReservation.id)
+            : []
+          }
+          orders={selectedTableReservation
+            ? filteredOrders.filter(o => o.reservationId === selectedTableReservation.id)
             : []
           }
           open={!!selectedTableReservation}

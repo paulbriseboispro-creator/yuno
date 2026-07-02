@@ -10,16 +10,23 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { RefundReasonDialog } from '@/components/owner/RefundReasonDialog';
 import type { RefundableItem } from '@/components/owner/RefundItemCard';
-import { OwnerVipReservation, OwnerVipConsumption } from '@/hooks/useOwnerVipData';
+import { OwnerVipReservation, OwnerVipConsumption, OwnerVipOrder } from '@/hooks/useOwnerVipData';
+import { translate } from '@/i18n/orgTranslate';
 
 interface OwnerTableDetailSheetProps {
   reservation: OwnerVipReservation | null;
   consumptions: OwnerVipConsumption[];
+  orders?: OwnerVipOrder[];
   open: boolean;
   onClose: () => void;
   onModifyPlacement: (reservation: OwnerVipReservation) => void;
   onChanged?: () => void;
   tableName?: string;
+}
+
+function isPreorderNote(notes?: string | null): boolean {
+  const n = (notes || '').toLowerCase();
+  return n.includes('pré-commande') || n.includes('pre-order') || n.includes('preorder');
 }
 
 const statusConfig: Record<string, { label: string; className: string }> = {
@@ -34,13 +41,15 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 export function OwnerTableDetailSheet({
   reservation,
   consumptions,
+  orders = [],
   open,
   onClose,
   onModifyPlacement,
   onChanged,
   tableName,
 }: OwnerTableDetailSheetProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundLoading, setRefundLoading] = useState(false);
   const [editingMin, setEditingMin] = useState(false);
@@ -223,6 +232,32 @@ export function OwnerTableDetailSheet({
               </div>
             )}
           </Card>
+
+          {/* Pré-commandes — bouteilles réservées au checkout, à préparer / valider par le staff */}
+          {orders.filter(o => isPreorderNote(o.notes)).length > 0 && (
+            <Card className="p-4 border-0" style={{ background: 'rgba(231,193,90,0.08)', border: '1px solid rgba(231,193,90,0.25)' }}>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-semibold text-sm flex items-center gap-1.5" style={{ color: '#E7C15A' }}>
+                  <Wine className="w-4 h-4" />
+                  {tt('Pré-commandes', 'Pre-orders', 'Pre-pedidos')}
+                </h4>
+                <span className="text-sm font-bold" style={{ color: '#E7C15A' }}>
+                  {orders.filter(o => isPreorderNote(o.notes)).reduce((s, o) => s + o.items.reduce((a, it) => a + it.quantity, 0), 0)} {tt('bouteille(s)', 'bottle(s)', 'botella(s)')}
+                </span>
+              </div>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {orders.filter(o => isPreorderNote(o.notes)).flatMap(o => o.items).map((it, i) => (
+                  <div key={i} className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{it.quantity}x {it.name}</span>
+                    <span className="font-medium">{(it.unitPrice * it.quantity).toFixed(0)}€</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2">
+                {tt("À préparer pour l'arrivée du client. Le serveur VIP valide et lance l'envoi à l'arrivée.", "To prepare for the guest's arrival. The VIP host validates and sends on arrival.", 'A preparar para la llegada del cliente. El host VIP valida y envía a la llegada.')}
+              </p>
+            </Card>
+          )}
 
           {/* Consumption summary */}
           <Card className="p-4 border-0 bg-muted/30">

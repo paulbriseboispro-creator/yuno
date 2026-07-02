@@ -472,7 +472,7 @@ serve(async (req) => {
               table_reservation_id: reservation.id,
               venue_id: event.venue_id,
               user_id: user?.id ?? null,
-              status: "confirmed",
+              status: "preorder",
               total_amount: poTotal,
               notes: "Pré-commande (checkout)",
             })
@@ -718,7 +718,7 @@ serve(async (req) => {
             table_reservation_id: reservation.id,
             venue_id: event.venue_id,
             user_id: user?.id ?? null,
-            status: "confirmed",
+            status: "preorder",
             total_amount: poTotal,
             notes: "Pré-commande (checkout)",
           })

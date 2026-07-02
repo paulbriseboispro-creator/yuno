@@ -31,6 +31,8 @@ interface VipFloorPlanProps {
   mode: 'view' | 'placement';
   pendingReservation?: VipReservation | null;
   showBackground?: boolean;
+  /** IDs des réservations qui ont une pré-commande de bouteilles en attente (pastille dorée). */
+  preorderReservationIds?: Set<string>;
 }
 
 type TableStatus = 'free' | 'waiting' | 'under-minimum' | 'on-track' | 'credit-empty' | 'success';
@@ -47,6 +49,7 @@ export function VipFloorPlan({
   mode,
   pendingReservation,
   showBackground = true,
+  preorderReservationIds,
 }: VipFloorPlanProps) {
   const tables = (floorPlan?.layout?.tables || []) as (FloorPlanTable & { shape?: FloorPlanTableShape; color?: string; borderRadius?: number; fillOpacity?: number })[];
   const zoneAreas = ((floorPlan?.layout as any)?.zoneAreas || []) as ZoneArea[];
@@ -317,6 +320,18 @@ export function VipFloorPlan({
                   >
                     {shortLabel}
                   </text>
+
+                  {/* Pastille dorée : bouteilles pré-commandées à préparer/valider */}
+                  {reservation && preorderReservationIds?.has(reservation.id) && (
+                    <circle
+                      cx={table.x + table.width - 3}
+                      cy={table.y + 3}
+                      r={4.5}
+                      fill="#E7C15A"
+                      stroke="#0a0a0c"
+                      strokeWidth={1}
+                    />
+                  )}
                 </g>
               );
             })}

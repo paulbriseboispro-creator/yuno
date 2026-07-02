@@ -31,8 +31,23 @@ const STATUS_TONE: Record<string, PillTone> = {
   finished: 'muted',
 };
 
+const GOLD = '#E7C15A';
+
+// Une pré-commande = order dont la note marque la pré-commande (créée au checkout).
+function isPreorderNote(notes?: string | null): boolean {
+  const n = (notes || '').toLowerCase();
+  return n.includes('pré-commande') || n.includes('pre-order') || n.includes('preorder');
+}
+// Nombre de bouteilles pré-commandées pour une réservation.
+function preorderBottleCount(orders: OwnerVipOrder[], reservationId: string): number {
+  return orders
+    .filter(o => o.reservationId === reservationId && isPreorderNote(o.notes))
+    .reduce((sum, o) => sum + o.items.reduce((s, it) => s + it.quantity, 0), 0);
+}
+
 export function VipReservationsTab({ reservations, consumptions, orders, events, selectedEventId }: Props) {
   const { t, language } = useLanguage();
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const locale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedRes, setSelectedRes] = useState<OwnerVipReservation | null>(null);
@@ -123,6 +138,7 @@ export function VipReservationsTab({ reservations, consumptions, orders, events,
               const total = res.deposit + consumed;
               const minProgress = res.minimumSpend > 0 ? Math.min(100, (total / res.minimumSpend) * 100) : 0;
               const credit = res.deposit - consumed;
+              const poBottles = preorderBottleCount(orders, res.id);
 
               return (
                 <VipCard key={res.id} onClick={() => setSelectedRes(res)} style={{ padding: 16 }}>
@@ -150,6 +166,18 @@ export function VipReservationsTab({ reservations, consumptions, orders, events,
                     <ResStat label={t('vipHost.deposit')} value={`${res.deposit}€`} />
                     <ResStat label={t('vipHost.consumed')} value={`${consumed.toFixed(0)}€`} />
                     <ResStat label={t('vipHost.credit')} value={`${credit.toFixed(0)}€`} color={credit >= 0 ? POS : RED} />
+                  </div>
+
+                  {/* Info pré-commande (Non / N bouteilles) */}
+                  <div className="flex items-center gap-1.5 mb-1" style={{ fontSize: 11.5 }}>
+                    <span style={{ color: T3 }}>{tt('Pré-commande', 'Pre-order', 'Pre-pedido')} :</span>
+                    {poBottles > 0 ? (
+                      <span className="font-semibold" style={{ color: GOLD }}>
+                        {poBottles} {tt('bouteille(s) à préparer', 'bottle(s) to prepare', 'botella(s) a preparar')}
+                      </span>
+                    ) : (
+                      <span style={{ color: T3 }}>{tt('Non', 'No', 'No')}</span>
+                    )}
                   </div>
 
                   {res.minimumSpend > 0 && (

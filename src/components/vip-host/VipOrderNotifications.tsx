@@ -243,21 +243,30 @@ export function VipOrderNotifications({ venueId, onOrderConfirmed, onPendingCoun
         return;
       }
 
-      // Add items to vip_consumptions
+      // Add items to vip_consumptions. On renseigne menu_item_id / category / brand / source
+      // pour que l'analytics regroupe correctement (sinon la vue groupe sur du texte libre).
       const order = orders.find(o => o.id === orderId);
       if (order) {
         const { data: { user } } = await supabase.auth.getUser();
-        
+        const { data: resRow } = await supabase
+          .from('table_reservations').select('event_id').eq('id', order.table_reservation_id).maybeSingle();
+        const evId = resRow?.event_id ?? null;
+
         const { error: consErr } = await supabase.from('vip_consumptions').insert(
           order.items.map(item => ({
             table_reservation_id: order.table_reservation_id,
             venue_id: venueId,
+            event_id: evId,
+            menu_item_id: item.menu_item_id ?? null,
             item_name: item.item_name,
             item_type: item.item_category === 'soft' || item.item_category === 'mixer' ? 'extra' : 'bottle',
+            category: item.item_category ?? null,
+            brand: item.item_brand ?? null,
             quantity: item.quantity,
             unit_price: item.unit_price,
             total_price: item.quantity * item.unit_price,
             served_by: user?.id,
+            source: 'qr',
           }))
         );
         if (consErr) throw consErr;

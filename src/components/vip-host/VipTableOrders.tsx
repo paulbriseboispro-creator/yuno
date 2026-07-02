@@ -11,6 +11,11 @@ import { Clock, CheckCircle2, Loader2, Package, Wine } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { fr, es } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { translate } from '@/i18n/orgTranslate';
+import { toast } from 'sonner';
+import { Sparkles } from 'lucide-react';
+
+const GOLD = '#E7C15A';
 
 interface OrderItem {
   id: string;
@@ -26,6 +31,7 @@ interface TableOrder {
   created_at: string;
   confirmed_at: string | null;
   served_at: string | null;
+  notes?: string | null;
   items: OrderItem[];
 }
 
@@ -36,8 +42,10 @@ interface VipTableOrdersProps {
 
 export function VipTableOrders({ reservationId, venueId }: VipTableOrdersProps) {
   const { language, t } = useLanguage();
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [orders, setOrders] = useState<TableOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [validating, setValidating] = useState<string | null>(null);
 
   const locale = language === 'fr' ? fr : language === 'es' ? es : undefined;
 
@@ -53,7 +61,7 @@ export function VipTableOrders({ reservationId, venueId }: VipTableOrdersProps) 
     try {
       const { data: ordersData, error } = await supabase
         .from('vip_table_orders')
-        .select('id, status, total_amount, created_at, confirmed_at, served_at')
+        .select('id, status, total_amount, created_at, confirmed_at, served_at, notes')
         .eq('table_reservation_id', reservationId)
         .eq('venue_id', venueId)
         .neq('status', 'cancelled')
@@ -92,6 +100,28 @@ export function VipTableOrders({ reservationId, venueId }: VipTableOrdersProps) 
     }
   };
 
+  // Valider une pré-commande à l'arrivée du client -> passe en 'confirmed' (envoyée au bar,
+  // entre dans la file active). Le service (marquer servi) se fait ensuite normalement.
+  const validatePreorder = async (orderId: string) => {
+    setValidating(orderId);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase
+        .from('vip_table_orders')
+        .update({ status: 'confirmed', confirmed_at: new Date().toISOString(), confirmed_by: user?.id ?? null })
+        .eq('id', orderId)
+        .eq('status', 'preorder');
+      if (error) throw error;
+      toast.success(tt('Pré-commande validée et envoyée', 'Pre-order validated and sent', 'Pre-pedido validado y enviado'));
+      await fetchOrders();
+    } catch (e) {
+      console.error('Validate preorder failed:', e);
+      toast.error(tt('Échec', 'Failed', 'Error'));
+    } finally {
+      setValidating(null);
+    }
+  };
+
   useEffect(() => {
     fetchOrders();
 
@@ -116,6 +146,7 @@ export function VipTableOrders({ reservationId, venueId }: VipTableOrdersProps) 
     );
   }
 
+  const preOrders = orders.filter(o => o.status === 'preorder');
   const activeOrders = orders.filter(o => ['pending', 'confirmed', 'preparing'].includes(o.status));
   const completedOrders = orders.filter(o => o.status === 'served');
 
@@ -155,8 +186,48 @@ export function VipTableOrders({ reservationId, venueId }: VipTableOrdersProps) 
     );
   };
 
+  const renderPreorderCard = (order: TableOrder) => (
+    <div key={order.id} className="p-3" style={{ background: 'rgba(231,193,90,0.08)', border: `1px solid ${GOLD}3a`, borderRadius: 12 }}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: GOLD }}>
+          <Sparkles className="w-3.5 h-3.5" />
+          {tt('Pré-commande', 'Pre-order', 'Pre-pedido')}
+        </span>
+        <span className="font-bold text-sm tabular-nums" style={{ color: T1 }}>{order.total_amount}€</span>
+      </div>
+      <div className="space-y-1 mb-3">
+        {order.items.map(item => (
+          <div key={item.id} className="flex items-center justify-between text-sm">
+            <span style={{ color: T3 }}>{item.quantity > 1 && `${item.quantity}x `}{item.item_name}</span>
+            <span className="text-xs tabular-nums" style={{ color: T1 }}>{(item.quantity * item.unit_price).toFixed(0)}€</span>
+          </div>
+        ))}
+      </div>
+      <Button
+        className="w-full h-10 font-semibold gap-2"
+        style={{ background: GOLD, color: '#0a0a0c' }}
+        onClick={() => validatePreorder(order.id)}
+        disabled={validating === order.id}
+      >
+        {validating === order.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+        {tt('Valider & envoyer', 'Validate & send', 'Validar y enviar')}
+      </Button>
+    </div>
+  );
+
   return (
     <div className="space-y-4">
+      {preOrders.length > 0 && (
+        <div>
+          <h4 className="text-xs uppercase tracking-wide mb-2 font-medium" style={{ color: GOLD }}>
+            {tt('Pré-commandes — à valider à l\'arrivée', 'Pre-orders — validate on arrival', 'Pre-pedidos — validar a la llegada')}
+          </h4>
+          <div className="space-y-2">
+            {preOrders.map(renderPreorderCard)}
+          </div>
+        </div>
+      )}
+
       {activeOrders.length > 0 && (
         <div>
           <h4 className="text-xs uppercase tracking-wide mb-2 font-medium" style={{ color: T3 }}>{t('vipHost.inProgress')}</h4>
