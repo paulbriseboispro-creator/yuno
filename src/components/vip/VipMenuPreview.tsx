@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { translate } from '@/i18n/orgTranslate';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Wine, ChevronDown, ChevronRight, Plus, Minus } from 'lucide-react';
+import { Wine, ChevronDown, ChevronRight, Plus, Minus, Search } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 // Vitrine menu VIP dans le tunnel de réservation (idée #2).
@@ -70,6 +70,8 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [qty, setQty] = useState<Record<string, number>>({});
+  const [search, setSearch] = useState('');
+  const [catFilter, setCatFilter] = useState<string>('all');
 
   const showMenu = visibility === 'no_prices' || visibility === 'full';
   const showPrices = visibility === 'full';
@@ -120,9 +122,9 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
   const eligById = new Map(scoped.map(e => [e.menu_item_id, e]));
 
   // Si le club a curé pour ce pack/zone, on restreint ; sinon menu complet actif.
-  // On masque les softs de la vitrine (demande owner) — la carte reste centrée bouteilles.
+  // On masque les diluants (softs + mixers) — la carte reste centrée bouteilles.
   const visible = (eligIds.size > 0 ? items.filter(i => eligIds.has(i.id)) : items)
-    .filter(i => i.category !== 'soft');
+    .filter(i => i.category !== 'soft' && i.category !== 'mixer');
   if (visible.length === 0) return null;
 
   const priceOf = (i: MenuItem) => {
@@ -268,12 +270,44 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
                 {tt('La carte bouteilles', 'The bottle menu', 'La carta de botellas')}
               </SheetTitle>
             </SheetHeader>
+            {/* Recherche + filtres par type d'alcool */}
+            <div className="px-4 pt-3 pb-2.5 space-y-2.5 border-b border-white/[0.06]">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: '#7A7A7E' }} />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder={tt('Rechercher une bouteille…', 'Search a bottle…', 'Buscar una botella…')}
+                  className="w-full h-10 pl-9 pr-3 rounded-lg text-[14px] text-white placeholder:text-[#5A5A5E] bg-[#1F1F22] border border-white/[0.08] focus:outline-none focus:border-primary/50"
+                />
+              </div>
+              <div className="flex gap-1.5 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+                {['all', ...cats].map(c => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setCatFilter(c)}
+                    className="flex-none h-8 px-3 rounded-full text-[12px] font-medium whitespace-nowrap transition-colors"
+                    style={catFilter === c
+                      ? { background: 'hsl(var(--primary))', color: 'white' }
+                      : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)' }}
+                  >
+                    {c === 'all' ? tt('Tout', 'All', 'Todo') : catLabel(c)}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="flex-1 overflow-y-auto px-4 pt-4 space-y-5 pb-6">
-              {cats.map(cat => (
+              {(catFilter === 'all' ? cats : cats.filter(c => c === catFilter)).map(cat => {
+                const q = search.trim().toLowerCase();
+                const catItems = byCat.get(cat)!.filter(it => !q || `${it.name} ${it.brand || ''}`.toLowerCase().includes(q));
+                if (catItems.length === 0) return null;
+                return (
                 <div key={cat}>
                   <div className="font-mono uppercase text-[10px] font-bold tracking-[0.14em] mb-2.5" style={{ color: '#7A7A7E' }}>{catLabel(cat)}</div>
                   <div className="grid grid-cols-2 gap-2.5">
-                    {byCat.get(cat)!.map(it => (
+                    {catItems.map(it => (
                       <div key={it.id} className="rounded-xl overflow-hidden border border-white/[0.08] bg-white/[0.02]">
                         <div className="aspect-[3/4] bg-black/40 flex items-center justify-center">
                           {it.image_url
@@ -294,7 +328,14 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
                     ))}
                   </div>
                 </div>
-              ))}
+                );
+              })}
+              {(catFilter === 'all' ? cats : cats.filter(c => c === catFilter))
+                .every(cat => byCat.get(cat)!.every(it => { const q = search.trim().toLowerCase(); return q && !`${it.name} ${it.brand || ''}`.toLowerCase().includes(q); })) && (
+                <p className="text-center text-[13px] py-8" style={{ color: '#6A6A6E' }}>
+                  {tt('Aucune bouteille trouvée', 'No bottle found', 'Ninguna botella encontrada')}
+                </p>
+              )}
             </div>
             {preorderMode && (
               <div className="px-4 py-3 border-t border-white/[0.08] bg-[#0A0A0A]">{preorderSummary}</div>
