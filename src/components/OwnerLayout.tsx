@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
-import { OwnerOnboardingWidget } from '@/components/owner-onboarding/OwnerOnboardingWidget';
+import { OwnerOnboardingGuide } from '@/components/owner-onboarding/OwnerOnboardingGuide';
 import { useOwnerVenueContext } from '@/contexts/OwnerVenueContext';
 
 function OwnerLayoutInner() {
@@ -13,7 +13,7 @@ function OwnerLayoutInner() {
       <SidebarInset className="overflow-y-auto">
         <Outlet />
       </SidebarInset>
-      {venueId && <OwnerOnboardingWidget venueId={venueId} />}
+      {venueId && <OwnerOnboardingGuide venueId={venueId} />}
     </SidebarProvider>
   );
 }
