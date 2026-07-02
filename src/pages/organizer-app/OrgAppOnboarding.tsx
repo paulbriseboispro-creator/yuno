@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -13,9 +13,10 @@ import { OrgOnboardingStepPublic } from '@/components/organizer-onboarding/OrgOn
 import { OrgOnboardingStepTeam } from '@/components/organizer-onboarding/OrgOnboardingStepTeam';
 import { OrgOnboardingStepTour } from '@/components/organizer-onboarding/OrgOnboardingStepTour';
 import { OnbCard, RED, T1, T2, T3, C_FAINT, BORDER } from '@/components/onboarding/onboardingUI';
-import { ArrowLeft, Rocket } from 'lucide-react';
+import { ArrowLeft, X, Rocket } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BrandedLoader } from '@/components/BrandedLoader';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function OrgAppOnboarding() {
   const { user } = useAuth();
@@ -46,6 +47,16 @@ export default function OrgAppOnboarding() {
 
   const { refresh: refreshStripe } = useOrganizerStripe(userId);
   const stripeHandled = useRef(false);
+
+  // Dismiss the onboarding without completing all steps.
+  // Sets onboarding_completed = true so the route guard stops bouncing.
+  // The floating widget will remind the user of remaining steps.
+  const handleDismiss = useCallback(async () => {
+    if (userId) {
+      await supabase.from('profiles').update({ onboarding_completed: true } as any).eq('id', userId);
+    }
+    window.location.assign('/organizer-app');
+  }, [userId]);
 
   // Detect Stripe return → auto-complete the Payments step (step 5)
   useEffect(() => {
@@ -104,7 +115,8 @@ export default function OrgAppOnboarding() {
       case 5:
         return <OrgOnboardingStepStripe userId={userId} onComplete={() => completeStep(5)} onSkip={() => skipStep(5)} />;
       case 6:
-        return <OrgOnboardingStepTour onComplete={() => completeStep(6)} />;
+        // Always navigate to dashboard after Tour completes, regardless of other steps.
+        return <OrgOnboardingStepTour onComplete={handleDismiss} />;
       default:
         return null;
     }
@@ -152,6 +164,16 @@ export default function OrgAppOnboarding() {
         >
           <Rocket className="w-4 h-4" style={{ color: RED }} />
         </div>
+        {/* Dismiss — sends user to dashboard, widget keeps progress visible */}
+        <button
+          onClick={handleDismiss}
+          className="flex items-center justify-center w-8 h-8 rounded-lg cursor-pointer transition-colors hover:bg-white/[0.05]"
+          style={{ color: T3 }}
+          aria-label={tt('Fermer', 'Close', 'Cerrar')}
+          title={tt('Continuer plus tard', 'Continue later', 'Continuar más tarde')}
+        >
+          <X className="w-[18px] h-[18px]" />
+        </button>
       </div>
 
       {/* Progress track */}

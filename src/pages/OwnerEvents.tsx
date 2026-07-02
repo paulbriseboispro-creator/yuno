@@ -1102,16 +1102,33 @@ export default function OwnerEvents() {
               );
             })()}
 
-            {/* Active toggle */}
-            <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+            {/* Active toggle — blocked for organizers who haven't connected Stripe */}
+            <div
+              className="flex items-center justify-between p-4 rounded-xl"
+              style={{
+                background: INNER_BG,
+                border: `1px solid ${orgSellingBlocked ? 'rgba(232,25,44,0.18)' : BORDER}`,
+                opacity: orgSellingBlocked ? 0.75 : 1,
+              }}
+            >
               <div>
                 <p style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{t('owner.activeEvent')}</p>
-                <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{t('owner.ev.visibleInApp')}</p>
+                {orgSellingBlocked ? (
+                  <p style={{ color: '#E8192C', fontSize: 11.5, marginTop: 2 }}>
+                    {t('owner.ev.stripeRequiredForLive')}
+                  </p>
+                ) : (
+                  <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{t('owner.ev.visibleInApp')}</p>
+                )}
               </div>
               <Switch
                 id="isActive"
-                checked={formData.isActive}
-                onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+                checked={orgSellingBlocked ? false : formData.isActive}
+                disabled={orgSellingBlocked}
+                onCheckedChange={(checked) => {
+                  if (orgSellingBlocked) return;
+                  setFormData({ ...formData, isActive: checked });
+                }}
               />
             </div>
 

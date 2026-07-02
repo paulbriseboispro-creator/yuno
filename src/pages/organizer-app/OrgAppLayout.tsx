@@ -2,6 +2,8 @@ import { Outlet } from 'react-router-dom';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { OrgAppSidebar } from '@/components/org-sidebar';
 import { OrgAppHeader } from '@/components/org-app-header';
+import { OrgOnboardingWidget } from '@/components/organizer-onboarding/OrgOnboardingWidget';
+import { useAuth } from '@/hooks/useAuth';
 
 /**
  * Organizer dashboard shell — mirrors the Owner club dashboard architecture
@@ -11,6 +13,8 @@ import { OrgAppHeader } from '@/components/org-app-header';
  * trigger that opens the off-canvas sidebar.
  */
 export default function OrgAppLayout() {
+  const { user } = useAuth();
+
   return (
     <SidebarProvider>
       <OrgAppSidebar />
@@ -18,6 +22,7 @@ export default function OrgAppLayout() {
         <OrgAppHeader />
         <Outlet />
       </SidebarInset>
+      {user && <OrgOnboardingWidget userId={user.id} />}
     </SidebarProvider>
   );
 }

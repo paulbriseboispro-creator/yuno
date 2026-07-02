@@ -69,11 +69,6 @@ export function OrgOnboardingProgress({ currentStep, stepStatuses, onStepClick }
             >
               {label}
             </span>
-            {isOptional && !isCompleted && !isSkipped && (
-              <span style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: T3 }}>
-                {tt('Opt.', 'Opt.', 'Opc.')}
-              </span>
-            )}
             {isActive && (
               <span className="absolute right-1 w-1 h-5 rounded-full flex-none" style={{ background: RED, opacity: 0.85 }} />
             )}
