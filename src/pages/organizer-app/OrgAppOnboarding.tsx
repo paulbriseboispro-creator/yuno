@@ -26,10 +26,10 @@ export default function OrgAppOnboarding() {
 
   const STEP_TITLES = [
     tt('Bienvenue', 'Welcome', 'Bienvenida'),
-    tt('Paiements', 'Payments', 'Pagos'),
-    tt('Premier événement', 'First event', 'Primer evento'),
     tt('Profil public', 'Public profile', 'Perfil público'),
+    tt('Premier événement', 'First event', 'Primer evento'),
     tt('Équipe & promoteurs', 'Team & promoters', 'Equipo y promotores'),
+    tt('Paiements', 'Payments', 'Pagos'),
     tt("Tour de l'app", 'App tour', 'Tour de la app'),
   ];
 
@@ -47,7 +47,7 @@ export default function OrgAppOnboarding() {
   const { refresh: refreshStripe } = useOrganizerStripe(userId);
   const stripeHandled = useRef(false);
 
-  // Detect Stripe return → auto-complete the Payments step (step 2)
+  // Detect Stripe return → auto-complete the Payments step (step 5)
   useEffect(() => {
     if (stripeHandled.current) return;
     const stripeParam = searchParams.get('stripe');
@@ -56,8 +56,8 @@ export default function OrgAppOnboarding() {
       searchParams.delete('stripe');
       setSearchParams(searchParams, { replace: true });
       refreshStripe().then(() => {
-        if (currentStep === 2 && stripeParam === 'success') {
-          completeStep(2);
+        if (currentStep === 5 && stripeParam === 'success') {
+          completeStep(5);
         }
       });
     }
@@ -96,13 +96,13 @@ export default function OrgAppOnboarding() {
       case 1:
         return <OrgOnboardingStepWelcome userId={userId} onComplete={() => completeStep(1)} />;
       case 2:
-        return <OrgOnboardingStepStripe userId={userId} onComplete={() => completeStep(2)} onSkip={() => skipStep(2)} />;
+        return <OrgOnboardingStepPublic userId={userId} onComplete={() => completeStep(2)} onSkip={() => skipStep(2)} />;
       case 3:
         return <OrgOnboardingStepFirstEvent userId={userId} onComplete={() => completeStep(3)} onSkip={() => skipStep(3)} />;
       case 4:
-        return <OrgOnboardingStepPublic userId={userId} onComplete={() => completeStep(4)} onSkip={() => skipStep(4)} />;
+        return <OrgOnboardingStepTeam onComplete={() => completeStep(4)} onSkip={() => skipStep(4)} />;
       case 5:
-        return <OrgOnboardingStepTeam onComplete={() => completeStep(5)} onSkip={() => skipStep(5)} />;
+        return <OrgOnboardingStepStripe userId={userId} onComplete={() => completeStep(5)} onSkip={() => skipStep(5)} />;
       case 6:
         return <OrgOnboardingStepTour onComplete={() => completeStep(6)} />;
       default:

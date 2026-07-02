@@ -20,12 +20,12 @@ export interface OnboardingState {
 }
 
 // ─── New funnel (7 steps) ───────────────────────────────────────────────────
-// 1 Welcome & pillars · 2 Basics · 3 Payments · 4 Offer (inline)
-// 5 Polish (optional) · 6 Team (optional) · 7 Go live
+// 1 Welcome & pillars · 2 Basics · 3 Offer (inline) · 4 Polish (optional)
+// 5 Team (optional) · 6 Payments · 7 Go live. Build trust before Stripe.
 export const TOTAL_STEPS = 7;
-// Steps that must be completed to go live (5 & 6 are optional polish).
-export const REQUIRED_STEPS = ['1', '2', '3', '4'];
-export const OPTIONAL_STEPS = ['5', '6'];
+// Steps that must be completed to go live (4 & 5 are optional polish).
+export const REQUIRED_STEPS = ['1', '2', '3', '6'];
+export const OPTIONAL_STEPS = ['4', '5'];
 
 const DEFAULT_STEPS: Record<string, StepState> = {
   '1': { status: 'not_started', completed_at: null },
@@ -73,21 +73,18 @@ async function detectCompletedSteps(
   // Step 2 — Basics: name + city + address.
   result['2'] = !!(venue.name && venue.city && venue.address);
 
-  // Step 3 — Payments: Stripe account connected.
-  result['3'] = !!venue.stripe_account_id;
-
-  // Step 4 — Offer: each chosen pillar has its minimal content.
+  // Step 3 — Offer: each chosen pillar has its minimal content.
   const [{ count: drinkCount }, { count: eventCount }] = await Promise.all([
     supabase.from('drinks').select('id', { count: 'exact', head: true }).eq('venue_id', venueId),
     supabase.from('events').select('id', { count: 'exact', head: true }).eq('venue_id', venueId),
   ]);
   const drinksOk = !pillars.includes('drinks') || (drinkCount ?? 0) > 0;
   const eventOk = !(pillars.includes('tickets') || pillars.includes('tables')) || (eventCount ?? 0) > 0;
-  result['4'] = pillars.length > 0 && drinksOk && eventOk;
+  result['3'] = pillars.length > 0 && drinksOk && eventOk;
 
-  // Step 5 — Polish (optional): any branding/media present.
+  // Step 4 — Polish (optional): any branding/media present.
   const gallery = (venue.gallery_images as string[] | null) ?? [];
-  result['5'] = !!(
+  result['4'] = !!(
     venue.cover_url ||
     venue.description ||
     gallery.length > 0 ||
@@ -98,13 +95,16 @@ async function detectCompletedSteps(
     venue.siret
   );
 
-  // Step 6 — Team (optional): at least one staff member with a PIN.
+  // Step 5 — Team (optional): at least one staff member with a PIN.
   const { count: staffCount } = await supabase
     .from('profiles')
     .select('id', { count: 'exact', head: true })
     .eq('venue_id', venueId)
     .not('employee_pin', 'is', null);
-  result['6'] = (staffCount ?? 0) > 0;
+  result['5'] = (staffCount ?? 0) > 0;
+
+  // Step 6 — Payments: Stripe account connected.
+  result['6'] = !!venue.stripe_account_id;
 
   // Step 7 — Go live: venue is visible.
   result['7'] = !venue.is_hidden;

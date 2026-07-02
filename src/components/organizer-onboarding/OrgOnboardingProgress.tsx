@@ -17,10 +17,10 @@ export function OrgOnboardingProgress({ currentStep, stepStatuses, onStepClick }
 
   const STEPS = [
     tt('Bienvenue', 'Welcome', 'Bienvenida'),
-    tt('Paiements', 'Payments', 'Pagos'),
-    tt('Premier événement', 'First event', 'Primer evento'),
     tt('Profil public', 'Public profile', 'Perfil público'),
+    tt('Premier événement', 'First event', 'Primer evento'),
     tt('Équipe & promoteurs', 'Team & promoters', 'Equipo y promotores'),
+    tt('Paiements', 'Payments', 'Pagos'),
     tt("Tour de l'app", 'App tour', 'Tour de la app'),
   ];
 

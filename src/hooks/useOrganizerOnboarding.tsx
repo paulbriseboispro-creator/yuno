@@ -18,10 +18,10 @@ export interface OrganizerOnboardingState {
 }
 
 // ─── Fast-path order ────────────────────────────────────────────────────────
-// 1 Welcome · 2 Payments (Stripe) · 3 First event · 4 Public profile (optional)
-// 5 Team (optional) · 6 Tour. Value first (sell), polish later.
+// 1 Welcome · 2 Public profile (optional) · 3 First event · 4 Team (optional)
+// 5 Payments (Stripe) · 6 Tour. Build trust before asking for bank details.
 export const TOTAL_STEPS = 6;
-export const OPTIONAL_STEPS = ['4', '5'];
+export const OPTIONAL_STEPS = ['2', '4'];
 
 const DEFAULT_STEPS: Record<string, StepState> = {
   '1': { status: 'not_started', completed_at: null },
@@ -51,21 +51,12 @@ async function detectCompletedSteps(userId: string): Promise<Record<string, bool
     .eq('user_id', userId)
     .maybeSingle();
 
-  // Step 1 — Welcome: org name + city.
-  result['1'] = !!(profile?.organization_name && profile?.city);
+  // Step 1 — Welcome: never auto-detected. Always show so the user confirms
+  // org name + city explicitly (invitation links may land here with partial data).
+  result['1'] = false;
 
-  // Step 2 — Payments: Stripe Connect account exists.
-  result['2'] = !!profile?.stripe_connect_account_id;
-
-  // Step 3 — First event created.
-  const eventsQuery: any = supabase.from('events').select('id', { count: 'exact', head: true });
-  const { count: eventCount } = await eventsQuery.or(
-    `organizer_user_id.eq.${userId},partner_organizer_id.eq.${userId}`,
-  );
-  result['3'] = (eventCount ?? 0) > 0;
-
-  // Step 4 — Public profile (optional): any identity/branding present.
-  result['4'] = !!(
+  // Step 2 — Public profile (optional): any identity/branding present.
+  result['2'] = !!(
     profile?.organization_logo_url ||
     orgProfile?.avatar_url ||
     orgProfile?.cover_url ||
@@ -74,12 +65,22 @@ async function detectCompletedSteps(userId: string): Promise<Record<string, bool
     orgProfile?.website_url
   );
 
-  // Step 5 — Team (optional): at least one accepted member.
+  // Step 3 — First event created.
+  const eventsQuery: any = supabase.from('events').select('id', { count: 'exact', head: true });
+  const { count: eventCount } = await eventsQuery.or(
+    `organizer_user_id.eq.${userId},partner_organizer_id.eq.${userId}`,
+  );
+  result['3'] = (eventCount ?? 0) > 0;
+
+  // Step 4 — Team (optional): at least one accepted member.
   const membersQuery: any = supabase.from('org_members').select('id', { count: 'exact', head: true });
   const { count: memberCount } = await membersQuery
     .eq('organizer_user_id', userId)
     .eq('invitation_status', 'accepted');
-  result['5'] = (memberCount ?? 0) > 0;
+  result['4'] = (memberCount ?? 0) > 0;
+
+  // Step 5 — Payments: Stripe Connect account exists.
+  result['5'] = !!profile?.stripe_connect_account_id;
 
   // Step 6 — Tour: only marked when explicitly finished, never auto-detected.
   result['6'] = false;

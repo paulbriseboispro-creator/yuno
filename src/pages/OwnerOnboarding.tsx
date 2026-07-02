@@ -45,7 +45,7 @@ export default function OwnerOnboarding() {
   const { stripeStatus, subscription, loading: stripeLoading, refreshStatus, startOnboarding, startSubscription, checkSubscription } = useStripeConnect(venueId);
   const stripeHandled = useRef(false);
 
-  // Detect ?stripe=success return and auto-complete the Payments step (step 3)
+  // Detect ?stripe=success return and auto-complete the Payments step (step 6)
   useEffect(() => {
     if (stripeHandled.current) return;
     const stripeParam = searchParams.get('stripe');
@@ -54,7 +54,7 @@ export default function OwnerOnboarding() {
       searchParams.delete('stripe');
       setSearchParams(searchParams, { replace: true });
       refreshStatus().then(() => {
-        if (currentStep === 3) completeStep(3);
+        if (currentStep === 6) completeStep(6);
       });
     }
   }, [searchParams, setSearchParams, refreshStatus, currentStep, completeStep]);
@@ -102,10 +102,16 @@ export default function OwnerOnboarding() {
       case 2:
         return <OnboardingStepBasics venueId={venueId} onComplete={() => completeStep(2)} />;
       case 3:
+        return <OnboardingStepOffer venueId={venueId} pillars={pillars} onComplete={() => completeStep(3)} />;
+      case 4:
+        return <OnboardingStepPolish venueId={venueId} onComplete={() => completeStep(4)} onSkip={() => skipStep(4)} />;
+      case 5:
+        return <OnboardingStepStaff venueId={venueId} onComplete={() => completeStep(5)} onSkip={() => skipStep(5)} />;
+      case 6:
         return (
           <OnboardingStepStripe
             venueId={venueId}
-            onComplete={() => completeStep(3)}
+            onComplete={() => completeStep(6)}
             stripeStatus={stripeStatus}
             subscription={subscription}
             loading={stripeLoading}
@@ -115,12 +121,6 @@ export default function OwnerOnboarding() {
             checkSubscription={checkSubscription}
           />
         );
-      case 4:
-        return <OnboardingStepOffer venueId={venueId} pillars={pillars} onComplete={() => completeStep(4)} />;
-      case 5:
-        return <OnboardingStepPolish venueId={venueId} onComplete={() => completeStep(5)} onSkip={() => skipStep(5)} />;
-      case 6:
-        return <OnboardingStepStaff venueId={venueId} onComplete={() => completeStep(6)} onSkip={() => skipStep(6)} />;
       case 7:
         return (
           <OnboardingStepGoLive
