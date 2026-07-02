@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { uniqueChannel } from '@/lib/realtime';
@@ -43,7 +43,7 @@ export default function MyOrders() {
   const { language, t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [orders, setOrders] = useState<Order[]>([]);
   const [tickets, setTickets] = useState<TicketWithDetails[]>([]);
   const [vipReservations, setVipReservations] = useState<VipReservationWithDetails[]>([]);
@@ -88,6 +88,42 @@ export default function MyOrders() {
       window.history.replaceState({}, '', '/my-orders');
     }
   }, [success, ticketIdFromUrl, reservationIdFromUrl, t]);
+
+  // Reopen a QR overlay when the browser Back button lands here with a restore
+  // param (set by the "View event" action before it navigated away). Without
+  // this, tapping EVENT from an open ticket then pressing Back would remount
+  // this page fresh and drop the user on the list instead of the open ticket.
+  const restoredOverlayRef = useRef(false);
+  useEffect(() => {
+    if (loading || success || restoredOverlayRef.current) return;
+    const tid = searchParams.get('ticket_id');
+    const rid = searchParams.get('reservation_id');
+    const gid = searchParams.get('guest_id');
+    const rwid = searchParams.get('reward_id');
+    if (!tid && !rid && !gid && !rwid) return;
+    let matched = false;
+    if (tid) {
+      const tk = tickets.find(t => t.id === tid);
+      if (tk) { setSelectedTicket(tk); matched = true; }
+    } else if (rid) {
+      const r = vipReservations.find(v => v.id === rid);
+      if (r) { setSelectedVipReservation(r); matched = true; }
+    } else if (gid) {
+      const g = guestListEntries.find(x => x.id === gid);
+      if (g) { setSelectedGuestEntry(g); matched = true; }
+    } else if (rwid) {
+      const rw = pendingRewards.find(x => x.id === rwid);
+      if (rw) { setSelectedReward(rw); matched = true; }
+    }
+    if (matched) {
+      restoredOverlayRef.current = true;
+      // Consume the restore params so closing the overlay leaves a clean URL
+      // and a re-render can't reopen it.
+      const sp = new URLSearchParams(searchParams);
+      ['ticket_id', 'reservation_id', 'guest_id', 'reward_id'].forEach(k => sp.delete(k));
+      setSearchParams(sp, { replace: true });
+    }
+  }, [loading, success, tickets, vipReservations, guestListEntries, pendingRewards, searchParams, setSearchParams]);
 
   const getLocale = () => {
     switch (language) {
@@ -1575,7 +1611,8 @@ export default function MyOrders() {
     startAt?: string | null;
     endAt?: string | null;
     venue: { name?: string | null; address?: string | null; city?: string | null; lat?: number | null; lng?: number | null };
-    onClose: () => void;
+    restoreParam?: string;
+    restoreId?: string | null;
   }): QRAction[] => {
     const acts: QRAction[] = [];
     const mapsUrl = buildVenueMapsUrl(opts.venue);
@@ -1583,7 +1620,16 @@ export default function MyOrders() {
       acts.push({ icon: MapPin, label: t('orders.directions'), accent: true, onClick: () => window.open(mapsUrl, '_blank', 'noopener,noreferrer') });
     }
     if (opts.eventId) {
-      acts.push({ icon: Info, label: t('orders.viewEvent'), onClick: () => { opts.onClose(); navigate(`/event/${opts.eventId}`); } });
+      acts.push({ icon: Info, label: t('orders.viewEvent'), onClick: () => {
+        // Stash the open overlay in the URL so pressing Back from the event
+        // page reopens this ticket (see the restore effect) instead of the list.
+        if (opts.restoreParam && opts.restoreId) {
+          const sp = new URLSearchParams(searchParams);
+          sp.set(opts.restoreParam, opts.restoreId);
+          window.history.replaceState(window.history.state, '', `${location.pathname}?${sp.toString()}`);
+        }
+        navigate(`/event/${opts.eventId}`);
+      } });
     }
     const calUrl = buildCalendarUrl({ title: opts.title, startAt: opts.startAt, endAt: opts.endAt, location: venueLocationText(opts.venue) });
     if (calUrl) {
@@ -1773,7 +1819,8 @@ export default function MyOrders() {
               lat: selectedTicket.venueLat,
               lng: selectedTicket.venueLng,
             },
-            onClose: () => setSelectedTicket(null),
+            restoreParam: 'ticket_id',
+            restoreId: selectedTicket.id,
           })}
         />
       )}
@@ -1803,7 +1850,8 @@ export default function MyOrders() {
               lat: selectedVipReservation.venueLat,
               lng: selectedVipReservation.venueLng,
             },
-            onClose: () => setSelectedVipReservation(null),
+            restoreParam: 'reservation_id',
+            restoreId: selectedVipReservation.id,
           })}
           footer={
             <div
@@ -1850,7 +1898,8 @@ export default function MyOrders() {
               lat: selectedGuestEntry.venueLat,
               lng: selectedGuestEntry.venueLng,
             },
-            onClose: () => setSelectedGuestEntry(null),
+            restoreParam: 'guest_id',
+            restoreId: selectedGuestEntry.id,
           })}
         />
       )}
@@ -1932,7 +1981,8 @@ export default function MyOrders() {
               lat: selectedReward.venueLat,
               lng: selectedReward.venueLng,
             },
-            onClose: () => setSelectedReward(null),
+            restoreParam: 'reward_id',
+            restoreId: selectedReward.id,
           })}
         />
       )}
