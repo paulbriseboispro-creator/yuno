@@ -29,10 +29,15 @@ export type AgencyPromoter = {
   ticket_commission_value: number;
   table_commission_type: string;
   table_commission_value: number;
+  customer_discount_type: string;
+  customer_discount_value: number;
+  can_scan_entries: boolean;
   agency_can_sell_tickets: boolean;
   agency_can_sell_tables: boolean;
   agency_ticket_cap: number | null;
   agency_table_cap: number | null;
+  agency_rule_template_id: string | null;
+  agency_guestlist_quota: number | null;
   profile_image_url: string | null;
   venues?: { name: string } | null;
 };

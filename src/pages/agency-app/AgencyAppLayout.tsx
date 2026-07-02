@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutGrid, Users, Building2, Wallet, Layers, Calendar, BarChart2, Settings, X,
+  TrendingUp, ShieldCheck,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAgency } from '@/hooks/useAgency';
@@ -15,13 +16,15 @@ import {
 import { Building2 as AgencyIcon } from 'lucide-react';
 
 const NAV = [
-  { to: '/agency-app',           end: true,  icon: LayoutGrid, fr: 'Aperçu',      en: 'Overview' },
-  { to: '/agency-app/promoters', end: false, icon: Users,      fr: 'Promoteurs',  en: 'Promoters' },
-  { to: '/agency-app/groups',    end: false, icon: Layers,     fr: 'Groupes',     en: 'Groups' },
-  { to: '/agency-app/clubs',     end: false, icon: Building2,  fr: 'Clubs',       en: 'Clubs' },
-  { to: '/agency-app/events',    end: false, icon: Calendar,   fr: 'Événements',  en: 'Events' },
-  { to: '/agency-app/analytics', end: false, icon: BarChart2,  fr: 'Analytiques', en: 'Analytics' },
-  { to: '/agency-app/finance',   end: false, icon: Wallet,     fr: 'Finance',     en: 'Finance' },
+  { to: '/agency-app',           end: true,  icon: LayoutGrid,  fr: 'Aperçu',      en: 'Overview' },
+  { to: '/agency-app/promoters', end: false, icon: Users,       fr: 'Promoteurs',  en: 'Promoters' },
+  { to: '/agency-app/groups',    end: false, icon: Layers,      fr: 'Groupes',     en: 'Groups' },
+  { to: '/agency-app/clubs',     end: false, icon: Building2,   fr: 'Clubs',       en: 'Clubs' },
+  { to: '/agency-app/events',    end: false, icon: Calendar,    fr: 'Événements',  en: 'Events' },
+  { to: '/agency-app/stats',     end: false, icon: TrendingUp,  fr: 'Stats',       en: 'Stats' },
+  { to: '/agency-app/rules',     end: false, icon: ShieldCheck, fr: 'Règles',      en: 'Rules' },
+  { to: '/agency-app/analytics', end: false, icon: BarChart2,   fr: 'Graphiques',  en: 'Charts' },
+  { to: '/agency-app/finance',   end: false, icon: Wallet,      fr: 'Finance',     en: 'Finance' },
 ];
 
 type AgencyShape = NonNullable<ReturnType<typeof useAgency>['agency']>;

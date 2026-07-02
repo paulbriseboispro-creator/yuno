@@ -31,6 +31,8 @@ const AgencyGroups = lazyWithRetry(() => import("./pages/agency-app/AgencyGroups
 const AgencyEvents = lazyWithRetry(() => import("./pages/agency-app/AgencyEvents"));
 const AgencyAnalytics = lazyWithRetry(() => import("./pages/agency-app/AgencyAnalytics"));
 const AgencyPromoterDetail = lazyWithRetry(() => import("./pages/agency-app/AgencyPromoterDetail"));
+const AgencyStats = lazyWithRetry(() => import("./pages/agency-app/AgencyStats"));
+const AgencyRules = lazyWithRetry(() => import("./pages/agency-app/AgencyRules"));
 const OwnerAgencies = lazyWithRetry(() => import("./pages/OwnerAgencies"));
 const AffiliateRoute = lazyWithRetry(() => import("./components/AffiliateRoute").then(m => ({ default: m.AffiliateRoute })));
 const ManagerRoute = lazyWithRetry(() => import("./components/ManagerRoute").then(m => ({ default: m.ManagerRoute })));
@@ -538,6 +540,8 @@ const App = () => (
                   <Route path="groups" element={<AgencyGroups />} />
                   <Route path="events" element={<AgencyEvents />} />
                   <Route path="analytics" element={<AgencyAnalytics />} />
+                  <Route path="stats" element={<AgencyStats />} />
+                  <Route path="rules" element={<AgencyRules />} />
                 </Route>
 
                 {/* Public organizer profile (slug-based) */}
