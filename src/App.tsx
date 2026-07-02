@@ -27,6 +27,10 @@ const AgencyDashboard = lazyWithRetry(() => import("./pages/agency-app/AgencyDas
 const AgencyRoster = lazyWithRetry(() => import("./pages/agency-app/AgencyRoster"));
 const AgencyClubs = lazyWithRetry(() => import("./pages/agency-app/AgencyClubs"));
 const AgencyFinance = lazyWithRetry(() => import("./pages/agency-app/AgencyFinance"));
+const AgencyGroups = lazyWithRetry(() => import("./pages/agency-app/AgencyGroups"));
+const AgencyEvents = lazyWithRetry(() => import("./pages/agency-app/AgencyEvents"));
+const AgencyAnalytics = lazyWithRetry(() => import("./pages/agency-app/AgencyAnalytics"));
+const AgencyPromoterDetail = lazyWithRetry(() => import("./pages/agency-app/AgencyPromoterDetail"));
 const OwnerAgencies = lazyWithRetry(() => import("./pages/OwnerAgencies"));
 const AffiliateRoute = lazyWithRetry(() => import("./components/AffiliateRoute").then(m => ({ default: m.AffiliateRoute })));
 const ManagerRoute = lazyWithRetry(() => import("./components/ManagerRoute").then(m => ({ default: m.ManagerRoute })));
@@ -528,8 +532,12 @@ const App = () => (
                 }>
                   <Route index element={<AgencyDashboard />} />
                   <Route path="promoters" element={<AgencyRoster />} />
+                  <Route path="promoters/:userId" element={<AgencyPromoterDetail />} />
                   <Route path="clubs" element={<AgencyClubs />} />
                   <Route path="finance" element={<AgencyFinance />} />
+                  <Route path="groups" element={<AgencyGroups />} />
+                  <Route path="events" element={<AgencyEvents />} />
+                  <Route path="analytics" element={<AgencyAnalytics />} />
                 </Route>
 
                 {/* Public organizer profile (slug-based) */}
