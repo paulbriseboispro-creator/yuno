@@ -13,6 +13,7 @@ import { useVenueContext } from '@/hooks/useVenueContext';
 import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
 import { CollabReadOnlyBanner } from '@/components/CollabReadOnlyBanner';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
+import { GenerateOnboardingLinkButton } from '@/components/onboarding/GenerateOnboardingLinkButton';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED     = '#E8192C';
@@ -91,7 +92,7 @@ export default function OwnerStaff() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
-  const { venueId: contextVenueId } = useVenueContext();
+  const { venueId: contextVenueId, scope: dashScope, organizerUserId: dashOrganizerId } = useVenueContext();
   const [venueId, setVenueId] = useState<string | null>(null);
   const { hasFeature, plan } = useSubscriptionPlan();
   const { isReadOnly: collabReadOnly } = useCollabReadOnly();
@@ -367,15 +368,30 @@ export default function OwnerStaff() {
               </button>
             )}
           </div>
-          <button
-            onClick={() => setIsDialogOpen(true)}
-            disabled={collabReadOnly || staffCapReached}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold cursor-pointer transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ background: RED, color: '#fff', boxShadow: `0 0 18px -6px ${RED}88` }}
-          >
-            <UserPlus className="w-4 h-4" />
-            <span className="hidden sm:inline">{t('owner.addEmployee')}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            {!collabReadOnly && (venueId || (dashScope === 'organizer' && dashOrganizerId)) && (
+              <GenerateOnboardingLinkButton
+                roles={venueId
+                  ? ['barman', 'bouncer', 'cloakroom', 'vip_host', 'manager']
+                  : ['barman', 'bouncer', 'cloakroom']}
+                venueId={venueId ?? undefined}
+                organizerUserId={venueId ? undefined : dashOrganizerId}
+                variant="outline"
+                size="sm"
+                buttonLabel={t('genLink.shareStaff')}
+                className="rounded-xl text-[13px]"
+              />
+            )}
+            <button
+              onClick={() => setIsDialogOpen(true)}
+              disabled={collabReadOnly || staffCapReached}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-semibold cursor-pointer transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: RED, color: '#fff', boxShadow: `0 0 18px -6px ${RED}88` }}
+            >
+              <UserPlus className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('owner.addEmployee')}</span>
+            </button>
+          </div>
         </div>
 
         {/* Grid */}

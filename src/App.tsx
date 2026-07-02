@@ -174,6 +174,7 @@ const GuestFinalizeAccount = lazyWithRetry(() => import("./pages/GuestFinalizeAc
 const GuestDrinkCheckout = lazyWithRetry(() => import("./pages/GuestDrinkCheckout"));
 const AcceptInvitation = lazyWithRetry(() => import("./pages/AcceptInvitation"));
 const AcceptStaffInvitation = lazyWithRetry(() => import("./pages/AcceptStaffInvitation"));
+const JoinViaLink = lazyWithRetry(() => import("./pages/JoinViaLink"));
 
 const Welcome = lazyWithRetry(() => import("./pages/Welcome"));
 const Explore = lazyWithRetry(() => import("./pages/Explore"));
@@ -453,6 +454,7 @@ const App = () => (
                 <Route path="/accept-dj-invitation" element={<AcceptInvitation />} />
                 <Route path="/accept-promoter-invitation" element={<AcceptInvitation />} />
                 <Route path="/accept-staff-invitation" element={<AcceptStaffInvitation />} />
+                <Route path="/join" element={<JoinViaLink />} />
                 {/* Legacy /accept-organizer-invitation removed — org members now use /accept-platform-invitation */}
                 <Route path="/accept-platform-invitation" element={<AcceptPlatformInvitation />} />
                 <Route path="/club-invitation" element={<ClubInvitation />} />

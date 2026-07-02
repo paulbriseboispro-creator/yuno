@@ -11,6 +11,7 @@ import {
 import { Plus, Mail, Sparkles, Trash2, Pencil, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { GenerateOnboardingLinkButton } from '@/components/onboarding/GenerateOnboardingLinkButton';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED        = '#E8192C';
@@ -249,6 +250,13 @@ export default function AdminPlatformInvitations() {
               Invitez, modifiez ou retirez les comptes organisateurs (publics et BDE/privés via le type d'événement).
             </p>
           </div>
+          <div className="flex items-center gap-2 flex-wrap">
+          <GenerateOnboardingLinkButton
+            roles={['organizer']}
+            buttonLabel="Lien d'inscription"
+            variant="outline"
+            size="sm"
+          />
           <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
             <DialogTrigger asChild>
               <button
@@ -292,6 +300,7 @@ export default function AdminPlatformInvitations() {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         </header>
 
         {/* Pending invitations */}

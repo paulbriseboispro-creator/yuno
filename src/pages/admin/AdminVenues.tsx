@@ -5,6 +5,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Plus, Edit2, Trash2, User, Building2, ExternalLink, Mail, Loader2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
+import { GenerateOnboardingLinkButton } from '@/components/onboarding/GenerateOnboardingLinkButton';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED        = '#E8192C';
@@ -340,6 +341,17 @@ export default function AdminVenues() {
                       <button style={{ ...secondaryBtnStyle, flex: 1, padding: '7px 10px', fontSize: 12 }} onClick={() => copyInviteLink(venue.pending_owner_token!)}>{t('adminVenues.copyLink')}</button>
                       <button style={{ ...secondaryBtnStyle, flex: 1, padding: '7px 10px', fontSize: 12, opacity: inviting ? 0.5 : 1 }} disabled={inviting} onClick={() => inviteOwnerToEmail(venue.id, venue.name, venue.pending_owner_email!)}>{t('adminVenues.resend')}</button>
                     </div>
+                  )}
+
+                  {!venue.owner_email && (
+                    <GenerateOnboardingLinkButton
+                      roles={['owner']}
+                      venueId={venue.id}
+                      buttonLabel={t('adminVenues.ownerLink')}
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                    />
                   )}
 
                   <a href={`/club/${venue.id}`} target="_blank" rel="noopener noreferrer" style={{ ...secondaryBtnStyle, width: '100%', padding: '7px 10px', fontSize: 12, textDecoration: 'none' }}>
