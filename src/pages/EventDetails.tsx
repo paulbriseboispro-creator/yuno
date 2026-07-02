@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { usePreviewNavigate } from '@/contexts/OwnerPreviewContext';
 import { ArrowLeft, AlertCircle, MapPin, ChevronDown, ChevronUp, Music, Ticket, UserCheck, Share2, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -40,6 +40,7 @@ type EventDJ = {
 export default function EventDetails() {
   const { eventId, slug } = useParams();
   const navigate = usePreviewNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { t, language } = useLanguage();
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -554,7 +555,8 @@ export default function EventDetails() {
     }
   };
 
-  // Default back destination (club → organizer → home).
+  // Default back destination when there's no in-app history to return to
+  // (deep link / shared URL): club → organizer → home.
   const navigateBack = () => {
     if (slug) navigate(`/club/${slug}`);
     else if (primaryEntity === 'venue' && venue?.id) navigate(`/club/${venue.id}`);
@@ -566,6 +568,14 @@ export default function EventDetails() {
   const handleBack = () => {
     if (event?.visibility === 'private') {
       setShowLeavePrivate(true);
+      return;
+    }
+    // Arrived here from within the app (location.key is only 'default' on a
+    // fresh load / deep link)? Step back through real history so the user
+    // returns to wherever they came from — e.g. an open ticket QR in
+    // /my-orders — instead of a hard jump to the club page.
+    if (location.key !== 'default') {
+      navigate(-1);
       return;
     }
     navigateBack();
