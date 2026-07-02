@@ -1006,11 +1006,48 @@ export default function VenuePage() {
         {/* Copyright */}
         <div className="px-5 pt-10 pb-4 text-center">
           <p className="font-mono" style={{ fontSize: '10px', color: '#3A3A3E', letterSpacing: '0.08em' }}>
-            © {new Date().getFullYear()} {venue.name.toUpperCase()} · POWERED BY YUNO
+            © {new Date().getFullYear()} {venue.name.toUpperCase()}{(venuePlan === 'core' || venuePlan === 'collab') ? ' · POWERED BY YUNO' : ''}
           </p>
         </div>
 
       </main>
+
+      {/* Sticky "Powered by Yuno" pill — Core plan only, links to yunoapp.eu */}
+      {(venuePlan === 'core' || venuePlan === 'collab') && (
+        <a
+          href="https://yunoapp.eu"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Powered by Yuno"
+          style={{
+            position: 'fixed',
+            bottom: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 100,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '14px',
+            padding: '12px 20px',
+            borderRadius: '999px',
+            background: 'rgba(14,14,14,0.88)',
+            backdropFilter: 'blur(18px)',
+            WebkitBackdropFilter: 'blur(18px)',
+            border: '1px solid rgba(255,255,255,0.10)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.55)',
+            textDecoration: 'none',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap' as const,
+          }}
+        >
+          <span style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: '13px', fontWeight: 400, color: 'rgba(255,255,255,0.55)', letterSpacing: '0.01em' }}>
+            Powered by
+          </span>
+          <span style={{ fontFamily: "'Space Grotesk', 'Helvetica Neue', Arial, sans-serif", fontSize: '13px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.06em', textTransform: 'uppercase' as const, background: '#E8192C', padding: '5px 10px', borderRadius: '8px', lineHeight: 1 }}>
+            YUNO
+          </span>
+        </a>
+      )}
 
       {isDrinksEnabled && (
         <>

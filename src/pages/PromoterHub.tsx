@@ -321,6 +321,7 @@ export default function PromoterHub() {
   const [organizers, setOrganizers] = useState<OrganizerWithEvents[]>([]);
   const [promoter, setPromoter] = useState<PromoterInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [venuePlan, setVenuePlan] = useState<string>('core');
 
   useEffect(() => {
     // Reset loading state when promo code changes
@@ -368,6 +369,19 @@ export default function PromoterHub() {
       setLoading(false);
     })();
   }, [refCode]);
+
+  // Fetch the primary venue's subscription plan to gate the "Powered by Yuno" badge.
+  useEffect(() => {
+    if (venues.length === 0) return;
+    const primaryVenueId = venues[0].venue_id;
+    supabase
+      .from('venue_subscriptions')
+      .select('subscription_plan')
+      .eq('venue_id', primaryVenueId)
+      .in('status', ['active', 'trialing'])
+      .maybeSingle()
+      .then(({ data }) => setVenuePlan(data?.subscription_plan || 'core'));
+  }, [venues]);
 
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
 
@@ -754,8 +768,8 @@ export default function PromoterHub() {
 
         </main>
 
-        {/* ══ STICKY POWERED BY YUNO ══════════════════════════════ */}
-        <a
+        {/* ══ STICKY POWERED BY YUNO — Core plan only ════════════ */}
+        {(venuePlan === 'core' || venuePlan === 'collab') && <a
           href="https://yunoapp.eu"
           target="_blank"
           rel="noopener noreferrer"
@@ -808,7 +822,7 @@ export default function PromoterHub() {
           >
             YUNO
           </span>
-        </a>
+        </a>}
 
       </div>
 

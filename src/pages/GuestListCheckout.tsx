@@ -58,6 +58,7 @@ export default function GuestListCheckout() {
   const [entriesCount, setEntriesCount] = useState(0);
   const [genderCount, setGenderCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [venuePlan, setVenuePlan] = useState<string>('core');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
@@ -121,6 +122,8 @@ export default function GuestListCheckout() {
       if (ev?.venue_id) {
         const { data: venue } = await supabase.from('venues').select('name').eq('id', ev.venue_id).maybeSingle();
         venueName = venue?.name || '';
+        const { data: sub } = await supabase.from('venue_subscriptions').select('subscription_plan').eq('venue_id', ev.venue_id).in('status', ['active', 'trialing']).maybeSingle();
+        setVenuePlan(sub?.subscription_plan || 'core');
       }
 
       setGuestList({
@@ -523,6 +526,14 @@ export default function GuestListCheckout() {
           disabled={(genderRequired && !gender) || (!user && (!guestName.trim() || !guestEmail.trim() || !guestPhone.trim()))}
           onClick={handleConfirm}
         />
+      )}
+
+      {/* Powered by Yuno — Core plan only */}
+      {(venuePlan === 'core' || venuePlan === 'collab') && (
+        <div className="pb-6 pt-2 flex items-center justify-center gap-2" style={{ opacity: 0.45 }}>
+          <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: '10px', color: '#fff', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Powered by</span>
+          <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: '10px', fontWeight: 800, color: '#E8192C', letterSpacing: '0.08em', textTransform: 'uppercase' }}>YUNO</span>
+        </div>
       )}
     </CheckoutShell>
   );
