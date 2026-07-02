@@ -191,13 +191,16 @@ async function handleRedeemOnboardingLink(req: Request, supabase: SupabaseClient
   }
 
   if (!userId) {
-    if (!email || !password) return json({ error: 'Email et mot de passe requis', code: 'need_credentials' }, 400);
-    if (password.length < 6) return json({ error: 'Mot de passe trop court (min. 6 caractères)', code: 'weak_password' }, 400);
+    if (!email) return json({ error: 'Email requis', code: 'need_email' }, 400);
     // The link's email is untrusted, so never auto-grant onto an existing account.
     const { data: existingProfiles } = await supabase.from('profiles').select('id').eq('email', email).limit(1);
     if (existingProfiles && existingProfiles.length > 0) {
       return json({ error: 'Un compte existe déjà pour cet email. Connecte-toi puis rouvre le lien.', code: 'account_exists' }, 409);
     }
+    // No account at this email yet → the frontend now reveals a password field.
+    // (First submit carries email only; second submit carries email + password.)
+    if (!password) return json({ success: false, code: 'need_password', account_exists: false }, 200);
+    if (password.length < 6) return json({ error: 'Mot de passe trop court (min. 6 caractères)', code: 'weak_password' }, 400);
     const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
       email, password, email_confirm: true,
       user_metadata: { first_name: first_name || '', last_name: last_name || '' },

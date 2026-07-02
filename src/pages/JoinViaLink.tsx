@@ -40,6 +40,7 @@ export default function JoinViaLink() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [existingAccount, setExistingAccount] = useState(false);
+  const [needsPassword, setNeedsPassword] = useState(false);
 
   const roleLabel = info ? (t(`join.role.${info.role}`) || info.role) : '';
   const inviterName = info?.venue_name || info?.organizer_name || (info?.role === 'organizer' ? 'Yuno' : t('join.aTeam'));
@@ -62,7 +63,7 @@ export default function JoinViaLink() {
     check();
   }, [token]);
 
-  const redeem = useCallback(async (withCredentials: boolean) => {
+  const redeem = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     setExistingAccount(false);
@@ -74,12 +75,14 @@ export default function JoinViaLink() {
       if (user) {
         const { data: session } = await supabase.auth.getSession();
         if (session.session?.access_token) headers.Authorization = `Bearer ${session.session.access_token}`;
-      } else if (withCredentials) {
+      } else {
+        // Always send the person's info; the password is only sent once we know
+        // there's no existing account (progressive form).
         body.email = email.trim();
-        body.password = password;
         body.first_name = firstName || undefined;
         body.last_name = lastName || undefined;
         if (info?.role === 'dj' && stageName) body.stage_name = stageName;
+        if (needsPassword && password) body.password = password;
       }
 
       const response = await supabase.functions.invoke('accept-staff-invitation', {
@@ -89,26 +92,30 @@ export default function JoinViaLink() {
       if (response.error) throw new Error(response.error.message);
 
       const data = response.data;
+
+      // No account at this email yet → reveal the password field, stay on the form.
+      if (data?.code === 'need_password') { setNeedsPassword(true); return; }
+
       if (data?.error) {
         if (data.code === 'account_exists') setExistingAccount(true);
         setResult({ success: false, message: data.error });
         return;
       }
 
-      // Fresh account: sign the person in so their new dashboard opens immediately.
-      if (!user && withCredentials) {
+      // Fresh account created → sign the person in so their new dashboard opens.
+      if (!user && password) {
         await supabase.auth.signInWithPassword({ email: email.trim(), password });
       }
 
       setResult({ success: true, message: data.message || t('join.success'), redirect: data.redirect || '/' });
       toast.success(data.message || t('join.success'));
     } catch (err) {
-      console.error('accept-onboarding-link error:', err);
+      console.error('redeem_onboarding_link error:', err);
       setResult({ success: false, message: err instanceof Error ? err.message : t('join.genericError') });
     } finally {
       setLoading(false);
     }
-  }, [token, user, email, password, firstName, lastName, stageName, info, t]);
+  }, [token, user, email, password, firstName, lastName, stageName, info, needsPassword, t]);
 
   const goLoginBack = () =>
     navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
@@ -199,7 +206,7 @@ export default function JoinViaLink() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="p-8 max-w-md w-full">
           {header}
-          <Button className="w-full" onClick={() => redeem(false)} disabled={loading}>
+          <Button className="w-full" onClick={redeem} disabled={loading}>
             {t('join.joinAs')} {roleLabel}
           </Button>
         </Card>
@@ -207,8 +214,10 @@ export default function JoinViaLink() {
     );
   }
 
-  // Not logged in → create profile inline.
-  const canSubmit = email.trim().length > 3 && password.length >= 6;
+  // Not logged in → progressive: collect info first, reveal password only if the
+  // email has no Yuno account yet.
+  const emailValid = email.trim().length > 3 && email.includes('@');
+  const canSubmit = needsPassword ? password.length >= 6 : emailValid;
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="p-8 max-w-md w-full">
@@ -217,32 +226,42 @@ export default function JoinViaLink() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>{t('join.firstName')}</Label>
-              <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+              <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} disabled={needsPassword} />
             </div>
             <div>
               <Label>{t('join.lastName')}</Label>
-              <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
+              <Input value={lastName} onChange={(e) => setLastName(e.target.value)} disabled={needsPassword} />
             </div>
           </div>
           {info.role === 'dj' && (
             <div>
               <Label>{t('join.stageName')}</Label>
-              <Input value={stageName} onChange={(e) => setStageName(e.target.value)} placeholder={t('join.stageNamePh')} />
+              <Input value={stageName} onChange={(e) => setStageName(e.target.value)} placeholder={t('join.stageNamePh')} disabled={needsPassword} />
             </div>
           )}
           <div>
             <Label>Email</Label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" />
-          </div>
-          <div>
-            <Label>{t('join.password')}</Label>
-            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t('join.passwordPh')} />
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" disabled={needsPassword} />
           </div>
 
-          <Button className="w-full" onClick={() => redeem(true)} disabled={loading || !canSubmit}>
+          {needsPassword && (
+            <div>
+              <Label>{t('join.password')}</Label>
+              <Input type="password" autoFocus value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t('join.passwordPh')} />
+              <p className="text-xs text-muted-foreground mt-1">{t('join.newAccountPasswordHint')}</p>
+            </div>
+          )}
+
+          <Button className="w-full" onClick={redeem} disabled={loading || !canSubmit}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            {t('join.createAndJoin')}
+            {needsPassword ? t('join.createAndJoin') : t('join.continue')}
           </Button>
+
+          {needsPassword && (
+            <Button variant="ghost" className="w-full" onClick={() => { setNeedsPassword(false); setPassword(''); }} disabled={loading}>
+              {t('join.changeEmail')}
+            </Button>
+          )}
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center"><div className="w-full border-t" /></div>

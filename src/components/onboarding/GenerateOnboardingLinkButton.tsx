@@ -36,6 +36,7 @@ export function GenerateOnboardingLinkButton({
   const [open, setOpen] = useState(false);
   const [role, setRole] = useState<OnboardingRole>(roles[0]);
   const [label, setLabel] = useState('');
+  const [orgName, setOrgName] = useState(''); // organizer links: name for a personalized onboarding
   const [maxUses, setMaxUses] = useState(''); // blank = unlimited
   const [expiresInDays, setExpiresInDays] = useState(14);
   const [loading, setLoading] = useState(false);
@@ -61,6 +62,8 @@ export function GenerateOnboardingLinkButton({
         label: label.trim() || undefined,
         expires_in_days: expiresInDays,
         max_uses: isOwner ? 1 : (maxUses.trim() ? Math.max(1, parseInt(maxUses, 10) || 1) : null),
+        // Organizer links carry the org name so the invitee lands on a personalized onboarding.
+        config: role === 'organizer' && orgName.trim() ? { organization_name: orgName.trim() } : undefined,
       };
       const { data, error } = await supabase.functions.invoke('accept-staff-invitation', { body });
       if (error) throw new Error(error.message);
@@ -122,6 +125,14 @@ export function GenerateOnboardingLinkButton({
                 </div>
               )}
 
+              {role === 'organizer' && (
+                <div>
+                  <Label>{t('genLink.orgName')}</Label>
+                  <Input value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder={t('genLink.orgNamePh')} />
+                  <p className="text-[11px] text-muted-foreground mt-1">{t('genLink.orgNameHint')}</p>
+                </div>
+              )}
+
               <div>
                 <Label>{t('genLink.label')}</Label>
                 <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t('genLink.labelPh')} />
@@ -154,7 +165,7 @@ export function GenerateOnboardingLinkButton({
                 </div>
               </div>
 
-              <Button className="w-full" onClick={generate} disabled={loading}>
+              <Button className="w-full" onClick={generate} disabled={loading || (role === 'organizer' && !orgName.trim())}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <QrCode className="h-4 w-4 mr-2" />}
                 {t('genLink.generate')}
               </Button>
