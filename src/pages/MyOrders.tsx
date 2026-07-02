@@ -68,6 +68,13 @@ export default function MyOrders() {
   const [prepWithItemsBarOrder, setPrepWithItemsBarOrder] = useState<{ order: Order; indices: number[] } | null>(null);
   const [venueBarCounts, setVenueBarCounts] = useState<Record<string, number>>({});
   const [selectedGuestEntry, setSelectedGuestEntry] = useState<GuestListEntryWithDetails | null>(null);
+  // When we land here from a "View event" round-trip (Back), an opaque cover
+  // hides the list until the restored overlay is on screen — no list flash,
+  // no fade-in revealing the list behind. Seeded synchronously from the URL.
+  const [restoring, setRestoring] = useState(
+    () => ['ticket_id', 'reservation_id', 'guest_id', 'reward_id'].some(k => searchParams.get(k))
+      && searchParams.get('success') !== 'true',
+  );
   const [waitlistEntries, setWaitlistEntries] = useState<{ id: string; eventId: string; eventTitle: string; eventStartAt: string; eventPosterUrl?: string; venueName: string; venueSlug: string; createdAt: string; presaleStartAt?: string; publicSaleStartAt?: string }[]>([]);
   const [seg, setSeg] = useState<OrderBucket>('pending');
   // Guest purchases claimed via /claim and saved to this device's local cache.
@@ -118,12 +125,32 @@ export default function MyOrders() {
     if (matched) {
       restoredOverlayRef.current = true;
       // Consume the restore params so closing the overlay leaves a clean URL
-      // and a re-render can't reopen it.
+      // and a re-render can't reopen it. Keep `restoring` true for now — the
+      // effect below drops the cover once the (opaque) overlay is mounted.
       const sp = new URLSearchParams(searchParams);
       ['ticket_id', 'reservation_id', 'guest_id', 'reward_id'].forEach(k => sp.delete(k));
       setSearchParams(sp, { replace: true });
+    } else {
+      // Param present but the order isn't in our data — reveal the list.
+      setRestoring(false);
     }
   }, [loading, success, tickets, vipReservations, guestListEntries, pendingRewards, searchParams, setSearchParams]);
+
+  // Drop the restore cover once the overlay is actually on screen: it's opaque
+  // and covers the list, so there's nothing left to hide. Deriving the overlay's
+  // `instant` (no fade-in) flag from `restoring` keeps normal card taps animated.
+  useEffect(() => {
+    if (restoring && (selectedTicket || selectedVipReservation || selectedGuestEntry || selectedReward)) {
+      setRestoring(false);
+    }
+  }, [restoring, selectedTicket, selectedVipReservation, selectedGuestEntry, selectedReward]);
+
+  // Safety valve: logged out (auth resolved, no user) → account orders never
+  // load, so drop the cover and show the unauthenticated state instead of a
+  // permanent dark screen.
+  useEffect(() => {
+    if (restoring && !authLoading && !user) setRestoring(false);
+  }, [restoring, authLoading, user]);
 
   const getLocale = () => {
     switch (language) {
@@ -1793,9 +1820,14 @@ export default function MyOrders() {
         onConfirm={handleCancelTicket}
       />
 
+      {/* Opaque cover during a Back-restore so the list never flashes before
+          the overlay reopens (removed as soon as the overlay is mounted). */}
+      {restoring && <div className="fixed inset-0 z-[95]" style={{ background: '#0A0A0A' }} aria-hidden />}
+
       {/* QR Code Modal for Tickets - Per-attendee carousel (shared premium design) */}
       {selectedTicket && (
         <TicketQROverlay
+          instant={restoring}
           ticketId={selectedTicket.id}
           ticketQrCode={selectedTicket.qrCode}
           quantity={selectedTicket.quantity}
@@ -1828,6 +1860,7 @@ export default function MyOrders() {
       {/* QR Code Modal for VIP Reservations */}
       {selectedVipReservation && (
         <OrderQROverlay
+          instant={restoring}
           kind="vip"
           title={selectedVipReservation.eventTitle}
           venueName={`${selectedVipReservation.venueName} · ${selectedVipReservation.zoneName || selectedVipReservation.packName}`}
@@ -1876,6 +1909,7 @@ export default function MyOrders() {
       {/* QR Code Modal for Guest List Entries */}
       {selectedGuestEntry && (
         <OrderQROverlay
+          instant={restoring}
           kind="guestlist"
           title={selectedGuestEntry.eventTitle}
           venueName={selectedGuestEntry.venueName}
@@ -1960,6 +1994,7 @@ export default function MyOrders() {
       {/* QR Code Modal for Free Ticket Rewards */}
       {selectedReward && selectedReward.rewardType === 'free_ticket' && (
         <OrderQROverlay
+          instant={restoring}
           kind="reward"
           title={selectedReward.eventDetails?.title || selectedReward.metadata?.eventTitle || selectedReward.rewardName}
           venueName={selectedReward.venueName}

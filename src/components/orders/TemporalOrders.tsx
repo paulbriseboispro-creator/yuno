@@ -334,7 +334,7 @@ export interface QRAction {
 }
 
 export function OrderQROverlay({
-  kind, title, venueName, qrImage, idLabel, scanned, footer, labels, onClose, onShare, slides, actions, whenLabel,
+  kind, title, venueName, qrImage, idLabel, scanned, footer, labels, onClose, onShare, slides, actions, whenLabel, instant,
 }: {
   kind: OrderKind;
   title: string;
@@ -353,6 +353,8 @@ export function OrderQROverlay({
   actions?: QRAction[];
   /** date + time line shown inside the info card, e.g. "SAT 14 JUN · 23:00" */
   whenLabel?: string;
+  /** skip the fade-in mount animation (used when restored from history) */
+  instant?: boolean;
 }) {
   const [index, setIndex] = useState(0);
   const touchStartX = useRef(0);
@@ -375,7 +377,7 @@ export function OrderQROverlay({
 
   return (
     <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      initial={instant ? false : { opacity: 0 }} animate={{ opacity: 1 }}
       className="fixed inset-0 z-[100] flex flex-col"
       style={{ background: '#0A0A0A' }}
     >
