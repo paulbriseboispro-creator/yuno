@@ -587,6 +587,53 @@ serve(async (req) => {
         logStep("Error awarding loyalty points (non-blocking)", { error: String(loyaltyError) });
       }
 
+      // ── Notif owner + organizer : nouvelle réservation VIP ──────────────────
+      // Le chemin Stripe passe par verify-table-payment (qui envoie la notif). En mode
+      // démo/simulate la résa est payée ici sans passer par verify-table-payment : il faut
+      // donc déclencher la notif ici, sinon l'owner ne reçoit rien. Non bloquant.
+      try {
+        const packName = pack.name || 'Table VIP';
+        const depositFormatted = Number(discountedDeposit ?? finalTotalPrice ?? 0).toFixed(2);
+        const notifMessage = `${packName} · ${fullName || 'Client'} · ${validGuestCount || 1} pers. — ${depositFormatted} €`;
+        const notifMeta = {
+          pack_name: packName,
+          guest_count: validGuestCount,
+          deposit: discountedDeposit,
+          total_price: finalTotalPrice,
+          full_name: fullName,
+        };
+        if (effectiveVenueId) {
+          await supabaseAdmin.from('staff_notifications').insert({
+            venue_id: effectiveVenueId,
+            target_role: 'owner',
+            notification_type: 'table_booked',
+            title: 'Nouvelle réservation VIP',
+            message: notifMessage,
+            priority: 'high',
+            reference_type: 'table_reservation',
+            reference_id: reservation.id,
+            event_id: eventId ?? null,
+            metadata: notifMeta,
+          });
+        }
+        if (effectiveOrganizerId) {
+          await supabaseAdmin.from('organizer_notifications').insert({
+            organizer_user_id: effectiveOrganizerId,
+            notification_type: 'table_booked',
+            title: 'Nouvelle réservation VIP',
+            message: notifMessage,
+            priority: 'high',
+            reference_type: 'table_reservation',
+            reference_id: reservation.id,
+            event_id: eventId ?? null,
+            metadata: notifMeta,
+          });
+        }
+        logStep("Owner/organizer VIP reservation notification sent (demo path)");
+      } catch (notifErr) {
+        console.error('VIP reservation notif error (demo, non-blocking):', notifErr);
+      }
+
       // Send VIP request_received email
       try {
         await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-vip-confirmation`, {
