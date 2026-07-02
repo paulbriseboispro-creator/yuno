@@ -770,7 +770,7 @@ export default function PromoterHub() {
 
         {/* ══ STICKY POWERED BY YUNO — Core plan only ════════════ */}
         {(venuePlan === 'core' || venuePlan === 'collab') && <a
-          href="https://yunoapp.eu"
+          href="https://www.instagram.com/yunoapp.eu"
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Propulsé par Yuno"

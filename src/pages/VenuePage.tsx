@@ -1015,7 +1015,7 @@ export default function VenuePage() {
       {/* Sticky "Powered by Yuno" pill — Core plan only, links to yunoapp.eu */}
       {(venuePlan === 'core' || venuePlan === 'collab') && (
         <a
-          href="https://yunoapp.eu"
+          href="https://www.instagram.com/yunoapp.eu"
           target="_blank"
           rel="noopener noreferrer"
           aria-label="Powered by Yuno"
