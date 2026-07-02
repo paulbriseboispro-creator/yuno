@@ -1342,24 +1342,32 @@ export default function OwnerTicketing() {
                   return (
                     <div key={event.id} className="p-5 sm:p-6" style={MAIN_CARD}>
                       <div className="flex items-start justify-between gap-4">
-                        <button
-                          type="button"
-                          onClick={() => setExpandedEventId(prev => prev === event.id ? null : event.id)}
-                          className="flex items-start gap-3 min-w-0 flex-1 text-left cursor-pointer bg-transparent border-0 p-0"
-                          aria-expanded={isExpanded}
-                          title={isExpanded ? t('tickets.collapseEvent') : t('tickets.expandEvent')}
-                        >
-                          <ChevronDown
-                            className="h-4 w-4 flex-none mt-1.5 transition-transform duration-200"
-                            style={{ color: T3, transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
-                          />
-                          <div className="min-w-0">
+                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedEventId(prev => prev === event.id ? null : event.id)}
+                            className="flex-none mt-0.5 grid place-items-center h-7 w-7 rounded-lg cursor-pointer bg-transparent border-0 hover:bg-white/[0.06] transition-colors"
+                            aria-expanded={isExpanded}
+                            aria-label={isExpanded ? t('tickets.collapseEvent') : t('tickets.expandEvent')}
+                            title={isExpanded ? t('tickets.collapseEvent') : t('tickets.expandEvent')}
+                          >
+                            <ChevronDown
+                              className="h-4 w-4 transition-transform duration-200"
+                              style={{ color: T3, transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+                            />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setExpandedEventId(prev => prev === event.id ? null : event.id)}
+                            className="min-w-0 text-left cursor-pointer bg-transparent border-0 p-0"
+                            title={isExpanded ? t('tickets.collapseEvent') : t('tickets.expandEvent')}
+                          >
                             <h3 className="truncate" style={{ color: T1, fontSize: 18, fontWeight: 600, letterSpacing: '-0.015em' }}>{event.title}</h3>
                             <p style={{ color: T3, fontSize: 12.5, marginTop: 3 }}>
                               {formatInTimeZone(new Date(event.startAt), PARIS_TIMEZONE, 'EEEE d MMMM yyyy, HH:mm', { locale: getLocale() })}
                             </p>
-                          </div>
-                        </button>
+                          </button>
+                        </div>
                         <div className="flex items-center gap-2 flex-none">
                           <span className="hidden sm:inline" style={{ color: T3, fontSize: 12.5 }}>{t('tickets.enableTicketing')}</span>
                           <Switch
