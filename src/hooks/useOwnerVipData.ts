@@ -38,6 +38,12 @@ export interface OwnerVipConsumption {
   reservationId: string;
 }
 
+export interface OwnerVipOrderItem {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+}
+
 export interface OwnerVipOrder {
   id: string;
   reservationId: string;
@@ -46,6 +52,8 @@ export interface OwnerVipOrder {
   createdAt: string;
   confirmedAt?: string;
   servedAt?: string;
+  notes?: string | null;
+  items: OwnerVipOrderItem[];
 }
 
 export interface VipEvent {
@@ -144,12 +152,32 @@ export function useOwnerVipData() {
           servedAt: c.served_at,
           reservationId: c.table_reservation_id,
         })));
-        // Fetch vip_table_orders for time analysis
+        // Fetch vip_table_orders (+ leurs lignes) : sert au time-analysis ET à l'affichage
+        // des bouteilles pré-commandées / commandées dans le détail d'une réservation.
         const { data: ordersData } = await supabase
           .from('vip_table_orders')
-          .select('id, table_reservation_id, status, total_amount, created_at, confirmed_at, served_at')
+          .select('id, table_reservation_id, status, total_amount, created_at, confirmed_at, served_at, notes')
           .in('table_reservation_id', resIds)
+          .neq('status', 'cancelled')
           .order('created_at', { ascending: true });
+
+        const orderIds = (ordersData || []).map((o: any) => o.id);
+        const itemsByOrder = new Map<string, OwnerVipOrderItem[]>();
+        if (orderIds.length > 0) {
+          const { data: itemsData } = await supabase
+            .from('vip_table_order_items')
+            .select('order_id, quantity, unit_price, vip_menu_items(name)')
+            .in('order_id', orderIds);
+          (itemsData || []).forEach((it: any) => {
+            const arr = itemsByOrder.get(it.order_id) || [];
+            arr.push({
+              name: it.vip_menu_items?.name || 'Bouteille',
+              quantity: it.quantity,
+              unitPrice: it.unit_price,
+            });
+            itemsByOrder.set(it.order_id, arr);
+          });
+        }
 
         setOrders((ordersData || []).map((o: any) => ({
           id: o.id,
@@ -159,6 +187,8 @@ export function useOwnerVipData() {
           createdAt: o.created_at,
           confirmedAt: o.confirmed_at,
           servedAt: o.served_at,
+          notes: o.notes,
+          items: itemsByOrder.get(o.id) || [],
         })));
       } else {
         setConsumptions([]);

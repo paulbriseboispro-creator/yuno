@@ -75,7 +75,7 @@ export default function OwnerVipService() {
     const fetchSettings = async () => {
       setSettingsLoading(true);
       try {
-        const [hostsRes, zonesRes, itemsRes, venueRes, fpRes] = await Promise.all([
+        const [hostsRes, zonesRes, itemsRes, venueRes] = await Promise.all([
           // VIP Hosts
           supabase.from('user_roles').select('user_id').eq('role', 'vip_host').then(async ({ data }) => {
             const ids = (data || []).map(r => r.user_id);
@@ -86,7 +86,6 @@ export default function OwnerVipService() {
           supabase.from('table_zones').select('id, name, color').eq('venue_id', venueId).order('name'),
           supabase.from('vip_quick_items').select('*').eq('venue_id', venueId).order('position'),
           supabase.from('venues').select('vip_placement_enabled').eq('id', venueId).maybeSingle(),
-          supabase.from('venue_floor_plans').select('*').eq('venue_id', venueId).maybeSingle(),
         ]);
 
         setVipHosts(hostsRes);
@@ -96,16 +95,6 @@ export default function OwnerVipService() {
           default_price: item.default_price, position: item.position, is_active: item.is_active,
         })));
         setVipPlacementEnabled(venueRes.data?.vip_placement_enabled || false);
-        if (fpRes.data) {
-          setFloorPlan({
-            id: fpRes.data.id,
-            venueId: fpRes.data.venue_id,
-            backgroundImageUrl: fpRes.data.background_image_url,
-            layout: fpRes.data.layout,
-            createdAt: fpRes.data.created_at,
-            updatedAt: fpRes.data.updated_at,
-          });
-        }
       } catch (error) {
         console.error('Error fetching settings:', error);
       } finally {
@@ -114,6 +103,35 @@ export default function OwnerVipService() {
     };
     fetchSettings();
   }, [venueId]);
+
+  // Résout le plan de salle en préférant celui de l'ÉVÉNEMENT sélectionné (basic mode)
+  // puis en retombant sur le plan venue-scoped. Sinon la carte live du Placement reste
+  // vide pour les events à plan dédié (bug remonté).
+  useEffect(() => {
+    if (!venueId) return;
+    let cancelled = false;
+    (async () => {
+      let fp: any = null;
+      if (selectedEventId && selectedEventId !== 'all') {
+        const { data } = await supabase.from('venue_floor_plans').select('*').eq('event_id', selectedEventId).maybeSingle();
+        fp = data;
+      }
+      if (!fp) {
+        const { data } = await supabase.from('venue_floor_plans').select('*').eq('venue_id', venueId).is('event_id', null).maybeSingle();
+        fp = data;
+      }
+      if (cancelled) return;
+      setFloorPlan(fp ? {
+        id: fp.id,
+        venueId: fp.venue_id,
+        backgroundImageUrl: fp.background_image_url,
+        layout: fp.layout,
+        createdAt: fp.created_at,
+        updatedAt: fp.updated_at,
+      } : null);
+    })();
+    return () => { cancelled = true; };
+  }, [venueId, selectedEventId]);
 
   // Filter reservations/consumptions by selected event
   const filteredReservations = useMemo(() => {
@@ -273,6 +291,7 @@ export default function OwnerVipService() {
             <VipReservationsTab
               reservations={filteredReservations}
               consumptions={filteredConsumptions}
+              orders={filteredOrders}
               events={events}
               selectedEventId={selectedEventId}
             />

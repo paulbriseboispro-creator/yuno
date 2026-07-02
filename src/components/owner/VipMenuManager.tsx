@@ -109,6 +109,7 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
   // Réglages club (idée #2 / #3) : vitrine menu dans le tunnel + pré-commande.
   const [menuVisibility, setMenuVisibility] = useState<'hidden' | 'no_prices' | 'full'>('hidden');
   const [preorderEnabled, setPreorderEnabled] = useState(false);
+  const [menuDisplayMode, setMenuDisplayMode] = useState<'text' | 'visual'>('text');
 
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEligibilityDialog, setShowEligibilityDialog] = useState(false);
@@ -152,7 +153,7 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
         supabase.from('vip_menu_eligibility').select('*'),
         supabase.from('table_zones').select('id, name, color').eq('venue_id', venueId),
         supabase.from('table_packs').select('id, name, zone_id, included_bottles_quota').eq('venue_id', venueId),
-        supabase.from('venues').select('vip_menu_visibility, vip_preorder_enabled').eq('id', venueId).single(),
+        supabase.from('venues').select('vip_menu_visibility, vip_preorder_enabled, vip_menu_display_mode').eq('id', venueId).single(),
       ]);
 
       setItems(itemsRes.data || []);
@@ -162,6 +163,7 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
       if (venueRes.data) {
         setMenuVisibility((venueRes.data.vip_menu_visibility as 'hidden' | 'no_prices' | 'full') || 'hidden');
         setPreorderEnabled(!!venueRes.data.vip_preorder_enabled);
+        setMenuDisplayMode((venueRes.data.vip_menu_display_mode as 'text' | 'visual') || 'text');
       }
     } catch (error) {
       console.error('Error fetching VIP menu data:', error);
@@ -391,10 +393,23 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
     if (error) { setPreorderEnabled(!val); toast.error(t('common.error')); }
   };
 
+  const saveDisplayMode = async (m: 'text' | 'visual') => {
+    const prev = menuDisplayMode;
+    setMenuDisplayMode(m);
+    const { error } = await supabase.from('venues').update({ vip_menu_display_mode: m }).eq('id', venueId);
+    if (error) { setMenuDisplayMode(prev); toast.error(t('common.error')); }
+    else toast.success(tt('Affichage de la carte mis à jour', 'Menu display updated', 'Visualización de la carta actualizada'));
+  };
+
   const VIS_OPTS: { v: 'hidden' | 'no_prices' | 'full'; label: string; desc: string }[] = [
     { v: 'hidden', label: tt('Masquée', 'Hidden', 'Oculta'), desc: tt('Le client ne voit pas la carte avant de payer.', "Guests can't see the menu before paying.", 'El cliente no ve la carta antes de pagar.') },
     { v: 'no_prices', label: tt('Sans prix', 'No prices', 'Sin precios'), desc: tt('Le client voit les bouteilles, sans les prix.', 'Guests see the bottles, without prices.', 'El cliente ve las botellas, sin precios.') },
     { v: 'full', label: tt('Complète', 'Full', 'Completa'), desc: tt('Le client voit bouteilles et prix.', 'Guests see bottles and prices.', 'El cliente ve botellas y precios.') },
+  ];
+
+  const DISPLAY_OPTS: { m: 'text' | 'visual'; label: string; desc: string }[] = [
+    { m: 'text', label: tt('Liste écrite', 'Written list', 'Lista escrita'), desc: tt('Carte compacte en texte.', 'Compact text menu.', 'Carta compacta en texto.') },
+    { m: 'visual', label: tt('Page visuelle', 'Visual page', 'Página visual'), desc: tt('Bouton « Voir la carte » avec photos des bouteilles.', '"View the menu" button with bottle photos.', 'Botón "Ver la carta" con fotos de botellas.') },
   ];
 
   return (
@@ -433,6 +448,25 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
             </button>
           ))}
         </div>
+        {/* Mode d'affichage — pertinent seulement si la carte est visible */}
+        {menuVisibility !== 'hidden' && (
+          <div className="pt-1">
+            <p className="text-sm font-medium mb-2">{tt('Comment afficher la carte', 'How to show the menu', 'Cómo mostrar la carta')}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {DISPLAY_OPTS.map(opt => (
+                <button
+                  key={opt.m}
+                  type="button"
+                  onClick={() => saveDisplayMode(opt.m)}
+                  className={`text-left rounded-lg border p-3 transition-colors ${menuDisplayMode === opt.m ? 'border-primary bg-primary/10' : 'border-border/60 hover:bg-muted/40'}`}
+                >
+                  <span className="text-sm font-semibold">{opt.label}</span>
+                  <span className="block text-[11px] text-muted-foreground mt-0.5 leading-snug">{opt.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="flex items-center justify-between pt-1">
           <div>
             <p className="text-sm font-medium">{tt('Pré-commande de bouteilles', 'Bottle pre-ordering', 'Pre-pedido de botellas')}</p>

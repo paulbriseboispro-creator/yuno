@@ -637,8 +637,10 @@ export default function TableCheckout() {
                     packId={pack?.id}
                     zoneId={activeZoneId}
                     visibility={venue.vip_menu_visibility}
+                    displayMode={venue.vip_menu_display_mode === 'visual' ? 'visual' : 'text'}
                     preorderEnabled={!!venue.vip_preorder_enabled}
                     onPreorderChange={setPreOrderBottles}
+                    minimumSpend={pack?.minimumSpend}
                   />
                 )}
 

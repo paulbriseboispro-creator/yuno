@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { translate } from '@/i18n/orgTranslate';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { Crown, Users, Euro, Target } from 'lucide-react';
@@ -9,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import type { OwnerVipReservation, OwnerVipConsumption, VipEvent } from '@/hooks/useOwnerVipData';
+import type { OwnerVipReservation, OwnerVipConsumption, OwnerVipOrder, VipEvent } from '@/hooks/useOwnerVipData';
 import {
   VipCard, VipStatTile, VipPill, VipProgress, VipEmpty, VipSelect, type PillTone,
   RED, POS, WARN, T1, T2, T3, BORDER, F_BORDER, INNER_BG, CARD_BG, CARD_SHADOW,
@@ -18,6 +19,7 @@ import {
 interface Props {
   reservations: OwnerVipReservation[];
   consumptions: OwnerVipConsumption[];
+  orders: OwnerVipOrder[];
   events: VipEvent[];
   selectedEventId: string;
 }
@@ -29,7 +31,7 @@ const STATUS_TONE: Record<string, PillTone> = {
   finished: 'muted',
 };
 
-export function VipReservationsTab({ reservations, consumptions, events, selectedEventId }: Props) {
+export function VipReservationsTab({ reservations, consumptions, orders, events, selectedEventId }: Props) {
   const { t, language } = useLanguage();
   const locale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -170,6 +172,7 @@ export function VipReservationsTab({ reservations, consumptions, events, selecte
       <ReservationDetailDialog
         reservation={selectedRes}
         consumptions={selectedRes ? resConsumptions(selectedRes.id) : []}
+        orders={selectedRes ? orders.filter(o => o.reservationId === selectedRes.id) : []}
         onClose={() => setSelectedRes(null)}
         locale={locale}
       />
@@ -186,14 +189,21 @@ function ResStat({ label, value, color }: { label: string; value: string; color?
   );
 }
 
-function ReservationDetailDialog({ reservation, consumptions, onClose, locale }: {
+function ReservationDetailDialog({ reservation, consumptions, orders, onClose, locale }: {
   reservation: OwnerVipReservation | null;
   consumptions: OwnerVipConsumption[];
+  orders: OwnerVipOrder[];
   onClose: () => void;
   locale: any;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   if (!reservation) return null;
+
+  const isPreorder = (notes?: string | null) => {
+    const n = (notes || '').toLowerCase();
+    return n.includes('pré-commande') || n.includes('pre-order') || n.includes('preorder');
+  };
 
   const consumed = consumptions.reduce((s, c) => s + c.totalPrice, 0);
   const total = reservation.deposit + consumed;
@@ -269,6 +279,41 @@ function ReservationDetailDialog({ reservation, consumptions, onClose, locale }:
               {overshoot < 0 && (
                 <p className="tabular-nums" style={{ color: WARN, fontSize: 11.5 }}>{Math.abs(overshoot).toFixed(0)}€ {t('vipOwner.remainingAmount')}</p>
               )}
+            </div>
+          )}
+
+          {/* Orders — pré-commandes (checkout) + commandes QR, avec les bouteilles */}
+          {orders.length > 0 && (
+            <div className="pt-3" style={{ borderTop: `1px solid ${F_BORDER}` }}>
+              <p style={{ color: T3, fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 8 }}>
+                {tt('Commandes', 'Orders', 'Pedidos')} ({orders.length})
+              </p>
+              <div className="space-y-2 max-h-56 overflow-y-auto">
+                {orders.map(o => (
+                  <div key={o.id} className="rounded-lg p-2.5" style={{ background: INNER_BG }}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: isPreorder(o.notes) ? '#E7C15A' : T2 }}>
+                        {isPreorder(o.notes)
+                          ? tt('Pré-commande', 'Pre-order', 'Pre-pedido')
+                          : tt('Commande', 'Order', 'Pedido')}
+                      </span>
+                      <span className="tabular-nums" style={{ color: T1, fontWeight: 600, fontSize: 13 }}>{o.totalAmount.toFixed(0)}€</span>
+                    </div>
+                    {o.items.length > 0 ? (
+                      <div className="space-y-1">
+                        {o.items.map((it, i) => (
+                          <div key={i} className="flex items-center justify-between" style={{ fontSize: 12.5 }}>
+                            <span style={{ color: T1 }}>{it.quantity > 1 && `${it.quantity}x `}{it.name}</span>
+                            <span className="tabular-nums" style={{ color: T3 }}>{(it.unitPrice * it.quantity).toFixed(0)}€</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={{ color: T3, fontSize: 12 }}>—</p>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

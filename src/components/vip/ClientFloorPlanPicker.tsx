@@ -583,7 +583,14 @@ export function ClientFloorPlanPicker({
         style={{
           ...(fullscreen
             ? { height: '100%' }
-            : { height: readOnly ? 'min(40vh, 320px)' : 'min(70vh, 520px)', minHeight: readOnly ? 200 : 360 }),
+            // Le conteneur épouse le RATIO du plan (viewBox) au lieu d'une hauteur fixe :
+            // fini les grosses bandes noires quand le plan est large. Hauteur plafonnée.
+            : {
+                aspectRatio: `${viewBox.w} / ${viewBox.h}`,
+                width: '100%',
+                maxHeight: readOnly ? 'min(40vh, 320px)' : 'min(70vh, 520px)',
+                minHeight: 160,
+              }),
           touchAction: 'none',
           cursor: readOnly ? 'default' : (isPanning ? 'grabbing' : 'grab'),
         }}

@@ -10492,6 +10492,7 @@ export type Database = {
           tiktok_url: string | null
           twitter_url: string | null
           vat_number: string | null
+          vip_menu_display_mode: string
           vip_menu_visibility: string
           vip_placement_enabled: boolean | null
           vip_preorder_enabled: boolean
