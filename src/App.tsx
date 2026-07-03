@@ -326,7 +326,7 @@ function MaintenanceWrapper({ children }: { children: React.ReactNode }) {
         .from('app_settings')
         .select('maintenance_mode')
         .eq('id', 'global')
-        .single();
+        .maybeSingle();
 
       if (!error && data) {
         setIsMaintenanceMode(data.maintenance_mode);

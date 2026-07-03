@@ -27,7 +27,7 @@ export function TermsAcceptance({ userId, guestEmail, context, onAcceptedChange 
         .from('app_settings')
         .select('terms_version, terms_url')
         .eq('id', 'global')
-        .single();
+        .maybeSingle();
       if (data) {
         setTermsVersion((data as any).terms_version || 'v1.0.0');
         setTermsUrl((data as any).terms_url || '/legal/cgv-utilisateurs');

@@ -48,7 +48,7 @@ export function useMaintenanceMode() {
         .from('app_settings')
         .select('maintenance_mode, maintenance_message')
         .eq('id', 'global')
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 

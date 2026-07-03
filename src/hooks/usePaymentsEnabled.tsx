@@ -38,7 +38,7 @@ export function usePaymentsEnabled() {
         .from('app_settings')
         .select('payments_disabled')
         .eq('id', 'global')
-        .single();
+        .maybeSingle();
       if (error) throw error;
       setState({ paymentsDisabled: data?.payments_disabled === true, loading: false });
     } catch (error) {
