@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/sheet';
 import { PLANS, PlanCode } from '@/lib/planFeatures';
 import { getDemoPlan, setDemoPlan, DEMO_PLAN_EVENT } from '@/lib/demoPlan';
-import { setMfaBypass, setRoleSessionBypass, MFA_GATED } from '@/lib/demoSession';
+import { setMfaBypass, setRoleSessionBypass, MFA_GATED, DEMO_PASSWORD } from '@/lib/demoSession';
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
 
 /**
@@ -27,8 +27,7 @@ import { isPreviewActive } from '@/contexts/PreviewModeContext';
  */
 
 const OWNER_EMAIL = 'owner@womber.fr';
-// Mot de passe partagé des comptes démo (throwaway, club masqué, données fictives).
-const DEMO_PASSWORD = 'YunoDemo2026!';
+// DEMO_PASSWORD est centralisé dans @/lib/demoSession (partagé avec le switch preview).
 const ORIGIN_KEY = 'yuno_demo_origin_session';
 
 // MFA_GATED / setMfaBypass / setRoleSessionBypass sont partagés avec PreviewGate

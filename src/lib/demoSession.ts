@@ -43,6 +43,11 @@ export const DEMO_ACCOUNTS: Record<TargetAccount, DemoAccountMeta> = {
 
 export const ALL_TARGET_ACCOUNTS = Object.keys(DEMO_ACCOUNTS) as TargetAccount[];
 
+// Mot de passe partagé des comptes démo (throwaway, club masqué, données fictives).
+// Déjà public dans le bundle (DemoSwitcher) et le seed — centralisé ici pour être
+// réutilisé par le switch de rôles en aperçu.
+export const DEMO_PASSWORD = 'YunoDemo2026!';
+
 // Comptes dont la route exige RequireMFA (owner, affilié). On pose une session MFA
 // locale valide 24 h pour ne pas tomber sur /mfa-setup en démo.
 export const MFA_GATED = new Set(['owner@womber.fr', 'affiliate@womber.fr']);
@@ -89,6 +94,20 @@ export async function applyDemoBypass(target: TargetAccount, userId: string | un
   if (!meta) return;
   if (MFA_GATED.has(meta.email)) setMfaBypass(userId);
   await setRoleSessionBypass(meta, userId);
+}
+
+/**
+ * Bascule client-side vers un autre compte démo (switch de rôles en aperçu).
+ * Réutilise le mécanisme du DemoSwitcher : signInWithPassword avec le mot de passe
+ * démo (déjà public) puis pose les bypass du rôle. Renvoie false en cas d'échec.
+ */
+export async function switchToDemoRole(target: TargetAccount): Promise<boolean> {
+  const meta = DEMO_ACCOUNTS[target];
+  if (!meta) return false;
+  const { data, error } = await supabase.auth.signInWithPassword({ email: meta.email, password: DEMO_PASSWORD });
+  if (error || !data.user) return false;
+  await applyDemoBypass(target, data.user.id);
+  return true;
 }
 
 /** Nettoie toutes les sessions de bypass démo (déconnexion / sortie d'aperçu). */

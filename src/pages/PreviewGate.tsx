@@ -10,12 +10,14 @@ import { Loader2, Lock, Eye, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { DEMO_ACCOUNTS, applyDemoBypass, type TargetAccount } from '@/lib/demoSession';
 import { enablePreviewMode } from '@/contexts/PreviewModeContext';
+import { useLanguage, type Language } from '@/contexts/LanguageContext';
 
 const RED = '#E8192C';
 
 interface LinkInfo {
   label: string;
-  target_account: TargetAccount;
+  target_accounts: TargetAccount[];
+  language: string;
   is_valid: boolean;
   invalid_reason: string | null;
 }
@@ -30,6 +32,7 @@ const INVALID_COPY: Record<string, string> = {
 export default function PreviewGate() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const { setLanguage } = useLanguage();
   const token = params.get('token') ?? '';
 
   const [info, setInfo] = useState<LinkInfo | null>(null);
@@ -73,9 +76,11 @@ export default function PreviewGate() {
         return;
       }
 
-      const target = (data as any).target_account as TargetAccount;
-      const meta = DEMO_ACCOUNTS[target];
-      // Connexion au compte démo (tokens mintés côté serveur).
+      const roles = ((data as any).target_accounts as TargetAccount[]) ?? [];
+      const primary = roles[0];
+      const meta = DEMO_ACCOUNTS[primary];
+      const language = String((data as any).language ?? info?.language ?? 'en');
+      // Connexion au compte démo primaire (tokens mintés côté serveur).
       const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
         access_token: (data as any).access_token,
         refresh_token: (data as any).refresh_token,
@@ -83,9 +88,11 @@ export default function PreviewGate() {
       if (sessionError) throw sessionError;
 
       const userId = sessionData.user?.id;
-      await applyDemoBypass(target, userId);
+      await applyDemoBypass(primary, userId);
       // Armer la lecture seule AVANT de naviguer (guard + bannière + DemoSwitcher caché).
-      enablePreviewMode(info?.label ?? '');
+      enablePreviewMode({ label: info?.label ?? '', roles, current: primary, language });
+      // Appliquer la langue par défaut du lien (setLanguage ignore l'écriture profil en preview).
+      if (['en', 'fr', 'es'].includes(language)) setLanguage(language as Language);
       navigate(meta?.route ?? '/', { replace: true });
     } catch {
       setError('Une erreur est survenue. Réessaie.');
@@ -139,8 +146,11 @@ export default function PreviewGate() {
                   Bonjour {info.label}
                 </h1>
                 <p className="mt-1.5 text-sm text-white/50">
-                  Accès démo en lecture seule au tableau de bord
-                  <span className="text-white/70"> {DEMO_ACCOUNTS[info.target_account]?.label ?? info.target_account}</span>.
+                  Accès démo en lecture seule
+                  {info.target_accounts.length === 1 ? ' au tableau de bord ' : ' aux tableaux de bord '}
+                  <span className="text-white/70">
+                    {info.target_accounts.map((a) => DEMO_ACCOUNTS[a]?.label ?? a).join(', ')}
+                  </span>.
                   Saisis ton mot de passe pour entrer.
                 </p>
               </div>

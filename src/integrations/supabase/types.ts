@@ -2266,10 +2266,12 @@ export type Database = {
           id: string
           is_active: boolean
           label: string
+          language: string
           last_used_at: string | null
           password_hash: string
           revoked_at: string | null
-          target_account: string
+          target_account: string | null
+          target_accounts: string[]
           token: string
           used_count: number
         }
@@ -2281,10 +2283,12 @@ export type Database = {
           id?: string
           is_active?: boolean
           label: string
+          language?: string
           last_used_at?: string | null
           password_hash: string
           revoked_at?: string | null
-          target_account: string
+          target_account?: string | null
+          target_accounts?: string[]
           token?: string
           used_count?: number
         }
@@ -2296,10 +2300,12 @@ export type Database = {
           id?: string
           is_active?: boolean
           label?: string
+          language?: string
           last_used_at?: string | null
           password_hash?: string
           revoked_at?: string | null
-          target_account?: string
+          target_account?: string | null
+          target_accounts?: string[]
           token?: string
           used_count?: number
         }
@@ -13028,8 +13034,9 @@ export type Database = {
         Args: {
           p_expires_at?: string
           p_label: string
+          p_language?: string
           p_password: string
-          p_target_account: string
+          p_target_accounts: string[]
         }
         Returns: {
           id: string
@@ -13233,7 +13240,8 @@ export type Database = {
           invalid_reason: string
           is_valid: boolean
           label: string
-          target_account: string
+          language: string
+          target_accounts: string[]
         }[]
       }
       get_dj_audience: {
@@ -14070,9 +14078,10 @@ export type Database = {
       verify_demo_preview_password: {
         Args: { p_password: string; p_token: string }
         Returns: {
+          language: string
           ok: boolean
           reason: string
-          target_account: string
+          target_accounts: string[]
         }[]
       }
       verify_invitation_token: {

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { translations } from '../i18n/data';
+import { isPreviewActive } from '@/contexts/PreviewModeContext';
 
 export type Language = 'en' | 'es' | 'fr';
 
@@ -39,6 +40,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   // Sync language preference from database on mount
   useEffect(() => {
     const syncLanguageFromProfile = async () => {
+      // En aperçu preview : la langue vient du lien (localStorage), on n'écrase pas
+      // avec la préférence du compte démo.
+      if (isPreviewActive()) return;
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: profile } = await supabase
@@ -66,7 +70,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const setLanguage = useCallback(async (lang: Language) => {
     setLanguageState(lang);
     localStorage.setItem('language', lang);
-    
+
+    // En aperçu preview : pas d'écriture du profil (compte démo partagé + lecture seule).
+    if (isPreviewActive()) return;
+
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       await supabase

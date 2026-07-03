@@ -15,7 +15,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, KeyRound, Trash2, Copy, Ban, Eye } from 'lucide-react';
+import { Plus, KeyRound, Trash2, Copy, Ban, Eye, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ALL_TARGET_ACCOUNTS, DEMO_ACCOUNTS, type TargetAccount } from '@/lib/demoSession';
@@ -66,7 +66,8 @@ interface PreviewLink {
   id: string;
   token: string;
   label: string;
-  target_account: TargetAccount;
+  target_accounts: TargetAccount[];
+  language: string;
   is_active: boolean;
   expires_at: string | null;
   used_count: number;
@@ -74,6 +75,12 @@ interface PreviewLink {
   revoked_at: string | null;
   created_at: string;
 }
+
+const LANGUAGES: { code: string; label: string }[] = [
+  { code: 'en', label: 'Anglais (EN)' },
+  { code: 'fr', label: 'Français (FR)' },
+  { code: 'es', label: 'Espagnol (ES)' },
+];
 
 export default function AdminDemoAccess() {
   const [links, setLinks] = useState<PreviewLink[]>([]);
@@ -84,8 +91,12 @@ export default function AdminDemoAccess() {
   const [submitting, setSubmitting] = useState(false);
   const [label, setLabel] = useState('');
   const [password, setPassword] = useState('');
-  const [account, setAccount] = useState<TargetAccount>('owner');
+  const [accounts, setAccounts] = useState<TargetAccount[]>(['owner']);
+  const [language, setLanguage] = useState('en');
   const [expiresAt, setExpiresAt] = useState('');
+
+  const toggleAccount = (a: TargetAccount) =>
+    setAccounts((prev) => (prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a]));
 
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState<PreviewLink | null>(null);
@@ -113,13 +124,14 @@ export default function AdminDemoAccess() {
   };
 
   const submit = async () => {
-    if (!label || !password) return;
+    if (!label || !password || accounts.length === 0) return;
     setSubmitting(true);
     try {
       const { data, error } = await supabase.rpc('create_demo_preview_link' as any, {
         p_label: label,
         p_password: password,
-        p_target_account: account,
+        p_target_accounts: accounts,
+        p_language: language,
         p_expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
       });
       if (error) throw error;
@@ -131,7 +143,7 @@ export default function AdminDemoAccess() {
       } else {
         toast.success('Lien créé');
       }
-      setLabel(''); setPassword(''); setAccount('owner'); setExpiresAt('');
+      setLabel(''); setPassword(''); setAccounts(['owner']); setLanguage('en'); setExpiresAt('');
       setCreateOpen(false);
       load();
     } catch (e: any) {
@@ -216,12 +228,44 @@ export default function AdminDemoAccess() {
                   </p>
                 </div>
                 <div>
-                  <Label style={{ color: T2 }}>Type de compte démo</Label>
-                  <select value={account} onChange={(e) => setAccount(e.target.value as TargetAccount)}
+                  <Label style={{ color: T2 }}>Dashboards accessibles ({accounts.length})</Label>
+                  <p style={{ color: T3, fontSize: 11.5, margin: '4px 0 8px', lineHeight: 1.5 }}>
+                    Coche un ou plusieurs rôles. La personne pourra basculer entre eux depuis l'aperçu.
+                  </p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {ALL_TARGET_ACCOUNTS.map((a) => {
+                      const checked = accounts.includes(a);
+                      return (
+                        <button
+                          key={a}
+                          type="button"
+                          onClick={() => toggleAccount(a)}
+                          className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[12.5px] transition"
+                          style={{
+                            background: checked ? 'rgba(232,25,44,0.12)' : INNER_BG,
+                            border: `1px solid ${checked ? 'rgba(232,25,44,0.4)' : BORDER}`,
+                            color: checked ? T1 : T2,
+                          }}
+                        >
+                          <span
+                            className="flex h-4 w-4 shrink-0 items-center justify-center rounded"
+                            style={{ background: checked ? RED : 'transparent', border: `1px solid ${checked ? RED : BORDER}` }}
+                          >
+                            {checked && <Check className="h-3 w-3 text-white" />}
+                          </span>
+                          {DEMO_ACCOUNTS[a].label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div>
+                  <Label style={{ color: T2 }}>Langue par défaut</Label>
+                  <select value={language} onChange={(e) => setLanguage(e.target.value)}
                     style={{ ...inputStyle, marginTop: 6 }}>
-                    {ALL_TARGET_ACCOUNTS.map((a) => (
-                      <option key={a} value={a} style={{ background: '#0a0a0c' }}>
-                        {DEMO_ACCOUNTS[a].label}
+                    {LANGUAGES.map((l) => (
+                      <option key={l.code} value={l.code} style={{ background: '#0a0a0c' }}>
+                        {l.label}
                       </option>
                     ))}
                   </select>
@@ -233,9 +277,9 @@ export default function AdminDemoAccess() {
                 </div>
                 <button
                   onClick={submit}
-                  disabled={submitting || !label || !password}
+                  disabled={submitting || !label || !password || accounts.length === 0}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-all duration-150"
-                  style={{ background: RED, color: '#fff', padding: '11px 16px', boxShadow: `0 0 18px -6px ${RED}88`, cursor: (submitting || !label || !password) ? 'not-allowed' : 'pointer', opacity: (submitting || !label || !password) ? 0.5 : 1 }}
+                  style={{ background: RED, color: '#fff', padding: '11px 16px', boxShadow: `0 0 18px -6px ${RED}88`, cursor: (submitting || !label || !password || accounts.length === 0) ? 'not-allowed' : 'pointer', opacity: (submitting || !label || !password || accounts.length === 0) ? 0.5 : 1 }}
                 >
                   {submitting && <div className="h-4 w-4 animate-spin rounded-full border-2" style={{ borderColor: `rgba(255,255,255,0.35) rgba(255,255,255,0.35) rgba(255,255,255,0.35) #fff` }} />}
                   Créer + copier le lien
@@ -263,7 +307,8 @@ export default function AdminDemoAccess() {
                   <div className="flex-1 min-w-0">
                     <div className="font-[560] truncate" style={{ color: T1, fontSize: 13.5 }}>{l.label}</div>
                     <div className="truncate" style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>
-                      {DEMO_ACCOUNTS[l.target_account]?.label ?? l.target_account}
+                      {(l.target_accounts ?? []).map((a) => DEMO_ACCOUNTS[a]?.label ?? a).join(', ')}
+                      {' · '}{(l.language ?? 'en').toUpperCase()}
                       {' · '}{l.used_count} ouverture{l.used_count > 1 ? 's' : ''}
                       {l.last_used_at ? ` · dernier ${format(new Date(l.last_used_at), 'dd/MM HH:mm')}` : ''}
                       {l.expires_at ? ` · expire ${format(new Date(l.expires_at), 'dd/MM/yyyy')}` : ''}
