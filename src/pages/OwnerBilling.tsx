@@ -6,6 +6,7 @@ import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { useStripeConnect } from '@/hooks/useStripeConnect';
 import { useAuth } from '@/hooks/useAuth';
 import { isDemoEmail, setDemoPlan } from '@/lib/demoPlan';
+import { isPreviewActive } from '@/contexts/PreviewModeContext';
 import { PLANS, PLAN_ORDER, PlanCode, FeatureKey, BillingCycle, planPrice, annualSavings, ANNUAL_BILLED_MONTHS } from '@/lib/planFeatures';
 import { Check, AlertTriangle, CreditCard, ExternalLink, AlertCircle, Loader2, Crown, Zap, Rocket, Shield, RefreshCw, Sparkles, ShieldCheck, Banknote, Receipt, Lock, Gem } from 'lucide-react';
 import { format } from 'date-fns';
@@ -138,6 +139,8 @@ export default function OwnerBilling() {
 
   const handleSubscribe = async (planCode: PlanCode) => {
     if (!venueId) return;
+    // Aperçu lecture seule : même la bascule de plan démo (localStorage) est bloquée.
+    if (isPreviewActive()) { toast.error('Aperçu en lecture seule'); return; }
     // Elite is not purchasable at launch — the backend rejects it too (defense in depth).
     if (planCode === 'elite') { toast.info(t('plan.comingSoon')); return; }
     // Comptes démo @womber.fr : bascule instantanée du plan, sans Stripe ni edge

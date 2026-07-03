@@ -45,9 +45,13 @@ import { uniqueChannel } from "@/lib/realtime";
 import { useStore } from "@/store/useStore";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { DemoSwitcher } from "@/components/demo/DemoSwitcher";
+import { PreviewModeProvider } from "@/contexts/PreviewModeContext";
+import { PreviewModeBanner } from "@/components/PreviewModeBanner";
+import "@/lib/previewGuard"; // installe l'intercepteur lecture seule (effet de bord)
 
 // Lazy load all pages including VenuePage
 const VenuePage = lazyWithRetry(() => import("./pages/VenuePage"));
+const PreviewGate = lazyWithRetry(() => import("./pages/PreviewGate"));
 
 // Lazy load all other routes to reduce initial bundle size
 const Cart = lazyWithRetry(() => import("./pages/Cart"));
@@ -219,6 +223,7 @@ const AdminPlatformInvitations = lazyWithRetry(() => import("./pages/admin/Admin
 const AdminAffiliates = lazyWithRetry(() => import("./pages/admin/AdminAffiliates"));
 const AdminEvents = lazyWithRetry(() => import("./pages/admin/AdminEvents"));
 const AdminAuditLog = lazyWithRetry(() => import("./pages/admin/AdminAuditLog"));
+const AdminDemoAccess = lazyWithRetry(() => import("./pages/admin/AdminDemoAccess"));
 const AccountSuspended = lazyWithRetry(() => import("./pages/AccountSuspended"));
 
 // Affiliate app pages
@@ -398,10 +403,12 @@ const App = () => (
         <FavoritesProvider>
           <VenueNavProvider>
           <TooltipProvider>
+            <PreviewModeProvider>
             <OnboardingGate />
             <Toaster />
             <Sonner />
             <DemoSwitcher />
+            <PreviewModeBanner />
             <ScrollToTop />
             <CartCleanup />
             <OfflineBanner />
@@ -467,6 +474,8 @@ const App = () => (
                 <Route path="/accept-promoter-invitation" element={<AcceptInvitation />} />
                 <Route path="/accept-staff-invitation" element={<AcceptStaffInvitation />} />
                 <Route path="/join" element={<JoinViaLink />} />
+                {/* Aperçu démo verrouillé par mot de passe (lien de preview) */}
+                <Route path="/preview" element={<PreviewGate />} />
                 {/* Legacy /accept-organizer-invitation removed — org members now use /accept-platform-invitation */}
                 <Route path="/accept-platform-invitation" element={<AcceptPlatformInvitation />} />
                 <Route path="/club-invitation" element={<ClubInvitation />} />
@@ -911,6 +920,7 @@ const App = () => (
                   <Route path="subscriptions" element={<AdminSubscriptions />} />
                   <Route path="organizers" element={<AdminPlatformInvitations />} />
                   <Route path="affiliates" element={<AdminAffiliates />} />
+                  <Route path="demo-access" element={<AdminDemoAccess />} />
                   <Route path="audit" element={<AdminAuditLog />} />
                 </Route>
 
@@ -956,6 +966,7 @@ const App = () => (
             </Suspense>
               </RouteErrorBoundary>
             </MaintenanceWrapper>
+            </PreviewModeProvider>
           </TooltipProvider>
           </VenueNavProvider>
         </FavoritesProvider>

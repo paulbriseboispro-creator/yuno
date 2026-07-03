@@ -12,6 +12,8 @@ import {
 } from '@/components/ui/sheet';
 import { PLANS, PlanCode } from '@/lib/planFeatures';
 import { getDemoPlan, setDemoPlan, DEMO_PLAN_EVENT } from '@/lib/demoPlan';
+import { setMfaBypass, setRoleSessionBypass, MFA_GATED } from '@/lib/demoSession';
+import { isPreviewActive } from '@/contexts/PreviewModeContext';
 
 /**
  * DemoSwitcher — bascule 1-clic entre les comptes démo (club, orga, promoteur,
@@ -29,18 +31,8 @@ const OWNER_EMAIL = 'owner@womber.fr';
 const DEMO_PASSWORD = 'YunoDemo2026!';
 const ORIGIN_KEY = 'yuno_demo_origin_session';
 
-// Comptes démo dont la route exige RequireMFA (owner, affilié). On pose une
-// session MFA locale valide 24 h pour ne pas tomber sur /mfa-setup en démo
-// (sans jamais toucher au vrai secret 2FA).
-const MFA_GATED = new Set(['owner@womber.fr', 'affiliate@womber.fr']);
-function setMfaBypass(userId: string | undefined) {
-  if (!userId) return;
-  try {
-    localStorage.setItem('mfaSession', JSON.stringify({
-      userId, expiresAt: Date.now() + 24 * 60 * 60 * 1000, verifiedAt: Date.now(),
-    }));
-  } catch { /* localStorage indispo : ignore */ }
-}
+// MFA_GATED / setMfaBypass / setRoleSessionBypass sont partagés avec PreviewGate
+// via @/lib/demoSession (aucun changement de comportement).
 
 type DemoAccount = {
   email: string;
@@ -73,24 +65,6 @@ const ACCOUNTS: DemoAccount[] = [
   { email: 'viphost@womber.fr',   label: 'Hôte VIP',            sub: 'Accès direct',   route: '/vip-host',        icon: Crown,       session: 'staff', role: 'vip_host' },
 ];
 
-// Pose la session locale qui satisfait RequireStaffSession / RequirePinSession,
-// pour éviter l'étape PIN (verify-pin = edge function CORS-lock / non déployée).
-async function setRoleSessionBypass(account: DemoAccount, userId: string | undefined) {
-  const expiresAt = Date.now() + 24 * 60 * 60 * 1000;
-  try {
-    if (account.session === 'staff' && account.role) {
-      let venueId: string | null = null;
-      if (userId) {
-        const { data } = await supabase.from('profiles').select('venue_id').eq('id', userId).maybeSingle();
-        venueId = data?.venue_id ?? null;
-      }
-      localStorage.setItem('staffSession', JSON.stringify({ venueId, role: account.role, expiresAt, verifiedAt: Date.now() }));
-    } else if (account.session === 'pin' && account.role) {
-      localStorage.setItem('pinSession', JSON.stringify({ role: account.role, expiresAt, verifiedAt: Date.now() }));
-    }
-  } catch { /* localStorage indispo : ignore */ }
-}
-
 export function DemoSwitcher() {
   const { user, session } = useAuth();
   const navigate = useNavigate();
@@ -121,6 +95,8 @@ export function DemoSwitcher() {
     supabase.rpc('demo_is_live').then(({ data }) => setLive(Boolean(data)), () => {});
   }, [currentEmail]);
 
+  // Jamais visible dans un aperçu preview (lecture seule envoyé à un prospect).
+  if (isPreviewActive()) return null;
   // Rendu UNIQUEMENT pour les comptes démo @womber.fr.
   if (!isDemoUser) return null;
 

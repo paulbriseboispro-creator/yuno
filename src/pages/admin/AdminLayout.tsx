@@ -24,6 +24,7 @@ import {
   Link2,
   CalendarDays,
   ScrollText,
+  KeyRound,
   type LucideIcon,
 } from 'lucide-react';
 import AdminSearchBar from '@/components/admin/AdminSearchBar';
@@ -65,6 +66,7 @@ export default function AdminLayout() {
         { title: 'Organisateurs', path: '/admin/organizers', icon: Sparkles },
         { title: 'Affiliés', path: '/admin/affiliates', icon: Link2 },
         { title: 'Waitlist', path: '/admin/waitlist', icon: Users },
+        { title: 'Accès démo', path: '/admin/demo-access', icon: KeyRound },
       ],
     },
     {

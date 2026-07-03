@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { isPreviewActive } from '@/contexts/PreviewModeContext';
 
 interface SmsPack {
   id: string;
@@ -170,6 +171,7 @@ export default function OwnerSmsCredits() {
   };
 
   const handlePurchase = async (pack: SmsPack) => {
+    if (isPreviewActive()) { toast.error('Aperçu en lecture seule'); return; }
     if (!ownerId) {
       toast.error(t('sms.toastNoContext'));
       return;
