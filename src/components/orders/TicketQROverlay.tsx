@@ -20,6 +20,8 @@ interface TicketQROverlayProps {
   whenLabel?: string;
   /** skip the fade-in mount animation (used when restored from history) */
   instant?: boolean;
+  /** event poster used as a blurred full-screen colour backdrop */
+  posterUrl?: string;
 }
 
 const QR_OPTS = { width: 240, margin: 2, color: { dark: '#000000', light: '#ffffff' } };
@@ -31,7 +33,7 @@ const QR_OPTS = { width: 240, margin: 2, color: { dark: '#000000', light: '#ffff
  */
 export function TicketQROverlay({
   ticketId, ticketQrCode, quantity, roundName, eventTitle, venueName,
-  entryScanned, labels, onClose, onShare, actions, whenLabel, instant,
+  entryScanned, labels, onClose, onShare, actions, whenLabel, instant, posterUrl,
 }: TicketQROverlayProps) {
   const [slides, setSlides] = useState<QRSlide[]>([]);
 
@@ -91,6 +93,7 @@ export function TicketQROverlay({
       actions={actions}
       whenLabel={whenLabel}
       instant={instant}
+      posterUrl={posterUrl}
     />
   );
 }

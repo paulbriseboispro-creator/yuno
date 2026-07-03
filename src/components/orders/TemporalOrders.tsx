@@ -334,7 +334,7 @@ export interface QRAction {
 }
 
 export function OrderQROverlay({
-  kind, title, venueName, qrImage, idLabel, scanned, footer, labels, onClose, onShare, slides, actions, whenLabel, instant,
+  kind, title, venueName, qrImage, idLabel, scanned, footer, labels, onClose, onShare, slides, actions, whenLabel, instant, posterUrl,
 }: {
   kind: OrderKind;
   title: string;
@@ -355,6 +355,8 @@ export function OrderQROverlay({
   whenLabel?: string;
   /** skip the fade-in mount animation (used when restored from history) */
   instant?: boolean;
+  /** event poster used as a blurred full-screen colour backdrop behind the QR */
+  posterUrl?: string;
 }) {
   const [index, setIndex] = useState(0);
   const touchStartX = useRef(0);
@@ -381,8 +383,35 @@ export function OrderQROverlay({
       className="fixed inset-0 z-[100] flex flex-col"
       style={{ background: '#0A0A0A' }}
     >
+      {/* Fond : affiche de la soirée floutée plein écran → dégradé des couleurs
+          de l'affiche. Voile sombre par-dessus pour garder le QR + textes lisibles. */}
+      {posterUrl && (
+        <>
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute', inset: 0, zIndex: 0,
+              backgroundImage: `url(${posterUrl})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              filter: 'blur(80px) saturate(1.5)',
+              transform: 'scale(1.25)',
+              opacity: 0.6,
+            }}
+          />
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute', inset: 0, zIndex: 0,
+              background:
+                'radial-gradient(120% 90% at 50% 0%, rgba(10,10,10,0.35) 0%, rgba(10,10,10,0.72) 55%, rgba(10,10,10,0.92) 100%)',
+            }}
+          />
+        </>
+      )}
+
       {/* Barre supérieure */}
-      <div className="flex items-center justify-between w-full max-w-md mx-auto" style={{ padding: '16px 20px 8px' }}>
+      <div className="flex items-center justify-between w-full max-w-md mx-auto" style={{ padding: '16px 20px 8px', position: 'relative', zIndex: 1 }}>
         <button
           onClick={onClose}
           className="grid place-items-center cursor-pointer"
@@ -395,7 +424,7 @@ export function OrderQROverlay({
       </div>
 
       {/* Zone QR */}
-      <div className="flex-1 flex flex-col items-center justify-center relative w-full max-w-md mx-auto" style={{ padding: '0 32px' }}>
+      <div className="flex-1 flex flex-col items-center justify-center relative w-full max-w-md mx-auto" style={{ padding: '0 32px', zIndex: 1 }}>
         <div style={{ position: 'absolute', width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(232,25,44,0.15) 0%, transparent 70%)' }} />
 
         {/* Nom du participant (carousel billets) */}
@@ -457,7 +486,7 @@ export function OrderQROverlay({
       </div>
 
       {/* Infos bas */}
-      <div className="w-full max-w-md mx-auto" style={{ padding: '16px 24px 36px' }}>
+      <div className="w-full max-w-md mx-auto" style={{ padding: '16px 24px 36px', position: 'relative', zIndex: 1 }}>
         {idLabel && (
           <div className="font-mono text-center uppercase" style={{ fontSize: 10.5, letterSpacing: '.14em', color: G2, marginBottom: 12 }}>
             {idLabel}

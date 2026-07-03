@@ -1357,6 +1357,7 @@ export default function MyOrders() {
             labels={guestLabels}
             onClose={() => setGuestQR(null)}
             onShare={() => shareGuest(guestQR.eventTitle || 'Yuno')}
+            posterUrl={guestQR.eventPoster}
           />
         )}
 
@@ -1839,6 +1840,7 @@ export default function MyOrders() {
           onClose={() => setSelectedTicket(null)}
           onShare={() => shareQR(selectedTicket.eventTitle)}
           whenLabel={fmtWhen(selectedTicket.eventStartAt)}
+          posterUrl={selectedTicket.eventPosterUrl}
           actions={buildQRActions({
             eventId: selectedTicket.eventId,
             title: selectedTicket.eventTitle,
@@ -1871,6 +1873,7 @@ export default function MyOrders() {
           onClose={() => setSelectedVipReservation(null)}
           onShare={() => shareQR(selectedVipReservation.eventTitle)}
           whenLabel={fmtWhen(selectedVipReservation.eventStartAt)}
+          posterUrl={selectedVipReservation.eventPosterUrl}
           actions={buildQRActions({
             eventId: selectedVipReservation.eventId,
             title: selectedVipReservation.eventTitle,
@@ -1920,6 +1923,7 @@ export default function MyOrders() {
           onClose={() => setSelectedGuestEntry(null)}
           onShare={() => shareQR(selectedGuestEntry.eventTitle)}
           whenLabel={fmtWhen(selectedGuestEntry.eventStartAt)}
+          posterUrl={selectedGuestEntry.eventPosterUrl}
           actions={buildQRActions({
             eventId: selectedGuestEntry.eventId,
             title: selectedGuestEntry.eventTitle,
@@ -2004,6 +2008,7 @@ export default function MyOrders() {
           onClose={() => setSelectedReward(null)}
           onShare={() => shareQR(selectedReward.eventDetails?.title || selectedReward.rewardName)}
           whenLabel={fmtWhen(selectedReward.eventDetails?.startAt)}
+          posterUrl={selectedReward.eventDetails?.posterUrl || undefined}
           actions={buildQRActions({
             eventId: selectedReward.eventDetails?.id || selectedReward.metadata?.eventId,
             title: selectedReward.eventDetails?.title || selectedReward.metadata?.eventTitle || selectedReward.rewardName,
