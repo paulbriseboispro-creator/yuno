@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { isPreviewActive } from '@/contexts/PreviewModeContext';
 import { BottomNav } from '@/components/BottomNav';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LoyaltyRewardsSheet } from '@/components/loyalty/LoyaltyRewardsSheet';
@@ -89,6 +90,10 @@ export default function Profile() {
   }, [user]);
 
   const checkAdminStatus = async () => {
+    // Aperçu preview : le compte démo owner est super-admin, mais un prospect ne doit
+    // JAMAIS voir d'accès admin (la carte « Admin » est masquée). Le super-admin ne sert
+    // qu'à womber, hors preview.
+    if (isPreviewActive()) { setIsAdmin(false); return; }
     try {
       const { data } = await supabase.rpc('is_super_admin');
       setIsAdmin(data === true);
