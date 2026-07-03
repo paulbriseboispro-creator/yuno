@@ -37,8 +37,8 @@ export function hasManualCity(): boolean {
   return !!sessionStorage.getItem(MANUAL_CITY_KEY);
 }
 
-/** Best known city name, with a sensible default. */
-export function getStoredCity(fallback = 'Madrid'): string {
+/** Best known city name, with a sensible default (Paris = home market). */
+export function getStoredCity(fallback = 'Paris'): string {
   return sessionStorage.getItem(MANUAL_CITY_KEY) || localStorage.getItem(CITY_KEY) || fallback;
 }
 
