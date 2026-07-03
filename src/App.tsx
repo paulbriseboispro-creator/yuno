@@ -187,6 +187,9 @@ const Explore = lazyWithRetry(() => import("./pages/Explore"));
 const AllEventsPage = lazyWithRetry(() => import("./pages/AllEventsPage"));
 const AllClubsPage = lazyWithRetry(() => import("./pages/AllClubsPage"));
 const AllDJsPage = lazyWithRetry(() => import("./pages/AllDJsPage"));
+const EventTicketsLanding = lazyWithRetry(() => import("./pages/EventTicketsLanding"));
+const VipTablesLanding = lazyWithRetry(() => import("./pages/VipTablesLanding"));
+const OrderDrinksLanding = lazyWithRetry(() => import("./pages/OrderDrinksLanding"));
 const ClubMap = lazyWithRetry(() => import("./pages/ClubMap"));
 const Maintenance = lazyWithRetry(() => import("./pages/Maintenance"));
 const Settings = lazyWithRetry(() => import("./pages/Settings"));
@@ -411,6 +414,9 @@ const App = () => (
                 <Route path="/events" element={<AllEventsPage />} />
                 <Route path="/clubs" element={<AllClubsPage />} />
                 <Route path="/djs" element={<AllDJsPage />} />
+                <Route path="/tickets" element={<EventTicketsLanding />} />
+                <Route path="/vip-tables" element={<VipTablesLanding />} />
+                <Route path="/order-drinks" element={<OrderDrinksLanding />} />
                 <Route path="/map" element={<ClubMap />} />
                 <Route path="/welcome" element={<Welcome />} />
                 
