@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, Link, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { isPreviewActive } from '@/contexts/PreviewModeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -95,6 +96,10 @@ export default function AdminLayout() {
 
   const checkAuth = async () => {
     try {
+      // Aperçu démo (preview) : /admin est TOUJOURS bloqué, même si le compte démo
+      // porte encore le rôle admin (le compte démo owner@womber.fr est aussi la seule
+      // identité super-admin tant qu'un vrai compte admin dédié n'est pas configuré).
+      if (isPreviewActive()) { navigate('/', { replace: true }); return; }
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { navigate('/auth', { state: { returnTo: '/admin' } }); return; }
       const { data: isSuperAdmin, error: rpcError } = await supabase.rpc('is_super_admin');
