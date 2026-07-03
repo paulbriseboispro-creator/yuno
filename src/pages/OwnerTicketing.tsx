@@ -588,12 +588,15 @@ export default function OwnerTicketing() {
           updateData.max_tickets = selectedPreset.totalCapacity;
         }
       }
-      await supabase.from('events').update(updateData).eq('id', wizardEventId);
+      const { error: modeUpdateErr } = await supabase.from('events').update(updateData).eq('id', wizardEventId);
+      if (modeUpdateErr) throw modeUpdateErr;
 
-      // Delete ALL existing rounds for this event (mode change = fresh start)
+      // Delete ALL existing rounds for this event (mode change = fresh start).
+      // A silently-failed delete would leave the old rounds selling alongside the new.
       const existingRounds = ticketRounds[wizardEventId] || [];
       if (existingRounds.length > 0) {
-        await supabase.from('ticket_rounds').delete().in('id', existingRounds.map(r => r.id));
+        const { error: delErr } = await supabase.from('ticket_rounds').delete().in('id', existingRounds.map(r => r.id));
+        if (delErr) throw delErr;
       }
 
       // Apply selected presets
@@ -648,7 +651,8 @@ export default function OwnerTicketing() {
           if (totalCap > 0) updateData.max_tickets = totalCap;
         }
       }
-      await supabase.from('events').update(updateData).eq('id', wizardEventId);
+      const { error: modeErr } = await supabase.from('events').update(updateData).eq('id', wizardEventId);
+      if (modeErr) throw modeErr;
 
       // Step 2: Apply selected presets OR insert custom rounds
       const event = events.find(e => e.id === wizardEventId);
@@ -663,8 +667,10 @@ export default function OwnerTicketing() {
           }
         }
       } else if (usingCustomRounds) {
-        // Wipe existing rounds for this event then insert the guided ones
-        await supabase.from('ticket_rounds').delete().eq('event_id', wizardEventId);
+        // Wipe existing rounds for this event then insert the guided ones. Guard the
+        // delete — if it silently no-ops, old + new rounds would both be on sale.
+        const { error: wipeErr } = await supabase.from('ticket_rounds').delete().eq('event_id', wizardEventId);
+        if (wipeErr) throw wipeErr;
         const roundsToInsert = validCustomRounds.map((r, index) => ({
           event_id: wizardEventId,
           name: r.name.trim(),
@@ -698,12 +704,20 @@ export default function OwnerTicketing() {
         waitlistEnabled = true;
       }
 
-      await supabase.from('events').update({
+      // This is the write that actually puts tickets on sale. It must NOT be
+      // fire-and-forget: an RLS-blocked update returns no error but affects 0 rows,
+      // which would leave ticketing OFF while we tell the owner it's live. Confirm a
+      // row came back before claiming success.
+      const { data: enabledRows, error: enableErr } = await supabase.from('events').update({
         ticketing_enabled: true,
         presale_start_at: presaleStartAt,
         public_sale_start_at: publicSaleStartAt,
         waitlist_enabled: waitlistEnabled,
-      }).eq('id', wizardEventId);
+      }).eq('id', wizardEventId).select('id');
+      if (enableErr) throw enableErr;
+      if (!enabledRows || enabledRows.length === 0) {
+        throw new Error('Ticketing activation did not persist (no row updated)');
+      }
 
       // Notify waitlist if presale
       if (wizardSalesDraft.mode === 'presale') {
