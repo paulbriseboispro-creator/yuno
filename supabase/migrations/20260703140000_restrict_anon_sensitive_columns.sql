@@ -26,7 +26,7 @@ REVOKE SELECT ON public.venues FROM anon;
 GRANT SELECT (
   id, name, address, city, description, short_description, music_genre,
   cover_url, cover_position, logo_url, gallery_images, floor_plan_url,
-  latitude, longitude, x, y, min_age, minors_allowed,
+  latitude, longitude, min_age, minors_allowed,
   minor_auth_doc_url, minor_auth_doc_name,
   menu_enabled, free_drink_mode, click_collect_mode, cloakroom_price,
   bar_count, bar_names, absorb_yuno_fees, cancellation_insurance_enabled,
