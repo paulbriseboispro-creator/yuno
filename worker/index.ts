@@ -167,14 +167,34 @@ async function rpcCall(env: Env, fn: string, args: Row): Promise<Row | null> {
   }
 }
 
+// Chemin propre d'un event : /events/:host/:slug (host = orga si organizer-led, sinon venue_id).
+// Fallback /event/:id quand slug/host manquent — la page redirige alors vers l'URL propre.
+function eventCleanUrl(e: Row, orgSlugById: Map<string, string>): string {
+  const slug = e.slug as string | undefined;
+  const orgId = e.organizer_user_id as string | undefined;
+  const host = orgId ? orgSlugById.get(orgId) : (e.venue_id as string | undefined);
+  if (slug && host) return `${ORIGIN}/events/${encodeURIComponent(host)}/${encodeURIComponent(slug)}`;
+  return `${ORIGIN}/event/${encodeURIComponent(e.id as string)}`;
+}
+
+// Récupère les slugs d'orga (organizer_user_id -> slug) pour un lot d'events.
+async function orgSlugMap(env: Env, events: Row[]): Promise<Map<string, string>> {
+  const ids = Array.from(new Set(events.map((e) => e.organizer_user_id as string).filter(Boolean)));
+  const map = new Map<string, string>();
+  if (!ids.length) return map;
+  const rows = await fetchRows(env, `organizer_profiles?user_id=in.(${ids.map(encodeURIComponent).join(',')})&select=user_id,slug`);
+  for (const r of rows) if (r.user_id && r.slug) map.set(r.user_id as string, r.slug as string);
+  return map;
+}
+
 // Build an <ul> of internal links to upcoming events (crawl paths → event pages).
-function upcomingEventsHtml(events: Row[]): string {
+function upcomingEventsHtml(events: Row[], orgSlugById: Map<string, string> = new Map()): string {
   const items = events
     .map((e) => {
       const id = e.id as string;
       if (!id) return '';
       const when = fmtDate(e.start_at);
-      return `<li><a href="${ORIGIN}/event/${esc(id)}">${esc(e.title)}${when ? ` — ${esc(when)}` : ''}</a></li>`;
+      return `<li><a href="${eventCleanUrl(e, orgSlugById)}">${esc(e.title)}${when ? ` — ${esc(when)}` : ''}</a></li>`;
     })
     .filter(Boolean)
     .join('');
@@ -203,8 +223,9 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
     const events = await fetchRows(
       env,
       `events?is_active=eq.true&visibility=eq.public&is_discoverable=eq.true&end_at=gte.${encodeURIComponent(nowIso)}` +
-        `&select=id,title,start_at&order=start_at.asc&limit=60`,
+        `&select=id,slug,title,start_at,organizer_user_id,venue_id&order=start_at.asc&limit=60`,
     );
+    const orgMap = await orgSlugMap(env, events);
     return {
       title: 'Events Tonight & This Weekend — Nightlife Tickets | Yuno',
       description:
@@ -216,12 +237,12 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
         name: 'Upcoming events on Yuno',
         itemListElement: events
           .filter((e) => e.id)
-          .map((e, i) => ({ '@type': 'ListItem', position: i + 1, url: `${ORIGIN}/event/${e.id}`, name: clean(e.title, 120) })),
+          .map((e, i) => ({ '@type': 'ListItem', position: i + 1, url: eventCleanUrl(e, orgMap), name: clean(e.title, 120) })),
       },
       h1: 'Events tonight & this weekend',
       bodyHtml:
         `<p>Discover club nights, parties and shows near you. Buy tickets, book VIP tables and pre-order drinks in one app.</p>` +
-        upcomingEventsHtml(events),
+        upcomingEventsHtml(events, orgMap),
     };
   }
 
@@ -321,21 +342,61 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
     };
   }
 
-  // /event/:id  and  /club/:slug/event/:id
+  // URL propre /events/:host/:slug  +  anciennes /event/:id et /club/:slug/event/:id.
+  // On résout toujours vers l'id, puis on recalcule le canonical propre /events/:host/:slug.
   let eventId: string | undefined;
-  if ((m = path.match(/^\/event\/([^/?#]+)/))) eventId = m[1];
-  else if ((m = path.match(/^\/club\/[^/]+\/event\/([^/?#]+)/))) eventId = m[1];
+  let cleanHost: string | undefined;
+  let cleanSlug: string | undefined;
+  if ((m = path.match(/^\/events\/([^/?#]+)\/([^/?#]+)/))) {
+    const host = decodeURIComponent(m[1]);
+    const evSlug = decodeURIComponent(m[2]);
+    let row: Row | null = null;
+    const venueExists = await fetchRow(env, `venues?id=eq.${encodeURIComponent(host)}&select=id`);
+    if (venueExists) {
+      row = await fetchRow(
+        env,
+        `events?venue_id=eq.${encodeURIComponent(host)}&organizer_user_id=is.null&slug=eq.${encodeURIComponent(evSlug)}&visibility=eq.public&select=id&limit=1`,
+      );
+    }
+    if (!row) {
+      const org = await fetchRow(env, `organizer_profiles?slug=eq.${encodeURIComponent(host)}&is_public=eq.true&select=user_id`);
+      if (org) {
+        row = await fetchRow(
+          env,
+          `events?organizer_user_id=eq.${encodeURIComponent(org.user_id as string)}&slug=eq.${encodeURIComponent(evSlug)}&visibility=eq.public&select=id&limit=1`,
+        );
+      }
+    }
+    if (!row) return null;
+    eventId = row.id as string;
+    cleanHost = host;
+    cleanSlug = evSlug;
+  } else if ((m = path.match(/^\/event\/([^/?#]+)/))) eventId = decodeURIComponent(m[1]);
+  else if ((m = path.match(/^\/club\/[^/]+\/event\/([^/?#]+)/))) eventId = decodeURIComponent(m[1]);
   if (eventId) {
-    const id = decodeURIComponent(eventId);
+    const id = eventId;
     const ev = await fetchRow(
       env,
       `events?id=eq.${encodeURIComponent(id)}&visibility=eq.public&select=title,description,poster_url,` +
         `start_at,end_at,music_genre,music_genres,location_name,location_city,location_address,` +
-        `location_is_secret,status,cancelled_at,venue_id,venues!events_venue_id_fkey(name,city,address,latitude,longitude)`,
+        `location_is_secret,status,cancelled_at,venue_id,slug,organizer_user_id,venues!events_venue_id_fkey(name,city,address,latitude,longitude)`,
     );
     if (!ev) return null;
     const title = (ev.title as string) || 'Event';
-    const canonical = `${ORIGIN}/event/${encodeURIComponent(id)}`;
+    // Canonical propre : /events/:host/:slug (host = orga si organizer-led, sinon venue_id).
+    let host = cleanHost;
+    const evSlug = cleanSlug ?? (ev.slug as string | undefined);
+    if (!host) {
+      if (ev.organizer_user_id) {
+        const org = await fetchRow(env, `organizer_profiles?user_id=eq.${encodeURIComponent(ev.organizer_user_id as string)}&select=slug`);
+        host = (org?.slug as string) || undefined;
+      } else {
+        host = (ev.venue_id as string) || undefined;
+      }
+    }
+    const canonical = host && evSlug
+      ? `${ORIGIN}/events/${encodeURIComponent(host)}/${encodeURIComponent(evSlug)}`
+      : `${ORIGIN}/event/${encodeURIComponent(id)}`;
     const img = ogImage((ev.poster_url as string) || undefined);
     const venue = (ev.venues && typeof ev.venues === 'object' ? ev.venues : null) as Row | null;
     const secret = ev.location_is_secret === true;
