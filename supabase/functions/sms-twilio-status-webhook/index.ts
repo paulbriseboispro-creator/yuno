@@ -11,6 +11,40 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "*",
 };
 
+// Constant-time string compare (avoids leaking the signature via timing).
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+// Twilio signs each request: X-Twilio-Signature = base64(HMAC-SHA1(authToken,
+// url + each sorted POST param key+value concatenated)). Without this check,
+// anyone could POST a forged MessageStatus=failed for a known SID and trigger a
+// fraudulent SMS-credit refund. The signed URL must match what Twilio was
+// configured with — behind Supabase's proxy req.url may differ, so allow an
+// explicit override via TWILIO_STATUS_CALLBACK_URL.
+async function isValidTwilioSignature(
+  authToken: string,
+  signature: string,
+  url: string,
+  params: Record<string, string>,
+): Promise<boolean> {
+  let data = url;
+  for (const key of Object.keys(params).sort()) data += key + params[key];
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(authToken),
+    { name: "HMAC", hash: "SHA-1" },
+    false,
+    ["sign"],
+  );
+  const sigBuf = await crypto.subtle.sign("HMAC", cryptoKey, new TextEncoder().encode(data));
+  const expected = btoa(String.fromCharCode(...new Uint8Array(sigBuf)));
+  return timingSafeEqual(expected, signature);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") {
@@ -23,10 +57,28 @@ serve(async (req) => {
 
     // Twilio sends application/x-www-form-urlencoded
     const formData = await req.formData();
-    const messageSid = formData.get("MessageSid")?.toString();
-    const messageStatus = formData.get("MessageStatus")?.toString();
-    const errorCode = formData.get("ErrorCode")?.toString();
-    const errorMessage = formData.get("ErrorMessage")?.toString();
+    const params: Record<string, string> = {};
+    for (const [k, v] of formData.entries()) params[k] = v.toString();
+
+    // ── Verify the request really came from Twilio (fail-closed) ──────────────
+    const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+    if (!authToken) {
+      console.error("[sms-status] TWILIO_AUTH_TOKEN not set — refusing unsigned webhook");
+      return new Response("Webhook not configured", { status: 403, headers: corsHeaders });
+    }
+    const signature = req.headers.get("X-Twilio-Signature") ?? "";
+    const callbackUrl = Deno.env.get("TWILIO_STATUS_CALLBACK_URL") || req.url;
+    const validSig = signature &&
+      await isValidTwilioSignature(authToken, signature, callbackUrl, params);
+    if (!validSig) {
+      console.warn("[sms-status] Invalid Twilio signature — rejected");
+      return new Response("Invalid signature", { status: 403, headers: corsHeaders });
+    }
+
+    const messageSid = params["MessageSid"];
+    const messageStatus = params["MessageStatus"];
+    const errorCode = params["ErrorCode"];
+    const errorMessage = params["ErrorMessage"];
 
     if (!messageSid || !messageStatus) {
       return new Response("Missing fields", { status: 400, headers: corsHeaders });

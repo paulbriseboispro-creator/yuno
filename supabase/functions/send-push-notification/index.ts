@@ -424,6 +424,38 @@ Deno.serve(async (req) => {
     }
 
     // Default: send to a single user's subscriptions.
+    // This path is a PRIVILEGED relay. Internal callers pass the service-role key;
+    // staff UIs (Barman, Click&Collect) call it with a logged-in staff session to
+    // notify a customer. With verify_jwt=false it was an OPEN relay — anyone holding
+    // the public anon key could push arbitrary phishing to any user_id. Require the
+    // service-role bearer OR an authenticated caller holding a privileged role.
+    {
+      const authHeader = req.headers.get('Authorization') || '';
+      const bearer = authHeader.replace('Bearer ', '').trim();
+      const isServiceCall = !!bearer && bearer === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      if (!isServiceCall) {
+        const userClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
+          global: { headers: { Authorization: authHeader } },
+        });
+        const { data: userData } = await userClient.auth.getUser();
+        const callerId = userData?.user?.id;
+        if (!callerId) {
+          return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+        const PRIVILEGED = new Set(['barman', 'bouncer', 'cloakroom', 'vip_host', 'manager', 'owner', 'organizer', 'dj', 'admin']);
+        const { data: callerRoles } = await supabase.from('user_roles').select('role').eq('user_id', callerId);
+        let allowed = (callerRoles ?? []).some((r: { role: string }) => PRIVILEGED.has(r.role));
+        if (!allowed) {
+          const { data: orgStaff } = await supabase
+            .from('org_staff').select('role').eq('user_id', callerId).eq('invitation_status', 'accepted').limit(1);
+          allowed = !!(orgStaff && orgStaff.length > 0);
+        }
+        if (!allowed) {
+          return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+      }
+    }
+
     const { user_id, payload } = reqBody;
     if (!user_id || !payload) {
       return new Response(JSON.stringify({ error: 'user_id and payload required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });

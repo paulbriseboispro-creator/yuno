@@ -50,6 +50,24 @@ serve(async (req) => {
     const origin = req.headers.get("origin") || "https://yunoapp.eu";
     log("Request", { userId: user.id, action });
 
+    // Any venueId coming from the request body MUST belong to the caller. Every
+    // owner branch below runs via service_role (RLS bypassed), so without this an
+    // attacker could pass another club's id and either mint a Stripe login link to
+    // that club's Express dashboard (balance / payouts / bank account) or
+    // create/overwrite its connected account and hijack all future payouts.
+    // Self-resolved paths (owner_id / profiles.venue_id lookups) are already
+    // caller-scoped, so we only gate the body-supplied id.
+    const assertOwnsBodyVenue = async (bodyVenueId: unknown): Promise<void> => {
+      if (!bodyVenueId) return;
+      const { data: owned } = await supabaseAdmin
+        .from("venues")
+        .select("id")
+        .eq("id", bodyVenueId as string)
+        .eq("owner_id", user.id)
+        .maybeSingle();
+      if (!owned) throw new Error("Unauthorized: you do not own this venue");
+    };
+
     // ─────────────────────────────────────────────────────────────────────────
     // action: "onboard"  (← organizer-stripe-connect-onboard)
     // ─────────────────────────────────────────────────────────────────────────
@@ -152,6 +170,7 @@ serve(async (req) => {
 
       // ─── Owner path ─────────────────────────────────────────────────────────
       const { venueId, refreshUrl, returnUrl } = body;
+      await assertOwnsBodyVenue(venueId);
       let targetVenueId = venueId;
 
       if (!targetVenueId) {
@@ -382,6 +401,7 @@ serve(async (req) => {
       }
 
       // Default: owner flow
+      await assertOwnsBodyVenue(body.venueId);
       let targetVenueId = body.venueId;
       if (!targetVenueId) {
         const { data: venue } = await supabaseAdmin
@@ -431,6 +451,7 @@ serve(async (req) => {
     // action: "refresh"  (← stripe-connect-refresh)
     // ─────────────────────────────────────────────────────────────────────────
     if (action === "refresh") {
+      await assertOwnsBodyVenue(body.venueId);
       let targetVenueId = body.venueId;
 
       if (!targetVenueId) {

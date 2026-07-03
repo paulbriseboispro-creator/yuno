@@ -40,6 +40,10 @@ serve(async (req) => {
 
     let authenticatedUserId: string | null = null;
 
+    // Identity MUST come from a verified JWT — never from a body field. A prior
+    // `staffId` body fallback let any caller holding the public anon key (shipped
+    // in the front bundle) impersonate any staff/admin by passing their UUID,
+    // which unlocked arbitrary Stripe refunds and customer bans. Removed.
     const authHeader = req.headers.get('Authorization');
     if (authHeader) {
       const supabaseClient = createClient(
@@ -51,15 +55,6 @@ serve(async (req) => {
       if (!authError && user) {
         authenticatedUserId = user.id;
         logStep("Authenticated via Supabase Auth", { userId: user.id });
-      }
-    }
-
-    if (!authenticatedUserId && staffId) {
-      const { data: staffProfile } = await adminClient
-        .from('profiles').select('id').eq('id', staffId).single();
-      if (staffProfile) {
-        authenticatedUserId = staffId;
-        logStep("Authenticated via staffId fallback", { staffId });
       }
     }
 

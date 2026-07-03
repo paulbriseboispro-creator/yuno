@@ -89,10 +89,9 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabaseClient = createClient(supabaseUrl, serviceRoleKey);
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
     const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'noreply@yunoapp.eu';
@@ -107,12 +106,49 @@ serve(async (req) => {
 
     const { data: event, error: eventError } = await supabaseClient
       .from('events')
-      .select('title, start_at, venue_id, poster_url, description, venues(name)')
+      .select('title, start_at, venue_id, poster_url, description, organizer_user_id, venues(name)')
       .eq('id', eventId)
       .single();
 
     if (eventError || !event) {
       throw new Error('Event not found');
+    }
+
+    // Authorization. Two callers:
+    //  - Public "confirmation": a fan who just joined the waitlist gets ONE email
+    //    to their own address. Left unauthenticated but strictly scoped to a single
+    //    targetEmail (see below), so it can't be used to blast the whole list.
+    //  - Anything else ("open"): blasts the FULL waitlist + push + flips
+    //    presale_access=true. This MUST be the event's owner/organizer (or an
+    //    internal service-role/cron call). Previously unauthenticated → anyone with
+    //    just an eventId could spam the list and open presale early.
+    const authHeader = req.headers.get('Authorization') || '';
+    const bearer = authHeader.replace('Bearer ', '').trim();
+    const isServiceCall = !!bearer && bearer === serviceRoleKey;
+
+    if (type === 'confirmation') {
+      if (!targetEmail) throw new Error('targetEmail is required for a confirmation email');
+    } else {
+      let authorized = isServiceCall;
+      if (!authorized && bearer) {
+        const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') ?? '', {
+          global: { headers: { Authorization: authHeader } },
+        });
+        const { data: { user } } = await userClient.auth.getUser();
+        if (user) {
+          if ((event as any).organizer_user_id && (event as any).organizer_user_id === user.id) {
+            authorized = true;
+          } else {
+            const { data: ownedVenue } = await supabaseClient
+              .from('venues').select('id').eq('id', event.venue_id).eq('owner_id', user.id).maybeSingle();
+            if (ownedVenue) authorized = true;
+          }
+        }
+      }
+      if (!authorized) {
+        logStep('Unauthorized waitlist blast attempt', { eventId });
+        throw new Error('Unauthorized: only the event owner or organizer can open the waitlist');
+      }
     }
 
     let entriesQuery = supabaseClient

@@ -102,8 +102,10 @@ Deno.serve(async (req) => {
         }
       }
     } else {
-      const { data: hasOwnerRole } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'owner' });
-      if (!hasOwnerRole) {
+      // Must own THIS venue — a global 'owner' role let any owner invite a promoter
+      // (with a client-supplied commission_config) into another owner's club.
+      const { data: ownsVenue } = await supabase.rpc('is_venue_owner', { _user_id: user.id, _venue_id: venue_id });
+      if (!ownsVenue) {
         return new Response(JSON.stringify({ error: 'Only owners can invite promoters' }), {
           status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });

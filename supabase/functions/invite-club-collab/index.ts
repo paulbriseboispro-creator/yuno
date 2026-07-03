@@ -41,6 +41,18 @@ const handler = async (req: Request): Promise<Response> => {
     const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
     if (userError || !user) throw new Error("Not authenticated");
 
+    // Only organizers may invite a partner club. Without this, any logged-in account
+    // could seed venue_claim_invitations that the accept flow turns into a real venue
+    // + owner role.
+    const { data: inviterProfile } = await supabaseAdmin
+      .from("profiles").select("profile_type").eq("id", user.id).maybeSingle();
+    if (inviterProfile?.profile_type !== "organizer") {
+      return new Response(JSON.stringify({ error: "Seuls les organisateurs peuvent inviter un club partenaire." }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const body = (await req.json()) as Payload;
     const {
       club_name,

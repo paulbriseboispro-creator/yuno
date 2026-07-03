@@ -163,6 +163,16 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    // The invitation was addressed to a specific club email. The accepting account
+    // MUST own that email — otherwise anyone holding a (leakable / enumerable) token
+    // could accept it and be auto-granted a brand-new venue + the 'owner' role.
+    if ((user.email ?? "").toLowerCase() !== (inv.club_email ?? "").toLowerCase()) {
+      return new Response(
+        JSON.stringify({ error: "Cette invitation est adressée à une autre adresse email." }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Generate a unique venue slug
     const baseSlug = slugify(inv.club_name) || `club-${inv.id.slice(0, 6)}`;
     let slug = baseSlug;

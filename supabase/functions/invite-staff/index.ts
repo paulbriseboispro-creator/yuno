@@ -82,8 +82,11 @@ Deno.serve(async (req) => {
         }
       }
     } else {
-      const { data: hasOwnerRole } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'owner' });
-      let allowed = !!hasOwnerRole;
+      // Must own THIS venue — not just hold the 'owner' role somewhere. A global
+      // has_role('owner') check let any club owner invite staff (with arbitrary
+      // manager_permissions) into another owner's club.
+      const { data: ownsVenue } = await supabase.rpc('is_venue_owner', { _user_id: user.id, _venue_id: venue_id });
+      let allowed = !!ownsVenue;
       if (!allowed) {
         const { data: canManage } = await supabase.rpc('manager_has_permission', {
           _user_id: user.id, _venue_id: venue_id, _permission: 'staff',

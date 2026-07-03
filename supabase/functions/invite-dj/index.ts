@@ -55,11 +55,13 @@ Deno.serve(async (req) => {
 
     // Authorization: owners can invite for venues; organizers can invite for themselves
     if (isVenueScope) {
-      const { data: hasOwnerRole } = await supabase.rpc('has_role', {
+      // Must own THIS venue — a global 'owner' role let any owner attach a DJ to
+      // another owner's club roster.
+      const { data: ownsVenue } = await supabase.rpc('is_venue_owner', {
         _user_id: user.id,
-        _role: 'owner',
+        _venue_id: venue_id,
       });
-      if (!hasOwnerRole) {
+      if (!ownsVenue) {
         return new Response(JSON.stringify({ error: 'Only owners can invite DJs to a venue' }), {
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
