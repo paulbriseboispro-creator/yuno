@@ -3,6 +3,8 @@
 // Étape mot de passe avant l'accès. Le prospect saisit LE mot de passe de son lien
 // (ex. « el sorbo »), on le vérifie côté serveur, on le connecte au compte démo ciblé
 // puis on l'arme en LECTURE SEULE et on l'envoie sur le bon dashboard.
+//
+// La page respecte la LANGUE par défaut du lien (en/fr/es) dès l'écran mot de passe.
 
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -22,12 +24,103 @@ interface LinkInfo {
   invalid_reason: string | null;
 }
 
-const INVALID_COPY: Record<string, string> = {
-  not_found: "Ce lien d'aperçu est introuvable.",
-  revoked: "Ce lien d'aperçu a été désactivé.",
-  expired: "Ce lien d'aperçu a expiré.",
-  locked: "Trop de tentatives. Ce lien est temporairement bloqué.",
+type Lang = 'en' | 'fr' | 'es';
+
+const COPY: Record<Lang, {
+  badge: string;
+  hi: string;
+  lead: (roles: string, count: number) => string;
+  pw: string;
+  enter: string;
+  footer: string;
+  loading: string;
+  unavailable: string;
+  invalid: Record<string, string>;
+  err: { wrong: string; locked: string; expired: string; revoked: string; generic: string; unknown: string };
+}> = {
+  en: {
+    badge: 'YUNO PREVIEW',
+    hi: 'Hi',
+    lead: (roles, count) =>
+      `Read-only demo access to the ${roles} ${count > 1 ? 'dashboards' : 'dashboard'}. Enter your password to continue.`,
+    pw: 'Password',
+    enter: 'Enter preview',
+    footer: 'Demo preview. Everything is read-only — no real data can be created or modified.',
+    loading: 'Loading…',
+    unavailable: 'Preview unavailable',
+    invalid: {
+      not_found: 'This preview link was not found.',
+      revoked: 'This preview link has been disabled.',
+      expired: 'This preview link has expired.',
+      locked: 'Too many attempts. This link is temporarily locked.',
+      default: "This preview link isn't valid.",
+    },
+    err: {
+      wrong: 'Incorrect password.',
+      locked: 'Too many attempts. Try again later.',
+      expired: 'This preview link has expired.',
+      revoked: 'This preview link has been disabled.',
+      generic: 'Access denied. Check your password.',
+      unknown: 'Something went wrong. Try again.',
+    },
+  },
+  fr: {
+    badge: 'APERÇU YUNO',
+    hi: 'Bonjour',
+    lead: (roles, count) =>
+      `Accès démo en lecture seule ${count > 1 ? 'aux tableaux de bord' : 'au tableau de bord'} ${roles}. Saisis ton mot de passe pour entrer.`,
+    pw: 'Mot de passe',
+    enter: "Entrer dans l'aperçu",
+    footer: 'Aperçu de démonstration. Tout est en lecture seule — aucune donnée réelle ne peut être créée ou modifiée.',
+    loading: 'Chargement…',
+    unavailable: 'Aperçu indisponible',
+    invalid: {
+      not_found: "Ce lien d'aperçu est introuvable.",
+      revoked: "Ce lien d'aperçu a été désactivé.",
+      expired: "Ce lien d'aperçu a expiré.",
+      locked: 'Trop de tentatives. Ce lien est temporairement bloqué.',
+      default: "Ce lien d'aperçu n'est pas valide.",
+    },
+    err: {
+      wrong: 'Mot de passe incorrect.',
+      locked: 'Trop de tentatives. Réessaie plus tard.',
+      expired: "Ce lien d'aperçu a expiré.",
+      revoked: "Ce lien d'aperçu a été désactivé.",
+      generic: 'Accès impossible. Vérifie ton mot de passe.',
+      unknown: 'Une erreur est survenue. Réessaie.',
+    },
+  },
+  es: {
+    badge: 'VISTA PREVIA YUNO',
+    hi: 'Hola',
+    lead: (roles, count) =>
+      `Acceso de demostración de solo lectura ${count > 1 ? 'a los paneles' : 'al panel'} ${roles}. Introduce tu contraseña para entrar.`,
+    pw: 'Contraseña',
+    enter: 'Entrar a la vista previa',
+    footer: 'Vista previa de demostración. Todo es de solo lectura — no se puede crear ni modificar ningún dato real.',
+    loading: 'Cargando…',
+    unavailable: 'Vista previa no disponible',
+    invalid: {
+      not_found: 'No se encontró este enlace de vista previa.',
+      revoked: 'Este enlace de vista previa ha sido desactivado.',
+      expired: 'Este enlace de vista previa ha caducado.',
+      locked: 'Demasiados intentos. Este enlace está bloqueado temporalmente.',
+      default: 'Este enlace de vista previa no es válido.',
+    },
+    err: {
+      wrong: 'Contraseña incorrecta.',
+      locked: 'Demasiados intentos. Inténtalo más tarde.',
+      expired: 'Este enlace de vista previa ha caducado.',
+      revoked: 'Este enlace de vista previa ha sido desactivado.',
+      generic: 'Acceso denegado. Comprueba tu contraseña.',
+      unknown: 'Algo salió mal. Inténtalo de nuevo.',
+    },
+  },
 };
+
+function resolveLang(l: string | undefined): Lang {
+  return l === 'fr' || l === 'es' ? l : 'en';
+}
 
 export default function PreviewGate() {
   const [params] = useSearchParams();
@@ -40,6 +133,9 @@ export default function PreviewGate() {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const lang = resolveLang(info?.language);
+  const c = COPY[lang];
 
   useEffect(() => {
     let active = true;
@@ -55,6 +151,14 @@ export default function PreviewGate() {
     return () => { active = false; };
   }, [token]);
 
+  // Applique la langue du lien dès qu'elle est connue (écran mot de passe déjà traduit
+  // via COPY ; ceci pré-règle aussi la langue pour le dashboard après connexion).
+  useEffect(() => {
+    if (info?.language && ['en', 'fr', 'es'].includes(info.language)) {
+      setLanguage(info.language as Language);
+    }
+  }, [info?.language, setLanguage]);
+
   const submit = async () => {
     if (!password || submitting) return;
     setSubmitting(true);
@@ -63,15 +167,13 @@ export default function PreviewGate() {
       const { data, error: invokeError } = await supabase.functions.invoke('accept-staff-invitation', {
         body: { action: 'redeem_demo_preview_link', token, password },
       });
-      // L'edge function renvoie un statut non-2xx (avec {error, code}) sur mot de passe
-      // erroné / lien invalide ; supabase-js remonte alors invokeError.
       const code = (data as any)?.code ?? (data as any)?.error;
       if (invokeError || !(data as any)?.success) {
-        if (code === 'wrong_password') setError('Mot de passe incorrect.');
-        else if (code === 'locked') setError('Trop de tentatives. Réessaie plus tard.');
-        else if (code === 'expired') setError("Ce lien d'aperçu a expiré.");
-        else if (code === 'revoked') setError("Ce lien d'aperçu a été désactivé.");
-        else setError('Accès impossible. Vérifie ton mot de passe.');
+        if (code === 'wrong_password') setError(c.err.wrong);
+        else if (code === 'locked') setError(c.err.locked);
+        else if (code === 'expired') setError(c.err.expired);
+        else if (code === 'revoked') setError(c.err.revoked);
+        else setError(c.err.generic);
         setSubmitting(false);
         return;
       }
@@ -80,7 +182,6 @@ export default function PreviewGate() {
       const primary = roles[0];
       const meta = DEMO_ACCOUNTS[primary];
       const language = String((data as any).language ?? info?.language ?? 'en');
-      // Connexion au compte démo primaire (tokens mintés côté serveur).
       const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
         access_token: (data as any).access_token,
         refresh_token: (data as any).refresh_token,
@@ -89,13 +190,11 @@ export default function PreviewGate() {
 
       const userId = sessionData.user?.id;
       await applyDemoBypass(primary, userId);
-      // Armer la lecture seule AVANT de naviguer (guard + bannière + DemoSwitcher caché).
       enablePreviewMode({ label: info?.label ?? '', roles, current: primary, language });
-      // Appliquer la langue par défaut du lien (setLanguage ignore l'écriture profil en preview).
       if (['en', 'fr', 'es'].includes(language)) setLanguage(language as Language);
       navigate(meta?.route ?? '/', { replace: true });
     } catch {
-      setError('Une erreur est survenue. Réessaie.');
+      setError(c.err.unknown);
       setSubmitting(false);
     }
   };
@@ -120,16 +219,16 @@ export default function PreviewGate() {
         {loading ? (
           <div className="flex flex-col items-center gap-3 py-8">
             <Loader2 className="h-6 w-6 animate-spin" style={{ color: RED }} />
-            <p className="text-sm text-white/50">Chargement…</p>
+            <p className="text-sm text-white/50">{c.loading}</p>
           </div>
         ) : !token || !info || !info.is_valid ? (
           <div className="flex flex-col items-center gap-3 py-6 text-center">
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl" style={{ background: 'rgba(255,92,99,0.12)' }}>
               <AlertTriangle className="h-6 w-6" style={{ color: '#FF5C63' }} />
             </span>
-            <h1 className="text-lg font-semibold text-white">Aperçu indisponible</h1>
+            <h1 className="text-lg font-semibold text-white">{c.unavailable}</h1>
             <p className="text-sm text-white/50">
-              {INVALID_COPY[info?.invalid_reason ?? 'not_found'] ?? "Ce lien d'aperçu n'est pas valide."}
+              {c.invalid[info?.invalid_reason ?? 'not_found'] ?? c.invalid.default}
             </p>
           </div>
         ) : (
@@ -140,18 +239,16 @@ export default function PreviewGate() {
               </span>
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color: RED }}>
-                  Aperçu Yuno
+                  {c.badge}
                 </p>
                 <h1 className="mt-1 text-xl font-bold text-white">
-                  Bonjour {info.label}
+                  {c.hi} {info.label}
                 </h1>
                 <p className="mt-1.5 text-sm text-white/50">
-                  Accès démo en lecture seule
-                  {info.target_accounts.length === 1 ? ' au tableau de bord ' : ' aux tableaux de bord '}
-                  <span className="text-white/70">
-                    {info.target_accounts.map((a) => DEMO_ACCOUNTS[a]?.label ?? a).join(', ')}
-                  </span>.
-                  Saisis ton mot de passe pour entrer.
+                  {c.lead(
+                    info.target_accounts.map((a) => DEMO_ACCOUNTS[a]?.label ?? a).join(', '),
+                    info.target_accounts.length,
+                  )}
                 </p>
               </div>
             </div>
@@ -165,7 +262,7 @@ export default function PreviewGate() {
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); setError(null); }}
                   onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
-                  placeholder="Mot de passe"
+                  placeholder={c.pw}
                   className="w-full rounded-xl py-3 pl-10 pr-3 text-sm text-white outline-none"
                   style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)' }}
                 />
@@ -188,13 +285,12 @@ export default function PreviewGate() {
                 }}
               >
                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                Entrer dans l'aperçu
+                {c.enter}
               </button>
             </div>
 
             <p className="mt-5 text-center text-[11px] leading-relaxed text-white/35">
-              Aperçu de démonstration. Tout est en lecture seule — aucune donnée réelle
-              ne peut être créée ou modifiée.
+              {c.footer}
             </p>
           </>
         )}
