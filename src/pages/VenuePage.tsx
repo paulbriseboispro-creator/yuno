@@ -17,13 +17,14 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, ChevronRight, ChevronDown, ChevronUp, Share2, MapPin, Calendar, Handshake } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatInTimeZone } from 'date-fns-tz';
-import { fr } from 'date-fns/locale';
+import { fr, es, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PARIS_TIMEZONE, nowInParis } from '@/lib/timezone';
 import { hasFeature, type PlanCode } from '@/lib/planFeatures';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { usePromoterTracking } from '@/hooks/usePromoterTracking';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
+import { eventPath } from '@/lib/eventUrl';
 import { useFavorites } from '@/hooks/useFavorites';
 import { VenuePromoSection } from '@/components/upsell/VenuePromoSection';
 import { useTagEventsSource } from '@/hooks/usePurchaseSourceTracking';
@@ -109,7 +110,8 @@ export default function VenuePage() {
     }
   }, [slug, navigate]);
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const dfLocale = language === 'es' ? es : language === 'en' ? enUS : fr;
   const [venue, setVenue] = useState<VenueData | null>(null);
   const [drinks, setDrinks] = useState<Drink[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -356,8 +358,10 @@ export default function VenuePage() {
           posterPosition?: { x: number; y: number; scale: number };
           organizerUserId?: string | null;
           musicGenre?: string;
+          slug?: string | null;
         })[] = rawEvents.map((event: any) => ({
           id: event.id,
+          slug: event.slug ?? null,
           venueId: event.venue_id,
           title: event.title,
           description: event.description || undefined,
@@ -743,13 +747,13 @@ export default function VenuePage() {
                   initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.06 }}
-                  onClick={() => {
-                    if (isCoOrganized) {
-                      navigate(`/event/${event.id}`);
-                    } else {
-                      navigate(`/club/${slug}/event/${event.id}`);
-                    }
-                  }}
+                  onClick={() => navigate(eventPath({
+                    id: event.id,
+                    slug: (event as { slug?: string | null }).slug,
+                    isOrganizerLed: isCoOrganized,
+                    organizerSlug: organizer?.slug ?? null,
+                    venueSlug: slug,
+                  }))}
                   className="cursor-pointer group"
                 >
                   {/* Poster — 1:1 */}
@@ -786,7 +790,7 @@ export default function VenuePage() {
                   {/* Text — separated below the image */}
                   <div className="pt-2.5">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-                      {formatInTimeZone(startDate, PARIS_TIMEZONE, 'EEE d MMM', { locale: fr })}
+                      {formatInTimeZone(startDate, PARIS_TIMEZONE, 'EEE d MMM', { locale: dfLocale })}
                     </p>
                     <p className="text-sm font-bold text-foreground mt-0.5 line-clamp-2 leading-tight">
                       {event.title}
