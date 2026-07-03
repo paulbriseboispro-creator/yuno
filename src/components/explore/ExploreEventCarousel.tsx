@@ -5,6 +5,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { EventCardData } from './EventCard';
+import { eventPath } from '@/lib/eventUrl';
 
 const dfLocale = (language: string) => (language === 'fr' ? fr : language === 'es' ? es : enUS);
 
@@ -18,7 +19,7 @@ function navigateToEvent(event: EventCardData, navigate: ReturnType<typeof useNa
   if (event.isAffiliate && event.affiliateEventSlug) {
     navigate(`/affiliate-event/${event.affiliateEventSlug}`);
   } else if (event.isOrganizerLed || !event.venueSlug) {
-    navigate(`/event/${event.id}`);
+    navigate(eventPath(event));
   } else {
     sessionStorage.setItem('yuno_club_origin', 'explore');
     navigate(`/club/${event.venueSlug}`);

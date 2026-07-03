@@ -4,6 +4,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { EventCardData } from './EventCard';
+import { eventPath } from '@/lib/eventUrl';
 
 function priceLabel(event: EventCardData, t: (k: string) => string): string {
   if (event.minPrice === 0) return t('explore.free');
@@ -15,7 +16,7 @@ function navigateToEvent(event: EventCardData, navigate: ReturnType<typeof useNa
   if (event.isAffiliate && event.affiliateEventSlug) {
     navigate(`/affiliate-event/${event.affiliateEventSlug}`);
   } else if (event.isOrganizerLed || !event.venueSlug) {
-    navigate(`/event/${event.id}`);
+    navigate(eventPath(event));
   } else {
     sessionStorage.setItem('yuno_club_origin', 'explore');
     navigate(`/club/${event.venueSlug}`);

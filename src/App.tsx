@@ -480,7 +480,9 @@ const App = () => (
                 <Route path="/accept-platform-invitation" element={<AcceptPlatformInvitation />} />
                 <Route path="/club-invitation" element={<ClubInvitation />} />
 
-                {/* Public event detail by ID — used for organizer events shared via direct link */}
+                {/* Public event detail — URL propre /events/:host/:eventSlug (canonique) */}
+                <Route path="/events/:host/:eventSlug" element={<EventDetails />} />
+                {/* Anciennes URLs par UUID — conservées, redirigent vers l'URL propre au chargement */}
                 <Route path="/event/:eventId" element={<EventDetails />} />
 
                 {/* Standalone Organizer / BDE app */}

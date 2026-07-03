@@ -5,10 +5,13 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFavorites } from '@/hooks/useFavorites';
+import { eventPath } from '@/lib/eventUrl';
 import { format } from 'date-fns';
 
 export interface EventCardData {
   id: string;
+  slug?: string | null;
+  organizerSlug?: string | null;
   title: string;
   posterUrl: string | null;
   startAt: string;
@@ -55,7 +58,7 @@ export function EventCard({ event }: { event: EventCardData }) {
     if (event.isAffiliate && event.affiliateEventSlug) {
       navigate(`/affiliate-event/${event.affiliateEventSlug}`);
     } else if (event.isOrganizerLed || !event.venueSlug) {
-      navigate(`/event/${event.id}`);
+      navigate(eventPath(event));
     } else {
       sessionStorage.setItem('yuno_club_origin', 'explore');
       navigate(`/club/${event.venueSlug}`);

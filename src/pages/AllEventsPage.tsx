@@ -3,10 +3,12 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
 import { SlidersHorizontal } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { BottomNav } from '@/components/BottomNav';
 import { EventCardData } from '@/components/explore/EventCard';
 import { Tappable } from '@/components/motion';
 import { FilterPage, ExploreFilters, FilterDynamicData } from '@/components/explore/FilterPage';
+import { eventPath } from '@/lib/eventUrl';
 import { Seo } from '@/components/Seo';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -15,31 +17,38 @@ function navigateToEvent(event: EventCardData, navigate: ReturnType<typeof useNa
   if (event.isAffiliate && event.affiliateEventSlug) {
     navigate(`/affiliate-event/${event.affiliateEventSlug}`);
   } else if (event.isOrganizerLed || !event.venueSlug) {
-    navigate(`/event/${event.id}`);
+    navigate(eventPath(event));
   } else {
     sessionStorage.setItem('yuno_club_origin', 'explore');
     navigate(`/club/${event.venueSlug}`);
   }
 }
 
-function formatPriceLabel(event: EventCardData): string {
-  if (event.minPrice === 0) return 'Gratuit';
+type TFn = (key: string) => string;
+
+// Map the app language to a BCP-47 locale so weekday/month names follow the UI language.
+function localeForLanguage(language: string): string {
+  return language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-US';
+}
+
+function formatPriceLabel(event: EventCardData, t: TFn): string {
+  if (event.minPrice === 0) return t('explore.free');
   if (event.minPrice !== null) return `${event.minPrice}€`;
   return '';
 }
 
-function getDateLabel(dateStr: string): string {
+function getDateLabel(dateStr: string, t: TFn, localeCode: string): string {
   const [y, m, d] = dateStr.split('-').map(Number);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
   const date = new Date(y, m - 1, d);
-  if (date.getTime() === today.getTime()) return "Aujourd'hui";
-  if (date.getTime() === tomorrow.getTime()) return 'Demain';
-  const dayName = date.toLocaleDateString('fr-FR', { weekday: 'long' });
+  if (date.getTime() === today.getTime()) return t('explore.today');
+  if (date.getTime() === tomorrow.getTime()) return t('explore.tomorrow');
+  const dayName = date.toLocaleDateString(localeCode, { weekday: 'long' });
   const dayNum = date.getDate();
-  const monthName = date.toLocaleDateString('fr-FR', { month: 'long' });
+  const monthName = date.toLocaleDateString(localeCode, { month: 'long' });
   return `${dayName.charAt(0).toUpperCase() + dayName.slice(1)} ${dayNum} ${monthName}`;
 }
 
@@ -87,19 +96,19 @@ const normGenre = (g: string) =>
 
 const sliderToHour = (val: number) => (18 + val) % 24;
 
-const DATE_CHIPS = [
-  { id: '', label: 'Tout' },
-  { id: 'today', label: "Aujourd'hui" },
-  { id: 'tomorrow', label: 'Demain' },
-  { id: 'weekend', label: 'Week-end' },
-  { id: 'week', label: 'Cette semaine' },
+const getDateChips = (t: TFn) => [
+  { id: '', label: t('allEvents.all') },
+  { id: 'today', label: t('explore.today') },
+  { id: 'tomorrow', label: t('explore.tomorrow') },
+  { id: 'weekend', label: t('explore.weekend') },
+  { id: 'week', label: t('allEvents.thisWeek') },
 ];
 
-const TYPE_CHIPS = [
-  { id: 'club', label: 'Clubs' },
-  { id: 'after_party', label: 'After Parties' },
-  { id: 'beach_club', label: 'Beach Clubs' },
-  { id: 'open_air', label: 'Open Air' },
+const getTypeChips = (t: TFn) => [
+  { id: 'club', label: t('allEvents.typeClubs') },
+  { id: 'after_party', label: t('allEvents.typeAfterParties') },
+  { id: 'beach_club', label: t('allEvents.typeBeachClubs') },
+  { id: 'open_air', label: t('allEvents.typeOpenAir') },
 ];
 
 const FILTER_DYNAMIC_DATA: FilterDynamicData = {
@@ -125,6 +134,10 @@ const DEFAULT_FILTERS: ExploreFilters = {
 export default function AllEventsPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t, language } = useLanguage();
+  const localeCode = localeForLanguage(language);
+  const dateChips = getDateChips(t);
+  const typeChips = getTypeChips(t);
 
   const passedFilters = (location.state as any)?.filters as ExploreFilters | undefined;
   const passedCity = (location.state as any)?.city as string | undefined;
@@ -132,7 +145,7 @@ export default function AllEventsPage() {
   const [rawGroups, setRawGroups] = useState<{ date: string; events: EventCardData[] }[]>([]);
   const [loading, setLoading] = useState(true);
   const [city] = useState(
-    () => passedCity || sessionStorage.getItem('yuno_manual_city') || localStorage.getItem('yuno_city') || 'Madrid'
+    () => passedCity || sessionStorage.getItem('yuno_manual_city') || localStorage.getItem('yuno_city') || 'Paris'
   );
 
   // Single source of truth for all filters
@@ -157,7 +170,7 @@ export default function AllEventsPage() {
         await Promise.all([
           supabase
             .from('events')
-            .select('id, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, music_genre, music_genres, event_type, location_city')
+            .select('id, slug, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, music_genre, music_genres, event_type, location_city')
             .eq('is_active', true)
             .eq('visibility', 'public')
             .eq('is_discoverable', true)
@@ -181,6 +194,19 @@ export default function AllEventsPage() {
         ]);
 
       const venueMap = new Map((venuesRes.data || []).map(v => [v.id, v]));
+
+      // Slugs d'orga pour construire les liens propres /events/:orgSlug/:eventSlug.
+      const organizerUserIds = Array.from(
+        new Set((eventsRes.data || []).map(e => e.organizer_user_id).filter(Boolean) as string[]),
+      );
+      const organizerSlugMap = new Map<string, string | null>();
+      if (organizerUserIds.length > 0) {
+        const { data: orgProfiles } = await supabase
+          .from('organizer_profiles')
+          .select('user_id, slug')
+          .in('user_id', organizerUserIds);
+        (orgProfiles || []).forEach(op => organizerSlugMap.set(op.user_id, op.slug));
+      }
 
       const minPriceMap: Record<string, number> = {};
       (ticketRes.data || []).forEach(tr => {
@@ -214,6 +240,8 @@ export default function AllEventsPage() {
             : e.music_genre ? [e.music_genre] : [];
         return [{
           id: e.id,
+          slug: (e as any).slug ?? null,
+          organizerSlug: isOrganizerLed ? (organizerSlugMap.get(e.organizer_user_id!) ?? null) : null,
           title: e.title,
           posterUrl: e.poster_url,
           startAt: e.start_at,
@@ -426,7 +454,7 @@ export default function AllEventsPage() {
             color: '#fff',
             flexShrink: 0,
           }}
-          aria-label="Retour"
+          aria-label={t('allEvents.back')}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M19 12H5M12 5l-7 7 7 7" />
@@ -435,16 +463,16 @@ export default function AllEventsPage() {
 
         <div style={{ flex: 1 }}>
           <p style={{ fontFamily: 'monospace', fontSize: 10, color: '#5A5A5E', letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: 2 }}>
-            L'Agenda
+            {t('allEvents.eyebrow')}
           </p>
           <h1 style={{ fontSize: 20, fontWeight: 700, color: '#fff', letterSpacing: '-0.01em', lineHeight: 1, textTransform: 'uppercase', margin: 0 }}>
-            Tous les events
+            {t('allEvents.title')}
           </h1>
         </div>
 
         {!loading && (
           <span style={{ fontFamily: 'monospace', fontSize: 10, color: '#5A5A5E', letterSpacing: '0.12em', textTransform: 'uppercase', flexShrink: 0 }}>
-            {totalCount} event{totalCount !== 1 ? 's' : ''}
+            {totalCount} {totalCount !== 1 ? t('allEvents.eventPlural') : t('allEvents.eventSingular')}
           </span>
         )}
       </div>
@@ -477,7 +505,7 @@ export default function AllEventsPage() {
           } as React.CSSProperties}>
 
             {/* Date chips */}
-            {DATE_CHIPS.map(opt => {
+            {dateChips.map(opt => {
               const isActive = filters.dateFilter === opt.id && !(opt.id === '' && filters.dateFilter !== '');
               const active = opt.id === '' ? filters.dateFilter === '' : filters.dateFilter === opt.id;
               return (
@@ -501,7 +529,7 @@ export default function AllEventsPage() {
             }} />
 
             {/* Type chips */}
-            {TYPE_CHIPS.map(type => {
+            {typeChips.map(type => {
               const active = filters.eventTypes.includes(type.id);
               return (
                 <button
@@ -632,7 +660,7 @@ export default function AllEventsPage() {
                   lineHeight: 1,
                   margin: 0,
                 }}>
-                  {getDateLabel(date)}
+                  {getDateLabel(date, t, localeCode)}
                 </h2>
                 <span style={{
                   fontFamily: 'monospace',
@@ -641,7 +669,7 @@ export default function AllEventsPage() {
                   letterSpacing: '0.14em',
                   textTransform: 'uppercase',
                 }}>
-                  {events.length} event{events.length !== 1 ? 's' : ''}
+                  {events.length} {events.length !== 1 ? t('allEvents.eventPlural') : t('allEvents.eventSingular')}
                 </span>
               </div>
 
@@ -670,8 +698,9 @@ export default function AllEventsPage() {
 
 function EventRow({ event }: { event: EventCardData }) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const timeLabel = format(new Date(event.startAt), 'HH:mm');
-  const priceLabel = formatPriceLabel(event);
+  const priceLabel = formatPriceLabel(event, t);
   const isLive = event.isLive;
 
   return (

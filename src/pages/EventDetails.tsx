@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useSearchParams, useLocation } from 'react-router-dom';
-import { usePreviewNavigate } from '@/contexts/OwnerPreviewContext';
+import { usePreviewNavigate, useOwnerPreview } from '@/contexts/OwnerPreviewContext';
 import { ArrowLeft, AlertCircle, MapPin, ChevronDown, ChevronUp, Music, Ticket, UserCheck, Share2, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -38,8 +38,15 @@ type EventDJ = {
 };
 
 export default function EventDetails() {
-  const { eventId, slug } = useParams();
+  const params = useParams();
+  const eventIdParam = params.eventId;   // ancienne route /event/:eventId ou /club/:slug/event/:eventId
+  const slug = params.slug;              // venue slug (ancienne route club)
+  const host = params.host;              // URL propre /events/:host/:eventSlug
+  const eventSlug = params.eventSlug;
+  const { isPreview } = useOwnerPreview();
   const navigate = usePreviewNavigate();
+  // eventId effectif : issu du param UUID, ou résolu depuis le slug propre (voir effet ci-dessous).
+  const [eventId, setEventId] = useState<string | undefined>(eventIdParam);
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { t, language } = useLanguage();
@@ -95,15 +102,38 @@ export default function EventDetails() {
     }
   };
 
+  // Résout l'URL propre /events/:host/:eventSlug -> id de l'event (via RPC anon-safe).
+  // Un slug historique redirige vers le slug canonique courant.
+  useEffect(() => {
+    if (eventIdParam) { setEventId(eventIdParam); return; }
+    if (!host || !eventSlug) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.rpc('resolve_event_path', { p_host: host, p_slug: eventSlug } as never);
+      const row = Array.isArray(data) ? (data[0] as { event_id: string; host: string; slug: string } | undefined) : undefined;
+      if (cancelled) return;
+      if (row?.event_id) {
+        setEventId(row.event_id);
+        if (!isPreview && row.host && row.slug && (row.host !== host || row.slug !== eventSlug)) {
+          navigate(`/events/${row.host}/${row.slug}`, { replace: true });
+        }
+      } else {
+        setLoading(false); // slug introuvable -> rendu "event not found"
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [host, eventSlug, eventIdParam, isPreview, navigate]);
+
   useEffect(() => {
     if (eventId) {
       fetchEventDetails();
       fetchMapboxToken();
-    } else {
+    } else if (!host || !eventSlug) {
       // No eventId in the URL (malformed link): fall through to the
       // "event not found" render instead of an infinite skeleton.
       setLoading(false);
     }
+    // sinon : résolution du slug propre en cours -> on garde le skeleton.
   }, [eventId]);
 
   const fetchMapboxToken = async () => {
@@ -266,6 +296,16 @@ export default function EventDetails() {
 
       // Set primary entity flag based on whether the event is organizer-led
       setPrimaryEntity(isOrganizerLed && loadedOrganizer ? 'organizer' : 'venue');
+
+      // Canonicalisation : les vieilles URLs UUID (/event/:id, /club/:slug/event/:id)
+      // redirigent vers l'URL propre /events/:host/:slug (hors preview owner).
+      if (!eventSlug && !isPreview) {
+        const hostSlug = isOrganizerLed ? (loadedOrganizer?.slug ?? null) : eventData.venue_id;
+        const cleanSlug = (eventData as { slug?: string | null }).slug;
+        if (hostSlug && cleanSlug) {
+          navigate(`/events/${hostSlug}/${cleanSlug}`, { replace: true });
+        }
+      }
 
       // Load host venue (used for address, map, drinks if partner)
       if (hostVenueId) {
@@ -913,14 +953,14 @@ export default function EventDetails() {
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0">
                   <p className="font-mono uppercase mb-1" style={{ fontSize: '9px', color: '#5A5A5E', letterSpacing: '0.14em' }}>
-                    {eventSalesStatus === 'presale' ? 'Presale' : 'Billetterie'}
+                    {eventSalesStatus === 'presale' ? t('event.presale') : t('event.ticketing')}
                   </p>
                   <p className="font-display font-bold text-white" style={{ fontSize: 'clamp(17px, 4vw, 22px)', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-                    {eventSalesStatus === 'presale' ? 'Vente privée en cours' : 'Bientôt disponible'}
+                    {eventSalesStatus === 'presale' ? t('event.privateSaleOpen') : t('event.comingSoon')}
                   </p>
                   {event.publicSaleStartAt && (
                     <p className="font-mono mt-1" style={{ fontSize: '11px', color: '#5A5A5E', letterSpacing: '0.04em' }}>
-                      Ouverture {formatInTimeZone(new Date(event.publicSaleStartAt), PARIS_TIMEZONE, 'dd MMM · HH:mm', { locale: fr })}
+                      {t('event.opensAt')} {formatInTimeZone(new Date(event.publicSaleStartAt), PARIS_TIMEZONE, 'dd MMM · HH:mm', { locale: getLocale() })}
                     </p>
                   )}
                 </div>

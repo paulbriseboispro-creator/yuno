@@ -153,7 +153,7 @@ export function SuggestedEvents({ userId, tasteProfile, favoriteClubId }: Sugges
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.1 }}
-            onClick={() => navigate(`/events/${event.id}`)}
+            onClick={() => navigate(`/event/${event.id}`)}
             className="group relative flex gap-3 p-3 rounded-xl bg-card/50 border border-border/30 hover:border-primary/30 hover:bg-card cursor-pointer transition-all"
           >
             {/* Event Image */}

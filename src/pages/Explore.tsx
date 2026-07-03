@@ -174,7 +174,7 @@ export default function Explore() {
           if (!localStorage.getItem('yuno_city')) {
             setUserLocation(coords);
             try {
-              let cityName = 'Madrid';
+              let cityName = 'Paris';
               const token = import.meta.env.VITE_MAPBOX_TOKEN;
               if (token) {
                 const res = await fetch(
@@ -182,12 +182,12 @@ export default function Explore() {
                 );
                 const data = await res.json();
                 const feature = data.features?.[0];
-                if (feature) cityName = feature.text || feature.place_name || 'Madrid';
+                if (feature) cityName = feature.text || feature.place_name || 'Paris';
               } else {
                 const { data } = await supabase.functions.invoke('geocode-address', {
                   body: { lat: coords.lat, lng: coords.lng, reverse: true },
                 });
-                cityName = data?.city || data?.name || 'Madrid';
+                cityName = data?.city || data?.name || 'Paris';
               }
               setCity(cityName);
               setResolvedCity(cityName);
@@ -548,7 +548,7 @@ export default function Explore() {
         await Promise.all([
           supabase
             .from('events')
-            .select('id, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, max_tickets, ticketing_enabled, tables_enabled, music_genre, music_genres, event_type, location_city')
+            .select('id, slug, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, max_tickets, ticketing_enabled, tables_enabled, music_genre, music_genres, event_type, location_city')
             .eq('is_active', true)
             .eq('visibility', 'public')
             .eq('is_discoverable', true)
@@ -557,7 +557,7 @@ export default function Explore() {
             .order('start_at', { ascending: true }),
           supabase
             .from('events')
-            .select('id, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, max_tickets, ticketing_enabled, tables_enabled, music_genre, music_genres, event_type, location_city')
+            .select('id, slug, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, max_tickets, ticketing_enabled, tables_enabled, music_genre, music_genres, event_type, location_city')
             .eq('is_active', true)
             .eq('visibility', 'public')
             .eq('is_discoverable', true)
@@ -629,13 +629,13 @@ export default function Explore() {
       const organizerUserIds = Array.from(
         new Set(mergedEvents.map(e => e.organizer_user_id).filter(Boolean) as string[])
       );
-      const organizerMap = new Map<string, { display_name: string }>();
+      const organizerMap = new Map<string, { display_name: string; slug: string | null }>();
       if (organizerUserIds.length > 0) {
         const { data: orgProfiles } = await supabase
           .from('organizer_profiles')
-          .select('user_id, display_name')
+          .select('user_id, display_name, slug')
           .in('user_id', organizerUserIds);
-        (orgProfiles || []).forEach(op => organizerMap.set(op.user_id, { display_name: op.display_name }));
+        (orgProfiles || []).forEach(op => organizerMap.set(op.user_id, { display_name: op.display_name, slug: op.slug }));
       }
 
       const eventIds = mergedEvents.map(e => e.id);
@@ -707,6 +707,8 @@ export default function Explore() {
 
         return {
           id: e.id,
+          slug: (e as any).slug ?? null,
+          organizerSlug: organizerInfo?.slug ?? null,
           title: e.title,
           posterUrl: e.poster_url,
           startAt: e.start_at,
@@ -821,7 +823,7 @@ export default function Explore() {
       const [eventsRes, venuesRes, ticketRes, affiliateEventsRes, favCountsRes, affiliateFavCountsRes] = await Promise.all([
         supabase
           .from('events')
-          .select('id, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, music_genre, music_genres, event_type, location_city')
+          .select('id, slug, title, poster_url, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, is_active, music_genre, music_genres, event_type, location_city')
           .eq('is_active', true)
           .eq('visibility', 'public')
           .eq('is_discoverable', true)
@@ -926,6 +928,7 @@ export default function Explore() {
 
             return {
               id: e.id,
+              slug: (e as any).slug ?? null,
               title: e.title,
               posterUrl: e.poster_url,
               startAt: e.start_at,

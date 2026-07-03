@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { PUBLIC_ORGANIZER_COLUMNS } from '@/integrations/supabase/publicColumns';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { FadeInView } from '@/components/motion';
@@ -13,6 +14,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { FavoriteButton } from '@/components/FavoriteButton';
 import { toast } from 'sonner';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
+import { eventPath } from '@/lib/eventUrl';
 import { hasFeature, type PlanCode } from '@/lib/planFeatures';
 import { useTagEventsSource } from '@/hooks/usePurchaseSourceTracking';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
@@ -36,6 +38,7 @@ interface OrgProfile {
 
 interface OrgEvent {
   id: string;
+  slug?: string | null;
   title: string;
   start_at: string;
   end_at: string;
@@ -86,7 +89,7 @@ export default function OrganizerPublicProfile() {
     try {
       const { data: prof } = await supabase
         .from('organizer_profiles')
-        .select('*')
+        .select(PUBLIC_ORGANIZER_COLUMNS)
         .eq('slug', slug!)
         .eq('is_public', true)
         .maybeSingle();
@@ -113,7 +116,7 @@ export default function OrganizerPublicProfile() {
       const isBde = prof.bde_verified === true;
       let evQuery = supabase
         .from('events')
-        .select('id, title, start_at, end_at, poster_url, location_city, venue_id, partner_venue_id')
+        .select('id, slug, title, start_at, end_at, poster_url, location_city, venue_id, partner_venue_id')
         .or(`organizer_user_id.eq.${prof.user_id},partner_organizer_id.eq.${prof.user_id}`)
         .eq('is_active', true);
       if (!isBde) evQuery = evQuery.eq('visibility', 'public');
@@ -510,7 +513,7 @@ export default function OrganizerPublicProfile() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.06 }}
                   className="cursor-pointer group"
-                  onClick={() => navigate(`/event/${event.id}`)}
+                  onClick={() => navigate(eventPath({ id: event.id, slug: event.slug, isOrganizerLed: true, organizerSlug: slug }))}
                 >
                   <div className="relative aspect-square rounded-xl overflow-hidden bg-muted">
                     {event.poster_url ? (
