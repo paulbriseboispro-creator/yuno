@@ -670,8 +670,68 @@ async function serveSitemap(request: Request, env: Env, ctx: Ctx): Promise<Respo
 }
 
 // ---------------------------------------------------------------------------
+// IndexNow — automatic, instant indexing signal
+// ---------------------------------------------------------------------------
+// Notifies Bing, Yandex, DuckDuckGo, Naver and Seznam the moment new entities appear.
+// Google is NOT part of IndexNow — it discovers new pages automatically via the dynamic
+// sitemap instead. The key is public by design (hosted at ORIGIN/<key>.txt). A Cloudflare
+// Cron Trigger (hourly, see wrangler.jsonc) submits everything created/updated in the
+// window — fully automatic, no Supabase edge function (avoids the 402 cap), no manual work.
+
+const INDEXNOW_KEY = '22ab9e20068d4dfd5310f73f9869fc80';
+const INDEXNOW_WINDOW_MIN = 70; // slightly wider than the hourly cron → never miss a row
+
+async function pingIndexNow(urls: string[]): Promise<void> {
+  const list = Array.from(new Set(urls)).slice(0, 10000);
+  if (!list.length) return;
+  try {
+    await fetch('https://api.indexnow.org/indexnow', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify({
+        host: 'yunoapp.eu',
+        key: INDEXNOW_KEY,
+        keyLocation: `${ORIGIN}/${INDEXNOW_KEY}.txt`,
+        urlList: list,
+      }),
+    });
+  } catch {
+    // Best-effort: a failed ping must never throw the scheduled handler.
+  }
+}
+
+// Collect every public entity created/updated in the last window and submit its URL.
+async function submitRecentToIndexNow(env: Env): Promise<void> {
+  const since = encodeURIComponent(new Date(Date.now() - INDEXNOW_WINDOW_MIN * 60000).toISOString());
+  const [events, venues, djs, orgs, affEvents, affVenues] = await Promise.all([
+    fetchRows(env, `events?is_active=eq.true&visibility=eq.public&is_discoverable=eq.true&updated_at=gte.${since}&select=id&limit=5000`),
+    fetchRows(env, `venues?is_hidden=eq.false&created_at=gte.${since}&select=id&limit=5000`),
+    fetchRows(env, `djs?is_active=eq.true&updated_at=gte.${since}&select=slug,handle&limit=5000`),
+    fetchRows(env, `organizer_profiles?is_public=eq.true&updated_at=gte.${since}&select=slug&limit=5000`),
+    fetchRows(env, `affiliate_events?status=in.(published,featured)&updated_at=gte.${since}&select=slug&limit=5000`),
+    fetchRows(env, `affiliate_venues?is_active=eq.true&updated_at=gte.${since}&select=slug&limit=5000`),
+  ]);
+  const urls: string[] = [];
+  for (const e of events) if (e.id) urls.push(`${ORIGIN}/event/${e.id}`);
+  for (const v of venues) if (v.id) urls.push(`${ORIGIN}/club/${v.id}`);
+  for (const d of djs) {
+    const k = (d.handle as string) || (d.slug as string);
+    if (k) urls.push(`${ORIGIN}/dj/${k}`);
+  }
+  for (const o of orgs) if (o.slug) urls.push(`${ORIGIN}/o/${o.slug}`);
+  for (const a of affEvents) if (a.slug) urls.push(`${ORIGIN}/affiliate-event/${a.slug}`);
+  for (const a of affVenues) if (a.slug) urls.push(`${ORIGIN}/affiliate-venue/${a.slug}`);
+  await pingIndexNow(urls);
+}
+
+// ---------------------------------------------------------------------------
 
 export default {
+  // Hourly Cron Trigger → push newly created/updated entities to IndexNow (Bing & co).
+  async scheduled(_event: unknown, env: Env, ctx: Ctx): Promise<void> {
+    ctx.waitUntil(submitRecentToIndexNow(env));
+  },
+
   async fetch(request: Request, env: Env, ctx: Ctx): Promise<Response> {
     const url = new URL(request.url);
 

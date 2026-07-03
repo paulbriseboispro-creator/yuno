@@ -8,6 +8,11 @@
   "name": "yuno",
   "compatibility_date": "2026-06-14",
   "main": "worker/index.ts",
+  // Cron Trigger horaire : le Worker pousse vers IndexNow (Bing/DuckDuckGo/Yandex...) les
+  // entités créées/mises à jour dans la dernière heure. Indexation auto, zéro action manuelle.
+  "triggers": {
+    "crons": ["0 * * * *"]
+  },
   "assets": {
     // Dossier produit par `npm run build`.
     "directory": "./dist",
