@@ -644,6 +644,14 @@ async function buildSitemap(env: Env): Promise<string> {
 }
 
 async function serveSitemap(request: Request, env: Env, ctx: Ctx): Promise<Response> {
+  const headers = {
+    'content-type': 'application/xml; charset=utf-8',
+    'cache-control': 'public, max-age=3600, s-maxage=3600',
+  };
+  // A HEAD probe must NOT fall through to the SPA shell (text/html) — some fetchers
+  // HEAD-check a sitemap first and would mis-classify it. Answer with the XML headers.
+  if (request.method === 'HEAD') return new Response(null, { headers });
+
   const cache = G.caches?.default;
   if (cache) {
     const hit = await cache.match(request);
@@ -656,12 +664,7 @@ async function serveSitemap(request: Request, env: Env, ctx: Ctx): Promise<Respo
     // Never break the sitemap endpoint — serve at least the static/pillar URLs.
     xml = sitemapXml([{ loc: `${ORIGIN}/`, changefreq: 'daily', priority: '1.0' }]);
   }
-  const resp = new Response(xml, {
-    headers: {
-      'content-type': 'application/xml; charset=utf-8',
-      'cache-control': 'public, max-age=3600, s-maxage=3600',
-    },
-  });
+  const resp = new Response(xml, { headers });
   if (cache) ctx.waitUntil(cache.put(request, resp.clone()));
   return resp;
 }
@@ -673,7 +676,8 @@ export default {
     const url = new URL(request.url);
 
     // Live sitemap — served to everyone (Googlebot, GSC, humans), not just crawlers.
-    if (request.method === 'GET' && url.pathname === '/sitemap.xml') {
+    // Handle HEAD too so a HEAD probe returns XML headers, not the SPA shell.
+    if (url.pathname === '/sitemap.xml' && (request.method === 'GET' || request.method === 'HEAD')) {
       return serveSitemap(request, env, ctx);
     }
 
