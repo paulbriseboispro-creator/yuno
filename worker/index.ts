@@ -181,6 +181,12 @@ function upcomingEventsHtml(events: Row[]): string {
   return items ? `<h2>Upcoming events</h2><ul>${items}</ul>` : '';
 }
 
+// Generic crawlable link list (used by the /events /clubs /djs browse pages).
+function linkListHtml(heading: string, links: { href: string; label: string }[]): string {
+  const items = links.map((l) => `<li><a href="${esc(l.href)}">${esc(l.label)}</a></li>`).join('');
+  return items ? `<h2>${esc(heading)}</h2><ul>${items}</ul>` : '';
+}
+
 // ---------------------------------------------------------------------------
 // Entity resolution — one function per public entity type.
 // ---------------------------------------------------------------------------
@@ -189,6 +195,86 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
   const path = url.pathname;
   let m: RegExpMatchArray | null;
   const nowIso = new Date().toISOString();
+
+  // ── Public browse/list pages ── enrich crawlers with real, indexable content: an
+  // <h1> + intro + a linked list of every entity (crawl paths to the detail pages) +
+  // ItemList schema. No collision with /event//club//dj/ (those require a trailing slash).
+  if (path === '/events') {
+    const events = await fetchRows(
+      env,
+      `events?is_active=eq.true&visibility=eq.public&is_discoverable=eq.true&end_at=gte.${encodeURIComponent(nowIso)}` +
+        `&select=id,title,start_at&order=start_at.asc&limit=60`,
+    );
+    return {
+      title: 'Events Tonight & This Weekend — Nightlife Tickets | Yuno',
+      description:
+        'Find events near you: club nights, parties and shows this weekend. Buy tickets, book VIP tables and pre-order drinks in one app with Yuno.',
+      canonical: `${ORIGIN}/events`,
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@type': 'ItemList',
+        name: 'Upcoming events on Yuno',
+        itemListElement: events
+          .filter((e) => e.id)
+          .map((e, i) => ({ '@type': 'ListItem', position: i + 1, url: `${ORIGIN}/event/${e.id}`, name: clean(e.title, 120) })),
+      },
+      h1: 'Events tonight & this weekend',
+      bodyHtml:
+        `<p>Discover club nights, parties and shows near you. Buy tickets, book VIP tables and pre-order drinks in one app.</p>` +
+        upcomingEventsHtml(events),
+    };
+  }
+
+  if (path === '/clubs') {
+    const venues = await fetchRows(env, `venues?is_hidden=eq.false&select=id,name,city&order=name.asc&limit=100`);
+    return {
+      title: 'Nightclubs & Venues — Find Clubs Near You | Yuno',
+      description:
+        'Browse the best nightclubs and venues near you. See what is on tonight, buy tickets, book VIP tables and pre-order drinks with Yuno.',
+      canonical: `${ORIGIN}/clubs`,
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@type': 'ItemList',
+        name: 'Nightclubs on Yuno',
+        itemListElement: venues
+          .filter((v) => v.id)
+          .map((v, i) => ({ '@type': 'ListItem', position: i + 1, url: `${ORIGIN}/club/${v.id}`, name: clean(v.name, 120) })),
+      },
+      h1: 'Nightclubs & venues',
+      bodyHtml:
+        `<p>Browse nightclubs and venues near you, see what is on, and book tickets, VIP tables and drinks.</p>` +
+        linkListHtml(
+          'Clubs',
+          venues
+            .filter((v) => v.id)
+            .map((v) => ({ href: `${ORIGIN}/club/${v.id}`, label: `${(v.name as string) || 'Club'}${v.city ? ` — ${v.city}` : ''}` })),
+        ),
+    };
+  }
+
+  if (path === '/djs') {
+    const djs = await fetchRows(env, `djs_public?is_active=eq.true&select=slug,handle,stage_name,city&order=stage_name.asc&limit=100`);
+    const djLinks = djs
+      .map((d) => {
+        const key = (d.handle as string) || (d.slug as string);
+        return key ? { href: `${ORIGIN}/dj/${key}`, label: `${(d.stage_name as string) || key}${d.city ? ` — ${d.city}` : ''}` } : null;
+      })
+      .filter((x): x is { href: string; label: string } => !!x);
+    return {
+      title: 'DJs & Artists — Book DJ Lineups for Nightlife | Yuno',
+      description:
+        'Discover DJs playing near you: browse lineups by genre and city, follow your favourite artists, and see where they play next on Yuno.',
+      canonical: `${ORIGIN}/djs`,
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@type': 'ItemList',
+        name: 'DJs on Yuno',
+        itemListElement: djLinks.map((l, i) => ({ '@type': 'ListItem', position: i + 1, url: l.href, name: l.label })),
+      },
+      h1: 'DJs & artists',
+      bodyHtml: `<p>Discover DJs playing near you, browse by genre and city, and see where they play next.</p>` + linkListHtml('DJs', djLinks),
+    };
+  }
 
   // /dj/:slug (also /dj/:slug/epk, /dj/:slug/past)
   if ((m = path.match(/^\/dj\/([^/?#]+)/))) {
@@ -453,11 +539,19 @@ class CanonicalRewriter {
   }
 }
 
-// Append the entity JSON-LD to <head>.
+// Append the entity JSON-LD + a BreadcrumbList (Yuno › this page) to <head>.
 class HeadInjector {
-  constructor(private jsonLd: Row) {}
+  constructor(private e: Entity) {}
   element(el: El) {
-    el.append(jsonLdScript(this.jsonLd), { html: true });
+    const breadcrumb: Row = {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Yuno', item: `${ORIGIN}/` },
+        { '@type': 'ListItem', position: 2, name: this.e.h1, item: this.e.canonical },
+      ],
+    };
+    el.append(jsonLdScript(this.e.jsonLd) + jsonLdScript(breadcrumb), { html: true });
   }
 }
 
@@ -596,7 +690,7 @@ export default {
               .on('title', new TitleRewriter(entity.title))
               .on('meta', new MetaRewriter(entity))
               .on('link[rel="canonical"]', new CanonicalRewriter(entity.canonical))
-              .on('head', new HeadInjector(entity.jsonLd))
+              .on('head', new HeadInjector(entity))
               .on('#root', new RootInjector(entity))
               .transform(asset);
           }
