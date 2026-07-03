@@ -1,16 +1,72 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
+# Yuno — https://yunoapp.eu
+# Un seul groupe User-agent: * . IMPORTANT — un bot n'applique QUE le groupe le plus
+# spécifique qui le cible : si on redéclare "User-agent: Googlebot", il ignore les règles
+# de "*". On garde donc tout dans un seul groupe pour que les Disallow s'appliquent à tous.
+#
+# Le site est une SPA : toute route inconnue renvoie index.html (SPA fallback). Sans les
+# Disallow ci-dessous, Google indexerait les routes privées/transactionnelles comme des
+# quasi-doublons de la page d'accueil. On garde ouvertes uniquement les pages publiques
+# (accueil, /events, /clubs, /djs, /event/*, /club/*, /dj/*, /o/*, pages piliers).
 
 User-agent: *
 Allow: /
+
+# --- Dashboards & apps pro (contenu derrière auth, aucune valeur SEO) ---
+Disallow: /owner
+Disallow: /organizer-app
+Disallow: /agency
+Disallow: /agency-app
+Disallow: /manager
+Disallow: /barman
+Disallow: /bouncer
+Disallow: /cloakroom
+Disallow: /vip-host
+Disallow: /vip-menu
+Disallow: /promoter
+Disallow: /setup-pin
+Disallow: /reset-pin
+
+# NB : on NE bloque PAS l'espace DJ interne (/dj/planning, /dj/analytics...) — ces routes
+# sont derrière auth (redirigent vers /auth, aucun contenu indexé) et un Disallow par
+# préfixe risquerait de bloquer une vraie page publique /dj/:slug dont le slug commence
+# pareil (ex. un DJ nommé « Analytica »). Elles ne sont ni liées ni dans le sitemap.
+
+# --- Auth, compte, transactionnel ---
+Disallow: /auth
+Disallow: /mfa-setup
+Disallow: /mfa-disable-confirm
+Disallow: /cart
+Disallow: /guest-checkout
+Disallow: /guest/finalize
+Disallow: /claim
+Disallow: /my-orders
+Disallow: /my-tickets
+Disallow: /favorites
+Disallow: /profile
+Disallow: /settings
+Disallow: /loyalty
+Disallow: /assistant
+Disallow: /order/
+Disallow: /verify-payment
+Disallow: /verify-ticket-payment
+Disallow: /verify-table-payment
+Disallow: /order-confirmation
+Disallow: /unsubscribe
+
+# --- Invitations (liens privés à usage unique) ---
+Disallow: /join
+Disallow: /club-invitation
+Disallow: /accept-dj-invitation
+Disallow: /accept-promoter-invitation
+Disallow: /accept-staff-invitation
+Disallow: /accept-organizer-invitation
+Disallow: /accept-platform-invitation
+
+# --- Tunnels d'achat sous une page publique (billetterie, tables, guest list) ---
+Disallow: /club/*/event/*/billets
+Disallow: /club/*/event/*/waitlist
+Disallow: /club/*/event/*/tickets
+Disallow: /club/*/event/*/table
+Disallow: /club/*/event/*/guestlist
 
 Sitemap: https://yunoapp.eu/sitemap.xml
