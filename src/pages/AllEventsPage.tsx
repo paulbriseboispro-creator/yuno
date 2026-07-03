@@ -7,6 +7,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { EventCardData } from '@/components/explore/EventCard';
 import { Tappable } from '@/components/motion';
 import { FilterPage, ExploreFilters, FilterDynamicData } from '@/components/explore/FilterPage';
+import { Seo } from '@/components/Seo';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -388,6 +389,11 @@ export default function AllEventsPage() {
 
   return (
     <div style={{ minHeight: '100dvh', background: '#0A0A0A', display: 'flex', flexDirection: 'column' }}>
+      <Seo
+        title="Events Tonight & This Weekend — Nightlife Tickets | Yuno"
+        description="Find events near you: club nights, parties and shows this weekend. Buy tickets, book VIP tables and pre-order drinks in one app. Discover what's on with Yuno."
+        canonical="/events"
+      />
 
       {/* ── Header ── */}
       <div

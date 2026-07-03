@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { BottomNav } from '@/components/BottomNav';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { DJDiscovery } from '@/components/dj-marketplace/DJDiscovery';
+import { Seo } from '@/components/Seo';
 
 // Public DJ discovery (fan mode): ranked, filterable directory. Booking + price live
 // only in the dashboard "Book a DJ" surface (DJDiscovery mode="booker"). Both share
@@ -12,6 +13,11 @@ export default function AllDJsPage() {
 
   return (
     <div style={{ minHeight: '100dvh', background: '#0A0A0A', display: 'flex', flexDirection: 'column' }}>
+      <Seo
+        title="DJs & Artists — Book DJ Lineups for Nightlife | Yuno"
+        description="Discover DJs playing near you: browse lineups by genre and city, follow your favourite artists, and see where they play next. Book DJs for your event on Yuno."
+        canonical="/djs"
+      />
       {/* ── Header ── */}
       <div
         style={{

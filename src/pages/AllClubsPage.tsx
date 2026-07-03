@@ -8,6 +8,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import { haversineKm, cityMatches, NEAR_RADIUS_KM } from '@/lib/userLocation';
 import { FadeInView } from '@/components/motion';
+import { Seo } from '@/components/Seo';
 
 interface ClubRow {
   id: string;
@@ -75,6 +76,11 @@ export default function AllClubsPage() {
 
   return (
     <div style={{ minHeight: '100dvh', background: '#0A0A0A', display: 'flex', flexDirection: 'column' }}>
+      <Seo
+        title="Nightclubs & Venues — Find Clubs Near You | Yuno"
+        description="Browse the best nightclubs and venues near you. See what's on tonight, buy event tickets, book VIP bottle-service tables, and pre-order drinks. Discover clubs on Yuno."
+        canonical="/clubs"
+      />
       {/* ── Header ── */}
       <div
         style={{
