@@ -39,7 +39,7 @@ export interface SeoProps {
 
 export function Seo({ title, description, canonical, image, type = 'website', noindex, jsonLd }: SeoProps) {
   const url = absolute(canonical);
-  const img = absolute(image, '/social-card.webp')!;
+  const img = absolute(image, '/social-card.webp?v=2')!;
   const graphs = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
 
   return (
