@@ -367,8 +367,10 @@ async function handleRedeemDemoPreviewLink(supabase: SupabaseClient, body: any):
     return json({ success: false, code: String(v?.reason ?? 'invalid') }, 200);
   }
 
-  const target = String(v.target_account);
-  const email = DEMO_EMAIL_BY_ACCOUNT[target];
+  const targets: string[] = Array.isArray(v.target_accounts) ? v.target_accounts.map(String) : [];
+  const language = String(v.language ?? 'en');
+  const primary = targets[0];
+  const email = DEMO_EMAIL_BY_ACCOUNT[primary];
   if (!email) return json({ error: 'unknown_account', code: 'server_error' }, 500);
 
   // 2) Mint une session pour le compte démo existant. Le mot de passe démo partagé
@@ -388,7 +390,8 @@ async function handleRedeemDemoPreviewLink(supabase: SupabaseClient, body: any):
 
   return json({
     success: true,
-    target_account: target,
+    target_accounts: targets,
+    language,
     access_token: signIn.session.access_token,
     refresh_token: signIn.session.refresh_token,
   });
