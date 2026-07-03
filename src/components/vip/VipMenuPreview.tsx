@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { translate } from '@/i18n/orgTranslate';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Wine, ChevronDown, ChevronRight, Plus, Minus, Search } from 'lucide-react';
+import { Wine, ChevronDown, ChevronRight, ChevronUp, Plus, Minus, Search, Trash2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 // Vitrine menu VIP dans le tunnel de réservation (idée #2).
@@ -69,6 +69,8 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
   const [elig, setElig] = useState<Eligibility[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  // Résumé de commande repliable (la « petite flèche ») dans le pied du Sheet visuel.
+  const [cartOpen, setCartOpen] = useState(false);
   const [qty, setQty] = useState<Record<string, number>>({});
   const [search, setSearch] = useState('');
   const [catFilter, setCatFilter] = useState<string>('all');
@@ -155,12 +157,23 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
       return next;
     });
   };
+  const removeItem = (id: string) => {
+    setQty(prev => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  };
   const preorderTotal = preorderMode
     ? visible.reduce((sum, it) => sum + priceOf(it) * (qty[it.id] || 0), 0)
     : 0;
   const preorderCount = preorderMode
     ? Object.values(qty).reduce((a, b) => a + b, 0)
     : 0;
+  // Bouteilles retenues dans le panier (ordre carte), pour le résumé avec photos.
+  const selectedItems = preorderMode ? visible.filter(it => (qty[it.id] || 0) > 0) : [];
+  // « Précommander » : la sélection est déjà remontée au parent en continu ; on ferme juste.
+  const confirmPreorder = () => { setCartOpen(false); setOpen(false); };
 
   // Stepper +/- (pré-commande)
   const stepperFor = (it: MenuItem) => (qty[it.id] || 0) > 0 ? (
@@ -197,35 +210,65 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
 
   // Récap pré-commande + barre de progression (vs minimum spend si connu)
   const hasMin = !!minimumSpend && minimumSpend > 0;
+  const minSpendBar = hasMin ? (
+    <div className="mb-2">
+      <div className="flex items-center justify-between mb-1.5 text-[12px]">
+        <span className="text-white/60">{tt('Consommation pré-commandée', 'Pre-ordered consumption', 'Consumo pre-pedido')}</span>
+        <span className="tabular-nums text-white/80">{fmt(preorderTotal)} / {fmt(minimumSpend!)}</span>
+      </div>
+      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+        <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, (preorderTotal / minimumSpend!) * 100)}%`, background: preorderTotal >= minimumSpend! ? '#34d399' : '#E8192C' }} />
+      </div>
+      {preorderTotal >= minimumSpend! && preorderTotal > 0 && (
+        <p className="text-[11px] mt-1" style={{ color: '#34d399' }}>{tt('Minimum atteint', 'Minimum reached', 'Mínimo alcanzado')}</p>
+      )}
+    </div>
+  ) : null;
+  const preorderNote = (
+    <p className="text-[11px] leading-relaxed" style={{ color: '#6A6A6E' }}>
+      {tt(
+        'Pré-commandez vos bouteilles : le club les prépare pour votre arrivée. Réglées à la table le soir même.',
+        'Pre-order your bottles: the club prepares them for your arrival. Settled at the table on the night.',
+        'Pre-pide tus botellas: el club las prepara para tu llegada. Se pagan en la mesa esa noche.',
+      )}
+    </p>
+  );
   const preorderSummary = (
     <>
-      {hasMin ? (
-        <div className="mb-2">
-          <div className="flex items-center justify-between mb-1.5 text-[12px]">
-            <span className="text-white/60">{tt('Consommation pré-commandée', 'Pre-ordered consumption', 'Consumo pre-pedido')}</span>
-            <span className="tabular-nums text-white/80">{fmt(preorderTotal)} / {fmt(minimumSpend!)}</span>
-          </div>
-          <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
-            <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, (preorderTotal / minimumSpend!) * 100)}%`, background: preorderTotal >= minimumSpend! ? '#34d399' : '#E8192C' }} />
-          </div>
-          {preorderTotal >= minimumSpend! && preorderTotal > 0 && (
-            <p className="text-[11px] mt-1" style={{ color: '#34d399' }}>{tt('Minimum atteint', 'Minimum reached', 'Mínimo alcanzado')}</p>
-          )}
-        </div>
-      ) : preorderCount > 0 ? (
+      {hasMin ? minSpendBar : preorderCount > 0 ? (
         <div className="flex items-center justify-between mb-1.5">
           <span className="text-[12px] text-white/60">{preorderCount} {tt('bouteille(s) pré-commandée(s)', 'bottle(s) pre-ordered', 'botella(s) pre-pedida(s)')}</span>
           <span className="font-display font-bold tabular-nums text-primary text-[15px]">{fmt(preorderTotal)}</span>
         </div>
       ) : null}
-      <p className="text-[11px] leading-relaxed" style={{ color: '#6A6A6E' }}>
-        {tt(
-          'Pré-commandez vos bouteilles : le club les prépare pour votre arrivée. Réglées à la table le soir même.',
-          'Pre-order your bottles: the club prepares them for your arrival. Settled at the table on the night.',
-          'Pre-pide tus botellas: el club las prepara para tu llegada. Se pagan en la mesa esa noche.',
-        )}
-      </p>
+      {preorderNote}
     </>
+  );
+
+  // Ligne de panier : vignette + nom + prix ligne + stepper + retirer.
+  const cartRow = (it: MenuItem) => (
+    <div key={it.id} className="flex items-center gap-2.5">
+      <div className="h-11 w-11 flex-none rounded-lg overflow-hidden bg-black/40 flex items-center justify-center border border-white/[0.06]">
+        {it.image_url
+          ? <img src={it.image_url} alt={it.name} className="w-full h-full object-contain" loading="lazy" />
+          : <Wine className="h-4 w-4" style={{ color: 'rgba(255,255,255,0.18)' }} />}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[13px] text-white/90 font-medium truncate">{it.name}</div>
+        <div className="text-[11px] tabular-nums text-white/45">
+          {fmt(priceOf(it))} × {qty[it.id]} = <span className="text-white/75">{fmt(priceOf(it) * (qty[it.id] || 0))}</span>
+        </div>
+      </div>
+      {stepperFor(it)}
+      <button
+        type="button"
+        onClick={() => removeItem(it.id)}
+        aria-label={tt('Retirer du panier', 'Remove from cart', 'Quitar del carrito')}
+        className="h-7 w-7 flex-none rounded-full flex items-center justify-center text-white/35 hover:text-white hover:bg-white/[0.08] transition-colors"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
+    </div>
   );
 
   const readonlyNote = (
@@ -338,7 +381,54 @@ export function VipMenuPreview({ venueId, packId, zoneId, visibility, preorderEn
               )}
             </div>
             {preorderMode && (
-              <div className="px-4 py-3 border-t border-white/[0.08] bg-[#0A0A0A]">{preorderSummary}</div>
+              <div
+                className="px-4 py-3 border-t border-white/[0.08] bg-[#0A0A0A] space-y-3"
+                style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+              >
+                {minSpendBar}
+
+                {/* Résumé de commande repliable avec photos (la « petite flèche ») */}
+                {selectedItems.length > 0 && (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setCartOpen(o => !o)}
+                      aria-expanded={cartOpen}
+                      className="w-full flex items-center justify-between py-0.5"
+                    >
+                      <span className="text-[12px] text-white/70">
+                        {preorderCount} {tt('bouteille(s)', 'bottle(s)', 'botella(s)')}
+                        <span className="text-primary font-bold tabular-nums"> · {fmt(preorderTotal)}</span>
+                      </span>
+                      <span className="flex items-center gap-1 font-mono uppercase text-[10px] tracking-[0.08em]" style={{ color: '#9A9A9A' }}>
+                        {tt('Détails', 'Details', 'Detalles')}
+                        <ChevronUp className="h-4 w-4 transition-transform" style={{ transform: cartOpen ? 'none' : 'rotate(180deg)' }} />
+                      </span>
+                    </button>
+                    {cartOpen && (
+                      <div className="mt-3 space-y-2.5 max-h-[34vh] overflow-y-auto pr-0.5">
+                        {selectedItems.map(cartRow)}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {preorderNote}
+
+                {/* Bouton précommander : valide la sélection et referme la carte */}
+                <button
+                  type="button"
+                  onClick={confirmPreorder}
+                  className="w-full h-12 rounded-full flex items-center justify-center gap-1.5 font-semibold text-[14px] text-white transition-all active:scale-[0.98]"
+                  style={preorderCount > 0
+                    ? { background: '#E8192C', boxShadow: '0 8px 24px rgba(232,25,44,0.30)' }
+                    : { background: 'rgba(255,255,255,0.08)' }}
+                >
+                  {preorderCount > 0
+                    ? <>{tt('Précommander', 'Pre-order', 'Pre-pedir')}<span className="tabular-nums"> · {fmt(preorderTotal)}</span></>
+                    : tt('Fermer', 'Close', 'Cerrar')}
+                </button>
+              </div>
             )}
           </SheetContent>
         </Sheet>
