@@ -16,9 +16,11 @@
     // SPA fallback : toute route inconnue renvoie index.html (remplace l'ancien
     // `_redirects /*  /index.html  200`, rejeté par Workers Assets — "infinite loop").
     "not_found_handling": "single-page-application",
-    // Le Worker ne s'exécute d'abord que sur ces routes (pages partageables qui ont
-    // besoin d'un aperçu riche). Tout le reste = assets servis directement.
-    "run_worker_first": ["/dj/*", "/event/*", "/club/*", "/o/*"]
+    // Le Worker ne s'exécute d'abord que sur ces routes : /sitemap.xml (généré en direct
+    // depuis Supabase) + les pages partageables/indexables qui ont besoin d'un aperçu
+    // riche (meta OG, canonical, JSON-LD, contenu crawlable). Tout le reste = assets
+    // servis directement, chemin rapide, zéro invocation Worker.
+    "run_worker_first": ["/sitemap.xml", "/dj/*", "/event/*", "/club/*", "/o/*"]
   },
   // SUPABASE_URL est public (= VITE_SUPABASE_URL). La clé anon (SUPABASE_ANON_KEY,
   // publique car déjà embarquée dans le bundle front) doit être ajoutée comme variable

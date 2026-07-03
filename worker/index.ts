@@ -1,16 +1,23 @@
-// A1b — Open Graph injection Worker.
+// A1b — Crawler enrichment Worker (Open Graph + SEO structured data + sitemap).
 //
-// Yuno is a client-rendered Vite SPA: social crawlers (Instagram, WhatsApp,
-// iMessage, Twitter, LinkedIn, Slack...) execute no JavaScript, so a pasted link
-// to /dj/:slug, /event/:id or /o/:slug shows the generic Yuno card instead of the
-// real entity. This Worker fixes that without SSR: for crawler requests only, it
-// fetches the public entity row and rewrites the <head> meta tags with HTMLRewriter.
+// Yuno is a client-rendered Vite SPA: crawlers that execute no (or deferred) JavaScript
+// — social preview bots AND search engines on their first pass — see an empty
+// <div id="root">. This Worker fixes that WITHOUT SSR. For crawler requests only, it
+// fetches the public entity row and, via HTMLRewriter:
+//   • rewrites <title> + OG/Twitter meta   (rich link previews on socials)
+//   • rewrites <link rel="canonical">       (one canonical URL per entity, no dupes)
+//   • appends <script type="application/ld+json"> (Event / NightClub / MusicGroup /
+//     Organization schema → Google rich results, "events near me")
+//   • appends a real crawlable content block into #root (H1, description, key facts,
+//     internal links to upcoming events) so Googlebot has text to rank on.
+//
+// It also serves a LIVE /sitemap.xml built from Supabase, so every public event, club,
+// DJ and organizer page is discoverable (the old static sitemap listed 2 URLs).
 //
 // Real users are never affected — non-crawler requests fall straight through to the
-// static asset server (zero added latency). Any failure falls back to the unmodified
-// page, so OG injection can never break the site. Only routes listed in
-// wrangler.jsonc `assets.run_worker_first` ever reach this Worker; everything else
-// (JS, CSS, all other routes) is served directly by Workers Assets.
+// static asset server (zero added latency), and any failure falls back to the
+// unmodified page. Only routes in wrangler.jsonc `assets.run_worker_first`
+// (/sitemap.xml, /dj/*, /event/*, /club/*, /o/*) ever reach this Worker.
 
 interface Env {
   ASSETS: { fetch: (req: Request) => Promise<Response> };
@@ -18,44 +25,103 @@ interface Env {
   SUPABASE_ANON_KEY: string;
 }
 
-interface OG {
-  title: string;
-  description: string;
-  image?: string;
-  url: string;
+type Ctx = { waitUntil: (p: Promise<unknown>) => void };
+type Row = Record<string, unknown>;
+
+// Minimal typings for the Cloudflare Workers runtime globals we use (avoids pulling in
+// @cloudflare/workers-types just for two APIs, and keeps the file lint-clean — no `any`).
+interface El {
+  getAttribute(name: string): string | null;
+  setAttribute(name: string, value: string): void;
+  setInnerContent(content: string): void;
+  append(content: string, opts: { html: boolean }): void;
+}
+interface EdgeCache {
+  match(req: Request): Promise<Response | undefined>;
+  put(req: Request, resp: Response): Promise<void>;
+}
+interface HTMLRewriterLike {
+  on(selector: string, handler: { element(el: El): void }): HTMLRewriterLike;
+  transform(response: Response): Response;
+}
+const G = globalThis as unknown as {
+  caches?: { default: EdgeCache };
+  HTMLRewriter: new () => HTMLRewriterLike;
+};
+
+// Canonical production origin. Forced (not derived from the request host) so that
+// preview deploys (*.workers.dev) still emit canonical + sitemap URLs pointing at prod,
+// consolidating all ranking signals onto yunoapp.eu.
+const ORIGIN = 'https://yunoapp.eu';
+
+interface Entity {
+  title: string; // <title> + og:title + twitter:title
+  description: string; // meta description + og/twitter description
+  image?: string; // og:image (already run through ogImage)
+  canonical: string; // <link rel=canonical> + og:url
+  jsonLd: Row; // schema.org object appended to <head>
+  h1: string; // crawlable content heading
+  bodyHtml: string; // crawlable content block (facts + internal links), pre-escaped
 }
 
 // Social + SEO crawlers that fetch a URL to build a link preview / index it.
 const CRAWLER_RE =
-  /(facebookexternalhit|Facebot|Twitterbot|WhatsApp|LinkedInBot|Slackbot|Slack-ImgProxy|TelegramBot|Discordbot|Pinterest|redditbot|Googlebot|bingbot|Applebot|vkShare|W3C_Validator|Embedly|SkypeUriPreview|Iframely|nuzzel|Mastodon|Threads|Bluesky|SignalBot)/i;
+  /(facebookexternalhit|Facebot|Twitterbot|WhatsApp|LinkedInBot|Slackbot|Slack-ImgProxy|TelegramBot|Discordbot|Pinterest|redditbot|Googlebot|Google-InspectionTool|bingbot|Applebot|DuckDuckBot|YandexBot|Baiduspider|vkShare|W3C_Validator|Embedly|SkypeUriPreview|Iframely|nuzzel|Mastodon|Threads|Bluesky|SignalBot)/i;
 
-function clean(s: string | null | undefined, max = 200): string {
-  return (s || '').replace(/\s+/g, ' ').trim().slice(0, max);
+function clean(s: unknown, max = 300): string {
+  return (typeof s === 'string' ? s : '').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+// Escape for HTML text / attribute context.
+function esc(s: unknown): string {
+  return (typeof s === 'string' ? s : String(s ?? ''))
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// Escape for a <script type="application/ld+json"> body: JSON already handles quotes;
+// we only neutralise "<" so a value containing "</script>" can't break out.
+function jsonLdScript(obj: Row): string {
+  const json = JSON.stringify(obj).replace(/</g, '\\u003c');
+  return `<script type="application/ld+json">${json}</script>`;
+}
+
+function fmtDate(iso: unknown): string {
+  if (typeof iso !== 'string' || !iso) return '';
+  try {
+    return new Date(iso).toLocaleString('en-GB', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Europe/Paris',
+    });
+  } catch {
+    return '';
+  }
 }
 
 // WhatsApp (and other social crawlers) drop link-preview images larger than a few
-// hundred KB and silently fall back to the site's app icon — that's why a 2.9 MB
-// event poster rendered the generic Yuno logo on WhatsApp while iMessage (no such
-// cap) showed the real poster. Route every Supabase public image through the Storage
-// render transform → a small WebP (~30-200 KB) so the real artwork renders on every
-// platform. format=webp is forced via the query param (NOT the Accept header, which
-// crawlers don't reliably send); WebP is safe here — Yuno's own social-card.webp is
-// WebP and already renders in WhatsApp. Works on both the live project and the legacy
-// Lovable bucket; non-Supabase URLs (e.g. Unsplash) pass through untouched.
+// hundred KB. Route every Supabase public image through the Storage render transform →
+// a small WebP (~30-200 KB). Non-Supabase URLs pass through untouched.
 function ogImage(raw: string | undefined): string | undefined {
   if (!raw) return raw;
   const marker = '/storage/v1/object/public/';
   const i = raw.indexOf(marker);
   if (i === -1) return raw;
   const origin = raw.slice(0, i);
-  const rest = raw.slice(i + marker.length); // objectPath[?query]
+  const rest = raw.slice(i + marker.length);
   const qIdx = rest.indexOf('?');
   const objectPath = qIdx === -1 ? rest : rest.slice(0, qIdx);
   const passthrough = qIdx === -1 ? '' : `&${rest.slice(qIdx + 1)}`;
   return `${origin}/storage/v1/render/image/public/${objectPath}?width=1200&quality=72&format=webp${passthrough}`;
 }
 
-async function fetchRow(env: Env, query: string): Promise<Record<string, unknown> | null> {
+async function fetchRows(env: Env, query: string): Promise<Row[]> {
   try {
     const r = await fetch(`${env.SUPABASE_URL}/rest/v1/${query}`, {
       headers: {
@@ -63,20 +129,24 @@ async function fetchRow(env: Env, query: string): Promise<Record<string, unknown
         Authorization: `Bearer ${env.SUPABASE_ANON_KEY}`,
         Accept: 'application/json',
       },
-      // Cache the public row at the edge — crawlers re-hit the same links a lot.
       cf: { cacheTtl: 300, cacheEverything: true },
     } as RequestInit);
-    if (!r.ok) return null;
-    const rows = (await r.json()) as Record<string, unknown>[];
-    return Array.isArray(rows) && rows.length ? rows[0] : null;
+    if (!r.ok) return [];
+    const rows = await r.json();
+    return Array.isArray(rows) ? (rows as Row[]) : [];
   } catch {
-    return null;
+    return [];
   }
 }
 
-// POST a SECURITY DEFINER RPC (used to resolve a DJ slug OR clean handle to the
-// canonical, aggregated public profile).
-async function rpcCall(env: Env, fn: string, args: Record<string, unknown>): Promise<Record<string, unknown> | null> {
+async function fetchRow(env: Env, query: string): Promise<Row | null> {
+  const rows = await fetchRows(env, query);
+  return rows.length ? rows[0] : null;
+}
+
+// POST a SECURITY DEFINER RPC (resolves a DJ slug OR clean handle to the aggregated
+// public profile).
+async function rpcCall(env: Env, fn: string, args: Row): Promise<Row | null> {
   try {
     const r = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${fn}`, {
       method: 'POST',
@@ -91,31 +161,77 @@ async function rpcCall(env: Env, fn: string, args: Record<string, unknown>): Pro
     } as RequestInit);
     if (!r.ok) return null;
     const data = await r.json();
-    return data && typeof data === 'object' ? (data as Record<string, unknown>) : null;
+    return data && typeof data === 'object' && !Array.isArray(data) ? (data as Row) : null;
   } catch {
     return null;
   }
 }
 
-async function resolveOG(url: URL, env: Env): Promise<OG | null> {
-  const path = url.pathname;
-  const here = url.origin + path;
-  let m: RegExpMatchArray | null;
+// Build an <ul> of internal links to upcoming events (crawl paths → event pages).
+function upcomingEventsHtml(events: Row[]): string {
+  const items = events
+    .map((e) => {
+      const id = e.id as string;
+      if (!id) return '';
+      const when = fmtDate(e.start_at);
+      return `<li><a href="${ORIGIN}/event/${esc(id)}">${esc(e.title)}${when ? ` — ${esc(when)}` : ''}</a></li>`;
+    })
+    .filter(Boolean)
+    .join('');
+  return items ? `<h2>Upcoming events</h2><ul>${items}</ul>` : '';
+}
 
-  // /dj/:slug  (also /dj/:slug/epk — regex captures the slug/handle before the next /)
-  // Resolves a clean handle OR a legacy per-venue slug to the canonical person.
+// ---------------------------------------------------------------------------
+// Entity resolution — one function per public entity type.
+// ---------------------------------------------------------------------------
+
+async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
+  const path = url.pathname;
+  let m: RegExpMatchArray | null;
+  const nowIso = new Date().toISOString();
+
+  // /dj/:slug (also /dj/:slug/epk, /dj/:slug/past)
   if ((m = path.match(/^\/dj\/([^/?#]+)/))) {
-    const dj = await rpcCall(env, 'get_dj_public_profile', { p_slug: decodeURIComponent(m[1]) });
+    const slug = decodeURIComponent(m[1]);
+    const dj = await rpcCall(env, 'get_dj_public_profile', { p_slug: slug });
     if (!dj) return null;
     const name =
       (dj.stage_name as string) ||
       `${(dj.first_name as string) || ''} ${(dj.last_name as string) || ''}`.trim() ||
       'DJ';
+    const key = (dj.handle as string) || (dj.slug as string) || slug;
+    const canonical = `${ORIGIN}/dj/${encodeURIComponent(key)}`;
+    const img = ogImage((dj.cover_image_url as string) || (dj.profile_image_url as string) || undefined);
+    const genres = Array.isArray(dj.music_genres) ? (dj.music_genres as string[]) : [];
+    const sameAs = [dj.instagram_url, dj.soundcloud_url, dj.spotify_url, dj.youtube_url, dj.tiktok_url]
+      .filter((u): u is string => typeof u === 'string' && !!u);
+    const description =
+      clean((dj.description as string) || (dj.bio as string)) || `Book ${name} and see every upcoming date on Yuno.`;
+    const jsonLd: Row = {
+      '@context': 'https://schema.org',
+      '@type': 'MusicGroup',
+      name,
+      url: canonical,
+      description,
+    };
+    if (img) jsonLd.image = img;
+    if (genres.length) jsonLd.genre = genres;
+    if (sameAs.length) jsonLd.sameAs = sameAs;
+    const facts = [
+      genres.length ? `<li>Genres: ${esc(genres.join(', '))}</li>` : '',
+      dj.city ? `<li>Based in ${esc(dj.city)}</li>` : '',
+    ].filter(Boolean).join('');
     return {
       title: `${name} · Yuno`,
-      description: clean((dj.description as string) || (dj.bio as string)) || `Retrouve ${name} et toutes ses dates sur Yuno.`,
-      image: (dj.cover_image_url as string) || (dj.profile_image_url as string) || undefined,
-      url: here,
+      description,
+      image: img,
+      canonical,
+      jsonLd,
+      h1: name,
+      bodyHtml:
+        `<p>${esc(description)}</p>` +
+        (facts ? `<ul>${facts}</ul>` : '') +
+        `<p><a href="${canonical}">See ${esc(name)}'s dates and book on Yuno</a></p>`,
     };
   }
 
@@ -124,116 +240,371 @@ async function resolveOG(url: URL, env: Env): Promise<OG | null> {
   if ((m = path.match(/^\/event\/([^/?#]+)/))) eventId = m[1];
   else if ((m = path.match(/^\/club\/[^/]+\/event\/([^/?#]+)/))) eventId = m[1];
   if (eventId) {
+    const id = decodeURIComponent(eventId);
     const ev = await fetchRow(
       env,
-      `events?id=eq.${encodeURIComponent(eventId)}&visibility=eq.public&select=title,description,poster_url`,
+      `events?id=eq.${encodeURIComponent(id)}&visibility=eq.public&select=title,description,poster_url,` +
+        `start_at,end_at,music_genre,music_genres,location_name,location_city,location_address,` +
+        `location_is_secret,status,cancelled_at,venue_id,venues!events_venue_id_fkey(name,city,address,latitude,longitude)`,
     );
     if (!ev) return null;
+    const title = (ev.title as string) || 'Event';
+    const canonical = `${ORIGIN}/event/${encodeURIComponent(id)}`;
+    const img = ogImage((ev.poster_url as string) || undefined);
+    const venue = (ev.venues && typeof ev.venues === 'object' ? ev.venues : null) as Row | null;
+    const secret = ev.location_is_secret === true;
+    const placeName = (venue?.name as string) || (ev.location_name as string) || (ev.location_city as string) || 'Yuno';
+    const city = (venue?.city as string) || (ev.location_city as string) || '';
+    const street = (venue?.address as string) || (secret ? '' : (ev.location_address as string) || '');
+    const cancelled = !!ev.cancelled_at || ev.status === 'cancelled';
+    const genres = Array.isArray(ev.music_genres)
+      ? (ev.music_genres as string[])
+      : ev.music_genre
+      ? [ev.music_genre as string]
+      : [];
+    const description =
+      clean(ev.description as string) ||
+      `${title}${city ? ` in ${city}` : ''}. Buy tickets, book a VIP table and pre-order drinks on Yuno.`;
+
+    const place: Row = { '@type': 'Place', name: placeName };
+    const address: Row = { '@type': 'PostalAddress' };
+    if (street) address.streetAddress = street;
+    if (city) address.addressLocality = city;
+    if (street || city) place.address = address;
+    if (typeof venue?.latitude === 'number' && typeof venue?.longitude === 'number') {
+      place.geo = { '@type': 'GeoCoordinates', latitude: venue.latitude, longitude: venue.longitude };
+    }
+    const jsonLd: Row = {
+      '@context': 'https://schema.org',
+      '@type': 'MusicEvent',
+      name: title,
+      description,
+      startDate: ev.start_at,
+      endDate: ev.end_at,
+      eventStatus: cancelled ? 'https://schema.org/EventCancelled' : 'https://schema.org/EventScheduled',
+      eventAttendanceMode: 'https://schema.org/OfflineEventAttendanceMode',
+      location: place,
+      url: canonical,
+      organizer: { '@type': 'Organization', name: 'Yuno', url: `${ORIGIN}/` },
+      offers: { '@type': 'Offer', url: canonical, availability: 'https://schema.org/InStock' },
+    };
+    if (img) jsonLd.image = [img];
+
+    const facts = [
+      ev.start_at ? `<li>When: ${esc(fmtDate(ev.start_at))}</li>` : '',
+      placeName ? `<li>Where: ${esc(placeName)}${city ? `, ${esc(city)}` : ''}</li>` : '',
+      genres.length ? `<li>Music: ${esc(genres.join(', '))}</li>` : '',
+    ].filter(Boolean).join('');
     return {
-      title: `${(ev.title as string) || 'Event'} · Yuno`,
-      description: clean(ev.description as string) || 'Billets, tables VIP et boissons sur Yuno.',
-      image: (ev.poster_url as string) || undefined,
-      url: here,
+      title: `${title} · Yuno`,
+      description,
+      image: img,
+      canonical,
+      jsonLd,
+      h1: title,
+      bodyHtml:
+        `<p>${esc(description)}</p>` +
+        (facts ? `<ul>${facts}</ul>` : '') +
+        `<p><a href="${canonical}">Get tickets, VIP tables and drinks on Yuno</a></p>`,
     };
   }
 
-  // /club/:slug  (bare venue page — the club's own shareable link).
-  // Must come AFTER the /club/:slug/event/:id check above, which returns first for
-  // event URLs; here we only reach the club card for the venue page and its
-  // sub-routes (leaderboard, promo, drinks...). venues.id IS the slug.
+  // /club/:slug — bare venue page. venues.id IS the slug. Must come AFTER the event
+  // check above (which returns first for /club/:slug/event/:id URLs).
   if ((m = path.match(/^\/club\/([^/?#]+)/))) {
+    const id = decodeURIComponent(m[1]);
     const v = await fetchRow(
       env,
-      `venues?id=eq.${encodeURIComponent(m[1])}&select=name,description,short_description,cover_url,logo_url,city`,
+      `venues?id=eq.${encodeURIComponent(id)}&select=name,description,short_description,cover_url,logo_url,` +
+        `city,address,latitude,longitude,music_genre,instagram_url,facebook_url,tiktok_url`,
     );
     if (!v) return null;
     const name = (v.name as string) || 'Club';
     const city = (v.city as string) || '';
+    const canonical = `${ORIGIN}/club/${encodeURIComponent(id)}`;
+    const img = ogImage((v.cover_url as string) || (v.logo_url as string) || undefined);
+    const description =
+      clean((v.short_description as string) || (v.description as string)) ||
+      `Events, VIP tables and drinks at ${name}${city ? `, ${city}` : ''}. Book on Yuno.`;
+    const sameAs = [v.instagram_url, v.facebook_url, v.tiktok_url].filter(
+      (u): u is string => typeof u === 'string' && !!u,
+    );
+    const address: Row = { '@type': 'PostalAddress' };
+    if (v.address) address.streetAddress = v.address;
+    if (city) address.addressLocality = city;
+    const jsonLd: Row = {
+      '@context': 'https://schema.org',
+      '@type': 'NightClub',
+      name,
+      description,
+      url: canonical,
+    };
+    if (img) jsonLd.image = img;
+    if (v.address || city) jsonLd.address = address;
+    if (typeof v.latitude === 'number' && typeof v.longitude === 'number') {
+      jsonLd.geo = { '@type': 'GeoCoordinates', latitude: v.latitude, longitude: v.longitude };
+    }
+    if (sameAs.length) jsonLd.sameAs = sameAs;
+
+    const events = await fetchRows(
+      env,
+      `events?venue_id=eq.${encodeURIComponent(id)}&visibility=eq.public&is_active=eq.true` +
+        `&end_at=gte.${encodeURIComponent(nowIso)}&select=id,title,start_at&order=start_at.asc&limit=8`,
+    );
+    const facts = [
+      city ? `<li>${esc(city)}</li>` : '',
+      v.address ? `<li>${esc(v.address)}</li>` : '',
+      v.music_genre ? `<li>${esc(v.music_genre)}</li>` : '',
+    ].filter(Boolean).join('');
     return {
-      title: `${name} · Yuno`,
-      description:
-        clean((v.short_description as string) || (v.description as string)) ||
-        `Soirées, tables VIP et boissons à ${name}${city ? ` · ${city}` : ''}. Réserve sur Yuno.`,
-      image: (v.cover_url as string) || (v.logo_url as string) || undefined,
-      url: here,
+      title: `${name}${city ? ` · ${city}` : ''} · Yuno`,
+      description,
+      image: img,
+      canonical,
+      jsonLd,
+      h1: name,
+      bodyHtml:
+        `<p>${esc(description)}</p>` +
+        (facts ? `<ul>${facts}</ul>` : '') +
+        upcomingEventsHtml(events) +
+        `<p><a href="${canonical}">See what's on and book at ${esc(name)}</a></p>`,
     };
   }
 
-  // /o/:slug
+  // /o/:slug — organizer public profile
   if ((m = path.match(/^\/o\/([^/?#]+)/))) {
+    const slug = decodeURIComponent(m[1]);
     const org = await fetchRow(
       env,
-      `organizer_profiles?slug=eq.${encodeURIComponent(m[1])}&is_public=eq.true&select=display_name,bio,avatar_url,cover_url`,
+      `organizer_profiles?slug=eq.${encodeURIComponent(slug)}&is_public=eq.true&select=` +
+        `display_name,bio,avatar_url,cover_url,city,instagram_url,website_url,user_id`,
     );
     if (!org) return null;
     const name = (org.display_name as string) || 'Organizer';
+    const canonical = `${ORIGIN}/o/${encodeURIComponent(slug)}`;
+    const img = ogImage((org.cover_url as string) || (org.avatar_url as string) || undefined);
+    const description = clean(org.bio as string) || `Follow ${name} and catch every event on Yuno.`;
+    const sameAs = [org.instagram_url, org.website_url].filter((u): u is string => typeof u === 'string' && !!u);
+    const jsonLd: Row = {
+      '@context': 'https://schema.org',
+      '@type': 'Organization',
+      name,
+      description,
+      url: canonical,
+    };
+    if (img) jsonLd.image = img;
+    if (sameAs.length) jsonLd.sameAs = sameAs;
+
+    const events = org.user_id
+      ? await fetchRows(
+          env,
+          `events?organizer_user_id=eq.${encodeURIComponent(org.user_id as string)}&visibility=eq.public` +
+            `&is_active=eq.true&end_at=gte.${encodeURIComponent(nowIso)}` +
+            `&select=id,title,start_at&order=start_at.asc&limit=8`,
+        )
+      : [];
     return {
       title: `${name} · Yuno`,
-      description: clean(org.bio as string) || `Suis ${name} et ses événements sur Yuno.`,
-      image: (org.cover_url as string) || (org.avatar_url as string) || undefined,
-      url: here,
+      description,
+      image: img,
+      canonical,
+      jsonLd,
+      h1: name,
+      bodyHtml:
+        `<p>${esc(description)}</p>` +
+        (org.city ? `<ul><li>${esc(org.city)}</li></ul>` : '') +
+        upcomingEventsHtml(events) +
+        `<p><a href="${canonical}">Follow ${esc(name)} on Yuno</a></p>`,
     };
   }
 
   return null;
 }
 
-// Override the static default OG/Twitter tags from index.html with entity values.
+// ---------------------------------------------------------------------------
+// HTMLRewriter handlers
+// ---------------------------------------------------------------------------
+
 class MetaRewriter {
-  private og: OG;
-  constructor(og: OG) {
-    this.og = og;
-  }
-  // deno-lint-ignore no-explicit-any
-  element(el: any) {
+  constructor(private e: Entity) {}
+  element(el: El) {
     const key = (el.getAttribute('property') || el.getAttribute('name') || '').toLowerCase();
-    if (key === 'og:title' || key === 'twitter:title') el.setAttribute('content', this.og.title);
-    else if (key === 'og:description' || key === 'twitter:description') el.setAttribute('content', this.og.description);
-    else if (key === 'og:url') el.setAttribute('content', this.og.url);
-    else if ((key === 'og:image' || key === 'og:image:secure_url' || key === 'twitter:image') && this.og.image) {
-      el.setAttribute('content', this.og.image);
-    } else if (key === 'description') {
-      el.setAttribute('content', this.og.description);
-    }
+    if (key === 'og:title' || key === 'twitter:title') el.setAttribute('content', this.e.title);
+    else if (key === 'og:description' || key === 'twitter:description' || key === 'description')
+      el.setAttribute('content', this.e.description);
+    else if (key === 'og:url') el.setAttribute('content', this.e.canonical);
+    else if ((key === 'og:image' || key === 'og:image:secure_url' || key === 'twitter:image') && this.e.image)
+      el.setAttribute('content', this.e.image);
   }
 }
 
 class TitleRewriter {
-  private title: string;
-  constructor(title: string) {
-    this.title = title;
-  }
-  // deno-lint-ignore no-explicit-any
-  element(el: any) {
+  constructor(private title: string) {}
+  element(el: El) {
     el.setInnerContent(this.title);
   }
 }
 
+// Rewrite the single static <link rel="canonical"> from index.html to the entity URL.
+class CanonicalRewriter {
+  constructor(private href: string) {}
+  element(el: El) {
+    el.setAttribute('href', this.href);
+  }
+}
+
+// Append the entity JSON-LD to <head>.
+class HeadInjector {
+  constructor(private jsonLd: Row) {}
+  element(el: El) {
+    el.append(jsonLdScript(this.jsonLd), { html: true });
+  }
+}
+
+// Append a crawlable content block inside #root. Real users never see it — React
+// replaces #root on mount; crawlers on their non-JS pass get real, indexable text.
+class RootInjector {
+  constructor(private e: Entity) {}
+  element(el: El) {
+    const imgHtml = this.e.image
+      ? `<img src="${esc(this.e.image)}" alt="${esc(this.e.h1)}" width="1200" height="630" />`
+      : '';
+    el.append(
+      `<main data-seo="1"><h1>${esc(this.e.h1)}</h1>${imgHtml}${this.e.bodyHtml}</main>`,
+      { html: true },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sitemap
+// ---------------------------------------------------------------------------
+
+interface SitemapUrl {
+  loc: string;
+  lastmod?: string;
+  changefreq: string;
+  priority: string;
+}
+
+function sitemapXml(urls: SitemapUrl[]): string {
+  const body = urls
+    .map((u) => {
+      const lastmod = u.lastmod ? `<lastmod>${esc(u.lastmod.slice(0, 10))}</lastmod>` : '';
+      return `<url><loc>${esc(u.loc)}</loc>${lastmod}<changefreq>${u.changefreq}</changefreq><priority>${u.priority}</priority></url>`;
+    })
+    .join('');
+  return `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${body}</urlset>`;
+}
+
+async function buildSitemap(env: Env): Promise<string> {
+  const urls: SitemapUrl[] = [
+    { loc: `${ORIGIN}/`, changefreq: 'daily', priority: '1.0' },
+    { loc: `${ORIGIN}/events`, changefreq: 'daily', priority: '0.9' },
+    { loc: `${ORIGIN}/clubs`, changefreq: 'weekly', priority: '0.8' },
+    { loc: `${ORIGIN}/djs`, changefreq: 'weekly', priority: '0.7' },
+    { loc: `${ORIGIN}/map`, changefreq: 'weekly', priority: '0.5' },
+    { loc: `${ORIGIN}/tickets`, changefreq: 'monthly', priority: '0.8' },
+    { loc: `${ORIGIN}/vip-tables`, changefreq: 'monthly', priority: '0.8' },
+    { loc: `${ORIGIN}/order-drinks`, changefreq: 'monthly', priority: '0.8' },
+    { loc: `${ORIGIN}/help`, changefreq: 'monthly', priority: '0.3' },
+  ];
+
+  const [events, venues, djs, orgs, affEvents, affVenues] = await Promise.all([
+    fetchRows(
+      env,
+      'events?is_active=eq.true&visibility=eq.public&is_discoverable=eq.true&select=id,updated_at&order=start_at.desc&limit=5000',
+    ),
+    fetchRows(env, 'venues?is_hidden=eq.false&select=id&limit=5000'),
+    fetchRows(env, 'djs_public?is_active=eq.true&select=slug,handle&limit=5000'),
+    fetchRows(env, 'organizer_profiles?is_public=eq.true&select=slug,updated_at&limit=5000'),
+    fetchRows(env, 'affiliate_events?status=in.(published,featured)&select=slug,updated_at&limit=5000'),
+    fetchRows(env, 'affiliate_venues?is_active=eq.true&select=slug,updated_at&limit=5000'),
+  ]);
+
+  for (const e of events) {
+    if (e.id) urls.push({ loc: `${ORIGIN}/event/${e.id}`, lastmod: e.updated_at as string, changefreq: 'daily', priority: '0.8' });
+  }
+  for (const v of venues) {
+    if (v.id) urls.push({ loc: `${ORIGIN}/club/${v.id}`, changefreq: 'weekly', priority: '0.7' });
+  }
+  const djSeen = new Set<string>();
+  for (const d of djs) {
+    const key = (d.handle as string) || (d.slug as string);
+    if (key && !djSeen.has(key)) {
+      djSeen.add(key);
+      urls.push({ loc: `${ORIGIN}/dj/${key}`, changefreq: 'weekly', priority: '0.6' });
+    }
+  }
+  for (const o of orgs) {
+    if (o.slug) urls.push({ loc: `${ORIGIN}/o/${o.slug}`, lastmod: o.updated_at as string, changefreq: 'weekly', priority: '0.6' });
+  }
+  for (const a of affEvents) {
+    if (a.slug) urls.push({ loc: `${ORIGIN}/affiliate-event/${a.slug}`, lastmod: a.updated_at as string, changefreq: 'daily', priority: '0.6' });
+  }
+  for (const a of affVenues) {
+    if (a.slug) urls.push({ loc: `${ORIGIN}/affiliate-venue/${a.slug}`, lastmod: a.updated_at as string, changefreq: 'weekly', priority: '0.6' });
+  }
+
+  return sitemapXml(urls);
+}
+
+async function serveSitemap(request: Request, env: Env, ctx: Ctx): Promise<Response> {
+  const cache = G.caches?.default;
+  if (cache) {
+    const hit = await cache.match(request);
+    if (hit) return hit;
+  }
+  let xml: string;
+  try {
+    xml = await buildSitemap(env);
+  } catch {
+    // Never break the sitemap endpoint — serve at least the static/pillar URLs.
+    xml = sitemapXml([{ loc: `${ORIGIN}/`, changefreq: 'daily', priority: '1.0' }]);
+  }
+  const resp = new Response(xml, {
+    headers: {
+      'content-type': 'application/xml; charset=utf-8',
+      'cache-control': 'public, max-age=3600, s-maxage=3600',
+    },
+  });
+  if (cache) ctx.waitUntil(cache.put(request, resp.clone()));
+  return resp;
+}
+
+// ---------------------------------------------------------------------------
+
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: Ctx): Promise<Response> {
+    const url = new URL(request.url);
+
+    // Live sitemap — served to everyone (Googlebot, GSC, humans), not just crawlers.
+    if (request.method === 'GET' && url.pathname === '/sitemap.xml') {
+      return serveSitemap(request, env, ctx);
+    }
+
+    // Crawler enrichment — meta + canonical + JSON-LD + crawlable content.
     try {
       const ua = request.headers.get('User-Agent') || '';
       if (request.method === 'GET' && CRAWLER_RE.test(ua)) {
-        const url = new URL(request.url);
-        const og = await resolveOG(url, env);
-        if (og) {
-          // Shrink the entity image to a crawler-safe WebP (see ogImage) so big
-          // posters/covers don't get dropped by WhatsApp's preview size cap.
-          og.image = ogImage(og.image);
+        const entity = await resolveEntity(url, env);
+        if (entity) {
           const asset = await env.ASSETS.fetch(request);
           const ct = asset.headers.get('content-type') || '';
           if (ct.includes('text/html')) {
-            // deno-lint-ignore no-explicit-any
-            return new (globalThis as any).HTMLRewriter()
-              .on('meta', new MetaRewriter(og))
-              .on('title', new TitleRewriter(og.title))
+            return new G.HTMLRewriter()
+              .on('title', new TitleRewriter(entity.title))
+              .on('meta', new MetaRewriter(entity))
+              .on('link[rel="canonical"]', new CanonicalRewriter(entity.canonical))
+              .on('head', new HeadInjector(entity.jsonLd))
+              .on('#root', new RootInjector(entity))
               .transform(asset);
           }
           return asset;
         }
       }
     } catch {
-      // OG injection is best-effort: on any error, serve the page untouched.
+      // Enrichment is best-effort: on any error, serve the page untouched.
     }
     return env.ASSETS.fetch(request);
   },
