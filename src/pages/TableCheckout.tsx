@@ -20,6 +20,7 @@ import { VipMenuPreview, type PreorderSelection } from '@/components/vip/VipMenu
 import { VipTableWaitlistDialog } from '@/components/vip/VipTableWaitlistDialog';
 import { useTableAvailability } from '@/hooks/useTableAvailability';
 import { supabase } from '@/integrations/supabase/client';
+import { PUBLIC_VENUE_COLUMNS } from '@/integrations/supabase/publicColumns';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -156,7 +157,7 @@ export default function TableCheckout() {
       // Resolve venue (event.venue_id OR partner_venue_id for orga-led co-events)
       const effectiveVenueId = (eventData as any).venue_id ?? (eventData as any).partner_venue_id;
       const { data: venueData, error: venueError } = await supabase
-        .from('venues').select('*').eq('id', effectiveVenueId).single();
+        .from('venues').select(PUBLIC_VENUE_COLUMNS).eq('id', effectiveVenueId).single();
       if (venueError) throw venueError;
       setVenue(venueData);
 
