@@ -2257,6 +2257,54 @@ export type Database = {
           },
         ]
       }
+      demo_preview_links: {
+        Row: {
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          failed_attempts: number
+          id: string
+          is_active: boolean
+          label: string
+          last_used_at: string | null
+          password_hash: string
+          revoked_at: string | null
+          target_account: string
+          token: string
+          used_count: number
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          failed_attempts?: number
+          id?: string
+          is_active?: boolean
+          label: string
+          last_used_at?: string | null
+          password_hash: string
+          revoked_at?: string | null
+          target_account: string
+          token?: string
+          used_count?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          failed_attempts?: number
+          id?: string
+          is_active?: boolean
+          label?: string
+          last_used_at?: string | null
+          password_hash?: string
+          revoked_at?: string | null
+          target_account?: string
+          token?: string
+          used_count?: number
+        }
+        Relationships: []
+      }
       dj_availability: {
         Row: {
           blocked_date: string
@@ -12976,6 +13024,18 @@ export type Database = {
         }
         Returns: string
       }
+      create_demo_preview_link: {
+        Args: {
+          p_expires_at?: string
+          p_label: string
+          p_password: string
+          p_target_account: string
+        }
+        Returns: {
+          id: string
+          token: string
+        }[]
+      }
       create_dj_booking_contract: {
         Args: {
           p_acompte_cents?: number
@@ -13165,6 +13225,15 @@ export type Database = {
           ref_id: string
           ref_type: string
           ts: string
+        }[]
+      }
+      get_demo_preview_link_public: {
+        Args: { p_token: string }
+        Returns: {
+          invalid_reason: string
+          is_valid: boolean
+          label: string
+          target_account: string
         }[]
       }
       get_dj_audience: {
@@ -13997,6 +14066,14 @@ export type Database = {
       update_maintenance_password: {
         Args: { new_password: string }
         Returns: undefined
+      }
+      verify_demo_preview_password: {
+        Args: { p_password: string; p_token: string }
+        Returns: {
+          ok: boolean
+          reason: string
+          target_account: string
+        }[]
       }
       verify_invitation_token: {
         Args: { _email: string; _token: string }
