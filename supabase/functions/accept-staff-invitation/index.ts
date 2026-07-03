@@ -22,6 +22,16 @@ const REDIRECTS: Record<string, string> = {
   barman: '/setup-pin', bouncer: '/setup-pin', cloakroom: '/setup-pin', vip_host: '/setup-pin', manager: '/setup-pin',
 };
 
+// ─── Demo preview links (folded in — see header note on the edge-fn cap) ─────
+// Type de compte démo → email démo. Le mot de passe partagé des comptes démo vit en
+// secret edge (DEMO_ACCOUNT_PASSWORD), JAMAIS embarqué côté client de preview.
+const DEMO_EMAIL_BY_ACCOUNT: Record<string, string> = {
+  owner: 'owner@womber.fr', organizer: 'organizer@womber.fr', bde: 'bde@womber.fr',
+  promoter: 'promoter@womber.fr', agency: 'agency@womber.fr', dj: 'dj@womber.fr',
+  affiliate: 'affiliate@womber.fr', bouncer: 'bouncer@womber.fr', barman: 'barman@womber.fr',
+  cloakroom: 'cloakroom@womber.fr', vip_host: 'viphost@womber.fr',
+};
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -106,7 +116,10 @@ async function handleCreateOnboardingLink(req: Request, supabase: SupabaseClient
   // venue owner / staff-manager for venue scope; organizer / org admin for org scope.
   const { data: adminRole } = await supabase
     .from('user_roles').select('user_id').eq('user_id', user.id).eq('role', 'admin').limit(1);
-  const isSuperAdmin = (adminRole && adminRole.length > 0) || user.email?.toLowerCase() === 'owner@womber.fr';
+  // Super-admin is the DB 'admin' role ONLY. A hardcoded email backdoor here (the
+  // shared demo account) would have let anyone logged into it mint owner links for
+  // ANY venue_id — i.e. transfer club ownership. Removed.
+  const isSuperAdmin = (adminRole && adminRole.length > 0);
 
   if (SUPERADMIN_ROLES.has(role)) {
     if (!isSuperAdmin) return json({ error: 'Only administrators can generate this link' }, 403);
@@ -333,6 +346,51 @@ async function handleRedeemOnboardingLink(req: Request, supabase: SupabaseClient
   });
 }
 
+// ─── Branch: redeem a demo preview link (anonymous, password-gated) ──────────
+// Vérifie le mot de passe côté base (RPC SECURITY DEFINER service-role), puis mint
+// une session pour le compte démo ciblé et renvoie ses tokens. Le mot de passe démo
+// ne quitte jamais le serveur ; la lecture seule est imposée côté client.
+async function handleRedeemDemoPreviewLink(supabase: SupabaseClient, body: any): Promise<Response> {
+  const token = String(body?.token ?? '').trim();
+  const password = String(body?.password ?? '');
+  if (!token || !password) return json({ error: 'Missing token or password', code: 'bad_request' }, 400);
+
+  // 1) Vérification serveur (hash bcrypt jamais exposé, compteur anti brute-force).
+  const { data: rows, error: verifyError } = await supabase.rpc('verify_demo_preview_password', {
+    p_token: token, p_password: password,
+  });
+  if (verifyError) return json({ error: 'verify_failed', code: 'server_error' }, 500);
+  const v = Array.isArray(rows) ? rows[0] : rows;
+  // Échecs "métier" (mauvais mdp / lien invalide) → 200 + {success:false, code} pour que
+  // supabase-js expose le code côté client (il ne parse pas le body sur un statut non-2xx).
+  if (!v?.ok) {
+    return json({ success: false, code: String(v?.reason ?? 'invalid') }, 200);
+  }
+
+  const target = String(v.target_account);
+  const email = DEMO_EMAIL_BY_ACCOUNT[target];
+  if (!email) return json({ error: 'unknown_account', code: 'server_error' }, 500);
+
+  // 2) Mint une session pour le compte démo existant (mot de passe = secret edge).
+  const demoPassword = Deno.env.get('DEMO_ACCOUNT_PASSWORD');
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+  const url = Deno.env.get('SUPABASE_URL');
+  if (!demoPassword || !anonKey || !url) return json({ error: 'not_configured', code: 'server_error' }, 500);
+
+  const authClient = createClient(url, anonKey);
+  const { data: signIn, error: signError } = await authClient.auth.signInWithPassword({
+    email, password: demoPassword,
+  });
+  if (signError || !signIn?.session) return json({ error: 'signin_failed', code: 'server_error' }, 500);
+
+  return json({
+    success: true,
+    target_account: target,
+    access_token: signIn.session.access_token,
+    refresh_token: signIn.session.refresh_token,
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -344,6 +402,9 @@ Deno.serve(async (req) => {
     // Onboarding-link mechanism (folded in — see header note on the edge-fn cap).
     if (body?.action === 'create_onboarding_link') return await handleCreateOnboardingLink(req, supabase, body);
     if (body?.action === 'redeem_onboarding_link') return await handleRedeemOnboardingLink(req, supabase, body);
+
+    // Demo preview links (folded in — same edge-fn cap reason).
+    if (body?.action === 'redeem_demo_preview_link') return await handleRedeemDemoPreviewLink(supabase, body);
 
     // ─── Default behavior: accept an email-based staff invitation ────────────
     const { token, first_name, last_name } = body;
