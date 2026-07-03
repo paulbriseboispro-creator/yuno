@@ -1049,6 +1049,444 @@ export type Database = {
         }
         Relationships: []
       }
+      agencies: {
+        Row: {
+          bio: string | null
+          city: string | null
+          contact_email: string | null
+          created_at: string
+          id: string
+          instagram_url: string | null
+          is_active: boolean
+          logo_url: string | null
+          name: string
+          owner_user_id: string
+          slug: string | null
+          updated_at: string
+          website_url: string | null
+          whatsapp_number: string | null
+        }
+        Insert: {
+          bio?: string | null
+          city?: string | null
+          contact_email?: string | null
+          created_at?: string
+          id?: string
+          instagram_url?: string | null
+          is_active?: boolean
+          logo_url?: string | null
+          name: string
+          owner_user_id: string
+          slug?: string | null
+          updated_at?: string
+          website_url?: string | null
+          whatsapp_number?: string | null
+        }
+        Update: {
+          bio?: string | null
+          city?: string | null
+          contact_email?: string | null
+          created_at?: string
+          id?: string
+          instagram_url?: string | null
+          is_active?: boolean
+          logo_url?: string | null
+          name?: string
+          owner_user_id?: string
+          slug?: string | null
+          updated_at?: string
+          website_url?: string | null
+          whatsapp_number?: string | null
+        }
+        Relationships: []
+      }
+      agency_conversions: {
+        Row: {
+          agency_id: string
+          club_paid_at: string | null
+          club_status: string
+          created_at: string
+          event_id: string | null
+          gross_amount: number
+          id: string
+          margin_amount: number
+          net_amount: number
+          organizer_user_id: string | null
+          promoter_id: string | null
+          source_conversion_id: string | null
+          venue_id: string | null
+        }
+        Insert: {
+          agency_id: string
+          club_paid_at?: string | null
+          club_status?: string
+          created_at?: string
+          event_id?: string | null
+          gross_amount?: number
+          id?: string
+          margin_amount?: number
+          net_amount?: number
+          organizer_user_id?: string | null
+          promoter_id?: string | null
+          source_conversion_id?: string | null
+          venue_id?: string | null
+        }
+        Update: {
+          agency_id?: string
+          club_paid_at?: string | null
+          club_status?: string
+          created_at?: string
+          event_id?: string | null
+          gross_amount?: number
+          id?: string
+          margin_amount?: number
+          net_amount?: number
+          organizer_user_id?: string | null
+          promoter_id?: string | null
+          source_conversion_id?: string | null
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_conversions_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_conversions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_conversions_promoter_id_fkey"
+            columns: ["promoter_id"]
+            isOneToOne: false
+            referencedRelation: "promoters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_conversions_source_conversion_id_fkey"
+            columns: ["source_conversion_id"]
+            isOneToOne: true
+            referencedRelation: "promoter_conversions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_conversions_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agency_payouts: {
+        Row: {
+          agency_id: string
+          amount: number
+          created_at: string
+          id: string
+          notes: string | null
+          organizer_user_id: string | null
+          paid_at: string | null
+          paid_by: string | null
+          period_label: string | null
+          status: string
+          venue_id: string | null
+        }
+        Insert: {
+          agency_id: string
+          amount?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organizer_user_id?: string | null
+          paid_at?: string | null
+          paid_by?: string | null
+          period_label?: string | null
+          status?: string
+          venue_id?: string | null
+        }
+        Update: {
+          agency_id?: string
+          amount?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organizer_user_id?: string | null
+          paid_at?: string | null
+          paid_by?: string | null
+          period_label?: string | null
+          status?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_payouts_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_payouts_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agency_promoter_groups: {
+        Row: {
+          agency_id: string
+          color: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_promoter_groups_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agency_rule_assignments: {
+        Row: {
+          agency_id: string
+          assigned_at: string
+          group_id: string | null
+          id: string
+          promoter_id: string | null
+          target_type: string
+          template_id: string
+        }
+        Insert: {
+          agency_id: string
+          assigned_at?: string
+          group_id?: string | null
+          id?: string
+          promoter_id?: string | null
+          target_type: string
+          template_id: string
+        }
+        Update: {
+          agency_id?: string
+          assigned_at?: string
+          group_id?: string | null
+          id?: string
+          promoter_id?: string | null
+          target_type?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_rule_assignments_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_rule_assignments_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "agency_promoter_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_rule_assignments_promoter_id_fkey"
+            columns: ["promoter_id"]
+            isOneToOne: false
+            referencedRelation: "promoters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_rule_assignments_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "agency_rule_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agency_rule_templates: {
+        Row: {
+          agency_id: string
+          can_scan_entries: boolean
+          can_sell_tables: boolean
+          can_sell_tickets: boolean
+          color: string
+          created_at: string
+          customer_discount_type: string
+          customer_discount_value: number
+          description: string | null
+          guestlist_quota: number | null
+          id: string
+          is_default: boolean
+          name: string
+          table_cap: number | null
+          table_commission_type: string
+          table_commission_value: number
+          ticket_cap: number | null
+          ticket_commission_type: string
+          ticket_commission_value: number
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          can_scan_entries?: boolean
+          can_sell_tables?: boolean
+          can_sell_tickets?: boolean
+          color?: string
+          created_at?: string
+          customer_discount_type?: string
+          customer_discount_value?: number
+          description?: string | null
+          guestlist_quota?: number | null
+          id?: string
+          is_default?: boolean
+          name: string
+          table_cap?: number | null
+          table_commission_type?: string
+          table_commission_value?: number
+          ticket_cap?: number | null
+          ticket_commission_type?: string
+          ticket_commission_value?: number
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          can_scan_entries?: boolean
+          can_sell_tables?: boolean
+          can_sell_tickets?: boolean
+          color?: string
+          created_at?: string
+          customer_discount_type?: string
+          customer_discount_value?: number
+          description?: string | null
+          guestlist_quota?: number | null
+          id?: string
+          is_default?: boolean
+          name?: string
+          table_cap?: number | null
+          table_commission_type?: string
+          table_commission_value?: number
+          ticket_cap?: number | null
+          ticket_commission_type?: string
+          ticket_commission_value?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_rule_templates_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agency_venue_contracts: {
+        Row: {
+          agency_id: string
+          agency_signed_at: string | null
+          agency_signed_by: string | null
+          club_signed_at: string | null
+          club_signed_by: string | null
+          created_at: string
+          created_by: string
+          currency: string
+          id: string
+          notes: string | null
+          organizer_user_id: string | null
+          override_type: string | null
+          override_value: number
+          status: string
+          updated_at: string
+          venue_id: string | null
+        }
+        Insert: {
+          agency_id: string
+          agency_signed_at?: string | null
+          agency_signed_by?: string | null
+          club_signed_at?: string | null
+          club_signed_by?: string | null
+          created_at?: string
+          created_by?: string
+          currency?: string
+          id?: string
+          notes?: string | null
+          organizer_user_id?: string | null
+          override_type?: string | null
+          override_value?: number
+          status?: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Update: {
+          agency_id?: string
+          agency_signed_at?: string | null
+          agency_signed_by?: string | null
+          club_signed_at?: string | null
+          club_signed_by?: string | null
+          created_at?: string
+          created_by?: string
+          currency?: string
+          id?: string
+          notes?: string | null
+          organizer_user_id?: string | null
+          override_type?: string | null
+          override_value?: number
+          status?: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_venue_contracts_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_venue_contracts_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       app_settings: {
         Row: {
           id: string
@@ -1385,6 +1823,20 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cloakroom_transactions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cloakroom_transactions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
             referencedColumns: ["id"]
           },
           {
@@ -3288,6 +3740,13 @@ export type Database = {
             referencedRelation: "profiles_public"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "email_campaigns_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
         ]
       }
       email_change_requests: {
@@ -3575,7 +4034,6 @@ export type Database = {
           id: string
           invited_by: string
           message: string | null
-          organizer_id: string
           responded_at: string | null
           status: string
           venue_id: string
@@ -3586,7 +4044,6 @@ export type Database = {
           id?: string
           invited_by: string
           message?: string | null
-          organizer_id: string
           responded_at?: string | null
           status?: string
           venue_id: string
@@ -3597,7 +4054,6 @@ export type Database = {
           id?: string
           invited_by?: string
           message?: string | null
-          organizer_id?: string
           responded_at?: string | null
           status?: string
           venue_id?: string
@@ -3650,6 +4106,137 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_collab_series_contracts: {
+        Row: {
+          cancellation_policy: string
+          contract_pdf_url: string | null
+          created_at: string
+          created_by: string
+          currency: string
+          id: string
+          org_signed_at: string | null
+          org_signed_by: string | null
+          org_signed_ip: string | null
+          org_signed_user_agent: string | null
+          organizer_user_id: string
+          partnership_id: string | null
+          split_rules: Json
+          status: string
+          template_id: string
+          terminated_at: string | null
+          terminated_by: string | null
+          terms_snapshot: Json | null
+          updated_at: string
+          venue_id: string
+          venue_signed_at: string | null
+          venue_signed_by: string | null
+          venue_signed_ip: string | null
+          venue_signed_user_agent: string | null
+        }
+        Insert: {
+          cancellation_policy?: string
+          contract_pdf_url?: string | null
+          created_at?: string
+          created_by?: string
+          currency?: string
+          id?: string
+          org_signed_at?: string | null
+          org_signed_by?: string | null
+          org_signed_ip?: string | null
+          org_signed_user_agent?: string | null
+          organizer_user_id: string
+          partnership_id?: string | null
+          split_rules: Json
+          status?: string
+          template_id: string
+          terminated_at?: string | null
+          terminated_by?: string | null
+          terms_snapshot?: Json | null
+          updated_at?: string
+          venue_id: string
+          venue_signed_at?: string | null
+          venue_signed_by?: string | null
+          venue_signed_ip?: string | null
+          venue_signed_user_agent?: string | null
+        }
+        Update: {
+          cancellation_policy?: string
+          contract_pdf_url?: string | null
+          created_at?: string
+          created_by?: string
+          currency?: string
+          id?: string
+          org_signed_at?: string | null
+          org_signed_by?: string | null
+          org_signed_ip?: string | null
+          org_signed_user_agent?: string | null
+          organizer_user_id?: string
+          partnership_id?: string | null
+          split_rules?: Json
+          status?: string
+          template_id?: string
+          terminated_at?: string | null
+          terminated_by?: string | null
+          terms_snapshot?: Json | null
+          updated_at?: string
+          venue_id?: string
+          venue_signed_at?: string | null
+          venue_signed_by?: string | null
+          venue_signed_ip?: string | null
+          venue_signed_user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_collab_series_contracts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_collab_series_contracts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_collab_series_contracts_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_collab_series_contracts_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_collab_series_contracts_partnership_id_fkey"
+            columns: ["partnership_id"]
+            isOneToOne: false
+            referencedRelation: "venue_organizer_partnerships"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_collab_series_contracts_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: true
+            referencedRelation: "owner_recurring_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_collab_series_contracts_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -4376,7 +4963,15 @@ export type Database = {
           otp_code?: string
           verified?: boolean | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "guest_claim_otps_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       guest_list_entries: {
         Row: {
@@ -4442,6 +5037,13 @@ export type Database = {
             columns: ["guest_list_id"]
             isOneToOne: false
             referencedRelation: "guest_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_list_entries_promoter_id_fkey"
+            columns: ["promoter_id"]
+            isOneToOne: false
+            referencedRelation: "promoters"
             referencedColumns: ["id"]
           },
         ]
@@ -4623,6 +5225,13 @@ export type Database = {
             columns: ["promoter_id"]
             isOneToOne: false
             referencedRelation: "promoters"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_lists_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -5673,6 +6282,97 @@ export type Database = {
         }
         Relationships: []
       }
+      onboarding_link_redemptions: {
+        Row: {
+          id: string
+          link_id: string
+          redeemed_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          link_id: string
+          redeemed_at?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          link_id?: string
+          redeemed_at?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_link_redemptions_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_links: {
+        Row: {
+          config: Json
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          is_active: boolean
+          label: string | null
+          max_uses: number | null
+          organizer_user_id: string | null
+          revoked_at: string | null
+          role: string
+          token: string
+          used_count: number
+          venue_id: string | null
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          created_by: string
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          max_uses?: number | null
+          organizer_user_id?: string | null
+          revoked_at?: string | null
+          role: string
+          token?: string
+          used_count?: number
+          venue_id?: string | null
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          max_uses?: number | null
+          organizer_user_id?: string | null
+          revoked_at?: string | null
+          role?: string
+          token?: string
+          used_count?: number
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_links_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       order_pack_credits: {
         Row: {
           created_at: string
@@ -5729,6 +6429,9 @@ export type Database = {
       }
       orders: {
         Row: {
+          age_declaration_birth_date: string | null
+          age_declaration_ip: string | null
+          age_declared_at: string | null
           archived: boolean | null
           assigned_bar: string | null
           claimed_at: string | null
@@ -5772,6 +6475,9 @@ export type Database = {
           venue_id: string
         }
         Insert: {
+          age_declaration_birth_date?: string | null
+          age_declaration_ip?: string | null
+          age_declared_at?: string | null
           archived?: boolean | null
           assigned_bar?: string | null
           claimed_at?: string | null
@@ -5815,6 +6521,9 @@ export type Database = {
           venue_id: string
         }
         Update: {
+          age_declaration_birth_date?: string | null
+          age_declaration_ip?: string | null
+          age_declared_at?: string | null
           archived?: boolean | null
           assigned_bar?: string | null
           claimed_at?: string | null
@@ -5858,6 +6567,20 @@ export type Database = {
           venue_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "orders_claimed_by_user_id_fkey"
+            columns: ["claimed_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_claimed_by_user_id_fkey"
+            columns: ["claimed_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "orders_event_id_fkey"
             columns: ["event_id"]
@@ -6455,7 +7178,15 @@ export type Database = {
           user_id?: string
           venue_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "owner_ai_audit_log_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       owner_invitations: {
         Row: {
@@ -6514,6 +7245,7 @@ export type Database = {
           poster_url: string | null
           revenue_split_rules: Json | null
           start_time: string
+          table_preset_id: string | null
           ticket_preset_id: string | null
           updated_at: string
           venue_id: string | null
@@ -6537,6 +7269,7 @@ export type Database = {
           poster_url?: string | null
           revenue_split_rules?: Json | null
           start_time: string
+          table_preset_id?: string | null
           ticket_preset_id?: string | null
           updated_at?: string
           venue_id?: string | null
@@ -6560,12 +7293,34 @@ export type Database = {
           poster_url?: string | null
           revenue_split_rules?: Json | null
           start_time?: string
+          table_preset_id?: string | null
           ticket_preset_id?: string | null
           updated_at?: string
           venue_id?: string | null
           vip_preset_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "owner_recurring_templates_partner_organizer_id_fkey"
+            columns: ["partner_organizer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_recurring_templates_partner_organizer_id_fkey"
+            columns: ["partner_organizer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_recurring_templates_table_preset_id_fkey"
+            columns: ["table_preset_id"]
+            isOneToOne: false
+            referencedRelation: "table_pack_presets"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "owner_recurring_templates_ticket_preset_id_fkey"
             columns: ["ticket_preset_id"]
@@ -7070,6 +7825,7 @@ export type Database = {
       promoter_invitations: {
         Row: {
           accepted_at: string | null
+          agency_id: string | null
           commission_config: Json
           commission_rate: number | null
           created_at: string
@@ -7088,6 +7844,7 @@ export type Database = {
         }
         Insert: {
           accepted_at?: string | null
+          agency_id?: string | null
           commission_config?: Json
           commission_rate?: number | null
           created_at?: string
@@ -7106,6 +7863,7 @@ export type Database = {
         }
         Update: {
           accepted_at?: string | null
+          agency_id?: string | null
           commission_config?: Json
           commission_rate?: number | null
           created_at?: string
@@ -7123,6 +7881,13 @@ export type Database = {
           venue_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "promoter_invitations_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "promoter_invitations_venue_id_fkey"
             columns: ["venue_id"]
@@ -7328,6 +8093,14 @@ export type Database = {
       }
       promoters: {
         Row: {
+          agency_can_sell_tables: boolean
+          agency_can_sell_tickets: boolean
+          agency_group_id: string | null
+          agency_guestlist_quota: number | null
+          agency_id: string | null
+          agency_rule_template_id: string | null
+          agency_table_cap: number | null
+          agency_ticket_cap: number | null
           bic: string | null
           can_scan_entries: boolean
           client_discount_template_id: string | null
@@ -7370,6 +8143,14 @@ export type Database = {
           whatsapp_number: string | null
         }
         Insert: {
+          agency_can_sell_tables?: boolean
+          agency_can_sell_tickets?: boolean
+          agency_group_id?: string | null
+          agency_guestlist_quota?: number | null
+          agency_id?: string | null
+          agency_rule_template_id?: string | null
+          agency_table_cap?: number | null
+          agency_ticket_cap?: number | null
           bic?: string | null
           can_scan_entries?: boolean
           client_discount_template_id?: string | null
@@ -7412,6 +8193,14 @@ export type Database = {
           whatsapp_number?: string | null
         }
         Update: {
+          agency_can_sell_tables?: boolean
+          agency_can_sell_tickets?: boolean
+          agency_group_id?: string | null
+          agency_guestlist_quota?: number | null
+          agency_id?: string | null
+          agency_rule_template_id?: string | null
+          agency_table_cap?: number | null
+          agency_ticket_cap?: number | null
           bic?: string | null
           can_scan_entries?: boolean
           client_discount_template_id?: string | null
@@ -7454,6 +8243,27 @@ export type Database = {
           whatsapp_number?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "promoters_agency_group_id_fkey"
+            columns: ["agency_group_id"]
+            isOneToOne: false
+            referencedRelation: "agency_promoter_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promoters_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promoters_agency_rule_template_id_fkey"
+            columns: ["agency_rule_template_id"]
+            isOneToOne: false
+            referencedRelation: "agency_rule_templates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "promoters_client_discount_template_id_fkey"
             columns: ["client_discount_template_id"]
@@ -8078,6 +8888,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "sms_logs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "sms_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "sms_logs_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
@@ -8377,6 +9194,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "table_packs_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "table_packs_zone_id_fkey"
             columns: ["zone_id"]
             isOneToOne: false
@@ -8387,6 +9211,9 @@ export type Database = {
       }
       table_reservations: {
         Row: {
+          age_declaration_birth_date: string | null
+          age_declaration_ip: string | null
+          age_declared_at: string | null
           assigned_table_id: string | null
           checked_in_at: string | null
           claimed_at: string | null
@@ -8442,6 +9269,9 @@ export type Database = {
           zone_id: string | null
         }
         Insert: {
+          age_declaration_birth_date?: string | null
+          age_declaration_ip?: string | null
+          age_declared_at?: string | null
           assigned_table_id?: string | null
           checked_in_at?: string | null
           claimed_at?: string | null
@@ -8497,6 +9327,9 @@ export type Database = {
           zone_id?: string | null
         }
         Update: {
+          age_declaration_birth_date?: string | null
+          age_declaration_ip?: string | null
+          age_declared_at?: string | null
           assigned_table_id?: string | null
           checked_in_at?: string | null
           claimed_at?: string | null
@@ -8553,6 +9386,27 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "table_reservations_assigned_table_id_fkey"
+            columns: ["assigned_table_id"]
+            isOneToOne: false
+            referencedRelation: "vip_tables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_reservations_claimed_by_user_id_fkey"
+            columns: ["claimed_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_reservations_claimed_by_user_id_fkey"
+            columns: ["claimed_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "table_reservations_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
@@ -8564,6 +9418,13 @@ export type Database = {
             columns: ["pack_id"]
             isOneToOne: false
             referencedRelation: "table_packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_reservations_requested_table_id_fkey"
+            columns: ["requested_table_id"]
+            isOneToOne: false
+            referencedRelation: "vip_tables"
             referencedColumns: ["id"]
           },
           {
@@ -8917,6 +9778,7 @@ export type Database = {
           is_active: boolean
           is_group: boolean | null
           last_tickets_threshold: number | null
+          manually_sold_out: boolean
           max_tickets: number
           name: string
           position: number
@@ -8942,6 +9804,7 @@ export type Database = {
           is_active?: boolean
           is_group?: boolean | null
           last_tickets_threshold?: number | null
+          manually_sold_out?: boolean
           max_tickets: number
           name: string
           position?: number
@@ -8967,6 +9830,7 @@ export type Database = {
           is_active?: boolean
           is_group?: boolean | null
           last_tickets_threshold?: number | null
+          manually_sold_out?: boolean
           max_tickets?: number
           name?: string
           position?: number
@@ -9422,6 +10286,20 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "tickets_claimed_by_user_id_fkey"
+            columns: ["claimed_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_claimed_by_user_id_fkey"
+            columns: ["claimed_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tickets_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
@@ -9727,7 +10605,29 @@ export type Database = {
           trigger_min_qty?: number
           venue_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "upsell_cart_rules_addon_drink_id_fkey"
+            columns: ["addon_drink_id"]
+            isOneToOne: false
+            referencedRelation: "drinks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upsell_cart_rules_reward_drink_id_fkey"
+            columns: ["reward_drink_id"]
+            isOneToOne: false
+            referencedRelation: "drinks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "upsell_cart_rules_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       upsell_drink_packs: {
         Row: {
@@ -10174,6 +11074,13 @@ export type Database = {
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "venue_floor_plans_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
         ]
       }
       venue_hype_baseline: {
@@ -10210,7 +11117,15 @@ export type Database = {
           updated_at?: string
           venue_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "venue_hype_baseline_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: true
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       venue_onboarding: {
         Row: {
@@ -10543,6 +11458,7 @@ export type Database = {
           tiktok_url?: string | null
           twitter_url?: string | null
           vat_number?: string | null
+          vip_menu_display_mode?: string
           vip_menu_visibility?: string
           vip_placement_enabled?: boolean | null
           vip_preorder_enabled?: boolean
@@ -10593,6 +11509,7 @@ export type Database = {
           tiktok_url?: string | null
           twitter_url?: string | null
           vat_number?: string | null
+          vip_menu_display_mode?: string
           vip_menu_visibility?: string
           vip_placement_enabled?: boolean | null
           vip_preorder_enabled?: boolean
@@ -10679,10 +11596,31 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "vip_consumptions_menu_item_id_fkey"
+            columns: ["menu_item_id"]
+            isOneToOne: false
+            referencedRelation: "vip_menu_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vip_consumptions_parent_consumption_id_fkey"
+            columns: ["parent_consumption_id"]
+            isOneToOne: false
+            referencedRelation: "vip_consumptions"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "vip_consumptions_table_reservation_id_fkey"
             columns: ["table_reservation_id"]
             isOneToOne: false
             referencedRelation: "table_reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vip_consumptions_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -10923,7 +11861,29 @@ export type Database = {
           table_reservation_id?: string | null
           venue_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "vip_service_moments_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vip_service_moments_table_reservation_id_fkey"
+            columns: ["table_reservation_id"]
+            isOneToOne: false
+            referencedRelation: "table_reservations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vip_service_moments_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vip_table_order_items: {
         Row: {
@@ -10972,6 +11932,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "vip_table_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vip_table_order_items_parent_order_item_id_fkey"
+            columns: ["parent_order_item_id"]
+            isOneToOne: false
+            referencedRelation: "vip_table_order_items"
             referencedColumns: ["id"]
           },
         ]
@@ -11033,6 +12000,86 @@ export type Database = {
           },
         ]
       }
+      vip_table_waitlist: {
+        Row: {
+          created_at: string
+          email: string | null
+          event_id: string | null
+          full_name: string | null
+          guest_count: number
+          id: string
+          note: string | null
+          pack_id: string | null
+          phone: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+          venue_id: string
+          zone_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          event_id?: string | null
+          full_name?: string | null
+          guest_count?: number
+          id?: string
+          note?: string | null
+          pack_id?: string | null
+          phone?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          venue_id: string
+          zone_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          event_id?: string | null
+          full_name?: string | null
+          guest_count?: number
+          id?: string
+          note?: string | null
+          pack_id?: string | null
+          phone?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+          venue_id?: string
+          zone_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vip_table_waitlist_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vip_table_waitlist_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "table_packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vip_table_waitlist_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vip_table_waitlist_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "table_zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vip_tables: {
         Row: {
           capacity: number
@@ -11086,57 +12133,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      vip_table_waitlist: {
-        Row: {
-          created_at: string
-          email: string | null
-          event_id: string | null
-          full_name: string | null
-          guest_count: number
-          id: string
-          note: string | null
-          pack_id: string | null
-          phone: string | null
-          status: string
-          updated_at: string
-          user_id: string | null
-          venue_id: string
-          zone_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          email?: string | null
-          event_id?: string | null
-          full_name?: string | null
-          guest_count?: number
-          id?: string
-          note?: string | null
-          pack_id?: string | null
-          phone?: string | null
-          status?: string
-          updated_at?: string
-          user_id?: string | null
-          venue_id: string
-          zone_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          email?: string | null
-          event_id?: string | null
-          full_name?: string | null
-          guest_count?: number
-          id?: string
-          note?: string | null
-          pack_id?: string | null
-          phone?: string | null
-          status?: string
-          updated_at?: string
-          user_id?: string | null
-          venue_id?: string
-          zone_id?: string | null
-        }
-        Relationships: []
       }
       vip_upsell_stats: {
         Row: {
@@ -11671,6 +12667,29 @@ export type Database = {
           },
         ]
       }
+      vip_consumption_facts: {
+        Row: {
+          brand: string | null
+          category: string | null
+          event_id: string | null
+          id: string | null
+          is_included: boolean | null
+          item_name: string | null
+          item_type: string | null
+          menu_item_id: string | null
+          parent_consumption_id: string | null
+          quantity: number | null
+          served_at: string | null
+          served_by: string | null
+          source: string | null
+          table_reservation_id: string | null
+          total_price: number | null
+          unit_price: number | null
+          venue_id: string | null
+          zone_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       _deliver_contest_reward: {
@@ -11785,7 +12804,23 @@ export type Database = {
         }
         Returns: string
       }
+      apply_agency_rule_template: {
+        Args: {
+          p_target_id: string
+          p_target_type: string
+          p_template_id: string
+        }
+        Returns: Json
+      }
       archive_expired_event_orders: { Args: never; Returns: undefined }
+      assign_agency_promoter_to_event: {
+        Args: { p_assign?: boolean; p_event_id: string; p_promoter_id: string }
+        Returns: undefined
+      }
+      assign_promoters_to_group: {
+        Args: { p_group_id: string; p_promoter_ids: string[] }
+        Returns: undefined
+      }
       auto_finalize_leaderboard_contests: { Args: never; Returns: number }
       award_loyalty_points: {
         Args: {
@@ -11921,6 +12956,26 @@ export type Database = {
         }
         Returns: number
       }
+      create_agency: {
+        Args: {
+          p_city?: string
+          p_contact_email?: string
+          p_name: string
+          p_owner_user_id?: string
+          p_slug?: string
+        }
+        Returns: string
+      }
+      create_agency_venue_contract: {
+        Args: {
+          p_agency_id: string
+          p_organizer_user_id?: string
+          p_override_type?: string
+          p_override_value?: number
+          p_venue_id?: string
+        }
+        Returns: string
+      }
       create_dj_booking_contract: {
         Args: {
           p_acompte_cents?: number
@@ -11950,6 +13005,14 @@ export type Database = {
           p_cancellation_policy?: string
           p_event_id: string
           p_split_rules?: Json
+        }
+        Returns: string
+      }
+      create_event_collab_series_contract: {
+        Args: {
+          p_cancellation_policy?: string
+          p_split_rules?: Json
+          p_template_id: string
         }
         Returns: string
       }
@@ -11985,33 +13048,6 @@ export type Database = {
           p_from?: string
           p_scope: string
           p_scope_id: string
-          p_to?: string
-        }
-        Returns: Json
-      }
-      get_vip_consumption_analytics: {
-        Args: {
-          p_venue_id: string
-          p_event_id?: string
-          p_from?: string
-          p_to?: string
-          p_tz?: string
-        }
-        Returns: Json
-      }
-      get_vip_guest_profile: {
-        Args: {
-          p_venue_id: string
-          p_user_id?: string
-          p_email?: string
-        }
-        Returns: Json
-      }
-      get_vip_host_leaderboard: {
-        Args: {
-          p_venue_id: string
-          p_event_id?: string
-          p_from?: string
           p_to?: string
         }
         Returns: Json
@@ -12054,6 +13090,66 @@ export type Database = {
       }
       generate_table_reference: { Args: never; Returns: string }
       generate_ticket_reference: { Args: never; Returns: string }
+      get_agency_event_full_stats: {
+        Args: { p_agency_id: string; p_date_from?: string; p_date_to?: string }
+        Returns: {
+          event_id: string
+          event_start_at: string
+          event_title: string
+          guest_list_count: number
+          promoter_count: number
+          table_count: number
+          table_gross: number
+          ticket_count: number
+          ticket_gross: number
+          total_gross: number
+          total_margin: number
+          venue_id: string
+          venue_name: string
+        }[]
+      }
+      get_agency_promoter_full_stats: {
+        Args: { p_agency_id: string; p_date_from?: string; p_date_to?: string }
+        Returns: {
+          agency_group_id: string
+          events_covered: number
+          first_conversion_at: string
+          first_name: string
+          guest_list_count: number
+          last_conversion_at: string
+          last_name: string
+          organizer_user_id: string
+          pending_amount: number
+          profile_image_url: string
+          promo_code: string
+          promoter_id: string
+          table_commission: number
+          table_count: number
+          table_gross: number
+          ticket_commission: number
+          ticket_count: number
+          ticket_gross: number
+          total_gross: number
+          total_margin: number
+          total_net: number
+          total_paid: number
+          venue_id: string
+          venue_name: string
+        }[]
+      }
+      get_agency_upcoming_events: {
+        Args: { p_agency_id: string; p_days_ahead?: number }
+        Returns: {
+          assigned_promoter_count: number
+          event_id: string
+          is_active: boolean
+          organizer_user_id: string
+          start_at: string
+          title: string
+          venue_id: string
+          venue_name: string
+        }[]
+      }
       get_customer_timeline: {
         Args: {
           p_limit?: number
@@ -12183,7 +13279,29 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_guest_list_public_fill: {
+        Args: { _guest_list_id: string }
+        Returns: {
+          female_count: number
+          male_count: number
+          total_count: number
+        }[]
+      }
       get_mfa_totp_secret: { Args: { p_user_id: string }; Returns: string }
+      get_onboarding_link_public: {
+        Args: { p_token: string }
+        Returns: {
+          invalid_reason: string
+          is_valid: boolean
+          label: string
+          organizer_name: string
+          organizer_user_id: string
+          role: string
+          venue_cover: string
+          venue_id: string
+          venue_name: string
+        }[]
+      }
       get_or_create_customer_loyalty: {
         Args: {
           p_user_id: string
@@ -12365,6 +13483,29 @@ export type Database = {
         }[]
       }
       get_venue_user_ids: { Args: { _venue_id: string }; Returns: string[] }
+      get_vip_consumption_analytics: {
+        Args: {
+          p_event_id?: string
+          p_from?: string
+          p_to?: string
+          p_tz?: string
+          p_venue_id: string
+        }
+        Returns: Json
+      }
+      get_vip_guest_profile: {
+        Args: { p_email?: string; p_user_id?: string; p_venue_id: string }
+        Returns: Json
+      }
+      get_vip_host_leaderboard: {
+        Args: {
+          p_event_id?: string
+          p_from?: string
+          p_to?: string
+          p_venue_id: string
+        }
+        Returns: Json
+      }
       get_visitor_stats: {
         Args: {
           p_compare_end: string
@@ -12405,6 +13546,10 @@ export type Database = {
       }
       is_account_suspended: { Args: { _user_id: string }; Returns: boolean }
       is_active_affiliate: { Args: never; Returns: boolean }
+      is_agency_owner: {
+        Args: { _agency_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_customer_banned: {
         Args: { p_user_id: string; p_venue_id: string }
         Returns: boolean
@@ -12708,6 +13853,14 @@ export type Database = {
           organization_name: string
         }[]
       }
+      search_venues_for_agency: {
+        Args: { p_limit?: number; p_query: string }
+        Returns: {
+          city: string
+          id: string
+          name: string
+        }[]
+      }
       seed_dj_event_tracked_link: {
         Args: { p_dj_id: string; p_event_id: string }
         Returns: undefined
@@ -12720,6 +13873,10 @@ export type Database = {
         Args: { p_venue_id: string }
         Returns: undefined
       }
+      set_agency_contract_status: {
+        Args: { p_contract_id: string; p_status: string }
+        Returns: string
+      }
       set_dj_availability_block: {
         Args: { p_date: string; p_reason?: string }
         Returns: undefined
@@ -12728,15 +13885,41 @@ export type Database = {
         Args: { p_event_id: string; p_password: string }
         Returns: undefined
       }
+      settle_agency_promoter_payout: {
+        Args: { p_period_label?: string; p_promoter_id: string }
+        Returns: Json
+      }
+      settle_club_to_agency: {
+        Args: {
+          p_agency_id: string
+          p_organizer_user_id?: string
+          p_period_label?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       settle_promoter_payout: {
         Args: { p_period_label?: string; p_promoter_id: string }
         Returns: Json
+      }
+      sign_agency_venue_contract: {
+        Args: { p_contract_id: string }
+        Returns: string
       }
       sign_dj_booking_contract: {
         Args: { p_contract_id: string; p_ip?: string; p_user_agent?: string }
         Returns: string
       }
       sign_event_collab_contract: {
+        Args: {
+          p_contract_id: string
+          p_ip?: string
+          p_terms_version?: string
+          p_user_agent?: string
+        }
+        Returns: string
+      }
+      sign_event_collab_series_contract: {
         Args: {
           p_contract_id: string
           p_ip?: string
@@ -12781,6 +13964,10 @@ export type Database = {
         Args: { p_secret: string; p_user_id: string }
         Returns: undefined
       }
+      terminate_event_collab_series_contract: {
+        Args: { p_contract_id: string }
+        Returns: undefined
+      }
       unlock_event_sale: {
         Args: { p_event_id: string; p_guest_email?: string; p_password: string }
         Returns: boolean
@@ -12792,6 +13979,20 @@ export type Database = {
           scope_name: string
           success: boolean
         }[]
+      }
+      update_agency_profile: {
+        Args: {
+          p_agency_id: string
+          p_bio?: string
+          p_city?: string
+          p_contact_email?: string
+          p_instagram_url?: string
+          p_logo_url?: string
+          p_name?: string
+          p_website_url?: string
+          p_whatsapp_number?: string
+        }
+        Returns: undefined
       }
       update_maintenance_password: {
         Args: { new_password: string }
@@ -12822,6 +14023,7 @@ export type Database = {
         | "organizer"
         | "affiliate"
         | "affiliate_member"
+        | "agency"
       discovery_status: "pending" | "approved" | "rejected"
       event_kind:
         | "club_event"
@@ -13007,6 +14209,7 @@ export const Constants = {
         "organizer",
         "affiliate",
         "affiliate_member",
+        "agency",
       ],
       discovery_status: ["pending", "approved", "rejected"],
       event_kind: [
