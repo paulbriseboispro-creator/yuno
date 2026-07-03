@@ -60,6 +60,13 @@ export default function EventDetails() {
   const [venue, setVenue] = useState<{ id: string; name: string; city: string; address?: string; floorPlanUrl?: string; latitude?: number; longitude?: number; logoUrl?: string } | null>(null);
   // Primary entity: 'organizer' for organizer-led events, 'venue' otherwise
   const [primaryEntity, setPrimaryEntity] = useState<'organizer' | 'venue'>('venue');
+
+  // Base propre du tunnel de réservation (billets / table / waitlist / guest list).
+  // URL propre /events/:host/:slug quand on y est, sinon l'ancienne forme /club/:slug/event/:id
+  // (préservée pour la preview owner, réécrite en /owner/preview/... par usePreviewNavigate).
+  const checkoutBase = host && eventSlug
+    ? `/events/${host}/${eventSlug}`
+    : `/club/${slug || venue?.id}/event/${eventId}`;
   const [primaryOrganizer, setPrimaryOrganizer] = useState<{ user_id: string; display_name: string; slug: string | null; avatar_url: string | null } | null>(null);
   const [ticketRounds, setTicketRounds] = useState<TicketRound[]>([]);
   const [zones, setZones] = useState<TableZone[]>([]);
@@ -646,7 +653,7 @@ export default function EventDetails() {
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
         <AlertCircle className="h-16 w-16 text-muted-foreground mb-4" />
         <p className="text-muted-foreground">{t('tickets.eventNotFound')}</p>
-        <Button variant="outline" className="mt-4" onClick={() => navigate(`/club/${slug}`)}>
+        <Button variant="outline" className="mt-4" onClick={() => navigate(slug ? `/club/${slug}` : '/')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           {t('common.back')}
         </Button>
@@ -911,7 +918,7 @@ export default function EventDetails() {
                   )}
                 </div>
                 <button
-                  onClick={() => navigate(`/club/${slug || venue.id}/event/${eventId}/billets`)}
+                  onClick={() => navigate(`${checkoutBase}/billets`, { state: { eventId } })}
                   className="shrink-0 font-mono font-bold uppercase"
                   style={{ height: 44, padding: '0 22px', background: '#E8192C', color: '#fff', border: 'none', borderRadius: 3, fontSize: '11px', cursor: 'pointer', letterSpacing: '0.10em', transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1)', WebkitTapHighlightColor: 'transparent' } as React.CSSProperties}
                   onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.97)')}
@@ -965,7 +972,7 @@ export default function EventDetails() {
                   )}
                 </div>
                 <button
-                  onClick={() => navigate(`/club/${slug || venue.id}/event/${eventId}/waitlist`)}
+                  onClick={() => navigate(`${checkoutBase}/waitlist`, { state: { eventId } })}
                   className="shrink-0 font-mono font-semibold uppercase inline-flex items-center gap-2"
                   style={{ height: 40, padding: '0 16px', background: 'transparent', color: '#9A9A9A', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 3, fontSize: '10px', cursor: 'pointer', letterSpacing: '0.10em', transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1), border-color 160ms', WebkitTapHighlightColor: 'transparent' } as React.CSSProperties}
                   onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.97)')}
@@ -1278,7 +1285,7 @@ export default function EventDetails() {
               label=""
               buttonText={eventSalesStatus === 'presale' ? t('waitlist.joinWaitlist') : t('waitlist.signUpForRelease')}
               icon={<Bell className="h-4 w-4" />}
-              onClick={() => navigate(`/club/${slug || venue.id}/event/${eventId}/waitlist`)}
+              onClick={() => navigate(`${checkoutBase}/waitlist`, { state: { eventId } })}
             />
           );
         }
@@ -1292,7 +1299,7 @@ export default function EventDetails() {
               label={t('event.startingFrom')}
               buttonText={t('event.bookNow')}
               icon={<Ticket className="h-4 w-4" />}
-              onClick={() => navigate(`/club/${slug || venue.id}/event/${eventId}/billets`)}
+              onClick={() => navigate(`${checkoutBase}/billets`, { state: { eventId } })}
             />
           );
         }

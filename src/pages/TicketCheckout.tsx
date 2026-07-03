@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useEventRoute } from '@/hooks/useEventRoute';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Minus, Plus, ShieldCheck, Tag, ChevronRight, ChevronUp, LogIn, Calendar, Wine, Lock } from 'lucide-react';
 import { getEventSalesStatus } from '@/types/ticketing';
@@ -32,7 +33,8 @@ interface PromoterDiscount {
 }
 
 export default function TicketCheckout() {
-  const { eventId, roundId, slug } = useParams();
+  const { roundId } = useParams();
+  const { eventId, basePath } = useEventRoute();
   const navigate = useNavigate();
   const { t, language } = useLanguage();
   const { user, loading: authLoading } = useAuth();
@@ -532,7 +534,7 @@ export default function TicketCheckout() {
         if (unlockErr || unlocked !== true) {
           toast.error(t('tickets.salePasswordWrong'));
           setCheckoutLoading(false);
-          navigate(`/club/${slug}/event/${eventId}/billets`);
+          navigate(`${basePath}/billets`, { state: { eventId } });
           return;
         }
       }
@@ -674,7 +676,7 @@ export default function TicketCheckout() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4" style={{ background: '#0A0A0A' }}>
         <p className="font-mono uppercase text-[11px] tracking-[0.06em] text-[#9A9A9A]">{t('tickets.eventNotFound')}</p>
-        <Button variant="outline" className="mt-4" onClick={() => navigate(`/club/${slug}/event/${eventId}`)}>
+        <Button variant="outline" className="mt-4" onClick={() => navigate(`${basePath}`, { state: { eventId } })}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           {t('common.back')}
         </Button>
@@ -702,9 +704,9 @@ export default function TicketCheckout() {
       >
         <div className="flex items-center justify-between px-4 h-12">
           <button
-            onClick={() => navigate(`/club/${slug}/event/${eventId}/billets`, {
+            onClick={() => navigate(`${basePath}/billets`, {
               replace: true,
-              state: { restoredSelection: { type: 'ticket', id: roundId, quantity, price: round?.price || 0, name: round?.name || '' } }
+              state: { restoredSelection: { type: 'ticket', id: roundId, quantity, price: round?.price || 0, name: round?.name || '' }, eventId }
             })}
             className="h-8 w-8 flex items-center justify-center bg-white/[0.06] hover:bg-white/[0.10] transition-colors"
             style={{ borderRadius: 2 }}

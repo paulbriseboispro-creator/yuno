@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { useEventRoute } from '@/hooks/useEventRoute';
 import { ArrowLeft, Bell, User, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,7 +10,7 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 export default function EventWaitlistPage() {
-  const { eventId, slug } = useParams();
+  const { eventId, basePath } = useEventRoute();
   const navigate = useNavigate();
   const { t } = useLanguage();
 
@@ -92,7 +93,7 @@ export default function EventWaitlistPage() {
 
   const handleSignup = async () => {
     if (!user) {
-      navigate(`/auth?redirect=/club/${slug}/event/${eventId}/waitlist`);
+      navigate(`/auth?redirect=${basePath}/waitlist`);
       return;
     }
 
@@ -168,7 +169,7 @@ export default function EventWaitlistPage() {
             </p>
           )}
           <p className="text-sm text-muted-foreground max-w-xs">{t('waitlist.notifyWhenAvailable')}</p>
-          <Button variant="outline" className="mt-6" onClick={() => navigate(`/club/${slug}/event/${eventId}`)}>
+          <Button variant="outline" className="mt-6" onClick={() => navigate(`${basePath}`, { state: { eventId } })}>
             {t('common.back')}
           </Button>
         </motion.div>
@@ -256,7 +257,7 @@ export default function EventWaitlistPage() {
           ) : (
             <div className="space-y-3 text-center">
               <p className="text-sm text-muted-foreground">{t('waitlist.loginToSignUp')}</p>
-              <Button onClick={() => navigate(`/auth?redirect=/club/${slug}/event/${eventId}/waitlist`)} className="w-full">
+              <Button onClick={() => navigate(`/auth?redirect=${basePath}/waitlist`)} className="w-full">
                 {t('auth.login')}
               </Button>
             </div>

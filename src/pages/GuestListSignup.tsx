@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useEventRoute } from '@/hooks/useEventRoute';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -33,7 +34,7 @@ interface GuestListInfo {
 }
 
 export default function GuestListSignup() {
-  const { eventId, slug } = useParams();
+  const { eventId, basePath, venueSlug: slug } = useEventRoute();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { t, language } = useLanguage();
@@ -386,7 +387,7 @@ export default function GuestListSignup() {
               <Ticket className="h-4 w-4 mr-2" />
               {t('guestList.viewInOrders')}
             </Button>
-            <Button variant="outline" className="w-full" onClick={() => navigate(`/club/${slug}`)}>
+            <Button variant="outline" className="w-full" onClick={() => navigate(slug ? `/club/${slug}` : `${basePath}`, { state: { eventId } })}>
               {t('common.backToHome')}
             </Button>
           </CardContent>
@@ -402,7 +403,7 @@ export default function GuestListSignup() {
         {/* Header */}
         <div className="sticky top-0 z-40 border-b border-border/40 bg-surface/80 backdrop-blur-md">
           <div className="flex items-center gap-3 px-4 h-14">
-            <Button variant="ghost" size="icon" onClick={() => slug && eventId ? navigate(`/club/${slug}/event/${eventId}`) : navigate('/')}>
+            <Button variant="ghost" size="icon" onClick={() => eventId ? navigate(`${basePath}`, { state: { eventId } }) : navigate('/')}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <h1 className="font-semibold truncate">{t('guestList.title')}</h1>
@@ -555,7 +556,7 @@ export default function GuestListSignup() {
       {/* Header */}
       <div className="sticky top-0 z-40 border-b border-border/40 bg-surface/80 backdrop-blur-md">
         <div className="flex items-center gap-3 px-4 h-14">
-          <Button variant="ghost" size="icon" onClick={() => slug && eventId ? navigate(`/club/${slug}/event/${eventId}`) : navigate('/')}>
+          <Button variant="ghost" size="icon" onClick={() => eventId ? navigate(`${basePath}`, { state: { eventId } }) : navigate('/')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="font-semibold truncate">{t('guestList.title')}</h1>
@@ -605,7 +606,7 @@ export default function GuestListSignup() {
           {isFull ? (
             <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-5">
               <p className="text-lg font-bold text-destructive">{t('guestList.full')}</p>
-              <Button className="mt-3" onClick={() => navigate(`/club/${slug}/event/${eventId}`)}>
+              <Button className="mt-3" onClick={() => navigate(`${basePath}`, { state: { eventId } })}>
                 <Ticket className="h-4 w-4 mr-2" />
                 {t('guestList.buyTicket')}
               </Button>

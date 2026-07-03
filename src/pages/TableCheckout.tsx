@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { usePreviewNavigate } from '@/contexts/OwnerPreviewContext';
+import { useEventRoute } from '@/hooks/useEventRoute';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, MapPin, Calendar, Clock, Check, Tag, ArrowRight, Repeat, ChevronRight, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -46,7 +47,8 @@ const tableInputClass =
   'h-11 rounded-lg bg-[#1F1F22] border-white/[0.08] text-white placeholder:text-[#5A5A5E] focus-visible:ring-0 focus-visible:border-primary/50';
 
 export default function TableCheckout() {
-  const { eventId, slug, packId } = useParams();
+  const { packId } = useParams();
+  const { eventId, basePath } = useEventRoute();
   const [searchParams] = useSearchParams();
   const navigate = usePreviewNavigate();
   const { t, language } = useLanguage();
@@ -392,7 +394,7 @@ export default function TableCheckout() {
     setZoneSheetOpen(false);
     // The data-fetch effect keys off [eventId, packId, zoneId], so changing the
     // route here re-fetches the new zone/pack without a full-page reload.
-    navigate(`/club/${slug}/event/${eventId}/table/${newPackId}?zone=${newZoneId}&guests=${guestCount}`, { replace: true });
+    navigate(`${basePath}/table/${newPackId}?zone=${newZoneId}&guests=${guestCount}`, { replace: true, state: { eventId } });
   };
 
   const payAtClubGuests = 0;
@@ -514,7 +516,7 @@ export default function TableCheckout() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4" style={{ background: '#0A0A0A' }}>
         <p className="font-mono uppercase text-[11px] tracking-[0.06em] text-[#9A9A9A]">{t('tickets.eventNotFound')}</p>
-        <Button variant="outline" className="mt-4" onClick={() => navigate(`/club/${slug}/event/${eventId}`)}>
+        <Button variant="outline" className="mt-4" onClick={() => navigate(`${basePath}`, { state: { eventId } })}>
           <ArrowLeft className="h-4 w-4 mr-2" />
           {t('common.back')}
         </Button>
@@ -533,7 +535,7 @@ export default function TableCheckout() {
       >
         <div className="mx-auto flex h-12 max-w-lg items-center px-4">
           <button
-            onClick={currentStep === 1 ? () => navigate(`/club/${slug}/event/${eventId}/billets`) : handlePrevStep}
+            onClick={currentStep === 1 ? () => navigate(`${basePath}/billets`, { state: { eventId } }) : handlePrevStep}
             className="flex items-center gap-2 h-8 px-3 -ml-2 font-mono uppercase text-[10px] font-semibold tracking-[0.10em] text-[#9A9A9A] hover:text-white transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />

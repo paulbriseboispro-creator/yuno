@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useEventRoute } from '@/hooks/useEventRoute';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -43,7 +44,7 @@ interface GuestListInfo {
  * on GuestListSignup. Direct URL access is gated to publicly-visible lists.
  */
 export default function GuestListCheckout() {
-  const { eventId, slug } = useParams();
+  const { eventId, basePath } = useEventRoute();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { t, language } = useLanguage();
@@ -71,7 +72,7 @@ export default function GuestListCheckout() {
   const [guestPhone, setGuestPhone] = useState('');
 
   const backToSelection = () =>
-    navigate(slug && eventId ? `/club/${slug}/event/${eventId}/billets` : '/');
+    navigate(eventId ? `${basePath}/billets` : '/', { state: { eventId } });
 
   useEffect(() => {
     fetchGuestList();

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useParams, useSearchParams, useLocation } from 'react-router-dom';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import { usePreviewNavigate } from '@/contexts/OwnerPreviewContext';
+import { useEventRoute } from '@/hooks/useEventRoute';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Minus, Plus, Users, Crown, Wine, Clock, ChevronDown, Lock, Ticket, Check, Music } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -36,7 +37,7 @@ type Selection = {
 };
 
 export default function TicketSelection() {
-  const { eventId, slug } = useParams();
+  const { eventId, basePath, venueSlug: slug } = useEventRoute();
   const navigate = usePreviewNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -410,7 +411,7 @@ export default function TicketSelection() {
       if (ref) params.set('ref', ref);
       if (src) params.set('src', src);
       const suffix = params.toString() ? `?${params.toString()}` : '';
-      navigate(`/club/${slug}/event/${eventId}/guestlist-checkout${suffix}`);
+      navigate(`${basePath}/guestlist-checkout${suffix}`, { state: { eventId } });
       return;
     }
     if (selection.type === 'ticket') {
@@ -418,7 +419,7 @@ export default function TicketSelection() {
       if (ref) params.set('ref', ref);
       if (src) params.set('src', src);
       const suffix = params.toString() ? `?${params.toString()}` : '';
-      navigate(`/club/${slug}/event/${eventId}/tickets/${selection.id}${suffix}`);
+      navigate(`${basePath}/tickets/${selection.id}${suffix}`, { state: { eventId } });
       return;
     }
     const tableParams = new URLSearchParams();
@@ -426,7 +427,7 @@ export default function TicketSelection() {
     tableParams.set('guests', String(selection.quantity));
     if (ref) tableParams.set('ref', ref);
     if (src) tableParams.set('src', src);
-    navigate(`/club/${slug}/event/${eventId}/table/${selection.id}?${tableParams.toString()}`);
+    navigate(`${basePath}/table/${selection.id}?${tableParams.toString()}`, { state: { eventId } });
   };
 
   // When the club absorbs the Yuno commission, the fan-facing fee line becomes just the
@@ -459,7 +460,7 @@ export default function TicketSelection() {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 gap-4">
         <p className="text-muted-foreground text-sm">{t('tickets.eventNotFound')}</p>
-        <button onClick={() => navigate(`/club/${slug}/event/${eventId}`)} className="flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors">
+        <button onClick={() => navigate(`${basePath}`, { state: { eventId } })} className="flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors">
           <ArrowLeft className="h-4 w-4" /> {t('common.back')}
         </button>
       </div>
@@ -479,7 +480,7 @@ export default function TicketSelection() {
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/50 to-background" />
         <button
-          onClick={() => navigate(`/club/${slug}/event/${eventId}`)}
+          onClick={() => navigate(`${basePath}`, { state: { eventId } })}
           className="absolute left-4 z-10 flex items-center justify-center h-9 w-9 text-white hover:opacity-80 transition-opacity"
           style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)', borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: 'none' }}
         >
@@ -719,7 +720,7 @@ export default function TicketSelection() {
           <>
             <SectionDivider icon={<Music className="h-2.5 w-2.5" />} label={t('guestList.dj.guestOf').replace('{name}', djGuestList.djName)} />
             <button
-              onClick={() => navigate(`/club/${slug}/event/${eventId}/guestlist?token=${djGuestList.shareToken}`)}
+              onClick={() => navigate(`${basePath}/guestlist?token=${djGuestList.shareToken}`, { state: { eventId } })}
               className="relative w-full rounded border p-4 text-left transition-all active:scale-[0.99] border-emerald-500/20 hover:border-emerald-500/35"
               style={{ backgroundColor: 'rgba(16,185,129,0.04)' }}
             >

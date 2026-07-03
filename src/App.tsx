@@ -480,8 +480,14 @@ const App = () => (
                 <Route path="/accept-platform-invitation" element={<AcceptPlatformInvitation />} />
                 <Route path="/club-invitation" element={<ClubInvitation />} />
 
-                {/* Public event detail — URL propre /events/:host/:eventSlug (canonique) */}
+                {/* Tunnel event propre /events/:host/:eventSlug/... (détail + billets/checkout/tables/guest list) */}
                 <Route path="/events/:host/:eventSlug" element={<EventDetails />} />
+                <Route path="/events/:host/:eventSlug/billets" element={<TicketSelectionPage />} />
+                <Route path="/events/:host/:eventSlug/waitlist" element={<EventWaitlistPage />} />
+                <Route path="/events/:host/:eventSlug/tickets/:roundId" element={<TicketCheckout />} />
+                <Route path="/events/:host/:eventSlug/table/:packId" element={<TableCheckout />} />
+                <Route path="/events/:host/:eventSlug/guestlist" element={<GuestListSignup />} />
+                <Route path="/events/:host/:eventSlug/guestlist-checkout" element={<GuestListCheckout />} />
                 {/* Anciennes URLs par UUID — conservées, redirigent vers l'URL propre au chargement */}
                 <Route path="/event/:eventId" element={<EventDetails />} />
 
