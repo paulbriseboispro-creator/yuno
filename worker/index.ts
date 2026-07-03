@@ -496,8 +496,9 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
     const events = await fetchRows(
       env,
       `events?venue_id=eq.${encodeURIComponent(id)}&visibility=eq.public&is_active=eq.true` +
-        `&end_at=gte.${encodeURIComponent(nowIso)}&select=id,title,start_at&order=start_at.asc&limit=8`,
+        `&end_at=gte.${encodeURIComponent(nowIso)}&select=id,slug,title,start_at,organizer_user_id,venue_id&order=start_at.asc&limit=8`,
     );
+    const orgMap = await orgSlugMap(env, events);
     const facts = [
       city ? `<li>${esc(city)}</li>` : '',
       v.address ? `<li>${esc(v.address)}</li>` : '',
@@ -513,7 +514,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
       bodyHtml:
         `<p>${esc(description)}</p>` +
         (facts ? `<ul>${facts}</ul>` : '') +
-        upcomingEventsHtml(events) +
+        upcomingEventsHtml(events, orgMap) +
         `<p><a href="${canonical}">See what's on and book at ${esc(name)}</a></p>`,
     };
   }
@@ -547,9 +548,11 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
           env,
           `events?organizer_user_id=eq.${encodeURIComponent(org.user_id as string)}&visibility=eq.public` +
             `&is_active=eq.true&end_at=gte.${encodeURIComponent(nowIso)}` +
-            `&select=id,title,start_at&order=start_at.asc&limit=8`,
+            `&select=id,slug,title,start_at,organizer_user_id,venue_id&order=start_at.asc&limit=8`,
         )
       : [];
+    // Tous ces events sont menés par cette orga -> host = son slug (courant).
+    const orgMap = new Map<string, string>(org.user_id ? [[org.user_id as string, slug]] : []);
     return {
       title: `${name} · Yuno`,
       description,
@@ -560,7 +563,7 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
       bodyHtml:
         `<p>${esc(description)}</p>` +
         (org.city ? `<ul><li>${esc(org.city)}</li></ul>` : '') +
-        upcomingEventsHtml(events) +
+        upcomingEventsHtml(events, orgMap) +
         `<p><a href="${canonical}">Follow ${esc(name)} on Yuno</a></p>`,
     };
   }
@@ -668,7 +671,7 @@ async function buildSitemap(env: Env): Promise<string> {
   const [events, venues, djs, orgs, affEvents, affVenues] = await Promise.all([
     fetchRows(
       env,
-      'events?is_active=eq.true&visibility=eq.public&is_discoverable=eq.true&select=id,updated_at&order=start_at.desc&limit=5000',
+      'events?is_active=eq.true&visibility=eq.public&is_discoverable=eq.true&select=id,slug,updated_at,organizer_user_id,venue_id&order=start_at.desc&limit=5000',
     ),
     fetchRows(env, 'venues?is_hidden=eq.false&select=id&limit=5000'),
     fetchRows(env, 'djs_public?is_active=eq.true&select=slug,handle&limit=5000'),
@@ -677,8 +680,9 @@ async function buildSitemap(env: Env): Promise<string> {
     fetchRows(env, 'affiliate_venues?is_active=eq.true&select=slug,updated_at&limit=5000'),
   ]);
 
+  const sitemapOrgMap = await orgSlugMap(env, events);
   for (const e of events) {
-    if (e.id) urls.push({ loc: `${ORIGIN}/event/${e.id}`, lastmod: e.updated_at as string, changefreq: 'daily', priority: '0.8' });
+    if (e.id) urls.push({ loc: eventCleanUrl(e, sitemapOrgMap), lastmod: e.updated_at as string, changefreq: 'daily', priority: '0.8' });
   }
   for (const v of venues) {
     if (v.id) urls.push({ loc: `${ORIGIN}/club/${v.id}`, changefreq: 'weekly', priority: '0.7' });
@@ -765,7 +769,7 @@ async function pingIndexNow(urls: string[]): Promise<void> {
 async function submitRecentToIndexNow(env: Env): Promise<void> {
   const since = encodeURIComponent(new Date(Date.now() - INDEXNOW_WINDOW_MIN * 60000).toISOString());
   const [events, venues, djs, orgs, affEvents, affVenues] = await Promise.all([
-    fetchRows(env, `events?is_active=eq.true&visibility=eq.public&is_discoverable=eq.true&updated_at=gte.${since}&select=id&limit=5000`),
+    fetchRows(env, `events?is_active=eq.true&visibility=eq.public&is_discoverable=eq.true&updated_at=gte.${since}&select=id,slug,organizer_user_id,venue_id&limit=5000`),
     fetchRows(env, `venues?is_hidden=eq.false&created_at=gte.${since}&select=id&limit=5000`),
     fetchRows(env, `djs?is_active=eq.true&updated_at=gte.${since}&select=slug,handle&limit=5000`),
     fetchRows(env, `organizer_profiles?is_public=eq.true&updated_at=gte.${since}&select=slug&limit=5000`),
@@ -773,7 +777,8 @@ async function submitRecentToIndexNow(env: Env): Promise<void> {
     fetchRows(env, `affiliate_venues?is_active=eq.true&updated_at=gte.${since}&select=slug&limit=5000`),
   ]);
   const urls: string[] = [];
-  for (const e of events) if (e.id) urls.push(`${ORIGIN}/event/${e.id}`);
+  const idxOrgMap = await orgSlugMap(env, events);
+  for (const e of events) if (e.id) urls.push(eventCleanUrl(e, idxOrgMap));
   for (const v of venues) if (v.id) urls.push(`${ORIGIN}/club/${v.id}`);
   for (const d of djs) {
     const k = (d.handle as string) || (d.slug as string);
