@@ -1,23 +1,19 @@
 // Mode aperçu (preview) EN LECTURE SEULE — activé quand un prospect ouvre un lien
 // de démo verrouillé par mot de passe (voir PreviewGate + demo_preview_links).
 //
-// Portée SESSION, pas compte : le même compte démo (@womber.fr) sert AUSSI à Paul
-// pour démontrer la création en live. On ne peut donc pas rendre le compte lui-même
-// lecture seule. On pose un état :
-//   - sessionStorage `yuno_preview_readonly` : l'onglet du prospect, survit au reload,
-//     meurt à la fermeture de l'onglet.
-//   - localStorage `yuno_preview_owner_session` : marqueur compagnon pour ré-armer la
-//     lecture seule si le prospect ouvre un NOUVEL onglet (la session Supabase, en
-//     localStorage, est partagée entre onglets). Les onglets de Paul ne posent JAMAIS
-//     ce marqueur (seul PreviewGate le pose), donc son usage normal reste en écriture.
+// Portée ONGLET (sessionStorage `yuno_preview_readonly`) — VOLONTAIREMENT pas de
+// marqueur localStorage partagé navigateur. Raison : le même compte démo owner@womber.fr
+// sert AUSSI à Paul (« womber ») pour tout modifier en live. La lecture seule ne doit
+// donc JAMAIS déborder sur ses sessions à lui. Elle vit uniquement dans l'onglet où le
+// prospect a ouvert son lien (survit au reload, meurt à la fermeture de l'onglet / au
+// bouton « Quitter »). Les onglets de Paul, eux, ne posent jamais le flag → écriture pleine.
 //
 // L'état porte : le nom de la personne (label), la liste des rôles accessibles (roles),
 // le rôle courant (current) et la langue par défaut (language).
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
-const PREVIEW_FLAG = 'yuno_preview_readonly';        // sessionStorage
-const PREVIEW_MARKER = 'yuno_preview_owner_session'; // localStorage
+const PREVIEW_FLAG = 'yuno_preview_readonly'; // sessionStorage (par onglet)
 export const PREVIEW_EVENT = 'yuno-preview-changed';
 
 export interface PreviewState {
@@ -44,19 +40,24 @@ function parse(raw: string | null): PreviewState | null {
 
 function readState(): PreviewState | null {
   try {
-    return parse(sessionStorage.getItem(PREVIEW_FLAG)) ?? parse(localStorage.getItem(PREVIEW_MARKER));
+    return parse(sessionStorage.getItem(PREVIEW_FLAG));
   } catch {
     return null;
   }
 }
 
-/** Vrai si l'onglet (ou le navigateur du prospect) est en aperçu lecture seule. */
+/** Vrai si CET onglet est en aperçu lecture seule (jamais les sessions normales de Paul). */
 export function isPreviewActive(): boolean {
   try {
-    return !!(sessionStorage.getItem(PREVIEW_FLAG) || localStorage.getItem(PREVIEW_MARKER));
+    return !!sessionStorage.getItem(PREVIEW_FLAG);
   } catch {
     return false;
   }
+}
+
+/** Nom de la personne à qui le lien a été envoyé (pour la bannière). */
+export function getPreviewLabel(): string {
+  return readState()?.label ?? '';
 }
 
 /** Arme la lecture seule (appelé par PreviewGate après connexion au compte démo). */
@@ -67,10 +68,7 @@ export function enablePreviewMode(state: { label: string; roles: string[]; curre
     current: state.current ?? state.roles?.[0] ?? '',
     language: state.language ?? 'en',
   });
-  try {
-    sessionStorage.setItem(PREVIEW_FLAG, value);
-    localStorage.setItem(PREVIEW_MARKER, value);
-  } catch { /* storage indispo : ignore */ }
+  try { sessionStorage.setItem(PREVIEW_FLAG, value); } catch { /* storage indispo : ignore */ }
   try { window.dispatchEvent(new Event(PREVIEW_EVENT)); } catch { /* pas de window */ }
 }
 
@@ -83,10 +81,7 @@ export function setPreviewCurrentRole(role: string): void {
 
 /** Désarme la lecture seule (bouton « Quitter l'aperçu » / déconnexion). */
 export function disablePreviewMode(): void {
-  try {
-    sessionStorage.removeItem(PREVIEW_FLAG);
-    localStorage.removeItem(PREVIEW_MARKER);
-  } catch { /* ignore */ }
+  try { sessionStorage.removeItem(PREVIEW_FLAG); } catch { /* ignore */ }
   try { window.dispatchEvent(new Event(PREVIEW_EVENT)); } catch { /* ignore */ }
 }
 
@@ -107,25 +102,13 @@ export function PreviewModeProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    // Nouvel onglet : ré-armer le flag session depuis le marqueur local persistant.
-    try {
-      if (!sessionStorage.getItem(PREVIEW_FLAG)) {
-        const marker = localStorage.getItem(PREVIEW_MARKER);
-        if (marker) sessionStorage.setItem(PREVIEW_FLAG, marker);
-      }
-    } catch { /* ignore */ }
-
     const sync = () => {
       const s = readState();
       setState({ isPreview: isPreviewActive(), ...(s ?? EMPTY) });
     };
     sync();
     window.addEventListener(PREVIEW_EVENT, sync);
-    window.addEventListener('storage', sync);
-    return () => {
-      window.removeEventListener(PREVIEW_EVENT, sync);
-      window.removeEventListener('storage', sync);
-    };
+    return () => window.removeEventListener(PREVIEW_EVENT, sync);
   }, []);
 
   return <PreviewModeContext.Provider value={state}>{children}</PreviewModeContext.Provider>;
