@@ -345,7 +345,7 @@ const Welcome = () => {
         <meta property="og:title" content="Yuno - Nightlife Reimagined" />
         <meta property="og:description" content="Discover partner clubs and skip the queue with Yuno" />
         <meta property="og:type" content="website" />
-        <link rel="canonical" href="https://yuno.club" />
+        <link rel="canonical" href="https://yunoapp.eu/welcome" />
       </Helmet>
 
       <div className="h-[100dvh] bg-background flex flex-col overflow-hidden">

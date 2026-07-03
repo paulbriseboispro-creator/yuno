@@ -104,6 +104,34 @@
   <meta name="twitter:title" content="Yuno – Tickets, VIP Tables & Drinks for Nightlife">
   <meta property="og:description" content="Your whole night out in one app: buy event tickets, book VIP bottle-service tables, and order drinks to skip the bar queue. Discover the best clubs and events near you.">
   <meta name="twitter:description" content="Your whole night out in one app: buy event tickets, book VIP bottle-service tables, and order drinks to skip the bar queue. Discover the best clubs and events near you.">
+
+  <!-- Structured data (JSON-LD) — Organization + WebSite. Statique, servi sur toutes les
+       routes (SPA fallback). Le Worker crawler ajoute par-dessus le schema par entité
+       (Event / NightClub / MusicGroup) sur /event, /club, /dj, /o. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://yunoapp.eu/#organization",
+        "name": "Yuno",
+        "url": "https://yunoapp.eu/",
+        "logo": "https://yunoapp.eu/apple-touch-icon.png",
+        "image": "https://yunoapp.eu/social-card.webp",
+        "description": "Yuno is your whole night out in one app: buy event tickets, book VIP bottle-service tables, and order drinks to skip the bar queue."
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://yunoapp.eu/#website",
+        "name": "Yuno",
+        "url": "https://yunoapp.eu/",
+        "inLanguage": "en",
+        "publisher": { "@id": "https://yunoapp.eu/#organization" }
+      }
+    ]
+  }
+  </script>
 </head>
 
   <body>
