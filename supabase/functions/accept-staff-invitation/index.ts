@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildPasswordSetup } from '../_shared/email-templates.ts';
+import { SUBSCRIPTIONS_ENABLED } from '../_shared/venue-plan.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -555,7 +556,8 @@ Deno.serve(async (req) => {
     // invite-staff at invitation time; this backstops races where multiple pending
     // invitations outlive a plan that only allows 5 staff. Counts staff already
     // linked to the venue (excluding this accepting user).
-    if (!isOrganizerScope && invitation.venue_id) {
+    // Abonnement coupé (lancement) : cap levé pour tout le monde.
+    if (SUBSCRIPTIONS_ENABLED && !isOrganizerScope && invitation.venue_id) {
       const { data: sub } = await supabase
         .from('venue_subscriptions').select('subscription_plan').eq('venue_id', invitation.venue_id).maybeSingle();
       if ((sub?.subscription_plan ?? 'core') === 'core') {

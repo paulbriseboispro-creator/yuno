@@ -1,5 +1,5 @@
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
-import { FeatureKey, PLANS, requiredPlan } from '@/lib/planFeatures';
+import { FeatureKey, PLANS, requiredPlan, SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,11 @@ interface PlanGuardProps {
 export function PlanGuard({ feature, children }: PlanGuardProps) {
   const { hasFeature, loading } = useSubscriptionPlan();
   const { t } = useLanguage();
+
+  // Abonnement coupé (lancement) : aucun module n'est verrouillé par plan.
+  if (!SUBSCRIPTIONS_ENABLED) {
+    return <>{children}</>;
+  }
 
   if (loading) {
     return <DashboardSkeleton />;

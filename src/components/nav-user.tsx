@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfileType } from "@/hooks/useProfileType";
+import { SUBSCRIPTIONS_ENABLED } from "@/lib/planFeatures";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "react-router-dom";
 
@@ -144,7 +145,7 @@ export function NavUser() {
           <DropdownMenuItem asChild className={ITEM_CLS}>
             <Link to="/owner/billing">
               <CreditCardIcon />
-              Abonnement
+              {SUBSCRIPTIONS_ENABLED ? "Abonnement" : "Paiements"}
             </Link>
           </DropdownMenuItem>
         </DropdownMenuGroup>

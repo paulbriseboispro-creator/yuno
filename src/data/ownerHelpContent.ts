@@ -55,11 +55,8 @@ export const glossaryTerms: Record<string, string> = {
   'Application Fee': 'ohelp.glossary.term.applicationFee',
   'Service Fee': 'ohelp.glossary.term.serviceFee',
   'Frais de service': 'ohelp.glossary.term.serviceFee',
-  'Core': 'ohelp.glossary.term.planCore',
-  'Yuno Core': 'ohelp.glossary.term.planCore',
-  'Essential': 'ohelp.glossary.term.planEssential',
-  'Pro': 'ohelp.glossary.term.planPro',
-  'Elite': 'ohelp.glossary.term.planElite',
+  // Abonnement coupé (lancement) : les termes de glossaire des plans
+  // (Core/Essential/Pro/Elite) sont retirés avec les articles abonnement.
   'Onboarding': 'ohelp.glossary.term.onboarding',
   'Guest Checkout': 'ohelp.glossary.term.guestCheckout',
   'Checkout invité': 'ohelp.glossary.term.guestCheckout',
@@ -147,13 +144,13 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         descKey: 'ohelp.onboardingWizard.desc',
         icon: 'Zap',
         quickStart: true,
-        relatedArticleIds: ['setup-path', 'subscription-plans', 'stripe-connect', 'launch-checklist'],
+        relatedArticleIds: ['setup-path', 'stripe-connect', 'launch-checklist'],
         keywords: ['onboarding', 'wizard', 'assistant', 'étapes', 'steps', 'guide', 'configuration', 'démarrage', 'getting started'],
         sections: [
           { headingKey: 'ohelp.onboardingWizard.s1h', bodyKey: 'ohelp.onboardingWizard.s1b' },
           { headingKey: 'ohelp.onboardingWizard.s2h', bodyKey: 'ohelp.onboardingWizard.s2b', type: 'steps' },
           { headingKey: 'ohelp.onboardingWizard.s3h', bodyKey: 'ohelp.onboardingWizard.s3b' },
-          { headingKey: 'ohelp.onboardingWizard.s4h', bodyKey: 'ohelp.onboardingWizard.s4b' },
+          // s4 (« choix du plan d'abonnement ») retiré — abonnement coupé au lancement.
           { headingKey: 'ohelp.onboardingWizard.s5h', bodyKey: 'ohelp.onboardingWizard.s5b', type: 'tip' },
           { headingKey: 'ohelp.onboardingWizard.s6h', bodyKey: 'ohelp.onboardingWizard.s6b', type: 'warning' },
         ],
@@ -200,7 +197,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'LayoutGrid',
         quickStart: true,
         actionLink: { labelKey: 'ohelp.action.goToDashboard', path: '/dashboard' },
-        relatedArticleIds: ['understand-analytics', 'live-night', 'subscription-plans'],
+        relatedArticleIds: ['understand-analytics', 'live-night'],
         keywords: ['dashboard', 'tableau de bord', 'accueil', 'home', 'kpi', 'revenue', 'revenu', 'ventes', 'sales', 'overview', 'panel'],
         sections: [
           { headingKey: 'ohelp.pg.dashboard.s1h', bodyKey: 'ohelp.pg.dashboard.s1b' },
@@ -209,7 +206,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.dashboard.s4h', bodyKey: 'ohelp.pg.dashboard.s4b' },
           { headingKey: 'ohelp.pg.dashboard.s5h', bodyKey: 'ohelp.pg.dashboard.s5b', type: 'steps' },
           { headingKey: 'ohelp.pg.dashboard.s6h', bodyKey: 'ohelp.pg.dashboard.s6b', type: 'tip' },
-          { headingKey: 'ohelp.pg.dashboard.s7h', bodyKey: 'ohelp.pg.dashboard.s7b' },
+          // s7 (« bandeaux plan et paiement ») retiré — abonnement coupé au lancement.
         ],
       },
       {
@@ -218,7 +215,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         descKey: 'ohelp.pg.analytics.desc',
         icon: 'BarChart3',
         actionLink: { labelKey: 'ohelp.action.goToAnalytics', path: '/analytics' },
-        relatedArticleIds: ['dashboard-overview', 'crm-setup', 'refund-management', 'subscription-plans'],
+        relatedArticleIds: ['dashboard-overview', 'crm-setup', 'refund-management'],
         keywords: ['analytics', 'analyse', 'statistiques', 'stats', 'revenue', 'rapport', 'report', 'export', 'kpi', 'period', 'période', 'gross revenue'],
         sections: [
           { headingKey: 'ohelp.pg.analytics.s1h', bodyKey: 'ohelp.pg.analytics.s1b' },
@@ -676,7 +673,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         descKey: 'ohelp.pg.vipservice.desc',
         icon: 'Crown',
         actionLink: { labelKey: 'ohelp.action.goToVipService', path: '/vip-service' },
-        relatedArticleIds: ['tables-vip-setup', 'subscription-plans'],
+        relatedArticleIds: ['tables-vip-setup'],
         keywords: ['vip service', 'service vip', 'bottle', 'bouteille', 'reservation', 'réservation', 'placement', 'deposit', 'acompte', 'consumption', 'host', 'servicio vip'],
         sections: [
           { headingKey: 'ohelp.pg.vipservice.s1h', bodyKey: 'ohelp.pg.vipservice.s1b' },
@@ -738,7 +735,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         descKey: 'ohelp.pg.venue.desc',
         icon: 'Store',
         actionLink: { labelKey: 'ohelp.action.goToVenue', path: '/venue' },
-        relatedArticleIds: ['subscription-plans', 'customization-options', 'stripe-connect'],
+        relatedArticleIds: ['customization-options', 'stripe-connect'],
         keywords: ['venue', 'club', 'customization', 'personnalisation', 'logo', 'banner', 'bannière', 'gallery', 'galerie', 'adresse', 'address', 'hours', 'horaires', 'social', 'public page', 'club'],
         sections: [
           { headingKey: 'ohelp.pg.venue.s1h', bodyKey: 'ohelp.pg.venue.s1b' },
@@ -750,33 +747,18 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.venue.s7h', bodyKey: 'ohelp.pg.venue.s7b', type: 'warning' },
         ],
       },
-      {
-        id: 'subscription-plans',
-        titleKey: 'ohelp.pg.subscription.title',
-        descKey: 'ohelp.pg.subscription.desc',
-        icon: 'CreditCard',
-        quickStart: true,
-        actionLink: { labelKey: 'ohelp.action.goToBilling', path: '/billing' },
-        relatedArticleIds: ['stripe-connect', 'feature-gating', 'billing-management', 'fee-structure'],
-        keywords: ['abonnement', 'subscription', 'plan', 'essential', 'pro', 'elite', 'prix', 'price', 'stripe', 'connect', 'paiement', 'payment', 'fee', 'commission', 'frais', 'mensuel', 'monthly'],
-        sections: [
-          { headingKey: 'ohelp.pg.subscription.s1h', bodyKey: 'ohelp.pg.subscription.s1b' },
-          { headingKey: 'ohelp.pg.subscription.s2h', bodyKey: 'ohelp.pg.subscription.s2b', screenshotUrl: '/help/owner-billing.png' },
-          { headingKey: 'ohelp.pg.subscription.s3h', bodyKey: 'ohelp.pg.subscription.s3b' },
-          { headingKey: 'ohelp.pg.subscription.s4h', bodyKey: 'ohelp.pg.subscription.s4b', type: 'steps' },
-          { headingKey: 'ohelp.pg.subscription.s5h', bodyKey: 'ohelp.pg.subscription.s5b' },
-          { headingKey: 'ohelp.pg.subscription.s6h', bodyKey: 'ohelp.pg.subscription.s6b' },
-          { headingKey: 'ohelp.pg.subscription.s7h', bodyKey: 'ohelp.pg.subscription.s7b', type: 'warning' },
-          { headingKey: 'ohelp.pg.subscription.s8h', bodyKey: 'ohelp.pg.subscription.s8b', type: 'tip' },
-        ],
-      },
+      // Abonnement coupé (lancement, SUBSCRIPTIONS_ENABLED=false dans planFeatures.ts) :
+      // les articles 'subscription-plans', 'feature-gating' et 'billing-management'
+      // sont retirés du guide. Leurs clés i18n (ohelp.pg.subscription.*,
+      // ohelp.featureGating.*, ohelp.billingMgmt.*) restent en sommeil dans data.ts
+      // pour une réactivation facile.
       {
         id: 'stripe-connect',
         titleKey: 'ohelp.stripeConnect.title',
         descKey: 'ohelp.stripeConnect.desc',
         icon: 'CreditCard',
         actionLink: { labelKey: 'ohelp.action.goToBilling', path: '/billing' },
-        relatedArticleIds: ['subscription-plans', 'ticketing-setup', 'fee-structure', 'billing-management'],
+        relatedArticleIds: ['ticketing-setup', 'fee-structure'],
         keywords: ['stripe', 'paiement', 'payment', 'IBAN', 'virement', 'bank', 'banque', 'connect', 'argent', 'money', 'compte', 'account', 'carte', 'card', 'payer', 'encaisser'],
         sections: [
           { headingKey: 'ohelp.stripeConnect.s1h', bodyKey: 'ohelp.stripeConnect.s1b' },
@@ -789,41 +771,11 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         ],
       },
       {
-        id: 'feature-gating',
-        titleKey: 'ohelp.featureGating.title',
-        descKey: 'ohelp.featureGating.desc',
-        icon: 'Lock',
-        relatedArticleIds: ['subscription-plans', 'billing-management'],
-        sections: [
-          { headingKey: 'ohelp.featureGating.s1h', bodyKey: 'ohelp.featureGating.s1b' },
-          { headingKey: 'ohelp.featureGating.s2h', bodyKey: 'ohelp.featureGating.s2b' },
-          { headingKey: 'ohelp.featureGating.s3h', bodyKey: 'ohelp.featureGating.s3b' },
-          { headingKey: 'ohelp.featureGating.s4h', bodyKey: 'ohelp.featureGating.s4b', type: 'example' },
-          { headingKey: 'ohelp.featureGating.s5h', bodyKey: 'ohelp.featureGating.s5b', type: 'tip' },
-        ],
-      },
-      {
-        id: 'billing-management',
-        titleKey: 'ohelp.billingMgmt.title',
-        descKey: 'ohelp.billingMgmt.desc',
-        icon: 'Wallet',
-        actionLink: { labelKey: 'ohelp.action.goToBilling', path: '/billing' },
-        relatedArticleIds: ['subscription-plans', 'stripe-connect', 'fee-structure'],
-        sections: [
-          { headingKey: 'ohelp.billingMgmt.s1h', bodyKey: 'ohelp.billingMgmt.s1b' },
-          { headingKey: 'ohelp.billingMgmt.s2h', bodyKey: 'ohelp.billingMgmt.s2b', type: 'steps' },
-          { headingKey: 'ohelp.billingMgmt.s3h', bodyKey: 'ohelp.billingMgmt.s3b' },
-          { headingKey: 'ohelp.billingMgmt.s4h', bodyKey: 'ohelp.billingMgmt.s4b' },
-          { headingKey: 'ohelp.billingMgmt.s5h', bodyKey: 'ohelp.billingMgmt.s5b', type: 'warning' },
-          { headingKey: 'ohelp.billingMgmt.s6h', bodyKey: 'ohelp.billingMgmt.s6b', type: 'tip' },
-        ],
-      },
-      {
         id: 'fee-structure',
         titleKey: 'ohelp.feeStructure.title',
         descKey: 'ohelp.feeStructure.desc',
         icon: 'Receipt',
-        relatedArticleIds: ['subscription-plans', 'stripe-connect', 'refund-management'],
+        relatedArticleIds: ['stripe-connect', 'refund-management'],
         sections: [
           { headingKey: 'ohelp.feeStructure.s1h', bodyKey: 'ohelp.feeStructure.s1b' },
           { headingKey: 'ohelp.feeStructure.s2h', bodyKey: 'ohelp.feeStructure.s2b' },

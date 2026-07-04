@@ -1,5 +1,20 @@
 // Source of truth: Yuno subscription plan features mapping
 
+/**
+ * Interrupteur global de l'abonnement clubs — période de lancement.
+ *
+ * `false` = abonnement coupé : aucun paywall, tout club non-collab est servi
+ * comme Pro (sans essai ni facturation), la page Billing ne montre que Stripe
+ * Connect, la nav affiche « Paiements », et les articles abonnement du mode
+ * d'emploi sont retirés. Le plan `collab` garde sa sémantique (garde-fous
+ * lecture seule via useCollabReadOnly, pas d'export CSV).
+ *
+ * Repasser à `true` pour réactiver la facturation. Pendant l'existence de ce
+ * flag, garder en phase la constante homonyme côté edge functions :
+ * supabase/functions/_shared/venue-plan.ts (branding + cap staff Core).
+ */
+export const SUBSCRIPTIONS_ENABLED: boolean = false;
+
 export type PlanCode = 'core' | 'collab' | 'essential' | 'pro' | 'elite';
 
 export type FeatureKey =

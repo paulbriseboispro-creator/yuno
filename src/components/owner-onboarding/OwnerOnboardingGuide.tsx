@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOwnerOnboarding } from '@/hooks/useOwnerOnboarding';
+import { SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
 
 const RED = '#E8192C';
 const GREEN = '#22c55e';
@@ -121,7 +122,8 @@ const STEPS: StepDef[] = [
     },
     actions: [
       { fr: 'Créer ou connecter votre compte Stripe', en: 'Create or connect your Stripe account', es: 'Crear o conectar tu cuenta Stripe' },
-      { fr: 'Choisir votre abonnement Yuno', en: 'Choose your Yuno plan', es: 'Elegir tu plan Yuno' },
+      // Abonnement coupé (lancement) : pas d'étape « choisir un plan ».
+      ...(SUBSCRIPTIONS_ENABLED ? [{ fr: 'Choisir votre abonnement Yuno', en: 'Choose your Yuno plan', es: 'Elegir tu plan Yuno' }] : []),
     ],
     ctaLabel: { fr: 'Connecter Stripe', en: 'Connect Stripe', es: 'Conectar Stripe' },
   },

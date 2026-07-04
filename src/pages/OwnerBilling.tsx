@@ -7,7 +7,7 @@ import { useStripeConnect } from '@/hooks/useStripeConnect';
 import { useAuth } from '@/hooks/useAuth';
 import { isDemoEmail, setDemoPlan } from '@/lib/demoPlan';
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
-import { PLANS, PLAN_ORDER, PlanCode, FeatureKey, BillingCycle, planPrice, annualSavings, ANNUAL_BILLED_MONTHS } from '@/lib/planFeatures';
+import { PLANS, PLAN_ORDER, PlanCode, FeatureKey, BillingCycle, planPrice, annualSavings, ANNUAL_BILLED_MONTHS, SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
 import { Check, AlertTriangle, CreditCard, ExternalLink, AlertCircle, Loader2, Crown, Zap, Rocket, Shield, RefreshCw, Sparkles, ShieldCheck, Banknote, Receipt, Lock, Gem } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
@@ -185,12 +185,13 @@ export default function OwnerBilling() {
       <div className="fixed inset-0 pointer-events-none z-0"
         style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
 
-      <OwnerHeader title={t('plan.billing')} showBackButton backTo="/owner/dashboard" />
+      {/* Abonnement coupé (lancement) : la page ne montre que Stripe Connect → titre « Paiements ». */}
+      <OwnerHeader title={t(SUBSCRIPTIONS_ENABLED ? 'plan.billing' : 'plan.payments')} showBackButton backTo="/owner/dashboard" />
 
       <div className="relative z-10 mx-auto max-w-[1340px] px-4 sm:px-6 pt-2 space-y-5">
 
         {/* Banners */}
-        {isPastDue && (
+        {SUBSCRIPTIONS_ENABLED && isPastDue && (
           <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
             style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.25)' }}>
             <AlertTriangle className="h-4 w-4 flex-shrink-0" style={{ color: RED }} />
@@ -206,7 +207,7 @@ export default function OwnerBilling() {
           </div>
         )}
 
-        {isTrial && daysRemaining !== null && (
+        {SUBSCRIPTIONS_ENABLED && isTrial && daysRemaining !== null && (
           <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
             style={isEarlyAdopter
               ? { background: 'rgba(167,139,250,0.07)', border: '1px solid rgba(167,139,250,0.2)' }
@@ -221,6 +222,7 @@ export default function OwnerBilling() {
         )}
 
         {/* Current Plan Card */}
+        {SUBSCRIPTIONS_ENABLED && (
         <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 24 }}>
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -277,6 +279,7 @@ export default function OwnerBilling() {
             </button>
           )}
         </div>
+        )}
 
         {/* Stripe Connect */}
         <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 24 }}>
@@ -362,6 +365,7 @@ export default function OwnerBilling() {
         </div>
 
         {/* Plan Comparison */}
+        {SUBSCRIPTIONS_ENABLED && (
         <div>
           <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
             <p style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('plan.comparePlans')}</p>
@@ -511,6 +515,7 @@ export default function OwnerBilling() {
             })}
           </div>
         </div>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { hasFeature as checkFeature, requiredPlan as getRequiredPlan, PlanCode, FeatureKey, PLANS } from '@/lib/planFeatures';
+import { hasFeature as checkFeature, requiredPlan as getRequiredPlan, PlanCode, FeatureKey, PLANS, SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
 import { isDemoEmail, getDemoPlan, DEMO_PLAN_EVENT } from '@/lib/demoPlan';
 
 type BillingInterval = 'monthly' | 'annual';
@@ -102,17 +102,21 @@ export function SubscriptionPlanProvider({ venueId, children }: { venueId: strin
     return () => window.removeEventListener(DEMO_PLAN_EVENT, handler);
   }, [fetchPlan]);
 
+  // Abonnement coupé (lancement) : tout club non-collab est servi comme Pro,
+  // actif, sans essai. On garde le fetch ci-dessus uniquement pour détecter le
+  // plan `collab` (garde-fous lecture seule + pas d'export CSV inchangés).
+  const effectivePlan: PlanCode = SUBSCRIPTIONS_ENABLED || plan === 'collab' ? plan : 'pro';
   const value: SubscriptionPlanState = {
-    plan,
-    status,
+    plan: effectivePlan,
+    status: SUBSCRIPTIONS_ENABLED ? status : 'active',
     loading,
-    daysRemaining,
-    isTrial,
-    currentPeriodEnd,
-    isEarlyAdopter,
-    priceLocked,
-    billingInterval,
-    hasFeature: (feature: FeatureKey) => checkFeature(plan, feature),
+    daysRemaining: SUBSCRIPTIONS_ENABLED ? daysRemaining : null,
+    isTrial: SUBSCRIPTIONS_ENABLED ? isTrial : false,
+    currentPeriodEnd: SUBSCRIPTIONS_ENABLED ? currentPeriodEnd : null,
+    isEarlyAdopter: SUBSCRIPTIONS_ENABLED ? isEarlyAdopter : false,
+    priceLocked: SUBSCRIPTIONS_ENABLED ? priceLocked : false,
+    billingInterval: SUBSCRIPTIONS_ENABLED ? billingInterval : null,
+    hasFeature: (feature: FeatureKey) => checkFeature(effectivePlan, feature),
     requiredPlan: getRequiredPlan,
     refreshPlan: fetchPlan,
   };

@@ -29,6 +29,7 @@ import {
 	ActivityIcon,
 	CalculatorIcon,
 } from "lucide-react";
+import { SUBSCRIPTIONS_ENABLED } from "@/lib/planFeatures";
 
 export type SidebarNavItem = {
 	title: string;
@@ -209,7 +210,9 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					icon: <StoreIcon />,
 				},
 				{
-					title: t('sidebar.subscription'),
+					// Abonnement coupé (lancement) : la page /owner/billing ne montre
+					// que Stripe Connect → l'entrée s'appelle « Paiements ».
+					title: t(SUBSCRIPTIONS_ENABLED ? 'sidebar.subscription' : 'plan.payments'),
 					path: "/owner/billing",
 					icon: <CreditCardIcon />,
 				},

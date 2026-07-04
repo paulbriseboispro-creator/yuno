@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOwnerOnboarding } from '@/hooks/useOwnerOnboarding';
+import { SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
 
 const RED = '#E8192C';
 const POS = '#34D399';
@@ -90,7 +91,8 @@ const STEP_DEFS: StepDef[] = [
     page: '/owner/billing',
     subs: [
       { fr: 'Connecter votre compte Stripe', en: 'Connect your Stripe account', es: 'Conectar cuenta Stripe', page: '/owner/billing' },
-      { fr: 'Choisir votre abonnement Yuno', en: 'Choose your Yuno plan', es: 'Elegir tu plan Yuno', page: '/owner/billing' },
+      // Abonnement coupé (lancement) : pas d'étape « choisir un plan ».
+      ...(SUBSCRIPTIONS_ENABLED ? [{ fr: 'Choisir votre abonnement Yuno', en: 'Choose your Yuno plan', es: 'Elegir tu plan Yuno', page: '/owner/billing' }] : []),
     ],
   },
   {

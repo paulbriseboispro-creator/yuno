@@ -1,6 +1,7 @@
 import { EmailBlock } from './EmailBuilder';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
+import { SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
 
 // Yuno brand colors - FIXED, clubs cannot change these
 const YUNO_COLORS = {
@@ -23,8 +24,9 @@ export function EmailPreview({ blocks, venueName, venueLogo, previewMode }: Emai
   const containerWidth = previewMode === 'mobile' ? '375px' : '600px';
   // Branding cap: Core keeps "Powered by Yuno"; Essential+ white-labels. Mirrors the
   // backend send path (send-crm-campaign) so the preview matches what recipients get.
+  // Abonnement coupé (lancement) : branding affiché pour tous, comme côté envoi.
   const { plan } = useSubscriptionPlan();
-  const hideBranding = plan !== 'core';
+  const hideBranding = SUBSCRIPTIONS_ENABLED ? plan !== 'core' : false;
 
   return (
     <div 

@@ -1,7 +1,7 @@
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Link } from 'react-router-dom';
 import { Check, ExternalLink, Loader2, Clock, CreditCard, Handshake, Sparkles, ArrowRight, Gift } from 'lucide-react';
-import { PlanCode } from '@/lib/planFeatures';
+import { PlanCode, SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { StepHeader, PrimaryButton, GhostButton, InnerCard, POS, T1, T2, T3, BORDER } from './onboardingUI';
@@ -177,7 +177,9 @@ export function OnboardingStepStripe({
         </div>
       </InnerCard>
 
-      {/* Free trial — plan choice deferred (no paywall in the flow) */}
+      {/* Free trial — plan choice deferred (no paywall in the flow).
+          Abonnement coupé (lancement) : le bandeau essai/plans est masqué. */}
+      {SUBSCRIPTIONS_ENABLED && (
       <div
         className="flex items-start gap-3 rounded-2xl"
         style={{ padding: '14px 16px', background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.2)' }}
@@ -204,6 +206,7 @@ export function OnboardingStepStripe({
           </Link>
         </div>
       </div>
+      )}
 
       {/* Continue — available once Stripe is connected */}
       <PrimaryButton fullWidth icon={isConnected ? ArrowRight : undefined} onClick={onComplete} disabled={!isConnected}>
