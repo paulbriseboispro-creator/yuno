@@ -9,10 +9,12 @@ import {
   CheckCircle2, XCircle, Loader2, LogIn, ArrowRight, ArrowLeft,
   Ticket, Users, TrendingUp, Music, Calendar, Star, Zap,
   Shield, BarChart3, Link2, MapPin, Package, Scan, List,
-  LayoutDashboard, Settings, Eye, EyeOff,
+  LayoutDashboard, Settings, Eye, EyeOff, Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { recordLegalAcceptance } from '@/lib/legal';
+import { legalContent } from '@/data/legalContent';
 import type { LucideIcon } from 'lucide-react';
 
 interface LinkInfo {
@@ -198,13 +200,14 @@ function VisualPanel({ info, t }: { info: LinkInfo | null; t: (k: string) => str
 export default function JoinViaLink() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { user, loading: authLoading } = useAuth();
   const token = searchParams.get('token');
 
   const [checking, setChecking] = useState(true);
   const [info, setInfo] = useState<LinkInfo | null>(null);
   const [loading, setLoading] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string; redirect?: string } | null>(null);
 
   const [step, setStep] = useState<Step>('overview');
@@ -276,6 +279,23 @@ export default function JoinViaLink() {
         await supabase.auth.signInWithPassword({ email: email.trim(), password });
       }
 
+      // Clickwrap : trace l'acceptation des conditions pro + engagement de
+      // confidentialité (case cochée obligatoire avant redeem). Fire-and-forget.
+      const acceptEmail = (user?.email ?? email.trim()) || undefined;
+      const acceptCtx = { surface: 'join_link', role: info?.role };
+      void recordLegalAcceptance({
+        docType: 'terms_pro',
+        docContent: legalContent['cgv-clubs'][language].content,
+        email: acceptEmail,
+        context: acceptCtx,
+      });
+      void recordLegalAcceptance({
+        docType: 'confidentiality',
+        docContent: legalContent['confidentialite'][language].content,
+        email: acceptEmail,
+        context: acceptCtx,
+      });
+
       setResult({ success: true, message: data.message || t('join.success'), redirect: data.redirect || '/' });
       toast.success(data.message || t('join.success'));
     } catch (err) {
@@ -284,7 +304,7 @@ export default function JoinViaLink() {
     } finally {
       setLoading(false);
     }
-  }, [token, user, email, password, firstName, lastName, stageName, info, step, t]);
+  }, [token, user, email, password, firstName, lastName, stageName, info, step, t, language]);
 
   const goLoginBack = () =>
     navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
@@ -389,6 +409,35 @@ export default function JoinViaLink() {
 
   const roleLabel = t(`join.role.${info.role}`) || info.role;
 
+  // Clickwrap conditions pro + engagement de confidentialité — obligatoire
+  // avant tout redeem (compte existant comme nouveau compte).
+  const consentCheckbox = (
+    <button
+      type="button"
+      onClick={() => setAcceptedTerms(!acceptedTerms)}
+      className="flex items-start gap-2.5 w-full text-left mb-4"
+    >
+      <span
+        className="shrink-0 h-[18px] w-[18px] rounded-[4px] border flex items-center justify-center transition-colors mt-[1px]"
+        style={{
+          background: acceptedTerms ? '#E8192C' : 'transparent',
+          borderColor: acceptedTerms ? '#E8192C' : 'rgba(255,255,255,0.25)',
+        }}
+      >
+        {acceptedTerms && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+      </span>
+      <span className="text-xs leading-snug text-white/50">
+        {t('legal.proPre')}{' '}
+        <a href="/legal/cgv-clubs" target="_blank" rel="noopener noreferrer" className="underline text-[#E8192C]" onClick={(e) => e.stopPropagation()}>
+          {t('legal.proTerms')}
+        </a>{' '}
+        {t('legal.proMid')}<a href="/legal/confidentialite" target="_blank" rel="noopener noreferrer" className="underline text-[#E8192C]" onClick={(e) => e.stopPropagation()}>
+          {t('legal.proConf')}
+        </a>
+      </span>
+    </button>
+  );
+
   // ─── Logged-in: one-tap join ──────────────────────────────────────────────
   if (user) {
     return (
@@ -436,10 +485,12 @@ export default function JoinViaLink() {
               <p className="text-white font-semibold">{roleLabel}</p>
             </div>
 
+            {consentCheckbox}
+
             <Button
               className="w-full bg-[#E8192C] hover:bg-[#FF2438] text-white font-semibold py-3.5 h-auto text-base"
               onClick={redeem}
-              disabled={loading}
+              disabled={loading || !acceptedTerms}
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               {t('join.loggedInJoin')} {roleLabel}
@@ -587,10 +638,12 @@ export default function JoinViaLink() {
                   />
                 </div>
 
+                <div className="pt-1">{consentCheckbox}</div>
+
                 <Button
                   className="w-full bg-[#E8192C] hover:bg-[#FF2438] text-white font-semibold py-3.5 h-auto text-base mt-2"
                   onClick={redeem}
-                  disabled={loading || !canSubmitForm}
+                  disabled={loading || !canSubmitForm || !acceptedTerms}
                 >
                   {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                   {t('join.continue')}

@@ -11,6 +11,9 @@ import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { recordLegalAcceptance } from '@/lib/legal';
+import { legalContent } from '@/data/legalContent';
+import { Check } from 'lucide-react';
 import yunoLogo from '@/assets/yuno-logo.png';
 
 const getAuthSchema = (t: (key: string) => string) => z.object({
@@ -31,8 +34,9 @@ export default function Auth() {
   const { user, loading } = useAuth();
   const { primaryRole, loading: rolesLoading } = useUserRoles();
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [email, setEmail] = useState(inviteEmailParam ?? '');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(!!inviteToken || !!platformInviteToken || !!affiliateInviteToken || !!affiliateMemberInviteToken || searchParams.get('signup') === 'true');
@@ -301,6 +305,15 @@ export default function Auth() {
             description: t('auth.autoLogin'),
           });
 
+          // Clickwrap : trace l'acceptation des CGU (case cochée obligatoire ci-dessous).
+          // Fire-and-forget — l'échec d'enregistrement ne bloque pas l'inscription.
+          void recordLegalAcceptance({
+            docType: 'cgu',
+            docContent: legalContent['cgu'][language].content,
+            email,
+            context: { surface: 'signup', privacy_shown: true },
+          });
+
           // Sign in after successful signup - redirection will be handled by useEffect.
           // With email confirmation OFF (the recommended setting) this succeeds
           // immediately and the user lands in the app. If confirmation is still
@@ -514,11 +527,42 @@ export default function Auth() {
               </div>
             )}
 
+            {/* Clickwrap CGU + Politique de confidentialité (signature électronique simple, eIDAS) */}
+            {isSignUp && !isReset && !isForgotPassword && (
+              <button
+                type="button"
+                onClick={() => setAcceptedTerms(!acceptedTerms)}
+                disabled={isLoading}
+                className="flex items-start gap-2.5 w-full text-left"
+                style={{ padding: '2px 2px 0' }}
+              >
+                <span
+                  className="shrink-0 h-[18px] w-[18px] rounded-[4px] border flex items-center justify-center transition-colors mt-[1px]"
+                  style={{
+                    background: acceptedTerms ? '#E8192C' : 'transparent',
+                    borderColor: acceptedTerms ? '#E8192C' : 'rgba(255,255,255,0.25)',
+                  }}
+                >
+                  {acceptedTerms && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                </span>
+                <span className="text-xs leading-snug" style={{ color: '#9A9A9A' }}>
+                  {t('legal.signupPre')}{' '}
+                  <a href="/legal/cgu" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#E8192C' }} onClick={(e) => e.stopPropagation()}>
+                    {t('legal.signupTerms')}
+                  </a>{' '}
+                  {t('legal.signupMid')}{' '}
+                  <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: '#E8192C' }} onClick={(e) => e.stopPropagation()}>
+                    {t('legal.signupPrivacy')}
+                  </a>
+                </span>
+              </button>
+            )}
+
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || (isSignUp && !isReset && !isForgotPassword && !acceptedTerms)}
               className="btn btn--primary w-full mt-2"
-              style={{ height: '46px', fontSize: '14px', letterSpacing: '0.02em', borderRadius: '8px', width: '100%' }}
+              style={{ height: '46px', fontSize: '14px', letterSpacing: '0.02em', borderRadius: '8px', width: '100%', opacity: isSignUp && !isReset && !isForgotPassword && !acceptedTerms ? 0.5 : 1 }}
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

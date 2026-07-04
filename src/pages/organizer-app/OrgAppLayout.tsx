@@ -3,6 +3,7 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { OrgAppSidebar } from '@/components/org-sidebar';
 import { OrgAppHeader } from '@/components/org-app-header';
 import { OrgOnboardingGuide } from '@/components/organizer-onboarding/OrgOnboardingGuide';
+import { LegalConsentGate } from '@/components/LegalConsentGate';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function OrgAppLayout() {
@@ -16,6 +17,7 @@ export default function OrgAppLayout() {
         <Outlet />
       </SidebarInset>
       {user && <OrgOnboardingGuide userId={user.id} />}
+      <LegalConsentGate />
     </SidebarProvider>
   );
 }

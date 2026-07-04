@@ -8,11 +8,13 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Loader2, Lock, Eye, AlertTriangle } from 'lucide-react';
+import { Loader2, Lock, Eye, AlertTriangle, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { DEMO_ACCOUNTS, applyDemoBypass, type TargetAccount } from '@/lib/demoSession';
 import { enablePreviewMode } from '@/contexts/PreviewModeContext';
 import { useLanguage, type Language } from '@/contexts/LanguageContext';
+import { recordLegalAcceptance } from '@/lib/legal';
+import { legalContent } from '@/data/legalContent';
 
 const RED = '#E8192C';
 
@@ -35,6 +37,8 @@ const COPY: Record<Lang, {
   footer: string;
   loading: string;
   unavailable: string;
+  consent: string;
+  consentLink: string;
   invalid: Record<string, string>;
   err: { wrong: string; locked: string; expired: string; revoked: string; generic: string; unknown: string };
 }> = {
@@ -48,6 +52,8 @@ const COPY: Record<Lang, {
     footer: 'Demo preview. Everything is read-only — no real data can be created or modified.',
     loading: 'Loading…',
     unavailable: 'Preview unavailable',
+    consent: 'By entering, I agree to keep this preview confidential and not to reproduce it.',
+    consentLink: 'Confidentiality Commitment',
     invalid: {
       not_found: 'This preview link was not found.',
       revoked: 'This preview link has been disabled.',
@@ -74,6 +80,8 @@ const COPY: Record<Lang, {
     footer: 'Aperçu de démonstration. Tout est en lecture seule — aucune donnée réelle ne peut être créée ou modifiée.',
     loading: 'Chargement…',
     unavailable: 'Aperçu indisponible',
+    consent: "En entrant, je m'engage à garder cet aperçu confidentiel et à ne pas le reproduire.",
+    consentLink: 'Engagement de Confidentialité',
     invalid: {
       not_found: "Ce lien d'aperçu est introuvable.",
       revoked: "Ce lien d'aperçu a été désactivé.",
@@ -100,6 +108,8 @@ const COPY: Record<Lang, {
     footer: 'Vista previa de demostración. Todo es de solo lectura — no se puede crear ni modificar ningún dato real.',
     loading: 'Cargando…',
     unavailable: 'Vista previa no disponible',
+    consent: 'Al entrar, me comprometo a mantener esta vista previa confidencial y a no reproducirla.',
+    consentLink: 'Compromiso de Confidencialidad',
     invalid: {
       not_found: 'No se encontró este enlace de vista previa.',
       revoked: 'Este enlace de vista previa ha sido desactivado.',
@@ -131,6 +141,7 @@ export default function PreviewGate() {
   const [info, setInfo] = useState<LinkInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [password, setPassword] = useState('');
+  const [accepted, setAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -160,7 +171,7 @@ export default function PreviewGate() {
   }, [info?.language, setLanguage]);
 
   const submit = async () => {
-    if (!password || submitting) return;
+    if (!password || !accepted || submitting) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -177,6 +188,15 @@ export default function PreviewGate() {
         setSubmitting(false);
         return;
       }
+
+      // Clickwrap : trace l'engagement de confidentialité du prospect AVANT le
+      // setSession (encore anon) et avant l'armement du mode lecture seule, qui
+      // bloquerait cette écriture. On n'enregistre que les entrées réussies.
+      await recordLegalAcceptance({
+        docType: 'demo_confidentiality',
+        docContent: legalContent['confidentialite'][lang].content,
+        context: { surface: 'preview_gate', label: info?.label ?? '', roles: info?.target_accounts ?? [] },
+      });
 
       const roles = ((data as any).target_accounts as TargetAccount[]) ?? [];
       const primary = roles[0];
@@ -272,16 +292,46 @@ export default function PreviewGate() {
                 <p className="text-[13px]" style={{ color: '#FF5C63' }}>{error}</p>
               )}
 
+              {/* Engagement de confidentialité (clickwrap) — requis pour entrer */}
+              <button
+                type="button"
+                onClick={() => setAccepted(!accepted)}
+                className="flex items-start gap-2.5 w-full text-left"
+              >
+                <span
+                  className="shrink-0 h-[18px] w-[18px] rounded-[4px] border flex items-center justify-center transition-colors mt-[1px]"
+                  style={{
+                    background: accepted ? RED : 'transparent',
+                    borderColor: accepted ? RED : 'rgba(255,255,255,0.25)',
+                  }}
+                >
+                  {accepted && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                </span>
+                <span className="text-[12px] leading-snug text-white/50">
+                  {c.consent}{' '}
+                  <a
+                    href="/legal/confidentialite"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                    style={{ color: RED }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {c.consentLink}
+                  </a>
+                </span>
+              </button>
+
               <button
                 type="button"
                 onClick={submit}
-                disabled={submitting || !password}
+                disabled={submitting || !password || !accepted}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[14px] font-semibold transition"
                 style={{
                   background: RED, color: '#fff',
                   boxShadow: `0 0 22px -8px ${RED}`,
-                  opacity: submitting || !password ? 0.55 : 1,
-                  cursor: submitting || !password ? 'not-allowed' : 'pointer',
+                  opacity: submitting || !password || !accepted ? 0.55 : 1,
+                  cursor: submitting || !password || !accepted ? 'not-allowed' : 'pointer',
                 }}
               >
                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}

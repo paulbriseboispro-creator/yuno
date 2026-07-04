@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
 import { OwnerOnboardingGuide } from '@/components/owner-onboarding/OwnerOnboardingGuide';
+import { LegalConsentGate } from '@/components/LegalConsentGate';
 import { useOwnerVenueContext } from '@/contexts/OwnerVenueContext';
 
 function OwnerLayoutInner() {
@@ -14,6 +15,7 @@ function OwnerLayoutInner() {
         <Outlet />
       </SidebarInset>
       {venueId && <OwnerOnboardingGuide venueId={venueId} />}
+      <LegalConsentGate />
     </SidebarProvider>
   );
 }
