@@ -1,4 +1,4 @@
-export type LegalSection = 'mentions-legales' | 'cgu' | 'cgv-utilisateurs' | 'cgv-clubs' | 'privacy' | 'cookies';
+export type LegalSection = 'mentions-legales' | 'cgu' | 'cgv-utilisateurs' | 'cgv-clubs' | 'confidentialite' | 'privacy' | 'cookies';
 
 interface LegalDocument {
   title: string;
@@ -423,7 +423,7 @@ Derecho francés.`
 Ces conditions régissent l'accès des clubs à la plateforme Yuno, la publication de produits, l'encaissement via Stripe et la gestion des QR codes.
 
 **2. Abonnement**
-Accès plateforme clubs : 99 € / mois / club (hors frais Stripe). L'abonnement donne accès aux outils de gestion : création événements/produits, QR, suivi commandes, données basiques.
+L'accès à la plateforme est proposé selon plusieurs formules d'abonnement, dont une formule gratuite. Le détail des formules, des fonctionnalités incluses et des prix en vigueur figure sur la page Tarifs de yunoapp.eu. Les frais Stripe restent à la charge du club.
 
 **3. Rôle du club**
 Le club est vendeur des produits et responsable :
@@ -455,6 +455,9 @@ Si le club active un système promoters :
 **8. Remboursements & annulations**
 Le club définit sa politique, sous réserve du droit applicable. En cas de bug imputable à Yuno : Yuno peut initier ou demander une procédure de remboursement 100%.
 
+**9. Confidentialité & non-exploitation**
+L'accès à l'espace professionnel donne accès à des informations confidentielles de Yuno (fonctionnalités non publiées, feuille de route, logique de tarification et de commissions, outils, données, savoir-faire), protégées notamment au titre du secret des affaires (articles L. 151-1 et suivants du Code de commerce). Le club s'engage à ne pas les divulguer à des tiers, à ne pas les utiliser à d'autres fins que l'utilisation normale du service, et à ne pas les exploiter, directement ou indirectement, pour concevoir, développer, faire développer ou commercialiser un produit ou service concurrent, pendant la durée du contrat et pendant 3 ans après sa fin. L'Engagement de confidentialité complet (yunoapp.eu/legal/confidentialite) fait partie intégrante des présentes conditions.
+
 **10. Accès administrateur plateforme**
 L'opérateur Yuno dispose d'un accès technique aux données de gestion des établissements (statistiques de performance, commandes, événements, configuration) afin d'assurer le bon fonctionnement du service, la détection de fraude, le support technique et la résolution de litiges, conformément au RGPD (intérêt légitime). Ces données ne sont jamais partagées avec des tiers non autorisés.
 
@@ -467,7 +470,7 @@ Droit français.`
 These terms govern club access to the Yuno platform, product publication, payment processing via Stripe, and QR code management.
 
 **2. Subscription**
-Club platform access: €99/month/club (excluding Stripe fees). The subscription provides access to management tools: event/product creation, QR codes, order tracking, basic analytics.
+Platform access is offered through several subscription plans, including a free plan. Details of plans, included features, and current prices are available on the yunoapp.eu Pricing page. Stripe fees remain the club's responsibility.
 
 **3. Club's Role**
 The club is the product seller and is responsible for:
@@ -499,6 +502,9 @@ If the club activates a promoter system:
 **8. Refunds & Cancellations**
 The club defines its policy, subject to applicable law. In case of a bug attributable to Yuno: Yuno may initiate or request a 100% refund procedure.
 
+**9. Confidentiality & Non-Exploitation**
+Access to the professional dashboard exposes Yuno's confidential information (unreleased features, roadmap, pricing and commission logic, tools, data, know-how), protected in particular under French trade secret law (Articles L. 151-1 et seq. of the French Commercial Code). The club agrees not to disclose it to third parties, not to use it for any purpose other than normal use of the service, and not to exploit it, directly or indirectly, to design, develop, have developed, or market a competing product or service, for the duration of the contract and for 3 years after its end. The full Confidentiality Commitment (yunoapp.eu/legal/confidentialite) is an integral part of these terms.
+
 **10. Platform Administrator Access**
 The Yuno operator has technical access to establishment management data (performance statistics, orders, events, configuration) to ensure proper service operation, fraud detection, technical support, and dispute resolution, in accordance with GDPR (legitimate interest). This data is never shared with unauthorized third parties.
 
@@ -511,7 +517,7 @@ French law.`
 Estas condiciones regulan el acceso de los clubs a la plataforma Yuno, la publicación de productos, el cobro mediante Stripe y la gestión de códigos QR.
 
 **2. Suscripción**
-Acceso a la plataforma clubs: 99 €/mes/club (sin incluir comisiones de Stripe). La suscripción da acceso a herramientas de gestión: creación de eventos/productos, QR, seguimiento de pedidos, datos básicos.
+El acceso a la plataforma se ofrece mediante varias fórmulas de suscripción, incluida una fórmula gratuita. El detalle de las fórmulas, las funcionalidades incluidas y los precios vigentes figura en la página de Tarifas de yunoapp.eu. Las comisiones de Stripe corren a cargo del club.
 
 **3. Rol del club**
 El club es el vendedor de los productos y responsable de:
@@ -543,11 +549,125 @@ Si el club activa un sistema de promotores:
 **8. Reembolsos y cancelaciones**
 El club define su política, sujeta al derecho aplicable. En caso de error atribuible a Yuno: Yuno puede iniciar o solicitar un procedimiento de reembolso del 100%.
 
+**9. Confidencialidad y no explotación**
+El acceso al espacio profesional expone información confidencial de Yuno (funcionalidades no publicadas, hoja de ruta, lógica de precios y comisiones, herramientas, datos, know-how), protegida en particular por el secreto empresarial (artículos L. 151-1 y siguientes del Código de Comercio francés). El club se compromete a no divulgarla a terceros, a no utilizarla para fines distintos del uso normal del servicio, y a no explotarla, directa o indirectamente, para diseñar, desarrollar, hacer desarrollar o comercializar un producto o servicio competidor, durante la vigencia del contrato y durante los 3 años posteriores a su fin. El Compromiso de Confidencialidad completo (yunoapp.eu/legal/confidentialite) forma parte integrante de estas condiciones.
+
 **10. Acceso del administrador de la plataforma**
 El operador de Yuno tiene acceso técnico a los datos de gestión de los establecimientos (estadísticas de rendimiento, pedidos, eventos, configuración) para garantizar el correcto funcionamiento del servicio, la detección de fraudes, el soporte técnico y la resolución de disputas, de conformidad con el RGPD (interés legítimo). Estos datos nunca se comparten con terceros no autorizados.
 
 **11. Derecho aplicable**
 Derecho francés.`
+    }
+  },
+
+  'confidentialite': {
+    fr: {
+      title: 'Engagement de Confidentialité',
+      content: `**1. Objet**
+Le présent engagement protège les informations confidentielles de Yuno, plateforme éditée par WOMBER (SIREN 995 130 747, 25 avenue Mercure, 31130 Quint-Fonsegrives, France). Il s'applique à toute personne qui accède à un espace professionnel Yuno (club, organisateur, promoteur, affilié, DJ, staff) ou à un aperçu de démonstration (lien de preview), et complète les conditions applicables à votre compte.
+
+**2. Informations confidentielles**
+Sont confidentielles toutes les informations non publiques auxquelles vous accédez via Yuno, notamment : fonctionnalités et interfaces non publiées, feuille de route, logique de tarification et de commissions, outils professionnels, méthodes et savoir-faire, données commerciales et statistiques, ainsi que l'existence et le contenu des échanges avec Yuno.
+
+**3. Vos engagements**
+En accédant à un espace professionnel ou à un aperçu de démonstration, vous vous engagez à :
+• ne pas divulguer ces informations à des tiers ;
+• ne pas les copier, enregistrer, filmer ou reproduire au-delà de l'usage normal du service ;
+• ne pas les utiliser à d'autres fins que l'évaluation ou l'utilisation de Yuno ;
+• ne pas décompiler le service ni procéder à de l'ingénierie inverse.
+
+**4. Non-exploitation**
+Vous vous interdisez d'utiliser ces informations, directement ou indirectement, pour concevoir, développer, faire développer, financer ou commercialiser un produit ou service reproduisant ou s'inspirant substantiellement de Yuno, pendant votre accès et pendant 3 ans après la dernière communication d'informations confidentielles.
+
+**5. Non-contournement**
+Pendant votre accès et pendant 12 mois après, vous vous interdisez d'utiliser les informations confidentielles pour contourner Yuno auprès des partenaires, organisateurs, DJs ou clients qui vous auraient été révélés par la plateforme, lorsque vous n'en aviez pas connaissance par ailleurs.
+
+**6. Propriété intellectuelle**
+Tous les droits (code, interfaces, marques, contenus, bases de données, savoir-faire) restent la propriété exclusive de Yuno / WOMBER. Aucune licence ni cession n'est consentie au-delà du droit strictement limité d'utiliser le service.
+
+**7. Durée**
+Les obligations de confidentialité survivent 5 ans après la fin de votre accès. Les informations relevant du secret des affaires (articles L. 151-1 et suivants du Code de commerce) restent protégées tant qu'elles conservent ce caractère.
+
+**8. Responsabilité**
+Tout manquement engage votre responsabilité et peut donner lieu à la réparation intégrale du préjudice subi par Yuno, ainsi qu'à toute mesure d'urgence destinée à faire cesser le trouble.
+
+**9. Preuve d'acceptation**
+L'acceptation en ligne (case cochée lors de l'inscription, de l'onboarding ou de l'accès à un aperçu) vaut signature électronique au sens du règlement (UE) n° 910/2014 (eIDAS). Yuno conserve la preuve de l'acceptation : identifiant ou email, version du document, horodatage, adresse IP.
+
+**10. Droit applicable**
+Droit français. Tribunaux compétents du ressort de la Cour d'appel de Toulouse, dans les limites permises par la loi.`
+    },
+    en: {
+      title: 'Confidentiality Commitment',
+      content: `**1. Purpose**
+This commitment protects the confidential information of Yuno, a platform operated by WOMBER (SIREN 995 130 747, 25 avenue Mercure, 31130 Quint-Fonsegrives, France). It applies to anyone accessing a Yuno professional dashboard (club, organizer, promoter, affiliate, DJ, staff) or a demo preview (preview link), and supplements the terms applicable to your account.
+
+**2. Confidential Information**
+All non-public information you access through Yuno is confidential, including: unreleased features and interfaces, roadmap, pricing and commission logic, professional tools, methods and know-how, business and statistical data, as well as the existence and content of discussions with Yuno.
+
+**3. Your Commitments**
+By accessing a professional dashboard or a demo preview, you agree to:
+• not disclose this information to third parties;
+• not copy, record, film, or reproduce it beyond normal use of the service;
+• not use it for any purpose other than evaluating or using Yuno;
+• not decompile or reverse engineer the service.
+
+**4. Non-Exploitation**
+You agree not to use this information, directly or indirectly, to design, develop, have developed, fund, or market a product or service that reproduces or is substantially inspired by Yuno, during your access and for 3 years after the last disclosure of confidential information.
+
+**5. Non-Circumvention**
+During your access and for 12 months after, you agree not to use confidential information to circumvent Yuno with partners, organizers, DJs, or clients revealed to you through the platform, when you did not otherwise know them.
+
+**6. Intellectual Property**
+All rights (code, interfaces, trademarks, content, databases, know-how) remain the exclusive property of Yuno / WOMBER. No license or assignment is granted beyond the strictly limited right to use the service.
+
+**7. Duration**
+Confidentiality obligations survive for 5 years after your access ends. Information qualifying as a trade secret (Articles L. 151-1 et seq. of the French Commercial Code) remains protected for as long as it retains that status.
+
+**8. Liability**
+Any breach engages your liability and may give rise to full compensation for the harm suffered by Yuno, as well as any urgent measure to stop the breach.
+
+**9. Proof of Acceptance**
+Online acceptance (checkbox at signup, onboarding, or preview access) constitutes an electronic signature within the meaning of Regulation (EU) No 910/2014 (eIDAS). Yuno retains proof of acceptance: identifier or email, document version, timestamp, IP address.
+
+**10. Applicable Law**
+French law. Competent courts within the jurisdiction of the Toulouse Court of Appeal, to the extent permitted by law.`
+    },
+    es: {
+      title: 'Compromiso de Confidencialidad',
+      content: `**1. Objeto**
+Este compromiso protege la información confidencial de Yuno, plataforma operada por WOMBER (SIREN 995 130 747, 25 avenue Mercure, 31130 Quint-Fonsegrives, Francia). Se aplica a cualquier persona que acceda a un espacio profesional de Yuno (club, organizador, promotor, afiliado, DJ, staff) o a una vista previa de demostración (enlace de preview), y complementa las condiciones aplicables a tu cuenta.
+
+**2. Información confidencial**
+Es confidencial toda la información no pública a la que accedas a través de Yuno, en particular: funcionalidades e interfaces no publicadas, hoja de ruta, lógica de precios y comisiones, herramientas profesionales, métodos y know-how, datos comerciales y estadísticos, así como la existencia y el contenido de los intercambios con Yuno.
+
+**3. Tus compromisos**
+Al acceder a un espacio profesional o a una vista previa de demostración, te comprometes a:
+• no divulgar esta información a terceros;
+• no copiarla, grabarla, filmarla ni reproducirla más allá del uso normal del servicio;
+• no utilizarla para fines distintos de la evaluación o el uso de Yuno;
+• no descompilar el servicio ni realizar ingeniería inversa.
+
+**4. No explotación**
+Te comprometes a no utilizar esta información, directa o indirectamente, para diseñar, desarrollar, hacer desarrollar, financiar o comercializar un producto o servicio que reproduzca o se inspire sustancialmente en Yuno, durante tu acceso y durante los 3 años posteriores a la última comunicación de información confidencial.
+
+**5. No elusión**
+Durante tu acceso y durante los 12 meses posteriores, te comprometes a no utilizar la información confidencial para eludir a Yuno con los socios, organizadores, DJs o clientes que te hayan sido revelados a través de la plataforma, cuando no los conocieras por otros medios.
+
+**6. Propiedad intelectual**
+Todos los derechos (código, interfaces, marcas, contenidos, bases de datos, know-how) siguen siendo propiedad exclusiva de Yuno / WOMBER. No se concede ninguna licencia ni cesión más allá del derecho estrictamente limitado de usar el servicio.
+
+**7. Duración**
+Las obligaciones de confidencialidad sobreviven durante 5 años tras el fin de tu acceso. La información que constituya secreto empresarial (artículos L. 151-1 y siguientes del Código de Comercio francés) permanece protegida mientras conserve ese carácter.
+
+**8. Responsabilidad**
+Cualquier incumplimiento compromete tu responsabilidad y puede dar lugar a la reparación íntegra del perjuicio sufrido por Yuno, así como a cualquier medida urgente destinada a hacer cesar la infracción.
+
+**9. Prueba de aceptación**
+La aceptación en línea (casilla marcada durante el registro, el onboarding o el acceso a una vista previa) constituye una firma electrónica en el sentido del Reglamento (UE) n.º 910/2014 (eIDAS). Yuno conserva la prueba de la aceptación: identificador o email, versión del documento, marca de tiempo, dirección IP.
+
+**10. Derecho aplicable**
+Derecho francés. Tribunales competentes de la jurisdicción de la Corte de Apelación de Toulouse, en los límites permitidos por la ley.`
     }
   },
 
@@ -764,6 +884,7 @@ export const legalSections: { key: LegalSection; icon: string }[] = [
   { key: 'cgu', icon: 'ScrollText' },
   { key: 'cgv-utilisateurs', icon: 'ShoppingBag' },
   { key: 'cgv-clubs', icon: 'Building2' },
+  { key: 'confidentialite', icon: 'Lock' },
   { key: 'privacy', icon: 'Shield' },
   { key: 'cookies', icon: 'Cookie' },
 ];
