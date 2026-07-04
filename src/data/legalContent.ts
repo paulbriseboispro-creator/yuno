@@ -1,4 +1,4 @@
-export type LegalSection = 'mentions-legales' | 'cgu' | 'cgv-utilisateurs' | 'cgv-clubs' | 'confidentialite' | 'privacy' | 'cookies';
+export type LegalSection = 'mentions-legales' | 'cgu' | 'cgv-utilisateurs' | 'cgv-clubs' | 'confidentialite' | 'dpa' | 'privacy' | 'cookies';
 
 interface LegalDocument {
   title: string;
@@ -444,7 +444,7 @@ Yuno applique au checkout :
 • 5% boissons
 
 **6. Contenus & données**
-Le club garantit disposer des droits sur les visuels/posters et s'interdit tout contenu trompeur. Le club accepte que Yuno affiche ses pages sur l'app, et que les données de performance (visites, clics, conversions, commandes) soient disponibles dans son espace.
+Le club garantit disposer des droits sur les visuels/posters et s'interdit tout contenu trompeur. Le club accepte que Yuno affiche ses pages sur l'app, et que les données de performance (visites, clics, conversions, commandes) soient disponibles dans son espace. Le traitement par Yuno des données des clients du club est encadré par l'Accord de sous-traitance des données (yunoapp.eu/legal/dpa), qui fait partie intégrante des présentes conditions.
 
 **7. Promoters / DJs (option)**
 Si le club active un système promoters :
@@ -491,7 +491,7 @@ Yuno applies at checkout:
 • 5% on drinks
 
 **6. Content & Data**
-The club guarantees it has rights to visuals/posters and prohibits misleading content. The club agrees that Yuno may display its pages on the app and that performance data (visits, clicks, conversions, orders) is available in its dashboard.
+The club guarantees it has rights to visuals/posters and prohibits misleading content. The club agrees that Yuno may display its pages on the app and that performance data (visits, clicks, conversions, orders) is available in its dashboard. Yuno's processing of the club's customer data is governed by the Data Processing Agreement (yunoapp.eu/legal/dpa), which is an integral part of these terms.
 
 **7. Promoters / DJs (Optional)**
 If the club activates a promoter system:
@@ -538,7 +538,7 @@ Yuno aplica al checkout:
 • 5% en bebidas
 
 **6. Contenidos y datos**
-El club garantiza que tiene los derechos sobre los visuales/carteles y se prohíbe cualquier contenido engañoso. El club acepta que Yuno muestre sus páginas en la app, y que los datos de rendimiento (visitas, clics, conversiones, pedidos) estén disponibles en su espacio.
+El club garantiza que tiene los derechos sobre los visuales/carteles y se prohíbe cualquier contenido engañoso. El club acepta que Yuno muestre sus páginas en la app, y que los datos de rendimiento (visitas, clics, conversiones, pedidos) estén disponibles en su espacio. El tratamiento por Yuno de los datos de los clientes del club se rige por el Acuerdo de encargo de tratamiento (yunoapp.eu/legal/dpa), que forma parte integrante de estas condiciones.
 
 **7. Promotores / DJs (opción)**
 Si el club activa un sistema de promotores:
@@ -671,6 +671,123 @@ Derecho francés. Tribunales competentes de la jurisdicción de la Corte de Apel
     }
   },
 
+  'dpa': {
+    fr: {
+      title: 'Accord de Sous-Traitance des Données (DPA)',
+      content: `**1. Objet et rôles**
+Le présent accord encadre, conformément à l'article 28 du RGPD, les traitements de données personnelles que Yuno (éditée par WOMBER, SIREN 995 130 747, 25 avenue Mercure, 31130 Quint-Fonsegrives) réalise pour le compte des établissements et organisateurs partenaires (le « Partenaire »). Pour les données des clients finaux du Partenaire (participants, invités, acheteurs), le Partenaire est responsable de traitement et Yuno agit en qualité de sous-traitant. Pour la gestion des comptes professionnels, la facturation, la sécurité de la plateforme et l'amélioration du service, Yuno agit en qualité de responsable de traitement distinct (voir la Politique de Confidentialité). Le présent accord fait partie intégrante des Conditions Pro.
+
+**2. Traitements concernés**
+• Nature et finalités : vente et contrôle de billets, gestion de guest lists, réservations de tables VIP, commandes de boissons, campagnes de communication du Partenaire, statistiques d'audience.
+• Catégories de données : identité, coordonnées, données de commande et de présence, données démographiques déclaratives.
+• Personnes concernées : clients, participants et invités du Partenaire.
+• Durée : durée d'utilisation de la plateforme par le Partenaire.
+
+**3. Instructions**
+Yuno traite ces données uniquement sur instruction documentée du Partenaire ; le paramétrage et l'utilisation des fonctionnalités de la plateforme valent instruction. Yuno informe le Partenaire si, à son avis, une instruction constitue une violation du RGPD.
+
+**4. Confidentialité et sécurité**
+Les personnes autorisées à traiter les données sont soumises à une obligation de confidentialité. Yuno met en œuvre les mesures techniques et organisationnelles appropriées (article 32 RGPD) : chiffrement en transit (HTTPS/TLS), cloisonnement des données par établissement (row level security), contrôle d'accès par rôle, authentification renforcée (MFA), journalisation de sécurité.
+
+**5. Sous-traitants ultérieurs**
+Le Partenaire autorise de manière générale le recours aux sous-traitants ultérieurs suivants : Supabase (hébergement base de données), Stripe (paiements), Resend (envoi d'emails), Mapbox (cartographie), Cloudflare (diffusion du site). Yuno informe le Partenaire de tout changement envisagé (ajout ou remplacement), lui laissant la possibilité d'émettre des objections raisonnables, et impose à ses sous-traitants des obligations équivalentes au présent accord.
+
+**6. Assistance**
+Compte tenu de la nature du traitement, Yuno aide le Partenaire, par des mesures techniques et organisationnelles appropriées, à donner suite aux demandes d'exercice des droits des personnes concernées (accès, rectification, effacement, opposition, limitation, portabilité), et l'assiste pour ses obligations d'analyse d'impact et de consultation préalable le cas échéant.
+
+**7. Violations de données**
+Yuno notifie au Partenaire toute violation de données à caractère personnel le concernant dans les meilleurs délais après en avoir pris connaissance, avec les informations utiles à la notification éventuelle à la CNIL et aux personnes concernées.
+
+**8. Sort des données**
+Au terme des prestations, Yuno supprime ou restitue au Partenaire, selon son choix, les données traitées pour son compte, et détruit les copies existantes, sauf obligation légale de conservation.
+
+**9. Audit**
+Yuno met à la disposition du Partenaire les informations nécessaires pour démontrer le respect du présent accord et permet la réalisation d'audits, dans la limite d'un audit par période de douze mois, moyennant un préavis raisonnable de trente jours, aux frais du Partenaire, pendant les heures ouvrées et sans accès aux données d'autres partenaires.
+
+**10. Transferts hors UE**
+Les données sont hébergées dans l'Union Européenne. Certains sous-traitants ultérieurs (notamment Stripe, Resend, Cloudflare, Mapbox) peuvent réaliser des traitements hors UE, encadrés par les clauses contractuelles types de la Commission européenne ou tout autre mécanisme de transfert reconnu.
+
+**11. Droit applicable**
+Droit français. Le présent accord prévaut sur les Conditions Pro pour ce qui concerne la protection des données traitées pour le compte du Partenaire.`
+    },
+    en: {
+      title: 'Data Processing Agreement (DPA)',
+      content: `**1. Purpose and Roles**
+This agreement governs, in accordance with Article 28 GDPR, the processing of personal data that Yuno (operated by WOMBER, SIREN 995 130 747, 25 avenue Mercure, 31130 Quint-Fonsegrives, France) carries out on behalf of partner venues and organizers (the "Partner"). For the Partner's end-customer data (attendees, guests, buyers), the Partner is the data controller and Yuno acts as processor. For professional account management, billing, platform security, and service improvement, Yuno acts as an independent controller (see the Privacy Policy). This agreement is an integral part of the Professional Terms.
+
+**2. Processing Covered**
+• Nature and purposes: ticket sales and check-in, guest list management, VIP table reservations, drink orders, Partner communication campaigns, audience statistics.
+• Data categories: identity, contact details, order and attendance data, declarative demographic data.
+• Data subjects: the Partner's customers, attendees, and guests.
+• Duration: for as long as the Partner uses the platform.
+
+**3. Instructions**
+Yuno processes this data only on the Partner's documented instructions; configuring and using platform features constitutes instructions. Yuno informs the Partner if, in its opinion, an instruction infringes the GDPR.
+
+**4. Confidentiality and Security**
+Persons authorized to process the data are bound by confidentiality obligations. Yuno implements appropriate technical and organizational measures (Article 32 GDPR): encryption in transit (HTTPS/TLS), per-venue data isolation (row level security), role-based access control, strong authentication (MFA), security logging.
+
+**5. Sub-Processors**
+The Partner grants general authorization for the following sub-processors: Supabase (database hosting), Stripe (payments), Resend (email delivery), Mapbox (maps), Cloudflare (site delivery). Yuno informs the Partner of any intended change (addition or replacement), giving the Partner the opportunity to raise reasonable objections, and imposes equivalent obligations on its sub-processors.
+
+**6. Assistance**
+Taking into account the nature of the processing, Yuno assists the Partner with appropriate technical and organizational measures in responding to data subject requests (access, rectification, erasure, objection, restriction, portability), and assists with impact assessments and prior consultation obligations where applicable.
+
+**7. Data Breaches**
+Yuno notifies the Partner of any personal data breach affecting them without undue delay after becoming aware of it, with the information needed for possible notification to the supervisory authority and data subjects.
+
+**8. Return and Deletion**
+At the end of the services, Yuno deletes or returns to the Partner, at the Partner's choice, the data processed on its behalf, and destroys existing copies, unless legally required to retain them.
+
+**9. Audit**
+Yuno makes available the information necessary to demonstrate compliance with this agreement and allows audits, limited to one audit per twelve-month period, with reasonable thirty days' notice, at the Partner's expense, during business hours, and without access to other partners' data.
+
+**10. Transfers Outside the EU**
+Data is hosted in the European Union. Some sub-processors (notably Stripe, Resend, Cloudflare, Mapbox) may process data outside the EU, governed by the European Commission's Standard Contractual Clauses or any other recognized transfer mechanism.
+
+**11. Applicable Law**
+French law. This agreement prevails over the Professional Terms with respect to the protection of data processed on behalf of the Partner.`
+    },
+    es: {
+      title: 'Acuerdo de Encargo de Tratamiento (DPA)',
+      content: `**1. Objeto y roles**
+Este acuerdo regula, conforme al artículo 28 del RGPD, los tratamientos de datos personales que Yuno (operada por WOMBER, SIREN 995 130 747, 25 avenue Mercure, 31130 Quint-Fonsegrives, Francia) realiza por cuenta de los establecimientos y organizadores asociados (el « Socio »). Para los datos de los clientes finales del Socio (participantes, invitados, compradores), el Socio es el responsable del tratamiento y Yuno actúa como encargado. Para la gestión de cuentas profesionales, la facturación, la seguridad de la plataforma y la mejora del servicio, Yuno actúa como responsable independiente (ver la Política de Privacidad). Este acuerdo forma parte integrante de las Condiciones Pro.
+
+**2. Tratamientos cubiertos**
+• Naturaleza y finalidades: venta y control de entradas, gestión de guest lists, reservas de mesas VIP, pedidos de bebidas, campañas de comunicación del Socio, estadísticas de audiencia.
+• Categorías de datos: identidad, datos de contacto, datos de pedido y asistencia, datos demográficos declarativos.
+• Interesados: clientes, participantes e invitados del Socio.
+• Duración: mientras el Socio utilice la plataforma.
+
+**3. Instrucciones**
+Yuno trata estos datos únicamente siguiendo instrucciones documentadas del Socio; la configuración y el uso de las funcionalidades de la plataforma constituyen instrucciones. Yuno informa al Socio si, en su opinión, una instrucción infringe el RGPD.
+
+**4. Confidencialidad y seguridad**
+Las personas autorizadas a tratar los datos están sujetas a obligaciones de confidencialidad. Yuno aplica las medidas técnicas y organizativas apropiadas (artículo 32 RGPD): cifrado en tránsito (HTTPS/TLS), aislamiento de datos por establecimiento (row level security), control de acceso por rol, autenticación reforzada (MFA), registro de seguridad.
+
+**5. Subencargados**
+El Socio autoriza de forma general los siguientes subencargados: Supabase (alojamiento de base de datos), Stripe (pagos), Resend (envío de emails), Mapbox (mapas), Cloudflare (distribución del sitio). Yuno informa al Socio de cualquier cambio previsto (adición o sustitución), dándole la posibilidad de presentar objeciones razonables, e impone a sus subencargados obligaciones equivalentes a este acuerdo.
+
+**6. Asistencia**
+Teniendo en cuenta la naturaleza del tratamiento, Yuno ayuda al Socio, mediante medidas técnicas y organizativas apropiadas, a responder a las solicitudes de ejercicio de derechos de los interesados (acceso, rectificación, supresión, oposición, limitación, portabilidad), y le asiste en sus obligaciones de evaluación de impacto y consulta previa cuando proceda.
+
+**7. Violaciones de datos**
+Yuno notifica al Socio cualquier violación de datos personales que le afecte sin dilación indebida tras tener conocimiento de ella, con la información útil para la posible notificación a la autoridad de control y a los interesados.
+
+**8. Destino de los datos**
+Al término de los servicios, Yuno suprime o devuelve al Socio, a su elección, los datos tratados por su cuenta, y destruye las copias existentes, salvo obligación legal de conservación.
+
+**9. Auditoría**
+Yuno pone a disposición del Socio la información necesaria para demostrar el cumplimiento de este acuerdo y permite la realización de auditorías, con el límite de una auditoría por período de doce meses, con un preaviso razonable de treinta días, a cargo del Socio, en horario laboral y sin acceso a los datos de otros socios.
+
+**10. Transferencias fuera de la UE**
+Los datos se alojan en la Unión Europea. Algunos subencargados (en particular Stripe, Resend, Cloudflare, Mapbox) pueden realizar tratamientos fuera de la UE, regulados por las cláusulas contractuales tipo de la Comisión Europea o cualquier otro mecanismo de transferencia reconocido.
+
+**11. Derecho aplicable**
+Derecho francés. Este acuerdo prevalece sobre las Condiciones Pro en lo relativo a la protección de los datos tratados por cuenta del Socio.`
+    }
+  },
+
   'privacy': {
     fr: {
       title: 'Politique de Confidentialité',
@@ -683,6 +800,7 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives – contact@yunoapp.eu
 • Données âge (déclaratif) : date de naissance / confirmation de majorité
 • Données techniques : logs de sécurité, appareil, cookies si activés
 • Données clubs : informations établissement, produits, performances
+• Preuves d'acceptation légale : version des conditions acceptées, horodatage, adresse IP (case cochée à l'inscription, l'onboarding ou l'accès à un aperçu)
 
 **3. Finalités & bases légales**
 • Exécuter les commandes & fournir QR codes : exécution du contrat
@@ -701,6 +819,7 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives – contact@yunoapp.eu
 • Données de commandes : 5 ans (preuve/gestion litiges et obligations comptables)
 • Support : 2 ans après dernier contact
 • Logs sécurité : 12 mois
+• Preuves d'acceptation légale : 5 ans (preuve du consentement)
 • Compte utilisateur inactif : 24 mois puis suppression/anonymisation (sauf obligations légales)
 
 **6. Droits**
@@ -728,6 +847,7 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, France – contact@yunoap
 • Age data (declarative): date of birth / confirmation of legal age
 • Technical data: security logs, device, cookies if enabled
 • Club data: establishment information, products, performance
+• Legal acceptance records: version of accepted terms, timestamp, IP address (checkbox at signup, onboarding, or preview access)
 
 **3. Purposes & Legal Bases**
 • Execute orders & provide QR codes: contract performance
@@ -746,6 +866,7 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, France – contact@yunoap
 • Order data: 5 years (proof/dispute management and accounting obligations)
 • Support: 2 years after last contact
 • Security logs: 12 months
+• Legal acceptance records: 5 years (proof of consent)
 • Inactive user account: 24 months then deletion/anonymization (unless legal obligations apply)
 
 **6. Rights**
@@ -770,6 +891,7 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, Francia – contact@yunoa
 • Datos de edad (declarativos): fecha de nacimiento / confirmación de mayoría de edad
 • Datos técnicos: logs de seguridad, dispositivo, cookies si están activadas
 • Datos de clubs: información del establecimiento, productos, rendimiento
+• Pruebas de aceptación legal: versión de las condiciones aceptadas, marca de tiempo, dirección IP (casilla marcada en el registro, el onboarding o el acceso a una vista previa)
 
 **3. Finalidades y bases legales**
 • Ejecutar pedidos y proporcionar códigos QR: ejecución del contrato
@@ -788,6 +910,7 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, Francia – contact@yunoa
 • Datos de pedidos: 5 años (prueba/gestión de litigios y obligaciones contables)
 • Soporte: 2 años después del último contacto
 • Logs de seguridad: 12 meses
+• Pruebas de aceptación legal: 5 años (prueba del consentimiento)
 • Cuenta de usuario inactiva: 24 meses y luego eliminación/anonimización (salvo obligaciones legales)
 
 **6. Derechos**
@@ -885,6 +1008,7 @@ export const legalSections: { key: LegalSection; icon: string }[] = [
   { key: 'cgv-utilisateurs', icon: 'ShoppingBag' },
   { key: 'cgv-clubs', icon: 'Building2' },
   { key: 'confidentialite', icon: 'Lock' },
+  { key: 'dpa', icon: 'Database' },
   { key: 'privacy', icon: 'Shield' },
   { key: 'cookies', icon: 'Cookie' },
 ];

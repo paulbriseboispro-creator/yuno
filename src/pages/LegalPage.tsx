@@ -9,7 +9,7 @@ export default function LegalPage() {
   const navigate = useNavigate();
   const { language } = useLanguage();
 
-  const validSections: LegalSection[] = ['mentions-legales', 'cgu', 'cgv-utilisateurs', 'cgv-clubs', 'confidentialite', 'privacy', 'cookies'];
+  const validSections: LegalSection[] = ['mentions-legales', 'cgu', 'cgv-utilisateurs', 'cgv-clubs', 'confidentialite', 'dpa', 'privacy', 'cookies'];
   const sectionKey = section as LegalSection;
 
   if (!validSections.includes(sectionKey)) {
