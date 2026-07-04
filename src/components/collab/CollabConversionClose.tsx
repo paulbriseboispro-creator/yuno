@@ -1,10 +1,11 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import { Sparkles, ArrowRight, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
-import { isCollabPlan } from '@/lib/planFeatures';
+import { isCollabPlan, SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
+import { ActivateClubDialog } from '@/components/collab/ActivateClubDialog';
 
 type Phase = 'before' | 'live' | 'after';
 
@@ -17,14 +18,18 @@ interface Props {
  * Conversion close for the collab vitrine — shown only to clubs on the free
  * "collab" plan. Fires right after the value sections (money, audience, verdict),
  * at the exact moment the club is most impressed. Frames the locked surface
- * (own events, full analytics, staff/CRM, exports) as ASPIRATION, not restriction,
- * and routes to billing with a club-named CTA instead of a generic upsell.
+ * (own events, full analytics, staff/CRM, exports) as ASPIRATION, not restriction.
+ *
+ * Période de lancement (abonnement coupé) : le close ne vend plus un plan payant,
+ * il déclenche l'ACTIVATION GRATUITE du compte club (ActivateClubDialog).
  */
 export function CollabConversionClose({ venueName, phase }: Props) {
   const { plan } = useSubscriptionPlan();
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
-  if (!isCollabPlan(plan)) return null;
+  const [dialogOpen, setDialogOpen] = useState(false);
+  // Version « activation gratuite » : réservée au monde sans abonnement.
+  if (SUBSCRIPTIONS_ENABLED || !isCollabPlan(plan)) return null;
 
   const aspirations = [
     tt('Vos propres soirées, billets et tables', 'Your own nights, tickets and tables', 'Tus propias noches, entradas y mesas'),
@@ -74,15 +79,20 @@ export function CollabConversionClose({ venueName, phase }: Props) {
             </div>
           ))}
         </div>
-        <Button asChild size="lg" className="mt-6">
-          <Link to="/owner/billing">
-            {venueName
-              ? tt(`Activer Yuno pour ${venueName}`, `Activate Yuno for ${venueName}`, `Activa Yuno para ${venueName}`)
-              : tt('Activer Yuno pour mon club', 'Activate Yuno for my club', 'Activa Yuno para mi club')}
-            <ArrowRight className="ml-1.5 h-4 w-4" />
-          </Link>
+        <Button size="lg" className="mt-6" onClick={() => setDialogOpen(true)}>
+          {venueName
+            ? tt(`Activer Yuno pour ${venueName} — gratuit`, `Activate Yuno for ${venueName} — free`, `Activa Yuno para ${venueName} — gratis`)
+            : tt('Activer mon club gratuitement', 'Activate my club for free', 'Activar mi club gratis')}
+          <ArrowRight className="ml-1.5 h-4 w-4" />
         </Button>
-        <p className="mt-3 text-xs text-muted-foreground">
+        <p className="mt-2 text-xs font-medium" style={{ color: '#E8192C' }}>
+          {tt(
+            '0€ pendant le lancement — sans abonnement, sans carte bancaire.',
+            '€0 during launch — no subscription, no credit card.',
+            '0€ durante el lanzamiento — sin suscripción, sin tarjeta.',
+          )}
+        </p>
+        <p className="mt-2 text-xs text-muted-foreground">
           {tt(
             'La création de cette soirée reste gérée par votre organisateur partenaire.',
             'Creating this night stays handled by your partner organizer.',
@@ -90,6 +100,7 @@ export function CollabConversionClose({ venueName, phase }: Props) {
           )}
         </p>
       </div>
+      <ActivateClubDialog open={dialogOpen} onOpenChange={setDialogOpen} venueName={venueName} />
     </div>
   );
 }

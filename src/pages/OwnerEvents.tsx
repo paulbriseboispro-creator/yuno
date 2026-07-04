@@ -23,7 +23,7 @@ import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { isCollabPlan } from '@/lib/planFeatures';
 import { useOrganizerPartnerships } from '@/hooks/useOrganizerPartnerships';
 import { useOrganizerStripe } from '@/hooks/useOrganizerStripe';
-import { CollabUpsellBanner } from '@/components/CollabUpsellBanner';
+import { CollabActivateBanner } from '@/components/collab/CollabActivateBanner';
 import { CollabReadOnlyBanner } from '@/components/CollabReadOnlyBanner';
 import { OwnerCollaborationsSection } from '@/components/owner/OwnerCollaborationsSection';
 import TrackedLinksManager, { TrackedOwnerKind } from '@/components/tracking/TrackedLinksManager';
@@ -680,7 +680,7 @@ export default function OwnerEvents() {
         {isOrganizerScope && (
           <h1 style={{ color: T1, fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em', marginTop: 4 }}>{t('owner.eventsTitle')}</h1>
         )}
-        {collabReadOnly && <CollabUpsellBanner />}
+        {collabReadOnly && <CollabActivateBanner />}
         {collabReadOnly && <CollabReadOnlyBanner action={t('collab.action.createEvent')} />}
 
         {orgSellingBlocked && (

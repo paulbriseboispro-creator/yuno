@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
+import { SUBSCRIPTIONS_ENABLED } from "../_shared/venue-plan.ts";
 
 // Pinned to the account's API version. Newer than the SDK's bundled types
 // (which top out at basil), hence the cast. On clover+, a subscription's billing
@@ -302,6 +303,54 @@ serve(async (req) => {
     // ─────────────────────────────────────────────────────────────────────────
     // action: "create"  (← create-club-subscription)
     // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // action: "activate_free"  (période de lancement — SUBSCRIPTIONS_ENABLED=false)
+    // Un club en plan `collab` (démo auto-accordée via partenariat orga) active
+    // son propre compte club, gratuitement, sans Stripe. Le plan passe à 'core'
+    // (le front sert l'expérience complète tant que l'abonnement est coupé).
+    // plan_source reste 'collab_auto' : le trigger
+    // activate_collab_plan_on_partnership ne rétrograde en collab que les rangées
+    // 'core' + plan_source='paid', donc une prochaine co-soirée ne réverrouille
+    // pas un club activé.
+    // ─────────────────────────────────────────────────────────────────────────
+    if (action === "activate_free") {
+      if (SUBSCRIPTIONS_ENABLED) {
+        return json({ success: false, error: "Free activation is only available while subscriptions are off.", code: "subscriptions_enabled" }, 200);
+      }
+
+      let targetVenueId = body.venueId;
+      if (!targetVenueId) {
+        const { data: venue } = await supabaseClient
+          .from("venues").select("id").eq("owner_id", user.id).single();
+        if (venue) targetVenueId = venue.id;
+      }
+      if (!targetVenueId) throw new Error("No venue found for this user");
+
+      // Écriture → propriété stricte requise (pas le fallback profiles.venue_id,
+      // qui couvre aussi le staff).
+      const { data: ownedVenue } = await supabaseClient
+        .from("venues").select("id, owner_id").eq("id", targetVenueId).single();
+      if (!ownedVenue || ownedVenue.owner_id !== user.id) {
+        return json({ success: false, error: "Only the venue owner can activate the club.", code: "not_owner" }, 200);
+      }
+
+      const now = new Date().toISOString();
+      const { error: upsertError } = await supabaseClient
+        .from("venue_subscriptions")
+        .upsert({
+          venue_id: targetVenueId,
+          subscription_plan: "core",
+          status: "active",
+          plan_source: "collab_auto",
+          trial_end: null,
+          updated_at: now,
+        }, { onConflict: "venue_id" });
+      if (upsertError) throw upsertError;
+
+      logStep("FREE activation granted (launch period, no Stripe)", { venueId: targetVenueId });
+      return json({ success: true, activated: true, plan: "core" });
+    }
+
     if (action === "create") {
       let targetVenueId = body.venueId;
       const planCode = body.planCode || "elite";

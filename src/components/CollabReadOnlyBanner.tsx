@@ -1,8 +1,12 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { translate } from '@/i18n/orgTranslate';
+import { SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
+import { ActivateClubDialog } from '@/components/collab/ActivateClubDialog';
 
 interface CollabReadOnlyBannerProps {
   /** What the user is trying to do, already translated (e.g. t('collab.action.createEvent')) */
@@ -16,7 +20,9 @@ interface CollabReadOnlyBannerProps {
  */
 export function CollabReadOnlyBanner({ action }: CollabReadOnlyBannerProps) {
   const { isReadOnly } = useCollabReadOnly();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
+  const [dialogOpen, setDialogOpen] = useState(false);
   if (!isReadOnly) return null;
 
   return (
@@ -34,16 +40,32 @@ export function CollabReadOnlyBanner({ action }: CollabReadOnlyBannerProps) {
               ? t('collab.demoWithAction').replace('{action}', action)
               : t('collab.demoDefault')}
             {' '}
-            {t('collab.upgradeHint')}
+            {SUBSCRIPTIONS_ENABLED
+              ? t('collab.upgradeHint')
+              : tt(
+                  'Activez votre propre compte club — gratuit — pour le piloter au quotidien.',
+                  'Activate your own club account — free — to run it day to day.',
+                  'Activa tu propia cuenta de club — gratis — para gestionarlo a diario.',
+                )}
           </p>
         </div>
       </div>
-      <Button asChild size="sm" variant="outline" className="shrink-0">
-        <Link to="/owner/billing">
-          {t('collab.activatePro')}
+      {/* Abonnement coupé (lancement) : le CTA déclenche l'activation GRATUITE
+          du compte club au lieu de l'upsell Pro payant. */}
+      {SUBSCRIPTIONS_ENABLED ? (
+        <Button asChild size="sm" variant="outline" className="shrink-0">
+          <Link to="/owner/billing">
+            {t('collab.activatePro')}
+            <ArrowRight className="h-4 w-4 ml-1" />
+          </Link>
+        </Button>
+      ) : (
+        <Button size="sm" variant="outline" className="shrink-0" onClick={() => setDialogOpen(true)}>
+          {tt('Activer mon club — gratuit', 'Activate my club — free', 'Activar mi club — gratis')}
           <ArrowRight className="h-4 w-4 ml-1" />
-        </Link>
-      </Button>
+        </Button>
+      )}
+      <ActivateClubDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }
