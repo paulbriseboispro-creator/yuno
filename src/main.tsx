@@ -10,7 +10,20 @@ import "./index.css";
 // migration left users stuck on a stale build whose checkout fetch rejected
 // ("Failed to send a request to the Edge Function"). `registerType: 'autoUpdate'`
 // (vite.config.ts) makes registerSW auto-reload once the new SW activates.
-registerSW({ immediate: true });
+//
+// Long-lived tabs (a club dashboard left open all night) never re-check the SW
+// on their own — the browser only checks on navigation. The periodic
+// registration.update() below closes that gap: a deploy reaches every open tab
+// within ~30 minutes instead of "whenever the user next reloads".
+registerSW({
+  immediate: true,
+  onRegisteredSW(_swUrl, registration) {
+    if (!registration) return;
+    setInterval(() => {
+      registration.update().catch(() => {});
+    }, 30 * 60 * 1000);
+  },
+});
 
 // Log unhandled errors/rejections without crashing Vite's HMR state
 window.addEventListener('error', (event) => {
