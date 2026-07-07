@@ -122,3 +122,35 @@ statiques sont servis gratuitement et ne comptent pas dans le quota de requêtes
 - Ajouter les 3 langues i18n pour toute nouvelle string.
 - Migrations : un fichier par changement, timestamp croissant, push via CLI.
 - Respecter le bon design system selon surface (public vs pro).
+- **Tenir l'IA à jour** (voir section ci-dessous) : tout changement de fonctionnalité
+  visible par un client ou un owner DOIT mettre à jour la connaissance des assistants IA.
+
+## Assistants IA — connaissance à tenir à jour
+
+Deux assistants IA embarqués (modèle `gpt-4o-mini`, constante `OPENAI_MODEL`,
+secret `OPENAI_API_KEY` dans Supabase) :
+
+- **Client** : page `/assistant` → `supabase/functions/yuno-assistant/index.ts`.
+  Sa connaissance produit vit dans `CLIENT_KNOWLEDGE_BASE` (mode d'emploi condensé).
+  Les données (events, clubs, DJs, prix…) sont requêtées LIVE à chaque question —
+  rien à faire de ce côté.
+- **Owner** : bouton flottant du dashboard → `supabase/functions/owner-assistant/index.ts`.
+  Sa connaissance vit dans `HELP_ARTICLES` (~32 articles keyword→snippet) et le
+  `OWNER_SYSTEM_PROMPT`. Les données opérationnelles passent par ses ~25 tools (live).
+
+**Règle de synchronisation — à chaque changement de fonctionnalité :**
+1. Feature côté client (billets, guest list, VIP, boissons, fidélité…) →
+   mettre à jour la section correspondante de `CLIENT_KNOWLEDGE_BASE`.
+2. Feature côté owner (nouvelle page, nouveau flux, changement de frais/tarifs…) →
+   mettre à jour ou ajouter l'article `HELP_ARTICLES` correspondant (keywords FR+EN,
+   `path` = vraie route `/owner/...`, snippet 3-6 phrases, JAMAIS de référence de plan
+   tant que `SUBSCRIPTIONS_ENABLED=false`).
+3. Nouveau tool owner pertinent ? L'ajouter à `TOOLS` + `executeTool` (write → aussi
+   `WRITE_TOOLS` + confirmation) — c'est ce qui rend l'IA capable d'AGIR, pas juste parler.
+4. Redéployer : `supabase functions deploy yuno-assistant owner-assistant`
+   (fonctions existantes → pas de blocage 402).
+5. Même réflexe que pour le mode d'emploi (`ohelp.*`) : l'IA et le centre d'aide
+   racontent la même vérité, en même temps.
+
+L'ancienne table `chatbot_training` (FAQ injectée dans le prompt) est abandonnée —
+ne pas la réintroduire : la connaissance versionnée dans le code est la seule source.
