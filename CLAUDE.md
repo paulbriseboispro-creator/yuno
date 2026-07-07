@@ -124,6 +124,10 @@ statiques sont servis gratuitement et ne comptent pas dans le quota de requêtes
 - Respecter le bon design system selon surface (public vs pro).
 - **Tenir l'IA à jour** (voir section ci-dessous) : tout changement de fonctionnalité
   visible par un client ou un owner DOIT mettre à jour la connaissance des assistants IA.
+- **Tenir le mode d'emploi à jour** : toute nouvelle fonctionnalité pro (ou changement
+  d'un flux existant) DOIT mettre à jour le mode d'emploi owner (`/owner/help`) dans le
+  même chantier — clés `ohelp.*` dans `src/i18n/data.ts` (les 3 langues EN/FR/ES) et
+  structure dans `src/data/ownerHelpContent.ts`. Une feature sans doc n'est pas finie.
 
 ## Assistants IA — connaissance à tenir à jour
 
@@ -149,8 +153,9 @@ secret `OPENAI_API_KEY` dans Supabase) :
    `WRITE_TOOLS` + confirmation) — c'est ce qui rend l'IA capable d'AGIR, pas juste parler.
 4. Redéployer : `supabase functions deploy yuno-assistant owner-assistant`
    (fonctions existantes → pas de blocage 402).
-5. Même réflexe que pour le mode d'emploi (`ohelp.*`) : l'IA et le centre d'aide
-   racontent la même vérité, en même temps.
+5. Mettre à jour le mode d'emploi owner en même temps (règle ci-dessus, `ohelp.*`
+   3 langues + `ownerHelpContent.ts`) : l'IA et le centre d'aide racontent la même
+   vérité, en même temps.
 
 L'ancienne table `chatbot_training` (FAQ injectée dans le prompt) est abandonnée —
 ne pas la réintroduire : la connaissance versionnée dans le code est la seule source.
