@@ -5,6 +5,7 @@ import {
   ChevronDown, ChevronUp, Bell,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/hooks/useAuth';
 import { BottomNav } from '@/components/BottomNav';
@@ -698,7 +699,7 @@ export default function AffiliateVenuePage() {
         {/* ===== COPYRIGHT ===== */}
         <div className="px-5 pt-10 pb-4 text-center">
           <p className="font-mono" style={{ fontSize: '10px', color: '#3A3A3E', letterSpacing: '0.08em' }}>
-            © {new Date().getFullYear()} {venue.name.toUpperCase()} · POWERED BY YUNO
+            © {new Date().getFullYear()} {venue.name.toUpperCase()}{SUBSCRIPTIONS_ENABLED ? ' · POWERED BY YUNO' : ''}
           </p>
         </div>
 

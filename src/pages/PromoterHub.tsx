@@ -5,6 +5,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr, es, enUS } from 'date-fns/locale';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
+import { SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
 
 interface PromoterInfo {
   firstName: string | null;
@@ -768,8 +769,8 @@ export default function PromoterHub() {
 
         </main>
 
-        {/* ══ STICKY POWERED BY YUNO — Core plan only ════════════ */}
-        {(venuePlan === 'core' || venuePlan === 'collab') && <a
+        {/* ══ STICKY POWERED BY YUNO — Core plan only; hidden while subscriptions disabled ══ */}
+        {SUBSCRIPTIONS_ENABLED && (venuePlan === 'core' || venuePlan === 'collab') && <a
           href="https://www.instagram.com/yunoapp.eu"
           target="_blank"
           rel="noopener noreferrer"

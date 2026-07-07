@@ -21,7 +21,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PARIS_TIMEZONE, nowInParis } from '@/lib/timezone';
-import { hasFeature, type PlanCode } from '@/lib/planFeatures';
+import { hasFeature, SUBSCRIPTIONS_ENABLED, type PlanCode } from '@/lib/planFeatures';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { usePromoterTracking } from '@/hooks/usePromoterTracking';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
@@ -1014,14 +1014,15 @@ export default function VenuePage() {
         {/* Copyright */}
         <div className="px-5 pt-10 pb-4 text-center">
           <p className="font-mono" style={{ fontSize: '10px', color: '#3A3A3E', letterSpacing: '0.08em' }}>
-            © {new Date().getFullYear()} {venue.name.toUpperCase()}{(venuePlan === 'core' || venuePlan === 'collab') ? ' · POWERED BY YUNO' : ''}
+            © {new Date().getFullYear()} {venue.name.toUpperCase()}{(SUBSCRIPTIONS_ENABLED && (venuePlan === 'core' || venuePlan === 'collab')) ? ' · POWERED BY YUNO' : ''}
           </p>
         </div>
 
       </main>
 
-      {/* Sticky "Powered by Yuno" pill — Core plan only, links to yunoapp.eu */}
-      {(venuePlan === 'core' || venuePlan === 'collab') && (
+      {/* Sticky "Powered by Yuno" pill — Core plan only, links to yunoapp.eu.
+          Hidden entirely while subscriptions are disabled (no paid/free tiers yet). */}
+      {SUBSCRIPTIONS_ENABLED && (venuePlan === 'core' || venuePlan === 'collab') && (
         <a
           href="https://www.instagram.com/yunoapp.eu"
           target="_blank"
