@@ -1390,19 +1390,9 @@ serve(async (req) => {
       ? `\n- Plan : ${venuePlan.toUpperCase()}`
       : `\n- Plan : LANCEMENT — toutes les fonctionnalités incluses`;
 
-    // Training data
-    let trainingContext = "";
-    try {
-      const { data: trainingData } = await supabase.from("chatbot_training").select("question, answer, category").eq("is_active", true).order("category");
-      if (trainingData && trainingData.length > 0) {
-        trainingContext = "\n\n📚 FAQ :\n";
-        for (const item of trainingData) {
-          trainingContext += `Q: ${item.question}\nR: ${item.answer}\n\n`;
-        }
-      }
-    } catch { /* ignore */ }
-
-    const systemPrompt = OWNER_SYSTEM_PROMPT + contextBlock + trainingContext;
+    // NB : l'ancienne injection FAQ depuis la table chatbot_training a été retirée
+    // (données non maintenues, redondantes avec HELP_ARTICLES qui est versionné).
+    const systemPrompt = OWNER_SYSTEM_PROMPT + contextBlock;
 
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
