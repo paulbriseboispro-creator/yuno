@@ -1,5 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.83.0";
+import { SUBSCRIPTIONS_ENABLED } from "../_shared/venue-plan.ts";
+
+// Modèle OpenAI — changer ici suffit (clé : secret Supabase OPENAI_API_KEY)
+const OPENAI_MODEL = "gpt-4o-mini";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,12 +56,11 @@ Formate en tableau Markdown :
 | Tables VIP | X€ | Y€ |
 | **Total** | **X€** | **Y€** |
 
-═══ PLAN D'ABONNEMENT ═══
-Si l'owner demande une fonctionnalité au-delà de son plan :
-- NE PAS exécuter l'action
-- Expliquer la fonctionnalité pour donner envie
-- Indiquer le plan requis (Essential 39€, Pro 69€, Elite 99€)
-- Proposer [Abonnement](/owner/billing)
+═══ TARIFICATION (période de lancement) ═══
+Yuno est GRATUIT pour les clubs pendant le lancement : aucune mensualité, TOUTES les fonctionnalités sont incluses (billetterie, tables VIP, fidélité, CRM, promoteurs, DJs, analytics…).
+Seules les commissions par transaction s'appliquent (voir la structure des frais via search_help_articles).
+Si l'owner demande le prix d'un abonnement : explique que c'est gratuit actuellement, que des plans payants arriveront plus tard, et que les early adopters seront prévenus à l'avance.
+Ne bloque JAMAIS une fonctionnalité pour une question de plan.
 
 ═══ NAVIGATION ═══
 Utilise des liens Markdown : [Événements](/owner/events), [Menu](/owner/menu), [Staff](/owner/staff), [Billetterie](/owner/ticketing), [Tables VIP](/owner/tables), [Analytics](/owner/analytics), [Paramètres](/owner/venue), [Clients](/owner/customers), [Fidélité](/owner/loyalty), [DJs](/owner/djs), [Promoteurs](/owner/promoters), [Mode d'emploi](/owner/help)
@@ -94,13 +97,13 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Tables VIP",
     keywords: ["table", "VIP", "réservation", "zone", "minimum", "consommation", "acompte", "deposit"],
     path: "/owner/tables",
-    snippet: "Les Tables VIP permettent de créer des zones avec tables, capacité et minimum de consommation. Les clients réservent avec un acompte. Le VIP host gère les arrivées et les consommations sur place. Disponible uniquement avec le plan Elite.",
+    snippet: "Les Tables VIP permettent de créer des zones avec tables, capacité et minimum de consommation. Les clients réservent avec un acompte. Le VIP host gère les arrivées et les consommations sur place.",
   },
   "subscription-plans": {
-    title: "Plans d'abonnement",
-    keywords: ["abonnement", "plan", "essential", "pro", "elite", "prix", "tarif", "billing"],
+    title: "Tarification — lancement gratuit",
+    keywords: ["abonnement", "plan", "essential", "pro", "elite", "prix", "tarif", "billing", "gratuit", "coût", "combien", "subscription", "pricing", "free"],
     path: "/owner/billing",
-    snippet: "Essential (39€/mois) : Events, billetterie, QR, guest list, commandes, carte, staff, factures, analytics basiques.\nPro (69€/mois) : + DJs, organisateurs, promoteurs, analytics avancés, export CSV.\nElite (99€/mois) : + Tables VIP, fidélité, CRM, Hype Score.",
+    snippet: "Pendant le lancement, Yuno est GRATUIT pour les clubs : aucune mensualité, toutes les fonctionnalités incluses (billetterie, tables VIP, fidélité, CRM, promoteurs, DJs, analytics). Seules les commissions par transaction s'appliquent (voir structure des frais). Des plans payants arriveront plus tard ; les clubs actifs seront prévenus à l'avance.",
   },
   "guest-list": {
     title: "Guest List",
@@ -124,19 +127,151 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Programme de fidélité",
     keywords: ["fidélité", "loyalty", "points", "récompense", "reward"],
     path: "/owner/loyalty",
-    snippet: "Le programme de fidélité permet d'attribuer des points par euro dépensé. Configure un bonus de bienvenue, des récompenses échangeables. Disponible avec le plan Elite.",
+    snippet: "Le programme de fidélité permet d'attribuer des points par euro dépensé. Configure un bonus de bienvenue, des récompenses échangeables. Paliers clients : Bronze, Silver, Gold, Platinum.",
   },
   "promoters": {
     title: "Système de promoteurs",
     keywords: ["promoteur", "promoter", "affiliation", "commission", "lien"],
     path: "/owner/promoters",
-    snippet: "Les promoteurs ont un lien de parrainage unique. Ils gagnent une commission par ticket ou table vendue. Configure les taux de commission par type. Disponible avec le plan Pro.",
+    snippet: "Les promoteurs ont un lien de parrainage unique. Ils gagnent une commission par ticket ou table vendue. Configure les taux de commission par type, avec des fenêtres horaires de validité au scan.",
   },
   "menu": {
     title: "Gestion de la carte",
     keywords: ["menu", "carte", "boisson", "drink", "cocktail", "prix", "prévente", "commande"],
     path: "/owner/menu",
     snippet: "Catégories : Cocktails, Shooters, Bières, Vins/Champagnes, Spiritueux, Soft, Snacks, Autres. Chaque boisson a un nom, prix, image. Active/désactive sans supprimer. Prix promo disponible.",
+  },
+  "events-create": {
+    title: "Créer et publier une soirée",
+    keywords: ["événement", "event", "soirée", "créer", "create", "publier", "publish", "poster", "affiche", "line-up", "privé", "mot de passe", "visibilité", "secret"],
+    path: "/owner/events",
+    snippet: "Depuis Événements, crée une soirée : titre, dates, affiche, genre musical, line-up DJ. Active ensuite la billetterie, la guest list et les tables VIP selon tes besoins. Une soirée peut être publique (visible dans Explorer) ou privée avec mot de passe. Les événements sans lieu fixe peuvent utiliser une adresse secrète révélée aux acheteurs.",
+  },
+  "recurring-events": {
+    title: "Soirées récurrentes",
+    keywords: ["récurrent", "récurrence", "recurring", "hebdomadaire", "weekly", "série", "series", "chaque semaine", "répéter"],
+    path: "/owner/events",
+    snippet: "Crée une soirée récurrente (ex. tous les vendredis) : chaque occurrence est générée automatiquement avec la billetterie, la guest list et le preset de tables VIP de la série. Les rounds de billets s'activent automatiquement à chaque occurrence. Tu peux marquer une occurrence complète manuellement et tu reçois un rappel pour ajouter le line-up DJ de chaque date.",
+  },
+  "collaborations": {
+    title: "Co-organisations (clubs ↔ organisateurs)",
+    keywords: ["collaboration", "collab", "co-organisation", "co-org", "organisateur", "organizer", "BDE", "partenaire", "partage", "split", "contrat", "signature"],
+    path: "/owner/collaborations",
+    snippet: "Les collaborations permettent de monter une soirée à deux : ton club + un organisateur externe (asso, BDE, promoteur d'événements). Un contrat numérique définit le partage des revenus (billets, boissons) et doit être signé par LES DEUX parties avant que les ventes ouvrent. Les paiements sont ensuite répartis automatiquement selon le contrat. Gère les propositions reçues et envoyées depuis l'onglet Collaborations.",
+  },
+  "scarcity-fomo": {
+    title: "Rareté & FOMO",
+    keywords: ["scarcity", "rareté", "fomo", "urgence", "urgency", "dernières places", "jauge", "compteur", "sold out", "pression"],
+    path: "/owner/scarcity",
+    snippet: "Les outils Rareté/FOMO affichent aux clients des signaux d'urgence : jauge de remplissage, dernières places d'un round, compte à rebours. Bien réglés, ils accélèrent les ventes en début et fin de cycle. Configure-les par événement depuis la page Rareté.",
+  },
+  "hype-score": {
+    title: "Hype Score",
+    keywords: ["hype", "score", "engagement", "popularité", "prévision", "forecast", "tendance"],
+    path: "/owner/hype",
+    snippet: "Le Hype Score mesure l'engagement autour de tes soirées (vues, favoris, abonnés, ventes) et projette la tendance de remplissage. Utilise-le pour repérer tôt une soirée qui décolle ou qui a besoin d'un coup de promo.",
+  },
+  "live-night": {
+    title: "Soirée en direct (Live Night)",
+    keywords: ["live", "direct", "ce soir", "tonight", "scans", "entrées", "temps réel", "real time", "monitoring"],
+    path: "/owner/live",
+    snippet: "La vue Live Night suit ta soirée en temps réel : entrées scannées, ventes de billets, commandes de boissons en attente, tables VIP occupées. C'est ton tableau de bord pendant la nuit — garde-le ouvert au bar ou en régie.",
+  },
+  "email-campaigns": {
+    title: "Campagnes email",
+    keywords: ["email", "campagne", "campaign", "newsletter", "mailing", "éditeur", "envoi", "ouvertures", "désabonnement"],
+    path: "/owner/campaigns",
+    snippet: "Crée des campagnes email vers tes clients avec l'éditeur intégré (visuel ou avancé). Cible par segments (fidèles, inactifs, VIP…), envoie, puis suis le rapport : ouvertures, clics, désabonnements. Les destinataires désabonnés sont exclus automatiquement des envois suivants.",
+  },
+  "sms": {
+    title: "SMS & crédits SMS",
+    keywords: ["sms", "texto", "crédit", "credits", "campagne sms", "message"],
+    path: "/owner/sms",
+    snippet: "Les campagnes SMS fonctionnent avec des crédits prépayés : achète des crédits depuis la page SMS, puis compose et cible ta campagne comme pour l'email. Le solde de crédits restants est affiché avant chaque envoi.",
+  },
+  "refund-management": {
+    title: "Remboursements",
+    keywords: ["remboursement", "refund", "rembourser", "annulation", "cancel", "litige", "client mécontent"],
+    path: "/owner/refunds",
+    snippet: "Les remboursements sont à l'initiative du club : depuis Remboursements, retrouve la commande ou le billet (par référence, email ou nom) et rembourse en un clic — le client est recrédité via Stripe sous 5 à 10 jours ouvrés. En cas d'annulation d'événement, rembourse les billets depuis la même page.",
+  },
+  "invoices-accounting": {
+    title: "Comptabilité & factures",
+    keywords: ["comptabilité", "accounting", "facture", "invoice", "TVA", "export", "rapport", "bilan", "chiffres"],
+    path: "/owner/accounting",
+    snippet: "L'onglet Comptabilité produit un rapport par soirée : CA par source (billets, boissons, tables), TVA, frais, et exports téléchargeables pour ton comptable. Les factures Yuno sont disponibles dans [Factures](/owner/invoices).",
+  },
+  "waitlist": {
+    title: "Liste d'attente",
+    keywords: ["waitlist", "liste d'attente", "attente", "complet", "sold out", "places libérées"],
+    path: "/owner/waitlist",
+    snippet: "Quand une soirée est complète, les clients peuvent rejoindre la liste d'attente. Si des places se libèrent (remboursement, nouveau round), les inscrits sont notifiés dans l'ordre. Consulte et gère les listes d'attente par événement.",
+  },
+  "promoter-teams": {
+    title: "Équipes de promoteurs",
+    keywords: ["équipe", "team", "promoteurs", "groupe", "chef d'équipe", "recrutement"],
+    path: "/owner/promoters",
+    snippet: "Organise tes promoteurs en équipes avec un responsable par équipe. Compare les performances (conversions, commissions) par équipe et par promoteur depuis la page Promoteurs.",
+  },
+  "agencies": {
+    title: "Agences de promotion",
+    keywords: ["agence", "agency", "agences", "prestataire", "externe"],
+    path: "/owner/agencies",
+    snippet: "Les agences sont des structures externes qui gèrent leurs propres promoteurs pour ton club. Invite une agence, définis les commissions, et elle pilote son équipe de son côté — tu suis les résultats consolidés depuis la page Agences.",
+  },
+  "customers-crm": {
+    title: "Clients & CRM",
+    keywords: ["client", "customer", "crm", "segment", "rfm", "ban", "bannir", "fiche client", "historique", "export"],
+    path: "/owner/customers",
+    snippet: "La page Clients regroupe tous tes clients avec leur historique (visites, dépenses, panier moyen) et une segmentation automatique (fidèles, réguliers, à risque, inactifs). Tu peux bannir un client par email — le videur est alerté si son billet est scanné. Utilise les segments pour cibler tes campagnes email/SMS.",
+  },
+  "analytics": {
+    title: "Analytics",
+    keywords: ["analytics", "statistiques", "stats", "démographie", "audience", "origine", "villes", "âge", "funnel", "performance"],
+    path: "/owner/analytics",
+    snippet: "Analytics couvre tes ventes (CA par source et par soirée), ton audience (âge, sexe, villes d'origine des participants) et le funnel d'achat. Après chaque soirée, une analyse post-event résume la performance. Utilise ces données pour caler ta programmation et tes prix.",
+  },
+  "dj-booking": {
+    title: "DJs & booking",
+    keywords: ["dj", "booking", "booker", "résident", "line-up", "marketplace", "artiste", "réserver un dj"],
+    path: "/owner/djs",
+    snippet: "Gère tes DJs résidents depuis la page DJs (profils, sets, line-up des soirées). Pour trouver de nouveaux artistes, [Book DJ](/owner/book-dj) cherche dans la marketplace par ville, rayon, genre et cachet — envoie une demande de booking directement au DJ.",
+  },
+  "story-builder": {
+    title: "Story Builder (visuels promo)",
+    keywords: ["story", "stories", "instagram", "visuel", "promo", "réseaux sociaux", "social", "image"],
+    path: "/owner/story-builder",
+    snippet: "Le Story Builder génère des visuels prêts à poster (stories Instagram) à partir de tes soirées : affiche, date, line-up, lien de billetterie. Choisis un modèle, personnalise, télécharge et publie.",
+  },
+  "managers": {
+    title: "Managers & permissions",
+    keywords: ["manager", "managers", "permission", "droits", "accès", "déléguer", "équipe de direction"],
+    path: "/owner/managers",
+    snippet: "Un manager est un compte de confiance avec des permissions granulaires : événements, menu, staff, commandes, tables, billetterie, analytics, clients, fidélité, promoteurs, DJs, guest list, paramètres. Active uniquement ce dont il a besoin — tu restes le seul owner.",
+  },
+  "security-mfa": {
+    title: "Sécurité & MFA",
+    keywords: ["mfa", "2fa", "double authentification", "sécurité", "security", "totp", "code", "authenticator"],
+    path: "/owner/venue",
+    snippet: "Le compte owner est protégé par la double authentification (MFA) : un code temporaire généré par une app d'authentification est demandé à la connexion. C'est obligatoire car le compte owner contrôle les paiements et les données clients. Configure ou réinitialise la MFA depuis les paramètres.",
+  },
+  "notifications-settings": {
+    title: "Notifications",
+    keywords: ["notification", "notif", "alertes", "push", "email", "préférences"],
+    path: "/owner/notifications",
+    snippet: "Choisis quelles alertes tu reçois (ventes, réservations VIP, guest list, commandes, collaborations) et par quel canal. Les notifications de vente incluent un lien direct vers la commande concernée.",
+  },
+  "upsell-offers": {
+    title: "Offres upsell",
+    keywords: ["upsell", "offre", "pack", "bundle", "billet + conso", "vente additionnelle"],
+    path: "/owner/upsell",
+    snippet: "Les offres upsell proposent au client d'ajouter quelque chose au moment de l'achat : conso avec le billet, upgrade de table, vestiaire prépayé. Configure les offres par événement pour augmenter le panier moyen.",
+  },
+  "vip-service": {
+    title: "Service VIP en salle",
+    keywords: ["vip host", "hôte", "service", "salle", "arrivée", "conso sur place", "bouteille"],
+    path: "/owner/vip-service",
+    snippet: "La page Service VIP est l'outil de l'hôte VIP pendant la soirée : arrivées des réservations, installation des groupes, suivi du minimum de consommation et commandes de bouteilles à la table. Le staff VIP host y accède avec son PIN.",
   },
 };
 
@@ -1226,19 +1361,22 @@ serve(async (req) => {
     const venueId = venueData.id;
     const { messages, venueContext } = await req.json();
 
-    // Fetch subscription plan
+    // Fetch subscription plan — inutile pendant le lancement (abonnement coupé,
+    // tout est débloqué), on économise l'aller-retour.
     let venuePlan = "essential";
-    try {
-      const subRes = await fetch(`${supabaseUrl}/functions/v1/club-subscription`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
-        body: JSON.stringify({ action: "check", venueId }),
-      });
-      if (subRes.ok) {
-        const subData = await subRes.json();
-        venuePlan = subData?.subscriptionPlan || "essential";
-      }
-    } catch (e) { log("plan_fetch_error", { error: String(e) }); }
+    if (SUBSCRIPTIONS_ENABLED) {
+      try {
+        const subRes = await fetch(`${supabaseUrl}/functions/v1/club-subscription`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+          body: JSON.stringify({ action: "check", venueId }),
+        });
+        if (subRes.ok) {
+          const subData = await subRes.json();
+          venuePlan = subData?.subscriptionPlan || "essential";
+        }
+      } catch (e) { log("plan_fetch_error", { error: String(e) }); }
+    }
 
     // Build context
     let contextBlock = `\n\n📍 CONTEXTE :`;
@@ -1248,7 +1386,9 @@ serve(async (req) => {
     if (venueContext?.staffCount !== undefined) contextBlock += `\n- Staff : ${venueContext.staffCount}`;
     if (venueContext?.drinksCount !== undefined) contextBlock += `\n- Boissons actives : ${venueContext.drinksCount}`;
     if (venueContext?.currentPage) contextBlock += `\n- Page actuelle : ${venueContext.currentPage}`;
-    contextBlock += `\n- Plan : ${venuePlan.toUpperCase()}`;
+    contextBlock += SUBSCRIPTIONS_ENABLED
+      ? `\n- Plan : ${venuePlan.toUpperCase()}`
+      : `\n- Plan : LANCEMENT — toutes les fonctionnalités incluses`;
 
     // Training data
     let trainingContext = "";
@@ -1290,7 +1430,7 @@ serve(async (req) => {
         method: "POST",
         headers: aiHeaders,
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: OPENAI_MODEL,
           messages: conversationMessages,
           tools: TOOLS,
           tool_choice: "auto",
@@ -1337,8 +1477,9 @@ serve(async (req) => {
         let fnArgs: Record<string, any> = {};
         try { fnArgs = JSON.parse(tc.function.arguments || "{}"); } catch { /* empty */ }
 
-        // Plan gating
-        const minPlan = TOOL_MIN_PLAN[fnName];
+        // Plan gating — désactivé pendant le lancement (SUBSCRIPTIONS_ENABLED=false) :
+        // aucun tool n'est bloqué. La map TOOL_MIN_PLAN reste prête pour la réactivation.
+        const minPlan = SUBSCRIPTIONS_ENABLED ? TOOL_MIN_PLAN[fnName] : undefined;
         if (minPlan && !hasPlanAccess(venuePlan, minPlan)) {
           log("plan_blocked", { tool: fnName, plan: venuePlan, required: minPlan });
           conversationMessages.push({
@@ -1387,7 +1528,7 @@ serve(async (req) => {
       method: "POST",
       headers: aiHeaders,
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: OPENAI_MODEL,
         messages: conversationMessages,
         stream: true,
       }),
