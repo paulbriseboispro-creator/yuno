@@ -26,6 +26,10 @@ export default function EventWaitlistPage() {
   // Show in orders toggle (default true)
   const [showInOrders, setShowInOrders] = useState(true);
 
+  // Guest signup fields (shown when not logged in)
+  const [guestName, setGuestName] = useState('');
+  const [guestEmail, setGuestEmail] = useState('');
+
   useEffect(() => {
     fetchData();
   }, [eventId]);
@@ -138,6 +142,49 @@ export default function EventWaitlistPage() {
     }
   };
 
+  // Guest signup — no account needed. RLS allows anon inserts into event_waitlist.
+  const handleGuestSignup = async () => {
+    const email = guestEmail.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      toast.error(t('waitlist.invalidEmail'));
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from('event_waitlist')
+        .insert({
+          event_id: eventId!,
+          email,
+          full_name: guestName.trim() || null,
+          user_id: null,
+          show_in_orders: false,
+        });
+
+      if (error) {
+        if (error.code === '23505') {
+          toast.info(t('waitlist.alreadyRegistered'));
+          setRegistered(true);
+          return;
+        }
+        throw error;
+      }
+
+      setRegistered(true);
+      toast.success(t('waitlist.registered'));
+
+      // Confirmation email (fire-and-forget)
+      supabase.functions.invoke('notify-event-waitlist', {
+        body: { eventId, type: 'confirmation', email },
+      }).catch(() => {});
+    } catch (err) {
+      console.error(err);
+      toast.error(t('common.error'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -229,8 +276,8 @@ export default function EventWaitlistPage() {
           <p className="text-xs text-muted-foreground">{t('waitlist.pageSubtitle')}</p>
         </motion.div>
 
-        {/* Show in orders toggle */}
-        {showInOrdersToggle}
+        {/* Show in orders toggle — only meaningful for logged-in users */}
+        {user && showInOrdersToggle}
 
         {/* Account section */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
@@ -255,11 +302,37 @@ export default function EventWaitlistPage() {
               </Button>
             </>
           ) : (
-            <div className="space-y-3 text-center">
-              <p className="text-sm text-muted-foreground">{t('waitlist.loginToSignUp')}</p>
-              <Button onClick={() => navigate(`/auth?redirect=${basePath}/waitlist`)} className="w-full">
-                {t('auth.login')}
+            <div className="space-y-3">
+              <input
+                type="text"
+                value={guestName}
+                onChange={(e) => setGuestName(e.target.value)}
+                placeholder={t('waitlist.guestNamePlaceholder')}
+                className="w-full rounded-xl border border-border/30 bg-surface px-4 h-12 text-sm outline-none focus:border-primary/50 transition-colors"
+              />
+              <input
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                value={guestEmail}
+                onChange={(e) => setGuestEmail(e.target.value)}
+                placeholder={t('waitlist.guestEmailPlaceholder')}
+                className="w-full rounded-xl border border-border/30 bg-surface px-4 h-12 text-sm outline-none focus:border-primary/50 transition-colors"
+              />
+              <Button
+                onClick={handleGuestSignup}
+                disabled={submitting || !guestEmail.trim()}
+                className="w-full h-12 text-base font-semibold"
+              >
+                {submitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Bell className="h-5 w-5 mr-2" />}
+                {t('waitlist.joinButton')}
               </Button>
+              <button
+                onClick={() => navigate(`/auth?redirect=${basePath}/waitlist`)}
+                className="w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors pt-1"
+              >
+                {t('waitlist.orLogin')}
+              </button>
             </div>
           )}
         </motion.div>
