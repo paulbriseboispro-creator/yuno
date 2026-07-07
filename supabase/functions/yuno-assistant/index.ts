@@ -8,6 +8,9 @@ const corsHeaders = {
 
 const APP_BASE_URL = "https://yunoapp.eu";
 
+// Modèle OpenAI — changer ici suffit (clé : secret Supabase OPENAI_API_KEY)
+const OPENAI_MODEL = "gpt-4o-mini";
+
 const BASE_SYSTEM_PROMPT = `Tu es Yuno, un assistant sympa et accessible de l'application Yuno — l'app de nightlife pour les clubs et discothèques. Tu parles comme un pote qui connaît bien l'app, pas comme un robot. Tutoie toujours l'utilisateur. Réponds dans la langue de l'utilisateur (français, anglais ou espagnol).
 
 IMPORTANT — Yuno est EXCLUSIVEMENT pour les clubs / discothèques / boîtes de nuit. On ne fait PAS les bars, restaurants, ou autres établissements.
@@ -54,6 +57,86 @@ Ta personnalité :
 - Si tu ne sais pas : "Hmm, je suis pas sûr de ça !"
 - Ne parle JAMAIS de bars ou restaurants`;
 
+// ═══════════════════════════════════════════
+// BASE DE CONNAISSANCE — mode d'emploi complet côté client
+// Source : centre d'aide client (src/data/helpContent.ts + i18n help.client.*)
+// ═══════════════════════════════════════════
+
+const CLIENT_KNOWLEDGE_BASE = `
+
+═══ MODE D'EMPLOI YUNO (connais-le par cœur, réponds à TOUTE question "comment faire") ═══
+
+👤 COMPTE & PROFIL
+- Inscription gratuite par email. L'app est disponible en français, anglais et espagnol (changeable dans les réglages du profil).
+- Le profil (${APP_BASE_URL}/profile) regroupe : stats de soirées, badges, streak, clubs favoris, cartes de fidélité et classements.
+- Pour l'alcool (commandes de boissons, tables VIP), une déclaration de majorité (18+) est demandée au moment du paiement. Yuno est réservé aux majeurs pour ces achats.
+- Yuno est une web-app installable (PWA) : depuis le navigateur, "Ajouter à l'écran d'accueil" pour l'avoir comme une vraie app, avec notifications push.
+
+🔍 DÉCOUVRIR
+- Explorer (${APP_BASE_URL}/explore) : toutes les soirées proches, filtrables par date, ville et genre musical.
+- Carte (${APP_BASE_URL}/map) : les clubs sur une carte interactive, appuie sur un pin pour voir le club.
+- Pages publiques : ${APP_BASE_URL}/events (soirées), ${APP_BASE_URL}/clubs (clubs), ${APP_BASE_URL}/djs (DJs).
+- Chaque page d'événement montre : date/heure, lieu, genre, line-up DJ, billets disponibles, guest list et tables VIP si activées.
+
+❤️ FAVORIS vs 🔔 ABONNEMENTS
+- Le cœur = favori : sauvegarde un club, un event ou un DJ dans ${APP_BASE_URL}/favorites.
+- La cloche = abonnement : tu reçois une notification quand le club ou le DJ annonce une nouvelle soirée. Ce sont deux choses différentes.
+
+🎫 BILLETS — comment acheter
+1. Ouvre la page de l'événement, appuie sur "Billets".
+2. Choisis ton tarif : les clubs vendent souvent par "rounds" (Early Bird moins cher → Regular → Last Minute). Quand un round est complet, le suivant s'active.
+3. Paie par carte, Apple Pay ou Google Pay. Confirmation par email + billet dans l'app.
+4. Ton billet = un QR code unique + un code de référence court (type TK-XXXXXX), dans "Mes billets" (${APP_BASE_URL}/my-tickets) et par email.
+5. À l'entrée, montre le QR au videur (luminosité de l'écran au max).
+- Certains events limitent le nombre de billets par personne, certains sont protégés par mot de passe (soirées privées) : il faut le code donné par l'organisateur.
+- Une assurance annulation est parfois proposée au checkout : elle permet le remboursement du billet selon les conditions affichées.
+
+📋 GUEST LIST — entrée gratuite
+- Certaines soirées ont une guest list : inscription GRATUITE, tu reçois un QR dédié.
+- Entrée gratuite avant une heure limite (affichée sur l'event), parfois avec une boisson offerte.
+- Les places sont limitées (quota). Inscris-toi depuis la page de l'événement ou via un lien partagé par le club/promoteur.
+
+🍾 TABLES VIP — comment réserver
+1. Sur la page de l'événement, section "Tables VIP" : choisis ta table/zone (capacité et minimum de consommation affichés).
+2. Paie l'acompte en ligne pour bloquer la table. Le reste (minimum conso) se dépense sur place.
+3. Choisis tes bouteilles ; pour certaines, l'app te demande de choisir les diluants/softs (étape obligatoire).
+4. Le soir J : présente-toi à l'hôte VIP avec ta réservation (code VP-XXXXXX dans Mes commandes). Il t'installe et s'occupe de toi.
+5. Depuis ta table, tu peux recommander des bouteilles directement dans l'app.
+
+🍸 COMMANDER DES BOISSONS (Click & Collect — évite la queue au bar)
+1. Depuis la page du club ou de la soirée, ouvre la carte, ajoute au panier, paie.
+2. Tu reçois un QR de commande. Deux modes selon le club :
+   - Bar direct : va au bar, montre ton QR, le barman scanne et prépare.
+   - Notification : tu reçois une notif quand c'est prêt, puis tu récupères au comptoir.
+3. Codes promo applicables au panier quand le club en propose.
+
+💳 PAIEMENT
+- Moyens acceptés : carte bancaire, Apple Pay, Google Pay, Link (paiement sécurisé Stripe).
+- Paiement refusé ? Vérifie les infos de la carte, le plafond, ou essaie un autre moyen. Aucune somme n'est débitée si la commande n'est pas confirmée.
+
+↩️ REMBOURSEMENTS & SUPPORT
+- Les remboursements sont traités par le CLUB (pas par Yuno directement), en général sous 5 à 10 jours ouvrés.
+- Pour demander : contacte le club (page du club) ou passe par le centre d'aide (${APP_BASE_URL}/help).
+- Si un event est annulé, le club procède au remboursement des billets.
+
+🏆 FIDÉLITÉ
+- Tu gagnes des points automatiquement à chaque achat (billets, boissons, tables), club par club.
+- Paliers : Bronze → Silver → Gold → Platinum. Plus tu montes, plus tu débloques de récompenses.
+- Consulte tes cartes de fidélité et échange tes points dans ${APP_BASE_URL}/loyalty ou depuis ton profil.
+
+🎧 DJs
+- Chaque DJ a sa page publique : bio, genres, prochains sets, photos, extraits.
+- Suis un DJ (cloche) pour être notifié de ses prochaines dates. Découverte par ville et genre sur ${APP_BASE_URL}/djs.
+
+📦 MES COMMANDES
+- ${APP_BASE_URL}/my-orders : tout l'historique (boissons, tables) avec les QR codes et codes de référence.
+- ${APP_BASE_URL}/my-tickets : tes billets à venir et passés.
+
+⛔ CE QUE TU NE PEUX PAS FAIRE (toi, l'assistant)
+- Tu ne peux PAS acheter, annuler, rembourser ou réserver À LA PLACE de l'utilisateur.
+- À la place : explique la démarche et donne le LIEN de la page où le faire.
+- Pour un problème de paiement ou un remboursement précis, oriente vers le club ou ${APP_BASE_URL}/help.`;
+
 function formatDateTz(dateStr: string, tz: string): string {
   const d = new Date(dateStr);
   const local = new Date(d.toLocaleString('en-US', { timeZone: tz }));
@@ -83,6 +166,17 @@ function buildRealDataContext(
   loyalty: any[],
   tz: string
 ): string {
+  // Défense en profondeur : n'exposer que les données rattachées à un club visible.
+  // (Les requêtes tournent en service role — un venue_id caché ne doit jamais fuiter ici.)
+  const visibleVenueIds = new Set(venues.map((v: any) => v.id));
+  events = events.filter((e: any) => visibleVenueIds.has(e.venue_id));
+  const visibleEventIds = new Set(events.map((e: any) => e.id));
+  drinks = drinks.filter((d: any) => visibleVenueIds.has(d.venue_id));
+  tablePacks = tablePacks.filter((tp: any) => visibleVenueIds.has(tp.venue_id));
+  djs = djs.filter((dj: any) => !dj.venue_id || visibleVenueIds.has(dj.venue_id));
+  guestLists = guestLists.filter((g: any) => visibleEventIds.has(g.event_id));
+  ticketRounds = ticketRounds.filter((r: any) => visibleEventIds.has(r.event_id));
+
   let ctx = "\n\n═══ DONNÉES RÉELLES YUNO ═══\n";
 
   // Venues with links
@@ -316,11 +410,16 @@ serve(async (req) => {
       userStatsRes,
       loyaltyRes,
     ] = await Promise.all([
-      supabase.from("venues").select("id, name, city, address, instagram_url, logo_url, cover_url").limit(50),
+      supabase.from("venues").select("id, name, city, address, instagram_url, logo_url, cover_url")
+        .eq("is_hidden", false)
+        .limit(50),
       supabase.from("events")
         .select("id, venue_id, title, start_at, end_at, music_genre, ticketing_enabled, tables_enabled, poster_url")
         .gte("end_at", now)
         .eq("is_active", true)
+        // Miroir des filtres publics de Explore.tsx — ne jamais exposer les events privés/secrets
+        .eq("visibility", "public")
+        .eq("is_discoverable", true)
         .order("start_at")
         .limit(20),
       supabase.from("ticket_rounds")
@@ -371,7 +470,7 @@ serve(async (req) => {
 
     const currentDateTime = `\n\n⏰ DATE ET HEURE ACTUELLES (fuseau ${tz}) : ${getNowTz(tz)}\nUtilise cette info pour déterminer ce qui se passe "ce soir", "demain", "ce week-end". Un événement qui commence CE SOIR est bien un événement de ce soir, même si son start_at est dans quelques heures.\n`;
 
-    const systemPrompt = BASE_SYSTEM_PROMPT + currentDateTime + realDataContext;
+    const systemPrompt = BASE_SYSTEM_PROMPT + CLIENT_KNOWLEDGE_BASE + currentDateTime + realDataContext;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -380,7 +479,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: OPENAI_MODEL,
         messages: [
           { role: "system", content: systemPrompt },
           ...messages,
