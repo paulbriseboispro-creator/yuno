@@ -10,6 +10,7 @@ import { useStore } from '@/store/useStore';
 import { Drink, Event, Venue } from '@/types';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { PUBLIC_VENUE_COLUMNS } from '@/integrations/supabase/publicColumns';
 import { Button } from '@/components/ui/button';
 import { useParams } from 'react-router-dom';
 import { usePreviewNavigate } from '@/contexts/OwnerPreviewContext';
@@ -172,9 +173,12 @@ export default function VenuePage() {
 
     const fetchVenue = async () => {
       try {
+        // Anon visitors only have column-level GRANTs on the public subset of
+        // `venues` (see publicColumns.ts). select('*') here returns HTTP 401 for
+        // logged-out guests → the whole club page falls back to "not found".
         const { data, error } = await supabase
           .from('venues')
-          .select('*')
+          .select(PUBLIC_VENUE_COLUMNS)
           .eq('id', slug)
           .maybeSingle();
 
