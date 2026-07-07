@@ -211,7 +211,7 @@ export function OwnerOnboardingGuide({ venueId }: Props) {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 cursor-pointer transition-all hover:scale-105 active:scale-95"
+        className="fixed bottom-6 right-[84px] z-50 flex items-center gap-2.5 cursor-pointer transition-all hover:scale-105 active:scale-95"
         style={{
           background: BG,
           border: `1px solid ${BORDER}`,
