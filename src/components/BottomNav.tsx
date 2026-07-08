@@ -2,7 +2,8 @@ import { Search, Heart, ShoppingBag, User, Building2, LucideIcon } from 'lucide-
 import { NavLink as RouterNavLink, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useEffect, useRef } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion, LayoutGroup, useReducedMotion } from 'framer-motion';
+import { haptics } from '@/lib/haptics';
 import { useVenueNav } from '@/contexts/VenueNavContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -20,6 +21,17 @@ interface ClubNavItem {
 
 type NavItem = RegularNavItem | ClubNavItem;
 
+// Lozenge de verre « liquid glass » (inspiré de la bottom nav Instagram iOS) :
+// une pastille frostée qui glisse en ressort d'un onglet à l'autre via un
+// partage de layout framer (layoutId). Verre neutre + halo rouge Yuno pour
+// rester sur la marque tout en gardant l'icône rouge active bien lisible.
+const GLASS_PILL_STYLE: React.CSSProperties = {
+  background: 'linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.045) 100%)',
+  border: '1px solid rgba(255,255,255,0.16)',
+  boxShadow:
+    'inset 0 1px 0.5px rgba(255,255,255,0.30), inset 0 -8px 14px rgba(0,0,0,0.12), 0 3px 10px rgba(0,0,0,0.28), 0 0 16px rgba(232,25,44,0.22)',
+};
+
 export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -30,6 +42,11 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
   // Surface haute fréquence (onglets tapés des dizaines de fois/jour) → press
   // subtil, état par la couleur. Reduced-motion → léger fondu, pas de scale.
   const tabTap = reduceMotion ? { opacity: 0.6 } : { scale: 0.94 };
+  // Le lozenge glisse en ressort ; reduced-motion → apparition en fondu, sans
+  // déplacement (layoutId désactivé plus bas).
+  const pillTransition = reduceMotion
+    ? { duration: 0.2 }
+    : { type: 'spring' as const, stiffness: 480, damping: 34, mass: 0.7 };
 
   // Preserve --bottom-nav-height CSS variable
   useEffect(() => {
@@ -54,6 +71,7 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
   const isClubActive = location.pathname.startsWith('/club/') || location.pathname === '/map';
 
   const handleClubClick = () => {
+    haptics.selection();
     if (currentVenueSlug) {
       const venueHome = `/club/${currentVenueSlug}`;
       if (location.pathname === venueHome) {
@@ -94,14 +112,18 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
         <div
           className="relative flex items-end justify-around rounded-2xl px-2 pt-1.5 pb-1.5"
           style={{
-            background: 'rgba(14,14,16,0.92)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255,255,255,0.08)',
-            boxShadow: '0 -1px 0 rgba(255,255,255,0.06), 0 -4px 24px rgba(0,0,0,0.6)',
+            // Verre plus translucide qu'avant (0.92 → 0.74) : le flou lit enfin
+            // comme du givre, façon capsule Instagram. saturate ravive le fond.
+            background: 'rgba(12,12,14,0.74)',
+            backdropFilter: 'blur(28px) saturate(1.6)',
+            WebkitBackdropFilter: 'blur(28px) saturate(1.6)',
+            border: '1px solid rgba(255,255,255,0.09)',
+            boxShadow:
+              'inset 0 1px 0 rgba(255,255,255,0.08), 0 -1px 0 rgba(255,255,255,0.04), 0 -4px 24px rgba(0,0,0,0.6)',
           }}
         >
-          {navItems.map((item, idx) => {
+          <LayoutGroup id="bottom-nav">
+          {navItems.map((item) => {
             if (item.type === 'club') {
               return (
                 <button
@@ -140,6 +162,7 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
                 key={item.to}
                 to={item.to}
                 end={item.end}
+                onClick={() => haptics.selection()}
                 className="group relative flex flex-col items-center min-w-[52px]"
               >
                 {({ isActive }) => (
@@ -148,6 +171,18 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
                     whileTap={tabTap}
                     transition={{ type: 'spring', stiffness: 400, damping: 20 }}
                   >
+                    {/* Lozenge de verre actif — glisse d'un onglet à l'autre (layoutId) */}
+                    {isActive && (
+                      <motion.span
+                        layoutId={reduceMotion ? undefined : 'bottomnav-glass'}
+                        aria-hidden="true"
+                        className="absolute inset-0 rounded-xl pointer-events-none"
+                        style={GLASS_PILL_STYLE}
+                        initial={reduceMotion ? { opacity: 0 } : false}
+                        animate={reduceMotion ? { opacity: 1 } : undefined}
+                        transition={pillTransition}
+                      />
+                    )}
                     {/* Red blur glow — desktop hover-capable only (évite le hover collant au tap) */}
                     {!isActive && (
                       <span className="absolute inset-0 rounded-xl bg-primary/0 [@media(hover:hover)]:group-hover:bg-primary/15 blur-lg transition-colors duration-300 pointer-events-none" />
@@ -173,6 +208,7 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
               </RouterNavLink>
             );
           })}
+          </LayoutGroup>
         </div>
       </div>
     </nav>
