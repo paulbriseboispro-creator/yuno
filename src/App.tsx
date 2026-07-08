@@ -205,6 +205,7 @@ const AdminLayout = lazyWithRetry(() => import("./pages/admin/AdminLayout"));
 const AdminDashboard = lazyWithRetry(() => import("./pages/admin/AdminDashboard"));
 const AdminVenues = lazyWithRetry(() => import("./pages/admin/AdminVenues"));
 const AdminAnalytics = lazyWithRetry(() => import("./pages/admin/AdminAnalytics"));
+const AdminSegmentation = lazyWithRetry(() => import("./pages/admin/AdminSegmentation"));
 const AdminAccounting = lazyWithRetry(() => import("./pages/admin/AdminAccounting"));
 const AdminFeedback = lazyWithRetry(() => import("./pages/admin/AdminFeedback"));
 const AdminDrinkCatalog = lazyWithRetry(() => import("./pages/admin/AdminDrinkCatalog"));
@@ -913,6 +914,7 @@ const App = () => (
                   <Route index element={<AdminDashboard />} />
                   <Route path="venues" element={<AdminVenues />} />
                   <Route path="analytics" element={<AdminAnalytics />} />
+                  <Route path="segmentation" element={<AdminSegmentation />} />
                   <Route path="accounting" element={<AdminAccounting />} />
                   <Route path="feedback" element={<AdminFeedback />} />
                   <Route path="drinks" element={<AdminDrinkCatalog />} />

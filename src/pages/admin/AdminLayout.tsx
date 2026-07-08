@@ -17,6 +17,7 @@ import {
   ArrowLeft,
   Mail,
   Users,
+  UsersRound,
   Bell,
   BookOpen,
   ShoppingBag,
@@ -57,6 +58,7 @@ export default function AdminLayout() {
         { title: 'Dashboard', path: '/admin', icon: LayoutDashboard },
         { title: t('admin.dir.navTitle'), path: '/admin/directory', icon: BookOpen },
         { title: 'Analytics', path: '/admin/analytics', icon: BarChart3 },
+        { title: t('admin.navSegmentation'), path: '/admin/segmentation', icon: UsersRound },
       ],
     },
     {

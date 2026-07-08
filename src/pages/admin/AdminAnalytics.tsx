@@ -1,25 +1,29 @@
 import { useState, useEffect, useId } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { orderRevenue as orderClub, ticketRevenue as ticketClub, tableRevenue as tableClub } from '@/utils/fees';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, PieChart, Pie, Cell,
+  LineChart, Line, PieChart, Pie, Cell, AreaChart, Area,
 } from 'recharts';
 import { motion } from 'framer-motion';
-import { DollarSign, Zap, Activity, TrendingUp, Ticket, Crown, ShoppingBag, CreditCard, BarChart3, Building2, Users, Clock, Gauge, TrendingDown, Smartphone, Tablet, Monitor, Repeat, MapPin, Share2, Percent, CalendarClock, type LucideIcon } from 'lucide-react';
+import {
+  DollarSign, Zap, Activity, TrendingUp, Ticket, Crown, ShoppingBag, CreditCard,
+  BarChart3, Building2, Users, Clock, Gauge, TrendingDown, Smartphone, Tablet,
+  Monitor, Repeat, MapPin, Share2, Percent, CalendarClock, Trophy, Sparkles,
+  UserPlus, RotateCcw, CalendarDays, Globe, type LucideIcon,
+} from 'lucide-react';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { Heatmap, DeviceBar } from '@/components/analytics/behaviorPrimitives';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED        = '#E8192C';
 const POS        = '#34D399';
+const NEG        = '#FF5C63';
 const T1         = 'rgba(255,255,255,0.96)';
 const T2         = 'rgba(255,255,255,0.58)';
 const T3         = 'rgba(255,255,255,0.36)';
 const C_FAINT    = 'rgba(255,255,255,0.06)';
 const C_HI       = 'rgba(255,255,255,0.92)';
-const C_MID      = 'rgba(255,255,255,0.40)';
 const BORDER     = 'rgba(255,255,255,0.085)';
 const F_BORDER   = 'rgba(255,255,255,0.055)';
 const INNER_BG   = 'rgba(255,255,255,0.032)';
@@ -42,6 +46,22 @@ interface AudienceStats {
   new_vs_returning: { new_visits: number; new_conv: number; returning_visits: number; returning_conv: number };
   trend: { day: string; visits: number; conversions: number }[];
   heatmap: { dow: number; hour: number; count: number }[];
+}
+
+// admin_platform_analytics payload — server-side aggregation, no PostgREST row cap
+interface PlatformStats {
+  totals: {
+    gmv: number; club_revenue: number; yuno_revenue: number; refunds_total: number;
+    refunds_count: number; tx_count: number; tickets_qty: number; ticket_sales: number;
+    tables_booked: number; drink_orders: number; avg_order: number; take_rate: number;
+  };
+  by_day: { d: string; drinks: number; tickets: number; tables: number; total: number; yuno: number; refunds: number; drink_n: number; ticket_n: number; table_n: number }[];
+  top_venues: { id: string; name: string; city: string | null; revenue: number; yuno: number; tx: number }[];
+  top_events: { id: string; title: string; venue_name: string | null; start_at: string | null; revenue: number; tickets: number; tables: number }[];
+  top_organizers: { user_id: string; name: string; revenue: number; events_count: number }[];
+  growth: { new_users_by_day: { d: string; n: number }[]; new_users: number; total_users: number; new_venues: number; new_events: number };
+  venue_cities: { city: string; revenue: number; tx: number }[];
+  subscriptions: number;
 }
 
 // ─── Card primitives ──────────────────────────────────────────────────────────
@@ -70,9 +90,19 @@ function CardTitle({ icon: Icon, children, sub }: { icon: LucideIcon; children: 
   );
 }
 
+function ZoneHeading({ icon: Icon, children }: { icon: LucideIcon; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 pt-2">
+      <Icon className="h-4 w-4" style={{ color: T2 }} />
+      <h2 style={{ color: T1, fontSize: 16, fontWeight: 650, letterSpacing: '-0.02em' }}>{children}</h2>
+      <div className="flex-1 h-px" style={{ background: BORDER }} />
+    </div>
+  );
+}
+
 // ─── KPI stat card ──────────────────────────────────────────────────────────
-function StatCard({ label, value, icon: Icon, highlight, tone }: { label: string; value: string | number; icon: LucideIcon; highlight?: boolean; tone?: 'pos' }) {
-  const valueColor = tone === 'pos' ? POS : highlight ? RED : T1;
+function StatCard({ label, value, sub, icon: Icon, highlight, tone }: { label: string; value: string | number; sub?: string; icon: LucideIcon; highlight?: boolean; tone?: 'pos' | 'neg' }) {
+  const valueColor = tone === 'pos' ? POS : tone === 'neg' ? NEG : highlight ? RED : T1;
   return (
     <div
       style={{
@@ -91,6 +121,7 @@ function StatCard({ label, value, icon: Icon, highlight, tone }: { label: string
         </div>
       </div>
       <p className="tabular-nums" style={{ color: valueColor, fontSize: 26, fontWeight: 640, letterSpacing: '-0.025em', lineHeight: 1 }}>{value}</p>
+      {sub && <p style={{ color: T3, fontSize: 11.5, marginTop: 6 }}>{sub}</p>}
     </div>
   );
 }
@@ -241,15 +272,15 @@ function FunnelView({ funnel, t }: { funnel: AudienceStats['funnel']; t: (k: str
   );
 }
 
-// ─── Horizontal labeled bar (sources / entry pages) ────────────────────────────
-function BarRow({ label, value, max, conv, accent }: { label: string; value: number; max: number; conv?: string; accent?: boolean }) {
+// ─── Horizontal labeled bar (sources / entry pages / cities) ──────────────────
+function BarRow({ label, value, max, conv, accent, money }: { label: string; value: number; max: number; conv?: string; accent?: boolean; money?: boolean }) {
   const pct = max > 0 ? (value / max) * 100 : 0;
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between" style={{ fontSize: 12.5 }}>
         <span className="truncate pr-2" style={{ color: T2 }}>{label}</span>
         <span className="tabular-nums flex-none" style={{ color: T1 }}>
-          {value.toLocaleString()}
+          {money ? `${value.toLocaleString('fr-FR', { maximumFractionDigits: 0 })}€` : value.toLocaleString()}
           {conv !== undefined && <span style={{ color: T3 }}> · {conv}</span>}
         </span>
       </div>
@@ -263,6 +294,26 @@ function BarRow({ label, value, max, conv, accent }: { label: string; value: num
   );
 }
 
+// ─── Ranked list (top events / organizers) ───────────────────────────────────
+function RankedList({ items }: { items: { name: string; sub?: string; value: string }[] }) {
+  return (
+    <div>
+      {items.map((it, i) => (
+        <div key={i} className="grid items-center gap-3 py-2.5" style={{ gridTemplateColumns: '22px 1fr auto', borderBottom: i < items.length - 1 ? `1px solid ${F_BORDER}` : 'none' }}>
+          <span className="text-[12.5px] tabular-nums" style={{ color: i === 0 ? RED : T3, fontWeight: i === 0 ? 700 : 400 }}>
+            {String(i + 1).padStart(2, '0')}
+          </span>
+          <div className="min-w-0">
+            <div className="text-sm font-[560] truncate" style={{ color: T1 }}>{it.name}</div>
+            {it.sub && <div className="text-[11.5px] truncate mt-0.5" style={{ color: T3 }}>{it.sub}</div>}
+          </div>
+          <div className="text-sm font-[620] tabular-nums text-right" style={{ color: T1 }}>{it.value}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function AdminAnalytics() {
   const { t, language } = useLanguage();
   const uid = useId().replace(/:/g, '');
@@ -270,14 +321,11 @@ export default function AdminAnalytics() {
   const [selectedVenue, setSelectedVenue] = useState<string>('all');
   const [period, setPeriod] = useState<string>('30');
   const [loading, setLoading] = useState(true);
-  const [dailyData, setDailyData] = useState<{ date: string; drinks: number; tickets: number; tables: number; total: number; drinkOrders: number; ticketOrders: number; tableOrders: number }[]>([]);
-  const [venueComparison, setVenueComparison] = useState<{ name: string; revenue: number }[]>([]);
+  const [platform, setPlatform] = useState<PlatformStats | null>(null);
   const [audience, setAudience] = useState<AudienceStats | null>(null);
-  const [pieData, setPieData] = useState<{ name: string; value: number }[]>([]);
-  const [kpiData, setKpiData] = useState({ totalRevenue: 0, yunoRevenue: 0, totalTransactions: 0, conversionRate: '0', ticketsSold: 0, tablesBooked: 0, avgOrder: 0, activeSubscriptions: 0 });
 
   useEffect(() => { fetchVenues(); }, []);
-  useEffect(() => { if (venues.length >= 0) fetchAnalytics(); }, [selectedVenue, period, venues]);
+  useEffect(() => { fetchAnalytics(); }, [selectedVenue, period]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchVenues = async () => {
     const { data } = await supabase.from('venues').select('id, name').order('name');
@@ -290,109 +338,22 @@ export default function AdminAnalytics() {
       const days = parseInt(period);
       const startDate = startOfDay(subDays(new Date(), days)).toISOString();
       const endDate = endOfDay(new Date()).toISOString();
+      const venueParam = selectedVenue === 'all' ? null : selectedVenue;
 
-      // Fetch events for venue mapping
-      const { data: allEvents } = await supabase.from('events').select('id, venue_id');
-      const eventVenueMap = new Map<string, string>();
-      (allEvents || []).forEach(e => eventVenueMap.set(e.id, e.venue_id));
+      // Both aggregations run server-side (SECURITY DEFINER, super-admin gated):
+      // no PostgREST 1000-row cap, no N client queries.
+      const [platformRes, audienceRes] = await Promise.all([
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        supabase.rpc('admin_platform_analytics' as any, { p_from: startDate, p_to: endDate, p_venue_id: venueParam }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        supabase.rpc('get_platform_audience_stats' as any, { p_from: startDate, p_to: endDate, p_venue_id: venueParam }),
+      ]);
 
-      // Fetch orders
-      let ordersQ = supabase.from('orders').select('venue_id, total, service_fee, created_at, status').in('status', ['paid', 'served']).gte('created_at', startDate).lte('created_at', endDate);
-      if (selectedVenue !== 'all') ordersQ = ordersQ.eq('venue_id', selectedVenue);
-      const { data: orders } = await ordersQ;
+      if (platformRes.error) console.error('[AdminAnalytics] platform stats error', platformRes.error);
+      if (audienceRes.error) console.warn('[AdminAnalytics] audience stats error', audienceRes.error);
 
-      // Fetch tickets
-      const ticketsQ = supabase.from('tickets').select('event_id, total_price, service_fee, insurance_fee, created_at, status').eq('status', 'paid').gte('created_at', startDate).lte('created_at', endDate);
-      const { data: allTickets } = await ticketsQ;
-      const ticketsData = selectedVenue !== 'all'
-        ? (allTickets || []).filter(t => eventVenueMap.get(t.event_id) === selectedVenue)
-        : allTickets || [];
-
-      // Fetch table reservations
-      const tablesQ = supabase.from('table_reservations').select('event_id, total_price, service_fee, management_fee, created_at, status').in('status', ['confirmed', 'paid']).gte('created_at', startDate).lte('created_at', endDate);
-      const { data: allTables } = await tablesQ;
-      const tablesData = selectedVenue !== 'all'
-        ? (allTables || []).filter(t => eventVenueMap.get(t.event_id) === selectedVenue)
-        : allTables || [];
-
-      // Audience / behavior — server-side aggregation across all sessions
-      // (bypasses the 10k client cap + per-row RLS; gated on super-admin).
-      const { data: audienceData, error: audErr } = await supabase.rpc('get_platform_audience_stats' as any, {
-        p_from: startDate,
-        p_to: endDate,
-        p_venue_id: selectedVenue === 'all' ? null : selectedVenue,
-      });
-      if (audErr) console.warn('[AdminAnalytics] audience stats error', audErr);
-      const aud = (audienceData as AudienceStats | null) ?? null;
-      setAudience(aud);
-
-      // Subscriptions
-      const { count: subsCount } = await supabase.from('venue_subscriptions').select('id', { count: 'exact', head: true }).in('status', ['active', 'trialing']);
-
-      // Build daily data
-      const dailyMap = new Map<string, { drinks: number; tickets: number; tables: number; drinkOrders: number; ticketOrders: number; tableOrders: number }>();
-      for (let i = days; i >= 0; i--) {
-        const date = format(subDays(new Date(), i), 'dd/MM');
-        dailyMap.set(date, { drinks: 0, tickets: 0, tables: 0, drinkOrders: 0, ticketOrders: 0, tableOrders: 0 });
-      }
-
-      // Club revenue excludes Yuno fees; Yuno's own take is yunoRevenue below.
-      (orders || []).forEach(o => {
-        const date = format(new Date(o.created_at), 'dd/MM');
-        const e = dailyMap.get(date);
-        if (e) { e.drinks += orderClub(o).gross; e.drinkOrders += 1; }
-      });
-      ticketsData.forEach(t => {
-        const date = format(new Date(t.created_at), 'dd/MM');
-        const e = dailyMap.get(date);
-        if (e) { e.tickets += ticketClub(t).gross; e.ticketOrders += 1; }
-      });
-      tablesData.forEach(t => {
-        const date = format(new Date(t.created_at), 'dd/MM');
-        const e = dailyMap.get(date);
-        if (e) { e.tables += tableClub(t).gross; e.tableOrders += 1; }
-      });
-
-      const daily = Array.from(dailyMap.entries()).map(([date, d]) => ({
-        date, ...d, total: d.drinks + d.tickets + d.tables,
-      }));
-      setDailyData(daily);
-
-      // KPIs
-      const drinkTotal = (orders || []).reduce((s, o) => s + orderClub(o).gross, 0);
-      const ticketTotal = ticketsData.reduce((s, t) => s + ticketClub(t).gross, 0);
-      const tableTotal = tablesData.reduce((s, t) => s + tableClub(t).gross, 0);
-      const totalRevenue = drinkTotal + ticketTotal + tableTotal;
-
-      const yunoRevenue = (orders || []).reduce((s, o) => s + Number(o.service_fee || 0), 0)
-        + ticketsData.reduce((s, t) => s + Number(t.service_fee || 0) + Number(t.insurance_fee || 0), 0)
-        + tablesData.reduce((s, t) => s + Number(t.service_fee || 0) + Number(t.management_fee || 0), 0);
-
-      const totalTransactions = (orders || []).length + ticketsData.length + tablesData.length;
-      const avgOrder = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
-
-      const totalVisitors = aud?.funnel.visitors ?? 0;
-      const completed = aud?.funnel.conversions ?? 0;
-      const conversionRate = totalVisitors > 0 ? ((completed / totalVisitors) * 100).toFixed(1) : '0';
-
-      setKpiData({ totalRevenue, yunoRevenue, totalTransactions, conversionRate, ticketsSold: ticketsData.length, tablesBooked: tablesData.length, avgOrder, activeSubscriptions: subsCount || 0 });
-
-      // Pie data
-      setPieData([
-        { name: t('adminAnalytics.drinks'), value: drinkTotal },
-        { name: t('adminAnalytics.tickets'), value: ticketTotal },
-        { name: t('adminAnalytics.tables'), value: tableTotal },
-      ].filter(d => d.value > 0));
-
-      // Venue comparison
-      if (selectedVenue === 'all') {
-        const venueRevMap = new Map<string, number>();
-        venues.forEach(v => venueRevMap.set(v.id, 0));
-        (orders || []).forEach(o => venueRevMap.set(o.venue_id, (venueRevMap.get(o.venue_id) || 0) + orderClub(o).gross));
-        ticketsData.forEach(t => { const vid = eventVenueMap.get(t.event_id); if (vid) venueRevMap.set(vid, (venueRevMap.get(vid) || 0) + ticketClub(t).gross); });
-        tablesData.forEach(t => { const vid = eventVenueMap.get(t.event_id); if (vid) venueRevMap.set(vid, (venueRevMap.get(vid) || 0) + tableClub(t).gross); });
-        setVenueComparison(venues.map(v => ({ name: v.name, revenue: venueRevMap.get(v.id) || 0 })).filter(v => v.revenue > 0).sort((a, b) => b.revenue - a.revenue));
-      }
+      setPlatform((platformRes.data as unknown as PlatformStats | null) ?? null);
+      setAudience((audienceRes.data as unknown as AudienceStats | null) ?? null);
     } catch (error) {
       console.error('Error fetching analytics:', error);
     } finally {
@@ -419,6 +380,25 @@ export default function AdminAnalytics() {
   const tablesColor = '#F59E0B';
   const totalColor = C_HI;
 
+  // ─── Platform-derived values ─────────────────────────────────────────────────
+  const totals = platform?.totals;
+  const fmtDay = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+  const dailyData = (platform?.by_day ?? []).map(d => ({
+    date: fmtDay(d.d),
+    drinks: d.drinks, tickets: d.tickets, tables: d.tables, total: d.total,
+    drinkOrders: d.drink_n, ticketOrders: d.ticket_n, tableOrders: d.table_n,
+  }));
+  const newUsersData = (platform?.growth.new_users_by_day ?? []).map(d => ({ date: fmtDay(d.d), n: d.n }));
+  const pieData = [
+    { name: t('adminAnalytics.drinks'), value: (platform?.by_day ?? []).reduce((s, d) => s + d.drinks, 0) },
+    { name: t('adminAnalytics.tickets'), value: (platform?.by_day ?? []).reduce((s, d) => s + d.tickets, 0) },
+    { name: t('adminAnalytics.tables'), value: (platform?.by_day ?? []).reduce((s, d) => s + d.tables, 0) },
+  ].filter(d => d.value > 0);
+  const conversionRate = audience && audience.funnel.visitors > 0
+    ? ((audience.funnel.conversions / audience.funnel.visitors) * 100).toFixed(1)
+    : '0';
+  const cityMax = Math.max(1, ...(platform?.venue_cities ?? []).map(c => c.revenue));
+
   // ─── Audience-derived values ─────────────────────────────────────────────────
   const hasAudience = !!audience && audience.funnel.visitors > 0;
   const fmtDur = (s: number) => `${Math.floor(s / 60)}m ${s % 60}s`;
@@ -433,7 +413,7 @@ export default function AdminAnalytics() {
   const srcMax = Math.max(1, ...(audience?.sources ?? []).map(s => s.visits));
   const entryMax = Math.max(1, ...(audience?.entry_pages ?? []).map(s => s.visits));
   const trendData = (audience?.trend ?? []).map(p => ({
-    date: `${p.day.slice(8, 10)}/${p.day.slice(5, 7)}`,
+    date: fmtDay(p.day),
     rate: p.visits > 0 ? Number(((p.conversions / p.visits) * 100).toFixed(2)) : 0,
   }));
   const heatMatrix: number[][] = Array(7).fill(0).map(() => Array(24).fill(0));
@@ -441,6 +421,8 @@ export default function AdminAnalytics() {
     const d = (h.dow + 6) % 7;
     if (heatMatrix[d] && h.hour >= 0 && h.hour < 24) heatMatrix[d][h.hour] = h.count;
   });
+
+  const eur = (v: number) => `${(v ?? 0).toLocaleString('fr-FR', { maximumFractionDigits: 0 })}€`;
 
   return (
     <div className="min-h-screen pb-16" style={{ background: '#000' }}>
@@ -472,41 +454,41 @@ export default function AdminAnalytics() {
           </div>
         ) : (
           <>
-            {/* KPI row 1 */}
+            {/* KPI row 1 — money */}
             <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }}>
-                <StatCard label={t('adminAnalytics.periodRevenue')} value={`${kpiData.totalRevenue.toFixed(2)}€`} icon={DollarSign} />
+                <StatCard label={t('adminAnalytics.gmv')} value={eur(totals?.gmv ?? 0)} icon={DollarSign} />
               </motion.div>
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-                <StatCard label={t('adminAnalytics.yunoRevenue')} value={`${kpiData.yunoRevenue.toFixed(2)}€`} icon={Zap} highlight />
+                <StatCard label={t('adminAnalytics.yunoRevenue')} value={eur(totals?.yuno_revenue ?? 0)} sub={`${t('adminAnalytics.takeRate')} ${totals?.take_rate ?? 0}%`} icon={Zap} highlight />
               </motion.div>
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-                <StatCard label={t('adminAnalytics.totalTransactions')} value={kpiData.totalTransactions} icon={Activity} />
+                <StatCard label={t('adminAnalytics.clubRevenue')} value={eur(totals?.club_revenue ?? 0)} icon={Building2} />
               </motion.div>
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-                <StatCard label={t('adminAnalytics.conversionRate')} value={`${kpiData.conversionRate}%`} icon={TrendingUp} tone="pos" />
+                <StatCard label={t('adminAnalytics.refunds')} value={eur(totals?.refunds_total ?? 0)} sub={`${totals?.refunds_count ?? 0} ${t('adminAnalytics.refundsCount')}`} icon={RotateCcw} tone={totals?.refunds_total ? 'neg' : undefined} />
               </motion.div>
             </div>
 
-            {/* KPI row 2 */}
+            {/* KPI row 2 — volume */}
             <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0 }}>
-                <StatCard label={t('adminAnalytics.ticketsSold')} value={kpiData.ticketsSold} icon={Ticket} />
+                <StatCard label={t('adminAnalytics.totalTransactions')} value={(totals?.tx_count ?? 0).toLocaleString()} sub={`${t('adminAnalytics.avgOrder')} ${(totals?.avg_order ?? 0).toFixed(2)}€`} icon={Activity} />
               </motion.div>
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-                <StatCard label={t('adminAnalytics.tablesBooked')} value={kpiData.tablesBooked} icon={Crown} />
+                <StatCard label={t('adminAnalytics.ticketsSold')} value={(totals?.tickets_qty ?? 0).toLocaleString()} icon={Ticket} />
               </motion.div>
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-                <StatCard label={t('adminAnalytics.avgOrder')} value={`${kpiData.avgOrder.toFixed(2)}€`} icon={ShoppingBag} />
+                <StatCard label={t('adminAnalytics.tablesBooked')} value={(totals?.tables_booked ?? 0).toLocaleString()} icon={Crown} />
               </motion.div>
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-                <StatCard label={t('adminAnalytics.activeSubscriptions')} value={kpiData.activeSubscriptions} icon={CreditCard} tone="pos" />
+                <StatCard label={t('adminAnalytics.conversionRate')} value={`${conversionRate}%`} sub={`${(totals?.drink_orders ?? 0).toLocaleString()} ${t('adminAnalytics.drinkOrders')}`} icon={TrendingUp} tone="pos" />
               </motion.div>
             </div>
 
             {/* Revenue chart - multi-line */}
             <Card>
-              <CardTitle icon={TrendingUp}>{t('adminAnalytics.revenue')}</CardTitle>
+              <CardTitle icon={TrendingUp} sub={t('adminAnalytics.revenueSub')}>{t('adminAnalytics.revenue')}</CardTitle>
               <div style={{ width: '100%', height: 280 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={dailyData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
@@ -579,12 +561,106 @@ export default function AdminAnalytics() {
               </Card>
             </div>
 
-            {/* ───── Audience & behavior ───── */}
-            <div className="flex items-center gap-3 pt-2">
-              <Users className="h-4 w-4" style={{ color: T2 }} />
-              <h2 style={{ color: T1, fontSize: 16, fontWeight: 650, letterSpacing: '-0.02em' }}>{t('adminAnalytics.audience')}</h2>
-              <div className="flex-1 h-px" style={{ background: BORDER }} />
+            {/* ───── Leaderboards ───── */}
+            <ZoneHeading icon={Trophy}>{t('adminAnalytics.leaderboards')}</ZoneHeading>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              {/* Top venues */}
+              {selectedVenue === 'all' && (platform?.top_venues ?? []).length > 0 && (
+                <Card>
+                  <CardTitle icon={Building2} sub={t('adminAnalytics.topVenuesSub')}>{t('adminAnalytics.topVenues')}</CardTitle>
+                  <div style={{ width: '100%', height: Math.max(180, (platform?.top_venues.length ?? 0) * 34) }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={platform!.top_venues.map(v => ({ name: v.name, revenue: v.revenue }))} layout="vertical" margin={{ left: 0, right: 8, top: 4, bottom: 4 }}>
+                        <defs>
+                          <linearGradient id={`venue-bar-${uid}`} x1="0" x2="1" y1="0" y2="0">
+                            <stop offset="0%" stopColor={RED} stopOpacity={0.45} />
+                            <stop offset="100%" stopColor={RED} stopOpacity={0.95} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.055)" />
+                        <XAxis type="number" axisLine={false} tickLine={false} tickMargin={8} tick={AXIS_TICK} />
+                        <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={100} tick={{ fill: 'rgba(255,255,255,0.58)', fontSize: 11 }} />
+                        <Tooltip content={<MoneyTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
+                        <Bar dataKey="revenue" name={t('adminAnalytics.revenue')} fill={`url(#venue-bar-${uid})`} radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </Card>
+              )}
+
+              {/* Top events */}
+              <Card>
+                <CardTitle icon={Sparkles} sub={t('adminAnalytics.topEventsSub')}>{t('adminAnalytics.topEvents')}</CardTitle>
+                {(platform?.top_events ?? []).length === 0 ? (
+                  <p className="text-center py-8 text-xs" style={{ color: T3 }}>{t('adminDashboard.noData')}</p>
+                ) : (
+                  <RankedList items={platform!.top_events.slice(0, 8).map(e => ({
+                    name: e.title,
+                    sub: [e.venue_name, e.start_at ? format(new Date(e.start_at), 'dd/MM/yy') : null].filter(Boolean).join(' · '),
+                    value: eur(e.revenue),
+                  }))} />
+                )}
+              </Card>
+
+              {/* Top organizers */}
+              {(platform?.top_organizers ?? []).length > 0 && (
+                <Card>
+                  <CardTitle icon={Users} sub={t('adminAnalytics.topOrganizersSub')}>{t('adminAnalytics.topOrganizers')}</CardTitle>
+                  <RankedList items={platform!.top_organizers.map(o => ({
+                    name: o.name,
+                    sub: `${o.events_count} ${t('adminAnalytics.eventsWord')}`,
+                    value: eur(o.revenue),
+                  }))} />
+                </Card>
+              )}
+
+              {/* Geo — venue cities */}
+              {(platform?.venue_cities ?? []).length > 0 && (
+                <Card>
+                  <CardTitle icon={Globe} sub={t('adminAnalytics.geoSub')}>{t('adminAnalytics.geo')}</CardTitle>
+                  <div className="space-y-3">
+                    {(platform!.venue_cities).map(c => (
+                      <BarRow key={c.city} label={c.city} value={c.revenue} max={cityMax} conv={`${c.tx.toLocaleString()} tx`} accent money />
+                    ))}
+                  </div>
+                </Card>
+              )}
             </div>
+
+            {/* ───── Growth ───── */}
+            <ZoneHeading icon={TrendingUp}>{t('adminAnalytics.growth')}</ZoneHeading>
+
+            <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+              <StatCard label={t('adminAnalytics.newUsers')} value={`+${(platform?.growth.new_users ?? 0).toLocaleString()}`} icon={UserPlus} tone="pos" />
+              <StatCard label={t('adminAnalytics.totalUsers')} value={(platform?.growth.total_users ?? 0).toLocaleString()} icon={Users} />
+              <StatCard label={t('adminAnalytics.newVenues')} value={`+${(platform?.growth.new_venues ?? 0).toLocaleString()}`} icon={Building2} />
+              <StatCard label={t('adminAnalytics.newEvents')} value={`+${(platform?.growth.new_events ?? 0).toLocaleString()}`} icon={CalendarDays} />
+            </div>
+
+            <Card>
+              <CardTitle icon={UserPlus} sub={t('adminAnalytics.newUsersSub')}>{t('adminAnalytics.newUsersChart')}</CardTitle>
+              <div style={{ width: '100%', height: 200 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={newUsersData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id={`nu-${uid}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={POS} stopOpacity={0.25} />
+                        <stop offset="100%" stopColor={POS} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.055)" />
+                    <XAxis dataKey="date" axisLine={false} tickLine={false} tickMargin={8} tick={AXIS_TICK} />
+                    <YAxis hide />
+                    <Tooltip content={<CountTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.08)', strokeWidth: 1 }} />
+                    <Area type="monotone" dataKey="n" name={t('adminAnalytics.newUsers')} stroke={POS} strokeWidth={2} fill={`url(#nu-${uid})`} dot={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+
+            {/* ───── Audience & behavior ───── */}
+            <ZoneHeading icon={Users}>{t('adminAnalytics.audience')}</ZoneHeading>
 
             {!hasAudience ? (
               <Card>
@@ -716,30 +792,6 @@ export default function AdminAnalytics() {
                   <Heatmap matrix={heatMatrix} language={language} />
                 </Card>
               </>
-            )}
-
-            {/* Club comparison */}
-            {selectedVenue === 'all' && venueComparison.length > 0 && (
-              <Card>
-                <CardTitle icon={Building2}>{t('adminAnalytics.clubComparison')}</CardTitle>
-                <div style={{ width: '100%', height: 300 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={venueComparison} layout="vertical" margin={{ left: 0, right: 8, top: 4, bottom: 4 }}>
-                      <defs>
-                        <linearGradient id={`venue-bar-${uid}`} x1="0" x2="1" y1="0" y2="0">
-                          <stop offset="0%" stopColor={RED} stopOpacity={0.45} />
-                          <stop offset="100%" stopColor={RED} stopOpacity={0.95} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="rgba(255,255,255,0.055)" />
-                      <XAxis type="number" axisLine={false} tickLine={false} tickMargin={8} tick={AXIS_TICK} />
-                      <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} width={100} tick={{ fill: 'rgba(255,255,255,0.58)', fontSize: 11 }} />
-                      <Tooltip content={<MoneyTooltip />} cursor={{ fill: 'rgba(255,255,255,0.04)' }} />
-                      <Bar dataKey="revenue" name={t('adminAnalytics.revenue')} fill={`url(#venue-bar-${uid})`} radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </Card>
             )}
           </>
         )}
