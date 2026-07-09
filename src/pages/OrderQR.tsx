@@ -1,12 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { motion, useReducedMotion } from 'framer-motion';
-import { transitions } from '@/lib/motion';
 import { haptics } from '@/lib/haptics';
 import QRCode from 'qrcode';
-import { CheckCircle2, Home, ArrowLeft, Copy, CheckCircle } from 'lucide-react';
+import { Copy, CheckCircle, Clock, Home } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useStore } from '@/store/useStore';
@@ -14,6 +10,17 @@ import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { nowInParis, toParisTime } from '@/lib/timezone';
+import { OrderQROverlay } from '@/components/orders/TemporalOrders';
+
+/* Palette éditoriale publique — alignée sur TemporalOrders / DrinkOrderDetailModal. */
+const RED = '#E8192C';
+const CARD = '#141414';
+const BORDER_STRONG = 'rgba(255,255,255,0.14)';
+const G1 = '#E5E5E5';
+const G2 = '#9A9A9A';
+const G3 = '#5A5A5E';
+const RED_TINT = 'rgba(232,25,44,0.06)';
+const RED_SOFT = 'rgba(232,25,44,0.18)';
 
 export default function OrderQR() {
   const { orderId: pathOrderId } = useParams();
@@ -24,8 +31,7 @@ export default function OrderQR() {
   const orderId = pathOrderId || searchParams.get('orderId');
   const sessionId = searchParams.get('session_id');
   const clearCart = useStore((state) => state.clearCart);
-  const reduceMotion = useReducedMotion();
-  
+
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
   const [order, setOrder] = useState<any>(null);
@@ -94,14 +100,14 @@ export default function OrderQR() {
             .select('click_collect_mode')
             .eq('id', orderData.venue_id)
             .single();
-          
+
           setClickCollectMode(venueData?.click_collect_mode || false);
         }
 
         // Generate QR code - white background with black QR like ticket style
         if (orderData.token) {
           const qr = await QRCode.toDataURL(orderData.token, {
-            width: 400,
+            width: 240,
             margin: 2,
             color: {
               dark: '#000000',
@@ -163,10 +169,10 @@ export default function OrderQR() {
 
   if (loading || verifying) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex min-h-screen items-center justify-center" style={{ background: '#0A0A0A' }}>
         <div className="text-center">
-          <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
-          <p className="text-muted-foreground">
+          <div className="mb-4 h-11 w-11 animate-spin rounded-full mx-auto" style={{ border: `3px solid ${BORDER_STRONG}`, borderTopColor: RED }} />
+          <p className="font-mono uppercase" style={{ fontSize: 10.5, letterSpacing: '.1em', color: G2 }}>
             {verifying ? t('orderDetails.verifyingPayment') : t('orderDetails.loading')}
           </p>
         </div>
@@ -176,17 +182,23 @@ export default function OrderQR() {
 
   if (!order) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="flex min-h-screen items-center justify-center p-6" style={{ background: '#0A0A0A' }}>
         <div className="text-center">
-          <h2 className="mb-4 text-2xl font-bold">{t('orderDetails.orderNotFound')}</h2>
-          <Button onClick={() => navigate('/')}>{t('orderDetails.backToMenu')}</Button>
+          <h2 className="font-display uppercase mb-4" style={{ fontSize: 20, fontWeight: 700, color: '#fff' }}>{t('orderDetails.orderNotFound')}</h2>
+          <button
+            onClick={() => navigate('/')}
+            className="cursor-pointer font-mono uppercase"
+            style={{ padding: '11px 20px', borderRadius: 3, background: RED, color: '#fff', fontSize: 11, fontWeight: 700, letterSpacing: '.1em', border: 'none' }}
+          >
+            {t('orderDetails.backToMenu')}
+          </button>
         </div>
       </div>
     );
   }
 
   const pin = order.token?.slice(-4).toUpperCase();
-  
+
   // Use event end time if available, otherwise use token expiry
   const expiresAt = order.events?.end_at
     ? format(new Date(order.events.end_at), "PPp", { locale: dateLocale })
@@ -225,7 +237,7 @@ export default function OrderQR() {
 
       const { error } = await supabase
         .from('orders')
-        .update({ 
+        .update({
           prep_requested: true,
           prep_status: 'queue'
         })
@@ -234,7 +246,7 @@ export default function OrderQR() {
       if (error) throw error;
 
       setOrder((prev: any) => ({ ...prev, prep_requested: true, prep_status: 'queue' }));
-      
+
       toast({
         title: t('orderDetails.prepRequested'),
         description: t('orderDetails.prepRequestedDesc'),
@@ -251,166 +263,113 @@ export default function OrderQR() {
     }
   };
 
+  const labels = {
+    scanThisQR: t('orders.scanThisQR'),
+    shareThisQR: t('orders.shareThisQR'),
+    valid: t('orders.valid'),
+    scanned: t('orders.scannedLabel'),
+  };
+
+  // Click&Collect : le QR reste masqué tant que la préparation n'est pas demandée.
+  const qrGated = clickCollectMode && !order.prep_requested;
+
+  const items = (Array.isArray(order.items) ? order.items : []) as Array<{ name?: string; qty?: number; quantity?: number }>;
+  const itemCount = items.reduce((sum, i) => sum + (i.qty || i.quantity || 1), 0);
+  const idLabel = items.map(i => `${i.qty || i.quantity || 1}× ${i.name}`).join(' · ');
+
+  const whenLabel = order.events?.start_at
+    ? format(new Date(order.events.start_at), 'EEE d MMM · HH:mm', { locale: dateLocale }).toUpperCase()
+    : undefined;
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border/40 bg-surface/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-3xl items-center gap-4 px-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/my-orders')}
+    <OrderQROverlay
+      kind="drink"
+      title={order.events?.title || t('orderDetails.yourOrder')}
+      venueName={order.venues?.name || ''}
+      qrImage={qrGated ? undefined : (qrDataUrl || undefined)}
+      idLabel={idLabel || `${itemCount} ${t('orderDetails.items')}`}
+      scanned={!!order.token_used}
+      labels={labels}
+      onClose={() => navigate('/my-orders')}
+      whenLabel={whenLabel}
+      footer={
+        <div className="space-y-2.5 text-left">
+          {/* Click&Collect : demander la préparation */}
+          {!order.prep_requested && (
+            <div style={{ padding: '12px 13px', borderRadius: 8, background: qrGated ? RED_TINT : CARD, border: `1px solid ${qrGated ? RED_SOFT : BORDER_STRONG}` }}>
+              {qrGated && (
+                <>
+                  <p className="font-mono uppercase text-center" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.08em', color: RED, marginBottom: 3 }}>
+                    {t('orderDetails.clickCollectOnly')}
+                  </p>
+                  <p className="text-center" style={{ fontSize: 11.5, color: G2, marginBottom: 10 }}>
+                    {t('orderDetails.requestPrepBelow')}
+                  </p>
+                </>
+              )}
+              <button
+                onClick={requestPreparation}
+                disabled={requestingPrep || !eventHasStarted}
+                className="w-full flex items-center justify-center gap-2 cursor-pointer font-mono font-bold uppercase disabled:opacity-50"
+                style={{ padding: '11px 12px', background: RED, color: '#fff', fontSize: 11, letterSpacing: '.1em', borderRadius: 3, border: 'none' }}
+              >
+                <Clock style={{ width: 14, height: 14 }} strokeWidth={2} />
+                {requestingPrep
+                  ? t('orderDetails.requestingPrep')
+                  : !eventHasStarted
+                    ? t('clickCollect.eventNotStartedYet')
+                    : t('orderDetails.requestPreparation')}
+              </button>
+            </div>
+          )}
+
+          {/* PIN de secours */}
+          <div
+            className="flex items-center justify-between"
+            style={{ padding: '10px 13px', borderRadius: 8, background: CARD, border: `1px solid ${BORDER_STRONG}` }}
           >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-xl font-semibold">{t('orderDetails.yourOrder')}</h1>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-3xl p-6">
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="space-y-6"
-        >
-          {/* Success Message */}
-          <Card className="border-0 bg-gradient-to-br from-primary to-primary-hover p-6 text-center shadow-primary">
-            <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-primary-foreground" />
-            <h2 className="mb-2 text-2xl font-bold text-primary-foreground">{t('orderDetails.paymentSuccess')}</h2>
-            <p className="text-sm text-primary-foreground/90">
-              {t('orderDetails.showQRCode')}
-            </p>
-          </Card>
-
-          {/* QR Code - Ticket style white card */}
-          <div 
-            className="bg-white rounded-2xl p-6 shadow-soft text-center cursor-pointer"
-            onClick={() => !clickCollectMode || order.prep_requested ? null : null}
-          >
-            <h3 className="font-bold text-lg text-gray-900 mb-1">
-              {order.events?.title || t('orderDetails.yourOrder')}
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              {order.items?.length} {t('orderDetails.items')}
-            </p>
-            
-            {qrDataUrl ? (
-              <div className="relative mb-4 inline-block">
-                <motion.div
-                  initial={reduceMotion ? { opacity: 0 } : { scale: 0.85, opacity: 0 }}
-                  animate={reduceMotion ? { opacity: 1 } : { scale: 1, opacity: 1 }}
-                  transition={reduceMotion ? transitions.pop : transitions.celebrate}
-                  className={`bg-white p-4 rounded-lg ${clickCollectMode && !order.prep_requested ? 'blur-xl opacity-30' : ''}`}
-                >
-                  <img
-                    src={qrDataUrl}
-                    alt="QR Code"
-                    className="w-48 h-48 mx-auto"
-                  />
-                </motion.div>
-                {clickCollectMode && !order.prep_requested && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <div className="bg-primary text-primary-foreground px-6 py-4 rounded-2xl shadow-primary text-center">
-                      <p className="text-lg font-bold mb-2">{t('orderDetails.clickCollectOnly')}</p>
-                      <p className="text-sm opacity-90">{t('orderDetails.requestPrepBelow')}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="mb-4 h-48 w-48 animate-pulse rounded-lg bg-gray-200 mx-auto" />
-            )}
-
-            <p className="text-xs text-gray-500 mb-4">{t('orderDetails.showQRCode')}</p>
-
-            {/* Backup PIN */}
-            <div className="border-t border-gray-200 pt-4">
-              <p className="text-xs text-gray-500 mb-2">
-                {t('orderDetails.backupPin')}
-              </p>
-              <div className="flex items-center justify-center gap-2">
-                <span className="text-2xl font-bold tracking-wider text-gray-900">
-                  {pin}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={copyPin}
-                  className="h-8 w-8 text-gray-600 hover:text-gray-900"
-                >
-                  {copied ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
+            <span className="font-mono uppercase" style={{ fontSize: 9.5, letterSpacing: '.06em', color: G2 }}>{t('orderDetails.backupPin')}</span>
+            <div className="flex items-center gap-2">
+              <span className="font-mono" style={{ fontSize: 15, fontWeight: 700, letterSpacing: '.2em', color: '#fff' }}>{pin}</span>
+              <button
+                onClick={copyPin}
+                className="grid place-items-center cursor-pointer"
+                style={{ width: 26, height: 26, borderRadius: 6, background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER_STRONG}` }}
+              >
+                {copied ? <CheckCircle style={{ width: 13, height: 13, color: '#10B981' }} /> : <Copy style={{ width: 13, height: 13, color: G2 }} />}
+              </button>
             </div>
           </div>
 
-          {/* Order Details */}
-          <Card className="border-0 bg-surface p-6 shadow-soft">
-            <h3 className="mb-4 text-lg font-semibold">{t('orderDetails.orderDetails')}</h3>
-            {order.events?.title && (
-              <div className="mb-4 pb-3 border-b border-border/40">
-                <p className="text-sm text-muted-foreground">{t('orderDetails.event')}</p>
-                <p className="text-base font-semibold text-primary">{order.events.title}</p>
-              </div>
-            )}
-            <div className="space-y-3">
-              {order.items?.map((item: any, index: number) => (
-                <div key={index} className="flex justify-between text-sm">
-                  <span>
-                    {item.qty || item.quantity || 1}x {item.name}
-                  </span>
-                  <span className="font-semibold">
-                    {((item.unitPrice || item.price || 0) * (item.qty || item.quantity || 1)).toFixed(2)}€
-                  </span>
-                </div>
-              ))}
-              <div className="border-t border-border/40 pt-3">
-                <div className="flex justify-between font-bold">
-                  <span>{t('orderDetails.total')}</span>
-                  <span className="text-accent">{order.total.toFixed(2)}€</span>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* Click & Collect Button */}
-          {!order.prep_requested && (
-            <Button
-              onClick={requestPreparation}
-              disabled={requestingPrep || !eventHasStarted}
-              className="w-full h-12 bg-accent text-accent-foreground rounded-full font-semibold shadow-gold hover:bg-accent/90 disabled:opacity-50"
-            >
-              {requestingPrep 
-                ? t('orderDetails.requestingPrep') 
-                : !eventHasStarted 
-                  ? t('clickCollect.eventNotStartedYet') 
-                  : t('orderDetails.requestPreparation')}
-            </Button>
-          )}
-
-          {/* Action Button */}
-          <Button
-            onClick={() => navigate(`/club/${order.venue_id}`)}
-            className="w-full h-12 bg-primary rounded-full font-semibold shadow-primary hover:bg-primary-hover"
+          {/* Total commande */}
+          <div
+            className="flex items-center justify-between"
+            style={{ padding: '10px 13px', borderRadius: 8, background: CARD, border: `1px solid ${BORDER_STRONG}` }}
           >
-            <Home className="mr-2 h-5 w-5" />
-            {t('orderDetails.backToMenu')}
-          </Button>
+            <span className="font-mono uppercase" style={{ fontSize: 9.5, letterSpacing: '.06em', color: G2 }}>
+              {itemCount} {t('orderDetails.items')}
+            </span>
+            <span className="font-mono" style={{ fontSize: 14, fontWeight: 700, color: RED }}>{Number(order.total).toFixed(2)}€</span>
+          </div>
 
-          {/* Expiration Notice */}
+          {/* Validité */}
           {expiresAt && (
-            <Card className="border border-accent/20 bg-accent/5 p-4">
-              <p className="text-center text-sm text-accent">
-                {t('orderDetails.validUntil')} {expiresAt}
-              </p>
-            </Card>
+            <p className="font-mono uppercase text-center" style={{ fontSize: 9, letterSpacing: '.1em', color: G3, paddingTop: 2 }}>
+              {t('orderDetails.validUntil')} {expiresAt}
+            </p>
           )}
-        </motion.div>
-      </div>
-    </div>
+
+          {/* Retour au menu du club */}
+          <button
+            onClick={() => navigate(`/club/${order.venue_id}`)}
+            className="w-full flex items-center justify-center gap-2 cursor-pointer font-mono uppercase"
+            style={{ padding: 11, borderRadius: 999, background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER_STRONG}`, color: G1, fontSize: 11, fontWeight: 600, letterSpacing: '.08em' }}
+          >
+            <Home style={{ width: 14, height: 14 }} strokeWidth={2} />
+            {t('orderDetails.backToMenu')}
+          </button>
+        </div>
+      }
+    />
   );
 }

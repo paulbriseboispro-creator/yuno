@@ -1,16 +1,31 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
-import { Clock, CheckCircle2, Wine, Calendar, Copy, CheckCircle, X, Package } from 'lucide-react';
+import { Clock, CheckCircle2, Copy, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { nowInParis, toParisTime } from '@/lib/timezone';
 import QRCode from 'qrcode';
 import { DrinkSelectionStep } from '@/components/orders/DrinkSelectionStep';
+import { OrderQROverlay } from '@/components/orders/TemporalOrders';
+
+/* Palette éditoriale publique (cf. DESIGN_SYSTEM_PUBLIC.md) — mêmes hex que
+   TemporalOrders pour que le QR boissons colle pixel-près aux QR billets. */
+const RED = '#E8192C';
+const CARD = '#141414';
+const BORDER_STRONG = 'rgba(255,255,255,0.14)';
+const G1 = '#E5E5E5';
+const G2 = '#9A9A9A';
+const G3 = '#5A5A5E';
+const RED_TINT = 'rgba(232,25,44,0.06)';
+const RED_SOFT = 'rgba(232,25,44,0.18)';
+const PREP_COLORS: Record<string, { fg: string; bg: string; border: string }> = {
+  queue: { fg: '#F5B301', bg: 'rgba(245,179,1,0.10)', border: 'rgba(245,179,1,0.30)' },
+  preparing: { fg: RED, bg: RED_TINT, border: RED_SOFT },
+  ready: { fg: '#10B981', bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.30)' },
+};
 
 interface OrderItem {
   id?: string;
@@ -56,14 +71,20 @@ interface DrinkOrderDetailModalProps {
   onClose: () => void;
   onOrderUpdate?: () => void;
   collectMode?: boolean;
+  /** nom du club — affiché dans la carte info de l'overlay (comme les billets) */
+  venueName?: string;
+  /** affiche de la soirée : fond flouté plein écran derrière le QR */
+  posterUrl?: string;
 }
 
-export function DrinkOrderDetailModal({ 
-  order, 
-  clickCollectMode, 
+export function DrinkOrderDetailModal({
+  order,
+  clickCollectMode,
   onClose,
   onOrderUpdate,
   collectMode = false,
+  venueName,
+  posterUrl,
 }: DrinkOrderDetailModalProps) {
   const { t, language } = useLanguage();
   const [qrImage, setQrImage] = useState<string>('');
@@ -201,9 +222,9 @@ export function DrinkOrderDetailModal({
 
     try {
       const qrDataUrl = await QRCode.toDataURL(qrData, {
-        width: 200,
+        width: 240,
         margin: 2,
-        color: { dark: '#1a1a2e', light: '#ffffff' },
+        color: { dark: '#000000', light: '#ffffff' },
       });
       setQrImage(qrDataUrl);
     } catch (err) {
@@ -245,15 +266,6 @@ export function DrinkOrderDetailModal({
 
   const getPrepStatusLabel = (status: string) => {
     return t(`clickCollect.status${status.charAt(0).toUpperCase() + status.slice(1)}`) || status;
-  };
-
-  const getPrepStatusColor = (status: string) => {
-    switch (status) {
-      case 'queue': return 'bg-yellow-500 text-white';
-      case 'preparing': return 'bg-primary text-primary-foreground';
-      case 'ready': return 'bg-green-500 text-white';
-      default: return 'bg-muted text-muted-foreground';
-    }
   };
 
   const requestPreparation = async () => {
@@ -301,17 +313,30 @@ export function DrinkOrderDetailModal({
   // If all served, show message
   if (allServed) {
     return (
-      <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 overflow-hidden" onClick={onClose}>
+      <div
+        className="fixed inset-0 z-[100] flex items-center justify-center p-6 overflow-hidden"
+        style={{ background: '#0A0A0A' }}
+        onClick={onClose}
+      >
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="bg-background rounded-2xl w-full max-w-md p-6 text-center shadow-2xl"
+          className="w-full max-w-sm text-center"
+          style={{ background: CARD, border: `1px solid ${BORDER_STRONG}`, borderRadius: 12, padding: 28 }}
           onClick={(e) => e.stopPropagation()}
         >
-          <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto mb-3" />
-          <h3 className="text-lg font-bold mb-2">{t('drinkSelection.allServed')}</h3>
-          <p className="text-sm text-muted-foreground mb-4">{t('drinkSelection.allServedDesc')}</p>
-          <Button variant="outline" className="w-full h-11" onClick={onClose}>{t('common.close')}</Button>
+          <CheckCircle2 style={{ width: 44, height: 44, color: '#10B981', margin: '0 auto 14px' }} strokeWidth={2} />
+          <h3 className="font-display uppercase" style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-.01em', color: '#fff', marginBottom: 6 }}>
+            {t('drinkSelection.allServed')}
+          </h3>
+          <p style={{ fontSize: 13, color: G2, marginBottom: 18 }}>{t('drinkSelection.allServedDesc')}</p>
+          <button
+            onClick={onClose}
+            className="w-full cursor-pointer font-mono uppercase"
+            style={{ padding: 12, borderRadius: 999, background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER_STRONG}`, color: G1, fontSize: 11, fontWeight: 600, letterSpacing: '.08em' }}
+          >
+            {t('common.close')}
+          </button>
         </motion.div>
       </div>
     );
@@ -319,152 +344,123 @@ export function DrinkOrderDetailModal({
 
   const selectedNames = getSelectedItemNames();
 
+  const labels = {
+    scanThisQR: t('orders.scanThisQR'),
+    shareThisQR: t('orders.shareThisQR'),
+    valid: t('orders.valid'),
+    scanned: t('orders.scannedLabel'),
+  };
+
+  // Click&Collect : le QR reste masqué tant que la préparation n'a pas été
+  // demandée (hors collectMode, où l'on vient justement récupérer une prépa).
+  const qrGated = clickCollectMode && !localOrder.prep_requested && !collectMode;
+
+  const whenLabel = localOrder.events?.start_at
+    ? format(new Date(localOrder.events.start_at), 'EEE d MMM · HH:mm', { locale: dateLocale }).toUpperCase()
+    : undefined;
+
+  const idLabel = selectedNames.map(s => `${s.count}× ${s.name}`).join(' · ');
+  const prepColor = localOrder.prep_status ? PREP_COLORS[localOrder.prep_status] : undefined;
+
   return (
-    <div 
-      className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 overflow-hidden"
-      onClick={onClose}
-    >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="bg-background rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden relative shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button 
-          onClick={onClose}
-          className="absolute top-3 right-3 z-10 p-2 rounded-full bg-muted text-muted-foreground hover:bg-muted/80 transition-colors"
-        >
-          <X className="h-5 w-5" />
-        </button>
-
-        <div className="flex-1 overflow-y-auto p-5 pb-2">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <Badge className="bg-primary text-primary-foreground">
-              {collectMode ? <Package className="h-3 w-3 mr-1" /> : <Wine className="h-3 w-3 mr-1" />}
-              {collectMode ? t('clickCollect.collectOrder') : t('orders.drinkOrder')}
-            </Badge>
-            {collectMode && localOrder.prep_requested && localOrder.prep_status && (
-              <Badge className={getPrepStatusColor(localOrder.prep_status)}>
-                {localOrder.prep_status === 'ready' && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                {localOrder.prep_status === 'preparing' && <Clock className="h-3 w-3 mr-1 animate-pulse" />}
+    <OrderQROverlay
+      kind="drink"
+      title={localOrder.events?.title || t('orders.drinkOrder')}
+      venueName={venueName || ''}
+      qrImage={qrGated ? undefined : (qrImage || undefined)}
+      idLabel={idLabel}
+      scanned={false}
+      labels={labels}
+      onClose={onClose}
+      whenLabel={whenLabel}
+      posterUrl={posterUrl}
+      footer={
+        <div className="space-y-2.5 text-left">
+          {/* Statut de préparation (mode récupération Click&Collect) */}
+          {collectMode && localOrder.prep_requested && localOrder.prep_status && prepColor && (
+            <div
+              className="flex items-center justify-center gap-1.5"
+              style={{ padding: '8px 12px', borderRadius: 8, background: prepColor.bg, border: `1px solid ${prepColor.border}` }}
+            >
+              {localOrder.prep_status === 'ready' && <CheckCircle2 style={{ width: 13, height: 13, color: prepColor.fg }} strokeWidth={2} />}
+              {localOrder.prep_status === 'preparing' && <Clock className="animate-pulse" style={{ width: 13, height: 13, color: prepColor.fg }} strokeWidth={2} />}
+              <span className="font-mono uppercase" style={{ fontSize: 10, fontWeight: 600, letterSpacing: '.1em', color: prepColor.fg }}>
                 {getPrepStatusLabel(localOrder.prep_status)}
-              </Badge>
-            )}
-          </div>
-
-          <h3 className="font-bold text-lg text-center mb-1">
-            {localOrder.events?.title || t('orders.drinkOrder')}
-          </h3>
-          
-          {localOrder.events && (
-            <p className="text-sm text-muted-foreground text-center mb-1">
-              <Calendar className="h-3.5 w-3.5 inline mr-1" />
-              {format(new Date(localOrder.events.start_at), 'EEE d MMM', { locale: dateLocale })}
-              {' • '}
-              <Clock className="h-3.5 w-3.5 inline mr-1" />
-              {format(new Date(localOrder.events.start_at), 'HH:mm')} - {format(new Date(localOrder.events.end_at), 'HH:mm')}
-            </p>
+              </span>
+            </div>
           )}
 
-          <p className="text-sm text-muted-foreground text-center mb-4">
-            {selectedNames.map(s => `${s.count}x ${s.name}`).join(', ')}
-          </p>
-
-          <div className="relative mb-3">
-            {qrImage ? (
-              <div className={`bg-white p-3 rounded-xl flex justify-center mx-auto w-fit border border-border ${clickCollectMode && !localOrder.prep_requested && !collectMode ? 'blur-xl opacity-30' : ''}`}>
-                <img src={qrImage} alt="QR Code" className="w-36 h-36 sm:w-44 sm:h-44" />
-              </div>
-            ) : (
-              <div className="h-36 w-36 sm:h-44 sm:w-44 animate-pulse rounded-xl bg-muted mx-auto" />
-            )}
-            
-            {clickCollectMode && !localOrder.prep_requested && !collectMode && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <div className="bg-primary text-primary-foreground px-4 py-3 rounded-xl shadow-lg text-center max-w-[200px]">
-                  <p className="text-sm font-bold mb-1">{t('clickCollect.modeActive')}</p>
-                  <p className="text-xs opacity-90">{t('clickCollect.requestPrepFirst')}</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <p className="text-xs text-muted-foreground text-center mb-3">
-            {collectMode 
-              ? (localOrder.prep_status === 'ready' 
-                  ? t('clickCollect.orderReady') 
-                  : t('clickCollect.collectAtBar'))
-              : t('orders.showQRAtBarDesc')}
-          </p>
-
-          {/* Backup PIN */}
-          <div className="border-t border-border pt-3 mb-3">
-            <p className="text-xs text-muted-foreground text-center mb-1">{t('orders.backupPinLabel')}</p>
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-xl font-bold tracking-wider">{pin}</span>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={copyPin}
-                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+          {/* Click&Collect : demander la prépa avant que le QR n'apparaisse */}
+          {qrGated && (
+            <div style={{ padding: '12px 13px', borderRadius: 8, background: RED_TINT, border: `1px solid ${RED_SOFT}` }}>
+              <p className="font-mono uppercase text-center" style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.08em', color: RED, marginBottom: 3 }}>
+                {t('clickCollect.modeActive')}
+              </p>
+              <p className="text-center" style={{ fontSize: 11.5, color: G2, marginBottom: 10 }}>
+                {t('clickCollect.requestPrepFirst')}
+              </p>
+              <button
+                onClick={requestPreparation}
+                disabled={requestingPrep || !eventHasStarted}
+                className="w-full flex items-center justify-center gap-2 cursor-pointer font-mono font-bold uppercase disabled:opacity-50"
+                style={{ padding: '11px 12px', background: RED, color: '#fff', fontSize: 11, letterSpacing: '.1em', borderRadius: 3, border: 'none' }}
               >
-                {copied ? (
-                  <CheckCircle className="h-4 w-4 text-emerald-500" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </Button>
+                <Clock style={{ width: 14, height: 14 }} strokeWidth={2} />
+                {requestingPrep ? '...' : !eventHasStarted ? t('clickCollect.eventNotStartedYet') : t('clickCollect.requestPrep')}
+              </button>
+            </div>
+          )}
+
+          {/* PIN de secours */}
+          <div
+            className="flex items-center justify-between"
+            style={{ padding: '10px 13px', borderRadius: 8, background: CARD, border: `1px solid ${BORDER_STRONG}` }}
+          >
+            <span className="font-mono uppercase" style={{ fontSize: 9.5, letterSpacing: '.06em', color: G2 }}>{t('orders.backupPinLabel')}</span>
+            <div className="flex items-center gap-2">
+              <span className="font-mono" style={{ fontSize: 15, fontWeight: 700, letterSpacing: '.2em', color: '#fff' }}>{pin}</span>
+              <button
+                onClick={copyPin}
+                className="grid place-items-center cursor-pointer"
+                style={{ width: 26, height: 26, borderRadius: 6, background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER_STRONG}` }}
+              >
+                {copied ? <CheckCircle style={{ width: 13, height: 13, color: '#10B981' }} /> : <Copy style={{ width: 13, height: 13, color: G2 }} />}
+              </button>
             </div>
           </div>
 
-          <div className="bg-surface border border-border rounded-lg p-3">
+          {/* Détail de la commande */}
+          <div style={{ padding: '10px 13px', borderRadius: 8, background: CARD, border: `1px solid ${BORDER_STRONG}` }}>
             <div className="space-y-1.5">
               {selectedNames.map((s, idx) => (
-                <div key={idx} className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">{s.count}x {s.name}</span>
+                <div key={idx} className="flex justify-between">
+                  <span className="font-mono uppercase" style={{ fontSize: 11.5, letterSpacing: '.04em', color: G1 }}>{s.count}× {s.name}</span>
                 </div>
               ))}
             </div>
           </div>
-        </div>
 
-        <div className="p-4 pt-3 border-t border-border bg-background space-y-2 flex-shrink-0">
-          {/* Back to selection (only in QR mode with multiple items) */}
+          {/* Consigne bar */}
+          {!qrGated && (
+            <p className="font-mono uppercase text-center" style={{ fontSize: 9, letterSpacing: '.1em', color: G3, paddingTop: 2 }}>
+              {collectMode
+                ? (localOrder.prep_status === 'ready' ? t('clickCollect.orderReady') : t('clickCollect.collectAtBar'))
+                : t('orders.showQRAtBarDesc')}
+            </p>
+          )}
+
+          {/* Changer la sélection */}
           {!collectMode && unservedCount > 1 && (
-            <Button
-              variant="outline"
+            <button
               onClick={() => setStep('select')}
-              className="w-full h-11 font-medium"
+              className="w-full flex items-center justify-center gap-2 cursor-pointer font-mono uppercase"
+              style={{ padding: 11, borderRadius: 999, background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER_STRONG}`, color: G1, fontSize: 11, fontWeight: 600, letterSpacing: '.08em' }}
             >
               {t('drinkSelection.changeSelection')}
-            </Button>
+            </button>
           )}
-
-          {/* Request preparation button (only when C&C enabled and non-collect mode) */}
-          {clickCollectMode && !collectMode && !localOrder.prep_requested && (
-            <Button
-              onClick={requestPreparation}
-              disabled={requestingPrep || !eventHasStarted}
-              className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
-            >
-              <Clock className="mr-2 h-4 w-4" />
-              {requestingPrep 
-                ? '...' 
-                : !eventHasStarted 
-                  ? t('clickCollect.eventNotStartedYet') 
-                  : t('clickCollect.requestPrep')}
-            </Button>
-          )}
-
-          <Button 
-            variant="outline" 
-            className="w-full h-11 font-medium"
-            onClick={onClose}
-          >
-            {t('common.close')}
-          </Button>
         </div>
-      </motion.div>
-    </div>
+      }
+    />
   );
 }

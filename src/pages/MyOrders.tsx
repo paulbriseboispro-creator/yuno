@@ -1934,6 +1934,8 @@ export default function MyOrders() {
           onClose={() => { setSelectedDrinkOrder(null); setCollectMode(false); }}
           onOrderUpdate={fetchOrders}
           collectMode={collectMode}
+          venueName={selectedDrinkOrder.venueName}
+          posterUrl={selectedDrinkOrder.events?.poster_url}
         />
       )}
 

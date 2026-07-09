@@ -1,9 +1,21 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { CheckCircle2, Wine, X, Clock } from 'lucide-react';
+
+/* Palette éditoriale publique (cf. DESIGN_SYSTEM_PUBLIC.md) — mêmes hex que
+   TemporalOrders pour que l'étape de sélection colle au QR boissons. */
+const RED = '#E8192C';
+const CARD = '#141414';
+const CARD2 = '#1B1B1E';
+const WHITE = '#FFFFFF';
+const G1 = '#E5E5E5';
+const G2 = '#9A9A9A';
+const G3 = '#5A5A5E';
+const BORDER = 'rgba(255,255,255,0.08)';
+const BORDER_STRONG = 'rgba(255,255,255,0.14)';
+const RED_TINT = 'rgba(232,25,44,0.06)';
+const RED_SOFT = 'rgba(232,25,44,0.18)';
 
 interface OrderItem {
   id?: string;
@@ -31,11 +43,11 @@ export function DrinkSelectionStep({ items, onConfirm, onClose, mode = 'qr' }: D
   const expandedItems: { originalIndex: number; subIndex: number; item: OrderItem; served: boolean; inPrep: boolean }[] = [];
   items.forEach((item, idx) => {
     for (let i = 0; i < item.qty; i++) {
-      const isServed = Array.isArray((item as any).servedUnits) 
-        ? (item as any).servedUnits[i] === true 
+      const isServed = Array.isArray(item.servedUnits)
+        ? item.servedUnits[i] === true
         : item.served === true;
-      const isInPrep = Array.isArray((item as any).prepUnits)
-        ? (item as any).prepUnits[i] === true
+      const isInPrep = Array.isArray(item.prepUnits)
+        ? item.prepUnits[i] === true
         : false;
       expandedItems.push({ originalIndex: idx, subIndex: i, item, served: isServed, inPrep: isInPrep });
     }
@@ -108,43 +120,52 @@ export function DrinkSelectionStep({ items, onConfirm, onClose, mode = 'qr' }: D
   const confirmText = mode === 'prep' ? t('drinkSelection.requestPrep') : t('drinkSelection.generateQR');
 
   return (
-    <div 
-      className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 overflow-hidden"
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-hidden"
+      style={{ background: 'rgba(10,10,10,0.92)', backdropFilter: 'blur(8px)' }}
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
+        initial={{ scale: 0.94, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="bg-white rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden relative shadow-2xl"
+        className="w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden relative"
+        style={{ background: CARD, border: `1px solid ${BORDER_STRONG}`, borderRadius: 12, boxShadow: '0 32px 70px -20px rgba(0,0,0,.95)' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close button */}
-        <button 
+        <button
           onClick={onClose}
-          className="absolute top-3 right-3 z-10 p-2 rounded-full bg-black/10 text-gray-700 hover:bg-black/20 transition-colors"
+          className="absolute top-3 right-3 z-10 grid place-items-center cursor-pointer"
+          style={{ width: 32, height: 32, borderRadius: 2, background: CARD2, border: `1px solid ${BORDER_STRONG}`, color: '#fff' }}
         >
-          <X className="h-5 w-5" />
+          <X style={{ width: 15, height: 15 }} strokeWidth={2} />
         </button>
 
         {/* Header */}
-        <div className="p-5 pb-3 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Wine className="h-5 w-5 text-primary" />
-            <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+        <div className="px-5 pt-5 pb-3 text-center">
+          <div className="flex items-center justify-center gap-2 mb-1.5">
+            <Wine style={{ width: 18, height: 18, color: RED }} strokeWidth={1.9} />
+            <h3 className="font-display uppercase" style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-.01em', color: WHITE }}>{title}</h3>
           </div>
-          <p className="text-sm text-gray-500">{subtitle}</p>
+          <p style={{ fontSize: 12.5, color: G2 }}>{subtitle}</p>
           {(servedCount > 0 || prepCount > 0) && (
-            <div className="flex items-center justify-center gap-2 mt-2">
+            <div className="flex items-center justify-center gap-2 mt-2.5">
               {servedCount > 0 && (
-                <Badge variant="secondary" className="text-xs">
+                <span
+                  className="font-mono uppercase"
+                  style={{ fontSize: 9, fontWeight: 600, letterSpacing: '.08em', color: G2, padding: '4px 9px', borderRadius: 999, background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER_STRONG}` }}
+                >
                   {t('drinkSelection.servedProgress').replace('{served}', String(servedCount)).replace('{total}', String(totalCount))}
-                </Badge>
+                </span>
               )}
               {prepCount > 0 && (
-                <Badge className="bg-blue-100 text-blue-700 text-xs">
-                  <Clock className="h-2.5 w-2.5 mr-0.5 inline" />
+                <span
+                  className="font-mono uppercase inline-flex items-center gap-1"
+                  style={{ fontSize: 9, fontWeight: 600, letterSpacing: '.08em', color: '#F5B301', padding: '4px 9px', borderRadius: 999, background: 'rgba(245,179,1,0.10)', border: '1px solid rgba(245,179,1,0.30)' }}
+                >
+                  <Clock style={{ width: 10, height: 10 }} strokeWidth={2} />
                   {prepCount} {t('drinkSelection.inPrep')}
-                </Badge>
+                </span>
               )}
             </div>
           )}
@@ -157,31 +178,37 @@ export function DrinkSelectionStep({ items, onConfirm, onClose, mode = 'qr' }: D
               const available = group.totalCount - group.servedCount - group.prepCount;
               const selectedQty = groupSelection[groupIdx] || 0;
               const allUnavailable = available === 0;
+              const selected = selectedQty > 0;
 
               return (
                 <div
                   key={groupIdx}
-                  className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                    allUnavailable 
-                      ? 'bg-gray-100 border-gray-200 opacity-60' 
-                      : selectedQty > 0
-                        ? 'bg-primary/5 border-primary shadow-sm' 
-                        : 'bg-white border-gray-200'
-                  }`}
+                  className="flex items-center gap-3"
+                  style={{
+                    padding: 11,
+                    borderRadius: 10,
+                    background: allUnavailable ? 'rgba(255,255,255,0.02)' : selected ? RED_TINT : CARD2,
+                    border: `1px solid ${allUnavailable ? BORDER : selected ? RED_SOFT : BORDER_STRONG}`,
+                    opacity: allUnavailable ? 0.55 : 1,
+                    transition: 'background .18s, border-color .18s',
+                  }}
                 >
                   {group.imgUrl && (
-                    <img 
-                      src={group.imgUrl} 
+                    <img
+                      src={group.imgUrl}
                       alt={group.name}
                       className={`w-10 h-10 rounded-lg object-cover flex-shrink-0 ${allUnavailable ? 'grayscale' : ''}`}
                     />
                   )}
 
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium truncate ${allUnavailable ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                    <p
+                      className="font-display uppercase truncate"
+                      style={{ fontSize: 13, fontWeight: 700, letterSpacing: '-.005em', color: allUnavailable ? G3 : WHITE, textDecoration: allUnavailable ? 'line-through' : 'none' }}
+                    >
                       {group.name}
                     </p>
-                    <p className="text-xs text-gray-400">
+                    <p className="font-mono uppercase truncate" style={{ fontSize: 9.5, letterSpacing: '.04em', color: G3, marginTop: 2 }}>
                       {group.servedCount > 0 && group.prepCount > 0
                         ? `${available} ${t('drinkSelection.available')} · ${group.servedCount} ${t('drinkSelection.collected')} · ${group.prepCount} ${t('drinkSelection.inPrep')}`
                         : group.servedCount >= group.totalCount
@@ -200,24 +227,26 @@ export function DrinkSelectionStep({ items, onConfirm, onClose, mode = 'qr' }: D
                   <div className="flex-shrink-0">
                     {allUnavailable ? (
                       group.prepCount > 0 && group.servedCount < group.totalCount ? (
-                        <Clock className="h-5 w-5 text-blue-500" />
+                        <Clock style={{ width: 18, height: 18, color: '#F5B301' }} strokeWidth={2} />
                       ) : (
-                        <CheckCircle2 className="h-5 w-5 text-green-500" />
+                        <CheckCircle2 style={{ width: 18, height: 18, color: '#10B981' }} strokeWidth={2} />
                       )
                     ) : (
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => toggleGroupUnit(groupIdx, -1)}
                           disabled={selectedQty === 0}
-                          className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center text-gray-600 disabled:opacity-30 hover:bg-gray-100 transition-colors"
+                          className="grid place-items-center cursor-pointer disabled:opacity-30"
+                          style={{ width: 28, height: 28, borderRadius: 999, background: 'rgba(255,255,255,0.05)', border: `1px solid ${BORDER_STRONG}`, color: G1, fontSize: 16, lineHeight: 1 }}
                         >
                           −
                         </button>
-                        <span className="text-sm font-bold w-5 text-center text-gray-900">{selectedQty}</span>
+                        <span className="font-display text-center" style={{ fontSize: 15, fontWeight: 700, width: 20, color: WHITE }}>{selectedQty}</span>
                         <button
                           onClick={() => toggleGroupUnit(groupIdx, 1)}
                           disabled={selectedQty >= available}
-                          className="w-7 h-7 rounded-full border border-primary bg-primary/10 flex items-center justify-center text-primary disabled:opacity-30 hover:bg-primary/20 transition-colors"
+                          className="grid place-items-center cursor-pointer disabled:opacity-30"
+                          style={{ width: 28, height: 28, borderRadius: 999, background: RED_TINT, border: `1px solid ${RED_SOFT}`, color: RED, fontSize: 16, lineHeight: 1 }}
                         >
                           +
                         </button>
@@ -231,21 +260,22 @@ export function DrinkSelectionStep({ items, onConfirm, onClose, mode = 'qr' }: D
         </div>
 
         {/* Footer */}
-        <div className="p-4 pt-3 border-t border-gray-200 bg-white space-y-2 flex-shrink-0">
-          <Button
+        <div className="p-4 pt-3 space-y-2 flex-shrink-0" style={{ borderTop: `1px solid ${BORDER}` }}>
+          <button
             onClick={handleConfirm}
             disabled={selectedCount === 0}
-            className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+            className="w-full flex items-center justify-center gap-2 cursor-pointer font-mono font-bold uppercase disabled:opacity-40"
+            style={{ padding: '13px 12px', background: RED, color: '#fff', fontSize: 11, letterSpacing: '.1em', borderRadius: 3, border: 'none', boxShadow: '0 10px 28px -12px rgba(232,25,44,.6)' }}
           >
             {confirmText} ({selectedCount})
-          </Button>
-          <Button 
-            variant="outline" 
-            className="w-full h-11 border-gray-300 text-gray-700 hover:bg-gray-50 font-medium"
+          </button>
+          <button
             onClick={onClose}
+            className="w-full cursor-pointer font-mono uppercase"
+            style={{ padding: 12, borderRadius: 999, background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER_STRONG}`, color: G1, fontSize: 11, fontWeight: 600, letterSpacing: '.08em' }}
           >
             {t('common.close')}
-          </Button>
+          </button>
         </div>
       </motion.div>
     </div>
