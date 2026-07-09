@@ -49,7 +49,39 @@ Deno.serve(async (req) => {
         await admin.from('email_campaigns').update({ status: 'failed', error_message: String(e) }).eq('id', c.id);
       }
     }
-    return new Response(JSON.stringify({ processed }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+    // Campagnes PUSH planifiées (admin + clubs) — même mécanique que l'email :
+    // marquer 'sending' (anti double-fire) puis déléguer à send-push-campaign.
+    let pushProcessed = 0;
+    const { data: pushCampaigns } = await admin
+      .from('push_campaigns')
+      .select('id')
+      .eq('status', 'scheduled')
+      .lte('scheduled_at', new Date().toISOString())
+      .limit(20);
+
+    for (const c of pushCampaigns || []) {
+      try {
+        await admin.from('push_campaigns').update({ status: 'sending' }).eq('id', c.id).eq('status', 'scheduled');
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/send-push-campaign`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${SERVICE_KEY}`,
+            'Content-Type': 'application/json',
+            'apikey': SERVICE_KEY,
+          },
+          body: JSON.stringify({ campaign_id: c.id }),
+        });
+        if (!res.ok) {
+          await admin.from('push_campaigns').update({ status: 'failed' }).eq('id', c.id);
+        }
+        pushProcessed++;
+      } catch (_e) {
+        await admin.from('push_campaigns').update({ status: 'failed' }).eq('id', c.id);
+      }
+    }
+
+    return new Response(JSON.stringify({ processed, pushProcessed }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }

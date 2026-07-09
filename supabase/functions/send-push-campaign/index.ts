@@ -5,6 +5,154 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+function json(status: number, payload: unknown): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+// Plafond anti-spam pour les clubs : au-delà, les notifs Yuno perdent leur
+// valeur pour tout le monde. Le super admin n'est pas plafonné.
+const OWNER_MAX_CAMPAIGNS_PER_24H = 4;
+
+type CampaignRequest = {
+  title?: string;
+  body?: string;
+  url?: string;
+  segment?: string;          // segments admin : all | active_30d | inactive_30d | ticket_holders | vip | loyal
+  scope?: string;            // scopes club : event_tickets | checked_in | followers | rfm:<segment> | all_customers
+  venue_id?: string;         // présent => campagne club (auth is_venue_owner)
+  event_id?: string;         // requis pour event_tickets / checked_in
+  template_key?: string;
+  platform?: string;         // filtre optionnel : web | ios
+  city?: string;             // filtre optionnel (profiles.city, admin uniquement)
+  dry_run?: boolean;         // => renvoie { targeted } sans envoyer
+  scheduled_at?: string;     // ISO futur => enregistre la campagne, le cron l'enverra
+  campaign_id?: string;      // chemin cron (service role) : envoyer une campagne 'scheduled'
+};
+
+// deno-lint-ignore no-explicit-any
+async function pushSubscriberIds(supabase: any, platform?: string): Promise<Set<string>> {
+  let query = supabase.from('push_subscriptions').select('user_id');
+  if (platform === 'web' || platform === 'ios') query = query.eq('platform', platform);
+  const { data } = await query;
+  // deno-lint-ignore no-explicit-any
+  return new Set((data || []).map((d: any) => d.user_id));
+}
+
+/**
+ * Résout l'audience en user_ids abonnés au push.
+ * Scopes club (venue_id) : toujours bornés aux données DU club.
+ */
+// deno-lint-ignore no-explicit-any
+async function resolveAudience(supabase: any, req: CampaignRequest): Promise<{ userIds: string[]; error?: string }> {
+  const subscribers = await pushSubscriberIds(supabase, req.platform);
+
+  // ── Scopes club ───────────────────────────────────────────────────────────
+  if (req.venue_id) {
+    const scope = req.scope || 'all_customers';
+    let ids = new Set<string>();
+
+    if (scope === 'event_tickets' || scope === 'checked_in') {
+      if (!req.event_id) return { userIds: [], error: 'event_id required for this scope' };
+      // L'event doit appartenir au club — un owner ne cible jamais les
+      // acheteurs d'un autre établissement.
+      const { data: event } = await supabase
+        .from('events').select('id, venue_id').eq('id', req.event_id).maybeSingle();
+      if (!event || event.venue_id !== req.venue_id) {
+        return { userIds: [], error: 'event does not belong to this venue' };
+      }
+      let q = supabase.from('tickets').select('user_id').eq('event_id', req.event_id).eq('status', 'paid').not('user_id', 'is', null);
+      if (scope === 'checked_in') q = q.eq('entry_scanned', true);
+      const { data } = await q;
+      // deno-lint-ignore no-explicit-any
+      ids = new Set((data || []).map((d: any) => d.user_id));
+      // Une soirée se vit aussi en tables et en commandes : pour "checked_in"
+      // on reste strict (scan billets) ; pour event_tickets on ajoute les
+      // réservations VIP payées de la même soirée.
+      if (scope === 'event_tickets') {
+        const { data: tables } = await supabase
+          .from('table_reservations').select('user_id').eq('event_id', req.event_id).eq('status', 'paid').not('user_id', 'is', null);
+        // deno-lint-ignore no-explicit-any
+        (tables || []).forEach((d: any) => ids.add(d.user_id));
+      }
+    } else if (scope === 'followers') {
+      const { data } = await supabase
+        .from('favorites').select('user_id').eq('venue_id', req.venue_id).not('user_id', 'is', null);
+      // deno-lint-ignore no-explicit-any
+      ids = new Set((data || []).map((d: any) => d.user_id));
+    } else if (scope.startsWith('rfm:')) {
+      const wanted = scope.slice(4);
+      const { data, error } = await supabase.rpc('get_venue_customer_segments', { p_venue_id: req.venue_id });
+      if (error) return { userIds: [], error: `RFM segments unavailable: ${error.message}` };
+      // deno-lint-ignore no-explicit-any
+      ids = new Set((data || []).filter((r: any) => r.segment === wanted).map((r: any) => r.user_id ?? r.id).filter(Boolean));
+    } else { // all_customers
+      const { data } = await supabase
+        .from('venue_customers').select('user_id').eq('venue_id', req.venue_id).not('user_id', 'is', null);
+      // deno-lint-ignore no-explicit-any
+      ids = new Set((data || []).map((d: any) => d.user_id));
+    }
+
+    return { userIds: [...ids].filter((id) => subscribers.has(id)) };
+  }
+
+  // ── Segments admin (comportement historique + filtres platform/city) ─────
+  const segment = req.segment || 'all';
+  let ids: string[] = [];
+
+  if (segment === 'active_30d' || segment === 'inactive_30d') {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: recentOrders } = await supabase.from('orders').select('user_id').gte('created_at', thirtyDaysAgo);
+    const { data: recentTickets } = await supabase.from('tickets').select('user_id').gte('created_at', thirtyDaysAgo);
+    const activeSet = new Set([
+      // deno-lint-ignore no-explicit-any
+      ...(recentOrders || []).map((d: any) => d.user_id),
+      // deno-lint-ignore no-explicit-any
+      ...(recentTickets || []).map((d: any) => d.user_id),
+    ].filter(Boolean));
+    ids = segment === 'active_30d'
+      ? [...activeSet].filter((id) => subscribers.has(id as string)) as string[]
+      : [...subscribers].filter((id) => !activeSet.has(id));
+  } else if (segment === 'ticket_holders') {
+    const { data } = await supabase.from('tickets').select('user_id').eq('status', 'paid');
+    // deno-lint-ignore no-explicit-any
+    ids = [...new Set((data || []).map((d: any) => d.user_id).filter(Boolean))].filter((id) => subscribers.has(id as string)) as string[];
+  } else if (segment === 'vip') {
+    const { data } = await supabase.from('table_reservations').select('user_id').eq('status', 'paid');
+    // deno-lint-ignore no-explicit-any
+    ids = [...new Set((data || []).map((d: any) => d.user_id).filter(Boolean))].filter((id) => subscribers.has(id as string)) as string[];
+  } else if (segment === 'loyal') {
+    const { data } = await supabase.from('customer_loyalty').select('user_id').in('tier', ['silver', 'gold', 'platinum']);
+    // deno-lint-ignore no-explicit-any
+    ids = [...new Set((data || []).map((d: any) => d.user_id).filter(Boolean))].filter((id) => subscribers.has(id as string)) as string[];
+  } else { // all
+    ids = [...subscribers];
+  }
+
+  // Filtre ville optionnel (admin) — matching tolérant sur profiles.city.
+  if (req.city && ids.length > 0) {
+    const cityIds = new Set<string>();
+    for (let i = 0; i < ids.length; i += 500) {
+      const chunk = ids.slice(i, i + 500);
+      const { data } = await supabase
+        .from('profiles').select('id').in('id', chunk).ilike('city', `%${req.city}%`);
+      // deno-lint-ignore no-explicit-any
+      (data || []).forEach((d: any) => cityIds.add(d.id));
+    }
+    ids = ids.filter((id) => cityIds.has(id));
+  }
+
+  return { userIds: ids };
+}
+
+/** Ajoute le paramètre de tracking clic ?pc=<campaign_id> à l'URL de la notif. */
+function withTracking(url: string, campaignId: string): string {
+  const base = url || '/';
+  return base.includes('?') ? `${base}&pc=${campaignId}` : `${base}?pc=${campaignId}`;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -14,133 +162,203 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-
-    // Auth check - must be super admin
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
-    const supabaseAuth = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
-    // Check super admin
-    const { data: isSA } = await supabaseAuth.rpc('is_super_admin');
-    if (!isSA) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
     const supabase = createClient(supabaseUrl, serviceKey);
-    const { title, body, url, segment } = await req.json();
 
-    if (!title || !body) {
-      return new Response(JSON.stringify({ error: 'title and body required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) return json(401, { error: 'Unauthorized' });
+    const bearer = authHeader.replace('Bearer ', '').trim();
+    const isServiceCall = !!bearer && bearer === serviceKey;
+
+    const body: CampaignRequest = await req.json();
+
+    // ── Chemin cron : envoyer une campagne planifiée existante ─────────────
+    if (isServiceCall && body.campaign_id) {
+      const { data: campaign } = await supabase
+        .from('push_campaigns').select('*').eq('id', body.campaign_id).maybeSingle();
+      // Le cron marque 'sending' avant d'invoquer (anti double-fire) : on
+      // accepte donc les deux statuts.
+      if (!campaign || !['scheduled', 'sending'].includes(campaign.status)) {
+        return json(404, { error: 'scheduled campaign not found' });
+      }
+      const stored = (campaign.audience || {}) as CampaignRequest;
+      const request: CampaignRequest = {
+        title: campaign.title, body: campaign.body, url: campaign.url || '/',
+        segment: campaign.segment, venue_id: campaign.venue_id || undefined,
+        event_id: campaign.event_id || undefined, template_key: campaign.template_key || undefined,
+        scope: stored.scope, platform: stored.platform, city: stored.city,
+      };
+      const { userIds, error } = await resolveAudience(supabase, request);
+      if (error) {
+        await supabase.from('push_campaigns').update({ status: 'failed' }).eq('id', campaign.id);
+        return json(400, { error });
+      }
+      const result = await sendCampaign(supabase, supabaseUrl, serviceKey, campaign.id, request, userIds);
+      return json(200, { success: true, ...result });
     }
 
-    // Get user IDs based on segment
-    let userIds: string[] = [];
+    // ── Auth utilisateur ────────────────────────────────────────────────────
+    let callerId: string | undefined;
+    if (!isServiceCall) {
+      const supabaseAuth = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+      if (authError || !user) return json(401, { error: 'Unauthorized' });
 
-    if (segment === 'all') {
-      const { data } = await supabase.from('push_subscriptions').select('user_id');
-      userIds = [...new Set((data || []).map((d: any) => d.user_id))];
-    } else if (segment === 'active_30d') {
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-      const { data } = await supabase.from('orders').select('user_id').gte('created_at', thirtyDaysAgo);
-      const { data: ticketData } = await supabase.from('tickets').select('user_id').gte('created_at', thirtyDaysAgo);
-      const activeUsers = new Set([
-        ...(data || []).map((d: any) => d.user_id),
-        ...(ticketData || []).map((d: any) => d.user_id),
-      ]);
-      // Filter to those with push subscriptions
-      const { data: subs } = await supabase.from('push_subscriptions').select('user_id');
-      const subUsers = new Set((subs || []).map((s: any) => s.user_id));
-      userIds = [...activeUsers].filter(id => subUsers.has(id));
-    } else if (segment === 'inactive_30d') {
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-      const { data: subs } = await supabase.from('push_subscriptions').select('user_id');
-      const allSubUsers = [...new Set((subs || []).map((s: any) => s.user_id))];
-      const { data: recentOrders } = await supabase.from('orders').select('user_id').gte('created_at', thirtyDaysAgo);
-      const { data: recentTickets } = await supabase.from('tickets').select('user_id').gte('created_at', thirtyDaysAgo);
-      const activeSet = new Set([
-        ...(recentOrders || []).map((d: any) => d.user_id),
-        ...(recentTickets || []).map((d: any) => d.user_id),
-      ]);
-      userIds = allSubUsers.filter(id => !activeSet.has(id));
-    } else if (segment === 'ticket_holders') {
-      const { data } = await supabase.from('tickets').select('user_id').eq('status', 'paid');
-      const ticketUsers = new Set((data || []).map((d: any) => d.user_id));
-      const { data: subs } = await supabase.from('push_subscriptions').select('user_id');
-      const subUsers = new Set((subs || []).map((s: any) => s.user_id));
-      userIds = [...ticketUsers].filter(id => subUsers.has(id));
-    } else if (segment === 'vip') {
-      const { data } = await supabase.from('table_reservations').select('user_id').eq('status', 'paid');
-      const vipUsers = new Set((data || []).map((d: any) => d.user_id));
-      const { data: subs } = await supabase.from('push_subscriptions').select('user_id');
-      const subUsers = new Set((subs || []).map((s: any) => s.user_id));
-      userIds = [...vipUsers].filter(id => subUsers.has(id));
-    } else if (segment === 'loyal') {
-      const { data } = await supabase.from('customer_loyalty').select('user_id').in('tier', ['silver', 'gold', 'platinum']);
-      const loyalUsers = new Set((data || []).map((d: any) => d.user_id));
-      const { data: subs } = await supabase.from('push_subscriptions').select('user_id');
-      const subUsers = new Set((subs || []).map((s: any) => s.user_id));
-      userIds = [...loyalUsers].filter(id => subUsers.has(id));
-    } else {
-      const { data } = await supabase.from('push_subscriptions').select('user_id');
-      userIds = [...new Set((data || []).map((d: any) => d.user_id))];
+      if (body.venue_id) {
+        // Campagne club : le caller doit posséder le club.
+        const { data: owns } = await supabase.rpc('is_venue_owner', {
+          _user_id: user.id,
+          _venue_id: body.venue_id,
+        });
+        if (!owns) return json(403, { error: 'Forbidden' });
+      } else {
+        // Campagne globale : super admin uniquement.
+        const { data: isSA } = await supabaseAuth.rpc('is_super_admin');
+        if (!isSA) return json(403, { error: 'Forbidden' });
+      }
+
+      callerId = user.id;
     }
 
-    console.log(`[CAMPAIGN] Segment: ${segment}, users: ${userIds.length}`);
+    if (!body.title || !body.body) {
+      return json(400, { error: 'title and body required' });
+    }
 
-    let sentCount = 0;
-    const pushUrl = `${supabaseUrl}/functions/v1/send-push-notification`;
+    // ── Résolution d'audience ───────────────────────────────────────────────
+    const { userIds, error: audienceError } = await resolveAudience(supabase, body);
+    if (audienceError) return json(400, { error: audienceError });
 
-    // Send in batches of 10
-    for (let i = 0; i < userIds.length; i += 10) {
-      const batch = userIds.slice(i, i + 10);
-      const promises = batch.map(userId =>
-        fetch(pushUrl, {
+    // Portée estimée sans envoi (compteur live des UIs admin/owner).
+    if (body.dry_run) return json(200, { targeted: userIds.length });
+
+    // ── Garde-fou club : 4 campagnes / 24 h ────────────────────────────────
+    if (body.venue_id) {
+      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count } = await supabase
+        .from('push_campaigns')
+        .select('id', { count: 'exact', head: true })
+        .eq('venue_id', body.venue_id)
+        .gte('created_at', dayAgo);
+      if ((count ?? 0) >= OWNER_MAX_CAMPAIGNS_PER_24H) {
+        return json(429, { error: 'campaign_rate_limited', limit: OWNER_MAX_CAMPAIGNS_PER_24H });
+      }
+    }
+
+    const audienceSnapshot = {
+      scope: body.scope, platform: body.platform, city: body.city,
+    };
+
+    // ── Planification : on enregistre, process-scheduled-campaigns enverra ──
+    if (body.scheduled_at && new Date(body.scheduled_at).getTime() > Date.now()) {
+      const { data: row, error: insErr } = await supabase.from('push_campaigns').insert({
+        title: body.title, body: body.body, url: body.url || '/',
+        segment: body.segment || body.scope || 'all',
+        venue_id: body.venue_id || null, event_id: body.event_id || null,
+        template_key: body.template_key || null,
+        audience: audienceSnapshot,
+        status: 'scheduled', scheduled_at: body.scheduled_at,
+        targeted_count: userIds.length,
+        sent_count: 0,
+        created_by: callerId || null,
+      }).select('id').single();
+      if (insErr) return json(500, { error: insErr.message });
+      return json(200, { success: true, scheduled: true, campaign_id: row.id, targeted: userIds.length });
+    }
+
+    // ── Envoi immédiat ──────────────────────────────────────────────────────
+    const { data: row, error: insErr } = await supabase.from('push_campaigns').insert({
+      title: body.title, body: body.body, url: body.url || '/',
+      segment: body.segment || body.scope || 'all',
+      venue_id: body.venue_id || null, event_id: body.event_id || null,
+      template_key: body.template_key || null,
+      audience: audienceSnapshot,
+      status: 'sending',
+      targeted_count: userIds.length,
+      sent_count: 0,
+      created_by: callerId || null,
+    }).select('id').single();
+    if (insErr) return json(500, { error: insErr.message });
+
+    const result = await sendCampaign(supabase, supabaseUrl, serviceKey, row.id, body, userIds);
+    return json(200, { success: true, ...result });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Internal error';
+    console.error('[CAMPAIGN] Error:', msg);
+    return json(500, { error: msg });
+  }
+});
+
+/**
+ * Fan-out d'une campagne vers ses destinataires + tracking sent/failed.
+ * La campagne (row.id) existe déjà ; on met à jour ses compteurs à la fin.
+ */
+// deno-lint-ignore no-explicit-any
+async function sendCampaign(
+  supabase: any,
+  supabaseUrl: string,
+  serviceKey: string,
+  campaignId: string,
+  request: CampaignRequest,
+  userIds: string[],
+): Promise<{ sent: number; failed: number; total: number; campaign_id: string }> {
+  const pushUrl = `${supabaseUrl}/functions/v1/send-push-notification`;
+  const trackedUrl = withTracking(request.url || '/', campaignId);
+
+  let sentUsers = 0;
+  let failedUsers = 0;
+  const events: Array<{ campaign_id: string; user_id: string; event_type: string }> = [];
+
+  console.log(`[CAMPAIGN] ${campaignId} — targeting ${userIds.length} users`);
+
+  // Batchs de 10 (même cadence que l'implémentation historique).
+  for (let i = 0; i < userIds.length; i += 10) {
+    const batch = userIds.slice(i, i + 10);
+    const results = await Promise.all(batch.map(async (userId) => {
+      try {
+        const r = await fetch(pushUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
           body: JSON.stringify({
             user_id: userId,
-            payload: { title, body, url: url || '/' }
-          })
-        }).then(async r => {
-          const d = await r.json().catch(() => ({}));
-          return d.sent || 0;
-        }).catch(() => 0)
-      );
-      const results = await Promise.all(promises);
-      sentCount += results.reduce((a, b) => a + b, 0);
+            payload: { title: request.title, body: request.body, url: trackedUrl },
+          }),
+        });
+        const d = await r.json().catch(() => ({}));
+        return { userId, sent: Number(d.sent || 0) };
+      } catch {
+        return { userId, sent: 0 };
+      }
+    }));
+    for (const { userId, sent } of results) {
+      if (sent > 0) { sentUsers++; events.push({ campaign_id: campaignId, user_id: userId, event_type: 'sent' }); }
+      else { failedUsers++; events.push({ campaign_id: campaignId, user_id: userId, event_type: 'failed' }); }
     }
-
-    // Log campaign
-    await supabase.from('push_campaigns').insert({
-      title, body, url: url || '/', segment,
-      sent_count: sentCount,
-      created_by: user.id,
-    });
-
-    // Log each notification for anti-spam
-    for (const userId of userIds) {
-      await supabase.from('notification_log').insert({
-        user_id: userId,
-        notification_type: 'campaign',
-        title,
-      });
-    }
-
-    return new Response(JSON.stringify({ success: true, sent: sentCount, total: userIds.length }), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Internal error';
-    console.error('[CAMPAIGN] Error:', msg);
-    return new Response(JSON.stringify({ error: msg }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
-});
+
+  // Tracking par utilisateur (chunks de 500).
+  for (let i = 0; i < events.length; i += 500) {
+    await supabase.from('push_campaign_events')
+      .upsert(events.slice(i, i + 500), { onConflict: 'campaign_id,user_id,event_type', ignoreDuplicates: true });
+  }
+
+  // Journal anti-spam global (insert groupé, plus de boucle par utilisateur).
+  for (let i = 0; i < userIds.length; i += 500) {
+    await supabase.from('notification_log').insert(
+      userIds.slice(i, i + 500).map((uid) => ({
+        user_id: uid,
+        notification_type: 'campaign',
+        title: request.title,
+      })),
+    );
+  }
+
+  await supabase.from('push_campaigns').update({
+    status: 'sent',
+    sent_count: sentUsers,
+    failed_count: failedUsers,
+    targeted_count: userIds.length,
+  }).eq('id', campaignId);
+
+  return { sent: sentUsers, failed: failedUsers, total: userIds.length, campaign_id: campaignId };
+}
