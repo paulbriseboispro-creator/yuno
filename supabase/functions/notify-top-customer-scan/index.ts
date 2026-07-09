@@ -80,20 +80,21 @@ Deno.serve(async (req) => {
     const title = `${tierEmoji} VIP Top ${rank} arrivé`;
     const body = `${full_name || 'Client VIP'} (${tier.toUpperCase()}) vient d'être scanné à l'entrée.`;
 
-    // Trigger push notification per recipient via existing send-push-notification function
+    // Trigger push notification per recipient via existing send-push-notification function.
+    // Service-role bearer : le relay durci de send-push-notification exige
+    // service-role OU un user à rôle privilégié — le bearer anon renvoyait 401.
+    // Body au format attendu { user_id, payload } (title/body/url).
     const pushUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-push-notification`;
-    const anon = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
     await Promise.all(
       Array.from(recipients).map((uid) =>
         fetch(pushUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${anon}` },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
           body: JSON.stringify({
             user_id: uid,
-            title,
-            body,
-            data: { type: 'top_customer_scan', user_id, rank, tier, event_id, venue_id },
+            payload: { title, body, url: '/owner/live' },
           }),
         }).catch((e) => console.warn('push failed', uid, e))
       ),

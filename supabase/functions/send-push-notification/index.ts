@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 };
 
 function base64UrlToUint8Array(input: string): Uint8Array {
@@ -563,7 +563,13 @@ Deno.serve(async (req) => {
     {
       const authHeader = req.headers.get('Authorization') || '';
       const bearer = authHeader.replace('Bearer ', '').trim();
-      const isServiceCall = !!bearer && bearer === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      // Deux chemins privilégiés : service-role bearer (fns internes) OU
+      // x-cron-secret (triggers DB via pg_net — Vault, même pattern que les
+      // crons ; le trigger Mode Live envoie le push de bienvenue par ici).
+      const cronSecret = Deno.env.get('CRON_SECRET');
+      const isCronCall = !!cronSecret && req.headers.get('x-cron-secret') === cronSecret;
+      const isServiceCall =
+        (!!bearer && bearer === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')) || isCronCall;
       if (!isServiceCall) {
         const userClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
           global: { headers: { Authorization: authHeader } },
