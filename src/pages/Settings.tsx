@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, User, Lock, Globe, LogOut, MapPin, Shield, FileText, ScrollText, ShoppingBag, Building2, Cookie, Bell, BellOff, Smartphone, Loader2, Mail, Trophy } from 'lucide-react';
+import { ArrowLeft, User, Lock, Globe, LogOut, MapPin, Shield, FileText, ScrollText, ShoppingBag, Building2, Cookie, Bell, BellOff, Smartphone, Loader2, Mail, Trophy, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -192,6 +192,37 @@ export default function Settings() {
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     navigate('/');
+  };
+
+  // Suppression de compte in-app (exigence App Store 5.1.1(v) — le backend
+  // delete-account existait déjà, ceci est son premier point d'entrée UI).
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    setDeletingAccount(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-account');
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(t('settings.deleteSuccess'));
+      await supabase.auth.signOut();
+      navigate('/');
+    } catch (error) {
+      // supabase-js enveloppe les réponses non-2xx ; le vrai message est dans le body.
+      let msg = error instanceof Error ? error.message : t('settings.deleteError');
+      try {
+        const ctx = (error as { context?: { json?: () => Promise<{ error?: string }> } })?.context;
+        if (ctx?.json) {
+          const body = await ctx.json();
+          if (body?.error) msg = body.error;
+        }
+      } catch { /* garder msg */ }
+      toast.error(msg);
+    } finally {
+      setDeletingAccount(false);
+    }
   };
 
   const languageLabels: Record<string, { label: string; flag: string }> = {
@@ -532,7 +563,55 @@ export default function Settings() {
           <LogOut className="h-4 w-4 mr-2" />
           {t('profile.signOut')}
         </Button>
+
+        {/* Delete account (App Store 5.1.1(v)) */}
+        <Button
+          variant="ghost"
+          className="w-full text-muted-foreground hover:text-destructive"
+          onClick={() => { setDeleteConfirmText(''); setDeleteDialogOpen(true); }}
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          {t('settings.deleteAccount')}
+        </Button>
       </div>
+
+      {/* Delete Account Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('settings.deleteConfirmTitle')}</DialogTitle>
+            <DialogDescription>{t('settings.deleteConfirmBody')}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label htmlFor="delete_confirm" className="text-xs">
+                {t('settings.deleteConfirmLabel').replace('{word}', t('settings.deleteConfirmWord'))}
+              </Label>
+              <Input
+                id="delete_confirm"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder={t('settings.deleteConfirmWord')}
+                autoComplete="off"
+                className="mt-1"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
+                {t('profile.cancel')}
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={deletingAccount || deleteConfirmText.trim().toUpperCase() !== t('settings.deleteConfirmWord').toUpperCase()}
+                onClick={handleDeleteAccount}
+              >
+                {deletingAccount ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                {t('settings.deleteConfirmCta')}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* New Email Dialog */}
       <Dialog open={showNewEmailDialog} onOpenChange={setShowNewEmailDialog}>
