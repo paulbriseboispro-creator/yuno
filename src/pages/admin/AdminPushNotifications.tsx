@@ -37,6 +37,10 @@ interface Campaign {
   segment: string;
   sent_count: number;
   created_at: string;
+  status?: string;
+  scheduled_at?: string | null;
+  targeted_count?: number;
+  failed_count?: number;
 }
 
 export default function AdminPushNotifications() {
@@ -51,17 +55,52 @@ export default function AdminPushNotifications() {
     { value: 'loyal', label: t('adminPush.segLoyal') },
   ];
 
+  const PLATFORMS = [
+    { value: 'all', label: t('adminPush.platformAll') },
+    { value: 'web', label: t('adminPush.platformWeb') },
+    { value: 'ios', label: t('adminPush.platformIos') },
+  ];
+
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [url, setUrl] = useState('/');
   const [segment, setSegment] = useState('all');
+  const [platform, setPlatform] = useState('all');
+  const [city, setCity] = useState('');
+  const [scheduledAt, setScheduledAt] = useState('');
   const [sending, setSending] = useState(false);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [clicks, setClicks] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const [reach, setReach] = useState<number | null>(null);
+  const [reachLoading, setReachLoading] = useState(false);
 
   useEffect(() => {
     fetchCampaigns();
   }, []);
+
+  // Portée estimée en live (dry_run, débouncé) — combien d'abonnés push le
+  // ciblage courant atteindrait.
+  useEffect(() => {
+    setReachLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const { data } = await supabase.functions.invoke('send-push-campaign', {
+          body: {
+            title: '·', body: '·', segment, dry_run: true,
+            ...(platform !== 'all' ? { platform } : {}),
+            ...(city.trim() ? { city: city.trim() } : {}),
+          },
+        });
+        setReach(typeof data?.targeted === 'number' ? data.targeted : null);
+      } catch {
+        setReach(null);
+      } finally {
+        setReachLoading(false);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [segment, platform, city]);
 
   const fetchCampaigns = async () => {
     const { data } = await supabase
@@ -69,8 +108,23 @@ export default function AdminPushNotifications() {
       .select('*')
       .order('created_at', { ascending: false })
       .limit(20);
-    setCampaigns((data as any) || []);
+    const rows = ((data as any) || []) as Campaign[];
+    setCampaigns(rows);
     setLoading(false);
+
+    // Clics par campagne (tracking ?pc= → push_campaign_events).
+    if (rows.length > 0) {
+      const { data: events } = await supabase
+        .from('push_campaign_events' as any)
+        .select('campaign_id')
+        .eq('event_type', 'clicked')
+        .in('campaign_id', rows.map(r => r.id));
+      const counts: Record<string, number> = {};
+      ((events as any) || []).forEach((e: { campaign_id: string }) => {
+        counts[e.campaign_id] = (counts[e.campaign_id] || 0) + 1;
+      });
+      setClicks(counts);
+    }
   };
 
   const handleSend = async () => {
@@ -81,17 +135,30 @@ export default function AdminPushNotifications() {
 
     setSending(true);
     try {
+      const isScheduled = !!scheduledAt && new Date(scheduledAt).getTime() > Date.now();
       const { data, error } = await supabase.functions.invoke('send-push-campaign', {
-        body: { title: title.trim(), body: body.trim(), url: url.trim() || '/', segment }
+        body: {
+          title: title.trim(), body: body.trim(), url: url.trim() || '/', segment,
+          ...(platform !== 'all' ? { platform } : {}),
+          ...(city.trim() ? { city: city.trim() } : {}),
+          ...(isScheduled ? { scheduled_at: new Date(scheduledAt).toISOString() } : {}),
+        }
       });
 
       if (error) throw error;
 
-      toast.success(t('adminPush.notificationsSent').replace('{count}', String(data?.sent || 0)));
+      if (data?.scheduled) {
+        toast.success(t('adminPush.scheduledToast'));
+      } else {
+        toast.success(t('adminPush.notificationsSent').replace('{count}', String(data?.sent || 0)));
+      }
       setTitle('');
       setBody('');
       setUrl('/');
       setSegment('all');
+      setPlatform('all');
+      setCity('');
+      setScheduledAt('');
       fetchCampaigns();
     } catch (error: any) {
       toast.error(error.message || t('adminPush.sendError'));
@@ -101,6 +168,26 @@ export default function AdminPushNotifications() {
   };
 
   const segmentLabel = (val: string) => SEGMENTS.find(s => s.value === val)?.label || val;
+
+  const statusChip = (c: Campaign) => {
+    if (!c.status || c.status === 'sent') return null;
+    const cfg: Record<string, { label: string; color: string }> = {
+      scheduled: { label: t('adminPush.statusScheduled'), color: '#60A5FA' },
+      sending: { label: t('adminPush.statusSending'), color: '#FBBF24' },
+      failed: { label: t('adminPush.statusFailed'), color: RED },
+      draft: { label: 'Draft', color: T3 },
+    };
+    const s = cfg[c.status];
+    if (!s) return null;
+    return (
+      <span
+        className="inline-flex items-center px-2 py-0.5 rounded-full"
+        style={{ background: `${s.color}1A`, border: `1px solid ${s.color}40`, color: s.color, fontSize: 10, fontWeight: 600 }}
+      >
+        {s.label}
+      </span>
+    );
+  };
 
   return (
     <div className="min-h-screen pb-16" style={{ background: '#000' }}>
@@ -156,6 +243,46 @@ export default function AdminPushNotifications() {
                 </Select>
               </div>
             </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label style={labelStyle}>{t('adminPush.platform')}</label>
+                <Select value={platform} onValueChange={setPlatform}>
+                  <SelectTrigger style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, color: T1, fontSize: 13, height: 'auto', padding: '9px 12px' }}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PLATFORMS.map(p => (
+                      <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label style={labelStyle}>{t('adminPush.cityFilter')}</label>
+                <input value={city} onChange={e => setCity(e.target.value)} placeholder={t('adminPush.cityPlaceholder')} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>{t('adminPush.scheduleLabel')}</label>
+                <input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={e => setScheduledAt(e.target.value)}
+                  min={new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16)}
+                  style={{ ...inputStyle, colorScheme: 'dark' }}
+                />
+              </div>
+            </div>
+            {/* Portée estimée */}
+            <div className="flex items-center gap-2" style={{ color: T2, fontSize: 12 }}>
+              {reachLoading
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: T3 }} />
+                : <Bell className="h-3.5 w-3.5" style={{ color: reach ? POS : T3 }} />}
+              <span className="tabular-nums">
+                {reach === null && !reachLoading
+                  ? '—'
+                  : t('adminPush.reach').replace('{count}', String(reach ?? '…'))}
+              </span>
+            </div>
             <button
               onClick={handleSend}
               disabled={sending}
@@ -163,7 +290,7 @@ export default function AdminPushNotifications() {
               style={{ background: RED, color: '#fff', padding: '11px 16px', boxShadow: `0 0 18px -6px ${RED}88`, cursor: sending ? 'not-allowed' : 'pointer', opacity: sending ? 0.6 : 1 }}
             >
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              {t('adminPush.sendNotification')}
+              {scheduledAt && new Date(scheduledAt).getTime() > Date.now() ? t('adminPush.scheduleCta') : t('adminPush.sendNotification')}
             </button>
           </div>
         </div>
@@ -200,18 +327,30 @@ export default function AdminPushNotifications() {
                       >
                         {segmentLabel(c.segment)}
                       </span>
+                      {statusChip(c)}
                       <span className="flex items-center gap-1 tabular-nums" style={{ color: T3, fontSize: 10 }}>
                         <Clock className="h-3 w-3" />
-                        {new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        {new Date(c.scheduled_at && c.status === 'scheduled' ? c.scheduled_at : c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
                   </div>
-                  <span
-                    className="inline-flex items-center shrink-0 px-2.5 py-1 rounded-full tabular-nums"
-                    style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: POS, fontSize: 11, fontWeight: 600 }}
-                  >
-                    {t('adminPush.sent').replace('{count}', String(c.sent_count))}
-                  </span>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span
+                      className="inline-flex items-center px-2.5 py-1 rounded-full tabular-nums"
+                      style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: POS, fontSize: 11, fontWeight: 600 }}
+                    >
+                      {t('adminPush.sent').replace('{count}', String(c.sent_count))}
+                    </span>
+                    <span className="tabular-nums" style={{ color: T3, fontSize: 10 }}>
+                      {t('adminPush.clicked').replace('{count}', String(clicks[c.id] || 0))}
+                      {c.sent_count > 0 && (
+                        <> · {t('adminPush.ctr')} {Math.round(((clicks[c.id] || 0) / c.sent_count) * 100)}%</>
+                      )}
+                      {(c.failed_count ?? 0) > 0 && (
+                        <> · {t('adminPush.failed').replace('{count}', String(c.failed_count))}</>
+                      )}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>

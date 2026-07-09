@@ -13,6 +13,7 @@ import {
 	HeartIcon,
 	MailIcon,
 	MessageSquareIcon,
+	BellIcon,
 	TrendingUpIcon,
 	RadioIcon,
 	SparklesIcon,
@@ -138,6 +139,11 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					title: t('sidebar.sms'),
 					path: "/owner/sms",
 					icon: <MessageSquareIcon />,
+				},
+				{
+					title: t('sidebar.push'),
+					path: "/owner/push",
+					icon: <BellIcon />,
 				},
 				{
 					title: t('sidebar.promoters'),

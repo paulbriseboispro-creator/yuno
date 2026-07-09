@@ -44,6 +44,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { uniqueChannel } from "@/lib/realtime";
 import { useStore } from "@/store/useStore";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { NativeBridge } from "@/components/NativeBridge";
+import { NativeProGate } from "@/components/NativeProGate";
+import { PushClickTracker } from "@/components/PushClickTracker";
 import { DemoSwitcher } from "@/components/demo/DemoSwitcher";
 import { PreviewModeProvider } from "@/contexts/PreviewModeContext";
 import { PreviewModeBanner } from "@/components/PreviewModeBanner";
@@ -97,6 +100,7 @@ const LoyaltyHub = lazyWithRetry(() => import("./pages/LoyaltyHub"));
 const OwnerBilling = lazyWithRetry(() => import("./pages/OwnerBilling"));
 const OwnerSmsCredits = lazyWithRetry(() => import("./pages/OwnerSmsCredits"));
 const OwnerSmsCampaigns = lazyWithRetry(() => import("./pages/OwnerSmsCampaigns"));
+const OwnerPush = lazyWithRetry(() => import("./pages/OwnerPush"));
 const OwnerOnboarding = lazyWithRetry(() => import("./pages/OwnerOnboarding"));
 const OwnerStoryBuilder = lazyWithRetry(() => import("./pages/OwnerStoryBuilder"));
 const HelpCenter = lazyWithRetry(() => import("./pages/HelpCenter"));
@@ -413,9 +417,12 @@ const App = () => (
             <ScrollToTop />
             <CartCleanup />
             <OfflineBanner />
+            <NativeBridge />
+            <PushClickTracker />
             <MaintenanceWrapper>
               <RouteErrorBoundary>
               <Suspense fallback={<PageLoader />}>
+              <NativeProGate>
               <Routes>
                 {/* Explorer home page */}
                 <Route path="/" element={<Explore />} />
@@ -667,6 +674,7 @@ const App = () => (
                   <Route path="campaigns/:id/report" element={<PlanGuard feature="email_campaigns_promotional"><OwnerCampaignReport /></PlanGuard>} />
                   <Route path="sms" element={<OwnerSmsCredits />} />
                   <Route path="sms-campaigns" element={<OwnerSmsCampaigns />} />
+                  <Route path="push" element={<OwnerPush />} />
                   <Route path="promoters" element={<PlanGuard feature="promoters_basic"><OwnerPromoters /></PlanGuard>} />
                   <Route path="promoters/announcements" element={<PlanGuard feature="promoters"><OwnerPromoterAnnouncements /></PlanGuard>} />
                   <Route path="promoters/finance" element={<PlanGuard feature="promoters"><OwnerPromoterFinance /></PlanGuard>} />
@@ -973,6 +981,7 @@ const App = () => (
 
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </NativeProGate>
             </Suspense>
               </RouteErrorBoundary>
             </MaintenanceWrapper>
