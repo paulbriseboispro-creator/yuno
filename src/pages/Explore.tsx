@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { getManualCoords, getStoredCity, hasManualCity, setManualLocation, setResolvedCity } from '@/lib/userLocation';
+import { markAppReady } from '@/lib/appReady';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { BottomNav } from '@/components/BottomNav';
 import { ExploreHeader } from '@/components/explore/ExploreHeader';
@@ -20,7 +21,7 @@ import { ExplorePopularClubCard } from '@/components/explore/ExplorePopularClubC
 import { ExploreSeeAllCard } from '@/components/explore/ExploreSeeAllCard';
 import { ExploreDayTabs, WeekDayData } from '@/components/explore/ExploreDayTabs';
 import { FadeInView } from '@/components/motion';
-import { PageFade } from '@/components/PageFade';
+import { PublicPage } from '@/components/PublicPage';
 import { ExploreCardsSkeleton } from '@/components/skeletons/ExploreCardsSkeleton';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -87,6 +88,13 @@ const dfLocale = (lang: string) => (lang === 'fr' ? fr : lang === 'es' ? es : en
 export default function Explore() {
   const navigate = useNavigate();
   const { t, language } = useLanguage();
+
+  // Accueil monté et peint : signale l'app « prête » pour que l'écran de
+  // lancement lance sa sortie (soulèvement) et révèle l'Explorer.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => markAppReady());
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   // ── Scroll-triggered pill button ──
   const mainRef = useRef<HTMLElement>(null);
@@ -1076,7 +1084,7 @@ export default function Explore() {
             MAIN FEED — sectioned editorial layout
             ══════════════════════════════════════════ */}
         {!loading && (
-          <PageFade>
+          <PublicPage variant="discovery">
             {/* ═══ MODULE 1 : Carrousel de toutes les soirées de la période ═══ */}
             <ExploreEventCarousel
               events={carouselEvents}
@@ -1192,7 +1200,7 @@ export default function Explore() {
                 />
               </FadeInView>
             )}
-          </PageFade>
+          </PublicPage>
         )}
       </main>
 

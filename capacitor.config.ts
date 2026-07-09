@@ -19,7 +19,10 @@ const config: CapacitorConfig = {
     },
     SplashScreen: {
       launchAutoHide: true,
-      backgroundColor: '#050505',
+      // Rouge de marque : le launch screen natif (LaunchScreen.storyboard) et le
+      // premier pixel du WebView (index.html) sont rouges → enchaînement sans
+      // couture vers le splash animé. Le fond sombre de l'app reste #050505.
+      backgroundColor: '#E51D2A',
     },
     CapacitorUpdater: {
       // MàJ OTA Capgo : le bundle web se met à jour sans review Apple.

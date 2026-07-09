@@ -45,6 +45,7 @@ import { uniqueChannel } from "@/lib/realtime";
 import { useStore } from "@/store/useStore";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { NativeBridge } from "@/components/NativeBridge";
+import { SplashScreen } from "@/components/SplashScreen";
 import { NativeProGate } from "@/components/NativeProGate";
 import { ProAppGate } from "@/components/ProAppGate";
 import { isProApp } from "@/lib/native";
@@ -414,6 +415,10 @@ const App = () => (
           <VenueNavProvider>
           <TooltipProvider>
             <PreviewModeProvider>
+            {/* Écran de lancement animé (cold start natif / PWA) — se soulève
+                pour révéler l'Explorer dès que l'app est prête. Auto-gaté :
+                no-op sur le web classique et l'app Pro staff. */}
+            <SplashScreen />
             {/* Surfaces B2C inactives dans l'app Yuno Pro (staff) */}
             {!isProApp() && <OnboardingGate />}
             <Toaster />

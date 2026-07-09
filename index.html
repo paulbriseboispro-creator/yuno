@@ -83,7 +83,7 @@
   
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Poppins:wght@500&display=swap" rel="stylesheet" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   
   
@@ -146,10 +146,36 @@
     <div id="root">
       <!-- Inline loading skeleton for faster FCP -->
       <div id="initial-loader" style="min-height:100vh;background:#050505;display:flex;align-items:center;justify-content:center">
-        <div style="width:32px;height:32px;border:3px solid #1a1a1a;border-top-color:#c62828;border-radius:50%;animation:spin 1s linear infinite"></div>
+        <div id="initial-spinner" style="width:32px;height:32px;border:3px solid #1a1a1a;border-top-color:#c62828;border-radius:50%;animation:spin 1s linear infinite"></div>
         <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
       </div>
     </div>
+    <script>
+      // App native B2C : dès le tout premier pixel, on affiche EXACTEMENT la même
+      // image que le Launch Screen natif (rouge + logo terminé, coupe vide) pour
+      // que le logo ne « clignote » pas entre le launch screen, ce loader et le
+      // splash animé (SplashScreen.tsx) qui prend le relais. Le web classique et
+      // l'app Pro staff (UA « YunoPro ») gardent le fond sombre + spinner.
+      (function () {
+        try {
+          if (location.protocol === 'capacitor:' && navigator.userAgent.indexOf('YunoPro') === -1) {
+            var l = document.getElementById('initial-loader');
+            if (l) {
+              l.style.background = '#E51D2A';
+              l.innerHTML =
+                '<div style="position:relative;display:flex;flex-direction:column;align-items:center;">' +
+                '<svg width="212" height="265" viewBox="0 0 220 275" fill="none" style="overflow:visible;">' +
+                '<path d="M 34 26 L 186 26 L 110 150 Z" stroke="#fff" stroke-width="15" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>' +
+                '<path d="M 110 150 L 110 216" stroke="#fff" stroke-width="15" stroke-linecap="round" fill="none"></path>' +
+                '<path d="M 72 216 L 148 216" stroke="#fff" stroke-width="15" stroke-linecap="round" fill="none"></path>' +
+                '</svg>' +
+                '<div style="margin-top:-30px;font-size:106px;font-weight:500;letter-spacing:-1px;color:#fff;line-height:1;font-family:\'Poppins\',ui-sans-serif,system-ui,sans-serif;">yuno</div>' +
+                '</div>';
+            }
+          }
+        } catch (e) { /* no-op */ }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
