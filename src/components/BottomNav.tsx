@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 import { motion, LayoutGroup, useReducedMotion } from 'framer-motion';
 import { useVenueNav } from '@/contexts/VenueNavContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useLiveMode } from '@/contexts/LiveModeContext';
 
 interface RegularNavItem {
   type: 'link';
@@ -71,8 +72,15 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
   }, [mode]);
 
   const isClubActive = location.pathname.startsWith('/club/') || location.pathname === '/map';
+  // Mode Live : le bouton central porte un badge LIVE (statique — pas
+  // d'animation en boucle, AMOLED/batterie) tant que la soirée est en cours.
+  const { isLive } = useLiveMode();
 
   const handleClubClick = () => {
+    if (isLive) {
+      navigate('/live');
+      return;
+    }
     if (currentVenueSlug) {
       const venueHome = `/club/${currentVenueSlug}`;
       if (location.pathname === venueHome) {
@@ -145,6 +153,22 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
                     }}
                   >
                     <Building2 className="h-[22px] w-[22px] text-primary-foreground" strokeWidth={2.2} />
+                    {isLive && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute -top-1 left-1/2 -translate-x-1/2 rounded-full px-1.5 font-mono font-bold uppercase"
+                        style={{
+                          fontSize: 7.5,
+                          letterSpacing: '0.1em',
+                          lineHeight: '12px',
+                          color: '#FFFFFF',
+                          background: '#0A0A0A',
+                          border: '1px solid #E8192C',
+                        }}
+                      >
+                        LIVE
+                      </span>
+                    )}
                   </motion.div>
                   <span
                     className={cn(
