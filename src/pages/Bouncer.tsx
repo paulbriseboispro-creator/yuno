@@ -10,6 +10,11 @@ import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
 import { QrCode, CheckCircle, XCircle, User, Ticket, Wine, Camera, RefreshCw, Users, Ban, AlertTriangle, ArrowLeft, Clock, Search, ShieldAlert, UserX } from 'lucide-react';
 import { nowInParis } from '@/lib/timezone';
 import { validateTicketEntry, validateTableReservation, validateGuestListEntry } from '@/lib/scan/rules';
+import { useOfflineScanning } from '@/hooks/useOfflineScanning';
+import { OfflinePill } from '@/components/pro/OfflinePill';
+import { SyncQueueDrawer } from '@/components/pro/SyncQueueDrawer';
+import { isProApp } from '@/lib/native';
+import { CloudOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 
@@ -152,6 +157,12 @@ export default function Bouncer() {
   // Scan overlay
   const [overlayResult, setOverlayResult] = useState<'success' | 'error' | 'already' | 'vip_success' | null>(null);
   const [overlayName, setOverlayName] = useState<string | undefined>(undefined);
+  const [overlayOffline, setOverlayOffline] = useState(false);
+
+  // Scan offline (app Yuno Pro) : manifeste local + file de rejeu.
+  const [offlineEventId, setOfflineEventId] = useState<string | null>(null);
+  const [syncDrawerOpen, setSyncDrawerOpen] = useState(false);
+  const offline = useOfflineScanning(offlineEventId, venueId ?? null);
   
   // Cached top clients
   const [topClientsCache, setTopClientsCache] = useState<any[] | null>(null);
@@ -257,10 +268,13 @@ export default function Bouncer() {
         
         if (!todayEvents || todayEvents.length === 0) {
           setStats({ scanned: 0, total: 0 });
+          setOfflineEventId(null);
           return;
         }
-        
+
         const eventIds = todayEvents.map(e => e.id);
+        // Event de référence du manifeste offline (soirée du jour).
+        setOfflineEventId(eventIds[0] ?? null);
         const { data: tickets } = await supabase
           .from('tickets')
           .select('id, entry_scanned, quantity')
@@ -276,6 +290,8 @@ export default function Bouncer() {
       }
 
       const eventIds = events.map(e => e.id);
+      // Event de référence du manifeste offline (soirée en cours).
+      setOfflineEventId(eventIds[0] ?? null);
 
       const { data: tickets } = await supabase
         .from('tickets')
@@ -369,10 +385,72 @@ export default function Bouncer() {
     setScanning(false);
   };
 
+  /**
+   * Chemin OFFLINE (app Yuno Pro) : validation locale contre le manifeste
+   * pré-téléchargé, via les mêmes règles pures que le chemin online.
+   * Mappe le verdict sur les mêmes états d'UI que le flux réseau.
+   */
+  const handleOfflineScan = async (qrCode: string): Promise<void> => {
+    setOverlayOffline(true);
+
+    if (activeTab === 'cancel') {
+      // L'annulation/remboursement exige l'edge function staff-cancel.
+      setScanResult('error');
+      setErrorMessage(t('offline.cancelUnavailable'));
+      return;
+    }
+
+    const result = await offline.scanOffline(qrCode);
+    const { verdict, kind, name } = result;
+
+    switch (verdict.status) {
+      case 'success': {
+        const isTable = kind === 'table';
+        setScanResult(isTable ? 'vip_success' : 'success');
+        setOverlayResult(isTable ? 'vip_success' : 'success');
+        setOverlayName(name || undefined);
+        break;
+      }
+      case 'already':
+        setScanResult('already');
+        setOverlayResult('already');
+        setOverlayName(name || undefined);
+        break;
+      case 'not_paid':
+        setScanResult('error');
+        setErrorMessage(t('bouncer.ticketNotPaid'));
+        break;
+      case 'cancelled':
+        setScanResult('error');
+        setErrorMessage(t('guestList.cancelled'));
+        break;
+      case 'deadline_passed':
+        setScanResult('error');
+        setErrorMessage(verdict.deadlineSource === 'entry' ? 'Heure limite d\'entrée dépassée' : t('guestList.timeExpired'));
+        break;
+      case 'wrong_venue':
+        setScanResult('error');
+        setErrorMessage(t('bouncer.wrongVenue'));
+        break;
+      default:
+        // Introuvable dans le manifeste : peut-être un billet acheté après la
+        // dernière synchro — message dédié avec invitation à re-synchroniser.
+        setScanResult('error');
+        setErrorMessage(t('offline.notFound'));
+    }
+  };
+
   const onScanSuccess = async (decodedText: string) => {
     await stopScanning();
 
     const qrCode = decodedText.trim();
+    setOverlayOffline(false);
+
+    // Coupure réseau + manifeste local disponible → validation offline.
+    if (offline.enabled && offline.manifestReady && !navigator.onLine) {
+      await handleOfflineScan(qrCode);
+      return;
+    }
 
     try {
       // First try to find a ticket_attendee with this qr_code (nominative tickets)
@@ -993,6 +1071,12 @@ export default function Bouncer() {
       setErrorMessage(t('bouncer.ticketNotFound'));
     } catch (error) {
       console.error('Error processing scan:', error);
+      // Filet : échec réseau en plein scan (connexion tombée entre deux) →
+      // basculer sur la validation offline si le manifeste est disponible.
+      if (offline.enabled && offline.manifestReady) {
+        await handleOfflineScan(qrCode);
+        return;
+      }
       setScanResult('error');
       setErrorMessage(t('bouncer.scanError'));
     }
@@ -1203,6 +1287,35 @@ export default function Bouncer() {
       </header>
 
       <div className="relative z-10 container mx-auto px-3 py-4 space-y-4">
+        {/* Statut offline (app Yuno Pro) : réseau + fraîcheur manifeste + file de scans */}
+        {isProApp() && offline.enabled && (
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <OfflinePill label={offline.online ? t('proapp.chrome.online') : t('proapp.chrome.offline')} />
+              {offline.manifestReady && offline.manifestAgeMs !== null && (
+                <span
+                  className="truncate text-[10px] uppercase tracking-wide"
+                  style={{ color: !offline.online && offline.manifestAgeMs > 15 * 60 * 1000 ? RED : T3 }}
+                >
+                  {t('offline.syncedAgo').replace('{min}', String(Math.max(0, Math.round(offline.manifestAgeMs / 60000))))}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setSyncDrawerOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums"
+              style={{
+                background: offline.pending > 0 ? 'rgba(251,191,36,0.10)' : INNER_BG,
+                border: `1px solid ${offline.pending > 0 ? 'rgba(251,191,36,0.30)' : BORDER}`,
+                color: offline.pending > 0 ? '#FBBF24' : T3,
+              }}
+            >
+              <CloudOff className="h-3 w-3" />
+              {offline.pending}
+            </button>
+          </div>
+        )}
+
         {/* Stats */}
         <div
           className="flex items-center justify-between"
@@ -1212,7 +1325,10 @@ export default function Bouncer() {
             <Users className="h-5 w-5" style={{ color: RED }} />
             <span style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{t('bouncer.scannedToday')}</span>
           </div>
-          <div className="tabular-nums" style={{ color: T1, fontSize: 26, fontWeight: 640, letterSpacing: '-0.025em' }}>{stats.scanned}</div>
+          <div className="tabular-nums" style={{ color: T1, fontSize: 26, fontWeight: 640, letterSpacing: '-0.025em' }}>
+            {/* Compte approximatif quand des scans offline attendent la synchro */}
+            {offline.pending > 0 ? `≈ ${stats.scanned + offline.pending}` : stats.scanned}
+          </div>
         </div>
 
         {/* Scanner with Tabs */}
@@ -1947,7 +2063,21 @@ export default function Bouncer() {
         result={overlayResult}
         onDismiss={() => setOverlayResult(null)}
         holderName={overlayName}
+        offlineBadge={overlayOffline ? t('offline.validatedOffline') : undefined}
       />
+
+      {/* File de synchronisation des scans offline (app Yuno Pro) */}
+      {offline.enabled && (
+        <SyncQueueDrawer
+          open={syncDrawerOpen}
+          onOpenChange={setSyncDrawerOpen}
+          eventId={offlineEventId}
+          pending={offline.pending}
+          lastSummary={offline.lastSummary}
+          onSync={offline.replay}
+          online={offline.online}
+        />
+      )}
     </div>
   );
 }

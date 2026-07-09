@@ -6,9 +6,11 @@ interface ScanOverlayProps {
   result: 'success' | 'error' | 'already' | 'vip_success' | null;
   onDismiss: () => void;
   holderName?: string;
+  /** Libellé du badge « validé hors ligne » (scan offline, app Yuno Pro). */
+  offlineBadge?: string;
 }
 
-export function ScanOverlay({ result, onDismiss, holderName }: ScanOverlayProps) {
+export function ScanOverlay({ result, onDismiss, holderName, offlineBadge }: ScanOverlayProps) {
   useEffect(() => {
     if (!result) return;
     // Vibration feedback
@@ -69,6 +71,16 @@ export function ScanOverlay({ result, onDismiss, holderName }: ScanOverlayProps)
             >
               {holderName}
             </motion.p>
+          )}
+          {offlineBadge && isSuccess && (
+            <motion.span
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+              className="mt-3 inline-flex items-center rounded-full bg-white/15 border border-white/30 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white"
+            >
+              {offlineBadge}
+            </motion.span>
           )}
         </motion.div>
       )}

@@ -10696,6 +10696,48 @@ const en: Record<string, string> = {
   'empty.cart.body': 'Add drinks and skip the bar queue — order ahead, show your QR and enjoy your night.',
   'empty.cart.cta': 'Order drinks',
 
+
+  // --- Yuno Pro app (staff + promoters) ---
+  'proapp.title': 'Yuno Pro',
+  'proapp.chooseRole': 'Choose your role',
+  'proapp.noRole': 'No staff role linked to this account yet. Ask your venue owner to invite you.',
+  'proapp.opening': 'Opening {role}…',
+  'proapp.logout': 'Log out',
+  'proapp.pushPrompt': 'Enable notifications to get alerted about arrivals and orders.',
+  'proapp.pushEnabled': 'Notifications enabled',
+  'proapp.webOnlyTitle': 'This dashboard lives on the web',
+  'proapp.webOnlyBody': 'Owner, manager and organizer dashboards are built for a bigger screen. Open them in your browser at yunoapp.eu.',
+  'proapp.webOnlyCard': 'Owner / manager dashboards open in the browser.',
+  'proapp.backHome': 'Back to home',
+  'proapp.role.barman': 'Barman',
+  'proapp.role.bouncer': 'Bouncer',
+  'proapp.role.cloakroom': 'Cloakroom',
+  'proapp.role.vipHost': 'VIP Host',
+  'proapp.role.promoter': 'Promoter',
+  'proapp.roleDesc.barman': 'Serve orders, prep queue, click & collect',
+  'proapp.roleDesc.bouncer': 'Scan tickets, guest list and VIP tables at the door',
+  'proapp.roleDesc.cloakroom': 'Deposits and retrievals',
+  'proapp.roleDesc.vipHost': 'Floor plan, arrivals and table service',
+  'proapp.roleDesc.promoter': 'Your sales, your link, on-site check-ins',
+  'proapp.chrome.home': 'Home',
+  'proapp.chrome.online': 'Online',
+  'proapp.chrome.offline': 'Offline',
+  // --- Offline door scanning (Yuno Pro) ---
+  'offline.validatedOffline': 'Validated offline',
+  'offline.cancelUnavailable': 'Cancellations are unavailable offline — they need a connection for the refund.',
+  'offline.notFound': 'Not found offline. Bought recently? Re-sync when the connection is back.',
+  'offline.syncedAgo': 'Synced {min} min ago',
+  'offline.type.ticket': 'Ticket',
+  'offline.type.guestList': 'Guest list',
+  'offline.type.table': 'VIP table',
+  'offline.drawer.title': 'Offline scans',
+  'offline.drawer.pending': '{count} scan(s) waiting to sync',
+  'offline.drawer.empty': 'Everything is synced.',
+  'offline.drawer.applied': '{count} scan(s) synced',
+  'offline.drawer.conflict': 'Already scanned on another device at {time}',
+  'offline.drawer.syncNow': 'Sync now',
+  'offline.drawer.waitingNetwork': 'Waiting for network…',
+
 };
 
 export default en;

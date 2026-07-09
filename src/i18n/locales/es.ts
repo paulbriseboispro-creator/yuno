@@ -10810,6 +10810,48 @@ const es: Record<string, string> = {
   'empty.cart.body': 'Añade bebidas y sáltate la cola del bar: pide antes, muestra tu QR y disfruta la noche.',
   'empty.cart.cta': 'Pedir bebidas',
 
+
+  // --- App Yuno Pro (staff + promotores) ---
+  'proapp.title': 'Yuno Pro',
+  'proapp.chooseRole': 'Elige tu rol',
+  'proapp.noRole': 'Ninguna función de staff está vinculada a esta cuenta. Pide al gerente que te invite.',
+  'proapp.opening': 'Abriendo {role}…',
+  'proapp.logout': 'Cerrar sesión',
+  'proapp.pushPrompt': 'Activa las notificaciones para recibir alertas de llegadas y pedidos.',
+  'proapp.pushEnabled': 'Notificaciones activadas',
+  'proapp.webOnlyTitle': 'Este panel se gestiona en la web',
+  'proapp.webOnlyBody': 'Los paneles de gerente, manager y organizador están pensados para una pantalla grande. Ábrelos en tu navegador en yunoapp.eu.',
+  'proapp.webOnlyCard': 'Paneles de gerente / manager: en el navegador.',
+  'proapp.backHome': 'Volver al inicio',
+  'proapp.role.barman': 'Barman',
+  'proapp.role.bouncer': 'Portero',
+  'proapp.role.cloakroom': 'Guardarropa',
+  'proapp.role.vipHost': 'Anfitrión VIP',
+  'proapp.role.promoter': 'Promotor',
+  'proapp.roleDesc.barman': 'Pedidos, cola de preparación, click & collect',
+  'proapp.roleDesc.bouncer': 'Escanea entradas, guest list y mesas VIP en la puerta',
+  'proapp.roleDesc.cloakroom': 'Depósitos y retiradas',
+  'proapp.roleDesc.vipHost': 'Plano de sala, llegadas y servicio de mesas',
+  'proapp.roleDesc.promoter': 'Tus ventas, tu enlace, tus check-ins en el local',
+  'proapp.chrome.home': 'Inicio',
+  'proapp.chrome.online': 'En línea',
+  'proapp.chrome.offline': 'Sin conexión',
+  // --- Escaneo offline en puerta (Yuno Pro) ---
+  'offline.validatedOffline': 'Validado sin conexión',
+  'offline.cancelUnavailable': 'Las cancelaciones no están disponibles sin conexión: el reembolso requiere red.',
+  'offline.notFound': 'No encontrado sin conexión. ¿Comprado hace poco? Re-sincroniza cuando vuelva la red.',
+  'offline.syncedAgo': 'Sincronizado hace {min} min',
+  'offline.type.ticket': 'Entrada',
+  'offline.type.guestList': 'Guest list',
+  'offline.type.table': 'Mesa VIP',
+  'offline.drawer.title': 'Escaneos sin conexión',
+  'offline.drawer.pending': '{count} escaneo(s) pendiente(s) de sincronizar',
+  'offline.drawer.empty': 'Todo está sincronizado.',
+  'offline.drawer.applied': '{count} escaneo(s) sincronizado(s)',
+  'offline.drawer.conflict': 'Ya escaneado en otro dispositivo a las {time}',
+  'offline.drawer.syncNow': 'Sincronizar ahora',
+  'offline.drawer.waitingNetwork': 'Esperando red…',
+
 };
 
 export default es;
