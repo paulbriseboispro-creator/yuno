@@ -668,6 +668,22 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         ],
       },
       {
+        id: 'live-mode',
+        titleKey: 'ohelp.pg.livemode.title',
+        descKey: 'ohelp.pg.livemode.desc',
+        icon: 'Radio',
+        actionLink: { labelKey: 'ohelp.action.goToMenu', path: '/menu' },
+        relatedArticleIds: ['menu-setup', 'vip-service-mgmt', 'orders'],
+        keywords: ['live', 'mode live', 'live mode', 'scan', 'entrée', 'entry', 'soirée', 'night', 'takeover', 'push', 'bouteille sans table', 'bottle without table', 'solo', 'modo live'],
+        sections: [
+          { headingKey: 'ohelp.pg.livemode.s1h', bodyKey: 'ohelp.pg.livemode.s1b' },
+          { headingKey: 'ohelp.pg.livemode.s2h', bodyKey: 'ohelp.pg.livemode.s2b' },
+          { headingKey: 'ohelp.pg.livemode.s3h', bodyKey: 'ohelp.pg.livemode.s3b', type: 'steps' },
+          { headingKey: 'ohelp.pg.livemode.s4h', bodyKey: 'ohelp.pg.livemode.s4b' },
+          { headingKey: 'ohelp.pg.livemode.s5h', bodyKey: 'ohelp.pg.livemode.s5b', type: 'tip' },
+        ],
+      },
+      {
         id: 'vip-service-mgmt',
         titleKey: 'ohelp.pg.vipservice.title',
         descKey: 'ohelp.pg.vipservice.desc',

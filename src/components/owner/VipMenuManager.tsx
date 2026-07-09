@@ -55,6 +55,8 @@ interface VipMenuItem {
   position: number;
   needs_mixer: boolean;
   max_mixers: number;
+  /** Vendable sans table en Mode Live (opt-out par bouteille). */
+  solo_sale_enabled?: boolean;
 }
 
 interface VipMenuEligibility {
@@ -110,6 +112,8 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
   const [menuVisibility, setMenuVisibility] = useState<'hidden' | 'no_prices' | 'full'>('hidden');
   const [preorderEnabled, setPreorderEnabled] = useState(false);
   const [menuDisplayMode, setMenuDisplayMode] = useState<'text' | 'visual'>('text');
+  // Vente de bouteilles SANS table (Mode Live) — venues.solo_bottle_sale_enabled.
+  const [soloSaleEnabled, setSoloSaleEnabled] = useState(false);
 
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEligibilityDialog, setShowEligibilityDialog] = useState(false);
@@ -153,7 +157,7 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
         supabase.from('vip_menu_eligibility').select('*'),
         supabase.from('table_zones').select('id, name, color').eq('venue_id', venueId),
         supabase.from('table_packs').select('id, name, zone_id, included_bottles_quota').eq('venue_id', venueId),
-        supabase.from('venues').select('vip_menu_visibility, vip_preorder_enabled, vip_menu_display_mode').eq('id', venueId).single(),
+        supabase.from('venues').select('vip_menu_visibility, vip_preorder_enabled, vip_menu_display_mode, solo_bottle_sale_enabled').eq('id', venueId).single(),
       ]);
 
       setItems(itemsRes.data || []);
@@ -164,6 +168,7 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
         setMenuVisibility((venueRes.data.vip_menu_visibility as 'hidden' | 'no_prices' | 'full') || 'hidden');
         setPreorderEnabled(!!venueRes.data.vip_preorder_enabled);
         setMenuDisplayMode((venueRes.data.vip_menu_display_mode as 'text' | 'visual') || 'text');
+        setSoloSaleEnabled(!!(venueRes.data as { solo_bottle_sale_enabled?: boolean }).solo_bottle_sale_enabled);
       }
     } catch (error) {
       console.error('Error fetching VIP menu data:', error);
@@ -393,6 +398,23 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
     if (error) { setPreorderEnabled(!val); toast.error(t('common.error')); }
   };
 
+  // Vente solo (Mode Live) : toggle venue + opt-out par bouteille.
+  const saveSoloSale = async (val: boolean) => {
+    setSoloSaleEnabled(val);
+    const { error } = await supabase.from('venues').update({ solo_bottle_sale_enabled: val } as never).eq('id', venueId);
+    if (error) { setSoloSaleEnabled(!val); toast.error(t('common.error')); }
+  };
+
+  const toggleItemSoloSale = async (item: VipMenuItem) => {
+    const newValue = item.solo_sale_enabled === false;
+    const { error } = await supabase
+      .from('vip_menu_items')
+      .update({ solo_sale_enabled: newValue } as never)
+      .eq('id', item.id);
+    if (error) { toast.error(t('common.error')); return; }
+    setItems(prev => prev.map(i => (i.id === item.id ? { ...i, solo_sale_enabled: newValue } : i)));
+  };
+
   const saveDisplayMode = async (m: 'text' | 'visual') => {
     const prev = menuDisplayMode;
     setMenuDisplayMode(m);
@@ -474,6 +496,14 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
           </div>
           <Switch checked={preorderEnabled} onCheckedChange={savePreorder} />
         </div>
+        {/* Vente de bouteilles sans table (Mode Live) — retrait au bar via QR */}
+        <div className="flex items-center justify-between pt-1">
+          <div>
+            <p className="text-sm font-medium">{t('vipMenu.soloSale.title')}</p>
+            <p className="text-xs text-muted-foreground">{t('vipMenu.soloSale.hint')}</p>
+          </div>
+          <Switch checked={soloSaleEnabled} onCheckedChange={saveSoloSale} />
+        </div>
       </div>
 
       {/* Category Tabs */}
@@ -554,6 +584,17 @@ export function VipMenuManager({ venueId }: VipMenuManagerProps) {
                   </div>
                 </div>
                 <div className="flex items-center justify-end gap-1 mt-3 pt-3 border-t border-border">
+                  {soloSaleEnabled && !isMixerCategory(item.category) && (
+                    <label className="flex items-center gap-1.5 mr-auto cursor-pointer select-none">
+                      <Switch
+                        checked={item.solo_sale_enabled !== false}
+                        onCheckedChange={() => toggleItemSoloSale(item)}
+                      />
+                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        {t('vipMenu.soloSale.itemLabel')}
+                      </span>
+                    </label>
+                  )}
                   <Button variant="ghost" size="sm" onClick={() => openEligibilityDialog(item)}>
                     <Settings2 className="h-4 w-4 mr-1" />
                     {t('vipMenu.eligibility')}

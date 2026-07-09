@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, Reorder } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { Edit2, Plus, Upload, X, Trash2, Wine, Coffee, Package, GripVertical, Save, ChevronDown } from 'lucide-react';
+import { Edit2, Plus, Upload, X, Trash2, Wine, Coffee, Package, GripVertical, Save, ChevronDown, Radio } from 'lucide-react';
 import { Drink } from '@/types';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -189,6 +189,8 @@ export default function OwnerMenu() {
   const [togglingCC, setTogglingCC] = useState(false);
   const [menuEnabled, setMenuEnabled] = useState(true);
   const [togglingMenu, setTogglingMenu] = useState(false);
+  const [liveModeEnabled, setLiveModeEnabled] = useState(true);
+  const [togglingLive, setTogglingLive] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '', price: 0, promoPrice: null as number | null,
@@ -199,10 +201,11 @@ export default function OwnerMenu() {
 
   useEffect(() => {
     if (!venueId) return;
-    supabase.from('venues').select('click_collect_mode, menu_enabled').eq('id', venueId).maybeSingle().then(({ data }) => {
+    supabase.from('venues').select('click_collect_mode, menu_enabled, live_mode_enabled').eq('id', venueId).maybeSingle().then(({ data }) => {
       if (data) {
         setClickCollectMode(data.click_collect_mode === true);
         setMenuEnabled(data.menu_enabled !== false);
+        setLiveModeEnabled((data as { live_mode_enabled?: boolean }).live_mode_enabled !== false);
       }
     });
   }, [venueId]);
@@ -233,6 +236,22 @@ export default function OwnerMenu() {
       toast.success(newValue ? t('owner.menuActivated') : t('owner.menuDeactivated'));
     } catch (err) { toast.error(t('owner.errorSaving')); }
     finally { setTogglingMenu(false); }
+  };
+
+  // Mode Live : takeover de l'app cliente au scan d'entrée (menu de soirée
+  // plein écran + push de bienvenue). venues.live_mode_enabled — le trigger de
+  // push et le RPC get_live_session lisent le même flag.
+  const handleToggleLiveMode = async () => {
+    if (!venueId || togglingLive) return;
+    setTogglingLive(true);
+    const newValue = !liveModeEnabled;
+    try {
+      const { error } = await supabase.from('venues').update({ live_mode_enabled: newValue } as never).eq('id', venueId);
+      if (error) throw error;
+      setLiveModeEnabled(newValue);
+      toast.success(newValue ? t('ownerMenu.liveMode.enabled') : t('ownerMenu.liveMode.disabled'));
+    } catch (err) { toast.error(t('owner.errorSaving')); }
+    finally { setTogglingLive(false); }
   };
 
   useEffect(() => {
@@ -419,6 +438,19 @@ export default function OwnerMenu() {
                 <Package className="w-4 h-4" style={{ color: T3 }} />
                 <span style={{ color: T2, fontSize: 12.5 }}>{t('owner.clickCollectMode')}</span>
                 <Switch checked={clickCollectMode} onCheckedChange={handleToggleClickCollect} disabled={togglingCC} />
+              </div>
+              {/* Mode Live — takeover app cliente au scan d'entrée */}
+              <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
+                style={{
+                  background: liveModeEnabled ? 'rgba(232,25,44,0.07)' : INNER_BG,
+                  border: `1px solid ${liveModeEnabled ? 'rgba(232,25,44,0.25)' : BORDER}`,
+                }}>
+                <Radio className="w-4 h-4" style={{ color: liveModeEnabled ? RED : T3 }} />
+                <div className="leading-tight">
+                  <div style={{ color: T2, fontSize: 12.5 }}>{t('ownerMenu.liveMode.title')}</div>
+                  <div style={{ color: T3, fontSize: 11 }}>{t('ownerMenu.liveMode.hint')}</div>
+                </div>
+                <Switch checked={liveModeEnabled} onCheckedChange={handleToggleLiveMode} disabled={togglingLive} />
               </div>
             </div>
           </div>
