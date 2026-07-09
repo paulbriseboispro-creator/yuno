@@ -102,15 +102,15 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
       aria-label="Navigation principale"
       className={cn(
         mode === 'fixed' ? 'fixed bottom-0 left-0 right-0' : 'w-full shrink-0',
-        'z-50',
+        'z-50 flex justify-center px-3',
       )}
       style={{
         paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.625rem)',
         pointerEvents: 'none',
       }}
     >
-      <div className="mx-auto max-w-lg px-3" style={{ pointerEvents: 'auto' }}>
-        <BottomNavBar items={items} className="w-full" />
+      <div style={{ pointerEvents: 'auto' }}>
+        <BottomNavBar items={items} className="max-w-[95vw]" />
       </div>
     </nav>
   );
