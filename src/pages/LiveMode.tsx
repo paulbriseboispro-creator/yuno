@@ -14,6 +14,7 @@ import { PartyPopper } from 'lucide-react';
 import { useLiveMode } from '@/contexts/LiveModeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LiveHeader } from '@/components/livemode/LiveHeader';
+import { LiveEventContext } from '@/components/livemode/LiveEventContext';
 import { LiveMinSpendBar } from '@/components/livemode/LiveMinSpendBar';
 import { LiveOrderStatus } from '@/components/livemode/LiveOrderStatus';
 import { LiveReorderCard } from '@/components/livemode/LiveReorderCard';
@@ -101,6 +102,9 @@ export default function LiveMode() {
   return (
     <div className="min-h-screen pb-32" style={{ background: '#0A0A0A' }}>
       <LiveHeader lastCall={lastCall} />
+
+      {/* Contexte soirée : poster + line-up DJ + ambiance (pleine largeur) */}
+      <LiveEventContext />
 
       <motion.main
         initial={{ opacity: 0, y: 12 }}

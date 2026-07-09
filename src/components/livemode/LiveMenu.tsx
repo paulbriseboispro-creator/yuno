@@ -5,7 +5,7 @@
 // activée (venues.solo_bottle_sale_enabled).
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { DrinkCard } from '@/components/DrinkCard';
+import { LiveDrinkCard } from '@/components/livemode/LiveDrinkCard';
 import { LiveBottleSection } from '@/components/livemode/LiveBottleSection';
 import { supabase } from '@/integrations/supabase/client';
 import { useStore } from '@/store/useStore';
@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useLiveMode } from '@/contexts/LiveModeContext';
+import { useLiveInstantCheckout } from '@/hooks/useLiveInstantCheckout';
 import { Drink } from '@/types';
 import { transitions } from '@/lib/motion';
 
@@ -31,6 +32,9 @@ export function LiveMenu() {
   const venueId = session?.venueId;
   const showBottles = !!session?.soloBottleSaleEnabled;
   const showMenu = !!session?.menuEnabled;
+  const { payNow, payingId } = useLiveInstantCheckout(
+    session ? { eventId: session.eventId, venueId: session.venueId } : null
+  );
 
   const favoriteDrinkIds = getFavoritesByType('drink')
     .map((f) => f.drinkId)
@@ -99,6 +103,15 @@ export function LiveMenu() {
     toast({ title: t('cart.added'), description: drink.name });
   };
 
+  const handlePay = (drink: Drink) => {
+    payNow({
+      id: drink.id,
+      collection: drink.collection,
+      kind: 'drink',
+      fallbackAddToCart: () => handleAdd(drink),
+    });
+  };
+
   if (!session || (!showMenu && !showBottles)) return null;
 
   const visibleDrinks = drinks
@@ -160,10 +173,12 @@ export function LiveMenu() {
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {visibleDrinks.map((drink) => (
-              <DrinkCard
+              <LiveDrinkCard
                 key={drink.id}
                 drink={drink}
                 onAdd={handleAdd}
+                onPay={handlePay}
+                paying={payingId === drink.id}
                 isFavorite={favoriteDrinkIds.includes(drink.id)}
               />
             ))}
