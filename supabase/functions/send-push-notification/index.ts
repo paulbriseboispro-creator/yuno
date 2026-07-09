@@ -124,11 +124,132 @@ async function encryptPayload(
 }
 
 // deno-lint-ignore no-explicit-any
-type Subscription = { id: string; endpoint: string; p256dh: string; auth: string };
+type Subscription = { id: string; endpoint: string; p256dh: string | null; auth: string | null; platform?: string };
+
+// ---------------------------------------------------------------------------
+// APNs (iOS natif). Les lignes push_subscriptions avec platform='ios' portent
+// le device token dans endpoint sous la forme 'apns:<token>'. Auth par JWT
+// ES256 signé avec la clé .p8 (secrets APNS_*). Mêmes primitives WebCrypto
+// que le JWT VAPID ci-dessus.
+// ---------------------------------------------------------------------------
+
+const APNS_TEAM_ID = Deno.env.get('APNS_TEAM_ID');
+const APNS_KEY_ID = Deno.env.get('APNS_KEY_ID');
+const APNS_P8 = Deno.env.get('APNS_P8');
+const APNS_TOPIC = Deno.env.get('APNS_TOPIC');
+
+const APNS_HOST_PROD = 'https://api.push.apple.com';
+const APNS_HOST_SANDBOX = 'https://api.development.push.apple.com';
+
+// Apple exige un JWT âgé de 20 à 60 minutes ; cache module ~45 min.
+let apnsJwtCache: { token: string; issuedAt: number } | null = null;
+
+function pemToDer(pem: string): ArrayBuffer {
+  const base64 = pem
+    .replace(/-----BEGIN PRIVATE KEY-----/, '')
+    .replace(/-----END PRIVATE KEY-----/, '')
+    .replace(/\s+/g, '');
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
+
+async function getApnsJwt(): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  if (apnsJwtCache && now - apnsJwtCache.issuedAt < 45 * 60) return apnsJwtCache.token;
+
+  const key = await crypto.subtle.importKey(
+    'pkcs8', pemToDer(APNS_P8!),
+    { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign'],
+  );
+  const header = { alg: 'ES256', kid: APNS_KEY_ID };
+  const claims = { iss: APNS_TEAM_ID, iat: now };
+  const headerB64 = uint8ArrayToBase64Url(new TextEncoder().encode(JSON.stringify(header)));
+  const claimsB64 = uint8ArrayToBase64Url(new TextEncoder().encode(JSON.stringify(claims)));
+  const unsigned = `${headerB64}.${claimsB64}`;
+  const signature = await crypto.subtle.sign(
+    { name: 'ECDSA', hash: 'SHA-256' }, key,
+    new TextEncoder().encode(unsigned),
+  );
+  const token = `${unsigned}.${uint8ArrayToBase64Url(new Uint8Array(signature))}`;
+  apnsJwtCache = { token, issuedAt: now };
+  return token;
+}
+
+/**
+ * Envoie une alerte APNs à un device token. Retry unique vers le host sandbox
+ * sur BadDeviceToken (builds Xcode dev) ; 410/Unregistered supprime la ligne.
+ */
+// deno-lint-ignore no-explicit-any
+async function sendToApns(
+  supabase: any,
+  subscription: Subscription,
+  payload: { title: string; body: string; url: string },
+): Promise<'ok' | 'stale' | 'fail'> {
+  if (!APNS_TEAM_ID || !APNS_KEY_ID || !APNS_P8 || !APNS_TOPIC) {
+    console.error('[APNs] Secrets APNS_* non configurés — ligne ios ignorée');
+    return 'fail';
+  }
+  const deviceToken = subscription.endpoint.replace(/^apns:/, '');
+  const body = JSON.stringify({
+    aps: { alert: { title: payload.title, body: payload.body }, sound: 'default' },
+    url: payload.url,
+  });
+
+  const post = async (host: string) => {
+    const jwt = await getApnsJwt();
+    return await fetch(`${host}/3/device/${deviceToken}`, {
+      method: 'POST',
+      headers: {
+        'authorization': `bearer ${jwt}`,
+        'apns-topic': APNS_TOPIC,
+        'apns-push-type': 'alert',
+        'apns-priority': '10',
+        'apns-expiration': String(Math.floor(Date.now() / 1000) + 86400),
+        'content-type': 'application/json',
+      },
+      body,
+    });
+  };
+
+  try {
+    let response = await post(APNS_HOST_PROD);
+    let reason = '';
+    if (!response.ok) {
+      reason = await response.json().then((j: { reason?: string }) => j?.reason ?? '').catch(() => '');
+      // Token émis par un build de dev (sandbox) : une seule retentative.
+      if (response.status === 400 && reason === 'BadDeviceToken') {
+        response = await post(APNS_HOST_SANDBOX);
+        if (!response.ok) {
+          reason = await response.json().then((j: { reason?: string }) => j?.reason ?? '').catch(() => '');
+        }
+      }
+    }
+
+    if (response.ok) return 'ok';
+    if (response.status === 410 || reason === 'Unregistered' || reason === 'BadDeviceToken') {
+      console.log(`[APNs] Removing stale ios token (HTTP ${response.status} ${reason}): ${deviceToken.slice(0, 12)}...`);
+      await supabase.from('push_subscriptions').delete().eq('id', subscription.id);
+      return 'stale';
+    }
+    if (response.status === 403) {
+      console.error(`[APNs] AUTH FAILURE (${reason}) — vérifier APNS_TEAM_ID/APNS_KEY_ID/APNS_P8`);
+      apnsJwtCache = null;
+      return 'fail';
+    }
+    console.error(`[APNs] Unexpected HTTP ${response.status} ${reason} for token ${deviceToken.slice(0, 12)}...`);
+    return 'fail';
+  } catch (error) {
+    console.error('[APNs] Error sending to token:', deviceToken.slice(0, 12), error);
+    return 'fail';
+  }
+}
 
 /**
  * Send one encrypted push to a single subscription. Returns 'ok', 'stale' (cleaned up),
  * or 'fail'. Stale subscriptions (401/403/404/410) are deleted so the table self-heals.
+ * Routes par plateforme : lignes 'ios' → APNs, lignes 'web' → Web Push chiffré.
  */
 // deno-lint-ignore no-explicit-any
 async function sendToSubscription(
@@ -138,7 +259,17 @@ async function sendToSubscription(
   vapidPublicKey: string,
   vapidPrivateKey: string,
 ): Promise<'ok' | 'stale' | 'fail'> {
+  if (subscription.platform === 'ios' || subscription.endpoint.startsWith('apns:')) {
+    let parsed: { title?: string; body?: string; url?: string } = {};
+    try { parsed = JSON.parse(notificationPayload); } catch { /* payload construit en interne */ }
+    return await sendToApns(supabase, subscription, {
+      title: parsed.title || 'Yuno',
+      body: parsed.body || '',
+      url: parsed.url || '/',
+    });
+  }
   try {
+    if (!subscription.p256dh || !subscription.auth) return 'fail';
     const subscriberPublicKey = base64UrlToUint8Array(subscription.p256dh);
     const subscriberAuth = base64UrlToUint8Array(subscription.auth);
     const { encrypted } = await encryptPayload(notificationPayload, subscriberPublicKey, subscriberAuth);

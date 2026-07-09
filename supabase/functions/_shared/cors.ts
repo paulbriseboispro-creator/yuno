@@ -3,6 +3,9 @@ const ALLOWED_ORIGINS = [
   "http://localhost:5173",
   "http://localhost:4173",
   "http://localhost:8080",
+  // App native Capacitor : origine du WebView iOS (et Android en v2).
+  "capacitor://localhost",
+  "https://localhost",
 ];
 
 // Cloudflare Workers preview deployments live under the account namespace
