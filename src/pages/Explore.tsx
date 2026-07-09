@@ -20,6 +20,8 @@ import { ExplorePopularClubCard } from '@/components/explore/ExplorePopularClubC
 import { ExploreSeeAllCard } from '@/components/explore/ExploreSeeAllCard';
 import { ExploreDayTabs, WeekDayData } from '@/components/explore/ExploreDayTabs';
 import { FadeInView } from '@/components/motion';
+import { PageFade } from '@/components/PageFade';
+import { ExploreCardsSkeleton } from '@/components/skeletons/ExploreCardsSkeleton';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 
@@ -1068,36 +1070,13 @@ export default function Explore() {
         </div>
 
         {/* ── Loading skeleton ── */}
-        {loading && (
-          <div style={{ padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-            {/* Hero skeleton */}
-            <div className="skeleton" style={{ width: '100%', height: 300, borderRadius: 20 }} />
-            {/* Rail skeleton */}
-            <div>
-              <div className="skeleton" style={{ width: 140, height: 14, borderRadius: 6, marginBottom: 16 }} />
-              <div style={{ display: 'flex', gap: 14 }}>
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="skeleton" style={{ width: 222, height: 230, borderRadius: 18, flexShrink: 0 }} />
-                ))}
-              </div>
-            </div>
-            {/* Rank skeleton */}
-            <div>
-              <div className="skeleton" style={{ width: 120, height: 14, borderRadius: 6, marginBottom: 16 }} />
-              <div style={{ display: 'flex', gap: 16 }}>
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="skeleton" style={{ width: 195, height: 160, borderRadius: 14, flexShrink: 0 }} />
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+        {loading && <ExploreCardsSkeleton />}
 
         {/* ══════════════════════════════════════════
             MAIN FEED — sectioned editorial layout
             ══════════════════════════════════════════ */}
         {!loading && (
-          <>
+          <PageFade>
             {/* ═══ MODULE 1 : Carrousel de toutes les soirées de la période ═══ */}
             <ExploreEventCarousel
               events={carouselEvents}
@@ -1213,7 +1192,7 @@ export default function Explore() {
                 />
               </FadeInView>
             )}
-          </>
+          </PageFade>
         )}
       </main>
 

@@ -2,6 +2,7 @@ import { Search, Heart, ShoppingBag, User, Building2 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
+import { haptics } from '@/lib/haptics';
 import { useVenueNav } from '@/contexts/VenueNavContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useLiveMode } from '@/contexts/LiveModeContext';
@@ -94,7 +95,11 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
       isActive: path.startsWith('/profile'),
       onSelect: () => navigate('/profile'),
     },
-  ];
+  ].map((item) => ({
+    ...item,
+    // Micro-feedback haptique sur chaque tap d'onglet (fire-and-forget)
+    onSelect: () => { haptics.selection(); item.onSelect(); },
+  }));
 
   return (
     <nav

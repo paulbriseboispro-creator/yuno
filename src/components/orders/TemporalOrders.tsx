@@ -9,6 +9,8 @@
    ============================================================ */
 import { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
+import { transitions, useReducedMotion } from '@/lib/motion';
+import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import {
   Ticket, Crown, Wine, Users, Gift, Bell, QrCode, ArrowRight, CheckCircle2,
   X, Share2, CreditCard, User, ChevronLeft, ChevronRight, Clock, type LucideIcon,
@@ -361,6 +363,7 @@ export function OrderQROverlay({
   const [index, setIndex] = useState(0);
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
+  const reduceMotion = useReducedMotion();
 
   const total = slides && slides.length > 0 ? slides.length : 1;
   const active = slides && slides.length > 0 ? slides[Math.min(index, slides.length - 1)] : undefined;
@@ -391,7 +394,7 @@ export function OrderQROverlay({
             aria-hidden
             style={{
               position: 'absolute', inset: 0, zIndex: 0,
-              backgroundImage: `url(${posterUrl})`,
+              backgroundImage: `url(${getOptimizedImageUrl(posterUrl, { width: 480, quality: 50 })})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               filter: 'blur(80px) saturate(1.5)',
@@ -442,13 +445,18 @@ export function OrderQROverlay({
           onTouchMove={e => { touchEndX.current = e.touches[0].clientX; }}
           onTouchEnd={handleTouchEnd}
         >
-          <div
+          {/* Entrée célébratoire du QR (spring overshoot) — un billet qui sort
+              de la poche, pas un simple fondu. instant/reduced → opacité seule. */}
+          <motion.div
+            initial={instant ? false : reduceMotion ? { opacity: 0 } : { scale: 0.85, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={reduceMotion ? transitions.pop : transitions.celebrate}
             style={{ background: '#fff', borderRadius: 6, padding: 16, position: 'relative', boxShadow: '0 32px 70px -20px rgba(0,0,0,.95), 0 0 0 1px rgba(255,255,255,.05)' }}
           >
             {activeQr
               ? <img src={activeQr} alt="QR" style={{ display: 'block', width: 216, height: 216 }} />
               : <div style={{ width: 216, height: 216, display: 'grid', placeItems: 'center' }}><QrCode style={{ width: 72, height: 72, color: '#bbb' }} /></div>}
-          </div>
+          </motion.div>
           <ScanCorner pos="tl" /><ScanCorner pos="tr" /><ScanCorner pos="bl" /><ScanCorner pos="br" />
         </div>
 

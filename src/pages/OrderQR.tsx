@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { motion, useReducedMotion } from 'framer-motion';
+import { transitions } from '@/lib/motion';
+import { haptics } from '@/lib/haptics';
 import QRCode from 'qrcode';
 import { CheckCircle2, Home, ArrowLeft, Copy, CheckCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -124,6 +126,15 @@ export default function OrderQR() {
       verifyAndLoadOrder();
     }
   }, [orderId, sessionId, toast, clearCart]);
+
+  // Haptique success UNE fois quand le QR devient visible (paiement confirmé)
+  const qrHapticFired = useRef(false);
+  useEffect(() => {
+    if (!loading && !verifying && qrDataUrl && !qrHapticFired.current) {
+      qrHapticFired.current = true;
+      haptics.success();
+    }
+  }, [loading, verifying, qrDataUrl]);
 
   // Subscribe to venue changes for real-time click collect mode updates
   useEffect(() => {
@@ -286,9 +297,9 @@ export default function OrderQR() {
             {qrDataUrl ? (
               <div className="relative mb-4 inline-block">
                 <motion.div
-                  initial={reduceMotion ? { opacity: 0 } : { scale: 0.9, opacity: 0 }}
+                  initial={reduceMotion ? { opacity: 0 } : { scale: 0.85, opacity: 0 }}
                   animate={reduceMotion ? { opacity: 1 } : { scale: 1, opacity: 1 }}
-                  transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+                  transition={reduceMotion ? transitions.pop : transitions.celebrate}
                   className={`bg-white p-4 rounded-lg ${clickCollectMode && !order.prep_requested ? 'blur-xl opacity-30' : ''}`}
                 >
                   <img

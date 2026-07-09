@@ -12,6 +12,9 @@ import { ArrowLeft, Clock, CheckCircle2, QrCode, Trash2, CreditCard, Archive, Ti
 import { DrinkOrderDetailModal } from '@/components/DrinkOrderDetailModal';
 import { FreeDrinkRewardModal } from '@/components/FreeDrinkRewardModal';
 import { BottomNav } from '@/components/BottomNav';
+import { EmptyState } from '@/components/EmptyState';
+import { PageFade } from '@/components/PageFade';
+import { OrdersSkeleton } from '@/components/skeletons/OrdersSkeleton';
 import { Badge } from '@/components/ui/badge';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format, addHours } from 'date-fns';
@@ -1241,11 +1244,7 @@ export default function MyOrders() {
   });
 
   if (authLoading || (loading && user)) {
-    return (
-      <div className="flex min-h-screen items-center justify-center" style={{ background: '#0A0A0A' }}>
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" style={{ borderColor: '#E8192C', borderTopColor: 'transparent' }} />
-      </div>
-    );
+    return <OrdersSkeleton />;
   }
 
   // Guest with locally-saved purchases — render them as real ticket cards.
@@ -1695,7 +1694,7 @@ export default function MyOrders() {
         </div>
       </header>
 
-      <div className="mx-auto max-w-md px-4 py-4">
+      <PageFade className="mx-auto max-w-md px-4 py-4">
         {(() => {
           const totallyEmpty = totalActive === 0 && pastEntries.length === 0;
           return (
@@ -1724,55 +1723,13 @@ export default function MyOrders() {
             {/* Cards */}
             {activeEntries.length === 0 ? (
               totallyEmpty ? (
-                <motion.div
-                  initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }}
-                  className="flex flex-col items-center text-center"
-                  style={{ padding: '40px 22px 56px' }}
-                >
-                  {/* Icon tile with halo */}
-                  <div className="relative flex items-center justify-center" style={{ marginBottom: 22 }}>
-                    <div style={{ position: 'absolute', width: 180, height: 180, borderRadius: '50%', background: 'radial-gradient(circle, rgba(232,25,44,0.16) 0%, transparent 70%)' }} />
-                    <div
-                      className="grid place-items-center"
-                      style={{
-                        width: 72, height: 72, borderRadius: 14, position: 'relative',
-                        background: 'rgba(232,25,44,0.06)',
-                        border: '1px solid rgba(232,25,44,0.28)',
-                        boxShadow: '0 18px 40px -18px rgba(232,25,44,0.5)',
-                      }}
-                    >
-                      <ShoppingBag style={{ width: 30, height: 30, color: '#E8192C' }} strokeWidth={1.8} />
-                      <span
-                        className="grid place-items-center"
-                        style={{ position: 'absolute', top: -7, right: -7, width: 24, height: 24, borderRadius: '50%', background: '#1B1B1E', border: '1px solid rgba(255,255,255,0.14)' }}
-                      >
-                        <Sparkles style={{ width: 12, height: 12, color: '#E8192C' }} strokeWidth={2} />
-                      </span>
-                    </div>
-                  </div>
-
-                  <h3 className="font-display uppercase" style={{ fontSize: 21, fontWeight: 700, letterSpacing: '-.025em', lineHeight: 1, marginBottom: 9, color: '#FFFFFF' }}>
-                    {t('orders.noOrders')}
-                  </h3>
-                  <p className="font-mono" style={{ fontSize: 11.5, lineHeight: 1.6, color: '#9A9A9A', maxWidth: 250, marginBottom: 24 }}>
-                    {t('orders.startOrdering')}
-                  </p>
-
-                  <button
-                    onClick={() => {
-                      const exclusiveClub = sessionStorage.getItem('exclusiveClub');
-                      const lastExternalPage = sessionStorage.getItem('lastExternalPage');
-                      if (exclusiveClub) navigate(`/club/${exclusiveClub}`);
-                      else if (lastExternalPage) navigate(lastExternalPage);
-                      else navigate('/');
-                    }}
-                    className="flex items-center justify-center gap-2 cursor-pointer border-0 font-mono font-bold uppercase"
-                    style={{ height: 44, padding: '0 22px', borderRadius: 999, background: '#E8192C', color: '#fff', fontSize: 11, letterSpacing: '.1em', boxShadow: '0 10px 28px -10px rgba(232,25,44,0.7)' }}
-                  >
-                    {t('orders.viewMenu')}
-                    <ArrowRight style={{ width: 15, height: 15, color: 'rgba(255,255,255,.6)' }} strokeWidth={2} />
-                  </button>
-                </motion.div>
+                <EmptyState
+                  icon={Ticket}
+                  title={t('empty.orders.title')}
+                  body={t('empty.orders.body')}
+                  ctaLabel={t('empty.orders.cta')}
+                  onCta={() => navigate('/events')}
+                />
               ) : (
                 <div className="text-center font-mono uppercase" style={{ padding: '40px 22px', fontSize: 11, letterSpacing: '.06em', color: '#5A5A5E' }}>
                   {t('orders.noneInCategory')}
@@ -1801,7 +1758,7 @@ export default function MyOrders() {
           </div>
           );
         })()}
-      </div>
+      </PageFade>
 
       {/* Edit Order Dialog */}
       <EditOrderDialog
@@ -1822,8 +1779,13 @@ export default function MyOrders() {
       />
 
       {/* Opaque cover during a Back-restore so the list never flashes before
-          the overlay reopens (removed as soon as the overlay is mounted). */}
-      {restoring && <div className="fixed inset-0 z-[95]" style={{ background: '#0A0A0A' }} aria-hidden />}
+          the overlay reopens (removed as soon as the overlay is mounted).
+          Shows the orders silhouette instead of a plain black wall. */}
+      {restoring && (
+        <div className="fixed inset-0 z-[95] overflow-hidden" style={{ background: '#0A0A0A' }} aria-hidden>
+          <OrdersSkeleton />
+        </div>
+      )}
 
       {/* QR Code Modal for Tickets - Per-attendee carousel (shared premium design) */}
       {selectedTicket && (

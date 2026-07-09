@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import QRCode from 'qrcode';
+import { haptics } from '@/lib/haptics';
 import { OrderQROverlay, type QRSlide, type QRAction } from './TemporalOrders';
 
 interface TicketQROverlayProps {
@@ -36,6 +37,16 @@ export function TicketQROverlay({
   entryScanned, labels, onClose, onShare, actions, whenLabel, instant, posterUrl,
 }: TicketQROverlayProps) {
   const [slides, setSlides] = useState<QRSlide[]>([]);
+
+  // Haptique success UNE fois quand le QR devient visible (pas lors d'une
+  // restauration d'historique `instant` — un buzz au reload serait intrusif).
+  const hapticFired = useRef(false);
+  useEffect(() => {
+    if (slides.length > 0 && !hapticFired.current) {
+      hapticFired.current = true;
+      if (!instant) haptics.success();
+    }
+  }, [slides, instant]);
 
   useEffect(() => {
     let cancelled = false;

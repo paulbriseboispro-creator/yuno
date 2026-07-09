@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Heart, Bell } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
+import { haptics } from '@/lib/haptics';
 import { useFavorites, FavoriteType, isSubscriptionType } from '@/hooks/useFavorites';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
@@ -54,6 +55,9 @@ export function FavoriteButton({
     e.preventDefault();
     e.stopPropagation();
     const willActivate = !isActive;
+    // Haptique immédiat (avant l'await) : success à l'activation, selection au retrait
+    if (willActivate) haptics.success();
+    else haptics.selection();
     await toggleFavorite(type, id);
     if (willActivate && !reduceMotion) setPopKey((k) => k + 1);
     onToggle?.();

@@ -10685,6 +10685,17 @@ const en: Record<string, string> = {
   'collab.section.desc': 'Events hosted in your venue but managed by a partner organization. You can see sales and guests, but event editing remains with the organizer.',
   'collab.section.pastTitle': 'Past collaborations',
 
+  // ── Unified empty states (client app) ──
+  'empty.orders.title': 'No tickets yet',
+  'empty.orders.body': 'Your tickets and orders will appear here after your first purchase.',
+  'empty.orders.cta': 'Browse events',
+  'empty.favorites.title': 'Nothing saved yet',
+  'empty.favorites.body': 'Tap the heart on the events, clubs and drinks you love — they all end up here.',
+  'empty.favorites.cta': 'Start exploring',
+  'empty.cart.title': 'Your cart is empty',
+  'empty.cart.body': 'Add drinks and skip the bar queue — order ahead, show your QR and enjoy your night.',
+  'empty.cart.cta': 'Order drinks',
+
 };
 
 export default en;

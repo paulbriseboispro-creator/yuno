@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bell, Calendar, Wine, MapPin, Music, Users, Compass, ChevronRight } from 'lucide-react';
+import { Bell, Calendar, Wine, MapPin, Music, Users, Compass, ChevronRight, Heart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFavorites } from '@/hooks/useFavorites';
@@ -11,6 +11,8 @@ import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { BottomNav } from '@/components/BottomNav';
 import { FadeInView } from '@/components/motion';
+import { PageFade } from '@/components/PageFade';
+import { EmptyState as GlobalEmptyState } from '@/components/EmptyState';
 
 /* ── Design tokens (aligned with Yuno DS: index.css variables) ── */
 const D = {
@@ -1040,6 +1042,8 @@ export default function Favorites() {
   ];
 
   const isLoading = loading || favLoading;
+  // Aucun favori ni abonnement du tout → état vide global unifié à la place des onglets
+  const totallyEmpty = !isLoading && totalCount === 0;
 
   return (
     <div style={{ minHeight: '100vh', background: D.bg, paddingBottom: 96 }}>
@@ -1109,10 +1113,21 @@ export default function Favorites() {
       </header>
 
       {/* ── Content ── */}
-      <div style={{ maxWidth: 512, margin: '0 auto', padding: '24px 0 0' }}>
+      <PageFade style={{ maxWidth: 512, margin: '0 auto', padding: '24px 0 0' }}>
+
+        {/* Aucun favori du tout → état vide global unifié */}
+        {totallyEmpty && (
+          <GlobalEmptyState
+            icon={Heart}
+            title={t('empty.favorites.title')}
+            body={t('empty.favorites.body')}
+            ctaLabel={t('empty.favorites.cta')}
+            onCta={() => navigate('/')}
+          />
+        )}
 
         {/* CLUBS TAB — abonnements (clubs + organisateurs) */}
-        {activeTab === 'clubs' && (
+        {!totallyEmpty && activeTab === 'clubs' && (
           <>
             {isLoading ? (
               <Spinner />
@@ -1178,7 +1193,7 @@ export default function Favorites() {
         )}
 
         {/* EVENTS TAB — favoris (soirées) */}
-        {activeTab === 'events' && (
+        {!totallyEmpty && activeTab === 'events' && (
           <>
             {isLoading ? (
               <Spinner />
@@ -1219,7 +1234,7 @@ export default function Favorites() {
         )}
 
         {/* DJs TAB — abonnements */}
-        {activeTab === 'djs' && (
+        {!totallyEmpty && activeTab === 'djs' && (
           <>
             {isLoading ? (
               <Spinner />
@@ -1254,7 +1269,7 @@ export default function Favorites() {
         )}
 
         {/* DRINKS TAB — favoris */}
-        {activeTab === 'drinks' && (
+        {!totallyEmpty && activeTab === 'drinks' && (
           <>
             {isLoading ? (
               <Spinner />
@@ -1275,7 +1290,7 @@ export default function Favorites() {
           </>
         )}
 
-      </div>
+      </PageFade>
 
       <BottomNav />
     </div>

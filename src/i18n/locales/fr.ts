@@ -10756,6 +10756,17 @@ const fr: Record<string, string> = {
   'collab.section.desc': "Soirées hébergées dans ton club mais pilotées par une organisation partenaire. Tu vois les ventes et les invités, mais l'édition de la fiche reste à l'orga.",
   'collab.section.pastTitle': 'Collaborations passées',
 
+  // ── États vides unifiés (app cliente) ──
+  'empty.orders.title': 'Pas encore de billets',
+  'empty.orders.body': 'Tes billets et commandes apparaîtront ici après ton premier achat.',
+  'empty.orders.cta': 'Voir les soirées',
+  'empty.favorites.title': "Rien d'enregistré pour l'instant",
+  'empty.favorites.body': 'Appuie sur le cœur des soirées, clubs et boissons que tu aimes — tout se retrouve ici.',
+  'empty.favorites.cta': 'Explorer',
+  'empty.cart.title': 'Ton panier est vide',
+  'empty.cart.body': "Ajoute des boissons et évite la file au bar — commande à l'avance, montre ton QR et profite de ta soirée.",
+  'empty.cart.cta': 'Commander des boissons',
+
 };
 
 export default fr;

@@ -7,6 +7,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
 import { BottomNav } from '@/components/BottomNav';
+import { PageFade } from '@/components/PageFade';
+import { ProfileSkeleton } from '@/components/skeletons/ProfileSkeleton';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { LoyaltyRewardsSheet } from '@/components/loyalty/LoyaltyRewardsSheet';
 import { ProfileHeader } from '@/components/profile/ProfileHeader';
@@ -134,13 +136,9 @@ export default function Profile() {
     setShowLoyaltySheet(true);
   };
 
-  // Show loading spinner while auth is loading OR data is loading
+  // Silhouette fidèle de la page pendant le chargement (auth OU data) — zéro layout shift
   if (authLoading || loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
+    return <ProfileSkeleton />;
   }
 
   // Build nightlife data for the NightlifeSection
@@ -170,7 +168,7 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <div className="mx-auto max-w-3xl p-3 sm:p-4 space-y-4 sm:space-y-6">
+      <PageFade className="mx-auto max-w-3xl p-3 sm:p-4 space-y-4 sm:space-y-6">
         {/* Immersive Profile Header with Avatar Hero */}
         <ProfileHeader
           firstName={profile?.first_name || null}
@@ -377,7 +375,7 @@ export default function Profile() {
             {t('profile.editMyInfo')}
           </button>
         </motion.div>
-      </div>
+      </PageFade>
 
       <BottomNav />
       

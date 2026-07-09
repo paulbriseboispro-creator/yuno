@@ -4,6 +4,7 @@ import { useEventRoute } from '@/hooks/useEventRoute';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -49,6 +50,8 @@ export default function GuestListCheckout() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { t, language } = useLanguage();
+  // Clavier iOS : garder le champ focus visible (formulaire long).
+  useScrollIntoViewOnFocus();
   const { user, loading: authLoading } = useAuth();
   const ref = searchParams.get('ref');
   // Gendered guest lists arrive here as ?gender=female|male (one card per gender),

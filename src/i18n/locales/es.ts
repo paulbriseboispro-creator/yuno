@@ -10799,6 +10799,17 @@ const es: Record<string, string> = {
   'collab.section.desc': 'Eventos alojados en tu local pero gestionados por una organización asociada. Puedes ver las ventas y los invitados, pero la edición del evento queda en manos del organizador.',
   'collab.section.pastTitle': 'Colaboraciones pasadas',
 
+  // ── Estados vacíos unificados (app cliente) ──
+  'empty.orders.title': 'Aún no hay entradas',
+  'empty.orders.body': 'Tus entradas y pedidos aparecerán aquí después de tu primera compra.',
+  'empty.orders.cta': 'Ver eventos',
+  'empty.favorites.title': 'Todavía no hay nada guardado',
+  'empty.favorites.body': 'Toca el corazón en los eventos, clubs y bebidas que te gusten: todo aparecerá aquí.',
+  'empty.favorites.cta': 'Empezar a explorar',
+  'empty.cart.title': 'Tu carrito está vacío',
+  'empty.cart.body': 'Añade bebidas y sáltate la cola del bar: pide antes, muestra tu QR y disfruta la noche.',
+  'empty.cart.cta': 'Pedir bebidas',
+
 };
 
 export default es;

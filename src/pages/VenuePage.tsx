@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { FadeInView } from '@/components/motion';
+import { PageFade } from '@/components/PageFade';
 import { DrinkCard } from '@/components/DrinkCard';
 import { CartButton } from '@/components/CartButton';
 import { EventSelectionDialog } from '@/components/EventSelectionDialog';
@@ -545,6 +546,9 @@ export default function VenuePage() {
   return (
     <div className="relative min-h-[100dvh] flex flex-col" style={{ background: '#0A0A0A' }}>
       <main className="flex-1 pb-28">
+      {/* Le pill "Powered by Yuno", CartButton et BottomNav (position:fixed)
+          restent HORS du wrapper animé — ancêtre transformé = fixed cassé. */}
+      <PageFade>
 
         {/* ===== HERO — full-bleed cinematic ===== */}
         <div className="relative overflow-hidden" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px))' }}>
@@ -589,7 +593,7 @@ export default function VenuePage() {
 
           {/* Hero image — full-bleed 4:3 */}
           <div
-            className="relative w-full overflow-hidden"
+            className="relative w-full overflow-hidden bg-white/5"
             key={venue.coverUrl}
             style={{ aspectRatio: '4/3' }}
           >
@@ -1018,6 +1022,7 @@ export default function VenuePage() {
           </p>
         </div>
 
+      </PageFade>
       </main>
 
       {/* Sticky "Powered by Yuno" pill — Core plan only, links to yunoapp.eu.

@@ -11,6 +11,7 @@ import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { launchCheckout } from '@/lib/native';
 import { haptics } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import { formatInTimeZone } from 'date-fns-tz';
 import { enUS, es, fr } from 'date-fns/locale';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
@@ -39,6 +40,8 @@ export default function TicketCheckout() {
   const { eventId, basePath } = useEventRoute();
   const navigate = useNavigate();
   const { t, language } = useLanguage();
+  // Clavier iOS : garder le champ focus visible (formulaire long).
+  useScrollIntoViewOnFocus();
   const { user, loading: authLoading } = useAuth();
   
   const [event, setEvent] = useState<EventWithTicketing | null>(null);

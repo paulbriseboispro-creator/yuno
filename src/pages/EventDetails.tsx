@@ -20,7 +20,8 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { EventCountdown } from '@/components/EventCountdown';
 import { FadeInView } from '@/components/motion';
 import { formatCompactCount } from '@/components/formater';
-import { Skeleton } from '@/components/ui/skeleton';
+import { PageFade } from '@/components/PageFade';
+import { EventDetailsSkeleton } from '@/components/skeletons/EventDetailsSkeleton';
 import { usePromoterTracking } from '@/hooks/usePromoterTracking';
 import { useResolvePurchaseSource, useResolveTrackedLink } from '@/hooks/usePurchaseSourceTracking';
 import { useStore } from '@/store/useStore';
@@ -629,23 +630,7 @@ export default function EventDetails() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background pb-20">
-        <div className="px-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)]">
-          <Skeleton className="w-full aspect-video rounded-xl" />
-        </div>
-        <div className="px-5 pt-4 space-y-3">
-          <Skeleton className="h-8 w-3/4" />
-          <Skeleton className="h-4 w-1/2" />
-          <Skeleton className="h-4 w-2/3" />
-        </div>
-        <div className="px-5 pt-6 space-y-3">
-          <Skeleton className="h-12 w-full rounded-lg" />
-          <Skeleton className="h-12 w-full rounded-lg" />
-          <Skeleton className="h-12 w-full rounded-lg" />
-        </div>
-      </div>
-    );
+    return <EventDetailsSkeleton />;
   }
 
   if (!event || !venue) {
@@ -725,11 +710,12 @@ export default function EventDetails() {
 
   return (
     <div className="min-h-screen pb-28" style={{ background: '#0A0A0A' }}>
+      <PageFade>
 
       {/* ── CINEMATIC HERO ─────────────────────────────────────── */}
       <section
         className="relative overflow-hidden"
-        style={{ aspectRatio: '1 / 1', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+        style={{ aspectRatio: '1 / 1', background: 'rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
       >
         {/* Background image */}
         {heroImage ? (
@@ -821,7 +807,7 @@ export default function EventDetails() {
               {primaryOrganizer && (
                 <div className="flex items-center gap-2 mb-1">
                   {primaryOrganizer.avatar_url && (
-                    <img src={primaryOrganizer.avatar_url} alt={primaryOrganizer.display_name} className="rounded-full object-cover shrink-0" style={{ width: 18, height: 18 }} />
+                    <img src={getOptimizedImageUrl(primaryOrganizer.avatar_url, { width: 64 })} alt={primaryOrganizer.display_name} className="rounded-full object-cover shrink-0" style={{ width: 18, height: 18 }} />
                   )}
                   <span className="font-mono text-white font-semibold tracking-[0.08em]" style={{ fontSize: '12px' }}>
                     {primaryOrganizer.display_name.toUpperCase()}
@@ -1091,7 +1077,7 @@ export default function EventDetails() {
                   >
                     <div className="overflow-hidden" style={{ width: 108, height: 108, borderRadius: 14, border: '1px solid rgba(255,255,255,0.12)', background: '#191919' }}>
                       {dj.profile_image_url
-                        ? <img src={dj.profile_image_url} alt={djName} loading="lazy" className="w-full h-full object-cover object-top" />
+                        ? <img src={getOptimizedImageUrl(dj.profile_image_url, { width: 240 })} alt={djName} loading="lazy" className="w-full h-full object-cover object-top" />
                         : <div className="w-full h-full flex items-center justify-center"><Music className="h-9 w-9" style={{ color: '#5A5A5E' }} /></div>
                       }
                     </div>
@@ -1140,7 +1126,7 @@ export default function EventDetails() {
                     <button onClick={() => org.slug && navigate(`/o/${org.slug}`)} className="flex items-center gap-3 min-w-0 flex-1 text-left hover:opacity-80 transition-opacity">
                       <div className="shrink-0 overflow-hidden" style={{ width: 52, height: 52, borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', background: '#191919' }}>
                         {org.logo_url
-                          ? <img src={org.logo_url} alt={org.name} loading="lazy" className="w-full h-full object-cover" />
+                          ? <img src={getOptimizedImageUrl(org.logo_url, { width: 128 })} alt={org.name} loading="lazy" className="w-full h-full object-cover" />
                           : <div className="w-full h-full flex items-center justify-center font-mono font-bold" style={{ fontSize: '11px', color: '#5A5A5E' }}>{org.name.slice(0, 2).toUpperCase()}</div>
                         }
                       </div>
@@ -1175,7 +1161,7 @@ export default function EventDetails() {
                 <button onClick={() => navigate(`/club/${venue.id}`)} className="flex items-center gap-3 min-w-0 flex-1 hover:opacity-80 transition-opacity text-left">
                   <div className="shrink-0 overflow-hidden" style={{ width: 48, height: 48, borderRadius: '4px', border: '1px solid rgba(255,255,255,0.08)', background: '#191919' }}>
                     {venue.logoUrl
-                      ? <img src={venue.logoUrl} alt={venue.name} loading="lazy" className="w-full h-full object-cover" />
+                      ? <img src={getOptimizedImageUrl(venue.logoUrl, { width: 128 })} alt={venue.name} loading="lazy" className="w-full h-full object-cover" />
                       : <div className="w-full h-full flex items-center justify-center font-mono font-bold" style={{ fontSize: '12px', color: '#5A5A5E' }}>{venue.name.slice(0, 2).toUpperCase()}</div>
                     }
                   </div>
@@ -1263,6 +1249,7 @@ export default function EventDetails() {
         )}
 
       </div>{/* end content */}
+      </PageFade>
 
       {/* ── STICKY CHECKOUT FOOTER (système actuel conservé) ── */}
       {(() => {

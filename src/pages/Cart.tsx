@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   ArrowLeft, Plus, Minus, Trash2, Calendar, ShoppingBag,
-  Wine, Mail, User, Phone, LogIn, UserPlus, ChevronRight, ChevronUp,
+  Wine, Martini, Mail, User, Phone, LogIn, UserPlus, ChevronRight, ChevronUp,
 } from 'lucide-react';
 import {
   Dialog,
@@ -31,6 +31,8 @@ import { customerTransactionFee } from '@/types/ticketing';
 
 import { CartSuggestions } from '@/components/upsell/CartSuggestions';
 import { CartOffersBanner } from '@/components/upsell/CartOffersBanner';
+import { EmptyState } from '@/components/EmptyState';
+import { PageFade } from '@/components/PageFade';
 import { TermsAcceptance } from '@/components/TermsAcceptance';
 import { AgeGate } from '@/components/AgeGate';
 
@@ -384,41 +386,13 @@ export default function Cart() {
   if (cart.length === 0) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center px-6" style={{ background: '#0A0A0A' }}>
-        <motion.div
-          initial={{ y: 18, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="flex flex-col items-center text-center"
-        >
-          {/* Editorial kicker with red rule */}
-          <div className="yuno-rule mb-7">{t('cart.title')}</div>
-
-          {/* Icon — tranchant square */}
-          <div
-            className="mb-7 flex h-20 w-20 items-center justify-center"
-            style={{
-              background: 'var(--yuno-card)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-sm)',
-            }}
-          >
-            <Wine className="h-9 w-9" style={{ color: 'var(--yuno-gray-3)' }} />
-          </div>
-
-          <h2
-            className="font-display uppercase text-white mb-3"
-            style={{ fontSize: 'clamp(30px, 8vw, 44px)', letterSpacing: '-0.03em', lineHeight: 0.92 }}
-          >
-            {t('cart.empty')}
-          </h2>
-          <p className="font-sans text-sm mb-9 max-w-[260px]" style={{ color: 'var(--yuno-gray-2)', lineHeight: 1.5 }}>
-            {t('cart.emptyDesc')}
-          </p>
-          <button onClick={goToMenu} className="btn btn--primary">
-            <ArrowLeft className="h-4 w-4" />
-            {t('cart.backToMenu')}
-          </button>
-        </motion.div>
+        <EmptyState
+          icon={Martini}
+          title={t('empty.cart.title')}
+          body={t('empty.cart.body')}
+          ctaLabel={t('empty.cart.cta')}
+          onCta={() => navigate('/order-drinks')}
+        />
       </div>
     );
   }
@@ -436,6 +410,9 @@ export default function Cart() {
 
   return (
     <div className="min-h-screen overflow-y-auto" style={{ background: '#0A0A0A' }}>
+      {/* Le footer collant + le panneau détails (position:fixed) restent HORS
+          du wrapper animé — un ancêtre transformé casserait leur ancrage. */}
+      <PageFade>
 
       {/* ── Cinematic hero ─────────────────────────────────────── */}
       <section
@@ -705,7 +682,7 @@ export default function Cart() {
                           {/* Qty stepper — tranchant */}
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => decrementQty(item.drinkId)}
+                              onClick={() => { haptics.light(); decrementQty(item.drinkId); }}
                               className="flex h-8 w-8 items-center justify-center transition-all duration-100 hover:bg-white/[0.14] active:scale-90"
                               style={{ background: 'rgba(255,255,255,0.09)', borderRadius: 'var(--radius-sm)' }}
                               aria-label="-"
@@ -718,7 +695,7 @@ export default function Cart() {
                               {item.qty}
                             </span>
                             <button
-                              onClick={() => incrementQty(item.drinkId)}
+                              onClick={() => { haptics.light(); incrementQty(item.drinkId); }}
                               className="flex h-8 w-8 items-center justify-center transition-all duration-100 active:scale-90"
                               style={{ background: 'rgba(232,25,44,0.85)', borderRadius: 'var(--radius-sm)' }}
                               aria-label="+"
@@ -922,6 +899,7 @@ export default function Cart() {
           </motion.div>
         )}
       </div>
+      </PageFade>
 
       {/* ── Sticky Footer ────────────────────────────────────────── */}
       <div
