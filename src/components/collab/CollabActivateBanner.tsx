@@ -44,9 +44,9 @@ export function CollabActivateBanner() {
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
               {tt(
-                'Pendant cette soirée collab, vous découvrez les modules clés de Yuno : analytics avancées, soirée en direct, VIP service, story builder, clients & CRM. Tout ce que vous voyez peut devenir votre outil du quotidien.',
-                'During this collab night, you are seeing Yuno\'s key modules: advanced analytics, live night, VIP service, story builder, customers & CRM. Everything you see can become your daily tool.',
-                'Durante esta noche collab descubres los módulos clave de Yuno: analytics avanzadas, noche en directo, servicio VIP, story builder, clientes y CRM. Todo lo que ves puede convertirse en tu herramienta diaria.',
+                'Pendant cette soirée collab, vous découvrez les modules clés de Yuno : analytics avancées, soirée en direct, VIP service, clients & CRM. Tout ce que vous voyez peut devenir votre outil du quotidien.',
+                'During this collab night, you are seeing Yuno\'s key modules: advanced analytics, live night, VIP service, customers & CRM. Everything you see can become your daily tool.',
+                'Durante esta noche collab descubres los módulos clave de Yuno: analytics avanzadas, noche en directo, servicio VIP, clientes y CRM. Todo lo que ves puede convertirse en tu herramienta diaria.',
               )}
             </p>
           </div>

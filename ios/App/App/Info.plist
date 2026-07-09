@@ -60,6 +60,8 @@
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Yuno uses your location to show clubs and events near you on the map.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Yuno uses the camera to scan QR codes for tickets and event check-in.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>

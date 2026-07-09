@@ -30,7 +30,6 @@ export type FeatureKey =
   | 'vip_tables' | 'vip_service' | 'offers_upsell' | 'loyalty_crm'
   | 'hype_analysis' | 'personalization_advanced' | 'client_leaderboard'
   | 'promoters_basic' | 'analytics_tickets' | 'scarcity_tools'
-  | 'story_builder' | 'story_builder_advanced'
   | 'email_campaigns_informational' | 'email_campaigns_promotional';
 
 export type BillingCycle = 'monthly' | 'annual';
@@ -73,16 +72,16 @@ const CORE_FEATURES: FeatureKey[] = [
 // enforced backend-side) plus the first marketing weapons.
 const ESSENTIAL_FEATURES: FeatureKey[] = [
   ...CORE_FEATURES,
-  'email_campaigns_promotional', 'clients_basic', 'story_builder', 'promoters',
+  'email_campaigns_promotional', 'clients_basic', 'promoters',
 ];
 
 // Pro (GRANDIS — complet): deep analytics, exports, full VIP, DJ/orga
-// orchestration, advanced story. Highest tier purchasable at launch.
+// orchestration. Highest tier purchasable at launch.
 const PRO_FEATURES: FeatureKey[] = [
   ...ESSENTIAL_FEATURES,
   'analytics_advanced', 'exports_csv', 'vip_tables', 'vip_service',
   'djs_orchestrate', 'organizations_orchestrate',
-  'story_builder_advanced', 'live_night', 'offers_upsell',
+  'live_night', 'offers_upsell',
   // Loyalty/CRM, hype, client leaderboard and advanced personalization are all
   // BUILT — they belong in the highest purchasable tier, not behind the unbuilt Elite.
   'loyalty_crm', 'hype_analysis', 'client_leaderboard', 'personalization_advanced',
@@ -100,7 +99,7 @@ const ELITE_FEATURES: FeatureKey[] = [
  *
  * Strategy: full Pro feature parity so the club gets a real, premium
  * experience during the collab night (analytics, hype, CRM, DJs, organisations,
- * factures, remboursements, live, VIP tables, story builder, scarcity, upsells…).
+ * factures, remboursements, live, VIP tables, scarcity, upsells…).
  *
  * Two guard-rails make this sustainable:
  *  1. `useCollabReadOnly` blocks creation/edition on entities the orga manages
@@ -125,7 +124,6 @@ const COLLAB_FEATURES: FeatureKey[] = [
   'organizations_connect', 'organizations_orchestrate',
   'promoters_basic', 'promoters', 'email_campaigns_informational',
   'email_campaigns_promotional', 'clients_basic',
-  'story_builder', 'story_builder_advanced',
   'analytics_advanced', 'vip_tables', 'vip_service',
   'live_night', 'offers_upsell',
   'loyalty_crm', 'hype_analysis', 'client_leaderboard', 'personalization_advanced',
@@ -233,7 +231,6 @@ export const FEATURE_ROUTES: Partial<Record<FeatureKey, string[]>> = {
   loyalty_crm: ['/owner/loyalty'],
   hype_analysis: ['/owner/hype'],
   scarcity_tools: ['/owner/scarcity'],
-  story_builder: ['/owner/story-builder'],
 };
 
 /** Feature descriptions for upgrade modal */
@@ -265,8 +262,6 @@ export const FEATURE_DESCRIPTIONS: Record<FeatureKey, string> = {
   promoters_basic: 'plan.feature.promotersBasic',
   analytics_tickets: 'plan.feature.analyticsTickets',
   scarcity_tools: 'plan.feature.scarcityTools',
-  story_builder: 'plan.feature.storyBuilder',
-  story_builder_advanced: 'plan.feature.storyBuilderAdvanced',
   vip_tables_basic: 'plan.feature.vipTablesBasic',
   email_campaigns_informational: 'plan.feature.emailCampaignsInfo',
   email_campaigns_promotional: 'plan.feature.emailCampaignsPromo',

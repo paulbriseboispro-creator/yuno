@@ -255,12 +255,6 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     path: "/owner/djs",
     snippet: "Gère tes DJs résidents depuis la page DJs (profils, sets, line-up des soirées). Pour trouver de nouveaux artistes, [Book DJ](/owner/book-dj) cherche dans la marketplace par ville, rayon, genre et cachet — envoie une demande de booking directement au DJ.",
   },
-  "story-builder": {
-    title: "Story Builder (visuels promo)",
-    keywords: ["story", "stories", "instagram", "visuel", "promo", "réseaux sociaux", "social", "image"],
-    path: "/owner/story-builder",
-    snippet: "Le Story Builder génère des visuels prêts à poster (stories Instagram) à partir de tes soirées : affiche, date, line-up, lien de billetterie. Choisis un modèle, personnalise, télécharge et publie.",
-  },
   "managers": {
     title: "Managers & permissions",
     keywords: ["manager", "managers", "permission", "droits", "accès", "déléguer", "équipe de direction"],

@@ -17,7 +17,7 @@ Le risque central d'un modèle où « vendre est gratuit » : pourquoi un club p
 
 - **Core (gratuit) = OPÈRE.** Le club fait tourner sa soirée sans payer.
 - **Essential = première marche.** « Je suis une vraie business » : branding Yuno retiré, staff illimité, premières armes marketing (email promo, CRM léger).
-- **Pro = GRANDIS (complet).** Analytics profondes, exports, VIP complet, orchestration DJ/orga, story avancé. Le tier le plus haut disponible au lancement.
+- **Pro = GRANDIS (complet).** Analytics profondes, exports, VIP complet, orchestration DJ/orga. Le tier le plus haut disponible au lancement.
 - **Elite = SCALE.** Prédictif, loyalty, leaderboard, groupe multi-établissement, API. **Pas dispo encore — tout est à construire.**
 
 **Narratif anti « Yuno se paie deux fois » :** la commission paie le rail de paiement (Stripe + protection), l'abonnement paie le moteur de croissance. La feature gatée doit être une feature **dont l'absence coûte de l'argent au club** (sans promo + CRM, les clients ne reviennent pas), pas du confort.
@@ -41,7 +41,6 @@ Le risque central d'un modèle où « vendre est gratuit » : pourquoi un club p
 | Staff / branding | ≤5 + branding Yuno | **illimité + branding retiré** | illimité + branding retiré | ✅ |
 | Email | info | + **promo** | ✅ | ✅ |
 | CRM clients (`clients_basic`) | — | ✅ | ✅ | ✅ |
-| Story builder | — | ✅ | + advanced | ✅ |
 | Promoteurs | basic | **full** | ✅ | ✅ |
 | Analytics | tickets + basic | ✅ | + **advanced + exports CSV** | ✅ |
 | VIP complet (tables full + service) | — | — | ✅ | ✅ |
@@ -58,8 +57,8 @@ Le risque central d'un modèle où « vendre est gratuit » : pourquoi un club p
 ### Réaffectation des features
 
 - **Core (OPÈRE) :** events, entry_qr, guest_list, analytics_tickets, `orders_qr`, `menu`, `staff_pin` (cap ≤5), `invoices_refunds`, `analytics_basic`, `vip_tables_basic`, `scarcity_tools`, `djs_connect`, `organizations_connect`, `promoters_basic`, email info. **Caps : staff ≤5, branding Yuno.**
-- **Essential (+) :** caps levés (**staff illimité, branding retiré**), `email_campaigns_promotional`, `clients_basic`, `story_builder`, `promoters` (full).
-- **Pro (+) :** `analytics_advanced`, `exports_csv`, `vip_tables` (full), `vip_service`, `djs_orchestrate`, `organizations_orchestrate`, `story_builder_advanced`, `live_night`, `offers_upsell`.
+- **Essential (+) :** caps levés (**staff illimité, branding retiré**), `email_campaigns_promotional`, `clients_basic`, `promoters` (full).
+- **Pro (+) :** `analytics_advanced`, `exports_csv`, `vip_tables` (full), `vip_service`, `djs_orchestrate`, `organizations_orchestrate`, `live_night`, `offers_upsell`.
 - **Elite (Bientôt) :** `loyalty_crm`, `hype_analysis`, `personalization_advanced`, `client_leaderboard`, multi-établissement, API.
 
 ---

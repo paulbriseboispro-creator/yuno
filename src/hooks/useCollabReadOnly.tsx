@@ -7,7 +7,7 @@ import { isCollabPlan } from '@/lib/planFeatures';
  * Collab clubs see the full Pro feature set (analytics, hype, CRM, factures,
  * remboursements, DJs, organisations…) but are NOT allowed to:
  *   - create/edit core operational entities (events, tickets, tables, menu,
- *     staff, promoters, DJs, scarcity, story builder, upsells) — `isReadOnly`
+ *     staff, promoters, DJs, scarcity, upsells) — `isReadOnly`
  *   - export data in bulk (CSV/PDF) — `canExport`
  *
  * The partner organizer manages creation for the collab night.

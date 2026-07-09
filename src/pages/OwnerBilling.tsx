@@ -59,7 +59,6 @@ const ESSENTIAL_FEATURES: DisplayFeature[] = [
   { labelKey: 'plan.feature.noBranding' },
   { key: 'email_campaigns_promotional', labelKey: 'plan.feature.emailCampaignsPromo' },
   { key: 'clients_basic', labelKey: 'plan.feature.clientsBasic' },
-  { key: 'story_builder', labelKey: 'plan.feature.storyBuilder' },
   { key: 'promoters', labelKey: 'plan.feature.promoters' },
 ];
 
@@ -70,7 +69,6 @@ const PRO_ONLY_FEATURES: DisplayFeature[] = [
   { key: 'vip_service', labelKey: 'plan.feature.vipService' },
   { key: 'djs_orchestrate', labelKey: 'plan.feature.djsOrchestrate' },
   { key: 'organizations_orchestrate', labelKey: 'plan.feature.organizationsOrchestrate' },
-  { key: 'story_builder_advanced', labelKey: 'plan.feature.storyBuilderAdvanced' },
   { key: 'live_night', labelKey: 'plan.feature.liveNight' },
   { key: 'offers_upsell', labelKey: 'plan.feature.offersUpsell' },
   { key: 'loyalty_crm', labelKey: 'plan.feature.loyaltyCrm' },

@@ -106,7 +106,6 @@ const OwnerSmsCredits = lazyWithRetry(() => import("./pages/OwnerSmsCredits"));
 const OwnerSmsCampaigns = lazyWithRetry(() => import("./pages/OwnerSmsCampaigns"));
 const OwnerPush = lazyWithRetry(() => import("./pages/OwnerPush"));
 const OwnerOnboarding = lazyWithRetry(() => import("./pages/OwnerOnboarding"));
-const OwnerStoryBuilder = lazyWithRetry(() => import("./pages/OwnerStoryBuilder"));
 const HelpCenter = lazyWithRetry(() => import("./pages/HelpCenter"));
 const OwnerHelpCenter = lazyWithRetry(() => import("./pages/OwnerHelpCenter"));
 const OwnerSupportRequest = lazyWithRetry(() => import("./pages/OwnerSupportRequest"));
@@ -710,7 +709,6 @@ const App = () => (
                   <Route path="billing" element={<OwnerBilling />} />
                   <Route path="vip-service" element={<PlanGuard feature="vip_service"><OwnerVipService /></PlanGuard>} />
                   <Route path="upsell" element={<PlanGuard feature="offers_upsell"><OwnerUpsell /></PlanGuard>} />
-                  <Route path="story-builder" element={<PlanGuard feature="story_builder"><OwnerStoryBuilder /></PlanGuard>} />
                   <Route path="managers" element={<OwnerManagers />} />
                   <Route path="waitlist" element={<OwnerWaitlist />} />
                   <Route path="notifications" element={<OwnerNotifications />} />

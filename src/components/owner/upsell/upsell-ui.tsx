@@ -2,7 +2,7 @@ import { ReactNode, CSSProperties } from 'react';
 import type { LucideIcon } from 'lucide-react';
 
 /**
- * Shared design primitives for the owner Upsell + Story Builder modules.
+ * Shared design primitives for the owner Upsell module.
  * Yuno Dark Premium DA — mirrors the token set used in OwnerAnalytics.tsx /
  * vip-ui.tsx so these pages share one visual language with the rest of the
  * dashboard.

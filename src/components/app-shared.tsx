@@ -200,11 +200,6 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					path: "/owner/upsell",
 					icon: <GiftIcon />,
 				},
-				{
-					title: t('sidebar.storyBuilder'),
-					path: "/owner/story-builder",
-					icon: <WandIcon />,
-				},
 			],
 		},
 		{

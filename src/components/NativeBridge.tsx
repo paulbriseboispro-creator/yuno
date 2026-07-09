@@ -45,6 +45,13 @@ export function NativeBridge() {
       .then(({ CapacitorUpdater }) => CapacitorUpdater.notifyAppReady())
       .catch(() => {});
 
+    // Barre d'état iOS : le fond de l'app est #050505 → texte clair.
+    // Style.Dark = contenu clair pour fond sombre. Sans ce réglage, iOS garde
+    // le style par défaut (texte sombre) et l'heure/batterie sont invisibles.
+    import('@capacitor/status-bar')
+      .then(({ StatusBar, Style }) => StatusBar.setStyle({ style: Style.Dark }))
+      .catch(() => {});
+
     const cleanups: Array<() => void> = [];
 
     import('@capacitor/app').then(({ App: CapApp }) => {

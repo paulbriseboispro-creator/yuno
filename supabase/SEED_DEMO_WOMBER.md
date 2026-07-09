@@ -47,7 +47,7 @@ s'affiche à la fin.
   (membre + staff), Partners, Guest List, Refunds, Organization / Profile, DJs.
 - **Promoteur / Affilié / Staff / DJ** : dashboards remplis.
 
-> Quelques onglets « avancés » optionnels (Story Builder, VIP Service, Hype, Scarcity) restent
+> Quelques onglets « avancés » optionnels (VIP Service, Hype, Scarcity) restent
 > sur leur état de config par défaut — ils ne reposent pas sur des données de vente.
 
 ## À savoir

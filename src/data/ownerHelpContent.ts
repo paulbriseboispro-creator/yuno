@@ -736,22 +736,6 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.upsell.s6h', bodyKey: 'ohelp.pg.upsell.s6b', type: 'example' },
         ],
       },
-      {
-        id: 'story-builder',
-        titleKey: 'ohelp.pg.story.title',
-        descKey: 'ohelp.pg.story.desc',
-        icon: 'Wand',
-        actionLink: { labelKey: 'ohelp.action.goToStory', path: '/story-builder' },
-        relatedArticleIds: ['events-setup', 'scarcity-fomo', 'ticketing-setup'],
-        keywords: ['story', 'instagram', 'social', 'réseaux', 'promo', 'template', 'modèle', 'flyer', 'visuel', 'share', 'partager', 'historia'],
-        sections: [
-          { headingKey: 'ohelp.pg.story.s1h', bodyKey: 'ohelp.pg.story.s1b' },
-          { headingKey: 'ohelp.pg.story.s2h', bodyKey: 'ohelp.pg.story.s2b', screenshotUrl: '/help/owner-story-builder.png' },
-          { headingKey: 'ohelp.pg.story.s3h', bodyKey: 'ohelp.pg.story.s3b', type: 'steps' },
-          { headingKey: 'ohelp.pg.story.s4h', bodyKey: 'ohelp.pg.story.s4b' },
-          { headingKey: 'ohelp.pg.story.s5h', bodyKey: 'ohelp.pg.story.s5b', type: 'tip' },
-        ],
-      },
     ],
   },
 
