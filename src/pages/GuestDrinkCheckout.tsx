@@ -19,6 +19,7 @@ import { useCartRules } from '@/hooks/useCartRules';
 import { useAbsorbYunoFees } from '@/hooks/useAbsorbYunoFees';
 import { customerTransactionFee } from '@/types/ticketing';
 import { useEffect } from 'react';
+import { PublicPage } from '@/components/PublicPage';
 
 interface VenueInfo {
   id: string;
@@ -205,6 +206,7 @@ export default function GuestDrinkCheckout() {
         </div>
       </header>
 
+      <PublicPage variant="flow">
       <div className="max-w-lg mx-auto px-4 py-6 pb-32">
         {/* Order Summary */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
@@ -332,6 +334,7 @@ export default function GuestDrinkCheckout() {
           </div>
         </motion.div>
       </div>
+      </PublicPage>
 
       {/* Sticky Footer — pay button only */}
       <div

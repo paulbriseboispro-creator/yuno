@@ -10,6 +10,7 @@ import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { formatCompactCount } from '@/components/formater';
 import { BottomNav } from '@/components/BottomNav';
 import { FadeInView } from '@/components/motion';
+import { PublicPage } from '@/components/PublicPage';
 
 interface TopEvent {
   id: string; title: string; start_at: string; poster_url: string | null;
@@ -75,6 +76,7 @@ export default function DJPastEventsPage() {
 
   return (
     <div className="relative min-h-[100dvh] flex flex-col" style={{ background: '#0A0A0A' }}>
+      <PublicPage variant="immersive">
       <main className="flex-1 pb-28 mx-auto w-full max-w-xl">
         {/* Header */}
         <div className="flex items-center gap-3 px-5" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)', paddingBottom: 12 }}>
@@ -167,6 +169,7 @@ export default function DJPastEventsPage() {
           )}
         </div>
       </main>
+      </PublicPage>
 
       <BottomNav />
     </div>

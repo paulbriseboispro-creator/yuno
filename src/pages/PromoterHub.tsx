@@ -6,6 +6,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { fr, es, enUS } from 'date-fns/locale';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
+import { PublicPage } from '@/components/PublicPage';
 
 interface PromoterInfo {
   firstName: string | null;
@@ -520,6 +521,7 @@ export default function PromoterHub() {
           }}
         />
 
+        <PublicPage variant="discovery">
         <main style={{ position: 'relative', zIndex: 1, maxWidth: '480px', margin: '0 auto', paddingBottom: '120px' }}>
 
           {/* ══ PROFIL PROMOTEUR ═════════════════════════════════════ */}
@@ -768,6 +770,7 @@ export default function PromoterHub() {
           </div>
 
         </main>
+        </PublicPage>
 
         {/* ══ STICKY POWERED BY YUNO — Core plan only; hidden while subscriptions disabled ══ */}
         {SUBSCRIPTIONS_ENABLED && (venuePlan === 'core' || venuePlan === 'collab') && <a

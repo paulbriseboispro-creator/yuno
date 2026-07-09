@@ -22,6 +22,7 @@ import { ClientFloorPlanPicker } from '@/components/vip/ClientFloorPlanPicker';
 import { VenueFloorPlan } from '@/types';
 import { useEventScarcity, type ScarcitySettings } from '@/hooks/useScarcitySettings';
 import { cn } from '@/lib/utils';
+import { PublicPage } from '@/components/PublicPage';
 
 type SelectionType = 'ticket' | 'table' | 'guestlist';
 type Selection = {
@@ -492,6 +493,7 @@ export default function TicketSelection() {
         </div>
       </div>
 
+      <PublicPage variant="flow">
       {/* Progress steps */}
       <div className="px-4 pt-3">
         <CheckoutSteps currentStep={1} />
@@ -836,6 +838,7 @@ export default function TicketSelection() {
           </div>
         )}
       </div>
+      </PublicPage>
 
       {/* Sticky footer */}
       <AnimatePresence>

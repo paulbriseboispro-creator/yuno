@@ -21,6 +21,7 @@ import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { DrinkCard } from '@/components/DrinkCard';
 import type { Drink, Event } from '@/types';
 import { useStore } from '@/store/useStore';
+import { PublicPage } from '@/components/PublicPage';
 import { EventSelectionDialog } from '@/components/EventSelectionDialog';
 import { CartButton } from '@/components/CartButton';
 
@@ -305,6 +306,7 @@ export default function OrganizerPublicProfile() {
 
   return (
     <div className="relative min-h-[100dvh] flex flex-col" style={{ background: '#0A0A0A' }}>
+      <PublicPage variant="discovery">
       <main className="flex-1 pb-28">
         {/* ===== HERO — full-bleed cinematic (Yuno DA) ===== */}
         <div className="relative overflow-hidden" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px))' }}>
@@ -734,6 +736,7 @@ export default function OrganizerPublicProfile() {
         </div>
 
       </main>
+      </PublicPage>
 
       {partnerDrinksByVenue.length > 0 && (
         <>

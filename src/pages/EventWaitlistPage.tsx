@@ -8,6 +8,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
+import { PublicPage } from '@/components/PublicPage';
 
 export default function EventWaitlistPage() {
   const { eventId, basePath } = useEventRoute();
@@ -265,6 +266,7 @@ export default function EventWaitlistPage() {
         </button>
       </div>
 
+      <PublicPage variant="flow">
       <div className="px-5 space-y-6">
         {/* Title */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
@@ -337,6 +339,7 @@ export default function EventWaitlistPage() {
           )}
         </motion.div>
       </div>
+      </PublicPage>
     </div>
   );
 }

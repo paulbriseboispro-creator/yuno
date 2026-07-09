@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { PublicPage } from '@/components/PublicPage';
 
 type LeaderboardMode = 'yearly' | 'monthly' | 'event';
 
@@ -105,6 +106,7 @@ export default function VenueLeaderboard() {
         </div>
       </header>
 
+      <PublicPage variant="discovery">
       <div className="mx-auto max-w-3xl p-4 space-y-6">
         {/* Mode Toggle */}
         {showTabs && (
@@ -329,6 +331,7 @@ export default function VenueLeaderboard() {
           </div>
         )}
       </div>
+      </PublicPage>
     </div>
   );
 }

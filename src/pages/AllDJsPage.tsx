@@ -3,6 +3,7 @@ import { BottomNav } from '@/components/BottomNav';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { DJDiscovery } from '@/components/dj-marketplace/DJDiscovery';
 import { Seo } from '@/components/Seo';
+import { PublicPage } from '@/components/PublicPage';
 
 // Public DJ discovery (fan mode): ranked, filterable directory. Booking + price live
 // only in the dashboard "Book a DJ" surface (DJDiscovery mode="booker"). Both share
@@ -47,9 +48,11 @@ export default function AllDJsPage() {
       </div>
 
       {/* ── Discovery ── */}
+      <PublicPage variant="discovery">
       <div style={{ flex: 1, width: '100%', maxWidth: 512, margin: '0 auto', padding: '18px 18px 96px' }}>
         <DJDiscovery mode="fan" />
       </div>
+      </PublicPage>
 
       <BottomNav />
     </div>

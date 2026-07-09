@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFavorites } from '@/hooks/useFavorites';
+import { PublicPage } from '@/components/PublicPage';
 
 type CategoryType = 'drink' | 'shot' | 'soft';
 
@@ -172,6 +173,7 @@ export default function CategoryDrinks() {
         </div>
       </header>
 
+      <PublicPage variant="flow">
       {/* Drinks Grid */}
       <div className="mx-auto max-w-7xl px-3 sm:px-4 py-4 sm:py-8">
         <motion.div
@@ -229,6 +231,7 @@ export default function CategoryDrinks() {
           </motion.div>
         )}
       </div>
+      </PublicPage>
 
       <CartButton />
       

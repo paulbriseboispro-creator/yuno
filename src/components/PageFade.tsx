@@ -1,35 +1,24 @@
-import { motion } from 'framer-motion';
-import { transitions, useReducedMotion } from '@/lib/motion';
+import type { CSSProperties, ReactNode } from 'react';
+import { PublicPage } from '@/components/PublicPage';
 
 /* ============================================================
-   PageFade — entrée de page subtile (app cliente publique).
-   opacity 0 + y:8 → visible, courbe `pop` (180ms ease-out).
-   Pas d'exit, pas de key sur le pathname : entrée pure au mount.
-   Reduced-motion → fondu d'opacité seul (aucun déplacement).
-
-   ⚠️ Ne pas envelopper d'éléments position:fixed/sticky (footers
-   collants, BottomNav…) : un ancêtre transformé casse leur
-   positionnement. Envelopper uniquement le contenu défilant.
+   PageFade — alias de compat historique.
+   Déprécié : préférer <PublicPage variant="..."> qui adapte la
+   transition à la nature de la page (discovery / immersive / flow /
+   account). PageFade = fondu calme « account ».
    ============================================================ */
 export function PageFade({
   children,
   className,
   style,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
-  style?: React.CSSProperties;
+  style?: CSSProperties;
 }) {
-  const reduced = useReducedMotion();
   return (
-    <motion.div
-      className={className}
-      style={style}
-      initial={reduced ? { opacity: 0 } : { opacity: 0, y: 8 }}
-      animate={reduced ? { opacity: 1 } : { opacity: 1, y: 0 }}
-      transition={transitions.pop}
-    >
+    <PublicPage variant="account" className={className} style={style}>
       {children}
-    </motion.div>
+    </PublicPage>
   );
 }

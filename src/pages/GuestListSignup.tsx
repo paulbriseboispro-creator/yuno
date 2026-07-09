@@ -16,6 +16,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { fr, es, enUS } from 'date-fns/locale';
 import QRCode from 'qrcode';
+import { PublicPage } from '@/components/PublicPage';
 
 interface GuestListInfo {
   id: string;
@@ -410,6 +411,7 @@ export default function GuestListSignup() {
           </div>
         </div>
 
+        <PublicPage variant="flow">
         <div className="max-w-lg mx-auto p-4 space-y-6">
           {/* Event Banner */}
           {guestList.eventImageUrl && (
@@ -546,6 +548,7 @@ export default function GuestListSignup() {
             </Card>
           )}
         </div>
+        </PublicPage>
       </div>
     );
   }
@@ -563,6 +566,7 @@ export default function GuestListSignup() {
         </div>
       </div>
 
+      <PublicPage variant="flow">
       <div className="max-w-lg mx-auto p-4 space-y-6">
         {/* Event Banner */}
         {guestList.eventImageUrl && (
@@ -701,6 +705,7 @@ export default function GuestListSignup() {
           </Card>
         )}
       </div>
+      </PublicPage>
     </div>
   );
 }

@@ -8,6 +8,7 @@ import { useSmartBack } from '@/hooks/useSmartBack';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { PublicPage } from '@/components/PublicPage';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
@@ -326,6 +327,7 @@ export default function YunoAssistantPage() {
 
       {/* Content */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto relative z-10">
+        <PublicPage variant="account">
         <AnimatePresence mode="wait">
           {!hasMessages ? (
             /* ─── Idle / Searching ─── */
@@ -515,6 +517,7 @@ export default function YunoAssistantPage() {
             </motion.div>
           )}
         </AnimatePresence>
+        </PublicPage>
       </div>
 
       {/* Fixed bottom input */}

@@ -15,6 +15,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/hooks/useAuth';
 import { useNightlifeProfile } from '@/hooks/useNightlifeProfile';
 import { legalContent, type LegalSection } from '@/data/legalContent';
+import { PublicPage } from '@/components/PublicPage';
 
 export default function Settings() {
   const { t, language, setLanguage } = useLanguage();
@@ -361,6 +362,7 @@ export default function Settings() {
         </div>
       </header>
 
+      <PublicPage variant="account">
       <div className="mx-auto max-w-3xl p-3 sm:p-4 space-y-4">
         {/* Personal Information */}
         <Card className="border-border/50">
@@ -646,6 +648,7 @@ export default function Settings() {
           </div>
         </DialogContent>
       </Dialog>
+      </PublicPage>
     </div>
   );
 }

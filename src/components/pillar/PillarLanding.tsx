@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Seo } from '@/components/Seo';
 import { BottomNav } from '@/components/BottomNav';
+import { PublicPage } from '@/components/PublicPage';
 
 /**
  * Shared layout for the SEO pillar pages (/tickets, /vip-tables, /order-drinks).
@@ -101,6 +102,7 @@ export function PillarLanding({ config }: { config: PillarConfig }) {
         jsonLd={jsonLd}
       />
 
+      <PublicPage variant="discovery">
       <main style={{ flex: 1, width: '100%', maxWidth: 780, margin: '0 auto', padding: '56px 22px 120px' }}>
         {/* ── Hero ── */}
         <p style={{ fontFamily: 'monospace', fontSize: 11, letterSpacing: '0.22em', textTransform: 'uppercase', color: ACCENT, margin: 0 }}>
@@ -278,6 +280,7 @@ export function PillarLanding({ config }: { config: PillarConfig }) {
           </div>
         </section>
       </main>
+      </PublicPage>
 
       <BottomNav />
     </div>

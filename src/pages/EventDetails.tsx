@@ -20,7 +20,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { EventCountdown } from '@/components/EventCountdown';
 import { FadeInView } from '@/components/motion';
 import { formatCompactCount } from '@/components/formater';
-import { PageFade } from '@/components/PageFade';
+import { PublicPage } from '@/components/PublicPage';
 import { EventDetailsSkeleton } from '@/components/skeletons/EventDetailsSkeleton';
 import { usePromoterTracking } from '@/hooks/usePromoterTracking';
 import { useResolvePurchaseSource, useResolveTrackedLink } from '@/hooks/usePurchaseSourceTracking';
@@ -710,7 +710,7 @@ export default function EventDetails() {
 
   return (
     <div className="min-h-screen pb-28" style={{ background: '#0A0A0A' }}>
-      <PageFade>
+      <PublicPage variant="immersive">
 
       {/* ── CINEMATIC HERO ─────────────────────────────────────── */}
       <section
@@ -1249,7 +1249,7 @@ export default function EventDetails() {
         )}
 
       </div>{/* end content */}
-      </PageFade>
+      </PublicPage>
 
       {/* ── STICKY CHECKOUT FOOTER (système actuel conservé) ── */}
       {(() => {

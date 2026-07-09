@@ -6,6 +6,7 @@ import { Instagram } from '@/components/icons/Instagram';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { PublicPage } from '@/components/PublicPage';
 
 const RED = '#E8192C';
 const BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu';
@@ -132,6 +133,7 @@ export default function DJEpkPage() {
         {dj.cover_image_url || dj.profile_image_url ? <meta property="og:image" content={dj.cover_image_url || dj.profile_image_url} /> : null}
       </Helmet>
 
+      <PublicPage variant="immersive">
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '0 0 64px' }}>
         {/* Action bar (hidden on print) */}
         <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '16px 20px 0' }}>
@@ -239,6 +241,7 @@ export default function DJEpkPage() {
           <p style={{ fontSize: 11, color: '#5A5A5E', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{t('dj.epk.poweredBy')}</p>
         </footer>
       </div>
+      </PublicPage>
     </div>
   );
 }

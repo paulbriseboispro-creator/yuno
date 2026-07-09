@@ -32,7 +32,7 @@ import { customerTransactionFee } from '@/types/ticketing';
 import { CartSuggestions } from '@/components/upsell/CartSuggestions';
 import { CartOffersBanner } from '@/components/upsell/CartOffersBanner';
 import { EmptyState } from '@/components/EmptyState';
-import { PageFade } from '@/components/PageFade';
+import { PublicPage } from '@/components/PublicPage';
 import { TermsAcceptance } from '@/components/TermsAcceptance';
 import { AgeGate } from '@/components/AgeGate';
 
@@ -391,7 +391,7 @@ export default function Cart() {
           title={t('empty.cart.title')}
           body={t('empty.cart.body')}
           ctaLabel={t('empty.cart.cta')}
-          onCta={() => navigate('/order-drinks')}
+          onCta={goToMenu}
         />
       </div>
     );
@@ -412,7 +412,7 @@ export default function Cart() {
     <div className="min-h-screen overflow-y-auto" style={{ background: '#0A0A0A' }}>
       {/* Le footer collant + le panneau détails (position:fixed) restent HORS
           du wrapper animé — un ancêtre transformé casserait leur ancrage. */}
-      <PageFade>
+      <PublicPage variant="flow">
 
       {/* ── Cinematic hero ─────────────────────────────────────── */}
       <section
@@ -899,7 +899,7 @@ export default function Cart() {
           </motion.div>
         )}
       </div>
-      </PageFade>
+      </PublicPage>
 
       {/* ── Sticky Footer ────────────────────────────────────────── */}
       <div

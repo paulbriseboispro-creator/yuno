@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { ArrowLeft, Clock, Wine, CheckCircle, Ticket, LogIn, PartyPopper, Calendar } from 'lucide-react';
 import QRCode from 'qrcode';
 import { haptics } from '@/lib/haptics';
+import { PublicPage } from '@/components/PublicPage';
 
 interface GuestListInfo {
   id: string;
@@ -340,6 +341,7 @@ export default function GuestListCheckout() {
 
   return (
     <CheckoutShell title={displayTitle} onBack={backToSelection}>
+      <PublicPage variant="flow">
       <div className="max-w-lg mx-auto px-4 pt-4 pb-36">
         <CheckoutSteps currentStep={2} />
 
@@ -521,6 +523,7 @@ export default function GuestListCheckout() {
           </div>
         )}
       </div>
+      </PublicPage>
 
       {/* Sticky confirm — shown on the registration form (logged-in or guest) */}
       {!isFull && !alreadyRegistered && (

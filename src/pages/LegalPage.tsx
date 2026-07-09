@@ -3,6 +3,7 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { legalContent, type LegalSection } from '@/data/legalContent';
+import { PublicPage } from '@/components/PublicPage';
 
 export default function LegalPage() {
   const { section } = useParams<{ section: string }>();
@@ -57,9 +58,11 @@ export default function LegalPage() {
         </div>
       </header>
 
+      <PublicPage variant="account">
       <div className="mx-auto max-w-3xl p-4 sm:p-6">
         {renderContent(doc.content)}
       </div>
+      </PublicPage>
     </div>
   );
 }

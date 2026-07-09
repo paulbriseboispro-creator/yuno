@@ -13,6 +13,7 @@ import { LoyaltyProgressRing } from '@/components/profile/LoyaltyProgressRing';
 import { LoyaltyRewardsSheet } from '@/components/loyalty/LoyaltyRewardsSheet';
 import { BottomNav } from '@/components/BottomNav';
 import { cn } from '@/lib/utils';
+import { PublicPage } from '@/components/PublicPage';
 
 interface VenueScore {
   venue_id: string;
@@ -96,6 +97,7 @@ export default function LoyaltyHub() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
+      <PublicPage variant="discovery">
       {/* Hero Header */}
       <div className="relative overflow-hidden">
         <div className={cn(
@@ -342,6 +344,7 @@ export default function LoyaltyHub() {
           </motion.button>
         )}
       </div>
+      </PublicPage>
 
       <BottomNav />
 

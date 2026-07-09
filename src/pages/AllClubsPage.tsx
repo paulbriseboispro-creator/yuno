@@ -9,6 +9,7 @@ import { useUserLocation } from '@/hooks/useUserLocation';
 import { haversineKm, cityMatches, NEAR_RADIUS_KM } from '@/lib/userLocation';
 import { FadeInView } from '@/components/motion';
 import { Seo } from '@/components/Seo';
+import { PublicPage } from '@/components/PublicPage';
 
 interface ClubRow {
   id: string;
@@ -134,6 +135,7 @@ export default function AllClubsPage() {
       </div>
 
       {/* ── List ── */}
+      <PublicPage variant="discovery">
       <div style={{ flex: 1, width: '100%', maxWidth: 512, margin: '0 auto', padding: '18px 18px 96px', display: 'flex', flexDirection: 'column', gap: 12 }}>
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
@@ -196,6 +198,7 @@ export default function AllClubsPage() {
           })
         )}
       </div>
+      </PublicPage>
 
       <BottomNav />
     </div>

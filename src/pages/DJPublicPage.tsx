@@ -16,6 +16,7 @@ import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { DJTrackPlayer } from '@/components/dj/DJTrackPlayer';
 import { formatCompactCount } from '@/components/formater';
 import { toast } from 'sonner';
+import { PublicPage } from '@/components/PublicPage';
 
 const COUNTRY_TRANSLATIONS: Record<string, Record<string, string>> = {
   'France': { fr: 'France', es: 'Francia', en: 'France' },
@@ -268,6 +269,7 @@ export default function DJPublicPage() {
 
   return (
     <div className="relative min-h-[100dvh] flex flex-col" style={{ background: '#0A0A0A' }}>
+      <PublicPage variant="immersive">
       <main className="flex-1 pb-28">
         {/* ===== HERO — full-bleed cinematic (Yuno DA publique) ===== */}
         <div className="relative overflow-hidden" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px))' }}>
@@ -696,6 +698,7 @@ export default function DJPublicPage() {
           </p>
         </div>
       </main>
+      </PublicPage>
 
       <BottomNav />
     </div>

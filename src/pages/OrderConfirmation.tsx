@@ -20,6 +20,7 @@ import QRCode from 'qrcode';
 import { WalletButtons } from '@/components/WalletButtons';
 import { DrinkCreditsCard } from '@/components/upsell/DrinkCreditsCard';
 import { TicketQRCarousel } from '@/components/orders/TicketQRCarousel';
+import { PublicPage } from '@/components/PublicPage';
 interface UpsellSelection {
   name: string;
   price: number;
@@ -755,6 +756,7 @@ export default function OrderConfirmation() {
         </div>
       </section>
 
+      <PublicPage variant="flow">
       {/* ── Reading column ── */}
       <div className="mx-auto px-5 w-full box-border" style={{ maxWidth: 600 }}>
 
@@ -969,6 +971,7 @@ export default function OrderConfirmation() {
           </div>
         </motion.section>
       </div>
+      </PublicPage>
     </div>
   );
 }

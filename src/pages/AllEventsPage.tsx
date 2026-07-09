@@ -10,6 +10,7 @@ import { Tappable } from '@/components/motion';
 import { FilterPage, ExploreFilters, FilterDynamicData } from '@/components/explore/FilterPage';
 import { eventPath } from '@/lib/eventUrl';
 import { Seo } from '@/components/Seo';
+import { PublicPage } from '@/components/PublicPage';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -593,6 +594,7 @@ export default function AllEventsPage() {
       </div>
 
       {/* ── Content ── */}
+      <PublicPage variant="discovery">
       <main style={{ flex: 1, padding: '0 0 100px' }}>
 
         {loading ? (
@@ -680,6 +682,7 @@ export default function AllEventsPage() {
           ))
         )}
       </main>
+      </PublicPage>
 
       <FilterPage
         open={filtersOpen}

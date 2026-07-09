@@ -27,6 +27,7 @@ import { TermsAcceptance } from '@/components/TermsAcceptance';
 import { MinorAuthGate } from '@/components/MinorAuthGate';
 import { MarketingOptIns } from '@/components/MarketingOptIns';
 import { CheckoutSteps } from '@/components/CheckoutSteps';
+import { PublicPage } from '@/components/PublicPage';
 
 interface PromoterDiscount {
   promoterId: string;
@@ -725,6 +726,7 @@ export default function TicketCheckout() {
         </div>
       </header>
 
+      <PublicPage variant="flow">
       <div className="max-w-lg mx-auto px-4 pt-4 pb-36">
         <CheckoutSteps currentStep={2} />
 
@@ -961,6 +963,7 @@ export default function TicketCheckout() {
           </motion.div>
         )}
       </div>
+      </PublicPage>
 
       {/* Sticky Footer with expandable details */}
       <div className="fixed bottom-0 left-0 right-0 z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>

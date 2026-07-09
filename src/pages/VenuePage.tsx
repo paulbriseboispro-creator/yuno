@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { FadeInView } from '@/components/motion';
-import { PageFade } from '@/components/PageFade';
+import { PublicPage } from '@/components/PublicPage';
 import { DrinkCard } from '@/components/DrinkCard';
 import { CartButton } from '@/components/CartButton';
 import { EventSelectionDialog } from '@/components/EventSelectionDialog';
@@ -548,7 +548,7 @@ export default function VenuePage() {
       <main className="flex-1 pb-28">
       {/* Le pill "Powered by Yuno", CartButton et BottomNav (position:fixed)
           restent HORS du wrapper animé — ancêtre transformé = fixed cassé. */}
-      <PageFade>
+      <PublicPage variant="immersive">
 
         {/* ===== HERO — full-bleed cinematic ===== */}
         <div className="relative overflow-hidden" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px))' }}>
@@ -1022,7 +1022,7 @@ export default function VenuePage() {
           </p>
         </div>
 
-      </PageFade>
+      </PublicPage>
       </main>
 
       {/* Sticky "Powered by Yuno" pill — Core plan only, links to yunoapp.eu.

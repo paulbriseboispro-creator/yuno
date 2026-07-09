@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PublicPage } from '@/components/PublicPage';
 
 interface Props {
   defaultTab?: 'client' | 'owner' | 'staff';
@@ -73,6 +74,7 @@ export default function HelpCenter({ defaultTab = 'client' }: Props) {
           <h1 className="text-sm font-bold truncate">{t(selectedArticle.titleKey)}</h1>
         </div>
 
+        <PublicPage variant="account">
         <div className="max-w-2xl mx-auto p-4 sm:p-6 pb-24 space-y-6">
           <div>
             <span className="text-3xl mb-3 block">{selectedArticle.icon}</span>
@@ -93,6 +95,7 @@ export default function HelpCenter({ defaultTab = 'client' }: Props) {
             </div>
           ))}
         </div>
+        </PublicPage>
       </div>
     );
   }
@@ -109,6 +112,7 @@ export default function HelpCenter({ defaultTab = 'client' }: Props) {
         <h1 className="text-sm font-bold">{t('help.title')}</h1>
       </div>
 
+      <PublicPage variant="account">
       <div className="max-w-3xl mx-auto p-4 sm:p-6 pb-24 space-y-6">
         {/* Search */}
         <div className="relative">
@@ -215,6 +219,7 @@ export default function HelpCenter({ defaultTab = 'client' }: Props) {
           )}
         </div>
       </div>
+      </PublicPage>
     </div>
   );
 }

@@ -59,6 +59,43 @@ export const transitions = {
   celebrate: { type: 'spring', stiffness: 260, damping: 16 } as Transition,
 } as const;
 
+// ── Transitions de page (archétypes app publique) ────────────────────
+// Un wrapper par nature de page, pas un fondu unique. Consommées par
+// <PublicPage variant>. `flow` est direction-aware (résolu au runtime
+// selon useNavigationType()). Toutes < 350ms, courbe EASE_OUT, et
+// dégradées en opacité seule sous reduced-motion (côté composant).
+export type PageVariant = 'discovery' | 'immersive' | 'flow' | 'account';
+
+/** Durées d'entrée par archétype (secondes). */
+const PAGE_DUR = {
+  discovery: 0.26, // grille éditoriale / listes
+  immersive: 0.3,  // fiches à hero cinématique
+  flow: 0.3,       // tunnel de résa
+  account: 0.24,   // pages utilitaires
+} as const;
+
+type PageMotion = { initial: Record<string, number>; animate: Record<string, number>; transition: Transition };
+
+/** Variantes statiques (tout sauf `flow`, qui dépend du sens de navigation). */
+export const pageVariants: Record<Exclude<PageVariant, 'flow'>, PageMotion> = {
+  // Découverte : entrée « affiche » — léger lever + fondu.
+  discovery: { initial: { opacity: 0, y: 10 }, animate: { opacity: 1, y: 0 }, transition: { duration: PAGE_DUR.discovery, ease: EASE_OUT } },
+  // Immersif : opacité seule — le hero (.animate-hero-*) porte le mouvement.
+  immersive: { initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { duration: PAGE_DUR.immersive, ease: EASE_OUT } },
+  // Compte : fondu calme, déplacement minimal.
+  account: { initial: { opacity: 0, y: 6 }, animate: { opacity: 1, y: 0 }, transition: { duration: PAGE_DUR.account, ease: EASE_OUT } },
+};
+
+/**
+ * Tunnel de résa : glissement directionnel façon app native.
+ * `back` (navigation POP) → entre depuis la gauche ; sinon depuis la droite.
+ */
+export const flowVariant = (back: boolean): PageMotion => ({
+  initial: { opacity: 0, x: back ? -20 : 20 },
+  animate: { opacity: 1, x: 0 },
+  transition: { duration: PAGE_DUR.flow, ease: EASE_OUT },
+});
+
 // ── Helper reduced-motion ────────────────────────────────────────────
 /**
  * Dégrade un Variants en version "réduite" : retire tout déplacement /

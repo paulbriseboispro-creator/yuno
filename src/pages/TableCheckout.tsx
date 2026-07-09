@@ -35,6 +35,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { TablePack, TableZone, estimateStripeFee } from '@/types/ticketing';
 import { VenueFloorPlan } from '@/types';
 import { getStoredPromoCode } from '@/hooks/usePromoterTracking';
+import { PublicPage } from '@/components/PublicPage';
 
 interface PromoterDiscount {
   promoterId: string;
@@ -550,6 +551,7 @@ export default function TableCheckout() {
         </div>
       </header>
 
+      <PublicPage variant="flow">
       <div className="pt-12">
         <div className="mx-auto max-w-lg px-4 py-5">
           {/* Step indicator */}
@@ -786,6 +788,7 @@ export default function TableCheckout() {
           </AnimatePresence>
         </div>
       </div>
+      </PublicPage>
 
       {/* Fixed bottom capsule bar for step 2 */}
       {currentStep === 2 && (
