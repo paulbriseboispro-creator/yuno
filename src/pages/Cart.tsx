@@ -321,7 +321,15 @@ export default function Cart() {
       const eventId = selectedEventId || cart[0]?.eventId;
       const { getTrackedLinkForCheckout } = await import('@/hooks/usePurchaseSourceTracking');
       const trackedLinkId = getTrackedLinkForCheckout(eventId);
-      const cartItemsPayload = cart.map(item => ({ id: item.drinkId, quantity: item.qty, collection: item.collection }));
+      // kind/mixerIds : bouteilles solo du Mode Live — validées serveur contre
+      // vip_menu_items (les boissons classiques gardent le chemin drinks).
+      const cartItemsPayload = cart.map(item => ({
+        id: item.drinkId,
+        quantity: item.qty,
+        collection: item.collection,
+        kind: item.kind,
+        mixerIds: item.kind === 'bottle' ? (item.mixers ?? []).map(m => m.id) : undefined,
+      }));
       const body: any = { items: cartItemsPayload, eventId, venueId: venueInfo?.id, cancelUrl: '/cart', trackedLinkId, ageDeclaration: { confirmed: true, birthDate: ageBirthDate } };
 
       if (!user) {
@@ -598,6 +606,27 @@ export default function Cart() {
                             style={{ letterSpacing: '-0.01em' }}
                           >
                             {getTranslatedDrinkName(item.name, language)}
+                            {item.kind === 'bottle' && (
+                              <span
+                                className="ml-1.5 align-middle font-mono font-bold uppercase rounded px-1 py-px"
+                                style={{
+                                  fontSize: 8.5,
+                                  letterSpacing: '0.08em',
+                                  color: '#E8192C',
+                                  border: '1px solid rgba(232,25,44,0.5)',
+                                }}
+                              >
+                                {t('live.bottles')}
+                              </span>
+                            )}
+                            {item.kind === 'bottle' && (item.mixers?.length ?? 0) > 0 && (
+                              <span
+                                className="block font-mono uppercase font-normal mt-0.5"
+                                style={{ fontSize: 9.5, letterSpacing: '0.05em', color: '#9A9A9A' }}
+                              >
+                                + {item.mixers!.map(m => m.name).join(', ')}
+                              </span>
+                            )}
                           </h3>
 
                           {/* Price block */}

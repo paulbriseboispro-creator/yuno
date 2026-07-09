@@ -35,6 +35,11 @@ export type CartItem = {
   eventId?: string;
   eventTitle?: string;
   collection?: string;
+  /** 'bottle' = vip_menu_items vendue sans table (Mode Live) ; défaut 'drink'. */
+  kind?: 'drink' | 'bottle';
+  /** Mixers choisis avec une bouteille solo (par unité) — id = vip_menu_items.id.
+   *  unitPrice inclut leur total ; le serveur revalide bouteille + mixers. */
+  mixers?: { id: string; name: string; price: number }[];
 };
 
 export type OrderStatus = 'pending' | 'paid' | 'served' | 'refunded' | 'cancelled';

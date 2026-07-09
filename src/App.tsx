@@ -49,6 +49,7 @@ import { NativeProGate } from "@/components/NativeProGate";
 import { PushClickTracker } from "@/components/PushClickTracker";
 import { DemoSwitcher } from "@/components/demo/DemoSwitcher";
 import { PreviewModeProvider } from "@/contexts/PreviewModeContext";
+import { LiveModeProvider } from "@/contexts/LiveModeContext";
 import { PreviewModeBanner } from "@/components/PreviewModeBanner";
 import "@/lib/previewGuard"; // installe l'intercepteur lecture seule (effet de bord)
 
@@ -199,6 +200,7 @@ const EventTicketsLanding = lazyWithRetry(() => import("./pages/EventTicketsLand
 const VipTablesLanding = lazyWithRetry(() => import("./pages/VipTablesLanding"));
 const OrderDrinksLanding = lazyWithRetry(() => import("./pages/OrderDrinksLanding"));
 const ClubMap = lazyWithRetry(() => import("./pages/ClubMap"));
+const LiveMode = lazyWithRetry(() => import("./pages/LiveMode"));
 const Maintenance = lazyWithRetry(() => import("./pages/Maintenance"));
 const Settings = lazyWithRetry(() => import("./pages/Settings"));
 const LegalPage = lazyWithRetry(() => import("./pages/LegalPage"));
@@ -419,6 +421,7 @@ const App = () => (
             <OfflineBanner />
             <NativeBridge />
             <PushClickTracker />
+            <LiveModeProvider>
             <MaintenanceWrapper>
               <RouteErrorBoundary>
               <Suspense fallback={<PageLoader />}>
@@ -433,6 +436,8 @@ const App = () => (
                 <Route path="/vip-tables" element={<VipTablesLanding />} />
                 <Route path="/order-drinks" element={<OrderDrinksLanding />} />
                 <Route path="/map" element={<ClubMap />} />
+                {/* Mode Live — takeover soirée après scan d'entrée (deep-link du push de bienvenue) */}
+                <Route path="/live" element={<LiveMode />} />
                 <Route path="/welcome" element={<Welcome />} />
                 
                 
@@ -985,6 +990,7 @@ const App = () => (
             </Suspense>
               </RouteErrorBoundary>
             </MaintenanceWrapper>
+            </LiveModeProvider>
             </PreviewModeProvider>
           </TooltipProvider>
           </VenueNavProvider>

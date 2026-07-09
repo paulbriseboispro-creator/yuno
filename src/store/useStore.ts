@@ -9,6 +9,12 @@ interface StoreState {
   // Cart
   cart: CartItem[];
   addToCart: (drink: Drink, eventId?: string, eventTitle?: string, eventStartAt?: string) => void;
+  addBottleToCart: (
+    bottle: { id: string; name: string; price: number; imgUrl?: string },
+    mixers: { id: string; name: string; price: number }[],
+    eventId?: string,
+    eventTitle?: string
+  ) => void;
   incrementQty: (drinkId: string) => void;
   decrementQty: (drinkId: string) => void;
   removeFromCart: (drinkId: string) => void;
@@ -45,13 +51,13 @@ export const useStore = create<StoreState>()(
       // Cart
       cart: [],
       addToCart: (drink, eventId, eventTitle, eventStartAt) => {
+        haptics.selection();
         const existing = get().cart.find((item) => item.drinkId === drink.id && item.eventId === eventId);
         
         // Determine the price to use
         // Use presale price if presaleActive is true AND presalePrice exists
         let unitPrice = drink.price;
         if (drink.presaleActive && drink.presalePrice) {
-        haptics.selection();
           unitPrice = drink.presalePrice;
         } else if (drink.promoPrice) {
           unitPrice = drink.promoPrice;
@@ -81,6 +87,47 @@ export const useStore = create<StoreState>()(
             ],
           });
         }
+      },
+      // Bouteille solo (Mode Live) : une ligne = une bouteille + SES mixers.
+      // unitPrice = bouteille + mixers (par unité) pour que getCartTotal colle
+      // au total serveur ((price + Σ mixers) × qty). Merge uniquement si même
+      // bouteille ET même sélection de mixers.
+      addBottleToCart: (bottle, mixers, eventId, eventTitle) => {
+        haptics.selection();
+        const mixersTotal = mixers.reduce((sum, m) => sum + (m.price || 0), 0);
+        const mixerKey = mixers.map((m) => m.id).sort().join(',');
+        const existing = get().cart.find(
+          (item) =>
+            item.kind === 'bottle' &&
+            item.drinkId === bottle.id &&
+            item.eventId === eventId &&
+            (item.mixers ?? []).map((m) => m.id).sort().join(',') === mixerKey
+        );
+        if (existing) {
+          set({
+            cart: get().cart.map((item) =>
+              item === existing ? { ...item, qty: item.qty + 1 } : item
+            ),
+          });
+          return;
+        }
+        set({
+          cart: [
+            ...get().cart,
+            {
+              drinkId: bottle.id,
+              name: bottle.name,
+              unitPrice: bottle.price + mixersTotal,
+              qty: 1,
+              imgUrl: bottle.imgUrl,
+              eventId,
+              eventTitle,
+              collection: 'bottle',
+              kind: 'bottle' as const,
+              mixers,
+            },
+          ],
+        });
       },
       incrementQty: (drinkId) => {
         set({
