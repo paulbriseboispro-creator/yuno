@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { isNative } from '@/lib/native';
 
 let vapidKeyCache: string | null = null;
 
@@ -40,14 +41,81 @@ async function syncSubscriptionToDb(subscription: PushSubscription) {
       endpoint: subscription.endpoint,
       p256dh,
       auth,
+      platform: 'web',
     }, { onConflict: 'user_id,endpoint' });
 
-  // Delete all OTHER endpoints for this user (stale iOS endpoints)
+  // Delete all OTHER *web* endpoints for this user (stale browser endpoints).
+  // Never touch platform='ios' rows: the APNs token of the native app must
+  // survive the user opening the web app on desktop.
   await supabase
     .from('push_subscriptions' as any)
     .delete()
     .eq('user_id', user.id)
+    .eq('platform', 'web')
     .neq('endpoint', subscription.endpoint);
+}
+
+// ---------------------------------------------------------------------------
+// App native (Capacitor iOS) : le push passe par APNs, pas par le Web Push.
+// Le token device est stocké dans push_subscriptions avec platform='ios' et
+// endpoint='apns:<token>' — le relay send-push-notification route dessus.
+// ---------------------------------------------------------------------------
+
+/** register() APNs et attend le token (les events Capacitor sont asynchrones). */
+async function registerNativePush(): Promise<string> {
+  const { PushNotifications } = await import('@capacitor/push-notifications');
+  return await new Promise<string>((resolve, reject) => {
+    let settled = false;
+    const listeners: Array<Promise<{ remove(): Promise<void> }>> = [];
+    const cleanup = () => {
+      clearTimeout(timer);
+      listeners.forEach((p) => p.then((s) => s.remove()).catch(() => {}));
+    };
+    const timer = setTimeout(() => {
+      if (!settled) { settled = true; cleanup(); reject(new Error('APNs registration timeout')); }
+    }, 10000);
+    listeners.push(PushNotifications.addListener('registration', (token) => {
+      if (!settled) { settled = true; cleanup(); resolve(token.value); }
+    }));
+    listeners.push(PushNotifications.addListener('registrationError', (err) => {
+      if (!settled) { settled = true; cleanup(); reject(new Error(err.error)); }
+    }));
+    PushNotifications.register().catch((e) => {
+      if (!settled) { settled = true; cleanup(); reject(e); }
+    });
+  });
+}
+
+/** Upsert le token APNs courant et purge les anciens tokens ios de ce user. */
+async function syncNativeTokenToDb(token: string): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  const endpoint = `apns:${token}`;
+  await supabase
+    .from('push_subscriptions' as any)
+    .upsert({
+      user_id: user.id,
+      endpoint,
+      p256dh: null,
+      auth: null,
+      platform: 'ios',
+    }, { onConflict: 'user_id,endpoint' });
+  await supabase
+    .from('push_subscriptions' as any)
+    .delete()
+    .eq('user_id', user.id)
+    .eq('platform', 'ios')
+    .neq('endpoint', endpoint);
+}
+
+async function deleteNativeSubscription(): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  await supabase
+    .from('push_subscriptions' as any)
+    .delete()
+    .eq('user_id', user.id)
+    .eq('platform', 'ios');
 }
 
 export function usePushNotifications() {
@@ -60,6 +128,19 @@ export function usePushNotifications() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    // App native Capacitor : le push passe par APNs (plugin), pas par le SW.
+    // isPWA=true côté natif : toutes les surfaces qui gataient sur "iOS hors
+    // PWA = pas de push" (OnboardingGate, Settings) fonctionnent sans change.
+    if (isNative()) {
+      setIsiOS(true);
+      setIsPWA(true);
+      setIsSupported(true);
+      checkSubscription().finally(() => setReady(true));
+      const onSync = () => checkSubscription();
+      window.addEventListener('pushSubscriptionChanged', onSync);
+      return () => window.removeEventListener('pushSubscriptionChanged', onSync);
+    }
+
     const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     setIsiOS(isIOSDevice);
 
@@ -89,6 +170,38 @@ export function usePushNotifications() {
   }, []);
 
   const checkSubscription = async () => {
+    if (isNative()) {
+      try {
+        const { PushNotifications } = await import('@capacitor/push-notifications');
+        const perm = await PushNotifications.checkPermissions();
+        setPermission(perm.receive === 'granted' ? 'granted' : perm.receive === 'denied' ? 'denied' : 'default');
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setIsSubscribed(false); return; }
+        const { data } = await supabase
+          .from('push_subscriptions' as any)
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('platform', 'ios')
+          .limit(1);
+        const hasRow = !!(data && data.length > 0);
+        setIsSubscribed(hasRow);
+
+        // Auto-refresh : APNs peut faire tourner le token (réinstall, restore).
+        // Si l'utilisateur est déjà abonné, on re-register silencieusement.
+        if (hasRow && perm.receive === 'granted') {
+          try {
+            await syncNativeTokenToDb(await registerNativePush());
+          } catch (e) {
+            console.warn('[Push] Native token refresh failed:', e);
+          }
+        }
+      } catch {
+        setIsSubscribed(false);
+      }
+      return;
+    }
+
     try {
       if (!('serviceWorker' in navigator)) return;
       // Use the single workbox SW (push handlers are imported into it) — never a
@@ -114,6 +227,27 @@ export function usePushNotifications() {
   const subscribe = useCallback(async () => {
     if (!isSupported) throw new Error('Push notifications not supported');
     setIsLoading(true);
+
+    if (isNative()) {
+      try {
+        const { PushNotifications } = await import('@capacitor/push-notifications');
+        const perm = await PushNotifications.requestPermissions();
+        if (perm.receive !== 'granted') {
+          setPermission('denied');
+          throw new Error('Permission denied');
+        }
+        setPermission('granted');
+        await syncNativeTokenToDb(await registerNativePush());
+        setIsSubscribed(true);
+        window.dispatchEvent(new Event('pushSubscriptionChanged'));
+      } catch (error) {
+        console.error('[Push] Native subscribe error:', error);
+        throw error;
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
 
     try {
       const perm = await Notification.requestPermission();
@@ -146,6 +280,23 @@ export function usePushNotifications() {
 
   const unsubscribe = useCallback(async () => {
     setIsLoading(true);
+
+    if (isNative()) {
+      try {
+        await deleteNativeSubscription();
+        const { PushNotifications } = await import('@capacitor/push-notifications');
+        await PushNotifications.unregister().catch(() => {});
+        setIsSubscribed(false);
+        window.dispatchEvent(new Event('pushSubscriptionChanged'));
+      } catch (error) {
+        console.error('[Push] Native unsubscribe error:', error);
+        throw error;
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
     try {
       const registration = await navigator.serviceWorker.ready;
       if (!registration) { setIsSubscribed(false); return; }

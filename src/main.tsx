@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { HelmetProvider } from "react-helmet-async";
 import { registerSW } from "virtual:pwa-register";
+import { isNative } from "@/lib/native";
 import App from "./App.tsx";
 import "./index.css";
 
@@ -15,15 +16,20 @@ import "./index.css";
 // on their own — the browser only checks on navigation. The periodic
 // registration.update() below closes that gap: a deploy reaches every open tab
 // within ~30 minutes instead of "whenever the user next reloads".
-registerSW({
-  immediate: true,
-  onRegisteredSW(_swUrl, registration) {
-    if (!registration) return;
-    setInterval(() => {
-      registration.update().catch(() => {});
-    }, 30 * 60 * 1000);
-  },
-});
+//
+// App native Capacitor : pas de SW — les assets sont locaux au bundle et les
+// MàJ passent par Capgo (OTA) ou l'App Store. Le push natif passe par APNs.
+if (!isNative()) {
+  registerSW({
+    immediate: true,
+    onRegisteredSW(_swUrl, registration) {
+      if (!registration) return;
+      setInterval(() => {
+        registration.update().catch(() => {});
+      }, 30 * 60 * 1000);
+    },
+  });
+}
 
 // Log unhandled errors/rejections without crashing Vite's HMR state
 window.addEventListener('error', (event) => {

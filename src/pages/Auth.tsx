@@ -13,6 +13,7 @@ import { ArrowLeft, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { recordLegalAcceptance } from '@/lib/legal';
 import { legalContent } from '@/data/legalContent';
+import { isNative } from '@/lib/native';
 import { Check } from 'lucide-react';
 import yunoLogo from '@/assets/yuno-logo.png';
 
@@ -610,8 +611,10 @@ export default function Auth() {
             </div>
           )}
 
-          {/* Social login */}
-          {!isReset && !isForgotPassword && (
+          {/* Social login — masqué dans l'app native : Google bloque OAuth en
+              WebView, et afficher un login tiers déclencherait l'obligation
+              Sign in with Apple (guideline 4.8). Natif v1 = email/mdp. */}
+          {!isReset && !isForgotPassword && !isNative() && (
             <>
               <div className="flex items-center gap-3 my-5">
                 <div className="flex-1 yuno-divider" />
