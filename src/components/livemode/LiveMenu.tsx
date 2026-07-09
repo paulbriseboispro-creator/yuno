@@ -5,6 +5,7 @@
 // activée (venues.solo_bottle_sale_enabled).
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
+import { Search, X } from 'lucide-react';
 import { LiveDrinkCard } from '@/components/livemode/LiveDrinkCard';
 import { LiveBottleSection } from '@/components/livemode/LiveBottleSection';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,6 +15,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useLiveMode } from '@/contexts/LiveModeContext';
 import { useLiveInstantCheckout } from '@/hooks/useLiveInstantCheckout';
+import { getTranslatedDrinkName } from '@/lib/drinkTranslations';
 import { Drink } from '@/types';
 import { transitions } from '@/lib/motion';
 
@@ -21,13 +23,14 @@ type LiveCategory = 'drink' | 'shot' | 'soft' | 'bottle';
 
 export function LiveMenu() {
   const { session } = useLiveMode();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const addToCart = useStore((state) => state.addToCart);
   const { getFavoritesByType } = useFavorites();
   const [drinks, setDrinks] = useState<Drink[]>([]);
   const [category, setCategory] = useState<LiveCategory>('drink');
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
 
   const venueId = session?.venueId;
   const showBottles = !!session?.soloBottleSaleEnabled;
@@ -114,8 +117,20 @@ export function LiveMenu() {
 
   if (!session || (!showMenu && !showBottles)) return null;
 
+  const q = query.trim().toLowerCase();
+  const searching = q.length > 0;
+  // En recherche : on traverse TOUTES les catégories de boissons (pas les
+  // bouteilles) sur le nom (traduit + brut). Sinon, filtre par catégorie active.
   const visibleDrinks = drinks
-    .filter((d) => d.collection === category)
+    .filter((d) => {
+      if (searching) {
+        return (
+          getTranslatedDrinkName(d.name, language).toLowerCase().includes(q) ||
+          d.name.toLowerCase().includes(q)
+        );
+      }
+      return d.collection === category;
+    })
     .sort((a, b) => {
       const aFav = favoriteDrinkIds.includes(a.id);
       const bFav = favoriteDrinkIds.includes(b.id);
@@ -133,8 +148,41 @@ export function LiveMenu() {
         {t('live.menuTitle')}
       </h2>
 
-      {/* Chips catégories */}
-      {categories.length > 1 && (
+      {/* Barre de recherche — trouver une boisson en 1 frappe */}
+      {showMenu && (
+        <div className="mt-3 px-4">
+          <div
+            className="flex items-center gap-2 rounded px-3"
+            style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.1)', height: 44 }}
+          >
+            <Search className="h-4 w-4 shrink-0" style={{ color: '#5A5A5E' }} />
+            <input
+              type="text"
+              inputMode="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t('live.search.placeholder')}
+              aria-label={t('live.search.placeholder')}
+              className="min-w-0 flex-1 bg-transparent font-mono uppercase text-white outline-none placeholder:normal-case"
+              style={{ fontSize: 12, letterSpacing: '0.04em' }}
+            />
+            {searching && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                aria-label={t('common.cancel')}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
+                style={{ background: 'rgba(255,255,255,0.08)' }}
+              >
+                <X className="h-3.5 w-3.5 text-white" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Chips catégories — masquées pendant une recherche */}
+      {!searching && categories.length > 1 && (
         <div className="mt-3 flex gap-2 overflow-x-auto px-4 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {categories.map((c) => {
             const active = c.key === category;
@@ -162,14 +210,16 @@ export function LiveMenu() {
       )}
 
       <div className="px-4 pt-3">
-        {category === 'bottle' ? (
+        {!searching && category === 'bottle' ? (
           <LiveBottleSection />
         ) : loading ? (
           <div className="flex justify-center py-10">
             <div className="h-7 w-7 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           </div>
         ) : visibleDrinks.length === 0 ? (
-          <p className="py-8 text-center text-muted-foreground text-sm">{t('venue.noDrinks')}</p>
+          <p className="py-8 text-center text-muted-foreground text-sm">
+            {searching ? t('live.search.empty') : t('venue.noDrinks')}
+          </p>
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {visibleDrinks.map((drink) => (

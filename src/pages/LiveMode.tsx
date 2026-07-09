@@ -20,7 +20,7 @@ import { LiveOrderStatus } from '@/components/livemode/LiveOrderStatus';
 import { LiveReorderCard } from '@/components/livemode/LiveReorderCard';
 import { LiveTablesUpsell } from '@/components/livemode/LiveTablesUpsell';
 import { LiveMenu } from '@/components/livemode/LiveMenu';
-import { DrinkCreditsCard } from '@/components/upsell/DrinkCreditsCard';
+import { LiveFreeDrinks } from '@/components/livemode/LiveFreeDrinks';
 import { CartButton } from '@/components/CartButton';
 import { transitions } from '@/lib/motion';
 
@@ -120,10 +120,8 @@ export default function LiveMode() {
         {/* Commandes en cours (statut temps réel + QR/PIN) */}
         <LiveOrderStatus eventId={session.eventId} />
 
-        {/* Crédits conso de la soirée */}
-        <div className="mx-4 mt-4">
-          <DrinkCreditsCard venueId={session.venueId} compact />
-        </div>
+        {/* Boissons offertes de la soirée (crédits conso liés à l'événement) */}
+        <LiveFreeDrinks />
 
         {/* Re-commande 1 tap */}
         <LiveReorderCard />
