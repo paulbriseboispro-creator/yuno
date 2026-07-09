@@ -151,19 +151,21 @@ export function RoleAccessCards({
   const NEUTRAL = '#E5E5E5';
   const NEUTRAL_BG = 'rgba(255,255,255,0.05)';
 
+  // security : hint du niveau d'accès affiché sur la carte — 'mfa' (owner)
+  // ou 'pin' (rôles staff / PIN). L'utilisateur sait à quoi s'attendre au tap.
   const roles = [
-    { show: isAdmin, icon: Shield, label: t('profile.adminDashboard'), path: '/admin', role: 'admin', color: ACCENT, bg: ACCENT_BG },
-    { show: isOwner, icon: Crown, label: t('profile.ownerDashboard'), path: '/owner', role: 'owner', color: RARE, bg: RARE_BG },
-    { show: isManager, icon: Briefcase, label: t('profile.managerDashboard'), path: '/manager', role: 'manager', color: NEUTRAL, bg: NEUTRAL_BG },
-    { show: isPromoter, icon: Megaphone, label: t('profile.promoterDashboard'), path: '/promoter', role: 'promoter', color: NEUTRAL, bg: NEUTRAL_BG },
-    { show: isDJ, icon: Music, label: t('profile.djDashboard'), path: '/dj', role: 'dj', color: NEUTRAL, bg: NEUTRAL_BG },
-    { show: isBarman, icon: Wine, label: t('profile.barmanDashboard'), path: '/barman', role: 'barman', color: NEUTRAL, bg: NEUTRAL_BG },
-    { show: isBouncer, icon: UserCheck, label: t('profile.bouncerDashboard'), path: '/bouncer', role: 'bouncer', color: NEUTRAL, bg: NEUTRAL_BG },
-    { show: isVipHost, icon: Crown, label: t('profile.vipHostDashboard'), path: '/vip-host', role: 'vip_host', color: RARE, bg: RARE_BG },
-    { show: isCloakroom, icon: Shirt, label: t('profile.cloakroomDashboard'), path: '/cloakroom', role: 'cloakroom', color: NEUTRAL, bg: NEUTRAL_BG },
-    { show: isOrganizer, icon: Building2, label: t('profile.organizerDashboard'), path: '/organizer-app', role: 'organizer', color: NEUTRAL, bg: NEUTRAL_BG },
-    { show: isAffiliate, icon: Link2, label: t('profile.affiliateDashboard'), path: '/affiliate', role: 'affiliate', color: NEUTRAL, bg: NEUTRAL_BG },
-    { show: isAffiliatePromoter, icon: Megaphone, label: t('profile.affiliatePromoterDashboard') || 'Espace Promoteur', path: '/affiliate/promoteur', role: 'affiliate_member', color: NEUTRAL, bg: NEUTRAL_BG },
+    { show: isAdmin, icon: Shield, label: t('profile.adminDashboard'), path: '/admin', role: 'admin', color: ACCENT, bg: ACCENT_BG, security: 'mfa' as const },
+    { show: isOwner, icon: Crown, label: t('profile.ownerDashboard'), path: '/owner', role: 'owner', color: RARE, bg: RARE_BG, security: 'mfa' as const },
+    { show: isManager, icon: Briefcase, label: t('profile.managerDashboard'), path: '/manager', role: 'manager', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
+    { show: isPromoter, icon: Megaphone, label: t('profile.promoterDashboard'), path: '/promoter', role: 'promoter', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
+    { show: isDJ, icon: Music, label: t('profile.djDashboard'), path: '/dj', role: 'dj', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
+    { show: isBarman, icon: Wine, label: t('profile.barmanDashboard'), path: '/barman', role: 'barman', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
+    { show: isBouncer, icon: UserCheck, label: t('profile.bouncerDashboard'), path: '/bouncer', role: 'bouncer', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
+    { show: isVipHost, icon: Crown, label: t('profile.vipHostDashboard'), path: '/vip-host', role: 'vip_host', color: RARE, bg: RARE_BG, security: 'pin' as const },
+    { show: isCloakroom, icon: Shirt, label: t('profile.cloakroomDashboard'), path: '/cloakroom', role: 'cloakroom', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
+    { show: isOrganizer, icon: Building2, label: t('profile.organizerDashboard'), path: '/organizer-app', role: 'organizer', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
+    { show: isAffiliate, icon: Link2, label: t('profile.affiliateDashboard'), path: '/affiliate', role: 'affiliate', color: NEUTRAL, bg: NEUTRAL_BG, security: undefined },
+    { show: isAffiliatePromoter, icon: Megaphone, label: t('profile.affiliatePromoterDashboard') || 'Espace Promoteur', path: '/affiliate/promoteur', role: 'affiliate_member', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
   ];
 
   const visibleRoles = roles.filter(r => r.show);
@@ -184,7 +186,14 @@ export function RoleAccessCards({
               <div className="flex items-center justify-center h-9 w-9 shrink-0" style={{ background: role.bg, borderRadius: 3 }}>
                 <Icon className="h-[18px] w-[18px]" style={{ color: role.color }} />
               </div>
-              <span className="font-mono uppercase flex-1 text-left" style={{ fontSize: '11px', letterSpacing: '0.06em', color: '#E5E5E5' }}>{role.label}</span>
+              <span className="flex-1 text-left">
+                <span className="block font-mono uppercase" style={{ fontSize: '11px', letterSpacing: '0.06em', color: '#E5E5E5' }}>{role.label}</span>
+                {role.security && (
+                  <span className="block font-mono uppercase" style={{ fontSize: '9px', letterSpacing: '0.08em', color: '#5A5A5E', marginTop: 2 }}>
+                    {role.security === 'mfa' ? t('profile.securityMfa') : t('profile.securityPin')}
+                  </span>
+                )}
+              </span>
               <ChevronRight className="h-4 w-4" style={{ color: '#5A5A5E' }} />
             </button>
           );

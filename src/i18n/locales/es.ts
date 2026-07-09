@@ -10852,6 +10852,9 @@ const es: Record<string, string> = {
   'offline.drawer.syncNow': 'Sincronizar ahora',
   'offline.drawer.waitingNetwork': 'Esperando red…',
 
+  'profile.securityMfa': 'MFA requerido',
+  'profile.securityPin': 'PIN requerido',
+
 };
 
 export default es;

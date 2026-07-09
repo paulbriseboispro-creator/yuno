@@ -10738,6 +10738,9 @@ const en: Record<string, string> = {
   'offline.drawer.syncNow': 'Sync now',
   'offline.drawer.waitingNetwork': 'Waiting for network…',
 
+  'profile.securityMfa': 'MFA required',
+  'profile.securityPin': 'PIN required',
+
 };
 
 export default en;
