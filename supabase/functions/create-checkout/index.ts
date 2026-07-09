@@ -37,6 +37,10 @@ interface ValidatedItem {
   price: number;
   quantity: number;
   collection: string;
+  /** 'bottle' = vip_menu_items vendue sans table (Mode Live). */
+  kind?: "drink" | "bottle";
+  /** Noms des mixers inclus (par unité) — le prix unitaire les inclut déjà. */
+  mixers?: string[];
 }
 
 /**
@@ -271,51 +275,143 @@ serve(async (req) => {
       chargesEnabled: venue.stripe_charges_enabled,
     });
 
+    // Partition drinks / bouteilles solo (Mode Live) : les boissons se valident
+    // contre `drinks`, les bouteilles contre `vip_menu_items` (une seule source
+    // de vérité prix chacune).
+    const drinkRequests = items.filter(
+      (item: { kind?: string }) => item.kind !== "bottle"
+    );
+    const bottleRequests = items.filter(
+      (item: { kind?: string }) => item.kind === "bottle"
+    );
+
     // SERVER-SIDE PRICE VALIDATION: Fetch drink prices from database
-    const drinkIds = items.map((item: { id: string }) => item.id);
-    const { data: drinks, error: drinksError } = await supabaseAdmin
-      .from("drinks")
-      .select("id, price, promo_price, presale_price, presale_active, name, active, collection")
-      .eq("venue_id", venueId)
-      .in("id", drinkIds);
-
-    if (drinksError) throw new Error("Failed to fetch drink prices");
-    if (!drinks || drinks.length === 0)
-      throw new Error("No valid drinks found");
-
-    // Validate all items and calculate server-side total
     let calculatedTotal = 0;
     const validatedItems: ValidatedItem[] = [];
 
-    for (const item of items) {
-      const drink = drinks.find((d: { id: string }) => d.id === item.id);
-      if (!drink) throw new Error(`Drink ${item.id} not found in venue`);
-      if (!drink.active)
-        throw new Error(`Drink ${drink.name} is not available`);
+    if (drinkRequests.length > 0) {
+      const drinkIds = drinkRequests.map((item: { id: string }) => item.id);
+      const { data: drinks, error: drinksError } = await supabaseAdmin
+        .from("drinks")
+        .select("id, price, promo_price, presale_price, presale_active, name, active, collection")
+        .eq("venue_id", venueId)
+        .in("id", drinkIds);
 
-      const quantity = parseInt(item.quantity);
-      if (!quantity || quantity < 1 || quantity > 50)
-        throw new Error(`Invalid quantity for ${drink.name}`);
+      if (drinksError) throw new Error("Failed to fetch drink prices");
+      if (!drinks || drinks.length === 0)
+        throw new Error("No valid drinks found");
 
-      // Price precedence MUST mirror the client (useStore.ts addToCart): presale
-      // wins, then promo_price (whenever set), then the regular price. Skipping
-      // promo_price here is what charged the client full price on promo drinks.
-      const serverPrice =
-        drink.presale_active && drink.presale_price
-          ? drink.presale_price
-          : drink.promo_price
-            ? drink.promo_price
-            : drink.price;
-      calculatedTotal += serverPrice * quantity;
+      for (const item of drinkRequests) {
+        const drink = drinks.find((d: { id: string }) => d.id === item.id);
+        if (!drink) throw new Error(`Drink ${item.id} not found in venue`);
+        if (!drink.active)
+          throw new Error(`Drink ${drink.name} is not available`);
 
-      validatedItems.push({
-        id: drink.id,
-        name: drink.name,
-        price: serverPrice,
-        quantity,
-        collection: drink.collection || "",
-      });
+        const quantity = parseInt(item.quantity);
+        if (!quantity || quantity < 1 || quantity > 50)
+          throw new Error(`Invalid quantity for ${drink.name}`);
+
+        // Price precedence MUST mirror the client (useStore.ts addToCart): presale
+        // wins, then promo_price (whenever set), then the regular price. Skipping
+        // promo_price here is what charged the client full price on promo drinks.
+        const serverPrice =
+          drink.presale_active && drink.presale_price
+            ? drink.presale_price
+            : drink.promo_price
+              ? drink.promo_price
+              : drink.price;
+        calculatedTotal += serverPrice * quantity;
+
+        validatedItems.push({
+          id: drink.id,
+          name: drink.name,
+          price: serverPrice,
+          quantity,
+          collection: drink.collection || "",
+        });
+      }
     }
+
+    // BOUTEILLES SOLO (Mode Live) : validées contre vip_menu_items. Gate :
+    // venues.solo_bottle_sale_enabled + solo_sale_enabled par item + catégorie
+    // vendable. Prix serveur = bouteille + mixers (par unité) — miroir exact du
+    // client (useStore.addBottleToCart).
+    if (bottleRequests.length > 0) {
+      const { data: soloVenue } = await supabaseAdmin
+        .from("venues")
+        .select("solo_bottle_sale_enabled")
+        .eq("id", venueId)
+        .single();
+      if (!soloVenue?.solo_bottle_sale_enabled)
+        throw new Error("Solo bottle sale is not enabled for this venue");
+
+      const bottleIds = bottleRequests.map((item: { id: string }) => item.id);
+      const mixerIds = [
+        ...new Set(
+          bottleRequests.flatMap(
+            (item: { mixerIds?: string[] }) => item.mixerIds ?? []
+          )
+        ),
+      ];
+      const { data: vipItems, error: vipError } = await supabaseAdmin
+        .from("vip_menu_items")
+        .select("id, name, brand, volume_cl, category, price, is_active, solo_sale_enabled, needs_mixer, max_mixers")
+        .eq("venue_id", venueId)
+        .in("id", [...bottleIds, ...mixerIds]);
+
+      if (vipError) throw new Error("Failed to fetch bottle prices");
+
+      for (const item of bottleRequests) {
+        const bottle = (vipItems ?? []).find(
+          (b: { id: string }) => b.id === item.id
+        );
+        if (!bottle) throw new Error(`Bottle ${item.id} not found in venue`);
+        if (!bottle.is_active || bottle.solo_sale_enabled === false)
+          throw new Error(`Bottle ${bottle.name} is not available for solo sale`);
+        if (["mixer", "extra"].includes(bottle.category))
+          throw new Error(`Item ${bottle.name} cannot be sold as a bottle`);
+
+        const quantity = parseInt(item.quantity);
+        if (!quantity || quantity < 1 || quantity > 50)
+          throw new Error(`Invalid quantity for ${bottle.name}`);
+
+        const requestedMixerIds: string[] = item.mixerIds ?? [];
+        if (requestedMixerIds.length > Math.max(1, bottle.max_mixers ?? 1))
+          throw new Error(`Too many mixers for ${bottle.name}`);
+
+        let mixersTotal = 0;
+        const mixerNames: string[] = [];
+        for (const mixerId of requestedMixerIds) {
+          const mixer = (vipItems ?? []).find(
+            (m: { id: string }) => m.id === mixerId
+          );
+          if (!mixer || !mixer.is_active)
+            throw new Error(`Mixer ${mixerId} not found in venue`);
+          if (!["mixer", "soft"].includes(mixer.category))
+            throw new Error(`Item ${mixer.name} is not a mixer`);
+          mixersTotal += Number(mixer.price) || 0;
+          mixerNames.push(mixer.name);
+        }
+
+        const serverPrice =
+          Math.round((Number(bottle.price) + mixersTotal) * 100) / 100;
+        calculatedTotal += serverPrice * quantity;
+
+        validatedItems.push({
+          id: bottle.id,
+          name: [bottle.name, bottle.volume_cl ? `${bottle.volume_cl}cl` : null]
+            .filter(Boolean)
+            .join(" "),
+          price: serverPrice,
+          quantity,
+          collection: "bottle",
+          kind: "bottle",
+          mixers: mixerNames,
+        });
+      }
+    }
+
+    if (validatedItems.length === 0) throw new Error("No valid items found");
 
     logStep("Prices validated server-side", {
       calculatedTotal,
@@ -339,9 +435,12 @@ serve(async (req) => {
       free_qty: r.free_qty ?? 1,
     }));
 
+    // Les règles d'upsell ciblent les collections de boissons — jamais les
+    // bouteilles solo (une règle sans trigger_collection ne doit pas offrir
+    // une bouteille).
     const { totalDiscount, activeRuleId } = applyCartRules(
       cartRules,
-      validatedItems
+      validatedItems.filter((i) => i.kind !== "bottle")
     );
 
     const discountedTotal = Math.round((calculatedTotal - totalDiscount) * 100) / 100;
@@ -545,7 +644,10 @@ serve(async (req) => {
         price_data: {
           currency: "eur",
           product_data: {
-            name: item.name,
+            // Bouteille solo : les mixers inclus apparaissent sur la ligne Stripe.
+            name: item.mixers?.length
+              ? `${item.name} (+ ${item.mixers.join(", ")})`
+              : item.name,
           },
           unit_amount: Math.round(item.price * 100),
         },
