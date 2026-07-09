@@ -20,6 +20,7 @@ import { fr, es, enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { ArrowLeft, Clock, Wine, CheckCircle, Ticket, LogIn, PartyPopper, Calendar } from 'lucide-react';
 import QRCode from 'qrcode';
+import { haptics } from '@/lib/haptics';
 
 interface GuestListInfo {
   id: string;
@@ -219,6 +220,7 @@ export default function GuestListCheckout() {
       }
 
       setSuccess(true);
+      haptics.success();
       toast.success(t('guestList.registrationSuccess'));
     } catch (err: any) {
       let msg = err?.message || t('guestList.registrationError');

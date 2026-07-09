@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { transitions, useReducedMotion } from '@/lib/motion';
+import { haptics } from '@/lib/haptics';
 import { Check, Clock, MapPin, Ticket, ArrowLeft, FileText, Download, CalendarPlus, Navigation, Share2, Mail, QrCode } from 'lucide-react';
 import { FavoriteButton } from '@/components/FavoriteButton';
 import { downloadICS } from '@/lib/calendar';
@@ -107,6 +108,12 @@ export default function OrderConfirmation() {
       setLoading(false);
     }
   }, [type, id]);
+
+  // Haptic de célébration synchronisé avec le badge « Confirmé » (spring
+  // transitions.celebrate) : une seule fois, quand la confirmation s'affiche.
+  useEffect(() => {
+    if (!loading && data) haptics.success();
+  }, [loading, data]);
 
   const fetchData = async () => {
     try {

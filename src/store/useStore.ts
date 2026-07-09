@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { CartItem, Order, Drink, Role } from '@/types';
 import { v4 as uuidv4 } from 'uuid';
 import { drinks as seedDrinks, mockOrders } from '@/data/seeds';
+import { haptics } from '@/lib/haptics';
 
 interface StoreState {
   // Cart
@@ -50,6 +51,7 @@ export const useStore = create<StoreState>()(
         // Use presale price if presaleActive is true AND presalePrice exists
         let unitPrice = drink.price;
         if (drink.presaleActive && drink.presalePrice) {
+        haptics.selection();
           unitPrice = drink.presalePrice;
         } else if (drink.promoPrice) {
           unitPrice = drink.promoPrice;
