@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
+import { dispatchPushAutomations } from "../_shared/push-automations.ts";
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type' };
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -81,7 +82,17 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ processed, pushProcessed }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    // Notifications push AUTOMATIQUES (cycle de vie des soirées) — activées par
+    // les clubs, envoyées au bon moment. Best-effort : un échec ici ne casse
+    // pas le traitement des campagnes planifiées ci-dessus.
+    let autoPush = { processed: 0, sent: 0 };
+    try {
+      autoPush = await dispatchPushAutomations(admin, SUPABASE_URL, SERVICE_KEY);
+    } catch (e) {
+      console.error('[AUTO-PUSH] dispatch failed:', String(e));
+    }
+
+    return new Response(JSON.stringify({ processed, pushProcessed, autoPush }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }

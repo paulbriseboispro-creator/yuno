@@ -477,6 +477,22 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         ],
       },
       {
+        id: 'push-notifications',
+        titleKey: 'ohelp.pg.push.title',
+        descKey: 'ohelp.pg.push.desc',
+        icon: 'Bell',
+        actionLink: { labelKey: 'ohelp.action.goToPush', path: '/push' },
+        relatedArticleIds: ['email-campaigns', 'sms-credits', 'crm-setup'],
+        keywords: ['push', 'notification', 'notif', 'automatique', 'auto', 'automation', 'soirée live', 'event live', 'remerciement', 'thank you', 'rappel', 'reminder', 'bientôt complet', 'almost sold out', 'happy hour', 'tables vip', 'guest list', 'campagne push', 'notificación', 'automática'],
+        sections: [
+          { headingKey: 'ohelp.pg.push.s1h', bodyKey: 'ohelp.pg.push.s1b' },
+          { headingKey: 'ohelp.pg.push.s2h', bodyKey: 'ohelp.pg.push.s2b' },
+          { headingKey: 'ohelp.pg.push.s3h', bodyKey: 'ohelp.pg.push.s3b', type: 'steps' },
+          { headingKey: 'ohelp.pg.push.s4h', bodyKey: 'ohelp.pg.push.s4b' },
+          { headingKey: 'ohelp.pg.push.s5h', bodyKey: 'ohelp.pg.push.s5b', type: 'tip' },
+        ],
+      },
+      {
         id: 'sms-credits',
         titleKey: 'ohelp.pg.sms.title',
         descKey: 'ohelp.pg.sms.desc',

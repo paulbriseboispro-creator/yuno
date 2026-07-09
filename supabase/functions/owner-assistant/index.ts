@@ -201,6 +201,12 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     path: "/owner/sms",
     snippet: "Les campagnes SMS fonctionnent avec des crédits prépayés : achète des crédits depuis la page SMS, puis compose et cible ta campagne comme pour l'email. Le solde de crédits restants est affiché avant chaque envoi.",
   },
+  "push-notifications": {
+    title: "Notifications push",
+    keywords: ["push", "notification", "notif", "automatique", "auto", "soirée live", "event live", "remerciement", "thank you", "rappel", "reminder", "bientôt complet", "sold out", "happy hour", "tables vip", "guest list", "campagne push"],
+    path: "/owner/push",
+    snippet: "La page Notifications push a DEUX familles bien séparées. 1) AUTOMATIQUES : tu actives un toggle, Yuno envoie tout seul au bon moment — Rappel jour J (6 h avant, aux acheteurs), La soirée commence (à l'ouverture, aux acheteurs), Remerciement (après la soirée, aux clients entrés), Bientôt complet (à 85 % de billets vendus, aux followers). Désactivées par défaut, chacune ne part qu'une fois par soirée et dans la langue de chaque client, et ne compte PAS dans la limite de 4 campagnes/24 h. 2) MANUELLES : tu composes et envoies un push ponctuel (Promotion, Happy hour, Dernières places, Tables VIP, Guest list, Concours ou message libre), en ciblant l'audience (acheteurs, clients entrés, followers, segment). Plafond 4 campagnes/24 h.",
+  },
   "refund-management": {
     title: "Remboursements",
     keywords: ["remboursement", "refund", "rembourser", "annulation", "cancel", "litige", "client mécontent"],

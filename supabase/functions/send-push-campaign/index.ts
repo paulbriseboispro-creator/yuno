@@ -239,6 +239,7 @@ Deno.serve(async (req) => {
         .from('push_campaigns')
         .select('id', { count: 'exact', head: true })
         .eq('venue_id', body.venue_id)
+        .eq('source', 'manual')  // les campagnes AUTO ne consomment pas le cap manuel
         .gte('created_at', dayAgo);
       if ((count ?? 0) >= OWNER_MAX_CAMPAIGNS_PER_24H) {
         return json(429, { error: 'campaign_rate_limited', limit: OWNER_MAX_CAMPAIGNS_PER_24H });

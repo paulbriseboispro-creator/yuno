@@ -1,14 +1,18 @@
 import { useState, useEffect, useMemo } from 'react';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
-import { Bell, Send, Loader2, Clock, Users } from 'lucide-react';
+import { Bell, Send, Loader2, Clock, Users, Zap, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { PUSH_TEMPLATES, renderPushTemplate, type PushTemplate } from '@/lib/pushTemplates';
+import {
+  PUSH_TEMPLATES, PUSH_AUTOMATIONS, renderPushTemplate,
+  type PushTemplate, type PushAutomation,
+} from '@/lib/pushTemplates';
 import { eventPath } from '@/lib/eventUrl';
 
 // ─── Yuno Design Tokens (pro dashboard) ──────────────────────────────────────
@@ -51,6 +55,7 @@ type Campaign = {
   failed_count?: number;
   targeted_count?: number;
   template_key?: string | null;
+  source?: string | null;
   created_at: string;
 };
 
@@ -82,6 +87,8 @@ export default function OwnerPush() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [clicks, setClicks] = useState<Record<string, number>>({});
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [automations, setAutomations] = useState<Record<string, boolean>>({});
+  const [togglingKey, setTogglingKey] = useState<string | null>(null);
 
   const scope = audience === 'rfm' ? `rfm:${rfmSegment}` : audience;
   const needsEvent = audience === 'event_tickets' || audience === 'checked_in';
@@ -131,6 +138,50 @@ export default function OwnerPush() {
   };
 
   useEffect(() => { fetchHistory(); }, [venueId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // État des automatisations du club (toggles opt-in, désactivés par défaut).
+  useEffect(() => {
+    if (!venueId) return;
+    supabase
+      .from('venue_push_automations' as never)
+      .select('automation_key, enabled')
+      .eq('venue_id', venueId)
+      .then(({ data }) => {
+        const map: Record<string, boolean> = {};
+        (((data as unknown) as Array<{ automation_key: string; enabled: boolean }>) || [])
+          .forEach((r) => { map[r.automation_key] = r.enabled; });
+        setAutomations(map);
+      });
+  }, [venueId]);
+
+  const toggleAutomation = async (key: string) => {
+    if (!venueId || togglingKey) return;
+    setTogglingKey(key);
+    const next = !automations[key];
+    // Optimiste : la carte réagit tout de suite, on revient en arrière si erreur.
+    setAutomations((p) => ({ ...p, [key]: next }));
+    try {
+      const { error } = await supabase
+        .from('venue_push_automations' as never)
+        .upsert(
+          { venue_id: venueId, automation_key: key, enabled: next, updated_at: new Date().toISOString() } as never,
+          { onConflict: 'venue_id,automation_key' },
+        );
+      if (error) throw error;
+      toast.success(next ? t('ownerPush.autoEnabled') : t('ownerPush.autoDisabled'));
+    } catch {
+      setAutomations((p) => ({ ...p, [key]: !next }));
+      toast.error(t('ownerPush.autoError'));
+    } finally {
+      setTogglingKey(null);
+    }
+  };
+
+  // Valeurs d'aperçu pour les cartes d'automatisation (soirée à venir la plus proche).
+  const autoPreviewValues = useMemo(() => ({
+    venue: venue?.name || '',
+    event: events[0]?.title || t('ownerPush.autoSampleEvent'),
+  }), [venue?.name, events, t]);
 
   // Interpolation live du template tant que l'owner n'a pas édité à la main.
   const templateValues = useMemo(() => ({
@@ -260,11 +311,71 @@ export default function OwnerPush() {
           </div>
         </div>
 
-        {/* Étape 1 — Templates */}
+        {/* ─── Notifications AUTOMATIQUES ──────────────────────────────── */}
         <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 22 }}>
-          <h3 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em', marginBottom: 16 }}>
-            {t('ownerPush.chooseTemplate')}
-          </h3>
+          <div className="flex items-start gap-2.5 mb-1">
+            <Zap className="h-4 w-4 mt-0.5 flex-none" style={{ color: RED }} />
+            <div>
+              <h3 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>
+                {t('ownerPush.autoSectionTitle')}
+              </h3>
+              <p style={{ color: T3, fontSize: 12.5, marginTop: 3, lineHeight: 1.5 }}>{t('ownerPush.autoSectionSubtitle')}</p>
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-3 mt-4">
+            {PUSH_AUTOMATIONS.map((auto: PushAutomation) => {
+              const on = !!automations[auto.key];
+              const previewTitle = renderPushTemplate(t(auto.titleKey), autoPreviewValues);
+              const previewBody = renderPushTemplate(t(auto.bodyKey), autoPreviewValues);
+              return (
+                <div
+                  key={auto.key}
+                  className="p-4 rounded-xl transition-all duration-150"
+                  style={{
+                    background: on ? 'rgba(232,25,44,0.07)' : TILE_BG,
+                    border: `1px solid ${on ? 'rgba(232,25,44,0.28)' : F_BORDER}`,
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <span style={{ fontSize: 20, lineHeight: 1 }}>{auto.emoji}</span>
+                      <div className="min-w-0">
+                        <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t(`ownerPush.autoName.${auto.key}`)}</p>
+                        <p style={{ color: T3, fontSize: 11.5, marginTop: 2, lineHeight: 1.45 }}>{t(`ownerPush.autoWhen.${auto.key}`)}</p>
+                      </div>
+                    </div>
+                    <Switch checked={on} onCheckedChange={() => toggleAutomation(auto.key)} disabled={togglingKey === auto.key} />
+                  </div>
+
+                  {/* Aperçu du message envoyé automatiquement */}
+                  <div className="rounded-lg p-2.5 mt-3" style={{ background: INNER_BG, border: `1px solid ${F_BORDER}` }}>
+                    <p className="truncate" style={{ color: T2, fontSize: 11.5, fontWeight: 600 }}>{previewTitle}</p>
+                    <p style={{ color: T3, fontSize: 11, lineHeight: 1.4, marginTop: 2 }}>{previewBody}</p>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 mt-2.5">
+                    <Users className="h-3 w-3" style={{ color: T3 }} />
+                    <span style={{ color: T3, fontSize: 10.5 }}>{t(auto.audienceKey)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p style={{ color: T3, fontSize: 11, marginTop: 14, lineHeight: 1.5 }}>{t('ownerPush.autoFootnote')}</p>
+        </div>
+
+        {/* ─── Notifications MANUELLES ─────────────────────────────────── */}
+        <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 22 }}>
+          <div className="flex items-start gap-2.5 mb-4">
+            <Sparkles className="h-4 w-4 mt-0.5 flex-none" style={{ color: T2 }} />
+            <div>
+              <h3 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>
+                {t('ownerPush.manualSectionTitle')}
+              </h3>
+              <p style={{ color: T3, fontSize: 12.5, marginTop: 3, lineHeight: 1.5 }}>{t('ownerPush.manualSectionSubtitle')}</p>
+            </div>
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {PUSH_TEMPLATES.map((tpl) => (
               <button
@@ -470,6 +581,15 @@ export default function OwnerPush() {
                     <p className="font-[560] truncate" style={{ color: T1, fontSize: 13 }}>{c.title}</p>
                     <p className="truncate" style={{ color: T3, fontSize: 12, marginTop: 2 }}>{c.body}</p>
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      {c.source === 'auto' && (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full"
+                          style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.25)', color: RED, fontSize: 10, fontWeight: 600 }}
+                        >
+                          <Zap className="h-2.5 w-2.5" />
+                          {t('ownerPush.autoBadge')}
+                        </span>
+                      )}
                       {c.template_key && c.template_key !== 'custom' && (
                         <span
                           className="inline-flex items-center px-2 py-0.5 rounded-full"
