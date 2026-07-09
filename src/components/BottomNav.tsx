@@ -20,15 +20,18 @@ interface ClubNavItem {
 
 type NavItem = RegularNavItem | ClubNavItem;
 
-// Lozenge de verre « liquid glass » (inspiré de la bottom nav Instagram iOS) :
-// une pastille frostée qui glisse en ressort d'un onglet à l'autre via un
-// partage de layout framer (layoutId). Verre neutre + halo rouge Yuno pour
-// rester sur la marque tout en gardant l'icône rouge active bien lisible.
+// Lozenge « liquid glass » (bottom nav Instagram iOS 26) qui glisse en ressort
+// d'un onglet à l'autre via le partage de layout framer (layoutId). Verre rouge
+// Yuno : rim spéculaire blanc en haut → corps teinté rouge → halo rouge autour.
+// L'icône active passe en blanc pour ressortir franchement sur le verre rouge.
 const GLASS_PILL_STYLE: React.CSSProperties = {
-  background: 'linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.045) 100%)',
-  border: '1px solid rgba(255,255,255,0.16)',
+  background:
+    'linear-gradient(180deg, rgba(255,255,255,0.30) 0%, rgba(232,25,44,0.34) 48%, rgba(232,25,44,0.16) 100%)',
+  border: '1px solid rgba(255,255,255,0.30)',
   boxShadow:
-    'inset 0 1px 0.5px rgba(255,255,255,0.30), inset 0 -8px 14px rgba(0,0,0,0.12), 0 3px 10px rgba(0,0,0,0.28), 0 0 16px rgba(232,25,44,0.22)',
+    'inset 0 1.5px 0.5px rgba(255,255,255,0.60), inset 0 -8px 14px rgba(232,25,44,0.22), 0 4px 14px rgba(0,0,0,0.35), 0 0 22px rgba(232,25,44,0.45)',
+  backdropFilter: 'blur(8px) saturate(1.5)',
+  WebkitBackdropFilter: 'blur(8px) saturate(1.5)',
 };
 
 export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
@@ -40,12 +43,12 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
   const reduceMotion = useReducedMotion();
   // Surface haute fréquence (onglets tapés des dizaines de fois/jour) → press
   // subtil, état par la couleur. Reduced-motion → léger fondu, pas de scale.
-  const tabTap = reduceMotion ? { opacity: 0.6 } : { scale: 0.94 };
+  const tabTap = reduceMotion ? { opacity: 0.6 } : { scale: 0.92 };
   // Le lozenge glisse en ressort ; reduced-motion → apparition en fondu, sans
   // déplacement (layoutId désactivé plus bas).
   const pillTransition = reduceMotion
     ? { duration: 0.2 }
-    : { type: 'spring' as const, stiffness: 480, damping: 34, mass: 0.7 };
+    : { type: 'spring' as const, stiffness: 460, damping: 32, mass: 0.7 };
 
   // Preserve --bottom-nav-height CSS variable
   useEffect(() => {
@@ -104,20 +107,21 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
       }}
     >
         <div
-          className="mx-auto max-w-lg px-3 pb-2"
+          className="mx-auto max-w-lg px-3 pb-2.5"
           style={{ pointerEvents: 'auto' }}
         >
         <div
-          className="relative flex items-end justify-around rounded-2xl px-2 pt-1.5 pb-1.5"
+          className="relative flex items-end justify-around rounded-[26px] px-2 pt-1.5 pb-1.5"
           style={{
-            // Verre plus translucide qu'avant (0.92 → 0.74) : le flou lit enfin
-            // comme du givre, façon capsule Instagram. saturate ravive le fond.
-            background: 'rgba(12,12,14,0.74)',
-            backdropFilter: 'blur(28px) saturate(1.6)',
-            WebkitBackdropFilter: 'blur(28px) saturate(1.6)',
-            border: '1px solid rgba(255,255,255,0.09)',
+            // Capsule de verre flottante, façon liquid glass iOS 26 : très
+            // translucide (0.58) + gros flou + saturation → le fond défile,
+            // givré, derrière la barre. Rim spéculaire haut + ombre portée.
+            background: 'rgba(14,14,18,0.58)',
+            backdropFilter: 'blur(34px) saturate(1.9)',
+            WebkitBackdropFilter: 'blur(34px) saturate(1.9)',
+            border: '1px solid rgba(255,255,255,0.12)',
             boxShadow:
-              'inset 0 1px 0 rgba(255,255,255,0.08), 0 -1px 0 rgba(255,255,255,0.04), 0 -4px 24px rgba(0,0,0,0.6)',
+              'inset 0 1px 0 rgba(255,255,255,0.16), inset 0 -1px 1px rgba(0,0,0,0.4), 0 10px 34px rgba(0,0,0,0.55), 0 2px 10px rgba(0,0,0,0.4)',
           }}
         >
           <LayoutGroup id="bottom-nav">
@@ -136,8 +140,8 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
                     style={{
                       marginTop: '-22px',
                       boxShadow: isClubActive
-                        ? '0 0 18px rgba(255,46,46,0.5), 0 4px 12px rgba(0,0,0,0.4)'
-                        : '0 0 10px rgba(255,46,46,0.25), 0 4px 12px rgba(0,0,0,0.4)',
+                        ? '0 0 22px rgba(255,46,46,0.6), 0 4px 14px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.35)'
+                        : '0 0 12px rgba(255,46,46,0.3), 0 4px 14px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.35)',
                     }}
                   >
                     <Building2 className="h-[22px] w-[22px] text-primary-foreground" strokeWidth={2.2} />
@@ -164,7 +168,7 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
               >
                 {({ isActive }) => (
                   <motion.div
-                    className="relative flex flex-col items-center gap-0.5 py-1 px-2 rounded-xl"
+                    className="relative flex flex-col items-center gap-0.5 py-1.5 px-2.5 rounded-2xl"
                     whileTap={tabTap}
                     transition={{ type: 'spring', stiffness: 400, damping: 20 }}
                   >
@@ -173,7 +177,7 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
                       <motion.span
                         layoutId={reduceMotion ? undefined : 'bottomnav-glass'}
                         aria-hidden="true"
-                        className="absolute inset-0 rounded-xl pointer-events-none"
+                        className="absolute inset-0 rounded-2xl pointer-events-none"
                         style={GLASS_PILL_STYLE}
                         initial={reduceMotion ? { opacity: 0 } : false}
                         animate={reduceMotion ? { opacity: 1 } : undefined}
@@ -182,19 +186,19 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
                     )}
                     {/* Red blur glow — desktop hover-capable only (évite le hover collant au tap) */}
                     {!isActive && (
-                      <span className="absolute inset-0 rounded-xl bg-primary/0 [@media(hover:hover)]:group-hover:bg-primary/15 blur-lg transition-colors duration-300 pointer-events-none" />
+                      <span className="absolute inset-0 rounded-2xl bg-primary/0 [@media(hover:hover)]:group-hover:bg-primary/15 blur-lg transition-colors duration-300 pointer-events-none" />
                     )}
                     <item.icon
                       className={cn(
                         "h-[22px] w-[22px] transition-colors duration-200 relative z-10",
-                        isActive ? "text-primary" : "text-muted-foreground group-hover:text-primary/80"
+                        isActive ? "text-white" : "text-muted-foreground group-hover:text-primary/80"
                       )}
-                      strokeWidth={isActive ? 2.4 : 1.8}
+                      strokeWidth={isActive ? 2.5 : 1.8}
                     />
                     <span
                       className={cn(
                         "font-mono leading-tight mt-0.5 transition-colors duration-200 relative z-10",
-                        isActive ? "text-primary font-bold" : "text-muted-foreground group-hover:text-primary/80 font-medium"
+                        isActive ? "text-white font-bold" : "text-muted-foreground group-hover:text-primary/80 font-medium"
                       )}
                       style={{ fontSize: '9px', letterSpacing: '0.08em', textTransform: 'uppercase' }}
                     >
