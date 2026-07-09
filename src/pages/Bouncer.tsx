@@ -9,6 +9,7 @@ import { useStaffVenue } from '@/hooks/useStaffVenue';
 import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
 import { QrCode, CheckCircle, XCircle, User, Ticket, Wine, Camera, RefreshCw, Users, Ban, AlertTriangle, ArrowLeft, Clock, Search, ShieldAlert, UserX } from 'lucide-react';
 import { nowInParis } from '@/lib/timezone';
+import { validateTicketEntry, validateTableReservation, validateGuestListEntry } from '@/lib/scan/rules';
 import { Link } from 'react-router-dom';
 
 
@@ -392,7 +393,22 @@ export default function Bouncer() {
       if (attendee && !attendeeError) {
         const ticket = attendee.tickets as any;
 
-        if (ticket.events.venue_id !== venueId) {
+        // Verdict via les règles pures partagées online/offline (src/lib/scan/rules.ts).
+        const verdict = validateTicketEntry(
+          {
+            type: 'ticket_attendee',
+            id: attendee.id,
+            ticketId: ticket.id,
+            name: attendee.full_name || ticket.full_name,
+            status: ticket.status,
+            scanned: attendee.entry_scanned,
+            scannedAt: attendee.entry_scanned_at,
+            venueId: ticket.events.venue_id,
+          },
+          { venueId: venueId!, now: new Date(), mode: activeTab === 'cancel' ? 'cancel' : 'entry' },
+        );
+
+        if (verdict.status === 'wrong_venue') {
           setScanResult('error');
           setErrorMessage(t('bouncer.wrongVenue'));
           return;
@@ -400,12 +416,12 @@ export default function Bouncer() {
 
         // Cancel mode
         if (activeTab === 'cancel') {
-          if (ticket.status !== 'paid') {
+          if (verdict.status === 'not_paid') {
             setScanResult('error');
             setErrorMessage(t('bouncer.notPaidOrCancelled'));
             return;
           }
-          if (ticket.entry_scanned) {
+          if (verdict.status === 'cannot_cancel_scanned') {
             setScanResult('error');
             setErrorMessage(t('bouncer.cannotCancelScanned'));
             return;
@@ -438,7 +454,7 @@ export default function Bouncer() {
         }
 
         // Normal entry mode - check attendee-level scan
-        if (attendee.entry_scanned) {
+        if (verdict.status === 'already') {
           setScanResult('already');
           setScannedTicket({
             id: ticket.id,
@@ -459,7 +475,7 @@ export default function Bouncer() {
           return;
         }
 
-        if (ticket.status !== 'paid') {
+        if (verdict.status === 'not_paid') {
           setScanResult('error');
           setErrorMessage(t('bouncer.ticketNotPaid'));
           return;
@@ -565,8 +581,21 @@ export default function Bouncer() {
         .maybeSingle();
 
       if (ticket && !ticketError) {
-        
-        if (ticket.events.venue_id !== venueId) {
+        const ticketVerdict = validateTicketEntry(
+          {
+            type: 'ticket',
+            id: ticket.id,
+            ticketId: ticket.id,
+            name: ticket.full_name,
+            status: ticket.status,
+            scanned: ticket.entry_scanned,
+            scannedAt: ticket.entry_scanned_at,
+            venueId: ticket.events.venue_id,
+          },
+          { venueId: venueId!, now: new Date(), mode: activeTab === 'cancel' ? 'cancel' : 'entry' },
+        );
+
+        if (ticketVerdict.status === 'wrong_venue') {
           setScanResult('error');
           setErrorMessage(t('bouncer.wrongVenue'));
           return;
@@ -574,12 +603,12 @@ export default function Bouncer() {
 
         // Cancel mode
         if (activeTab === 'cancel') {
-          if (ticket.status !== 'paid') {
+          if (ticketVerdict.status === 'not_paid') {
             setScanResult('error');
             setErrorMessage(t('bouncer.notPaidOrCancelled'));
             return;
           }
-          if (ticket.entry_scanned) {
+          if (ticketVerdict.status === 'cannot_cancel_scanned') {
             setScanResult('error');
             setErrorMessage(t('bouncer.cannotCancelScanned'));
             return;
@@ -613,7 +642,7 @@ export default function Bouncer() {
         }
 
         // Normal entry mode
-        if (ticket.entry_scanned) {
+        if (ticketVerdict.status === 'already') {
           setScanResult('already');
           setScannedTicket({
             id: ticket.id,
@@ -634,7 +663,7 @@ export default function Bouncer() {
           return;
         }
 
-        if (ticket.status !== 'paid') {
+        if (ticketVerdict.status === 'not_paid') {
           setScanResult('error');
           setErrorMessage(t('bouncer.ticketNotPaid'));
           return;
@@ -725,20 +754,32 @@ export default function Bouncer() {
         .maybeSingle();
 
       if (reservation && !reservationError) {
-        
-        if (reservation.events.venue_id !== venueId) {
+        const tableVerdict = validateTableReservation(
+          {
+            type: 'table_reservation',
+            id: reservation.id,
+            name: reservation.full_name,
+            status: reservation.status,
+            scanned: reservation.entry_scanned,
+            scannedAt: reservation.entry_scanned_at,
+            venueId: reservation.events.venue_id,
+          },
+          { venueId: venueId!, now: new Date(), mode: 'entry' },
+        );
+
+        if (tableVerdict.status === 'wrong_venue') {
           setScanResult('error');
           setErrorMessage(t('bouncer.wrongVenue'));
           return;
         }
 
-        if (reservation.status !== 'paid') {
+        if (tableVerdict.status === 'not_paid') {
           setScanResult('error');
           setErrorMessage(t('bouncer.ticketNotPaid'));
           return;
         }
 
-        if (reservation.entry_scanned) {
+        if (tableVerdict.status === 'already') {
           setScanResult('already');
           setScannedVipReservation({
             id: reservation.id,
@@ -850,14 +891,30 @@ export default function Bouncer() {
           .maybeSingle();
 
         if (glEntry && !glError) {
-          const glVenueId = (glEntry.guest_lists as any).venue_id;
-          if (glVenueId !== venueId) {
+          const glVerdict = validateGuestListEntry(
+            {
+              type: 'guest_list_entry',
+              id: glEntry.id,
+              name: glEntry.full_name,
+              status: glEntry.status,
+              scanned: glEntry.entry_scanned,
+              scannedAt: glEntry.entry_scanned_at,
+              venueId: (glEntry.guest_lists as any).venue_id,
+              entryDeadline: glEntry.entry_deadline || null,
+              glDeadline: (glEntry.guest_lists as any).entry_deadline || null,
+              freeBeforeTime: (glEntry.guest_lists as any).free_before_time || null,
+              eventStartAt: (glEntry.guest_lists as any).events.start_at,
+            },
+            { venueId: venueId!, now: new Date(), mode: 'entry' },
+          );
+
+          if (glVerdict.status === 'wrong_venue') {
             setScanResult('error');
             setErrorMessage(t('bouncer.wrongVenue'));
             return;
           }
 
-          if (glEntry.entry_scanned) {
+          if (glVerdict.status === 'already') {
             setScanResult('already');
             setScannedTicket({
               id: glEntry.id,
@@ -877,26 +934,17 @@ export default function Bouncer() {
             return;
           }
 
-          if (glEntry.status === 'cancelled') {
+          if (glVerdict.status === 'cancelled') {
             setScanResult('error');
             setErrorMessage(t('guestList.cancelled'));
             return;
           }
 
-          // Check time deadline (use entry-level deadline first, then GL-level, then free_before_time)
-          const entryDeadline = glEntry.entry_deadline || (glEntry.guest_lists as any).entry_deadline;
-          const freeBeforeTime = (glEntry.guest_lists as any).free_before_time;
-          const deadlineTime = entryDeadline || freeBeforeTime;
-          const now = new Date();
-          const [fbH, fbM] = deadlineTime.substring(0, 5).split(':').map(Number);
-          const eventStart = new Date((glEntry.guest_lists as any).events.start_at);
-          const deadline = new Date(eventStart);
-          deadline.setHours(fbH, fbM, 0, 0);
-          if (deadline < eventStart) deadline.setDate(deadline.getDate() + 1);
-
-          if (now > deadline) {
+          // Deadline (entrée > guest list > free_before_time) — règle partagée
+          // avec le chemin offline, voir computeGuestListDeadline dans rules.ts.
+          if (glVerdict.status === 'deadline_passed') {
             setScanResult('error');
-            setErrorMessage(entryDeadline ? 'Heure limite d\'entrée dépassée' : t('guestList.timeExpired'));
+            setErrorMessage(glVerdict.deadlineSource === 'entry' ? 'Heure limite d\'entrée dépassée' : t('guestList.timeExpired'));
             return;
           }
 
