@@ -1,0 +1,20 @@
+{
+  "name": "yuno-pro-shell",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Coquille Capacitor de l'app Yuno Pro (staff + promoteurs). Consomme le MÊME bundle web que l'app B2C (webDir ../dist) — seule la config native diffère (appId, scheme, User-Agent YunoPro). ⚠️ Les versions des plugins doivent rester IDENTIQUES au package.json racine : le CLI Capacitor résout les plugins natifs depuis CE node_modules.",
+  "dependencies": {
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/browser": "^8.0.3",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/ios": "^8.4.1",
+    "@capacitor/push-notifications": "^8.1.1",
+    "@capacitor/splash-screen": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.2",
+    "@capgo/capacitor-updater": "^8.50.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.4.1"
+  }
+}

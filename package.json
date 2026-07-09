@@ -9,7 +9,11 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "i18n:check": "node scripts/i18n-check.cjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "cap:sync": "npm run build && npx cap sync ios",
+    "cap:sync:pro": "npm run build && cd pro && npx cap sync ios",
+    "cap:open": "npx cap open ios",
+    "cap:open:pro": "cd pro && npx cap open ios"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",

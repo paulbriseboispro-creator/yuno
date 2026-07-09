@@ -46,6 +46,8 @@ import { useStore } from "@/store/useStore";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { NativeBridge } from "@/components/NativeBridge";
 import { NativeProGate } from "@/components/NativeProGate";
+import { ProAppGate } from "@/components/ProAppGate";
+import { isProApp } from "@/lib/native";
 import { PushClickTracker } from "@/components/PushClickTracker";
 import { DemoSwitcher } from "@/components/demo/DemoSwitcher";
 import { PreviewModeProvider } from "@/contexts/PreviewModeContext";
@@ -201,6 +203,7 @@ const VipTablesLanding = lazyWithRetry(() => import("./pages/VipTablesLanding"))
 const OrderDrinksLanding = lazyWithRetry(() => import("./pages/OrderDrinksLanding"));
 const ClubMap = lazyWithRetry(() => import("./pages/ClubMap"));
 const LiveMode = lazyWithRetry(() => import("./pages/LiveMode"));
+const ProHome = lazyWithRetry(() => import("./pages/pro/ProHome"));
 const Maintenance = lazyWithRetry(() => import("./pages/Maintenance"));
 const Settings = lazyWithRetry(() => import("./pages/Settings"));
 const LegalPage = lazyWithRetry(() => import("./pages/LegalPage"));
@@ -411,13 +414,14 @@ const App = () => (
           <VenueNavProvider>
           <TooltipProvider>
             <PreviewModeProvider>
-            <OnboardingGate />
+            {/* Surfaces B2C inactives dans l'app Yuno Pro (staff) */}
+            {!isProApp() && <OnboardingGate />}
             <Toaster />
             <Sonner />
-            <DemoSwitcher />
+            {!isProApp() && <DemoSwitcher />}
             <PreviewModeBanner />
             <ScrollToTop />
-            <CartCleanup />
+            {!isProApp() && <CartCleanup />}
             <OfflineBanner />
             <NativeBridge />
             <PushClickTracker />
@@ -425,8 +429,11 @@ const App = () => (
             <MaintenanceWrapper>
               <RouteErrorBoundary>
               <Suspense fallback={<PageLoader />}>
+              <ProAppGate>
               <NativeProGate>
               <Routes>
+                {/* Yuno Pro (app staff) — accueil / sélecteur de rôle */}
+                <Route path="/pro" element={<ProHome />} />
                 {/* Explorer home page */}
                 <Route path="/" element={<Explore />} />
                 <Route path="/events" element={<AllEventsPage />} />
@@ -987,6 +994,7 @@ const App = () => (
                 <Route path="*" element={<NotFound />} />
               </Routes>
               </NativeProGate>
+              </ProAppGate>
             </Suspense>
               </RouteErrorBoundary>
             </MaintenanceWrapper>

@@ -1,0 +1,89 @@
+import { ReactNode } from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
+import { Monitor, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { isProApp, openExternal } from '@/lib/native';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { transitions } from '@/lib/motion';
+
+const WEB_BASE_URL = import.meta.env.VITE_APP_BASE_URL || 'https://yunoapp.eu';
+
+/** Routes autorisées dans l'app Yuno Pro (staff + promoteurs). */
+const PRO_ALLOWED_PREFIXES = [
+  '/pro',
+  '/barman',
+  '/click-collect',
+  '/bouncer',
+  '/cloakroom',
+  '/vip-host',
+  '/promoter',
+  '/auth',
+  '/setup-pin',
+  '/reset-pin',
+  '/accept-staff-invitation',
+  '/account-suspended',
+  '/legal',
+];
+
+/** Surfaces pro lourdes qui restent sur le web (desktop). */
+const PRO_WEB_ONLY_PREFIXES = ['/manager', '/owner', '/affiliate', '/organizer-app', '/agency-app', '/admin'];
+
+function matches(pathname: string, prefixes: string[]): boolean {
+  const clean = pathname.replace(/\/+$/, '') || '/';
+  return prefixes.some((p) => clean === p || clean.startsWith(p + '/'));
+}
+
+/**
+ * Miroir inversé de NativeProGate, pour l'app « Yuno Pro » : les routes staff
+ * SONT l'app ; tout le reste (routes B2C) redirige vers /pro. Les dashboards
+ * desktop (owner/manager/admin/affiliate/orga) affichent un renvoi vers le web.
+ * Sur le web et dans l'app B2C, ce composant est transparent.
+ */
+export function ProAppGate({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { t } = useLanguage();
+
+  if (!isProApp()) return <>{children}</>;
+
+  if (matches(location.pathname, PRO_WEB_ONLY_PREFIXES)) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={transitions.modal}
+          className="max-w-sm w-full text-center"
+        >
+          <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 border border-white/10">
+            <Monitor className="h-6 w-6 text-white/70" />
+          </div>
+          <h1 className="text-xl font-bold text-white mb-3">{t('proapp.webOnlyTitle')}</h1>
+          <p className="text-sm text-white/60 leading-relaxed mb-8">{t('proapp.webOnlyBody')}</p>
+          <div className="space-y-3">
+            <button
+              onClick={() => openExternal(WEB_BASE_URL + location.pathname)}
+              className="w-full rounded-xl bg-white text-black font-semibold text-sm py-3.5 active:opacity-80 transition-opacity"
+            >
+              {t('natGate.openWeb')}
+            </button>
+            <button
+              onClick={() => navigate('/pro')}
+              className="w-full rounded-xl bg-white/5 border border-white/10 text-white/80 font-medium text-sm py-3.5 active:opacity-80 transition-opacity inline-flex items-center justify-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              {t('proapp.backHome')}
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (!matches(location.pathname, PRO_ALLOWED_PREFIXES)) {
+    return <Navigate to="/pro" replace />;
+  }
+
+  return <>{children}</>;
+}

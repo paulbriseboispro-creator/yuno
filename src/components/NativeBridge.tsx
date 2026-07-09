@@ -50,8 +50,8 @@ export function NativeBridge() {
     import('@capacitor/app').then(({ App: CapApp }) => {
       const urlSub = CapApp.addListener('appUrlOpen', ({ url }) => {
         try {
-          // Retour checkout : yuno://open?path=<path encodé>
-          if (url.startsWith('yuno://')) {
+          // Retour checkout / deep link : yuno:// (app B2C) ou yunopro:// (app Pro)
+          if (url.startsWith('yuno://') || url.startsWith('yunopro://')) {
             const parsed = new URL(url);
             const path = parsed.searchParams.get('path');
             sessionStorage.removeItem(PENDING_CHECKOUT_KEY);

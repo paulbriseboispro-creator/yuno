@@ -14,6 +14,19 @@ export function isNative(): boolean {
   }
 }
 
+/**
+ * App « Yuno Pro » (staff + promoteurs) : même bundle web que l'app B2C, mais
+ * la coquille native pro (pro/capacitor.config.ts) ajoute 'YunoPro' au
+ * User-Agent — détection SYNCHRONE dès l'init des modules, sans double build.
+ */
+export function isProApp(): boolean {
+  try {
+    return Capacitor.isNativePlatform() && navigator.userAgent.includes('YunoPro');
+  } catch {
+    return false;
+  }
+}
+
 /** Préfixes de routes réservées aux comptes pro/staff (gatées en natif). */
 const PRO_PATH_PREFIXES = [
   '/owner',

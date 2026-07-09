@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { isNative } from '@/lib/native';
+import { isNative, isProApp } from '@/lib/native';
 
 let vapidKeyCache: string | null = null;
 
@@ -86,11 +86,22 @@ async function registerNativePush(): Promise<string> {
   });
 }
 
-/** Upsert le token APNs courant et purge les anciens tokens ios de ce user. */
+/**
+ * Plateforme native du token : l'app B2C stocke 'ios', l'app Yuno Pro
+ * 'ios_pro' (topics APNs distincts côté relay). Un même utilisateur peut
+ * avoir les deux apps : upserts ET purges toujours scopés à SA plateforme —
+ * ne jamais toucher les tokens de l'autre app.
+ */
+function nativePlatform(): 'ios' | 'ios_pro' {
+  return isProApp() ? 'ios_pro' : 'ios';
+}
+
+/** Upsert le token APNs courant et purge les anciens tokens de CETTE app. */
 async function syncNativeTokenToDb(token: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
   const endpoint = `apns:${token}`;
+  const platform = nativePlatform();
   await supabase
     .from('push_subscriptions' as any)
     .upsert({
@@ -98,13 +109,13 @@ async function syncNativeTokenToDb(token: string): Promise<void> {
       endpoint,
       p256dh: null,
       auth: null,
-      platform: 'ios',
+      platform,
     }, { onConflict: 'user_id,endpoint' });
   await supabase
     .from('push_subscriptions' as any)
     .delete()
     .eq('user_id', user.id)
-    .eq('platform', 'ios')
+    .eq('platform', platform)
     .neq('endpoint', endpoint);
 }
 
@@ -115,7 +126,7 @@ async function deleteNativeSubscription(): Promise<void> {
     .from('push_subscriptions' as any)
     .delete()
     .eq('user_id', user.id)
-    .eq('platform', 'ios');
+    .eq('platform', nativePlatform());
 }
 
 export function usePushNotifications() {
@@ -182,7 +193,7 @@ export function usePushNotifications() {
           .from('push_subscriptions' as any)
           .select('id')
           .eq('user_id', user.id)
-          .eq('platform', 'ios')
+          .eq('platform', nativePlatform())
           .limit(1);
         const hasRow = !!(data && data.length > 0);
         setIsSubscribed(hasRow);

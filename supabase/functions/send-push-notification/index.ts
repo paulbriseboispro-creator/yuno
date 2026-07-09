@@ -137,6 +137,10 @@ const APNS_TEAM_ID = Deno.env.get('APNS_TEAM_ID');
 const APNS_KEY_ID = Deno.env.get('APNS_KEY_ID');
 const APNS_P8 = Deno.env.get('APNS_P8');
 const APNS_TOPIC = Deno.env.get('APNS_TOPIC');
+// App « Yuno Pro » (staff) : bundle eu.yunoapp.pro → topic distinct
+// (platform='ios_pro'). La clé .p8 est team-wide : elle signe pour tous les
+// topics du team, rien d'autre à créer côté Apple.
+const APNS_TOPIC_PRO = Deno.env.get('APNS_TOPIC_PRO');
 
 const APNS_HOST_PROD = 'https://api.push.apple.com';
 const APNS_HOST_SANDBOX = 'https://api.development.push.apple.com';
@@ -187,8 +191,10 @@ async function sendToApns(
   subscription: Subscription,
   payload: { title: string; body: string; url: string },
 ): Promise<'ok' | 'stale' | 'fail'> {
-  if (!APNS_TEAM_ID || !APNS_KEY_ID || !APNS_P8 || !APNS_TOPIC) {
-    console.error('[APNs] Secrets APNS_* non configurés — ligne ios ignorée');
+  // Topic par abonnement : app B2C ('ios') vs app Yuno Pro ('ios_pro').
+  const topic = subscription.platform === 'ios_pro' ? APNS_TOPIC_PRO : APNS_TOPIC;
+  if (!APNS_TEAM_ID || !APNS_KEY_ID || !APNS_P8 || !topic) {
+    console.error(`[APNs] Secrets APNS_* non configurés (platform=${subscription.platform}) — ligne ignorée`);
     return 'fail';
   }
   const deviceToken = subscription.endpoint.replace(/^apns:/, '');
@@ -203,7 +209,7 @@ async function sendToApns(
       method: 'POST',
       headers: {
         'authorization': `bearer ${jwt}`,
-        'apns-topic': APNS_TOPIC,
+        'apns-topic': topic,
         'apns-push-type': 'alert',
         'apns-priority': '10',
         'apns-expiration': String(Math.floor(Date.now() / 1000) + 86400),

@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Monitor, ArrowLeft } from 'lucide-react';
-import { isNative, isProPath, openExternal } from '@/lib/native';
+import { isNative, isProApp, isProPath, openExternal } from '@/lib/native';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { transitions } from '@/lib/motion';
 
@@ -19,6 +19,9 @@ export function NativeProGate({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { t } = useLanguage();
 
+  // Ce gate ne concerne que l'app B2C : dans Yuno Pro, c'est ProAppGate qui
+  // gouverne (routes staff autorisées, B2C redirigé vers /pro).
+  if (isProApp()) return <>{children}</>;
   if (!isNative() || !isProPath(location.pathname)) return <>{children}</>;
 
   return (
