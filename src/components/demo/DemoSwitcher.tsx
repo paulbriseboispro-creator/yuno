@@ -11,7 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
 } from '@/components/ui/sheet';
-import { PLANS, PlanCode } from '@/lib/planFeatures';
+import { PLANS, PlanCode, SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
 import { getDemoPlan, setDemoPlan, DEMO_PLAN_EVENT } from '@/lib/demoPlan';
 import { isDemoLiveForced, setDemoLiveForced } from '@/lib/demoLive';
 import { setMfaBypass, setRoleSessionBypass, MFA_GATED, DEMO_PASSWORD } from '@/lib/demoSession';
@@ -287,8 +287,10 @@ export function DemoSwitcher() {
         </div>
 
         {/* Switch d'abonnement démo : uniquement pour le club (owner), là où les
-            gates de features du dashboard s'appliquent. Bascule instantanée, sans Stripe. */}
-        {currentEmail === OWNER_EMAIL && (
+            gates de features du dashboard s'appliquent. Bascule instantanée, sans Stripe.
+            Abonnement coupé (lancement) : masqué — le hook force le plan Pro pour tout
+            club non-collab, le switch n'aurait donc aucun effet sur les gates. */}
+        {SUBSCRIPTIONS_ENABLED && currentEmail === OWNER_EMAIL && (
           <div className="mt-5">
             <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/35">Abonnement du club</p>
             <div className="grid grid-cols-3 gap-1.5">
