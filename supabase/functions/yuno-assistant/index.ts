@@ -110,6 +110,14 @@ const CLIENT_KNOWLEDGE_BASE = `
    - Notification : tu reçois une notif quand c'est prêt, puis tu récupères au comptoir.
 3. Codes promo applicables au panier quand le club en propose.
 
+🔴 MODE LIVE (pendant la soirée)
+- Dès que ton billet / ta guest list / ta réservation VIP est scanné(e) à l'entrée, l'app bascule en Mode Live : le menu du club en plein écran pour toute la soirée (jusqu'à 2 h après la fin).
+- Ce que tu peux y faire : commander tes boissons en 1-2 taps, recommander ta dernière tournée en 1 tap, suivre ta commande en direct (reçue → en préparation → prête au bar) avec ton QR/PIN de retrait, utiliser tes crédits conso, et voir s'il reste des tables VIP à prendre ce soir.
+- Bouteilles sans table : si le club l'a activé, tu peux acheter une bouteille entière depuis le Mode Live et la retirer au bar avec ton QR (avec le choix des diluants si la bouteille en demande).
+- Tu reçois aussi un push de bienvenue au scan qui ouvre directement le menu (si les notifications sont autorisées).
+- Pour quitter le Mode Live : bouton ✕ en haut à droite. Pour y revenir : le bandeau LIVE en bas de l'app ou le bouton central de la navigation.
+- Limites : il faut être connecté à son compte Yuno (les invités guest-list sans compte n'ont pas le Mode Live). Seul l'acheteur du billet voit le Mode Live sur un billet multi-personnes.
+
 💳 PAIEMENT
 - Moyens acceptés : carte bancaire, Apple Pay, Google Pay, Link (paiement sécurisé Stripe).
 - Paiement refusé ? Vérifie les infos de la carte, le plafond, ou essaie un autre moyen. Aucune somme n'est débitée si la commande n'est pas confirmée.

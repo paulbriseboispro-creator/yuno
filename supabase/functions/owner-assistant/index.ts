@@ -141,6 +141,18 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     path: "/owner/menu",
     snippet: "Catégories : Cocktails, Shooters, Bières, Vins/Champagnes, Spiritueux, Soft, Snacks, Autres. Chaque boisson a un nom, prix, image. Active/désactive sans supprimer. Prix promo disponible.",
   },
+  "live-mode": {
+    title: "Mode Live (soirée)",
+    keywords: ["mode live", "live mode", "live", "scan", "entrée", "entry", "takeover", "push bienvenue", "welcome push", "soirée", "night mode"],
+    path: "/owner/menu",
+    snippet: "Au scan d'entrée (billet, guest list ou résa VIP), l'app du client bascule en mode soirée plein écran : ta carte en premier plan, re-commande 1 tap, statut de commande en direct avec QR de retrait, crédits conso et upsell « X tables restantes ». Le client reçoit aussi un push de bienvenue. Activé par défaut — toggle « Mode Live » dans Opérations → Menu pour le couper. Dure jusqu'à 2 h après la fin de l'événement.",
+  },
+  "solo-bottles": {
+    title: "Bouteilles sans table (Mode Live)",
+    keywords: ["bouteille sans table", "bottle without table", "vente solo", "solo sale", "bouteille bar", "bouteille", "bottle"],
+    path: "/owner/vip-service",
+    snippet: "Option du Mode Live : le club peut vendre des bouteilles entières SANS réservation de table. Le client achète depuis le menu de soirée et retire au bar avec un QR, comme une commande de boissons (le barman scanne pareil). Activation : Opérations → Service VIP → Carte → « Vente de bouteilles sans table ». Exclusion possible bouteille par bouteille (switch « Vente solo »). Les bouteilles à diluant gardent l'étape mixers.",
+  },
   "events-create": {
     title: "Créer et publier une soirée",
     keywords: ["événement", "event", "soirée", "créer", "create", "publier", "publish", "poster", "affiche", "line-up", "privé", "mot de passe", "visibilité", "secret"],
