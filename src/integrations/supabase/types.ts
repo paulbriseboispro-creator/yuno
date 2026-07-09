@@ -13305,6 +13305,26 @@ export type Database = {
         Returns: undefined
       }
       demo_is_live: { Args: never; Returns: boolean }
+      demo_live_session: {
+        Args: never
+        Returns: {
+          client_rank: number
+          client_tier: string
+          entry_scanned_at: string
+          event_end_at: string
+          event_id: string
+          event_start_at: string
+          event_title: string
+          live_mode_enabled: boolean
+          menu_enabled: boolean
+          solo_bottle_sale_enabled: boolean
+          source: string
+          state: string
+          table_reservation_id: string
+          venue_id: string
+          venue_name: string
+        }[]
+      }
       demo_set_live: { Args: { p_live: boolean }; Returns: boolean }
       dj_accept_team_invitation: { Args: { p_token: string }; Returns: Json }
       dj_audience_analytics: { Args: { p_dj_user_id?: string }; Returns: Json }

@@ -39,6 +39,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { LiveModeBanner } from '@/components/livemode/LiveModeBanner';
+import { isDemoEmail } from '@/lib/demoPlan';
+import { isDemoLiveForced, DEMO_LIVE_EVENT } from '@/lib/demoLive';
 
 export interface LiveSession {
   state: 'live' | 'pending_scan';
@@ -192,9 +194,12 @@ export function LiveModeProvider({ children }: { children: ReactNode }) {
       return;
     }
     try {
-      // RPC pas encore dans les types générés (gen types après db push).
+      // Mode Live forcé pour la démo (DemoSwitcher, comptes @womber.fr) :
+      // session fabriquée sur le club démo, sans scan. Le RPC lui-même
+      // rejette les non-démos (SECURITY DEFINER + gate email).
+      const demoForced = isDemoEmail(user.email) && isDemoLiveForced();
       const { data, error } = await (supabase.rpc as (fn: string) => ReturnType<typeof supabase.rpc>)(
-        'get_live_session'
+        demoForced ? 'demo_live_session' : 'get_live_session'
       );
       if (error) throw error;
       const row = (Array.isArray(data) ? data[0] : data) as LiveSessionRow | undefined;
@@ -210,17 +215,21 @@ export function LiveModeProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   // Check à l'ouverture + retour foreground + poll de sécurité.
+  // Le switch Explore ↔ Live du DemoSwitcher notifie via DEMO_LIVE_EVENT.
   useEffect(() => {
     refresh();
     const onVisible = () => {
       if (document.visibilityState === 'visible') refresh();
     };
+    const onDemoLiveChange = () => refresh();
     document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener(DEMO_LIVE_EVENT, onDemoLiveChange);
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') refresh();
     }, POLL_MS);
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener(DEMO_LIVE_EVENT, onDemoLiveChange);
       clearInterval(interval);
     };
   }, [refresh]);

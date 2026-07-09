@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import {
   Building2, CalendarDays, Megaphone, Share2, ShieldCheck, Wine, Shirt,
   Disc3, ChevronRight, Loader2, FlaskConical, LogIn, Globe, Rocket, Crown, GraduationCap, Users,
+  Compass, Radio,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,6 +13,7 @@ import {
 } from '@/components/ui/sheet';
 import { PLANS, PlanCode } from '@/lib/planFeatures';
 import { getDemoPlan, setDemoPlan, DEMO_PLAN_EVENT } from '@/lib/demoPlan';
+import { isDemoLiveForced, setDemoLiveForced } from '@/lib/demoLive';
 import { setMfaBypass, setRoleSessionBypass, MFA_GATED, DEMO_PASSWORD } from '@/lib/demoSession';
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
 
@@ -72,6 +74,9 @@ export function DemoSwitcher() {
   const [live, setLive] = useState<boolean | null>(null);
   const [liveBusy, setLiveBusy] = useState(false);
   const [demoPlan, setDemoPlanState] = useState<PlanCode>(getDemoPlan());
+  const [clientMode, setClientMode] = useState<'explore' | 'live'>(
+    isDemoLiveForced() ? 'live' : 'explore'
+  );
 
   const currentEmail = user?.email?.toLowerCase() ?? null;
   const isDemoUser = ACCOUNTS.some((a) => a.email === currentEmail);
@@ -119,6 +124,18 @@ export function DemoSwitcher() {
     setDemoPlan(code);        // localStorage + event → le dashboard se re-gate en direct
     setDemoPlanState(code);
     toast.success(`Abonnement démo : ${PLANS[code].name}`);
+  }
+
+  // App cliente : Explore (app normale) ↔ Live (takeover soirée sans scan).
+  // Le flag notifie LiveModeProvider qui bascule sur le RPC demo_live_session.
+  function pickClientMode(mode: 'explore' | 'live') {
+    setDemoLiveForced(mode === 'live');
+    setClientMode(mode);
+    toast.success(mode === 'live'
+      ? 'App cliente en Mode Live (soirée en cours)'
+      : 'App cliente en mode Explore');
+    navigate(mode === 'live' ? '/live' : '/');
+    setOpen(false);
   }
 
   async function switchTo(account: DemoAccount, routeOverride?: string) {
@@ -232,6 +249,42 @@ export function DemoSwitcher() {
             </span>
           )}
         </button>
+
+        {/* App cliente : bascule Explore ↔ Live pour dérouler la démo côté client.
+            Live = takeover soirée sans scan (RPC demo_live_session sur le club Womber). */}
+        <div className="mt-5">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-white/35">App cliente</p>
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              onClick={() => pickClientMode('explore')}
+              className={`flex items-center justify-center gap-1.5 rounded-xl border px-2 py-2.5 text-[12px] font-medium transition ${
+                clientMode === 'explore'
+                  ? 'border-primary/50 bg-primary/15 text-white'
+                  : 'border-white/10 bg-white/[0.03] text-white/80 hover:bg-white/[0.07]'
+              }`}
+            >
+              <Compass className="h-3.5 w-3.5 text-primary" />
+              Mode Explore
+            </button>
+            <button
+              type="button"
+              onClick={() => pickClientMode('live')}
+              className={`flex items-center justify-center gap-1.5 rounded-xl border px-2 py-2.5 text-[12px] font-medium transition ${
+                clientMode === 'live'
+                  ? 'border-primary/50 bg-primary/15 text-white'
+                  : 'border-white/10 bg-white/[0.03] text-white/80 hover:bg-white/[0.07]'
+              }`}
+            >
+              <Radio className="h-3.5 w-3.5 text-primary" />
+              Mode Live
+            </button>
+          </div>
+          <p className="mt-2 text-[11px] leading-relaxed text-white/40">
+            Explore = app cliente normale. Live = l'app bascule en mode soirée comme
+            après un scan à l'entrée (menu, commandes, upsell tables, bouteilles).
+          </p>
+        </div>
 
         {/* Switch d'abonnement démo : uniquement pour le club (owner), là où les
             gates de features du dashboard s'appliquent. Bascule instantanée, sans Stripe. */}
