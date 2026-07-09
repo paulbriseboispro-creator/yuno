@@ -89,6 +89,9 @@ export default function ProHome() {
 
   const handleLogout = async () => {
     clearStaffSession();
+    // Purge des données offline (manifestes = PII) au départ du staff.
+    const { purgeAllOfflineData } = await import('@/lib/offline/db');
+    await purgeAllOfflineData();
     await supabase.auth.signOut();
     navigate('/auth?redirect=' + encodeURIComponent('/pro'), { replace: true });
   };
