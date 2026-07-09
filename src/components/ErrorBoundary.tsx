@@ -1,15 +1,16 @@
 import { Component, type ReactNode } from "react";
 import { purgeServiceWorkersAndReload } from "@/lib/swRecovery";
-import { translations } from "@/i18n/data";
+import { getLoadedLocale, type Language } from "@/i18n/data";
 
 // Class component → no hooks. Resolve i18n from the persisted language the same
 // way LanguageContext's out-of-provider fallback does, so the crash screen is
-// localized (EN/FR/ES) instead of hardcoded French.
+// localized (EN/FR/ES) instead of hardcoded French. Les dictionnaires sont des
+// chunks dynamiques : on lit le cache déjà chargé (l'app a démarré, donc la
+// langue active est en cache) — dernier recours : la clé brute.
 function tr(key: string): string {
-  let lang = "en";
-  try { lang = localStorage.getItem("language") || "en"; } catch { /* storage denied */ }
-  return (translations as Record<string, Record<string, string>>)[lang]?.[key]
-    ?? translations["en"]?.[key] ?? key;
+  let lang: Language = "en";
+  try { lang = (localStorage.getItem("language") as Language) || "en"; } catch { /* storage denied */ }
+  return getLoadedLocale(lang)?.[key] ?? getLoadedLocale("en")?.[key] ?? key;
 }
 
 interface Props {

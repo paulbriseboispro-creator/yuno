@@ -60,16 +60,13 @@ if (ternHits.length) {
 }
 
 // --- Report: dictionary ES coverage ---
+// Les dictionnaires vivent dans src/i18n/locales/{en,fr,es}.ts (un fichier par
+// langue, chargés en chunks dynamiques par src/i18n/data.ts).
 try {
-  const data = fs.readFileSync(path.join(SRC, "i18n/data.ts"), "utf8").split("\n");
-  const bounds = {};
-  data.forEach((l, i) => { const m = l.match(/^  (en|es|fr): \{/); if (m) bounds[m[1]] = i + 1; });
-  const order = Object.entries(bounds).sort((a, b) => a[1] - b[1]);
   const sec = (name) => {
-    const start = bounds[name];
-    const after = order.filter(([, s]) => s > start).map(([, s]) => s).sort((a, b) => a - b)[0] || data.length + 1;
+    const data = fs.readFileSync(path.join(SRC, `i18n/locales/${name}.ts`), "utf8").split("\n");
     const set = new Set();
-    for (let i = start; i < after - 1; i++) { const m = data[i].match(/^\s*['"]([^'"]+)['"]\s*:/); if (m) set.add(m[1]); }
+    for (const l of data) { const m = l.match(/^\s*['"]([^'"]+)['"]\s*:/); if (m) set.add(m[1]); }
     return set;
   };
   const en = sec("en"), es = sec("es"), fr = sec("fr");
@@ -78,7 +75,7 @@ try {
   if (missing.length) console.log("   (run with VERBOSE=1 to list)");
   if (process.env.VERBOSE) missing.forEach((k) => console.log("   - " + k));
 } catch (e) {
-  console.error("could not read i18n/data.ts:", e.message);
+  console.error("could not read i18n/locales/*.ts:", e.message);
 }
 
 if (failures) {

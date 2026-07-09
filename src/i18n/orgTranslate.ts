@@ -1,4 +1,4 @@
-import { translations, type Language } from './data';
+import { getLoadedLocale, type Language } from './data';
 
 /**
  * Translation helper for the organizer app, where call sites pass the French
@@ -23,7 +23,9 @@ export function translate(
   es?: string,
 ): string {
   if (language === 'es' && es !== undefined) return es;
-  const dict = translations[language as Language];
+  // Dictionnaires en chunks dynamiques : lecture du cache chargé (la langue
+  // active l'est toujours une fois l'app démarrée) — sinon fallbacks inline.
+  const dict = getLoadedLocale(language as Language);
   const hit = dict?.[fr];
   if (hit !== undefined) return hit;
   if (language === 'fr') return fr;

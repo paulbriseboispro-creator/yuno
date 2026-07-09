@@ -1,9 +1,9 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { translations } from '../i18n/data';
+import { loadLocale, getLoadedLocale, type Language } from '../i18n/data';
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
 
-export type Language = 'en' | 'es' | 'fr';
+export type { Language };
 
 interface LanguageContextType {
   language: Language;
@@ -13,21 +13,52 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
+const VALID_LANGS: Language[] = ['en', 'es', 'fr'];
+
+function persistedLanguage(): Language {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('language') as Language | null;
+    if (saved && VALID_LANGS.includes(saved)) return saved;
+  }
+  return 'en';
+}
+
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [language, setLanguageState] = useState<Language>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('language');
-      return (saved as Language) || 'en';
-    }
-    return 'en';
-  });
+  const [language, setLanguageState] = useState<Language>(persistedLanguage);
 
-  const [strings, setStrings] = useState<Record<string, string>>(translations['en'] || {});
+  // Dictionnaire actif + fallback EN. `strings === null` = premier chargement
+  // en cours : on gate le render (le splash natif / fond #050505 couvre ~50 ms,
+  // le chunk de langue est précaché par le SW sur web et bundlé via Capgo en natif).
+  const [strings, setStrings] = useState<Record<string, string> | null>(() => getLoadedLocale(persistedLanguage()) ?? null);
+  const [enStrings, setEnStrings] = useState<Record<string, string> | null>(() => getLoadedLocale('en') ?? null);
 
-  // Load translations for the current language
+  // Charger le dictionnaire de la langue active (et suivre ses changements).
   useEffect(() => {
-    setStrings(translations[language] || {});
+    let cancelled = false;
+    loadLocale(language).then((dict) => {
+      if (!cancelled) setStrings(dict);
+    }).catch((e) => {
+      console.error('[i18n] locale load failed:', e);
+      // Réseau KO sur le premier chunk : tenter EN pour ne pas bloquer l'app.
+      if (!cancelled && language !== 'en') {
+        loadLocale('en').then((dict) => { if (!cancelled) setStrings(dict); }).catch(() => {});
+      }
+    });
+    return () => { cancelled = true; };
   }, [language]);
+
+  // Fallback EN chargé en tâche de fond quand la langue active n'est pas EN —
+  // t() ne montre alors jamais une clé brute pour une trad manquante.
+  useEffect(() => {
+    if (language === 'en' || enStrings) return;
+    const load = () => { loadLocale('en').then(setEnStrings).catch(() => {}); };
+    if ('requestIdleCallback' in window) {
+      const id = (window as Window & typeof globalThis).requestIdleCallback(load);
+      return () => (window as Window & typeof globalThis).cancelIdleCallback(id);
+    }
+    const timer = setTimeout(load, 1500);
+    return () => clearTimeout(timer);
+  }, [language, enStrings]);
 
   // Keep the document language in sync so screen readers and SEO crawlers
   // see the actual content language (the static index.html ships lang="en").
@@ -50,10 +81,10 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
           .select('preferred_language')
           .eq('id', user.id)
           .single();
-        
+
         if (profile?.preferred_language) {
           const dbLang = profile.preferred_language as Language;
-          if (['en', 'es', 'fr'].includes(dbLang)) {
+          if (VALID_LANGS.includes(dbLang)) {
             setLanguageState(dbLang);
             localStorage.setItem('language', dbLang);
             // Mark language as already chosen so OnboardingGate won't re-ask
@@ -87,15 +118,19 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     // Resolve in the active language first, then fall back to English so a
     // missing translation never leaks a raw key (e.g. "owner.crm.addBlocks")
     // into the UI. The raw key is only ever shown as a last resort.
-    const value = strings[key] ?? translations['en']?.[key];
+    const value = strings?.[key] ?? enStrings?.[key] ?? getLoadedLocale('en')?.[key];
     if (value === undefined) {
-      if (import.meta.env.DEV) {
+      if (import.meta.env.DEV && strings) {
         console.warn(`[i18n] clé manquante "${key}" (langue: ${language})`);
       }
       return key;
     }
     return value;
-  }, [strings, language]);
+  }, [strings, enStrings, language]);
+
+  // Premier chargement : ne rien rendre tant que le dictionnaire actif n'est
+  // pas là (évite un flash de clés brutes sur toute l'app).
+  if (!strings) return null;
 
   return (
     <LanguageContext.Provider value={{ language, setLanguage, t }}>
@@ -107,16 +142,16 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 export function useLanguage() {
   const context = useContext(LanguageContext);
   if (context === undefined) {
-    // Fallback for HMR / out-of-provider usage. Still resolve real strings from
-    // the static translations so a transient context mismatch (e.g. a lazy route
-    // chunk reloading without the provider during HMR) never leaks raw i18n keys
-    // to the UI. Falls back to English, then to the key itself as a last resort.
-    const fallbackLang = (localStorage.getItem('language') as Language) || 'en';
+    // Fallback for HMR / out-of-provider usage. Resolve real strings from the
+    // already-loaded locale cache so a transient context mismatch (e.g. a lazy
+    // route chunk reloading without the provider during HMR) never leaks raw
+    // i18n keys to the UI. Falls back to English, then to the key itself.
+    const fallbackLang = persistedLanguage();
     return {
       language: fallbackLang,
       setLanguage: () => {},
       t: (key: string) =>
-        translations[fallbackLang]?.[key] ?? translations['en']?.[key] ?? key,
+        getLoadedLocale(fallbackLang)?.[key] ?? getLoadedLocale('en')?.[key] ?? key,
     } as LanguageContextType;
   }
   return context;
