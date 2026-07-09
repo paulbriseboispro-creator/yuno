@@ -1,6 +1,5 @@
-"use client";
-
-import { motion, useReducedMotion } from "framer-motion";
+import { useLayoutEffect, useRef } from "react";
+import { animate, motion, useMotionValue, useReducedMotion } from "framer-motion";
 import type { LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -11,15 +10,23 @@ export interface BottomNavBarItem {
   icon: LucideIcon;
   isActive: boolean;
   onSelect: () => void;
-  /** Petit point rouge posé sur l'icône (ex. mode Live). */
+  /** Point rouge posé sur l'icône (ex. mode Live). */
   dot?: boolean;
 }
 
-// Barre « pilule » façon Instagram / iOS : des icônes, et l'onglet actif ouvre
-// son label en ressort (slide horizontal). Composant présentational contrôlé —
-// l'état actif et la navigation viennent du parent (routing Yuno). Le label
-// s'anime à l'ouverture ; comme la barre est remontée à chaque page, cette
-// animation rejoue à chaque navigation (le nav n'est pas persistant côté Yuno).
+// Mémoire d'onglet actif HORS React. La BottomNav est remontée à chaque page
+// (montée par page côté Yuno, pas persistante). En gardant l'onglet actif
+// précédent ici, l'indicateur peut PARTIR de l'onglet précédent et GLISSER
+// vers le nouvel onglet à chaque navigation → vrai slider inter-onglet.
+let lastActiveKey: string | null = null;
+
+// Ressort signature Yuno (cf. src/lib/motion.ts / DESIGN_SYSTEM_PUBLIC).
+const SLIDE_SPRING = { type: "spring" as const, stiffness: 420, damping: 34, mass: 0.8 };
+
+// Barre de navigation basse — design system public (éditorial nightlife) :
+// surface pleine #141414 (PAS de glassmorphism / backdrop-blur), bordure subtile,
+// labels mono uppercase, accent rouge #E8192C. Un indicateur rouge plein glisse
+// d'un onglet à l'autre.
 export function BottomNavBar({
   items,
   className,
@@ -28,81 +35,144 @@ export function BottomNavBar({
   className?: string;
 }) {
   const reduceMotion = useReducedMotion();
-  const openSpring = reduceMotion
-    ? { duration: 0.18 }
-    : { type: "spring" as const, stiffness: 360, damping: 30, mass: 0.7 };
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const left = useMotionValue(0);
+  const width = useMotionValue(0);
+  const opacity = useMotionValue(0);
+
+  const activeIndex = items.findIndex((it) => it.isActive);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const rectOf = (idx: number) => {
+      const el = idx >= 0 ? tabRefs.current[idx] : null;
+      if (!el) return null;
+      return { l: el.offsetLeft, w: el.offsetWidth };
+    };
+
+    const cur = rectOf(activeIndex);
+    if (!cur) {
+      // Aucun onglet actif sur cette page → indicateur masqué (on garde la
+      // mémoire pour pouvoir glisser depuis le dernier onglet réel ensuite).
+      opacity.set(0);
+      return;
+    }
+
+    opacity.set(1);
+
+    const prevIndex = lastActiveKey ? items.findIndex((it) => it.key === lastActiveKey) : -1;
+    const prev = prevIndex >= 0 && prevIndex !== activeIndex ? rectOf(prevIndex) : null;
+
+    let a1: { stop: () => void } | undefined;
+    let a2: { stop: () => void } | undefined;
+    if (prev && !reduceMotion) {
+      left.set(prev.l);
+      width.set(prev.w);
+      a1 = animate(left, cur.l, SLIDE_SPRING);
+      a2 = animate(width, cur.w, SLIDE_SPRING);
+    } else {
+      left.set(cur.l);
+      width.set(cur.w);
+    }
+    lastActiveKey = items[activeIndex].key;
+
+    const onResize = () => {
+      const r = rectOf(activeIndex);
+      if (r) {
+        left.set(r.l);
+        width.set(r.w);
+      }
+    };
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      a1?.stop();
+      a2?.stop();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex, reduceMotion, items.length]);
 
   return (
-    <nav
+    <div
+      ref={containerRef}
       role="navigation"
       aria-label="Bottom Navigation"
-      className={cn(
-        "flex items-center gap-1 rounded-full border p-1.5 shadow-xl",
-        className,
-      )}
+      className={cn("relative flex items-stretch justify-around", className)}
       style={{
-        background: "rgba(20,20,22,0.90)",
-        backdropFilter: "blur(20px) saturate(1.6)",
-        WebkitBackdropFilter: "blur(20px) saturate(1.6)",
-        borderColor: "rgba(255,255,255,0.10)",
-        boxShadow:
-          "0 8px 30px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.07)",
+        background: "#141414", // --yuno-card, surface pleine (pas de glass)
+        border: "1px solid rgba(255,255,255,0.08)", // --border-subtle
+        borderRadius: 14, // --radius-xl
+        boxShadow: "0 -4px 24px rgba(0,0,0,0.55)",
+        padding: "6px 8px",
       }}
     >
-      {items.map((item) => {
+      {/* Indicateur rouge plein qui glisse d'un onglet à l'autre */}
+      {activeIndex >= 0 && (
+        <motion.span
+          aria-hidden
+          className="absolute top-1.5 bottom-1.5 pointer-events-none"
+          style={{
+            left,
+            width,
+            opacity,
+            background: "rgba(232,25,44,0.14)", // ~ --yuno-red-dim/soft
+            border: "1px solid rgba(232,25,44,0.30)",
+            borderRadius: 10, // --radius-lg
+          }}
+        />
+      )}
+
+      {items.map((item, idx) => {
         const Icon = item.icon;
         const active = item.isActive;
         return (
           <motion.button
             key={item.key}
+            ref={(el) => {
+              tabRefs.current[idx] = el;
+            }}
             type="button"
             onClick={item.onSelect}
             aria-label={item.label}
             aria-current={active ? "page" : undefined}
-            whileTap={reduceMotion ? undefined : { scale: 0.92 }}
+            whileTap={reduceMotion ? undefined : { scale: 0.95 }}
             transition={{ type: "spring", stiffness: 400, damping: 22 }}
-            className={cn(
-              "relative flex h-10 min-w-[44px] items-center justify-center rounded-full px-3 outline-none transition-colors duration-200",
-              active
-                ? "text-primary"
-                : "text-muted-foreground [@media(hover:hover)]:hover:bg-white/5 [@media(hover:hover)]:hover:text-primary/80",
-            )}
-            style={active ? { background: "rgba(232,25,44,0.14)" } : undefined}
+            className="relative z-10 flex min-w-[52px] flex-col items-center justify-center gap-0.5 rounded-[10px] px-2 py-1.5 outline-none"
           >
-            <span className="relative flex shrink-0 items-center justify-center">
-              <Icon size={22} strokeWidth={active ? 2.4 : 2} aria-hidden />
+            <span className="relative flex items-center justify-center">
+              <Icon
+                size={22}
+                strokeWidth={active ? 2.4 : 1.8}
+                aria-hidden
+                className={cn(
+                  "transition-colors duration-200",
+                  active ? "text-primary" : "text-muted-foreground",
+                )}
+              />
               {item.dot && (
                 <span
                   aria-hidden
                   className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-primary"
-                  style={{ boxShadow: "0 0 0 2px rgba(20,20,22,1)" }}
+                  style={{ boxShadow: "0 0 0 2px #141414" }}
                 />
               )}
             </span>
-
-            {active && (
-              <motion.span
-                initial={
-                  reduceMotion
-                    ? { opacity: 0, marginLeft: 8 }
-                    : { width: 0, opacity: 0, marginLeft: 0 }
-                }
-                animate={
-                  reduceMotion
-                    ? { opacity: 1, marginLeft: 8 }
-                    : { width: "auto", opacity: 1, marginLeft: 8 }
-                }
-                transition={openSpring}
-                className="overflow-hidden whitespace-nowrap font-mono font-bold uppercase"
-                style={{ fontSize: "11px", letterSpacing: "0.06em", lineHeight: 1 }}
-              >
-                {item.label}
-              </motion.span>
-            )}
+            <span
+              className={cn(
+                "font-mono uppercase leading-tight transition-colors duration-200",
+                active ? "text-primary font-bold" : "text-muted-foreground font-medium",
+              )}
+              style={{ fontSize: "9px", letterSpacing: "0.08em" }}
+            >
+              {item.label}
+            </span>
           </motion.button>
         );
       })}
-    </nav>
+    </div>
   );
 }
 
