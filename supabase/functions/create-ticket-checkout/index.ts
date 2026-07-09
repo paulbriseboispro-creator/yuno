@@ -1014,7 +1014,12 @@ serve(async (req) => {
       }
     }
 
-    const origin = req.headers.get("origin") || "https://yunoapp.eu";
+    // App native (Capacitor) : origine capacitor://localhost refusée par Stripe
+    // dans les URLs de retour → rebasculer sur le domaine web + flag native=1.
+    const rawOrigin = req.headers.get("origin") || "https://yunoapp.eu";
+    const isNativeApp = rawOrigin.startsWith("capacitor://") || rawOrigin === "https://localhost";
+    const origin = isNativeApp ? "https://yunoapp.eu" : rawOrigin;
+    const nativeFlag = isNativeApp ? "&native=1" : "";
 
     // Serialize upsells for Stripe metadata (max 500 chars per value)
     const upsellMeta = JSON.stringify(validatedUpsells.map(u => ({
@@ -1025,7 +1030,7 @@ serve(async (req) => {
     const session = await stripe.checkout.sessions.create({
       line_items: lineItems,
       mode: "payment",
-      success_url: `${origin}/verify-ticket-payment?session_id={CHECKOUT_SESSION_ID}&ticket_id=${ticket.id}`,
+      success_url: `${origin}/verify-ticket-payment?session_id={CHECKOUT_SESSION_ID}&ticket_id=${ticket.id}${nativeFlag}`,
       cancel_url: cancelUrl ? `${origin}${cancelUrl}?payment_cancelled=true` : `${origin}/?payment_cancelled=true`,
       customer_email: user?.email || guestEmail,
       payment_method_types: ['card', 'link'],

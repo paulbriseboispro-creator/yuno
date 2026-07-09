@@ -10,6 +10,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { fr, enUS, es } from 'date-fns/locale';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { motion } from 'framer-motion';
+import { NativeCheckoutReturn } from '@/components/NativeCheckoutReturn';
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 
@@ -18,7 +19,10 @@ export default function VerifyTicketPayment() {
   const navigate = useNavigate();
   const { t, language } = useLanguage();
 
-  const [status, setStatus] = useState<'verifying' | 'guest' | 'error'>('verifying');
+  const [status, setStatus] = useState<'verifying' | 'guest' | 'error' | 'nativeReturn'>('verifying');
+  // Checkout lancé depuis l'app iOS : cette page tourne dans SafariVC côté web,
+  // le retour se fait par deep link yuno:// vers la confirmation in-app.
+  const isNativeReturn = searchParams.get('native') === '1';
   const [errorMessage, setErrorMessage] = useState('');
   const [guestDetails, setGuestDetails] = useState<any>(null);
   const [guestEmail, setGuestEmail] = useState('');
@@ -65,6 +69,10 @@ export default function VerifyTicketPayment() {
           if (!data.pushSent) {
             showFallbackToast(t('verify.ticketConfirmedToast'), t('verify.ticketRedirectingToast'));
           }
+        } else if (isNativeReturn) {
+          // Acheteur connecté venu de l'app iOS : on le renvoie dans l'app,
+          // la confirmation s'affiche là-bas.
+          setStatus('nativeReturn');
         } else {
           // Logged-in buyers already get a full confirmation on /order-confirmation.
           // A second "Ticket confirmed!" interstitial is pure friction — skip it.
@@ -107,6 +115,11 @@ export default function VerifyTicketPayment() {
 
   const locale = language === 'es' ? es : language === 'fr' ? fr : enUS;
   const eventDate = guestDetails?.eventDate ? new Date(guestDetails.eventDate) : null;
+
+  // ── Retour app native ────────────────────────────────────────────────────
+  if (status === 'nativeReturn') {
+    return <NativeCheckoutReturn returnPath={`/order-confirmation?type=ticket&id=${ticketId}`} />;
+  }
 
   // ── Verifying ───────────────────────────────────────────────────────────
   if (status === 'verifying') {

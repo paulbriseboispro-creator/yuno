@@ -23,6 +23,8 @@ import { useTableAvailability } from '@/hooks/useTableAvailability';
 import { supabase } from '@/integrations/supabase/client';
 import { PUBLIC_VENUE_COLUMNS } from '@/integrations/supabase/publicColumns';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
+import { launchCheckout } from '@/lib/native';
+import { haptics } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
 import { enUS, es, fr } from 'date-fns/locale';
@@ -492,10 +494,11 @@ export default function TableCheckout() {
         window.location.href = data.redirectUrl;
         return;
       }
-      if (data?.url) { window.location.href = data.url; }
+      if (data?.url) { haptics.medium(); launchCheckout(data.url); }
       else if (data?.redirectUrl) { window.location.href = data.redirectUrl; }
     } catch (error: any) {
       console.error('Checkout error:', error);
+      haptics.error();
       toast.error(error.message || t('tickets.checkoutError'));
       // Échec de réservation (le plus souvent : zone complète) -> proposer la liste d'attente.
       setWaitlistOpen(true);

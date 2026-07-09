@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
+import { launchCheckout } from '@/lib/native';
+import { haptics } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
 import { enUS, es, fr } from 'date-fns/locale';
@@ -654,10 +656,12 @@ export default function TicketCheckout() {
       }
 
       if (data?.url) {
-        window.location.href = data.url;
+        haptics.medium();
+        launchCheckout(data.url);
       }
     } catch (error: any) {
       console.error('Checkout error:', error);
+      haptics.error();
       toast.error(error.message || t('tickets.checkoutError'));
     } finally {
       setCheckoutLoading(false);

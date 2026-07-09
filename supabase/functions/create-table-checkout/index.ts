@@ -746,7 +746,12 @@ serve(async (req) => {
     logStep("Pending reservation created", { reservationId: reservation.id });
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-    const origin = req.headers.get("origin") || "https://yunoapp.eu";
+    // App native (Capacitor) : origine capacitor://localhost refusée par Stripe
+    // dans les URLs de retour → rebasculer sur le domaine web + flag native=1.
+    const rawOrigin = req.headers.get("origin") || "https://yunoapp.eu";
+    const isNativeApp = rawOrigin.startsWith("capacitor://") || rawOrigin === "https://localhost";
+    const origin = isNativeApp ? "https://yunoapp.eu" : rawOrigin;
+    const nativeFlag = isNativeApp ? "&native=1" : "";
 
     // Resolve the Stripe Connect split up front. DIRECT = single recipient → the
     // charge runs ON their connected account (they're the seller of record);
@@ -791,7 +796,7 @@ serve(async (req) => {
         { price_data: { currency: "eur", product_data: { name: "Frais de service" }, unit_amount: Math.round(transactionFee * 100) }, quantity: 1 },
       ],
       mode: "payment",
-      success_url: `${origin}/verify-table-payment?session_id={CHECKOUT_SESSION_ID}&reservation_id=${reservation.id}`,
+      success_url: `${origin}/verify-table-payment?session_id={CHECKOUT_SESSION_ID}&reservation_id=${reservation.id}${nativeFlag}`,
       cancel_url: cancelUrl ? `${origin}${cancelUrl}` : `${origin}/`,
       customer_email: user?.email || guestEmail,
       payment_method_types: ['card', 'link'],

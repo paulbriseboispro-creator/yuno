@@ -568,13 +568,19 @@ serve(async (req) => {
       quantity: 1,
     });
 
-    const origin = req.headers.get("origin") || "https://yunoapp.eu";
+    // App native (Capacitor) : l'origine est capacitor://localhost, que Stripe
+    // refuse dans les URLs de retour. On rebascule sur le domaine web et on
+    // flague native=1 pour que la page verify propose le deep-link yuno://.
+    const rawOrigin = req.headers.get("origin") || "https://yunoapp.eu";
+    const isNativeApp = rawOrigin.startsWith("capacitor://") || rawOrigin === "https://localhost";
+    const origin = isNativeApp ? "https://yunoapp.eu" : rawOrigin;
+    const nativeFlag = isNativeApp ? "&native=1" : "";
 
     // Create Stripe checkout session
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       line_items: lineItems,
       mode: "payment",
-      success_url: `${origin}/verify-payment?session_id={CHECKOUT_SESSION_ID}&order_id=${order.id}`,
+      success_url: `${origin}/verify-payment?session_id={CHECKOUT_SESSION_ID}&order_id=${order.id}${nativeFlag}`,
       cancel_url: cancelUrl ? `${origin}${cancelUrl}?payment_cancelled=true` : `${origin}/cart?payment_cancelled=true`,
       customer_email: user?.email || guestEmail,
       payment_method_types: ["card", "link"],

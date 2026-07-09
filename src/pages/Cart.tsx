@@ -18,6 +18,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
+import { launchCheckout } from '@/lib/native';
+import { haptics } from '@/lib/haptics';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslatedDrinkName } from '@/lib/drinkTranslations';
@@ -355,13 +357,15 @@ export default function Cart() {
 
       if (data.url) {
         sessionStorage.setItem(pendingSessionKey, JSON.stringify({ hash: cartHash, ts: Date.now() }));
-        window.location.href = data.url;
+        haptics.medium();
+        launchCheckout(data.url);
         return;
       }
 
       throw new Error('No checkout URL returned');
     } catch (error: any) {
       console.error('Checkout error:', error);
+      haptics.error();
       sessionStorage.removeItem(pendingSessionKey);
       toast({ title: t('cart.error'), description: error.message || t('cart.errorDesc'), variant: 'destructive' });
       setIsProcessing(false);

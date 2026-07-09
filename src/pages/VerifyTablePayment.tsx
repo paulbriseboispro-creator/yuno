@@ -7,13 +7,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { usePushListener } from '@/hooks/usePushListener';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { NativeCheckoutReturn } from '@/components/NativeCheckoutReturn';
 
 export default function VerifyTablePayment() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { t } = useLanguage();
-  
-  const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
+
+  const [status, setStatus] = useState<'verifying' | 'success' | 'error' | 'nativeReturn'>('verifying');
+  // Checkout lancé depuis l'app iOS : cette page tourne dans SafariVC côté web,
+  // le retour se fait par deep link yuno:// vers la confirmation in-app.
+  const isNativeReturn = searchParams.get('native') === '1';
   const [errorMessage, setErrorMessage] = useState('');
   const venueId = sessionStorage.getItem('yuno_venue_id') || undefined;
   const { trackOrderComplete } = useVisitorTracking(venueId);
@@ -40,16 +44,21 @@ export default function VerifyTablePayment() {
       if (error) throw error;
 
       if (data?.paid) {
-        setStatus('success');
         if (reservationId) trackOrderComplete(reservationId);
-        
+
+        if (isNativeReturn) {
+          setStatus('nativeReturn');
+          return;
+        }
+
+        setStatus('success');
         if (!data.pushSent) {
           showFallbackToast(
             t('verify.reservationConfirmedToast'),
             t('verify.reservationRedirectingToast')
           );
         }
-        
+
         setTimeout(() => {
           navigate(`/order-confirmation?type=table&id=${reservationId}`);
         }, 2000);
@@ -63,6 +72,10 @@ export default function VerifyTablePayment() {
       setErrorMessage(error.message || t('verify.verificationFailed'));
     }
   };
+
+  if (status === 'nativeReturn') {
+    return <NativeCheckoutReturn returnPath={`/order-confirmation?type=table&id=${reservationId}`} />;
+  }
 
   return (
     <div className="min-h-[100dvh] bg-background flex items-center justify-center p-4" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>

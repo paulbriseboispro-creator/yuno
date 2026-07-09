@@ -8,13 +8,17 @@ import { useStore } from '@/store/useStore';
 import { usePushListener } from '@/hooks/usePushListener';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { motion } from 'framer-motion';
+import { NativeCheckoutReturn } from '@/components/NativeCheckoutReturn';
 
 export default function VerifyPayment() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { t } = useLanguage();
-  
-  const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
+
+  const [status, setStatus] = useState<'verifying' | 'success' | 'error' | 'nativeReturn'>('verifying');
+  // Checkout lancé depuis l'app iOS : cette page tourne dans SafariVC côté web,
+  // le retour se fait par deep link yuno:// vers la confirmation in-app.
+  const isNativeReturn = searchParams.get('native') === '1';
   const [errorMessage, setErrorMessage] = useState('');
   const [pointsEarned, setPointsEarned] = useState<number>(0);
   const [orderNumber, setOrderNumber] = useState('');
@@ -69,9 +73,13 @@ export default function VerifyPayment() {
         }
         
         if (!data.isGuest) {
-          setTimeout(() => {
-            navigate(`/order-confirmation?type=order&id=${orderId}`);
-          }, 2500);
+          if (isNativeReturn) {
+            setStatus('nativeReturn');
+          } else {
+            setTimeout(() => {
+              navigate(`/order-confirmation?type=order&id=${orderId}`);
+            }, 2500);
+          }
         }
       } else {
         setStatus('error');
@@ -87,6 +95,10 @@ export default function VerifyPayment() {
   const handleCreateAccount = () => {
     navigate(`/guest/finalize?type=order&id=${orderId}`);
   };
+
+  if (status === 'nativeReturn') {
+    return <NativeCheckoutReturn returnPath={`/order-confirmation?type=order&id=${orderId}`} />;
+  }
 
   return (
     <div className="min-h-[100dvh] bg-background flex flex-col items-center justify-center p-6" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
