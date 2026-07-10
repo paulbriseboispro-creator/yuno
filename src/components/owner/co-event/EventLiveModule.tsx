@@ -104,7 +104,7 @@ export function EventLiveModule({ eventId, venueId }: Props) {
         />
       </motion.div>
 
-      {(pipeline.pending + pipeline.paid + pipeline.ready + pipeline.served + pipeline.refunded) > 0 && (
+      {(pipeline.pending + pipeline.paid + pipeline.preparing + pipeline.ready + pipeline.served + pipeline.refunded) > 0 && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <LiveOrderPipeline pipeline={pipeline} />
         </motion.div>

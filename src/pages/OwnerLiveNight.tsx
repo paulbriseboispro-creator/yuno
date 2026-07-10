@@ -126,7 +126,7 @@ export default function OwnerLiveNight() {
         </motion.div>
 
         {/* Order Pipeline */}
-        {(pipeline.pending + pipeline.paid + pipeline.ready + pipeline.served + pipeline.refunded) > 0 && (
+        {(pipeline.pending + pipeline.paid + pipeline.preparing + pipeline.ready + pipeline.served + pipeline.refunded) > 0 && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
             <LiveOrderPipeline pipeline={pipeline} />
           </motion.div>

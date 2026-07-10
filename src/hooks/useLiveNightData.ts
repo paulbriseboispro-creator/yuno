@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { uniqueChannel } from '@/lib/realtime';
+import { getNightWindow, bucketHourParis, nightKeyParis } from '@/lib/liveops/nightWindow';
 
 export type FeedItemType = 'order_created' | 'order_ready' | 'order_served' | 'ticket_scanned' | 'vip_scanned' | 'refund' | 'table_booked' | 'cloakroom';
 export type AlertSeverity = 'info' | 'warning' | 'critical';
@@ -24,7 +25,10 @@ export interface LiveAlert {
 }
 
 export interface StaffMember {
+  /** Unique row key: `${userId}:${role}` — one person can hold several roles in one night. */
   id: string;
+  /** Auth user id, used to resolve the profile name. */
+  userId: string;
   name: string;
   role: 'barman' | 'bouncer' | 'vip_host' | 'cloakroom';
   processedCount: number;
@@ -74,11 +78,49 @@ export interface EntryHour {
   count: number;
 }
 
-function getParisNow(): Date {
-  const now = new Date();
-  const parisStr = now.toLocaleString('en-US', { timeZone: 'Europe/Paris' });
-  return new Date(parisStr);
+export interface ActiveEventInfo {
+  id: string;
+  title: string;
+  start_at: string;
+  end_at: string;
 }
+
+/**
+ * Realtime storms (one order per few seconds during a rush) used to trigger a
+ * full 5-query refetch each. Refetches are now debounced: immediate when idle,
+ * otherwise a single trailing fetch at the end of the window.
+ */
+const REFETCH_DEBOUNCE_MS = 2_500;
+
+const DISMISSED_ALERTS_KEY = 'yuno-liveops-dismissed';
+
+function loadDismissedAlerts(): Set<string> {
+  try {
+    const raw = sessionStorage.getItem(DISMISSED_ALERTS_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as { night: string; ids: string[] };
+    if (parsed.night !== nightKeyParis()) return new Set();
+    return new Set(parsed.ids);
+  } catch {
+    return new Set();
+  }
+}
+
+function persistDismissedAlerts(ids: Set<string>) {
+  try {
+    sessionStorage.setItem(DISMISSED_ALERTS_KEY, JSON.stringify({ night: nightKeyParis(), ids: [...ids] }));
+  } catch {
+    // Storage full/unavailable — dismissal degrades to in-memory only.
+  }
+}
+
+/**
+ * Entity-stable feed item id. Historical rebuilds and realtime inserts MUST
+ * produce the same id for the same underlying fact, otherwise the merge in
+ * buildFeedFromData can't deduplicate and every event shows up twice.
+ */
+const feedId = (kind: 'ord' | 'rdy' | 'srv' | 'ref' | 'tik' | 'vip' | 'tbl' | 'clk', entityId: string) =>
+  `${kind}-${entityId}`;
 
 export function useLiveNightData(venueId: string | null, scopedEventId?: string | null) {
   const [kpis, setKpis] = useState<LiveKPIs>({
@@ -93,13 +135,26 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
   const [advancedMetrics, setAdvancedMetrics] = useState<LiveAdvancedMetrics>({
     attendanceRate: 0, avgPrepMinutes: 0, ordersPerMinuteLive: 0, refundRatePct: 0, revenuePerAttendee: 0,
   });
-  const [activeEvent, setActiveEvent] = useState<{ id: string; title: string; start_at: string; end_at: string } | null>(null);
+  const [activeEvents, setActiveEvents] = useState<ActiveEventInfo[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
   const [timeWindow, setTimeWindow] = useState<TimeWindow>('full');
-  const dismissedAlertIds = useRef<Set<string>>(new Set());
+
+  const dismissedAlertIds = useRef<Set<string> | null>(null);
+  if (dismissedAlertIds.current === null) dismissedAlertIds.current = loadDismissedAlerts();
+
   // Track realtime-only items (prepended on top of historical feed)
   const realtimeItems = useRef<FeedItem[]>([]);
+  // All venue event ids touching tonight — client-side guard for realtime
+  // payloads when no server-side event filter can be applied.
+  const venueEventIds = useRef<Set<string>>(new Set());
+
+  // Selected event, defaulting to the earliest-starting active one.
+  const activeEvent = useMemo<ActiveEventInfo | null>(
+    () => activeEvents.find(e => e.id === selectedEventId) ?? activeEvents[0] ?? null,
+    [activeEvents, selectedEventId],
+  );
 
   const getTimeWindow = useCallback(() => {
     const now = new Date();
@@ -117,55 +172,56 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
     }
 
     // Fallback: tonight in Paris time
-    const parisNow = getParisNow();
-    const hour = parisNow.getHours();
-    let startParis: Date, endParis: Date;
-    if (hour >= 18) {
-      startParis = new Date(parisNow); startParis.setHours(18, 0, 0, 0);
-      endParis = new Date(parisNow); endParis.setDate(endParis.getDate() + 1); endParis.setHours(6, 0, 0, 0);
-    } else if (hour < 6) {
-      startParis = new Date(parisNow); startParis.setDate(startParis.getDate() - 1); startParis.setHours(18, 0, 0, 0);
-      endParis = new Date(parisNow); endParis.setHours(6, 0, 0, 0);
-    } else {
-      startParis = new Date(parisNow); startParis.setHours(0, 0, 0, 0);
-      endParis = new Date(parisNow); endParis.setHours(23, 59, 59, 999);
-    }
-    const offsetMs = parisNow.getTime() - new Date().getTime();
-    return {
-      start: new Date(startParis.getTime() - offsetMs).toISOString(),
-      end: new Date(endParis.getTime() - offsetMs).toISOString(),
-    };
+    return getNightWindow(now);
   }, [timeWindow, activeEvent]);
 
-  const addRealtimeFeedItem = useCallback((item: Omit<FeedItem, 'id'>) => {
+  const addRealtimeFeedItem = useCallback((item: FeedItem) => {
     if (isPaused) return;
-    const newItem: FeedItem = { ...item, id: `rt-${crypto.randomUUID()}` };
-    realtimeItems.current = [newItem, ...realtimeItems.current].slice(0, 30);
+    if (realtimeItems.current.some(existing => existing.id === item.id)) return;
+    realtimeItems.current = [item, ...realtimeItems.current].slice(0, 30);
   }, [isPaused]);
 
-  const fetchActiveEvent = useCallback(async () => {
+  const fetchActiveEvents = useCallback(async () => {
     if (!venueId) return;
-    // If scoped to a specific event, force it as the active event
+    // If scoped to a specific event, force it as the only active event
     if (scopedEventId) {
       const { data } = await supabase
         .from('events')
         .select('id, title, start_at, end_at')
         .eq('id', scopedEventId)
         .maybeSingle();
-      setActiveEvent(data ? { id: data.id, title: data.title, start_at: data.start_at, end_at: data.end_at } : null);
+      const next: ActiveEventInfo[] = data
+        ? [{ id: data.id, title: data.title, start_at: data.start_at, end_at: data.end_at }]
+        : [];
+      venueEventIds.current = new Set(next.map(e => e.id));
+      setActiveEvents(prev => (sameEvents(prev, next) ? prev : next));
       return;
     }
-    const now = new Date().toISOString();
-    const { data } = await supabase
-      .from('events')
-      .select('id, title, start_at, end_at')
-      .eq('venue_id', venueId)
-      .eq('is_active', true)
-      .lte('start_at', now)
-      .gte('end_at', now)
-      .limit(1)
-      .maybeSingle();
-    setActiveEvent(data ? { id: data.id, title: data.title, start_at: data.start_at, end_at: data.end_at } : null);
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const [activeRes, recentRes] = await Promise.all([
+      supabase
+        .from('events')
+        .select('id, title, start_at, end_at')
+        .eq('venue_id', venueId)
+        .eq('is_active', true)
+        .lte('start_at', nowIso)
+        .gte('end_at', nowIso)
+        .order('start_at', { ascending: true }),
+      supabase
+        .from('events')
+        .select('id')
+        .eq('venue_id', venueId)
+        .gte('end_at', new Date(now.getTime() - 24 * 3600 * 1000).toISOString()),
+    ]);
+    const next: ActiveEventInfo[] = (activeRes.data || []).map(d => ({
+      id: d.id, title: d.title, start_at: d.start_at, end_at: d.end_at,
+    }));
+    venueEventIds.current = new Set((recentRes.data || []).map(e => e.id));
+    // Structural comparison: returning a fresh array every poll would change
+    // fetchAllData's identity, tear down and resubscribe every realtime
+    // channel, and loop the main effect indefinitely.
+    setActiveEvents(prev => (sameEvents(prev, next) ? prev : next));
   }, [venueId, scopedEventId]);
 
   // Build feed from historical data + realtime items
@@ -174,33 +230,34 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
 
     orders.slice(0, 30).forEach(o => {
       if (o.status === 'refunded' || o.refunded_at) {
-        items.push({ id: `h-ref-${o.id}`, type: 'refund', description: `#${o.order_number || o.id.slice(0, 6)} — ${Number(o.refund_amount || o.total || 0).toFixed(0)} €`, timestamp: o.refunded_at || o.created_at });
+        items.push({ id: feedId('ref', o.id), type: 'refund', description: `#${o.order_number || o.id.slice(0, 6)} — ${Number(o.refund_amount || o.total || 0).toFixed(0)} €`, timestamp: o.refunded_at || o.created_at });
       }
       if (o.status === 'served' || o.prep_status === 'served') {
-        items.push({ id: `h-srv-${o.id}`, type: 'order_served', description: `#${o.order_number || o.id.slice(0, 6)}`, timestamp: o.served_at || o.created_at });
+        items.push({ id: feedId('srv', o.id), type: 'order_served', description: `#${o.order_number || o.id.slice(0, 6)}`, timestamp: o.served_at || o.created_at });
       } else if (o.prep_status === 'ready') {
-        items.push({ id: `h-rdy-${o.id}`, type: 'order_ready', description: `#${o.order_number || o.id.slice(0, 6)}`, timestamp: o.ready_at || o.created_at });
+        items.push({ id: feedId('rdy', o.id), type: 'order_ready', description: `#${o.order_number || o.id.slice(0, 6)}`, timestamp: o.ready_at || o.created_at });
       } else if (o.status === 'paid') {
-        items.push({ id: `h-ord-${o.id}`, type: 'order_created', description: `#${o.order_number || o.id.slice(0, 6)} — ${Number(o.total).toFixed(0)} €`, timestamp: o.created_at, actor: o.user_email });
+        items.push({ id: feedId('ord', o.id), type: 'order_created', description: `#${o.order_number || o.id.slice(0, 6)} — ${Number(o.total).toFixed(0)} €`, timestamp: o.created_at, actor: o.user_email });
       }
     });
 
     tickets.filter(t => t.entry_scanned).slice(0, 20).forEach(t => {
-      items.push({ id: `h-tik-${t.id}`, type: 'ticket_scanned', description: t.full_name || 'Guest', timestamp: t.entry_scanned_at || t.created_at });
+      items.push({ id: feedId('tik', t.id), type: 'ticket_scanned', description: t.full_name || 'Guest', timestamp: t.entry_scanned_at || t.created_at });
     });
 
     tables.filter(t => t.entry_scanned).slice(0, 10).forEach(t => {
-      items.push({ id: `h-vip-${t.id}`, type: 'vip_scanned', description: t.full_name || 'VIP', timestamp: t.entry_scanned_at || t.created_at });
+      items.push({ id: feedId('vip', t.id), type: 'vip_scanned', description: t.full_name || 'VIP', timestamp: t.entry_scanned_at || t.created_at });
     });
     tables.filter(t => !t.entry_scanned).slice(0, 10).forEach(t => {
-      items.push({ id: `h-tbl-${t.id}`, type: 'table_booked', description: t.full_name || 'VIP', timestamp: t.created_at });
+      items.push({ id: feedId('tbl', t.id), type: 'table_booked', description: t.full_name || 'VIP', timestamp: t.created_at });
     });
 
     cloakroom.slice(0, 10).forEach(c => {
-      items.push({ id: `h-clk-${c.id}`, type: 'cloakroom', description: `#${(c as any).cloakroom_number || ''}`, timestamp: c.created_at });
+      items.push({ id: feedId('clk', c.id), type: 'cloakroom', description: `#${(c as any).cloakroom_number || ''}`, timestamp: c.created_at });
     });
 
-    // Merge realtime items (deduplicate by checking if historical already covers it)
+    // Merge realtime items — same entity-stable ids on both sides, so this is
+    // a real dedup (historical rows win once the refetch catches up).
     const historicalIds = new Set(items.map(i => i.id));
     const rtItems = realtimeItems.current.filter(rt => !historicalIds.has(rt.id));
 
@@ -228,30 +285,35 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       if (eventId) {
         ticketsQuery = supabase
           .from('tickets')
-          .select('id, total_price, service_fee, insurance_fee, entry_scanned, entry_scanned_at, full_name, created_at, event_id')
+          .select('id, total_price, service_fee, insurance_fee, entry_scanned, entry_scanned_at, entry_scanned_by, full_name, created_at, event_id')
           .eq('event_id', eventId)
           .eq('status', 'paid')
-          .gte('created_at', start);
+          .gte('created_at', start)
+          .lte('created_at', end);
       } else {
         ticketsQuery = supabase
           .from('tickets')
-          .select('id, total_price, service_fee, insurance_fee, entry_scanned, entry_scanned_at, full_name, created_at, event_id, events!inner(venue_id)')
+          .select('id, total_price, service_fee, insurance_fee, entry_scanned, entry_scanned_at, entry_scanned_by, full_name, created_at, event_id, events!inner(venue_id)')
           .eq('events.venue_id', venueId)
           .eq('status', 'paid')
-          .gte('created_at', start);
+          .gte('created_at', start)
+          .lte('created_at', end);
       }
 
-      const tablesQuery = supabase
+      let tablesQuery = supabase
         .from('table_reservations')
-        .select('id, deposit, status, entry_scanned, entry_scanned_at, entry_scanned_by, full_name, created_at, zone_id, table_zones!inner(venue_id)')
+        .select('id, deposit, status, entry_scanned, entry_scanned_at, entry_scanned_by, full_name, created_at, zone_id, event_id, table_zones!inner(venue_id)')
         .eq('table_zones.venue_id', venueId)
-        .gte('created_at', start);
+        .gte('created_at', start)
+        .lte('created_at', end);
+      if (eventId) tablesQuery = tablesQuery.eq('event_id', eventId);
 
       let cloakroomQuery = supabase
         .from('cloakroom_transactions')
         .select('id, created_at, cloakroom_number, staff_id')
         .eq('venue_id', venueId)
-        .gte('created_at', start);
+        .gte('created_at', start)
+        .lte('created_at', end);
       if (eventId) cloakroomQuery = cloakroomQuery.eq('event_id', eventId);
 
       const [ordersRes, ticketsRes, tablesRes, cloakroomRes] = await Promise.all([
@@ -347,57 +409,58 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
         revenuePerAttendee,
       });
 
-      // Entry flow (hourly)
+      // Entry flow (hourly, Paris wall-clock — browser timezone shifted the
+      // histogram for owners abroad)
       const hourMap = new Map<number, number>();
       [...scannedTickets, ...scannedTables].forEach(item => {
         const scannedAt = (item as any).entry_scanned_at;
         if (scannedAt) {
-          const h = new Date(scannedAt).getHours();
+          const h = bucketHourParis(scannedAt);
           hourMap.set(h, (hourMap.get(h) || 0) + 1);
         }
       });
       setEntryFlow(Array.from({ length: 24 }, (_, i) => ({ hour: i, count: hourMap.get(i) || 0 })));
 
-      // Staff activity
-      const staffMap = new Map<string, { count: number; role: StaffMember['role'] }>();
-      orders.filter(o => o.prep_claimed_by).forEach(o => {
-        const entry = staffMap.get(o.prep_claimed_by!) || { count: 0, role: 'barman' as const };
+      // Staff activity — keyed by user AND role so a person scanning at the
+      // door and later serving at the bar shows up once per station instead of
+      // having their role overwritten by whichever loop ran last.
+      const staffMap = new Map<string, { userId: string; role: StaffMember['role']; count: number }>();
+      const bumpStaff = (userId: string, role: StaffMember['role']) => {
+        const key = `${userId}:${role}`;
+        const entry = staffMap.get(key) || { userId, role, count: 0 };
         entry.count++;
-        entry.role = 'barman';
-        staffMap.set(o.prep_claimed_by!, entry);
-      });
+        staffMap.set(key, entry);
+      };
+      orders.filter(o => o.prep_claimed_by).forEach(o => bumpStaff(o.prep_claimed_by!, 'barman'));
       [...scannedTickets, ...scannedTables].forEach(item => {
         const scannedBy = (item as any).entry_scanned_by;
-        if (scannedBy) {
-          const entry = staffMap.get(scannedBy) || { count: 0, role: 'bouncer' as const };
-          entry.count++;
-          entry.role = 'bouncer';
-          staffMap.set(scannedBy, entry);
-        }
+        if (scannedBy) bumpStaff(scannedBy, 'bouncer');
       });
       cloakroom.forEach(c => {
         const staffId = (c as any).staff_id;
-        if (staffId) {
-          const entry = staffMap.get(staffId) || { count: 0, role: 'cloakroom' as const };
-          entry.count++;
-          entry.role = 'cloakroom';
-          staffMap.set(staffId, entry);
-        }
+        if (staffId) bumpStaff(staffId, 'cloakroom');
       });
 
-      const staffList: StaffMember[] = Array.from(staffMap.entries()).map(([id, data]) => ({
-        id, name: data.role === 'barman' ? 'Barman' : data.role === 'bouncer' ? 'Bouncer' : 'Vestiaire',
-        role: data.role, processedCount: data.count, isActive: data.count > 0,
+      const staffList: StaffMember[] = Array.from(staffMap.entries()).map(([key, data]) => ({
+        id: key,
+        userId: data.userId,
+        name: `Staff ${data.userId.slice(0, 4)}`,
+        role: data.role,
+        processedCount: data.count,
+        isActive: data.count > 0,
       }));
       if (staffList.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
           .select('id, first_name, last_name')
-          .in('id', staffList.map(s => s.id));
+          .in('id', [...new Set(staffList.map(s => s.userId))]);
         if (profiles) {
           profiles.forEach(p => {
-            const staff = staffList.find(s => s.id === p.id);
-            if (staff) staff.name = [p.first_name, p.last_name].filter(Boolean).join(' ') || staff.name;
+            const fullName = [p.first_name, p.last_name].filter(Boolean).join(' ');
+            if (!fullName) return;
+            staffList.forEach(staff => {
+              if (staff.userId === p.id) staff.name = fullName;
+            });
           });
         }
       }
@@ -419,7 +482,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       if (orders.filter(o => o.refunded_at && o.refunded_at >= thirtyMinAgo).length > 3) {
         newAlerts.push({ id: 'refund-spike', severity: 'critical', titleKey: 'live.alertRefundTitle', descriptionKey: 'live.alertRefundDesc', timestamp: new Date().toISOString() });
       }
-      setAlerts(newAlerts.filter(a => !dismissedAlertIds.current.has(a.id)));
+      setAlerts(newAlerts.filter(a => !dismissedAlertIds.current!.has(a.id)));
 
     } catch (err) {
       console.error('Live night data fetch error:', err);
@@ -428,67 +491,97 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
     }
   }, [venueId, getTimeWindow, activeEvent, buildFeedFromData]);
 
+  // ── Debounced refetch (leading + trailing) ────────────────────────────────
+  const lastFetchAtRef = useRef(0);
+  const refetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleRefetch = useCallback(() => {
+    const elapsed = Date.now() - lastFetchAtRef.current;
+    if (elapsed >= REFETCH_DEBOUNCE_MS) {
+      lastFetchAtRef.current = Date.now();
+      fetchAllData();
+    } else if (!refetchTimerRef.current) {
+      refetchTimerRef.current = setTimeout(() => {
+        refetchTimerRef.current = null;
+        lastFetchAtRef.current = Date.now();
+        fetchAllData();
+      }, REFETCH_DEBOUNCE_MS - elapsed);
+    }
+  }, [fetchAllData]);
+
   const dismissAlert = useCallback((id: string) => {
-    dismissedAlertIds.current.add(id);
+    dismissedAlertIds.current!.add(id);
+    persistDismissedAlerts(dismissedAlertIds.current!);
     setAlerts(prev => prev.filter(a => a.id !== id));
   }, []);
 
   useEffect(() => {
     if (!venueId) return;
 
-    fetchActiveEvent();
+    fetchActiveEvents();
+    lastFetchAtRef.current = Date.now();
     fetchAllData();
+
+    // When an event is pinned, tickets/tables can be filtered server-side.
+    // Otherwise those tables have no venue column to filter on, so we fall
+    // back to a client-side guard against the venue's event ids — without it
+    // every scan anywhere on the platform used to trigger a full refetch here.
+    const eventFilter = activeEvent ? `event_id=eq.${activeEvent.id}` : undefined;
+    const isOurEvent = (eventId: unknown): boolean =>
+      Boolean(eventFilter) || (typeof eventId === 'string' && venueEventIds.current.has(eventId));
 
     const orderChannel = supabase
       .channel(uniqueChannel('live-orders'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `venue_id=eq.${venueId}` }, (payload) => {
-        fetchAllData();
+        scheduleRefetch();
         if (payload.eventType === 'INSERT') {
           const o = payload.new as any;
-          addRealtimeFeedItem({ type: 'order_created', description: `#${o.order_number || o.id.slice(0, 6)} — ${Number(o.total).toFixed(0)} €`, timestamp: o.created_at, actor: o.user_email });
+          addRealtimeFeedItem({ id: feedId('ord', o.id), type: 'order_created', description: `#${o.order_number || o.id.slice(0, 6)} — ${Number(o.total).toFixed(0)} €`, timestamp: o.created_at, actor: o.user_email });
         } else if (payload.eventType === 'UPDATE') {
           const o = payload.new as any;
-          if (o.prep_status === 'ready') addRealtimeFeedItem({ type: 'order_ready', description: `#${o.order_number || o.id.slice(0, 6)}`, timestamp: new Date().toISOString() });
-          if (o.status === 'served' || o.prep_status === 'served') addRealtimeFeedItem({ type: 'order_served', description: `#${o.order_number || o.id.slice(0, 6)}`, timestamp: o.served_at || new Date().toISOString() });
-          if (o.refunded_at && !payload.old?.refunded_at) addRealtimeFeedItem({ type: 'refund', description: `#${o.order_number || o.id.slice(0, 6)} — ${Number(o.refund_amount || 0).toFixed(0)} €`, timestamp: o.refunded_at });
+          if (o.prep_status === 'ready') addRealtimeFeedItem({ id: feedId('rdy', o.id), type: 'order_ready', description: `#${o.order_number || o.id.slice(0, 6)}`, timestamp: new Date().toISOString() });
+          if (o.status === 'served' || o.prep_status === 'served') addRealtimeFeedItem({ id: feedId('srv', o.id), type: 'order_served', description: `#${o.order_number || o.id.slice(0, 6)}`, timestamp: o.served_at || new Date().toISOString() });
+          if (o.refunded_at && !payload.old?.refunded_at) addRealtimeFeedItem({ id: feedId('ref', o.id), type: 'refund', description: `#${o.order_number || o.id.slice(0, 6)} — ${Number(o.refund_amount || 0).toFixed(0)} €`, timestamp: o.refunded_at });
         }
       }).subscribe();
 
     const ticketChannel = supabase
       .channel(uniqueChannel('live-tickets'))
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tickets' }, (payload) => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tickets', ...(eventFilter ? { filter: eventFilter } : {}) }, (payload) => {
         const t = payload.new as any;
+        if (!isOurEvent(t.event_id)) return;
         if (t.entry_scanned && !payload.old?.entry_scanned) {
-          addRealtimeFeedItem({ type: 'ticket_scanned', description: t.full_name || t.user_email || 'Guest', timestamp: t.entry_scanned_at || new Date().toISOString() });
-          fetchAllData();
+          addRealtimeFeedItem({ id: feedId('tik', t.id), type: 'ticket_scanned', description: t.full_name || t.user_email || 'Guest', timestamp: t.entry_scanned_at || new Date().toISOString() });
+          scheduleRefetch();
         }
       }).subscribe();
 
     const tableChannel = supabase
       .channel(uniqueChannel('live-tables'))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'table_reservations' }, (payload) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'table_reservations', ...(eventFilter ? { filter: eventFilter } : {}) }, (payload) => {
+        const r = (payload.new ?? payload.old) as any;
+        if (!isOurEvent(r?.event_id)) return;
         if (payload.eventType === 'INSERT') {
-          addRealtimeFeedItem({ type: 'table_booked', description: (payload.new as any).full_name || 'VIP', timestamp: (payload.new as any).created_at });
+          addRealtimeFeedItem({ id: feedId('tbl', (payload.new as any).id), type: 'table_booked', description: (payload.new as any).full_name || 'VIP', timestamp: (payload.new as any).created_at });
         }
         if (payload.eventType === 'UPDATE') {
-          const r = payload.new as any;
-          if (r.entry_scanned && !payload.old?.entry_scanned) {
-            addRealtimeFeedItem({ type: 'vip_scanned', description: r.full_name || 'VIP', timestamp: r.entry_scanned_at || new Date().toISOString() });
+          const row = payload.new as any;
+          if (row.entry_scanned && !payload.old?.entry_scanned) {
+            addRealtimeFeedItem({ id: feedId('vip', row.id), type: 'vip_scanned', description: row.full_name || 'VIP', timestamp: row.entry_scanned_at || new Date().toISOString() });
           }
         }
-        fetchAllData();
+        scheduleRefetch();
       }).subscribe();
 
     const cloakroomChannel = supabase
       .channel(uniqueChannel('live-cloakroom'))
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'cloakroom_transactions', filter: `venue_id=eq.${venueId}` }, (payload) => {
         const c = payload.new as any;
-        addRealtimeFeedItem({ type: 'cloakroom', description: `#${c.cloakroom_number || ''}`, timestamp: c.created_at });
-        fetchAllData();
+        addRealtimeFeedItem({ id: feedId('clk', c.id), type: 'cloakroom', description: `#${c.cloakroom_number || ''}`, timestamp: c.created_at });
+        scheduleRefetch();
       }).subscribe();
 
     const pollMs = timeWindow === 'live' ? 10_000 : 30_000;
-    const pollInterval = setInterval(fetchAllData, pollMs);
+    const pollInterval = setInterval(scheduleRefetch, pollMs);
 
     return () => {
       supabase.removeChannel(orderChannel);
@@ -496,14 +589,24 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       supabase.removeChannel(tableChannel);
       supabase.removeChannel(cloakroomChannel);
       clearInterval(pollInterval);
+      if (refetchTimerRef.current) {
+        clearTimeout(refetchTimerRef.current);
+        refetchTimerRef.current = null;
+      }
     };
-  }, [venueId, fetchAllData, fetchActiveEvent, addRealtimeFeedItem, timeWindow]);
-
-  useEffect(() => { fetchAllData(); }, [timeWindow, fetchAllData]);
+  }, [venueId, fetchAllData, fetchActiveEvents, addRealtimeFeedItem, scheduleRefetch, timeWindow, activeEvent]);
 
   return {
     kpis, feed, alerts, pipeline, staffActivity, entryFlow, advancedMetrics,
-    activeEvent, loading, isPaused, timeWindow,
-    setIsPaused, setTimeWindow, dismissAlert,
+    activeEvent, activeEvents, selectedEventId, loading, isPaused, timeWindow,
+    setIsPaused, setTimeWindow, setSelectedEventId, dismissAlert,
   };
+}
+
+function sameEvents(a: ActiveEventInfo[], b: ActiveEventInfo[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((e, i) => {
+    const o = b[i];
+    return e.id === o.id && e.title === o.title && e.start_at === o.start_at && e.end_at === o.end_at;
+  });
 }
