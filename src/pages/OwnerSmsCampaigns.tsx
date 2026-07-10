@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
+import AIContentGenerator from '@/components/campaigns/AIContentGenerator';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -591,6 +592,14 @@ export default function OwnerSmsCampaigns() {
                   maxLength={MAX_SMS_CHARS}
                   className="bg-surface/40 border-white/[0.08] resize-none"
                 />
+                <div className="flex justify-end pt-1">
+                  <AIContentGenerator
+                    channel="sms"
+                    eventId={segmentType === 'event' ? selectedEventId || null : null}
+                    segment={segmentType}
+                    onApply={(c) => setBody(c.body.slice(0, MAX_SMS_CHARS))}
+                  />
+                </div>
               </div>
 
               <div className="space-y-1.5">

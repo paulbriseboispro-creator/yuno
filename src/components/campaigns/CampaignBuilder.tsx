@@ -21,6 +21,7 @@ import {
 } from '@/lib/emailCampaign';
 import EmailEditor from '@/components/email-editor/EmailEditor';
 import { getTemplatePresets, type EmailType, type TemplatePreset } from '@/components/email-editor/templates';
+import AIContentGenerator from '@/components/campaigns/AIContentGenerator';
 
 export type SenderScope =
   | { kind: 'venue'; venueId: string; name: string; logoUrl?: string | null; city?: string | null }
@@ -383,6 +384,23 @@ export default function CampaignBuilder({ scope, basePath }: Props) {
         )}
 
         {/* ───────────── STEP 2 — DESIGN & CONTENT ───────────── */}
+        {step === 2 && scope.kind === 'venue' && (
+          <div className="flex justify-end">
+            {/* Génération IA : remplit objet + preheader et ajoute un bloc texte — l'owner édite ensuite. */}
+            <AIContentGenerator
+              channel="email"
+              eventId={eventId || null}
+              segment={audienceType}
+              onApply={(c) => {
+                setSubject(c.title);
+                setPreheader(c.preheader);
+                const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const html = c.body.split(/\n{2,}/).map(p => `<p>${esc(p.trim())}</p>`).join('');
+                setBlocks(prev => [...prev, newBlock('text', { html })]);
+              }}
+            />
+          </div>
+        )}
         {step === 2 && (
           <EmailEditor
             blocks={blocks}
