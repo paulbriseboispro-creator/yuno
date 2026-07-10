@@ -10900,6 +10900,12 @@ const es: Record<string, string> = {
   'nightai.error': 'El análisis falló. Inténtalo de nuevo en un momento.',
   'nightai.disclaimer': 'Análisis generado por IA a partir de tus cifras reales: verifica antes de cualquier decisión importante.',
 
+  // ─── Recomendaciones personalizadas («Para ti») ───
+  'settings.personalizedRecs': 'Recomendaciones personalizadas',
+  'settings.personalizedRecsHint': 'Sugerencias de fiestas basadas en tus compras y favoritos. Puedes desactivarlo cuando quieras.',
+  'settings.prefUpdated': 'Preferencia actualizada',
+  'settings.prefError': 'No se pudo actualizar la preferencia',
+
 };
 
 export default es;

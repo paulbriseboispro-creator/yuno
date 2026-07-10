@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
@@ -28,6 +29,8 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [mfaEnabled, setMfaEnabled] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
+  // Opt-out RGPD des recommandations personnalisées (rail « Pour toi »).
+  const [personalizationOptOut, setPersonalizationOptOut] = useState(false);
 
   // Email change state
   const [emailChangeLoading, setEmailChangeLoading] = useState(false);
@@ -53,6 +56,19 @@ export default function Settings() {
       });
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (!user) return;
+    // Colonne pas encore dans les types générés (regen après db push).
+    supabase
+      .from('profiles')
+      .select('personalization_opt_out' as never)
+      .eq('id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setPersonalizationOptOut(Boolean((data as { personalization_opt_out?: boolean } | null)?.personalization_opt_out));
+      });
+  }, [user]);
 
   useEffect(() => {
     if (user) {
@@ -499,6 +515,29 @@ export default function Settings() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm">{t('settings.personalizedRecs')}</span>
+                <p className="text-xs text-muted-foreground mt-0.5">{t('settings.personalizedRecsHint')}</p>
+              </div>
+              <Switch
+                checked={!personalizationOptOut}
+                onCheckedChange={async (on) => {
+                  const optOut = !on;
+                  setPersonalizationOptOut(optOut);
+                  const { error } = await supabase
+                    .from('profiles')
+                    .update({ personalization_opt_out: optOut } as never)
+                    .eq('id', user!.id);
+                  if (error) {
+                    setPersonalizationOptOut(!optOut);
+                    toast.error(t('settings.prefError'));
+                  } else {
+                    toast.success(t('settings.prefUpdated'));
+                  }
+                }}
+              />
             </div>
           </CardContent>
         </Card>

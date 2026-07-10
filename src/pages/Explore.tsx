@@ -21,6 +21,7 @@ import { ExplorePopularClubCard } from '@/components/explore/ExplorePopularClubC
 import { ExploreSeeAllCard } from '@/components/explore/ExploreSeeAllCard';
 import { ExploreDayTabs, WeekDayData } from '@/components/explore/ExploreDayTabs';
 import { FadeInView } from '@/components/motion';
+import { useForYouEvents } from '@/hooks/useForYouEvents';
 import { PublicPage } from '@/components/PublicPage';
 import { ExploreCardsSkeleton } from '@/components/skeletons/ExploreCardsSkeleton';
 import { format } from 'date-fns';
@@ -142,6 +143,9 @@ export default function Explore() {
 
   // ── Week data for "Cette semaine" section ──
   const [weekData, setWeekData] = useState<WeekDayData[]>([]);
+
+  // ── « Pour toi » : ids classés par la RPC embeddings (vide si pas de signal) ──
+  const forYouIds = useForYouEvents();
 
   // ── Top DJs jouant cette semaine dans la zone (les plus suivis) ──
   const [topDjs, setTopDjs] = useState<ExploreDJItem[]>([]);
@@ -407,6 +411,21 @@ export default function Explore() {
       .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
       .slice(0, 10);
   }, [weekData, carouselIds, freeOnly, chipGenres, filters]);
+
+  // « Pour toi » : intersection du classement RPC (embeddings) avec les events
+  // déjà chargés/mappés (semaine + période), dans l'ordre du classement.
+  const forYouEvents = useMemo(() => {
+    if (forYouIds.length === 0) return [];
+    const byId = new Map<string, EventCardData>();
+    for (const day of weekData) {
+      for (const e of day.events) if (!byId.has(e.id)) byId.set(e.id, e);
+    }
+    for (const e of carouselEvents) if (!byId.has(e.id)) byId.set(e.id, e);
+    return forYouIds
+      .map((id) => byId.get(id))
+      .filter((e): e is EventCardData => Boolean(e))
+      .slice(0, 10);
+  }, [forYouIds, weekData, carouselEvents]);
 
   // Trending: top events from the next 7 days sorted by likes, adaptive count (max 10)
   const trendingEvents = useMemo(() => {
@@ -1091,6 +1110,24 @@ export default function Explore() {
               city={city}
               periodLabel={periodLabel}
             />
+
+            {/* ═══ MODULE 1bis : « Pour toi » — reco personnalisée (embeddings) ═══ */}
+            {forYouEvents.length >= 3 && (
+              <FadeInView style={{ marginTop: 32 }}>
+                <ExploreSectionTitle
+                  kicker={language === 'fr' ? 'SÉLECTION PERSONNALISÉE' : language === 'es' ? 'SELECCIÓN PERSONAL' : 'PICKED FOR YOU'}
+                  title={language === 'fr' ? 'Pour toi' : language === 'es' ? 'Para ti' : 'For you'}
+                />
+                <div
+                  className="flex overflow-x-auto"
+                  style={{ gap: 14, paddingBottom: 8, paddingLeft: 20, paddingRight: 20, scrollbarWidth: 'none' } as React.CSSProperties}
+                >
+                  {forYouEvents.map(e => (
+                    <ExploreRailCard key={e.id} event={e} />
+                  ))}
+                </div>
+              </FadeInView>
+            )}
 
             {/* ═══ MODULE 2 : Recommandé — soirées à venir cette semaine ═══ */}
             {recoEvents.length > 0 && (

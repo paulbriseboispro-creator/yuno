@@ -10857,6 +10857,12 @@ const fr: Record<string, string> = {
   'nightai.error': "L'analyse a échoué. Réessaie dans un instant.",
   'nightai.disclaimer': "Analyse générée par IA à partir de tes chiffres réels — vérifie avant toute décision importante.",
 
+  // ─── Recommandations personnalisées (« Pour toi ») ───
+  'settings.personalizedRecs': 'Recommandations personnalisées',
+  'settings.personalizedRecsHint': 'Suggestions de soirées basées sur tes achats et favoris. Désactivable à tout moment.',
+  'settings.prefUpdated': 'Préférence mise à jour',
+  'settings.prefError': 'Impossible de mettre à jour la préférence',
+
 };
 
 export default fr;

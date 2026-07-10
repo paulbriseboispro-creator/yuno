@@ -10786,6 +10786,12 @@ const en: Record<string, string> = {
   'nightai.error': 'The analysis failed. Try again in a moment.',
   'nightai.disclaimer': 'AI-generated analysis based on your real numbers — double-check before any major decision.',
 
+  // ─── Personalized recommendations ("For you") ───
+  'settings.personalizedRecs': 'Personalized recommendations',
+  'settings.personalizedRecsHint': 'Event suggestions based on your purchases and favorites. You can turn this off anytime.',
+  'settings.prefUpdated': 'Preference updated',
+  'settings.prefError': 'Could not update the preference',
+
 };
 
 export default en;
