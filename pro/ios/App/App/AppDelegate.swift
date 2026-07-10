@@ -26,7 +26,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+        // Swipe back natif : active le geste bord-écran du WKWebView (voir app B2C).
+        if let vc = window?.rootViewController as? CAPBridgeViewController {
+            vc.webView?.allowsBackForwardNavigationGestures = true
+        }
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

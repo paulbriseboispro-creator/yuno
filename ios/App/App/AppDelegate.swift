@@ -26,7 +26,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+        // Swipe back natif : active le geste bord-écran du WKWebView. L'historique
+        // SPA (pushState) est dans la back-forward list du WebView, donc le geste
+        // dépile la navigation comme une app iOS classique. Idempotent.
+        if let vc = window?.rootViewController as? CAPBridgeViewController {
+            vc.webView?.allowsBackForwardNavigationGestures = true
+        }
     }
 
     func applicationWillTerminate(_ application: UIApplication) {
