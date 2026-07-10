@@ -2,12 +2,17 @@
 <!--
   Launch Screen — Yuno.
   Image « Splash » (imageset rouge #E51D2A + logo blanc TERMINÉ, coupe VIDE),
-  affichée en scaleAspectFill sur fond rouge. C'est l'écran statique OBLIGATOIRE
-  d'iOS pendant le démarrage (non animable) : il est calé sur la PREMIÈRE image
-  du splash animé (SplashScreen.tsx, « Frame A ») pour un raccord invisible —
-  le WebView reprend sur exactement la même image puis la coupe se remplit.
-  NB : rebuild Xcode requis (npx cap sync ios puis build). Taille du logo
-  ajustée pour les iPhone modernes ; ré-exportable depuis le design si besoin.
+  calée sur la PREMIÈRE image du splash animé (SplashScreen.tsx, « Frame A »)
+  pour un raccord invisible : le WebView reprend sur exactement la même image
+  puis la coupe se remplit.
+
+  RACCORD EXACT : l'imageView n'est PLUS en scaleAspectFill plein écran (échelle
+  dépendante de l'appareil → le logo statique paraissait plus grand que
+  l'animation, d'où un dézoom brusque). Elle est contrainte à 805×805 pt,
+  centrée, en scaleAspectFit : le PNG 2732 px s'affiche à 3,393 px/pt, soit
+  EXACTEMENT la taille du logo animé (verre SVG 212 pt) sur tous les iPhone.
+  Le débordement hors écran est du rouge sur fond rouge (invisible).
+  NB : rebuild Xcode requis (npx cap sync ios puis build).
 -->
 <document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="17132" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
     <device id="retina4_7" orientation="portrait" appearance="light"/>
@@ -21,11 +26,24 @@
         <scene sceneID="EHf-IW-A2E">
             <objects>
                 <viewController id="01J-lp-oVM" sceneMemberID="viewController">
-                    <imageView key="view" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="Splash" id="snD-IY-ifK">
+                    <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
                         <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <imageView userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="Splash" translatesAutoresizingMaskIntoConstraints="NO" id="snD-IY-ifK">
+                                <rect key="frame" x="-215" y="-69" width="805" height="805"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="805" id="ynW-sp-lsh"/>
+                                    <constraint firstAttribute="height" constant="805" id="ynH-sp-lsh"/>
+                                </constraints>
+                            </imageView>
+                        </subviews>
                         <color key="backgroundColor" red="0.89803921568627454" green="0.11372549019607843" blue="0.16470588235294117" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
-                    </imageView>
+                        <constraints>
+                            <constraint firstItem="snD-IY-ifK" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="ynX-sp-lsh"/>
+                            <constraint firstItem="snD-IY-ifK" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="ynY-sp-lsh"/>
+                        </constraints>
+                    </view>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
             </objects>
