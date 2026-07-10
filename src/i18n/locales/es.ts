@@ -10866,6 +10866,25 @@ const es: Record<string, string> = {
   'profile.securityMfa': 'MFA requerido',
   'profile.securityPin': 'PIN requerido',
 
+  // ─── Generación IA de contenido marketing (push / email / SMS) ───
+  'aigen.button': 'Generar con IA',
+  'aigen.title': 'Generación IA',
+  'aigen.subtitle.push': 'Tres propuestas de notificación, en tres idiomas, a partir de los datos reales de tu fiesta.',
+  'aigen.subtitle.email': 'Tres propuestas de asunto y texto, en tres idiomas, a partir de los datos reales de tu fiesta.',
+  'aigen.subtitle.sms': 'Tres propuestas de SMS (máx. 160 caracteres), en tres idiomas.',
+  'aigen.tone.hype': 'Hype',
+  'aigen.tone.elegant': 'Elegante',
+  'aigen.tone.friendly': 'Cercano',
+  'aigen.tone.urgent': 'Urgente',
+  'aigen.instructionsPlaceholder': 'Instrucciones libres (opcional): una oferta a destacar, una palabra a usar…',
+  'aigen.generate': 'Generar 3 variantes',
+  'aigen.regenerate': 'Regenerar',
+  'aigen.variant': 'Variante',
+  'aigen.use': 'Usar este texto',
+  'aigen.applied': 'Texto aplicado: revísalo y ajústalo antes de enviar.',
+  'aigen.error': 'La generación falló. Inténtalo de nuevo en un momento.',
+  'aigen.disclaimer': 'La IA propone, tú decides: relee siempre el texto antes de enviar. Nada se envía sin tu aprobación.',
+
 };
 
 export default es;

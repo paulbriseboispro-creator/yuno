@@ -14,6 +14,7 @@ import {
   type PushTemplate, type PushAutomation,
 } from '@/lib/pushTemplates';
 import { eventPath } from '@/lib/eventUrl';
+import AIContentGenerator from '@/components/campaigns/AIContentGenerator';
 
 // ─── Yuno Design Tokens (pro dashboard) ──────────────────────────────────────
 const RED        = '#E8192C';
@@ -399,9 +400,17 @@ export default function OwnerPush() {
         {template && (
           <div className="grid lg:grid-cols-[1fr,340px] gap-6 items-start">
             <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 22 }} className="space-y-4">
-              <h3 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>
-                {t('ownerPush.composeTitle')}
-              </h3>
+              <div className="flex items-center justify-between gap-3">
+                <h3 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>
+                  {t('ownerPush.composeTitle')}
+                </h3>
+                <AIContentGenerator
+                  channel="push"
+                  eventId={eventId || null}
+                  segment={scope}
+                  onApply={(c) => { setTitle(c.title); setBody(c.body); setManuallyEdited(true); }}
+                />
+              </div>
 
               {/* Variables spécifiques au template */}
               {(template.variables.includes('offer') || template.variables.includes('count')) && (
