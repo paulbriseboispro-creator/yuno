@@ -87,6 +87,10 @@ export function SplashScreen() {
     if (!show) return;
     played = true;
 
+    // Profite du temps de splash pour précharger les surfaces majeures :
+    // la première navigation post-splash est instantanée (item « app fluide »).
+    import('@/lib/warmup').then(({ warmupApp }) => warmupApp()).catch(() => {});
+
     const start = performance.now();
     const minShow = reduced ? MIN_SHOW_MS_REDUCED : MIN_SHOW_MS;
     const push = (id: number) => {
