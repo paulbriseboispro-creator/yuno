@@ -15,6 +15,7 @@ import {
   generateReceiptPDF, generateBilletPDF, downloadBlob, receiptLineLabels,
   type ReceiptLine, type DocLang,
 } from '@/lib/generateDocuments';
+import { shareContent } from '@/lib/share';
 import { toast } from 'sonner';
 import QRCode from 'qrcode';
 import { WalletButtons } from '@/components/WalletButtons';
@@ -446,17 +447,9 @@ export default function OrderConfirmation() {
       text: [data.eventTitle, data.venueName].filter(Boolean).join(' · '),
       url,
     };
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-        return;
-      } catch {
-        /* share dismissed by user → fall through to copy */
-      }
-    }
     try {
-      await navigator.clipboard.writeText(url);
-      toast.success(t('confirmation.linkCopied') || 'Lien copié');
+      const outcome = await shareContent(shareData);
+      if (outcome === 'copied') toast.success(t('confirmation.linkCopied') || 'Lien copié');
     } catch {
       /* clipboard blocked — nothing more we can do */
     }

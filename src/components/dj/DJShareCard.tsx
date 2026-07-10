@@ -3,6 +3,7 @@ import QRCode from 'qrcode';
 import { Share2, Copy, Check, QrCode, Download } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
+import { shareContent } from '@/lib/share';
 
 const BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu';
 
@@ -57,13 +58,8 @@ export function DJShareCard({ slug, stageName, shareUrl, title, subtitle, classN
 
   const handleShare = async () => {
     const title = stageName || 'Yuno';
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share({ title, url });
-      } catch { /* user cancelled */ }
-    } else {
-      await handleCopy();
-    }
+    const outcome = await shareContent({ title, url });
+    if (outcome === 'copied') await handleCopy();
   };
 
   const handleCopy = async () => {

@@ -12,6 +12,7 @@ import { TicketRound, TableZone, TablePack, EventWithTicketing, getEventSalesSta
 import { EventSalesStatus } from '@/components/ticketing/EventSalesStatus';
 // EventWaitlistForm moved to dedicated page
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
+import { shareContent } from '@/lib/share';
 import { toast } from 'sonner';
 import { BottomNav } from '@/components/BottomNav';
 import { FavoriteButton } from '@/components/FavoriteButton';
@@ -598,12 +599,8 @@ export default function EventDetails() {
   const handleShare = async () => {
     const url = window.location.href;
     const shareData = { title: event?.title || '', url };
-    if (navigator.share) {
-      try { await navigator.share(shareData); } catch {}
-    } else {
-      await navigator.clipboard.writeText(url);
-      toast.success(t('share.copied'));
-    }
+    const outcome = await shareContent(shareData);
+    if (outcome === 'copied') toast.success(t('share.copied'));
   };
 
   // Default back destination when there's no in-app history to return to

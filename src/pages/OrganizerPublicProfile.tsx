@@ -15,6 +15,7 @@ import { FavoriteButton } from '@/components/FavoriteButton';
 import { toast } from 'sonner';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { eventPath } from '@/lib/eventUrl';
+import { shareContent } from '@/lib/share';
 import { hasFeature, type PlanCode } from '@/lib/planFeatures';
 import { useTagEventsSource } from '@/hooks/usePurchaseSourceTracking';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
@@ -274,12 +275,8 @@ export default function OrganizerPublicProfile() {
 
   const handleShare = async () => {
     const url = window.location.href;
-    if (navigator.share) {
-      try { await navigator.share({ title: profile?.display_name || '', url }); } catch {}
-    } else {
-      await navigator.clipboard.writeText(url);
-      toast.success(t('share.copied') || 'Lien copié');
-    }
+    const outcome = await shareContent({ title: profile?.display_name || '', url });
+    if (outcome === 'copied') toast.success(t('share.copied') || 'Lien copié');
   };
 
   if (loading) {

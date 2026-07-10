@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { shareContent } from '@/lib/share';
 import { useAffiliateVisitorTracking, trackAffiliateClick } from '@/hooks/useAffiliateVisitorTracking';
 import { useFavorites } from '@/hooks/useFavorites';
 
@@ -139,12 +140,8 @@ export default function AffiliateEventPage() {
   const handleShare = async () => {
     const url = window.location.href;
     const shareData = { title: event?.name || '', url };
-    if (navigator.share) {
-      try { await navigator.share(shareData); } catch {}
-    } else {
-      await navigator.clipboard.writeText(url);
-      toast.success(t('share.copied'));
-    }
+    const outcome = await shareContent(shareData);
+    if (outcome === 'copied') toast.success(t('share.copied'));
   };
 
   if (loading) return <LoadingSkeleton />;

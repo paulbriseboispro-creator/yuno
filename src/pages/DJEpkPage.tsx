@@ -5,6 +5,7 @@ import { MapPin, BadgeCheck, Share2, Printer, ExternalLink, Music2 } from 'lucid
 import { Instagram } from '@/components/icons/Instagram';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
+import { shareContent } from '@/lib/share';
 import { toast } from 'sonner';
 import { PublicPage } from '@/components/PublicPage';
 
@@ -116,12 +117,8 @@ export default function DJEpkPage() {
   const soundcloud = soundcloudEmbed(dj.soundcloud_url);
 
   const handleShare = async () => {
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      try { await navigator.share({ title: `${name} — EPK`, url: epkUrl }); } catch { /* cancelled */ }
-    } else {
-      await navigator.clipboard.writeText(epkUrl);
-      toast.success(t('dj.share.copied'));
-    }
+    const outcome = await shareContent({ title: `${name} — EPK`, url: epkUrl });
+    if (outcome === 'copied') toast.success(t('dj.share.copied'));
   };
 
   return (

@@ -40,6 +40,7 @@ import type {
 import { EditOrderDialog } from '@/components/orders/EditOrderDialog';
 import { CancelTicketDialog } from '@/components/orders/CancelTicketDialog';
 import { getGuestTickets, removeGuestTicket, type GuestTicket } from '@/lib/guestTickets';
+import { shareContent } from '@/lib/share';
 
 export default function MyOrders() {
   const { user, loading: authLoading } = useAuth();
@@ -1259,9 +1260,9 @@ export default function MyOrders() {
       if (!iso) return '';
       try { return format(new Date(iso), 'EEE d MMM · HH:mm', { locale: getLocale() }); } catch { return ''; }
     };
-    const shareGuest = (title: string) => {
-      if (navigator.share) navigator.share({ title: 'Yuno', text: title }).catch(() => {});
-      else toast.success(title);
+    const shareGuest = async (title: string) => {
+      const outcome = await shareContent({ title: 'Yuno', text: title }).catch(() => 'dismissed' as const);
+      if (outcome === 'copied') toast.success(title);
     };
     const typeFallback = (g: GuestTicket) =>
       g.type === 'table' ? t('claim.tabTables') : g.type === 'order' ? t('claim.tabDrinks') : t('claim.tabTickets');
@@ -1618,12 +1619,9 @@ export default function MyOrders() {
   };
 
   // Build a share handler for the active QR overlay item
-  const shareQR = (title: string) => {
-    if (navigator.share) {
-      navigator.share({ title: 'Yuno', text: title }).catch(() => {});
-    } else {
-      toast.success(title);
-    }
+  const shareQR = async (title: string) => {
+    const outcome = await shareContent({ title: 'Yuno', text: title }).catch(() => 'dismissed' as const);
+    if (outcome === 'copied') toast.success(title);
   };
 
   // "SAT 14 JUN · 23:00" — shown inside the QR overlay info card

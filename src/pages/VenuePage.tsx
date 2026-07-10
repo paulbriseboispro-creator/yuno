@@ -27,6 +27,7 @@ import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { usePromoterTracking } from '@/hooks/usePromoterTracking';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { eventPath } from '@/lib/eventUrl';
+import { shareContent } from '@/lib/share';
 import { useFavorites } from '@/hooks/useFavorites';
 import { VenuePromoSection } from '@/components/upsell/VenuePromoSection';
 import { useTagEventsSource } from '@/hooks/usePurchaseSourceTracking';
@@ -489,12 +490,8 @@ export default function VenuePage() {
   const handleShareVenue = async () => {
     const url = window.location.href;
     const shareData = { title: venue?.name || '', url };
-    if (navigator.share) {
-      try { await navigator.share(shareData); } catch {}
-    } else {
-      await navigator.clipboard.writeText(url);
-      toast({ title: t('share.copied') });
-    }
+    const outcome = await shareContent(shareData);
+    if (outcome === 'copied') toast({ title: t('share.copied') });
   };
 
   if (venueLoading) {

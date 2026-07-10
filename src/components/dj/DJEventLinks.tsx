@@ -5,6 +5,7 @@ import { Share2, Copy, Check, MousePointerClick, Ticket, Euro, Music, MapPin, Us
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { shareContent } from '@/lib/share';
 
 const BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu';
 
@@ -128,13 +129,8 @@ export function DJEventLinks() {
   };
 
   const handleShare = async (key: string, url: string, title?: string | null) => {
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share({ title: title || 'Yuno', url });
-      } catch { /* cancelled */ }
-    } else {
-      await handleCopy(key, url);
-    }
+    const outcome = await shareContent({ title: title || 'Yuno', url });
+    if (outcome === 'copied') await handleCopy(key, url);
   };
 
   if (loading) {

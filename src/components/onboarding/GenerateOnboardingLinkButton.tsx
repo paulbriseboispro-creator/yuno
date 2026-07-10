@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Link2, Copy, Check, Share2, Loader2, QrCode } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { shareContent } from '@/lib/share';
 
 export type OnboardingRole =
   | 'owner' | 'organizer' | 'barman' | 'bouncer' | 'cloakroom' | 'vip_host' | 'manager' | 'dj' | 'promoter';
@@ -92,9 +93,8 @@ export function GenerateOnboardingLinkButton({
 
   const share = async () => {
     if (!url) return;
-    if (navigator.share) {
-      try { await navigator.share({ title: 'Yuno', text: t('genLink.shareText'), url }); } catch { /* cancelled */ }
-    } else { copy(); }
+    const outcome = await shareContent({ title: 'Yuno', text: t('genLink.shareText'), url });
+    if (outcome === 'copied') copy();
   };
 
   return (

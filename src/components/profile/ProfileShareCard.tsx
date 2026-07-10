@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/sheet';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
+import { shareContent } from '@/lib/share';
 import { UserBadge } from '@/hooks/useNightlifeProfile';
 
 interface ProfileShareCardProps {
@@ -52,19 +53,12 @@ export function ProfileShareCard({
   const shareText = `${firstName || 'Someone'} — ${nightsAttended} ${t('profile.shareNights')}, ${venuesVisited} clubs${currentStreak > 0 ? `, ${currentStreak}🔥` : ''} | Yuno`;
 
   const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `${firstName} — Yuno`,
-          text: shareText,
-          url: shareUrl,
-        });
-      } catch {
-        // User cancelled
-      }
-    } else {
-      handleCopy();
-    }
+    const outcome = await shareContent({
+      title: `${firstName} — Yuno`,
+      text: shareText,
+      url: shareUrl,
+    });
+    if (outcome === 'copied') handleCopy();
   };
 
   const handleCopy = async () => {

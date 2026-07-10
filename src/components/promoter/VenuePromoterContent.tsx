@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Instagram } from '@/components/icons/Instagram';
 import QRCode from 'qrcode';
+import { shareContent } from '@/lib/share';
 import type { PromoterStats, PromoterEventStats } from '@/types/promoter';
 
 type DateRange = '7d' | '30d' | '90d' | 'all';
@@ -411,10 +412,9 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
   };
 
   const shareLink = async () => {
-    if (!promoLink || !navigator.share) { copyLink(); return; }
-    try {
-      await navigator.share({ title: `${scopeName} — ${promoter.promo_code}`, url: promoLink });
-    } catch { /* cancelled */ }
+    if (!promoLink) { copyLink(); return; }
+    const outcome = await shareContent({ title: `${scopeName} — ${promoter.promo_code}`, url: promoLink });
+    if (outcome === 'copied') toast.success(t('promoter.linkCopied'));
   };
 
   const getEventStatus = (start: string, end?: string) => {

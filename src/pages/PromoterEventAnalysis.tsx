@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import TrackedLinksManager from '@/components/tracking/TrackedLinksManager';
+import { shareContent } from '@/lib/share';
 import { toast } from 'sonner';
 import {
   ArrowLeft, TrendingUp, Ticket, Calendar, Euro, Copy, Share2,
@@ -654,9 +655,9 @@ export default function PromoterEventAnalysis() {
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
-            <Button variant="outline" className="w-full" onClick={() => {
-              if (navigator.share) navigator.share({ title: event.title, url: eventLink });
-              else { navigator.clipboard.writeText(eventLink); toast.success(t('promoter.analysis.linkCopied')); }
+            <Button variant="outline" className="w-full" onClick={async () => {
+              const outcome = await shareContent({ title: event.title, url: eventLink });
+              if (outcome === 'copied') toast.success(t('promoter.analysis.linkCopied'));
             }}>
               <Share2 className="h-4 w-4 mr-2" /> {t('promoter.analysis.share')}
             </Button>

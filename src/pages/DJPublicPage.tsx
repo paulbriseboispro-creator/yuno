@@ -13,6 +13,7 @@ import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { FavoriteButton } from '@/components/FavoriteButton';
 import { BottomNav } from '@/components/BottomNav';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
+import { shareContent } from '@/lib/share';
 import { DJTrackPlayer } from '@/components/dj/DJTrackPlayer';
 import { formatCompactCount } from '@/components/formater';
 import { toast } from 'sonner';
@@ -131,12 +132,8 @@ export default function DJPublicPage() {
   const handleShare = async () => {
     const url = window.location.href;
     const title = dj?.stage_name || (dj ? `${dj.first_name} ${dj.last_name}` : '');
-    if (navigator.share) {
-      try { await navigator.share({ title, url }); } catch { /* user cancelled */ }
-    } else {
-      await navigator.clipboard.writeText(url);
-      toast.success(t('share.copied') || 'Lien copié');
-    }
+    const outcome = await shareContent({ title, url });
+    if (outcome === 'copied') toast.success(t('share.copied') || 'Lien copié');
   };
 
   // Followers are counted across ALL of the person's profiles (server-side RPC),
