@@ -2,6 +2,7 @@
 // client a quitté le takeover mais que la soirée est toujours en cours.
 // Fine barre au-dessus de la BottomNav : « ● LIVE — {venue} » → un tap ramène
 // au /live. Rendu par le LiveModeProvider (aucun montage par page).
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -30,6 +31,15 @@ export function LiveModeBanner() {
   const navigate = useNavigate();
 
   const visible = isLive && exited && !!session && isClientSurface(location.pathname);
+
+  // Publie la hauteur occupée par le bandeau : les pages ajoutent
+  // var(--live-banner-offset) à leur padding bas pour ne rien masquer.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (visible) root.style.setProperty('--live-banner-offset', '44px');
+    else root.style.removeProperty('--live-banner-offset');
+    return () => { root.style.removeProperty('--live-banner-offset'); };
+  }, [visible]);
 
   return (
     <AnimatePresence>

@@ -24,7 +24,7 @@ export default function AllDJsPage() {
         style={{
           position: 'sticky', top: 0, zIndex: 40,
           background: 'rgba(10,10,10,0.92)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-          borderBottom: '1px solid rgba(255,255,255,0.07)', padding: '14px 20px',
+          borderBottom: '1px solid rgba(255,255,255,0.07)', padding: 'calc(env(safe-area-inset-top, 0px) + 14px) 20px 14px',
           display: 'flex', alignItems: 'center', gap: 14,
         }}
       >

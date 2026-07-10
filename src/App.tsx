@@ -45,6 +45,7 @@ import { uniqueChannel } from "@/lib/realtime";
 import { useStore } from "@/store/useStore";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { NativeBridge } from "@/components/NativeBridge";
+import { NativeStatusBarScrim } from "@/components/NativeStatusBarScrim";
 import { SplashScreen } from "@/components/SplashScreen";
 import { NativeProGate } from "@/components/NativeProGate";
 import { ProAppGate } from "@/components/ProAppGate";
@@ -428,6 +429,7 @@ const App = () => (
             {!isProApp() && <CartCleanup />}
             <OfflineBanner />
             <NativeBridge />
+            <NativeStatusBarScrim />
             <PushClickTracker />
             <LiveModeProvider>
             <MaintenanceWrapper>

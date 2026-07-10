@@ -1046,12 +1046,13 @@ export default function Favorites() {
   const totallyEmpty = !isLoading && totalCount === 0;
 
   return (
-    <div style={{ minHeight: '100vh', background: D.bg, paddingBottom: 96 }}>
+    <div style={{ minHeight: '100vh', background: D.bg, paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--live-banner-offset, 0px) + 128px)' }}>
       {/* ── Sticky header ── */}
       <header style={{
         position: 'sticky',
         top: 0,
         zIndex: 40,
+        paddingTop: 'env(safe-area-inset-top, 0px)',
         background: 'rgba(10,10,10,.92)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',

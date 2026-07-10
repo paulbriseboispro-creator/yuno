@@ -100,7 +100,7 @@ export default function LiveMode() {
     now < new Date(session.eventEndAt).getTime();
 
   return (
-    <div className="min-h-screen pb-32" style={{ background: '#0A0A0A' }}>
+    <div className="min-h-screen" style={{ background: '#0A0A0A', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 128px)' }}>
       <LiveHeader lastCall={lastCall} />
 
       {/* Contexte soirée : poster + line-up DJ + ambiance (pleine largeur) */}

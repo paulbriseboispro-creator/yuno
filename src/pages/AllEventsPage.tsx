@@ -434,7 +434,7 @@ export default function AllEventsPage() {
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
           borderBottom: '1px solid rgba(255,255,255,0.07)',
-          padding: '14px 20px',
+          padding: 'calc(env(safe-area-inset-top, 0px) + 14px) 20px 14px',
           display: 'flex',
           alignItems: 'center',
           gap: 14,
@@ -595,7 +595,7 @@ export default function AllEventsPage() {
 
       {/* ── Content ── */}
       <PublicPage variant="discovery">
-      <main style={{ flex: 1, padding: '0 0 100px' }}>
+      <main style={{ flex: 1, padding: 0, paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--live-banner-offset, 0px) + 128px)' }}>
 
         {loading ? (
           <div style={{ padding: '32px 20px', display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -646,7 +646,7 @@ export default function AllEventsPage() {
                   padding: '18px 20px 10px',
                   borderBottom: '1px solid rgba(255,255,255,0.07)',
                   position: 'sticky',
-                  top: 65,
+                  top: 'calc(env(safe-area-inset-top, 0px) + 65px)',
                   background: 'rgba(10,10,10,0.96)',
                   backdropFilter: 'blur(8px)',
                   WebkitBackdropFilter: 'blur(8px)',

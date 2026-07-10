@@ -1081,8 +1081,13 @@ export default function Explore() {
         activeFiltersCount={activeFiltersCount}
       />
 
-      {/* Scrollable main */}
-      <main ref={mainRef} className="flex-1 overflow-y-auto pb-28">
+      {/* Scrollable main — le padding bas dégage la BottomNav flottante, la
+          pilule « Tous les events » et l'éventuel bandeau Live (safe-area incluse) */}
+      <main
+        ref={mainRef}
+        className="flex-1 overflow-y-auto"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--live-banner-offset, 0px) + 168px)' }}
+      >
 
         {/* ── Chip filter row ── */}
         <div style={{ padding: '12px 0 14px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
@@ -1247,7 +1252,7 @@ export default function Explore() {
           onClick={() => navigate('/events')}
           style={{
             position: 'fixed',
-            bottom: 88,
+            bottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--live-banner-offset, 0px) + 84px)',
             left: '50%',
             transform: 'translateX(-50%)',
             background: '#E8192C',
