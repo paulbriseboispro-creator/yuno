@@ -2,11 +2,10 @@ import { ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Monitor, ArrowLeft } from 'lucide-react';
-import { isNative, isProApp, isProPath, openExternal } from '@/lib/native';
+import { isNative, isProApp, isProPath } from '@/lib/native';
+import { openOnWebWithSession } from '@/lib/webHandoff';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { transitions } from '@/lib/motion';
-
-const WEB_BASE_URL = import.meta.env.VITE_APP_BASE_URL || 'https://yunoapp.eu';
 
 /**
  * App native = expérience client B2C uniquement. Les dashboards pro (owner,
@@ -39,7 +38,7 @@ export function NativeProGate({ children }: { children: ReactNode }) {
         <p className="text-sm text-white/60 leading-relaxed mb-8">{t('natGate.body')}</p>
         <div className="space-y-3">
           <button
-            onClick={() => openExternal(WEB_BASE_URL + location.pathname)}
+            onClick={() => { void openOnWebWithSession(location.pathname); }}
             className="w-full rounded-xl bg-white text-black font-semibold text-sm py-3.5 active:opacity-80 transition-opacity"
           >
             {t('natGate.openWeb')}

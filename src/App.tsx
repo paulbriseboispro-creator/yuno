@@ -175,6 +175,7 @@ const VipMenu = lazyWithRetry(() => import("./pages/VipMenu"));
 const MFASetup = lazyWithRetry(() => import("./pages/MFASetup"));
 const MFADisableConfirm = lazyWithRetry(() => import("./pages/MFADisableConfirm"));
 const Auth = lazyWithRetry(() => import("./pages/Auth"));
+const AuthHandoff = lazyWithRetry(() => import("./pages/AuthHandoff"));
 const NotFound = lazyWithRetry(() => import("./pages/NotFound"));
 const EventDetails = lazyWithRetry(() => import("./pages/EventDetails"));
 const TicketSelectionPage = lazyWithRetry(() => import("./pages/TicketSelection"));
@@ -484,6 +485,8 @@ const App = () => (
                 {/* Legacy /org/:slug removed — public organizer profile lives at /o/:slug */}
                 
                 <Route path="/auth" element={<Auth />} />
+                {/* Handoff de session app native → web (token magiclink en fragment) */}
+                <Route path="/auth/handoff" element={<AuthHandoff />} />
                 <Route path="/mfa-setup" element={<MFASetup />} />
                 <Route path="/mfa-disable-confirm" element={<MFADisableConfirm />} />
                 

@@ -3,11 +3,10 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { Monitor, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { isProApp, openExternal } from '@/lib/native';
+import { isProApp } from '@/lib/native';
+import { openOnWebWithSession } from '@/lib/webHandoff';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { transitions } from '@/lib/motion';
-
-const WEB_BASE_URL = import.meta.env.VITE_APP_BASE_URL || 'https://yunoapp.eu';
 
 /** Routes autorisées dans l'app Yuno Pro (staff + promoteurs). */
 const PRO_ALLOWED_PREFIXES = [
@@ -63,7 +62,7 @@ export function ProAppGate({ children }: { children: ReactNode }) {
           <p className="text-sm text-white/60 leading-relaxed mb-8">{t('proapp.webOnlyBody')}</p>
           <div className="space-y-3">
             <button
-              onClick={() => openExternal(WEB_BASE_URL + location.pathname)}
+              onClick={() => { void openOnWebWithSession(location.pathname); }}
               className="w-full rounded-xl bg-white text-black font-semibold text-sm py-3.5 active:opacity-80 transition-opacity"
             >
               {t('natGate.openWeb')}

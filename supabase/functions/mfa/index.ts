@@ -222,6 +222,35 @@ serve(async (req) => {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // action: "web-handoff"  (app native → dashboard web sans re-login)
+    // Mint un token magiclink à usage unique (hashed_token) que le web échange
+    // via verifyOtp : crée une NOUVELLE session côté Safari sans toucher à la
+    // session de l'app (aucune rotation du refresh token → pas de déconnexion).
+    // ─────────────────────────────────────────────────────────────────────────
+    if (action === "web-handoff") {
+      if (!authHeader) throw new Error("Non authentifié");
+      const { data: { user }, error: authError } = await makeAuthClient().auth.getUser();
+      if (authError || !user?.email) throw new Error("Non authentifié");
+
+      const { data: linkData, error: linkError } = await serviceClient.auth.admin.generateLink({
+        type: "magiclink",
+        email: user.email,
+      });
+      const tokenHash = linkData?.properties?.hashed_token;
+      if (linkError || !tokenHash) throw new Error("Impossible de préparer la session web");
+
+      await serviceClient.from("security_logs").insert({
+        user_id: user.id,
+        action: "web_handoff_issued",
+        ip_address: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip"),
+        user_agent: req.headers.get("user-agent"),
+        success: true,
+      });
+
+      return json({ success: true, token_hash: tokenHash });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // action: "generate-secret"  (← mfa-generate-secret — requires auth)
     // ─────────────────────────────────────────────────────────────────────────
     if (action === "generate-secret") {
