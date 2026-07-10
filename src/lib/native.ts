@@ -59,6 +59,25 @@ export function isProPath(pathname: string): boolean {
 }
 
 /**
+ * Convertit une URL Yuno en path interne navigable par le Router.
+ * Accepte les paths relatifs ('/my-orders') et les URLs absolues du domaine
+ * ('https://yunoapp.eu/...'). Hors domaine Yuno → null (lien externe).
+ */
+export function toAppPath(url: string | undefined | null): string | null {
+  if (!url) return null;
+  if (url.startsWith('/')) return url;
+  try {
+    const u = new URL(url);
+    if (/(^|\.)yunoapp\.eu$/.test(u.hostname) || u.hostname === 'localhost') {
+      return u.pathname + u.search + u.hash;
+    }
+  } catch {
+    // URL invalide : ignorer.
+  }
+  return null;
+}
+
+/**
  * Ouvre une URL hors du bundle local : navigateur in-app (SFSafariViewController)
  * en natif, nouvel onglet sur le web. Fire-and-forget.
  */

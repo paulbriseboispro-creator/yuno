@@ -8,6 +8,7 @@ import { useSmartBack } from '@/hooks/useSmartBack';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { toAppPath } from '@/lib/native';
 import { PublicPage } from '@/components/PublicPage';
 import { AnimatedOrb } from '@/components/ui/AnimatedOrb';
 
@@ -26,8 +27,11 @@ export default function YunoAssistantPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [firstName, setFirstName] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const initialMessageSent = useRef(false);
+  // Hauteur du viewport visible : suit l'ouverture/fermeture du clavier pour
+  // animer la mise en page en douceur au lieu du saut brut du WebView.
+  const [viewportH, setViewportH] = useState<number | null>(null);
 
   const hasMessages = messages.length > 0;
   const isSearching = isLoading && messages[messages.length - 1]?.role !== 'assistant';
@@ -68,11 +72,30 @@ export default function YunoAssistantPage() {
     }
   }, [messages]);
 
+  // Pas d'autofocus à l'ouverture : le clavier ne s'invite que si l'utilisateur
+  // touche le champ. La hauteur suit visualViewport avec une transition douce
+  // (courbe iOS) pour accompagner l'ouverture du clavier au lieu du saut brut.
   useEffect(() => {
-    if (!(location.state as any)?.initialMessage) {
-      setTimeout(() => inputRef.current?.focus(), 400);
-    }
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () => {
+      setViewportH(vv.height);
+      // iOS pousse parfois la page quand le clavier s'ouvre sur un layout fixed
+      window.scrollTo(0, 0);
+      if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    };
+    update();
+    vv.addEventListener('resize', update);
+    return () => vv.removeEventListener('resize', update);
   }, []);
+
+  // Auto-grow du champ de saisie (jusqu'à ~5 lignes) pour relire une longue question
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 130)}px`;
+  }, [inputText]);
 
   const sendMessage = async (text: string) => {
     if (!text.trim() || isLoading) return;
@@ -184,7 +207,14 @@ export default function YunoAssistantPage() {
   const greetingName = firstName || '';
 
   return (
-    <div className="fixed inset-0 flex flex-col z-50 overflow-hidden" style={{ background: '#000' }}>
+    <div
+      className="fixed inset-x-0 top-0 flex flex-col z-50 overflow-hidden"
+      style={{
+        background: '#000',
+        height: viewportH ? `${viewportH}px` : '100dvh',
+        transition: 'height 320ms cubic-bezier(0.32, 0.72, 0, 1)',
+      }}
+    >
       {/* Bottom gradient glow */}
       <div
         className="absolute bottom-0 left-0 right-0 pointer-events-none"
@@ -313,7 +343,7 @@ export default function YunoAssistantPage() {
                   {msg.role === 'user' ? (
                     <div className="flex justify-end mb-4">
                       <div
-                        className="rounded-full px-5 py-2.5 text-sm text-white max-w-[80%]"
+                        className="rounded-3xl px-5 py-2.5 text-sm text-white max-w-[80%] whitespace-pre-wrap break-words"
                         style={{
                           background: 'linear-gradient(135deg, hsl(var(--primary) / 0.2), hsl(var(--primary) / 0.1))',
                           border: '1px solid hsl(var(--primary) / 0.2)',
@@ -344,15 +374,17 @@ export default function YunoAssistantPage() {
                           <ReactMarkdown
                             components={{
                               a: ({ href, children, ...props }) => {
-                                const isInternal = href?.startsWith('/');
+                                // Les liens vers l'app (relatifs OU absolus yunoapp.eu) naviguent
+                                // en interne — jamais d'ouverture Safari depuis l'app native.
+                                const internalPath = toAppPath(href);
                                 return (
                                   <a
-                                    href={isInternal ? href : href}
-                                    target={isInternal ? '_self' : '_blank'}
-                                    rel={isInternal ? undefined : 'noopener noreferrer'}
-                                    onClick={isInternal ? (e) => {
+                                    href={internalPath ?? href}
+                                    target={internalPath ? '_self' : '_blank'}
+                                    rel={internalPath ? undefined : 'noopener noreferrer'}
+                                    onClick={internalPath ? (e) => {
                                       e.preventDefault();
-                                      navigate(href || '/');
+                                      navigate(internalPath);
                                     } : undefined}
                                     className="inline-flex items-center gap-1 text-primary hover:underline font-medium"
                                     {...props}
@@ -405,21 +437,27 @@ export default function YunoAssistantPage() {
       <div className="relative z-10 px-5 pb-6 pt-5">
         <form
           onSubmit={handleSubmit}
-          className="flex items-center gap-2 rounded-full px-5 py-1.5"
+          className="flex items-end gap-2 rounded-[26px] px-5 py-1.5"
           style={{
             background: 'linear-gradient(135deg, hsl(var(--primary) / 0.1), hsl(var(--primary) / 0.05))',
             border: '1px solid hsl(var(--primary) / 0.15)',
             backdropFilter: 'blur(30px)',
           }}
         >
-          <input
+          <textarea
             ref={inputRef}
-            type="text"
+            rows={1}
             value={inputText}
             onChange={e => setInputText(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage(inputText);
+              }
+            }}
             placeholder={t('assistant.placeholder')}
             disabled={isLoading}
-            className="flex-1 bg-transparent text-sm text-white placeholder:text-white/30 outline-none py-3"
+            className="flex-1 bg-transparent text-sm text-white placeholder:text-white/30 outline-none py-3 resize-none max-h-[130px] leading-relaxed"
           />
           <Button
             type="submit"

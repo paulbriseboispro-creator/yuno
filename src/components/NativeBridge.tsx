@@ -1,27 +1,12 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { isNative, openExternal, PENDING_CHECKOUT_KEY } from '@/lib/native';
+import { isNative, openExternal, toAppPath, PENDING_CHECKOUT_KEY } from '@/lib/native';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-/**
- * Convertit une URL de notification en path interne navigable.
- * Les payloads push portent tantôt des paths ('/my-orders'), tantôt des URLs
- * absolues ('https://yunoapp.eu/l/abc'). Hors domaine Yuno → null (externe).
- */
-function toInternalPath(url: string | undefined | null): string | null {
-  if (!url) return null;
-  if (url.startsWith('/')) return url;
-  try {
-    const u = new URL(url);
-    if (/(^|\.)yunoapp\.eu$/.test(u.hostname) || u.hostname === 'localhost') {
-      return u.pathname + u.search + u.hash;
-    }
-  } catch {
-    // URL invalide : ignorer.
-  }
-  return null;
-}
+// Les payloads push portent tantôt des paths ('/my-orders'), tantôt des URLs
+// absolues ('https://yunoapp.eu/l/abc') — toAppPath (lib/native) normalise.
+const toInternalPath = toAppPath;
 
 /**
  * Pont natif Capacitor — monté une seule fois dans le Router, ne rend rien.
