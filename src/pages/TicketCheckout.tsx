@@ -990,11 +990,20 @@ export default function TicketCheckout() {
                 <div className="w-10 h-1 rounded-full bg-white/15" />
               </div>
               <div className="max-w-lg mx-auto px-5 pb-28 max-h-[68vh] overflow-y-auto space-y-3">
-                {/* Event info — calendar tile like the drink checkout (no poster image) */}
+                {/* Event info — poster 1:1 de la soirée (icône calendrier en fallback) */}
                 <div className="border border-white/[0.08] bg-[#141414] p-3 flex items-center gap-3" style={{ borderRadius: 10 }}>
-                  <div className="w-11 h-11 shrink-0 flex items-center justify-center bg-primary/10" style={{ borderRadius: 8 }}>
-                    <Calendar className="h-5 w-5 text-primary" />
-                  </div>
+                  {event.posterUrl ? (
+                    <img
+                      src={getOptimizedImageUrl(event.posterUrl, { width: 96, height: 96 })}
+                      alt={event.title}
+                      className="w-11 h-11 shrink-0 object-cover"
+                      style={{ borderRadius: 8 }}
+                    />
+                  ) : (
+                    <div className="w-11 h-11 shrink-0 flex items-center justify-center bg-primary/10" style={{ borderRadius: 8 }}>
+                      <Calendar className="h-5 w-5 text-primary" />
+                    </div>
+                  )}
                   <div className="min-w-0">
                     <p className="font-display font-bold uppercase text-white leading-tight" style={{ fontSize: '15px', letterSpacing: '-0.005em' }}>{event.title}</p>
                     <p className="font-mono uppercase text-[#9A9A9A] flex items-center gap-1.5 mt-1.5" style={{ fontSize: '10px', letterSpacing: '0.04em' }}>

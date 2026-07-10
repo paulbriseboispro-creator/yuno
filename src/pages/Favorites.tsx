@@ -227,9 +227,9 @@ function ClubCard({
       }}>
         {(venue.logoUrl || venue.coverUrl) && (
           <img
-            src={getOptimizedImageUrl(venue.logoUrl || venue.coverUrl!, { width: 118, height: 118 })}
+            src={getOptimizedImageUrl(venue.logoUrl || venue.coverUrl!, { width: 118, height: 118, ...(venue.logoUrl ? { resize: 'contain' as const } : {}) })}
             alt={venue.name}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            style={{ width: '100%', height: '100%', objectFit: venue.logoUrl ? 'contain' : 'cover', display: 'block', background: venue.logoUrl ? '#141414' : undefined }}
           />
         )}
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg, transparent 40%, rgba(8,8,10,.45))' }} />
@@ -364,9 +364,9 @@ function OrganizerCard({
       }}>
         {org.logoUrl ? (
           <img
-            src={getOptimizedImageUrl(org.logoUrl, { width: 118, height: 118 })}
+            src={getOptimizedImageUrl(org.logoUrl, { width: 118, height: 118, resize: 'contain' })}
             alt={org.name}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: '#141414' }}
           />
         ) : (
           <Users size={26} color="rgba(255,255,255,.7)" strokeWidth={1.8} />

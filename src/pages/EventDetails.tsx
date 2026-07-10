@@ -56,7 +56,7 @@ export default function EventDetails() {
   useResolvePurchaseSource(eventId); // Capture purchase source for collab analytics
   useResolveTrackedLink(eventId); // Capture ?tl= tracked-link attribution (backup after redirect)
 
-  const [event, setEvent] = useState<(EventWithTicketing & { eventType?: string; locationIsSecret?: boolean; visibility?: string; hideYunoNavigation?: boolean }) | null>(null);
+  const [event, setEvent] = useState<(EventWithTicketing & { eventType?: string; musicGenres?: string[]; locationIsSecret?: boolean; visibility?: string; hideYunoNavigation?: boolean }) | null>(null);
   const [showLeavePrivate, setShowLeavePrivate] = useState(false);
   const [venue, setVenue] = useState<{ id: string; name: string; city: string; address?: string; floorPlanUrl?: string; latitude?: number; longitude?: number; logoUrl?: string } | null>(null);
   // Primary entity: 'organizer' for organizer-led events, 'venue' otherwise
@@ -400,6 +400,9 @@ export default function EventDetails() {
         createdAt: eventData.created_at,
         updatedAt: eventData.updated_at,
         eventType: eventData.event_type,
+        musicGenres: (((eventData as any).music_genres as string[] | null)?.length
+          ? ((eventData as any).music_genres as string[])
+          : eventData.music_genre ? [eventData.music_genre] : []),
         visibility: (eventData as any).visibility as string | undefined,
         hideYunoNavigation: !!(eventData as any).hide_yuno_navigation,
       });
@@ -791,6 +794,12 @@ export default function EventDetails() {
                 {event.eventType}
               </span>
             )}
+            {/* Genre musical de la soirée — pilule rouge à côté du type */}
+            {event.musicGenres?.slice(0, 2).map((genre) => (
+              <span key={genre} style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 9px', borderRadius: '10px', fontSize: '10px', fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgba(232,25,44,0.85)', border: '1px solid rgba(232,25,44,0.9)', color: '#fff', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}>
+                {genre}
+              </span>
+            ))}
           </div>
 
           {/* Event title */}
@@ -807,7 +816,7 @@ export default function EventDetails() {
               {primaryOrganizer && (
                 <div className="flex items-center gap-2 mb-1">
                   {primaryOrganizer.avatar_url && (
-                    <img src={getOptimizedImageUrl(primaryOrganizer.avatar_url, { width: 64 })} alt={primaryOrganizer.display_name} className="rounded-full object-cover shrink-0" style={{ width: 18, height: 18 }} />
+                    <img src={getOptimizedImageUrl(primaryOrganizer.avatar_url, { width: 64, height: 64, resize: 'contain' })} alt={primaryOrganizer.display_name} className="rounded-full object-contain shrink-0" style={{ width: 18, height: 18, background: '#191919' }} />
                   )}
                   <span className="font-mono text-white font-semibold tracking-[0.08em]" style={{ fontSize: '12px' }}>
                     {primaryOrganizer.display_name.toUpperCase()}
@@ -1126,7 +1135,7 @@ export default function EventDetails() {
                     <button onClick={() => org.slug && navigate(`/o/${org.slug}`)} className="flex items-center gap-3 min-w-0 flex-1 text-left hover:opacity-80 transition-opacity">
                       <div className="shrink-0 overflow-hidden" style={{ width: 52, height: 52, borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', background: '#191919' }}>
                         {org.logo_url
-                          ? <img src={getOptimizedImageUrl(org.logo_url, { width: 128 })} alt={org.name} loading="lazy" className="w-full h-full object-cover" />
+                          ? <img src={getOptimizedImageUrl(org.logo_url, { width: 128, height: 128, resize: 'contain' })} alt={org.name} loading="lazy" className="w-full h-full object-contain" />
                           : <div className="w-full h-full flex items-center justify-center font-mono font-bold" style={{ fontSize: '11px', color: '#5A5A5E' }}>{org.name.slice(0, 2).toUpperCase()}</div>
                         }
                       </div>
@@ -1161,7 +1170,7 @@ export default function EventDetails() {
                 <button onClick={() => navigate(`/club/${venue.id}`)} className="flex items-center gap-3 min-w-0 flex-1 hover:opacity-80 transition-opacity text-left">
                   <div className="shrink-0 overflow-hidden" style={{ width: 48, height: 48, borderRadius: '4px', border: '1px solid rgba(255,255,255,0.08)', background: '#191919' }}>
                     {venue.logoUrl
-                      ? <img src={getOptimizedImageUrl(venue.logoUrl, { width: 128 })} alt={venue.name} loading="lazy" className="w-full h-full object-cover" />
+                      ? <img src={getOptimizedImageUrl(venue.logoUrl, { width: 128, height: 128, resize: 'contain' })} alt={venue.name} loading="lazy" className="w-full h-full object-contain" />
                       : <div className="w-full h-full flex items-center justify-center font-mono font-bold" style={{ fontSize: '12px', color: '#5A5A5E' }}>{venue.name.slice(0, 2).toUpperCase()}</div>
                     }
                   </div>
