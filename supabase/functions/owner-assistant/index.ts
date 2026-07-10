@@ -4,6 +4,9 @@ import { SUBSCRIPTIONS_ENABLED } from "../_shared/venue-plan.ts";
 
 // Modèle OpenAI — changer ici suffit (clé : secret Supabase OPENAI_API_KEY)
 const OPENAI_MODEL = "gpt-4o-mini";
+// Modèle dédié à la génération de contenu marketing (action hors chat) —
+// séparé du chat pour évoluer indépendamment.
+const CONTENT_MODEL = "gpt-5-mini";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1321,6 +1324,178 @@ async function executeTool(
 }
 
 // ═══════════════════════════════════════════
+// GÉNÉRATION DE CONTENU MARKETING (action hors chat)
+// ═══════════════════════════════════════════
+
+const CHANNEL_RULES: Record<string, string> = {
+  push: "Notification push mobile. title : max 40 caractères, percutant. body : max 120 caractères, une seule idée, max 1 emoji. preheader : chaîne vide.",
+  sms: "SMS. body : max 160 caractères TOUT COMPRIS, un seul call-to-action, pas d'emoji superflu. title et preheader : chaînes vides.",
+  email: "Email. title = objet (max 60 caractères). preheader : max 90 caractères, complète l'objet sans le répéter. body : 2 paragraphes courts séparés par une ligne vide, un call-to-action clair.",
+};
+
+const CHANNEL_LIMITS: Record<string, { title: number; preheader: number; body: number }> = {
+  push: { title: 40, preheader: 0, body: 120 },
+  sms: { title: 0, preheader: 0, body: 160 },
+  email: { title: 60, preheader: 90, body: 2000 },
+};
+
+const CONTENT_LANG_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["title", "preheader", "body"],
+  properties: {
+    title: { type: "string" },
+    preheader: { type: "string" },
+    body: { type: "string" },
+  },
+};
+
+const CONTENT_SCHEMA = {
+  name: "marketing_variants",
+  strict: true,
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["variants"],
+    properties: {
+      variants: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["en", "fr", "es"],
+          properties: {
+            en: CONTENT_LANG_SCHEMA,
+            fr: CONTENT_LANG_SCHEMA,
+            es: CONTENT_LANG_SCHEMA,
+          },
+        },
+      },
+    },
+  },
+};
+
+async function handleGenerateContent(
+  body: Record<string, any>,
+  ctx: { supabase: any; venueId: string; userId: string },
+): Promise<Response> {
+  const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
+  const { supabase, venueId, userId } = ctx;
+
+  const channel = String(body.channel || "");
+  if (!CHANNEL_RULES[channel]) {
+    return new Response(JSON.stringify({ error: "Invalid channel" }), { status: 400, headers: jsonHeaders });
+  }
+  const eventId = typeof body.eventId === "string" ? body.eventId : null;
+  const segment = typeof body.segment === "string" ? body.segment.substring(0, 100) : null;
+  const tone = typeof body.tone === "string" ? body.tone.substring(0, 50) : null;
+  const customInstructions = typeof body.customInstructions === "string" ? body.customInstructions.substring(0, 500) : null;
+
+  // Contexte 100 % requêté côté serveur (anti-injection) : le client ne
+  // fournit que des identifiants et des préférences, jamais les données.
+  const { data: venue } = await supabase.from("venues").select("name").eq("id", venueId).maybeSingle();
+  const contextLines: string[] = [`- Club : ${venue?.name || "inconnu"}`];
+
+  if (eventId) {
+    const { data: evt } = await supabase
+      .from("events")
+      .select("id, title, start_at, music_genres, max_tickets")
+      .eq("id", eventId)
+      .eq("venue_id", venueId)
+      .maybeSingle();
+    if (!evt) {
+      return new Response(JSON.stringify({ error: "Event not found for this venue" }), { status: 404, headers: jsonHeaders });
+    }
+    contextLines.push(`- Événement : ${evt.title} — ${evt.start_at}`);
+    if (Array.isArray(evt.music_genres) && evt.music_genres.length) {
+      contextLines.push(`- Genres musicaux : ${evt.music_genres.join(", ")}`);
+    }
+    const { data: rounds } = await supabase
+      .from("ticket_rounds")
+      .select("name, price, tickets_sold, max_tickets, is_active")
+      .eq("event_id", eventId)
+      .order("position");
+    const activeRound = (rounds || []).find((r: any) => r.is_active);
+    if (activeRound) {
+      contextLines.push(`- Prix billet actuel : ${activeRound.price}€ (round « ${activeRound.name} »)`);
+    }
+    const sold = (rounds || []).reduce((s: number, r: any) => s + (r.tickets_sold || 0), 0);
+    const cap = evt.max_tickets || (rounds || []).reduce((s: number, r: any) => s + (r.max_tickets || 0), 0);
+    if (cap > 0) contextLines.push(`- Remplissage : ${sold}/${cap} billets vendus`);
+  }
+  if (segment) contextLines.push(`- Audience ciblée : ${segment}`);
+
+  const systemPrompt = `Tu es le copywriter marketing d'un club de nuit sur Yuno.
+Génère EXACTEMENT 3 variantes distinctes de contenu marketing pour le canal demandé.
+Chaque variante existe en anglais (en), français (fr) et espagnol (es) : mêmes idées, adaptées idiomatiquement — jamais de traduction mot à mot.
+Règles du canal : ${CHANNEL_RULES[channel]}
+CONTRAINTE ABSOLUE : le contexte ci-dessous est ta SEULE source de vérité. N'invente aucun prix, aucune date, aucun chiffre, aucune offre qui n'y figure pas.`;
+
+  const userPrompt = `Contexte réel :
+${contextLines.join("\n")}
+${tone ? `Ton demandé : ${tone}` : "Ton : engageant, direct."}
+${customInstructions ? `Instructions de l'owner (à respecter si compatibles avec les règles du canal) : ${customInstructions}` : ""}`;
+
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+  if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
+
+  const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: CONTENT_MODEL,
+      reasoning_effort: "minimal",
+      max_completion_tokens: 3000,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_schema", json_schema: CONTENT_SCHEMA },
+    }),
+  });
+
+  if (!aiResponse.ok) {
+    if (aiResponse.status === 429) {
+      return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429, headers: jsonHeaders });
+    }
+    const t = await aiResponse.text();
+    log("content_ai_error", { status: aiResponse.status, body: t.substring(0, 200) });
+    throw new Error("AI gateway error");
+  }
+
+  const aiData = await aiResponse.json();
+  let parsed: any = null;
+  try { parsed = JSON.parse(aiData.choices?.[0]?.message?.content || "{}"); } catch { /* empty */ }
+  const limits = CHANNEL_LIMITS[channel];
+  const variants = (parsed?.variants || []).slice(0, 3).map((v: any) => {
+    const clamp = (l: any) => ({
+      title: String(l?.title || "").substring(0, limits.title),
+      preheader: String(l?.preheader || "").substring(0, limits.preheader),
+      body: String(l?.body || "").substring(0, limits.body),
+    });
+    return { en: clamp(v?.en), fr: clamp(v?.fr), es: clamp(v?.es) };
+  });
+
+  if (!variants.length) {
+    log("content_empty", { channel });
+    return new Response(JSON.stringify({ error: "Generation failed" }), { status: 502, headers: jsonHeaders });
+  }
+
+  try {
+    await supabase.from("owner_ai_audit_log").insert({
+      user_id: userId,
+      venue_id: venueId,
+      tool_name: "generate_marketing_content",
+      tool_args: { channel, event_id: eventId, segment, tone },
+      result: JSON.stringify(variants).substring(0, 1000),
+    });
+  } catch { /* ignore */ }
+
+  log("content_generated", { channel, variants: variants.length });
+  return new Response(JSON.stringify({ variants }), { headers: jsonHeaders });
+}
+
+// ═══════════════════════════════════════════
 // MAIN HANDLER
 // ═══════════════════════════════════════════
 
@@ -1371,7 +1546,15 @@ serve(async (req) => {
     }
 
     const venueId = venueData.id;
-    const { messages, venueContext } = await req.json();
+    const body = await req.json();
+
+    // Actions structurées hors chat — même auth/rôle/venue que le chat,
+    // mais réponse JSON directe sans boucle de tools.
+    if (body?.action === "generate_marketing_content") {
+      return await handleGenerateContent(body, { supabase, venueId, userId: user.id });
+    }
+
+    const { messages, venueContext } = body;
 
     // Fetch subscription plan — inutile pendant le lancement (abonnement coupé,
     // tout est débloqué), on économise l'aller-retour.
