@@ -2,6 +2,11 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { uniqueChannel } from '@/lib/realtime';
 import { getNightWindow, bucketHourParis, nightKeyParis } from '@/lib/liveops/nightWindow';
+import {
+  computeBarStats, computeVipStats, computeDoorStats, computeCloakroomStats,
+  type LiveExtendedData, type IncidentLive,
+} from '@/lib/liveops/extended';
+import { fetchComparableNight, type ComparableNight } from '@/lib/liveops/compare';
 
 export type FeedItemType = 'order_created' | 'order_ready' | 'order_served' | 'ticket_scanned' | 'vip_scanned' | 'refund' | 'table_booked' | 'cloakroom';
 export type AlertSeverity = 'info' | 'warning' | 'critical';
@@ -33,6 +38,10 @@ export interface StaffMember {
   role: 'barman' | 'bouncer' | 'vip_host' | 'cloakroom';
   processedCount: number;
   isActive: boolean;
+  /** Timestamp of this member's first action tonight (shift proxy). */
+  firstActionAt: string | null;
+  /** Timestamp of this member's most recent action tonight. */
+  lastActionAt: string | null;
 }
 
 export interface OrderPipeline {
@@ -122,7 +131,19 @@ function persistDismissedAlerts(ids: Set<string>) {
 const feedId = (kind: 'ord' | 'rdy' | 'srv' | 'ref' | 'tik' | 'vip' | 'tbl' | 'clk', entityId: string) =>
   `${kind}-${entityId}`;
 
-export function useLiveNightData(venueId: string | null, scopedEventId?: string | null) {
+export interface LiveNightOpts {
+  /**
+   * Owner command-center mode: adds guest list / VIP consumption / service
+   * moments / incidents queries, station aggregates, capacity and the
+   * comparable-night benchmark. In this mode data always covers the full
+   * night (event window or Paris night) — the timeWindow selector only
+   * exists for the legacy module layout.
+   */
+  extended?: boolean;
+}
+
+export function useLiveNightData(venueId: string | null, scopedEventId?: string | null, opts?: LiveNightOpts) {
+  const extendedOpt = opts?.extended === true;
   const [kpis, setKpis] = useState<LiveKPIs>({
     revenue: 0, ticketsSold: 0, ordersPlaced: 0, ordersPending: 0,
     ordersCompleted: 0, avgOrderValue: 0, entriesCount: 0, refundsCount: 0, cloakroomCount: 0,
@@ -140,6 +161,9 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
   const [loading, setLoading] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
   const [timeWindow, setTimeWindow] = useState<TimeWindow>('full');
+  const [extended, setExtended] = useState<LiveExtendedData | null>(null);
+  const [comparison, setComparison] = useState<ComparableNight | null>(null);
+  const [capacity, setCapacity] = useState<number | null>(null);
 
   const dismissedAlertIds = useRef<Set<string> | null>(null);
   if (dismissedAlertIds.current === null) dismissedAlertIds.current = loadDismissedAlerts();
@@ -149,6 +173,9 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
   // All venue event ids touching tonight — client-side guard for realtime
   // payloads when no server-side event filter can be applied.
   const venueEventIds = useRef<Set<string>>(new Set());
+  // Guest list ids of the active event — guards guest_list_entries realtime
+  // payloads (that table has neither venue_id nor event_id).
+  const glListIds = useRef<Set<string>>(new Set());
 
   // Selected event, defaulting to the earliest-starting active one.
   const activeEvent = useMemo<ActiveEventInfo | null>(
@@ -159,11 +186,15 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
   const getTimeWindow = useCallback(() => {
     const now = new Date();
 
-    if (timeWindow === 'live') {
-      return { start: new Date(now.getTime() - 10 * 60 * 1000).toISOString(), end: now.toISOString() };
-    }
-    if (timeWindow === '1h') {
-      return { start: new Date(now.getTime() - 60 * 60 * 1000).toISOString(), end: now.toISOString() };
+    // Extended (command-center) mode always covers the whole night: the
+    // stations describe the state of the soirée, not a sliding window.
+    if (!extendedOpt) {
+      if (timeWindow === 'live') {
+        return { start: new Date(now.getTime() - 10 * 60 * 1000).toISOString(), end: now.toISOString() };
+      }
+      if (timeWindow === '1h') {
+        return { start: new Date(now.getTime() - 60 * 60 * 1000).toISOString(), end: now.toISOString() };
+      }
     }
 
     // 'full' → use active event window if available
@@ -173,7 +204,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
 
     // Fallback: tonight in Paris time
     return getNightWindow(now);
-  }, [timeWindow, activeEvent]);
+  }, [timeWindow, activeEvent, extendedOpt]);
 
   const addRealtimeFeedItem = useCallback((item: FeedItem) => {
     if (isPaused) return;
@@ -272,9 +303,10 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
     const eventId = activeEvent?.id;
 
     try {
+      const orderColumns = 'id, total, status, prep_status, created_at, served_at, ready_at, prep_claimed_by, user_email, service_fee, refunded_at, order_number, refund_amount';
       let ordersQuery = supabase
         .from('orders')
-        .select('id, total, status, prep_status, created_at, served_at, ready_at, prep_claimed_by, user_email, service_fee, refunded_at, order_number, refund_amount')
+        .select(extendedOpt ? `${orderColumns}, items` : orderColumns)
         .eq('venue_id', venueId)
         .gte('created_at', start)
         .lte('created_at', end)
@@ -302,7 +334,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
 
       let tablesQuery = supabase
         .from('table_reservations')
-        .select('id, deposit, status, entry_scanned, entry_scanned_at, entry_scanned_by, full_name, created_at, zone_id, event_id, table_zones!inner(venue_id)')
+        .select('id, deposit, status, entry_scanned, entry_scanned_at, entry_scanned_by, full_name, created_at, zone_id, event_id, checked_in_at, minimum_spend, guest_count, finished_at, table_zones!inner(venue_id)')
         .eq('table_zones.venue_id', venueId)
         .gte('created_at', start)
         .lte('created_at', end);
@@ -310,7 +342,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
 
       let cloakroomQuery = supabase
         .from('cloakroom_transactions')
-        .select('id, created_at, cloakroom_number, staff_id')
+        .select('id, created_at, cloakroom_number, staff_id, retrieved, retrieved_at, price')
         .eq('venue_id', venueId)
         .gte('created_at', start)
         .lte('created_at', end);
@@ -325,6 +357,54 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       const tables = tablesRes.data || [];
       const cloakroom = cloakroomRes.data || [];
 
+      // ── Extended (command-center) queries ─────────────────────────────────
+      // allSettled: a manager without permission on one of these tables must
+      // not blank the whole dashboard — the affected station degrades alone.
+      let glEntries: any[] = [];
+      let vipConsumptions: any[] = [];
+      let vipMoments: any[] = [];
+      let nightIncidents: IncidentLive[] = [];
+      if (extendedOpt) {
+        const extraQueries: PromiseLike<any>[] = [
+          eventId
+            ? supabase
+                .from('guest_list_entries')
+                .select('id, status, entry_scanned, entry_scanned_at, entry_scanned_by, full_name, guest_list_id, guest_lists!inner(event_id, quota)')
+                .eq('guest_lists.event_id', eventId)
+            : Promise.resolve({ data: [] }),
+          supabase
+            .from('vip_consumptions')
+            .select('id, table_reservation_id, item_type, item_name, quantity, total_price, served_at, served_by, staff_id')
+            .eq('venue_id', venueId)
+            .gte('served_at', start)
+            .lte('served_at', end),
+          supabase
+            .from('vip_service_moments')
+            .select('id, kind, label, status, scheduled_at, table_reservation_id')
+            .eq('venue_id', venueId)
+            .eq('status', 'scheduled')
+            .gte('scheduled_at', start)
+            .lte('scheduled_at', end)
+            .order('scheduled_at', { ascending: true })
+            .limit(6),
+          supabase
+            .from('customer_incidents')
+            .select('id, incident_type, reason, created_at')
+            .eq('venue_id', venueId)
+            .gte('created_at', start)
+            .lte('created_at', end)
+            .order('created_at', { ascending: false }),
+        ];
+        const [glRes, consRes, momentsRes, incidentsRes] = await Promise.allSettled(extraQueries);
+        glEntries = (glRes.status === 'fulfilled' ? glRes.value.data || [] : [])
+          .filter((e: any) => e.status !== 'cancelled' && e.status !== 'denied');
+        vipConsumptions = consRes.status === 'fulfilled' ? consRes.value.data || [] : [];
+        vipMoments = momentsRes.status === 'fulfilled' ? momentsRes.value.data || [] : [];
+        nightIncidents = (incidentsRes.status === 'fulfilled' ? incidentsRes.value.data || [] : [])
+          .map((i: any) => ({ id: i.id, kind: i.incident_type, reason: i.reason, createdAt: i.created_at }));
+        glListIds.current = new Set(glEntries.map((e: any) => e.guest_list_id));
+      }
+
       // KPIs
       const paidOrders = orders.filter(o => o.status === 'paid' || o.status === 'served');
       const orderRevenue = paidOrders.reduce((s, o) => s + Number(o.total) - Number(o.service_fee || 0), 0);
@@ -334,7 +414,8 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
 
       const scannedTickets = tickets.filter(t => t.entry_scanned);
       const scannedTables = tables.filter(t => t.entry_scanned);
-      const totalEntries = scannedTickets.length + scannedTables.length;
+      const scannedGl = glEntries.filter((e: any) => e.entry_scanned);
+      const totalEntries = scannedTickets.length + scannedTables.length + scannedGl.length;
 
       const refundedOrders = orders.filter(o => o.status === 'refunded' || o.refunded_at);
       const pendingOrders = orders.filter(o => o.status === 'pending');
@@ -412,7 +493,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       // Entry flow (hourly, Paris wall-clock — browser timezone shifted the
       // histogram for owners abroad)
       const hourMap = new Map<number, number>();
-      [...scannedTickets, ...scannedTables].forEach(item => {
+      [...scannedTickets, ...scannedTables, ...scannedGl].forEach(item => {
         const scannedAt = (item as any).entry_scanned_at;
         if (scannedAt) {
           const h = bucketHourParis(scannedAt);
@@ -424,21 +505,29 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       // Staff activity — keyed by user AND role so a person scanning at the
       // door and later serving at the bar shows up once per station instead of
       // having their role overwritten by whichever loop ran last.
-      const staffMap = new Map<string, { userId: string; role: StaffMember['role']; count: number }>();
-      const bumpStaff = (userId: string, role: StaffMember['role']) => {
+      const staffMap = new Map<string, { userId: string; role: StaffMember['role']; count: number; firstAt: string | null; lastAt: string | null }>();
+      const bumpStaff = (userId: string, role: StaffMember['role'], at?: string | null) => {
         const key = `${userId}:${role}`;
-        const entry = staffMap.get(key) || { userId, role, count: 0 };
+        const entry = staffMap.get(key) || { userId, role, count: 0, firstAt: null, lastAt: null };
         entry.count++;
+        if (at) {
+          if (!entry.firstAt || at < entry.firstAt) entry.firstAt = at;
+          if (!entry.lastAt || at > entry.lastAt) entry.lastAt = at;
+        }
         staffMap.set(key, entry);
       };
-      orders.filter(o => o.prep_claimed_by).forEach(o => bumpStaff(o.prep_claimed_by!, 'barman'));
-      [...scannedTickets, ...scannedTables].forEach(item => {
+      orders.filter(o => o.prep_claimed_by).forEach(o => bumpStaff(o.prep_claimed_by!, 'barman', o.served_at || o.ready_at || o.created_at));
+      [...scannedTickets, ...scannedTables, ...scannedGl].forEach(item => {
         const scannedBy = (item as any).entry_scanned_by;
-        if (scannedBy) bumpStaff(scannedBy, 'bouncer');
+        if (scannedBy) bumpStaff(scannedBy, 'bouncer', (item as any).entry_scanned_at);
       });
       cloakroom.forEach(c => {
         const staffId = (c as any).staff_id;
-        if (staffId) bumpStaff(staffId, 'cloakroom');
+        if (staffId) bumpStaff(staffId, 'cloakroom', (c as any).retrieved_at || c.created_at);
+      });
+      vipConsumptions.forEach((c: any) => {
+        const servedBy = c.served_by || c.staff_id;
+        if (servedBy) bumpStaff(servedBy, 'vip_host', c.served_at);
       });
 
       const staffList: StaffMember[] = Array.from(staffMap.entries()).map(([key, data]) => ({
@@ -448,6 +537,8 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
         role: data.role,
         processedCount: data.count,
         isActive: data.count > 0,
+        firstActionAt: data.firstAt,
+        lastActionAt: data.lastAt,
       }));
       if (staffList.length > 0) {
         const { data: profiles } = await supabase
@@ -465,6 +556,19 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
         }
       }
       setStaffActivity(staffList);
+
+      // Station aggregates for the command center
+      if (extendedOpt) {
+        const now = new Date();
+        const vipStats = computeVipStats(tables as any[], vipConsumptions, vipMoments);
+        setExtended({
+          door: computeDoorStats(scannedTickets, scannedTables, glEntries, vipStats.tables, activeEvent?.start_at ?? null, now),
+          bar: computeBarStats(orders as any[], now),
+          vip: vipStats,
+          cloakroom: computeCloakroomStats(cloakroom as any[]),
+          incidents: nightIncidents,
+        });
+      }
 
       // Build feed from historical data
       buildFeedFromData(orders, tickets, tables, cloakroom);
@@ -489,7 +593,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
     } finally {
       setLoading(false);
     }
-  }, [venueId, getTimeWindow, activeEvent, buildFeedFromData]);
+  }, [venueId, getTimeWindow, activeEvent, buildFeedFromData, extendedOpt]);
 
   // ── Debounced refetch (leading + trailing) ────────────────────────────────
   const lastFetchAtRef = useRef(0);
@@ -580,6 +684,26 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
         scheduleRefetch();
       }).subscribe();
 
+    // Extended-only channels: VIP consumptions (station min-spend live) and
+    // guest list scans (door mix). guest_list_entries has no venue column, so
+    // the guard set of the event's list ids (refreshed each fetch) filters it.
+    const extendedChannels = extendedOpt
+      ? [
+          supabase
+            .channel(uniqueChannel('live-vip-consumptions'))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'vip_consumptions', filter: `venue_id=eq.${venueId}` }, () => {
+              scheduleRefetch();
+            }).subscribe(),
+          supabase
+            .channel(uniqueChannel('live-guest-list'))
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'guest_list_entries' }, (payload) => {
+              const g = (payload.new ?? payload.old) as any;
+              if (!g?.guest_list_id || !glListIds.current.has(g.guest_list_id)) return;
+              scheduleRefetch();
+            }).subscribe(),
+        ]
+      : [];
+
     const pollMs = timeWindow === 'live' ? 10_000 : 30_000;
     const pollInterval = setInterval(scheduleRefetch, pollMs);
 
@@ -588,18 +712,45 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       supabase.removeChannel(ticketChannel);
       supabase.removeChannel(tableChannel);
       supabase.removeChannel(cloakroomChannel);
+      extendedChannels.forEach(ch => supabase.removeChannel(ch));
       clearInterval(pollInterval);
       if (refetchTimerRef.current) {
         clearTimeout(refetchTimerRef.current);
         refetchTimerRef.current = null;
       }
     };
-  }, [venueId, fetchAllData, fetchActiveEvents, addRealtimeFeedItem, scheduleRefetch, timeWindow, activeEvent]);
+  }, [venueId, fetchAllData, fetchActiveEvents, addRealtimeFeedItem, scheduleRefetch, timeWindow, activeEvent, extendedOpt]);
+
+  // ── Extended one-shots: capacity + comparable night ───────────────────────
+  const refreshCapacity = useCallback(async () => {
+    if (!venueId) return;
+    const { data } = await supabase
+      .from('venue_hype_baseline')
+      .select('capacity')
+      .eq('venue_id', venueId)
+      .maybeSingle();
+    setCapacity(data?.capacity ?? null);
+  }, [venueId]);
+
+  useEffect(() => {
+    if (extendedOpt && venueId) refreshCapacity();
+  }, [extendedOpt, venueId, refreshCapacity]);
+
+  const comparisonFetchedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!extendedOpt || !venueId || !activeEvent) return;
+    if (comparisonFetchedFor.current === activeEvent.id) return;
+    comparisonFetchedFor.current = activeEvent.id;
+    fetchComparableNight(venueId, activeEvent)
+      .then(setComparison)
+      .catch(() => setComparison(null));
+  }, [extendedOpt, venueId, activeEvent]);
 
   return {
     kpis, feed, alerts, pipeline, staffActivity, entryFlow, advancedMetrics,
     activeEvent, activeEvents, selectedEventId, loading, isPaused, timeWindow,
-    setIsPaused, setTimeWindow, setSelectedEventId, dismissAlert,
+    extended, comparison, capacity,
+    setIsPaused, setTimeWindow, setSelectedEventId, dismissAlert, refreshCapacity,
   };
 }
 
