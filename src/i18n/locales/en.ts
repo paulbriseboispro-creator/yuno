@@ -10767,7 +10767,9 @@ const en: Record<string, string> = {
   'aigen.regenerate': 'Regenerate',
   'aigen.variant': 'Variant',
   'aigen.use': 'Use this text',
+  'aigen.useAll': 'Use in all 3 languages',
   'aigen.applied': 'Text applied — review and tweak before sending.',
+  'aigen.appliedAll': 'Applied in 3 languages — each customer will get theirs.',
   'aigen.error': 'Generation failed. Try again in a moment.',
   'aigen.disclaimer': 'AI drafts, you decide: always review the text before sending. Nothing goes out without your approval.',
 
@@ -10791,6 +10793,8 @@ const en: Record<string, string> = {
   'settings.personalizedRecsHint': 'Event suggestions based on your purchases and favorites. You can turn this off anytime.',
   'settings.prefUpdated': 'Preference updated',
   'settings.prefError': 'Could not update the preference',
+
+  'ownerPush.multilangHint': 'Multi-language send: each customer gets their language. Editing the text switches back to single language.',
 
   // ─── Daily next-best-action (owner dashboard) ───
   'nba.title': 'Do this today',

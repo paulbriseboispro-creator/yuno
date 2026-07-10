@@ -30,7 +30,23 @@ type CampaignRequest = {
   dry_run?: boolean;         // => renvoie { targeted } sans envoyer
   scheduled_at?: string;     // ISO futur => enregistre la campagne, le cron l'enverra
   campaign_id?: string;      // chemin cron (service role) : envoyer une campagne 'scheduled'
+  // Multi-langue par destinataire (campagnes générées par l'IA) : chaque
+  // destinataire reçoit sa langue (profiles.preferred_language), title/body
+  // restent le fallback. Clés attendues : en / fr / es.
+  title_i18n?: Record<string, string> | null;
+  body_i18n?: Record<string, string> | null;
 };
+
+/** Nettoie un dictionnaire i18n : ne garde que en/fr/es non vides, null si vide. */
+function sanitizeI18n(input: unknown): Record<string, string> | null {
+  if (!input || typeof input !== 'object') return null;
+  const out: Record<string, string> = {};
+  for (const lang of ['en', 'fr', 'es']) {
+    const v = (input as Record<string, unknown>)[lang];
+    if (typeof v === 'string' && v.trim()) out[lang] = v.trim();
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
 
 // deno-lint-ignore no-explicit-any
 async function pushSubscriberIds(supabase: any, platform?: string): Promise<Set<string>> {
@@ -186,6 +202,7 @@ Deno.serve(async (req) => {
         segment: campaign.segment, venue_id: campaign.venue_id || undefined,
         event_id: campaign.event_id || undefined, template_key: campaign.template_key || undefined,
         scope: stored.scope, platform: stored.platform, city: stored.city,
+        title_i18n: sanitizeI18n(campaign.title_i18n), body_i18n: sanitizeI18n(campaign.body_i18n),
       };
       const { userIds, error } = await resolveAudience(supabase, request);
       if (error) {
@@ -262,6 +279,7 @@ Deno.serve(async (req) => {
         targeted_count: userIds.length,
         sent_count: 0,
         created_by: callerId || null,
+        title_i18n: sanitizeI18n(body.title_i18n), body_i18n: sanitizeI18n(body.body_i18n),
       }).select('id').single();
       if (insErr) return json(500, { error: insErr.message });
       return json(200, { success: true, scheduled: true, campaign_id: row.id, targeted: userIds.length });
@@ -278,6 +296,7 @@ Deno.serve(async (req) => {
       targeted_count: userIds.length,
       sent_count: 0,
       created_by: callerId || null,
+      title_i18n: sanitizeI18n(body.title_i18n), body_i18n: sanitizeI18n(body.body_i18n),
     }).select('id').single();
     if (insErr) return json(500, { error: insErr.message });
 
@@ -306,23 +325,45 @@ async function sendCampaign(
   const pushUrl = `${supabaseUrl}/functions/v1/send-push-notification`;
   const trackedUrl = withTracking(request.url || '/', campaignId);
 
+  // Multi-langue : résoudre la langue de chaque destinataire (même convention
+  // que les push automations — profiles.preferred_language, fallback 'fr').
+  const titleI18n = sanitizeI18n(request.title_i18n);
+  const bodyI18n = sanitizeI18n(request.body_i18n);
+  const userLang = new Map<string, string>();
+  if (titleI18n || bodyI18n) {
+    for (let i = 0; i < userIds.length; i += 500) {
+      const { data } = await supabase
+        .from('profiles').select('id, preferred_language').in('id', userIds.slice(i, i + 500));
+      // deno-lint-ignore no-explicit-any
+      (data || []).forEach((p: any) => userLang.set(p.id, p.preferred_language || 'fr'));
+    }
+  }
+  const contentFor = (userId: string): { title: string; body: string } => {
+    const lang = userLang.get(userId) || 'fr';
+    return {
+      title: titleI18n?.[lang] || request.title || '',
+      body: bodyI18n?.[lang] || request.body || '',
+    };
+  };
+
   let sentUsers = 0;
   let failedUsers = 0;
   const events: Array<{ campaign_id: string; user_id: string; event_type: string }> = [];
 
-  console.log(`[CAMPAIGN] ${campaignId} — targeting ${userIds.length} users`);
+  console.log(`[CAMPAIGN] ${campaignId} — targeting ${userIds.length} users${titleI18n || bodyI18n ? ' (multi-langue)' : ''}`);
 
   // Batchs de 10 (même cadence que l'implémentation historique).
   for (let i = 0; i < userIds.length; i += 10) {
     const batch = userIds.slice(i, i + 10);
     const results = await Promise.all(batch.map(async (userId) => {
       try {
+        const localized = contentFor(userId);
         const r = await fetch(pushUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
           body: JSON.stringify({
             user_id: userId,
-            payload: { title: request.title, body: request.body, url: trackedUrl },
+            payload: { title: localized.title, body: localized.body, url: trackedUrl },
           }),
         });
         const d = await r.json().catch(() => ({}));

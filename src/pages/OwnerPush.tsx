@@ -75,6 +75,10 @@ export default function OwnerPush() {
   const [body, setBody] = useState('');
   const [url, setUrl] = useState('/');
   const [manuallyEdited, setManuallyEdited] = useState(false);
+  // Contenu IA appliqué « dans les 3 langues » : chaque destinataire recevra
+  // sa langue à l'envoi. Purgé dès que l'owner édite le texte à la main
+  // (le texte affiché divergerait des deux autres langues).
+  const [i18nContent, setI18nContent] = useState<{ title_i18n: Record<string, string>; body_i18n: Record<string, string> } | null>(null);
   const [offer, setOffer] = useState('');
   const [count, setCount] = useState('');
   const [events, setEvents] = useState<VenueEvent[]>([]);
@@ -201,6 +205,7 @@ export default function OwnerPush() {
   const pickTemplate = (tpl: PushTemplate) => {
     setTemplate(tpl);
     setManuallyEdited(false);
+    setI18nContent(null);
     setAudience(tpl.suggestedAudience);
     setOffer('');
     setCount('');
@@ -249,6 +254,7 @@ export default function OwnerPush() {
           venue_id: venueId, scope,
           ...(needsEvent ? { event_id: eventId } : {}),
           template_key: template?.key || 'custom',
+          ...(i18nContent ? { title_i18n: i18nContent.title_i18n, body_i18n: i18nContent.body_i18n } : {}),
         },
       });
       if (error) {
@@ -270,7 +276,7 @@ export default function OwnerPush() {
       toast.success(t('ownerPush.sentToast').replace('{count}', String(data?.sent || 0)));
       setConfirmOpen(false);
       setTemplate(null);
-      setTitle(''); setBody(''); setManuallyEdited(false);
+      setTitle(''); setBody(''); setManuallyEdited(false); setI18nContent(null);
       fetchHistory();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('ownerPush.sendError'));
@@ -408,7 +414,16 @@ export default function OwnerPush() {
                   channel="push"
                   eventId={eventId || null}
                   segment={scope}
-                  onApply={(c) => { setTitle(c.title); setBody(c.body); setManuallyEdited(true); }}
+                  onApply={(c) => { setTitle(c.title); setBody(c.body); setManuallyEdited(true); setI18nContent(null); }}
+                  onApplyAll={(v, lang) => {
+                    setTitle(v[lang].title);
+                    setBody(v[lang].body);
+                    setManuallyEdited(true);
+                    setI18nContent({
+                      title_i18n: { en: v.en.title, fr: v.fr.title, es: v.es.title },
+                      body_i18n: { en: v.en.body, fr: v.fr.body, es: v.es.body },
+                    });
+                  }}
                 />
               </div>
 
@@ -434,7 +449,7 @@ export default function OwnerPush() {
                 <label style={labelStyle}>{t('ownerPush.titleLabel')}</label>
                 <input
                   value={title}
-                  onChange={(e) => { setTitle(e.target.value); setManuallyEdited(true); }}
+                  onChange={(e) => { setTitle(e.target.value); setManuallyEdited(true); setI18nContent(null); }}
                   maxLength={80}
                   style={inputStyle}
                 />
@@ -443,11 +458,19 @@ export default function OwnerPush() {
                 <label style={labelStyle}>{t('ownerPush.bodyLabel')}</label>
                 <textarea
                   value={body}
-                  onChange={(e) => { setBody(e.target.value); setManuallyEdited(true); }}
+                  onChange={(e) => { setBody(e.target.value); setManuallyEdited(true); setI18nContent(null); }}
                   maxLength={200}
                   rows={3}
                   style={{ ...inputStyle, resize: 'none', lineHeight: 1.5 }}
                 />
+                {i18nContent && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <span style={{ color: POS, fontSize: 10.5, fontWeight: 700, border: '1px solid rgba(52,211,153,0.3)', background: 'rgba(52,211,153,0.08)', borderRadius: 5, padding: '2px 6px', letterSpacing: '0.05em' }}>
+                      EN · FR · ES
+                    </span>
+                    <span style={{ color: T3, fontSize: 11 }}>{t('ownerPush.multilangHint')}</span>
+                  </div>
+                )}
               </div>
               <div>
                 <label style={labelStyle}>{t('ownerPush.urlLabel')}</label>

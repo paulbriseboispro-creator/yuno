@@ -10838,7 +10838,9 @@ const fr: Record<string, string> = {
   'aigen.regenerate': 'Régénérer',
   'aigen.variant': 'Variante',
   'aigen.use': 'Utiliser ce texte',
+  'aigen.useAll': 'Utiliser dans les 3 langues',
   'aigen.applied': 'Texte appliqué — relis et ajuste avant envoi.',
+  'aigen.appliedAll': 'Appliqué en 3 langues — chaque client recevra la sienne.',
   'aigen.error': 'La génération a échoué. Réessaie dans un instant.',
   'aigen.disclaimer': "L'IA propose, tu décides : relis toujours le texte avant envoi. Rien ne part sans ton accord.",
 
@@ -10862,6 +10864,8 @@ const fr: Record<string, string> = {
   'settings.personalizedRecsHint': 'Suggestions de soirées basées sur tes achats et favoris. Désactivable à tout moment.',
   'settings.prefUpdated': 'Préférence mise à jour',
   'settings.prefError': 'Impossible de mettre à jour la préférence',
+
+  'ownerPush.multilangHint': 'Envoi multi-langue : chaque client recevra sa langue. Modifier le texte repasse en langue unique.',
 
   // ─── Next-best-action quotidien (dashboard owner) ───
   'nba.title': "À faire aujourd'hui",

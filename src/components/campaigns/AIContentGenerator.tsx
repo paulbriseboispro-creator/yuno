@@ -15,6 +15,9 @@ interface Props {
   eventId?: string | null;
   segment?: string | null;
   onApply: (content: AIGeneratedContent, lang: Lang) => void;
+  // Optionnel : applique la variante dans les 3 langues (envoi multi-langue
+  // par destinataire). La langue active sert d'aperçu/fallback.
+  onApplyAll?: (variant: Record<Lang, AIGeneratedContent>, activeLang: Lang) => void;
 }
 
 const TONES = ['hype', 'elegant', 'friendly', 'urgent'] as const;
@@ -23,7 +26,7 @@ const LANGS: Lang[] = ['en', 'fr', 'es'];
 // Génération de contenu marketing via l'action generate_marketing_content
 // d'owner-assistant : 3 variantes × 3 langues, le résultat choisi remplit le
 // formulaire parent via onApply — l'owner reste l'éditeur final.
-export default function AIContentGenerator({ channel, eventId, segment, onApply }: Props) {
+export default function AIContentGenerator({ channel, eventId, segment, onApply, onApplyAll }: Props) {
   const { t, language } = useLanguage();
   const [open, setOpen] = useState(false);
   const [tone, setTone] = useState<string>('hype');
@@ -59,6 +62,12 @@ export default function AIContentGenerator({ channel, eventId, segment, onApply 
     onApply(v[activeLang], activeLang);
     setOpen(false);
     toast.success(t('aigen.applied'));
+  };
+
+  const applyAll = (v: Variant) => {
+    onApplyAll?.(v, activeLang);
+    setOpen(false);
+    toast.success(t('aigen.appliedAll'));
   };
 
   return (
@@ -151,16 +160,30 @@ export default function AIContentGenerator({ channel, eventId, segment, onApply 
                     {c.title && <p className="text-sm font-semibold">{c.title}</p>}
                     {c.preheader && <p className="text-xs text-muted-foreground">{c.preheader}</p>}
                     <p className="text-sm whitespace-pre-line leading-relaxed">{c.body}</p>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => apply(v)}
-                      className="gap-1.5 mt-1"
-                    >
-                      <Check className="h-3.5 w-3.5" />
-                      {t('aigen.use')}
-                    </Button>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => apply(v)}
+                        className="gap-1.5"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                        {t('aigen.use')}
+                      </Button>
+                      {onApplyAll && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => applyAll(v)}
+                          className="gap-1.5 hover:bg-muted"
+                        >
+                          <Check className="h-3.5 w-3.5" />
+                          {t('aigen.useAll')}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
