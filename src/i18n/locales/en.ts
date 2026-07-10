@@ -10792,6 +10792,10 @@ const en: Record<string, string> = {
   'settings.prefUpdated': 'Preference updated',
   'settings.prefError': 'Could not update the preference',
 
+  // ─── Daily next-best-action (owner dashboard) ───
+  'nba.title': 'Do this today',
+  'nba.footnote': '3 actions prioritized by AI from the real state of your club, refreshed every day.',
+
   // ─── Owner help guide: AI tools ───
   'ohelp.pg.aitools.title': 'AI tools',
   'ohelp.pg.aitools.desc': 'Campaign generation, night analysis and recommendations: what AI does for you.',

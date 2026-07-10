@@ -10906,6 +10906,10 @@ const es: Record<string, string> = {
   'settings.prefUpdated': 'Preferencia actualizada',
   'settings.prefError': 'No se pudo actualizar la preferencia',
 
+  // ─── Next-best-action diario (dashboard owner) ───
+  'nba.title': 'Para hacer hoy',
+  'nba.footnote': '3 acciones priorizadas por la IA según el estado real de tu club, recalculadas cada día.',
+
   // ─── Guía owner: herramientas IA ───
   'ohelp.pg.aitools.title': 'Herramientas IA',
   'ohelp.pg.aitools.desc': 'Generación de campañas, análisis de la noche y recomendaciones: lo que la IA hace por ti.',

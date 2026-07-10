@@ -55,6 +55,7 @@ import { useOwnerVenue } from '@/hooks/useOwnerVenue';
 import { useStripeConnect } from '@/hooks/useStripeConnect';
 import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { UpgradeModal } from '@/components/UpgradeModal';
+import { NextBestActionsCard } from '@/components/owner/NextBestActionsCard';
 import { CollabActivateBanner } from '@/components/collab/CollabActivateBanner';
 import { CollabWelcomeOverlay } from '@/components/collab/CollabWelcomeOverlay';
 import { isCollabPlan } from '@/lib/planFeatures';
@@ -580,6 +581,9 @@ export default function OwnerDashboard() {
             </div>
           </Link>
         )}
+
+        {/* ─── À faire aujourd'hui (next-best-action IA) ─── */}
+        <NextBestActionsCard />
 
         {/* Dashboard grid */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">

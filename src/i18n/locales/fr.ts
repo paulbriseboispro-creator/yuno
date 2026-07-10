@@ -10863,6 +10863,10 @@ const fr: Record<string, string> = {
   'settings.prefUpdated': 'Préférence mise à jour',
   'settings.prefError': 'Impossible de mettre à jour la préférence',
 
+  // ─── Next-best-action quotidien (dashboard owner) ───
+  'nba.title': "À faire aujourd'hui",
+  'nba.footnote': "3 actions priorisées par l'IA à partir de l'état réel de ton club, recalculées chaque jour.",
+
   // ─── Mode d'emploi owner : outils IA ───
   'ohelp.pg.aitools.title': 'Outils IA',
   'ohelp.pg.aitools.desc': "Génération de campagnes, analyse de soirée et recommandations : ce que l'IA fait pour toi.",
