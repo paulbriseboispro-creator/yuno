@@ -3,12 +3,12 @@
     "apps": [],
     "details": [
       {
-        "appID": "TEAMID.eu.yunoapp.app",
+        "appID": "A2WV4J86F9.eu.yunoapp.app",
         "paths": ["*"]
       }
     ]
   },
   "webcredentials": {
-    "apps": ["TEAMID.eu.yunoapp.app"]
+    "apps": ["A2WV4J86F9.eu.yunoapp.app"]
   }
 }
