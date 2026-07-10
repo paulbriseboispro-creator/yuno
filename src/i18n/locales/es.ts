@@ -7980,6 +7980,8 @@ const es: Record<string, string> = {
   'ownerPush.rfmLabel': 'Segmento',
   'ownerPush.needEvent': 'Crea primero un evento para dirigirte a su público.',
   'ownerPush.reach': 'Alcance: {count} suscriptores',
+  'ownerPush.reachError': 'Alcance no disponible',
+  'ownerPush.reachZeroHint': 'Solo se puede llegar a los clientes que activaron las notificaciones de Yuno. Nadie en este segmento las ha activado todavía.',
   'ownerPush.sendCta': 'Enviar el push',
   'ownerPush.preview': 'Vista previa',
   'ownerPush.previewNow': 'ahora',

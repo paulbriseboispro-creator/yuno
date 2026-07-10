@@ -87,6 +87,7 @@ export default function OwnerPush() {
   const [rfmSegment, setRfmSegment] = useState<string>('champions');
   const [reach, setReach] = useState<number | null>(null);
   const [reachLoading, setReachLoading] = useState(false);
+  const [reachError, setReachError] = useState<string | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -220,23 +221,40 @@ export default function OwnerPush() {
     }
   }, [selectedEvent, venueId]);
 
-  // Portée estimée (dry_run débouncé).
+  // Portée estimée (dry_run débouncé). En cas d'échec on REMONTE la cause
+  // (403 owner/manager, erreur segments…) au lieu d'un « … » silencieux.
   useEffect(() => {
     if (!venueId) return;
     if (needsEvent && !eventId) { setReach(0); return; }
     setReachLoading(true);
+    setReachError(null);
     const timer = setTimeout(async () => {
       try {
-        const { data } = await supabase.functions.invoke('send-push-campaign', {
+        const { data, error } = await supabase.functions.invoke('send-push-campaign', {
           body: {
             title: '·', body: '·', dry_run: true,
             venue_id: venueId, scope,
             ...(needsEvent ? { event_id: eventId } : {}),
           },
         });
+        if (error) {
+          // FunctionsHttpError : le body JSON porte la vraie cause.
+          let detail = error.message;
+          try {
+            const ctx = (error as { context?: Response }).context;
+            if (ctx) detail = (await ctx.json())?.error || detail;
+          } catch { /* body illisible */ }
+          console.error('[Push] dry_run failed:', detail);
+          setReach(null);
+          setReachError(detail);
+          return;
+        }
         setReach(typeof data?.targeted === 'number' ? data.targeted : null);
-      } catch {
+        if (data?.error) setReachError(String(data.error));
+      } catch (e) {
+        console.error('[Push] dry_run failed:', e);
         setReach(null);
+        setReachError(e instanceof Error ? e.message : 'unknown');
       } finally {
         setReachLoading(false);
       }
@@ -535,7 +553,9 @@ export default function OwnerPush() {
                   {reachLoading
                     ? <Loader2 className="h-3.5 w-3.5 animate-spin" style={{ color: T3 }} />
                     : <Users className="h-3.5 w-3.5" style={{ color: (reach ?? 0) > 0 ? POS : T3 }} />}
-                  {t('ownerPush.reach').replace('{count}', String(reach ?? '…'))}
+                  {!reachLoading && reach === null && reachError
+                    ? t('ownerPush.reachError')
+                    : t('ownerPush.reach').replace('{count}', String(reach ?? '…'))}
                 </span>
                 <button
                   onClick={() => setConfirmOpen(true)}
@@ -551,6 +571,13 @@ export default function OwnerPush() {
                   {t('ownerPush.sendCta')}
                 </button>
               </div>
+
+              {/* Explication quand la portée est vide ou en erreur — jamais un « … » muet */}
+              {!reachLoading && (reach === 0 || (reach === null && reachError)) && (
+                <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>
+                  {reach === 0 ? t('ownerPush.reachZeroHint') : reachError}
+                </p>
+              )}
             </div>
 
             {/* Aperçu notification iOS */}

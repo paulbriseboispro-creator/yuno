@@ -50,11 +50,20 @@ function sanitizeI18n(input: unknown): Record<string, string> | null {
 
 // deno-lint-ignore no-explicit-any
 async function pushSubscriberIds(supabase: any, platform?: string): Promise<Set<string>> {
-  let query = supabase.from('push_subscriptions').select('user_id');
-  if (platform === 'web' || platform === 'ios') query = query.eq('platform', platform);
-  const { data } = await query;
-  // deno-lint-ignore no-explicit-any
-  return new Set((data || []).map((d: any) => d.user_id));
+  // Paginé : le select PostgREST est plafonné à ~1000 lignes par défaut —
+  // sans range(), toute audience au-delà était silencieusement tronquée.
+  const out = new Set<string>();
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    let query = supabase.from('push_subscriptions').select('user_id').range(from, from + PAGE - 1);
+    if (platform === 'web' || platform === 'ios') query = query.eq('platform', platform);
+    const { data, error } = await query;
+    if (error) throw new Error(`push_subscriptions read failed: ${error.message}`);
+    // deno-lint-ignore no-explicit-any
+    (data || []).forEach((d: any) => { if (d.user_id) out.add(d.user_id); });
+    if (!data || data.length < PAGE) break;
+  }
+  return out;
 }
 
 /**
@@ -63,7 +72,12 @@ async function pushSubscriberIds(supabase: any, platform?: string): Promise<Set<
  */
 // deno-lint-ignore no-explicit-any
 async function resolveAudience(supabase: any, req: CampaignRequest): Promise<{ userIds: string[]; error?: string }> {
-  const subscribers = await pushSubscriberIds(supabase, req.platform);
+  let subscribers: Set<string>;
+  try {
+    subscribers = await pushSubscriberIds(supabase, req.platform);
+  } catch (e) {
+    return { userIds: [], error: e instanceof Error ? e.message : 'push subscribers unavailable' };
+  }
 
   // ── Scopes club ───────────────────────────────────────────────────────────
   if (req.venue_id) {
@@ -102,8 +116,51 @@ async function resolveAudience(supabase: any, req: CampaignRequest): Promise<{ u
       const wanted = scope.slice(4);
       const { data, error } = await supabase.rpc('get_venue_customer_segments', { p_venue_id: req.venue_id });
       if (error) return { userIds: [], error: `RFM segments unavailable: ${error.message}` };
+      // La RPC ne renvoie PAS de colonne segment : le segment RFM est calculé
+      // côté client (OwnerCustomers.tsx). On réplique EXACTEMENT ce scoring
+      // (quintiles relatifs au club) pour que la cible du push corresponde à
+      // ce que l'owner voit sur sa page Clients. Avant ce fix, r.segment était
+      // toujours undefined → tous les segments RFM ciblaient 0 personne.
       // deno-lint-ignore no-explicit-any
-      ids = new Set((data || []).filter((r: any) => r.segment === wanted).map((r: any) => r.user_id ?? r.id).filter(Boolean));
+      const rows: any[] = data || [];
+      const now = Date.now();
+      // deno-lint-ignore no-explicit-any
+      const recencyOf = (r: any) =>
+        Math.floor((now - new Date(r.last_activity_at || r.last_visit_at || r.first_visit_at).getTime()) / 86400000);
+      // deno-lint-ignore no-explicit-any
+      const freqOf = (r: any) => r.visit_nights || ((r.ticket_count || 0) + (r.order_count || 0) + (r.table_count || 0));
+      const quintile = (value: number, sortedAsc: number[], invert = false): number => {
+        const n = sortedAsc.length;
+        if (n <= 1) return 3;
+        let below = 0;
+        for (let i = 0; i < n; i++) { if (sortedAsc[i] < value) below++; else break; }
+        const pct = below / (n - 1);
+        const score = Math.min(5, Math.max(1, Math.floor(pct * 5) + 1));
+        return invert ? 6 - score : score;
+      };
+      const segmentOf = (r: number, f: number, m: number): string => {
+        if (r >= 4 && f >= 4) return 'champions';
+        if (f >= 4) return 'loyal';
+        if (r <= 2 && f >= 3) return 'at_risk';
+        if (r >= 4 && f <= 2) return m >= 3 ? 'promising' : 'new';
+        if (r >= 3) return 'loyal';
+        if (r === 2) return 'dormant';
+        return 'lost';
+      };
+      const recArr = rows.map(recencyOf).sort((a, b) => a - b);
+      const freqArr = rows.map(freqOf).sort((a, b) => a - b);
+      const monArr = rows.map((r) => Number(r.total_spent) || 0).sort((a, b) => a - b);
+      ids = new Set(
+        rows
+          .filter((row) => {
+            if (!row.user_id) return false;
+            const r = quintile(recencyOf(row), recArr, true);
+            const f = quintile(freqOf(row), freqArr);
+            const m = quintile(Number(row.total_spent) || 0, monArr);
+            return segmentOf(r, f, m) === wanted;
+          })
+          .map((row) => row.user_id),
+      );
     } else { // all_customers
       const { data } = await supabase
         .from('venue_customers').select('user_id').eq('venue_id', req.venue_id).not('user_id', 'is', null);
@@ -223,16 +280,27 @@ Deno.serve(async (req) => {
       if (authError || !user) return json(401, { error: 'Unauthorized' });
 
       if (body.venue_id) {
-        // Campagne club : le caller doit posséder le club.
+        // Campagne club : owner du club, OU manager du club avec le droit CRM
+        // (le mode manager de /owner/push obtenait un 403 → « Portée : … »).
         const { data: owns } = await supabase.rpc('is_venue_owner', {
           _user_id: user.id,
           _venue_id: body.venue_id,
         });
-        if (!owns) return json(403, { error: 'Forbidden' });
+        let allowed = !!owns;
+        if (!allowed) {
+          const { data: mgr } = await supabase
+            .from('manager_permissions')
+            .select('can_manage_crm')
+            .eq('user_id', user.id)
+            .eq('venue_id', body.venue_id)
+            .maybeSingle();
+          allowed = !!mgr?.can_manage_crm;
+        }
+        if (!allowed) return json(403, { error: 'forbidden_not_owner_or_crm_manager' });
       } else {
         // Campagne globale : super admin uniquement.
         const { data: isSA } = await supabaseAuth.rpc('is_super_admin');
-        if (!isSA) return json(403, { error: 'Forbidden' });
+        if (!isSA) return json(403, { error: 'forbidden_not_super_admin' });
       }
 
       callerId = user.id;
