@@ -3,9 +3,10 @@
 // (cartes #141414, accent rouge, mono). Cible tactile ≥ 44 px, feedback press.
 import { memo } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Zap, Loader2, Star } from 'lucide-react';
+import { Plus, Zap, Loader2 } from 'lucide-react';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { getTranslatedDrinkName } from '@/lib/drinkTranslations';
+import { FavoriteButton } from '@/components/FavoriteButton';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Drink } from '@/types';
 import { transitions } from '@/lib/motion';
@@ -34,7 +35,12 @@ function LiveDrinkCardBase({ drink, isFavorite, paying, onAdd, onPay }: Props) {
   return (
     <div
       className="flex flex-col overflow-hidden"
-      style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10 }}
+      style={{
+        background: '#141414',
+        // Favori : liseré rouge discret (renforce « en tête = ton goût »).
+        border: isFavorite ? '1px solid rgba(232,25,44,0.45)' : '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 10,
+      }}
     >
       {/* Visuel — carré, object-contain (jamais crop) */}
       <div
@@ -48,23 +54,23 @@ function LiveDrinkCardBase({ drink, isFavorite, paying, onAdd, onPay }: Props) {
           decoding="async"
           className="absolute inset-0 h-full w-full object-contain p-2.5 drop-shadow-[0_6px_14px_rgba(0,0,0,0.5)]"
         />
-        {isFavorite && (
-          <span
-            className="absolute left-2 top-2 flex items-center gap-0.5 rounded px-1.5 py-0.5 font-mono font-bold uppercase"
-            style={{ fontSize: 8, letterSpacing: '0.08em', color: '#E8192C', background: 'rgba(10,10,10,0.7)', border: '1px solid rgba(232,25,44,0.3)' }}
-          >
-            <Star className="h-2 w-2" style={{ fill: '#E8192C' }} />
-            {t('favorites.yourTaste')}
-          </span>
-        )}
+        {/* Promo en haut à gauche */}
         {original && original > price && (
           <span
-            className="absolute right-2 top-2 rounded px-1.5 py-0.5 font-mono font-bold uppercase"
+            className="absolute left-2 top-2 rounded px-1.5 py-0.5 font-mono font-bold uppercase"
             style={{ fontSize: 8, letterSpacing: '0.06em', color: '#fff', background: '#E8192C' }}
           >
             -{Math.round((1 - price / original) * 100)}%
           </span>
         )}
+        {/* Bouton favori en haut à droite (toggle cœur, cible 40 px) */}
+        <FavoriteButton
+          type="drink"
+          id={drink.id}
+          size="icon"
+          className="absolute right-1.5 top-1.5 h-10 w-10 rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70"
+          iconClassName="h-4 w-4"
+        />
       </div>
 
       {/* Nom + prix */}
