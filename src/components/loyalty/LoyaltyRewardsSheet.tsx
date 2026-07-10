@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Gift, History, Ticket, X, QrCode } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { LoyaltyCard } from './LoyaltyCard';
 import { RewardCard } from './RewardCard';
@@ -230,7 +229,7 @@ export function LoyaltyRewardsSheet({
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="h-[90dvh] max-w-full rounded-t-3xl p-0 [&>button.absolute]:hidden flex flex-col overflow-x-hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }} onOpenAutoFocus={(e) => e.preventDefault()}>
+        <SheetContent side="bottom" className="h-[90dvh] max-w-full rounded-t-3xl p-0 [&>button.absolute]:hidden flex flex-col overflow-x-hidden" onOpenAutoFocus={(e) => e.preventDefault()}>
           {/* Drag handle for mobile - tapping closes */}
           <button
             onClick={() => onOpenChange(false)}
@@ -256,7 +255,12 @@ export function LoyaltyRewardsSheet({
             </SheetTitle>
           </SheetHeader>
 
-          <ScrollArea className="flex-1 min-h-0 px-4 pb-4">
+          {/* Scroll natif (pas de ScrollArea Radix : son viewport display:table
+              s'élargit au contenu → éléments coupés à droite sur mobile) */}
+          <div
+            className="flex-1 min-h-0 w-full max-w-full overflow-y-auto overflow-x-hidden px-4"
+            style={{ WebkitOverflowScrolling: 'touch', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
+          >
             {/* Loyalty Card */}
             <LoyaltyCard
               balance={loyalty.current_balance}
@@ -369,7 +373,7 @@ export function LoyaltyRewardsSheet({
                 )}
               </TabsContent>
             </Tabs>
-          </ScrollArea>
+          </div>
         </SheetContent>
       </Sheet>
 
