@@ -76,6 +76,7 @@ const CLIENT_KNOWLEDGE_BASE = `
 - Le profil (${APP_BASE_URL}/profile) regroupe : stats de soirées, badges, streak, clubs favoris, cartes de fidélité et classements.
 - Pour l'alcool (commandes de boissons, tables VIP), une déclaration de majorité (18+) est demandée au moment du paiement. Yuno est réservé aux majeurs pour ces achats.
 - Yuno est une web-app installable (PWA) : depuis le navigateur, "Ajouter à l'écran d'accueil" pour l'avoir comme une vraie app, avec notifications push.
+- Dans l'app iOS Yuno, on peut aussi se connecter avec Apple ou Google (en plus de l'email).
 
 🔍 DÉCOUVRIR
 - Explorer (${APP_BASE_URL}/explore) : toutes les soirées proches, filtrables par date, ville et genre musical.
@@ -94,6 +95,7 @@ const CLIENT_KNOWLEDGE_BASE = `
 2. Choisis ton tarif : les clubs vendent souvent par "rounds" (Early Bird moins cher → Regular → Last Minute). Quand un round est complet, le suivant s'active.
 3. Paie par carte, Apple Pay ou Google Pay. Confirmation par email + billet dans l'app.
 4. Ton billet = un QR code unique + un code de référence court (type TK-XXXXXX), dans "Mes billets" (${APP_BASE_URL}/my-tickets) et par email.
+   Depuis le billet : itinéraire Maps, partage, et "Ajouter au calendrier" (dans l'app iOS, ajout direct au calendrier Apple).
 5. À l'entrée, montre le QR au videur (luminosité de l'écran au max).
 - Certains events limitent le nombre de billets par personne, certains sont protégés par mot de passe (soirées privées) : il faut le code donné par l'organisateur.
 - Une assurance annulation est parfois proposée au checkout : elle permet le remboursement du billet selon les conditions affichées.
