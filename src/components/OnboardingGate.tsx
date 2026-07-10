@@ -3,6 +3,7 @@ import { Bell, Globe, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { isNative } from '@/lib/native';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -48,6 +49,14 @@ export function OnboardingGate() {
         }
         return;
       }
+      // App native : dialogue de permission APPLE directement (pas de carte
+      // Yuno héritée de la PWA). La réponse système fait foi, on enchaîne.
+      if (isNative()) {
+        localStorage.setItem(PUSH_ANSWERED_KEY, 'true');
+        subscribe().catch(() => { /* refus système : réponse enregistrée par iOS */ });
+        setStep(langAnswered ? 'done' : 'language');
+        return;
+      }
       setStep('push');
       return;
     }
@@ -58,7 +67,7 @@ export function OnboardingGate() {
     }
 
     // Both answered → done
-  }, [pushReady, isSupported, isSubscribed, permission, isiOS, isPWA]);
+  }, [pushReady, isSupported, isSubscribed, permission, isiOS, isPWA, subscribe]);
 
   // Lock body scroll when a blocking modal is open
   useEffect(() => {

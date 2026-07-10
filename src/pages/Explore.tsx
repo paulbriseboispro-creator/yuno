@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { getManualCoords, getStoredCity, hasManualCity, setManualLocation, setResolvedCity } from '@/lib/userLocation';
 import { markAppReady } from '@/lib/appReady';
+import { getCurrentPosition } from '@/lib/geolocation';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { BottomNav } from '@/components/BottomNav';
 import { ExploreHeader } from '@/components/explore/ExploreHeader';
@@ -182,7 +183,7 @@ export default function Explore() {
   useEffect(() => {
     if (hasManualCity()) return;
     const initLocation = async () => {
-      navigator.geolocation?.getCurrentPosition(
+      getCurrentPosition(
         async (pos) => {
           const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           if (!localStorage.getItem('yuno_city')) {

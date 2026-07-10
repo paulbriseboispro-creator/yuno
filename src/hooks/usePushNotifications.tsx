@@ -198,11 +198,15 @@ export function usePushNotifications() {
         const hasRow = !!(data && data.length > 0);
         setIsSubscribed(hasRow);
 
-        // Auto-refresh : APNs peut faire tourner le token (réinstall, restore).
-        // Si l'utilisateur est déjà abonné, on re-register silencieusement.
-        if (hasRow && perm.receive === 'granted') {
+        // Auto-refresh/auto-heal : APNs peut faire tourner le token (réinstall,
+        // restore), et la permission a pu être accordée AVANT le login (le token
+        // n'avait alors pas pu être stocké). Permission accordée + utilisateur
+        // connecté + pas d'opt-out explicite → on (re)stocke silencieusement.
+        const optedOut = localStorage.getItem('yuno:push-opted-out') === 'true';
+        if (perm.receive === 'granted' && (hasRow || !optedOut)) {
           try {
             await syncNativeTokenToDb(await registerNativePush());
+            if (!hasRow) setIsSubscribed(true);
           } catch (e) {
             console.warn('[Push] Native token refresh failed:', e);
           }
@@ -248,6 +252,7 @@ export function usePushNotifications() {
           throw new Error('Permission denied');
         }
         setPermission('granted');
+        localStorage.removeItem('yuno:push-opted-out');
         await syncNativeTokenToDb(await registerNativePush());
         setIsSubscribed(true);
         window.dispatchEvent(new Event('pushSubscriptionChanged'));
@@ -294,6 +299,7 @@ export function usePushNotifications() {
 
     if (isNative()) {
       try {
+        localStorage.setItem('yuno:push-opted-out', 'true');
         await deleteNativeSubscription();
         const { PushNotifications } = await import('@capacitor/push-notifications');
         await PushNotifications.unregister().catch(() => {});

@@ -8,6 +8,7 @@ import type { MapVenue } from '@/components/welcome/VenueMap';
 import { calculateDistance } from '@/components/welcome/VenueMap';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getManualCoords, hasManualCity, setManualLocation, clearManualLocation } from '@/lib/userLocation';
+import { getCurrentPosition } from '@/lib/geolocation';
 import mapboxgl from 'mapbox-gl';
 import { Music, MapPin, Layers } from 'lucide-react';
 
@@ -29,7 +30,7 @@ export default function ClubMap() {
   useEffect(() => {
     // Respect a manual city pick from Explore — don't override it with GPS.
     if (hasManualCity()) return;
-    navigator.geolocation?.getCurrentPosition(
+    getCurrentPosition(
       pos => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
       () => {}
     );
@@ -104,7 +105,7 @@ export default function ClubMap() {
   const handleRequestLocation = () => {
     // Explicit device-location request: drop any manual city pick so both pages use GPS.
     clearManualLocation();
-    navigator.geolocation?.getCurrentPosition(
+    getCurrentPosition(
       pos => setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
       () => {}
     );

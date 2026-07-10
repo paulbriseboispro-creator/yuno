@@ -6,6 +6,7 @@ import { fr, es, enUS } from 'date-fns/locale';
 import yunoLogo from '@/assets/yuno-logo-red.png';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import { getCurrentPosition } from '@/lib/geolocation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
@@ -78,7 +79,7 @@ export function ExploreHeader({ city, selectedDate, dateLabel, dateFilter, onDat
 
   const handleUseLocation = () => {
     setGeoLoading(true);
-    navigator.geolocation?.getCurrentPosition(
+    getCurrentPosition(
       async (pos) => {
         try {
           let cityName = city;

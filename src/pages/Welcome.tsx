@@ -20,6 +20,7 @@ import { fromParisTime } from '@/lib/timezone';
 import { useFavorites } from '@/hooks/useFavorites';
 import { cn } from '@/lib/utils';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
+import { getCurrentPosition } from '@/lib/geolocation';
 
 // Threshold for "Popular" badge (total sales count)
 const POPULAR_THRESHOLD = 10;
@@ -184,25 +185,21 @@ const Welcome = () => {
     if (locationRequested) return;
     
     const requestGeolocation = () => {
-      if (!navigator.geolocation) {
-        return;
-      }
-      
       setLocationRequested(true);
-      
-      // Use lower accuracy first for Safari iOS compatibility
-      navigator.geolocation.getCurrentPosition(
+
+      // Natif : prompt système Apple via le plugin ; web : Safari-friendly.
+      getCurrentPosition(
         (position) => {
           setUserLocation({
             lat: position.coords.latitude,
             lng: position.coords.longitude
           });
         },
-        (error) => {
-          // Error codes: 1=PERMISSION_DENIED, 2=POSITION_UNAVAILABLE, 3=TIMEOUT
+        () => {
+          // Permission refusée / position indisponible — on reste sans position.
         },
-        { 
-          enableHighAccuracy: false, 
+        {
+          enableHighAccuracy: false,
           timeout: 20000, // Increased timeout for Safari
           maximumAge: 600000 // 10 minutes cache
         }
@@ -283,17 +280,12 @@ const Welcome = () => {
   }, [venues, userLocation, allVenuesWithCoords]);
 
   const requestLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      toast.error(t('welcome.geoNotSupported') || 'Geolocation is not supported by your browser');
-      return;
-    }
-
     setLocationRequested(true);
-    
+
     // Show loading toast for Safari users
     const loadingToast = toast.loading(t('welcome.locating') || 'Getting your location...');
-    
-    navigator.geolocation.getCurrentPosition(
+
+    getCurrentPosition(
       (position) => {
         toast.dismiss(loadingToast);
         setUserLocation({
@@ -303,20 +295,21 @@ const Welcome = () => {
         toast.success(t('welcome.locationFound') || 'Location found!');
       },
       (error) => {
-        console.error('Manual geolocation error:', error.code, error.message);
+        const geoErr = error as Partial<GeolocationPositionError> & { message?: string };
+        console.error('Manual geolocation error:', geoErr?.code, geoErr?.message);
         toast.dismiss(loadingToast);
-        
-        // More specific error messages
-        if (error.code === 1) {
+
+        // More specific error messages (code web, message plugin natif)
+        if (geoErr?.code === 1 || /denied/i.test(geoErr?.message || '')) {
           toast.error(t('welcome.locationDenied') || 'Location access denied. Please enable location in your browser settings.');
-        } else if (error.code === 2) {
+        } else if (geoErr?.code === 2) {
           toast.error(t('welcome.locationUnavailable') || 'Location unavailable. Please try again.');
         } else {
           toast.error(t('welcome.locationError') || 'Unable to get your location');
         }
       },
-      { 
-        enableHighAccuracy: true, 
+      {
+        enableHighAccuracy: true,
         timeout: 30000, // 30 seconds for manual request
         maximumAge: 0 // Force fresh location
       }
