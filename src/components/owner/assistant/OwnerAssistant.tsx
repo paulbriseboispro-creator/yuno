@@ -5,6 +5,7 @@ import { Sparkles, Send, RotateCcw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { AnimatedOrb } from '@/components/ui/AnimatedOrb';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOwnerAssistantChat } from '@/hooks/useOwnerAssistantChat';
 import { transitions, useReducedMotion, reducedTap } from '@/lib/motion';
@@ -118,17 +119,8 @@ export function OwnerAssistant() {
             className="flex items-center gap-3 px-4 py-3.5 shrink-0"
             style={{ borderBottom: `1px solid ${BORDER}` }}
           >
-            <div
-              className="flex items-center justify-center shrink-0"
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 11,
-                background: 'rgba(232,25,44,0.12)',
-                border: '1px solid rgba(232,25,44,0.25)',
-              }}
-            >
-              <Sparkles className="w-4 h-4" style={{ color: RED }} />
+            <div className="flex items-center justify-center shrink-0" style={{ width: 40, height: 40 }}>
+              <AnimatedOrb size={40} intensity={isThinking ? 'searching' : 'idle'} />
             </div>
             <div className="flex-1 min-w-0">
               <SheetTitle className="truncate" style={{ color: T1, fontSize: 15, fontWeight: 700 }}>
@@ -155,16 +147,18 @@ export function OwnerAssistant() {
           <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4">
             {!hasMessages ? (
               /* État vide : accueil + suggestions contextuelles */
-              <div className="flex flex-col justify-end min-h-full pb-1">
-                <div className="mb-5">
-                  <p style={{ color: T1, fontSize: 17, fontWeight: 700, letterSpacing: '-0.01em' }}>
+              <div className="flex flex-col justify-between min-h-full pb-1 pt-3">
+                {/* Héros : orbe animée + accueil (miroir du chat client) */}
+                <div className="flex flex-col items-center text-center px-2">
+                  <AnimatedOrb size={118} intensity={isThinking ? 'searching' : 'idle'} />
+                  <p className="mt-4" style={{ color: T1, fontSize: 18, fontWeight: 700, letterSpacing: '-0.01em' }}>
                     {t('ownerAI.welcomeTitle')}
                   </p>
-                  <p className="mt-1.5" style={{ color: T2, fontSize: 13.5, lineHeight: 1.55 }}>
+                  <p className="mt-1.5" style={{ color: T2, fontSize: 13.5, lineHeight: 1.55, maxWidth: 300 }}>
                     {t('ownerAI.welcomeDesc')}
                   </p>
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 mt-6">
                   {suggestions.map((key, i) => (
                     <motion.button
                       key={key}
