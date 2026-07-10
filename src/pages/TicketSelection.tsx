@@ -44,6 +44,14 @@ export default function TicketSelection() {
   const [searchParams] = useSearchParams();
   const { t, language } = useLanguage();
 
+  // Retour vers la fiche event : DÉPILE l'historique quand on vient d'y être
+  // (sinon event ↔ billets s'empilent en boucle et le back matériel oscille
+  // entre les deux au lieu de remonter vers la page club).
+  const goBackToEvent = () => {
+    if (location.key !== 'default') navigate(-1);
+    else navigate(`${basePath}`, { replace: true, state: { eventId } });
+  };
+
   const [loading, setLoading] = useState(true);
   const [eventData, setEventData] = useState<{
     title: string; posterUrl?: string; startAt: string;
@@ -461,7 +469,7 @@ export default function TicketSelection() {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 gap-4">
         <p className="text-muted-foreground text-sm">{t('tickets.eventNotFound')}</p>
-        <button onClick={() => navigate(`${basePath}`, { state: { eventId } })} className="flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors">
+        <button onClick={goBackToEvent} className="flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors">
           <ArrowLeft className="h-4 w-4" /> {t('common.back')}
         </button>
       </div>
@@ -481,7 +489,7 @@ export default function TicketSelection() {
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/50 to-background" />
         <button
-          onClick={() => navigate(`${basePath}`, { state: { eventId } })}
+          onClick={goBackToEvent}
           className="absolute left-4 z-10 flex items-center justify-center h-9 w-9 text-white hover:opacity-80 transition-opacity"
           style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)', borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: 'none' }}
         >

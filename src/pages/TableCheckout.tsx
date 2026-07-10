@@ -542,7 +542,7 @@ export default function TableCheckout() {
       >
         <div className="mx-auto flex h-12 max-w-lg items-center px-4">
           <button
-            onClick={currentStep === 1 ? () => navigate(`${basePath}/billets`, { state: { eventId } }) : handlePrevStep}
+            onClick={currentStep === 1 ? () => navigate(`${basePath}/billets`, { replace: true, state: { eventId } }) : handlePrevStep}
             className="flex items-center gap-2 h-8 px-3 -ml-2 font-mono uppercase text-[10px] font-semibold tracking-[0.10em] text-[#9A9A9A] hover:text-white transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
