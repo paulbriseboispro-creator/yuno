@@ -510,6 +510,22 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         ],
       },
       {
+        id: 'ai-tools',
+        titleKey: 'ohelp.pg.aitools.title',
+        descKey: 'ohelp.pg.aitools.desc',
+        icon: 'Sparkles',
+        actionLink: { labelKey: 'ohelp.action.goToPush', path: '/push' },
+        relatedArticleIds: ['push-notifications', 'email-campaigns', 'sms-credits'],
+        keywords: ['ia', 'ai', 'intelligence artificielle', 'générer', 'generate', 'génération', 'variante', 'analyse ia', 'night report', 'rapport ia', 'pour toi', 'for you', 'recommandation', 'inteligencia artificial', 'generar'],
+        sections: [
+          { headingKey: 'ohelp.pg.aitools.s1h', bodyKey: 'ohelp.pg.aitools.s1b' },
+          { headingKey: 'ohelp.pg.aitools.s2h', bodyKey: 'ohelp.pg.aitools.s2b', type: 'steps' },
+          { headingKey: 'ohelp.pg.aitools.s3h', bodyKey: 'ohelp.pg.aitools.s3b' },
+          { headingKey: 'ohelp.pg.aitools.s4h', bodyKey: 'ohelp.pg.aitools.s4b' },
+          { headingKey: 'ohelp.pg.aitools.s5h', bodyKey: 'ohelp.pg.aitools.s5b', type: 'tip' },
+        ],
+      },
+      {
         id: 'promoter-system',
         titleKey: 'ohelp.pg.promoters.title',
         descKey: 'ohelp.pg.promoters.desc',

@@ -10906,6 +10906,20 @@ const es: Record<string, string> = {
   'settings.prefUpdated': 'Preferencia actualizada',
   'settings.prefError': 'No se pudo actualizar la preferencia',
 
+  // ─── Guía owner: herramientas IA ───
+  'ohelp.pg.aitools.title': 'Herramientas IA',
+  'ohelp.pg.aitools.desc': 'Generación de campañas, análisis de la noche y recomendaciones: lo que la IA hace por ti.',
+  'ohelp.pg.aitools.s1h': 'Lo que la IA hace por ti',
+  'ohelp.pg.aitools.s1b': 'Tres herramientas IA están integradas en tu dashboard: la generación de campañas (push, email, SMS) que redacta tus mensajes en tres idiomas, el análisis IA de la noche que convierte tus cifras en lecciones concretas, y las recomendaciones «Para ti» que muestran tus fiestas a los clientes adecuados en la app. Todo funciona con tus datos reales: la IA nunca inventa un precio, una fecha o una cifra.',
+  'ohelp.pg.aitools.s2h': 'Generar una campaña con IA',
+  'ohelp.pg.aitools.s2b': '1. Abre Push, Campañas de email o SMS y empieza una campaña.\n2. Pulsa «Generar con IA» junto al formulario.\n3. Elige un tono (hype, elegante, cercano, urgente) y añade una instrucción libre si quieres (una oferta a destacar, una palabra a usar…).\n4. La IA propone 3 variantes, cada una en inglés, francés y español: cambia de idioma con las pestañas.\n5. Pulsa «Usar este texto»: el formulario se rellena, revisas, ajustas y envías. Nada se envía sin tu aprobación.',
+  'ohelp.pg.aitools.s3h': 'El análisis IA de la noche',
+  'ohelp.pg.aitools.s3b': 'Después de cada fiesta, en Hype → análisis post-fiesta, la tarjeta «Análisis IA de la fiesta» genera un veredicto, 5 lecciones (cada una ligada a una métrica real) y 3 acciones concretas para la próxima vez, agrupadas por tema: marketing, precios, operaciones, experiencia. Si los datos son escasos (pocas entradas, sin escaneos), la IA lo dice honestamente en vez de inventar tendencias. El análisis se guarda y solo se regenera si tus cifras cambian.',
+  'ohelp.pg.aitools.s4h': '«Para ti»: tus fiestas recomendadas a los clientes adecuados',
+  'ohelp.pg.aitools.s4b': 'En la app cliente, la sección «Para ti» de Explorar recomienda fiestas a cada cliente según sus compras y favoritos. Tus eventos aparecen automáticamente si son públicos y descubribles, sin configuración. Cuanto más completa esté tu ficha de evento (título claro, géneros musicales, descripción), mejor conecta con los clientes que aman ese estilo.',
+  'ohelp.pg.aitools.s5h': 'La IA propone, tú decides',
+  'ohelp.pg.aitools.s5b': 'Ninguna herramienta IA envía ni modifica nada en tu nombre: el texto generado llega a tus formularios y el análisis es de solo lectura. Cada generación queda registrada en tu historial. Relee siempre antes de enviar: es tu club, es tu voz.',
+
 };
 
 export default es;

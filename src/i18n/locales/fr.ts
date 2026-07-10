@@ -10863,6 +10863,20 @@ const fr: Record<string, string> = {
   'settings.prefUpdated': 'Préférence mise à jour',
   'settings.prefError': 'Impossible de mettre à jour la préférence',
 
+  // ─── Mode d'emploi owner : outils IA ───
+  'ohelp.pg.aitools.title': 'Outils IA',
+  'ohelp.pg.aitools.desc': "Génération de campagnes, analyse de soirée et recommandations : ce que l'IA fait pour toi.",
+  'ohelp.pg.aitools.s1h': "Ce que l'IA fait pour toi",
+  'ohelp.pg.aitools.s1b': "Trois outils IA sont intégrés à ton dashboard : la génération de campagnes (push, email, SMS) qui rédige tes messages en trois langues, l'analyse IA de la soirée qui transforme tes chiffres en enseignements concrets, et les recommandations « Pour toi » qui montrent tes soirées aux bons clients dans l'app. Tout fonctionne à partir de tes vraies données — l'IA n'invente jamais un prix, une date ou un chiffre.",
+  'ohelp.pg.aitools.s2h': "Générer une campagne avec l'IA",
+  'ohelp.pg.aitools.s2b': "1. Ouvre Push, Campagnes email ou SMS et commence une campagne.\n2. Appuie sur « Générer avec l'IA » à côté du formulaire.\n3. Choisis un ton (hype, élégant, amical, urgent) et ajoute une instruction libre si tu veux (offre à mettre en avant, mot à utiliser…).\n4. L'IA propose 3 variantes, chacune en anglais, français et espagnol — bascule entre les langues avec les onglets.\n5. Appuie sur « Utiliser ce texte » : le formulaire se remplit, tu relis, tu ajustes, tu envoies. Rien ne part sans ton accord.",
+  'ohelp.pg.aitools.s3h': "L'analyse IA de la soirée",
+  'ohelp.pg.aitools.s3b': "Après chaque soirée, dans Hype → analyse post-soirée, la carte « Analyse IA de la soirée » génère un verdict, 5 enseignements (chacun relié à une métrique réelle) et 3 actions concrètes pour la prochaine fois, classées par thème : marketing, tarifs, opérations, expérience. Si les données sont trop maigres (peu de billets, pas de scans), l'IA te le dit honnêtement au lieu d'inventer des tendances. L'analyse est mémorisée et ne se régénère que si tes chiffres changent.",
+  'ohelp.pg.aitools.s4h': "« Pour toi » : tes soirées recommandées aux bons clients",
+  'ohelp.pg.aitools.s4b': "Dans l'app client, la section « Pour toi » d'Explorer recommande des soirées à chaque client selon ses achats et favoris. Tes événements y apparaissent automatiquement s'ils sont publics et découvrables — aucune configuration. Plus ta fiche événement est complète (titre clair, genres musicaux, description), mieux elle matche avec les clients qui aiment ce style.",
+  'ohelp.pg.aitools.s5h': "L'IA propose, tu décides",
+  'ohelp.pg.aitools.s5b': "Aucun outil IA n'envoie ni ne modifie quoi que ce soit à ta place : le texte généré atterrit dans tes formulaires, l'analyse reste une lecture. Chaque génération est tracée dans ton journal. Relis toujours avant d'envoyer — c'est ton club, c'est ta voix.",
+
 };
 
 export default fr;

@@ -10792,6 +10792,20 @@ const en: Record<string, string> = {
   'settings.prefUpdated': 'Preference updated',
   'settings.prefError': 'Could not update the preference',
 
+  // ─── Owner help guide: AI tools ───
+  'ohelp.pg.aitools.title': 'AI tools',
+  'ohelp.pg.aitools.desc': 'Campaign generation, night analysis and recommendations: what AI does for you.',
+  'ohelp.pg.aitools.s1h': 'What AI does for you',
+  'ohelp.pg.aitools.s1b': "Three AI tools are built into your dashboard: campaign generation (push, email, SMS) that writes your messages in three languages, the AI night analysis that turns your numbers into concrete takeaways, and the “For you” recommendations that surface your events to the right customers in the app. Everything runs on your real data — the AI never makes up a price, a date or a number.",
+  'ohelp.pg.aitools.s2h': 'Generate a campaign with AI',
+  'ohelp.pg.aitools.s2b': "1. Open Push, Email campaigns or SMS and start a campaign.\n2. Tap “Generate with AI” next to the form.\n3. Pick a tone (hype, elegant, friendly, urgent) and add a free instruction if you want (an offer to highlight, a word to use…).\n4. The AI drafts 3 variants, each in English, French and Spanish — switch languages with the tabs.\n5. Tap “Use this text”: the form fills in, you review, tweak, send. Nothing goes out without your approval.",
+  'ohelp.pg.aitools.s3h': 'The AI night analysis',
+  'ohelp.pg.aitools.s3b': "After each night, in Hype → post-event analysis, the “AI night analysis” card generates a verdict, 5 takeaways (each tied to a real metric) and 3 concrete actions for next time, grouped by theme: marketing, pricing, operations, experience. If the data is too thin (few tickets, no scans), the AI says so honestly instead of inventing trends. The analysis is cached and only regenerates when your numbers change.",
+  'ohelp.pg.aitools.s4h': '“For you”: your events recommended to the right customers',
+  'ohelp.pg.aitools.s4b': "In the customer app, the “For you” section of Explore recommends events to each customer based on their purchases and favorites. Your events show up automatically as long as they are public and discoverable — no setup. The more complete your event page is (clear title, music genres, description), the better it matches customers who love that style.",
+  'ohelp.pg.aitools.s5h': 'AI drafts, you decide',
+  'ohelp.pg.aitools.s5b': "No AI tool sends or changes anything on your behalf: generated text lands in your forms, the analysis is read-only. Every generation is traced in your log. Always review before sending — it's your club, it's your voice.",
+
 };
 
 export default en;

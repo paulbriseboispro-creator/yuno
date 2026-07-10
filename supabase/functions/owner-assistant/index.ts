@@ -290,6 +290,24 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     path: "/owner/vip-service",
     snippet: "La page Service VIP est l'outil de l'hôte VIP pendant la soirée : arrivées des réservations, installation des groupes, suivi du minimum de consommation et commandes de bouteilles à la table. Le staff VIP host y accède avec son PIN.",
   },
+  "ai-content-generation": {
+    title: "Générer tes campagnes avec l'IA",
+    keywords: ["ia", "ai", "générer", "generate", "rédiger", "texte", "campagne", "push", "email", "sms", "contenu", "variante", "traduction"],
+    path: "/owner/push",
+    snippet: "Sur les pages Push, Email et SMS, le bouton « Générer avec l'IA » rédige 3 variantes de message en anglais, français et espagnol à partir des vraies données de ta soirée (date, prix, remplissage). Choisis un ton (hype, élégant, amical, urgent), ajoute une instruction libre si tu veux, puis « Utiliser ce texte » : le texte remplit le formulaire et tu restes l'éditeur final — rien ne part sans ton accord.",
+  },
+  "ai-night-report": {
+    title: "Analyse IA de la soirée",
+    keywords: ["ia", "ai", "analyse", "rapport", "night report", "post-event", "soirée", "enseignements", "insights", "bilan", "hype"],
+    path: "/owner/hype",
+    snippet: "Dans l'analyse post-soirée (page Hype), la carte « Analyse IA de la soirée » transforme les chiffres en 5 enseignements et 3 actions concrètes pour la prochaine fois (marketing, tarifs, opérations, expérience). L'analyse n'utilise QUE tes chiffres réels et te dit honnêtement quand les données sont trop maigres. Elle est mise en cache et ne se régénère que si les chiffres changent.",
+  },
+  "ai-recommendations": {
+    title: "Recommandations personnalisées côté client",
+    keywords: ["recommandation", "pour toi", "for you", "personnalisé", "découverte", "explore", "visibilité", "reco"],
+    path: "/owner/events",
+    snippet: "Les clients voient une section « Pour toi » dans Explorer : des soirées recommandées selon leurs achats et favoris. Tes événements y apparaissent automatiquement s'ils sont publics et découvrables — aucune configuration requise. Plus tes fiches événement sont complètes (titre, genres musicaux, description), mieux elles matchent avec les bons clients.",
+  },
 };
 
 // ═══════════════════════════════════════════
