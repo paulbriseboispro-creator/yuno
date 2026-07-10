@@ -5335,6 +5335,7 @@ const fr: Record<string, string> = {
   'live.feedOrderReady': 'Commande prête',
   'live.feedOrderServed': 'Commande servie',
   'live.feedTicketScanned': 'Scan entrée',
+  'live.feedGlScanned': 'Entrée guest list',
   'live.feedVipScanned': 'Entrée VIP',
   'live.feedRefund': 'Remboursement',
   'live.feedTableBooked': 'Table réservée',

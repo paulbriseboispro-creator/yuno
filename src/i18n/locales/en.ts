@@ -5408,6 +5408,7 @@ const en: Record<string, string> = {
   'live.feedOrderReady': 'Order ready',
   'live.feedOrderServed': 'Order served',
   'live.feedTicketScanned': 'Entry scan',
+  'live.feedGlScanned': 'Guest list entry',
   'live.feedVipScanned': 'VIP entry',
   'live.feedRefund': 'Refund',
   'live.feedTableBooked': 'Table booked',

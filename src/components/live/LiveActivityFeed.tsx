@@ -27,6 +27,7 @@ const typeConfig: Record<FeedItemType, { icon: typeof ShoppingCart; color: strin
   order_ready:   { icon: CheckCircle,  color: POS,        labelKey: 'live.feedOrderReady' },
   order_served:  { icon: CheckCircle,  color: POS,        labelKey: 'live.feedOrderServed' },
   ticket_scanned:{ icon: Ticket,       color: T2,         labelKey: 'live.feedTicketScanned' },
+  gl_scanned:    { icon: Users,        color: T2,         labelKey: 'live.feedGlScanned' },
   vip_scanned:   { icon: Crown,        color: '#FCD34D',  labelKey: 'live.feedVipScanned' },
   refund:        { icon: RotateCcw,    color: RED,        labelKey: 'live.feedRefund' },
   table_booked:  { icon: Crown,        color: '#FCD34D',  labelKey: 'live.feedTableBooked' },
@@ -36,7 +37,7 @@ const typeConfig: Record<FeedItemType, { icon: typeof ShoppingCart; color: strin
 const filterTypes: Record<FeedFilter, FeedItemType[]> = {
   all:    [],
   orders: ['order_created', 'order_ready', 'order_served'],
-  entry:  ['ticket_scanned', 'vip_scanned'],
+  entry:  ['ticket_scanned', 'gl_scanned', 'vip_scanned'],
   staff:  ['order_ready', 'order_served', 'cloakroom'],
   issues: ['refund'],
 };
