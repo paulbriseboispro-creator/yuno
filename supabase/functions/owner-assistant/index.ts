@@ -9,6 +9,8 @@ const OPENAI_MODEL = "gpt-4o-mini";
 const CONTENT_MODEL = "gpt-5-mini";
 // Modèle du Night Report narratif (analyse post-soirée).
 const REPORT_MODEL = "gpt-5-mini";
+// Modèle du next-best-action quotidien (carte dashboard).
+const ACTIONS_MODEL = "gpt-5-mini";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1677,6 +1679,190 @@ RÈGLES ABSOLUES : n'utilise QUE les chiffres présents dans le JSON — n'inven
 }
 
 // ═══════════════════════════════════════════
+// NEXT-BEST-ACTION QUOTIDIEN (action hors chat)
+// ═══════════════════════════════════════════
+
+// Chemins autorisés dans les actions — enum strict pour empêcher tout lien
+// halluciné. Miroir de la navigation du dashboard owner.
+const ACTION_PATHS = [
+  "/owner/push", "/owner/campaigns", "/owner/sms-campaigns", "/owner/ticketing",
+  "/owner/scarcity", "/owner/tables", "/owner/customers", "/owner/events",
+  "/owner/hype", "/owner/menu", "/owner/loyalty", "/owner/promoters",
+  "/owner/analytics", "/owner/upsell",
+] as const;
+
+const NBA_SCHEMA = {
+  name: "next_best_actions",
+  strict: true,
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["actions"],
+    properties: {
+      actions: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["title", "why", "category", "path"],
+          properties: {
+            title: { type: "string" },
+            why: { type: "string" },
+            category: { type: "string", enum: ["marketing", "pricing", "operations", "experience"] },
+            path: { type: "string", enum: [...ACTION_PATHS] },
+          },
+        },
+      },
+    },
+  },
+};
+
+async function handleNextBestActions(
+  body: Record<string, any>,
+  ctx: { supabase: any; venueId: string; userId: string },
+): Promise<Response> {
+  const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
+  const { supabase, venueId, userId } = ctx;
+  const language = ["en", "fr", "es"].includes(body.language) ? body.language : "en";
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Cache : une génération par venue × jour × langue.
+  const { data: cached } = await supabase
+    .from("venue_ai_actions")
+    .select("actions")
+    .eq("venue_id", venueId)
+    .eq("day", today)
+    .eq("language", language)
+    .maybeSingle();
+  if (cached) {
+    return new Response(JSON.stringify({ actions: cached.actions, cached: true }), { headers: jsonHeaders });
+  }
+
+  // ── État réel du club, requêté côté serveur ──
+  const now = new Date();
+  const in14d = new Date(now.getTime() + 14 * 24 * 3600 * 1000).toISOString();
+  const [venueRes, eventsRes, lastPushRes, lastEmailRes, customersRes, automationsRes] = await Promise.all([
+    supabase.from("venues").select("name").eq("id", venueId).maybeSingle(),
+    supabase.from("events")
+      .select("id, title, start_at, max_tickets, ticketing_enabled, tables_enabled")
+      .eq("venue_id", venueId).eq("is_active", true)
+      .gte("start_at", now.toISOString()).lte("start_at", in14d)
+      .order("start_at").limit(6),
+    supabase.from("push_campaigns").select("created_at").eq("venue_id", venueId)
+      .eq("source", "manual").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("email_campaigns").select("created_at").eq("venue_id", venueId)
+      .eq("status", "sent").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("venue_customers").select("last_visit_at").eq("venue_id", venueId).eq("is_banned", false).limit(2000),
+    supabase.from("venue_push_automations").select("automation_key, enabled").eq("venue_id", venueId),
+  ]);
+
+  const lines: string[] = [`Club : ${venueRes.data?.name || "inconnu"} — date : ${today}`];
+
+  const events = eventsRes.data || [];
+  if (events.length === 0) {
+    lines.push("Aucune soirée programmée dans les 14 prochains jours.");
+  } else {
+    for (const evt of events) {
+      const { data: rounds } = await supabase
+        .from("ticket_rounds")
+        .select("price, tickets_sold, max_tickets, is_active")
+        .eq("event_id", evt.id);
+      const sold = (rounds || []).reduce((s: number, r: any) => s + (r.tickets_sold || 0), 0);
+      const cap = evt.max_tickets || (rounds || []).reduce((s: number, r: any) => s + (r.max_tickets || 0), 0);
+      const daysOut = Math.max(0, Math.round((new Date(evt.start_at).getTime() - now.getTime()) / 86400000));
+      const fill = cap > 0 ? Math.round((sold / cap) * 100) : null;
+      lines.push(`Soirée « ${evt.title} » dans ${daysOut} j : ${sold} billets vendus${cap ? ` / ${cap} (${fill}%)` : ""}${evt.ticketing_enabled ? "" : " — billetterie DÉSACTIVÉE"}${evt.tables_enabled ? "" : " — tables désactivées"}.`);
+    }
+  }
+
+  const daysSince = (iso: string | null | undefined) =>
+    iso ? Math.round((now.getTime() - new Date(iso).getTime()) / 86400000) : null;
+  const dPush = daysSince(lastPushRes.data?.created_at);
+  const dEmail = daysSince(lastEmailRes.data?.created_at);
+  lines.push(`Dernier push manuel : ${dPush === null ? "jamais" : `il y a ${dPush} j`}. Dernière campagne email : ${dEmail === null ? "jamais" : `il y a ${dEmail} j`}.`);
+
+  const customers = customersRes.data || [];
+  if (customers.length > 0) {
+    const bucket = (lo: number, hi: number | null) => customers.filter((c: any) => {
+      const d = daysSince(c.last_visit_at);
+      return d !== null && d >= lo && (hi === null || d < hi);
+    }).length;
+    lines.push(`Base clients : ${customers.length} — actifs <30 j : ${bucket(0, 30)}, à risque 30-90 j : ${bucket(30, 90)}, perdus >90 j : ${bucket(90, null)}.`);
+  } else {
+    lines.push("Base clients vide pour l'instant.");
+  }
+
+  const autos = automationsRes.data || [];
+  const autosOn = autos.filter((a: any) => a.enabled).length;
+  lines.push(`Notifications automatiques : ${autosOn}/4 activées.`);
+
+  const systemPrompt = `Tu es le conseiller opérationnel quotidien d'un club sur Yuno. On te donne l'état réel du club ce matin.
+Propose EXACTEMENT 3 actions concrètes et priorisées à faire AUJOURD'HUI, la plus impactante d'abord, en ${language === "fr" ? "français" : language === "es" ? "espagnol" : "anglais"}.
+Pour chaque action : title = l'action en une phrase impérative courte ; why = la raison chiffrée tirée des données (1 phrase) ; category ; path = la page du dashboard où la faire (choisis dans la liste imposée).
+RÈGLES : n'utilise QUE les chiffres fournis, n'invente rien. Si tout va bien, propose des actions d'optimisation (fidélité, upsell, analyse) plutôt que d'alarmer. Tutoie l'owner, direct, zéro flatterie.`;
+
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+  if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
+
+  const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: ACTIONS_MODEL,
+      reasoning_effort: "low",
+      max_completion_tokens: 2500,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: lines.join("\n") },
+      ],
+      response_format: { type: "json_schema", json_schema: NBA_SCHEMA },
+    }),
+  });
+
+  if (!aiResponse.ok) {
+    if (aiResponse.status === 429) {
+      return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429, headers: jsonHeaders });
+    }
+    const t = await aiResponse.text();
+    log("nba_ai_error", { status: aiResponse.status, body: t.substring(0, 200) });
+    throw new Error("AI gateway error");
+  }
+
+  const aiData = await aiResponse.json();
+  let parsed: any = null;
+  try { parsed = JSON.parse(aiData.choices?.[0]?.message?.content || "null"); } catch { /* empty */ }
+  const actions = (parsed?.actions || []).slice(0, 3)
+    .filter((a: any) => ACTION_PATHS.includes(a?.path));
+  if (!actions.length) {
+    log("nba_empty", { venue_id: venueId });
+    return new Response(JSON.stringify({ error: "Generation failed" }), { status: 502, headers: jsonHeaders });
+  }
+
+  try {
+    await supabase.from("venue_ai_actions").upsert({
+      venue_id: venueId,
+      day: today,
+      language,
+      actions,
+      model: ACTIONS_MODEL,
+    }, { onConflict: "venue_id,day,language" });
+  } catch { /* ignore */ }
+
+  try {
+    await supabase.from("owner_ai_audit_log").insert({
+      user_id: userId,
+      venue_id: venueId,
+      tool_name: "generate_next_best_actions",
+      tool_args: { language, day: today },
+      result: JSON.stringify(actions).substring(0, 1000),
+    });
+  } catch { /* ignore */ }
+
+  log("nba_generated", { venue_id: venueId, language });
+  return new Response(JSON.stringify({ actions, cached: false }), { headers: jsonHeaders });
+}
+
+// ═══════════════════════════════════════════
 // MAIN HANDLER
 // ═══════════════════════════════════════════
 
@@ -1736,6 +1922,9 @@ serve(async (req) => {
     }
     if (body?.action === "generate_night_report") {
       return await handleGenerateNightReport(body, { supabase, venueId, userId: user.id });
+    }
+    if (body?.action === "generate_next_best_actions") {
+      return await handleNextBestActions(body, { supabase, venueId, userId: user.id });
     }
 
     const { messages, venueContext } = body;
