@@ -32,7 +32,7 @@ import {
   SegControl, PendingCard, UpcomingCard, PastCard, OrderQROverlay,
   type UnifiedOrderEntry, type OrderBucket, type QRAction,
 } from '@/components/orders/TemporalOrders';
-import { buildVenueMapsUrl, buildCalendarUrl, venueLocationText } from '@/lib/ticketActions';
+import { buildVenueMapsUrl, addToCalendar, venueLocationText } from '@/lib/ticketActions';
 import type {
   LoyaltyTransaction, PendingReward, Order, OrderItem,
   TicketWithDetails, VipReservationWithDetails, GuestListEntryWithDetails,
@@ -1658,9 +1658,11 @@ export default function MyOrders() {
         navigate(`/event/${opts.eventId}`);
       } });
     }
-    const calUrl = buildCalendarUrl({ title: opts.title, startAt: opts.startAt, endAt: opts.endAt, location: venueLocationText(opts.venue) });
-    if (calUrl) {
-      acts.push({ icon: Calendar, label: t('orders.addToCal'), onClick: () => window.open(calUrl, '_blank', 'noopener,noreferrer') });
+    if (opts.startAt) {
+      // Natif : feuille Apple Calendar pré-remplie (EventKit). Web : Google Agenda.
+      acts.push({ icon: Calendar, label: t('orders.addToCal'), onClick: () => {
+        void addToCalendar({ title: opts.title, startAt: opts.startAt, endAt: opts.endAt, location: venueLocationText(opts.venue) });
+      } });
     }
     acts.push({ icon: Share2, label: t('orders.shareShort'), onClick: () => shareQR(opts.title) });
     return acts;

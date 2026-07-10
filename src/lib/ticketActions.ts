@@ -2,7 +2,11 @@
    Yuno — actions utiles depuis un billet / QR
    Builders d'URL purs (Google Maps + Google Agenda) réutilisés
    par l'overlay QR (OrderQROverlay). Aucune dépendance UI.
+   + addToCalendar : ajout DIRECT au calendrier Apple en natif
+   (feuille EventKit), fallback Google Agenda sur le web.
    ============================================================ */
+
+import { isNative, openExternal } from '@/lib/native';
 
 export interface VenueLocation {
   name?: string | null;
@@ -57,4 +61,49 @@ export function buildCalendarUrl(opts: {
   });
   if (opts.location) params.set('location', opts.location);
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+export interface CalendarEventOpts {
+  title: string;
+  startAt?: string | null;
+  endAt?: string | null;
+  location?: string;
+  notes?: string;
+}
+
+/**
+ * Ajoute la soirée au calendrier. App native : feuille d'édition Apple
+ * Calendar (EventKit) pré-remplie — ajout direct, pas de détour web.
+ * Web / échec du plugin : ouverture du template Google Agenda.
+ * Retourne 'native' | 'web' | 'cancelled'.
+ */
+export async function addToCalendar(opts: CalendarEventOpts): Promise<'native' | 'web' | 'cancelled'> {
+  if (!opts.startAt) return 'cancelled';
+
+  if (isNative()) {
+    try {
+      const { CapacitorCalendar } = await import('@ebarooni/capacitor-calendar');
+      const start = new Date(opts.startAt).getTime();
+      const end = new Date(
+        opts.endAt || new Date(new Date(opts.startAt).getTime() + 3 * 3600 * 1000).toISOString(),
+      ).getTime();
+      await CapacitorCalendar.createEventWithPrompt({
+        title: opts.title,
+        startDate: start,
+        endDate: end,
+        ...(opts.location ? { location: opts.location } : {}),
+        ...(opts.notes ? { description: opts.notes } : {}),
+      });
+      return 'native';
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/cancel|dismiss/i.test(msg)) return 'cancelled';
+      // Permission refusée / plugin absent du binaire → fallback web.
+    }
+  }
+
+  const url = buildCalendarUrl(opts);
+  if (!url) return 'cancelled';
+  openExternal(url);
+  return 'web';
 }
