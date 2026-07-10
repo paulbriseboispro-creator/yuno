@@ -495,11 +495,12 @@ export default function TableCheckout() {
       
       if (data?.testMode && data?.redirectUrl) {
         toast.success(t('tables.reservationSuccess') || 'Réservation confirmée !');
-        window.location.href = data.redirectUrl;
+        // Navigation SPA — window.location.href recharge le bundle (splash natif).
+        navigate(data.redirectUrl);
         return;
       }
       if (data?.url) { haptics.medium(); launchCheckout(data.url); }
-      else if (data?.redirectUrl) { window.location.href = data.redirectUrl; }
+      else if (data?.redirectUrl) { navigate(data.redirectUrl); }
     } catch (error: any) {
       console.error('Checkout error:', error);
       haptics.error();

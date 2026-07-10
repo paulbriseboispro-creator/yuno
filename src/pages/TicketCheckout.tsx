@@ -655,7 +655,9 @@ export default function TicketCheckout() {
 
       if (data?.testMode && data?.redirectUrl) {
         toast.success(t('tickets.purchaseSuccess'));
-        window.location.href = data.redirectUrl;
+        // Navigation SPA (jamais window.location.href : rechargement complet du
+        // bundle → replay du splash dans l'app native, état perdu).
+        navigate(data.redirectUrl);
         return;
       }
 

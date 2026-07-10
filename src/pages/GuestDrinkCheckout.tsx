@@ -20,6 +20,7 @@ import { useAbsorbYunoFees } from '@/hooks/useAbsorbYunoFees';
 import { customerTransactionFee } from '@/types/ticketing';
 import { useEffect } from 'react';
 import { PublicPage } from '@/components/PublicPage';
+import { launchCheckout } from '@/lib/native';
 
 interface VenueInfo {
   id: string;
@@ -173,7 +174,8 @@ export default function GuestDrinkCheckout() {
 
       if (data.url) {
         sessionStorage.setItem(pendingSessionKey, JSON.stringify({ hash: cartHash, ts: Date.now() }));
-        window.location.href = data.url;
+        // SafariVC en natif (window.location.href casserait le WebView), redirection sur web.
+        launchCheckout(data.url);
         return;
       }
 
