@@ -87,6 +87,8 @@ export interface PostEventData {
   suggestions: Suggestion[];
   notes: string;
   isAggregate?: boolean;
+  // Stats brutes du moteur — consommées par le Night Report IA (payload backend).
+  rawStats: NightStats;
 }
 
 type ItemsJson = { name?: string; qty?: number; quantity?: number }[];
@@ -611,5 +613,6 @@ function buildPostEventData(s: NightStats, ctx: MapCtx): PostEventData {
     suggestions,
     notes: ctx.notes,
     isAggregate: ctx.isAggregate,
+    rawStats: s,
   };
 }

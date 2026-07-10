@@ -10771,6 +10771,21 @@ const en: Record<string, string> = {
   'aigen.error': 'Generation failed. Try again in a moment.',
   'aigen.disclaimer': 'AI drafts, you decide: always review the text before sending. Nothing goes out without your approval.',
 
+  // ─── AI Night Report (post-event analysis) ───
+  'nightai.title': 'AI night analysis',
+  'nightai.subtitle': 'Five takeaways and three actions for next time, drawn from the real numbers of the night.',
+  'nightai.generate': 'Generate the analysis',
+  'nightai.generating': 'Analyzing…',
+  'nightai.regenerate': 'Regenerate',
+  'nightai.insights': 'Takeaways',
+  'nightai.actions': 'Do this next time',
+  'nightai.cat.marketing': 'Marketing',
+  'nightai.cat.pricing': 'Pricing',
+  'nightai.cat.operations': 'Operations',
+  'nightai.cat.experience': 'Experience',
+  'nightai.error': 'The analysis failed. Try again in a moment.',
+  'nightai.disclaimer': 'AI-generated analysis based on your real numbers — double-check before any major decision.',
+
 };
 
 export default en;

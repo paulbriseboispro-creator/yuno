@@ -9,6 +9,7 @@ import { PostEventWhatWorked } from './PostEventWhatWorked';
 import { PostEventCustomerInsights } from './PostEventCustomerInsights';
 import { PostEventNotes } from './PostEventNotes';
 import { PostEventSuggestions } from './PostEventSuggestions';
+import { PostEventAIInsights } from './PostEventAIInsights';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -289,6 +290,9 @@ export function PostEventAnalysisSection({ venueId }: PostEventAnalysisSectionPr
           <PostEventTimeline timeline={postEventData.timeline} insights={postEventData.timelineInsights} />
           <PostEventWhatWorked items={postEventData.whatWorked} />
           <PostEventCustomerInsights insights={postEventData.customerInsights} />
+          {!postEventData.isAggregate && postEventData.eventId && (
+            <PostEventAIInsights eventId={postEventData.eventId} stats={postEventData.rawStats} />
+          )}
           {!postEventData.isAggregate && (
             <PostEventNotes notes={postEventData.notes} onSave={saveNotes} />
           )}

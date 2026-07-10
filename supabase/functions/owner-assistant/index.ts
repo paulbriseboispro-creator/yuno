@@ -7,6 +7,8 @@ const OPENAI_MODEL = "gpt-4o-mini";
 // Modèle dédié à la génération de contenu marketing (action hors chat) —
 // séparé du chat pour évoluer indépendamment.
 const CONTENT_MODEL = "gpt-5-mini";
+// Modèle du Night Report narratif (analyse post-soirée).
+const REPORT_MODEL = "gpt-5-mini";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1496,6 +1498,167 @@ ${customInstructions ? `Instructions de l'owner (à respecter si compatibles ave
 }
 
 // ═══════════════════════════════════════════
+// NIGHT REPORT NARRATIF (action hors chat)
+// ═══════════════════════════════════════════
+
+const REPORT_SCHEMA = {
+  name: "night_report",
+  strict: true,
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    required: ["headline", "insights", "actions"],
+    properties: {
+      headline: { type: "string" },
+      insights: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["text", "metric", "sentiment"],
+          properties: {
+            text: { type: "string" },
+            metric: { type: "string" },
+            sentiment: { type: "string", enum: ["positive", "neutral", "negative"] },
+          },
+        },
+      },
+      actions: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["text", "category"],
+          properties: {
+            text: { type: "string" },
+            category: { type: "string", enum: ["marketing", "pricing", "operations", "experience"] },
+          },
+        },
+      },
+    },
+  },
+};
+
+async function sha256Hex(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+async function handleGenerateNightReport(
+  body: Record<string, any>,
+  ctx: { supabase: any; venueId: string; userId: string },
+): Promise<Response> {
+  const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
+  const { supabase, venueId, userId } = ctx;
+
+  const eventId = typeof body.eventId === "string" ? body.eventId : null;
+  const language = ["en", "fr", "es"].includes(body.language) ? body.language : "en";
+  const stats = body.stats;
+  if (!eventId || !stats || typeof stats !== "object") {
+    return new Response(JSON.stringify({ error: "Missing eventId or stats" }), { status: 400, headers: jsonHeaders });
+  }
+  const statsJson = JSON.stringify(stats);
+  if (statsJson.length > 20_000) {
+    return new Response(JSON.stringify({ error: "Stats payload too large" }), { status: 400, headers: jsonHeaders });
+  }
+
+  // Garde-fou : l'event doit appartenir au venue de l'owner.
+  const { data: evt } = await supabase
+    .from("events")
+    .select("id, title, start_at")
+    .eq("id", eventId)
+    .eq("venue_id", venueId)
+    .maybeSingle();
+  if (!evt) {
+    return new Response(JSON.stringify({ error: "Event not found for this venue" }), { status: 404, headers: jsonHeaders });
+  }
+
+  // Cache : un rapport par event × langue, invalidé quand les stats changent.
+  const statsHash = await sha256Hex(statsJson);
+  const { data: cached } = await supabase
+    .from("event_ai_reports")
+    .select("report, stats_hash")
+    .eq("event_id", eventId)
+    .eq("language", language)
+    .maybeSingle();
+  if (cached && cached.stats_hash === statsHash) {
+    return new Response(JSON.stringify({ report: cached.report, cached: true }), { headers: jsonHeaders });
+  }
+
+  const langName = language === "fr" ? "français" : language === "es" ? "espagnol" : "anglais";
+  const systemPrompt = `Tu es l'analyste nightlife d'un club sur Yuno. On te donne les statistiques calculées d'une soirée passée (JSON).
+Produis, en ${langName} :
+- headline : une phrase-verdict de la soirée (concrète, avec le chiffre le plus marquant).
+- insights : EXACTEMENT 5 enseignements. Chacun cite sa métrique source (champ metric = nom du champ JSON utilisé) et un sentiment (positive/neutral/negative). Compare aux moyennes du club quand les deltas existent (champs *ChangePct).
+- actions : EXACTEMENT 3 actions concrètes pour la prochaine soirée, chacune classée (marketing/pricing/operations/experience).
+RÈGLES ABSOLUES : n'utilise QUE les chiffres présents dans le JSON — n'invente rien, ne recalcule pas. Si les données sont maigres (peu de billets, pas de scans : hasScanData=false, volumes faibles), dis-le honnêtement dans les insights plutôt que d'inventer des tendances. Tutoie l'owner, sois direct et utile, pas de flatterie.`;
+
+  const userPrompt = `Soirée : ${evt.title} (${evt.start_at})\nStatistiques :\n${statsJson}`;
+
+  const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
+  if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
+
+  const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: REPORT_MODEL,
+      reasoning_effort: "medium",
+      max_completion_tokens: 4000,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      response_format: { type: "json_schema", json_schema: REPORT_SCHEMA },
+    }),
+  });
+
+  if (!aiResponse.ok) {
+    if (aiResponse.status === 429) {
+      return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429, headers: jsonHeaders });
+    }
+    const t = await aiResponse.text();
+    log("report_ai_error", { status: aiResponse.status, body: t.substring(0, 200) });
+    throw new Error("AI gateway error");
+  }
+
+  const aiData = await aiResponse.json();
+  let report: any = null;
+  try { report = JSON.parse(aiData.choices?.[0]?.message?.content || "null"); } catch { /* empty */ }
+  if (!report?.headline || !Array.isArray(report?.insights) || !Array.isArray(report?.actions)) {
+    log("report_empty", { event_id: eventId });
+    return new Response(JSON.stringify({ error: "Generation failed" }), { status: 502, headers: jsonHeaders });
+  }
+  report.insights = report.insights.slice(0, 5);
+  report.actions = report.actions.slice(0, 3);
+
+  try {
+    await supabase.from("event_ai_reports").upsert({
+      event_id: eventId,
+      venue_id: venueId,
+      language,
+      report,
+      model: REPORT_MODEL,
+      stats_hash: statsHash,
+      created_at: new Date().toISOString(),
+    }, { onConflict: "event_id,language" });
+  } catch { /* ignore */ }
+
+  try {
+    await supabase.from("owner_ai_audit_log").insert({
+      user_id: userId,
+      venue_id: venueId,
+      tool_name: "generate_night_report",
+      tool_args: { event_id: eventId, language },
+      result: JSON.stringify(report).substring(0, 1000),
+    });
+  } catch { /* ignore */ }
+
+  log("report_generated", { event_id: eventId, language });
+  return new Response(JSON.stringify({ report, cached: false }), { headers: jsonHeaders });
+}
+
+// ═══════════════════════════════════════════
 // MAIN HANDLER
 // ═══════════════════════════════════════════
 
@@ -1552,6 +1715,9 @@ serve(async (req) => {
     // mais réponse JSON directe sans boucle de tools.
     if (body?.action === "generate_marketing_content") {
       return await handleGenerateContent(body, { supabase, venueId, userId: user.id });
+    }
+    if (body?.action === "generate_night_report") {
+      return await handleGenerateNightReport(body, { supabase, venueId, userId: user.id });
     }
 
     const { messages, venueContext } = body;

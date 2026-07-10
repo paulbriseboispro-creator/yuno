@@ -10885,6 +10885,21 @@ const es: Record<string, string> = {
   'aigen.error': 'La generación falló. Inténtalo de nuevo en un momento.',
   'aigen.disclaimer': 'La IA propone, tú decides: relee siempre el texto antes de enviar. Nada se envía sin tu aprobación.',
 
+  // ─── Night Report narrativo IA (análisis post-fiesta) ───
+  'nightai.title': 'Análisis IA de la fiesta',
+  'nightai.subtitle': 'Cinco lecciones y tres acciones para la próxima vez, sacadas de las cifras reales de la noche.',
+  'nightai.generate': 'Generar el análisis',
+  'nightai.generating': 'Analizando…',
+  'nightai.regenerate': 'Regenerar',
+  'nightai.insights': 'Lecciones',
+  'nightai.actions': 'Para la próxima',
+  'nightai.cat.marketing': 'Marketing',
+  'nightai.cat.pricing': 'Precios',
+  'nightai.cat.operations': 'Operaciones',
+  'nightai.cat.experience': 'Experiencia',
+  'nightai.error': 'El análisis falló. Inténtalo de nuevo en un momento.',
+  'nightai.disclaimer': 'Análisis generado por IA a partir de tus cifras reales: verifica antes de cualquier decisión importante.',
+
 };
 
 export default es;
