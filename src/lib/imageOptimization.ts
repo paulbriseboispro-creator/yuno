@@ -12,16 +12,22 @@ export function getOptimizedImageUrl(
     width?: number;
     height?: number;
     quality?: number;
+    /**
+     * Mode de redimensionnement Supabase. Par défaut le transform applique
+     * `cover` quand width ET height sont fournis → l'image est recadrée
+     * (effet zoom). Passer 'contain' pour livrer l'image entière.
+     */
+    resize?: 'cover' | 'contain' | 'fill';
   } = {}
 ): string {
   if (!url) return '';
-  
+
   // Only transform Supabase Storage URLs
   if (!url.includes('supabase.co/storage/v1/object/public/')) {
     return url;
   }
-  
-  const { width, height, quality = 80 } = options;
+
+  const { width, height, quality = 80, resize } = options;
   
   // Convert from object URL to render URL for transformations
   // From: https://<ref>.supabase.co/storage/v1/object/public/<bucket>/<path>
@@ -39,6 +45,7 @@ export function getOptimizedImageUrl(
 
   if (width) params.set('width', width.toString());
   if (height) params.set('height', height.toString());
+  if (resize) params.set('resize', resize);
   params.set('quality', quality.toString());
 
   return `${base}?${params.toString()}`;

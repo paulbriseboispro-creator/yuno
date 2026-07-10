@@ -48,7 +48,7 @@ function LiveDrinkCardBase({ drink, isFavorite, paying, onAdd, onPay }: Props) {
         style={{ aspectRatio: '1 / 1', background: 'linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.4))' }}
       >
         <img
-          src={getOptimizedImageUrl(drink.imgUrl, { width: 300, height: 300, quality: 75 })}
+          src={getOptimizedImageUrl(drink.imgUrl, { width: 300, height: 300, quality: 75, resize: 'contain' })}
           alt={name}
           loading="lazy"
           decoding="async"

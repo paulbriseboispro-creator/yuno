@@ -683,7 +683,7 @@ function DrinkCard({ drink, onClick }: { drink: FavoriteDrink; onClick?: () => v
       }}>
         {drink.imgUrl ? (
           <img
-            src={getOptimizedImageUrl(drink.imgUrl, { width: 128, height: 128 })}
+            src={getOptimizedImageUrl(drink.imgUrl, { width: 128, height: 128, resize: 'contain' })}
             alt={drink.name}
             style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: '#0A0A0A' }}
           />

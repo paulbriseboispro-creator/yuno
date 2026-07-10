@@ -87,7 +87,7 @@ export function DrinkCard({ drink, onAdd, isFavorite: isFavoriteProp, variant }:
           {/* Image */}
           <div style={{ position: 'relative', aspectRatio: '1/1', background: '#0A0A0A' }}>
             <img
-              src={getOptimizedImageUrl(drink.imgUrl, { width: 160, height: 160, quality: 70 })}
+              src={getOptimizedImageUrl(drink.imgUrl, { width: 160, height: 160, quality: 70, resize: 'contain' })}
               alt={translatedName}
               className="absolute inset-0 w-full h-full object-contain"
               loading="lazy"
@@ -198,7 +198,7 @@ export function DrinkCard({ drink, onAdd, isFavorite: isFavoriteProp, variant }:
         {/* Image — square with contain */}
         <div className="aspect-square overflow-hidden relative rounded-t-2xl bg-black/40">
           <img
-            src={getOptimizedImageUrl(drink.imgUrl, { width: 300, height: 300, quality: 75 })}
+            src={getOptimizedImageUrl(drink.imgUrl, { width: 300, height: 300, quality: 75, resize: 'contain' })}
             alt={translatedName}
             width={300}
             height={300}
