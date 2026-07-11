@@ -1,13 +1,20 @@
 // Apple Wallet côté client — émission d'un pass (billet / table VIP) via le
 // routeur /wallet de send-ticket-confirmation, puis présentation :
 //  - natif iOS : sheet d'ajout IN-APP (PKAddPassesViewController via le plugin
-//    capacitor-pass-to-wallet, base64). Tant que le build natif n'embarque pas
-//    le pod (pré-Phase 3), l'appel échoue → repli SafariVC sur l'URL du pass —
-//    le WKWebView, lui, n'ouvre PAS les .pkpass.
+//    Swift MAISON « WalletSheet » — le projet est 100 % SPM, les plugins
+//    wallet communautaires n'existent qu'en CocoaPods). Sur un build qui ne
+//    l'embarque pas encore, l'appel échoue → repli SafariVC sur l'URL du
+//    pass — le WKWebView, lui, n'ouvre PAS les .pkpass.
 //  - web (Safari iOS/macOS) : navigation directe — le navigateur gère le MIME
 //    application/vnd.apple.pkpass.
+import { registerPlugin } from '@capacitor/core';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { isNative } from '@/lib/native';
+
+interface WalletSheetPlugin {
+  addPass(options: { base64: string }): Promise<void>;
+}
+const WalletSheet = registerPlugin<WalletSheetPlugin>('WalletSheet');
 
 export interface WalletIssueResult {
   base64: string;
@@ -30,11 +37,10 @@ export async function addToWallet(type: 'ticket' | 'table', id: string): Promise
   if (isNative()) {
     if (result.base64) {
       try {
-        const { CapacitorPassToWallet } = await import('capacitor-pass-to-wallet');
-        await CapacitorPassToWallet.addToWallet({ base64: result.base64 });
+        await WalletSheet.addPass({ base64: result.base64 });
         return;
       } catch {
-        // Pod absent du build (pré-Phase 3) ou refus : repli SafariVC.
+        // Plugin absent du build (pré-Phase 3) ou refus : repli SafariVC.
       }
     }
     const { Browser } = await import('@capacitor/browser');
