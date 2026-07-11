@@ -8,6 +8,7 @@ import {
   Heart, Zap, BarChart3, Mail, Calendar,
   AlertCircle, Info, Radio, TrendingUp,
   UserCheck, AlertTriangle, Receipt, Music, Handshake, MessageSquare,
+  Martini, DoorOpen, Gauge, Target, ShieldAlert, Clock,
 } from 'lucide-react';
 
 export interface AppNotif {
@@ -67,6 +68,17 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   favorite_added:      { icon: Heart,     category: 'people', label: 'notif.type.favorite_added' },
   // 📧 Marketing
   campaign_sent: { icon: Mail, category: 'marketing', label: 'notif.type.campaign_sent' },
+  // 🔴 Live ops — alertes du centre de commandement (moteur cron 5 min)
+  liveops_bar_backlog:    { icon: Martini,       category: 'liveops', label: 'notif.type.liveops_bar_backlog' },
+  liveops_order_stuck:    { icon: Clock,         category: 'liveops', label: 'notif.type.liveops_order_stuck' },
+  liveops_vip_no_show:    { icon: Crown,         category: 'liveops', label: 'notif.type.liveops_vip_no_show' },
+  liveops_min_spend_risk: { icon: Crown,         category: 'liveops', label: 'notif.type.liveops_min_spend_risk' },
+  liveops_door_slow:      { icon: DoorOpen,      category: 'liveops', label: 'notif.type.liveops_door_slow' },
+  liveops_capacity_80:    { icon: Gauge,         category: 'liveops', label: 'notif.type.liveops_capacity_80' },
+  liveops_capacity_95:    { icon: Gauge,         category: 'liveops', label: 'notif.type.liveops_capacity_95' },
+  liveops_refund_spike:   { icon: Receipt,       category: 'liveops', label: 'notif.type.liveops_refund_spike' },
+  liveops_revenue_goal:   { icon: Target,        category: 'liveops', label: 'notif.type.liveops_revenue_goal' },
+  liveops_incident:       { icon: ShieldAlert,   category: 'liveops', label: 'notif.type.liveops_incident' },
 };
 
 export const CATEGORY_META: Record<string, { label: string; color: string }> = {
@@ -76,6 +88,7 @@ export const CATEGORY_META: Record<string, { label: string; color: string }> = {
   bookings:  { label: 'notif.cat.bookings',   color: 'text-violet-400'  },
   people:    { label: 'notif.cat.people',     color: 'text-purple-400'  },
   marketing: { label: 'notif.cat.marketing',  color: 'text-pink-400'    },
+  liveops:   { label: 'notif.cat.liveops',    color: 'text-red-400'     },
 };
 
 export function getNotifDef(type: string): NotifDef {
@@ -263,6 +276,23 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
     // Staff (owner/manager only).
     case 'staff_login':
       return isOrganizer ? null : `${basePath}/staff`;
+
+    // Live ops (owner/manager). La commande oubliée et la table à risque
+    // ouvrent la commande/réservation exacte ; le reste ramène au centre de
+    // commandement.
+    case 'liveops_order_stuck':
+      return isOrganizer ? null : `${basePath}/orders?tab=drinks${orderFocus}`;
+    case 'liveops_vip_no_show':
+    case 'liveops_min_spend_risk':
+      return isOrganizer ? null : `${basePath}/orders?tab=vip${orderFocus}`;
+    case 'liveops_bar_backlog':
+    case 'liveops_door_slow':
+    case 'liveops_capacity_80':
+    case 'liveops_capacity_95':
+    case 'liveops_refund_spike':
+    case 'liveops_revenue_goal':
+    case 'liveops_incident':
+      return isOrganizer ? null : `${basePath}/live`;
 
     default:
       return null;

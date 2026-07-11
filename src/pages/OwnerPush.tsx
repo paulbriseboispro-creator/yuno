@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { Bell, Send, Loader2, Clock, Users, Zap, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -211,6 +212,17 @@ export default function OwnerPush() {
     setOffer('');
     setCount('');
   };
+
+  // Pré-sélection de modèle via ?prefill=<templateKey> — utilisée par les
+  // alertes live ops (« Push flash drinks » quand le bar peut absorber plus).
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    const prefill = searchParams.get('prefill');
+    if (!prefill) return;
+    const tpl = PUSH_TEMPLATES.find((candidate) => candidate.key === prefill);
+    if (tpl) pickTemplate(tpl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // URL par défaut : la soirée sélectionnée, sinon la page du club.
   useEffect(() => {

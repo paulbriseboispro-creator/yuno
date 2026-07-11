@@ -10936,6 +10936,21 @@ const en: Record<string, string> = {
   'barman.stock.markedOut': '{name} marked sold out',
   'barman.stock.markedBack': '{name} back in stock',
 
+  // ─── Live ops alerts (notification types + actions) ───
+  'liveops.alert.open': 'Open',
+  'liveops.alert.flashDrinks': 'Flash drinks push',
+  'notif.cat.liveops': 'Live night',
+  'notif.type.liveops_bar_backlog': 'Bar overloaded',
+  'notif.type.liveops_order_stuck': 'Forgotten order',
+  'notif.type.liveops_vip_no_show': 'VIP no-show',
+  'notif.type.liveops_min_spend_risk': 'Min spend at risk',
+  'notif.type.liveops_door_slow': 'Slow door',
+  'notif.type.liveops_capacity_80': 'Capacity 80%',
+  'notif.type.liveops_capacity_95': 'Capacity 95%',
+  'notif.type.liveops_refund_spike': 'Refund spike',
+  'notif.type.liveops_revenue_goal': 'Revenue goal reached',
+  'notif.type.liveops_incident': 'Incident streak',
+
 };
 
 export default en;

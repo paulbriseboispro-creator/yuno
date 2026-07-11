@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useLocation } from 'react-router-dom';
 import { Radio, ChevronDown, ChevronUp } from 'lucide-react';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOwnerVenue } from '@/hooks/useOwnerVenue';
 import { useLiveNightData } from '@/hooks/useLiveNightData';
 import { LiveAlerts } from '@/components/live/LiveAlerts';
+import { LiveOpsAlerts } from '@/components/live/LiveOpsAlerts';
 import { LiveRadioFeed } from '@/components/live/LiveRadioFeed';
 import { LivePulseHero } from '@/components/live/LivePulseHero';
 import { LiveEventSelector } from '@/components/live/LiveEventSelector';
@@ -29,6 +31,8 @@ const INNER_BG = 'rgba(255,255,255,0.032)';
 
 export default function OwnerLiveNight() {
   const { t } = useLanguage();
+  const location = useLocation();
+  const basePath = location.pathname.startsWith('/manager') ? '/manager' : '/owner';
   const { venueId, venue, loading: venueLoading } = useOwnerVenue();
   const { plan } = useSubscriptionPlan();
   const hasLiveVisitorsAccess = plan === 'pro' || plan === 'elite';
@@ -91,7 +95,9 @@ export default function OwnerLiveNight() {
           <LiveEventSelector events={activeEvents} selectedId={selectedEventId} onSelect={setSelectedEventId} />
         </motion.div>
 
-        {/* Alerts */}
+        {/* Alertes persistées du moteur serveur (cloche + push) — les signaux
+            instantanés restent visibles dans les stations et via LiveAlerts */}
+        {venueId && <LiveOpsAlerts venueId={venueId} basePath={basePath} />}
         <LiveAlerts alerts={alerts} onDismiss={dismissAlert} />
 
         {/* Pulse hero */}
