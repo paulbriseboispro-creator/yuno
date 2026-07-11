@@ -8,7 +8,7 @@ import {
 } from '@/lib/liveops/extended';
 import { fetchComparableNight, type ComparableNight } from '@/lib/liveops/compare';
 
-export type FeedItemType = 'order_created' | 'order_ready' | 'order_served' | 'ticket_scanned' | 'vip_scanned' | 'refund' | 'table_booked' | 'cloakroom';
+export type FeedItemType = 'order_created' | 'order_ready' | 'order_served' | 'ticket_scanned' | 'gl_scanned' | 'vip_scanned' | 'refund' | 'table_booked' | 'cloakroom';
 export type AlertSeverity = 'info' | 'warning' | 'critical';
 export type TimeWindow = 'live' | '1h' | 'full';
 export type FeedFilter = 'all' | 'orders' | 'entry' | 'staff' | 'issues';
@@ -128,7 +128,7 @@ function persistDismissedAlerts(ids: Set<string>) {
  * produce the same id for the same underlying fact, otherwise the merge in
  * buildFeedFromData can't deduplicate and every event shows up twice.
  */
-const feedId = (kind: 'ord' | 'rdy' | 'srv' | 'ref' | 'tik' | 'vip' | 'tbl' | 'clk', entityId: string) =>
+const feedId = (kind: 'ord' | 'rdy' | 'srv' | 'ref' | 'tik' | 'gls' | 'vip' | 'tbl' | 'clk', entityId: string) =>
   `${kind}-${entityId}`;
 
 export interface LiveNightOpts {
@@ -256,7 +256,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
   }, [venueId, scopedEventId]);
 
   // Build feed from historical data + realtime items
-  const buildFeedFromData = useCallback((orders: any[], tickets: any[], tables: any[], cloakroom: any[]) => {
+  const buildFeedFromData = useCallback((orders: any[], tickets: any[], tables: any[], cloakroom: any[], glEntries: any[] = []) => {
     const items: FeedItem[] = [];
 
     orders.slice(0, 30).forEach(o => {
@@ -274,6 +274,10 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
 
     tickets.filter(t => t.entry_scanned).slice(0, 20).forEach(t => {
       items.push({ id: feedId('tik', t.id), type: 'ticket_scanned', description: t.full_name || 'Guest', timestamp: t.entry_scanned_at || t.created_at });
+    });
+
+    glEntries.filter(g => g.entry_scanned && g.entry_scanned_at).slice(0, 20).forEach(g => {
+      items.push({ id: feedId('gls', g.id), type: 'gl_scanned', description: g.full_name || 'Guest list', timestamp: g.entry_scanned_at });
     });
 
     tables.filter(t => t.entry_scanned).slice(0, 10).forEach(t => {
@@ -571,7 +575,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       }
 
       // Build feed from historical data
-      buildFeedFromData(orders, tickets, tables, cloakroom);
+      buildFeedFromData(orders, tickets, tables, cloakroom, glEntries);
 
       // Alerts
       const newAlerts: LiveAlert[] = [];

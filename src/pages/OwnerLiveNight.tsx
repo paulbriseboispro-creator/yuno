@@ -6,7 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useOwnerVenue } from '@/hooks/useOwnerVenue';
 import { useLiveNightData } from '@/hooks/useLiveNightData';
 import { LiveAlerts } from '@/components/live/LiveAlerts';
-import { LiveActivityFeed } from '@/components/live/LiveActivityFeed';
+import { LiveRadioFeed } from '@/components/live/LiveRadioFeed';
 import { LivePulseHero } from '@/components/live/LivePulseHero';
 import { LiveEventSelector } from '@/components/live/LiveEventSelector';
 import { CapacityDialog } from '@/components/live/CapacityDialog';
@@ -139,7 +139,7 @@ export default function OwnerLiveNight() {
               <StaffStation staff={staffActivity} />
             </motion.div>
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
-              <LiveActivityFeed feed={feed} isPaused={isPaused} onTogglePause={() => setIsPaused(!isPaused)} />
+              <LiveRadioFeed feed={feed} incidents={extended.incidents} isPaused={isPaused} onTogglePause={() => setIsPaused(!isPaused)} />
             </motion.div>
           </div>
         )}
