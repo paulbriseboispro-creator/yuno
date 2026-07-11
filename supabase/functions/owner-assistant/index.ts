@@ -191,10 +191,10 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     snippet: "Le Hype Score mesure l'engagement autour de tes soirées (vues, favoris, abonnés, ventes) et projette la tendance de remplissage. Utilise-le pour repérer tôt une soirée qui décolle ou qui a besoin d'un coup de promo.",
   },
   "live-night": {
-    title: "Soirée en direct (Live Night)",
-    keywords: ["live", "direct", "ce soir", "tonight", "scans", "entrées", "temps réel", "real time", "monitoring"],
+    title: "Centre de commandement soirée (Live)",
+    keywords: ["live", "direct", "ce soir", "tonight", "scans", "entrées", "temps réel", "real time", "monitoring", "commandement", "command center", "jauge", "capacité", "incidents", "radio staff", "alertes", "briefing"],
     path: "/owner/live",
-    snippet: "La vue Live Night suit ta soirée en temps réel : entrées scannées, ventes de billets, commandes de boissons en attente, tables VIP occupées. C'est ton tableau de bord pendant la nuit — garde-le ouvert au bar ou en régie.",
+    snippet: "Le centre de commandement suit ta soirée comme si tu étais partout à la fois : jauge de remplissage vs capacité, comparaison avec ta dernière soirée comparable, stations Porte / Bar / Tables VIP / Vestiaire / Staff, fil « radio staff » narratif, incidents signalés en 1 tap par ton bouncer et ruptures produit du bar. Les alertes critiques (bar débordé, minimum conso à risque, jauge 95 %) arrivent dans ta cloche et en push sur ton téléphone. Le bouton Briefing me demande un point de situation à tout moment.",
   },
   "email-campaigns": {
     title: "Campagnes email",
@@ -394,6 +394,14 @@ const TOOLS = [
     function: {
       name: "get_pending_orders",
       description: "Get orders that are paid but not yet served. Use for 'commandes en attente', 'pending orders'.",
+      parameters: { type: "object", properties: {}, required: [] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_live_ops",
+      description: "MUST use for any question about the night currently in progress ('comment se passe ma soirée', 'briefing', 'point de situation', 'que se passe-t-il en ce moment'). Returns the full command-center state: door (entries, pace, VIP no-shows), bar (backlog, oldest waiting order, out-of-stock products), VIP tables (arrived, min-spend at risk), cloakroom, staff on duty, tonight's incidents and active alerts. Complements get_tonight_stats (which is revenue-focused).",
       parameters: { type: "object", properties: {}, required: [] },
     },
   },
@@ -1002,6 +1010,105 @@ async function executeTool(
               created_at: o.created_at,
             };
           }),
+        });
+      }
+
+      case "get_live_ops": {
+        // État complet du centre de commandement — même fenêtre de nuit Paris
+        // que get_tonight_stats, JSON compact (le modèle n'a pas besoin du
+        // détail ligne à ligne).
+        const now = new Date();
+        const parisOffset = getParisOffsetMs(now);
+        const parisNow = new Date(now.getTime() + parisOffset);
+        const tonightStartParis = new Date(parisNow);
+        tonightStartParis.setHours(18, 0, 0, 0);
+        if (parisNow.getHours() < 6) tonightStartParis.setDate(tonightStartParis.getDate() - 1);
+        const since = new Date(tonightStartParis.getTime() - parisOffset).toISOString();
+        const nowIso = now.toISOString();
+
+        const { data: activeEvt } = await supabase
+          .from("events").select("id, title, start_at, end_at")
+          .eq("venue_id", venueId).eq("is_active", true)
+          .lte("start_at", nowIso).gte("end_at", nowIso)
+          .order("start_at").limit(1).maybeSingle();
+
+        const [ordersRes, tablesRes, opsRes, stockRes, alertsRes, cloakRes] = await Promise.all([
+          supabase.from("orders")
+            .select("id, order_number, status, prep_status, created_at, ready_at, refunded_at")
+            .eq("venue_id", venueId).gte("created_at", since),
+          activeEvt
+            ? supabase.from("table_reservations")
+                .select("id, full_name, status, checked_in_at, entry_scanned, minimum_spend")
+                .eq("event_id", activeEvt.id).neq("status", "cancelled")
+            : Promise.resolve({ data: [] }),
+          supabase.from("night_ops_events")
+            .select("kind, note, created_at")
+            .eq("venue_id", venueId).gte("created_at", since)
+            .order("created_at", { ascending: false }).limit(30),
+          supabase.from("drinks").select("name").eq("venue_id", venueId).eq("out_of_stock", true),
+          supabase.from("staff_notifications")
+            .select("notification_type, title, created_at")
+            .eq("venue_id", venueId).like("notification_type", "liveops_%")
+            .gte("created_at", since).order("created_at", { ascending: false }).limit(10),
+          supabase.from("cloakroom_transactions")
+            .select("retrieved").eq("venue_id", venueId).gte("created_at", since),
+        ]);
+
+        const orders: any[] = ordersRes.data || [];
+        const tables: any[] = (tablesRes as any).data || [];
+        const backlog = orders.filter((o) => o.status === "paid" && !o.refunded_at && (!o.prep_status || o.prep_status === "queue" || o.prep_status === "preparing"));
+        const oldestWaiting = backlog.reduce<string | null>((min, o) => (min === null || o.created_at < min ? o.created_at : min), null);
+
+        let scannedEntries = 0;
+        let recentEntries = 0;
+        if (activeEvt) {
+          const tenMinAgo = new Date(now.getTime() - 10 * 60_000).toISOString();
+          const { data: scans } = await supabase.from("tickets")
+            .select("entry_scanned_at").eq("event_id", activeEvt.id)
+            .eq("status", "paid").eq("entry_scanned", true);
+          scannedEntries = (scans || []).length;
+          recentEntries = (scans || []).filter((t: any) => t.entry_scanned_at && t.entry_scanned_at >= tenMinAgo).length;
+        }
+
+        let vipSpend: Record<string, number> = {};
+        if (tables.length > 0) {
+          const { data: cons } = await supabase.from("vip_consumptions")
+            .select("table_reservation_id, total_price")
+            .eq("venue_id", venueId).gte("served_at", since);
+          vipSpend = (cons || []).reduce((acc: Record<string, number>, c: any) => {
+            acc[c.table_reservation_id] = (acc[c.table_reservation_id] || 0) + Number(c.total_price || 0);
+            return acc;
+          }, {});
+        }
+        const arrivedTables = tables.filter((t) => t.checked_in_at || t.entry_scanned);
+        const atRisk = arrivedTables
+          .filter((t) => Number(t.minimum_spend || 0) > 0 && (vipSpend[t.id] || 0) < Number(t.minimum_spend) * 0.6)
+          .map((t) => ({ name: t.full_name || "VIP", spent: r2(vipSpend[t.id] || 0), minimum: r2(Number(t.minimum_spend)) }));
+
+        const ops: any[] = opsRes.data || [];
+        const cloak: any[] = cloakRes.data || [];
+
+        return JSON.stringify({
+          active_event: activeEvt ? { title: activeEvt.title, start_at: activeEvt.start_at, end_at: activeEvt.end_at } : null,
+          door: {
+            entries_scanned: scannedEntries + arrivedTables.length,
+            entries_last_10min: recentEntries,
+            vip_no_shows: tables.length - arrivedTables.length,
+          },
+          bar: {
+            backlog: backlog.length,
+            oldest_waiting_minutes: oldestWaiting ? Math.floor((now.getTime() - new Date(oldestWaiting).getTime()) / 60_000) : null,
+            out_of_stock: (stockRes.data || []).map((d: any) => d.name),
+          },
+          vip: {
+            tables_total: tables.length,
+            tables_arrived: arrivedTables.length,
+            min_spend_at_risk: atRisk.slice(0, 5),
+          },
+          cloakroom: { active: cloak.filter((c) => !c.retrieved).length, retrieved: cloak.filter((c) => c.retrieved).length },
+          staff_shift_starts: ops.filter((e) => e.kind === "shift_start").map((e) => e.note).filter(Boolean),
+          incidents: ops.filter((e) => e.kind !== "shift_start").map((e) => ({ kind: e.kind, at: e.created_at })),
+          alerts_tonight: (alertsRes.data || []).map((a: any) => ({ type: a.notification_type, title: a.title, at: a.created_at })),
         });
       }
 

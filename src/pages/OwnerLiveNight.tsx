@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useLocation } from 'react-router-dom';
-import { Radio, ChevronDown, ChevronUp } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Radio, ChevronDown, ChevronUp, BarChart3, ChevronRight } from 'lucide-react';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOwnerVenue } from '@/hooks/useOwnerVenue';
@@ -32,7 +32,9 @@ const INNER_BG = 'rgba(255,255,255,0.032)';
 export default function OwnerLiveNight() {
   const { t } = useLanguage();
   const location = useLocation();
+  const navigate = useNavigate();
   const basePath = location.pathname.startsWith('/manager') ? '/manager' : '/owner';
+  const isOwner = basePath === '/owner';
   const { venueId, venue, loading: venueLoading } = useOwnerVenue();
   const { plan } = useSubscriptionPlan();
   const hasLiveVisitorsAccess = plan === 'pro' || plan === 'elite';
@@ -52,6 +54,17 @@ export default function OwnerLiveNight() {
   // End of the night: the cloakroom becomes the hot station (retrieval rush).
   const parisHour = bucketHourParis(new Date().toISOString());
   const cloakroomFirst = parisHour >= 3 && parisHour < 7;
+
+  // Ouvre le FAB assistant avec un point de situation pré-envoyé (le tool
+  // get_live_ops côté owner-assistant lit l'état complet de la soirée).
+  const triggerBriefing = () => {
+    window.dispatchEvent(new CustomEvent('yuno:owner-assistant-prompt', {
+      detail: { prompt: t('liveops.briefing.prompt') },
+    }));
+  };
+
+  // Soirée terminée mais activité cette nuit → pont vers le Night Report IA.
+  const nightEnded = !activeEvent && (kpis.entriesCount > 0 || kpis.ordersPlaced > 0);
 
   return (
     <div className="min-h-screen pb-24" style={{ background: '#000' }}>
@@ -109,7 +122,28 @@ export default function OwnerLiveNight() {
           capacity={capacity}
           comparison={comparison}
           onEditCapacity={() => setCapacityDialogOpen(true)}
+          onBriefing={isOwner ? triggerBriefing : undefined}
         />
+
+        {/* Fin de soirée → Night Report IA (généré côté Hype, cache event_ai_reports) */}
+        {nightEnded && isOwner && (
+          <motion.button
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            onClick={() => navigate('/owner/hype')}
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl cursor-pointer text-left"
+            style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}
+          >
+            <div className="p-2 rounded-xl flex-none" style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}>
+              <BarChart3 className="h-4 w-4" style={{ color: '#E8192C' }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('liveops.nightEnd.title')}</p>
+              <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>{t('liveops.nightEnd.desc')}</p>
+            </div>
+            <ChevronRight className="h-4 w-4 flex-none" style={{ color: T3 }} />
+          </motion.button>
+        )}
 
         {/* Stations */}
         {extended && (

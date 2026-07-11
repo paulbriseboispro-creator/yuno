@@ -71,6 +71,21 @@ export function OwnerAssistant() {
     if (open) setTimeout(() => inputRef.current?.focus(), 250);
   }, [open]);
 
+  // Prompt externe (ex. bouton « Briefing » du centre de commandement) :
+  // n'importe quelle page peut ouvrir le FAB avec une question pré-envoyée via
+  // window.dispatchEvent(new CustomEvent('yuno:owner-assistant-prompt',
+  // { detail: { prompt } })) — zéro couplage de contexte React.
+  useEffect(() => {
+    const onExternalPrompt = (e: Event) => {
+      const prompt = (e as CustomEvent<{ prompt?: string }>).detail?.prompt;
+      if (!prompt) return;
+      setOpen(true);
+      if (!isLoading) sendMessage(prompt);
+    };
+    window.addEventListener('yuno:owner-assistant-prompt', onExternalPrompt);
+    return () => window.removeEventListener('yuno:owner-assistant-prompt', onExternalPrompt);
+  }, [isLoading, sendMessage]);
+
   const handleSend = (text: string) => {
     if (!text.trim() || isLoading) return;
     setInputText('');
