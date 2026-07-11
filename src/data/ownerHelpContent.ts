@@ -233,9 +233,9 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         titleKey: 'ohelp.pg.live.title',
         descKey: 'ohelp.pg.live.desc',
         icon: 'Radio',
-        actionLink: { labelKey: 'ohelp.action.goToLive', path: '/live' },
+        actionLink: { labelKey: 'ohelp.action.goToLive', path: '/owner/live' },
         relatedArticleIds: ['dashboard-overview', 'understand-analytics', 'hype-score'],
-        keywords: ['live', 'temps réel', 'real-time', 'tonight', 'ce soir', 'monitoring', 'attendance', 'throughput', 'activity feed', 'entrées', 'vivo'],
+        keywords: ['live', 'temps réel', 'real-time', 'tonight', 'ce soir', 'monitoring', 'attendance', 'throughput', 'activity feed', 'entrées', 'vivo', 'commandement', 'command center', 'jauge', 'capacité', 'incidents', 'radio', 'alertes', 'briefing', 'rupture', 'stock'],
         sections: [
           { headingKey: 'ohelp.pg.live.s1h', bodyKey: 'ohelp.pg.live.s1b' },
           { headingKey: 'ohelp.pg.live.s2h', bodyKey: 'ohelp.pg.live.s2b', screenshotUrl: '/help/owner-live.png' },

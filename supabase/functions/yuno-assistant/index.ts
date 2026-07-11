@@ -118,6 +118,7 @@ const CLIENT_KNOWLEDGE_BASE = `
    - Bar direct : va au bar, montre ton QR, le barman scanne et prépare.
    - Notification : tu reçois une notif quand c'est prêt, puis tu récupères au comptoir.
 3. Codes promo applicables au panier quand le club en propose.
+- Produit grisé « Épuisé » : le bar l'a marqué en rupture pour ce soir — il n'est pas commandable tant que le staff ne le remet pas en stock. Choisis autre chose, ça revient souvent dans la soirée.
 
 🔴 MODE LIVE (pendant la soirée)
 - Dès que ton billet / ta guest list / ta réservation VIP est scanné(e) à l'entrée, l'app bascule en Mode Live : le menu du club en plein écran pour toute la soirée (jusqu'à 2 h après la fin).
