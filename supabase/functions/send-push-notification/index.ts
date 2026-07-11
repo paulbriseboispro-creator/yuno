@@ -451,6 +451,8 @@ async function handleDjLineup(req: Request, supabase: any, vapidPublicKey: strin
 
     const targetedUserIds = new Set<string>();
     for (const sub of targets as (Subscription & { user_id: string })[]) {
+      // App iOS uniquement — les lignes 'web' héritées de la PWA sont ignorées.
+      if (!(sub.platform === 'ios' || sub.platform === 'ios_pro' || String(sub.endpoint || '').startsWith('apns:'))) continue;
       targetedUserIds.add(sub.user_id);
       const res = await sendToSubscription(supabase, sub, notificationPayload, vapidPublicKey, vapidPrivateKey);
       if (res === 'ok') totalSent++;
@@ -547,11 +549,12 @@ Deno.serve(async (req) => {
 
   try {
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-    const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY');
-    const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
-    if (!vapidPublicKey || !vapidPrivateKey) {
-      return new Response(JSON.stringify({ error: 'VAPID keys not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
+    // Web push abandonné (stratégie app-first : les visiteurs web sont
+    // redirigés vers l'app iOS). Les clés VAPID sont devenues optionnelles —
+    // leur absence ne doit JAMAIS bloquer les envois APNs. Les lignes 'web'
+    // ne sont plus ciblées (filtres plus bas).
+    const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY') || '';
+    const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY') || '';
 
     const reqBody = await req.json();
 
@@ -604,7 +607,10 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'user_id and payload required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const { data: subscriptions, error: subError } = await supabase.from('push_subscriptions').select('*').eq('user_id', user_id);
+    // App iOS uniquement — les abonnements 'web' hérités sont ignorés.
+    const { data: subscriptions, error: subError } = await supabase
+      .from('push_subscriptions').select('*').eq('user_id', user_id)
+      .in('platform', ['ios', 'ios_pro']);
     if (subError || !subscriptions?.length) {
       return new Response(JSON.stringify({ message: 'No subscriptions found', sent: 0 }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }

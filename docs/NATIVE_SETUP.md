@@ -81,28 +81,23 @@ admin jamais délivrés. Deux trous corrigés côté code :
 - premier lancement natif : dialogue de permission APPLE directement (plus de
   carte custom PWA).
 
+**Stratégie app-first (décision 2026-07-11) : le web push est ABANDONNÉ.**
+Les notifications (auto + manuelles owner, super admin, line-up DJ) ciblent
+uniquement les utilisateurs de l'app iOS :
+
+- `send-push-campaign` : audiences = abonnés `platform='ios'` uniquement
+  (jamais 'web', jamais 'ios_pro' staff) ; le param `platform` est déprécié.
+- `send-push-notification` : les clés VAPID sont optionnelles et ne bloquent
+  plus les envois APNs ; les lignes 'web' héritées sont ignorées partout.
+- Front : plus aucun prompt/toggle push sur web ou PWA (`usePushNotifications`
+  → isSupported=false hors natif) ; le sélecteur de plateforme de
+  /admin/push a été retiré.
+
 Secrets vérifiés au 2026-07-11 : `APNS_TEAM_ID`, `APNS_KEY_ID`, `APNS_P8`,
-`APNS_TOPIC`, `APNS_TOPIC_PRO` présents (iOS OK). **`VAPID_PUBLIC_KEY` /
-`VAPID_PRIVATE_KEY` ABSENTS** → le push WEB ne peut ni s'abonner ni délivrer.
-Aucune subscription n'existe encore (0 ligne), donc générer les clés est sans
-risque. À lancer à la main (refusé au mode auto de l'agent) :
-
-```bash
-node -e "
-const c = require('crypto');
-const { publicKey, privateKey } = c.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
-const pub = publicKey.export({ format: 'jwk' }), priv = privateKey.export({ format: 'jwk' });
-const p65 = Buffer.concat([Buffer.from([4]), Buffer.from(pub.x, 'base64url'), Buffer.from(pub.y, 'base64url')]);
-require('fs').writeFileSync('/tmp/vapid.env',
-  'VAPID_PUBLIC_KEY=' + p65.toString('base64url') + '\nVAPID_PRIVATE_KEY=' + priv.d + '\n', { mode: 0o600 });
-console.log('ok');
-"
-supabase secrets set --env-file /tmp/vapid.env --project-ref fulawxvdlwtdlpkycixe && rm /tmp/vapid.env
-```
-
-`aps-environment` est en `development` dans App.entitlements : les builds
-Xcode/TestFlight passent par le sandbox (le relay retente le sandbox sur
-BadDeviceToken, rien à changer pour tester).
+`APNS_TOPIC`, `APNS_TOPIC_PRO` présents — la chaîne iOS est complète, rien à
+configurer. `aps-environment` est en `development` dans App.entitlements :
+les builds Xcode/TestFlight passent par le sandbox (le relay retente le
+sandbox sur BadDeviceToken, rien à changer pour tester).
 
 ## 6. Calendrier Apple (item 18)
 

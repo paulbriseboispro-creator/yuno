@@ -159,21 +159,16 @@ export function usePushNotifications() {
                       (navigator as any).standalone === true;
     setIsPWA(isPWAMode);
 
-    const hasServiceWorker = 'serviceWorker' in navigator;
-    const hasPushManager = 'PushManager' in window;
-    const hasNotification = 'Notification' in window;
-
-    if (isIOSDevice && !isPWAMode) {
-      setIsSupported(false);
-    } else {
-      setIsSupported(hasServiceWorker && hasPushManager && hasNotification);
-    }
+    // Web push abandonné (stratégie app-first : les notifications passent par
+    // l'app iOS, le web redirige vers l'app). Plus aucun prompt ni toggle push
+    // sur web/PWA — isSupported reste false hors natif.
+    setIsSupported(false);
 
     if ('Notification' in window) {
       setPermission(Notification.permission);
     }
 
-    checkSubscription().finally(() => setReady(true));
+    setReady(true);
 
     const onSync = () => checkSubscription();
     window.addEventListener('pushSubscriptionChanged', onSync);

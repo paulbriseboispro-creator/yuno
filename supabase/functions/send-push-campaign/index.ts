@@ -25,7 +25,7 @@ type CampaignRequest = {
   venue_id?: string;         // présent => campagne club (auth is_venue_owner)
   event_id?: string;         // requis pour event_tickets / checked_in
   template_key?: string;
-  platform?: string;         // filtre optionnel : web | ios
+  platform?: string;         // DÉPRÉCIÉ (ignoré) : les campagnes ciblent toujours l'app iOS
   city?: string;             // filtre optionnel (profiles.city, admin uniquement)
   dry_run?: boolean;         // => renvoie { targeted } sans envoyer
   scheduled_at?: string;     // ISO futur => enregistre la campagne, le cron l'enverra
@@ -49,15 +49,20 @@ function sanitizeI18n(input: unknown): Record<string, string> | null {
 }
 
 // deno-lint-ignore no-explicit-any
-async function pushSubscriberIds(supabase: any, platform?: string): Promise<Set<string>> {
+async function pushSubscriberIds(supabase: any): Promise<Set<string>> {
+  // Campagnes = clients de l'APP iOS uniquement (stratégie app-first : le web
+  // push est abandonné, les visiteurs web sont redirigés vers l'app). On ne
+  // cible jamais 'web' ni 'ios_pro' (staff).
   // Paginé : le select PostgREST est plafonné à ~1000 lignes par défaut —
   // sans range(), toute audience au-delà était silencieusement tronquée.
   const out = new Set<string>();
   const PAGE = 1000;
   for (let from = 0; ; from += PAGE) {
-    let query = supabase.from('push_subscriptions').select('user_id').range(from, from + PAGE - 1);
-    if (platform === 'web' || platform === 'ios') query = query.eq('platform', platform);
-    const { data, error } = await query;
+    const { data, error } = await supabase
+      .from('push_subscriptions')
+      .select('user_id')
+      .eq('platform', 'ios')
+      .range(from, from + PAGE - 1);
     if (error) throw new Error(`push_subscriptions read failed: ${error.message}`);
     // deno-lint-ignore no-explicit-any
     (data || []).forEach((d: any) => { if (d.user_id) out.add(d.user_id); });
@@ -74,7 +79,7 @@ async function pushSubscriberIds(supabase: any, platform?: string): Promise<Set<
 async function resolveAudience(supabase: any, req: CampaignRequest): Promise<{ userIds: string[]; error?: string }> {
   let subscribers: Set<string>;
   try {
-    subscribers = await pushSubscriberIds(supabase, req.platform);
+    subscribers = await pushSubscriberIds(supabase);
   } catch (e) {
     return { userIds: [], error: e instanceof Error ? e.message : 'push subscribers unavailable' };
   }

@@ -55,17 +55,10 @@ export default function AdminPushNotifications() {
     { value: 'loyal', label: t('adminPush.segLoyal') },
   ];
 
-  const PLATFORMS = [
-    { value: 'all', label: t('adminPush.platformAll') },
-    { value: 'web', label: t('adminPush.platformWeb') },
-    { value: 'ios', label: t('adminPush.platformIos') },
-  ];
-
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [url, setUrl] = useState('/');
   const [segment, setSegment] = useState('all');
-  const [platform, setPlatform] = useState('all');
   const [city, setCity] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
   const [sending, setSending] = useState(false);
@@ -88,7 +81,6 @@ export default function AdminPushNotifications() {
         const { data } = await supabase.functions.invoke('send-push-campaign', {
           body: {
             title: '·', body: '·', segment, dry_run: true,
-            ...(platform !== 'all' ? { platform } : {}),
             ...(city.trim() ? { city: city.trim() } : {}),
           },
         });
@@ -100,7 +92,7 @@ export default function AdminPushNotifications() {
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [segment, platform, city]);
+  }, [segment, city]);
 
   const fetchCampaigns = async () => {
     const { data } = await supabase
@@ -139,7 +131,6 @@ export default function AdminPushNotifications() {
       const { data, error } = await supabase.functions.invoke('send-push-campaign', {
         body: {
           title: title.trim(), body: body.trim(), url: url.trim() || '/', segment,
-          ...(platform !== 'all' ? { platform } : {}),
           ...(city.trim() ? { city: city.trim() } : {}),
           ...(isScheduled ? { scheduled_at: new Date(scheduledAt).toISOString() } : {}),
         }
@@ -156,7 +147,6 @@ export default function AdminPushNotifications() {
       setBody('');
       setUrl('/');
       setSegment('all');
-      setPlatform('all');
       setCity('');
       setScheduledAt('');
       fetchCampaigns();
@@ -244,19 +234,6 @@ export default function AdminPushNotifications() {
               </div>
             </div>
             <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label style={labelStyle}>{t('adminPush.platform')}</label>
-                <Select value={platform} onValueChange={setPlatform}>
-                  <SelectTrigger style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, color: T1, fontSize: 13, height: 'auto', padding: '9px 12px' }}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PLATFORMS.map(p => (
-                      <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
               <div>
                 <label style={labelStyle}>{t('adminPush.cityFilter')}</label>
                 <input value={city} onChange={e => setCity(e.target.value)} placeholder={t('adminPush.cityPlaceholder')} style={inputStyle} />
