@@ -4,6 +4,21 @@ Tout le code des 19 corrections est commité et build-vert. Ce doc liste ce qui
 ne peut PAS se faire depuis le code : consoles Apple/Google/Supabase, déploiement
 des edge functions, et le rebuild Xcode.
 
+## ✅ État au 2026-07-11 (déploiement fait)
+
+- Migrations appliquées (`supabase db push`) : push_automations, event_ai_reports,
+  pgvector « Pour toi », venue_ai_actions, push_campaigns i18n, hype_baseline staff
+  (+ night_ops_events et drinks_out_of_stock de la session parallèle).
+- Edge déployées : mfa, send-push-campaign, yuno-assistant, owner-assistant,
+  process-scheduled-campaigns, translate-text.
+- Front : poussé sur main → build Cloudflare Workers.
+- Supabase Auth : Apple OK (client eu.yunoapp.app) ; Google
+  `external_google_client_id` = « client_web,client_iOS » (liste — ne pas écraser).
+- Info.plist : URL scheme Google inversé ajouté ; `VITE_GOOGLE_IOS_CLIENT_ID`
+  dans .env.local (build local de l'app).
+- **RESTE** : rebuild Xcode (§1) + secrets VAPID (§5 — commande prête ci-dessous,
+  refusée en mode auto).
+
 ## 1. Rebuild Xcode (obligatoire — plugins natifs ajoutés)
 
 ```bash
@@ -66,12 +81,28 @@ admin jamais délivrés. Deux trous corrigés côté code :
 - premier lancement natif : dialogue de permission APPLE directement (plus de
   carte custom PWA).
 
-À vérifier côté secrets Supabase pour la délivrance :
-`APNS_TEAM_ID`, `APNS_KEY_ID`, `APNS_P8`, `APNS_TOPIC=eu.yunoapp.app`,
-`APNS_TOPIC_PRO=eu.yunoapp.pro`, et `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`
-pour le web. `aps-environment` est en `development` dans App.entitlements :
-les builds Xcode/TestFlight passent par le sandbox (le relay retente le
-sandbox sur BadDeviceToken, rien à changer pour tester).
+Secrets vérifiés au 2026-07-11 : `APNS_TEAM_ID`, `APNS_KEY_ID`, `APNS_P8`,
+`APNS_TOPIC`, `APNS_TOPIC_PRO` présents (iOS OK). **`VAPID_PUBLIC_KEY` /
+`VAPID_PRIVATE_KEY` ABSENTS** → le push WEB ne peut ni s'abonner ni délivrer.
+Aucune subscription n'existe encore (0 ligne), donc générer les clés est sans
+risque. À lancer à la main (refusé au mode auto de l'agent) :
+
+```bash
+node -e "
+const c = require('crypto');
+const { publicKey, privateKey } = c.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+const pub = publicKey.export({ format: 'jwk' }), priv = privateKey.export({ format: 'jwk' });
+const p65 = Buffer.concat([Buffer.from([4]), Buffer.from(pub.x, 'base64url'), Buffer.from(pub.y, 'base64url')]);
+require('fs').writeFileSync('/tmp/vapid.env',
+  'VAPID_PUBLIC_KEY=' + p65.toString('base64url') + '\nVAPID_PRIVATE_KEY=' + priv.d + '\n', { mode: 0o600 });
+console.log('ok');
+"
+supabase secrets set --env-file /tmp/vapid.env --project-ref fulawxvdlwtdlpkycixe && rm /tmp/vapid.env
+```
+
+`aps-environment` est en `development` dans App.entitlements : les builds
+Xcode/TestFlight passent par le sandbox (le relay retente le sandbox sur
+BadDeviceToken, rien à changer pour tester).
 
 ## 6. Calendrier Apple (item 18)
 
