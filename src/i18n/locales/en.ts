@@ -2116,6 +2116,7 @@ const en: Record<string, string> = {
   'orders.directions': 'Directions',
   'orders.viewEvent': 'Event',
   'orders.addToCal': 'Calendar',
+  'orders.addToWallet': 'Wallet',
   'orders.shareShort': 'Share',
   'orders.usedLabel': 'Used',
   'orders.refundedLabel': 'Refunded',
@@ -4892,6 +4893,8 @@ const en: Record<string, string> = {
   'confirmation.ticket': 'Ticket',
   'confirmation.addToWallet': 'Add to Wallet',
   'confirmation.walletComingSoon': 'Wallet integration coming soon!',
+  'confirmation.walletAddTo': 'Add to',
+  'confirmation.walletError': 'Couldn’t add the pass — try again.',
   'confirmation.viewAllOrders': 'View all my orders',
   'confirmation.notFound': 'Confirmation not found',
   // Confirmation — redesign (public editorial)

@@ -8,7 +8,7 @@ import { uniqueChannel } from '@/lib/realtime';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Bell } from 'lucide-react';
-import { ArrowLeft, Clock, CheckCircle2, QrCode, Trash2, CreditCard, Archive, Ticket, ChevronDown, ChevronUp, Wine, Calendar, Shield, X, Users, Sparkles, Gift, LogIn, ShoppingBag, ArrowRight, MapPin, Info, Share2 } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle2, QrCode, Trash2, CreditCard, Archive, Ticket, ChevronDown, ChevronUp, Wine, Calendar, Shield, X, Users, Sparkles, Gift, LogIn, ShoppingBag, ArrowRight, MapPin, Info, Share2, Wallet } from 'lucide-react';
 import { DrinkOrderDetailModal } from '@/components/DrinkOrderDetailModal';
 import { FreeDrinkRewardModal } from '@/components/FreeDrinkRewardModal';
 import { BottomNav } from '@/components/BottomNav';
@@ -41,10 +41,14 @@ import { EditOrderDialog } from '@/components/orders/EditOrderDialog';
 import { CancelTicketDialog } from '@/components/orders/CancelTicketDialog';
 import { getGuestTickets, removeGuestTicket, type GuestTicket } from '@/lib/guestTickets';
 import { shareContent } from '@/lib/share';
+import { addToWallet } from '@/lib/wallet';
+import { haptics } from '@/lib/haptics';
+import { useWalletDetection } from '@/hooks/useWalletDetection';
 
 export default function MyOrders() {
   const { user, loading: authLoading } = useAuth();
   const { language, t } = useLanguage();
+  const { isAppleDevice } = useWalletDetection();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1638,8 +1642,17 @@ export default function MyOrders() {
     venue: { name?: string | null; address?: string | null; city?: string | null; lat?: number | null; lng?: number | null };
     restoreParam?: string;
     restoreId?: string | null;
+    /** Pass Apple Wallet (billets + tables VIP) — visible sur appareil Apple. */
+    wallet?: { type: 'ticket' | 'table'; id: string };
   }): QRAction[] => {
     const acts: QRAction[] = [];
+    if (opts.wallet && isAppleDevice) {
+      const w = opts.wallet;
+      acts.push({ icon: Wallet, label: t('orders.addToWallet'), accent: true, onClick: () => {
+        haptics.medium();
+        addToWallet(w.type, w.id).catch(() => toast.error(t('confirmation.walletError')));
+      } });
+    }
     const mapsUrl = buildVenueMapsUrl(opts.venue);
     if (mapsUrl) {
       acts.push({ icon: MapPin, label: t('orders.directions'), accent: true, onClick: () => window.open(mapsUrl, '_blank', 'noopener,noreferrer') });
@@ -1817,6 +1830,7 @@ export default function MyOrders() {
             },
             restoreParam: 'ticket_id',
             restoreId: selectedTicket.id,
+            wallet: { type: 'ticket', id: selectedTicket.id },
           })}
         />
       )}
@@ -1850,6 +1864,7 @@ export default function MyOrders() {
             },
             restoreParam: 'reservation_id',
             restoreId: selectedVipReservation.id,
+            wallet: { type: 'table', id: selectedVipReservation.id },
           })}
           footer={
             <div

@@ -2662,6 +2662,7 @@ const es: Record<string, string> = {
   'orders.directions': 'Cómo llegar',
   'orders.viewEvent': 'El evento',
   'orders.addToCal': 'Agenda',
+  'orders.addToWallet': 'Wallet',
   'orders.shareShort': 'Compartir',
   'orders.usedLabel': 'Usado',
   'orders.refundedLabel': 'Reembolsado',
@@ -5080,6 +5081,8 @@ const es: Record<string, string> = {
   'confirmation.ticket': 'Entrada',
   'confirmation.addToWallet': 'Añadir al Wallet',
   'confirmation.walletComingSoon': '¡Integración de Wallet próximamente!',
+  'confirmation.walletAddTo': 'Añadir a',
+  'confirmation.walletError': 'No se pudo añadir el pase — inténtalo de nuevo.',
   'confirmation.viewAllOrders': 'Ver todos mis pedidos',
   'confirmation.notFound': 'Confirmación no encontrada',
   // Confirmation — rediseño (editorial público)

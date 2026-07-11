@@ -2433,6 +2433,7 @@ const fr: Record<string, string> = {
   'orders.directions': 'Itinéraire',
   'orders.viewEvent': 'La soirée',
   'orders.addToCal': 'Agenda',
+  'orders.addToWallet': 'Wallet',
   'orders.shareShort': 'Partager',
   'orders.usedLabel': 'Utilisé',
   'orders.refundedLabel': 'Remboursé',
@@ -4818,6 +4819,8 @@ const fr: Record<string, string> = {
   'confirmation.ticket': 'Billet',
   'confirmation.addToWallet': 'Ajouter au Wallet',
   'confirmation.walletComingSoon': 'Intégration Wallet bientôt disponible !',
+  'confirmation.walletAddTo': 'Ajouter à',
+  'confirmation.walletError': 'Impossible d’ajouter le pass — réessaie.',
   'confirmation.viewAllOrders': 'Voir toutes mes commandes',
   'confirmation.notFound': 'Confirmation non trouvée',
   // Confirmation — refonte (éditorial public)
