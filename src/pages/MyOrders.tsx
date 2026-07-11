@@ -1976,6 +1976,7 @@ export default function MyOrders() {
             } : null,
           }}
           onClose={() => setSelectedReward(null)}
+          posterUrl={selectedReward.eventDetails?.posterUrl || undefined}
         />
       )}
 

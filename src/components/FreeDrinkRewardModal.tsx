@@ -26,9 +26,11 @@ interface FreeDrinkRewardModalProps {
     } | null;
   };
   onClose: () => void;
+  /** affiche de la soirée : fond flouté plein écran + vignette 1:1 (comme les billets) */
+  posterUrl?: string;
 }
 
-export function FreeDrinkRewardModal({ reward, onClose }: FreeDrinkRewardModalProps) {
+export function FreeDrinkRewardModal({ reward, onClose, posterUrl }: FreeDrinkRewardModalProps) {
   const { t, language } = useLanguage();
   const [qrImage, setQrImage] = useState<string>('');
   const [copied, setCopied] = useState(false);
@@ -94,6 +96,8 @@ export function FreeDrinkRewardModal({ reward, onClose }: FreeDrinkRewardModalPr
       labels={labels}
       onClose={onClose}
       whenLabel={whenLabel}
+      posterUrl={posterUrl}
+      posterThumb={posterUrl}
       footer={
         <div className="space-y-2.5 text-left">
           {/* PIN de secours */}

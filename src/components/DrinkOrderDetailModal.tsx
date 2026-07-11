@@ -374,6 +374,7 @@ export function DrinkOrderDetailModal({
       onClose={onClose}
       whenLabel={whenLabel}
       posterUrl={posterUrl}
+      posterThumb={posterUrl}
       footer={
         <div className="space-y-2.5 text-left">
           {/* Statut de préparation (mode récupération Click&Collect) */}

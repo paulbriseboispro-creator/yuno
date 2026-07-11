@@ -71,19 +71,28 @@ const KIND: Record<OrderKind, LucideIcon> = {
   waitlist: Bell,
 };
 
-/* ---- type badge (icon tile éditorial, monochrome) ---- */
-function TypeBadge({ kind, size = 50, accent = false }: { kind: OrderKind; size?: number; accent?: boolean }) {
+/* ---- type badge (icon tile éditorial, monochrome) ----
+   `imageUrl` : affiche de la soirée en 1:1 (cover, centrée) à la place de
+   l'icône — l'icône reste rendue dessous en fallback si l'image ne charge pas. */
+function TypeBadge({ kind, size = 50, accent = false, imageUrl }: { kind: OrderKind; size?: number; accent?: boolean; imageUrl?: string }) {
   const Icon = KIND[kind];
   return (
     <div
       style={{
         width: size, height: size, flex: 'none', borderRadius: 8,
-        display: 'grid', placeItems: 'center',
+        display: 'grid', placeItems: 'center', position: 'relative', overflow: 'hidden',
         background: accent ? RED_TINT : CARD2,
         border: `1px solid ${accent ? RED_SOFT : BORDER_STRONG}`,
       }}
     >
       <Icon style={{ width: size * 0.42, height: size * 0.42, color: accent ? RED : G1 }} strokeWidth={1.9} />
+      {imageUrl && (
+        <img
+          src={getOptimizedImageUrl(imageUrl, { width: 128, quality: 75 })}
+          alt=""
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
+        />
+      )}
     </div>
   );
 }
@@ -336,7 +345,7 @@ export interface QRAction {
 }
 
 export function OrderQROverlay({
-  kind, title, venueName, qrImage, idLabel, scanned, footer, labels, onClose, onShare, slides, actions, whenLabel, instant, posterUrl,
+  kind, title, venueName, qrImage, idLabel, scanned, footer, labels, onClose, onShare, slides, actions, whenLabel, instant, posterUrl, posterThumb,
 }: {
   kind: OrderKind;
   title: string;
@@ -359,6 +368,8 @@ export function OrderQROverlay({
   instant?: boolean;
   /** event poster used as a blurred full-screen colour backdrop behind the QR */
   posterUrl?: string;
+  /** event poster shown as a 1:1 thumbnail in the info card (replaces the kind icon) */
+  posterThumb?: string;
 }) {
   const [index, setIndex] = useState(0);
   const touchStartX = useRef(0);
@@ -504,7 +515,7 @@ export function OrderQROverlay({
           className="flex items-center gap-3"
           style={{ background: CARD, border: `1px solid ${BORDER_STRONG}`, borderRadius: 8, padding: '10px 12px', marginBottom: footer ? 10 : 12 }}
         >
-          <TypeBadge kind={kind} size={42} />
+          <TypeBadge kind={kind} size={42} imageUrl={posterThumb} />
           <div className="flex-1 min-w-0">
             <div className="font-mono uppercase" style={{ fontSize: 9.5, color: G2, letterSpacing: '.06em', marginBottom: 3 }}>{venueName}</div>
             <div className="font-display uppercase truncate" style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.12, letterSpacing: '-.005em', color: WHITE }}>{title}</div>

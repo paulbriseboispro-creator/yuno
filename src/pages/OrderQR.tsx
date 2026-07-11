@@ -82,7 +82,7 @@ export default function OrderQR() {
         // Load order from database
         const { data: orderData, error: orderError } = await supabase
           .from('orders')
-          .select('*, events(title, start_at, end_at), venues!orders_venue_id_fkey(id, name)')
+          .select('*, events(title, start_at, end_at, poster_url), venues!orders_venue_id_fkey(id, name)')
           .eq('id', orderId)
           .single();
 
@@ -292,6 +292,8 @@ export default function OrderQR() {
       labels={labels}
       onClose={() => navigate('/my-orders')}
       whenLabel={whenLabel}
+      posterUrl={order.events?.poster_url || undefined}
+      posterThumb={order.events?.poster_url || undefined}
       footer={
         <div className="space-y-2.5 text-left">
           {/* Click&Collect : demander la préparation */}
