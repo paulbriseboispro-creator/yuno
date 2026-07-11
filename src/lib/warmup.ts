@@ -23,14 +23,23 @@ export function warmupApp(): void {
 
   idle(() => {
     const surfaces: Array<() => Promise<unknown>> = [
+      // 1. Onglets de la bottom nav — un tap depuis l'Explorer, toujours.
+      () => import('@/pages/Favorites'),
+      () => import('@/pages/MyOrders'),
+      () => import('@/pages/Profile'),
+      () => import('@/pages/ClubMap'),
+      // 2. Piliers (billets / VIP / boissons) — accès direct depuis l'Explorer.
+      () => import('@/pages/EventTicketsLanding'),
+      () => import('@/pages/VipTablesLanding'),
+      () => import('@/pages/OrderDrinksLanding'),
+      // 3. Parcours d'achat et fiches.
       () => import('@/pages/VenuePage'),
       () => import('@/pages/EventDetails'),
       () => import('@/pages/TicketSelection'),
       () => import('@/pages/TicketCheckout'),
-      () => import('@/pages/Favorites'),
-      () => import('@/pages/MyOrders'),
-      () => import('@/pages/Profile'),
       () => import('@/pages/AllEventsPage'),
+      () => import('@/pages/AllClubsPage'),
+      () => import('@/pages/AllDJsPage'),
       () => import('@/pages/Cart'),
       () => import('@/pages/YunoAssistantPage'),
     ];

@@ -410,7 +410,12 @@ function RouteErrorBoundary({ children }: { children: React.ReactNode }) {
 }
 
 const App = () => (
-  <BrowserRouter>
+  /* v7_startTransition : chaque navigation est enveloppée dans
+     React.startTransition → quand la page cible est un chunk lazy pas encore
+     chargé, React GARDE la page courante affichée au lieu de démonter vers le
+     fallback Suspense (AppSkeleton). C'est ce qui donne le changement de page
+     « natif » : jamais d'écran de chargement entre deux pages. */
+  <BrowserRouter future={{ v7_startTransition: true }}>
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>
         <FavoritesProvider>
