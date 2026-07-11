@@ -1,4 +1,5 @@
-// Constructeurs de pass.json — billets (eventTicket) et tables VIP (generic).
+// Constructeurs de pass.json — billets et tables VIP (tous deux eventTicket :
+// fond dégradé + logo blanc, en-tête type/formule, genre musical en champ).
 // Chargent les données, résolvent la langue du client (D6) et assemblent le
 // pass. La signature vit dans signer.ts ; les images dans assets.ts.
 //
@@ -105,7 +106,7 @@ export async function buildTicketPass(
     .select(`
       id, qr_code, reference_code, quantity, status, user_id, full_name,
       ticket_rounds(name),
-      events!inner(title, start_at, end_at, venue_id, partner_venue_id, location_name, location_city, location_is_secret)
+      events!inner(title, start_at, end_at, venue_id, partner_venue_id, location_name, location_city, location_is_secret, music_genres)
     `)
     .eq('id', ticketId)
     .single();
@@ -135,6 +136,9 @@ export async function buildTicketPass(
       : null;
 
   const round = (ticket.ticket_rounds as any)?.name || null;
+  const genre = Array.isArray(event.music_genres)
+    ? event.music_genres.filter(Boolean).slice(0, 2).join(' · ') || null
+    : null;
   const reference = ticket.reference_code || ticket.qr_code;
 
   const passJson = {
@@ -150,6 +154,10 @@ export async function buildTicketPass(
       voided: ticket.status === 'refunded',
     }),
     eventTicket: {
+      // Type de billet (round) en en-tête, comme "BILLET / First Round".
+      headerFields: round
+        ? [{ key: 'type', label: wl(lang, 'ticket'), value: round }]
+        : [],
       primaryFields: [{ key: 'event', label: wl(lang, 'event'), value: event.title }],
       secondaryFields: [
         { key: 'venue', label: wl(lang, 'venue'), value: venueName },
@@ -164,7 +172,7 @@ export async function buildTicketPass(
           : []),
       ],
       auxiliaryFields: [
-        ...(round ? [{ key: 'round', label: wl(lang, 'ticket'), value: round }] : []),
+        ...(genre ? [{ key: 'genre', label: wl(lang, 'genre'), value: genre }] : []),
         { key: 'qty', label: wl(lang, 'persons'), value: String(ticket.quantity || 1) },
       ],
       backFields: [
@@ -178,7 +186,7 @@ export async function buildTicketPass(
   return { passJson, serial: `t-${ticket.id}`, userId: ticket.user_id, lang };
 }
 
-/** Réservation de table VIP — pass generic, QR = table_reservations.qr_code. */
+/** Réservation de table VIP — pass eventTicket, QR = table_reservations.qr_code. */
 export async function buildVipPass(
   admin: AdminClient,
   reservationId: string,
@@ -190,7 +198,7 @@ export async function buildVipPass(
       id, qr_code, reference_code, guest_count, status, user_id, full_name,
       table_packs(name),
       table_zones(name),
-      events!inner(title, start_at, end_at, venue_id, partner_venue_id, location_name, location_is_secret)
+      events!inner(title, start_at, end_at, venue_id, partner_venue_id, location_name, location_is_secret, music_genres)
     `)
     .eq('id', reservationId)
     .single();
@@ -219,6 +227,9 @@ export async function buildVipPass(
 
   const tableName =
     (resa.table_packs as any)?.name || (resa.table_zones as any)?.name || null;
+  const genre = Array.isArray(event.music_genres)
+    ? event.music_genres.filter(Boolean).slice(0, 2).join(' · ') || null
+    : null;
   const reference = resa.reference_code || resa.qr_code;
 
   const passJson = {
@@ -233,13 +244,15 @@ export async function buildVipPass(
       location,
       voided: resa.status === 'refunded',
     }),
-    generic: {
+    // Table VIP : même style eventTicket que le billet (fond dégradé + logo),
+    // formule en en-tête, genre musical en champ (comme le billet).
+    eventTicket: {
+      headerFields: [
+        { key: 'type', label: wl(lang, 'formula'), value: tableName || wl(lang, 'vipDescription') },
+      ],
       primaryFields: [{ key: 'event', label: wl(lang, 'event'), value: event.title }],
       secondaryFields: [
         { key: 'venue', label: wl(lang, 'venue'), value: venueName },
-        ...(tableName ? [{ key: 'table', label: wl(lang, 'table'), value: tableName }] : []),
-      ],
-      auxiliaryFields: [
         ...(event.start_at
           ? [{
               key: 'date',
@@ -249,6 +262,9 @@ export async function buildVipPass(
               timeStyle: 'PKDateStyleShort',
             }]
           : []),
+      ],
+      auxiliaryFields: [
+        ...(genre ? [{ key: 'genre', label: wl(lang, 'genre'), value: genre }] : []),
         { key: 'guests', label: wl(lang, 'guests'), value: String(resa.guest_count || 1) },
       ],
       backFields: [
