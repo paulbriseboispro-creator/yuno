@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 import { dispatchPushAutomations } from "../_shared/push-automations.ts";
 import { refreshEventEmbeddings } from "../_shared/event-embeddings.ts";
+import { dispatchLiveOpsAlerts } from "../_shared/live-ops-alerts.ts";
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type' };
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -105,7 +106,16 @@ Deno.serve(async (req) => {
       console.error('[EMBEDDINGS] refresh failed:', String(e));
     }
 
-    return new Response(JSON.stringify({ processed, pushProcessed, autoPush, embeddings }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    // Alertes live ops du centre de commandement (events actifs uniquement) —
+    // best-effort : persiste en staff_notifications, push owner sur les urgentes.
+    let liveOps = { events: 0, alerts: 0, pushed: 0 };
+    try {
+      liveOps = await dispatchLiveOpsAlerts(admin, SUPABASE_URL, SERVICE_KEY);
+    } catch (e) {
+      console.error('[LIVE-OPS] dispatch failed:', String(e));
+    }
+
+    return new Response(JSON.stringify({ processed, pushProcessed, autoPush, embeddings, liveOps }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
