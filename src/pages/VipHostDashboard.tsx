@@ -24,6 +24,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Link } from 'react-router-dom';
 import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
+import { emitShiftStart } from '@/lib/liveops/shiftStart';
 import { toast } from 'sonner';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
@@ -59,6 +60,11 @@ export default function VipHostDashboard() {
   const [showStats, setShowStats] = useState(false);
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
   const [showFloorBackground, setShowFloorBackground] = useState(true);
+
+  // Prise de poste visible dans le centre de commandement owner (best-effort)
+  useEffect(() => {
+    if (venueId) emitShiftStart(venueId, 'vip_host');
+  }, [venueId]);
 
   // Réservations avec une pré-commande en attente -> pastille dorée sur le floor plan host.
   const [preorderReservationIds, setPreorderReservationIds] = useState<Set<string>>(new Set());

@@ -31,10 +31,11 @@ function LiveDrinkCardBase({ drink, isFavorite, paying, onAdd, onPay }: Props) {
   const { language, t } = useLanguage();
   const name = getTranslatedDrinkName(drink.name, language);
   const { price, original } = priceOf(drink);
+  const isOut = !!drink.outOfStock;
 
   return (
     <div
-      className="flex flex-col overflow-hidden"
+      className={`flex flex-col overflow-hidden ${isOut ? 'pointer-events-none opacity-50 grayscale relative' : ''}`}
       style={{
         background: '#141414',
         // Favori : liseré rouge discret (renforce « en tête = ton goût »).
@@ -71,6 +72,14 @@ function LiveDrinkCardBase({ drink, isFavorite, paying, onAdd, onPay }: Props) {
           className="absolute right-1.5 top-1.5 h-10 w-10 rounded-full bg-black/50 backdrop-blur-sm hover:bg-black/70"
           iconClassName="h-4 w-4"
         />
+        {isOut && (
+          <span
+            className="absolute inset-x-0 bottom-2 mx-auto w-fit rounded-full px-2.5 py-1 font-bold uppercase"
+            style={{ fontSize: 9, letterSpacing: '0.08em', color: '#fff', background: 'rgba(0,0,0,0.75)', border: '1px solid rgba(255,255,255,0.2)' }}
+          >
+            {t('drink.outOfStock')}
+          </span>
+        )}
       </div>
 
       {/* Nom + prix */}

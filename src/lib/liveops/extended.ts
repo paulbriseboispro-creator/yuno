@@ -78,6 +78,8 @@ export interface LiveExtendedData {
   vip: VipStats;
   cloakroom: CloakroomStats;
   incidents: IncidentLive[];
+  /** Names of drinks currently flagged out of stock by the bar staff. */
+  outOfStock: string[];
 }
 
 interface OrderRow {

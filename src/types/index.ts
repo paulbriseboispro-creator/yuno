@@ -21,6 +21,8 @@ export type Drink = {
   desc?: string; // deprecated, use description
   alcPct?: number;
   active: boolean;
+  /** Rupture signalée par le bar : visible mais non commandable. */
+  outOfStock?: boolean;
   position?: number;
   collection: 'drink' | 'shot' | 'soft';
 };

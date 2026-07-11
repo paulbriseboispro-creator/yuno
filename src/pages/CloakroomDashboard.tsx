@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom';
 import { LanguageSelector } from '@/components/LanguageSelector';
 
 import { useStaffVenue } from '@/hooks/useStaffVenue';
+import { emitShiftStart } from '@/lib/liveops/shiftStart';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
@@ -100,6 +101,11 @@ export default function CloakroomDashboard() {
     };
     init();
   }, [staffVenueId]);
+
+  // Prise de poste visible dans le centre de commandement owner (best-effort)
+  useEffect(() => {
+    if (venueId) emitShiftStart(venueId, 'cloakroom');
+  }, [venueId]);
 
   // Realtime subscription for cloakroom transactions
   useEffect(() => {

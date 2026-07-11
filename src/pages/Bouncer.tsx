@@ -11,6 +11,8 @@ import { QrCode, CheckCircle, XCircle, User, Ticket, Wine, Camera, RefreshCw, Us
 import { nowInParis } from '@/lib/timezone';
 import { validateTicketEntry, validateTableReservation, validateGuestListEntry } from '@/lib/scan/rules';
 import { useOfflineScanning } from '@/hooks/useOfflineScanning';
+import { IncidentQuickReport } from '@/components/bouncer/IncidentQuickReport';
+import { emitShiftStart } from '@/lib/liveops/shiftStart';
 import { OfflinePill } from '@/components/pro/OfflinePill';
 import { SyncQueueDrawer } from '@/components/pro/SyncQueueDrawer';
 import { isProApp } from '@/lib/native';
@@ -197,6 +199,8 @@ export default function Bouncer() {
   useEffect(() => {
     if (venueId) {
       fetchStats();
+      // Prise de poste visible dans le centre de commandement owner (best-effort)
+      emitShiftStart(venueId, 'bouncer');
       // Fetch free drink mode
       supabase.from('venues').select('free_drink_mode').eq('id', venueId).single().then(({ data }) => {
         if (data) setFreeDrinkMode((data as any).free_drink_mode || 'credits');
@@ -1330,6 +1334,9 @@ export default function Bouncer() {
             {offline.pending > 0 ? `≈ ${stats.scanned + offline.pending}` : stats.scanned}
           </div>
         </div>
+
+        {/* Signalement d'incident 1-tap → centre de commandement owner */}
+        {venueId && <IncidentQuickReport venueId={venueId} eventId={offlineEventId} />}
 
         {/* Scanner with Tabs */}
         <div style={mainCard}>

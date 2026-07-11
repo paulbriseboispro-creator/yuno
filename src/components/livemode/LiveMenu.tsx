@@ -67,6 +67,7 @@ export function LiveMenu() {
         imgUrl: drink.img_url as string,
         venueId: drink.venue_id as string,
         active: drink.active as boolean,
+        outOfStock: (drink.out_of_stock as boolean) || false,
         position: (drink.position as number) || 0,
         collection: drink.collection as Drink['collection'],
       }));

@@ -112,7 +112,7 @@ export default function OwnerLiveNight() {
               <DoorStation door={extended.door} incidents={extended.incidents} attendanceRate={advancedMetrics.attendanceRate} />
             </motion.div>
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }}>
-              <BarStation bar={extended.bar} pipeline={pipeline} avgPrepMinutes={advancedMetrics.avgPrepMinutes} />
+              <BarStation bar={extended.bar} pipeline={pipeline} avgPrepMinutes={advancedMetrics.avgPrepMinutes} outOfStock={extended.outOfStock} />
             </motion.div>
             {cloakroomFirst ? (
               <>

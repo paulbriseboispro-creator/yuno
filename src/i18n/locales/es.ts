@@ -11024,6 +11024,24 @@ const es: Record<string, string> = {
   'liveops.radio.tableBooked': 'Nueva reserva de mesa — {name}',
   'liveops.radio.cloakroom': 'Depósito guardarropa {num}',
 
+  // ─── Inputs staff live ops ───
+  'drink.outOfStock': 'Agotado',
+  'bouncer.incident.title': 'Señalar una incidencia',
+  'bouncer.incident.fight': 'Pelea',
+  'bouncer.incident.refusal': 'Rechazo',
+  'bouncer.incident.medical': 'Médico',
+  'bouncer.incident.other': 'Otro',
+  'bouncer.incident.sent': 'Incidencia señalada al club',
+  'bouncer.incident.error': 'No se pudo enviar el aviso',
+  'barman.stock.button': 'Stock',
+  'barman.stock.title': 'Agotados',
+  'barman.stock.desc': 'Marca un producto agotado: sigue visible en el menú del cliente, en gris «Agotado», y el dueño lo ve en directo. Vuelve a activar el switch cuando haya stock.',
+  'barman.stock.empty': 'Sin productos activos en el menú.',
+  'barman.stock.outBadge': 'Agotado',
+  'barman.stock.error': 'No se pudo actualizar el stock',
+  'barman.stock.markedOut': '{name} marcado agotado',
+  'barman.stock.markedBack': '{name} de vuelta en stock',
+
 };
 
 export default es;

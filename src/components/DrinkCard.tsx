@@ -19,7 +19,38 @@ interface DrinkCardProps {
 
 const COMPACT_COLLECTIONS = ['shots', 'soft', 'beers', 'wines'];
 
-export function DrinkCard({ drink, onAdd, isFavorite: isFavoriteProp, variant }: DrinkCardProps) {
+/**
+ * Gate central « Épuisé » : couvre les trois variantes (mini/compact/standard)
+ * sans toucher leur rendu. Le produit reste visible, grisé, non cliquable.
+ */
+export function DrinkCard(props: DrinkCardProps) {
+  const { t } = useLanguage();
+  if (!props.drink.outOfStock) return <DrinkCardInner {...props} />;
+  return (
+    <div className="relative pointer-events-none opacity-50 grayscale">
+      <DrinkCardInner {...props} onAdd={() => {}} />
+      <div className="absolute inset-0 z-10 flex items-center justify-center">
+        <span
+          style={{
+            background: 'rgba(0,0,0,0.75)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            color: '#FFFFFF',
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            padding: '4px 10px',
+            borderRadius: 999,
+          }}
+        >
+          {t('drink.outOfStock')}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function DrinkCardInner({ drink, onAdd, isFavorite: isFavoriteProp, variant }: DrinkCardProps) {
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const cardVariant = variant ?? (COMPACT_COLLECTIONS.includes(drink.collection?.toLowerCase() || '') ? 'compact' : 'standard');
   const isMini = cardVariant === 'mini';

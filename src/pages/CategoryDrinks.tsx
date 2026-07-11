@@ -112,6 +112,7 @@ export default function CategoryDrinks() {
           imgUrl: drink.img_url,
           venueId: drink.venue_id,
           active: drink.active,
+          outOfStock: drink.out_of_stock || false,
           position: drink.position || 0,
           collection: drink.collection as CategoryType,
         }));

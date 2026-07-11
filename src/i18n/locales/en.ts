@@ -10910,6 +10910,24 @@ const en: Record<string, string> = {
   'liveops.radio.tableBooked': 'New table booking — {name}',
   'liveops.radio.cloakroom': 'Cloakroom check-in {num}',
 
+  // ─── Live ops staff inputs ───
+  'drink.outOfStock': 'Sold out',
+  'bouncer.incident.title': 'Report an incident',
+  'bouncer.incident.fight': 'Fight',
+  'bouncer.incident.refusal': 'Refusal',
+  'bouncer.incident.medical': 'Medical',
+  'bouncer.incident.other': 'Other',
+  'bouncer.incident.sent': 'Incident reported to the club',
+  'bouncer.incident.error': 'Could not send the report',
+  'barman.stock.button': 'Stock',
+  'barman.stock.title': 'Out of stock',
+  'barman.stock.desc': 'Mark a product as sold out: it stays on the customer menu, greyed out as "Sold out", and the owner sees it live. Flip the switch back once restocked.',
+  'barman.stock.empty': 'No active products on the menu.',
+  'barman.stock.outBadge': 'Sold out',
+  'barman.stock.error': 'Could not update the stock',
+  'barman.stock.markedOut': '{name} marked sold out',
+  'barman.stock.markedBack': '{name} back in stock',
+
 };
 
 export default en;

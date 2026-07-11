@@ -368,6 +368,8 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       let vipConsumptions: any[] = [];
       let vipMoments: any[] = [];
       let nightIncidents: IncidentLive[] = [];
+      let nightOps: any[] = [];
+      let outOfStockNames: string[] = [];
       if (extendedOpt) {
         const extraQueries: PromiseLike<any>[] = [
           eventId
@@ -398,14 +400,37 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
             .gte('created_at', start)
             .lte('created_at', end)
             .order('created_at', { ascending: false }),
+          // Journal opérationnel staff (incidents 1-tap + prises de poste).
+          // La table arrive avec la migration night_ops_events : allSettled
+          // fait dégrader proprement tant qu'elle n'est pas poussée.
+          (supabase as any)
+            .from('night_ops_events')
+            .select('id, kind, note, reported_by, created_at')
+            .eq('venue_id', venueId)
+            .gte('created_at', start)
+            .lte('created_at', end)
+            .order('created_at', { ascending: false }),
+          (supabase as any)
+            .from('drinks')
+            .select('id, name, out_of_stock')
+            .eq('venue_id', venueId)
+            .eq('out_of_stock', true),
         ];
-        const [glRes, consRes, momentsRes, incidentsRes] = await Promise.allSettled(extraQueries);
+        const [glRes, consRes, momentsRes, incidentsRes, nightOpsRes, stockRes] = await Promise.allSettled(extraQueries);
         glEntries = (glRes.status === 'fulfilled' ? glRes.value.data || [] : [])
           .filter((e: any) => e.status !== 'cancelled' && e.status !== 'denied');
         vipConsumptions = consRes.status === 'fulfilled' ? consRes.value.data || [] : [];
         vipMoments = momentsRes.status === 'fulfilled' ? momentsRes.value.data || [] : [];
-        nightIncidents = (incidentsRes.status === 'fulfilled' ? incidentsRes.value.data || [] : [])
-          .map((i: any) => ({ id: i.id, kind: i.incident_type, reason: i.reason, createdAt: i.created_at }));
+        nightOps = nightOpsRes.status === 'fulfilled' ? nightOpsRes.value.data || [] : [];
+        outOfStockNames = (stockRes.status === 'fulfilled' ? stockRes.value.data || [] : [])
+          .map((d: any) => d.name as string);
+        nightIncidents = [
+          ...(incidentsRes.status === 'fulfilled' ? incidentsRes.value.data || [] : [])
+            .map((i: any) => ({ id: i.id, kind: i.incident_type, reason: i.reason, createdAt: i.created_at })),
+          ...nightOps
+            .filter((e: any) => e.kind !== 'shift_start')
+            .map((e: any) => ({ id: e.id, kind: e.kind, reason: e.note, createdAt: e.created_at })),
+        ].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
         glListIds.current = new Set(glEntries.map((e: any) => e.guest_list_id));
       }
 
@@ -533,6 +558,17 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
         const servedBy = c.served_by || c.staff_id;
         if (servedBy) bumpStaff(servedBy, 'vip_host', c.served_at);
       });
+      // Prises de poste : rend visible un staff qui n'a encore rien traité
+      // (présent mais compteur à zéro).
+      const STAFF_ROLES: StaffMember['role'][] = ['barman', 'bouncer', 'vip_host', 'cloakroom'];
+      nightOps.filter((e: any) => e.kind === 'shift_start').forEach((e: any) => {
+        const role = STAFF_ROLES.includes(e.note) ? (e.note as StaffMember['role']) : null;
+        if (!role) return;
+        const key = `${e.reported_by}:${role}`;
+        const entry = staffMap.get(key) || { userId: e.reported_by, role, count: 0, firstAt: null, lastAt: null };
+        if (!entry.firstAt || e.created_at < entry.firstAt) entry.firstAt = e.created_at;
+        staffMap.set(key, entry);
+      });
 
       const staffList: StaffMember[] = Array.from(staffMap.entries()).map(([key, data]) => ({
         id: key,
@@ -571,6 +607,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
           vip: vipStats,
           cloakroom: computeCloakroomStats(cloakroom as any[]),
           incidents: nightIncidents,
+          outOfStock: outOfStockNames,
         });
       }
 
@@ -703,6 +740,16 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
             .on('postgres_changes', { event: '*', schema: 'public', table: 'guest_list_entries' }, (payload) => {
               const g = (payload.new ?? payload.old) as any;
               if (!g?.guest_list_id || !glListIds.current.has(g.guest_list_id)) return;
+              scheduleRefetch();
+            }).subscribe(),
+          supabase
+            .channel(uniqueChannel('live-night-ops'))
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'night_ops_events', filter: `venue_id=eq.${venueId}` }, () => {
+              scheduleRefetch();
+            }).subscribe(),
+          supabase
+            .channel(uniqueChannel('live-drinks-stock'))
+            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'drinks', filter: `venue_id=eq.${venueId}` }, () => {
               scheduleRefetch();
             }).subscribe(),
         ]

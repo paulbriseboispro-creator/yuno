@@ -29,6 +29,8 @@ import { OrderPreparationView } from '@/components/OrderPreparationView';
 import { useStaffVenue } from '@/hooks/useStaffVenue';
 import { BarmanBarSelection } from '@/components/barman/BarmanBarSelection';
 import { ShiftStats } from '@/components/barman/ShiftStats';
+import { StockPanel } from '@/components/barman/StockPanel';
+import { emitShiftStart } from '@/lib/liveops/shiftStart';
 import { calcStripeFee } from '@/utils/fees';
 
 
@@ -140,6 +142,8 @@ export default function Barman() {
     fetchClickCollectOrders();
     fetchClickCollectMode();
     checkClickCollectManager();
+    // Prise de poste visible dans le centre de commandement owner (best-effort)
+    emitShiftStart(staffVenueId, 'barman');
 
     // Realtime subscription for orders - filtered updates with sound alert
     const ordersChannel = supabase
@@ -1022,6 +1026,7 @@ export default function Barman() {
             )}
           </div>
           <div className="flex items-center gap-1">
+            {staffVenueId && <StockPanel venueId={staffVenueId} />}
             {staffVenueId && (
               <BarmanBarSelection
                 venueId={staffVenueId}
