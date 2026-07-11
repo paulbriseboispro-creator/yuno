@@ -7,6 +7,7 @@ import {
   escapeHtml
 } from "../_shared/email-branding.ts";
 import { buildVipConfirmation, fmtDateParts } from "../_shared/email-templates.ts";
+import { ensureWalletPass, walletPassUrl } from "../_shared/wallet/router.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -313,6 +314,16 @@ serve(async (req) => {
     let html: string;
     let finalSubject = subject;
     if (type === 'confirmed') {
+      // Apple Wallet : lien de téléchargement direct du pass VIP (idempotent,
+      // seul canal pass pour les invités sans compte). Jamais bloquant.
+      let walletUrl: string | undefined;
+      try {
+        const wp = await ensureWalletPass(supabaseAdmin, 'vip', reservationId, reservation.user_id ?? null);
+        walletUrl = walletPassUrl(wp.serial, wp.authToken);
+      } catch (walletErr) {
+        console.error('[SEND-VIP-CONFIRMATION] wallet link skipped:', walletErr);
+      }
+
       const dp = fmtDateParts(event.start_at, lang);
       const gc = reservation.guest_count ?? 0;
       const guestsStr = gc > 0
@@ -336,6 +347,7 @@ serve(async (req) => {
         total: `€${(reservation.total_price ?? reservation.minimum_spend ?? 0).toFixed(2)}`,
         reference: reservation.reference_code || reservation.qr_code || '',
         manageUrl: `${appBaseUrl}/my-orders`,
+        walletUrl,
       });
       html = mail.html;
       finalSubject = mail.subject;

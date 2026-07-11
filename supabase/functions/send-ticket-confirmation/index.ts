@@ -13,6 +13,7 @@ import {
   drawReceipt, drawBillet, receiptLineLabels,
   type PdfDoc, type DocLang, type ReceiptLine,
 } from "../_shared/pdf-documents.ts";
+import { handleWalletRequest, ensureWalletPass, walletPassUrl } from "../_shared/wallet/router.ts";
 
 // Fetch a remote image into a base64 data URL (jsPDF addImage needs bytes, not a URL).
 async function fetchImageDataUrl(url?: string | null): Promise<string | undefined> {
@@ -64,17 +65,22 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const supabaseAdmin = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    { auth: { persistSession: false } }
+  );
+
+  // Routes Apple Wallet (D2 : cette fonction est l'hôte permanent du
+  // webServiceURL des passes). POST racine = flux email historique, intact.
+  const walletResponse = await handleWalletRequest(req, supabaseAdmin);
+  if (walletResponse) return walletResponse;
+
   try {
     logStep("Function started");
 
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) throw new Error("RESEND_API_KEY not configured");
-
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      { auth: { persistSession: false } }
-    );
 
     const { ticketId, email, firstName, isGuest } =
       (await req.json()) as TicketConfirmationRequest;
@@ -444,6 +450,17 @@ serve(async (req) => {
       attachments = [];
     }
 
+    // Apple Wallet : émettre (idempotent) la ligne du pass et joindre le lien
+    // de téléchargement direct — seul canal pass pour les achats invités.
+    // Best-effort : jamais bloquant pour l'email (table absente, etc.).
+    let walletUrl: string | undefined;
+    try {
+      const wp = await ensureWalletPass(supabaseAdmin, "ticket", ticketId, ticket.user_id ?? null);
+      walletUrl = walletPassUrl(wp.serial, wp.authToken);
+    } catch (walletErr) {
+      console.error("[SEND-TICKET-CONFIRMATION] wallet link skipped:", walletErr);
+    }
+
     const dp = fmtDateParts(event.start_at, lang);
     const mail = buildTicketConfirmation({
       attached: attachments.length > 0,
@@ -465,6 +482,7 @@ serve(async (req) => {
       qrDataUrl: qrCodeDataUrl,
       recipientEmail: email,
       address: venueAddress || (addressDeferred ? addressDeferredText : undefined),
+      walletUrl,
     });
     const html = mail.html;
 

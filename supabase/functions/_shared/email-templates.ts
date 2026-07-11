@@ -12,9 +12,12 @@
 
 import {
   shell, brandBar, poster, ruleLabel, title, mono, body, section,
-  ctaPill, ctaSharp, bigDate, calloutPrice, codeBlock, infoRows, eventMiniCard,
+  ctaPill, ctaSharp, walletPill, bigDate, calloutPrice, codeBlock, infoRows, eventMiniCard,
   qrCard, divider, spacer, footer, C, F,
 } from './email-kit.ts';
+
+/** Libellé du bouton Apple Wallet (3 langues). */
+const WALLET_LABEL = { en: 'Add to Apple Wallet', fr: 'Ajouter à Apple Wallet', es: 'Añadir a Apple Wallet' };
 
 export type Lang = 'en' | 'fr' | 'es';
 export interface BuiltEmail { subject: string; preheader: string; html: string; }
@@ -66,7 +69,7 @@ export function buildTicketConfirmation(d: {
   lang?: Lang; firstName?: string; eventTitle: string; venueName: string; posterUrl?: string;
   day: string; month: string; openTime?: string; city?: string;
   ticketType: string; price: string; reference: string; ticketUrl: string; recipientEmail?: string;
-  qrDataUrl?: string; address?: string; attached?: boolean;
+  qrDataUrl?: string; address?: string; attached?: boolean; walletUrl?: string;
 }): BuiltEmail {
   const lang = L(d.lang || 'en');
   const hi = d.firstName ? `${d.firstName}, ` : '';
@@ -100,7 +103,7 @@ export function buildTicketConfirmation(d: {
           en: 'Your ticket + receipt are attached as PDF',
           fr: 'Ton billet + ton reçu sont en pièce jointe (PDF)',
           es: 'Tu entrada + tu recibo están adjuntos en PDF',
-        }), C.gray3, 11)}` : ''}<div style="height:20px"></div>${ctaPill(p(lang, { en: 'View my ticket', fr: 'Voir mon billet', es: 'Ver mi entrada' }), d.ticketUrl)}`, { border: false }),
+        }), C.gray3, 11)}` : ''}${d.walletUrl ? `<div style="height:20px"></div>${walletPill(p(lang, WALLET_LABEL), d.walletUrl)}` : ''}<div style="height:20px"></div>${ctaPill(p(lang, { en: 'View my ticket', fr: 'Voir mon billet', es: 'Ver mi entrada' }), d.ticketUrl)}`, { border: false }),
       footer({ lang, venueName: d.venueName }),
     ].join(''),
   });
@@ -112,7 +115,7 @@ export function buildVipConfirmation(d: {
   lang?: Lang; firstName?: string; eventTitle: string; venueName: string; posterUrl?: string;
   day: string; month: string; arrivalTime?: string;
   tableName: string; guests: string; bottles?: string; total: string; reference: string; manageUrl: string;
-  qrDataUrl?: string;
+  qrDataUrl?: string; walletUrl?: string;
 }): BuiltEmail {
   const lang = L(d.lang || 'en');
   const hi = d.firstName ? `${d.firstName}, ` : '';
@@ -141,7 +144,7 @@ export function buildVipConfirmation(d: {
         { k: lbl(lang, 'reference'), v: d.reference },
       ])),
       ...(d.qrDataUrl ? [section(qrCard(d.qrDataUrl, p(lang, { en: 'Scan at VIP entry', fr: "À scanner à l'entrée VIP", es: 'Escanear en entrada VIP' }), d.reference), { border: false, padBottom: 4 })] : []),
-      section(ctaPill(p(lang, { en: 'Manage my booking', fr: 'Gérer ma réservation', es: 'Gestionar mi reserva' }), d.manageUrl), { border: false }),
+      section(`${d.walletUrl ? `${walletPill(p(lang, WALLET_LABEL), d.walletUrl)}<div style="height:16px"></div>` : ''}${ctaPill(p(lang, { en: 'Manage my booking', fr: 'Gérer ma réservation', es: 'Gestionar mi reserva' }), d.manageUrl)}`, { border: false }),
       footer({ lang, venueName: d.venueName }),
     ].join(''),
   });

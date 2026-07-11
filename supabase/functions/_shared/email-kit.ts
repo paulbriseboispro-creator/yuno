@@ -127,6 +127,14 @@ export function ctaPill(label: string, url: string): string {
     </td></tr></table>`;
 }
 
+// ── Bouton Apple Wallet (pill noire, liseré blanc — style badge Apple) ──
+export function walletPill(label: string, url: string): string {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+    <td align="center" bgcolor="#000000" style="border-radius:10px;border:1px solid rgba(255,255,255,0.35);mso-padding-alt:12px 26px;">
+      <a href="${esc(url)}" target="_blank" style="display:inline-block;padding:12px 26px;font-family:${F.body};font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">${esc(label)}</a>
+    </td></tr></table>`;
+}
+
 // ── CTA "affiche" tranchant (radius 3px, mono uppercase) ──
 export function ctaSharp(label: string, url: string): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
