@@ -57,6 +57,14 @@
 				<string>yuno</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>google-signin</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.909249484986-9q4p8vbsqaq5mbhbl2efr8859bac0147</string>
+			</array>
+		</dict>
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Yuno uses your location to show clubs and events near you on the map.</string>
