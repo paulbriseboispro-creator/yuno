@@ -51,6 +51,7 @@ import { NativeProGate } from "@/components/NativeProGate";
 import { ProAppGate } from "@/components/ProAppGate";
 import { isProApp } from "@/lib/native";
 import { PushClickTracker } from "@/components/PushClickTracker";
+import { CelebrationHost } from "@/components/celebration/CelebrationHost";
 import { DemoSwitcher } from "@/components/demo/DemoSwitcher";
 import { PreviewModeProvider } from "@/contexts/PreviewModeContext";
 import { LiveModeProvider } from "@/contexts/LiveModeContext";
@@ -432,6 +433,9 @@ const App = () => (
             <NativeBridge />
             <NativeStatusBarScrim />
             <PushClickTracker />
+            {/* Célébrations (confettis/overlay) des succès rares — écoute
+                l'événement émis par src/lib/celebrate.ts. B2C uniquement. */}
+            {!isProApp() && <CelebrationHost />}
             <LiveModeProvider>
             <MaintenanceWrapper>
               <RouteErrorBoundary>

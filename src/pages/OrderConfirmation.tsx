@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { transitions, useReducedMotion } from '@/lib/motion';
-import { haptics } from '@/lib/haptics';
+import { celebrate } from '@/lib/celebrate';
 import { Check, Clock, MapPin, Ticket, ArrowLeft, FileText, Download, CalendarPlus, Navigation, Share2, Mail, QrCode } from 'lucide-react';
 import { FavoriteButton } from '@/components/FavoriteButton';
 import { downloadICS } from '@/lib/calendar';
@@ -111,10 +111,39 @@ export default function OrderConfirmation() {
     }
   }, [type, id]);
 
-  // Haptic de célébration synchronisé avec le badge « Confirmé » (spring
-  // transitions.celebrate) : une seule fois, quand la confirmation s'affiche.
+  // Célébration synchronisée avec le badge « Confirmé » (spring
+  // transitions.celebrate) : haptic + confettis, une seule fois, quand la
+  // confirmation s'affiche. Fidélité light : si l'achat a rapporté des
+  // points (award_loyalty_points côté verify-*-payment), toast discret
+  // « +N points » après la retombée des confettis.
   useEffect(() => {
-    if (!loading && data) haptics.success();
+    if (loading || !data) return;
+    celebrate('purchase');
+
+    let cancelled = false;
+    (async () => {
+      try {
+        // RLS : ne renvoie que les transactions du client connecté (via
+        // customer_loyalty). Invité sans compte → liste vide, silencieux.
+        const { data: txs } = await supabase
+          .from('loyalty_transactions')
+          .select('points, transaction_type')
+          .eq('reference_id', data.id)
+          .in('transaction_type', ['earn', 'bonus']);
+        const points = (txs ?? []).reduce((sum, tx) => sum + (tx.points || 0), 0);
+        if (points > 0 && !cancelled) {
+          setTimeout(() => {
+            if (!cancelled) toast(t('celebrate.pointsEarned').replace('{points}', String(points)));
+          }, 1400);
+        }
+      } catch {
+        // Points non affichés : jamais bloquant pour la confirmation.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, data]);
 
   const fetchData = async () => {

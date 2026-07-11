@@ -41,6 +41,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { LiveModeBanner } from '@/components/livemode/LiveModeBanner';
 import { isDemoEmail } from '@/lib/demoPlan';
 import { isDemoLiveForced, DEMO_LIVE_EVENT } from '@/lib/demoLive';
+import { celebrateOnce } from '@/lib/celebrate';
 
 export interface LiveSession {
   state: 'live' | 'pending_scan';
@@ -270,6 +271,16 @@ export function LiveModeProvider({ children }: { children: ReactNode }) {
       channels.forEach((ch) => supabase.removeChannel(ch));
     };
   }, [user, session?.eventId, session?.state, refresh]);
+
+  // Célébration d'entrée — LE moment signature de la soirée. Se joue quand
+  // la session passe « scannée » (state 'live'), que la transition ait été
+  // observée en direct (realtime pendant pending_scan) ou que l'app soit
+  // ouverte APRÈS le scan (push de bienvenue → cold start). celebrateOnce
+  // garantit 1×/événement (flag localStorage), soirée entière comprise.
+  useEffect(() => {
+    if (session?.state !== 'live') return;
+    celebrateOnce(`entry:${session.eventId}`, 'entry', { subtitle: session.venueName });
+  }, [session?.state, session?.eventId, session?.venueName]);
 
   // Fin de soirée : timer absolu sur end_at + 2h → le RPC retombera sur rien.
   useEffect(() => {

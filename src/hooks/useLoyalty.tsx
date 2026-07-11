@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { celebrateOnce } from '@/lib/celebrate';
 import type { Json } from '@/integrations/supabase/types';
+
+/** Ordre des paliers pour détecter une montée (jamais une descente). */
+const TIER_ORDER = ['bronze', 'silver', 'gold', 'platinum'] as const;
 
 interface LoyaltySettings {
   is_enabled: boolean;
@@ -111,6 +115,24 @@ export function useLoyalty(venueId?: string) {
           .single();
 
         setLoyalty(loyaltyData as CustomerLoyalty | null);
+
+        // Tier-up — célébration 1×/palier/club (fidélité light : on met en
+        // avant l'existant, on ne reconstruit rien). Le premier passage
+        // mémorise sans célébrer (pas de fête rétroactive) ; les montées
+        // suivantes déclenchent l'overlay TierBadge.
+        if (loyaltyData) {
+          try {
+            const tier = (loyaltyData as CustomerLoyalty).tier;
+            const seenKey = `yuno_tier_seen:${venueId}`;
+            const seen = localStorage.getItem(seenKey);
+            if (seen && TIER_ORDER.indexOf(tier) > TIER_ORDER.indexOf(seen as CustomerLoyalty['tier'])) {
+              celebrateOnce(`tier:${venueId}:${tier}`, 'tierUp', { tier });
+            }
+            localStorage.setItem(seenKey, tier);
+          } catch {
+            // Storage indispo : pas de détection de montée, jamais bloquant.
+          }
+        }
 
         if (loyaltyData) {
           // Fetch transactions

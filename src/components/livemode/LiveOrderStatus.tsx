@@ -2,7 +2,7 @@
 // MES orders), PIN (4 derniers caractères du token) + QR inline. Le client
 // n'a pas à quitter le Live pour montrer sa commande au bar — le QR est rendu
 // localement depuis le token déjà chargé (fonctionne même si le réseau tombe).
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, Clock, Martini } from 'lucide-react';
@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { transitions } from '@/lib/motion';
+import { celebrate } from '@/lib/celebrate';
 
 interface LiveOrder {
   id: string;
@@ -40,6 +41,7 @@ export function LiveOrderStatus({ eventId }: { eventId: string }) {
   const [orders, setOrders] = useState<LiveOrder[]>([]);
   const [qrByOrder, setQrByOrder] = useState<Record<string, string>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const prevStatusRef = useRef<Record<string, DisplayStatus>>({});
 
   const fetchOrders = useCallback(async () => {
     if (!user) return;
@@ -73,6 +75,22 @@ export function LiveOrderStatus({ eventId }: { eventId: string }) {
       supabase.removeChannel(channel);
     };
   }, [user, fetchOrders]);
+
+  // Haptic de succès quand UNE commande passe « prête » (transition observée,
+  // pas l'état initial : une commande déjà prête au chargement ne vibre pas).
+  // Visuel = la carte qui passe au vert ci-dessous — pas d'overlay.
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    const next: Record<string, DisplayStatus> = {};
+    let becameReady = false;
+    for (const o of orders) {
+      const s = displayStatus(o);
+      next[o.id] = s;
+      if (s === 'ready' && prev[o.id] && prev[o.id] !== 'ready') becameReady = true;
+    }
+    prevStatusRef.current = next;
+    if (becameReady) celebrate('orderReady');
+  }, [orders]);
 
   // QR rendu localement depuis le token (offline-friendly une fois chargé).
   useEffect(() => {
