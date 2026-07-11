@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { sendApns, apnsConfigured, APNS_TOPIC, APNS_TOPIC_PRO } from "../_shared/apns.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -128,62 +129,14 @@ type Subscription = { id: string; endpoint: string; p256dh: string | null; auth:
 
 // ---------------------------------------------------------------------------
 // APNs (iOS natif). Les lignes push_subscriptions avec platform='ios' portent
-// le device token dans endpoint sous la forme 'apns:<token>'. Auth par JWT
-// ES256 signé avec la clé .p8 (secrets APNS_*). Mêmes primitives WebCrypto
-// que le JWT VAPID ci-dessus.
+// le device token dans endpoint sous la forme 'apns:<token>'. Le JWT p8 et
+// l'envoi générique vivent dans _shared/apns.ts (D3) — ce wrapper garde la
+// logique métier : topic par app (B2C/Pro) + auto-purge des tokens morts.
 // ---------------------------------------------------------------------------
 
-const APNS_TEAM_ID = Deno.env.get('APNS_TEAM_ID');
-const APNS_KEY_ID = Deno.env.get('APNS_KEY_ID');
-const APNS_P8 = Deno.env.get('APNS_P8');
-const APNS_TOPIC = Deno.env.get('APNS_TOPIC');
-// App « Yuno Pro » (staff) : bundle eu.yunoapp.pro → topic distinct
-// (platform='ios_pro'). La clé .p8 est team-wide : elle signe pour tous les
-// topics du team, rien d'autre à créer côté Apple.
-const APNS_TOPIC_PRO = Deno.env.get('APNS_TOPIC_PRO');
-
-const APNS_HOST_PROD = 'https://api.push.apple.com';
-const APNS_HOST_SANDBOX = 'https://api.development.push.apple.com';
-
-// Apple exige un JWT âgé de 20 à 60 minutes ; cache module ~45 min.
-let apnsJwtCache: { token: string; issuedAt: number } | null = null;
-
-function pemToDer(pem: string): ArrayBuffer {
-  const base64 = pem
-    .replace(/-----BEGIN PRIVATE KEY-----/, '')
-    .replace(/-----END PRIVATE KEY-----/, '')
-    .replace(/\s+/g, '');
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes.buffer;
-}
-
-async function getApnsJwt(): Promise<string> {
-  const now = Math.floor(Date.now() / 1000);
-  if (apnsJwtCache && now - apnsJwtCache.issuedAt < 45 * 60) return apnsJwtCache.token;
-
-  const key = await crypto.subtle.importKey(
-    'pkcs8', pemToDer(APNS_P8!),
-    { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign'],
-  );
-  const header = { alg: 'ES256', kid: APNS_KEY_ID };
-  const claims = { iss: APNS_TEAM_ID, iat: now };
-  const headerB64 = uint8ArrayToBase64Url(new TextEncoder().encode(JSON.stringify(header)));
-  const claimsB64 = uint8ArrayToBase64Url(new TextEncoder().encode(JSON.stringify(claims)));
-  const unsigned = `${headerB64}.${claimsB64}`;
-  const signature = await crypto.subtle.sign(
-    { name: 'ECDSA', hash: 'SHA-256' }, key,
-    new TextEncoder().encode(unsigned),
-  );
-  const token = `${unsigned}.${uint8ArrayToBase64Url(new Uint8Array(signature))}`;
-  apnsJwtCache = { token, issuedAt: now };
-  return token;
-}
-
 /**
- * Envoie une alerte APNs à un device token. Retry unique vers le host sandbox
- * sur BadDeviceToken (builds Xcode dev) ; 410/Unregistered supprime la ligne.
+ * Envoie une alerte APNs à un device token. Retry sandbox sur BadDeviceToken
+ * (builds Xcode dev) ; 410/Unregistered supprime la ligne.
  */
 // deno-lint-ignore no-explicit-any
 async function sendToApns(
@@ -193,63 +146,30 @@ async function sendToApns(
 ): Promise<'ok' | 'stale' | 'fail'> {
   // Topic par abonnement : app B2C ('ios') vs app Yuno Pro ('ios_pro').
   const topic = subscription.platform === 'ios_pro' ? APNS_TOPIC_PRO : APNS_TOPIC;
-  if (!APNS_TEAM_ID || !APNS_KEY_ID || !APNS_P8 || !topic) {
+  if (!apnsConfigured() || !topic) {
     console.error(`[APNs] Secrets APNS_* non configurés (platform=${subscription.platform}) — ligne ignorée`);
     return 'fail';
   }
   const deviceToken = subscription.endpoint.replace(/^apns:/, '');
-  const body = JSON.stringify({
-    aps: { alert: { title: payload.title, body: payload.body }, sound: 'default' },
-    url: payload.url,
+  const res = await sendApns({
+    deviceToken,
+    topic,
+    pushType: 'alert',
+    priority: 10,
+    payload: {
+      aps: { alert: { title: payload.title, body: payload.body }, sound: 'default' },
+      url: payload.url,
+    },
   });
 
-  const post = async (host: string) => {
-    const jwt = await getApnsJwt();
-    return await fetch(`${host}/3/device/${deviceToken}`, {
-      method: 'POST',
-      headers: {
-        'authorization': `bearer ${jwt}`,
-        'apns-topic': topic,
-        'apns-push-type': 'alert',
-        'apns-priority': '10',
-        'apns-expiration': String(Math.floor(Date.now() / 1000) + 86400),
-        'content-type': 'application/json',
-      },
-      body,
-    });
-  };
-
-  try {
-    let response = await post(APNS_HOST_PROD);
-    let reason = '';
-    if (!response.ok) {
-      reason = await response.json().then((j: { reason?: string }) => j?.reason ?? '').catch(() => '');
-      // Token émis par un build de dev (sandbox) : une seule retentative.
-      if (response.status === 400 && reason === 'BadDeviceToken') {
-        response = await post(APNS_HOST_SANDBOX);
-        if (!response.ok) {
-          reason = await response.json().then((j: { reason?: string }) => j?.reason ?? '').catch(() => '');
-        }
-      }
-    }
-
-    if (response.ok) return 'ok';
-    if (response.status === 410 || reason === 'Unregistered' || reason === 'BadDeviceToken') {
-      console.log(`[APNs] Removing stale ios token (HTTP ${response.status} ${reason}): ${deviceToken.slice(0, 12)}...`);
-      await supabase.from('push_subscriptions').delete().eq('id', subscription.id);
-      return 'stale';
-    }
-    if (response.status === 403) {
-      console.error(`[APNs] AUTH FAILURE (${reason}) — vérifier APNS_TEAM_ID/APNS_KEY_ID/APNS_P8`);
-      apnsJwtCache = null;
-      return 'fail';
-    }
-    console.error(`[APNs] Unexpected HTTP ${response.status} ${reason} for token ${deviceToken.slice(0, 12)}...`);
-    return 'fail';
-  } catch (error) {
-    console.error('[APNs] Error sending to token:', deviceToken.slice(0, 12), error);
-    return 'fail';
+  if (res.ok) return 'ok';
+  if (res.stale) {
+    console.log(`[APNs] Removing stale ios token (HTTP ${res.status} ${res.reason}): ${deviceToken.slice(0, 12)}...`);
+    await supabase.from('push_subscriptions').delete().eq('id', subscription.id);
+    return 'stale';
   }
+  console.error(`[APNs] Unexpected HTTP ${res.status} ${res.reason} for token ${deviceToken.slice(0, 12)}...`);
+  return 'fail';
 }
 
 /**
@@ -542,6 +462,146 @@ async function handleDjLineup(req: Request, supabase: any, vapidPublicKey: strin
   return new Response(JSON.stringify({ success: true, sent: totalSent, targeted: totalTargeted }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
 
+// ---------------------------------------------------------------------------
+// Live Activity — mise à jour du suivi de commande sur l'écran verrouillé /
+// Dynamic Island. Déclenché par le trigger DB trg_order_live_activity_push
+// (pg_net, x-cron-secret) à chaque changement de statut d'une commande qui a
+// une activité démarrée (ligne live_activity_tokens non terminée).
+// Miroir exact de la machine d'état de LiveOrderStatus.tsx.
+// PAS d'alert dans ces pushes : la bannière « commande prête » part déjà par
+// le push alert classique — l'activité, elle, se met à jour silencieusement.
+// ---------------------------------------------------------------------------
+// deno-lint-ignore no-explicit-any
+async function handleLiveActivityUpdate(supabase: any, body: any): Promise<Response> {
+  const orderId: string | undefined = body.order_id;
+  if (!orderId) {
+    return new Response(JSON.stringify({ error: 'order_id required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+  if (!APNS_TOPIC) {
+    return new Response(JSON.stringify({ error: 'APNS_TOPIC not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+
+  const { data: order } = await supabase
+    .from('orders')
+    .select('id, status, token, token_used, ready_at, served_at, items')
+    .eq('id', orderId)
+    .maybeSingle();
+  if (!order) {
+    return new Response(JSON.stringify({ error: 'order not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+
+  // Même machine d'état que displayStatus() côté client.
+  const status = order.served_at || order.status === 'served' || order.token_used
+    ? 'served'
+    : order.ready_at
+    ? 'ready'
+    : order.status === 'preparing' || order.status === 'confirmed'
+    ? 'preparing'
+    : 'pending';
+
+  const { data: tokens } = await supabase
+    .from('live_activity_tokens')
+    .select('id, push_token')
+    .eq('order_id', orderId)
+    .is('ended_at', null);
+  if (!tokens?.length) {
+    return new Response(JSON.stringify({ message: 'no live activity', sent: 0 }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+
+  const itemsSummary = ((order.items ?? []) as { name?: string; qty?: number; quantity?: number }[])
+    .map((i) => `${i.qty ?? i.quantity ?? 1}× ${i.name ?? ''}`)
+    .join(' · ')
+    .slice(0, 120);
+  const nowSec = Math.floor(Date.now() / 1000);
+  const ended = status === 'served';
+  const contentState = {
+    status,
+    pin: order.token ? String(order.token).slice(-4).toUpperCase() : null,
+    items: itemsSummary,
+  };
+
+  let sent = 0;
+  for (const row of tokens as { id: string; push_token: string }[]) {
+    const res = await sendApns({
+      deviceToken: row.push_token,
+      topic: `${APNS_TOPIC}.push-type.liveactivity`,
+      pushType: 'liveactivity',
+      priority: status === 'ready' ? 10 : 5,
+      payload: {
+        aps: {
+          timestamp: nowSec,
+          event: ended ? 'end' : 'update',
+          'content-state': contentState,
+          ...(ended ? { 'dismissal-date': nowSec + 30 * 60 } : {}),
+          // Filet : une activité qui ne reçoit plus rien s'affiche périmée
+          // après 2h (fin de préparation largement dépassée).
+          'stale-date': nowSec + 2 * 3600,
+          'relevance-score': status === 'ready' ? 100 : 50,
+        },
+      },
+    });
+    if (res.ok) sent++;
+    if (res.stale) {
+      await supabase.from('live_activity_tokens').delete().eq('id', row.id);
+    }
+  }
+
+  if (ended) {
+    await supabase.from('live_activity_tokens').update({ ended_at: new Date().toISOString() }).eq('order_id', orderId).is('ended_at', null);
+  }
+
+  console.log(`[LiveActivity] order ${orderId} → ${status} (${sent}/${tokens.length} pushed)`);
+  return new Response(JSON.stringify({ success: true, status, sent }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+}
+
+// ---------------------------------------------------------------------------
+// Apple Wallet — pousse « viens re-télécharger le pass » aux devices
+// enregistrés (web service PassKit de send-ticket-confirmation). Payload vide
+// par spécification Apple ; topic = Pass Type ID, PAS le bundle de l'app.
+// Déclenché par les triggers refund (pass voided) — Phase 5.
+// ---------------------------------------------------------------------------
+// deno-lint-ignore no-explicit-any
+async function handleWalletPassUpdate(supabase: any, body: any): Promise<Response> {
+  const serial: string | undefined = body.serial;
+  const passTypeId = Deno.env.get('WALLET_PASS_TYPE_ID');
+  if (!serial) {
+    return new Response(JSON.stringify({ error: 'serial required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+  if (!passTypeId) {
+    return new Response(JSON.stringify({ error: 'WALLET_PASS_TYPE_ID not configured' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+
+  const { data: regs } = await supabase
+    .from('wallet_pass_registrations')
+    .select('device_library_id, push_token')
+    .eq('pass_serial', serial);
+  if (!regs?.length) {
+    return new Response(JSON.stringify({ message: 'no registrations', sent: 0 }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+
+  let sent = 0;
+  for (const reg of regs as { device_library_id: string; push_token: string }[]) {
+    const res = await sendApns({
+      deviceToken: reg.push_token,
+      topic: passTypeId,
+      pushType: 'alert',
+      priority: 10,
+      payload: { aps: {} },
+    });
+    if (res.ok) sent++;
+    if (res.stale) {
+      await supabase
+        .from('wallet_pass_registrations')
+        .delete()
+        .eq('device_library_id', reg.device_library_id)
+        .eq('pass_serial', serial);
+    }
+  }
+
+  console.log(`[WalletPush] ${serial} → ${sent}/${regs.length} devices`);
+  return new Response(JSON.stringify({ success: true, sent }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -558,9 +618,28 @@ Deno.serve(async (req) => {
 
     const reqBody = await req.json();
 
+    // Appels privilégiés : service-role bearer (fns internes) OU x-cron-secret
+    // (triggers DB via pg_net — Vault, même pattern que les crons).
+    const authHeader = req.headers.get('Authorization') || '';
+    const bearer = authHeader.replace('Bearer ', '').trim();
+    const cronSecret = Deno.env.get('CRON_SECRET');
+    const isCronCall = !!cronSecret && req.headers.get('x-cron-secret') === cronSecret;
+    const isServiceCall =
+      (!!bearer && bearer === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')) || isCronCall;
+
     // A2: fan-out to a DJ's followers (geo-filtered) when added to a line-up.
     if (reqBody?.action === 'dj_lineup') {
       return await handleDjLineup(req, supabase, vapidPublicKey, vapidPrivateKey, reqBody);
+    }
+
+    // Live Activity + Wallet : triggers DB / appels internes uniquement.
+    if (reqBody?.action === 'live_activity_update' || reqBody?.action === 'wallet_pass_update') {
+      if (!isServiceCall) {
+        return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      return reqBody.action === 'live_activity_update'
+        ? await handleLiveActivityUpdate(supabase, reqBody)
+        : await handleWalletPassUpdate(supabase, reqBody);
     }
 
     // Default: send to a single user's subscriptions.
@@ -570,15 +649,6 @@ Deno.serve(async (req) => {
     // the public anon key could push arbitrary phishing to any user_id. Require the
     // service-role bearer OR an authenticated caller holding a privileged role.
     {
-      const authHeader = req.headers.get('Authorization') || '';
-      const bearer = authHeader.replace('Bearer ', '').trim();
-      // Deux chemins privilégiés : service-role bearer (fns internes) OU
-      // x-cron-secret (triggers DB via pg_net — Vault, même pattern que les
-      // crons ; le trigger Mode Live envoie le push de bienvenue par ici).
-      const cronSecret = Deno.env.get('CRON_SECRET');
-      const isCronCall = !!cronSecret && req.headers.get('x-cron-secret') === cronSecret;
-      const isServiceCall =
-        (!!bearer && bearer === Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')) || isCronCall;
       if (!isServiceCall) {
         const userClient = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
           global: { headers: { Authorization: authHeader } },
