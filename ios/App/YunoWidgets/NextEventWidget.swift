@@ -15,6 +15,18 @@ private let yunoBg = Color(red: 10 / 255, green: 10 / 255, blue: 10 / 255)
 private let appGroup = "group.eu.yunoapp.app"
 private let storageKey = "yuno.nextEvent"
 
+// containerBackground(for:.widget) est iOS 17+ ; la target descend à 16.2.
+private extension View {
+    @ViewBuilder
+    func yunoWidgetBackground(_ color: Color) -> some View {
+        if #available(iOSApplicationExtension 17.0, *) {
+            containerBackground(for: .widget) { color }
+        } else {
+            background(color)
+        }
+    }
+}
+
 struct NextEventData: Codable {
     let title: String
     let venueName: String
@@ -86,7 +98,7 @@ struct NextEventWidgetView: View {
 
     var body: some View {
         content
-            .containerBackground(for: .widget) { yunoBg }
+            .yunoWidgetBackground(yunoBg)
             .widgetURL(URL(string: entry.event == nil ? "yuno://open?path=/" : "yuno://open?path=/my-orders"))
     }
 

@@ -7,7 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1CFD16E35730EDA479F08CD1 /* MyViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 546E9CEE6C28A52F7E42DB5A /* MyViewController.swift */; };
+		22B7946304109E421AF2FF27 /* WalletSheetPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF92211749CC869C0E70C66C /* WalletSheetPlugin.swift */; };
+		2BE57958E344A24E7DFEFF97 /* YunoWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2FA9FB14FC7CF585E02C066 /* YunoWidgetsBundle.swift */; };
 		2FAD9763203C412B000D30F8 /* config.xml in Resources */ = {isa = PBXBuildFile; fileRef = 2FAD9762203C412B000D30F8 /* config.xml */; };
+		4B89BB46CF38C2D786E77F13 /* OrderActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C714AE6446ABFBB2C6FF1C6 /* OrderActivityWidget.swift */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
@@ -15,9 +19,40 @@
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
+		7164AE187C001C164929898A /* NextEventWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95A81FD20D65BC67498830AC /* NextEventWidget.swift */; };
+		7E311D8C91D84C7775379AAE /* OrderActivityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73892B95A104BB59201A20F2 /* OrderActivityPlugin.swift */; };
+		8382D6C9C52E5203FB18B942 /* OrderAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95CC8BEE96252FA5789F6015 /* OrderAttributes.swift */; };
+		9140297CAFB6F3CAF812A052 /* OrderAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95CC8BEE96252FA5789F6015 /* OrderAttributes.swift */; };
+		A87742904D55C663AE69311C /* YunoWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F637B8BFEB2A43E9F32FE230 /* YunoWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		BF90FD3CB780F8C4B567F47B /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A58A309E043B167FA667A7B5 /* Foundation.framework */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		90F67F191F7997B5C974F023 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 504EC2FC1FED79650016851F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D04E849E1EE0390ACA6CA584;
+			remoteInfo = YunoWidgets;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		1DE3F3B5520BD6AA4B78FDDE /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A87742904D55C663AE69311C /* YunoWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		1DC971E284B4EFC798A02E1E /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -27,8 +62,18 @@
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
+		546E9CEE6C28A52F7E42DB5A /* MyViewController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = MyViewController.swift; sourceTree = "<group>"; };
+		73892B95A104BB59201A20F2 /* OrderActivityPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OrderActivityPlugin.swift; sourceTree = "<group>"; };
+		8C714AE6446ABFBB2C6FF1C6 /* OrderActivityWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OrderActivityWidget.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		95A81FD20D65BC67498830AC /* NextEventWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NextEventWidget.swift; sourceTree = "<group>"; };
+		95CC8BEE96252FA5789F6015 /* OrderAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OrderAttributes.swift; sourceTree = "<group>"; };
+		A58A309E043B167FA667A7B5 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		B2FA9FB14FC7CF585E02C066 /* YunoWidgetsBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = YunoWidgetsBundle.swift; sourceTree = "<group>"; };
+		B88FACFA464BEB18EFE067A7 /* YunoWidgets.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = YunoWidgets.entitlements; sourceTree = "<group>"; };
+		CF92211749CC869C0E70C66C /* WalletSheetPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WalletSheetPlugin.swift; sourceTree = "<group>"; };
 		DA4A641F3001504A0057937B /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
+		F637B8BFEB2A43E9F32FE230 /* YunoWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = YunoWidgets.appex; path = YunoWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -40,15 +85,33 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		5D1CA7F3580496E0050A1A89 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BF90FD3CB780F8C4B567F47B /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		1ED84D6ACE898F5D5ACC63C9 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				A58A309E043B167FA667A7B5 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
 		504EC2FB1FED79650016851F = {
 			isa = PBXGroup;
 			children = (
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
 				504EC3061FED79650016851F /* App */,
 				504EC3051FED79650016851F /* Products */,
+				9E07E50B764D120A1A3E430A /* Frameworks */,
+				DFB5BE112F7C807D516AD752 /* YunoWidgets */,
 			);
 			sourceTree = "<group>";
 		};
@@ -56,6 +119,7 @@
 			isa = PBXGroup;
 			children = (
 				504EC3041FED79650016851F /* App.app */,
+				F637B8BFEB2A43E9F32FE230 /* YunoWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -72,8 +136,42 @@
 				504EC3131FED79650016851F /* Info.plist */,
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
+				5B4D18BB5FDBA836699AEC07 /* Plugins */,
 			);
 			path = App;
+			sourceTree = "<group>";
+		};
+		5B4D18BB5FDBA836699AEC07 /* Plugins */ = {
+			isa = PBXGroup;
+			children = (
+				73892B95A104BB59201A20F2 /* OrderActivityPlugin.swift */,
+				CF92211749CC869C0E70C66C /* WalletSheetPlugin.swift */,
+				546E9CEE6C28A52F7E42DB5A /* MyViewController.swift */,
+				95CC8BEE96252FA5789F6015 /* OrderAttributes.swift */,
+			);
+			name = Plugins;
+			path = Plugins;
+			sourceTree = "<group>";
+		};
+		9E07E50B764D120A1A3E430A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				1ED84D6ACE898F5D5ACC63C9 /* iOS */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		DFB5BE112F7C807D516AD752 /* YunoWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				B2FA9FB14FC7CF585E02C066 /* YunoWidgetsBundle.swift */,
+				8C714AE6446ABFBB2C6FF1C6 /* OrderActivityWidget.swift */,
+				95A81FD20D65BC67498830AC /* NextEventWidget.swift */,
+				1DC971E284B4EFC798A02E1E /* Info.plist */,
+				B88FACFA464BEB18EFE067A7 /* YunoWidgets.entitlements */,
+			);
+			name = YunoWidgets;
+			path = YunoWidgets;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -86,10 +184,12 @@
 				504EC3001FED79650016851F /* Sources */,
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
+				1DE3F3B5520BD6AA4B78FDDE /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				6BCE23B10A73938EAE97EE38 /* PBXTargetDependency */,
 			);
 			name = App;
 			packageProductDependencies = (
@@ -98,6 +198,23 @@
 			productName = App;
 			productReference = 504EC3041FED79650016851F /* App.app */;
 			productType = "com.apple.product-type.application";
+		};
+		D04E849E1EE0390ACA6CA584 /* YunoWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E1245CD753D80D69F5A5BCE6 /* Build configuration list for PBXNativeTarget "YunoWidgets" */;
+			buildPhases = (
+				A8B638B145A427C882F89057 /* Sources */,
+				5D1CA7F3580496E0050A1A89 /* Frameworks */,
+				415EFC66D889BDDE3BED6EAD /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = YunoWidgets;
+			productName = YunoWidgets;
+			productReference = F637B8BFEB2A43E9F32FE230 /* YunoWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -133,11 +250,19 @@
 			projectRoot = "";
 			targets = (
 				504EC3031FED79650016851F /* App */,
+				D04E849E1EE0390ACA6CA584 /* YunoWidgets */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		415EFC66D889BDDE3BED6EAD /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		504EC3021FED79650016851F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -159,10 +284,34 @@
 			buildActionMask = 2147483647;
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
+				7E311D8C91D84C7775379AAE /* OrderActivityPlugin.swift in Sources */,
+				22B7946304109E421AF2FF27 /* WalletSheetPlugin.swift in Sources */,
+				1CFD16E35730EDA479F08CD1 /* MyViewController.swift in Sources */,
+				9140297CAFB6F3CAF812A052 /* OrderAttributes.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A8B638B145A427C882F89057 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2BE57958E344A24E7DFEFF97 /* YunoWidgetsBundle.swift in Sources */,
+				4B89BB46CF38C2D786E77F13 /* OrderActivityWidget.swift in Sources */,
+				7164AE187C001C164929898A /* NextEventWidget.swift in Sources */,
+				8382D6C9C52E5203FB18B942 /* OrderAttributes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		6BCE23B10A73938EAE97EE38 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = YunoWidgets;
+			target = D04E849E1EE0390ACA6CA584 /* YunoWidgets */;
+			targetProxy = 90F67F191F7997B5C974F023 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		504EC30B1FED79650016851F /* Main.storyboard */ = {
@@ -351,6 +500,61 @@
 			};
 			name = Release;
 		};
+		CCF8185285DD29302712D279 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = YunoWidgets/YunoWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = A2WV4J86F9;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = YunoWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Yuno;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = eu.yunoapp.app.YunoWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D3E4D98F8EBC382DE22423C8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = YunoWidgets/YunoWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = A2WV4J86F9;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = YunoWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Yuno;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = eu.yunoapp.app.YunoWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -368,6 +572,15 @@
 			buildConfigurations = (
 				504EC3171FED79650016851F /* Debug */,
 				504EC3181FED79650016851F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E1245CD753D80D69F5A5BCE6 /* Build configuration list for PBXNativeTarget "YunoWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D3E4D98F8EBC382DE22423C8 /* Release */,
+				CCF8185285DD29302712D279 /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

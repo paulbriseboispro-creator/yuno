@@ -3,14 +3,14 @@
 // registerPluginInstance dans une sous-classe du bridge).
 //
 // TARGET MEMBERSHIP : App uniquement.
-// ⚠️ Dans Main.storyboard, régler la Custom Class du view controller sur
-// « MyViewController » (module App) — sinon ce fichier est ignoré et le
-// plugin OrderActivity n'existe pas côté JS.
+// Main.storyboard pointe sa Custom Class ici — sans ça, les plugins
+// OrderActivity et WalletSheet n'existent pas côté JS.
 import UIKit
 import Capacitor
 
 class MyViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(OrderActivityPlugin())
+        bridge?.registerPluginInstance(WalletSheetPlugin())
     }
 }
