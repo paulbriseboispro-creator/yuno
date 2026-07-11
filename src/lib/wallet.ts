@@ -1,9 +1,9 @@
 // Apple Wallet côté client — émission d'un pass (billet / table VIP) via le
 // routeur /wallet de send-ticket-confirmation, puis présentation :
-//  - natif iOS : SafariVC (@capacitor/browser) sur l'URL du pass — le WKWebView
-//    n'ouvre PAS les .pkpass ; SFSafariViewController présente la sheet d'ajout.
-//    (Phase 3 : le plugin capacitor-pass-to-wallet consommera `base64` pour
-//    une présentation in-app sans quitter l'app.)
+//  - natif iOS : sheet d'ajout IN-APP (PKAddPassesViewController via le plugin
+//    capacitor-pass-to-wallet, base64). Tant que le build natif n'embarque pas
+//    le pod (pré-Phase 3), l'appel échoue → repli SafariVC sur l'URL du pass —
+//    le WKWebView, lui, n'ouvre PAS les .pkpass.
 //  - web (Safari iOS/macOS) : navigation directe — le navigateur gère le MIME
 //    application/vnd.apple.pkpass.
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
@@ -28,6 +28,15 @@ export async function addToWallet(type: 'ticket' | 'table', id: string): Promise
   if (!result?.downloadUrl) throw new Error('no pass url');
 
   if (isNative()) {
+    if (result.base64) {
+      try {
+        const { CapacitorPassToWallet } = await import('capacitor-pass-to-wallet');
+        await CapacitorPassToWallet.addToWallet({ base64: result.base64 });
+        return;
+      } catch {
+        // Pod absent du build (pré-Phase 3) ou refus : repli SafariVC.
+      }
+    }
     const { Browser } = await import('@capacitor/browser');
     await Browser.open({ url: result.downloadUrl });
   } else {

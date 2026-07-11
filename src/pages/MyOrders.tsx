@@ -44,6 +44,7 @@ import { shareContent } from '@/lib/share';
 import { addToWallet } from '@/lib/wallet';
 import { haptics } from '@/lib/haptics';
 import { useWalletDetection } from '@/hooks/useWalletDetection';
+import { publishNextEventFromTickets } from '@/lib/widgetData';
 
 export default function MyOrders() {
   const { user, loading: authLoading } = useAuth();
@@ -434,6 +435,10 @@ export default function MyOrders() {
       }
 
       setTickets(formattedTickets);
+
+      // Widget « Prochaine soirée » (natif) : publie le prochain billet à
+      // venir dans le App Group — fire-and-forget, no-op web/Pro.
+      publishNextEventFromTickets(formattedTickets);
 
       // Generate QR code images
       for (const ticket of formattedTickets) {

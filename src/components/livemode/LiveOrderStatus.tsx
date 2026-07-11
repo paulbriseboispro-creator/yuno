@@ -11,6 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { transitions } from '@/lib/motion';
 import { celebrate } from '@/lib/celebrate';
+import { startOrderActivity, updateOrderActivity } from '@/lib/liveActivity';
 
 interface LiveOrder {
   id: string;
@@ -79,6 +80,9 @@ export function LiveOrderStatus({ eventId }: { eventId: string }) {
   // Haptic de succès quand UNE commande passe « prête » (transition observée,
   // pas l'état initial : une commande déjà prête au chargement ne vibre pas).
   // Visuel = la carte qui passe au vert ci-dessous — pas d'overlay.
+  // Live Activity (natif) : démarrée pour toute commande active vue ici,
+  // mise à jour localement au premier plan — le push serveur (trigger
+  // trg_order_live_activity_push) couvre le téléphone en poche.
   useEffect(() => {
     const prev = prevStatusRef.current;
     const next: Record<string, DisplayStatus> = {};
@@ -87,9 +91,23 @@ export function LiveOrderStatus({ eventId }: { eventId: string }) {
       const s = displayStatus(o);
       next[o.id] = s;
       if (s === 'ready' && prev[o.id] && prev[o.id] !== 'ready') becameReady = true;
+
+      const activityState = {
+        orderId: o.id,
+        title: t('live.orderStatus.title'),
+        status: s,
+        pin: o.token ? o.token.slice(-4).toUpperCase() : null,
+        items: (o.items ?? [])
+          .map((i) => `${i.qty ?? i.quantity ?? 1}× ${i.name ?? ''}`)
+          .join(' · ')
+          .slice(0, 120),
+      };
+      if (s !== 'served' && !prev[o.id]) void startOrderActivity(activityState);
+      else if (prev[o.id] && prev[o.id] !== s) updateOrderActivity(activityState);
     }
     prevStatusRef.current = next;
     if (becameReady) celebrate('orderReady');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orders]);
 
   // QR rendu localement depuis le token (offline-friendly une fois chargé).
