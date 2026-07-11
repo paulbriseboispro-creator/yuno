@@ -52,6 +52,16 @@ const KEYFRAMES = `
 @keyframes yn-fade  { to { opacity: 0; } }
 `;
 
+/* Compensation du zoom viewport (script <head> d'index.html) : sur les grands
+   iPhone, le viewport « baseline 390 » agrandit tout le contenu CSS de ~10 %.
+   Le Launch Screen natif (storyboard, 805 pt) et le loader inline d'index.html
+   sont calés en pt ÉCRAN — le splash doit donc réduire son logo du même
+   facteur, sinon la taille saute au raccord statique → animé. */
+function viewportZoom(): number {
+  const z = (window as unknown as { __yunoViewportScale?: number }).__yunoViewportScale;
+  return typeof z === 'number' && z > 0 ? z : 1;
+}
+
 function shouldShow(): boolean {
   if (played) return false;
   try {
@@ -133,6 +143,11 @@ export function SplashScreen() {
 
   if (!show || done) return null;
 
+  // 1 px CSS = `zoom` pt écran → on réduit le logo de 1/zoom pour retomber
+  // sur la taille exacte du launch screen statique (et du loader inline).
+  const zoom = viewportZoom();
+  const compensate = zoom !== 1 ? `scale(${1 / zoom})` : undefined;
+
   const exitAnim = exiting
     ? reduced
       ? `yn-fade ${FADE_MS}ms ease both`
@@ -175,7 +190,7 @@ export function SplashScreen() {
           left: '50%',
           width: 360,
           height: 360,
-          transform: 'translate(-50%,-50%)',
+          transform: compensate ? `translate(-50%,-50%) ${compensate}` : 'translate(-50%,-50%)',
           pointerEvents: 'none',
         }}
       >
@@ -193,7 +208,7 @@ export function SplashScreen() {
       </div>
 
       {/* logo : verre à martini (terminé) + mot-symbole (terminé) */}
-      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', transform: compensate }}>
         <svg width={212} height={265} viewBox="0 0 220 275" fill="none" style={{ overflow: 'visible' }}>
           <defs>
             <clipPath id="yn-bowl">

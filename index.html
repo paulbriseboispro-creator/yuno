@@ -31,11 +31,18 @@
               var scale = Math.min(deviceWidth / BASELINE, MAX_SCALE);
               var target = Math.round(deviceWidth / scale);
               vp.setAttribute('content', 'width=' + target + ', viewport-fit=cover');
+              // Zoom réellement appliqué (1 px CSS = __yunoViewportScale pt écran).
+              // Lu par le loader natif ci-dessous et SplashScreen.tsx pour que le
+              // logo garde la taille EXACTE du Launch Screen natif (en pt écran),
+              // sinon le raccord launch → splash saute visuellement (~10 %).
+              window.__yunoViewportScale = deviceWidth / target;
             } else {
               vp.setAttribute('content', DEFAULT);
+              window.__yunoViewportScale = 1;
             }
           } catch (e) {
             vp.setAttribute('content', DEFAULT);
+            window.__yunoViewportScale = 1;
           }
         }
         apply();
@@ -161,9 +168,14 @@
           if (location.protocol === 'capacitor:' && navigator.userAgent.indexOf('YunoPro') === -1) {
             var l = document.getElementById('initial-loader');
             if (l) {
+              // Compense le zoom viewport (script <head>) : le logo doit faire la
+              // même taille en pt ÉCRAN que le Launch Screen natif (storyboard),
+              // pas en px CSS agrandis. Sans ça, sur les grands iPhone le logo
+              // web est ~10 % plus grand que le statique → switch visible.
+              var z = window.__yunoViewportScale || 1;
               l.style.background = '#E51D2A';
               l.innerHTML =
-                '<div style="position:relative;display:flex;flex-direction:column;align-items:center;">' +
+                '<div style="position:relative;display:flex;flex-direction:column;align-items:center;transform:scale(' + (1 / z) + ');">' +
                 '<svg width="212" height="265" viewBox="0 0 220 275" fill="none" style="overflow:visible;">' +
                 '<path d="M 34 26 L 186 26 L 110 150 Z" stroke="#fff" stroke-width="15" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>' +
                 '<path d="M 110 150 L 110 216" stroke="#fff" stroke-width="15" stroke-linecap="round" fill="none"></path>' +
