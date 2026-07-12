@@ -5,7 +5,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { EventCardData } from './EventCard';
-import { eventPath } from '@/lib/eventUrl';
+import { eventTargetPath } from '@/lib/eventNavigation';
 
 const dfLocale = (language: string) => (language === 'fr' ? fr : language === 'es' ? es : enUS);
 
@@ -16,14 +16,7 @@ function priceLabel(event: EventCardData, t: (k: string) => string): string {
 }
 
 function navigateToEvent(event: EventCardData, navigate: ReturnType<typeof useNavigate>) {
-  if (event.isAffiliate && event.affiliateEventSlug) {
-    navigate(`/affiliate-event/${event.affiliateEventSlug}`);
-  } else if (event.isOrganizerLed || !event.venueSlug) {
-    navigate(eventPath(event));
-  } else {
-    sessionStorage.setItem('yuno_club_origin', 'explore');
-    navigate(`/club/${event.venueSlug}`);
-  }
+  navigate(eventTargetPath(event));
 }
 
 function CarouselCard({ event }: { event: EventCardData }) {

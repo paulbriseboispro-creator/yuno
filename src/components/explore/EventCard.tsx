@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFavorites } from '@/hooks/useFavorites';
-import { eventPath } from '@/lib/eventUrl';
+import { eventTargetPath } from '@/lib/eventNavigation';
 import { format } from 'date-fns';
 
 export interface EventCardData {
@@ -54,16 +54,7 @@ export function EventCard({ event }: { event: EventCardData }) {
     if (willActivate && !reduceMotion) setFavPop((k) => k + 1);
   };
 
-  const handleClick = () => {
-    if (event.isAffiliate && event.affiliateEventSlug) {
-      navigate(`/affiliate-event/${event.affiliateEventSlug}`);
-    } else if (event.isOrganizerLed || !event.venueSlug) {
-      navigate(eventPath(event));
-    } else {
-      sessionStorage.setItem('yuno_club_origin', 'explore');
-      navigate(`/club/${event.venueSlug}`);
-    }
-  };
+  const handleClick = () => navigate(eventTargetPath(event));
 
   return (
     <article

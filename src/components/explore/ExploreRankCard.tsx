@@ -4,17 +4,10 @@ import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { EventCardData } from './EventCard';
-import { eventPath } from '@/lib/eventUrl';
+import { eventTargetPath } from '@/lib/eventNavigation';
 
 function navigateToEvent(event: EventCardData, navigate: ReturnType<typeof useNavigate>) {
-  if (event.isAffiliate && event.affiliateEventSlug) {
-    navigate(`/affiliate-event/${event.affiliateEventSlug}`);
-  } else if (event.isOrganizerLed || !event.venueSlug) {
-    navigate(eventPath(event));
-  } else {
-    sessionStorage.setItem('yuno_club_origin', 'explore');
-    navigate(`/club/${event.venueSlug}`);
-  }
+  navigate(eventTargetPath(event));
 }
 
 export function ExploreRankCard({ event, rank }: { event: EventCardData; rank: number }) {

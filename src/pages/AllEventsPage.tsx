@@ -8,21 +8,14 @@ import { BottomNav } from '@/components/BottomNav';
 import { EventCardData } from '@/components/explore/EventCard';
 import { Tappable } from '@/components/motion';
 import { FilterPage, ExploreFilters, FilterDynamicData } from '@/components/explore/FilterPage';
-import { eventPath } from '@/lib/eventUrl';
+import { eventTargetPath } from '@/lib/eventNavigation';
 import { Seo } from '@/components/Seo';
 import { PublicPage } from '@/components/PublicPage';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function navigateToEvent(event: EventCardData, navigate: ReturnType<typeof useNavigate>) {
-  if (event.isAffiliate && event.affiliateEventSlug) {
-    navigate(`/affiliate-event/${event.affiliateEventSlug}`);
-  } else if (event.isOrganizerLed || !event.venueSlug) {
-    navigate(eventPath(event));
-  } else {
-    sessionStorage.setItem('yuno_club_origin', 'explore');
-    navigate(`/club/${event.venueSlug}`);
-  }
+  navigate(eventTargetPath(event));
 }
 
 type TFn = (key: string) => string;
