@@ -18,6 +18,13 @@ const BodySchema = z.object({
   message_body: z.string().min(1).max(1600),
   segment_type: z.enum(["all", "event", "vip"]),
   event_id: z.string().uuid().optional().nullable(),
+  // Multi-langue par destinataire (variante générée par l'IA appliquée dans les
+  // 3 langues) : chacun reçoit sa langue, message_body reste le fallback.
+  body_i18n: z.object({
+    en: z.string().min(1).max(1600).optional(),
+    fr: z.string().min(1).max(1600).optional(),
+    es: z.string().min(1).max(1600).optional(),
+  }).optional().nullable(),
 });
 
 serve(async (req) => {
@@ -125,6 +132,27 @@ serve(async (req) => {
     const twilioBasicAuth = btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`);
     const statusCallback = `${SUPABASE_URL}/functions/v1/sms-twilio-status-webhook`;
 
+    // Multi-langue : la langue de chaque destinataire vient de son profil
+    // (fallback 'fr', même convention que les push automations). Les
+    // destinataires sans compte (phone seul) reçoivent le message composé.
+    const i18n = input.body_i18n ?? null;
+    const userLang = new Map<string, string>();
+    if (i18n) {
+      const userIds = recipients
+        .map((r: { user_id?: string | null }) => r.user_id)
+        .filter((id: string | null | undefined): id is string => !!id);
+      for (let i = 0; i < userIds.length; i += 500) {
+        const { data: profs } = await admin
+          .from("profiles").select("id, preferred_language").in("id", userIds.slice(i, i + 500));
+        for (const p of profs ?? []) userLang.set(p.id, p.preferred_language || "fr");
+      }
+    }
+    const bodyFor = (userId: string | null | undefined): string => {
+      if (!i18n) return input.message_body;
+      const lang = (userId && userLang.get(userId)) || "fr";
+      return (i18n as Record<string, string | undefined>)[lang] || input.message_body;
+    };
+
     let sentCount = 0;
     let failedCount = 0;
 
@@ -139,13 +167,15 @@ serve(async (req) => {
         continue;
       }
 
+      const localizedBody = bodyFor(recipient.user_id);
+
       // Insert log
       const { data: log } = await admin.from("sms_logs").insert({
         venue_id: input.venue_id,
         organizer_id: null,
         target_user_id: recipient.user_id ?? null,
         to_phone: recipient.phone_e164,
-        body: input.message_body,
+        body: localizedBody,
         status: "queued",
         purpose: "campaign",
         campaign_id: input.campaign_id,
@@ -158,7 +188,7 @@ serve(async (req) => {
       const twilioParams = new URLSearchParams({
         To: recipient.phone_e164,
         From: TWILIO_PHONE_NUMBER,
-        Body: input.message_body,
+        Body: localizedBody,
         StatusCallback: statusCallback,
       });
       const twilioRes = await fetch(

@@ -235,6 +235,9 @@ export default function OwnerSmsCampaigns() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState('');
   const [body, setBody] = useState('');
+  // Variante IA appliquée dans les 3 langues : chaque destinataire recevra la
+  // sienne. Purgé dès que l'owner édite le texte (il divergerait des 2 autres).
+  const [bodyI18n, setBodyI18n] = useState<Record<string, string> | null>(null);
   const [segmentType, setSegmentType] = useState<'all' | 'event' | 'vip'>('all');
   const [selectedEventId, setSelectedEventId] = useState<string>('');
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
@@ -345,6 +348,7 @@ export default function OwnerSmsCampaigns() {
   const resetDialog = () => {
     setName('');
     setBody('');
+    setBodyI18n(null);
     setSegmentType('all');
     setSelectedEventId('');
     setRecipientCount(null);
@@ -370,6 +374,7 @@ export default function OwnerSmsCampaigns() {
           created_by: (await supabase.auth.getUser()).data.user!.id,
           name: name.trim(),
           body_template: body.trim(),
+          ...(bodyI18n ? { body_i18n: bodyI18n } : {}),
           segment_filters: { type: segmentType, ...(segmentType === 'event' ? { event_id: selectedEventId } : {}) },
           estimated_recipients: count,
           estimated_credits: count,
@@ -378,7 +383,11 @@ export default function OwnerSmsCampaigns() {
         .select('id').single();
       if (campaignErr || !campaign) throw new Error(t('smsCampaigns.errorCreateCampaign'));
       const { data: result, error: sendErr } = await supabase.functions.invoke('send-sms-campaign', {
-        body: { campaign_id: campaign.id, venue_id: venueId, message_body: body.trim(), segment_type: segmentType, event_id: segmentType === 'event' ? selectedEventId : null },
+        body: {
+          campaign_id: campaign.id, venue_id: venueId, message_body: body.trim(),
+          segment_type: segmentType, event_id: segmentType === 'event' ? selectedEventId : null,
+          ...(bodyI18n ? { body_i18n: bodyI18n } : {}),
+        },
       });
       if (sendErr) throw new Error(sendErr.message);
       if (result?.error) throw new Error(result.message ?? result.error);
@@ -587,17 +596,33 @@ export default function OwnerSmsCampaigns() {
                   ref={textareaRef}
                   placeholder={t('smsCampaigns.messagePlaceholder')}
                   value={body}
-                  onChange={(e) => setBody(e.target.value)}
+                  onChange={(e) => { setBody(e.target.value); setBodyI18n(null); }}
                   rows={4}
                   maxLength={MAX_SMS_CHARS}
                   className="bg-surface/40 border-white/[0.08] resize-none"
                 />
-                <div className="flex justify-end pt-1">
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  {bodyI18n ? (
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="shrink-0 rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wider text-emerald-400">
+                        EN · FR · ES
+                      </span>
+                      <span className="truncate text-[11px] text-muted-foreground">{t('ownerPush.multilangHint')}</span>
+                    </div>
+                  ) : <span />}
                   <AIContentGenerator
                     channel="sms"
                     eventId={segmentType === 'event' ? selectedEventId || null : null}
                     segment={segmentType}
-                    onApply={(c) => setBody(c.body.slice(0, MAX_SMS_CHARS))}
+                    onApply={(c) => { setBody(c.body.slice(0, MAX_SMS_CHARS)); setBodyI18n(null); }}
+                    onApplyAll={(v, lang) => {
+                      setBody(v[lang].body.slice(0, MAX_SMS_CHARS));
+                      setBodyI18n({
+                        en: v.en.body.slice(0, MAX_SMS_CHARS),
+                        fr: v.fr.body.slice(0, MAX_SMS_CHARS),
+                        es: v.es.body.slice(0, MAX_SMS_CHARS),
+                      });
+                    }}
                   />
                 </div>
               </div>
