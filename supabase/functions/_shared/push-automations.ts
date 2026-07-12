@@ -45,6 +45,12 @@ const AUTOMATIONS: Record<string, AutomationConfig> = {
     en: { title: "⚡ {event} — almost sold out", body: "The last tickets are going fast at {venue}. Grab yours." },
     es: { title: "⚡ {event} — casi agotado", body: "Las últimas entradas vuelan en {venue}. Consigue la tuya." },
   },
+  drinks_preorder: {
+    scope: "event_tickets",
+    fr: { title: "🍸 Ce soir : zéro file au bar", body: "{event} — commande tes boissons dans l'app dès maintenant, elles t'attendent au {venue}." },
+    en: { title: "🍸 Tonight: skip the bar queue", body: "{event} — order your drinks in the app now, they'll be waiting at {venue}." },
+    es: { title: "🍸 Esta noche: sin cola en la barra", body: "{event} — pide tus copas en la app ahora, te esperan en {venue}." },
+  },
 };
 
 function render(text: string, vars: { event: string; venue: string }): string {
@@ -138,10 +144,13 @@ export async function dispatchPushAutomations(
     if (!cfg) continue;
 
     const vars = { event: row.event_title || "", venue: row.venue_name || "" };
-    // event_live renvoie vers le Mode Live ; les autres vers la page soirée.
+    // event_live renvoie vers le Mode Live, drinks_preorder vers la page
+    // d'achat boissons de la soirée ; les autres vers la page soirée.
     const targetUrl = row.automation_key === "event_live"
       ? "/live"
-      : (row.event_slug ? `/events/${row.venue_id}/${row.event_slug}` : `/club/${row.venue_id}`);
+      : row.automation_key === "drinks_preorder"
+        ? `/order/upsell?event=${row.event_id}`
+        : (row.event_slug ? `/events/${row.venue_id}/${row.event_slug}` : `/club/${row.venue_id}`);
 
     // Insert de la campagne AVANT l'envoi : l'index unique (event_id, template_key)
     // WHERE source='auto' fait office de verrou anti-double-fire. En cas de

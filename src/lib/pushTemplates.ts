@@ -116,7 +116,8 @@ export type PushAutomationKey =
   | 'reminder_day_of'
   | 'event_live'
   | 'thank_you'
-  | 'almost_sold_out';
+  | 'almost_sold_out'
+  | 'drinks_preorder';
 
 export interface PushAutomation {
   key: PushAutomationKey;
@@ -167,6 +168,14 @@ export const PUSH_AUTOMATIONS: PushAutomation[] = [
     bodyKey: 'pushTpl.almostSoldOut.body',
     variables: ['event', 'venue'],
     audienceKey: 'ownerPush.audFollowers',
+  },
+  {
+    key: 'drinks_preorder',
+    emoji: '🍸',
+    titleKey: 'pushTpl.drinksPreorder.title',
+    bodyKey: 'pushTpl.drinksPreorder.body',
+    variables: ['event', 'venue'],
+    audienceKey: 'ownerPush.audEventTickets',
   },
 ];
 
