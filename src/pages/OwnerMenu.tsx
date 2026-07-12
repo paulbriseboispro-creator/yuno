@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, Reorder } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { Edit2, Plus, Upload, X, Trash2, Wine, Coffee, Package, GripVertical, Save, ChevronDown, Radio } from 'lucide-react';
+import { Edit2, Plus, Upload, X, Trash2, Wine, Coffee, Package, GripVertical, Save, ChevronDown, Radio, Sparkles } from 'lucide-react';
 import { Drink } from '@/types';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -191,6 +191,8 @@ export default function OwnerMenu() {
   const [togglingMenu, setTogglingMenu] = useState(false);
   const [liveModeEnabled, setLiveModeEnabled] = useState(true);
   const [togglingLive, setTogglingLive] = useState(false);
+  const [postUpsellEnabled, setPostUpsellEnabled] = useState(true);
+  const [togglingUpsell, setTogglingUpsell] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '', price: 0, promoPrice: null as number | null,
@@ -201,11 +203,12 @@ export default function OwnerMenu() {
 
   useEffect(() => {
     if (!venueId) return;
-    supabase.from('venues').select('click_collect_mode, menu_enabled, live_mode_enabled').eq('id', venueId).maybeSingle().then(({ data }) => {
+    supabase.from('venues').select('click_collect_mode, menu_enabled, live_mode_enabled, post_checkout_upsell_enabled' as 'click_collect_mode, menu_enabled, live_mode_enabled').eq('id', venueId).maybeSingle().then(({ data }) => {
       if (data) {
         setClickCollectMode(data.click_collect_mode === true);
         setMenuEnabled(data.menu_enabled !== false);
         setLiveModeEnabled((data as { live_mode_enabled?: boolean }).live_mode_enabled !== false);
+        setPostUpsellEnabled((data as { post_checkout_upsell_enabled?: boolean }).post_checkout_upsell_enabled !== false);
       }
     });
   }, [venueId]);
@@ -252,6 +255,22 @@ export default function OwnerMenu() {
       toast.success(newValue ? t('ownerMenu.liveMode.enabled') : t('ownerMenu.liveMode.disabled'));
     } catch (err) { toast.error(t('owner.errorSaving')); }
     finally { setTogglingLive(false); }
+  };
+
+  // Upsell post-achat : la page /order/upsell (boissons au prix presale juste
+  // après l'achat d'un billet). venues.post_checkout_upsell_enabled — opt-out,
+  // actif par défaut. Voir docs/SYSTEME_VENTE_BOISSONS.md.
+  const handleTogglePostUpsell = async () => {
+    if (!venueId || togglingUpsell) return;
+    setTogglingUpsell(true);
+    const newValue = !postUpsellEnabled;
+    try {
+      const { error } = await supabase.from('venues').update({ post_checkout_upsell_enabled: newValue } as never).eq('id', venueId);
+      if (error) throw error;
+      setPostUpsellEnabled(newValue);
+      toast.success(newValue ? t('ownerMenu.postUpsell.enabled') : t('ownerMenu.postUpsell.disabled'));
+    } catch (err) { toast.error(t('owner.errorSaving')); }
+    finally { setTogglingUpsell(false); }
   };
 
   useEffect(() => {
@@ -451,6 +470,19 @@ export default function OwnerMenu() {
                   <div style={{ color: T3, fontSize: 11 }}>{t('ownerMenu.liveMode.hint')}</div>
                 </div>
                 <Switch checked={liveModeEnabled} onCheckedChange={handleToggleLiveMode} disabled={togglingLive} />
+              </div>
+              {/* Upsell post-achat billet — page boissons prix presale après le checkout */}
+              <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
+                style={{
+                  background: postUpsellEnabled ? 'rgba(232,25,44,0.07)' : INNER_BG,
+                  border: `1px solid ${postUpsellEnabled ? 'rgba(232,25,44,0.25)' : BORDER}`,
+                }}>
+                <Sparkles className="w-4 h-4" style={{ color: postUpsellEnabled ? RED : T3 }} />
+                <div className="leading-tight">
+                  <div style={{ color: T2, fontSize: 12.5 }}>{t('ownerMenu.postUpsell.title')}</div>
+                  <div style={{ color: T3, fontSize: 11 }}>{t('ownerMenu.postUpsell.hint')}</div>
+                </div>
+                <Switch checked={postUpsellEnabled} onCheckedChange={handleTogglePostUpsell} disabled={togglingUpsell} />
               </div>
             </div>
           </div>
