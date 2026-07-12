@@ -461,6 +461,36 @@ serve(async (req) => {
       console.error("[SEND-TICKET-CONFIRMATION] wallet link skipped:", walletErr);
     }
 
+    // Éducation boissons (upsell post-achat) : uniquement pour les comptes
+    // connectés (la page /order/upsell exige une session), si le club vend des
+    // boissons et n'a pas coupé l'upsell. Best-effort — jamais bloquant.
+    let drinksUpsell: { url: string; presale: boolean } | undefined;
+    if (!isGuest && ticket.user_id && event?.venue_id) {
+      try {
+        const { data: venueFlags } = await supabaseAdmin
+          .from("venues")
+          .select("menu_enabled, post_checkout_upsell_enabled")
+          .eq("id", event.venue_id)
+          .maybeSingle();
+        if (venueFlags && venueFlags.menu_enabled !== false && venueFlags.post_checkout_upsell_enabled !== false) {
+          const { data: drinkRows } = await supabaseAdmin
+            .from("drinks")
+            .select("presale_active, presale_price")
+            .eq("venue_id", event.venue_id)
+            .eq("active", true)
+            .limit(30);
+          if (drinkRows && drinkRows.length > 0) {
+            drinksUpsell = {
+              url: `${appBaseUrl}/order/upsell?ticket=${ticketId}`,
+              presale: drinkRows.some((d) => d.presale_active && d.presale_price),
+            };
+          }
+        }
+      } catch (upsellErr) {
+        console.error("[SEND-TICKET-CONFIRMATION] drinks upsell section skipped:", upsellErr);
+      }
+    }
+
     const dp = fmtDateParts(event.start_at, lang);
     const mail = buildTicketConfirmation({
       attached: attachments.length > 0,
@@ -483,6 +513,7 @@ serve(async (req) => {
       recipientEmail: email,
       address: venueAddress || (addressDeferred ? addressDeferredText : undefined),
       walletUrl,
+      drinksUpsell,
     });
     const html = mail.html;
 

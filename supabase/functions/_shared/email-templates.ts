@@ -70,6 +70,8 @@ export function buildTicketConfirmation(d: {
   day: string; month: string; openTime?: string; city?: string;
   ticketType: string; price: string; reference: string; ticketUrl: string; recipientEmail?: string;
   qrDataUrl?: string; address?: string; attached?: boolean; walletUrl?: string;
+  /** Éducation boissons (upsell post-achat) : lien /order/upsell + presale actif ? */
+  drinksUpsell?: { url: string; presale: boolean };
 }): BuiltEmail {
   const lang = L(d.lang || 'en');
   const hi = d.firstName ? `${d.firstName}, ` : '';
@@ -104,6 +106,24 @@ export function buildTicketConfirmation(d: {
           fr: 'Ton billet + ton reçu sont en pièce jointe (PDF)',
           es: 'Tu entrada + tu recibo están adjuntos en PDF',
         }), C.gray3, 11)}` : ''}${d.walletUrl ? `<div style="height:20px"></div>${walletPill(p(lang, WALLET_LABEL), d.walletUrl)}` : ''}<div style="height:20px"></div>${ctaPill(p(lang, { en: 'View my ticket', fr: 'Voir mon billet', es: 'Ver mi entrada' }), d.ticketUrl)}`, { border: false }),
+      // Éducation boissons : le moment de plus forte intention (billet en main).
+      ...(d.drinksUpsell ? [section(
+        ruleLabel(p(lang, { en: '🍸 Skip the bar queue', fr: '🍸 Zéro file au bar', es: '🍸 Sin cola en la barra' })) +
+        `<div style="height:12px"></div>` +
+        body(d.drinksUpsell.presale
+          ? p(lang, {
+              en: 'Order your drinks ahead at the <strong style="color:' + C.white + '">presale price</strong> — show your QR at the bar that night, they\'re ready.',
+              fr: 'Commande tes boissons à l\'avance au <strong style="color:' + C.white + '">prix presale</strong> — montre ton QR au bar le soir même, c\'est servi.',
+              es: 'Pide tus copas por adelantado a <strong style="color:' + C.white + '">precio preventa</strong>: enseña tu QR en la barra esa noche y listo.',
+            })
+          : p(lang, {
+              en: 'Order your drinks in the app — show your QR at the bar that night, no queue.',
+              fr: 'Commande tes boissons dans l\'app — montre ton QR au bar le soir même, sans faire la file.',
+              es: 'Pide tus copas en la app: enseña tu QR en la barra esa noche, sin cola.',
+            })) +
+        `<div style="height:16px"></div>` +
+        ctaPill(p(lang, { en: 'Pre-order my drinks', fr: 'Commander mes boissons', es: 'Pedir mis copas' }), d.drinksUpsell.url),
+      )] : []),
       footer({ lang, venueName: d.venueName }),
     ].join(''),
   });
