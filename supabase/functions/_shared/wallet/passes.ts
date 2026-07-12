@@ -1,7 +1,9 @@
 // Constructeurs de pass.json — billets et tables VIP (tous deux eventTicket :
-// fond dégradé + logo blanc, en-tête type/formule, genre musical en champ).
-// Chargent les données, résolvent la langue du client (D6) et assemblent le
-// pass. La signature vit dans signer.ts ; les images dans assets.ts.
+// fond dégradé + wordmark blanc, en-tête type/formule, titre de soirée en héros
+// sans label, puis club/date et heure/places). Chargent les données, résolvent
+// la langue du client (D6) et assemblent le pass. La signature vit dans
+// signer.ts ; les images dans assets.ts (régénérables via
+// scripts/gen-wallet-assets.py).
 //
 // Leviers lock-screen des passes statiques :
 //  - relevantDate  = start_at   → le billet remonte sur l'écran verrouillé le soir J
@@ -64,9 +66,12 @@ function passShell(opts: {
     organizationName: 'Yuno',
     serialNumber: opts.serial,
     description: opts.description,
-    backgroundColor: 'rgb(10,10,10)',
+    backgroundColor: 'rgb(10,10,12)',
     foregroundColor: 'rgb(255,255,255)',
-    labelColor: 'rgb(232,25,44)',
+    // Rouge de marque éclairci : #E8192C pur tombe à ~2.9:1 sur le bas du
+    // dégradé, les labels y deviennent illisibles. Cette teinte reste
+    // identifiable Yuno et passe le seuil AA sur toute la hauteur du pass.
+    labelColor: 'rgb(255,90,104)',
     sharingProhibited: true,
     ...(opts.voided ? { voided: true } : {}),
     ...(opts.relevantDate ? { relevantDate: opts.relevantDate } : {}),
@@ -84,6 +89,33 @@ function passShell(opts: {
     ],
     webServiceURL: webServiceBase(),
     authenticationToken: opts.authToken,
+  };
+}
+
+/**
+ * Balises sémantiques PassKit — ce que Wallet comprend du pass au-delà du texte
+ * affiché : itinéraire vers le club dans Maps, météo du soir, rappel « c'est
+ * ce soir » sur l'écran verrouillé. Aucune incidence visuelle sur la face du
+ * pass, donc aucun risque de régression de mise en page.
+ */
+function eventSemantics(opts: {
+  eventName: string;
+  venueName: string;
+  startAt: string | null;
+  endAt: string | null;
+  location: { lat: number; lng: number } | null;
+}): Record<string, unknown> {
+  return {
+    semantics: {
+      eventType: 'PKEventTypeLivePerformance',
+      eventName: opts.eventName,
+      venueName: opts.venueName,
+      ...(opts.startAt ? { eventStartDate: opts.startAt } : {}),
+      ...(opts.endAt ? { eventEndDate: opts.endAt } : {}),
+      ...(opts.location
+        ? { venueLocation: { latitude: opts.location.lat, longitude: opts.location.lng } }
+        : {}),
+    },
   };
 }
 
@@ -153,12 +185,24 @@ export async function buildTicketPass(
       location,
       voided: ticket.status === 'refunded',
     }),
+    ...eventSemantics({
+      eventName: event.title,
+      venueName,
+      startAt: event.start_at || null,
+      endAt: event.end_at || null,
+      location,
+    }),
     eventTicket: {
       // Type de billet (round) en en-tête, comme "BILLET / First Round".
       headerFields: round
         ? [{ key: 'type', label: wl(lang, 'ticket'), value: round }]
         : [],
-      primaryFields: [{ key: 'event', label: wl(lang, 'event'), value: event.title }],
+      // Titre sans label : le nom de la soirée EST le héros du pass. Le libellé
+      // « ÉVÉNEMENT » ne dit rien qu'on ne voie déjà, et coûte une ligne rouge
+      // au-dessus du seul champ qui doit respirer.
+      primaryFields: [{ key: 'event', value: event.title }],
+      // Deux colonnes courtes : date et heure séparées, chacune tient sans
+      // troncature là où « 2 juin 2026 à 11:00 » écrasait le nom du club.
       secondaryFields: [
         { key: 'venue', label: wl(lang, 'venue'), value: venueName },
         ...(event.start_at
@@ -167,17 +211,28 @@ export async function buildTicketPass(
               label: wl(lang, 'date'),
               value: event.start_at,
               dateStyle: 'PKDateStyleMedium',
-              timeStyle: 'PKDateStyleShort',
+              timeStyle: 'PKDateStyleNone',
             }]
           : []),
       ],
       auxiliaryFields: [
-        ...(genre ? [{ key: 'genre', label: wl(lang, 'genre'), value: genre }] : []),
+        ...(event.start_at
+          ? [{
+              key: 'time',
+              label: wl(lang, 'arrival'),
+              value: event.start_at,
+              dateStyle: 'PKDateStyleNone',
+              timeStyle: 'PKDateStyleShort',
+            }]
+          : []),
         { key: 'qty', label: wl(lang, 'persons'), value: String(ticket.quantity || 1) },
       ],
+      // Le genre musical descend au dos : c'est du contexte, pas de
+      // l'information de porte. La face avant garde trois lignes, pas quatre.
       backFields: [
         { key: 'ref', label: wl(lang, 'reference'), value: reference },
         ...(ticket.full_name ? [{ key: 'holder', label: wl(lang, 'holder'), value: ticket.full_name }] : []),
+        ...(genre ? [{ key: 'genre', label: wl(lang, 'genre'), value: genre }] : []),
         { key: 'help', label: wl(lang, 'help'), value: 'https://yunoapp.eu/my-orders' },
       ],
     },
@@ -244,13 +299,20 @@ export async function buildVipPass(
       location,
       voided: resa.status === 'refunded',
     }),
-    // Table VIP : même style eventTicket que le billet (fond dégradé + logo),
-    // formule en en-tête, genre musical en champ (comme le billet).
+    ...eventSemantics({
+      eventName: event.title,
+      venueName,
+      startAt: event.start_at || null,
+      endAt: event.end_at || null,
+      location,
+    }),
+    // Table VIP : même grille que le billet (fond dégradé + logo, titre héros,
+    // formule en en-tête) — seul l'en-tête et le décompte d'invités changent.
     eventTicket: {
       headerFields: [
         { key: 'type', label: wl(lang, 'formula'), value: tableName || wl(lang, 'vipDescription') },
       ],
-      primaryFields: [{ key: 'event', label: wl(lang, 'event'), value: event.title }],
+      primaryFields: [{ key: 'event', value: event.title }],
       secondaryFields: [
         { key: 'venue', label: wl(lang, 'venue'), value: venueName },
         ...(event.start_at
@@ -259,17 +321,26 @@ export async function buildVipPass(
               label: wl(lang, 'date'),
               value: event.start_at,
               dateStyle: 'PKDateStyleMedium',
-              timeStyle: 'PKDateStyleShort',
+              timeStyle: 'PKDateStyleNone',
             }]
           : []),
       ],
       auxiliaryFields: [
-        ...(genre ? [{ key: 'genre', label: wl(lang, 'genre'), value: genre }] : []),
+        ...(event.start_at
+          ? [{
+              key: 'time',
+              label: wl(lang, 'arrival'),
+              value: event.start_at,
+              dateStyle: 'PKDateStyleNone',
+              timeStyle: 'PKDateStyleShort',
+            }]
+          : []),
         { key: 'guests', label: wl(lang, 'guests'), value: String(resa.guest_count || 1) },
       ],
       backFields: [
         { key: 'ref', label: wl(lang, 'reference'), value: reference },
         ...(resa.full_name ? [{ key: 'holder', label: wl(lang, 'holder'), value: resa.full_name }] : []),
+        ...(genre ? [{ key: 'genre', label: wl(lang, 'genre'), value: genre }] : []),
         { key: 'help', label: wl(lang, 'help'), value: 'https://yunoapp.eu/my-orders' },
       ],
     },
