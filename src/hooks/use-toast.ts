@@ -1,5 +1,6 @@
 import * as React from "react";
 
+import { haptics } from "@/lib/haptics";
 import type { ToastActionElement, ToastProps } from "@/components/ui/toast";
 
 const TOAST_LIMIT = 1;
@@ -136,6 +137,9 @@ type Toast = Omit<ToasterToast, "id">;
 
 function toast({ ...props }: Toast) {
   const id = genId();
+
+  // Une erreur se SENT : petit retour haptique d'échec sur les toasts destructifs.
+  if (props.variant === "destructive") haptics.error();
 
   const update = (props: ToasterToast) =>
     dispatch({
