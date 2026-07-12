@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
+import { haptics } from '@/lib/haptics';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFavoritesContext, FavoriteType, isSubscriptionType, type Favorite } from '@/contexts/FavoritesContext';
 
@@ -20,10 +21,21 @@ export function useFavorites() {
   const toggleFavorite = useCallback(
     async (type: FavoriteType, id: string) => {
       const sub = isSubscriptionType(type);
+
+      // Haptique ICI (et pas dans FavoriteButton) : les cœurs des cartes Explore,
+      // des pages affiliées et de Welcome appellent toggleFavorite EN DIRECT sans
+      // passer par le composant bouton — un haptique posé sur le bouton seul ne
+      // se déclenchait donc jamais sur la majorité des surfaces.
+      // Immédiat (avant l'await réseau) : le pouce doit sentir le tap, pas la latence.
+      const willActivate = !isFavorite(type, id);
+      if (willActivate) haptics.success();
+      else haptics.selection();
+
       try {
         const result = await toggleFavoriteInContext(type, id);
 
         if (result === 'login_required') {
+          haptics.error();
           toast.error(sub ? t('subscribe.loginRequired') : t('favorites.loginRequired'));
           return;
         }
@@ -35,10 +47,11 @@ export function useFavorites() {
         }
       } catch (error) {
         console.error('Error toggling favorite:', error);
+        haptics.error();
         toast.error(sub ? t('subscribe.error') : t('favorites.error'));
       }
     },
-    [t, toggleFavoriteInContext]
+    [t, toggleFavoriteInContext, isFavorite]
   );
 
   return {
