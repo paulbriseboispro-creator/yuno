@@ -10,6 +10,7 @@ import {
   YUNO_TICKET_TABLE_MIN_BDE as YUNO_COMMISSION_MIN_BDE,
 } from "../_shared/commission.ts";
 import { getAbsorbYunoFees } from "../_shared/merchant-fees.ts";
+import { recordSmsConsent } from "../_shared/sms-consent.ts";
 import { resolveAgeDeclaration, AgeDeclarationError, AGE_DECLARATION_REQUIRED_CODE } from "../_shared/age-declaration.ts";
 
 const corsHeaders = {
@@ -497,22 +498,22 @@ serve(async (req) => {
         }
       }
 
-      // Upsert SMS contact if buyer opted in
-      if (smsOptIn && event.venue_id && phone) {
-        const buyerPhone = phone.trim();
-        if (buyerPhone.startsWith('+')) {
-          await supabaseAdmin.from("venue_sms_contacts").upsert({
-            venue_id: event.venue_id,
-            user_id: user?.id ?? null,
-            phone_e164: buyerPhone,
-            full_name: fullName.trim(),
-            email: user?.email ?? email ?? null,
-            sms_consent_at: new Date().toISOString(),
-            consent_source: 'table_checkout',
-            source_event_id: event.id,
-            is_vip: true,
-          }, { onConflict: 'venue_id,phone_e164', ignoreDuplicates: false });
-        }
+      // Consentement SMS : profil de l'acheteur + liste VIP du club (helper partagé,
+      // même écriture que sur le chemin Stripe live via verify-table-payment).
+      // `guestEmail` et non `email` : ce dernier n'existe pas dans cette portée — la
+      // version précédente plantait sur un ReferenceError dès qu'un acheteur cochait
+      // la case SMS sur une table.
+      if (smsOptIn) {
+        await recordSmsConsent(supabaseAdmin, {
+          venueId: event.venue_id,
+          userId: user?.id ?? null,
+          phone,
+          fullName,
+          email: user?.email ?? guestEmail ?? null,
+          eventId: event.id,
+          isVip: true,
+          source: 'table_checkout',
+        });
       }
 
       // Create promoter conversion if applicable

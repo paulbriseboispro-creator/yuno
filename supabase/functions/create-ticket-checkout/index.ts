@@ -12,6 +12,7 @@ import {
   YUNO_TICKET_TABLE_MIN_BDE as YUNO_COMMISSION_MIN_BDE,
 } from "../_shared/commission.ts";
 import { getAbsorbYunoFees } from "../_shared/merchant-fees.ts";
+import { recordSmsConsent } from "../_shared/sms-consent.ts";
 
 // Production mode - payments go through Stripe Connect
 const TEST_MODE = false;
@@ -622,23 +623,18 @@ serve(async (req) => {
         throw new Error("Failed to create ticket");
       }
 
-      // Upsert SMS contact if buyer opted in and phone is available
-      if (smsOptIn && event.venue_id && (phone || guestPhone)) {
-        const buyerPhone = (phone || guestPhone || '').trim();
-        const buyerName = (fullName || guestFullName || '').trim();
-        if (buyerPhone.startsWith('+')) {
-          await supabaseAdmin.from("venue_sms_contacts").upsert({
-            venue_id: event.venue_id,
-            user_id: user?.id ?? null,
-            phone_e164: buyerPhone,
-            full_name: buyerName,
-            email: user?.email ?? guestEmail ?? null,
-            sms_consent_at: new Date().toISOString(),
-            consent_source: 'ticket_checkout',
-            source_event_id: event.id,
-            is_vip: false,
-          }, { onConflict: 'venue_id,phone_e164', ignoreDuplicates: false });
-        }
+      // Consentement SMS : profil de l'acheteur + liste du club (helper partagé,
+      // même écriture que sur le chemin Stripe live via verify-ticket-payment).
+      if (smsOptIn) {
+        await recordSmsConsent(supabaseAdmin, {
+          venueId: event.venue_id,
+          userId: user?.id ?? null,
+          phone: phone || guestPhone,
+          fullName: fullName || guestFullName,
+          email: user?.email ?? guestEmail ?? null,
+          eventId: event.id,
+          source: 'ticket_checkout',
+        });
       }
 
       // Update tickets_sold count - for group tickets, deduct groupSize per ticket

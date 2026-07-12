@@ -135,13 +135,15 @@ export default function TableCheckout() {
       if (!user) return;
       const { data: profile } = await supabase
         .from('profiles')
-        .select('first_name, last_name, phone')
+        .select('first_name, last_name, phone, phone_sms_opt_in')
         .eq('id', user.id)
         .single();
       if (profile) {
         const profileFullName = [profile.first_name, profile.last_name].filter(Boolean).join(' ');
         if (profileFullName) setFullName(profileFullName);
         if (profile.phone) setPhone(profile.phone);
+        // Consentement SMS déjà donné → la case repart cochée, on ne le redemande pas.
+        if (profile.phone_sms_opt_in) setSmsOptIn(true);
       }
       if (user.email) {
         setEmail(user.email);
@@ -150,6 +152,20 @@ export default function TableCheckout() {
     };
     fetchUserProfile();
   }, [user]);
+
+  // Mémorise la réponse SMS dès qu'elle est donnée (pas à la fin du paiement) :
+  // un checkout qui échoue ou un rechargement ne doit pas la faire oublier.
+  const handleSmsOptInChange = (value: boolean) => {
+    setSmsOptIn(value);
+    if (!user) return;
+    supabase
+      .from('profiles')
+      .update({ phone_sms_opt_in: value })
+      .eq('id', user.id)
+      .then(({ error }) => {
+        if (error) console.error('SMS opt-in persist failed:', error.message);
+      });
+  };
 
   useEffect(() => {
     if (eventId && packId) fetchData();
@@ -780,7 +796,7 @@ export default function TableCheckout() {
                     newsletterOptIn={newsletterOptIn}
                     onNewsletterChange={setNewsletterOptIn}
                     smsOptIn={smsOptIn}
-                    onSmsChange={setSmsOptIn}
+                    onSmsChange={handleSmsOptInChange}
                   />
                   <TermsAcceptance userId={user?.id} guestEmail={!user ? email : null} context="table" onAcceptedChange={setAcceptTerms} />
                 </form>

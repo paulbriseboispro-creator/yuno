@@ -128,10 +128,10 @@ export default function TicketCheckout() {
       
       const { data: profile } = await supabase
         .from('profiles')
-        .select('first_name, last_name, phone')
+        .select('first_name, last_name, phone, phone_sms_opt_in')
         .eq('id', user.id)
         .single();
-      
+
       if (profile) {
         const fullName = [profile.first_name, profile.last_name].filter(Boolean).join(' ');
         setAttendees(prev => {
@@ -145,6 +145,9 @@ export default function TicketCheckout() {
           return updated;
         });
         setConfirmEmail(user.email || '');
+        // Consentement SMS déjà donné une fois → on ne le redemande pas : la case
+        // repart cochée, comme la newsletter juste en dessous.
+        if (profile.phone_sms_opt_in) setSmsOptIn(true);
       }
 
       // Check if user already opted in to newsletter for any ticket
@@ -442,6 +445,22 @@ export default function TicketCheckout() {
   // a doc, or a minor whose signed authorization has been uploaded. No date, or a
   // minor on an adults-only event, keeps the pay button in its "incomplete" state.
   const minorGateBlocked = !minorGateReady;
+
+  // Consentement SMS : la réponse est écrite sur le profil AU MOMENT où elle est
+  // donnée, pas à la fin du paiement. Un checkout qui échoue (ou un rechargement)
+  // ne doit pas la perdre — c'est ce qui obligeait à recocher la case à chaque
+  // tentative. Best-effort : une écriture qui échoue ne bloque jamais l'achat.
+  const handleSmsOptInChange = (value: boolean) => {
+    setSmsOptIn(value);
+    if (!user) return; // invité : pas de profil où mémoriser la réponse
+    supabase
+      .from('profiles')
+      .update({ phone_sms_opt_in: value })
+      .eq('id', user.id)
+      .then(({ error }) => {
+        if (error) console.error('SMS opt-in persist failed:', error.message);
+      });
+  };
 
   // Hide insurance if event < 24h away or venue disabled it
   const hoursUntilEvent = event ? (new Date(event.startAt).getTime() - Date.now()) / (1000 * 60 * 60) : Infinity;
@@ -958,7 +977,7 @@ export default function TicketCheckout() {
               newsletterOptIn={newsletterOptIn}
               onNewsletterChange={setNewsletterOptIn}
               smsOptIn={smsOptIn}
-              onSmsChange={setSmsOptIn}
+              onSmsChange={handleSmsOptInChange}
               showNewsletter={!alreadyOptedIn}
             />
 

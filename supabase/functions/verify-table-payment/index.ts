@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from 'https://esm.sh/stripe@18.5.0';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
+import { recordSmsConsent } from '../_shared/sms-consent.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -110,6 +111,23 @@ serve(async (req) => {
 
       const resolvedVenueId = event?.venue_id ?? event?.partner_venue_id ?? null;
       const resolvedOrganizerId = event?.organizer_user_id ?? event?.partner_organizer_id ?? null;
+
+      // Consentement SMS marketing — même correctif que côté billets : le chemin
+      // Stripe live ne l'enregistrait nulle part, seul le mode démo alimentait la
+      // liste du club. Profil + liste VIP du club, une seule fois, au paiement.
+      if (reservation.sms_opt_in === true) {
+        await recordSmsConsent(supabaseAdmin, {
+          venueId: resolvedVenueId,
+          userId: effectiveUserId,
+          phone: reservation.phone || reservation.guest_phone,
+          fullName: reservation.full_name,
+          email: reservation.user_email,
+          eventId: reservation.event_id,
+          isVip: true,
+          source: 'table_checkout',
+        });
+        logStep("SMS consent recorded", { reservationId });
+      }
 
       // Create invoice (works for solo + co-events of all kinds)
       if (resolvedVenueId || resolvedOrganizerId) {

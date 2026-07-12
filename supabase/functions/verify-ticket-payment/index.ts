@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from 'https://esm.sh/stripe@18.5.0';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { restrictedCorsHeaders } from '../_shared/cors.ts';
+import { recordSmsConsent } from '../_shared/sms-consent.ts';
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -120,6 +121,23 @@ serve(async (req) => {
 
       // ── Side effects: run EXACTLY ONCE, gated by the atomic transition above ──
       if (didTransition) {
+
+      // Consentement SMS marketing. Le chemin Stripe live ne l'enregistrait nulle
+      // part : la case cochée au checkout atterrissait dans tickets.sms_opt_in et
+      // s'arrêtait là — le club ne recevait jamais le contact, et le profil de
+      // l'acheteur ne gardait aucune trace (d'où la case à recocher à chaque fois).
+      if (ticket.sms_opt_in === true) {
+        await recordSmsConsent(supabaseAdmin, {
+          venueId: session.metadata?.venueId || null,
+          userId: effectiveUserId,
+          phone: ticket.phone || ticket.guest_phone,
+          fullName: ticket.full_name,
+          email: ticket.user_email,
+          eventId: session.metadata?.eventId || ticket.event_id,
+          source: 'ticket_checkout',
+        });
+        logStep("SMS consent recorded", { ticketId });
+      }
 
       // Create free drink credits if ticket round includes_drink
       try {
