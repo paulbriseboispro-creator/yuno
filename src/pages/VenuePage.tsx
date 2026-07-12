@@ -178,23 +178,22 @@ export default function VenuePage() {
     }
 
     const fetchVenue = async () => {
+      // Timeout dur à 10s : une requête qui ne résout jamais (WebView natif
+      // qui sort de veille, réseau boîte de nuit) ne doit JAMAIS laisser un
+      // skeleton noir infini — on tombe sur l'état d'erreur + réessayer.
+      const abort = new AbortController();
+      const timer = setTimeout(() => abort.abort(), 10000);
       try {
         setLoadError(false);
         // Anon visitors only have column-level GRANTs on the public subset of
         // `venues` (see publicColumns.ts). select('*') here returns HTTP 401 for
         // logged-out guests → the whole club page falls back to "not found".
-        // Timeout dur à 10s : une requête qui ne résout jamais (WebView natif
-        // qui sort de veille, réseau boîte de nuit) ne doit JAMAIS laisser un
-        // skeleton noir infini — on tombe sur l'état d'erreur + réessayer.
-        const query = supabase
+        const { data, error } = await supabase
           .from('venues')
           .select(PUBLIC_VENUE_COLUMNS)
           .eq('id', slug)
+          .abortSignal(abort.signal)
           .maybeSingle();
-        const { data, error } = await Promise.race([
-          Promise.resolve(query),
-          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('venue fetch timeout')), 10000)),
-        ]);
 
         if (error) throw error;
 
@@ -230,6 +229,7 @@ export default function VenuePage() {
         // Erreur réseau/timeout : proposer de réessayer plutôt qu'un faux 404.
         setLoadError(true);
       } finally {
+        clearTimeout(timer);
         setVenueLoading(false);
       }
     };
