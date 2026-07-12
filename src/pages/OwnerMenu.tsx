@@ -203,12 +203,12 @@ export default function OwnerMenu() {
 
   useEffect(() => {
     if (!venueId) return;
-    supabase.from('venues').select('click_collect_mode, menu_enabled, live_mode_enabled, post_checkout_upsell_enabled' as 'click_collect_mode, menu_enabled, live_mode_enabled').eq('id', venueId).maybeSingle().then(({ data }) => {
+    supabase.from('venues').select('click_collect_mode, menu_enabled, live_mode_enabled, post_checkout_upsell_enabled').eq('id', venueId).maybeSingle().then(({ data }) => {
       if (data) {
         setClickCollectMode(data.click_collect_mode === true);
         setMenuEnabled(data.menu_enabled !== false);
-        setLiveModeEnabled((data as { live_mode_enabled?: boolean }).live_mode_enabled !== false);
-        setPostUpsellEnabled((data as { post_checkout_upsell_enabled?: boolean }).post_checkout_upsell_enabled !== false);
+        setLiveModeEnabled(data.live_mode_enabled !== false);
+        setPostUpsellEnabled(data.post_checkout_upsell_enabled !== false);
       }
     });
   }, [venueId]);
@@ -265,7 +265,7 @@ export default function OwnerMenu() {
     setTogglingUpsell(true);
     const newValue = !postUpsellEnabled;
     try {
-      const { error } = await supabase.from('venues').update({ post_checkout_upsell_enabled: newValue } as never).eq('id', venueId);
+      const { error } = await supabase.from('venues').update({ post_checkout_upsell_enabled: newValue }).eq('id', venueId);
       if (error) throw error;
       setPostUpsellEnabled(newValue);
       toast.success(newValue ? t('ownerMenu.postUpsell.enabled') : t('ownerMenu.postUpsell.disabled'));

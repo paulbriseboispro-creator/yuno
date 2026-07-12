@@ -27,13 +27,11 @@ export function DrinksUpsellCard({ ticketId, venueId, eventId }: DrinksUpsellCar
     let cancelled = false;
     (async () => {
       try {
-        // post_checkout_upsell_enabled pas encore dans types.ts (généré après
-        // db push) → cast, même pattern que la page upsell.
-        const { data: venue } = (await supabase
+        const { data: venue } = await supabase
           .from('venues')
           .select('menu_enabled, post_checkout_upsell_enabled')
           .eq('id', venueId)
-          .maybeSingle()) as unknown as { data: { menu_enabled: boolean | null; post_checkout_upsell_enabled: boolean | null } | null };
+          .maybeSingle();
         if (!venue || venue.menu_enabled === false || venue.post_checkout_upsell_enabled === false) return;
 
         // Déjà une commande boissons pour cette soirée ? Pas de relance.

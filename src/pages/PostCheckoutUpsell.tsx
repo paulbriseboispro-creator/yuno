@@ -131,13 +131,11 @@ export default function PostCheckoutUpsell() {
           .maybeSingle();
         if (!ev || !ev.venue_id || ev.alcohol_free) { if (!cancelled) exitToConfirmation(tid); return; }
 
-        // post_checkout_upsell_enabled n'est pas encore dans types.ts (généré
-        // après db push) → cast, même pattern que live_mode_enabled à son ajout.
-        const { data: venue } = (await supabase
+        const { data: venue } = await supabase
           .from('venues')
           .select('id, name, menu_enabled, post_checkout_upsell_enabled, absorb_yuno_fees')
           .eq('id', ev.venue_id)
-          .maybeSingle()) as unknown as { data: { id: string; name: string; menu_enabled: boolean | null; post_checkout_upsell_enabled: boolean | null; absorb_yuno_fees: boolean | null } | null };
+          .maybeSingle();
         if (!venue || venue.menu_enabled === false || venue.post_checkout_upsell_enabled === false) {
           if (!cancelled) exitToConfirmation(tid);
           return;
