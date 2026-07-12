@@ -196,7 +196,8 @@ export function LiveOrderStatus({ eventId }: { eventId: string }) {
                 )}
               </div>
 
-              {/* Timeline 3 étapes */}
+              {/* Timeline 3 étapes — libellés sous chaque barre pour qu'un
+                  client qui découvre Yuno comprenne le pipeline sans aide */}
               <div className="mt-3 flex items-center gap-1.5">
                 {STATUS_STEPS.map((step, i) => (
                   <div
@@ -211,6 +212,27 @@ export function LiveOrderStatus({ eventId }: { eventId: string }) {
                           : 'rgba(255,255,255,0.10)',
                     }}
                   />
+                ))}
+              </div>
+              <div className="mt-1.5 flex items-center gap-1.5">
+                {STATUS_STEPS.map((step, i) => (
+                  <span
+                    key={step}
+                    className="flex-1 text-center font-mono uppercase truncate"
+                    style={{
+                      fontSize: 8,
+                      letterSpacing: '0.06em',
+                      fontWeight: i === stepIndex ? 700 : 600,
+                      color:
+                        i === stepIndex
+                          ? status === 'ready' ? '#34D399' : '#E8192C'
+                          : i < stepIndex
+                            ? 'rgba(255,255,255,0.65)'
+                            : 'rgba(255,255,255,0.30)',
+                    }}
+                  >
+                    {t(`live.orderStatus.step_${step}`)}
+                  </span>
                 ))}
               </div>
               {itemsSummary && (

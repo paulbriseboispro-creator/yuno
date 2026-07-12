@@ -166,9 +166,9 @@ struct OrderActivityWidget: Widget {
                             Text(context.state.items)
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.white)
-                                .lineLimit(1)
+                                .lineLimit(2)
                         }
-                        StepsBar(status: context.state.status)
+                        StepsBar(status: context.state.status, showLabels: true)
                         if context.state.status == "ready", let pin = context.state.pin {
                             Text(pin)
                                 .font(.system(size: 15, weight: .bold, design: .monospaced))
@@ -194,7 +194,7 @@ struct OrderActivityWidget: Widget {
                 Image(systemName: context.state.status == "ready" ? "checkmark.circle.fill" : "wineglass.fill")
                     .foregroundColor(statusColor(context.state.status))
             }
-            .widgetURL(URL(string: "yuno://open?path=/live"))
+            .widgetURL(URL(string: "yuno://open?path=/my-orders"))
             .keylineTint(yunoRed)
         }
     }
