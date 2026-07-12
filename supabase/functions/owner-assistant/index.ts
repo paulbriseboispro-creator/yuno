@@ -316,11 +316,17 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     path: "/owner/hype",
     snippet: "Dans l'analyse post-soirée (page Hype), la carte « Analyse IA de la soirée » transforme les chiffres en 5 enseignements et 3 actions concrètes pour la prochaine fois (marketing, tarifs, opérations, expérience). L'analyse n'utilise QUE tes chiffres réels et te dit honnêtement quand les données sont trop maigres. Elle est mise en cache et ne se régénère que si les chiffres changent.",
   },
+  "ai-dj-matching": {
+    title: "Les DJs qui collent à ta soirée",
+    keywords: ["dj", "booking", "matching", "affinité", "ia", "ai", "recommandation dj", "trouver un dj", "book a dj", "marketplace"],
+    path: "/owner/book-dj",
+    snippet: "Sur la page Booking DJ, le bandeau « Les DJs qui collent à ta soirée » compare l'univers de ta soirée (titre, genres, ambiance, lieu) à celui de chaque DJ (nom de scène, genres, bio, ville) et sort les meilleurs profils avec un pourcentage d'affinité. Sélectionne la soirée concernée dans le menu déroulant. C'est complémentaire au classement du marketplace (qui remonte les profils les mieux tenus) : ici c'est l'affinité musicale qui parle. Le cachet, la dispo et le feeling restent ton jugement.",
+  },
   "ai-recommendations": {
     title: "Recommandations personnalisées côté client",
-    keywords: ["recommandation", "pour toi", "for you", "personnalisé", "découverte", "explore", "visibilité", "reco"],
+    keywords: ["recommandation", "pour toi", "for you", "personnalisé", "découverte", "explore", "visibilité", "reco", "recherche"],
     path: "/owner/events",
-    snippet: "Les clients voient une section « Pour toi » dans Explorer : des soirées recommandées selon leurs achats et favoris. Tes événements y apparaissent automatiquement s'ils sont publics et découvrables — aucune configuration requise. Plus tes fiches événement sont complètes (titre, genres musicaux, description), mieux elles matchent avec les bons clients.",
+    snippet: "Les clients voient une section « Pour toi » dans Explorer : des soirées recommandées selon leurs achats et favoris. Tes événements y apparaissent automatiquement s'ils sont publics et découvrables — aucune configuration requise. La recherche des clients repêche aussi tes soirées par le SENS de leur requête quand les mots-clés ne donnent rien. Dans les deux cas : plus tes fiches événement sont complètes (titre, genres musicaux, description), mieux elles matchent avec les bons clients.",
   },
 };
 

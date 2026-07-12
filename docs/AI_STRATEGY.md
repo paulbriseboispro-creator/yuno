@@ -189,9 +189,9 @@ Impact et effort sur 3 étoiles. « Dép. » = dépendances.
 |---|---|---|---|---|
 | ~~**Next-best-action owner**~~ **LIVRÉ 2026-07-10** — carte « À faire aujourd'hui » sur le dashboard | ★★★ | ★★ | QW1 + QW2 | Action `generate_next_best_actions` (état réel : remplissage 14 j, dernier push/email, clients à risque, automations) → 3 actions priorisées, liens contraints par enum, cache `venue_ai_actions` 1/jour |
 | **Weekly digest owner narratif** | ★★ | ★★ | QW2 + kit email | Requalifié : `weekly-digest` existante est un push **B2C** (« Ton week-end commence ici »), pas un canal owner. Le bon canal est l'email (les owners vivent dans l'email, pas dans les push B2C) → à replier dans le chantier de câblage du kit email. La carte « À faire aujourd'hui » couvre déjà le besoin quotidien |
-| ~~**Envoi campagnes multi-langue par destinataire**~~ **LIVRÉ 2026-07-10** (push) | ★★ | ★ | QW1 | `push_campaigns.title_i18n/body_i18n` + résolution `preferred_language` par destinataire dans send-push-campaign (immédiat, planifié, cron) ; « Utiliser dans les 3 langues » dans le générateur IA. Reste : SMS/email (même pattern) |
-| **DJ matching sémantique** | ★★ | ★ | QW3 | Embeddings profils DJs × events (géo + genre + audience) ; marketplace peu peuplée en pré-lancement, timing à surveiller |
-| **Recherche sémantique Explore** | ★★ | ★ | QW3 | Query → embedding → events ; remplace les filtres bruts pour la longue traîne |
+| ~~**Envoi campagnes multi-langue par destinataire**~~ **LIVRÉ** (push 07-10, SMS 07-12) | ★★ | ★ | QW1 | `push_campaigns.title_i18n/body_i18n`, `sms_campaigns.body_i18n` + résolution `preferred_language` par destinataire (immédiat, planifié, cron) ; « Utiliser dans les 3 langues » dans le générateur IA. **Email non fait** : le corps vit en blocs (`EmailBlock[]`) — le traduire par destinataire suppose un rendu par langue, c'est un chantier de l'éditeur, pas une colonne |
+| ~~**DJ matching sémantique**~~ **LIVRÉ 2026-07-12** | ★★ | ★ | QW3 | `dj_embeddings` + RPC `match_djs_for_event` (réservée aux bookers de la soirée, seuil 0.15) + rail « Les DJs qui collent à ta soirée » sur Booking DJ. Embeddings DJ rafraîchis par le même cron que les events |
+| ~~**Recherche sémantique Explore**~~ **LIVRÉ 2026-07-12** | ★★ | ★ | QW3 | Repêchage : la recherche par mots-clés reste la voie normale, l'embedding ne se déclenche que quand elle ne rend aucune soirée (« Peut-être que tu cherches ça »). Authentifiés seulement — un endpoint d'embedding ouvert à l'anonyme serait un vecteur d'abus de coût |
 | **Upsell Live Mode contextuel** | ★★ | ★★ | QW3 + volume `vip_consumptions` | Reco boissons in-venue temps réel ; aujourd'hui LAST_CALL et upsell sont statiques |
 | **Concierge client transactionnel** | ★★★ | ★★★ | Garde-fous paiement + consentement | Tools pour yuno-assistant (chercher, mettre en favori, deep-link checkout) ; JAMAIS d'exécution d'achat par le LLM |
 | **Pricing copilot** (rounds + seuils scarcity suggérés) | ★★★ | ★★★ | ≥ 1 saison d'historique + COGS | Le plus demandé et le plus risqué : sans historique, un LLM qui conseille des prix hallucine. Ne pas lancer avant les critères §7 |
@@ -211,6 +211,7 @@ Impact et effort sur 3 étoiles. « Dép. » = dépendances.
 | Night Report (QW2) | gpt-5-mini, reasoning medium | 0,25 $ / 2 $ | ≈ 2-3 $ | ≈ 20-30 $ |
 | Embeddings events (QW3) | text-embedding-3-small | 0,02 $ | < 0,10 $ | < 1 $ |
 | Next-best-action (carte quotidienne) | gpt-5-mini, reasoning low | 0,25 $ / 2 $ | ≈ 0,50 $ (cache 1/jour/venue) | ≈ 5 $ |
+| Embeddings DJ + recherche sémantique | text-embedding-3-small | 0,02 $ | < 0,20 $ (repêchage seulement) | ≈ 2 $ |
 | Traduction (existant) | gpt-4o-mini | 0,15 $ / 0,60 $ | négligeable | faible |
 | Assistants chat (existant) | gpt-4o-mini | 0,15 $ / 0,60 $ | poste dominant actuel | à mesurer |
 
@@ -230,9 +231,11 @@ Report · QW3 For You + fondation pgvector · **vague B2B : next-best-action own
 (« À faire aujourd'hui ») + envoi push multi-langue par destinataire** · sync des
 knowledge bases.
 
-**Ensuite** — Multi-langue SMS/email (même pattern que push) · weekly digest owner
-narratif (avec le câblage du kit email) · recherche sémantique Explore ·
-DJ matching (si la marketplace se peuple).
+**Livré (2026-07-12)** — Multi-langue SMS · DJ matching sémantique · recherche
+sémantique Explore (repêchage).
+
+**Ensuite** — Multi-langue email (chantier de l'éditeur de blocs) · weekly digest
+owner narratif (avec le câblage du kit email) · upsell Live Mode contextuel.
 
 **Plus tard (gated par les critères ci-dessous)** — Pricing copilot · concierge
 transactionnel · détection d'anomalies · forecast ML · identité canonique + consentement

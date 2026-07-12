@@ -82,6 +82,7 @@ const CLIENT_KNOWLEDGE_BASE = `
 - Explorer (${APP_BASE_URL}/explore) : toutes les soirées proches, filtrables par date, ville et genre musical.
 - Section « Pour toi » dans Explorer : des soirées recommandées PERSONNELLEMENT, calculées à partir de tes achats de billets, tes favoris et les clubs que tu suis. Elle apparaît quand tu es connecté et que tu as déjà un peu d'activité (achats ou favoris) — sinon elle reste masquée.
 - Ces recommandations se désactivent à tout moment : Réglages (${APP_BASE_URL}/settings) → « Recommandations personnalisées ».
+- La recherche (loupe d'Explorer) comprend aussi le SENS de ce que tu écris : si tes mots-clés ne donnent rien, elle repêche des soirées proches de ton idée sous « Peut-être que tu cherches ça » (il faut être connecté).
 - Carte (${APP_BASE_URL}/map) : les clubs sur une carte interactive, appuie sur un pin pour voir le club.
 - Pages publiques : ${APP_BASE_URL}/events (soirées), ${APP_BASE_URL}/clubs (clubs), ${APP_BASE_URL}/djs (DJs).
 - Chaque page d'événement montre : date/heure, lieu, genre, line-up DJ, billets disponibles, guest list et tables VIP si activées.
