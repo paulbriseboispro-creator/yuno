@@ -73,15 +73,20 @@ const KIND: Record<OrderKind, LucideIcon> = {
 };
 
 /* ---- type badge (icon tile éditorial, monochrome) ----
-   `imageUrl` : affiche de la soirée dans une tuile 1:1 — image ENTIÈRE centrée
-   (contain, jamais recadrée/zoomée) sur un fond flouté de la même affiche.
+   `imageUrl` : affiche de la soirée en vignette 1:1 — MÊME traitement que le
+   résumé de commande du checkout (TicketCheckout) : recadrage carré CÔTÉ SERVEUR
+   (width ET height ⇒ mode `cover` Supabase) puis `object-cover`. Ne jamais
+   demander la largeur seule ici : le transform renverrait une bande verticale à
+   la hauteur d'origine (cf. imageOptimization.ts).
    L'icône reste rendue dessous en fallback si l'image ne charge pas.
    `kindBadge` : pastille d'angle avec l'icône du type, pour que la nature de
    la commande (boisson vs billet) reste lisible même quand l'affiche recouvre
    l'icône principale. */
 function TypeBadge({ kind, size = 50, accent = false, imageUrl, kindBadge = false }: { kind: OrderKind; size?: number; accent?: boolean; imageUrl?: string; kindBadge?: boolean }) {
   const Icon = KIND[kind];
-  const optimized = imageUrl ? getOptimizedImageUrl(imageUrl, { width: 128, quality: 75 }) : undefined;
+  // 2× la taille rendue → net en écran Retina.
+  const px = Math.round(size * 2);
+  const optimized = imageUrl ? getOptimizedImageUrl(imageUrl, { width: px, height: px, quality: 80 }) : undefined;
   return (
     <div
       style={{
@@ -94,21 +99,11 @@ function TypeBadge({ kind, size = 50, accent = false, imageUrl, kindBadge = fals
       <div style={{ position: 'absolute', inset: 0, borderRadius: 7, overflow: 'hidden', display: 'grid', placeItems: 'center' }}>
         <Icon style={{ width: size * 0.42, height: size * 0.42, color: accent ? RED : G1 }} strokeWidth={1.9} />
         {optimized && (
-          <>
-            {/* fond : la même affiche floutée en cover — comble les marges du contain */}
-            <img
-              src={optimized}
-              alt=""
-              aria-hidden
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', filter: 'blur(6px) brightness(0.55)', transform: 'scale(1.3)' }}
-            />
-            {/* premier plan : l'affiche entière, centrée, sans zoom */}
-            <img
-              src={optimized}
-              alt=""
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center' }}
-            />
-          </>
+          <img
+            src={optimized}
+            alt=""
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
+          />
         )}
       </div>
       {kindBadge && imageUrl && (

@@ -28,7 +28,21 @@ export function getOptimizedImageUrl(
   }
 
   const { width, height, quality = 80, resize } = options;
-  
+
+  // ⚠️ PIÈGE SUPABASE : le transform ne préserve PAS le ratio quand on ne donne
+  // que `width`. Le mode par défaut est `cover` sur une boîte width × hauteur
+  // d'origine → il renvoie une BANDE VERTICALE CENTRALE de l'image à sa hauteur
+  // native (ex. 1080×1080 + width=128 → 128×1080). D'où des vignettes rognées
+  // et « zoomées » partout où l'on demandait juste une largeur.
+  //
+  // Fix : largeur seule = redimensionnement PROPORTIONNEL. On borne la hauteur
+  // très large (×4) et on force `contain` — Supabase ajuste alors la hauteur au
+  // ratio réel, sans letterbox (vérifié : 640×800 + width 480 → 480×600).
+  // Pour un vrai recadrage carré, passer width ET height explicitement (cover).
+  const proportional = width && !height;
+  const effectiveHeight = proportional ? width * 4 : height;
+  const effectiveResize = proportional ? 'contain' : resize;
+
   // Convert from object URL to render URL for transformations
   // From: https://<ref>.supabase.co/storage/v1/object/public/<bucket>/<path>
   // To: https://<ref>.supabase.co/storage/v1/render/image/public/<bucket>/<path>?width=X&height=Y&quality=Q
@@ -44,8 +58,8 @@ export function getOptimizedImageUrl(
   const params = new URLSearchParams(existingQuery || '');
 
   if (width) params.set('width', width.toString());
-  if (height) params.set('height', height.toString());
-  if (resize) params.set('resize', resize);
+  if (effectiveHeight) params.set('height', effectiveHeight.toString());
+  if (effectiveResize) params.set('resize', effectiveResize);
   params.set('quality', quality.toString());
 
   return `${base}?${params.toString()}`;

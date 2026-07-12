@@ -355,7 +355,7 @@ export default function GuestListCheckout() {
           {guestList.eventImageUrl && (
             <div className="w-16 h-16 shrink-0 overflow-hidden bg-white/[0.04]" style={{ borderRadius: 6 }}>
               <img
-                src={getOptimizedImageUrl(guestList.eventImageUrl, { width: 160, quality: 82 })}
+                src={getOptimizedImageUrl(guestList.eventImageUrl, { width: 128, height: 128, quality: 82 })}
                 alt={guestList.eventTitle}
                 className="w-full h-full object-cover object-center"
               />
