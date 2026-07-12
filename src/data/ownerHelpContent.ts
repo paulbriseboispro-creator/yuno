@@ -520,6 +520,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         sections: [
           { headingKey: 'ohelp.pg.aitools.s1h', bodyKey: 'ohelp.pg.aitools.s1b' },
           { headingKey: 'ohelp.pg.aitools.s2h', bodyKey: 'ohelp.pg.aitools.s2b', type: 'steps' },
+          { headingKey: 'ohelp.pg.aitools.s6h', bodyKey: 'ohelp.pg.aitools.s6b' },
           { headingKey: 'ohelp.pg.aitools.s3h', bodyKey: 'ohelp.pg.aitools.s3b' },
           { headingKey: 'ohelp.pg.aitools.s4h', bodyKey: 'ohelp.pg.aitools.s4b' },
           { headingKey: 'ohelp.pg.aitools.s5h', bodyKey: 'ohelp.pg.aitools.s5b', type: 'tip' },

@@ -294,9 +294,15 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "ai-content-generation": {
     title: "Générer tes campagnes avec l'IA",
-    keywords: ["ia", "ai", "générer", "generate", "rédiger", "texte", "campagne", "push", "email", "sms", "contenu", "variante", "traduction"],
+    keywords: ["ia", "ai", "générer", "generate", "rédiger", "texte", "campagne", "push", "email", "sms", "contenu", "variante", "traduction", "multi-langue", "langues"],
     path: "/owner/push",
-    snippet: "Sur les pages Push, Email et SMS, le bouton « Générer avec l'IA » rédige 3 variantes de message en anglais, français et espagnol à partir des vraies données de ta soirée (date, prix, remplissage). Choisis un ton (hype, élégant, amical, urgent), ajoute une instruction libre si tu veux, puis « Utiliser ce texte » : le texte remplit le formulaire et tu restes l'éditeur final — rien ne part sans ton accord.",
+    snippet: "Sur les pages Push, Email et SMS, le bouton « Générer avec l'IA » rédige 3 variantes de message en anglais, français et espagnol à partir des vraies données de ta soirée (date, prix, remplissage). Choisis un ton (hype, élégant, amical, urgent), ajoute une instruction libre si tu veux, puis « Utiliser ce texte » : le texte remplit le formulaire et tu restes l'éditeur final — rien ne part sans ton accord. Pour les push, « Utiliser dans les 3 langues » envoie à chaque client SA langue (badge EN·FR·ES) ; modifier le texte à la main repasse en langue unique.",
+  },
+  "ai-daily-actions": {
+    title: "« À faire aujourd'hui » — les 3 actions du jour",
+    keywords: ["ia", "ai", "actions", "aujourd'hui", "priorité", "dashboard", "conseil", "quoi faire", "recommandation", "daily", "todo"],
+    path: "/owner/dashboard",
+    snippet: "En haut du dashboard, la carte « À faire aujourd'hui » propose chaque jour 3 actions priorisées par l'IA à partir de l'état réel du club : remplissage des soirées à venir, temps écoulé depuis la dernière campagne, clients à risque, automations désactivées. Chaque action donne sa raison chiffrée et mène directement à la bonne page. Recalculée une fois par jour — l'IA suggère, l'owner décide.",
   },
   "ai-night-report": {
     title: "Analyse IA de la soirée",
