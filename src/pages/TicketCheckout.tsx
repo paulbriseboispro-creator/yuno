@@ -634,7 +634,10 @@ export default function TicketCheckout() {
         }
       });
 
-      if (error) throw error;
+      // Le corps de réponse est lu AVANT `error` : un refus métier arrive avec un
+      // statut 4xx, et supabase-js n'expose alors qu'un « non-2xx status code »
+      // opaque. invokeEdgeFunction rattache le corps réel — c'est lui qui porte le
+      // motif (club sans paiement configuré, sold out…) et le code d'aiguillage.
       if (data?.code === 'PAYMENTS_DISABLED') {
         toast.error(t('payments.disabledBanner'));
         return;
@@ -647,6 +650,7 @@ export default function TicketCheckout() {
         }
         throw new Error(data.error);
       }
+      if (error) throw error;
 
       // Update user's phone if they were logged in and phone was missing
       if (user && attendees[0].phone.trim()) {

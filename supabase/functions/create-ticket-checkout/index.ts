@@ -38,18 +38,23 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Hoisted hors du try : toute sortie en erreur APRÈS la réservation atomique doit
+  // rendre la capacité. Sans ça, chaque tentative ratée (club sans Stripe, Stripe
+  // qui refuse la session…) gelait les places 10 minutes, et un événement finissait
+  // par afficher « complet » alors que rien n'avait été vendu.
+  let reservationId: string | null = null;
+  const supabaseAdmin = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    { auth: { persistSession: false } },
+  );
+
   try {
     logStep("Function started", { testMode: TEST_MODE });
 
     const supabaseClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_ANON_KEY") ?? ""
-    );
-
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      { auth: { persistSession: false } }
     );
 
     // Parse request body first
@@ -289,44 +294,6 @@ serve(async (req) => {
       logStep("Global capacity check passed", { totalSold, capacityNeeded, maxTickets: event.max_tickets });
     }
 
-    // ATOMIC RESERVATION (anti-oversell): holds capacity for the duration of the Stripe checkout
-    // This is locked with FOR UPDATE on ticket_rounds and accounts for other pending reservations.
-    let reservationId: string | null = null;
-    let reservationExpiresAt: string | null = null;
-    if (!simulate) {
-      const { data: reservation, error: reservationError } = await supabaseAdmin.rpc(
-        'reserve_ticket_capacity',
-        {
-          _ticket_round_id: ticketRoundId,
-          _event_id: eventId,
-          _user_id: user?.id || null,
-          _guest_email: !user ? guestEmail : null,
-          _quantity: quantity,
-          _capacity_per_unit: groupSize,
-          _ttl_minutes: 10,
-        }
-      );
-
-      if (reservationError) {
-        logStep("Reservation failed (atomic)", { error: reservationError.message });
-        // PostgreSQL raises 23514 (check_violation) when capacity is insufficient
-        if (reservationError.message?.includes('Insufficient capacity')) {
-          throw new Error(t("checkout.soldOutRace", lang));
-        }
-        throw new Error(t("checkout.reserveFailed", lang));
-      }
-
-      const reservationRow = Array.isArray(reservation) ? reservation[0] : reservation;
-      reservationId = reservationRow?.reservation_id ?? null;
-      reservationExpiresAt = reservationRow?.expires_at ?? null;
-
-      if (!reservationId) {
-        throw new Error(t("checkout.reserveInvalid", lang));
-      }
-      logStep("Atomic reservation created", { reservationId, expiresAt: reservationExpiresAt, capacityHeld: capacityNeeded });
-    }
-
-
     // Resolve payment destination: venue + organizer (co-event aware)
     let venueStripeAccountId: string | null = null;
     let venueStripeChargesEnabled = false;
@@ -394,6 +361,70 @@ serve(async (req) => {
     const stripeAccountId = payoutSource === 'venue' ? venueStripeAccountId : organizerStripeAccountId;
     const stripeChargesEnabled = payoutSource === 'venue' ? venueStripeChargesEnabled : organizerStripeChargesEnabled;
     const venue = { id: venueIdForFees ?? '', name: '', stripe_account_id: stripeAccountId, stripe_charges_enabled: stripeChargesEnabled };
+
+    // ── STRIPE READINESS GATE ────────────────────────────────────────────────
+    // AVANT de geler la moindre place. Un club sans compte Connect ne peut pas
+    // encaisser : la vente est impossible, on le dit tout de suite, dans la langue
+    // de l'acheteur, et on ne réserve rien. (Auparavant ce contrôle vivait 200
+    // lignes plus bas, APRÈS la réservation atomique : chaque clic sur « Payer »
+    // gelait des places 10 minutes pour un checkout qui ne pouvait pas aboutir.)
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    if (!simulate) {
+      if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
+
+      if (!venue.stripe_account_id) {
+        logStep("Checkout refused — payment account not connected", { payoutSource, effectiveVenueId, effectiveOrganizerId });
+        throw new Error(t(
+          payoutSource === 'organizer' ? "checkout.organizerPaymentsNotSetUp" : "checkout.venuePaymentsNotSetUp",
+          lang,
+        ));
+      }
+
+      if (!venue.stripe_charges_enabled) {
+        logStep("Checkout refused — payment account not active", { payoutSource, effectiveVenueId, effectiveOrganizerId });
+        throw new Error(t(
+          payoutSource === 'organizer' ? "checkout.organizerStripeNotActive" : "checkout.venueStripeNotActive",
+          lang,
+        ));
+      }
+    }
+
+    // ATOMIC RESERVATION (anti-oversell): holds capacity for the duration of the Stripe checkout
+    // This is locked with FOR UPDATE on ticket_rounds and accounts for other pending reservations.
+    // Toute erreur à partir d'ici relâche la réservation (catch en fin de fonction).
+    let reservationExpiresAt: string | null = null;
+    if (!simulate) {
+      const { data: reservation, error: reservationError } = await supabaseAdmin.rpc(
+        'reserve_ticket_capacity',
+        {
+          _ticket_round_id: ticketRoundId,
+          _event_id: eventId,
+          _user_id: user?.id || null,
+          _guest_email: !user ? guestEmail : null,
+          _quantity: quantity,
+          _capacity_per_unit: groupSize,
+          _ttl_minutes: 10,
+        }
+      );
+
+      if (reservationError) {
+        logStep("Reservation failed (atomic)", { error: reservationError.message });
+        // PostgreSQL raises 23514 (check_violation) when capacity is insufficient
+        if (reservationError.message?.includes('Insufficient capacity')) {
+          throw new Error(t("checkout.soldOutRace", lang));
+        }
+        throw new Error(t("checkout.reserveFailed", lang));
+      }
+
+      const reservationRow = Array.isArray(reservation) ? reservation[0] : reservation;
+      reservationId = reservationRow?.reservation_id ?? null;
+      reservationExpiresAt = reservationRow?.expires_at ?? null;
+
+      if (!reservationId) {
+        throw new Error(t("checkout.reserveInvalid", lang));
+      }
+      logStep("Atomic reservation created", { reservationId, expiresAt: reservationExpiresAt, capacityHeld: capacityNeeded });
+    }
 
     // SERVER-SIDE PRICE CALCULATION: Use database values only
     const unitPrice = ticketRound.price;
@@ -850,26 +881,9 @@ serve(async (req) => {
       );
     }
 
-    // PRODUCTION MODE: Create Stripe checkout session
-    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    // PRODUCTION MODE: Create Stripe checkout session.
+    // La clé et le compte Connect ont déjà été validés par le gate, avant réservation.
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
-
-    // Verify Stripe Connect is set up (venue OR organizer)
-    if (!venue.stripe_account_id) {
-      throw new Error(
-        payoutSource === 'organizer'
-          ? "L'organisateur n'a pas encore activé ses paiements."
-          : "Ce club n'a pas encore configuré ses paiements. Veuillez contacter le club."
-      );
-    }
-
-    if (!venue.stripe_charges_enabled) {
-      throw new Error(
-        payoutSource === 'organizer'
-          ? "Le compte de paiement de l'organisateur n'est pas encore validé."
-          : "Le compte Stripe du club n'est pas encore activé. Veuillez contacter le club."
-      );
-    }
 
     // Resolve the Stripe Connect split up front. DIRECT = single recipient → the
     // charge is created ON their connected account (they're the seller of record);
@@ -936,10 +950,7 @@ serve(async (req) => {
 
     if (ticketError) {
       logStep("Error creating pending ticket", { error: ticketError.message });
-      // Free the held capacity since the ticket couldn't be created
-      if (reservationId) {
-        await supabaseAdmin.rpc('cancel_ticket_reservation', { _reservation_id: reservationId });
-      }
+      // La capacité gelée est rendue par le catch de fin de fonction.
       throw new Error("Failed to create ticket");
     }
 
@@ -1130,6 +1141,19 @@ serve(async (req) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });
+
+    // Rendre la capacité gelée : sans ça, chaque tentative ratée immobilisait des
+    // places pendant 10 minutes et l'événement finissait par se déclarer complet
+    // alors qu'aucun billet n'avait été vendu.
+    if (reservationId) {
+      try {
+        await supabaseAdmin.rpc('cancel_ticket_reservation', { _reservation_id: reservationId });
+        logStep("Reservation released after failure", { reservationId });
+      } catch (releaseError) {
+        logStep("Reservation release FAILED", { reservationId, error: String(releaseError) });
+      }
+    }
+
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }

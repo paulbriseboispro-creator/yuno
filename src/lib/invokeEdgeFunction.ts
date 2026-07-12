@@ -22,6 +22,30 @@ function isStaleEdgeFetchError(error: unknown): boolean {
 }
 
 /**
+ * Reads the JSON body an edge function returned alongside a 4xx/5xx.
+ *
+ * supabase-js raises FunctionsHttpError on any non-2xx and sets `data` to null —
+ * so the body the function actually sent ({ error: "Ce club n'a pas encore
+ * configuré ses paiements." }) is dropped on the floor, and every caller shows
+ * the useless "Edge Function returned a non-2xx status code" instead. The
+ * Response is still reachable on `error.context`; this reads it back.
+ *
+ * Returns null when there is nothing usable to read (no Response, not JSON, body
+ * already consumed) — the caller then keeps supabase-js's original error.
+ */
+async function readEdgeErrorBody(error: unknown): Promise<Record<string, unknown> | null> {
+  const context = (error as { context?: unknown }).context;
+  if (!(context instanceof Response)) return null;
+  try {
+    const body = await context.clone().json();
+    return body && typeof body === 'object' ? (body as Record<string, unknown>) : null;
+  } catch {
+    // Corps vide, non-JSON, ou déjà lu : on garde l'erreur d'origine.
+    return null;
+  }
+}
+
+/**
  * Drop-in replacement for `supabase.functions.invoke()` on PAYMENT-critical calls.
  *
  * Same signature, same return shape ({ data, error }). The only added behaviour:
@@ -56,5 +80,20 @@ export async function invokeEdgeFunction<T = any>(
     // the caller from flashing its error toast before the bounce completes.
     await new Promise<never>(() => {});
   }
+
+  // Business refusal (4xx with a JSON body): hand the caller BOTH the decoded body
+  // — so its `data.code` branches (PAYMENTS_DISABLED, ACCOUNT_EXISTS…) still fire —
+  // and an error whose message is the one the server actually wrote, in the buyer's
+  // language. Without this, a club that hasn't connected Stripe made the pay button
+  // look broken: the real reason never reached the screen.
+  if (result.error) {
+    const body = await readEdgeErrorBody(result.error);
+    const serverMessage = typeof body?.error === 'string' ? body.error : null;
+    if (body) {
+      if (serverMessage) result.error.message = serverMessage;
+      return { ...result, data: body as T };
+    }
+  }
+
   return result;
 }

@@ -481,7 +481,9 @@ export default function TableCheckout() {
         }
       });
       
-      if (error) throw error;
+      // Corps de réponse lu AVANT `error` : un refus métier revient en 4xx, et
+      // supabase-js n'expose alors qu'un « non-2xx status code » opaque. Le motif
+      // réel (et le code d'aiguillage) vit dans le corps, rattaché par invokeEdgeFunction.
       if (data?.code === 'PAYMENTS_DISABLED') {
         toast.error(t('payments.disabledBanner'));
         return;
@@ -494,6 +496,7 @@ export default function TableCheckout() {
         }
         throw new Error(data.error);
       }
+      if (error) throw error;
 
       if (user && phone.trim()) {
         await supabase.from('profiles').update({ phone: phone.trim() }).eq('id', user.id).is('phone', null);
