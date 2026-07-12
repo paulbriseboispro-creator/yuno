@@ -14,10 +14,9 @@ export function useForYouEvents(limit = 12) {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session || cancelled) return;
-      // RPC pas encore dans les types générés (regen après db push).
-      const { data, error } = await supabase.rpc('get_for_you_events' as never, { p_limit: limit } as never);
+      const { data, error } = await supabase.rpc('get_for_you_events', { p_limit: limit });
       if (cancelled || error || !Array.isArray(data)) return;
-      setIds((data as { event_id: string }[]).map((r) => r.event_id));
+      setIds(data.map((r) => r.event_id));
     })();
     return () => { cancelled = true; };
   }, [limit]);

@@ -72,10 +72,9 @@ export function DJMatchRail() {
     let cancelled = false;
     setLoading(true);
     (async () => {
-      // RPC pas encore dans les types générés (regen après db push).
-      const { data, error } = await supabase.rpc('match_djs_for_event' as never, {
+      const { data, error } = await supabase.rpc('match_djs_for_event', {
         p_event_id: eventId, p_limit: 6,
-      } as never);
+      });
       if (cancelled) return;
       setMatches(!error && Array.isArray(data) ? (data as DJMatch[]) : []);
       setLoading(false);

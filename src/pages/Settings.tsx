@@ -59,14 +59,13 @@ export default function Settings() {
 
   useEffect(() => {
     if (!user) return;
-    // Colonne pas encore dans les types générés (regen après db push).
     supabase
       .from('profiles')
-      .select('personalization_opt_out' as never)
+      .select('personalization_opt_out')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data }) => {
-        setPersonalizationOptOut(Boolean((data as { personalization_opt_out?: boolean } | null)?.personalization_opt_out));
+        setPersonalizationOptOut(Boolean(data?.personalization_opt_out));
       });
   }, [user]);
 
@@ -528,7 +527,7 @@ export default function Settings() {
                   setPersonalizationOptOut(optOut);
                   const { error } = await supabase
                     .from('profiles')
-                    .update({ personalization_opt_out: optOut } as never)
+                    .update({ personalization_opt_out: optOut })
                     .eq('id', user!.id);
                   if (error) {
                     setPersonalizationOptOut(!optOut);
