@@ -44,16 +44,54 @@ private func stepIndex(_ status: String) -> Int {
     }
 }
 
+/// Libellés des 3 étapes affichés sous les barres — un client qui découvre
+/// Yuno doit comprendre le pipeline sans explication : commandée → en
+/// préparation (après scan au bar) → prête/servie.
+private func stepLabels(_ status: String) -> [String] {
+    let lang = Locale.preferredLanguages.first?.prefix(2) ?? "en"
+    let last: String
+    if status == "served" {
+        last = lang == "fr" ? "Servie" : lang == "es" ? "Servida" : "Served"
+    } else {
+        last = lang == "fr" ? "Prête" : lang == "es" ? "Lista" : "Ready"
+    }
+    switch lang {
+    case "fr": return ["Commandée", "Préparation", last]
+    case "es": return ["Pedida", "Preparando", last]
+    default: return ["Ordered", "Preparing", last]
+    }
+}
+
 /// Barre de progression 3 étapes — miroir de LiveOrderStatus.tsx.
+/// `showLabels` : affiche le nom de chaque étape sous sa barre (écran
+/// verrouillé + île étendue ; masqué dans les rendus très compacts).
 @available(iOS 16.2, *)
 private struct StepsBar: View {
     let status: String
+    var showLabels: Bool = false
     var body: some View {
-        HStack(spacing: 5) {
-            ForEach(0..<3, id: \.self) { i in
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(i <= stepIndex(status) ? statusColor(status) : Color.white.opacity(0.12))
-                    .frame(height: 4)
+        let idx = stepIndex(status)
+        let labels = stepLabels(status)
+        VStack(spacing: 4) {
+            HStack(spacing: 5) {
+                ForEach(0..<3, id: \.self) { i in
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(i <= idx ? statusColor(status) : Color.white.opacity(0.12))
+                        .frame(height: 4)
+                }
+            }
+            if showLabels {
+                HStack(spacing: 5) {
+                    ForEach(0..<3, id: \.self) { i in
+                        Text(labels[i].uppercased())
+                            .font(.system(size: 7.5, weight: i == idx ? .bold : .semibold, design: .monospaced))
+                            .kerning(0.4)
+                            .foregroundColor(i <= idx ? (i == idx ? statusColor(status) : .white.opacity(0.65)) : .white.opacity(0.3))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                            .frame(maxWidth: .infinity)
+                    }
+                }
             }
         }
     }
@@ -77,12 +115,14 @@ struct OrderActivityWidget: Widget {
                         .foregroundColor(statusColor(context.state.status))
                 }
                 if !context.state.items.isEmpty {
+                    // Plusieurs boissons dans la même commande : on laisse le
+                    // résumé respirer sur 2 lignes au lieu de tronquer.
                     Text(context.state.items)
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.white)
-                        .lineLimit(1)
+                        .lineLimit(2)
                 }
-                StepsBar(status: context.state.status)
+                StepsBar(status: context.state.status, showLabels: true)
                 if context.state.status == "ready", let pin = context.state.pin {
                     HStack {
                         Text(pickupLabel())
@@ -103,7 +143,8 @@ struct OrderActivityWidget: Widget {
             .padding(14)
             .activityBackgroundTint(yunoBg)
             .activitySystemActionForegroundColor(.white)
-            .widgetURL(URL(string: "yuno://open?path=/live"))
+            // Tap → Mes commandes : accès direct au QR de la boisson.
+            .widgetURL(URL(string: "yuno://open?path=/my-orders"))
 
         } dynamicIsland: { context in
             DynamicIsland {
