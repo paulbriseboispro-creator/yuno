@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 import { dispatchPushAutomations } from "../_shared/push-automations.ts";
-import { refreshEventEmbeddings } from "../_shared/event-embeddings.ts";
+import { refreshEventEmbeddings, refreshDjEmbeddings } from "../_shared/event-embeddings.ts";
 import { dispatchLiveOpsAlerts } from "../_shared/live-ops-alerts.ts";
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type' };
 
@@ -94,13 +94,15 @@ Deno.serve(async (req) => {
       console.error('[AUTO-PUSH] dispatch failed:', String(e));
     }
 
-    // Embeddings des events (fondation des recos « Pour toi ») — best-effort,
-    // ne touche que les events créés/modifiés depuis le dernier run.
+    // Embeddings — events (recos « Pour toi ») et profils DJ (matching DJ↔soirée).
+    // Best-effort, ne touchent que ce qui a été créé/modifié depuis le dernier run.
     let embeddings = { scanned: 0, updated: 0 };
+    let djEmbeddings = { scanned: 0, updated: 0 };
     try {
       const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
       if (OPENAI_API_KEY) {
         embeddings = await refreshEventEmbeddings(admin, OPENAI_API_KEY);
+        djEmbeddings = await refreshDjEmbeddings(admin, OPENAI_API_KEY);
       }
     } catch (e) {
       console.error('[EMBEDDINGS] refresh failed:', String(e));
@@ -115,7 +117,7 @@ Deno.serve(async (req) => {
       console.error('[LIVE-OPS] dispatch failed:', String(e));
     }
 
-    return new Response(JSON.stringify({ processed, pushProcessed, autoPush, embeddings, liveOps }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ processed, pushProcessed, autoPush, embeddings, djEmbeddings, liveOps }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }

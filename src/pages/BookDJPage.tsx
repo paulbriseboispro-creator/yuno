@@ -3,6 +3,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { makeDjT } from '@/i18n/djTranslate';
 import { useBookerHomeCity } from '@/hooks/useBookerHomeCity';
 import { DJDiscovery } from '@/components/dj-marketplace/DJDiscovery';
+import { DJMatchRail } from '@/components/dj-marketplace/DJMatchRail';
 
 // "Book a DJ" — the booker-facing marketplace. Mounted under both /owner and
 // /organizer-app; DJDiscovery adapts the scope (venue XOR organizer) automatically,
@@ -36,6 +37,12 @@ export default function BookDJPage() {
             'Encuentra un DJ, comprueba su disponibilidad y envía una solicitud de reserva. Los perfiles mejor cuidados aparecen primero.',
           )}
         </p>
+        {/* Matching sémantique DJ ↔ soirée (embeddings) — au-dessus du marketplace,
+            masqué s'il n'y a pas de soirée à venir ou aucun match pertinent. */}
+        <div className="mb-6">
+          <DJMatchRail />
+        </div>
+
         <DJDiscovery mode="booker" initialCity={homeCity} cityReady={cityReady} />
       </main>
     </div>
