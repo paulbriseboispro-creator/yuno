@@ -2144,6 +2144,7 @@ const es: Record<string, string> = {
   'search.popularSearches': 'Búsquedas populares',
   'search.suggestedFilters': 'Filtros sugeridos',
   'search.noResults': 'Sin resultados',
+  'search.semanticTitle': 'Quizá buscas esto',
   'search.events': 'Eventos',
   'search.clubs': 'Clubs',
   'search.djs': 'DJs',
@@ -10996,6 +10997,8 @@ const es: Record<string, string> = {
   'ohelp.pg.aitools.s3b': 'Después de cada fiesta, en Hype → análisis post-fiesta, la tarjeta «Análisis IA de la fiesta» genera un veredicto, 5 lecciones (cada una ligada a una métrica real) y 3 acciones concretas para la próxima vez, agrupadas por tema: marketing, precios, operaciones, experiencia. Si los datos son escasos (pocas entradas, sin escaneos), la IA lo dice honestamente en vez de inventar tendencias. El análisis se guarda y solo se regenera si tus cifras cambian.',
   'ohelp.pg.aitools.s4h': '«Para ti»: tus fiestas recomendadas a los clientes adecuados',
   'ohelp.pg.aitools.s4b': 'En la app cliente, la sección «Para ti» de Explorar recomienda fiestas a cada cliente según sus compras y favoritos. Tus eventos aparecen automáticamente si son públicos y descubribles, sin configuración. Cuanto más completa esté tu ficha de evento (título claro, géneros musicales, descripción), mejor conecta con los clientes que aman ese estilo.',
+  'ohelp.pg.aitools.s7h': 'Encontrar el DJ que encaja con tu fiesta',
+  'ohelp.pg.aitools.s7b': 'En la página Booking DJ, la sección «Los DJs que encajan con tu fiesta» compara el universo de tu fiesta (título, géneros, ambiente, lugar) con el de cada DJ (nombre artístico, géneros, bio, ciudad) y te muestra los mejores perfiles con un porcentaje de afinidad. Elige la fiesta en el selector. Es complementario al ranking del marketplace: allí suben los perfiles mejor cuidados, aquí manda la afinidad musical. El resto lo juzgas tú (caché, disponibilidad, feeling).',
   'ohelp.pg.aitools.s5h': 'La IA propone, tú decides',
   'ohelp.pg.aitools.s5b': 'Ninguna herramienta IA envía ni modifica nada en tu nombre: el texto generado llega a tus formularios y el análisis es de solo lectura. Cada generación queda registrada en tu historial. Relee siempre antes de enviar: es tu club, es tu voz.',
 

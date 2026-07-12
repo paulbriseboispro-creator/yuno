@@ -188,6 +188,9 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
   const [loading, setLoading] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+  // Repêchage sémantique : soirées trouvées par le SENS de la requête quand les
+  // mots-clés ne rendent aucune soirée ("un truc chill pour danser sans techno").
+  const [semanticEvents, setSemanticEvents] = useState<EventResult[]>([]);
 
   const chips: ChipDef[] = [
     { label: 'House', icon: '🎵', action: { type: 'query', value: 'House' } },
@@ -204,6 +207,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
       setQuery('');
       setActiveDateFilter(null);
       setResults(EMPTY);
+      setSemanticEvents([]);
       setRecentSearches(getRecentSearches());
       setExpandedSections({});
     }
@@ -608,6 +612,66 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
     }
   }, [activeDateFilter, searchAll]);
 
+  // ── Repêchage sémantique ──────────────────────────────────────
+  // Ne se déclenche QUE quand les mots-clés n'ont rendu aucune soirée : la
+  // recherche lexicale reste la voie normale (instantanée, gratuite), le sens
+  // ne sert qu'à sauver une recherche qui allait finir sur "aucun résultat".
+  // Réservé aux utilisateurs connectés (l'edge function exige un JWT).
+  useEffect(() => {
+    const q = query.trim();
+    if (loading || q.length < 3 || results.events.length > 0) {
+      setSemanticEvents([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session || cancelled) return;
+
+        const { data, error } = await supabase.functions.invoke('yuno-assistant', {
+          body: { action: 'semantic_search', query: q },
+        });
+        if (cancelled || error) return;
+        const ids = (data?.results || []).map((r: { event_id: string }) => r.event_id);
+        if (ids.length === 0) { setSemanticEvents([]); return; }
+
+        const { data: evs } = await supabase
+          .from('events')
+          .select('id, title, poster_url, start_at, venue_id, music_genres')
+          .in('id', ids);
+        if (cancelled || !evs?.length) return;
+
+        const venueIds = [...new Set(evs.map(e => e.venue_id).filter(Boolean))] as string[];
+        const { data: vens } = venueIds.length
+          ? await supabase.from('venues').select('id, name, slug').in('id', venueIds)
+          : { data: [] };
+        const vmap = new Map((vens || []).map((v: { id: string; name: string; slug: string | null }) => [v.id, v]));
+
+        // On respecte l'ordre de pertinence renvoyé par la RPC.
+        const byId = new Map(evs.map(e => [e.id, e]));
+        const ordered = ids
+          .map((id: string) => byId.get(id))
+          .filter(Boolean)
+          .map((e): EventResult => ({
+            id: e!.id,
+            title: e!.title,
+            poster_url: e!.poster_url,
+            start_at: e!.start_at,
+            venue_name: (e!.venue_id && vmap.get(e!.venue_id)?.name) || '',
+            venue_slug: (e!.venue_id && vmap.get(e!.venue_id)?.slug) || e!.venue_id || '',
+            interested: 0,
+            music_genres: e!.music_genres,
+            isAffiliate: false,
+          }));
+        if (!cancelled) setSemanticEvents(ordered.slice(0, 6));
+      } catch {
+        if (!cancelled) setSemanticEvents([]);
+      }
+    }, 600);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [query, loading, results.events.length]);
+
   const handleChipClick = (action: ChipAction) => {
     if (action.type === 'date') {
       setQuery('');
@@ -622,7 +686,8 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
   const handleNavigate = (path: string) => { onClose(); navigate(path); };
   const toggleSection = (key: string) => setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
 
-  const hasResults = results.events.length > 0 || results.clubs.length > 0 || results.djs.length > 0 || results.organizers.length > 0;
+  const hasResults = results.events.length > 0 || results.clubs.length > 0 || results.djs.length > 0
+    || results.organizers.length > 0 || semanticEvents.length > 0;
   const isSearching = query.length >= 1 || activeDateFilter !== null;
   const getVisibleItems = <T,>(items: T[], key: string) =>
     expandedSections[key] ? items : items.slice(0, MAX_VISIBLE);
@@ -875,6 +940,47 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
                         </motion.button>
                       ))}
                     </ResultSection>
+                  )}
+
+                  {/* Repêchage sémantique : aucune soirée par mots-clés, mais des
+                      soirées proches par le sens de la requête. */}
+                  {semanticEvents.length > 0 && (
+                    <div>
+                      <div className="mb-2 flex items-center gap-1.5 px-2">
+                        <Sparkles className="h-3.5 w-3.5 text-primary" />
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          {t('search.semanticTitle')}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        {semanticEvents.map(e => (
+                          <motion.button
+                            key={`sem-${e.id}`}
+                            onClick={() => handleNavigate(`/club/${e.venue_slug}/event/${e.id}`)}
+                            className="flex w-full items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-card active:bg-muted"
+                            variants={staggerItem}
+                            whileTap={tapScale}
+                          >
+                            <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-muted">
+                              {e.poster_url ? (
+                                <img src={e.poster_url} alt={e.title} className="h-full w-full object-cover" />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center bg-card">
+                                  <Music className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1 text-left">
+                              <p className="truncate text-sm font-medium text-foreground">{e.title}</p>
+                              <p className="truncate text-xs text-muted-foreground">
+                                {e.venue_name ? `${e.venue_name} · ` : ''}{formatRelativeDate(e.start_at, t)}
+                                {e.music_genres && e.music_genres.length > 0 && ` · ${e.music_genres[0]}`}
+                              </p>
+                            </div>
+                          </motion.button>
+                        ))}
+                      </div>
+                    </div>
                   )}
 
                   {results.clubs.length > 0 && (

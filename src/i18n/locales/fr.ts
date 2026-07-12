@@ -1915,6 +1915,7 @@ const fr: Record<string, string> = {
   'search.popularSearches': 'Recherches populaires',
   'search.suggestedFilters': 'Filtres suggérés',
   'search.noResults': 'Aucun résultat',
+  'search.semanticTitle': 'Peut-être que tu cherches ça',
   'search.events': 'Soirées',
   'search.clubs': 'Clubs',
   'search.djs': 'DJs',
@@ -10953,6 +10954,8 @@ const fr: Record<string, string> = {
   'ohelp.pg.aitools.s3b': "Après chaque soirée, dans Hype → analyse post-soirée, la carte « Analyse IA de la soirée » génère un verdict, 5 enseignements (chacun relié à une métrique réelle) et 3 actions concrètes pour la prochaine fois, classées par thème : marketing, tarifs, opérations, expérience. Si les données sont trop maigres (peu de billets, pas de scans), l'IA te le dit honnêtement au lieu d'inventer des tendances. L'analyse est mémorisée et ne se régénère que si tes chiffres changent.",
   'ohelp.pg.aitools.s4h': "« Pour toi » : tes soirées recommandées aux bons clients",
   'ohelp.pg.aitools.s4b': "Dans l'app client, la section « Pour toi » d'Explorer recommande des soirées à chaque client selon ses achats et favoris. Tes événements y apparaissent automatiquement s'ils sont publics et découvrables — aucune configuration. Plus ta fiche événement est complète (titre clair, genres musicaux, description), mieux elle matche avec les clients qui aiment ce style.",
+  'ohelp.pg.aitools.s7h': 'Trouver le DJ qui colle à ta soirée',
+  'ohelp.pg.aitools.s7b': "Sur la page Booking DJ, le bandeau « Les DJs qui collent à ta soirée » compare l'univers de ta soirée (titre, genres, ambiance, lieu) à celui de chaque DJ (nom de scène, genres, bio, ville) et te sort les meilleurs profils avec un pourcentage d'affinité. Choisis la soirée concernée dans le sélecteur. C'est complémentaire au classement du marketplace : là-bas ce sont les profils les mieux tenus qui remontent, ici c'est l'affinité musicale. À toi de juger le reste (cachet, dispo, feeling).",
   'ohelp.pg.aitools.s5h': "L'IA propose, tu décides",
   'ohelp.pg.aitools.s5b': "Aucun outil IA n'envoie ni ne modifie quoi que ce soit à ta place : le texte généré atterrit dans tes formulaires, l'analyse reste une lecture. Chaque génération est tracée dans ton journal. Relis toujours avant d'envoyer — c'est ton club, c'est ta voix.",
 

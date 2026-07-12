@@ -1878,6 +1878,7 @@ const en: Record<string, string> = {
   'search.popularSearches': 'Popular searches',
   'search.suggestedFilters': 'Suggested filters',
   'search.noResults': 'No results found',
+  'search.semanticTitle': 'Maybe you mean these',
   'search.events': 'Events',
   'search.clubs': 'Clubs',
   'search.djs': 'DJs',
@@ -10882,6 +10883,8 @@ const en: Record<string, string> = {
   'ohelp.pg.aitools.s3b': "After each night, in Hype → post-event analysis, the “AI night analysis” card generates a verdict, 5 takeaways (each tied to a real metric) and 3 concrete actions for next time, grouped by theme: marketing, pricing, operations, experience. If the data is too thin (few tickets, no scans), the AI says so honestly instead of inventing trends. The analysis is cached and only regenerates when your numbers change.",
   'ohelp.pg.aitools.s4h': '“For you”: your events recommended to the right customers',
   'ohelp.pg.aitools.s4b': "In the customer app, the “For you” section of Explore recommends events to each customer based on their purchases and favorites. Your events show up automatically as long as they are public and discoverable — no setup. The more complete your event page is (clear title, music genres, description), the better it matches customers who love that style.",
+  'ohelp.pg.aitools.s7h': 'Find the DJ who fits your night',
+  'ohelp.pg.aitools.s7b': "On the Book a DJ page, the “DJs who fit your night” rail compares your night's universe (title, genres, vibe, venue) with each DJ's (stage name, genres, bio, city) and surfaces the best profiles with an affinity percentage. Pick the relevant night in the selector. It complements the marketplace ranking: there the best-kept profiles rise, here it's musical affinity. You judge the rest (fee, availability, feeling).",
   'ohelp.pg.aitools.s5h': 'AI drafts, you decide',
   'ohelp.pg.aitools.s5b': "No AI tool sends or changes anything on your behalf: generated text lands in your forms, the analysis is read-only. Every generation is traced in your log. Always review before sending — it's your club, it's your voice.",
 
