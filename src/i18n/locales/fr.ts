@@ -9634,6 +9634,17 @@ const fr: Record<string, string> = {
   'ohelp.pg.vipservice.s9h': 'Classement des hôtes & moments de service',
   'ohelp.pg.vipservice.s9b': 'Analytique → Tables classe vos hôtes VIP selon la consommation servie, pratique pour l\'accountability et les commissions. Pendant le service, ouvrez une table et programmez une parade bouteille (cierges) ou une annonce pour marquer le moment. Et quand une zone est complète au checkout, le client rejoint une liste d\'attente que vous rappelez à la première annulation.',
 
+  // Mode d'emploi — upsell boissons post-achat (docs/SYSTEME_VENTE_BOISSONS.md)
+  'ohelp.pg.drinksupsell.title': 'Upsell boissons post-achat',
+  'ohelp.pg.drinksupsell.desc': "Une page boissons au prix presale s'affiche juste après chaque achat de billet. Activée par défaut.",
+  'ohelp.pg.drinksupsell.s1h': 'Comment ça marche pour le client',
+  'ohelp.pg.drinksupsell.s1b': "Juste après avoir payé son billet, le client voit une page « Prépare ta soirée » avec ta carte : les boissons en presale d'abord (prix barré), puis le reste. Il peut commander en un geste ou passer directement à son billet. Sa commande est liée à la soirée : le soir J, il montre son QR au bar et récupère ses boissons sans faire la file.",
+  'ohelp.pg.drinksupsell.s2h': 'Activer les prix presale',
+  'ohelp.pg.drinksupsell.s2b': "1. Ouvre Opérations → Menu.\n2. Édite une boisson et renseigne son prix presale.\n3. Active la presale sur la boisson (ou utilise l'activation en masse).\n4. Sans prix presale, la page upsell affiche les prix normaux.",
+  'ohelp.pg.drinksupsell.s3h': 'Le rappel du jour J',
+  'ohelp.pg.drinksupsell.s3b': "Dans Notifications push, active l'automatisation « Boissons jour J » : l'après-midi de la soirée, les acheteurs de billets reçoivent un rappel pour commander leurs boissons à l'avance. L'email de confirmation de billet contient aussi un bouton de commande.",
+  'ohelp.pg.drinksupsell.s4h': 'Le couper si besoin',
+  'ohelp.pg.drinksupsell.s4b': "La page upsell est active par défaut. Pour la désactiver, ouvre Opérations → Menu et coupe « Upsell post-achat ». La vente de boissons classique (carte du club, Mode Live) n'est pas affectée.",
   'ohelp.pg.upsell.title': 'Upsells',
   'ohelp.pg.upsell.desc': 'Des offres qui montent le panier moyen : à l\'achat du billet, au paiement, dans tout le club.',
   'ohelp.pg.upsell.s1h': 'À quoi sert cette page',

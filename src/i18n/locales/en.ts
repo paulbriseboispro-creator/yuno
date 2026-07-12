@@ -9068,6 +9068,17 @@ const en: Record<string, string> = {
   'ohelp.pg.vipservice.s9h': 'Host leaderboard & service moments',
   'ohelp.pg.vipservice.s9b': 'Analytics → Tables ranks your VIP hosts by the consumption they serve, handy for accountability and commissions. During service, open a table and schedule a bottle parade (sparklers) or a table announcement so the moment lands. And when a zone is full at checkout, guests can join a table waitlist you can call back on the first cancellation.',
 
+  // Help guide — post-purchase drinks upsell (docs/SYSTEME_VENTE_BOISSONS.md)
+  'ohelp.pg.drinksupsell.title': 'Post-purchase drinks upsell',
+  'ohelp.pg.drinksupsell.desc': 'A drinks page at presale prices shows right after every ticket purchase. Enabled by default.',
+  'ohelp.pg.drinksupsell.s1h': 'How it works for the customer',
+  'ohelp.pg.drinksupsell.s1b': 'Right after paying for their ticket, the customer sees a "Get your night ready" page with your menu: presale drinks first (crossed-out price), then the rest. They can order in one tap or skip straight to their ticket. The order is tied to the event: on the night, they show their QR at the bar and pick up their drinks without queuing.',
+  'ohelp.pg.drinksupsell.s2h': 'Enable presale prices',
+  'ohelp.pg.drinksupsell.s2b': '1. Open Operations → Menu.\n2. Edit a drink and set its presale price.\n3. Activate presale on the drink (or use bulk activation).\n4. Without presale prices, the upsell page shows normal prices.',
+  'ohelp.pg.drinksupsell.s3h': 'The day-of reminder',
+  'ohelp.pg.drinksupsell.s3b': 'In Push notifications, enable the "Day-of drinks" automation: on the afternoon of the event, ticket buyers get a reminder to pre-order their drinks. The ticket confirmation email also includes an order button.',
+  'ohelp.pg.drinksupsell.s4h': 'Turn it off if needed',
+  'ohelp.pg.drinksupsell.s4b': 'The upsell page is on by default. To disable it, open Operations → Menu and switch off "Post-purchase upsell". Regular drink sales (club menu, Live Mode) are not affected.',
   'ohelp.pg.upsell.title': 'Upsells',
   'ohelp.pg.upsell.desc': 'Offers that lift the average basket: at ticket purchase, at checkout, club-wide.',
   'ohelp.pg.upsell.s1h': 'What this page does',
