@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import QRCode from 'qrcode';
 import { WalletButtons } from '@/components/WalletButtons';
 import { DrinkCreditsCard } from '@/components/upsell/DrinkCreditsCard';
+import { DrinksUpsellCard } from '@/components/upsell/DrinksUpsellCard';
 import { TicketQRCarousel } from '@/components/orders/TicketQRCarousel';
 import { PublicPage } from '@/components/PublicPage';
 interface UpsellSelection {
@@ -930,6 +931,12 @@ export default function OrderConfirmation() {
           <motion.section {...rise(0.28)} className="py-7" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
             <DrinkCreditsCard ticketId={data.id} venueId={data.venueId} />
           </motion.section>
+        )}
+
+        {/* Rappel boissons (upsell post-achat) — la carte gère sa propre
+            éligibilité et rend null (aucune section vide) sinon. */}
+        {data.type === 'ticket' && data.venueId && (
+          <DrinksUpsellCard ticketId={data.id} venueId={data.venueId} eventId={data.eventId} />
         )}
 
         {/* VIENS AVEC TA TEAM — share the event (viral loop) */}

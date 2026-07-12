@@ -23,6 +23,7 @@ import { FadeInView } from '@/components/motion';
 import { formatCompactCount } from '@/components/formater';
 import { PublicPage } from '@/components/PublicPage';
 import { EventDetailsSkeleton } from '@/components/skeletons/EventDetailsSkeleton';
+import { EventDrinksTeaser } from '@/components/upsell/EventDrinksTeaser';
 import { usePromoterTracking } from '@/hooks/usePromoterTracking';
 import { useResolvePurchaseSource, useResolveTrackedLink } from '@/hooks/usePurchaseSourceTracking';
 import { useStore } from '@/store/useStore';
@@ -1192,7 +1193,12 @@ export default function EventDetails() {
           </FadeInView>
         )}
 
-        {/* Partner venue drinks intentionally NOT shown on event pages. */}
+        {/* Boissons : pas de carte complète ici — un teaser éducatif suffit
+            (commande dans l'app, presale après le billet, retrait sans file).
+            L'achat vit sur /order/upsell et en Mode Live. */}
+        {venue && venue.id !== primaryOrganizer?.user_id && (
+          <EventDrinksTeaser venueId={venue.id} eventId={event.id} />
+        )}
 
         {/* ── DESCRIPTION ── */}
         {event.description && (
