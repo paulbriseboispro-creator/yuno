@@ -202,7 +202,9 @@ export function DemoSwitcher() {
           aria-label="Comptes démo"
           className={`fixed z-[60] ${open ? 'hidden' : 'flex'} items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-primary-foreground shadow-lg ring-1 ring-white/10 transition hover:brightness-110`}
           style={{
-            bottom: 'calc(env(safe-area-inset-bottom, 0px) + 6rem)',
+            // + live-banner-offset : ne jamais recouvrir le bandeau « LIVE — … »
+            // posé juste au-dessus de la BottomNav par LiveModeBanner.
+            bottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--live-banner-offset, 0px) + 6rem)',
             left: '1.25rem',
           }}
         >
