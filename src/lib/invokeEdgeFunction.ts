@@ -34,11 +34,17 @@ function isStaleEdgeFetchError(error: unknown): boolean {
  * outage surfaces the real error on the next attempt instead of looping. Mirrors the
  * chunk-load recovery in lazyWithRetry.ts.
  */
-export async function invokeEdgeFunction(
+// `ReturnType<typeof supabase.functions.invoke>` instancie le générique T avec
+// `unknown` (TS remplace un paramètre non contraint par unknown) → tous les
+// appelants se prenaient `data: unknown` et ne pouvaient plus lire data.success
+// / data.url. On reprend le générique tel que supabase-js le déclare
+// (`invoke<T = any>`), ce qui rend le typage utilisable côté appelant.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- calque la signature de supabase-js (`invoke<T = any>`)
+export async function invokeEdgeFunction<T = any>(
   name: string,
   options?: Parameters<typeof supabase.functions.invoke>[1],
-): ReturnType<typeof supabase.functions.invoke> {
-  const result = await supabase.functions.invoke(name, options);
+): Promise<Awaited<ReturnType<typeof supabase.functions.invoke<T>>>> {
+  const result = await supabase.functions.invoke<T>(name, options);
   if (
     result.error &&
     isStaleEdgeFetchError(result.error) &&
