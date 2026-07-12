@@ -2681,6 +2681,48 @@ export type Database = {
           },
         ]
       }
+      dj_embeddings: {
+        Row: {
+          content_hash: string
+          dj_id: string
+          embedding: string
+          model: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content_hash: string
+          dj_id: string
+          embedding: string
+          model?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content_hash?: string
+          dj_id?: string
+          embedding?: string
+          model?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dj_embeddings_dj_id_fkey"
+            columns: ["dj_id"]
+            isOneToOne: true
+            referencedRelation: "djs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dj_embeddings_dj_id_fkey"
+            columns: ["dj_id"]
+            isOneToOne: true
+            referencedRelation: "djs_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dj_handle_aliases: {
         Row: {
           created_at: string
@@ -3536,6 +3578,9 @@ export type Database = {
           id: string
           img_url: string
           name: string
+          out_of_stock: boolean
+          out_of_stock_at: string | null
+          out_of_stock_by: string | null
           position: number | null
           presale_active: boolean
           presale_price: number | null
@@ -3552,6 +3597,9 @@ export type Database = {
           id: string
           img_url: string
           name: string
+          out_of_stock?: boolean
+          out_of_stock_at?: string | null
+          out_of_stock_by?: string | null
           position?: number | null
           presale_active?: boolean
           presale_price?: number | null
@@ -3568,6 +3616,9 @@ export type Database = {
           id?: string
           img_url?: string
           name?: string
+          out_of_stock?: boolean
+          out_of_stock_at?: string | null
+          out_of_stock_by?: string | null
           position?: number | null
           presale_active?: boolean
           presale_price?: number | null
@@ -3883,6 +3934,47 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      event_ai_reports: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          language: string
+          model: string
+          report: Json
+          stats_hash: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          language: string
+          model: string
+          report: Json
+          stats_hash: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          language?: string
+          model?: string
+          report?: Json
+          stats_hash?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_ai_reports_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       event_collab_action_requests: {
         Row: {
@@ -4333,6 +4425,38 @@ export type Database = {
             foreignKeyName: "event_djs_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_embeddings: {
+        Row: {
+          content_hash: string
+          embedding: string
+          event_id: string
+          model: string
+          updated_at: string
+        }
+        Insert: {
+          content_hash: string
+          embedding: string
+          event_id: string
+          model?: string
+          updated_at?: string
+        }
+        Update: {
+          content_hash?: string
+          embedding?: string
+          event_id?: string
+          model?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_embeddings_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
@@ -5868,6 +5992,44 @@ export type Database = {
         }
         Relationships: []
       }
+      live_activity_tokens: {
+        Row: {
+          activity_id: string
+          created_at: string
+          ended_at: string | null
+          id: string
+          order_id: string
+          push_token: string
+          user_id: string
+        }
+        Insert: {
+          activity_id: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          order_id: string
+          push_token: string
+          user_id: string
+        }
+        Update: {
+          activity_id?: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          order_id?: string
+          push_token?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_activity_tokens_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       live_visitor_pings: {
         Row: {
           cart_value_cents: number | null
@@ -6383,6 +6545,44 @@ export type Database = {
           },
         ]
       }
+      night_ops_events: {
+        Row: {
+          created_at: string
+          event_id: string | null
+          id: string
+          kind: string
+          note: string | null
+          reported_by: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          kind: string
+          note?: string | null
+          reported_by: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          kind?: string
+          note?: string | null
+          reported_by?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "night_ops_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_log: {
         Row: {
           id: string
@@ -6578,6 +6778,7 @@ export type Database = {
           prep_claimed_by: string | null
           prep_requested: boolean | null
           prep_status: string | null
+          purchase_source: string | null
           ready_at: string | null
           refund_amount: number | null
           refund_reason: string | null
@@ -6624,6 +6825,7 @@ export type Database = {
           prep_claimed_by?: string | null
           prep_requested?: boolean | null
           prep_status?: string | null
+          purchase_source?: string | null
           ready_at?: string | null
           refund_amount?: number | null
           refund_reason?: string | null
@@ -6670,6 +6872,7 @@ export type Database = {
           prep_claimed_by?: string | null
           prep_requested?: boolean | null
           prep_status?: string | null
+          purchase_source?: string | null
           ready_at?: string | null
           refund_amount?: number | null
           refund_reason?: string | null
@@ -7564,6 +7767,7 @@ export type Database = {
           organization_logo_url: string | null
           organization_name: string | null
           party_persona: string | null
+          personalization_opt_out: boolean
           phone: string | null
           phone_sms_opt_in: boolean
           preferred_language: string | null
@@ -7605,6 +7809,7 @@ export type Database = {
           organization_logo_url?: string | null
           organization_name?: string | null
           party_persona?: string | null
+          personalization_opt_out?: boolean
           phone?: string | null
           phone_sms_opt_in?: boolean
           preferred_language?: string | null
@@ -7646,6 +7851,7 @@ export type Database = {
           organization_logo_url?: string | null
           organization_name?: string | null
           party_persona?: string | null
+          personalization_opt_out?: boolean
           phone?: string | null
           phone_sms_opt_in?: boolean
           preferred_language?: string | null
@@ -8465,6 +8671,7 @@ export type Database = {
         Row: {
           audience: Json
           body: string
+          body_i18n: Json | null
           created_at: string | null
           created_by: string | null
           event_id: string | null
@@ -8473,16 +8680,19 @@ export type Database = {
           scheduled_at: string | null
           segment: string
           sent_count: number | null
+          source: string
           status: string
           targeted_count: number
           template_key: string | null
           title: string
+          title_i18n: Json | null
           url: string | null
           venue_id: string | null
         }
         Insert: {
           audience?: Json
           body: string
+          body_i18n?: Json | null
           created_at?: string | null
           created_by?: string | null
           event_id?: string | null
@@ -8491,16 +8701,19 @@ export type Database = {
           scheduled_at?: string | null
           segment?: string
           sent_count?: number | null
+          source?: string
           status?: string
           targeted_count?: number
           template_key?: string | null
           title: string
+          title_i18n?: Json | null
           url?: string | null
           venue_id?: string | null
         }
         Update: {
           audience?: Json
           body?: string
+          body_i18n?: Json | null
           created_at?: string | null
           created_by?: string | null
           event_id?: string | null
@@ -8509,10 +8722,12 @@ export type Database = {
           scheduled_at?: string | null
           segment?: string
           sent_count?: number | null
+          source?: string
           status?: string
           targeted_count?: number
           template_key?: string | null
           title?: string
+          title_i18n?: Json | null
           url?: string | null
           venue_id?: string | null
         }
@@ -8834,6 +9049,7 @@ export type Database = {
       }
       sms_campaigns: {
         Row: {
+          body_i18n: Json | null
           body_template: string
           created_at: string
           created_by: string
@@ -8853,6 +9069,7 @@ export type Database = {
           venue_id: string | null
         }
         Insert: {
+          body_i18n?: Json | null
           body_template: string
           created_at?: string
           created_by: string
@@ -8872,6 +9089,7 @@ export type Database = {
           venue_id?: string | null
         }
         Update: {
+          body_i18n?: Json | null
           body_template?: string
           created_at?: string
           created_by?: string
@@ -10975,6 +11193,36 @@ export type Database = {
           },
         ]
       }
+      venue_ai_actions: {
+        Row: {
+          actions: Json
+          created_at: string
+          day: string
+          id: string
+          language: string
+          model: string
+          venue_id: string
+        }
+        Insert: {
+          actions: Json
+          created_at?: string
+          day: string
+          id?: string
+          language: string
+          model: string
+          venue_id: string
+        }
+        Update: {
+          actions?: Json
+          created_at?: string
+          day?: string
+          id?: string
+          language?: string
+          model?: string
+          venue_id?: string
+        }
+        Relationships: []
+      }
       venue_banned_emails: {
         Row: {
           ban_reason: string | null
@@ -11434,6 +11682,35 @@ export type Database = {
           },
         ]
       }
+      venue_push_automations: {
+        Row: {
+          automation_key: string
+          enabled: boolean
+          updated_at: string
+          venue_id: string
+        }
+        Insert: {
+          automation_key: string
+          enabled?: boolean
+          updated_at?: string
+          venue_id: string
+        }
+        Update: {
+          automation_key?: string
+          enabled?: boolean
+          updated_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_push_automations_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venue_sms_contacts: {
         Row: {
           consent_source: string
@@ -11594,6 +11871,7 @@ export type Database = {
           music_genre: string | null
           name: string
           owner_id: string | null
+          post_checkout_upsell_enabled: boolean
           short_description: string | null
           siret: string | null
           solo_bottle_sale_enabled: boolean
@@ -11647,6 +11925,7 @@ export type Database = {
           music_genre?: string | null
           name: string
           owner_id?: string | null
+          post_checkout_upsell_enabled?: boolean
           short_description?: string | null
           siret?: string | null
           solo_bottle_sale_enabled?: boolean
@@ -11700,6 +11979,7 @@ export type Database = {
           music_genre?: string | null
           name?: string
           owner_id?: string | null
+          post_checkout_upsell_enabled?: boolean
           short_description?: string | null
           siret?: string | null
           solo_bottle_sale_enabled?: boolean
@@ -12611,6 +12891,71 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      wallet_pass_registrations: {
+        Row: {
+          created_at: string
+          device_library_id: string
+          pass_serial: string
+          push_token: string
+        }
+        Insert: {
+          created_at?: string
+          device_library_id: string
+          pass_serial: string
+          push_token: string
+        }
+        Update: {
+          created_at?: string
+          device_library_id?: string
+          pass_serial?: string
+          push_token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_pass_registrations_pass_serial_fkey"
+            columns: ["pass_serial"]
+            isOneToOne: false
+            referencedRelation: "wallet_passes"
+            referencedColumns: ["serial"]
+          },
+        ]
+      }
+      wallet_passes: {
+        Row: {
+          auth_token: string
+          created_at: string
+          lang: string
+          pass_type: string
+          reference_id: string
+          serial: string
+          updated_at: string
+          user_id: string | null
+          voided: boolean
+        }
+        Insert: {
+          auth_token: string
+          created_at?: string
+          lang?: string
+          pass_type: string
+          reference_id: string
+          serial: string
+          updated_at?: string
+          user_id?: string | null
+          voided?: boolean
+        }
+        Update: {
+          auth_token?: string
+          created_at?: string
+          lang?: string
+          pass_type?: string
+          reference_id?: string
+          serial?: string
+          updated_at?: string
+          user_id?: string | null
+          voided?: boolean
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -13556,9 +13901,30 @@ export type Database = {
           venue_name: string
         }[]
       }
+      get_due_push_automations: {
+        Args: never
+        Returns: {
+          automation_key: string
+          end_at: string
+          event_id: string
+          event_slug: string
+          event_title: string
+          start_at: string
+          venue_id: string
+          venue_name: string
+        }[]
+      }
       get_event_managing_organizer: {
         Args: { _event_id: string }
         Returns: string
+      }
+      get_event_scan_manifest: { Args: { p_event_id: string }; Returns: Json }
+      get_for_you_events: {
+        Args: { p_limit?: number }
+        Returns: {
+          event_id: string
+          similarity: number
+        }[]
       }
       get_guest_list_by_token: {
         Args: { _token: string }
@@ -13924,6 +14290,10 @@ export type Database = {
         Args: { _event_id: string; _user_id: string }
         Returns: boolean
       }
+      is_night_staff_of_venue: {
+        Args: { p_venue_id: string }
+        Returns: boolean
+      }
       is_org_staff: {
         Args: { _organizer_user_id: string; _role?: string; _user_id: string }
         Returns: boolean
@@ -13970,6 +14340,21 @@ export type Database = {
       manager_has_permission: {
         Args: { _permission: string; _user_id: string; _venue_id: string }
         Returns: boolean
+      }
+      match_djs_for_event: {
+        Args: { p_event_id: string; p_limit?: number }
+        Returns: {
+          city: string
+          dj_id: string
+          handle: string
+          is_verified: boolean
+          music_genres: string[]
+          profile_image_url: string
+          similarity: number
+          slug: string
+          stage_name: string
+          user_id: string
+        }[]
       }
       normalize_split_rules: { Args: { rules: Json }; Returns: Json }
       notify_collab_party: {
@@ -14207,6 +14592,13 @@ export type Database = {
           user_id: string
         }[]
       }
+      search_events_semantic: {
+        Args: { p_embedding: string; p_limit?: number }
+        Returns: {
+          event_id: string
+          similarity: number
+        }[]
+      }
       search_organizers: {
         Args: { search_term: string }
         Returns: {
@@ -14303,6 +14695,10 @@ export type Database = {
         }
         Returns: string
       }
+      staff_set_drink_stock: {
+        Args: { p_drink_id: string; p_out: boolean }
+        Returns: undefined
+      }
       staff_unban_customer: {
         Args: {
           p_email: string
@@ -14328,6 +14724,7 @@ export type Database = {
         Args: { p_secret: string; p_user_id: string }
         Returns: undefined
       }
+      sync_offline_scans: { Args: { p_scans: Json }; Returns: Json }
       terminate_event_collab_series_contract: {
         Args: { p_contract_id: string }
         Returns: undefined
