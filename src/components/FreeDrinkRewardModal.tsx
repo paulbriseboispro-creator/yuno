@@ -98,6 +98,7 @@ export function FreeDrinkRewardModal({ reward, onClose, posterUrl }: FreeDrinkRe
       whenLabel={whenLabel}
       posterUrl={posterUrl}
       posterThumb={posterUrl}
+      kindLabel={t('orders.kindDrink')}
       footer={
         <div className="space-y-2.5 text-left">
           {/* PIN de secours */}

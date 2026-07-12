@@ -375,6 +375,7 @@ export function DrinkOrderDetailModal({
       whenLabel={whenLabel}
       posterUrl={posterUrl}
       posterThumb={posterUrl}
+      kindLabel={t('orders.kindDrink')}
       footer={
         <div className="space-y-2.5 text-left">
           {/* Statut de préparation (mode récupération Click&Collect) */}

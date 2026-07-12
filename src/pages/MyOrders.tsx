@@ -8,7 +8,7 @@ import { uniqueChannel } from '@/lib/realtime';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Bell } from 'lucide-react';
-import { ArrowLeft, Clock, CheckCircle2, QrCode, Trash2, CreditCard, Archive, Ticket, ChevronDown, ChevronUp, Wine, Calendar, Shield, X, Users, Sparkles, Gift, LogIn, ShoppingBag, ArrowRight, MapPin, Info, Share2, Wallet } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle2, QrCode, Trash2, CreditCard, Archive, Ticket, ChevronDown, ChevronUp, Wine, Calendar, Shield, X, Users, Sparkles, Gift, LogIn, ShoppingBag, ArrowRight, MapPin, Info, Wallet } from 'lucide-react';
 import { DrinkOrderDetailModal } from '@/components/DrinkOrderDetailModal';
 import { FreeDrinkRewardModal } from '@/components/FreeDrinkRewardModal';
 import { BottomNav } from '@/components/BottomNav';
@@ -40,7 +40,6 @@ import type {
 import { EditOrderDialog } from '@/components/orders/EditOrderDialog';
 import { CancelTicketDialog } from '@/components/orders/CancelTicketDialog';
 import { getGuestTickets, removeGuestTicket, type GuestTicket } from '@/lib/guestTickets';
-import { shareContent } from '@/lib/share';
 import { addToWallet } from '@/lib/wallet';
 import { haptics } from '@/lib/haptics';
 import { useWalletDetection } from '@/hooks/useWalletDetection';
@@ -1269,10 +1268,6 @@ export default function MyOrders() {
       if (!iso) return '';
       try { return format(new Date(iso), 'EEE d MMM · HH:mm', { locale: getLocale() }); } catch { return ''; }
     };
-    const shareGuest = async (title: string) => {
-      const outcome = await shareContent({ title: 'Yuno', text: title }).catch(() => 'dismissed' as const);
-      if (outcome === 'copied') toast.success(title);
-    };
     const typeFallback = (g: GuestTicket) =>
       g.type === 'table' ? t('claim.tabTables') : g.type === 'order' ? t('claim.tabDrinks') : t('claim.tabTickets');
 
@@ -1365,8 +1360,9 @@ export default function MyOrders() {
             slides={[{ qrImage: guestQRImages[guestQR.reference] }]}
             labels={guestLabels}
             onClose={() => setGuestQR(null)}
-            onShare={() => shareGuest(guestQR.eventTitle || 'Yuno')}
             posterUrl={guestQR.eventPoster}
+            posterThumb={guestQR.eventPoster}
+            kindLabel={guestQR.type === 'table' ? t('orders.kindVip') : guestQR.type === 'order' ? t('orders.kindDrink') : t('orders.kindTicket')}
           />
         )}
 
@@ -1627,11 +1623,16 @@ export default function MyOrders() {
     scanned: t('orders.scannedLabel'),
   };
 
-  // Build a share handler for the active QR overlay item
-  const shareQR = async (title: string) => {
-    const outcome = await shareContent({ title: 'Yuno', text: title }).catch(() => 'dismissed' as const);
-    if (outcome === 'copied') toast.success(title);
-  };
+  // Libellés de type localisés — chips « Billet / Boisson / VIP… » sur les
+  // cartes et les overlays QR, pour qu'une boisson ne ressemble jamais à un billet.
+  const kindLabels = {
+    ticket: t('orders.kindTicket'),
+    vip: t('orders.kindVip'),
+    guestlist: t('orders.kindGuestlist'),
+    reward: t('orders.kindReward'),
+    drink: t('orders.kindDrink'),
+    waitlist: t('orders.kindWaitlist'),
+  } as const;
 
   // "SAT 14 JUN · 23:00" — shown inside the QR overlay info card
   const fmtWhen = (iso?: string) =>
@@ -1680,7 +1681,6 @@ export default function MyOrders() {
         void addToCalendar({ title: opts.title, startAt: opts.startAt, endAt: opts.endAt, location: venueLocationText(opts.venue) });
       } });
     }
-    acts.push({ icon: Share2, label: t('orders.shareShort'), onClick: () => shareQR(opts.title) });
     return acts;
   };
 
@@ -1756,13 +1756,13 @@ export default function MyOrders() {
             ) : (
               <div className="flex flex-col gap-3">
                 {seg === 'pending' && pendingEntries.map((o, i) => (
-                  <PendingCard key={o.id} o={o} index={i} tonightLabel={t('orders.tonight').toUpperCase()} />
+                  <PendingCard key={o.id} o={o} index={i} tonightLabel={t('orders.tonight').toUpperCase()} kindLabels={kindLabels} />
                 ))}
                 {seg === 'upcoming' && upcomingEntries.map((o, i) => (
-                  <UpcomingCard key={o.id} o={o} index={i} />
+                  <UpcomingCard key={o.id} o={o} index={i} kindLabels={kindLabels} />
                 ))}
                 {seg === 'past' && pastEntries.map((o, i) => (
-                  <PastCard key={o.id} o={o} index={i} statusLabels={pastStatusLabels} />
+                  <PastCard key={o.id} o={o} index={i} statusLabels={pastStatusLabels} kindLabels={kindLabels} />
                 ))}
               </div>
             )}
@@ -1818,9 +1818,10 @@ export default function MyOrders() {
           entryScanned={selectedTicket.entryScanned}
           labels={qrOverlayLabels}
           onClose={() => setSelectedTicket(null)}
-          onShare={() => shareQR(selectedTicket.eventTitle)}
           whenLabel={fmtWhen(selectedTicket.eventStartAt)}
           posterUrl={selectedTicket.eventPosterUrl}
+          posterThumb={selectedTicket.eventPosterUrl}
+          kindLabel={kindLabels.ticket}
           actions={buildQRActions({
             eventId: selectedTicket.eventId,
             title: selectedTicket.eventTitle,
@@ -1852,9 +1853,10 @@ export default function MyOrders() {
           scanned={selectedVipReservation.entryScanned}
           labels={qrOverlayLabels}
           onClose={() => setSelectedVipReservation(null)}
-          onShare={() => shareQR(selectedVipReservation.eventTitle)}
           whenLabel={fmtWhen(selectedVipReservation.eventStartAt)}
           posterUrl={selectedVipReservation.eventPosterUrl}
+          posterThumb={selectedVipReservation.eventPosterUrl}
+          kindLabel={kindLabels.vip}
           actions={buildQRActions({
             eventId: selectedVipReservation.eventId,
             title: selectedVipReservation.eventTitle,
@@ -1903,9 +1905,10 @@ export default function MyOrders() {
           scanned={selectedGuestEntry.entryScanned}
           labels={qrOverlayLabels}
           onClose={() => setSelectedGuestEntry(null)}
-          onShare={() => shareQR(selectedGuestEntry.eventTitle)}
           whenLabel={fmtWhen(selectedGuestEntry.eventStartAt)}
           posterUrl={selectedGuestEntry.eventPosterUrl}
+          posterThumb={selectedGuestEntry.eventPosterUrl}
+          kindLabel={kindLabels.guestlist}
           actions={buildQRActions({
             eventId: selectedGuestEntry.eventId,
             title: selectedGuestEntry.eventTitle,
@@ -1991,9 +1994,10 @@ export default function MyOrders() {
           idLabel={`1× ${selectedReward.metadata?.roundName || t('loyalty.freeTicket')}`}
           labels={qrOverlayLabels}
           onClose={() => setSelectedReward(null)}
-          onShare={() => shareQR(selectedReward.eventDetails?.title || selectedReward.rewardName)}
           whenLabel={fmtWhen(selectedReward.eventDetails?.startAt)}
           posterUrl={selectedReward.eventDetails?.posterUrl || undefined}
+          posterThumb={selectedReward.eventDetails?.posterUrl || undefined}
+          kindLabel={kindLabels.reward}
           actions={buildQRActions({
             eventId: selectedReward.eventDetails?.id || selectedReward.metadata?.eventId,
             title: selectedReward.eventDetails?.title || selectedReward.metadata?.eventTitle || selectedReward.rewardName,

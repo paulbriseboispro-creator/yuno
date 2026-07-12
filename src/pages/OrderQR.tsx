@@ -294,6 +294,7 @@ export default function OrderQR() {
       whenLabel={whenLabel}
       posterUrl={order.events?.poster_url || undefined}
       posterThumb={order.events?.poster_url || undefined}
+      kindLabel={t('orders.kindDrink')}
       footer={
         <div className="space-y-2.5 text-left">
           {/* Click&Collect : demander la préparation */}

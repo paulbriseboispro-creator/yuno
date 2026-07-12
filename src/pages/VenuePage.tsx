@@ -125,6 +125,10 @@ export default function VenuePage() {
   const [selectedDrink, setSelectedDrink] = useState<Drink | null>(null);
   const [clickCollectMode, setClickCollectMode] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  // Échec de chargement (réseau/timeout) ≠ club inexistant : on affiche un
+  // état d'erreur avec bouton réessayer au lieu d'un skeleton infini.
+  const [loadError, setLoadError] = useState(false);
+  const [retryTick, setRetryTick] = useState(0);
   const [showBackButton, setShowBackButton] = useState(false);
   const [isExclusiveMode, setIsExclusiveMode] = useState(false);
   const [, setFollowersCount] = useState<number>(0);
@@ -175,14 +179,22 @@ export default function VenuePage() {
 
     const fetchVenue = async () => {
       try {
+        setLoadError(false);
         // Anon visitors only have column-level GRANTs on the public subset of
         // `venues` (see publicColumns.ts). select('*') here returns HTTP 401 for
         // logged-out guests → the whole club page falls back to "not found".
-        const { data, error } = await supabase
+        // Timeout dur à 10s : une requête qui ne résout jamais (WebView natif
+        // qui sort de veille, réseau boîte de nuit) ne doit JAMAIS laisser un
+        // skeleton noir infini — on tombe sur l'état d'erreur + réessayer.
+        const query = supabase
           .from('venues')
           .select(PUBLIC_VENUE_COLUMNS)
           .eq('id', slug)
           .maybeSingle();
+        const { data, error } = await Promise.race([
+          Promise.resolve(query),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('venue fetch timeout')), 10000)),
+        ]);
 
         if (error) throw error;
 
@@ -215,7 +227,8 @@ export default function VenuePage() {
         setMenuEnabled(data.menu_enabled !== false);
       } catch (error) {
         console.error('Error fetching venue:', error);
-        setNotFound(true);
+        // Erreur réseau/timeout : proposer de réessayer plutôt qu'un faux 404.
+        setLoadError(true);
       } finally {
         setVenueLoading(false);
       }
@@ -246,7 +259,8 @@ export default function VenuePage() {
     return () => {
       supabase.removeChannel(venueChannel);
     };
-  }, [slug]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, retryTick]);
 
   // Fetch venue subscription plan
   useEffect(() => {
@@ -495,24 +509,56 @@ export default function VenuePage() {
   };
 
   if (venueLoading) {
+    // bg-muted (7%) est invisible sur le fond #0A0A0A → teinte explicite pour
+    // que le chargement ne ressemble jamais à un « écran noir ».
+    const sk = 'bg-white/[0.08]';
     return (
       <div className="min-h-screen bg-background pb-20">
         <div className="px-4 pt-[calc(env(safe-area-inset-top,0px)+1rem)]">
-          <Skeleton className="w-full aspect-video rounded-xl" />
+          <Skeleton className={`w-full aspect-video rounded-xl ${sk}`} />
         </div>
         <div className="px-5 pt-4 space-y-3">
-          <Skeleton className="h-7 w-2/3" />
+          <Skeleton className={`h-7 w-2/3 ${sk}`} />
           <div className="flex items-center gap-2">
-            <Skeleton className="h-7 w-7 rounded-full" />
-            <Skeleton className="h-4 w-40" />
+            <Skeleton className={`h-7 w-7 rounded-full ${sk}`} />
+            <Skeleton className={`h-4 w-40 ${sk}`} />
           </div>
-          <Skeleton className="h-8 w-28 rounded-full" />
+          <Skeleton className={`h-8 w-28 rounded-full ${sk}`} />
         </div>
         <div className="mx-auto max-w-xl px-5 pt-8 space-y-4">
-          <Skeleton className="h-4 w-32" />
+          <Skeleton className={`h-4 w-32 ${sk}`} />
           <div className="flex flex-col gap-6">
-            <Skeleton className="w-full aspect-square rounded-xl" />
-            <Skeleton className="w-full aspect-square rounded-xl" />
+            <Skeleton className={`w-full aspect-square rounded-xl ${sk}`} />
+            <Skeleton className={`w-full aspect-square rounded-xl ${sk}`} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError && !venue) {
+    return (
+      <div className="flex min-h-screen items-center justify-center" style={{ background: '#0A0A0A' }}>
+        <div className="text-center px-6" style={{ maxWidth: 340 }}>
+          <h2 className="font-display uppercase" style={{ fontSize: 20, fontWeight: 700, color: '#fff', marginBottom: 8 }}>
+            {t('venue.loadError')}
+          </h2>
+          <p style={{ fontSize: 13, color: '#9A9A9A', marginBottom: 20 }}>{t('venue.loadErrorBody')}</p>
+          <button
+            onClick={() => { setVenueLoading(true); setRetryTick((n) => n + 1); }}
+            className="cursor-pointer font-mono font-bold uppercase"
+            style={{ padding: '12px 24px', borderRadius: 3, background: '#E8192C', color: '#fff', fontSize: 11, letterSpacing: '.1em', border: 'none' }}
+          >
+            {t('common.retry')}
+          </button>
+          <div style={{ marginTop: 14 }}>
+            <button
+              onClick={() => navigate('/')}
+              className="cursor-pointer font-mono uppercase"
+              style={{ padding: '10px 18px', borderRadius: 999, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.14)', color: '#E5E5E5', fontSize: 10.5, letterSpacing: '.08em' }}
+            >
+              {t('nav.backHome')}
+            </button>
           </div>
         </div>
       </div>

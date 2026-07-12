@@ -2267,6 +2267,9 @@ const fr: Record<string, string> = {
   
   // Venue
   'venue.notFound': 'Lieu introuvable',
+  'venue.loadError': 'Impossible de charger le club',
+  'venue.loadErrorBody': 'Vérifie ta connexion et réessaie.',
+  'common.retry': 'Réessayer',
   'venue.noDrinks': 'Aucune boisson disponible',
   'venue.drinks': 'Boissons',
   'venue.shots': 'Shots',
@@ -2428,6 +2431,12 @@ const fr: Record<string, string> = {
   'orders.openMyQR': 'Ouvrir mon QR',
   'orders.scanThisQR': 'SCANNER CE QR',
   'orders.shareThisQR': 'Partager ce QR',
+  'orders.kindTicket': 'Billet',
+  'orders.kindVip': 'Table VIP',
+  'orders.kindGuestlist': 'Guest list',
+  'orders.kindDrink': 'Boisson',
+  'orders.kindReward': 'Récompense',
+  'orders.kindWaitlist': "Liste d'attente",
   'orders.valid': 'Valide',
   'orders.scannedLabel': 'Scanné',
   'orders.directions': 'Itinéraire',

@@ -7,13 +7,14 @@
    (docs/DESIGN_SYSTEM_PUBLIC.md). Hex durs, mono uppercase tracké,
    radius tranchant, rouge unique #E8192C comme seul accent.
    ============================================================ */
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { transitions, useReducedMotion } from '@/lib/motion';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
+import { haptics } from '@/lib/haptics';
 import {
   Ticket, Crown, Wine, Users, Gift, Bell, QrCode, ArrowRight, CheckCircle2,
-  X, Share2, CreditCard, User, ChevronLeft, ChevronRight, Clock, type LucideIcon,
+  X, CreditCard, User, ChevronLeft, ChevronRight, Clock, type LucideIcon,
 } from 'lucide-react';
 
 export type OrderKind = 'ticket' | 'vip' | 'guestlist' | 'reward' | 'drink' | 'waitlist';
@@ -72,26 +73,54 @@ const KIND: Record<OrderKind, LucideIcon> = {
 };
 
 /* ---- type badge (icon tile éditorial, monochrome) ----
-   `imageUrl` : affiche de la soirée en 1:1 (cover, centrée) à la place de
-   l'icône — l'icône reste rendue dessous en fallback si l'image ne charge pas. */
-function TypeBadge({ kind, size = 50, accent = false, imageUrl }: { kind: OrderKind; size?: number; accent?: boolean; imageUrl?: string }) {
+   `imageUrl` : affiche de la soirée dans une tuile 1:1 — image ENTIÈRE centrée
+   (contain, jamais recadrée/zoomée) sur un fond flouté de la même affiche.
+   L'icône reste rendue dessous en fallback si l'image ne charge pas.
+   `kindBadge` : pastille d'angle avec l'icône du type, pour que la nature de
+   la commande (boisson vs billet) reste lisible même quand l'affiche recouvre
+   l'icône principale. */
+function TypeBadge({ kind, size = 50, accent = false, imageUrl, kindBadge = false }: { kind: OrderKind; size?: number; accent?: boolean; imageUrl?: string; kindBadge?: boolean }) {
   const Icon = KIND[kind];
+  const optimized = imageUrl ? getOptimizedImageUrl(imageUrl, { width: 128, quality: 75 }) : undefined;
   return (
     <div
       style={{
         width: size, height: size, flex: 'none', borderRadius: 8,
-        display: 'grid', placeItems: 'center', position: 'relative', overflow: 'hidden',
+        display: 'grid', placeItems: 'center', position: 'relative',
         background: accent ? RED_TINT : CARD2,
         border: `1px solid ${accent ? RED_SOFT : BORDER_STRONG}`,
       }}
     >
-      <Icon style={{ width: size * 0.42, height: size * 0.42, color: accent ? RED : G1 }} strokeWidth={1.9} />
-      {imageUrl && (
-        <img
-          src={getOptimizedImageUrl(imageUrl, { width: 128, quality: 75 })}
-          alt=""
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
-        />
+      <div style={{ position: 'absolute', inset: 0, borderRadius: 7, overflow: 'hidden', display: 'grid', placeItems: 'center' }}>
+        <Icon style={{ width: size * 0.42, height: size * 0.42, color: accent ? RED : G1 }} strokeWidth={1.9} />
+        {optimized && (
+          <>
+            {/* fond : la même affiche floutée en cover — comble les marges du contain */}
+            <img
+              src={optimized}
+              alt=""
+              aria-hidden
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', filter: 'blur(6px) brightness(0.55)', transform: 'scale(1.3)' }}
+            />
+            {/* premier plan : l'affiche entière, centrée, sans zoom */}
+            <img
+              src={optimized}
+              alt=""
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center' }}
+            />
+          </>
+        )}
+      </div>
+      {kindBadge && imageUrl && (
+        <div
+          style={{
+            position: 'absolute', right: -5, bottom: -5, width: Math.round(size * 0.44), height: Math.round(size * 0.44),
+            borderRadius: 6, display: 'grid', placeItems: 'center',
+            background: '#0A0A0A', border: `1px solid ${BORDER_STRONG}`,
+          }}
+        >
+          <Icon style={{ width: size * 0.24, height: size * 0.24, color: RED }} strokeWidth={2.1} />
+        </div>
       )}
     </div>
   );
@@ -148,11 +177,27 @@ export function SegControl({
   );
 }
 
+/* ---- chip de type inline (icône + libellé) — différencie boisson / billet /
+   VIP / guest list d'un coup d'œil sur les cartes de liste ---- */
+export type KindLabels = Partial<Record<OrderKind, string>>;
+
+function KindChip({ kind, label }: { kind: OrderKind; label?: string }) {
+  if (!label) return null;
+  const Icon = KIND[kind];
+  return (
+    <span className="inline-flex items-center gap-1 font-mono uppercase" style={{ fontSize: 9, fontWeight: 700, letterSpacing: '.1em', color: RED, flexShrink: 0 }}>
+      <Icon style={{ width: 10, height: 10 }} strokeWidth={2.2} />
+      {label}
+    </span>
+  );
+}
+
 /* ================================================================
    CARD — EN ATTENTE (ce soir, urgent)
    ================================================================ */
-export function PendingCard({ o, tonightLabel, index = 0 }: { o: UnifiedOrderEntry; tonightLabel: string; index?: number }) {
+export function PendingCard({ o, tonightLabel, index = 0, kindLabels }: { o: UnifiedOrderEntry; tonightLabel: string; index?: number; kindLabels?: KindLabels }) {
   const CtaIcon = o.ctaIcon === 'pay' ? CreditCard : QrCode;
+  const kindLabel = kindLabels?.[o.kind];
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }}
@@ -186,8 +231,13 @@ export function PendingCard({ o, tonightLabel, index = 0 }: { o: UnifiedOrderEnt
         <TypeBadge kind={o.kind} size={42} accent />
         <div className="flex-1 min-w-0">
           <div className="font-display uppercase truncate" style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.12, letterSpacing: '-.005em', color: WHITE, marginBottom: 4 }}>{o.title}</div>
-          {o.subtitle && (
-            <div className="font-mono truncate" style={{ fontSize: 10.5, color: G2, lineHeight: 1.4 }}>{o.subtitle}</div>
+          {(o.subtitle || kindLabel) && (
+            <div className="flex items-center gap-1.5 min-w-0">
+              <KindChip kind={o.kind} label={kindLabel} />
+              {o.subtitle && (
+                <span className="font-mono truncate" style={{ fontSize: 10.5, color: G2, lineHeight: 1.4 }}>{kindLabel ? '· ' : ''}{o.subtitle}</span>
+              )}
+            </div>
           )}
         </div>
         <span className="font-mono" style={{ fontSize: 13, fontWeight: 700, flexShrink: 0, color: o.free ? G1 : RED }}>
@@ -216,9 +266,10 @@ export function PendingCard({ o, tonightLabel, index = 0 }: { o: UnifiedOrderEnt
 /* ================================================================
    CARD — À VENIR (futur, calme)
    ================================================================ */
-export function UpcomingCard({ o, index = 0 }: { o: UnifiedOrderEntry; index?: number }) {
+export function UpcomingCard({ o, index = 0, kindLabels }: { o: UnifiedOrderEntry; index?: number; kindLabels?: KindLabels }) {
   const [d0, d1] = (o.dateLabel || ' ').split(' ');
   const isNav = o.kind === 'waitlist';
+  const kindLabel = kindLabels?.[o.kind];
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }}
@@ -242,7 +293,10 @@ export function UpcomingCard({ o, index = 0 }: { o: UnifiedOrderEntry; index?: n
 
       {/* Infos */}
       <div className="flex-1 min-w-0">
-        <div className="font-mono uppercase" style={{ fontSize: 9.5, color: G2, letterSpacing: '.06em', marginBottom: 3 }}>{o.venueName}</div>
+        <div className="flex items-center gap-1.5 min-w-0" style={{ marginBottom: 3 }}>
+          <KindChip kind={o.kind} label={kindLabel} />
+          <span className="font-mono uppercase truncate" style={{ fontSize: 9.5, color: G2, letterSpacing: '.06em' }}>{kindLabel ? '· ' : ''}{o.venueName}</span>
+        </div>
         <div className="font-display uppercase truncate" style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.12, letterSpacing: '-.005em', color: WHITE, marginBottom: 4 }}>{o.title}</div>
         <div className="flex items-center gap-1.5">
           {o.time && <span className="font-mono" style={{ fontSize: 10.5, color: G2 }}>{o.time}</span>}
@@ -276,8 +330,9 @@ export function UpcomingCard({ o, index = 0 }: { o: UnifiedOrderEntry; index?: n
 /* ================================================================
    CARD — PASSÉ (archivé, utilisé)
    ================================================================ */
-export function PastCard({ o, statusLabels, index = 0 }: { o: UnifiedOrderEntry; statusLabels: Record<'scanned' | 'used' | 'refunded', string>; index?: number }) {
+export function PastCard({ o, statusLabels, index = 0, kindLabels }: { o: UnifiedOrderEntry; statusLabels: Record<'scanned' | 'used' | 'refunded', string>; index?: number; kindLabels?: KindLabels }) {
   const status = o.pastStatus || 'used';
+  const kindLabel = kindLabels?.[o.kind];
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.03 }}
@@ -291,8 +346,8 @@ export function PastCard({ o, statusLabels, index = 0 }: { o: UnifiedOrderEntry;
         <CheckCircle2 style={{ width: 18, height: 18, color: status === 'refunded' ? RED : G3 }} strokeWidth={2} />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="font-mono uppercase" style={{ fontSize: 9.5, color: G2, letterSpacing: '.06em', marginBottom: 3 }}>
-          {o.venueName}{o.dateLabel ? ` · ${o.dateLabel}` : ''}
+        <div className="font-mono uppercase truncate" style={{ fontSize: 9.5, color: G2, letterSpacing: '.06em', marginBottom: 3 }}>
+          {kindLabel ? `${kindLabel} · ` : ''}{o.venueName}{o.dateLabel ? ` · ${o.dateLabel}` : ''}
         </div>
         <div className="font-display uppercase truncate" style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.12, letterSpacing: '-.005em', color: G1 }}>{o.title}</div>
       </div>
@@ -345,7 +400,7 @@ export interface QRAction {
 }
 
 export function OrderQROverlay({
-  kind, title, venueName, qrImage, idLabel, scanned, footer, labels, onClose, onShare, slides, actions, whenLabel, instant, posterUrl, posterThumb,
+  kind, title, venueName, qrImage, idLabel, scanned, footer, labels, onClose, slides, actions, whenLabel, instant, posterUrl, posterThumb, kindLabel,
 }: {
   kind: OrderKind;
   title: string;
@@ -355,12 +410,11 @@ export function OrderQROverlay({
   scanned?: boolean;
   /** extra info rows shown above the action bar */
   footer?: React.ReactNode;
-  labels: { scanThisQR: string; shareThisQR: string; valid: string; scanned: string };
+  labels: { scanThisQR: string; shareThisQR?: string; valid: string; scanned: string };
   onClose: () => void;
-  onShare?: () => void;
   /** optional per-attendee carousel — when 2+ entries, shows swipe + dots */
   slides?: QRSlide[];
-  /** interactive quick actions (directions, event page, calendar, share…) */
+  /** interactive quick actions (directions, event page, calendar…) */
   actions?: QRAction[];
   /** date + time line shown inside the info card, e.g. "SAT 14 JUN · 23:00" */
   whenLabel?: string;
@@ -370,6 +424,9 @@ export function OrderQROverlay({
   posterUrl?: string;
   /** event poster shown as a 1:1 thumbnail in the info card (replaces the kind icon) */
   posterThumb?: string;
+  /** localized kind label ("Billet", "Boisson"…) — shown as the header chip so a
+      drink QR never looks identical to a ticket QR */
+  kindLabel?: string;
 }) {
   const [index, setIndex] = useState(0);
   const touchStartX = useRef(0);
@@ -382,6 +439,17 @@ export function OrderQROverlay({
   const activeScanned = active ? active.scanned : scanned;
   const caption = active?.caption;
   const hasCarousel = total > 1;
+  const KindIcon = KIND[kind];
+
+  // Haptique success UNE fois quand le QR devient visible — le « billet qui
+  // sort de la poche ». Pas lors d'une restauration d'historique (`instant`).
+  const hapticFired = useRef(false);
+  useEffect(() => {
+    if (activeQr && !hapticFired.current) {
+      hapticFired.current = true;
+      if (!instant) haptics.success();
+    }
+  }, [activeQr, instant]);
 
   const goNext = () => setIndex(i => Math.min(i + 1, total - 1));
   const goPrev = () => setIndex(i => Math.max(i - 1, 0));
@@ -424,8 +492,11 @@ export function OrderQROverlay({
         </>
       )}
 
-      {/* Barre supérieure */}
-      <div className="flex items-center justify-between w-full max-w-md mx-auto" style={{ padding: '16px 20px 8px', position: 'relative', zIndex: 1 }}>
+      {/* Barre supérieure — sous la safe-area (encoche/heure), jamais dessous */}
+      <div
+        className="flex items-center justify-between w-full max-w-md mx-auto"
+        style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 14px) 20px 8px', position: 'relative', zIndex: 1 }}
+      >
         <button
           onClick={onClose}
           className="grid place-items-center cursor-pointer"
@@ -433,7 +504,21 @@ export function OrderQROverlay({
         >
           <X style={{ width: 16, height: 16 }} strokeWidth={2} />
         </button>
-        <span className="font-mono uppercase" style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: '.2em', color: RED }}>{labels.scanThisQR}</span>
+        {/* Chip d'identité : type de commande (billet / boisson / VIP…) */}
+        {kindLabel ? (
+          <span
+            className="flex items-center gap-1.5 font-mono uppercase"
+            style={{
+              fontSize: 9.5, fontWeight: 700, letterSpacing: '.16em', color: RED,
+              padding: '6px 12px', borderRadius: 999, background: RED_TINT, border: `1px solid ${RED_SOFT}`,
+            }}
+          >
+            <KindIcon style={{ width: 12, height: 12 }} strokeWidth={2.2} />
+            {kindLabel}
+          </span>
+        ) : (
+          <span className="font-mono uppercase" style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: '.2em', color: RED }}>{labels.scanThisQR}</span>
+        )}
         <div style={{ width: 36 }} />
       </div>
 
@@ -471,6 +556,13 @@ export function OrderQROverlay({
           <ScanCorner pos="tl" /><ScanCorner pos="tr" /><ScanCorner pos="bl" /><ScanCorner pos="br" />
         </div>
 
+        {/* Consigne de scan — sous le QR quand le chip de type occupe le header */}
+        {kindLabel && (
+          <span className="font-mono uppercase" style={{ position: 'relative', marginTop: 20, fontSize: 9.5, fontWeight: 600, letterSpacing: '.2em', color: G2 }}>
+            {labels.scanThisQR}
+          </span>
+        )}
+
         {/* Navigation carousel (flèches + points) */}
         {hasCarousel && (
           <div className="flex items-center justify-center gap-4" style={{ position: 'relative', marginTop: 22 }}>
@@ -504,8 +596,8 @@ export function OrderQROverlay({
         )}
       </div>
 
-      {/* Infos bas */}
-      <div className="w-full max-w-md mx-auto" style={{ padding: '16px 24px 36px', position: 'relative', zIndex: 1 }}>
+      {/* Infos bas — remonté au-dessus de la safe-area (home indicator) */}
+      <div className="w-full max-w-md mx-auto" style={{ padding: '16px 24px calc(env(safe-area-inset-bottom, 0px) + 24px)', position: 'relative', zIndex: 1 }}>
         {idLabel && (
           <div className="font-mono text-center uppercase" style={{ fontSize: 10.5, letterSpacing: '.14em', color: G2, marginBottom: 12 }}>
             {idLabel}
@@ -515,7 +607,7 @@ export function OrderQROverlay({
           className="flex items-center gap-3"
           style={{ background: CARD, border: `1px solid ${BORDER_STRONG}`, borderRadius: 8, padding: '10px 12px', marginBottom: footer ? 10 : 12 }}
         >
-          <TypeBadge kind={kind} size={42} imageUrl={posterThumb} />
+          <TypeBadge kind={kind} size={44} imageUrl={posterThumb} kindBadge />
           <div className="flex-1 min-w-0">
             <div className="font-mono uppercase" style={{ fontSize: 9.5, color: G2, letterSpacing: '.06em', marginBottom: 3 }}>{venueName}</div>
             <div className="font-display uppercase truncate" style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.12, letterSpacing: '-.005em', color: WHITE }}>{title}</div>
@@ -541,8 +633,8 @@ export function OrderQROverlay({
 
         {footer}
 
-        {/* Barre d'actions — itinéraire / soirée / agenda / partage */}
-        {actions && actions.length > 0 ? (
+        {/* Barre d'actions — wallet / itinéraire / soirée / agenda */}
+        {actions && actions.length > 0 && (
           <div
             style={{
               display: 'grid', gridTemplateColumns: `repeat(${actions.length}, 1fr)`, gap: 8,
@@ -571,15 +663,6 @@ export function OrderQROverlay({
               </motion.button>
             ))}
           </div>
-        ) : onShare && (
-          <button
-            onClick={onShare}
-            className="w-full flex items-center justify-center gap-2 cursor-pointer font-mono uppercase"
-            style={{ padding: 11, borderRadius: 999, background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER_STRONG}`, color: G1, fontSize: 11, fontWeight: 600, letterSpacing: '.08em', marginTop: footer ? 10 : 0 }}
-          >
-            <Share2 style={{ width: 15, height: 15 }} strokeWidth={2} />
-            {labels.shareThisQR}
-          </button>
         )}
       </div>
     </motion.div>

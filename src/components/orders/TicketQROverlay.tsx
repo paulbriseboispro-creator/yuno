@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import QRCode from 'qrcode';
-import { haptics } from '@/lib/haptics';
 import { OrderQROverlay, type QRSlide, type QRAction } from './TemporalOrders';
 
 interface TicketQROverlayProps {
@@ -12,10 +11,9 @@ interface TicketQROverlayProps {
   eventTitle: string;
   venueName: string;
   entryScanned?: boolean;
-  labels: { scanThisQR: string; shareThisQR: string; valid: string; scanned: string };
+  labels: { scanThisQR: string; shareThisQR?: string; valid: string; scanned: string };
   onClose: () => void;
-  onShare?: () => void;
-  /** quick actions (directions, event page, calendar, share…) */
+  /** quick actions (directions, event page, calendar…) */
   actions?: QRAction[];
   /** date + time line, e.g. "SAT 14 JUN · 23:00" */
   whenLabel?: string;
@@ -23,6 +21,10 @@ interface TicketQROverlayProps {
   instant?: boolean;
   /** event poster used as a blurred full-screen colour backdrop */
   posterUrl?: string;
+  /** event poster shown as a 1:1 thumbnail in the info card */
+  posterThumb?: string;
+  /** localized kind label ("Billet") for the header chip */
+  kindLabel?: string;
 }
 
 const QR_OPTS = { width: 240, margin: 2, color: { dark: '#000000', light: '#ffffff' } };
@@ -34,19 +36,9 @@ const QR_OPTS = { width: 240, margin: 2, color: { dark: '#000000', light: '#ffff
  */
 export function TicketQROverlay({
   ticketId, ticketQrCode, quantity, roundName, eventTitle, venueName,
-  entryScanned, labels, onClose, onShare, actions, whenLabel, instant, posterUrl,
+  entryScanned, labels, onClose, actions, whenLabel, instant, posterUrl, posterThumb, kindLabel,
 }: TicketQROverlayProps) {
   const [slides, setSlides] = useState<QRSlide[]>([]);
-
-  // Haptique success UNE fois quand le QR devient visible (pas lors d'une
-  // restauration d'historique `instant` — un buzz au reload serait intrusif).
-  const hapticFired = useRef(false);
-  useEffect(() => {
-    if (slides.length > 0 && !hapticFired.current) {
-      hapticFired.current = true;
-      if (!instant) haptics.success();
-    }
-  }, [slides, instant]);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,11 +92,12 @@ export function TicketQROverlay({
       scanned={entryScanned}
       labels={labels}
       onClose={onClose}
-      onShare={onShare}
       actions={actions}
       whenLabel={whenLabel}
       instant={instant}
       posterUrl={posterUrl}
+      posterThumb={posterThumb}
+      kindLabel={kindLabel}
     />
   );
 }
