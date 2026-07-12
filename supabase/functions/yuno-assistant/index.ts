@@ -113,11 +113,12 @@ const CLIENT_KNOWLEDGE_BASE = `
 5. Depuis ta table, tu peux recommander des bouteilles directement dans l'app.
 
 🍸 COMMANDER DES BOISSONS (Click & Collect — évite la queue au bar)
-1. Depuis la page du club ou de la soirée, ouvre la carte, ajoute au panier, paie.
+1. Depuis la page du club, ouvre la carte, ajoute au panier, paie. Et juste après l'achat d'un billet, une page te propose de commander tes boissons en avance (souvent au PRIX PRESALE, moins cher — valable jusqu'au début de la soirée).
 2. Tu reçois un QR de commande. Deux modes selon le club :
    - Bar direct : va au bar, montre ton QR, le barman scanne et prépare.
    - Notification : tu reçois une notif quand c'est prêt, puis tu récupères au comptoir.
 3. Codes promo applicables au panier quand le club en propose.
+- Commande à l'avance : achète tes boissons dès l'achat de ton billet (page après le paiement, bouton dans l'email de confirmation, ou rappel push le jour J) — elles sont liées à ta soirée, tu les récupères au bar le soir même sans faire la file.
 - Produit grisé « Épuisé » : le bar l'a marqué en rupture pour ce soir — il n'est pas commandable tant que le staff ne le remet pas en stock. Choisis autre chose, ça revient souvent dans la soirée.
 
 🔴 MODE LIVE (pendant la soirée)
@@ -377,6 +378,57 @@ function buildRealDataContext(
   return ctx;
 }
 
+const EMBEDDING_MODEL = "text-embedding-3-small";
+
+/**
+ * Repêchage sémantique de la recherche Explore : la requête de l'utilisateur est
+ * embeddée puis comparée aux embeddings d'events (RPC search_events_semantic, qui
+ * ne rend que des soirées publiques à venir). On rend des IDs classés — le front
+ * charge les cartes lui-même avec ses règles d'affichage habituelles.
+ */
+async function handleSemanticSearch(
+  query: string,
+  // deno-lint-ignore no-explicit-any
+  supabaseAuth: any,
+  openaiKey: string,
+  corsHeaders: Record<string, string>,
+): Promise<Response> {
+  const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
+  const q = query.trim().slice(0, 200);
+  if (q.length < 3) {
+    return new Response(JSON.stringify({ results: [] }), { headers: jsonHeaders });
+  }
+
+  const embRes = await fetch("https://api.openai.com/v1/embeddings", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${openaiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: EMBEDDING_MODEL, input: q }),
+  });
+  if (!embRes.ok) {
+    if (embRes.status === 429) {
+      return new Response(JSON.stringify({ error: "Rate limited" }), { status: 429, headers: jsonHeaders });
+    }
+    throw new Error(`Embeddings API error: ${embRes.status}`);
+  }
+  const embData = await embRes.json();
+  const vector = embData.data?.[0]?.embedding;
+  if (!Array.isArray(vector)) {
+    return new Response(JSON.stringify({ results: [] }), { headers: jsonHeaders });
+  }
+
+  // RPC appelée avec le JWT de l'utilisateur (elle exige auth.uid()).
+  const { data, error } = await supabaseAuth.rpc("search_events_semantic", {
+    p_embedding: JSON.stringify(vector),
+    p_limit: 10,
+  });
+  if (error) {
+    console.error("[SEMANTIC-SEARCH]", error.message);
+    return new Response(JSON.stringify({ results: [] }), { headers: jsonHeaders });
+  }
+
+  return new Response(JSON.stringify({ results: data || [] }), { headers: jsonHeaders });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -407,10 +459,20 @@ serve(async (req) => {
       });
     }
 
-    const { messages, timezone } = await req.json();
-    const tz = timezone || 'Europe/Paris';
+    const body = await req.json();
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY is not configured");
+
+    // ── Action hors chat : repêchage sémantique de la recherche Explore ──
+    // Quand la recherche par mots-clés ne trouve rien, on cherche par le SENS.
+    // Authentifiée (même porte que le chat) : pas d'endpoint d'embedding ouvert
+    // à l'anonyme, qui serait un vecteur d'abus de coût.
+    if (body?.action === "semantic_search") {
+      return await handleSemanticSearch(String(body.query || ""), supabaseAuth, OPENAI_API_KEY, corsHeaders);
+    }
+
+    const { messages, timezone } = body;
+    const tz = timezone || 'Europe/Paris';
 
     // Fetch real data in parallel using service role
     const supabase = createClient(supabaseUrl, supabaseServiceKey);

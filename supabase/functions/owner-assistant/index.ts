@@ -144,9 +144,15 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "menu": {
     title: "Gestion de la carte",
-    keywords: ["menu", "carte", "boisson", "drink", "cocktail", "prix", "prévente", "commande"],
+    keywords: ["menu", "carte", "boisson", "drink", "cocktail", "prix", "prévente", "presale", "commande"],
     path: "/owner/menu",
-    snippet: "Catégories : Cocktails, Shooters, Bières, Vins/Champagnes, Spiritueux, Soft, Snacks, Autres. Chaque boisson a un nom, prix, image. Active/désactive sans supprimer. Prix promo disponible.",
+    snippet: "Catégories : Cocktails, Shooters, Bières, Vins/Champagnes, Spiritueux, Soft, Snacks, Autres. Chaque boisson a un nom, prix, image. Active/désactive sans supprimer. Prix promo disponible, et prix presale par boisson (activable en masse) — utilisé par la page upsell post-achat de billet.",
+  },
+  "drinks-upsell": {
+    title: "Upsell boissons post-achat",
+    keywords: ["upsell", "post-achat", "post-purchase", "presale", "prévente", "boisson après billet", "drinks after ticket", "page upsell", "zéro file", "skip queue"],
+    path: "/owner/menu",
+    snippet: "Juste après l'achat d'un billet, le client voit une page boissons (presale d'abord, prix barré) et peut commander en un geste — la commande est liée à la soirée, retrait au bar par QR le soir J. Activée par défaut, toggle « Upsell post-achat » dans Opérations → Menu. Complément : automatisation push « Boissons jour J » (Notifications push) et bouton commande dans l'email de confirmation de billet.",
   },
   "live-mode": {
     title: "Mode Live (soirée)",
@@ -496,6 +502,20 @@ const TOOLS = [
   {
     type: "function",
     function: {
+      name: "toggle_post_checkout_upsell",
+      description: "Enable or disable the post-purchase drinks upsell page (shown right after a ticket purchase, presale prices). WRITE action — requires confirmation.",
+      parameters: {
+        type: "object",
+        properties: {
+          enabled: { type: "boolean", description: "true to enable, false to disable" },
+        },
+        required: ["enabled"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "get_staff_list",
       description: "List all staff members for the venue.",
       parameters: { type: "object", properties: {}, required: [] },
@@ -654,7 +674,7 @@ function calcStripeFee(totalEuros: number): number {
 }
 
 const WRITE_TOOLS = new Set([
-  "activate_ticket_round", "toggle_drink", "update_drink_price",
+  "activate_ticket_round", "toggle_drink", "update_drink_price", "toggle_post_checkout_upsell",
   "toggle_event_ticketing", "update_event", "toggle_guest_list", "toggle_event_tables",
 ]);
 
@@ -1158,6 +1178,13 @@ async function executeTool(
         const { error } = await supabase.from("drinks").update(updates).eq("id", args.drink_id);
         if (error) return JSON.stringify({ error: error.message });
         return JSON.stringify({ success: true, drink: drink.name, old_price: drink.price, new_price: args.price });
+      }
+
+      case "toggle_post_checkout_upsell": {
+        // Page upsell boissons post-achat billet (voir docs/SYSTEME_VENTE_BOISSONS.md).
+        const { error } = await supabase.from("venues").update({ post_checkout_upsell_enabled: args.enabled === true }).eq("id", venueId);
+        if (error) return JSON.stringify({ error: error.message });
+        return JSON.stringify({ success: true, post_checkout_upsell_enabled: args.enabled === true });
       }
 
       // ─── STAFF ───

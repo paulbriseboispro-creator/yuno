@@ -737,6 +737,21 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         ],
       },
       {
+        id: 'drinks-upsell',
+        titleKey: 'ohelp.pg.drinksupsell.title',
+        descKey: 'ohelp.pg.drinksupsell.desc',
+        icon: 'Wine',
+        actionLink: { labelKey: 'ohelp.action.goToMenu', path: '/menu' },
+        relatedArticleIds: ['menu-setup', 'live-mode', 'push-notifications'],
+        keywords: ['upsell', 'post-achat', 'post-purchase', 'presale', 'prévente', 'preventa', 'boisson', 'drink', 'bebida', 'billet', 'ticket', 'après achat', 'file', 'queue', 'bar'],
+        sections: [
+          { headingKey: 'ohelp.pg.drinksupsell.s1h', bodyKey: 'ohelp.pg.drinksupsell.s1b' },
+          { headingKey: 'ohelp.pg.drinksupsell.s2h', bodyKey: 'ohelp.pg.drinksupsell.s2b', type: 'steps' },
+          { headingKey: 'ohelp.pg.drinksupsell.s3h', bodyKey: 'ohelp.pg.drinksupsell.s3b' },
+          { headingKey: 'ohelp.pg.drinksupsell.s4h', bodyKey: 'ohelp.pg.drinksupsell.s4b', type: 'tip' },
+        ],
+      },
+      {
         id: 'upsell-offers',
         titleKey: 'ohelp.pg.upsell.title',
         descKey: 'ohelp.pg.upsell.desc',
