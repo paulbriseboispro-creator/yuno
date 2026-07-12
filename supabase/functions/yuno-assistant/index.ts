@@ -95,7 +95,7 @@ const CLIENT_KNOWLEDGE_BASE = `
 2. Choisis ton tarif : les clubs vendent souvent par "rounds" (Early Bird moins cher → Regular → Last Minute). Quand un round est complet, le suivant s'active.
 3. Paie par carte, Apple Pay ou Google Pay. Confirmation par email + billet dans l'app.
 4. Ton billet = un QR code unique + un code de référence court (type TK-XXXXXX), dans "Mes billets" (${APP_BASE_URL}/my-tickets) et par email.
-   Depuis le billet : itinéraire Maps, partage, et "Ajouter au calendrier" (dans l'app iOS, ajout direct au calendrier Apple).
+   Depuis le billet : itinéraire Maps, page de la soirée, "Ajouter au calendrier" (dans l'app iOS, ajout direct au calendrier Apple) et ajout au Apple Wallet.
 5. À l'entrée, montre le QR au videur (luminosité de l'écran au max).
 - Certains events limitent le nombre de billets par personne, certains sont protégés par mot de passe (soirées privées) : il faut le code donné par l'organisateur.
 - Une assurance annulation est parfois proposée au checkout : elle permet le remboursement du billet selon les conditions affichées.
