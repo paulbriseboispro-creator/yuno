@@ -76,7 +76,9 @@ export default function VerifyTicketPayment() {
         } else {
           // Logged-in buyers already get a full confirmation on /order-confirmation.
           // A second "Ticket confirmed!" interstitial is pure friction — skip it.
-          navigate(`/order-confirmation?type=ticket&id=${ticketId}`, { replace: true });
+          // Détour par l'upsell boissons (prix presale) : la page redirige
+          // elle-même vers la confirmation si le club n'y est pas éligible.
+          navigate(`/order/upsell?ticket=${ticketId}`, { replace: true });
         }
       } else {
         setStatus('error');
@@ -117,8 +119,9 @@ export default function VerifyTicketPayment() {
   const eventDate = guestDetails?.eventDate ? new Date(guestDetails.eventDate) : null;
 
   // ── Retour app native ────────────────────────────────────────────────────
+  // Même détour upsell que le web : la page renvoie vers la confirmation si inéligible.
   if (status === 'nativeReturn') {
-    return <NativeCheckoutReturn returnPath={`/order-confirmation?type=ticket&id=${ticketId}`} />;
+    return <NativeCheckoutReturn returnPath={`/order/upsell?ticket=${ticketId}`} />;
   }
 
   // ── Verifying ───────────────────────────────────────────────────────────

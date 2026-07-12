@@ -189,6 +189,7 @@ const VerifyPayment = lazyWithRetry(() => import("./pages/VerifyPayment"));
 const VerifyTicketPayment = lazyWithRetry(() => import("./pages/VerifyTicketPayment"));
 const VerifyTablePayment = lazyWithRetry(() => import("./pages/VerifyTablePayment"));
 const OrderConfirmation = lazyWithRetry(() => import("./pages/OrderConfirmation"));
+const PostCheckoutUpsell = lazyWithRetry(() => import("./pages/PostCheckoutUpsell"));
 const ClaimOrder = lazyWithRetry(() => import("./pages/ClaimOrder"));
 const GuestFinalizeAccount = lazyWithRetry(() => import("./pages/GuestFinalizeAccount"));
 const GuestDrinkCheckout = lazyWithRetry(() => import("./pages/GuestDrinkCheckout"));
@@ -504,6 +505,8 @@ const App = () => (
                 <Route path="/verify-ticket-payment" element={<VerifyTicketPayment />} />
                 <Route path="/verify-table-payment" element={<VerifyTablePayment />} />
                 <Route path="/order-confirmation" element={<OrderConfirmation />} />
+                {/* Upsell boissons post-achat billet (prix presale) — voir docs/SYSTEME_VENTE_BOISSONS.md */}
+                <Route path="/order/upsell" element={<PostCheckoutUpsell />} />
                 <Route path="/claim" element={<ClaimOrder />} />
                 <Route path="/guest/finalize" element={<GuestFinalizeAccount />} />
                 

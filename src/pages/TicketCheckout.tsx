@@ -657,7 +657,10 @@ export default function TicketCheckout() {
         toast.success(t('tickets.purchaseSuccess'));
         // Navigation SPA (jamais window.location.href : rechargement complet du
         // bundle → replay du splash dans l'app native, état perdu).
-        navigate(data.redirectUrl);
+        // Billets gratuits/démo connectés : même détour upsell boissons que le
+        // paiement Stripe (la page redirige vers la confirmation si inéligible).
+        const confirmMatch = user ? String(data.redirectUrl).match(/^\/order-confirmation\?type=ticket&id=([0-9a-f-]{36})$/i) : null;
+        navigate(confirmMatch ? `/order/upsell?ticket=${confirmMatch[1]}` : data.redirectUrl);
         return;
       }
 

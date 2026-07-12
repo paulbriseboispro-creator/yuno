@@ -135,9 +135,12 @@ serve(async (req) => {
     );
 
     // Parse request body
-    const { items, venueId, eventId, cancelUrl, guestEmail, guestFullName, guestPhone, trackedLinkId, ageDeclaration } = await req.json();
+    const { items, venueId, eventId, cancelUrl, guestEmail, guestFullName, guestPhone, trackedLinkId, ageDeclaration, purchaseSource } = await req.json();
     // Tracked-link attribution: a UUID or null. Persisted on the order for revenue attribution.
     const safeTrackedLinkId = (typeof trackedLinkId === 'string' && /^[0-9a-f-]{36}$/i.test(trackedLinkId)) ? trackedLinkId : null;
+    // Canal d'achat (ex. 'post_checkout_upsell', 'live') — attribution du taux
+    // d'attache boissons/billet. Slug court contrôlé, jamais de texte libre client.
+    const safePurchaseSource = (typeof purchaseSource === 'string' && /^[a-z0-9_]{1,40}$/.test(purchaseSource)) ? purchaseSource : null;
 
     if (!items || !venueId || !Array.isArray(items) || items.length === 0) {
       throw new Error("Missing required fields");
@@ -486,6 +489,7 @@ serve(async (req) => {
       status: simulate ? "paid" : "pending",
       is_guest: isGuest,
       tracked_link_id: safeTrackedLinkId,
+      purchase_source: safePurchaseSource,
       // Déclaration sur l'honneur de majorité (contrôle réel par l'établissement à l'entrée).
       age_declared_at: ageRecord.declaredAt,
       age_declaration_birth_date: ageRecord.birthDate,
@@ -683,7 +687,8 @@ serve(async (req) => {
       line_items: lineItems,
       mode: "payment",
       success_url: `${origin}/verify-payment?session_id={CHECKOUT_SESSION_ID}&order_id=${order.id}${nativeFlag}`,
-      cancel_url: cancelUrl ? `${origin}${cancelUrl}?payment_cancelled=true` : `${origin}/cart?payment_cancelled=true`,
+      // cancelUrl peut déjà porter une query (ex. /order/upsell?ticket=…) → &.
+      cancel_url: cancelUrl ? `${origin}${cancelUrl}${cancelUrl.includes("?") ? "&" : "?"}payment_cancelled=true` : `${origin}/cart?payment_cancelled=true`,
       customer_email: user?.email || guestEmail,
       payment_method_types: ["card", "link"],
       metadata: {
