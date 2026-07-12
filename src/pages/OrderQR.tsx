@@ -142,6 +142,29 @@ export default function OrderQR() {
     }
   }, [loading, verifying, qrDataUrl]);
 
+  // Realtime sur MA commande : le scan du barman (token_used) fait vibrer le
+  // téléphone et bascule le badge « Valide » → « Scanné » sans recharger.
+  useEffect(() => {
+    if (!orderId) return;
+    const orderChannel = supabase
+      .channel(`order-scan-${orderId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` },
+        (payload) => {
+          const row = payload.new as Record<string, unknown>;
+          setOrder((prev: any) => {
+            if (!prev) return prev;
+            if (!prev.token_used && row.token_used) haptics.success();
+            // Merge : payload.new ne contient pas les jointures events/venues.
+            return { ...prev, ...row };
+          });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(orderChannel); };
+  }, [orderId]);
+
   // Subscribe to venue changes for real-time click collect mode updates
   useEffect(() => {
     if (!order?.venue_id) return;
@@ -208,6 +231,7 @@ export default function OrderQR() {
 
   const copyPin = () => {
     if (pin) {
+      haptics.selection();
       navigator.clipboard.writeText(pin);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);

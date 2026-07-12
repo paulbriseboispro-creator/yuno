@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { Copy, CheckCircle } from 'lucide-react';
 import QRCode from 'qrcode';
+import { haptics } from '@/lib/haptics';
 import { OrderQROverlay } from '@/components/orders/TemporalOrders';
 
 /* Palette éditoriale publique — alignée sur TemporalOrders / DrinkOrderDetailModal. */
@@ -68,6 +69,7 @@ export function FreeDrinkRewardModal({ reward, onClose, posterUrl }: FreeDrinkRe
 
   const copyPin = () => {
     if (pin) {
+      haptics.selection();
       navigator.clipboard.writeText(pin);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);

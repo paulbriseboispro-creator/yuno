@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { Clock, CheckCircle2, Copy, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { haptics } from '@/lib/haptics';
 import { nowInParis, toParisTime } from '@/lib/timezone';
 import QRCode from 'qrcode';
 import { DrinkSelectionStep } from '@/components/orders/DrinkSelectionStep';
@@ -258,6 +259,7 @@ export function DrinkOrderDetailModal({
 
   const copyPin = () => {
     if (pin) {
+      haptics.selection();
       navigator.clipboard.writeText(pin);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);

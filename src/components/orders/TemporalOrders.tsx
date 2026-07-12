@@ -149,7 +149,7 @@ export function SegControl({
         return (
           <button
             key={id}
-            onClick={() => setActive(id)}
+            onClick={() => { if (id !== active) haptics.selection(); setActive(id); }}
             className="flex-1 flex flex-col items-center gap-0.5 border-0 cursor-pointer"
             style={{
               padding: '8px 4px 7px', borderRadius: 7,
