@@ -104,22 +104,31 @@ export function ProAccessGate({ children }: { children: ReactNode }) {
   if (onOpenRoute) return <>{children}</>;
 
   if (status === 'refused') {
+    // Écran plein écran de l'app Pro : pas de <ProShellChrome/> ici, l'encoche et
+    // la barre d'accueil sont à notre charge.
     return (
-      <div className="min-h-screen flex items-center justify-center px-6" style={{ background: '#050505' }}>
+      <div
+        className="min-h-[100dvh] flex items-center justify-center px-6"
+        style={{
+          background: '#050505',
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 24px)',
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)',
+        }}
+      >
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={transitions.modal}
           className="w-full max-w-sm text-center"
         >
-          <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 border border-white/10">
+          <div className="mx-auto mb-6 flex h-14 w-14 flex-none items-center justify-center rounded-2xl bg-white/5 border border-white/10">
             <ShieldAlert className="h-6 w-6 text-white/70" />
           </div>
-          <h1 className="text-xl font-bold text-white mb-3">{t('proapp.noAccessTitle')}</h1>
-          <p className="text-sm text-white/60 leading-relaxed mb-8">{t('proapp.noAccessBody')}</p>
+          <h1 className="text-xl font-bold text-white mb-3 break-words">{t('proapp.noAccessTitle')}</h1>
+          <p className="text-sm text-white/60 leading-relaxed mb-8 break-words">{t('proapp.noAccessBody')}</p>
           <button
             onClick={handleBackToLogin}
-            className="w-full rounded-xl bg-white text-black font-semibold text-sm py-3.5 active:opacity-80 transition-opacity"
+            className="w-full min-h-[44px] rounded-xl bg-white text-black font-semibold text-sm py-3.5 active:opacity-80 transition-opacity"
           >
             {t('proapp.noAccessCta')}
           </button>
@@ -130,7 +139,7 @@ export function ProAccessGate({ children }: { children: ReactNode }) {
 
   if (loading || status === 'checking') {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#050505' }}>
+      <div className="min-h-[100dvh] flex items-center justify-center" style={{ background: '#050505' }}>
         <div
           className="h-8 w-8 animate-spin rounded-full border-2"
           style={{ borderColor: 'rgba(255,255,255,0.085) rgba(255,255,255,0.085) rgba(255,255,255,0.085) #E8192C' }}

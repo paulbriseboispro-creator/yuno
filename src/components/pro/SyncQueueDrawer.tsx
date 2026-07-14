@@ -72,7 +72,12 @@ export function SyncQueueDrawer({
           </DrawerDescription>
         </DrawerHeader>
 
-        <div className="px-4 pb-6 space-y-4 max-h-[50vh] overflow-y-auto">
+        {/* Tiroir posé en bas d'écran : le bouton de synchro tombait sous la barre
+            d'accueil de l'iPhone (34px) avec un simple pb-6 (24px). */}
+        <div
+          className="px-4 space-y-4 max-h-[50vh] overflow-y-auto"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)' }}
+        >
           {items.length > 0 && (
             <ul className="space-y-2">
               {items.map((item) => (
@@ -94,7 +99,7 @@ export function SyncQueueDrawer({
             <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 space-y-1.5">
               {lastSummary.applied > 0 && (
                 <p className="flex items-center gap-2 text-sm text-emerald-400">
-                  <CheckCircle className="h-3.5 w-3.5" />
+                  <CheckCircle className="h-3.5 w-3.5 flex-none" />
                   {t('offline.drawer.applied').replace('{count}', String(lastSummary.applied))}
                 </p>
               )}
@@ -111,12 +116,12 @@ export function SyncQueueDrawer({
           )}
 
           <Button
-            className="w-full"
+            className="w-full h-11"
             disabled={!online || syncing || pending === 0}
             onClick={handleSync}
           >
-            {syncing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-            {online ? t('offline.drawer.syncNow') : t('offline.drawer.waitingNetwork')}
+            {syncing ? <Loader2 className="h-4 w-4 mr-2 flex-none animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2 flex-none" />}
+            <span className="truncate">{online ? t('offline.drawer.syncNow') : t('offline.drawer.waitingNetwork')}</span>
           </Button>
         </div>
       </DrawerContent>

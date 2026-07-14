@@ -453,8 +453,11 @@ export default function Auth() {
         alignItems: 'center',
         justifyContent: 'center',
         padding: '16px',
-        paddingTop: 'env(safe-area-inset-top, 16px)',
-        paddingBottom: 'env(safe-area-inset-bottom, 16px)',
+        // env(...) est *supporté* sur le web (il vaut 0px) : la valeur de repli
+        // « 16px » ne se déclenchait donc jamais et le padding retombait à 0.
+        // calc(inset + 16px) garde 16px partout et dégage l'encoche en natif.
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)',
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)',
       }}
     >
       <motion.div
@@ -652,13 +655,13 @@ export default function Auth() {
                       opacity: soon ? 0.5 : 1,
                     }}
                   >
-                    <span className="flex items-center gap-2.5">
-                      {icon}
-                      <span className="font-mono" style={{ fontSize: '12px', color: '#E5E5E5', letterSpacing: '0.04em' }}>{label}</span>
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <span className="flex-none">{icon}</span>
+                      <span className="font-mono truncate" style={{ fontSize: '12px', color: '#E5E5E5', letterSpacing: '0.04em' }}>{label}</span>
                     </span>
                     {soon && (
                       <span
-                        className="font-mono font-bold"
+                        className="font-mono font-bold flex-none ml-2"
                         style={{ fontSize: '9px', color: '#E8192C', letterSpacing: '0.10em', background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.25)', padding: '2px 7px', borderRadius: '999px' }}
                       >
                         SOON

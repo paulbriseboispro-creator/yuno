@@ -28,11 +28,14 @@ export function ProShellChrome({ venueName }: { venueName?: string | null }) {
         paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
       }}
     >
+      {/* shrink-0 : sans ça un nom de club long comprime le bouton retour et son
+          libellé passe à la ligne. -my-2/py-2 : zone de tap de 44px (le staff
+          appuie d'une main, dans le noir) sans épaissir la barre outre mesure. */}
       <button
         onClick={() => navigate('/pro')}
-        className="inline-flex items-center gap-1.5 text-xs font-medium text-white/70 active:opacity-70"
+        className="inline-flex shrink-0 items-center gap-1.5 -my-2 min-h-[44px] py-2 pr-2 whitespace-nowrap text-xs font-medium text-white/70 active:opacity-70"
       >
-        <ArrowLeft className="h-3.5 w-3.5" />
+        <ArrowLeft className="h-3.5 w-3.5 flex-none" />
         {t('proapp.chrome.home')}
       </button>
       <div className="flex items-center gap-2 min-w-0">

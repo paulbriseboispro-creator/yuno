@@ -25,15 +25,19 @@ export function OfflinePill({ label }: { label?: string }) {
   const online = useNetworkStatus();
 
   return (
+    // flex-none + whitespace-nowrap : la pilule est posée dans des rangées
+    // `justify-between` (ProShellChrome, en-tête ProHome) face à un nom de club
+    // qui peut être long — sans ça elle se fait comprimer et son libellé passe
+    // à la ligne.
     <span
-      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide"
+      className="inline-flex flex-none items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide"
       style={{
         background: online ? 'rgba(52,211,153,0.10)' : 'rgba(232,25,44,0.12)',
         border: `1px solid ${online ? 'rgba(52,211,153,0.25)' : 'rgba(232,25,44,0.35)'}`,
         color: online ? '#34D399' : '#E8192C',
       }}
     >
-      {online ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+      {online ? <Wifi className="h-3 w-3 flex-none" /> : <WifiOff className="h-3 w-3 flex-none" />}
       {label}
     </span>
   );

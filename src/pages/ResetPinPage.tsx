@@ -8,6 +8,15 @@ import { Button } from '@/components/ui/button';
 
 type Step = 'create' | 'confirm' | 'no-token' | 'success';
 
+/**
+ * Écrans plein écran de l'app Pro : pas de <ProShellChrome/> ici, l'encoche et la
+ * barre d'accueil sont à notre charge.
+ */
+const PAGE_SAFE = {
+  paddingTop: 'calc(env(safe-area-inset-top, 0px) + 24px)',
+  paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)',
+};
+
 export default function ResetPinPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -56,30 +65,30 @@ export default function ResetPinPage() {
 
   if (step === 'no-token') {
     return (
-      <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-background px-6">
-        <div className="h-16 w-16 rounded-2xl bg-destructive/10 border border-destructive/20 flex items-center justify-center mb-6">
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-background px-6" style={PAGE_SAFE}>
+        <div className="h-16 w-16 flex-none rounded-2xl bg-destructive/10 border border-destructive/20 flex items-center justify-center mb-6">
           <AlertTriangle className="h-8 w-8 text-destructive" />
         </div>
-        <h1 className="text-xl font-bold text-foreground mb-2">Lien invalide</h1>
-        <p className="text-sm text-muted-foreground mb-6 text-center">
+        <h1 className="text-xl font-bold text-foreground mb-2 text-center break-words">Lien invalide</h1>
+        <p className="text-sm text-muted-foreground mb-6 text-center break-words">
           Ce lien de réinitialisation est invalide ou a expiré.
         </p>
-        <Button onClick={() => navigate('/auth')}>Retour à la connexion</Button>
+        <Button className="h-11" onClick={() => navigate('/auth')}>Retour à la connexion</Button>
       </div>
     );
   }
 
   if (step === 'success') {
     return (
-      <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-background px-6">
-        <div className="h-16 w-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6">
+      <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-background px-6" style={PAGE_SAFE}>
+        <div className="h-16 w-16 flex-none rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6">
           <ShieldCheck className="h-8 w-8 text-emerald-400" />
         </div>
-        <h1 className="text-xl font-bold text-foreground mb-2">Code PIN réinitialisé !</h1>
-        <p className="text-sm text-muted-foreground mb-6 text-center">
+        <h1 className="text-xl font-bold text-foreground mb-2 text-center break-words">Code PIN réinitialisé !</h1>
+        <p className="text-sm text-muted-foreground mb-6 text-center break-words">
           Ton nouveau code PIN est actif. Tu peux maintenant te connecter.
         </p>
-        <Button onClick={() => navigate('/')}>Accéder à l'app</Button>
+        <Button className="h-11" onClick={() => navigate('/')}>Accéder à l'app</Button>
       </div>
     );
   }

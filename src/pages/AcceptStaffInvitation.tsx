@@ -18,6 +18,17 @@ const ROLE_LABELS: Record<string, string> = {
   manager: 'Manager',
 };
 
+/**
+ * Page plein écran de l'app Pro : elle ne reçoit PAS <ProShellChrome/>, donc
+ * l'encoche et la barre d'accueil sont à sa charge. 100dvh (et non 100vh) pour
+ * que la carte se recentre dans la zone visible quand le clavier iOS s'ouvre.
+ */
+const PAGE_WRAP = 'min-h-[100dvh] flex items-center justify-center bg-background px-4';
+const PAGE_SAFE = {
+  paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)',
+  paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)',
+};
+
 export default function AcceptStaffInvitation() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -144,7 +155,7 @@ export default function AcceptStaffInvitation() {
 
   if (authLoading || checkingInvitation) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className={PAGE_WRAP} style={PAGE_SAFE}>
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -152,12 +163,12 @@ export default function AcceptStaffInvitation() {
 
   if (!token) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="p-8 text-center max-w-md">
+      <div className={PAGE_WRAP} style={PAGE_SAFE}>
+        <Card className="p-6 sm:p-8 text-center max-w-md">
           <XCircle className="h-16 w-16 text-destructive mx-auto mb-4" />
           <h1 className="text-xl font-semibold mb-2">{t('acceptInv.invalidLink')}</h1>
-          <p className="text-muted-foreground">{t('acceptInv.invalidLinkDesc')}</p>
-          <Button className="mt-6" onClick={() => navigate('/')}>{t('acceptInv.backHome')}</Button>
+          <p className="text-muted-foreground break-words">{t('acceptInv.invalidLinkDesc')}</p>
+          <Button className="mt-6 h-11" onClick={() => navigate('/')}>{t('acceptInv.backHome')}</Button>
         </Card>
       </div>
     );
@@ -165,11 +176,11 @@ export default function AcceptStaffInvitation() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Card className="p-8 text-center max-w-md">
+      <div className={PAGE_WRAP} style={PAGE_SAFE}>
+        <Card className="p-6 sm:p-8 text-center max-w-md">
           <Loader2 className="h-16 w-16 animate-spin text-primary mx-auto mb-4" />
           <h1 className="text-xl font-semibold">{t('acceptInv.processing')}</h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground mt-2 break-words">
             {invitationData?.requires_account_creation ? t('acceptInv.creatingAccount') : t('acceptInv.accepting')}
           </p>
         </Card>
@@ -179,23 +190,23 @@ export default function AcceptStaffInvitation() {
 
   if (result) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="p-8 text-center max-w-md">
+      <div className={PAGE_WRAP} style={PAGE_SAFE}>
+        <Card className="p-6 sm:p-8 text-center max-w-md">
           {result.success ? (
             <>
               <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
               <h1 className="text-xl font-semibold mb-2">
                 {result.account_created ? t('acceptInv.accountCreated') : t('acceptInv.invitationAccepted')}
               </h1>
-              <p className="text-muted-foreground">{result.message}</p>
+              <p className="text-muted-foreground break-words">{result.message}</p>
               {result.password_reset_sent && (
                 <div className="mt-4 p-3 bg-primary/10 rounded-lg">
                   <Mail className="h-5 w-5 text-primary mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">{t('acceptInv.passwordEmailSent')}</p>
+                  <p className="text-sm text-muted-foreground break-words">{t('acceptInv.passwordEmailSent')}</p>
                 </div>
               )}
               <Button
-                className="mt-6"
+                className="mt-6 h-11"
                 onClick={() => navigate(result.account_created ? '/auth' : '/setup-pin')}
               >
                 {result.account_created ? t('acceptInv.login') : t('acceptStaff.setPin')}
@@ -205,8 +216,8 @@ export default function AcceptStaffInvitation() {
             <>
               <XCircle className="h-16 w-16 text-destructive mx-auto mb-4" />
               <h1 className="text-xl font-semibold mb-2">{t('acceptInv.error')}</h1>
-              <p className="text-muted-foreground">{result.message}</p>
-              <Button className="mt-6" onClick={() => navigate('/')}>{t('acceptInv.backHome')}</Button>
+              <p className="text-muted-foreground break-words">{result.message}</p>
+              <Button className="mt-6 h-11" onClick={() => navigate('/')}>{t('acceptInv.backHome')}</Button>
             </>
           )}
         </Card>
@@ -217,17 +228,17 @@ export default function AcceptStaffInvitation() {
   if (!user && invitationData) {
     if (invitationData.requires_account_creation) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-background p-4">
-          <Card className="p-8 max-w-md w-full">
+        <div className={PAGE_WRAP} style={PAGE_SAFE}>
+          <Card className="p-6 sm:p-8 max-w-md w-full">
             <div className="text-center mb-6">
-              <UserPlus className="h-16 w-16 text-primary mx-auto mb-4" />
-              <h1 className="text-xl font-semibold mb-2">{t('acceptStaff.joinTeam')}</h1>
-              <p className="text-muted-foreground text-sm">
+              <UserPlus className="h-12 w-12 sm:h-16 sm:w-16 text-primary mx-auto mb-4" />
+              <h1 className="text-xl font-semibold mb-2 break-words">{t('acceptStaff.joinTeam')}</h1>
+              <p className="text-muted-foreground text-sm break-words">
                 <strong className="text-primary">{invitationData.inviter_name}</strong> {t('acceptInv.invitesYouToTeam')}
               </p>
               <div className="mt-3 p-2 bg-primary/10 rounded-lg">
                 <p className="text-xs text-muted-foreground">{t('acceptStaff.yourRole')}</p>
-                <p className="text-lg font-bold text-primary">{roleLabel}</p>
+                <p className="text-lg font-bold text-primary break-words">{roleLabel}</p>
               </div>
             </div>
 
@@ -242,13 +253,15 @@ export default function AcceptStaffInvitation() {
               </div>
               <div>
                 <Label>Email</Label>
-                <Input value={invitationData.email} disabled className="bg-muted" />
-                <p className="text-xs text-muted-foreground mt-1">{t('acceptInv.loginLinkSent')}</p>
+                {/* L'email est un seul mot insécable : `text-ellipsis` évite qu'il
+                    déborde de la carte sur un téléphone. */}
+                <Input value={invitationData.email} disabled className="bg-muted text-ellipsis" />
+                <p className="text-xs text-muted-foreground mt-1 break-words">{t('acceptInv.loginLinkSent')}</p>
               </div>
 
-              <Button className="w-full" onClick={() => acceptInvitation(false)} disabled={loading}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                {t('acceptInv.createAndAccept')}
+              <Button className="w-full h-11" onClick={() => acceptInvitation(false)} disabled={loading}>
+                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2 flex-none" /> : null}
+                <span className="truncate">{t('acceptInv.createAndAccept')}</span>
               </Button>
 
               <div className="relative">
@@ -260,11 +273,11 @@ export default function AcceptStaffInvitation() {
 
               <Button
                 variant="outline"
-                className="w-full"
+                className="w-full h-11"
                 onClick={() => navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)}
               >
-                <LogIn className="h-4 w-4 mr-2" />
-                {t('acceptInv.haveAccount')}
+                <LogIn className="h-4 w-4 mr-2 flex-none" />
+                <span className="truncate">{t('acceptInv.haveAccount')}</span>
               </Button>
             </div>
           </Card>
@@ -273,13 +286,13 @@ export default function AcceptStaffInvitation() {
     }
 
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="p-8 text-center max-w-md">
+      <div className={PAGE_WRAP} style={PAGE_SAFE}>
+        <Card className="p-6 sm:p-8 text-center max-w-md">
           <LogIn className="h-16 w-16 text-primary mx-auto mb-4" />
-          <h1 className="text-xl font-semibold mb-2">{t('acceptInv.loginRequired')}</h1>
-          <p className="text-muted-foreground mb-2">{t('acceptInv.loginRequiredDesc')}</p>
-          <p className="text-primary font-medium mb-6">{invitationData.inviter_name} · {roleLabel}</p>
-          <Button onClick={() => navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)}>
+          <h1 className="text-xl font-semibold mb-2 break-words">{t('acceptInv.loginRequired')}</h1>
+          <p className="text-muted-foreground mb-2 break-words">{t('acceptInv.loginRequiredDesc')}</p>
+          <p className="text-primary font-medium mb-6 break-words">{invitationData.inviter_name} · {roleLabel}</p>
+          <Button className="h-11" onClick={() => navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`)}>
             {t('acceptInv.login')}
           </Button>
         </Card>

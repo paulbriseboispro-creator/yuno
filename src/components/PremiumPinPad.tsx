@@ -65,8 +65,12 @@ export function PremiumPinPad({
 
   const digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
+  // overflow-x-hidden (et non overflow-hidden) : les halos débordent en largeur et
+  // doivent être rognés, mais le contenu doit pouvoir défiler verticalement — sur un
+  // petit téléphone (SE 375×667) avec message d'erreur + footer, un overflow caché
+  // amputait le bas du pavé numérique sans recours.
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-background relative overflow-hidden">
+    <div className="min-h-[100dvh] flex flex-col bg-background relative overflow-x-hidden">
       {/* Ambient glow */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-primary/[0.06] rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-1/3 right-0 w-[300px] h-[300px] bg-primary/[0.04] rounded-full blur-[100px] pointer-events-none" />
@@ -77,15 +81,22 @@ export function PremiumPinPad({
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           onClick={onBack}
-          className="absolute top-4 left-4 z-20 h-10 w-10 rounded-full bg-white/[0.05] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/[0.08] transition-all"
-          style={{ top: 'max(1rem, env(safe-area-inset-top))' }}
+          className="absolute top-4 left-4 z-20 h-11 w-11 rounded-full bg-white/[0.05] backdrop-blur-sm border border-white/[0.08] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/[0.08] transition-all"
+          style={{ top: 'max(1rem, calc(env(safe-area-inset-top, 0px) + 8px))' }}
         >
           <ArrowLeft className="h-5 w-5" />
         </motion.button>
       )}
 
-      {/* Content */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 relative z-10">
+      {/* Content — encoche en haut (le bouton retour flotte au-dessus) et barre
+          d'accueil en bas : le pavé ne doit jamais glisser dessous. */}
+      <div
+        className="flex-1 flex flex-col items-center justify-center px-6 relative z-10"
+        style={{
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 64px)',
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)',
+        }}
+      >
         {/* Icon */}
         {icon && (
           <motion.div
@@ -111,17 +122,19 @@ export function PremiumPinPad({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.1 }}
-            className="text-sm text-muted-foreground mb-8 text-center max-w-[260px]"
+            className="text-sm text-muted-foreground mb-6 text-center max-w-[260px]"
           >
             {subtitle}
           </motion.p>
         )}
 
-        {/* PIN dots */}
+        {/* PIN dots — 6 pastilles de 48px + 5 gouttières de 12px = 348px, soit plus
+            que la largeur utile d'un iPhone (390 − 48 de gouttières = 342px) : la
+            rangée était rognée. On resserre sur mobile, taille pleine dès sm. */}
         <motion.div
           animate={shake ? { x: [0, -12, 12, -8, 8, -4, 4, 0] } : {}}
           transition={{ duration: 0.4 }}
-          className="flex items-center gap-3 mb-3"
+          className="flex items-center gap-2 sm:gap-3 mb-3"
         >
           {Array.from({ length: pinLength }).map((_, i) => {
             const filled = i < pin.length;
@@ -129,7 +142,7 @@ export function PremiumPinPad({
             return (
               <motion.div
                 key={i}
-                className={`h-12 w-12 rounded-xl border-2 flex items-center justify-center transition-all duration-200 ${
+                className={`h-11 w-11 sm:h-12 sm:w-12 flex-none rounded-xl border-2 flex items-center justify-center transition-all duration-200 ${
                   active
                     ? 'border-primary bg-primary/[0.08] shadow-[0_0_15px_rgba(220,38,38,0.15)]'
                     : filled
@@ -193,7 +206,7 @@ export function PremiumPinPad({
         )}
 
         {/* Numpad */}
-        <div className="grid grid-cols-3 gap-3 w-full max-w-[280px] mt-4">
+        <div className="grid grid-cols-3 gap-3 w-full max-w-[280px] mt-3">
           {digits.map((digit) => (
             <motion.button
               key={digit}

@@ -46,32 +46,40 @@ function WebOnlyNotice() {
   const navigate = useNavigate();
   const { t } = useLanguage();
 
+  // Écran plein écran de l'app Pro : pas de <ProShellChrome/> ici, l'encoche et la
+  // barre d'accueil sont à notre charge.
   return (
-    <div className="min-h-screen bg-[#050505] flex items-center justify-center px-6">
+    <div
+      className="min-h-[100dvh] bg-[#050505] flex items-center justify-center px-6"
+      style={{
+        paddingTop: 'calc(env(safe-area-inset-top, 0px) + 24px)',
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)',
+      }}
+    >
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={transitions.modal}
         className="max-w-sm w-full text-center"
       >
-        <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/5 border border-white/10">
+        <div className="mx-auto mb-6 flex h-14 w-14 flex-none items-center justify-center rounded-2xl bg-white/5 border border-white/10">
           <Monitor className="h-6 w-6 text-white/70" />
         </div>
-        <h1 className="text-xl font-bold text-white mb-3">{t('proapp.webOnlyTitle')}</h1>
-        <p className="text-sm text-white/60 leading-relaxed mb-8">{t('proapp.webOnlyBody')}</p>
+        <h1 className="text-xl font-bold text-white mb-3 break-words">{t('proapp.webOnlyTitle')}</h1>
+        <p className="text-sm text-white/60 leading-relaxed mb-8 break-words">{t('proapp.webOnlyBody')}</p>
         <div className="space-y-3">
           <button
             onClick={() => { void openOnWebWithSession(location.pathname); }}
-            className="w-full rounded-xl bg-white text-black font-semibold text-sm py-3.5 active:opacity-80 transition-opacity"
+            className="w-full min-h-[44px] rounded-xl bg-white text-black font-semibold text-sm py-3.5 active:opacity-80 transition-opacity"
           >
             {t('natGate.openWeb')}
           </button>
           <button
             onClick={() => navigate('/pro')}
-            className="w-full rounded-xl bg-white/5 border border-white/10 text-white/80 font-medium text-sm py-3.5 active:opacity-80 transition-opacity inline-flex items-center justify-center gap-2"
+            className="w-full min-h-[44px] rounded-xl bg-white/5 border border-white/10 text-white/80 font-medium text-sm py-3.5 active:opacity-80 transition-opacity inline-flex items-center justify-center gap-2"
           >
-            <ArrowLeft className="h-4 w-4" />
-            {t('proapp.backHome')}
+            <ArrowLeft className="h-4 w-4 flex-none" />
+            <span className="truncate">{t('proapp.backHome')}</span>
           </button>
         </div>
       </motion.div>
