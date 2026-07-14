@@ -1,5 +1,4 @@
 import { useNavigate } from 'react-router-dom';
-import { BottomNav } from '@/components/BottomNav';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { DJDiscovery } from '@/components/dj-marketplace/DJDiscovery';
 import { Seo } from '@/components/Seo';
@@ -54,7 +53,6 @@ export default function AllDJsPage() {
       </div>
       </PublicPage>
 
-      <BottomNav />
     </div>
   );
 }

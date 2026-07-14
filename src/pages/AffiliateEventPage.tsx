@@ -7,7 +7,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { BottomNav } from '@/components/BottomNav';
+import { useSuppressBottomNav } from '@/components/PersistentBottomNav';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -143,6 +143,12 @@ export default function AffiliateEventPage() {
     const outcome = await shareContent(shareData);
     if (outcome === 'copied') toast.success(t('share.copied'));
   };
+
+  // Un événement affilié en vente pose son propre CTA « prendre un billet » collant
+  // en bas d'écran : dans ce cas seulement, il prend la place de la barre d'onglets.
+  // Hook appelé avant les early-returns (règle des hooks) — pendant le chargement
+  // `event` est null, donc la barre reste visible sous le skeleton.
+  useSuppressBottomNav(!!event && !event.is_sold_out && !!event.external_ticket_url);
 
   if (loading) return <LoadingSkeleton />;
   if (!event) return null;
@@ -823,7 +829,6 @@ export default function AffiliateEventPage() {
         </div>
       )}
 
-      {(isSoldOut || !hasTicketLink) && <BottomNav />}
     </div>
   );
 }

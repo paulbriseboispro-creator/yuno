@@ -9,6 +9,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 // Lazy load the heavy VenueMap component to reduce initial JS execution
 const VenueMap = lazy(() => import('@/components/welcome/VenueMap'));
 import { BottomNav } from '@/components/BottomNav';
+import { useSuppressBottomNav } from '@/components/PersistentBottomNav';
 import VenueCard from '@/components/welcome/VenueCard';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { Loader2, MapIcon, Grid3X3, Navigation, Clock, Bell } from 'lucide-react';
@@ -75,6 +76,7 @@ const Welcome = () => {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'map' | 'grid'>('grid');
+  useSuppressBottomNav(viewMode === 'map');
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locationRequested, setLocationRequested] = useState(false);
   const geocodingRef = useRef(false);
@@ -733,7 +735,10 @@ const Welcome = () => {
           </footer>
         )}
         
-        <BottomNav mode={viewMode === 'map' ? 'docked' : 'fixed'} />
+        {/* Vue carte : la barre descend dans le flux flex (« docked »), donc on
+            masque la globale et on pose la nôtre. Vue grille : la barre globale
+            (fixe, hors <Routes>) fait le travail — rien à rendre ici. */}
+        {viewMode === 'map' && <BottomNav mode="docked" />}
       </div>
     </>
   );

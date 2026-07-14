@@ -56,6 +56,7 @@ import { DemoSwitcher } from "@/components/demo/DemoSwitcher";
 import { PreviewModeProvider } from "@/contexts/PreviewModeContext";
 import { LiveModeProvider } from "@/contexts/LiveModeContext";
 import { PreviewModeBanner } from "@/components/PreviewModeBanner";
+import { BottomNavVisibilityProvider, PersistentBottomNav } from "@/components/PersistentBottomNav";
 import "@/lib/previewGuard"; // installe l'intercepteur lecture seule (effet de bord)
 
 // Lazy load all pages including VenuePage
@@ -443,6 +444,7 @@ const App = () => (
                 l'événement émis par src/lib/celebrate.ts. B2C uniquement. */}
             {!isProApp() && <CelebrationHost />}
             <LiveModeProvider>
+            <BottomNavVisibilityProvider>
             <MaintenanceWrapper>
               <RouteErrorBoundary>
               <Suspense fallback={<PageLoader />}>
@@ -1017,7 +1019,12 @@ const App = () => (
               </ProAppGate>
             </Suspense>
               </RouteErrorBoundary>
+              {/* Barre d'onglets HORS <Routes> : elle ne se démonte jamais d'une
+                  page à l'autre, donc elle reste à l'écran pendant que la page
+                  cible charge (skeleton compris). Voir PersistentBottomNav. */}
+              <PersistentBottomNav />
             </MaintenanceWrapper>
+            </BottomNavVisibilityProvider>
             </LiveModeProvider>
             </PreviewModeProvider>
           </TooltipProvider>

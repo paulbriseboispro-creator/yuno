@@ -6,7 +6,6 @@ import { getManualCoords, getStoredCity, hasManualCity, setManualLocation, setRe
 import { markAppReady } from '@/lib/appReady';
 import { getCurrentPosition } from '@/lib/geolocation';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { BottomNav } from '@/components/BottomNav';
 import { ExploreHeader } from '@/components/explore/ExploreHeader';
 import { EventCardData } from '@/components/explore/EventCard';
 import { SearchOverlay } from '@/components/explore/SearchOverlay';
@@ -1294,7 +1293,6 @@ export default function Explore() {
         onApply={handleApplyFilters}
         dynamicData={filterDynamicData}
       />
-      <BottomNav />
     </div>
   );
 }

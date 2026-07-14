@@ -8,7 +8,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/hooks/useAuth';
-import { BottomNav } from '@/components/BottomNav';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -702,7 +701,6 @@ export default function AffiliateVenuePage() {
 
       </main>
 
-      <BottomNav />
     </div>
   );
 }

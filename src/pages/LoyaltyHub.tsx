@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { TierBadge } from '@/components/loyalty/TierBadge';
 import { LoyaltyProgressRing } from '@/components/profile/LoyaltyProgressRing';
 import { LoyaltyRewardsSheet } from '@/components/loyalty/LoyaltyRewardsSheet';
-import { BottomNav } from '@/components/BottomNav';
 import { cn } from '@/lib/utils';
 import { PublicPage } from '@/components/PublicPage';
 
@@ -346,7 +345,6 @@ export default function LoyaltyHub() {
       </div>
       </PublicPage>
 
-      <BottomNav />
 
       {/* Loyalty Rewards Sheet */}
       {selectedVenueId && (

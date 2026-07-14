@@ -2,7 +2,6 @@ import { motion } from 'framer-motion';
 import { DrinkCard } from '@/components/DrinkCard';
 import { CartButton } from '@/components/CartButton';
 import { EventSelectionDialog } from '@/components/EventSelectionDialog';
-import { BottomNav } from '@/components/BottomNav';
 import { useStore } from '@/store/useStore';
 import { Drink, Event } from '@/types';
 import { useState, useEffect } from 'react';
@@ -243,7 +242,6 @@ export default function CategoryDrinks() {
         venueId={slug || ''}
       />
 
-      <BottomNav />
     </div>
   );
 }

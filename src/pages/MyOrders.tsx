@@ -11,7 +11,6 @@ import { Bell } from 'lucide-react';
 import { ArrowLeft, Clock, CheckCircle2, QrCode, Trash2, CreditCard, Archive, Ticket, ChevronDown, ChevronUp, Wine, Calendar, Shield, X, Users, Sparkles, Gift, LogIn, ShoppingBag, ArrowRight, MapPin, Info, Wallet } from 'lucide-react';
 import { DrinkOrderDetailModal } from '@/components/DrinkOrderDetailModal';
 import { FreeDrinkRewardModal } from '@/components/FreeDrinkRewardModal';
-import { BottomNav } from '@/components/BottomNav';
 import { EmptyState } from '@/components/EmptyState';
 import { PageFade } from '@/components/PageFade';
 import { OrdersSkeleton } from '@/components/skeletons/OrdersSkeleton';
@@ -1366,7 +1365,6 @@ export default function MyOrders() {
           />
         )}
 
-        <BottomNav />
       </div>
     );
   }
@@ -1437,7 +1435,6 @@ export default function MyOrders() {
           </motion.div>
         </div>
 
-        <BottomNav />
       </div>
     );
   }
@@ -2036,7 +2033,6 @@ export default function MyOrders() {
         />
       )}
 
-      <BottomNav />
     </div>
   );
 }

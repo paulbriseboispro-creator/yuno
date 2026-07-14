@@ -2,6 +2,8 @@ import { lazy, Suspense, useState, useEffect, useCallback, useMemo } from 'react
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { BottomNav } from '@/components/BottomNav';
+import { useSuppressBottomNav } from '@/components/PersistentBottomNav';
+import { Shimmer } from '@/components/skeletons/Shimmer';
 import VenueMapBottomSheet from '@/components/welcome/VenueMapBottomSheet';
 import VenuePreviewCard from '@/components/welcome/VenuePreviewCard';
 import type { MapVenue } from '@/components/welcome/VenueMap';
@@ -26,6 +28,12 @@ export default function ClubMap() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(() => getManualCoords());
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   const [selectedVenue, setSelectedVenue] = useState<MapVenue | null>(null);
+
+  // Carte plein écran : la barre vit DANS le flux flex (mode « docked »), sous la
+  // bottom sheet, et pas en overlay fixe. On masque donc la barre globale et on
+  // pose la nôtre. La bascule est commitée avant le paint (useLayoutEffect côté
+  // hook) : jamais de frame avec deux barres, jamais de frame sans barre.
+  useSuppressBottomNav(true);
 
   useEffect(() => {
     // Respect a manual city pick from Explore — don't override it with GPS.
@@ -182,7 +190,7 @@ export default function ClubMap() {
       <div className="shrink-0" style={{ height: 'env(safe-area-inset-top, 0px)' }} />
 
       <div className="flex-1 min-h-0 relative">
-        <Suspense fallback={<div className="absolute inset-0 flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
+        <Suspense fallback={<Shimmer className="absolute inset-0 rounded-none" />}>
           <div className="absolute inset-0">
             <VenueMap
               venues={mapVenues}

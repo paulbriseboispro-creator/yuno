@@ -4,7 +4,6 @@ import { format } from 'date-fns';
 import { SlidersHorizontal } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { BottomNav } from '@/components/BottomNav';
 import { EventCardData } from '@/components/explore/EventCard';
 import { Tappable } from '@/components/motion';
 import { FilterPage, ExploreFilters, FilterDynamicData } from '@/components/explore/FilterPage';
@@ -685,7 +684,6 @@ export default function AllEventsPage() {
         dynamicData={FILTER_DYNAMIC_DATA}
       />
 
-      <BottomNav />
     </div>
   );
 }

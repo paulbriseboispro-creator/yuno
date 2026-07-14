@@ -8,7 +8,6 @@ import { fr, es, enUS } from 'date-fns/locale';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { formatCompactCount } from '@/components/formater';
-import { BottomNav } from '@/components/BottomNav';
 import { FadeInView } from '@/components/motion';
 import { PublicPage } from '@/components/PublicPage';
 
@@ -171,7 +170,6 @@ export default function DJPastEventsPage() {
       </main>
       </PublicPage>
 
-      <BottomNav />
     </div>
   );
 }

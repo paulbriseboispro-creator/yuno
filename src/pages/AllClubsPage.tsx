@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPin } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { BottomNav } from '@/components/BottomNav';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useUserLocation } from '@/hooks/useUserLocation';
@@ -200,7 +199,6 @@ export default function AllClubsPage() {
       </div>
       </PublicPage>
 
-      <BottomNav />
     </div>
   );
 }

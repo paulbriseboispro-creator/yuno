@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import { Seo } from '@/components/Seo';
-import { BottomNav } from '@/components/BottomNav';
 import { PublicPage } from '@/components/PublicPage';
 
 /**
@@ -282,7 +281,6 @@ export function PillarLanding({ config }: { config: PillarConfig }) {
       </main>
       </PublicPage>
 
-      <BottomNav />
     </div>
   );
 }

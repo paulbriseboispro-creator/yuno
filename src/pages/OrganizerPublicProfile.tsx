@@ -10,7 +10,6 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { fr, enUS, es } from 'date-fns/locale';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { BottomNav } from '@/components/BottomNav';
 import { FavoriteButton } from '@/components/FavoriteButton';
 import { toast } from 'sonner';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
@@ -753,7 +752,6 @@ export default function OrganizerPublicProfile() {
         </>
       )}
 
-      <BottomNav />
     </div>
   );
 }

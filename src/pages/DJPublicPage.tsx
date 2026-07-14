@@ -11,7 +11,6 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { fr, es, enUS } from 'date-fns/locale';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { FavoriteButton } from '@/components/FavoriteButton';
-import { BottomNav } from '@/components/BottomNav';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { shareContent } from '@/lib/share';
 import { DJTrackPlayer } from '@/components/dj/DJTrackPlayer';
@@ -697,7 +696,6 @@ export default function DJPublicPage() {
       </main>
       </PublicPage>
 
-      <BottomNav />
     </div>
   );
 }

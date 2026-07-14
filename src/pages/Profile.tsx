@@ -6,7 +6,6 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
-import { BottomNav } from '@/components/BottomNav';
 import { PageFade } from '@/components/PageFade';
 import { ProfileSkeleton } from '@/components/skeletons/ProfileSkeleton';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -377,7 +376,6 @@ export default function Profile() {
         </motion.div>
       </PageFade>
 
-      <BottomNav />
       
       {/* Loyalty Rewards Sheet */}
       {selectedVenueId && (
