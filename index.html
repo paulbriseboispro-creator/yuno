@@ -12,6 +12,14 @@
       à l'échelle pour remplir l'écran : le navigateur agrandit TOUT uniformément (px + rem +
       images + canvas Mapbox), sans débordement horizontal. Les petits téléphones et le desktop
       ne sont pas touchés. Un seul réglage à tuner : BASELINE (plus petit = plus gros).
+
+      EXCEPTION — l'app « Yuno Pro » (User-Agent 'YunoPro', cf. pro/capacitor.config.ts) est
+      EXCLUE de ce zoom. Le B2C est une vitrine : grossir est un plus. Les surfaces staff
+      (commandes VIP, tickets barman, liste videur) sont des outils OPÉRATIONNELS : ce qui
+      compte est le nombre de lignes visibles d'un coup, pas la taille du texte. Zoomer à
+      1,10-1,20× rendait un iPhone 430px équivalent à un 390px — ~10 % de largeur utile
+      perdue, d'où les noms qui passaient à la ligne et les prix qui percutaient les badges.
+      En Pro on garde donc la vraie largeur de l'appareil (width=device-width).
     -->
     <script>
       (function () {
@@ -20,6 +28,8 @@
         var PHONE_MAX = 480;    // au-delà, c'est une tablette : on ne touche pas.
         var vp = document.querySelector('meta[name="viewport"]');
         var DEFAULT = 'width=device-width, initial-scale=1, viewport-fit=cover';
+        // L'UA est posé par le WebView AVANT le chargement du document : lisible dès ici.
+        var IS_PRO = navigator.userAgent.indexOf('YunoPro') !== -1;
         function apply() {
           try {
             var portrait = !window.matchMedia || window.matchMedia('(orientation: portrait)').matches;
@@ -27,7 +37,7 @@
             var narrow = Math.min(screen.width, screen.height);
             var wide = Math.max(screen.width, screen.height);
             var deviceWidth = portrait ? narrow : wide;
-            if (portrait && deviceWidth > BASELINE && deviceWidth <= PHONE_MAX) {
+            if (!IS_PRO && portrait && deviceWidth > BASELINE && deviceWidth <= PHONE_MAX) {
               var scale = Math.min(deviceWidth / BASELINE, MAX_SCALE);
               var target = Math.round(deviceWidth / scale);
               vp.setAttribute('content', 'width=' + target + ', viewport-fit=cover');
