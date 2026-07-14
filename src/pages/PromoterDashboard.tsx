@@ -11,7 +11,11 @@ import { VenuePromoterContent } from '@/components/promoter/VenuePromoterContent
 import { toast } from 'sonner';
 import { Home, Building2, KeyRound } from 'lucide-react';
 import { ChangePinFlow } from '@/components/ChangePinFlow';
+import { PublicPage } from '@/components/PublicPage';
+import { ProBackButton } from '@/components/pro/ProBackButton';
+import { useProBack } from '@/hooks/useProBack';
 import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
+import { isProApp } from '@/lib/native';
 import type { PromoterStats } from '@/types/promoter';
 
 interface Promoter {
@@ -57,6 +61,7 @@ const defaultStats: PromoterStats = {
 
 export default function PromoterDashboard() {
   const navigate = useNavigate();
+  const goBack = useProBack();
   const { user, loading: authLoading } = useAuth();
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
@@ -208,7 +213,6 @@ export default function PromoterDashboard() {
     } catch (error) { console.error('Error fetching announcements:', error); }
   }
 
-
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -225,16 +229,12 @@ export default function PromoterDashboard() {
             <KeyRound className="h-8 w-8 text-destructive" />
           </div>
           <h1 className="text-2xl font-bold">
-            {profileError === 'no_profile'
-              ? "Aucun profil promoteur trouvé"
-              : "Compte promoteur désactivé"}
+            {t(profileError === 'no_profile' ? 'promoter.noProfileTitle' : 'promoter.disabledTitle')}
           </h1>
           <p className="text-muted-foreground">
-            {profileError === 'no_profile'
-              ? "Votre compte a bien le rôle promoteur, mais aucun profil n'a encore été créé pour vous. L'owner du club doit vous inviter depuis son tableau de bord Promoteurs."
-              : "Votre profil promoteur existe mais a été désactivé par l'owner du club. Contactez-le pour réactiver votre accès."}
+            {t(profileError === 'no_profile' ? 'promoter.noProfileBody' : 'promoter.disabledBody')}
           </p>
-          <Button variant="outline" onClick={() => navigate('/')}>
+          <Button variant="outline" onClick={goBack}>
             <Home className="h-4 w-4 mr-2" /> Retour à l'accueil
           </Button>
         </div>
@@ -254,9 +254,7 @@ export default function PromoterDashboard() {
       <RoleIntroGate role="promoter" />
       <header className="sticky top-0 z-40 border-b border-border/30 bg-surface/60 backdrop-blur-xl" style={{ paddingTop: 'max(0.25rem, env(safe-area-inset-top, 0.25rem))' }}>
         <div className="mx-auto flex h-14 max-w-3xl items-center gap-2 px-4">
-          <Button variant="ghost" size="icon" className="shrink-0" onClick={() => navigate('/')}>
-            <Home className="h-5 w-5" />
-          </Button>
+          <ProBackButton className="h-10 w-10 shrink-0" />
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <div className="shrink-0">
               <ProfilePhotoUpload
@@ -284,6 +282,10 @@ export default function PromoterDashboard() {
         </div>
       </header>
 
+      {/* PublicPage n'enveloppe QUE le contenu défilant : le header sticky et les
+          éléments `fixed` restent en sibling (un ancêtre transformé casserait
+          leur positionnement). */}
+      <PublicPage variant="flow">
       <div className="mx-auto max-w-3xl p-4 space-y-4">
         {/* Venue Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -316,6 +318,7 @@ export default function PromoterDashboard() {
         </Tabs>
 
       </div>
+      </PublicPage>
     </div>
   );
 }

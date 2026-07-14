@@ -17,7 +17,8 @@ import {
   ChefHat,
   ListOrdered
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { PublicPage } from '@/components/PublicPage';
+import { ProBackButton } from '@/components/pro/ProBackButton';
 import { Order, NotifyStatus, PrepStatus } from '@/types';
 
 // Represents a group of orders from the same user+event merged into one card
@@ -500,7 +501,7 @@ export default function ClickCollect() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* paddingTop safe-area : sans ProShellChrome, l'en-tête collé en haut passait
+      {/* paddingTop safe-area : l'app Pro n'ayant aucun chrome global, l'en-tête collé en haut passait
           sous l'encoche/la barre d'état dans l'app Yuno Pro (iOS). */}
       <header
         className="sticky top-0 z-40 border-b border-border/40 bg-surface/80 backdrop-blur-md"
@@ -508,6 +509,7 @@ export default function ClickCollect() {
       >
         <div className="mx-auto flex h-14 sm:h-16 max-w-7xl items-center justify-between gap-2 px-3 sm:px-4">
           <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+            <ProBackButton className="h-10 w-10 flex-shrink-0" />
             <ListOrdered className="h-5 w-5 sm:h-6 sm:w-6 text-primary flex-shrink-0" />
             <h1 className="text-base sm:text-xl font-bold truncate">{t('clickCollect.title')}</h1>
           </div>
@@ -521,23 +523,15 @@ export default function ClickCollect() {
         </div>
       </header>
 
+      {/* PublicPage n'enveloppe QUE le contenu défilant : le header sticky et les
+          éléments `fixed` restent en sibling (un ancêtre transformé casserait
+          leur positionnement). */}
+      <PublicPage variant="flow">
       <div className="mx-auto max-w-7xl p-3 sm:p-4">
         {/* Mobile Event Filter */}
         <div className="sm:hidden mb-3">
           <EventFilter selectedEventId={selectedEventId} onEventSelect={setSelectedEventId} venueId={staffVenueId || ''} />
         </div>
-
-        {/* Back to Barman Button */}
-        <Button
-          asChild
-          variant="outline"
-          className="mb-4 sm:mb-6 h-12 w-full sm:h-10 sm:w-auto border-primary/30 hover:bg-primary/10"
-        >
-          <Link to="/barman">
-            <ChefHat className="mr-2 h-4 w-4" />
-            {t('barman.title')}
-          </Link>
-        </Button>
 
         <Tabs defaultValue="queue" className="w-full">
           {/* Le breakpoint `xs` n'existe pas dans tailwind.config → les variantes xs:
@@ -595,6 +589,7 @@ export default function ClickCollect() {
           </TabsContent>
         </Tabs>
       </div>
+      </PublicPage>
 
       {/* Order Detail Dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
@@ -687,16 +682,3 @@ export default function ClickCollect() {
   );
 }
 
-function getStatusBadgeColor(status: PrepStatus): string {
-  switch (status) {
-    case 'queue': return 'bg-yellow-500';
-    case 'preparing': return 'bg-blue-500';
-    case 'ready': return 'bg-green-500';
-    case 'served': return 'bg-gray-500';
-    default: return 'bg-gray-400';
-  }
-}
-
-function getStatusLabel(status: PrepStatus): string {
-  return status;
-}

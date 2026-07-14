@@ -194,9 +194,15 @@
   }
 }
 
-/* iOS PWA safe-area */
+/* iOS PWA safe-area.
+   `.top-0` est OBLIGATOIRE dans le sélecteur : sans lui la règle frappait TOUT
+   élément `sticky`, y compris les barres `sticky bottom-0` (pieds de dialogue
+   owner, VipMenuManager, OwnerRefunds…) et les navs `sticky top-[60px]` — elles
+   héritaient d'un padding-top de la hauteur de l'encoche (~59px sur iPhone) posé
+   EN HAUT d'une barre ancrée EN BAS. Seul un élément réellement collé au sommet
+   doit payer l'encoche. */
 @supports (padding-top: env(safe-area-inset-top)) {
-  header.sticky, div.sticky {
+  header.sticky.top-0, div.sticky.top-0 {
     padding-top: env(safe-area-inset-top, 0px);
   }
 }

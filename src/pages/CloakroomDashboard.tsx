@@ -9,8 +9,9 @@ import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Scanner } from '@yudiel/react-qr-scanner';
-import { Link } from 'react-router-dom';
 import { LanguageSelector } from '@/components/LanguageSelector';
+import { PublicPage } from '@/components/PublicPage';
+import { ProBackButton } from '@/components/pro/ProBackButton';
 
 import { useStaffVenue } from '@/hooks/useStaffVenue';
 import { emitShiftStart } from '@/lib/liveops/shiftStart';
@@ -426,11 +427,7 @@ export default function CloakroomDashboard() {
       >
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-3">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <Link to="/profile" className="flex-none">
-              <Button variant="ghost" size="icon" className="h-10 w-10">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
+            <ProBackButton className="h-10 w-10 flex-none" />
             <div
               className="w-8 h-8 rounded-xl flex items-center justify-center flex-none"
               style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}
@@ -445,6 +442,10 @@ export default function CloakroomDashboard() {
         </div>
       </header>
 
+      {/* PublicPage n'enveloppe QUE le contenu défilant : le header sticky et les
+          éléments `fixed` restent en sibling (un ancêtre transformé casserait
+          leur positionnement). */}
+      <PublicPage variant="flow">
       <div className="relative z-10 container mx-auto px-3 py-4 space-y-4">
         {/* Stats Row */}
         <div className="grid grid-cols-2 gap-3">
@@ -738,6 +739,7 @@ export default function CloakroomDashboard() {
           )}
         </AnimatePresence>
       </div>
+      </PublicPage>
     </div>
   );
 }

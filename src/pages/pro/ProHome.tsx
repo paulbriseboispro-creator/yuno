@@ -39,6 +39,9 @@ const WEB_ONLY_ROLES = new Set(['owner', 'manager', 'organizer', 'dj', 'affiliat
 
 const WEB_BASE_URL = import.meta.env.VITE_APP_BASE_URL || 'https://yunoapp.eu';
 
+/** Entrée auto dans le dashboard : une fois par session, pas à chaque retour. */
+const AUTONAV_KEY = 'yuno_pro_autonav';
+
 /**
  * Accueil de l'app « Yuno Pro » : sélecteur de rôle staff/promoteur.
  * Les guards existants (RequireRole + RequireStaffSession / PIN) prennent le
@@ -77,18 +80,28 @@ export default function ProHome() {
   const webOnlyRoles = useMemo(() => (roles || []).filter((r) => WEB_ONLY_ROLES.has(r)), [roles]);
 
   // Un seul rôle métier → entrer directement (avec un court feedback visuel).
+  // Une SEULE fois par session : sinon le retour depuis le dashboard rebondit
+  // aussitôt vers ce même dashboard, et le staff mono-rôle ne peut plus jamais
+  // atteindre cet écran (donc ni le bouton push, ni la déconnexion).
   const [autoNavigating, setAutoNavigating] = useState(false);
   useEffect(() => {
     if (roles === null) return;
+    if (sessionStorage.getItem(AUTONAV_KEY)) return;
     if (staffRoles.length === 1 && webOnlyRoles.length === 0) {
       setAutoNavigating(true);
-      const timer = setTimeout(() => navigate(ROLE_CONFIG[staffRoles[0]].path), 400);
+      const timer = setTimeout(() => {
+        sessionStorage.setItem(AUTONAV_KEY, '1');
+        navigate(ROLE_CONFIG[staffRoles[0]].path);
+      }, 400);
       return () => clearTimeout(timer);
     }
   }, [roles, staffRoles, webOnlyRoles, navigate]);
 
   const handleLogout = async () => {
     clearStaffSession();
+    // Sinon le staff suivant qui se connecte sur ce téléphone n'aurait plus
+    // l'entrée directe dans son dashboard.
+    sessionStorage.removeItem(AUTONAV_KEY);
     // Purge des données offline (manifestes = PII) au départ du staff.
     const { purgeAllOfflineData } = await import('@/lib/offline/db');
     await purgeAllOfflineData();

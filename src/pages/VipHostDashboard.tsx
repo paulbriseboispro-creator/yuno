@@ -18,11 +18,12 @@ import { VipActionBar } from '@/components/vip-host/VipActionBar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { 
-  Crown, Map, List, RefreshCw, Loader2, Bell, ArrowLeft, Sparkles, LayoutGrid, ImageOff, Image
+import {
+  Crown, Map, List, RefreshCw, Loader2, Bell, Sparkles, LayoutGrid, ImageOff, Image
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
-import { Link } from 'react-router-dom';
+import { PublicPage } from '@/components/PublicPage';
+import { ProBackButton } from '@/components/pro/ProBackButton';
 import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
 import { emitShiftStart } from '@/lib/liveops/shiftStart';
 import { toast } from 'sonner';
@@ -286,11 +287,7 @@ export default function VipHostDashboard() {
       >
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <Button variant="ghost" size="icon" asChild className="h-10 w-10 shrink-0">
-              <Link to="/profile">
-                <ArrowLeft className="w-4 h-4" />
-              </Link>
-            </Button>
+            <ProBackButton className="h-10 w-10 shrink-0" />
             <div
               className="w-8 h-8 rounded-xl flex items-center justify-center flex-none"
               style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}
@@ -371,6 +368,10 @@ export default function VipHostDashboard() {
         </div>
       )}
 
+      {/* PublicPage n'enveloppe QUE le contenu défilant : le header sticky, le
+          bandeau de reconnexion et la barre d'action `fixed` restent en sibling
+          (un ancêtre transformé casserait leur positionnement). */}
+      <PublicPage variant="flow">
       <main className="relative z-10 p-3 space-y-3">
         {/* Zone Tabs */}
         {zones.length > 1 && (
@@ -505,6 +506,7 @@ export default function VipHostDashboard() {
           </TabsContent>
         </Tabs>
       </main>
+      </PublicPage>
 
       {/* Bottom Action Bar */}
       <VipActionBar

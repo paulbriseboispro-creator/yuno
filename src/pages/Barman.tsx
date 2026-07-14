@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 import { EventFilter } from '@/components/EventFilter';
-import { ChefHat, Camera, Search, CheckCircle, XCircle, Ban, AlertTriangle, ArrowLeft, Clock, Bell } from 'lucide-react';
+import { ChefHat, Camera, Search, CheckCircle, XCircle, Ban, AlertTriangle, Clock, Bell } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { supabase } from '@/integrations/supabase/client';
@@ -24,6 +24,8 @@ import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { PublicPage } from '@/components/PublicPage';
+import { ProBackButton } from '@/components/pro/ProBackButton';
 import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
 import { OrderPreparationView } from '@/components/OrderPreparationView';
 import { useStaffVenue } from '@/hooks/useStaffVenue';
@@ -997,11 +999,7 @@ export default function Barman() {
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-3 sm:px-4">
           {/* min-w-0 + flex-1 : le titre tronque au lieu de pousser les actions hors écran */}
           <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
-            <Link to="/profile" className="flex-none">
-              <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-9 sm:w-9">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
+            <ProBackButton className="h-11 w-11 flex-none sm:h-9 sm:w-9" />
             <div
               className="w-8 h-8 rounded-xl flex items-center justify-center flex-none"
               style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}
@@ -1047,6 +1045,10 @@ export default function Barman() {
         </div>
       </header>
 
+      {/* PublicPage n'enveloppe QUE le contenu défilant : le header sticky et les
+          éléments `fixed` restent en sibling (un ancêtre transformé casserait
+          leur positionnement). */}
+      <PublicPage variant="flow">
       <div className="relative z-10 mx-auto max-w-7xl p-3 sm:p-4">
         {/* Shift Stats */}
         <ShiftStats venueId={staffVenueId || ''} />
@@ -1340,6 +1342,7 @@ export default function Barman() {
           </>
         )}
       </div>
+      </PublicPage>
 
       {/* Order Detail Dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
