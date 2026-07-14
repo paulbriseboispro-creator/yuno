@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ZoomIn, ZoomOut } from 'lucide-react';
 import { renderTableShape } from '@/components/vip/floorPlanShapes';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { getFittedBackgroundRect } from '@/lib/floorPlanBackground';
 
 interface ZoneArea {
@@ -51,6 +52,7 @@ export function VipFloorPlan({
   showBackground = true,
   preorderReservationIds,
 }: VipFloorPlanProps) {
+  const { t } = useLanguage();
   const tables = (floorPlan?.layout?.tables || []) as (FloorPlanTable & { shape?: FloorPlanTableShape; color?: string; borderRadius?: number; fillOpacity?: number })[];
   const zoneAreas = ((floorPlan?.layout as any)?.zoneAreas || []) as ZoneArea[];
   const backgroundUrl = showBackground ? (floorPlan?.backgroundImageUrl || null) : null;
@@ -176,7 +178,7 @@ export function VipFloorPlan({
   if (tables.length === 0) {
     return (
       <div className="flex items-center justify-center h-64 bg-muted/30 rounded-xl">
-        <p className="text-muted-foreground text-sm">Aucun plan de salle configuré</p>
+        <p className="text-muted-foreground text-sm">{t('vipHost.noFloorPlan')}</p>
       </div>
     );
   }
@@ -355,7 +357,7 @@ export function VipFloorPlan({
       <div className="flex flex-wrap gap-x-3 gap-y-1.5 px-1 text-xs">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 shrink-0 rounded bg-muted/30 border border-muted-foreground/50" />
-          <span className="text-muted-foreground">Libre</span>
+          <span className="text-muted-foreground">{t('vipHost.legendFree')}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 shrink-0 rounded bg-emerald-500/20 border border-emerald-500" />
@@ -363,11 +365,11 @@ export function VipFloorPlan({
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 shrink-0 rounded bg-amber-500/20 border border-amber-500" />
-          <span className="text-muted-foreground">Sous min</span>
+          <span className="text-muted-foreground">{t('vipHost.legendUnderMin')}</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 shrink-0 rounded bg-destructive/20 border border-destructive" />
-          <span className="text-muted-foreground">Crédit épuisé</span>
+          <span className="text-muted-foreground">{t('vipHost.legendCreditOut')}</span>
         </div>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface VipZone {
   name: string;
@@ -14,6 +15,8 @@ interface VipZoneTabsProps {
 }
 
 export function VipZoneTabs({ zones, selectedZone, onSelectZone, totalCount }: VipZoneTabsProps) {
+  const { t } = useLanguage();
+
   if (zones.length === 0) return null;
 
   return (
@@ -28,7 +31,7 @@ export function VipZoneTabs({ zones, selectedZone, onSelectZone, totalCount }: V
             : { background: 'rgba(255,255,255,0.032)', border: '1px solid rgba(255,255,255,0.085)', color: 'rgba(255,255,255,0.36)' }
           }
         >
-          Toutes
+          {t('vipHost.allZones')}
           <span
             className="h-5 shrink-0 px-1.5 text-[10px] font-bold rounded-full flex items-center tabular-nums"
             style={selectedZone === null

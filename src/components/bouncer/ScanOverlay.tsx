@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface ScanOverlayProps {
   result: 'success' | 'error' | 'already' | 'vip_success' | null;
@@ -11,6 +12,8 @@ interface ScanOverlayProps {
 }
 
 export function ScanOverlay({ result, onDismiss, holderName, offlineBadge }: ScanOverlayProps) {
+  const { t } = useLanguage();
+
   useEffect(() => {
     if (!result) return;
     // Vibration feedback
@@ -65,7 +68,7 @@ export function ScanOverlay({ result, onDismiss, holderName, offlineBadge }: Sca
             transition={{ delay: 0.1 }}
             className="text-white text-3xl font-black mt-4 uppercase tracking-wider"
           >
-            {isSuccess ? (result === 'vip_success' ? 'VIP' : 'OK') : 'REFUSÉ'}
+            {isSuccess ? (result === 'vip_success' ? 'VIP' : 'OK') : t('bouncer.refused')}
           </motion.p>
           {holderName && isSuccess && (
             /* Nom client : borné + tronqué, sinon un nom long déborde de l'écran */
