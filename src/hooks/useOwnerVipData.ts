@@ -76,11 +76,13 @@ export function useOwnerVipData() {
     setLoading(true);
 
     try {
-      // Fetch all events that have table reservations for this venue
+      // Fetch all events that have table reservations for this venue.
+      // Co-soirée org-led : le club est partner_venue_id — inclure ces events
+      // sinon le service VIP du club ne voit pas la soirée co-organisée.
       const { data: eventsData } = await supabase
         .from('events')
         .select('id, title, start_at, end_at, venue_id')
-        .eq('venue_id', venueId)
+        .or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`)
         .eq('tables_enabled', true)
         .order('start_at', { ascending: false });
 

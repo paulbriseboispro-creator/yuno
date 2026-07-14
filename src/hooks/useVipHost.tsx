@@ -51,11 +51,14 @@ export function useVipHost() {
       const now = new Date();
       
       // Get current active event (event that is happening now or starting soon)
-      // An event is "active" if: it's marked active AND we're within its time window
+      // An event is "active" if: it's marked active AND we're within its time window.
+      // Co-soirée menée par un organisateur : le club est alors partner_venue_id
+      // (venue_id peut être NULL) — sans le .or(), le host verrait une salle vide
+      // le soir d'un co-event org-led.
       const { data: events } = await supabase
         .from('events')
         .select('id, title, start_at, end_at, venue_id')
-        .eq('venue_id', venueId)
+        .or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`)
         .eq('is_active', true)
         .lte('start_at', new Date(now.getTime() + 6 * 60 * 60 * 1000).toISOString()) // Starting within next 6 hours
         .gte('end_at', now.toISOString()) // Not yet ended

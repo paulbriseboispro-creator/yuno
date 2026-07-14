@@ -160,11 +160,15 @@ export function EventGuestListModule({ eventId, readOnly = false }: Props) {
             <Button
               className="mt-4"
               onClick={async () => {
-                const { data: ev } = await supabase.from('events').select('venue_id').eq('id', eventId).maybeSingle();
-                if (!ev?.venue_id) { toast.error(t('coEvent.glNoVenue')); return; }
+                // Co-soirée org-led : le club physique est partner_venue_id
+                // (venue_id NULL) — la guest list reste TOUJOURS scopée au club
+                // qui tient la porte, sinon le scan bouncer la rejette.
+                const { data: ev } = await supabase.from('events').select('venue_id, partner_venue_id').eq('id', eventId).maybeSingle();
+                const glVenueId = ev?.venue_id ?? ev?.partner_venue_id;
+                if (!glVenueId) { toast.error(t('coEvent.glNoVenue')); return; }
                 const { error } = await supabase.from('guest_lists').insert({
                   event_id: eventId,
-                  venue_id: ev.venue_id,
+                  venue_id: glVenueId,
                   quota: 100,
                   free_before_time: '02:00',
                   includes_drink: false,

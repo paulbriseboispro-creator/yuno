@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useStaffVenue } from '@/hooks/useStaffVenue';
 import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
-import { QrCode, CheckCircle, XCircle, User, Ticket, Wine, Camera, RefreshCw, Users, Ban, AlertTriangle, ArrowLeft, Clock, Search, ShieldAlert, UserX } from 'lucide-react';
+import { QrCode, CheckCircle, XCircle, User, Ticket, Wine, Camera, RefreshCw, Users, Ban, AlertTriangle, Clock, Search, ShieldAlert, UserX } from 'lucide-react';
 import { nowInParis } from '@/lib/timezone';
 import { validateTicketEntry, validateTableReservation, validateGuestListEntry } from '@/lib/scan/rules';
 import { useOfflineScanning } from '@/hooks/useOfflineScanning';
@@ -17,7 +17,8 @@ import { OfflinePill } from '@/components/pro/OfflinePill';
 import { SyncQueueDrawer } from '@/components/pro/SyncQueueDrawer';
 import { isProApp } from '@/lib/native';
 import { CloudOff } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { PublicPage } from '@/components/PublicPage';
+import { ProBackButton } from '@/components/pro/ProBackButton';
 
 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -250,11 +251,13 @@ export default function Bouncer() {
     try {
       const now = new Date().toISOString();
       
-      // Only fetch currently active events (started and not ended)
+      // Only fetch currently active events (started and not ended).
+      // Co-soirée org-led : le club est partner_venue_id (venue_id peut être
+      // NULL) — sans le .or(), la porte ne voit pas l'event du soir.
       const { data: events } = await supabase
         .from('events')
         .select('id')
-        .eq('venue_id', venueId)
+        .or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`)
         .eq('is_active', true)
         .lte('start_at', now)
         .gte('end_at', now);
@@ -266,7 +269,7 @@ export default function Bouncer() {
         const { data: todayEvents } = await supabase
           .from('events')
           .select('id')
-          .eq('venue_id', venueId)
+          .or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`)
           .gte('end_at', today.toISOString())
           .lte('start_at', new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString());
         
@@ -465,7 +468,7 @@ export default function Bouncer() {
           tickets!inner(
             id, user_email, full_name, quantity, status, user_id, total_price,
             drink_redeemed, drink_name, entry_scanned,
-            events!inner(title, venue_id, alcohol_free),
+            events!inner(title, venue_id, partner_venue_id, alcohol_free),
             ticket_rounds!inner(name, includes_drink, entry_deadline)
           )
         `)
@@ -485,7 +488,8 @@ export default function Bouncer() {
             status: ticket.status,
             scanned: attendee.entry_scanned,
             scannedAt: attendee.entry_scanned_at,
-            venueId: ticket.events.venue_id,
+            // Co-soirée org-led : le club physique est partner_venue_id.
+            venueId: ticket.events.venue_id ?? ticket.events.partner_venue_id,
           },
           { venueId: venueId!, now: new Date(), mode: activeTab === 'cancel' ? 'cancel' : 'entry' },
         );
@@ -656,7 +660,7 @@ export default function Bouncer() {
         .from('tickets')
         .select(`
           *,
-          events!inner(title, venue_id, alcohol_free),
+          events!inner(title, venue_id, partner_venue_id, alcohol_free),
           ticket_rounds!inner(name, includes_drink, entry_deadline)
         `)
         .eq('qr_code', qrCode)
@@ -672,7 +676,8 @@ export default function Bouncer() {
             status: ticket.status,
             scanned: ticket.entry_scanned,
             scannedAt: ticket.entry_scanned_at,
-            venueId: ticket.events.venue_id,
+            // Co-soirée org-led : le club physique est partner_venue_id.
+            venueId: ticket.events.venue_id ?? ticket.events.partner_venue_id,
           },
           { venueId: venueId!, now: new Date(), mode: activeTab === 'cancel' ? 'cancel' : 'entry' },
         );
@@ -828,7 +833,7 @@ export default function Bouncer() {
         .from('table_reservations')
         .select(`
           *,
-          events!inner(title, venue_id),
+          events!inner(title, venue_id, partner_venue_id),
           table_zones(name),
           table_packs(name)
         `)
@@ -844,7 +849,8 @@ export default function Bouncer() {
             status: reservation.status,
             scanned: reservation.entry_scanned,
             scannedAt: reservation.entry_scanned_at,
-            venueId: reservation.events.venue_id,
+            // Co-soirée org-led : le club physique est partner_venue_id.
+            venueId: reservation.events.venue_id ?? reservation.events.partner_venue_id,
           },
           { venueId: venueId!, now: new Date(), mode: 'entry' },
         );
@@ -967,7 +973,7 @@ export default function Bouncer() {
           .from('guest_list_entries')
           .select(`
             *,
-            guest_lists!inner(free_before_time, entry_deadline, includes_drink, venue_id, events!inner(title, venue_id, start_at))
+            guest_lists!inner(free_before_time, entry_deadline, includes_drink, venue_id, events!inner(title, venue_id, partner_venue_id, start_at))
           `)
           .eq('qr_code', qrCode)
           .maybeSingle();
@@ -981,7 +987,11 @@ export default function Bouncer() {
               status: glEntry.status,
               scanned: glEntry.entry_scanned,
               scannedAt: glEntry.entry_scanned_at,
-              venueId: (glEntry.guest_lists as any).venue_id,
+              // Liste org-scopée ou co-soirée org-led : retomber sur le club de
+              // l'event (venue_id puis partner_venue_id).
+              venueId: (glEntry.guest_lists as any).venue_id
+                ?? (glEntry.guest_lists as any).events.venue_id
+                ?? (glEntry.guest_lists as any).events.partner_venue_id,
               entryDeadline: glEntry.entry_deadline || null,
               glDeadline: (glEntry.guest_lists as any).entry_deadline || null,
               freeBeforeTime: (glEntry.guest_lists as any).free_before_time || null,
@@ -1030,9 +1040,12 @@ export default function Bouncer() {
             return;
           }
 
-          // Mark as entered
+          // Mark as entered — verrou optimiste « premier scan gagne » : sans le
+          // .eq('entry_scanned', false), deux devices qui scannent le même QR à
+          // la même seconde comptent l'entrée deux fois (les billets/tables et
+          // le chemin offline ont déjà ce garde).
           const { data: { user: glUser } } = await supabase.auth.getUser();
-          await supabase
+          const { data: glUpdated } = await supabase
             .from('guest_list_entries')
             .update({
               entry_scanned: true,
@@ -1040,11 +1053,34 @@ export default function Bouncer() {
               entry_scanned_by: glUser?.id,
               status: 'entered',
             })
-            .eq('id', glEntry.id);
+            .eq('id', glEntry.id)
+            .eq('entry_scanned', false)
+            .select('id');
+
+          if (!glUpdated || glUpdated.length === 0) {
+            // Un autre device vient de scanner cette entrée.
+            setScanResult('already');
+            setScannedTicket({
+              id: glEntry.id,
+              userEmail: glEntry.email,
+              fullName: glEntry.full_name,
+              quantity: 1,
+              eventTitle: (glEntry.guest_lists as any).events.title,
+              roundName: 'Guest List',
+              status: 'paid',
+              entryScanned: true,
+              entryScannedAt: glEntry.entry_scanned_at,
+              includesDrink: (glEntry.guest_lists as any).includes_drink,
+              alcoholFree: false,
+              drinkRedeemed: false,
+              drinkName: null,
+            });
+            return;
+          }
 
           // Bouncer view: show entry type info
           const entryType = glEntry.entry_type || 'normal';
-          const entryTypeLabel = entryType === 'table' ? 'Guest List VIP' : entryType === 'drink' ? 'Guest List + Boisson' : 'Guest List';
+          const entryTypeLabel = entryType === 'table' ? t('bouncer.entryTypeTable') : entryType === 'drink' ? t('bouncer.entryTypeDrink') : t('bouncer.entryTypeGuest');
           const includesDrinkFromEntry = entryType === 'drink' || (glEntry.guest_lists as any).includes_drink;
 
         setScanResult('success');
@@ -1274,12 +1310,8 @@ export default function Bouncer() {
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-3">
           {/* min-w-0 : sans ça le truncate du titre ne peut pas s'appliquer */}
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <Link to="/profile" className="flex-none">
-              {/* Cible tactile ≥44px sur mobile (une main, dans le noir) */}
-              <Button variant="ghost" size="icon" className="h-11 w-11 md:h-8 md:w-8">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-            </Link>
+            {/* Cible tactile ≥44px sur mobile (une main, dans le noir) */}
+            <ProBackButton className="h-11 w-11 flex-none md:h-8 md:w-8" />
             <div
               className="w-8 h-8 rounded-xl flex items-center justify-center flex-none"
               style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}
@@ -1293,6 +1325,10 @@ export default function Bouncer() {
         </div>
       </header>
 
+      {/* PublicPage n'enveloppe QUE le contenu défilant : le header sticky et les
+          éléments `fixed` restent en sibling (un ancêtre transformé casserait
+          leur positionnement). */}
+      <PublicPage variant="flow">
       <div className="relative z-10 container mx-auto px-3 py-4 space-y-4">
         {/* Statut offline (app Yuno Pro) : réseau + fraîcheur manifeste + file de scans */}
         {isProApp() && offline.enabled && (
@@ -1879,11 +1915,11 @@ export default function Bouncer() {
                               <span className="flex-none tabular-nums" style={{ color: T1, fontSize: 14, fontWeight: 500 }}>{total.toFixed(2)}€</span>
                             </div>
                             <div className="flex items-center justify-between gap-3 mb-2">
-                              <span className="min-w-0 truncate" style={{ color: T3, fontSize: 13 }}>Frais de service Yuno</span>
+                              <span className="min-w-0 truncate" style={{ color: T3, fontSize: 13 }}>{t('bouncer.feeYuno')}</span>
                               <span className="flex-none tabular-nums" style={{ color: RED, fontSize: 14, fontWeight: 500 }}>-{yunoFee.toFixed(2)}€</span>
                             </div>
                             <div className="flex items-center justify-between gap-3 mb-2">
-                              <span className="min-w-0 truncate" style={{ color: T3, fontSize: 13 }}>Frais Stripe</span>
+                              <span className="min-w-0 truncate" style={{ color: T3, fontSize: 13 }}>{t('bouncer.feeStripe')}</span>
                               <span className="flex-none tabular-nums" style={{ color: RED, fontSize: 14, fontWeight: 500 }}>-{stripeFee.toFixed(2)}€</span>
                             </div>
                             <div className="flex items-center justify-between gap-3 pt-2" style={{ borderTop: `1px solid ${F_BORDER}` }}>
@@ -1966,6 +2002,7 @@ export default function Bouncer() {
             </>)}
         </div>
       </div>
+      </PublicPage>
 
       {/* Cancel Confirmation Dialog */}
       <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
