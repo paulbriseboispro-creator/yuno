@@ -594,7 +594,7 @@ serve(async (req) => {
         const [{ data: orgProfile }, { data: partnership }] = await Promise.all([
           supabaseAdmin
             .from("profiles")
-            .select("stripe_account_id, stripe_charges_enabled")
+            .select("stripe_connect_account_id, stripe_connect_charges_enabled")
             .eq("id", orgId)
             .maybeSingle(),
           supabaseAdmin
@@ -605,8 +605,8 @@ serve(async (req) => {
             .eq("status", "active")
             .maybeSingle(),
         ]);
-        if (orgProfile?.stripe_account_id && orgProfile?.stripe_charges_enabled) {
-          organizerStripeAccountId = orgProfile.stripe_account_id;
+        if (orgProfile?.stripe_connect_account_id && orgProfile?.stripe_connect_charges_enabled) {
+          organizerStripeAccountId = orgProfile.stripe_connect_account_id;
         }
         partnershipRules = (partnership?.default_split_rules as Record<string, unknown>) ?? null;
         partnershipId = partnership?.id ?? null;
