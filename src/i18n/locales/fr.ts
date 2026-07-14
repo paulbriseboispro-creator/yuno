@@ -11233,6 +11233,7 @@ const fr: Record<string, string> = {
   'vipnight.addNote': 'Ajouter une note…',
   'vipnight.notePersisted': 'Note enregistrée',
   'vipnight.guestNew': 'Première soirée ici — tapis rouge',
+  'vipnight.guestRegular': 'Habitué · {count}ᵉ soirée',
   'vipnight.guestUnavailable': 'Fiche client indisponible',
   'vipnight.daysAgo': 'il y a {days} j',
   'vipnight.save': 'OK',

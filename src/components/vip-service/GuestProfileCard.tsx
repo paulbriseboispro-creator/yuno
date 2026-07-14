@@ -108,6 +108,7 @@ export function GuestProfileCard({ venueId, userId, email }: GuestProfileCardPro
   }
 
   const isNew = (profile.nights || 0) <= 1;
+  const isRegular = (profile.nights || 0) >= 3;
 
   const stat = (label: string, value: string) => (
     <div className="rounded-xl px-3 py-2.5" style={{ background: 'rgba(255,255,255,0.032)', border: `1px solid ${BORDER}` }}>
@@ -125,6 +126,19 @@ export function GuestProfileCard({ venueId, userId, email }: GuestProfileCardPro
         >
           <BookMarked className="h-4 w-4 shrink-0" style={{ color: '#FCA5A5' }} />
           <p style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>{t('vipnight.guestNew')}</p>
+        </div>
+      )}
+
+      {/* Bandeau doré habitué — promis par le mode d'emploi owner (ohelp.pg.vipservice.s8b). */}
+      {isRegular && (
+        <div
+          className="flex items-center gap-2 rounded-xl px-3 py-2.5"
+          style={{ background: 'linear-gradient(135deg,rgba(231,193,90,0.16),rgba(231,193,90,0.04))', border: '1px solid rgba(231,193,90,0.35)' }}
+        >
+          <BookMarked className="h-4 w-4 shrink-0" style={{ color: '#E7C15A' }} />
+          <p style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>
+            {t('vipnight.guestRegular').replace('{count}', String(profile.nights))}
+          </p>
         </div>
       )}
 

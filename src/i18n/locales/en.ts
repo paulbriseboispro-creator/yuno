@@ -11162,6 +11162,7 @@ const en: Record<string, string> = {
   'vipnight.addNote': 'Add a note…',
   'vipnight.notePersisted': 'Note saved',
   'vipnight.guestNew': 'First night here — roll out the red carpet',
+  'vipnight.guestRegular': 'Regular · night #{count}',
   'vipnight.guestUnavailable': 'Guest profile unavailable',
   'vipnight.daysAgo': '{days} d ago',
   'vipnight.save': 'Save',
