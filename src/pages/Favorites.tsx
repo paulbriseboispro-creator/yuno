@@ -9,10 +9,10 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { fr, es, enUS } from 'date-fns/locale';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
-import { BottomNav } from '@/components/BottomNav';
 import { FadeInView } from '@/components/motion';
 import { PageFade } from '@/components/PageFade';
 import { EmptyState as GlobalEmptyState } from '@/components/EmptyState';
+import { Shimmer, SkeletonLine, SkeletonCircle } from '@/components/skeletons/Shimmer';
 
 /* ── Design tokens (aligned with Yuno DS: index.css variables) ── */
 const D = {
@@ -112,6 +112,23 @@ interface FollowedOrganizer {
   musicGenres: string[];
   city?: string;
 }
+
+/* ── Lignes brutes renvoyées par Supabase ──
+   Le fetch tire ses tables via des ternaires (`ids.length ? requête : vide`), ce
+   qui casse l'inférence de types de supabase-js. On déclare donc la forme des
+   lignes qu'on lit vraiment, plutôt que de tout passer en `any`. */
+interface VenueRow { id: string; name: string; city: string | null; logo_url: string | null; cover_url: string | null; music_genre: string | null }
+interface AffVenueRow { id: string; name: string; city: string | null; cover_image_url: string | null; slug: string }
+interface EventRow { id: string; title: string; start_at: string; end_at: string | null; poster_url: string | null; venue_id: string | null; partner_venue_id: string | null; organizer_user_id: string | null; music_genres: string[] | null }
+interface AffEventRow { id: string; name: string; event_date: string; start_time: string | null; flyer_url: string | null; slug: string; genres: string[] | null; affiliate_venues: { name: string } | null }
+interface DrinkRow { id: string; name: string; price: number; img_url: string; venue_id: string; collection: string }
+interface DjRow { id: string; stage_name: string | null; first_name: string | null; last_name: string | null; profile_image_url: string | null; music_genres: string[] | null; slug: string | null; handle: string | null }
+interface HostVenueRow { id: string; name: string }
+interface HostOrgRow { user_id: string; display_name: string }
+interface FollowerRow { organizer_user_id: string }
+interface OrgProfileRow { user_id: string; display_name: string; avatar_url: string | null; slug: string | null; city: string | null }
+interface ClubEventRow { venue_id: string | null; partner_venue_id: string | null }
+interface OrgEventRow { organizer_user_id: string | null }
 
 /* ── Tab pill ── */
 function TabPill({
@@ -803,19 +820,38 @@ function DiscoverCTA({
   );
 }
 
-/* ── Spinner ── */
-function Spinner() {
+/* ── Skeleton ──
+   Remplace l'ancien spinner rouge. Un spinner ne dit rien : il tourne au centre
+   d'un écran noir et l'utilisateur attend sans savoir ce qui arrive. Le skeleton
+   dessine déjà la liste (vignette + deux lignes), donc la page a sa forme finale
+   avant même que les données arrivent, et le remplissage ne fait pas sauter le
+   layout. `count` suit le nombre de favoris déjà connu du contexte : on affiche
+   exactement autant d'ardoises que de cartes à venir. */
+function FavoritesSkeleton({ count }: { count: number }) {
+  const rows = Math.min(Math.max(count, 1), 6);
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
-      <div style={{
-        width: 32,
-        height: 32,
-        borderRadius: 999,
-        border: `2px solid ${D.line}`,
-        borderTopColor: D.red,
-        animation: 'spin 0.7s linear infinite',
-      }} />
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div
+          key={i}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 15,
+            padding: '13px 14px',
+            background: `linear-gradient(150deg, ${D.surface2}, ${D.surface})`,
+            border: `1px solid ${D.line}`,
+            borderRadius: 20,
+          }}
+        >
+          <Shimmer width={59} height={59} style={{ flex: 'none', borderRadius: 14 }} />
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <SkeletonLine width="55%" height={16} />
+            <SkeletonLine width="35%" height={12} />
+          </div>
+          <SkeletonCircle size={22} />
+        </div>
+      ))}
     </div>
   );
 }
@@ -851,68 +887,110 @@ export default function Favorites() {
   const totalCount = clubFavoriteCount + eventFavoriteCount + drinkFavoriteCount + djFavoriteCount + followedOrganizers.length;
 
   useEffect(() => {
+    if (favLoading) return;
+
+    // `favorites` change à chaque cœur tapé : une réponse d'un fetch précédent
+    // pourrait revenir APRÈS celle du fetch courant et réécrire un état périmé.
+    let cancelled = false;
+
     const fetchFavoriteData = async () => {
-      if (favLoading) return;
       setLoading(true);
 
-      const clubFavs = favorites.filter(f => f.favoriteType === 'club');
-      const affiliateVenueFavs = favorites.filter(f => f.favoriteType === 'affiliate_venue');
-      const eventFavs = favorites.filter(f => f.favoriteType === 'event');
-      const affiliateEventFavs = favorites.filter(f => f.favoriteType === 'affiliate_event');
-      const drinkFavs = favorites.filter(f => f.favoriteType === 'drink');
+      const idsOf = (type: string, key: keyof (typeof favorites)[number]) =>
+        favorites.filter(f => f.favoriteType === type).map(f => f[key]).filter(Boolean) as string[];
+
+      const clubIds0 = idsOf('club', 'venueId');
+      const affVenueIds = idsOf('affiliate_venue', 'affiliateVenueId');
+      const eventIds = idsOf('event', 'eventId');
+      const affEventIds = idsOf('affiliate_event', 'affiliateEventId');
+      const drinkIds = idsOf('drink', 'drinkId');
+      const djIds = idsOf('dj', 'djId');
+
+      // `.in('id', [])` est un aller-retour réseau pour rien : on court-circuite
+      // les listes vides côté client.
+      const none = <T,>() => Promise.resolve({ data: [] as T[], error: null });
 
       try {
-        const [venueResult, affiliateVenueResult] = await Promise.all([
-          clubFavs.length > 0
-            ? supabase.from('venues').select('id, name, city, logo_url, cover_url, music_genre').in('id', clubFavs.map(f => f.venueId).filter(Boolean) as string[])
-            : Promise.resolve({ data: [] }),
-          affiliateVenueFavs.length > 0
-            ? supabase.from('affiliate_venues').select('id, name, city, cover_image_url, slug').in('id', affiliateVenueFavs.map(f => f.affiliateVenueId).filter(Boolean) as string[])
-            : Promise.resolve({ data: [] }),
+        /* ── VAGUE 1 — tout ce qui ne dépend que des favoris déjà en mémoire.
+              Avant : venues → events → hosts → drinks → djs → user → ... en
+              file indienne. Chaque requête attendait la précédente sans en avoir
+              besoin, soit ~10 allers-retours empilés. Ici, un seul. ── */
+        const [
+          venueRes, affVenueRes, eventRes, affEventRes, drinkRes, djRes, userRes,
+        ] = await Promise.all([
+          clubIds0.length ? supabase.from('venues').select('id, name, city, logo_url, cover_url, music_genre').in('id', clubIds0) : none<VenueRow>(),
+          affVenueIds.length ? supabase.from('affiliate_venues').select('id, name, city, cover_image_url, slug').in('id', affVenueIds) : none<AffVenueRow>(),
+          eventIds.length ? supabase.from('events').select('id, title, start_at, end_at, poster_url, venue_id, partner_venue_id, organizer_user_id, music_genres').in('id', eventIds) : none<EventRow>(),
+          affEventIds.length ? supabase.from('affiliate_events').select('id, name, event_date, start_time, flyer_url, slug, genres, affiliate_venues(name)').in('id', affEventIds) : none<AffEventRow>(),
+          drinkIds.length ? supabase.from('drinks').select('id, name, price, img_url, venue_id, collection').in('id', drinkIds) : none<DrinkRow>(),
+          // djs_public (vue definer, anon-safe) expose le handle propre -> lien /dj/<handle>.
+          djIds.length ? supabase.from('djs_public').select('id, stage_name, first_name, last_name, profile_image_url, music_genres, slug, handle').in('id', djIds) : none<DjRow>(),
+          supabase.auth.getUser(),
         ]);
+        if (cancelled) return;
+        if (eventRes.error) throw eventRes.error;
 
-        const regularVenues = (venueResult.data || []).map((v: any) => ({
+        const regularVenues: FavoriteVenue[] = ((venueRes.data ?? []) as VenueRow[]).map((v) => ({
           id: v.id, name: v.name, city: v.city || '',
           logoUrl: v.logo_url || undefined, coverUrl: v.cover_url || undefined, isAffiliate: false,
           musicGenre: v.music_genre || undefined,
         }));
-        const affiliateVenues = (affiliateVenueResult.data || []).map((v: any) => ({
+        const affiliateVenues: FavoriteVenue[] = ((affVenueRes.data ?? []) as AffVenueRow[]).map((v) => ({
           id: v.id, name: v.name, city: v.city || '',
           coverUrl: v.cover_image_url || undefined, isAffiliate: true, slug: v.slug,
         }));
         setVenues([...regularVenues, ...affiliateVenues]);
 
-        const [eventResult, affiliateEventResult] = await Promise.all([
-          eventFavs.length > 0
-            ? supabase.from('events').select('id, title, start_at, end_at, poster_url, venue_id, partner_venue_id, organizer_user_id, music_genres').in('id', eventFavs.map(f => f.eventId).filter(Boolean) as string[])
-            : Promise.resolve({ data: [], error: null }),
-          affiliateEventFavs.length > 0
-            ? supabase.from('affiliate_events').select('id, name, event_date, start_time, flyer_url, slug, genres, affiliate_venues(name)').in('id', affiliateEventFavs.map(f => f.affiliateEventId).filter(Boolean) as string[])
-            : Promise.resolve({ data: [], error: null }),
+        setDrinks(((drinkRes.data ?? []) as DrinkRow[]).map((d) => ({
+          id: d.id, name: d.name, price: Number(d.price),
+          imgUrl: d.img_url, venueId: d.venue_id, venueName: undefined, collection: d.collection,
+        })));
+
+        setDJs(((djRes.data ?? []) as DjRow[]).map((d) => ({
+          id: d.id,
+          stageName: d.stage_name || `${d.first_name} ${d.last_name}`,
+          profileImageUrl: d.profile_image_url || undefined,
+          musicGenres: d.music_genres || [],
+          slug: d.slug || undefined,
+          handle: d.handle || undefined,
+        })));
+
+        const eventRows = (eventRes.data ?? []) as EventRow[];
+        const user = userRes.data?.user ?? null;
+        const clubIds = regularVenues.map(v => v.id);
+        const nowIso = new Date().toISOString();
+
+        /* ── VAGUE 2 — dépend de la vague 1 (lignes d'events, ids de clubs, user). ── */
+        const hostVenueIds = [...new Set(eventRows.flatMap(e => [e.venue_id, e.partner_venue_id]).filter(Boolean))] as string[];
+        const hostOrgIds = [...new Set(eventRows.map(e => e.organizer_user_id).filter(Boolean))] as string[];
+
+        const [hostVenuesRes, hostOrgsRes, followedRes, clubEventsRes] = await Promise.all([
+          hostVenueIds.length ? supabase.from('venues').select('id, name').in('id', hostVenueIds) : none<HostVenueRow>(),
+          hostOrgIds.length ? supabase.from('organizer_profiles').select('user_id, display_name').in('user_id', hostOrgIds) : none<HostOrgRow>(),
+          user ? supabase.from('organizer_profile_followers').select('organizer_user_id').eq('user_id', user.id) : none<FollowerRow>(),
+          // Soirées à venir par club (compteur des cartes de l'onglet Clubs). Même
+          // règle que VenuePage : soirées du club + co-soirées hébergées, actives,
+          // pas encore terminées. Les clubs affiliés vivent dans une autre table et
+          // restent volontairement sans compteur.
+          clubIds.length
+            ? supabase.from('events').select('venue_id, partner_venue_id')
+                .or(`venue_id.in.(${clubIds.join(',')}),partner_venue_id.in.(${clubIds.join(',')})`)
+                .eq('is_active', true).gte('end_at', nowIso)
+            : none<any>(),
         ]);
+        if (cancelled) return;
 
-        if ((eventResult as any).error) throw (eventResult as any).error;
+        const hostVenueName = new Map(((hostVenuesRes.data ?? []) as HostVenueRow[]).map((v) => [v.id, v.name] as const));
+        const hostOrgName = new Map(((hostOrgsRes.data ?? []) as HostOrgRow[]).map((o) => [o.user_id, o.display_name] as const));
 
-        // Resolve each event's club/host name: venue_id or partner_venue_id → venues.name,
-        // falling back to the organizer's name for organizer-led events without a club.
-        const eventRows = (eventResult.data || []) as any[];
-        const hostVenueIds = [...new Set(eventRows.flatMap((e) => [e.venue_id, e.partner_venue_id]).filter(Boolean))] as string[];
-        const hostOrgIds = [...new Set(eventRows.map((e) => e.organizer_user_id).filter(Boolean))] as string[];
-        const [hostVenuesRes, hostOrgsRes] = await Promise.all([
-          hostVenueIds.length > 0 ? supabase.from('venues').select('id, name').in('id', hostVenueIds) : Promise.resolve({ data: [] }),
-          hostOrgIds.length > 0 ? supabase.from('organizer_profiles').select('user_id, display_name').in('user_id', hostOrgIds) : Promise.resolve({ data: [] }),
-        ]);
-        const hostVenueName = new Map((hostVenuesRes.data || []).map((v: any) => [v.id, v.name]));
-        const hostOrgName = new Map((hostOrgsRes.data || []).map((o: any) => [o.user_id, o.display_name]));
-
-        const regularEvents = eventRows.map((e: any) => ({
+        const regularEvents: FavoriteEvent[] = eventRows.map((e) => ({
           id: e.id, title: e.title, startAt: e.start_at, endAt: e.end_at,
           posterUrl: e.poster_url || undefined,
           venueId: e.venue_id, isAffiliate: false,
           venueName: hostVenueName.get(e.venue_id) || hostVenueName.get(e.partner_venue_id) || hostOrgName.get(e.organizer_user_id) || undefined,
           musicGenres: e.music_genres || [],
         }));
-        const affiliateEvents = (affiliateEventResult.data || []).map((e: any) => ({
+        const affiliateEvents: FavoriteEvent[] = ((affEventRes.data ?? []) as AffEventRow[]).map((e) => ({
           id: e.id, title: e.name,
           startAt: `${e.event_date}T${(e.start_time ?? '22:00').slice(0, 5)}:00`,
           posterUrl: e.flyer_url || undefined, venueName: e.affiliate_venues?.name,
@@ -921,97 +999,44 @@ export default function Favorites() {
         }));
         setEvents([...regularEvents, ...affiliateEvents]);
 
-        if (drinkFavs.length > 0) {
-          const drinkIds = drinkFavs.map(f => f.drinkId).filter(Boolean) as string[];
-          const { data, error } = await supabase.from('drinks').select('id, name, price, img_url, venue_id, collection').in('id', drinkIds);
-          if (error) throw error;
-          setDrinks((data || []).map((d: any) => ({
-            id: d.id, name: d.name, price: Number(d.price),
-            imgUrl: d.img_url, venueId: d.venue_id, venueName: undefined, collection: d.collection,
-          })));
-        } else {
-          setDrinks([]);
-        }
+        const orgUserIds = [...new Set(((followedRes.data ?? []) as FollowerRow[]).map((f) => f.organizer_user_id).filter(Boolean))] as string[];
 
-        const djFavs = favorites.filter(f => f.favoriteType === 'dj');
-        if (djFavs.length > 0) {
-          const djIds = djFavs.map(f => f.djId).filter(Boolean) as string[];
-          // djs_public (vue definer, anon-safe) expose le handle propre -> lien /dj/<handle>.
-          const { data } = await supabase.from('djs_public').select('id, stage_name, first_name, last_name, profile_image_url, music_genres, slug, handle').in('id', djIds);
-          setDJs((data || []).map((d: any) => ({
-            id: d.id,
-            stageName: d.stage_name || `${d.first_name} ${d.last_name}`,
-            profileImageUrl: d.profile_image_url || undefined,
-            musicGenres: d.music_genres || [],
-            slug: d.slug || undefined,
-            handle: d.handle || undefined,
-          })));
-        } else {
-          setDJs([]);
-        }
-
-        let orgUserIds: string[] = [];
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: followedData } = await supabase.from('organizer_profile_followers').select('organizer_user_id').eq('user_id', user.id);
-          if (followedData && followedData.length > 0) {
-            orgUserIds = followedData.map((f: any) => f.organizer_user_id);
-            const { data: orgData } = await supabase.from('organizer_profiles').select('user_id, display_name, avatar_url, slug, city').in('user_id', orgUserIds);
-            setFollowedOrganizers((orgData || []).map((o: any) => ({
-              id: o.user_id, name: o.display_name, logoUrl: o.avatar_url || undefined,
-              slug: o.slug || undefined, musicGenres: [],
-              city: o.city || undefined,
-            })));
-          } else {
-            setFollowedOrganizers([]);
-          }
-        }
-
-        // Upcoming-events count for the clubs tab cards. Mirrors the public pages:
-        // VenuePage (venue + partner-hosted co-events, is_active, not yet ended) and
-        // OrganizerPublicProfile (public + is_active). Affiliate venues live in a
-        // separate table and are intentionally left without a count.
-        const nowIso = new Date().toISOString();
-        const counts: Record<string, number> = {};
-        const clubIds = regularVenues.map(v => v.id);
-
-        const [clubEventsRes, orgEventsRes] = await Promise.all([
-          clubIds.length > 0
-            ? supabase
-                .from('events')
-                .select('venue_id, partner_venue_id')
-                .or(`venue_id.in.(${clubIds.join(',')}),partner_venue_id.in.(${clubIds.join(',')})`)
-                .eq('is_active', true)
-                .gte('end_at', nowIso)
-            : Promise.resolve({ data: [] }),
-          orgUserIds.length > 0
-            ? supabase
-                .from('events')
-                .select('organizer_user_id')
+        /* ── VAGUE 3 — dépend des organisateurs suivis (vague 2). ── */
+        const [orgProfilesRes, orgEventsRes] = await Promise.all([
+          orgUserIds.length ? supabase.from('organizer_profiles').select('user_id, display_name, avatar_url, slug, city').in('user_id', orgUserIds) : none<OrgProfileRow>(),
+          orgUserIds.length
+            ? supabase.from('events').select('organizer_user_id')
                 .in('organizer_user_id', orgUserIds)
-                .eq('visibility', 'public')
-                .eq('is_active', true)
-                .gte('end_at', nowIso)
-            : Promise.resolve({ data: [] }),
+                .eq('visibility', 'public').eq('is_active', true).gte('end_at', nowIso)
+            : none<any>(),
         ]);
+        if (cancelled) return;
 
+        setFollowedOrganizers(((orgProfilesRes.data ?? []) as OrgProfileRow[]).map((o) => ({
+          id: o.user_id, name: o.display_name, logoUrl: o.avatar_url || undefined,
+          slug: o.slug || undefined, musicGenres: [],
+          city: o.city || undefined,
+        })));
+
+        const counts: Record<string, number> = {};
         const clubIdSet = new Set(clubIds);
-        (clubEventsRes.data || []).forEach((e: any) => {
+        ((clubEventsRes.data ?? []) as ClubEventRow[]).forEach((e) => {
           if (e.venue_id && clubIdSet.has(e.venue_id)) counts[e.venue_id] = (counts[e.venue_id] || 0) + 1;
           if (e.partner_venue_id && clubIdSet.has(e.partner_venue_id)) counts[e.partner_venue_id] = (counts[e.partner_venue_id] || 0) + 1;
         });
-        (orgEventsRes.data || []).forEach((e: any) => {
+        ((orgEventsRes.data ?? []) as OrgEventRow[]).forEach((e) => {
           if (e.organizer_user_id) counts[e.organizer_user_id] = (counts[e.organizer_user_id] || 0) + 1;
         });
         setUpcomingByEntity(counts);
       } catch (error) {
-        console.error('Error fetching favorite data:', error);
+        if (!cancelled) console.error('Error fetching favorite data:', error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchFavoriteData();
+    return () => { cancelled = true; };
   }, [favLoading, favorites]);
 
   const formatEventDate = (startAt: string) => {
@@ -1131,7 +1156,7 @@ export default function Favorites() {
         {!totallyEmpty && activeTab === 'clubs' && (
           <>
             {isLoading ? (
-              <Spinner />
+              <FavoritesSkeleton count={clubFavoriteCount} />
             ) : clubFavoriteCount === 0 && followedOrganizers.length === 0 ? (
               <EmptyState icon={MapPin} title={t('subscribe.emptyClubs')} description={t('subscribe.emptyClubsDesc')} />
             ) : (
@@ -1197,7 +1222,7 @@ export default function Favorites() {
         {!totallyEmpty && activeTab === 'events' && (
           <>
             {isLoading ? (
-              <Spinner />
+              <FavoritesSkeleton count={eventFavoriteCount} />
             ) : eventFavoriteCount === 0 ? (
               <EmptyState icon={Calendar} title={t('favorites.noEvents')} description={t('favorites.noEventsDesc')} />
             ) : (
@@ -1238,7 +1263,7 @@ export default function Favorites() {
         {!totallyEmpty && activeTab === 'djs' && (
           <>
             {isLoading ? (
-              <Spinner />
+              <FavoritesSkeleton count={djFavoriteCount} />
             ) : djFavoriteCount === 0 ? (
               <EmptyState icon={Music} title={t('subscribe.emptyDJs')} description={t('subscribe.emptyDJsDesc')} />
             ) : (
@@ -1273,7 +1298,7 @@ export default function Favorites() {
         {!totallyEmpty && activeTab === 'drinks' && (
           <>
             {isLoading ? (
-              <Spinner />
+              <FavoritesSkeleton count={drinkFavoriteCount} />
             ) : drinkFavoriteCount === 0 ? (
               <EmptyState icon={Wine} title={t('favorites.noDrinks')} description={t('favorites.noDrinksDesc')} />
             ) : (
@@ -1293,7 +1318,6 @@ export default function Favorites() {
 
       </PageFade>
 
-      <BottomNav />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import { usePreviewNavigate } from '@/contexts/OwnerPreviewContext';
 import { useEventRoute } from '@/hooks/useEventRoute';
+import { Shimmer, SkeletonLine } from '@/components/skeletons/Shimmer';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Minus, Plus, Users, Crown, Wine, Clock, ChevronDown, Lock, Ticket, Check, Music } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -458,9 +459,30 @@ export default function TicketSelection() {
   })();
 
   if (loading) {
+    // Skeleton plutôt que spinner : la page garde sa structure (bandeau, étapes,
+    // cartes de tarif), donc rien ne saute quand les données arrivent.
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      <div className="min-h-screen bg-background">
+        <Shimmer
+          className="rounded-none"
+          style={{ height: 'calc(11rem + env(safe-area-inset-top, 0px))' }}
+        />
+        <div className="px-4 pt-5 space-y-5">
+          <SkeletonLine width="45%" height={12} />
+          {[0, 1, 2].map(i => (
+            <div
+              key={i}
+              className="rounded-2xl p-4 flex items-center gap-4"
+              style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
+            >
+              <div className="flex-1 min-w-0 space-y-2.5">
+                <SkeletonLine width="55%" height={16} />
+                <SkeletonLine width="35%" height={12} />
+              </div>
+              <SkeletonLine width={64} height={22} />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

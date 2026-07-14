@@ -5,7 +5,6 @@ import { DrinkCard } from '@/components/DrinkCard';
 import { CartButton } from '@/components/CartButton';
 import { EventSelectionDialog } from '@/components/EventSelectionDialog';
 
-import { BottomNav } from '@/components/BottomNav';
 import { FavoriteButton } from '@/components/FavoriteButton';
 import { useStore } from '@/store/useStore';
 import { Drink, Event, Venue } from '@/types';
@@ -18,6 +17,7 @@ import { usePreviewNavigate } from '@/contexts/OwnerPreviewContext';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, ChevronRight, ChevronDown, ChevronUp, Share2, MapPin, Calendar, Handshake } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Shimmer, SkeletonLine } from '@/components/skeletons/Shimmer';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -878,8 +878,16 @@ export default function VenuePage() {
           <VenuePromoSection drinks={drinks} onAdd={handleAddDrink} />
 
           {loading ? (
-            <div className="flex justify-center py-10">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <div className="px-4 pt-2 space-y-6">
+              {[0, 1].map(row => (
+                <div key={row} className="space-y-3">
+                  <SkeletonLine width="30%" height={13} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <Shimmer className="w-full aspect-square rounded-xl" />
+                    <Shimmer className="w-full aspect-square rounded-xl" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : drinks.length > 0 && (
             <>
@@ -1118,7 +1126,6 @@ export default function VenuePage() {
         </>
       )}
 
-      <BottomNav />
     </div>
   );
 }

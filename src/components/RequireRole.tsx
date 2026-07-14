@@ -3,10 +3,41 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Role } from '@/types';
+import { Shimmer, SkeletonLine } from '@/components/skeletons/Shimmer';
 
 interface RequireRoleProps {
   children: React.ReactNode;
   allowedRoles: Role[];
+}
+
+/* Le garde de rôle affichait un spinner plein écran, donc CHAQUE ouverture de
+   /favorites, /profile ou /settings commençait par un disque qui tourne — c'est
+   ce que l'utilisateur voyait avant même que la page ait la parole. On rend à la
+   place la silhouette d'une page : titre, puis liste. La barre d'onglets, elle,
+   vit désormais hors du <Routes> et reste visible par-dessus (PersistentBottomNav). */
+function RoleGateSkeleton() {
+  return (
+    <div className="min-h-screen" style={{ background: '#0A0A0A' }}>
+      <div className="px-5 pt-14 pb-5">
+        <SkeletonLine width="45%" height={26} />
+      </div>
+      <div className="px-4 flex flex-col gap-3">
+        {[0, 1, 2, 3].map(i => (
+          <div
+            key={i}
+            className="flex items-center gap-4 p-3.5 rounded-2xl"
+            style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <Shimmer width={56} height={56} style={{ flex: 'none', borderRadius: 14 }} />
+            <div className="flex-1 min-w-0 flex flex-col gap-2.5">
+              <SkeletonLine width="55%" height={15} />
+              <SkeletonLine width="32%" height={12} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function RequireRole({ children, allowedRoles }: RequireRoleProps) {
@@ -59,9 +90,7 @@ export function RequireRole({ children, allowedRoles }: RequireRoleProps) {
 
   if (loading || !authChecked) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
+      <RoleGateSkeleton />
     );
   }
 
@@ -86,9 +115,7 @@ export function RequireRole({ children, allowedRoles }: RequireRoleProps) {
     // Don't redirect immediately if roles are still loading
     if (roles.length === 0) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-background">
-          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        </div>
+        <RoleGateSkeleton />
       );
     }
     
