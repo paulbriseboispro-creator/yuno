@@ -111,7 +111,7 @@ export default function GuestListSignup() {
         if (glRow) {
           const { data: ev } = await supabase
             .from('events')
-            .select('id, title, start_at, end_at, venue_id, poster_url')
+            .select('id, title, start_at, end_at, venue_id, partner_venue_id, poster_url')
             .eq('id', (glRow as any).event_id)
             .maybeSingle();
           data = { ...(glRow as any), events: ev };
@@ -119,7 +119,7 @@ export default function GuestListSignup() {
       } else if (eventId) {
         const { data: glRow } = await supabase
           .from('guest_lists')
-          .select('*, events!inner(id, title, start_at, end_at, venue_id, poster_url)')
+          .select('*, events!inner(id, title, start_at, end_at, venue_id, partner_venue_id, poster_url)')
           .eq('is_active', true)
           .eq('event_id', eventId)
           .maybeSingle();
@@ -134,11 +134,11 @@ export default function GuestListSignup() {
         return;
       }
 
-      const { data: venue } = await supabase
-        .from('venues')
-        .select('name')
-        .eq('id', (data.events as any).venue_id)
-        .single();
+      // Co-soirée org-led : le club physique est partner_venue_id.
+      const eventVenueId = (data.events as any).venue_id ?? (data.events as any).partner_venue_id;
+      const { data: venue } = eventVenueId
+        ? await supabase.from('venues').select('name').eq('id', eventVenueId).single()
+        : { data: null };
 
       setGuestList({
         id: data.id,
@@ -151,36 +151,24 @@ export default function GuestListSignup() {
         eventStartAt: (data.events as any).start_at,
         eventEndAt: (data.events as any).end_at,
         eventImageUrl: (data.events as any).poster_url || null,
-        venueId: (data.events as any).venue_id,
+        venueId: eventVenueId,
         venueName: venue?.name || '',
         shareToken: data.share_token,
       });
 
-      // Fetch counts
-      const { count: total } = await supabase
-        .from('guest_list_entries')
-        .select('*', { count: 'exact', head: true })
-        .eq('guest_list_id', data.id)
-        .neq('status', 'cancelled');
-
-      setEntriesCount(total || 0);
-
+      // Fetch counts via la RPC agrégée SECURITY DEFINER : un count() direct sur
+      // guest_list_entries renvoie 0 EN SILENCE pour un visiteur anonyme (aucune
+      // policy SELECT anon) → une liste PLEINE s'affichait grande ouverte sur le
+      // canal le plus utilisé (le lien partagé), et l'échec ne surgissait qu'au
+      // moment de confirmer. Même fix que la page club (TicketSelection).
+      const { data: fillRaw } = await supabase
+        .rpc('get_guest_list_public_fill', { _guest_list_id: data.id })
+        .maybeSingle();
+      const fill = fillRaw as { total_count: number; female_count: number; male_count: number } | null;
+      setEntriesCount(fill?.total_count || 0);
       if (data.quota_female !== null || data.quota_male !== null) {
-        const { count: fc } = await supabase
-          .from('guest_list_entries')
-          .select('*', { count: 'exact', head: true })
-          .eq('guest_list_id', data.id)
-          .eq('gender', 'female')
-          .neq('status', 'cancelled');
-        setFemaleCount(fc || 0);
-
-        const { count: mc } = await supabase
-          .from('guest_list_entries')
-          .select('*', { count: 'exact', head: true })
-          .eq('guest_list_id', data.id)
-          .eq('gender', 'male')
-          .neq('status', 'cancelled');
-        setMaleCount(mc || 0);
+        setFemaleCount(fill?.female_count || 0);
+        setMaleCount(fill?.male_count || 0);
       }
 
       // Check if user already registered
@@ -207,12 +195,17 @@ export default function GuestListSignup() {
           filter: `guest_list_id=eq.${data.id}`,
         }, () => {
           supabase
-            .from('guest_list_entries')
-            .select('*', { count: 'exact', head: true })
-            .eq('guest_list_id', data.id)
-            .neq('status', 'cancelled')
+            .rpc('get_guest_list_public_fill', { _guest_list_id: data.id })
+            .maybeSingle()
             .then(
-              ({ count }) => setEntriesCount(count || 0),
+              ({ data: fillUpdate }) => {
+                const f = fillUpdate as { total_count: number; female_count: number; male_count: number } | null;
+                if (f) {
+                  setEntriesCount(f.total_count || 0);
+                  setFemaleCount(f.female_count || 0);
+                  setMaleCount(f.male_count || 0);
+                }
+              },
               () => { /* keep the previous count if the realtime re-count fails */ },
             );
         })
