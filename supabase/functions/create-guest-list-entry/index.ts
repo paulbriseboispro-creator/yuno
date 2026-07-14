@@ -249,6 +249,18 @@ serve(async (req) => {
 
     if (insertError) {
       console.error("Insert error:", insertError);
+      // Le trigger enforce_guest_list_capacity (verrou atomique côté base) est
+      // l'arbitre final sous forte concurrence : ses messages doivent remonter
+      // tels quels — le front matche « full » / « quota reached ».
+      const triggerMsg = insertError.message || "";
+      if (triggerMsg.includes("Guest list is full") || triggerMsg.includes("quota reached")) {
+        throw new Error(triggerMsg.includes("Female") ? "Female quota reached"
+          : triggerMsg.includes("Male") ? "Male quota reached"
+          : "Guest list is full");
+      }
+      if (insertError.code === "23505") {
+        throw new Error("Email already registered for this guest list");
+      }
       throw new Error("Failed to create guest list entry");
     }
 
