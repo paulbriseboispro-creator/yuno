@@ -602,6 +602,135 @@ async function handleWalletPassUpdate(supabase: any, body: any): Promise<Respons
   return new Response(JSON.stringify({ success: true, sent }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
 
+// ---------------------------------------------------------------------------
+// Push staff (app « Yuno Pro »).
+//
+// Déclenché par trg_staff_notification_push (AFTER INSERT sur
+// staff_notifications, liste blanche de types côté DB). Le rôle de cette
+// fonction : résoudre les destinataires, écrire le texte DANS LEUR LANGUE, et
+// n'envoyer que sur l'app Pro.
+//
+// On ne réutilise pas title/message de la ligne staff_notifications : ils sont
+// écrits en français en dur par les producteurs (pour l'inbox in-app). Un push
+// atterrit sur l'écran verrouillé — il doit parler la langue du destinataire.
+// ---------------------------------------------------------------------------
+
+type Lang = 'fr' | 'en' | 'es';
+
+/** Deep-link du dashboard concerné. Un rôle absent d'ici n'est pas dans l'app Pro. */
+const ROLE_DEEPLINK: Record<string, string> = {
+  vip_host: '/vip-host',
+  barman: '/barman',
+  bouncer: '/bouncer',
+  cloakroom: '/cloakroom',
+  promoter: '/promoter',
+};
+
+const INCIDENT_LABEL: Record<Lang, Record<string, string>> = {
+  fr: { incident_fight: 'Bagarre', incident_refusal: "Refus d'entrée", incident_medical: 'Urgence médicale', incident_other: 'Incident' },
+  en: { incident_fight: 'Fight', incident_refusal: 'Entry refused', incident_medical: 'Medical emergency', incident_other: 'Incident' },
+  es: { incident_fight: 'Pelea', incident_refusal: 'Entrada denegada', incident_medical: 'Urgencia médica', incident_other: 'Incidente' },
+};
+
+// deno-lint-ignore no-explicit-any
+function staffPushCopy(type: string, lang: Lang, md: any): { title: string; body: string } | null {
+  const zone = md?.zone_name ? ` — ${md.zone_name}` : '';
+  const guests = Number(md?.guest_count) || 1;
+
+  switch (type) {
+    case 'vip_entry': {
+      const name = md?.guest_name || (lang === 'es' ? 'Cliente VIP' : lang === 'en' ? 'VIP guest' : 'Client VIP');
+      if (lang === 'en') return { title: '🥂 VIP arrival', body: `${name} (${guests} ${guests > 1 ? 'guests' : 'guest'}) just arrived${zone}` };
+      if (lang === 'es') return { title: '🥂 Llegada VIP', body: `${name} (${guests} pers.) acaba de llegar${zone}` };
+      return { title: '🥂 Arrivée VIP', body: `${name} (${guests} pers.) vient d'arriver${zone}` };
+    }
+    case 'vip_order_request': {
+      const name = md?.guest_name || (lang === 'es' ? 'Una mesa VIP' : lang === 'en' ? 'A VIP table' : 'Une table VIP');
+      if (lang === 'en') return { title: '🍾 Order request', body: `${name} is waiting for your confirmation${zone}` };
+      if (lang === 'es') return { title: '🍾 Solicitud de pedido', body: `${name} espera tu confirmación${zone}` };
+      return { title: '🍾 Demande de commande', body: `${name} attend ta confirmation${zone}` };
+    }
+    case 'bar_order_new': {
+      const num = md?.order_number ? ` #${md.order_number}` : '';
+      if (lang === 'en') return { title: '🍹 New order', body: `An order${num} is waiting at the bar` };
+      if (lang === 'es') return { title: '🍹 Nuevo pedido', body: `Un pedido${num} espera en la barra` };
+      return { title: '🍹 Nouvelle commande', body: `Une commande${num} attend au bar` };
+    }
+    case 'door_incident': {
+      const label = INCIDENT_LABEL[lang][md?.kind] || INCIDENT_LABEL[lang].incident_other;
+      const note = md?.note ? ` — ${md.note}` : '';
+      if (lang === 'en') return { title: '🚨 Incident at the door', body: `${label}${note}` };
+      if (lang === 'es') return { title: '🚨 Incidente en la puerta', body: `${label}${note}` };
+      return { title: '🚨 Incident à la porte', body: `${label}${note}` };
+    }
+    default:
+      return null; // type hors catalogue : pas de push (la DB filtre déjà, ceci est la ceinture).
+  }
+}
+
+// deno-lint-ignore no-explicit-any
+async function handleStaffNotification(supabase: any, body: any): Promise<Response> {
+  const json = (payload: unknown, status = 200) =>
+    new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+  const notificationId = body.notification_id;
+  if (!notificationId) return json({ error: 'notification_id required' }, 400);
+
+  const { data: notif } = await supabase
+    .from('staff_notifications')
+    .select('id, venue_id, target_role, notification_type, metadata')
+    .eq('id', notificationId)
+    .maybeSingle();
+  if (!notif) return json({ message: 'notification not found', sent: 0 });
+
+  const url = ROLE_DEEPLINK[notif.target_role];
+  if (!url) return json({ message: `role ${notif.target_role} not in the Pro app`, sent: 0 });
+
+  // Destinataires : le staff de CE club qui porte CE rôle. Le rattachement
+  // staff↔club vit sur profiles.venue_id (user_roles ne porte pas de venue_id) —
+  // même source de vérité que useStaffVenue() côté app.
+  const { data: staff } = await supabase
+    .from('profiles').select('id, preferred_language').eq('venue_id', notif.venue_id);
+  if (!staff?.length) return json({ message: 'no staff at venue', sent: 0 });
+
+  const { data: roleRows } = await supabase
+    .from('user_roles').select('user_id')
+    .eq('role', notif.target_role)
+    .in('user_id', staff.map((s: { id: string }) => s.id));
+
+  const recipients = new Set<string>((roleRows ?? []).map((r: { user_id: string }) => r.user_id));
+  // On ne se notifie pas de son propre geste (ex : le videur qui signale l'incident).
+  if (notif.metadata?.actor_id) recipients.delete(notif.metadata.actor_id);
+  if (!recipients.size) return json({ message: 'no recipient', sent: 0 });
+
+  const langById = new Map<string, Lang>(
+    staff.map((s: { id: string; preferred_language: string | null }) => [
+      s.id,
+      (['fr', 'en', 'es'].includes(s.preferred_language ?? '') ? s.preferred_language : 'fr') as Lang,
+    ]),
+  );
+
+  // 'ios_pro' seulement : une alerte de service n'a rien à faire sur l'app
+  // grand public que le staff a peut-être aussi installée sur le même téléphone.
+  const { data: subscriptions } = await supabase
+    .from('push_subscriptions').select('*')
+    .in('user_id', [...recipients])
+    .eq('platform', 'ios_pro');
+  if (!subscriptions?.length) return json({ message: 'no ios_pro subscription', sent: 0 });
+
+  let sent = 0;
+  let failed = 0;
+  for (const sub of subscriptions) {
+    const copy = staffPushCopy(notif.notification_type, langById.get(sub.user_id) ?? 'fr', notif.metadata ?? {});
+    if (!copy) continue;
+    const res = await sendToApns(supabase, sub, { ...copy, url });
+    if (res === 'ok') sent++; else failed++;
+  }
+
+  console.log(`[StaffPush] ${notif.notification_type} → ${notif.target_role}@${notif.venue_id}: ${sent}/${subscriptions.length}`);
+  return json({ success: true, sent, failed, total: subscriptions.length });
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -640,6 +769,16 @@ Deno.serve(async (req) => {
       return reqBody.action === 'live_activity_update'
         ? await handleLiveActivityUpdate(supabase, reqBody)
         : await handleWalletPassUpdate(supabase, reqBody);
+    }
+
+    // Push staff : trigger DB (trg_staff_notification_push) uniquement. Le
+    // corps ne porte qu'un notification_id — les destinataires sont résolus
+    // ici, donc un appelant non privilégié ne peut pas se choisir une cible.
+    if (reqBody?.action === 'staff_notification') {
+      if (!isServiceCall) {
+        return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      return await handleStaffNotification(supabase, reqBody);
     }
 
     // Default: send to a single user's subscriptions.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Martini, ShieldCheck, Shirt, Crown, Megaphone, LogOut, Bell, Loader2, ChevronRight, Monitor } from 'lucide-react';
@@ -53,7 +53,7 @@ export default function ProHome() {
   const { user, loading: authLoading } = useAuth();
   const { venueName } = useStaffVenue();
   const online = useNetworkStatus();
-  const { isSubscribed, permission, subscribe, ready: pushReady } = usePushNotifications();
+  const { isSupported, isSubscribed, permission, subscribe, ready: pushReady } = usePushNotifications();
 
   const [roles, setRoles] = useState<string[] | null>(null);
 
@@ -63,6 +63,20 @@ export default function ProHome() {
       navigate('/auth?redirect=' + encodeURIComponent('/pro'), { replace: true });
     }
   }, [authLoading, user, navigate]);
+
+  // Autorisation push demandée dès l'entrée dans l'app Pro (comme OnboardingGate
+  // côté B2C). Sans token, AUCUNE alerte n'arrive sur un téléphone verrouillé —
+  // or c'est tout l'intérêt de l'app pour un barman ou un hôte VIP. On ne peut
+  // pas se reposer sur le bouton plus bas : le staff mono-rôle est envoyé sur son
+  // dashboard en 400 ms et ne verrait jamais cet écran.
+  // Refus → on ne réinsiste pas : le bouton reste là pour revenir en arrière.
+  const pushAsked = useRef(false);
+  useEffect(() => {
+    if (!pushReady || !isSupported || !user || pushAsked.current) return;
+    if (isSubscribed || permission !== 'default') return;
+    pushAsked.current = true;
+    subscribe().catch(() => { /* refusé — silencieux */ });
+  }, [pushReady, isSupported, user, isSubscribed, permission, subscribe]);
 
   useEffect(() => {
     if (!user) return;
