@@ -14,7 +14,7 @@ import { EventSalesStatus } from '@/components/ticketing/EventSalesStatus';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { shareContent } from '@/lib/share';
 import { toast } from 'sonner';
-import { BottomNav } from '@/components/BottomNav';
+import { useSuppressBottomNav } from '@/components/PersistentBottomNav';
 import { FavoriteButton } from '@/components/FavoriteButton';
 import { StickyCheckoutFooter } from '@/components/StickyCheckoutFooter';
 import { useFavorites } from '@/hooks/useFavorites';
@@ -171,140 +171,167 @@ export default function EventDetails() {
     return `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/pin-s+ef4444(${venue.longitude},${venue.latitude})/${venue.longitude},${venue.latitude},16,0/600x300@2x?access_token=${mapboxToken}`;
   };
 
-  // Fetch followers/events counts
-  const fetchStats = useCallback(async (venueId: string, organizerIds: string[]) => {
-    // Venue followers
-    const { count: vfCount } = await supabase
-      .from('favorites')
-      .select('*', { count: 'exact', head: true })
-      .eq('favorite_type', 'club')
-      .eq('venue_id', venueId);
-    setVenueFollowers(vfCount || 0);
+  // Compteurs de preuve sociale (abonnés du club, nb de soirées, « intéressés »,
+  // abonnés par organisateur). Volontairement NON bloquants : appelés sans await
+  // après le premier rendu, ils se posent sur la page déjà affichée. Un compteur
+  // d'abonnés n'a jamais mérité de retarder l'affiche et le bouton d'achat.
+  //
+  // Tout part en une seule salve : avant, chaque `count` attendait le précédent
+  // et la boucle par organisateur faisait 3 requêtes séquentielles CHACUN.
+  const fetchStats = useCallback(async (venueId: string | null, organizerIds: string[], user: { id: string } | null) => {
+    const headCount = (q: any) => q.then((r: { count: number | null }) => r.count || 0);
 
-    // Venue events count
-    const { count: veCount } = await supabase
-      .from('events')
-      .select('*', { count: 'exact', head: true })
-      .eq('venue_id', venueId);
-    setVenueEventsCount(veCount || 0);
+    const [venueStats, orgStats] = await Promise.all([
+      venueId
+        ? Promise.all([
+            headCount(supabase.from('favorites').select('*', { count: 'exact', head: true }).eq('favorite_type', 'club').eq('venue_id', venueId)),
+            headCount(supabase.from('events').select('*', { count: 'exact', head: true }).eq('venue_id', venueId)),
+          ])
+        : Promise.resolve([0, 0] as [number, number]),
+      Promise.all(organizerIds.map(async (orgUserId) => {
+        const [followers, events, following] = await Promise.all([
+          headCount(supabase.from('organizer_profile_followers').select('*', { count: 'exact', head: true }).eq('organizer_user_id', orgUserId)),
+          headCount(supabase.from('events').select('*', { count: 'exact', head: true }).eq('organizer_user_id', orgUserId)),
+          user
+            ? supabase.from('organizer_profile_followers').select('id').eq('organizer_user_id', orgUserId).eq('user_id', user.id).maybeSingle().then(r => !!r.data)
+            : Promise.resolve(false),
+        ]);
+        return { orgUserId, followers, events, following };
+      })),
+    ]);
 
-    // Interested count (favorites for this event)
+    // Le compteur « intéressés » vaut pour toute soirée, avec club ou non.
     if (eventId) {
-      const { count: intCount } = await supabase
-        .from('favorites')
-        .select('*', { count: 'exact', head: true })
-        .eq('favorite_type', 'event')
-        .eq('event_id', eventId);
-      setInterestedCount(intCount || 0);
+      const intCount = await headCount(
+        supabase.from('favorites').select('*', { count: 'exact', head: true }).eq('favorite_type', 'event').eq('event_id', eventId),
+      );
+      setInterestedCount(intCount);
     }
 
-    // Org followers + events count for each organizer (V2 — organizer_profiles + organizer_profile_followers)
-    const followersMap: Record<string, number> = {};
-    const eventsMap: Record<string, number> = {};
-    const followingMap: Record<string, boolean> = {};
-
-    const { data: { user } } = await supabase.auth.getUser();
-
-    for (const orgUserId of organizerIds) {
-      const { count: ofCount } = await supabase
-        .from('organizer_profile_followers')
-        .select('*', { count: 'exact', head: true })
-        .eq('organizer_user_id', orgUserId);
-      followersMap[orgUserId] = ofCount || 0;
-
-      const { count: oeCount } = await supabase
-        .from('events')
-        .select('*', { count: 'exact', head: true })
-        .eq('organizer_user_id', orgUserId);
-      eventsMap[orgUserId] = oeCount || 0;
-
-      if (user) {
-        const { data: followData } = await supabase
-          .from('organizer_profile_followers')
-          .select('id')
-          .eq('organizer_user_id', orgUserId)
-          .eq('user_id', user.id)
-          .maybeSingle();
-        followingMap[orgUserId] = !!followData;
-      }
+    if (venueId) {
+      setVenueFollowers(venueStats[0]);
+      setVenueEventsCount(venueStats[1]);
     }
 
-    setOrgFollowers(followersMap);
-    setOrgEventsCount(eventsMap);
-    setOrgFollowing(followingMap);
+    setOrgFollowers(Object.fromEntries(orgStats.map(o => [o.orgUserId, o.followers])));
+    setOrgEventsCount(Object.fromEntries(orgStats.map(o => [o.orgUserId, o.events])));
+    setOrgFollowing(Object.fromEntries(orgStats.map(o => [o.orgUserId, o.following])));
   }, [eventId]);
 
   const fetchEventDetails = async () => {
     try {
-      const { data: eventData, error: eventError } = await supabase
-        .from('events')
-        .select('*')
-        .eq('id', eventId)
-        .single();
+      /* ══ VAGUE 1 ══════════════════════════════════════════════════════════
+         Tout ce qui ne dépend que de l'eventId part ensemble. Avant, cette page
+         empilait ~12 allers-retours EN FILE INDIENNE (event → orga → salle → DJs
+         → compteurs → rounds → zones → packs → réglages → preset), chacun
+         attendant le précédent sans en avoir besoin. C'est ça qui la rendait
+         lente : ~12 × la latence réseau avant le premier pixel utile.
 
+         Les billets/tables sont chargés sans attendre de savoir s'ils sont
+         activés : le rendu les filtre déjà (`hasTickets = event.ticketingEnabled
+         && ...`), donc une liste inutile ne coûte rien à l'écran — alors qu'un
+         aller-retour de plus dans le chemin critique, si. ══ */
+      const [eventRes, eventDjsRes, roundsRes, tableSettingsRes, userRes] = await Promise.all([
+        supabase.from('events').select('*').eq('id', eventId).single(),
+        supabase.from('event_djs').select('dj_id').eq('event_id', eventId!),
+        supabase.from('ticket_rounds').select('*').eq('event_id', eventId).order('position', { ascending: true }),
+        supabase.from('event_table_settings').select('*').eq('event_id', eventId).maybeSingle(),
+        supabase.auth.getUser(),
+      ]);
+
+      const { data: eventData, error: eventError } = eventRes;
       if (eventError) throw eventError;
+
+      const user = userRes.data?.user ?? null;
+      const eventSettingsData = tableSettingsRes.data;
+      const djIds = (eventDjsRes.data ?? []).map((ed: any) => ed.dj_id).filter(Boolean);
 
       const isOrganizerLed = !!eventData.organizer_user_id;
       // Host venue: main venue_id (club event) OR partner_venue_id (organizer-led co-event)
       const hostVenueId = eventData.venue_id || (isOrganizerLed ? (eventData as any).partner_venue_id : null);
-
-      // Always load organizer profile if there's an organizer_user_id (V2 — organizer_profiles)
-      const orgIds: string[] = [];
-      let loadedOrganizer: { user_id: string; display_name: string; slug: string | null; avatar_url: string | null } | null = null;
-      if (isOrganizerLed) {
-        const { data: orgProfile } = await supabase
-          .from('organizer_profiles')
-          .select('user_id, display_name, slug, avatar_url')
-          .eq('user_id', eventData.organizer_user_id)
-          .maybeSingle();
-        if (orgProfile) {
-          loadedOrganizer = orgProfile;
-          setPrimaryOrganizer(orgProfile);
-          setEventOrganizers([{ id: orgProfile.user_id, name: orgProfile.display_name, slug: orgProfile.slug, logo_url: orgProfile.avatar_url }]);
-          orgIds.push(orgProfile.user_id);
-        } else {
-          // Fallback: read from profiles
-          const { data: legacyProfile } = await supabase
-            .from('profiles')
-            .select('id, organization_name, organization_logo_url')
-            .eq('id', eventData.organizer_user_id)
-            .maybeSingle();
-          if (legacyProfile?.organization_name) {
-            loadedOrganizer = {
-              user_id: legacyProfile.id,
-              display_name: legacyProfile.organization_name,
-              slug: null,
-              avatar_url: legacyProfile.organization_logo_url || null,
-            };
-            setPrimaryOrganizer(loadedOrganizer);
-            setEventOrganizers([{ id: legacyProfile.id, name: legacyProfile.organization_name, slug: null, logo_url: legacyProfile.organization_logo_url || null }]);
-          }
-        }
-      }
-
-      // Co-organizer : sur une co-soirée menée par le club (organizer_user_id NULL),
-      // l'orga partenaire vit dans partner_organizer_id et n'était jamais affiché.
-      // On le montre publiquement à côté de la salle dès qu'il a un profil public.
       const partnerOrgId = (eventData as any).partner_organizer_id as string | null;
-      if (partnerOrgId && partnerOrgId !== eventData.organizer_user_id) {
-        const { data: coOrg } = await supabase
-          .from('organizer_profiles')
-          .select('user_id, display_name, slug, avatar_url')
-          .eq('user_id', partnerOrgId)
-          .eq('is_public', true)
-          .maybeSingle();
-        if (coOrg) {
-          if (!loadedOrganizer) { loadedOrganizer = coOrg; setPrimaryOrganizer(coOrg); }
-          setEventOrganizers(prev =>
-            prev.some(o => o.id === coOrg.user_id)
-              ? prev
-              : [...prev, { id: coOrg.user_id, name: coOrg.display_name, slug: coOrg.slug, logo_url: coOrg.avatar_url }],
-          );
-          orgIds.push(coOrg.user_id);
-        }
+
+      // Tables : mode « basic » (soirée hébergée / tables à l'event) → périmètre
+      // event_id. Mode club/Elite → périmètre venue_id.
+      const isBasicTables = (eventData as any).tables_mode === 'basic' || !eventData.venue_id;
+      const tableScope = isBasicTables
+        ? { col: 'event_id' as const, val: eventId as string }
+        : { col: 'venue_id' as const, val: eventData.venue_id as string };
+
+      /* ══ VAGUE 2 ══ Dépend de la ligne event (salle hôte, organisateurs,
+         périmètre des tables) et des ids de DJs. Une seule salve. ══ */
+      const [
+        venueRes, orgProfileRes, legacyProfileRes, coOrgRes, djRowsRes, zonesRes, packsRes, presetRes, waitlistRes,
+      ] = await Promise.all([
+        hostVenueId
+          ? supabase.from('venues').select('id, name, city, address, floor_plan_url, latitude, longitude, logo_url').eq('id', hostVenueId).maybeSingle()
+          : Promise.resolve({ data: null }),
+        isOrganizerLed
+          ? supabase.from('organizer_profiles').select('user_id, display_name, slug, avatar_url').eq('user_id', eventData.organizer_user_id).maybeSingle()
+          : Promise.resolve({ data: null }),
+        // Repli hérité (profiles) tiré en parallèle plutôt qu'en second temps :
+        // il ne sert que si organizer_profiles est vide, mais l'attendre APRÈS
+        // coûterait un aller-retour de plus à toutes les soirées d'orga.
+        isOrganizerLed
+          ? supabase.from('profiles').select('id, organization_name, organization_logo_url').eq('id', eventData.organizer_user_id).maybeSingle()
+          : Promise.resolve({ data: null }),
+        // Co-organisateur : sur une co-soirée menée par le club (organizer_user_id
+        // NULL), l'orga partenaire vit dans partner_organizer_id.
+        partnerOrgId && partnerOrgId !== eventData.organizer_user_id
+          ? supabase.from('organizer_profiles').select('user_id, display_name, slug, avatar_url').eq('user_id', partnerOrgId).eq('is_public', true).maybeSingle()
+          : Promise.resolve({ data: null }),
+        // DJs via la vue djs_public, PAS la table djs : la table n'a aucune policy
+        // RLS SELECT pour l'anon, donc un embed djs(...) renvoyait null aux visiteurs
+        // déconnectés et toute la section LINE-UP disparaissait en silence.
+        djIds.length > 0
+          ? supabase.from('djs_public').select('id, stage_name, first_name, last_name, slug, handle, profile_image_url, music_genres').in('id', djIds)
+          : Promise.resolve({ data: [] }),
+        supabase.from('table_zones').select('*').eq(tableScope.col, tableScope.val).order('position', { ascending: true }),
+        supabase.from('table_packs').select('*').eq(tableScope.col, tableScope.val).eq('is_active', true).order('position', { ascending: true }),
+        eventSettingsData?.preset_id
+          ? supabase.from('table_pack_presets').select('*').eq('id', eventSettingsData.preset_id).maybeSingle()
+          : Promise.resolve({ data: null }),
+        // Accès prévente : ref promo dans l'URL OU inscription waitlist (compte/email).
+        !searchParams.get('ref') && user
+          ? supabase.from('event_waitlist').select('id').eq('event_id', eventId!)
+              .or([`user_id.eq.${user.id}`, ...(user.email ? [`email.eq.${user.email.toLowerCase().trim()}`] : [])].join(','))
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
+
+      // ── Organisateurs (primaire + co-orga) ──
+      const orgIds: string[] = [];
+      const organizers: { id: string; name: string; slug: string | null; logo_url: string | null }[] = [];
+      let loadedOrganizer: { user_id: string; display_name: string; slug: string | null; avatar_url: string | null } | null = null;
+
+      const orgProfile = orgProfileRes.data as typeof loadedOrganizer;
+      const legacyProfile = legacyProfileRes.data as { id: string; organization_name: string | null; organization_logo_url: string | null } | null;
+      if (orgProfile) {
+        loadedOrganizer = orgProfile;
+      } else if (legacyProfile?.organization_name) {
+        loadedOrganizer = {
+          user_id: legacyProfile.id,
+          display_name: legacyProfile.organization_name,
+          slug: null,
+          avatar_url: legacyProfile.organization_logo_url || null,
+        };
+      }
+      if (loadedOrganizer) {
+        organizers.push({ id: loadedOrganizer.user_id, name: loadedOrganizer.display_name, slug: loadedOrganizer.slug, logo_url: loadedOrganizer.avatar_url });
+        // Seul un profil organizer_profiles (pas le repli hérité) compte pour les
+        // stats d'abonnés — c'est la table qui porte les followers.
+        if (orgProfile) orgIds.push(orgProfile.user_id);
       }
 
-      // Set primary entity flag based on whether the event is organizer-led
+      const coOrg = coOrgRes.data as typeof loadedOrganizer;
+      if (coOrg && !organizers.some(o => o.id === coOrg.user_id)) {
+        if (!loadedOrganizer) loadedOrganizer = coOrg;
+        organizers.push({ id: coOrg.user_id, name: coOrg.display_name, slug: coOrg.slug, logo_url: coOrg.avatar_url });
+        orgIds.push(coOrg.user_id);
+      }
+
+      setPrimaryOrganizer(loadedOrganizer);
+      setEventOrganizers(organizers);
       setPrimaryEntity(isOrganizerLed && loadedOrganizer ? 'organizer' : 'venue');
 
       // Canonicalisation : les vieilles URLs UUID (/event/:id, /club/:slug/event/:id)
@@ -317,28 +344,21 @@ export default function EventDetails() {
         }
       }
 
-      // Load host venue (used for address, map, drinks if partner)
-      if (hostVenueId) {
-        const { data: venueData, error: venueError } = await supabase
-          .from('venues')
-          .select('id, name, city, address, floor_plan_url, latitude, longitude, logo_url')
-          .eq('id', hostVenueId)
-          .single();
-
-        if (!venueError && venueData) {
-          setVenue({
-            id: venueData.id,
-            name: venueData.name,
-            city: venueData.city,
-            address: venueData.address || undefined,
-            floorPlanUrl: venueData.floor_plan_url || undefined,
-            latitude: venueData.latitude || undefined,
-            longitude: venueData.longitude || undefined,
-            logoUrl: venueData.logo_url || undefined,
-          });
-        }
+      // ── Salle hôte (adresse, carte) ──
+      const venueData = venueRes.data as any;
+      if (venueData) {
+        setVenue({
+          id: venueData.id,
+          name: venueData.name,
+          city: venueData.city,
+          address: venueData.address || undefined,
+          floorPlanUrl: venueData.floor_plan_url || undefined,
+          latitude: venueData.latitude || undefined,
+          longitude: venueData.longitude || undefined,
+          logoUrl: venueData.logo_url || undefined,
+        });
       } else if (isOrganizerLed && loadedOrganizer) {
-        // Pure organizer event with no venue at all → use organizer info as venue display
+        // Soirée d'orga sans aucune salle → l'organisateur tient lieu de « lieu ».
         setVenue({
           id: loadedOrganizer.user_id,
           name: loadedOrganizer.display_name,
@@ -348,37 +368,94 @@ export default function EventDetails() {
         });
       }
 
-      // Fetch DJs via the djs_public view, NOT the djs table. The djs table has no
-      // RLS SELECT policy for anon, so embedding djs(...) here returned null for
-      // logged-out visitors and the whole LINE-UP section silently vanished on the
-      // public page. djs_public is security-definer with anon SELECT and safe columns.
-      const { data: eventDjsData } = await supabase
-        .from('event_djs')
-        .select('dj_id')
-        .eq('event_id', eventId!);
-
-      const djIds = (eventDjsData ?? []).map((ed: any) => ed.dj_id).filter(Boolean);
+      // ── Line-up ── .in() ne garantit pas l'ordre : on rejoue celui d'event_djs
+      // (tête d'affiche en premier).
       if (djIds.length > 0) {
-        const { data: djRows } = await supabase
-          .from('djs_public')
-          .select('id, stage_name, first_name, last_name, slug, handle, profile_image_url, music_genres')
-          .in('id', djIds);
-        // Preserve event_djs ordering (headliner first); .in() returns arbitrary order.
-        const byId = new Map((djRows ?? []).map((d: any) => [d.id, d]));
+        const byId = new Map(((djRowsRes.data ?? []) as any[]).map((d: any) => [d.id, d]));
         setDjs(djIds.map((id) => byId.get(id)).filter(Boolean) as EventDJ[]);
 
-        // Follower counts per dj (social proof on the line-up). Same aggregation the
-        // Explore "Top DJs" module uses: get_public_favorite_counts keyed by dj id.
-        const { data: counts } = await supabase.rpc('get_public_favorite_counts', { _favorite_type: 'dj' });
-        const followerMap: Record<string, number> = {};
-        (counts ?? []).forEach((c: any) => { if (c.target_id) followerMap[c.target_id] = c.total_count; });
-        setDjFollowers(followerMap);
+        // Abonnés par DJ (preuve sociale du line-up) : même agrégat que le module
+        // « Top DJs » d'Explore. Hors chemin critique — cette RPC compte les
+        // favoris de TOUS les DJs de la plateforme, elle n'a rien à faire dans
+        // l'attente du premier rendu.
+        void supabase.rpc('get_public_favorite_counts', { _favorite_type: 'dj' }).then(({ data: counts }) => {
+          const followerMap: Record<string, number> = {};
+          (counts ?? []).forEach((c: any) => { if (c.target_id) followerMap[c.target_id] = c.total_count; });
+          setDjFollowers(followerMap);
+        });
       }
+
+      setHasPresaleAccess(!!searchParams.get('ref') || !!waitlistRes.data);
+
+      // ── Billets ──
+      setTicketRounds((roundsRes.data ?? []).map(r => ({
+        id: r.id,
+        eventId: r.event_id,
+        name: r.name,
+        description: r.description,
+        price: Number(r.price),
+        maxTickets: r.max_tickets,
+        ticketsSold: r.tickets_sold,
+        position: r.position,
+        isActive: r.is_active,
+        autoActivate: r.auto_activate,
+        manuallySoldOut: (r as any).manually_sold_out ?? false,
+        lastTicketsThreshold: r.last_tickets_threshold ?? 20,
+        includesDrink: r.includes_drink ?? false,
+        drinkDeadlineType: (r.drink_deadline_type as 'hours_after_start' | 'fixed_time') ?? 'hours_after_start',
+        drinkDeadlineHours: r.drink_deadline_hours,
+        drinkCutoffTime: r.drink_cutoff_time,
+        ticketType: ((r as any).ticket_type as 'standard' | 'vip') ?? 'standard',
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+      })));
+
+      // ── Tables ── Les prix peuvent être écrasés par un preset OU par les prix
+      // custom de la soirée.
+      const priceOverrides: Record<string, number> = {};
+      const presetPacks = (presetRes.data as any)?.packs as { packId: string; customPrice: number | null }[] | undefined;
+      const customPrices = eventSettingsData?.custom_prices as { packId: string; customPrice: number | null }[] | undefined;
+      (presetPacks ?? customPrices ?? []).forEach(p => {
+        if (p.customPrice !== null) priceOverrides[p.packId] = p.customPrice;
+      });
+
+      setZones((zonesRes.data ?? []).map(z => ({
+        id: z.id,
+        venueId: z.venue_id,
+        name: z.name,
+        color: z.color,
+        tablesCount: z.tables_count || 1,
+        position: z.position,
+        lastTablesThreshold: z.last_tables_threshold ?? 20,
+        createdAt: z.created_at,
+        updatedAt: z.updated_at,
+      })));
+
+      setPacks((packsRes.data ?? []).map(p => ({
+        id: p.id,
+        zoneId: p.zone_id,
+        venueId: p.venue_id,
+        name: p.name,
+        description: p.description,
+        basePrice: priceOverrides[p.id] ?? Number(p.base_price),
+        baseCapacity: p.base_capacity,
+        extraPersonPrice: p.extra_person_price ? Number(p.extra_person_price) : 0,
+        maxExtraPersons: p.max_extra_persons ?? 0,
+        deposit: p.deposit ? Number(p.deposit) : 0,
+        depositType: ((p as any).deposit_type as 'fixed' | 'percentage') || 'fixed',
+        includedItems: p.included_items,
+        includedBottlesQuota: (p as any).included_bottles_quota || 0,
+        minimumSpend: Number((p as any).minimum_spend) || 0,
+        tablesCount: p.tables_count || 1,
+        position: p.position,
+        isActive: p.is_active,
+        createdAt: p.created_at,
+        updatedAt: p.updated_at,
+      })));
 
       // Note: previously we fetched the partner club drinks here for organizer-led events.
       // Drinks are intentionally NOT shown on event pages anymore — they live on the venue page
       // and on the organizer public profile.
-
 
       setEvent({
         id: eventData.id,
@@ -409,160 +486,10 @@ export default function EventDetails() {
         hideYunoNavigation: !!(eventData as any).hide_yuno_navigation,
       });
 
-      // Fetch stats: venue stats only if hostVenueId is a real venue (not the org placeholder)
-      if (hostVenueId) {
-        fetchStats(hostVenueId, orgIds);
-      } else if (eventId) {
-        // Just count interested users for pure organizer events
-        const { count: intCount } = await supabase
-          .from('favorites')
-          .select('*', { count: 'exact', head: true })
-          .eq('favorite_type', 'event')
-          .eq('event_id', eventId);
-        setInterestedCount(intCount || 0);
-      }
-
-      // Resolve presale access (promo ref OR waitlist registration by account/email)
-      const hasPromoRef = !!searchParams.get('ref');
-      if (hasPromoRef) {
-        setHasPresaleAccess(true);
-      } else {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const filters = [`user_id.eq.${user.id}`];
-          const normalizedEmail = user.email?.toLowerCase().trim();
-          if (normalizedEmail) filters.push(`email.eq.${normalizedEmail}`);
-
-          const { data: waitlistEntry } = await supabase
-            .from('event_waitlist')
-            .select('id')
-            .eq('event_id', eventId!)
-            .or(filters.join(','))
-            .maybeSingle();
-
-          setHasPresaleAccess(!!waitlistEntry);
-        } else {
-          setHasPresaleAccess(false);
-        }
-      }
-
-      if (eventData.ticketing_enabled) {
-        const { data: roundsData } = await supabase
-          .from('ticket_rounds')
-          .select('*')
-          .eq('event_id', eventId)
-          .order('position', { ascending: true });
-
-        if (roundsData) {
-          const mappedRounds = roundsData.map(r => ({
-            id: r.id,
-            eventId: r.event_id,
-            name: r.name,
-            description: r.description,
-            price: Number(r.price),
-            maxTickets: r.max_tickets,
-            ticketsSold: r.tickets_sold,
-            position: r.position,
-            isActive: r.is_active,
-            autoActivate: r.auto_activate,
-            manuallySoldOut: (r as any).manually_sold_out ?? false,
-            lastTicketsThreshold: r.last_tickets_threshold ?? 20,
-            includesDrink: r.includes_drink ?? false,
-            drinkDeadlineType: (r.drink_deadline_type as 'hours_after_start' | 'fixed_time') ?? 'hours_after_start',
-            drinkDeadlineHours: r.drink_deadline_hours,
-            drinkCutoffTime: r.drink_cutoff_time,
-            ticketType: ((r as any).ticket_type as 'standard' | 'vip') ?? 'standard',
-            createdAt: r.created_at,
-            updatedAt: r.updated_at,
-          }));
-          setTicketRounds(mappedRounds);
-        }
-      }
-
-      if (eventData.tables_enabled) {
-        // Basic mode (org-hosted or per-event tables) → scope by event_id.
-        // Elite/venue mode → scope by venue_id.
-        const isBasicTables = (eventData as any).tables_mode === 'basic' || !eventData.venue_id;
-        const zoneQuery = isBasicTables
-          ? supabase.from('table_zones').select('*').eq('event_id', eventId).order('position', { ascending: true })
-          : supabase.from('table_zones').select('*').eq('venue_id', eventData.venue_id).order('position', { ascending: true });
-        const { data: zonesData } = await zoneQuery;
-
-        if (zonesData) {
-          setZones(zonesData.map(z => ({
-            id: z.id,
-            venueId: z.venue_id,
-            name: z.name,
-            color: z.color,
-            tablesCount: z.tables_count || 1,
-            position: z.position,
-            lastTablesThreshold: z.last_tables_threshold ?? 20,
-            createdAt: z.created_at,
-            updatedAt: z.updated_at,
-          })));
-        }
-
-        const packQuery = isBasicTables
-          ? supabase.from('table_packs').select('*').eq('event_id', eventId).eq('is_active', true).order('position', { ascending: true })
-          : supabase.from('table_packs').select('*').eq('venue_id', eventData.venue_id).eq('is_active', true).order('position', { ascending: true });
-        const { data: packsData } = await packQuery;
-
-        const { data: eventSettingsData } = await supabase
-          .from('event_table_settings')
-          .select('*')
-          .eq('event_id', eventId)
-          .single();
-
-        let priceOverrides: Record<string, number> = {};
-        
-        if (eventSettingsData?.preset_id) {
-          const { data: presetData } = await supabase
-            .from('table_pack_presets')
-            .select('*')
-            .eq('id', eventSettingsData.preset_id)
-            .single();
-
-          if (presetData?.packs) {
-            const presetPacks = presetData.packs as { packId: string; customPrice: number | null }[];
-            presetPacks.forEach(pp => {
-              if (pp.customPrice !== null) {
-                priceOverrides[pp.packId] = pp.customPrice;
-              }
-            });
-          }
-        } else if (eventSettingsData?.custom_prices) {
-          const customPrices = eventSettingsData.custom_prices as { packId: string; customPrice: number | null }[];
-          customPrices.forEach(cp => {
-            if (cp.customPrice !== null) {
-              priceOverrides[cp.packId] = cp.customPrice;
-            }
-          });
-        }
-
-        if (packsData) {
-          setPacks(packsData.map(p => ({
-            id: p.id,
-            zoneId: p.zone_id,
-            venueId: p.venue_id,
-            name: p.name,
-            description: p.description,
-            basePrice: priceOverrides[p.id] ?? Number(p.base_price),
-            baseCapacity: p.base_capacity,
-            extraPersonPrice: p.extra_person_price ? Number(p.extra_person_price) : 0,
-            maxExtraPersons: p.max_extra_persons ?? 0,
-            deposit: p.deposit ? Number(p.deposit) : 0,
-            depositType: ((p as any).deposit_type as 'fixed' | 'percentage') || 'fixed',
-            includedItems: p.included_items,
-            includedBottlesQuota: (p as any).included_bottles_quota || 0,
-            minimumSpend: Number((p as any).minimum_spend) || 0,
-            tablesCount: p.tables_count || 1,
-            position: p.position,
-            isActive: p.is_active,
-            createdAt: p.created_at,
-            updatedAt: p.updated_at,
-          })));
-        }
-      }
+      // Compteurs de preuve sociale : lancés SANS await. La page est déjà
+      // complète (affiche, line-up, billets, tables) — on ne retarde pas le
+      // premier pixel pour un nombre d'abonnés qui se posera 200 ms plus tard.
+      void fetchStats(hostVenueId || null, orgIds, user);
     } catch (error) {
       console.error('Error fetching event:', error);
       toast.error(t('tickets.errorLoading'));
@@ -630,6 +557,48 @@ export default function EventDetails() {
     navigateBack();
   };
 
+  // ── Dérivés de vente ──────────────────────────────────────────────────────
+  // Calculés AVANT les early-returns : la barre d'onglets globale se masque via
+  // useSuppressBottomNav (un hook), et un hook ne peut pas vivre sous un retour
+  // anticipé. Tant que `event` est null (chargement / introuvable), tout est à
+  // zéro — donc rien à vendre, donc la barre reste affichée sous le skeleton.
+  //
+  // Availability logic — respects rounds_visibility:
+  //   sequential       → only the first active not-sold-out round shows as buyable
+  //   preview_upcoming → all rounds visible; only first not-sold-out is buyable, others "Bientôt"
+  //   all_open         → every active round is buyable in parallel
+  const visibility = event?.roundsVisibility ?? 'sequential';
+  const buyableRounds = ticketRounds.filter(r => r.isActive && !r.manuallySoldOut && r.ticketsSold < r.maxTickets);
+  const activeRounds = visibility === 'all_open'
+    ? buyableRounds
+    : buyableRounds.slice(0, 1);
+  const upcomingPreviewRounds = visibility === 'preview_upcoming'
+    ? buyableRounds.slice(1)
+    : [];
+  const activePacks = packs.filter(p => p.isActive);
+  const hasTickets = !!event?.ticketingEnabled && activeRounds.length > 0;
+  const hasTables = !!event?.tablesEnabled && activePacks.length > 0;
+  const hasTicketsOrTables = hasTickets || hasTables;
+
+  // Low stock detection
+  const lowStockRounds = activeRounds.filter(r => (r.maxTickets - r.ticketsSold) <= r.lastTicketsThreshold);
+  const totalTicketsRemaining = activeRounds.reduce((sum, r) => sum + (r.maxTickets - r.ticketsSold), 0);
+  const isSoldOut = !!event?.ticketingEnabled && buyableRounds.length === 0 && ticketRounds.length > 0;
+  const eventSalesStatus = getEventSalesStatus(
+    {
+      presaleStartAt: event?.presaleStartAt,
+      publicSaleStartAt: event?.publicSaleStartAt,
+      waitlistEnabled: event?.waitlistEnabled ?? false,
+    },
+    isSoldOut,
+  );
+
+  // Cette page pose son propre CTA d'achat collant en bas d'écran dès qu'il y a
+  // quelque chose à vendre (ou que la vente n'est pas encore publique : bloc
+  // waitlist / bientôt). Dans ce cas seulement, elle prend la place de la barre
+  // d'onglets — sinon la barre globale reste, y compris pendant le chargement.
+  useSuppressBottomNav(!!event && (hasTicketsOrTables || eventSalesStatus !== 'public_sale'));
+
   if (loading) {
     return <EventDetailsSkeleton />;
   }
@@ -648,36 +617,6 @@ export default function EventDetails() {
   }
 
   const heroImage = event.posterUrl;
-
-  // Availability logic — respects rounds_visibility:
-  //   sequential       → only the first active not-sold-out round shows as buyable
-  //   preview_upcoming → all rounds visible; only first not-sold-out is buyable, others "Bientôt"
-  //   all_open         → every active round is buyable in parallel
-  const visibility = event.roundsVisibility ?? 'sequential';
-  const buyableRounds = ticketRounds.filter(r => r.isActive && !r.manuallySoldOut && r.ticketsSold < r.maxTickets);
-  const activeRounds = visibility === 'all_open'
-    ? buyableRounds
-    : buyableRounds.slice(0, 1);
-  const upcomingPreviewRounds = visibility === 'preview_upcoming'
-    ? buyableRounds.slice(1)
-    : [];
-  const activePacks = packs.filter(p => p.isActive);
-  const hasTickets = event.ticketingEnabled && activeRounds.length > 0;
-  const hasTables = event.tablesEnabled && activePacks.length > 0;
-  const hasTicketsOrTables = hasTickets || hasTables;
-
-  // Low stock detection
-  const lowStockRounds = activeRounds.filter(r => (r.maxTickets - r.ticketsSold) <= r.lastTicketsThreshold);
-  const totalTicketsRemaining = activeRounds.reduce((sum, r) => sum + (r.maxTickets - r.ticketsSold), 0);
-  const isSoldOut = event.ticketingEnabled && buyableRounds.length === 0 && ticketRounds.length > 0;
-  const eventSalesStatus = getEventSalesStatus(
-    {
-      presaleStartAt: event.presaleStartAt,
-      publicSaleStartAt: event.publicSaleStartAt,
-      waitlistEnabled: event.waitlistEnabled,
-    },
-    isSoldOut,
-  );
 
   // Min price
   const allPrices: number[] = [];
@@ -1304,8 +1243,6 @@ export default function EventDetails() {
         }
         return null;
       })()}
-
-      {!hasTicketsOrTables && eventSalesStatus === 'public_sale' && <BottomNav />}
 
       {/* Private event — confirm before leaving (page isn't publicly accessible) */}
       {showLeavePrivate && (
