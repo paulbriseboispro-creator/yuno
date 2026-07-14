@@ -144,9 +144,17 @@ serve(async (req) => {
           venueName = record.events?.venues?.name || "";
           customerEmail = record.user_email || "";
           customerUserId = record.user_id || "";
-          // For tables the Yuno commission is management_fee; guard it with fee_absorbed.
+          // Une table n'encaisse que l'ACOMPTE (+ frais Yuno) au checkout —
+          // total_price stocke le budget complet de la table, jamais débité.
+          // Plafonner sur total_price faisait échouer le refund côté Stripe
+          // (« amount exceeds available charge ») dès que l'owner remboursait
+          // « le prix de la table ». Le vrai plafond côté club = l'acompte.
+          // Fallback legacy (résa sans acompte) : ancien calcul.
           const tableManagementFee = record.fee_absorbed ? 0 : Number(record.management_fee || 0);
-          maxRefundable = Number(record.total_price) - Number(record.service_fee || 0) - tableManagementFee;
+          const tableDeposit = Number(record.deposit || 0);
+          maxRefundable = tableDeposit > 0
+            ? tableDeposit
+            : Number(record.total_price) - Number(record.service_fee || 0) - tableManagementFee;
           eventTitle = record.events.title || "";
         } else {
           results.push({ id: item.id, type: item.type, success: false, error: "Invalid type" }); continue;
