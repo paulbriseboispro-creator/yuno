@@ -91,6 +91,11 @@ export function VipReservationCard({
   // Use arrival-aware background for "expected" (not arrived) guests
   const cardBg = !hasArrived ? arrivalStatus.bg : status.bg;
 
+  // Pastille d'angle (« nouveau » / « attendu ») : elle est en position absolue dans le
+  // coin haut-droit et recouvrirait le montant. On décale la colonne de droite quand elle
+  // est affichée.
+  const hasCornerBadge = (isJustArrived && hasArrived) || !hasArrived;
+
   return (
     <div
       className={`p-3 cursor-pointer transition-all active:scale-[0.98] ${cardBg} border relative overflow-hidden`}
@@ -119,15 +124,19 @@ export function VipReservationCard({
         </div>
       )}
 
-      <div className="flex items-start justify-between gap-2">
+      {/* mt-2 : la pastille d'angle fait ~18px de haut et recouvrirait la 1re ligne
+          (nom + pastilles à gauche, montant à droite). On pousse tout le contenu. */}
+      <div className={`flex items-start justify-between gap-2 ${hasCornerBadge ? 'mt-2' : ''}`}>
         <div className="flex-1 min-w-0">
-          {/* Header row: Name + Status + Table */}
-          <div className="flex items-center gap-2 mb-1">
+          {/* Header row: Name + Status + Table.
+              flex-wrap : à 390px, 3 pastilles + un nom long ne tiennent pas sur une ligne —
+              les pastilles passent en dessous au lieu d'écraser le nom du client. */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mb-1">
             <div
               className="w-2.5 h-2.5 rounded-full shrink-0"
               style={{ backgroundColor: reservation.zoneColor || '#666' }}
             />
-            <h3 className="truncate" style={{ color: hasArrived ? 'rgba(255,255,255,0.96)' : 'rgba(255,255,255,0.36)', fontSize: 14, fontWeight: 600 }}>
+            <h3 className="min-w-0 truncate" style={{ color: hasArrived ? 'rgba(255,255,255,0.96)' : 'rgba(255,255,255,0.36)', fontSize: 14, fontWeight: 600 }}>
               {reservation.fullName}
             </h3>
             {(reservation.assignedTableName || reservation.assignedTableId) && (
@@ -224,7 +233,7 @@ export function VipReservationCard({
                 venueId={venueId!}
                 onOrderSent={onOrderSent}
               >
-                <Button size="sm" variant="secondary" className="h-7 px-2 text-xs gap-1">
+                <Button size="sm" variant="secondary" className="h-9 px-2.5 text-xs gap-1">
                   <Plus className="w-3 h-3" />
                   {t('vip.conso')}
                 </Button>
@@ -232,7 +241,7 @@ export function VipReservationCard({
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
+                  <Button size="sm" variant="ghost" className="h-9 w-9 p-0">
                     <MoreHorizontal className="w-4 h-4" />
                   </Button>
                 </DropdownMenuTrigger>

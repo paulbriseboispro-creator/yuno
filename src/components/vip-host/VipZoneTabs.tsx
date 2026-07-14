@@ -22,7 +22,7 @@ export function VipZoneTabs({ zones, selectedZone, onSelectZone, totalCount }: V
         {/* All zones tab */}
         <button
           onClick={() => onSelectZone(null)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap cursor-pointer"
+          className="flex shrink-0 items-center gap-2 px-3 py-2 min-h-[36px] rounded-full text-sm font-medium transition-all whitespace-nowrap cursor-pointer"
           style={selectedZone === null
             ? { background: '#E8192C', color: '#fff', boxShadow: '0 0 14px -4px #E8192C88' }
             : { background: 'rgba(255,255,255,0.032)', border: '1px solid rgba(255,255,255,0.085)', color: 'rgba(255,255,255,0.36)' }
@@ -30,7 +30,7 @@ export function VipZoneTabs({ zones, selectedZone, onSelectZone, totalCount }: V
         >
           Toutes
           <span
-            className="h-5 px-1.5 text-[10px] font-bold rounded-full flex items-center tabular-nums"
+            className="h-5 shrink-0 px-1.5 text-[10px] font-bold rounded-full flex items-center tabular-nums"
             style={selectedZone === null
               ? { background: 'rgba(255,255,255,0.22)', color: '#fff' }
               : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.58)' }
@@ -45,20 +45,21 @@ export function VipZoneTabs({ zones, selectedZone, onSelectZone, totalCount }: V
           <button
             key={zone.name}
             onClick={() => onSelectZone(zone.name)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all whitespace-nowrap cursor-pointer"
+            className="flex shrink-0 items-center gap-2 px-3 py-2 min-h-[36px] rounded-full text-sm font-medium transition-all whitespace-nowrap cursor-pointer"
             style={selectedZone === zone.name
               ? { backgroundColor: `${zone.color}20`, color: zone.color, border: `1px solid ${zone.color}` }
               : { background: 'rgba(255,255,255,0.032)', border: '1px solid rgba(255,255,255,0.085)', color: 'rgba(255,255,255,0.36)' }
             }
           >
             <div
-              className="w-2 h-2 rounded-full"
+              className="w-2 h-2 shrink-0 rounded-full"
               style={{ backgroundColor: zone.color }}
             />
-            {zone.name}
+            {/* Nom de zone saisi par le club : plafonné pour ne pas produire une pastille géante. */}
+            <span className="max-w-[9rem] truncate">{zone.name}</span>
             {zone.count > 0 && (
               <span
-                className="h-5 px-1.5 text-[10px] font-bold rounded-full flex items-center tabular-nums"
+                className="h-5 shrink-0 px-1.5 text-[10px] font-bold rounded-full flex items-center tabular-nums"
                 style={{
                   backgroundColor: selectedZone === zone.name ? `${zone.color}30` : 'rgba(255,255,255,0.06)',
                   color: selectedZone === zone.name ? zone.color : 'rgba(255,255,255,0.58)',

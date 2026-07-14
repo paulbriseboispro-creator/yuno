@@ -266,7 +266,12 @@ export default function VipHostDashboard() {
   }
 
   return (
-    <div className="min-h-screen pb-20" style={{ background: '#000' }}>
+    <div
+      className="min-h-screen"
+      // La barre d'action est `fixed` : le padding bas doit couvrir sa hauteur (~76px)
+      // ET l'indicateur d'accueil iPhone, sinon la dernière carte passe dessous.
+      style={{ background: '#000', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}
+    >
       <RoleIntroGate role="viphost" />
       {/* Vignette ambiante */}
       <div
@@ -277,11 +282,11 @@ export default function VipHostDashboard() {
       {/* Compact Header */}
       <header
         className="sticky top-0 z-40 px-3 py-2 backdrop-blur-xl"
-        style={{ background: 'rgba(10,10,12,0.72)', borderBottom: `1px solid ${BORDER}`, paddingTop: 'env(safe-area-inset-top, 0px)' }}
+        style={{ background: 'rgba(10,10,12,0.72)', borderBottom: `1px solid ${BORDER}`, paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" asChild className="h-8 w-8">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Button variant="ghost" size="icon" asChild className="h-10 w-10 shrink-0">
               <Link to="/profile">
                 <ArrowLeft className="w-4 h-4" />
               </Link>
@@ -292,20 +297,20 @@ export default function VipHostDashboard() {
             >
               <Crown className="w-4 h-4" style={{ color: RED }} />
             </div>
-            <div>
-              <h1 style={{ color: T1, fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em', margin: 0 }}>VIP Host</h1>
+            <div className="min-w-0">
+              <h1 className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em', margin: 0 }}>VIP Host</h1>
               {activeEvent && (
-                <p className="truncate max-w-[140px]" style={{ color: T3, fontSize: 10, marginTop: 1 }}>
+                <p className="truncate" style={{ color: T3, fontSize: 10, marginTop: 1 }}>
                   {activeEvent.title}
                 </p>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className="h-10 w-10"
               onClick={() => refresh()}
             >
               <RefreshCw className="w-4 h-4" />
@@ -313,7 +318,7 @@ export default function VipHostDashboard() {
 
             <button
               type="button"
-              className="h-8 w-8 relative flex items-center justify-center rounded-xl cursor-pointer transition-all duration-150"
+              className="h-10 w-10 relative flex items-center justify-center rounded-xl cursor-pointer transition-all duration-150"
               style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 }}
               onClick={() => setShowArrivals(true)}
             >
@@ -330,7 +335,7 @@ export default function VipHostDashboard() {
 
             <button
               type="button"
-              className="h-8 w-8 relative flex items-center justify-center rounded-xl cursor-pointer transition-all duration-150"
+              className="h-10 w-10 relative flex items-center justify-center rounded-xl cursor-pointer transition-all duration-150"
               style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 }}
               onClick={() => setShowOrders(true)}
             >
@@ -354,7 +359,8 @@ export default function VipHostDashboard() {
         <div
           className="sticky z-30 flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium"
           style={{
-            top: 'calc(env(safe-area-inset-top, 0px) + 48px)',
+            // Hauteur exacte du header sticky : safe-area + 8 (pt) + 40 (boutons) + 8 (pb).
+            top: 'calc(env(safe-area-inset-top, 0px) + 56px)',
             background: 'rgba(232,25,44,0.16)',
             color: '#FCA5A5',
             borderBottom: `1px solid ${BORDER}`,
@@ -398,29 +404,29 @@ export default function VipHostDashboard() {
 
         {/* Main content tabs */}
         <Tabs defaultValue="list">
-          <div className="flex items-center justify-between mb-3">
-            <TabsList className="owner-tabs h-8">
-              <TabsTrigger value="list" className="gap-1 text-xs h-7 px-2">
-                <List className="w-3.5 h-3.5" />
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <TabsList className="owner-tabs h-9 shrink-0">
+              <TabsTrigger value="list" className="gap-1 text-xs h-8 px-2">
+                <List className="w-3.5 h-3.5 shrink-0" />
                 {t('vipHost.list')}
               </TabsTrigger>
-              <TabsTrigger value="grid" className="gap-1 text-xs h-7 px-2">
-                <LayoutGrid className="w-3.5 h-3.5" />
+              <TabsTrigger value="grid" className="gap-1 text-xs h-8 px-2">
+                <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
                 {t('vipHost.grid')}
               </TabsTrigger>
-              <TabsTrigger value="map" className="gap-1 text-xs h-7 px-2">
-                <Map className="w-3.5 h-3.5" />
+              <TabsTrigger value="map" className="gap-1 text-xs h-8 px-2">
+                <Map className="w-3.5 h-3.5 shrink-0" />
                 {t('vipHost.plan')}
               </TabsTrigger>
             </TabsList>
 
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="sm"
               onClick={() => setSortBy(sortBy === 'status' ? 'time' : 'status')}
-              className="text-xs h-7"
+              className="min-w-0 text-xs h-9 px-2"
             >
-              {sortBy === 'status' ? t('vipHost.byStatus') : t('vipHost.byTime')}
+              <span className="truncate">{sortBy === 'status' ? t('vipHost.byStatus') : t('vipHost.byTime')}</span>
             </Button>
           </div>
 
@@ -525,26 +531,34 @@ export default function VipHostDashboard() {
 
       {/* Placement sheet (initial seating + reassignment) */}
       <Sheet open={showPlacementSheet} onOpenChange={(o) => { if (!o) closePlacementSheet(); }}>
-        <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl">
-          <SheetHeader className="pb-4">
-            <SheetTitle>
+        {/* Colonne flex (header / plan scrollable / barre d'action) plutôt qu'un footer
+            en position absolue : sur mobile le plan de salle ne passe plus dessous. */}
+        <SheetContent side="bottom" className="flex h-[80vh] flex-col gap-0 rounded-t-3xl p-0">
+          {/* pr-12 : laisse la place au bouton de fermeture (absolute right-4) du Sheet. */}
+          <SheetHeader className="shrink-0 px-4 pb-4 pr-12 pt-5 sm:px-6 sm:pr-14">
+            <SheetTitle className="text-left">
               {(reassignMode ? t('vipHost.reassignGuest') : t('vipHost.placeGuest')).replace('{name}', pendingPlacement?.fullName || '')}
             </SheetTitle>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground text-left">
               {t('vipHost.personsInZone').replace('{count}', String(pendingPlacement?.guestCount || 0)).replace('{zone}', pendingPlacement?.zoneName || '')}
             </p>
           </SheetHeader>
 
-          <VipFloorPlan
-            floorPlan={floorPlan}
-            reservations={reservations}
-            mode="placement"
-            selectedTableId={selectedTableId || undefined}
-            pendingReservation={pendingPlacement}
-            onTableSelect={(tableId) => setSelectedTableId(tableId)}
-          />
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 sm:px-6">
+            <VipFloorPlan
+              floorPlan={floorPlan}
+              reservations={reservations}
+              mode="placement"
+              selectedTableId={selectedTableId || undefined}
+              pendingReservation={pendingPlacement}
+              onTableSelect={(tableId) => setSelectedTableId(tableId)}
+            />
+          </div>
 
-          <div className="absolute bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur border-t space-y-2" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
+          <div
+            className="shrink-0 space-y-2 border-t bg-background/95 px-4 pt-4 backdrop-blur sm:px-6"
+            style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+          >
             <Button
               className="w-full h-12 font-semibold"
               disabled={!selectedTableId || placementLoading || connectionStale}
@@ -553,9 +567,11 @@ export default function VipHostDashboard() {
               {placementLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : connectionStale ? (
-                t('vipHost.connectionStale')
+                <span className="truncate">{t('vipHost.connectionStale')}</span>
               ) : (
-                `${t('vipHost.placeTo')} ${selectedTableId ? (floorPlan?.layout?.tables?.find(tbl => tbl.id === selectedTableId)?.name || selectedTableId) : '...'}`
+                <span className="truncate">
+                  {`${t('vipHost.placeTo')} ${selectedTableId ? (floorPlan?.layout?.tables?.find(tbl => tbl.id === selectedTableId)?.name || selectedTableId) : '...'}`}
+                </span>
               )}
             </Button>
 
@@ -564,19 +580,19 @@ export default function VipHostDashboard() {
               <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  className="flex-1 h-10"
+                  className="min-w-0 flex-1 h-11"
                   disabled={placementLoading || connectionStale}
                   onClick={() => handleMarkAbsent('no_show')}
                 >
-                  {t('vipHost.markNoShow')}
+                  <span className="truncate">{t('vipHost.markNoShow')}</span>
                 </Button>
                 <Button
                   variant="outline"
-                  className="flex-1 h-10 text-destructive hover:text-destructive"
+                  className="min-w-0 flex-1 h-11 text-destructive hover:text-destructive"
                   disabled={placementLoading || connectionStale}
                   onClick={() => handleMarkAbsent('denied')}
                 >
-                  {t('vipHost.markDenied')}
+                  <span className="truncate">{t('vipHost.markDenied')}</span>
                 </Button>
               </div>
             )}
@@ -586,11 +602,18 @@ export default function VipHostDashboard() {
 
       {/* Arrivals Notifications Sheet */}
       <Sheet open={showArrivals} onOpenChange={setShowArrivals}>
-        <SheetContent side="right" className="w-full sm:max-w-md" style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))' }}>
-          <SheetHeader className="pb-4">
+        <SheetContent
+          side="right"
+          className="w-full overflow-y-auto sm:max-w-md"
+          style={{
+            paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))',
+            paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
+          }}
+        >
+          <SheetHeader className="pb-4 pr-8">
             <SheetTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary" />
-              {t('vipHost.vipArrivals')}
+              <Sparkles className="w-5 h-5 text-primary shrink-0" />
+              <span className="truncate">{t('vipHost.vipArrivals')}</span>
             </SheetTitle>
           </SheetHeader>
           <VipEntryNotifications 
@@ -604,11 +627,18 @@ export default function VipHostDashboard() {
 
       {/* Orders Notifications Sheet */}
       <Sheet open={showOrders} onOpenChange={setShowOrders}>
-        <SheetContent side="right" className="w-full sm:max-w-md" style={{ paddingTop: 'calc(1rem + env(safe-area-inset-top, 0px))' }}>
-          <SheetHeader className="pb-4">
+        <SheetContent
+          side="right"
+          className="w-full overflow-y-auto sm:max-w-md"
+          style={{
+            paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))',
+            paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
+          }}
+        >
+          <SheetHeader className="pb-4 pr-8">
             <SheetTitle className="flex items-center gap-2">
-              <Bell className="w-5 h-5" />
-              {t('vipHost.vipOrders')}
+              <Bell className="w-5 h-5 shrink-0" />
+              <span className="truncate">{t('vipHost.vipOrders')}</span>
             </SheetTitle>
           </SheetHeader>
           {venueId && (

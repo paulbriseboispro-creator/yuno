@@ -252,32 +252,35 @@ export function VipTableDetail({
 
   return (
     <Sheet open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <SheetContent side="bottom" className="h-[90vh] rounded-t-3xl">
-        <SheetHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div 
-                className="w-10 h-10 rounded-full flex items-center justify-center"
+      {/* Colonne flex (header / zone scrollable / footer) : plus de hauteur magique
+          `h-[calc(100%-200px)]` ni de footer absolu qui masque la fin du contenu. */}
+      <SheetContent side="bottom" className="flex h-[90vh] flex-col gap-0 rounded-t-3xl p-0">
+        <SheetHeader className="shrink-0 px-4 pb-2 pt-5 sm:px-6">
+          {/* pr-8 : le bouton de fermeture du Sheet est en absolute right-4. */}
+          <div className="flex items-center justify-between gap-2 pr-8">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
                 style={{ backgroundColor: `${reservation.zoneColor}20` }}
               >
                 <User className="w-5 h-5" style={{ color: reservation.zoneColor }} />
               </div>
-              <div>
-                <SheetTitle className="text-xl text-left" style={{ color: T1 }}>{reservation.fullName}</SheetTitle>
-                <div className="flex items-center gap-2 text-sm" style={{ color: T3 }}>
-                  <span>{reservation.zoneName}</span>
+              <div className="min-w-0">
+                <SheetTitle className="truncate text-lg text-left sm:text-xl" style={{ color: T1 }}>{reservation.fullName}</SheetTitle>
+                <div className="flex items-center gap-2 text-sm min-w-0" style={{ color: T3 }}>
+                  <span className="truncate">{reservation.zoneName}</span>
                   {(reservation.assignedTableName || reservation.assignedTableId) && (
                     <>
-                      <span>•</span>
-                      <span>{reservation.assignedTableName || reservation.assignedTableId}</span>
+                      <span className="shrink-0">•</span>
+                      <span className="truncate shrink-0">{reservation.assignedTableName || reservation.assignedTableId}</span>
                     </>
                   )}
                 </div>
               </div>
             </div>
-            <Badge 
+            <Badge
               variant="outline"
-              className="text-xs"
+              className="shrink-0 text-xs"
               style={{
                 borderColor: ['finished', 'no_show', 'denied'].includes(reservation.vipStatus) ? 'hsl(var(--muted-foreground))' : reservation.zoneColor,
                 color: ['finished', 'no_show', 'denied'].includes(reservation.vipStatus) ? 'hsl(var(--muted-foreground))' : reservation.zoneColor
@@ -292,8 +295,8 @@ export function VipTableDetail({
           </div>
         </SheetHeader>
 
-        <ScrollArea className="h-[calc(100%-100px)]">
-          <div className="space-y-5 pb-24 pt-2">
+        <ScrollArea className="min-h-0 flex-1 px-4 sm:px-6">
+          <div className="space-y-5 pb-6 pt-2">
             {/* Stats row */}
             <div className="grid grid-cols-3 gap-2">
               <div className="p-3 text-center" style={tile}>
@@ -328,39 +331,42 @@ export function VipTableDetail({
             )}
 
             <Tabs defaultValue="add" className="w-full">
-              <TabsList className="w-full">
-                <TabsTrigger value="add" className="flex-1 gap-1">
-                  <Wine className="w-3.5 h-3.5" />
-                  {t('vipHost.addTab')}
+              {/* 4 onglets à 390px : libellés tronquables + padding réduit, sinon le texte
+                  déborde de la pastille active (les triggers sont en whitespace-nowrap). */}
+              <TabsList className="flex w-full">
+                <TabsTrigger value="add" className="min-w-0 flex-1 gap-1 px-1 text-[11px] sm:px-3 sm:text-sm">
+                  <Wine className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{t('vipHost.addTab')}</span>
                   {cartItemCount > 0 && (
-                    <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-[10px] bg-primary text-primary-foreground">
+                    <Badge className="ml-0.5 h-5 w-5 shrink-0 p-0 flex items-center justify-center text-[10px] bg-primary text-primary-foreground">
                       {cartItemCount}
                     </Badge>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="orders" className="flex-1 gap-1">
-                  <ShoppingBag className="w-3.5 h-3.5" />
-                  {t('vipHost.ordersTab')}
+                <TabsTrigger value="orders" className="min-w-0 flex-1 gap-1 px-1 text-[11px] sm:px-3 sm:text-sm">
+                  <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{t('vipHost.ordersTab')}</span>
                 </TabsTrigger>
-                <TabsTrigger value="history" className="flex-1 gap-1">
-                  <History className="w-3.5 h-3.5" />
-                  {t('vipHost.consoTab')}
+                <TabsTrigger value="history" className="min-w-0 flex-1 gap-1 px-1 text-[11px] sm:px-3 sm:text-sm">
+                  <History className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">{t('vipHost.consoTab')}</span>
                 </TabsTrigger>
-                <TabsTrigger value="stats" className="flex-1 gap-1">
-                  <TrendingUp className="w-3.5 h-3.5" />
-                  Stats
+                <TabsTrigger value="stats" className="min-w-0 flex-1 gap-1 px-1 text-[11px] sm:px-3 sm:text-sm">
+                  <TrendingUp className="w-3.5 h-3.5 shrink-0" />
+                  <span className="truncate">Stats</span>
                 </TabsTrigger>
               </TabsList>
 
               {/* Add Tab - Cart System */}
               <TabsContent value="add" className="mt-4">
-                <div className="grid grid-cols-4 gap-2">
+                {/* 3 colonnes sur téléphone : à 4, un nom de bouteille se réduit à 4 lettres. */}
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                   {items.map((item) => (
                     <Button
                       key={item.id}
                       variant="outline"
                       size="sm"
-                      className="h-auto py-2 flex-col gap-0.5 relative"
+                      className="h-auto min-h-[44px] py-2 px-1.5 flex-col gap-0.5 relative"
                       onClick={() => addToCart(item)}
                     >
                       <span className="text-xs truncate w-full">{item.name}</span>
@@ -378,11 +384,11 @@ export function VipTableDetail({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-auto py-2 flex-col gap-0.5"
+                    className="h-auto min-h-[44px] py-2 px-1.5 flex-col gap-0.5"
                     onClick={() => setShowAddItem(!showAddItem)}
                   >
                     <Plus className="w-4 h-4" />
-                    <span className="text-[10px]">{t('vipHost.other')}</span>
+                    <span className="text-[10px] truncate w-full">{t('vipHost.other')}</span>
                   </Button>
                 </div>
 
@@ -422,26 +428,27 @@ export function VipTableDetail({
                 {orderCart.length > 0 && (
                   <div className="mt-4 p-4" style={{ background: 'rgba(232,25,44,0.05)', border: '1px solid rgba(232,25,44,0.3)', borderRadius: 14 }}>
                     <div className="flex items-center justify-between mb-3">
-                      <h4 style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{t('vipHost.cart').replace('{count}', String(cartItemCount))}</h4>
-                      <Button variant="ghost" size="sm" className="h-7 text-xs" style={{ color: T3 }} onClick={clearCart}>
+                      <h4 className="min-w-0 truncate" style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{t('vipHost.cart').replace('{count}', String(cartItemCount))}</h4>
+                      <Button variant="ghost" size="sm" className="h-9 shrink-0 text-xs" style={{ color: T3 }} onClick={clearCart}>
                         <Trash2 className="w-3 h-3 mr-1" />
                         {t('vipHost.clear')}
                       </Button>
                     </div>
                     <div className="space-y-2 mb-4">
                       {orderCart.map(ci => (
-                        <div key={ci.item.id} className="flex items-center justify-between">
-                          <div className="flex-1 min-w-0">
-                            <span className="text-sm truncate" style={{ color: T1 }}>{ci.item.name}</span>
+                        <div key={ci.item.id} className="flex items-center justify-between gap-2">
+                          {/* truncate sur le bloc parent : un <span> inline ne se tronque pas. */}
+                          <div className="flex-1 min-w-0 truncate">
+                            <span className="text-sm" style={{ color: T1 }}>{ci.item.name}</span>
                             {ci.item.default_price > 0 && (
                               <span className="text-xs ml-1 tabular-nums" style={{ color: T3 }}>({ci.item.default_price}€)</span>
                             )}
                           </div>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex shrink-0 items-center gap-1.5">
                             <Button
                               variant="outline"
                               size="icon"
-                              className="h-6 w-6"
+                              className="h-9 w-9"
                               onClick={() => updateCartQuantity(ci.item.id, -1)}
                             >
                               <Minus className="w-3 h-3" />
@@ -450,7 +457,7 @@ export function VipTableDetail({
                             <Button
                               variant="outline"
                               size="icon"
-                              className="h-6 w-6"
+                              className="h-9 w-9"
                               onClick={() => updateCartQuantity(ci.item.id, 1)}
                             >
                               <Plus className="w-3 h-3" />
@@ -510,22 +517,22 @@ export function VipTableDetail({
                             className="w-[10px] h-[10px] rounded-full mt-1.5 z-10"
                             style={{ marginLeft: '18px', background: index === 0 ? RED : 'rgba(255,255,255,0.2)' }}
                           />
-                          <div className="flex-1 p-3" style={tile}>
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <div className="text-sm" style={{ color: T1, fontWeight: 500 }}>
+                          <div className="min-w-0 flex-1 p-3" style={tile}>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-sm" style={{ color: T1, fontWeight: 500 }}>
                                   {c.quantity > 1 && `${c.quantity}x `}{c.itemName}
                                 </div>
                                 <div className="text-xs mt-0.5 flex items-center" style={{ color: T3 }}>
-                                  <span className="tabular-nums">{format(new Date(c.servedAt), 'HH:mm', { locale })}</span>
+                                  <span className="tabular-nums shrink-0">{format(new Date(c.servedAt), 'HH:mm', { locale })}</span>
                                   {c.itemType && (
-                                    <span className="ml-2 text-[10px] px-1.5 rounded-full" style={{ border: `1px solid ${BORDER}`, color: T3 }}>
+                                    <span className="ml-2 truncate text-[10px] px-1.5 rounded-full" style={{ border: `1px solid ${BORDER}`, color: T3 }}>
                                       {c.itemType}
                                     </span>
                                   )}
                                 </div>
                               </div>
-                              <div className="text-sm tabular-nums" style={{ color: T1, fontWeight: 600 }}>{c.totalPrice.toFixed(0)}€</div>
+                              <div className="shrink-0 text-sm tabular-nums" style={{ color: T1, fontWeight: 600 }}>{c.totalPrice.toFixed(0)}€</div>
                             </div>
                           </div>
                         </div>
@@ -567,9 +574,9 @@ export function VipTableDetail({
                           style={{ width: `${Math.min(100, (totalConsumed / reservation.totalPrice) * 100)}%`, background: POS }}
                         />
                       </div>
-                      <div className="flex justify-between text-xs mt-1" style={{ color: T3 }}>
-                        <span>{t('vipHost.percentConsumed').replace('{pct}', ((totalConsumed / reservation.totalPrice) * 100).toFixed(0))}</span>
-                        <span style={{ color: POS }}>
+                      <div className="flex justify-between gap-2 text-xs mt-1" style={{ color: T3 }}>
+                        <span className="min-w-0 truncate">{t('vipHost.percentConsumed').replace('{pct}', ((totalConsumed / reservation.totalPrice) * 100).toFixed(0))}</span>
+                        <span className="shrink-0 text-right" style={{ color: POS }}>
                           {totalConsumed > reservation.totalPrice
                             ? t('vipHost.beyondBudget').replace('{amount}', (totalConsumed - reservation.totalPrice).toFixed(0))
                             : t('vipHost.remainingBudget').replace('{amount}', remainingCredit.toFixed(0))
@@ -599,9 +606,9 @@ export function VipTableDetail({
                           <div className="text-sm mb-3" style={{ color: T3 }}>{t('vipHost.byCategory')}</div>
                           <div className="space-y-2">
                             {Object.entries(stats.byType).map(([type, amount]) => (
-                              <div key={type} className="flex items-center justify-between">
-                                <span className="text-sm capitalize" style={{ color: T1 }}>{type}</span>
-                                <span className="tabular-nums" style={{ color: T1, fontWeight: 500 }}>{(amount as number).toFixed(0)}€</span>
+                              <div key={type} className="flex items-center justify-between gap-2">
+                                <span className="min-w-0 truncate text-sm capitalize" style={{ color: T1 }}>{type}</span>
+                                <span className="shrink-0 tabular-nums" style={{ color: T1, fontWeight: 500 }}>{(amount as number).toFixed(0)}€</span>
                               </div>
                             ))}
                           </div>
@@ -615,9 +622,12 @@ export function VipTableDetail({
           </div>
         </ScrollArea>
 
-        {/* Fixed footer — actions only for seated guests (placed/active) */}
+        {/* Footer dans le flux (shrink-0) — actions only for seated guests (placed/active) */}
         {['placed', 'active'].includes(reservation.vipStatus) && (
-          <div className="absolute bottom-0 left-0 right-0 p-4 backdrop-blur" style={{ background: 'rgba(10,10,12,0.92)', borderTop: `1px solid ${BORDER}`, paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
+          <div
+            className="shrink-0 px-4 pt-4 backdrop-blur sm:px-6"
+            style={{ background: 'rgba(10,10,12,0.92)', borderTop: `1px solid ${BORDER}`, paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+          >
             <div className="flex gap-2">
               {venueId && (
                 <VipServiceMomentButton
@@ -629,17 +639,17 @@ export function VipTableDetail({
               )}
               {canReassign && onReassign && (
                 <Button
-                  className="flex-1 h-12"
+                  className="min-w-0 flex-1 h-12 px-2"
                   variant="outline"
                   onClick={() => onReassign(reservation)}
                   disabled={loading || actionsDisabled}
                 >
-                  <MapPin className="w-5 h-5 mr-2" />
-                  {t('vipHost.reassignTable')}
+                  <MapPin className="w-5 h-5 mr-1.5 shrink-0" />
+                  <span className="truncate">{t('vipHost.reassignTable')}</span>
                 </Button>
               )}
               <Button
-                className="flex-1 h-12"
+                className="min-w-0 flex-1 h-12 px-2"
                 variant="secondary"
                 onClick={handleMarkFinished}
                 disabled={loading || actionsDisabled}
@@ -648,8 +658,8 @@ export function VipTableDetail({
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                   <>
-                    <CheckCircle2 className="w-5 h-5 mr-2" />
-                    {t('vipHost.markFinished')}
+                    <CheckCircle2 className="w-5 h-5 mr-1.5 shrink-0" />
+                    <span className="truncate">{t('vipHost.markFinished')}</span>
                   </>
                 )}
               </Button>

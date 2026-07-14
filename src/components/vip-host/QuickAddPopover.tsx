@@ -105,8 +105,9 @@ export function QuickAddPopover({ items, reservationId, venueId, onOrderSent, ch
       <PopoverTrigger asChild>
         {children}
       </PopoverTrigger>
-      <PopoverContent 
-        className="w-80 p-0" 
+      {/* w-80 fixe déborderait sur un petit téléphone (360px) : plafonné à la largeur écran. */}
+      <PopoverContent
+        className="w-80 max-w-[calc(100vw-1.5rem)] p-0"
         align="end"
         onClick={(e) => e.stopPropagation()}
       >
@@ -121,22 +122,22 @@ export function QuickAddPopover({ items, reservationId, venueId, onOrderSent, ch
                   const inCart = cart.find(e => e.item.id === item.id);
                   return (
                     <div key={item.id} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/5">
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 pr-1">
                         <div className="text-sm font-medium truncate" style={{ color: 'rgba(255,255,255,0.96)' }}>{item.name}</div>
                         <div className="text-xs tabular-nums" style={{ color: 'rgba(255,255,255,0.36)' }}>{item.price}€</div>
                       </div>
                       {inCart ? (
-                        <div className="flex items-center gap-1">
-                          <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQuantity(item.id, -1)}>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => updateQuantity(item.id, -1)}>
                             <Minus className="w-3 h-3" />
                           </Button>
                           <span className="w-6 text-center text-sm font-bold tabular-nums" style={{ color: 'rgba(255,255,255,0.96)' }}>{inCart.quantity}</span>
-                          <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQuantity(item.id, 1)}>
+                          <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => updateQuantity(item.id, 1)}>
                             <Plus className="w-3 h-3" />
                           </Button>
                         </div>
                       ) : (
-                        <Button size="sm" className="h-7 px-2" onClick={() => addToCart(item)}>
+                        <Button size="sm" className="h-9 w-9 shrink-0 p-0" onClick={() => addToCart(item)}>
                           <Plus className="w-3 h-3" />
                         </Button>
                       )}
@@ -157,22 +158,22 @@ export function QuickAddPopover({ items, reservationId, venueId, onOrderSent, ch
                   const inCart = cart.find(e => e.item.id === item.id);
                   return (
                     <div key={item.id} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white/5">
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 pr-1">
                         <div className="text-sm font-medium truncate" style={{ color: 'rgba(255,255,255,0.96)' }}>{item.name}</div>
                         <div className="text-xs tabular-nums" style={{ color: 'rgba(255,255,255,0.36)' }}>{item.price}€</div>
                       </div>
                       {inCart ? (
-                        <div className="flex items-center gap-1">
-                          <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQuantity(item.id, -1)}>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => updateQuantity(item.id, -1)}>
                             <Minus className="w-3 h-3" />
                           </Button>
                           <span className="w-6 text-center text-sm font-bold tabular-nums" style={{ color: 'rgba(255,255,255,0.96)' }}>{inCart.quantity}</span>
-                          <Button variant="outline" size="icon" className="h-6 w-6" onClick={() => updateQuantity(item.id, 1)}>
+                          <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => updateQuantity(item.id, 1)}>
                             <Plus className="w-3 h-3" />
                           </Button>
                         </div>
                       ) : (
-                        <Button size="sm" className="h-7 px-2" onClick={() => addToCart(item)}>
+                        <Button size="sm" className="h-9 w-9 shrink-0 p-0" onClick={() => addToCart(item)}>
                           <Plus className="w-3 h-3" />
                         </Button>
                       )}
@@ -198,7 +199,7 @@ export function QuickAddPopover({ items, reservationId, venueId, onOrderSent, ch
               <span className="text-sm font-bold tabular-nums" style={{ color: 'rgba(255,255,255,0.96)' }}>{cartTotal}€</span>
             </div>
             <Button
-              className="w-full h-9 font-semibold gap-2"
+              className="w-full h-11 font-semibold gap-2"
               onClick={sendOrder}
               disabled={sending}
             >

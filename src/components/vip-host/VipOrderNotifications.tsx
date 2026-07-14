@@ -328,37 +328,45 @@ export function VipOrderNotifications({ venueId, onOrderConfirmed, onPendingCoun
       }}
       onClick={() => setSelectedOrder(order)}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      {/* Le nom du client est la seule donnée de largeur libre : il doit tronquer,
+          jamais repousser le montant. D'où min-w-0 sur toute la colonne gauche et
+          shrink-0 sur le bloc prix — sinon le nom passe à la ligne et le prix vient
+          percuter le badge de statut. */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
           <div
-            className="w-10 h-10 rounded-full flex items-center justify-center"
+            className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
             style={{ backgroundColor: order.zone_color + '20' }}
           >
             <Wine className="h-5 w-5" style={{ color: order.zone_color }} />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span style={{ color: T1, fontWeight: 600 }}>{order.reservation_name}</span>
-              {getStatusBadge(order.status)}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="truncate" style={{ color: T1, fontWeight: 600 }}>{order.reservation_name}</span>
+              <span className="shrink-0">{getStatusBadge(order.status)}</span>
             </div>
-            <div className="flex items-center gap-2 text-xs" style={{ color: T3 }}>
-              <Badge variant="outline" style={{ borderColor: order.zone_color, color: order.zone_color }}>
+            <div className="flex items-center gap-2 text-xs min-w-0" style={{ color: T3 }}>
+              <Badge
+                variant="outline"
+                className="max-w-[40%] shrink-0 truncate"
+                style={{ borderColor: order.zone_color, color: order.zone_color }}
+              >
                 {order.zone_name}
               </Badge>
-              <span>•</span>
-              <Clock className="h-3 w-3" />
-              <span>
+              <span className="shrink-0">•</span>
+              <Clock className="h-3 w-3 shrink-0" />
+              <span className="truncate">
                 {formatDistanceToNow(new Date(order.created_at), { locale, addSuffix: true })}
               </span>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <div className="text-right">
-            <p className="tabular-nums" style={{ color: T1, fontWeight: 700 }}>{order.total_amount}€</p>
-            <p className="text-xs tabular-nums" style={{ color: T3 }}>{order.items.length} {t('vipOrders.articles')}</p>
+            <p className="tabular-nums whitespace-nowrap" style={{ color: T1, fontWeight: 700 }}>{order.total_amount}€</p>
+            <p className="text-xs tabular-nums whitespace-nowrap" style={{ color: T3 }}>{order.items.length} {t('vipOrders.articles')}</p>
           </div>
-          <ChevronRight className="h-5 w-5" style={{ color: T3 }} />
+          <ChevronRight className="h-5 w-5 shrink-0" style={{ color: T3 }} />
         </div>
       </div>
     </div>
@@ -424,13 +432,16 @@ export function VipOrderNotifications({ venueId, onOrderConfirmed, onPendingCoun
 
       {/* Order Detail Sheet */}
       <Sheet open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-        <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl">
+        {/* Colonne flex (header / scroll / footer) plutôt qu'un footer en position
+            absolue au-dessus d'une ScrollArea calée sur une hauteur magique : sur un
+            petit téléphone, h-[calc(100%-200px)] rognait le dernier article. */}
+        <SheetContent side="bottom" className="h-[85vh] rounded-t-3xl flex flex-col p-4 pb-0">
           {selectedOrder && (
             <>
-              <SheetHeader className="pb-4">
-                <div className="flex items-center justify-between">
-                  <SheetTitle>{t('vipOrders.orderFrom')} {selectedOrder.reservation_name}</SheetTitle>
-                  {getStatusBadge(selectedOrder.status)}
+              <SheetHeader className="pb-4 shrink-0 pr-8">
+                <div className="flex items-center justify-between gap-2">
+                  <SheetTitle className="truncate">{t('vipOrders.orderFrom')} {selectedOrder.reservation_name}</SheetTitle>
+                  <span className="shrink-0">{getStatusBadge(selectedOrder.status)}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm" style={{ color: T3 }}>
                   <Badge variant="outline" style={{ borderColor: selectedOrder.zone_color, color: selectedOrder.zone_color }}>
@@ -441,15 +452,15 @@ export function VipOrderNotifications({ venueId, onOrderConfirmed, onPendingCoun
                 </div>
               </SheetHeader>
 
-              <ScrollArea className="h-[calc(100%-200px)]">
+              <ScrollArea className="flex-1 min-h-0 -mx-4 px-4">
                 <div className="space-y-3">
                   {selectedOrder.items.map(item => (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between p-3 rounded-lg"
+                      className="flex items-center justify-between gap-3 p-3 rounded-lg"
                       style={{ background: TILE_BG, border: `1px solid ${BORDER}` }}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         <div className="w-12 h-12 rounded-lg bg-black overflow-hidden flex items-center justify-center shrink-0">
                           {item.item_image_url ? (
                             <img
@@ -461,27 +472,27 @@ export function VipOrderNotifications({ venueId, onOrderConfirmed, onPendingCoun
                             <Wine className="h-5 w-5" style={{ color: T3 }} />
                           )}
                         </div>
-                        <div>
-                          <p style={{ color: T1, fontWeight: 500 }}>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate" style={{ color: T1, fontWeight: 500 }}>
                             {item.quantity > 1 && `${item.quantity}x `}
                             {item.item_name}
                           </p>
                           <div className="flex items-center gap-2 flex-wrap">
                             {item.item_brand && (
-                              <span className="text-xs" style={{ color: T3 }}>{item.item_brand}</span>
+                              <span className="text-xs truncate" style={{ color: T3 }}>{item.item_brand}</span>
                             )}
                             {item.item_volume_cl && (
-                              <span className="text-xs tabular-nums" style={{ color: T3 }}>{item.item_volume_cl}cl</span>
+                              <span className="text-xs tabular-nums shrink-0" style={{ color: T3 }}>{item.item_volume_cl}cl</span>
                             )}
                              {item.is_included && (
-                              <Badge variant="secondary" className="text-xs text-emerald-400">
+                              <Badge variant="secondary" className="text-xs text-emerald-400 shrink-0">
                                 {t('vipOrders.included')}
                               </Badge>
                             )}
                           </div>
                         </div>
                       </div>
-                      <span className="tabular-nums" style={{ color: T1, fontWeight: 600 }}>
+                      <span className="tabular-nums shrink-0 whitespace-nowrap" style={{ color: T1, fontWeight: 600 }}>
                         {item.is_included ? t('vipOrders.included') : `${item.quantity * item.unit_price}€`}
                       </span>
                     </div>
@@ -504,12 +515,12 @@ export function VipOrderNotifications({ venueId, onOrderConfirmed, onPendingCoun
               </ScrollArea>
 
               {/* Actions */}
-              <div className="absolute bottom-0 left-0 right-0 p-4 backdrop-blur space-y-2" style={{ background: 'rgba(10,10,12,0.92)', borderTop: `1px solid ${BORDER}`, paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
+              <div className="shrink-0 -mx-4 mt-3 px-4 pt-3 backdrop-blur space-y-2" style={{ background: 'rgba(10,10,12,0.92)', borderTop: `1px solid ${BORDER}`, paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}>
                 {selectedOrder.status === 'pending' && (
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
-                      className="flex-1"
+                      className="flex-1 h-12"
                       onClick={() => handleCancelOrder(selectedOrder.id)}
                       disabled={processing}
                     >
@@ -517,7 +528,7 @@ export function VipOrderNotifications({ venueId, onOrderConfirmed, onPendingCoun
                        {t('vipOrders.refuse')}
                     </Button>
                     <Button
-                      className="flex-1 bg-emerald-500 hover:bg-emerald-600"
+                      className="flex-1 h-12 bg-emerald-500 hover:bg-emerald-600"
                       onClick={() => handleConfirmOrder(selectedOrder.id)}
                       disabled={processing}
                     >
@@ -534,7 +545,7 @@ export function VipOrderNotifications({ venueId, onOrderConfirmed, onPendingCoun
                 )}
                 {(selectedOrder.status === 'confirmed' || selectedOrder.status === 'preparing') && (
                   <Button
-                    className="w-full bg-amber-500 hover:bg-amber-600 text-black"
+                    className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-black"
                     onClick={() => handleMarkServed(selectedOrder.id)}
                     disabled={processing}
                   >

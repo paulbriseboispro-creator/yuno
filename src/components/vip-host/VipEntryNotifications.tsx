@@ -49,22 +49,22 @@ export function VipEntryNotifications({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <Crown className="w-4 h-4" style={{ color: RED }} />
-          <h3 style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{t('vip.newArrivals')}</h3>
-          <span className="h-5 px-1.5 text-xs rounded-full flex items-center tabular-nums" style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1 }}>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <Crown className="w-4 h-4 shrink-0" style={{ color: RED }} />
+          <h3 className="min-w-0 truncate" style={{ color: T1, fontSize: 14, fontWeight: 600 }}>{t('vip.newArrivals')}</h3>
+          <span className="h-5 shrink-0 px-1.5 text-xs rounded-full flex items-center tabular-nums" style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1 }}>
             {entryNotifications.length}
           </span>
         </div>
         {entryNotifications.length > 1 && (
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="text-xs h-7"
+          <Button
+            variant="ghost"
+            size="sm"
+            className="min-w-0 shrink-0 text-xs h-10"
             onClick={onMarkAllAsRead}
           >
-            {t('vip.markAllRead')}
+            <span className="truncate">{t('vip.markAllRead')}</span>
           </Button>
         )}
       </div>
@@ -98,7 +98,7 @@ export function VipEntryNotifications({
                         {metadata.guest_name || 'VIP Guest'}
                       </h4>
                       {notification.priority === 'high' && (
-                        <span className="text-[10px] px-1.5 rounded-full" style={{ color: RED, border: `1px solid ${RED}` }}>
+                        <span className="shrink-0 text-[10px] px-1.5 rounded-full" style={{ color: RED, border: `1px solid ${RED}` }}>
                           VIP
                         </span>
                       )}
@@ -128,10 +128,11 @@ export function VipEntryNotifications({
                       </div>
                     )}
 
+                    {/* h-10 : cible tactile utilisable dans le noir, doigts en mouvement. */}
                     <div className="flex items-center gap-2">
-                      <Button 
-                        size="sm" 
-                        className="h-7 text-xs"
+                      <Button
+                        size="sm"
+                        className="h-10 min-w-0 text-xs"
                         onClick={() => {
                           if (notification.referenceId) {
                             onPlaceGuest(notification.referenceId);
@@ -139,17 +140,17 @@ export function VipEntryNotifications({
                           onMarkAsRead(notification.id);
                         }}
                       >
-                        <MapPin className="w-3 h-3 mr-1" />
-                        {t('vip.place')}
+                        <MapPin className="w-3 h-3 mr-1 shrink-0" />
+                        <span className="truncate">{t('vip.place')}</span>
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-7 text-xs"
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-10 min-w-0 text-xs"
                         onClick={() => onMarkAsRead(notification.id)}
                       >
-                        <CheckCircle2 className="w-3 h-3 mr-1" />
-                        {t('vip.ok')}
+                        <CheckCircle2 className="w-3 h-3 mr-1 shrink-0" />
+                        <span className="truncate">{t('vip.ok')}</span>
                       </Button>
                     </div>
                   </div>

@@ -71,15 +71,15 @@ export function VipUpsellStats({ reservations, consumptions }: VipUpsellStatsPro
   return (
     <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 18 }}>
       <div className="flex items-center gap-2 mb-4">
-        <TrendingUp className="w-4 h-4" style={{ color: RED }} />
-        <h3 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>{t('vipHost.upsellPerformance')}</h3>
+        <TrendingUp className="w-4 h-4 shrink-0" style={{ color: RED }} />
+        <h3 className="min-w-0 truncate" style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>{t('vipHost.upsellPerformance')}</h3>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <div style={{ background: TILE_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 12 }}>
+        <div className="min-w-0" style={{ background: TILE_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 12 }}>
           <div className="flex items-center gap-2 mb-1">
-            <Target className="w-3.5 h-3.5" style={{ color: T3 }} />
-            <span style={{ color: T3, fontSize: 12 }}>{t('vipHost.achievementRate')}</span>
+            <Target className="w-3.5 h-3.5 shrink-0" style={{ color: T3 }} />
+            <span className="min-w-0 truncate" style={{ color: T3, fontSize: 12 }}>{t('vipHost.achievementRate')}</span>
           </div>
           <div className="tabular-nums" style={{ color: RED, fontSize: 20, fontWeight: 640, letterSpacing: '-0.02em' }}>
             {stats.achievementRate.toFixed(0)}%
@@ -89,10 +89,10 @@ export function VipUpsellStats({ reservations, consumptions }: VipUpsellStatsPro
           </div>
         </div>
 
-        <div style={{ background: TILE_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 12 }}>
+        <div className="min-w-0" style={{ background: TILE_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 12 }}>
           <div className="flex items-center gap-2 mb-1">
-            <Award className="w-3.5 h-3.5" style={{ color: T3 }} />
-            <span style={{ color: T3, fontSize: 12 }}>{t('vipHost.totalUpsell')}</span>
+            <Award className="w-3.5 h-3.5 shrink-0" style={{ color: T3 }} />
+            <span className="min-w-0 truncate" style={{ color: T3, fontSize: 12 }}>{t('vipHost.totalUpsell')}</span>
           </div>
           <div className="tabular-nums" style={{ color: POS, fontSize: 20, fontWeight: 640, letterSpacing: '-0.02em' }}>
             +{stats.totalUpsell.toFixed(0)}€
@@ -105,9 +105,9 @@ export function VipUpsellStats({ reservations, consumptions }: VipUpsellStatsPro
 
       {/* Progress bar showing consumption vs minimum */}
       <div className="mt-4">
-        <div className="flex items-center justify-between mb-1" style={{ color: T3, fontSize: 12 }}>
-          <span>{t('vipHost.consumedVsMinimum')}</span>
-          <span className="tabular-nums">{stats.totalConsumed.toFixed(0)}€ / {stats.totalMinimumSpend.toFixed(0)}€</span>
+        <div className="flex items-center justify-between gap-2 mb-1" style={{ color: T3, fontSize: 12 }}>
+          <span className="min-w-0 truncate">{t('vipHost.consumedVsMinimum')}</span>
+          <span className="shrink-0 tabular-nums">{stats.totalConsumed.toFixed(0)}€ / {stats.totalMinimumSpend.toFixed(0)}€</span>
         </div>
         <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
           <div

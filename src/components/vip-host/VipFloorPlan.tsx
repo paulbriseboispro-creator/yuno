@@ -339,12 +339,12 @@ export function VipFloorPlan({
         </div>
 
         {/* Zoom controls */}
-        <div className="absolute bottom-3 right-3 flex gap-1">
-          <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full shadow-md"
+        <div className="absolute bottom-3 right-3 flex gap-1.5">
+          <Button size="icon" variant="secondary" className="h-10 w-10 rounded-full shadow-md"
             onClick={() => setZoom(z => Math.min(z + 0.25, 2.5))}>
             <ZoomIn className="h-4 w-4" />
           </Button>
-          <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full shadow-md"
+          <Button size="icon" variant="secondary" className="h-10 w-10 rounded-full shadow-md"
             onClick={() => setZoom(z => Math.max(z - 0.25, 0.5))}>
             <ZoomOut className="h-4 w-4" />
           </Button>
@@ -352,21 +352,21 @@ export function VipFloorPlan({
       </div>
 
       {/* Legend */}
-      <div className="flex flex-wrap gap-3 px-1 text-xs">
+      <div className="flex flex-wrap gap-x-3 gap-y-1.5 px-1 text-xs">
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-muted/30 border border-muted-foreground/50" />
+          <div className="w-3 h-3 shrink-0 rounded bg-muted/30 border border-muted-foreground/50" />
           <span className="text-muted-foreground">Libre</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-emerald-500/20 border border-emerald-500" />
+          <div className="w-3 h-3 shrink-0 rounded bg-emerald-500/20 border border-emerald-500" />
           <span className="text-muted-foreground">OK</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-amber-500/20 border border-amber-500" />
+          <div className="w-3 h-3 shrink-0 rounded bg-amber-500/20 border border-amber-500" />
           <span className="text-muted-foreground">Sous min</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-destructive/20 border border-destructive" />
+          <div className="w-3 h-3 shrink-0 rounded bg-destructive/20 border border-destructive" />
           <span className="text-muted-foreground">Crédit épuisé</span>
         </div>
       </div>

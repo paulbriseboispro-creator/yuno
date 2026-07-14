@@ -163,22 +163,22 @@ export function VipTableOrders({ reservationId, venueId }: VipTableOrdersProps) 
     const config = statusConfig[order.status] || statusConfig.pending;
     return (
       <div key={order.id} className="p-3" style={{ background: TILE_BG, border: `1px solid ${BORDER}`, borderRadius: 12 }}>
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <Badge className={config.className}>{t(config.labelKey)}</Badge>
-            <span className="text-xs" style={{ color: T3 }}>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Badge className={`${config.className} shrink-0`}>{t(config.labelKey)}</Badge>
+            <span className="min-w-0 truncate text-xs" style={{ color: T3 }}>
               {formatDistanceToNow(new Date(order.created_at), { locale, addSuffix: true })}
             </span>
           </div>
-          <span className="font-bold text-sm tabular-nums" style={{ color: T1 }}>{order.total_amount}€</span>
+          <span className="shrink-0 font-bold text-sm tabular-nums" style={{ color: T1 }}>{order.total_amount}€</span>
         </div>
         <div className="space-y-1">
           {order.items.map(item => (
-            <div key={item.id} className="flex items-center justify-between text-sm">
-              <span style={{ color: T3 }}>
+            <div key={item.id} className="flex items-center justify-between gap-2 text-sm">
+              <span className="min-w-0 truncate" style={{ color: T3 }}>
                 {item.quantity > 1 && `${item.quantity}x `}{item.item_name}
               </span>
-              <span className="text-xs tabular-nums" style={{ color: T1 }}>{(item.quantity * item.unit_price).toFixed(0)}€</span>
+              <span className="shrink-0 text-xs tabular-nums" style={{ color: T1 }}>{(item.quantity * item.unit_price).toFixed(0)}€</span>
             </div>
           ))}
         </div>
@@ -188,23 +188,23 @@ export function VipTableOrders({ reservationId, venueId }: VipTableOrdersProps) 
 
   const renderPreorderCard = (order: TableOrder) => (
     <div key={order.id} className="p-3" style={{ background: 'rgba(231,193,90,0.08)', border: `1px solid ${GOLD}3a`, borderRadius: 12 }}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: GOLD }}>
-          <Sparkles className="w-3.5 h-3.5" />
-          {tt('Pré-commande', 'Pre-order', 'Pre-pedido')}
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide" style={{ color: GOLD }}>
+          <Sparkles className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">{tt('Pré-commande', 'Pre-order', 'Pre-pedido')}</span>
         </span>
-        <span className="font-bold text-sm tabular-nums" style={{ color: T1 }}>{order.total_amount}€</span>
+        <span className="shrink-0 font-bold text-sm tabular-nums" style={{ color: T1 }}>{order.total_amount}€</span>
       </div>
       <div className="space-y-1 mb-3">
         {order.items.map(item => (
-          <div key={item.id} className="flex items-center justify-between text-sm">
-            <span style={{ color: T3 }}>{item.quantity > 1 && `${item.quantity}x `}{item.item_name}</span>
-            <span className="text-xs tabular-nums" style={{ color: T1 }}>{(item.quantity * item.unit_price).toFixed(0)}€</span>
+          <div key={item.id} className="flex items-center justify-between gap-2 text-sm">
+            <span className="min-w-0 truncate" style={{ color: T3 }}>{item.quantity > 1 && `${item.quantity}x `}{item.item_name}</span>
+            <span className="shrink-0 text-xs tabular-nums" style={{ color: T1 }}>{(item.quantity * item.unit_price).toFixed(0)}€</span>
           </div>
         ))}
       </div>
       <Button
-        className="w-full h-10 font-semibold gap-2"
+        className="w-full h-11 font-semibold gap-2"
         style={{ background: GOLD, color: '#0a0a0c' }}
         onClick={() => validatePreorder(order.id)}
         disabled={validating === order.id}

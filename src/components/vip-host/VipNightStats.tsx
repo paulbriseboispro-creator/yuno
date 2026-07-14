@@ -67,32 +67,34 @@ export function VipNightStats({ reservations, consumptions }: VipNightStatsProps
         <h4 style={{ color: T1, fontSize: 14, fontWeight: 500 }}>{t('vipHost.tonight')}</h4>
       </div>
 
-      <div className="grid grid-cols-4 gap-3 text-center">
-        <div>
-          <div className="tabular-nums" style={{ color: T1, fontSize: 18, fontWeight: 640, letterSpacing: '-0.02em' }}>
+      {/* 4 colonnes à 390px : le chiffre passe à 15px sur téléphone, sinon un CA à 5 chiffres
+          déborde de la carte (et fait scroller la page horizontalement). */}
+      <div className="grid grid-cols-4 gap-2 text-center sm:gap-3">
+        <div className="min-w-0">
+          <div className="tabular-nums text-[15px] sm:text-[18px]" style={{ color: T1, fontWeight: 640, letterSpacing: '-0.02em' }}>
             {stats.activeTables}/{stats.totalTables}
           </div>
-          <div className="text-[10px]" style={{ color: T3 }}>{t('vipHost.tables')}</div>
+          <div className="text-[10px] truncate" style={{ color: T3 }}>{t('vipHost.tables')}</div>
         </div>
-        <div>
-          <div className="flex items-center justify-center gap-0.5 tabular-nums" style={{ color: T1, fontSize: 18, fontWeight: 640, letterSpacing: '-0.02em' }}>
-            <Users className="w-3.5 h-3.5" />
+        <div className="min-w-0">
+          <div className="flex items-center justify-center gap-0.5 tabular-nums text-[15px] sm:text-[18px]" style={{ color: T1, fontWeight: 640, letterSpacing: '-0.02em' }}>
+            <Users className="w-3.5 h-3.5 shrink-0" />
             {stats.totalGuests}
           </div>
-          <div className="text-[10px]" style={{ color: T3 }}>VIPs</div>
+          <div className="text-[10px] truncate" style={{ color: T3 }}>VIPs</div>
         </div>
-        <div>
-          <div className="tabular-nums" style={{ color: RED, fontSize: 18, fontWeight: 640, letterSpacing: '-0.02em' }}>
+        <div className="min-w-0">
+          <div className="tabular-nums text-[15px] sm:text-[18px]" style={{ color: RED, fontWeight: 640, letterSpacing: '-0.02em' }}>
             {stats.totalRevenue.toFixed(0)}€
           </div>
-          <div className="text-[10px]" style={{ color: T3 }}>{t('vipHost.conso')}</div>
+          <div className="text-[10px] truncate" style={{ color: T3 }}>{t('vipHost.conso')}</div>
         </div>
-        <div>
-          <div className="flex items-center justify-center gap-0.5 tabular-nums" style={{ color: T1, fontSize: 18, fontWeight: 640, letterSpacing: '-0.02em' }}>
-            <Clock className="w-3.5 h-3.5" />
+        <div className="min-w-0">
+          <div className="flex items-center justify-center gap-0.5 tabular-nums text-[15px] sm:text-[18px]" style={{ color: T1, fontWeight: 640, letterSpacing: '-0.02em' }}>
+            <Clock className="w-3.5 h-3.5 shrink-0" />
             {stats.avgTimeFormatted}
           </div>
-          <div className="text-[10px]" style={{ color: T3 }}>{t('vipHost.avg')}</div>
+          <div className="text-[10px] truncate" style={{ color: T3 }}>{t('vipHost.avg')}</div>
         </div>
       </div>
     </div>

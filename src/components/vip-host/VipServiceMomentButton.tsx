@@ -57,10 +57,11 @@ export function VipServiceMomentButton({ venueId, reservationId, eventId, disabl
         <button
           type="button"
           disabled={disabled || sending}
-          className="h-11 px-3 rounded-lg flex items-center justify-center gap-1.5 text-[13px] font-semibold transition-colors disabled:opacity-40"
+          // h-12 : même hauteur que les boutons voisins de la barre d'action du détail table.
+          className="h-12 shrink-0 whitespace-nowrap px-3 rounded-lg flex items-center justify-center gap-1.5 text-[13px] font-semibold transition-colors disabled:opacity-40"
           style={{ background: 'rgba(231,193,90,0.12)', border: '1px solid rgba(231,193,90,0.3)', color: '#E7C15A' }}
         >
-          {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+          {sending ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Sparkles className="w-4 h-4 shrink-0" />}
           {tt('Moment', 'Moment', 'Momento')}
         </button>
       </PopoverTrigger>

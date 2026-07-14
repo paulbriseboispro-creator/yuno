@@ -95,18 +95,18 @@ export function VipGuestBlackBook({ venueId, userId, email }: Props) {
       padding: '16px 18px',
     }}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <Crown className="h-4 w-4 flex-none" style={{ color: isReturning ? GOLD : T3 }} />
-          <span className="text-[13px] font-semibold" style={{ color: T1 }}>
+          <span className="min-w-0 truncate text-[13px] font-semibold" style={{ color: T1 }}>
             {isReturning
               ? tt(`Habitué · ${data.nights}e visite`, `Regular · visit #${data.nights}`, `Habitual · visita #${data.nights}`)
               : tt('Première visite', 'First visit', 'Primera visita')}
           </span>
         </div>
         {lastSeenLabel && isReturning && (
-          <span className="text-[11px] flex items-center gap-1" style={{ color: T3 }}>
-            <CalendarClock className="h-3 w-3" /> {tt('vu', 'seen', 'visto')} {lastSeenLabel}
+          <span className="shrink-0 whitespace-nowrap text-[11px] flex items-center gap-1" style={{ color: T3 }}>
+            <CalendarClock className="h-3 w-3 shrink-0" /> {tt('vu', 'seen', 'visto')} {lastSeenLabel}
           </span>
         )}
       </div>
@@ -137,9 +137,12 @@ export function VipGuestBlackBook({ venueId, userId, email }: Props) {
             </span>
           )}
           {data.top_bottles.slice(0, 3).map((b, i) => (
-            <span key={(b.name ?? '') + i} className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full"
+            <span key={(b.name ?? '') + i} className="inline-flex max-w-full items-center gap-1 text-[11px] px-2 py-1 rounded-full"
               style={{ background: FAINT, color: T2, border: `1px solid ${BORDER}` }}>
-              <Wine className="h-3 w-3" /> {b.name} <span style={{ color: T3 }}>×{b.qty}</span>
+              <Wine className="h-3 w-3 shrink-0" />
+              {/* Nom de bouteille saisi par le club : plafonné, sinon la pastille dépasse la carte. */}
+              <span className="min-w-0 max-w-[9rem] truncate">{b.name}</span>
+              <span className="shrink-0" style={{ color: T3 }}>×{b.qty}</span>
             </span>
           ))}
         </div>

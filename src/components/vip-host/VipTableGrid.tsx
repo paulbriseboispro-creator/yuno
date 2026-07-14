@@ -67,18 +67,19 @@ export function VipTableGrid({ reservations, consumptions, onSelect }: VipTableG
             style={{ borderRadius: 14, ...statusStyles[status] }}
             onClick={() => onSelect(reservation)}
           >
-            <div className="flex items-start justify-between mb-2">
-              <div className="flex items-center gap-1.5">
+            <div className="flex items-start justify-between gap-1.5 mb-2">
+              <div className="flex min-w-0 items-center gap-1.5">
                 <div
-                  className={cn('w-2 h-2 rounded-full', status === 'expected' && 'animate-pulse')}
+                  className={cn('w-2 h-2 rounded-full shrink-0', status === 'expected' && 'animate-pulse')}
                   style={{ background: dotStyles[status] }}
                 />
-                <span style={{ color: T3, fontSize: 12, fontWeight: 500 }}>
+                {/* Nom de table saisi par le club : peut être long ("Carré Cristal") sur 2 colonnes. */}
+                <span className="min-w-0 truncate" style={{ color: T3, fontSize: 12, fontWeight: 500 }}>
                   {reservation.assignedTableName || reservation.assignedTableId || reservation.zoneName?.slice(0, 8)}
                 </span>
               </div>
               <div
-                className="w-2 h-2 rounded-full"
+                className="w-2 h-2 shrink-0 rounded-full mt-1"
                 style={{ backgroundColor: reservation.zoneColor || '#666' }}
               />
             </div>
@@ -88,14 +89,14 @@ export function VipTableGrid({ reservations, consumptions, onSelect }: VipTableG
               {!hasArrived && <span className="text-[10px] ml-1">({t('vipHost.expectedLabel')})</span>}
             </div>
 
-            <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center justify-between gap-1 text-xs">
               <span
-                className="tabular-nums"
+                className="min-w-0 truncate tabular-nums"
                 style={{ fontWeight: 700, color: !hasArrived ? T3 : totalConsumed > 0 ? '#34D399' : T3 }}
               >
                 {totalConsumed.toFixed(0)}€
               </span>
-              <span className="flex items-center gap-0.5 tabular-nums" style={{ color: T3 }}>
+              <span className="flex shrink-0 items-center gap-0.5 tabular-nums" style={{ color: T3 }}>
                 <Users className="w-3 h-3" />
                 {reservation.guestCount}
               </span>

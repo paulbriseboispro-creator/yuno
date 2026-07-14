@@ -43,7 +43,7 @@ export function VipPriorityLane({
         <button
           onClick={onOrdersClick}
           className={cn(
-            'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium',
+            'flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 min-h-[36px] rounded-full text-xs font-medium',
             'bg-destructive/10 text-destructive border border-destructive/20',
             'animate-pulse hover:bg-destructive/20 transition-colors'
           )}
@@ -57,7 +57,7 @@ export function VipPriorityLane({
         <button
           onClick={onArrivalsClick}
           className={cn(
-            'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium',
+            'flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 min-h-[36px] rounded-full text-xs font-medium',
             'bg-primary/10 text-primary border border-primary/20',
             'animate-pulse hover:bg-primary/20 transition-colors'
           )}
@@ -71,7 +71,7 @@ export function VipPriorityLane({
         <button
           onClick={() => underMinimumTables[0] && onLowCreditClick(underMinimumTables[0].id)}
           className={cn(
-            'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium',
+            'flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-2 min-h-[36px] rounded-full text-xs font-medium',
             'bg-orange-500/10 text-orange-500 border border-orange-500/20',
             'hover:bg-orange-500/20 transition-colors'
           )}
