@@ -114,6 +114,9 @@ export default function OwnerAccounting() {
   const [vatRate, setVatRate] = useState(20);
   const [period, setPeriod] = useState<string>(format(new Date(), 'yyyy-MM'));
   const [reports, setReports] = useState<EventReport[]>([]);
+  // Nom de l'entité (club ou orga) pour l'en-tête du PDF — le PDF affichait le
+  // TITRE DE L'EVENT à la place du nom du lieu.
+  const [scopeName, setScopeName] = useState('');
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -141,6 +144,14 @@ export default function OwnerAccounting() {
       const scopeId = isOrganizerScope ? organizerUserId! : venueId!;
       const ownCol = isOrganizerScope ? 'organizer_user_id' : 'venue_id';
       const partnerCol = isOrganizerScope ? 'partner_organizer_id' : 'partner_venue_id';
+
+      if (isOrganizerScope) {
+        supabase.from('organizer_profiles').select('display_name').eq('user_id', scopeId).maybeSingle()
+          .then(({ data }) => setScopeName((data as { display_name?: string } | null)?.display_name ?? ''));
+      } else {
+        supabase.from('venues').select('name').eq('id', scopeId).maybeSingle()
+          .then(({ data }) => setScopeName((data as { name?: string } | null)?.name ?? ''));
+      }
 
       const { data: evData, error: evErr } = await supabase
         .from('events')
@@ -325,7 +336,7 @@ export default function OwnerAccounting() {
       }));
       const ht = r2(rep.ttc / (1 + vatRate / 100));
       downloadAccountingPDF({
-        venueName: rep.event.title || '',
+        venueName: scopeName || rep.event.title || '',
         eventTitle: rep.event.title || '—',
         eventDate: rep.event.start_at ? new Date(rep.event.start_at) : undefined,
         creatorSharePct: rep.creatorPct,

@@ -32,7 +32,7 @@ import { OwnerTicketOrders } from '@/components/owner/OwnerTicketOrders';
 import { OwnerVipOrders } from '@/components/owner/OwnerVipOrders';
 import { OwnerDrinkOrders } from '@/components/owner/OwnerDrinkOrders';
 import { OwnerHeader } from '@/components/OwnerHeader';
-import { ticketRevenue, tableRevenue } from '@/utils/fees';
+import { ticketRevenue, tableRevenue, orderRevenue } from '@/utils/fees';
 import { getEffectiveSplit } from '@/utils/coEventSplit';
 import { normalizeSplitRules } from '@/lib/splitRules';
 import {
@@ -151,28 +151,37 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
       }
 
       // Revenue stats — shared night revenue + the viewer's own share.
-      const [{ data: tickets }, { data: reservations }, { data: gl }] = await Promise.all([
+      // Boissons : lues côté CLUB uniquement (RLS orders = owner du venue ; et le
+      // bar est 100 % club par défaut). Sans elles, un club qui vit du bar voyait
+      // un « CA de la soirée » qui ignorait sa recette principale.
+      const [{ data: tickets }, { data: reservations }, { data: gl }, { data: drinkOrders }] = await Promise.all([
         supabase.from('tickets').select('total_price, service_fee, insurance_fee, quantity, entry_scanned').eq('event_id', eventId).eq('status', 'paid'),
         supabase.from('table_reservations').select('total_price, service_fee, management_fee, guests_count').eq('event_id', eventId).eq('status', 'confirmed'),
         supabase.from('guest_list_entries').select('id, guest_lists!inner(event_id)').eq('guest_lists.event_id', eventId),
+        isVenue
+          ? supabase.from('orders').select('total, service_fee, refund_amount').eq('event_id', eventId).eq('status', 'paid')
+          : Promise.resolve({ data: null } as any),
       ]);
       if (cancelled) return;
 
       const tk = (tickets ?? []) as any[];
       const tr = (reservations ?? []) as any[];
       const entries = (gl ?? []) as any[];
+      const dr = (drinkOrders ?? []) as any[];
       // CA hors frais Yuno (les frais Yuno ne sont jamais du revenu).
       const ticketCA = tk.reduce((s, x) => s + ticketRevenue(x).gross, 0);
       const tableCA = tr.reduce((s, x) => s + tableRevenue(x).gross, 0);
+      const drinksCA = dr.reduce((s, x) => s + orderRevenue(x).gross, 0);
       const shareKey = isVenue ? 'venue_pct' : 'organizer_pct';
       const ticketPct = (getEffectiveSplit(ev.revenue_split_rules, 'ticket', ev.event_mode) as any)[shareKey] / 100;
       const tablePct = (getEffectiveSplit(ev.revenue_split_rules, 'table', ev.event_mode) as any)[shareKey] / 100;
+      const drinksPct = (getEffectiveSplit(ev.revenue_split_rules, 'order', ev.event_mode) as any)[shareKey] / 100;
 
       setStats({
         sold: tk.length,
         ticketsSold: tk.reduce((s, x) => s + (x.quantity || 1), 0),
-        caSoiree: ticketCA + tableCA,
-        myShare: ticketCA * ticketPct + tableCA * tablePct,
+        caSoiree: ticketCA + tableCA + drinksCA,
+        myShare: ticketCA * ticketPct + tableCA * tablePct + drinksCA * drinksPct,
         checkins: tk.filter((x) => x.entry_scanned).length,
         tableGuests: tr.reduce((s, x) => s + (x.guests_count || 0), 0),
         glEntries: entries.length,
@@ -375,7 +384,9 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
               <StatCard icon={Ticket} label={t('Vendus', 'Sold', 'Vendidos')} value={stats.sold} />
               <StatCard icon={BarChart3} label={t('CA de la soirée', 'Night revenue', 'Ingresos de la noche')} value={`${stats.caSoiree.toFixed(2)} €`}
-                sub={t('Billets + tables, hors frais Yuno', 'Tickets + tables, excl. Yuno fees', 'Entradas + mesas, sin comisión Yuno')} />
+                sub={isVenue
+                  ? t('Billets + tables + bar, hors frais Yuno', 'Tickets + tables + bar, excl. Yuno fees', 'Entradas + mesas + bar, sin comisión Yuno')
+                  : t('Billets + tables, hors frais Yuno', 'Tickets + tables, excl. Yuno fees', 'Entradas + mesas, sin comisión Yuno')} />
               <StatCard icon={TrendingUp} label={t('Ma part du CA', 'My revenue share', 'Mi parte de ingresos')} value={`${stats.myShare.toFixed(2)} €`}
                 sub={t('Avant frais Stripe', 'Before Stripe fees', 'Antes de comisiones Stripe')} />
               <StatCard icon={ScanLine} label={t('Check-ins', 'Check-ins', 'Check-ins')} value={stats.checkins} />
@@ -502,7 +513,11 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
             )}
             {isCollab && phase === 'after' && (
               <Section icon={Trophy} title={t('Le verdict', 'The verdict', 'El veredicto')}
-                sub={t('Cette soirée a-t-elle été un succès ?', 'Was this night a success?', '¿Fue un éxito esta noche?')}>
+                sub={t(
+                  'Cette soirée a-t-elle été un succès ? Chiffres de la soirée entière, avant répartition entre partenaires.',
+                  'Was this night a success? Whole-night figures, before the partner split.',
+                  '¿Fue un éxito esta noche? Cifras de la noche completa, antes del reparto entre socios.',
+                )}>
                 <EventPostAnalysisView key={event.id} eventId={event.id}
                   venueId={isVenue ? (myVenue?.id ?? null) : null}
                   organizerUserId={isOrganizer ? user?.id : null} />

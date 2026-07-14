@@ -1,7 +1,7 @@
 import { Clock, AlertTriangle } from 'lucide-react';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
-import { fr } from 'date-fns/locale';
+import { fr, es, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 
@@ -32,7 +32,7 @@ export function PayoutStatusNote({ gain, className }: { gain: NetGainLike; class
   if (!hasPending && !hasFailed) return null;
 
   const releaseLabel = gain.releaseAt
-    ? formatInTimeZone(new Date(gain.releaseAt), PARIS_TIMEZONE, 'd MMM yyyy', { locale: fr })
+    ? formatInTimeZone(new Date(gain.releaseAt), PARIS_TIMEZONE, 'd MMM yyyy', { locale: language === 'fr' ? fr : language === 'es' ? es : enUS })
     : null;
 
   return (
