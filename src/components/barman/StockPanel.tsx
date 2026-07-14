@@ -75,12 +75,12 @@ export function StockPanel({ venueId }: Props) {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="sm" className="h-8 gap-1.5 relative">
+        <Button variant="ghost" size="sm" className="h-11 w-11 flex-none p-0 sm:h-8 sm:w-auto sm:px-3 gap-1.5 relative">
           <PackageX className="h-4 w-4" />
           <span className="hidden sm:inline text-xs">{t('barman.stock.button')}</span>
           {outCount > 0 && (
             <span
-              className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold tabular-nums"
+              className="absolute right-0.5 top-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold tabular-nums sm:-top-1 sm:-right-1"
               style={{ background: '#E8192C', color: '#fff' }}
             >
               {outCount}
@@ -89,11 +89,13 @@ export function StockPanel({ venueId }: Props) {
         </Button>
       </SheetTrigger>
       <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
-        <SheetHeader>
+        {/* Safe areas iOS : le panneau est plein écran en hauteur — le titre passerait
+            sous l'encoche et la dernière ligne sous la barre d'accueil. */}
+        <SheetHeader style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
           <SheetTitle>{t('barman.stock.title')}</SheetTitle>
           <SheetDescription>{t('barman.stock.desc')}</SheetDescription>
         </SheetHeader>
-        <div className="mt-4 space-y-1.5">
+        <div className="mt-4 space-y-1.5" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
           {loading && <p style={{ color: T3, fontSize: 13 }}>…</p>}
           {!loading && drinks.length === 0 && (
             <p style={{ color: T3, fontSize: 13 }}>{t('barman.stock.empty')}</p>

@@ -994,10 +994,11 @@ export default function Barman() {
         className="sticky top-0 z-40 backdrop-blur-xl"
         style={{ background: 'rgba(10,10,12,0.72)', borderBottom: `1px solid ${BORDER}`, paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-3 sm:px-4">
-          <div className="flex items-center gap-2">
-            <Link to="/profile">
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-3 sm:px-4">
+          {/* min-w-0 + flex-1 : le titre tronque au lieu de pousser les actions hors écran */}
+          <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
+            <Link to="/profile" className="flex-none">
+              <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-9 sm:w-9">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
@@ -1007,17 +1008,17 @@ export default function Barman() {
             >
               <ChefHat className="h-4 w-4" style={{ color: RED }} />
             </div>
-            <h1 className="truncate" style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>{t('barman.title')}</h1>
+            <h1 className="min-w-0 truncate" style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>{t('barman.title')}</h1>
             {/* New order badge */}
             {newOrderCount > 0 && (
               <button
                 onClick={() => setNewOrderCount(0)}
-                className="relative ml-1 cursor-pointer"
+                className="relative flex h-11 w-11 flex-none cursor-pointer items-center justify-center"
                 title={t('barman.newOrders')}
               >
                 <Bell className="h-5 w-5 animate-pulse" style={{ color: RED }} />
                 <span
-                  className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold tabular-nums"
+                  className="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold tabular-nums"
                   style={{ background: RED, color: '#fff' }}
                 >
                   {newOrderCount > 9 ? '9+' : newOrderCount}
@@ -1025,7 +1026,7 @@ export default function Barman() {
               </button>
             )}
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex flex-none items-center gap-1">
             {staffVenueId && <StockPanel venueId={staffVenueId} />}
             {staffVenueId && (
               <BarmanBarSelection
@@ -1061,8 +1062,8 @@ export default function Barman() {
         {/* Mode Click & Collect Toggle - Only for Managers */}
         {isClickCollectManager && (
           <div style={{ ...mainCard, marginBottom: 16 }}>
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
                 <h3 style={{ color: T1, fontSize: 14, fontWeight: 600, marginBottom: 2 }}>{t('barman.clickCollectModeTitle')}</h3>
                 <p style={{ color: T3, fontSize: 12 }}>
                   {clickCollectMode ? t('barman.clickCollectModeActiveDesc') : t('barman.clickCollectModeInactiveDesc')}
@@ -1073,6 +1074,7 @@ export default function Barman() {
                 disabled={togglingMode}
                 variant={clickCollectMode ? 'default' : 'outline'}
                 size="sm"
+                className="h-11 flex-none sm:h-9"
               >
                 {togglingMode ? (
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />
@@ -1119,7 +1121,7 @@ export default function Barman() {
             <div className="mb-4" style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.3)', borderRadius: 12, padding: 16 }}>
               <div className="flex items-start gap-3">
                 <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5" style={{ color: RED }} />
-                <div>
+                <div className="min-w-0">
                   <p style={{ color: RED, fontSize: 14, fontWeight: 600 }}>{t('barman.cancelModeTitle')}</p>
                   <p style={{ color: T3, fontSize: 13 }}>{t('barman.cancelModeDesc')}</p>
                 </div>
@@ -1226,8 +1228,8 @@ export default function Barman() {
         {clickCollectMode && (
           <>
             <div className="mb-3 sm:mb-4 flex items-center justify-between">
-              <h2 className="flex items-center gap-2" style={{ color: T1, fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em' }}>
-                <Clock className="h-5 w-5" style={{ color: RED }} />
+              <h2 className="flex min-w-0 items-center gap-2" style={{ color: T1, fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em' }}>
+                <Clock className="h-5 w-5 flex-shrink-0" style={{ color: RED }} />
                 <span className="line-clamp-1">{t('barman.clickCollectRequests')}</span>
                 <span
                   className="flex-shrink-0 tabular-nums"
@@ -1255,8 +1257,10 @@ export default function Barman() {
                   transition={{ delay: index * 0.04 }}
                 >
                   <div style={{ ...mainCard }}>
-                    <div className="mb-3 flex items-start justify-between">
-                      <div>
+                    {/* min-w-0 à gauche + flex-none à droite : le prix ne rentre jamais en
+                        collision avec les badges de statut sur un écran de 390px. */}
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div className="min-w-0">
                         <p className="tabular-nums" style={{ color: T3, fontSize: 11.5 }}>
                           {format(new Date(order.createdAt), 'HH:mm', { locale: fr })}
                         </p>
@@ -1264,14 +1268,14 @@ export default function Barman() {
                           {order.total.toFixed(2)}€
                         </p>
                       </div>
-                      <div className="flex flex-col items-end gap-1">
+                      <div className="flex flex-none flex-col items-end gap-1">
                         <span
-                          className="px-2.5 py-1 rounded-full text-[11px] font-semibold"
+                          className="whitespace-nowrap px-2.5 py-1 rounded-full text-[11px] font-semibold"
                           style={{ border: '1px solid rgba(232,25,44,0.3)', background: 'rgba(232,25,44,0.08)', color: RED }}
                         >
                           {t('barman.clickCollectBadge')}
                         </span>
-                        <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold" style={statusStyle}>
+                        <span className="whitespace-nowrap px-2.5 py-1 rounded-full text-[11px] font-semibold" style={statusStyle}>
                           {ready ? t('clickCollect.statusReady') :
                            preparing ? t('clickCollect.statusPreparing') :
                            t('clickCollect.statusQueue')}
@@ -1285,8 +1289,8 @@ export default function Barman() {
                         className="mb-2 px-2 py-1 rounded text-xs flex items-center gap-1"
                         style={{ background: 'rgba(232,25,44,0.1)' }}
                       >
-                        <ChefHat className="h-3 w-3" style={{ color: RED }} />
-                        <span style={{ color: RED, fontWeight: 500 }}>{order.selectedBar || order.assignedBar}</span>
+                        <ChefHat className="h-3 w-3 flex-none" style={{ color: RED }} />
+                        <span className="min-w-0 truncate" style={{ color: RED, fontWeight: 500 }}>{order.selectedBar || order.assignedBar}</span>
                       </div>
                     )}
 
@@ -1303,7 +1307,7 @@ export default function Barman() {
                           else grouped.push({ name: item.name, qty: prepCount });
                         });
                         return grouped.map((g, i) => (
-                          <p key={i} style={{ color: T2, fontSize: 13 }}>
+                          <p key={i} className="truncate" style={{ color: T2, fontSize: 13 }}>
                             <span className="tabular-nums">{g.qty}x</span> {g.name}
                           </p>
                         ));
@@ -1315,7 +1319,7 @@ export default function Barman() {
                         onClick={() => handleMoveToPrep(order.id)}
                         variant="default"
                         size="sm"
-                        className="w-full"
+                        className="w-full h-11 sm:h-9"
                       >
                         <ChefHat className="mr-2 h-4 w-4" />
                         {t('barman.moveToPrep')}
@@ -1328,7 +1332,7 @@ export default function Barman() {
             </div>
 
             {clickCollectOrders.length === 0 && (
-              <div style={{ ...mainCard, padding: 48 }} className="text-center" >
+              <div style={{ ...mainCard, paddingTop: 36, paddingBottom: 36 }} className="text-center" >
                 <Clock className="h-12 w-12 mx-auto mb-4" style={{ color: 'rgba(255,255,255,0.14)' }} />
                 <p style={{ color: T3, fontSize: 13 }}>{t('barman.noClickCollectRequests')}</p>
               </div>
@@ -1339,7 +1343,7 @@ export default function Barman() {
 
       {/* Order Detail Dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-        <DialogContent className="border-0 bg-surface">
+        <DialogContent className="border-0 bg-surface max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('barman.orderDetails')}</DialogTitle>
             <DialogDescription className="sr-only">
@@ -1350,9 +1354,9 @@ export default function Barman() {
           {selectedOrder && (
             <div className="space-y-4">
               <div style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 16 }}>
-                <div className="mb-2 flex items-center justify-between">
-                  <span style={{ color: T3, fontSize: 13 }}>{t('cart.total')}</span>
-                  <span className="tabular-nums" style={{ color: T1, fontSize: 20, fontWeight: 640, letterSpacing: '-0.02em' }}>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <span className="min-w-0 truncate" style={{ color: T3, fontSize: 13 }}>{t('cart.total')}</span>
+                  <span className="tabular-nums flex-none" style={{ color: T1, fontSize: 20, fontWeight: 640, letterSpacing: '-0.02em' }}>
                     {selectedOrder.total.toFixed(2)}€
                   </span>
                 </div>
@@ -1379,9 +1383,9 @@ export default function Barman() {
                   }
 
                   return grouped.map((g, i) => (
-                    <div key={i} className="flex justify-between" style={{ fontSize: 13 }}>
-                      <span style={{ color: T2 }}><span className="tabular-nums">{g.qty}x</span> {g.name}</span>
-                      <span className="tabular-nums" style={{ color: T1, fontWeight: 620 }}>{(g.unitPrice * g.qty).toFixed(2)}€</span>
+                    <div key={i} className="flex justify-between gap-3" style={{ fontSize: 13 }}>
+                      <span className="min-w-0 truncate" style={{ color: T2 }}><span className="tabular-nums">{g.qty}x</span> {g.name}</span>
+                      <span className="tabular-nums flex-none" style={{ color: T1, fontWeight: 620 }}>{(g.unitPrice * g.qty).toFixed(2)}€</span>
                     </div>
                   ));
                 })()}
@@ -1390,7 +1394,7 @@ export default function Barman() {
               {selectedOrder.status === 'paid' && (
                 <Button
                   onClick={handleServeOrder}
-                  className="w-full bg-primary shadow-primary"
+                  className="w-full h-12 bg-primary shadow-primary"
                 >
                   <CheckCircle className="mr-2 h-5 w-5" />
                   {t('barman.markServed')}
@@ -1423,7 +1427,7 @@ export default function Barman() {
 
       {/* Order Cancellation Confirmation Dialog */}
       <Dialog open={!!orderToCancel} onOpenChange={() => setOrderToCancel(null)}>
-        <DialogContent className="border-0 bg-surface">
+        <DialogContent className="border-0 bg-surface max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="h-5 w-5" />
@@ -1438,13 +1442,13 @@ export default function Barman() {
             <div className="space-y-4">
               {/* Order details */}
               <div className="space-y-2" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 16 }}>
-                <div className="flex items-center justify-between">
-                  <span style={{ color: T3, fontSize: 13 }}>{t('barman.orderValue')}</span>
-                  <span className="tabular-nums" style={{ color: T1, fontSize: 14, fontWeight: 620 }}>{orderToCancel.total.toFixed(2)}€</span>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 truncate" style={{ color: T3, fontSize: 13 }}>{t('barman.orderValue')}</span>
+                  <span className="tabular-nums flex-none" style={{ color: T1, fontSize: 14, fontWeight: 620 }}>{orderToCancel.total.toFixed(2)}€</span>
                 </div>
                 <div className="space-y-1">
                   {orderToCancel.items.map((item) => (
-                    <p key={item.drinkId} style={{ color: T2, fontSize: 13 }}>
+                    <p key={item.drinkId} className="truncate" style={{ color: T2, fontSize: 13 }}>
                       <span className="tabular-nums">{item.qty}x</span> {item.name}
                     </p>
                   ))}
@@ -1459,17 +1463,17 @@ export default function Barman() {
                 const netRefund = Math.max(0, Math.round((total - yunoFee - stripeFee) * 100) / 100);
                 return (
                   <div className="space-y-2" style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.3)', borderRadius: 12, padding: 16 }}>
-                    <div className="flex items-center justify-between">
-                      <span style={{ color: T3, fontSize: 13 }}>Frais de service Yuno</span>
-                      <span className="tabular-nums" style={{ color: RED, fontSize: 14, fontWeight: 620 }}>-{yunoFee.toFixed(2)}€</span>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="min-w-0 truncate" style={{ color: T3, fontSize: 13 }}>Frais de service Yuno</span>
+                      <span className="tabular-nums flex-none" style={{ color: RED, fontSize: 14, fontWeight: 620 }}>-{yunoFee.toFixed(2)}€</span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span style={{ color: T3, fontSize: 13 }}>Frais Stripe</span>
-                      <span className="tabular-nums" style={{ color: RED, fontSize: 14, fontWeight: 620 }}>-{stripeFee.toFixed(2)}€</span>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="min-w-0 truncate" style={{ color: T3, fontSize: 13 }}>Frais Stripe</span>
+                      <span className="tabular-nums flex-none" style={{ color: RED, fontSize: 14, fontWeight: 620 }}>-{stripeFee.toFixed(2)}€</span>
                     </div>
-                    <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid rgba(232,25,44,0.2)' }}>
-                      <span style={{ color: T1, fontSize: 13, fontWeight: 500 }}>{t('barman.refundAmount')}</span>
-                      <span className="tabular-nums" style={{ color: POS, fontSize: 14, fontWeight: 700 }}>{netRefund.toFixed(2)}€</span>
+                    <div className="flex items-center justify-between gap-3 pt-2" style={{ borderTop: '1px solid rgba(232,25,44,0.2)' }}>
+                      <span className="min-w-0 truncate" style={{ color: T1, fontSize: 13, fontWeight: 500 }}>{t('barman.refundAmount')}</span>
+                      <span className="tabular-nums flex-none" style={{ color: POS, fontSize: 14, fontWeight: 700 }}>{netRefund.toFixed(2)}€</span>
                     </div>
                   </div>
                 );
@@ -1479,7 +1483,7 @@ export default function Barman() {
                 <Button
                   onClick={() => setOrderToCancel(null)}
                   variant="outline"
-                  className="flex-1"
+                  className="min-w-0 flex-1 h-12 sm:h-10"
                   disabled={cancelling}
                 >
                   {t('common.cancel')}
@@ -1487,7 +1491,7 @@ export default function Barman() {
                 <Button
                   onClick={handleConfirmCancel}
                   variant="destructive"
-                  className="flex-1"
+                  className="min-w-0 flex-1 h-12 sm:h-10"
                   disabled={cancelling}
                 >
                   {cancelling ? (

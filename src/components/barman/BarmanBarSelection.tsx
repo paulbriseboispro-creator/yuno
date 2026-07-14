@@ -90,7 +90,7 @@ export function BarmanBarSelection({ venueId, currentBar, onBarSelect }: BarmanB
         >
           <button
             onClick={handleChangeBar}
-            className="flex items-center justify-center w-9 h-9 rounded-full bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition-colors"
+            className="flex items-center justify-center w-11 h-11 sm:w-9 sm:h-9 flex-none rounded-full bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 transition-colors"
             title={currentBar}
           >
             <MapPin className="h-4 w-4" />
@@ -104,7 +104,7 @@ export function BarmanBarSelection({ venueId, currentBar, onBarSelect }: BarmanB
         if (!o && !currentBar) return;
         setOpen(o);
       }}>
-        <DialogContent className="sm:max-w-md border-0 bg-surface">
+        <DialogContent className="sm:max-w-md border-0 bg-surface max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Wine className="h-5 w-5 text-primary" />
@@ -137,15 +137,16 @@ export function BarmanBarSelection({ venueId, currentBar, onBarSelect }: BarmanB
                       }`}
                       onClick={() => setSelectedBar(bar)}
                     >
-                      <RadioGroupItem value={bar} id={`bar-${index}`} />
-                      <Label htmlFor={`bar-${index}`} className="flex-1 cursor-pointer">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Wine className="h-4 w-4 text-primary" />
-                            <span className="font-medium">{bar}</span>
+                      <RadioGroupItem value={bar} id={`bar-${index}`} className="flex-none" />
+                      <Label htmlFor={`bar-${index}`} className="min-w-0 flex-1 cursor-pointer">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <Wine className="h-4 w-4 flex-none text-primary" />
+                            {/* Nom de bar saisi par le club : tronquer, jamais casser la ligne */}
+                            <span className="min-w-0 truncate font-medium">{bar}</span>
                           </div>
                           {selectedBar === bar && (
-                            <Check className="h-4 w-4 text-primary" />
+                            <Check className="h-4 w-4 flex-none text-primary" />
                           )}
                         </div>
                       </Label>
@@ -154,10 +155,10 @@ export function BarmanBarSelection({ venueId, currentBar, onBarSelect }: BarmanB
                 ))}
               </RadioGroup>
 
-              <Button 
-                onClick={handleConfirm} 
+              <Button
+                onClick={handleConfirm}
                 disabled={!selectedBar}
-                className="w-full"
+                className="w-full h-12 sm:h-10"
               >
                 {t('barman.confirmBar')}
               </Button>

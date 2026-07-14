@@ -431,34 +431,36 @@ export default function ClickCollect() {
             ))}
           </div>
 
+          {/* Cibles tactiles : icône seule sur mobile → 44x44 mini (le barman tape vite,
+              dans le noir). Le libellé et la hauteur desktop restent inchangés. */}
           <div className="flex items-center justify-between pt-2 sm:pt-3 border-t border-border gap-2">
-            <span className="font-bold text-base sm:text-lg flex-shrink-0">{order.total.toFixed(2)}€</span>
+            <span className="font-bold text-base sm:text-lg flex-shrink-0 tabular-nums">{order.total.toFixed(2)}€</span>
             {order.prepStatus === 'queue' && (
-              <Button size="sm" className="text-xs sm:text-sm h-8 sm:h-9" onClick={(e) => { e.stopPropagation(); handleClaimOrder(order.id); }}>
-                <Lock className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+              <Button size="sm" className="text-xs sm:text-sm h-11 w-11 flex-none p-0 sm:h-9 sm:w-auto sm:px-3" onClick={(e) => { e.stopPropagation(); handleClaimOrder(order.id); }}>
+                <Lock className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">{t('clickCollect.prepare')}</span>
               </Button>
             )}
             {order.prepStatus === 'preparing' && isOwnedByCurrentUser && (
-              <div className="flex gap-1 sm:gap-2">
-                <Button size="sm" variant="outline" className="text-xs sm:text-sm h-8 sm:h-9" onClick={(e) => { e.stopPropagation(); handleReleaseOrder(order.id); }}>
-                  <Unlock className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+              <div className="flex flex-none gap-2">
+                <Button size="sm" variant="outline" className="text-xs sm:text-sm h-11 w-11 flex-none p-0 sm:h-9 sm:w-auto sm:px-3" onClick={(e) => { e.stopPropagation(); handleReleaseOrder(order.id); }}>
+                  <Unlock className="h-4 w-4 sm:mr-2" />
                   <span className="hidden sm:inline">{t('clickCollect.release')}</span>
                 </Button>
-                <Button size="sm" className="text-xs sm:text-sm h-8 sm:h-9" onClick={(e) => { e.stopPropagation(); handleMarkReady(order.id); }}>
-                  <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+                <Button size="sm" className="text-xs sm:text-sm h-11 w-11 flex-none p-0 sm:h-9 sm:w-auto sm:px-3" onClick={(e) => { e.stopPropagation(); handleMarkReady(order.id); }}>
+                  <CheckCircle className="h-4 w-4 sm:mr-2" />
                   <span className="hidden sm:inline">{t('clickCollect.markReady')}</span>
                 </Button>
               </div>
             )}
             {order.prepStatus === 'ready' && (
-              <Button size="sm" variant="default" className="text-xs sm:text-sm h-8 sm:h-9 bg-green-600 hover:bg-green-700" onClick={(e) => { e.stopPropagation(); handleMarkServed(order.id); }}>
-                <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-2" />
+              <Button size="sm" variant="default" className="text-xs sm:text-sm h-11 w-11 flex-none p-0 sm:h-9 sm:w-auto sm:px-3 bg-green-600 hover:bg-green-700" onClick={(e) => { e.stopPropagation(); handleMarkServed(order.id); }}>
+                <CheckCircle className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">{t('clickCollect.markServed')}</span>
               </Button>
             )}
             {order.prepStatus === 'preparing' && (timedOut || !isOwnedByCurrentUser) && (
-              <Button size="sm" variant="secondary" className="text-xs sm:text-sm h-8 sm:h-9" onClick={(e) => { e.stopPropagation(); handleClaimOrder(order.id); }}>
+              <Button size="sm" variant="secondary" className="text-xs sm:text-sm h-11 flex-none sm:h-9" onClick={(e) => { e.stopPropagation(); handleClaimOrder(order.id); }}>
                 {t('clickCollect.takeover')}
               </Button>
             )}
@@ -498,13 +500,18 @@ export default function ClickCollect() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <header className="sticky top-0 z-40 border-b border-border/40 bg-surface/80 backdrop-blur-md">
-        <div className="mx-auto flex h-14 sm:h-16 max-w-7xl items-center justify-between px-3 sm:px-4">
-          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+      {/* paddingTop safe-area : sans ProShellChrome, l'en-tête collé en haut passait
+          sous l'encoche/la barre d'état dans l'app Yuno Pro (iOS). */}
+      <header
+        className="sticky top-0 z-40 border-b border-border/40 bg-surface/80 backdrop-blur-md"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+      >
+        <div className="mx-auto flex h-14 sm:h-16 max-w-7xl items-center justify-between gap-2 px-3 sm:px-4">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
             <ListOrdered className="h-5 w-5 sm:h-6 sm:w-6 text-primary flex-shrink-0" />
             <h1 className="text-base sm:text-xl font-bold truncate">{t('clickCollect.title')}</h1>
           </div>
-          <div className="flex items-center gap-1 sm:gap-2">
+          <div className="flex flex-none items-center gap-1 sm:gap-2">
             <div className="hidden sm:block">
               <EventFilter selectedEventId={selectedEventId} onEventSelect={setSelectedEventId} venueId={staffVenueId || ''} />
             </div>
@@ -524,7 +531,7 @@ export default function ClickCollect() {
         <Button
           asChild
           variant="outline"
-          className="mb-4 sm:mb-6 w-full sm:w-auto border-primary/30 hover:bg-primary/10"
+          className="mb-4 sm:mb-6 h-12 w-full sm:h-10 sm:w-auto border-primary/30 hover:bg-primary/10"
         >
           <Link to="/barman">
             <ChefHat className="mr-2 h-4 w-4" />
@@ -533,24 +540,27 @@ export default function ClickCollect() {
         </Button>
 
         <Tabs defaultValue="queue" className="w-full">
+          {/* Le breakpoint `xs` n'existe pas dans tailwind.config → les variantes xs:
+              étaient mortes (libellé long jamais affiché, même sur desktop). On repasse
+              sur `sm` : libellé court + compteur sur mobile, libellé traduit au-delà. */}
           <TabsList className="grid w-full grid-cols-3 mb-4 sm:mb-6 h-auto">
-            <TabsTrigger value="queue" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-2.5">
-              <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="hidden xs:inline">{t('clickCollect.tabQueue')}</span>
-              <span className="inline xs:hidden">Queue</span>
-              <span className="text-xs">({queueOrders.length})</span>
+            <TabsTrigger value="queue" className="min-w-0 gap-1 sm:gap-2 text-xs sm:text-sm py-3 sm:py-2.5">
+              <Clock className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+              <span className="hidden truncate sm:inline">{t('clickCollect.tabQueue')}</span>
+              <span className="inline sm:hidden">Queue</span>
+              <span className="text-xs flex-shrink-0 tabular-nums">({queueOrders.length})</span>
             </TabsTrigger>
-            <TabsTrigger value="preparing" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-2.5">
-              <ChefHat className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="hidden xs:inline">{t('clickCollect.tabPreparing')}</span>
-              <span className="inline xs:hidden">Prep</span>
-              <span className="text-xs">({preparingOrders.length})</span>
+            <TabsTrigger value="preparing" className="min-w-0 gap-1 sm:gap-2 text-xs sm:text-sm py-3 sm:py-2.5">
+              <ChefHat className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+              <span className="hidden truncate sm:inline">{t('clickCollect.tabPreparing')}</span>
+              <span className="inline sm:hidden">Prep</span>
+              <span className="text-xs flex-shrink-0 tabular-nums">({preparingOrders.length})</span>
             </TabsTrigger>
-            <TabsTrigger value="ready" className="gap-1 sm:gap-2 text-xs sm:text-sm py-2 sm:py-2.5">
-              <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="hidden xs:inline">{t('clickCollect.tabReady')}</span>
-              <span className="inline xs:hidden">Ready</span>
-              <span className="text-xs">({readyOrders.length})</span>
+            <TabsTrigger value="ready" className="min-w-0 gap-1 sm:gap-2 text-xs sm:text-sm py-3 sm:py-2.5">
+              <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
+              <span className="hidden truncate sm:inline">{t('clickCollect.tabReady')}</span>
+              <span className="inline sm:hidden">Ready</span>
+              <span className="text-xs flex-shrink-0 tabular-nums">({readyOrders.length})</span>
             </TabsTrigger>
           </TabsList>
 
@@ -588,7 +598,7 @@ export default function ClickCollect() {
 
       {/* Order Detail Dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-        <DialogContent>
+        <DialogContent className="max-h-[85dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {t('clickCollect.order')} #{selectedOrder?.id.slice(0, 8)}
@@ -623,39 +633,39 @@ export default function ClickCollect() {
               <div className="space-y-2">
                 <p className="font-medium">{t('clickCollect.items')}</p>
                 {(selectedOrder.items as any[]).map((item: any, idx: number) => (
-                  <div key={idx} className="flex justify-between text-sm">
-                    <span>{item.qty}x {item.name}</span>
-                    <span className="font-medium">{(item.unitPrice * item.qty).toFixed(2)}€</span>
+                  <div key={idx} className="flex justify-between gap-3 text-sm">
+                    <span className="min-w-0 truncate">{item.qty}x {item.name}</span>
+                    <span className="font-medium flex-none tabular-nums">{(item.unitPrice * item.qty).toFixed(2)}€</span>
                   </div>
                 ))}
               </div>
 
-              <div className="pt-3 border-t border-border flex justify-between items-center">
+              <div className="pt-3 border-t border-border flex justify-between items-center gap-3">
                 <span className="font-bold text-lg">Total</span>
-                <span className="font-bold text-lg">{selectedOrder.total.toFixed(2)}€</span>
+                <span className="font-bold text-lg flex-none tabular-nums">{selectedOrder.total.toFixed(2)}€</span>
               </div>
 
               <div className="flex gap-2">
                 {selectedOrder.prepStatus === 'queue' && (
-                  <Button className="w-full" onClick={() => { handleClaimOrder(selectedOrder.id); setSelectedOrder(null); }}>
+                  <Button className="w-full h-12 sm:h-10" onClick={() => { handleClaimOrder(selectedOrder.id); setSelectedOrder(null); }}>
                     <Lock className="h-4 w-4 mr-2" />
                     {t('clickCollect.prepare')}
                   </Button>
                 )}
                 {selectedOrder.prepStatus === 'preparing' && selectedOrder.prepClaimedBy === currentUserId && (
                   <>
-                    <Button variant="outline" onClick={() => { handleReleaseOrder(selectedOrder.id); setSelectedOrder(null); }}>
-                      <Unlock className="h-4 w-4 mr-2" />
-                      {t('clickCollect.release')}
+                    <Button variant="outline" className="min-w-0 flex-1 h-12 sm:h-10" onClick={() => { handleReleaseOrder(selectedOrder.id); setSelectedOrder(null); }}>
+                      <Unlock className="h-4 w-4 mr-2 flex-none" />
+                      <span className="truncate">{t('clickCollect.release')}</span>
                     </Button>
-                    <Button onClick={() => { handleMarkReady(selectedOrder.id); setSelectedOrder(null); }}>
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      {t('clickCollect.markReady')}
+                    <Button className="min-w-0 flex-1 h-12 sm:h-10" onClick={() => { handleMarkReady(selectedOrder.id); setSelectedOrder(null); }}>
+                      <CheckCircle className="h-4 w-4 mr-2 flex-none" />
+                      <span className="truncate">{t('clickCollect.markReady')}</span>
                     </Button>
                   </>
                 )}
                 {selectedOrder.prepStatus === 'preparing' && (isTimedOut(selectedOrder) || selectedOrder.prepClaimedBy !== currentUserId) && (
-                  <Button className="w-full" variant="secondary" onClick={() => { handleClaimOrder(selectedOrder.id); setSelectedOrder(null); }}>
+                  <Button className="w-full h-12 sm:h-10" variant="secondary" onClick={() => { handleClaimOrder(selectedOrder.id); setSelectedOrder(null); }}>
                     {t('clickCollect.takeover')}
                   </Button>
                 )}
