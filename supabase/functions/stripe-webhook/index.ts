@@ -85,21 +85,31 @@ async function saleIsRefunded(
 // the sale was refunded in the meantime (then the legs are cancelled, money stays put).
 async function releaseHeldTransfers(stripe: Stripe, admin: ReturnType<typeof createClient>) {
   const nowIso = new Date().toISOString();
+  // Les jambes 'failed' sont RE-TENTÉES à chaque passage du cron : un échec de
+  // transfer est presque toujours transitoire (solde plateforme insuffisant,
+  // compte connecté pas encore actif). Avant ce fix, un échec laissait l'argent
+  // bloqué sur la plateforme pour toujours, sans alerte — le partenaire n'était
+  // jamais payé. La clé d'idempotence Stripe (release_<row>_<role>) garantit
+  // qu'un retry ne peut pas créer un second transfer pour la même jambe.
   const { data: due } = await admin
     .from("revenue_distributions")
     .select("id, payment_intent_id, transfer_group_id, event_id, item_type, ticket_id, table_reservation_id, order_id, primary_account_id, primary_amount_cents, primary_transfer_status, secondary_account_id, secondary_amount_cents, secondary_transfer_status")
     .lte("transfers_release_at", nowIso)
-    .or("primary_transfer_status.eq.scheduled,secondary_transfer_status.eq.scheduled")
-    .limit(200);
+    .or("primary_transfer_status.in.(scheduled,failed),secondary_transfer_status.in.(scheduled,failed)")
+    .limit(500);
+  if ((due?.length ?? 0) === 500) {
+    logStep("release: hit the 500-row cap — remainder picked up next run");
+  }
 
+  const RETRYABLE = new Set(["scheduled", "failed"]);
   let released = 0;
   let skipped = 0;
   for (const row of (due ?? []) as Array<Record<string, any>>) {
-    // Refunded before release → cancel any still-scheduled legs, never pay out.
+    // Refunded before release → cancel any still-pending legs, never pay out.
     if (await saleIsRefunded(admin, row)) {
       await admin.from("revenue_distributions").update({
-        primary_transfer_status: row.primary_transfer_status === "scheduled" ? "cancelled" : row.primary_transfer_status,
-        secondary_transfer_status: row.secondary_transfer_status === "scheduled" ? "cancelled" : row.secondary_transfer_status,
+        primary_transfer_status: RETRYABLE.has(row.primary_transfer_status) ? "cancelled" : row.primary_transfer_status,
+        secondary_transfer_status: RETRYABLE.has(row.secondary_transfer_status) ? "cancelled" : row.secondary_transfer_status,
       }).eq("id", row.id);
       skipped++;
       continue;
@@ -144,7 +154,7 @@ async function releaseHeldTransfers(stripe: Stripe, admin: ReturnType<typeof cre
             role,
             released: "1",
           },
-        });
+        }, { idempotencyKey: `release_${row.id}_${role}` });
         await admin.from("revenue_distributions").update({
           [idCol]: transfer.id,
           [statusCol]: "succeeded",
@@ -159,10 +169,10 @@ async function releaseHeldTransfers(stripe: Stripe, admin: ReturnType<typeof cre
       }
     };
 
-    if (row.primary_transfer_status === "scheduled") {
+    if (RETRYABLE.has(row.primary_transfer_status)) {
       await fireLeg("primary", row.primary_account_id, row.primary_amount_cents || 0);
     }
-    if (row.secondary_transfer_status === "scheduled") {
+    if (RETRYABLE.has(row.secondary_transfer_status)) {
       await fireLeg("secondary", row.secondary_account_id, row.secondary_amount_cents || 0);
     }
     released++;
@@ -731,10 +741,12 @@ serve(async (req) => {
                 amountCents: number,
               ) => {
                 const statusCol = role === "primary" ? "primary_transfer_status" : "secondary_transfer_status";
-                if (status === "scheduled") {
+                // 'scheduled' (jamais parti) ET 'failed' (jamais parti non plus) :
+                // simple annulation, l'argent n'a pas quitté la plateforme.
+                if (status === "scheduled" || status === "failed") {
                   await supabaseClient.from("revenue_distributions")
                     .update({ [statusCol]: "cancelled" }).eq("id", dist.id);
-                  logStep(`${role} transfer cancelled (was held, never fired)`, { piId });
+                  logStep(`${role} transfer cancelled (was held, never fired)`, { piId, was: status });
                   return;
                 }
                 if (!transferId || status !== "succeeded") return;
@@ -757,8 +769,22 @@ serve(async (req) => {
                     .eq("id", dist.id);
                   logStep(`${role} transfer reversed`, { transferId, reversalId: reversal.id, amount: reversalAmount, full: isFull });
                 } catch (revErr) {
-                  // Money is OUT and could not be clawed back → record the debt, never lose it silently.
                   const errMsg = (revErr as Error).message;
+                  // Faux positif classique : owner-refund a posé reverse_transfer:true,
+                  // Stripe a DÉJÀ reversé ce transfer, et notre createReversal échoue en
+                  // « already reversed ». Vérifier l'état réel avant d'enregistrer une
+                  // dette — sinon chaque refund post-libération crée un clawback fantôme.
+                  try {
+                    const tr = await stripe.transfers.retrieve(transferId);
+                    if ((tr.amount_reversed ?? 0) >= reversalAmount) {
+                      await supabaseClient.from("revenue_distributions")
+                        .update({ [statusCol]: isFull ? "refunded" : "partially_refunded" })
+                        .eq("id", dist.id);
+                      logStep(`${role} transfer already reversed elsewhere — no clawback`, { transferId, amountReversed: tr.amount_reversed });
+                      return;
+                    }
+                  } catch { /* retrieve failed → fall through to the clawback record */ }
+                  // Money is OUT and could not be clawed back → record the debt, never lose it silently.
                   await supabaseClient.from("transfer_clawbacks").insert({
                     payment_intent_id: piId,
                     revenue_distribution_id: dist.id,
