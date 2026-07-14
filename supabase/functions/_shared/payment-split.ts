@@ -145,7 +145,18 @@ function getSplitForItem(
 ): { organizer_pct: number; venue_pct: number } | null {
   if (!rules) return null;
   const key = itemType === "ticket" ? "tickets" : itemType === "table" ? "tables" : "drinks";
-  const block = (rules as Record<string, { organizer_pct?: number; venue_pct?: number }>)[key];
+  let block = (rules as Record<string, { organizer_pct?: number; venue_pct?: number }>)[key];
+  // Schéma PLAT legacy { organizer: 30, venue: 70 } (vieux défauts de partenariat /
+  // templates récurrents) : le front le normalise (src/lib/splitRules.ts) mais le
+  // backend l'ignorait et retombait en silence sur le défaut 50/50 — le fan et le
+  // dashboard voyaient un % pendant que l'argent partait sur un autre. Même règle
+  // que normalizeSplitRules : le split plat s'applique aux billets ET aux tables ;
+  // les boissons ne l'héritent JAMAIS (100 % club, licence alcool).
+  if (!block && typeof (rules as Record<string, unknown>).organizer === "number") {
+    if (itemType === "drink") return null; // → defaultSplitForItem : 0/100 club
+    const o = Number((rules as Record<string, unknown>).organizer);
+    block = { organizer_pct: o, venue_pct: 100 - o };
+  }
   if (!block) return null;
   const o = Number(block.organizer_pct ?? 0);
   const v = Number(block.venue_pct ?? 0);
