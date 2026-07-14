@@ -103,9 +103,18 @@ export default function OwnerTables() {
     if (venueId) { fetchEvents(); fetchZones(); fetchPacks(); fetchPresets(); fetchEventSettings(); fetchFloorPlan(); }
   }, [venueId]);
 
+  // A venue holds ONE venue-level plan (event_id NULL) plus one event-scoped clone per co-event.
+  // Without the event_id filter, a club with a co-event matches several rows and maybeSingle() 406s
+  // (PGRST116) — the page then rendered "no plan configured" over a plan the public could see.
   const fetchFloorPlan = async () => {
     if (!venueId) return null;
-    const { data } = await supabase.from('venue_floor_plans').select('*').eq('venue_id', venueId).maybeSingle();
+    const { data, error } = await supabase
+      .from('venue_floor_plans')
+      .select('*')
+      .eq('venue_id', venueId)
+      .is('event_id', null)
+      .maybeSingle();
+    if (error) { console.error('Error loading floor plan:', error); toast.error(t('common.error')); return null; }
     setFloorPlan(data);
     return data;
   };

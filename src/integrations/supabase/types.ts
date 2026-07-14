@@ -14759,6 +14759,14 @@ export type Database = {
         Args: { new_password: string }
         Returns: undefined
       }
+      upsert_venue_floor_plan: {
+        Args: {
+          p_background_image_url?: string
+          p_layout: Json
+          p_venue_id: string
+        }
+        Returns: string
+      }
       verify_demo_preview_password: {
         Args: { p_password: string; p_token: string }
         Returns: {

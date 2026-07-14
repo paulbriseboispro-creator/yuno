@@ -70,11 +70,14 @@ export function useVipHost() {
 
       // If no active event, still load the floor plan but no reservations
       if (!activeEvent) {
-        // Get floor plan even without active event
+        // No event tonight, so the venue-level plan is the only one that means anything. Filter on
+        // event_id: a club with a co-event also owns event-scoped plans, and without the filter
+        // maybeSingle() 406s on the multiple rows and the host gets a blank room.
         const { data: floorPlanData } = await supabase
           .from('venue_floor_plans')
           .select('*')
           .eq('venue_id', venueId)
+          .is('event_id', null)
           .maybeSingle();
 
       const floorPlan: VenueFloorPlan | null = floorPlanData ? {
@@ -180,12 +183,21 @@ export function useVipHost() {
         });
       }
 
-      // Get floor plan
-      const { data: floorPlanData } = await supabase
+      // Get floor plan — event-scoped first, venue-level as fallback. Same resolution order as the
+      // public booking page (TableCheckout), so the host places guests on exactly the room the
+      // client booked on, not on a different plan.
+      const { data: eventFloorPlan } = await supabase
+        .from('venue_floor_plans')
+        .select('*')
+        .eq('event_id', activeEvent.id)
+        .maybeSingle();
+
+      const floorPlanData = eventFloorPlan ?? (await supabase
         .from('venue_floor_plans')
         .select('*')
         .eq('venue_id', venueId)
-        .maybeSingle();
+        .is('event_id', null)
+        .maybeSingle()).data;
 
       const floorPlan: VenueFloorPlan | null = floorPlanData ? {
         id: floorPlanData.id,

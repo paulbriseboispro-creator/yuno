@@ -146,24 +146,26 @@ export function FloorPlanEditor({
 
   type LiveState = typeof liveRef.current;
 
-  // Atomic write: upsert on the unique venue_id (no select-then-write race) and require a row
-  // back — an empty result means the write was silently blocked (RLS / not the owner), which we
-  // surface as an error instead of reporting a phantom success.
+  // Atomic write, via RPC and not a PostgREST upsert: the venue-level plan is now guarded by a
+  // PARTIAL unique index (venue_id WHERE event_id IS NULL), so a club can hold both its venue plan
+  // and one event-scoped plan per co-event. Postgres cannot infer a partial index without its
+  // predicate, and PostgREST cannot emit one — `onConflict: 'venue_id'` fails with 42P10. The RPC
+  // spells the predicate out. It stays SECURITY INVOKER, so RLS and the seated-table guard (23514)
+  // behave exactly as before. A null id back means the write was blocked (RLS / not the owner),
+  // which we surface as an error instead of reporting a phantom success.
   const writeLayout = async (live: LiveState): Promise<{ ok: boolean; code?: string }> => {
     if (!live.venueId) return { ok: false, code: 'NO_VENUE' };
     const layout = buildLayout(live.tables, live.zoneAreas, live.bgOffset, live.bgScale);
-    const { data: rows, error } = await supabase
-      .from('venue_floor_plans')
-      .upsert(
-        { venue_id: live.venueId, layout: JSON.parse(JSON.stringify(layout)), updated_at: new Date().toISOString(), background_image_url: live.backgroundUrl },
-        { onConflict: 'venue_id' },
-      )
-      .select('id');
+    const { data: id, error } = await supabase.rpc('upsert_venue_floor_plan', {
+      p_venue_id: live.venueId,
+      p_layout: JSON.parse(JSON.stringify(layout)),
+      p_background_image_url: live.backgroundUrl,
+    });
     if (error) {
       console.error('Error saving floor plan:', error);
       return { ok: false, code: (error as { code?: string }).code };
     }
-    if (!rows || rows.length === 0) {
+    if (!id) {
       console.error('Floor plan save persisted no row (RLS / ownership?)');
       return { ok: false, code: 'NO_ROW' };
     }
