@@ -1,286 +1,318 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useVipHost } from '@/hooks/useVipHost';
-import { useVipMenuItems } from '@/hooks/useVipMenuItems';
+import { useVipNight } from '@/hooks/useVipNight';
 import { useStaffNotifications } from '@/hooks/useStaffNotifications';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { VipReservation, VipStatus } from '@/types';
-import { VipReservationCard } from '@/components/vip-host/VipReservationCard';
-import { VipTableDetail } from '@/components/vip-host/VipTableDetail';
-import { VipFloorPlan } from '@/components/vip-host/VipFloorPlan';
-import { VipOrderNotifications } from '@/components/vip-host/VipOrderNotifications';
-import { VipEntryNotifications } from '@/components/vip-host/VipEntryNotifications';
-import { VipZoneTabs } from '@/components/vip-host/VipZoneTabs';
-import { VipPriorityLane } from '@/components/vip-host/VipPriorityLane';
-import { VipTableGrid } from '@/components/vip-host/VipTableGrid';
-import { VipCompactStats } from '@/components/vip-host/VipCompactStats';
-import { VipActionBar } from '@/components/vip-host/VipActionBar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import {
-  Crown, Map, List, RefreshCw, Loader2, Bell, Sparkles, LayoutGrid, ImageOff, Image
-} from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
 import { PublicPage } from '@/components/PublicPage';
 import { ProBackButton } from '@/components/pro/ProBackButton';
 import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
 import { emitShiftStart } from '@/lib/liveops/shiftStart';
+import { haptics } from '@/lib/haptics';
 import { toast } from 'sonner';
+import { Switch } from '@/components/ui/switch';
+import {
+  Crown, Map as MapIcon, List, Bell, BarChart3, RefreshCw, Image, DoorOpen, CalendarOff,
+} from 'lucide-react';
+import { ServiceFloorPlan } from '@/components/vip-service/ServiceFloorPlan';
+import { ServiceTablesTab } from '@/components/vip-service/ServiceTablesTab';
+import { ServiceOrdersTab } from '@/components/vip-service/ServiceOrdersTab';
+import { ServiceNightTab } from '@/components/vip-service/ServiceNightTab';
+import { TableServiceSheet } from '@/components/vip-service/TableServiceSheet';
+import { SeatPickerSheet } from '@/components/vip-service/SeatPickerSheet';
+import { OrderComposerSheet } from '@/components/vip-service/OrderComposerSheet';
+import {
+  ServiceOrder, ServiceReservation, CartLine, fmtAge,
+} from '@/components/vip-service/serviceTypes';
 
-// ─── Yuno Design Tokens ───────────────────────────────────────────────────────
-const RED    = '#E8192C';
-const T1     = 'rgba(255,255,255,0.96)';
-const T2     = 'rgba(255,255,255,0.58)';
-const T3     = 'rgba(255,255,255,0.36)';
+// ─── Yuno Design Tokens (pro) ────────────────────────────────────────────────
+const RED = '#E8192C';
+const T1 = 'rgba(255,255,255,0.96)';
+const T2 = 'rgba(255,255,255,0.58)';
+const T3 = 'rgba(255,255,255,0.36)';
 const C_FAINT = 'rgba(255,255,255,0.06)';
 const BORDER = 'rgba(255,255,255,0.085)';
+const GOLD = '#E7C15A';
 
-type SortBy = 'status' | 'time';
+type Tab = 'room' | 'tables' | 'service' | 'night';
 
+/**
+ * Outil serveur VIP — reconstruit autour de quatre onglets :
+ *   Salle   : le plan interactif, écran d'accueil du service.
+ *   Tables  : la liste triée par « qui a besoin de moi ».
+ *   Service : le pipeline des commandes (pré-commandes → bar → servies).
+ *   Soirée  : la nuit en chiffres.
+ * Un seul modèle mental : Commandes = ce que le bar prépare, Consos = le
+ * grand livre de ce qui est servi (c'est lui qui consomme le crédit client).
+ */
 export default function VipHostDashboard() {
   const { t } = useLanguage();
+  const night = useVipNight();
   const {
-    reservations, consumptions, floorPlan, loading, activeEvent, venueId, noVenue,
-    updateReservationStatus, addConsumption, reassignTable, refresh, connectionStale
-  } = useVipHost();
+    venueId, loading, noVenue, connectionStale, activeEvent, reservations, consumptions,
+    orders, ordersByReservation, moments, floorPlan, menuItems, quickItems, serviceInfo,
+    doorQueue, refresh,
+  } = night;
 
-  const { quickItems, loading: menuLoading } = useVipMenuItems(venueId);
-  const { notifications, markAsRead, markAllAsRead } = useStaffNotifications({ venueId, targetRole: 'vip_host' });
+  const { notifications, markAsRead } = useStaffNotifications({ venueId, targetRole: 'vip_host' });
 
-  const [selectedReservation, setSelectedReservation] = useState<VipReservation | null>(null);
-  const [sortBy, setSortBy] = useState<SortBy>('status');
-  const [showPlacementSheet, setShowPlacementSheet] = useState(false);
-  const [pendingPlacement, setPendingPlacement] = useState<VipReservation | null>(null);
-  const [reassignMode, setReassignMode] = useState(false);
-  const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
-  const [placementLoading, setPlacementLoading] = useState(false);
-  const [showOrders, setShowOrders] = useState(false);
-  const [pendingOrdersCount, setPendingOrdersCount] = useState(0);
-  const [showArrivals, setShowArrivals] = useState(false);
-  const [showStats, setShowStats] = useState(false);
-  const [selectedZone, setSelectedZone] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>('room');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [seatPicker, setSeatPicker] = useState<{ reservation: ServiceReservation; moveMode: boolean } | null>(null);
+  const [composerId, setComposerId] = useState<string | null>(null);
+  const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
   const [showFloorBackground, setShowFloorBackground] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  // Prise de poste visible dans le centre de commandement owner (best-effort)
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setCurrentUserId(data?.user?.id ?? null));
+  }, []);
+
+  // Prise de poste visible dans le centre de commandement owner (best-effort).
   useEffect(() => {
     if (venueId) emitShiftStart(venueId, 'vip_host');
   }, [venueId]);
 
-  // Réservations avec une pré-commande en attente -> pastille dorée sur le floor plan host.
-  const [preorderReservationIds, setPreorderReservationIds] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    if (!venueId) return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from('vip_table_orders')
-        .select('table_reservation_id')
-        .eq('venue_id', venueId)
-        .eq('status', 'preorder');
-      if (cancelled) return;
-      setPreorderReservationIds(new Set((data || []).map((o: any) => o.table_reservation_id)));
-    })();
-    return () => { cancelled = true; };
-  }, [venueId, reservations]);
-
-  // Extract unique zones with counts
-  const zones = useMemo(() => {
-    const zoneMap = new window.Map<string, { name: string; color: string; count: number }>();
-    reservations.forEach(r => {
-      if (!zoneMap.has(r.zoneName)) {
-        zoneMap.set(r.zoneName, { name: r.zoneName, color: r.zoneColor, count: 0 });
-      }
-      if (['placed', 'active'].includes(r.vipStatus)) {
-        const zone = zoneMap.get(r.zoneName)!;
-        zone.count++;
-      }
-    });
-    return Array.from(zoneMap.values());
+  const reservationById = useMemo(() => {
+    const map = new Map<string, ServiceReservation>();
+    reservations.forEach(r => map.set(r.id, r));
+    return map;
   }, [reservations]);
 
-  // Filter reservations by selected zone
-  const zoneFilteredReservations = useMemo(() => {
-    if (!selectedZone) return reservations;
-    return reservations.filter(r => r.zoneName === selectedZone);
-  }, [reservations, selectedZone]);
+  const selected = selectedId ? reservationById.get(selectedId) || null : null;
+  const composerFor = composerId ? reservationById.get(composerId) || null : null;
 
-  // Sort reservations
-  const sortedReservations = useMemo(() => {
-    const sorted = [...zoneFilteredReservations];
-    
-    if (sortBy === 'status') {
-      const statusOrder: Record<VipStatus, number> = {
-        waiting: 0,
-        placed: 1,
-        active: 2,
-        finished: 3,
-        no_show: 4,
-        denied: 5,
-      };
-      sorted.sort((a, b) => statusOrder[a.vipStatus] - statusOrder[b.vipStatus]);
-    } else {
-      sorted.sort((a, b) => {
-        const timeA = a.placedAt || a.createdAt;
-        const timeB = b.placedAt || b.createdAt;
-        return new Date(timeA).getTime() - new Date(timeB).getTime();
-      });
-    }
-    
-    return sorted;
-  }, [zoneFilteredReservations, sortBy]);
+  // Tables demandées par des clients pas encore installés (tap plan → placement).
+  const requestedByTable = useMemo(() => {
+    const map = new Map<string, ServiceReservation>();
+    reservations.forEach(r => {
+      if (r.requestedTableId && !r.assignedTableId && r.vipStatus === 'waiting' && r.placementStatus === 'requested') {
+        map.set(r.requestedTableId, r);
+      }
+    });
+    return map;
+  }, [reservations]);
 
-  const activeTablesCount = reservations.filter(r => ['placed', 'active'].includes(r.vipStatus)).length;
+  const serviceBadge = useMemo(() => {
+    const pending = orders.filter(o => o.status === 'pending').length;
+    const preordersArrived = orders.filter(
+      o => o.status === 'preorder' && reservationById.get(o.reservationId)?.hasArrived
+    ).length;
+    return pending + preordersArrived;
+  }, [orders, reservationById]);
 
-  const arrivalCount = notifications.filter(
-    n => n.notificationType === 'vip_entry' && !n.readAt
-  ).length;
+  // ─── Actions ────────────────────────────────────────────────────────────────
 
-  const cardQuickItems = quickItems.map(item => ({
-    id: item.id,
-    name: item.name,
-    price: item.default_price,
-    type: item.item_type,
-  }));
-
-  // Map known DB guard codes to precise, localized messages (vs a generic error).
   const placementErrorMessage = (error: unknown): string => {
     const code = (error as { code?: string } | null)?.code;
-    if (code === '23505') return t('vipHost.tableTaken');     // occupancy guard
-    if (code === '23503') return t('vipHost.tableMissing');   // not on floor plan
-    return (error as Error)?.message || t('vipHost.placementError');
+    if (code === '23505') return t('vipHost.tableTaken');
+    if (code === '23503') return t('vipHost.tableMissing');
+    return (error as Error)?.message || t('vipnight.error');
   };
 
-  // Handle starting placement for a reservation (initial seating)
-  const handleStartPlacement = (reservationId: string) => {
-    const reservation = reservations.find(r => r.id === reservationId);
-    if (reservation) {
-      setShowArrivals(false);
-      setReassignMode(false);
-      setSelectedTableId(null);
-      setPendingPlacement(reservation);
-      setShowPlacementSheet(true);
-    }
-  };
+  const tableName = (tableId: string) =>
+    floorPlan?.layout?.tables?.find(tb => tb.id === tableId)?.name || tableId;
 
-  // Handle starting a table REASSIGNMENT for an already-placed guest
-  const handleStartReassign = (reservation: VipReservation) => {
-    setSelectedReservation(null);
-    setReassignMode(true);
-    setSelectedTableId(reservation.assignedTableId || null);
-    setPendingPlacement(reservation);
-    setShowPlacementSheet(true);
-  };
-
-  const closePlacementSheet = () => {
-    setShowPlacementSheet(false);
-    setPendingPlacement(null);
-    setSelectedTableId(null);
-    setReassignMode(false);
-  };
-
-  // Handle table placement / reassignment
-  const handlePlaceTable = async () => {
-    if (!pendingPlacement || !selectedTableId) return;
-
-    setPlacementLoading(true);
+  const handleSeatConfirm = async (tableId: string) => {
+    if (!seatPicker) return;
+    const { reservation, moveMode } = seatPicker;
+    setActionBusy(true);
     try {
-      if (reassignMode) {
-        await reassignTable(pendingPlacement.id, selectedTableId);
+      if (moveMode) {
+        await night.moveGuest(reservation.id, tableId);
+        toast.success(t('vipnight.guestMoved').replace('{name}', reservation.fullName).replace('{table}', tableName(tableId)));
       } else {
-        await updateReservationStatus(pendingPlacement.id, 'placed', selectedTableId);
+        await night.seatGuest(reservation.id, tableId);
+        toast.success(t('vipnight.seated').replace('{name}', reservation.fullName).replace('{table}', tableName(tableId)));
+        // L'arrivée est traitée : on solde les notifications de cette résa.
+        notifications
+          .filter(n => n.notificationType === 'vip_entry' && n.referenceId === reservation.id && !n.readAt)
+          .forEach(n => markAsRead(n.id));
       }
-      const tableName = floorPlan?.layout?.tables?.find(t => t.id === selectedTableId)?.name || selectedTableId;
-      toast.success(`${pendingPlacement.fullName} → ${tableName}`);
-      closePlacementSheet();
+      haptics.success();
+      setSeatPicker(null);
     } catch (error) {
-      // Surface the real reason (e.g. table already taken / no longer on plan).
+      haptics.error();
       toast.error(placementErrorMessage(error));
     } finally {
-      setPlacementLoading(false);
+      setActionBusy(false);
     }
   };
 
-  // Quick add now handled by QuickAddPopover creating orders directly
-
-  // Handle finish service
-  const handleFinishService = async (reservationId: string) => {
-    await updateReservationStatus(reservationId, 'finished');
-    toast.success(t('vipHost.serviceFinished'));
-  };
-
-  // Mark a not-yet-arrived guest as no-show or denied entry (from placement sheet)
   const handleMarkAbsent = async (status: 'no_show' | 'denied') => {
-    if (!pendingPlacement) return;
-    setPlacementLoading(true);
+    if (!seatPicker) return;
+    setActionBusy(true);
     try {
-      await updateReservationStatus(pendingPlacement.id, status);
-      toast.success(status === 'no_show' ? t('vipHost.markedNoShow') : t('vipHost.markedDenied'));
-      closePlacementSheet();
+      await night.markAbsent(seatPicker.reservation.id, status);
+      toast.success(status === 'no_show' ? t('vipnight.markedNoShow') : t('vipnight.markedDenied'));
+      setSeatPicker(null);
+      setSelectedId(null);
     } catch (error) {
       toast.error(placementErrorMessage(error));
     } finally {
-      setPlacementLoading(false);
+      setActionBusy(false);
     }
   };
 
-  // Handle clicking on low credit table from priority lane
-  const handleLowCreditClick = (reservationId: string) => {
-    const reservation = reservations.find(r => r.id === reservationId);
-    if (reservation) {
-      setSelectedReservation(reservation);
+  const handleMarkArrived = async (r: ServiceReservation) => {
+    try {
+      await night.markArrived(r.id);
+      haptics.success();
+      toast.success(t('vipnight.markedArrived').replace('{name}', r.fullName));
+    } catch (error) {
+      haptics.error();
+      toast.error(placementErrorMessage(error));
     }
   };
+
+  const handleFinish = async (r: ServiceReservation) => {
+    try {
+      await night.finishService(r.id);
+      haptics.success();
+      toast.success(t('vipnight.finished'));
+      setSelectedId(null);
+    } catch (error) {
+      toast.error(placementErrorMessage(error));
+    }
+  };
+
+  const handleReopen = async (r: ServiceReservation) => {
+    try {
+      await night.reopenService(r.id);
+      haptics.success();
+    } catch (error) {
+      toast.error(placementErrorMessage(error));
+    }
+  };
+
+  const handleConfirmOrder = async (order: ServiceOrder) => {
+    setBusyOrderId(order.id);
+    try {
+      const ok = await night.confirmOrder(order.id);
+      if (ok) {
+        haptics.success();
+        toast.success(order.status === 'preorder' ? t('vipnight.preorderValidated') : t('vipnight.orderConfirmed'));
+      } else {
+        toast.info(t('vipnight.alreadyHandled'));
+      }
+    } catch (error) {
+      haptics.error();
+      toast.error(placementErrorMessage(error));
+    } finally {
+      setBusyOrderId(null);
+    }
+  };
+
+  const handleServeOrder = async (order: ServiceOrder) => {
+    setBusyOrderId(order.id);
+    try {
+      const ok = await night.serveOrder(order);
+      if (ok) {
+        haptics.success();
+        toast.success(t('vipnight.orderServed'));
+      } else {
+        toast.info(t('vipnight.alreadyHandled'));
+      }
+    } catch (error) {
+      haptics.error();
+      toast.error(placementErrorMessage(error));
+    } finally {
+      setBusyOrderId(null);
+    }
+  };
+
+  const handleCancelOrder = async (order: ServiceOrder) => {
+    if (!window.confirm(t('vipnight.confirmCancelOrder'))) return;
+    setBusyOrderId(order.id);
+    try {
+      const ok = await night.cancelOrder(order.id);
+      if (ok) toast.success(t('vipnight.orderCancelled'));
+      else toast.info(t('vipnight.alreadyHandled'));
+    } catch (error) {
+      toast.error(placementErrorMessage(error));
+    } finally {
+      setBusyOrderId(null);
+    }
+  };
+
+  const handleSubmitCart = async (lines: CartLine[], opts: { directServe: boolean; note?: string }) => {
+    if (!composerFor) return;
+    setActionBusy(true);
+    try {
+      await night.submitCart(composerFor.id, lines, opts);
+      haptics.success();
+      toast.success(opts.directServe ? t('vipnight.servedAdded') : t('vipnight.orderSent'));
+      setComposerId(null);
+    } catch (error) {
+      haptics.error();
+      toast.error(placementErrorMessage(error));
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const handleUndoConsumption = async (consumptionId: string) => {
+    try {
+      await night.undoConsumption(consumptionId);
+      toast.success(t('vipnight.undoDone'));
+    } catch {
+      toast.error(t('vipnight.error'));
+    }
+  };
+
+  const handleScheduleMoment = async (kind: string, label: string | null, inMinutes: number) => {
+    if (!selected) return;
+    try {
+      await night.scheduleMoment(selected.id, kind, label, new Date(Date.now() + inMinutes * 60000).toISOString());
+      haptics.success();
+      toast.success(t('vipnight.momentPlanned'));
+    } catch {
+      toast.error(t('vipnight.error'));
+    }
+  };
+
+  // ─── États globaux ──────────────────────────────────────────────────────────
 
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center" style={{ background: '#000' }}>
-        <div
-          className="h-12 w-12 animate-spin rounded-full border-2"
-          style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }}
-        />
+        <div className="h-12 w-12 animate-spin rounded-full border-2" style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} />
       </div>
     );
   }
 
-  // Hôte VIP sans club rattaché : il n'y a aucune donnée à charger. On le dit, au
-  // lieu de laisser tourner un spinner que rien ne viendra jamais arrêter.
   if (noVenue) {
     return (
       <div className="flex min-h-screen items-center justify-center px-6" style={{ background: '#000' }}>
         <div className="w-full max-w-sm text-center">
-          <div
-            className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl"
-            style={{ background: C_FAINT, border: `1px solid ${BORDER}` }}
-          >
+          <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl" style={{ background: C_FAINT, border: `1px solid ${BORDER}` }}>
             <Crown className="h-6 w-6" style={{ color: T3 }} />
           </div>
-          <h1 style={{ color: T1, fontSize: 19, fontWeight: 700, letterSpacing: '-0.01em' }}>
-            {t('vipHost.noVenueTitle')}
-          </h1>
-          <p style={{ color: T2, fontSize: 14, lineHeight: 1.55, marginTop: 10 }}>
-            {t('vipHost.noVenueBody')}
-          </p>
+          <h1 style={{ color: T1, fontSize: 19, fontWeight: 700, letterSpacing: '-0.01em' }}>{t('vipHost.noVenueTitle')}</h1>
+          <p style={{ color: T2, fontSize: 14, lineHeight: 1.55, marginTop: 10 }}>{t('vipHost.noVenueBody')}</p>
         </div>
       </div>
     );
   }
 
+  const tabs: { key: Tab; label: string; icon: typeof MapIcon; badge?: number }[] = [
+    { key: 'room', label: t('vipnight.tabRoom'), icon: MapIcon },
+    { key: 'tables', label: t('vipnight.tabTables'), icon: List, badge: doorQueue.length || undefined },
+    { key: 'service', label: t('vipnight.tabService'), icon: Bell, badge: serviceBadge || undefined },
+    { key: 'night', label: t('vipnight.tabNight'), icon: BarChart3 },
+  ];
+
   return (
     <div
       className="min-h-screen"
-      // La barre d'action est `fixed` : le padding bas doit couvrir sa hauteur (~76px)
-      // ET l'indicateur d'accueil iPhone, sinon la dernière carte passe dessous.
-      style={{ background: '#000', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}
+      // La tab bar est `fixed` : le padding bas couvre sa hauteur + l'indicateur
+      // d'accueil iPhone, sinon le dernier élément passe dessous.
+      style={{ background: '#000', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 84px)' }}
     >
       <RoleIntroGate role="viphost" />
-      {/* Vignette ambiante */}
-      <div
-        className="fixed inset-0 pointer-events-none z-0"
-        style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }}
-      />
+      <div className="pointer-events-none fixed inset-0 z-0" style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
 
-      {/* Compact Header */}
+      {/* Header compact */}
       <header
         className="sticky top-0 z-40 px-3 py-2 backdrop-blur-xl"
         style={{ background: 'rgba(10,10,12,0.72)', borderBottom: `1px solid ${BORDER}`, paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}
@@ -288,14 +320,17 @@ export default function VipHostDashboard() {
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <ProBackButton className="h-10 w-10 shrink-0" />
-            <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center flex-none"
-              style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}
-            >
-              <Crown className="w-4 h-4" style={{ color: RED }} />
+            <div className="flex h-8 w-8 flex-none items-center justify-center rounded-xl" style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}>
+              <Crown className="h-4 w-4" style={{ color: RED }} />
             </div>
             <div className="min-w-0">
-              <h1 className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em', margin: 0 }}>VIP Host</h1>
+              <h1 className="flex items-center gap-1.5 truncate" style={{ color: T1, fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em', margin: 0 }}>
+                {t('vipnight.title')}
+                <span
+                  className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+                  style={{ background: connectionStale ? RED : 'rgb(52,211,153)' }}
+                />
+              </h1>
               {activeEvent && (
                 <p className="truncate" style={{ color: T3, fontSize: 10, marginTop: 1 }}>
                   {activeEvent.title}
@@ -303,365 +338,242 @@ export default function VipHostDashboard() {
               )}
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-10 w-10"
-              onClick={() => refresh()}
-            >
-              <RefreshCw className="w-4 h-4" />
-            </Button>
-
-            <button
-              type="button"
-              className="h-10 w-10 relative flex items-center justify-center rounded-xl cursor-pointer transition-all duration-150"
-              style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 }}
-              onClick={() => setShowArrivals(true)}
-            >
-              <Sparkles className="w-4 h-4" />
-              {arrivalCount > 0 && (
-                <span
-                  className="absolute -top-1 -right-1 w-4 h-4 text-[9px] font-bold rounded-full flex items-center justify-center tabular-nums"
-                  style={{ background: RED, color: '#fff' }}
-                >
-                  {arrivalCount}
-                </span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              className="h-10 w-10 relative flex items-center justify-center rounded-xl cursor-pointer transition-all duration-150"
-              style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 }}
-              onClick={() => setShowOrders(true)}
-            >
-              <Bell className="w-4 h-4" />
-              {pendingOrdersCount > 0 && (
-                <span
-                  className="absolute -top-1 -right-1 w-4 h-4 text-[9px] font-bold rounded-full flex items-center justify-center tabular-nums"
-                  style={{ background: '#FCD34D', color: '#000' }}
-                >
-                  {pendingOrdersCount}
-                </span>
-              )}
-            </button>
-          </div>
+          <button
+            type="button"
+            className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl transition-all duration-150"
+            style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 }}
+            onClick={() => refresh()}
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
         </div>
       </header>
 
-      {/* Stale-connection banner: realtime socket dropped or device offline.
-          Data may be out of date and write actions are disabled until reconnect. */}
-      {!loading && connectionStale && (
+      {/* Bandeau connexion perdue : données possiblement périmées, écritures gelées. */}
+      {connectionStale && (
         <div
           className="sticky z-30 flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium"
           style={{
-            // Hauteur exacte du header sticky : safe-area + 8 (pt) + 40 (boutons) + 8 (pb).
             top: 'calc(env(safe-area-inset-top, 0px) + 56px)',
             background: 'rgba(232,25,44,0.16)',
             color: '#FCA5A5',
             borderBottom: `1px solid ${BORDER}`,
           }}
         >
-          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
           {t('vipHost.connectionStale')}
         </div>
       )}
 
-      {/* PublicPage n'enveloppe QUE le contenu défilant : le header sticky, le
-          bandeau de reconnexion et la barre d'action `fixed` restent en sibling
-          (un ancêtre transformé casserait leur positionnement). */}
+      {/* PublicPage n'enveloppe QUE le contenu défilant : header sticky, bandeau
+          et tab bar fixed restent en sibling (un ancêtre transformé casserait
+          leur positionnement). */}
       <PublicPage variant="flow">
-      <main className="relative z-10 p-3 space-y-3">
-        {/* Zone Tabs */}
-        {zones.length > 1 && (
-          <VipZoneTabs
-            zones={zones}
-            selectedZone={selectedZone}
-            onSelectZone={setSelectedZone}
-            totalCount={activeTablesCount}
-          />
-        )}
+        <main className="relative z-10 space-y-3 p-3">
+          {!activeEvent && (
+            <div className="flex items-center gap-3 rounded-2xl px-4 py-3.5" style={{ background: C_FAINT, border: `1px solid ${BORDER}` }}>
+              <CalendarOff className="h-5 w-5 shrink-0" style={{ color: T3 }} />
+              <div className="min-w-0">
+                <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('vipnight.noEvent')}</p>
+                <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>{t('vipnight.noEventHint')}</p>
+              </div>
+            </div>
+          )}
 
-        {/* Priority Lane */}
-        <VipPriorityLane
-          reservations={reservations}
-          consumptions={consumptions}
-          pendingOrdersCount={pendingOrdersCount}
-          onOrdersClick={() => setShowOrders(true)}
-          onArrivalsClick={() => setShowArrivals(true)}
-          onLowCreditClick={handleLowCreditClick}
-        />
+          {tab === 'room' && (
+            <>
+              {/* File de la porte : arrivés, pas encore installés */}
+              {doorQueue.length > 0 && (
+                <div>
+                  <p className="mb-1.5 flex items-center gap-1.5 px-1" style={{ color: GOLD, fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    <DoorOpen className="h-3.5 w-3.5" />
+                    {t('vipnight.doorQueue')}
+                  </p>
+                  <div className="scrollbar-none -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+                    {doorQueue.map(r => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => setSeatPicker({ reservation: r, moveMode: false })}
+                        className="flex shrink-0 cursor-pointer items-center gap-2 rounded-full py-1.5 pl-1.5 pr-3 transition-all duration-150"
+                        style={{ background: 'rgba(231,193,90,0.09)', border: '1px solid rgba(231,193,90,0.4)' }}
+                      >
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold" style={{ background: 'rgba(231,193,90,0.18)', color: GOLD }}>
+                          {r.guestCount}
+                        </span>
+                        <span className="text-left">
+                          <span className="block truncate" style={{ color: T1, fontSize: 12.5, fontWeight: 600, maxWidth: 120 }}>
+                            {r.fullName}
+                          </span>
+                          <span className="block tabular-nums" style={{ color: T3, fontSize: 9.5 }}>
+                            {fmtAge(r.checkedInAt)}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
-        {/* Collapsible Stats */}
-        {reservations.length > 0 && (
-          <VipCompactStats
-            reservations={reservations}
-            consumptions={consumptions}
-            open={showStats}
-            onOpenChange={setShowStats}
-          />
-        )}
+              {floorPlan?.backgroundImageUrl && (
+                <div className="flex items-center justify-end gap-2 px-1">
+                  <Image className="h-3.5 w-3.5" style={{ color: T3 }} />
+                  <span style={{ color: T3, fontSize: 11 }}>{t('vipnight.showBackground')}</span>
+                  <Switch checked={showFloorBackground} onCheckedChange={setShowFloorBackground} className="scale-75" />
+                </div>
+              )}
 
-        {/* Main content tabs */}
-        <Tabs defaultValue="list">
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <TabsList className="owner-tabs h-9 shrink-0">
-              <TabsTrigger value="list" className="gap-1 text-xs h-8 px-2">
-                <List className="w-3.5 h-3.5 shrink-0" />
-                {t('vipHost.list')}
-              </TabsTrigger>
-              <TabsTrigger value="grid" className="gap-1 text-xs h-8 px-2">
-                <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
-                {t('vipHost.grid')}
-              </TabsTrigger>
-              <TabsTrigger value="map" className="gap-1 text-xs h-8 px-2">
-                <Map className="w-3.5 h-3.5 shrink-0" />
-                {t('vipHost.plan')}
-              </TabsTrigger>
-            </TabsList>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSortBy(sortBy === 'status' ? 'time' : 'status')}
-              className="min-w-0 text-xs h-9 px-2"
-            >
-              <span className="truncate">{sortBy === 'status' ? t('vipHost.byStatus') : t('vipHost.byTime')}</span>
-            </Button>
-          </div>
-
-          <TabsContent value="list" className="mt-0 space-y-2">
-            {sortedReservations.length === 0 ? (
-              <EmptyState />
-            ) : (
-              sortedReservations.map(reservation => (
-                <VipReservationCard
-                  key={reservation.id}
-                  reservation={reservation}
-                  consumptions={consumptions.get(reservation.id) || []}
-                  quickItems={cardQuickItems}
-                  venueId={['placed', 'active'].includes(reservation.vipStatus) ? venueId || undefined : undefined}
-                  onOrderSent={refresh}
-                  onFinish={['placed', 'active'].includes(reservation.vipStatus)
-                    ? () => handleFinishService(reservation.id)
-                    : undefined
+              <ServiceFloorPlan
+                floorPlan={floorPlan}
+                reservations={reservations}
+                serviceInfo={serviceInfo}
+                mode="live"
+                showBackground={showFloorBackground}
+                onTableTap={(tableId, seated) => {
+                  if (seated) {
+                    haptics.selection();
+                    setSelectedId(seated.id);
+                    return;
                   }
-                  onClick={() => {
-                    if (['waiting', 'no_show', 'denied'].includes(reservation.vipStatus)) {
-                      handleStartPlacement(reservation.id);
-                    } else {
-                      setSelectedReservation(reservation);
-                    }
-                  }}
-                />
-              ))
-            )}
-          </TabsContent>
-
-          <TabsContent value="grid" className="mt-0">
-            {sortedReservations.length === 0 ? (
-              <EmptyState />
-            ) : (
-              <VipTableGrid
-                reservations={sortedReservations}
-                consumptions={consumptions}
-                onSelect={(reservation) => {
-                  if (['waiting', 'no_show', 'denied'].includes(reservation.vipStatus)) {
-                    handleStartPlacement(reservation.id);
-                  } else {
-                    setSelectedReservation(reservation);
+                  const requester = requestedByTable.get(tableId);
+                  if (requester) {
+                    haptics.selection();
+                    setSeatPicker({ reservation: requester, moveMode: false });
                   }
                 }}
               />
-            )}
-          </TabsContent>
+            </>
+          )}
 
-          <TabsContent value="map" className="mt-0">
-            {floorPlan?.backgroundImageUrl && (
-              <div className="flex items-center justify-end gap-2 mb-2 px-1">
-                <Image className="w-3.5 h-3.5 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">{t('vipHost.showBackground') || 'Fond'}</span>
-                <Switch
-                  checked={showFloorBackground}
-                  onCheckedChange={setShowFloorBackground}
-                  className="scale-75"
-                />
-              </div>
-            )}
-            <VipFloorPlan
-              floorPlan={floorPlan}
+          {tab === 'tables' && (
+            <ServiceTablesTab
               reservations={reservations}
-              consumptions={consumptions}
-              mode="view"
-              preorderReservationIds={preorderReservationIds}
-              showBackground={showFloorBackground}
-              onTableSelect={(tableId) => {
-                const reservation = reservations.find(r => r.assignedTableId === tableId);
-                if (reservation) {
-                  setSelectedReservation(reservation);
-                }
-              }}
-            />
-          </TabsContent>
-        </Tabs>
-      </main>
-      </PublicPage>
-
-      {/* Bottom Action Bar */}
-      <VipActionBar
-        mode="default"
-        onOrders={() => setShowOrders(true)}
-        onStats={() => setShowStats(true)}
-        pendingCount={pendingOrdersCount}
-      />
-
-      {/* Table detail sheet */}
-      <VipTableDetail
-        reservation={selectedReservation}
-        consumptions={selectedReservation ? consumptions.get(selectedReservation.id) || [] : []}
-        quickItems={quickItems}
-        open={!!selectedReservation}
-        onClose={() => setSelectedReservation(null)}
-        onAddConsumption={addConsumption}
-        onUpdateStatus={updateReservationStatus}
-        onReassign={handleStartReassign}
-        canReassign={(floorPlan?.layout?.tables?.length ?? 0) > 0}
-        actionsDisabled={connectionStale}
-        venueId={venueId}
-      />
-
-      {/* Placement sheet (initial seating + reassignment) */}
-      <Sheet open={showPlacementSheet} onOpenChange={(o) => { if (!o) closePlacementSheet(); }}>
-        {/* Colonne flex (header / plan scrollable / barre d'action) plutôt qu'un footer
-            en position absolue : sur mobile le plan de salle ne passe plus dessous. */}
-        <SheetContent side="bottom" className="flex h-[80vh] flex-col gap-0 rounded-t-3xl p-0">
-          {/* pr-12 : laisse la place au bouton de fermeture (absolute right-4) du Sheet. */}
-          <SheetHeader className="shrink-0 px-4 pb-4 pr-12 pt-5 sm:px-6 sm:pr-14">
-            <SheetTitle className="text-left">
-              {(reassignMode ? t('vipHost.reassignGuest') : t('vipHost.placeGuest')).replace('{name}', pendingPlacement?.fullName || '')}
-            </SheetTitle>
-            <p className="text-sm text-muted-foreground text-left">
-              {t('vipHost.personsInZone').replace('{count}', String(pendingPlacement?.guestCount || 0)).replace('{zone}', pendingPlacement?.zoneName || '')}
-            </p>
-          </SheetHeader>
-
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 sm:px-6">
-            <VipFloorPlan
-              floorPlan={floorPlan}
-              reservations={reservations}
-              mode="placement"
-              selectedTableId={selectedTableId || undefined}
-              pendingReservation={pendingPlacement}
-              onTableSelect={(tableId) => setSelectedTableId(tableId)}
-            />
-          </div>
-
-          <div
-            className="shrink-0 space-y-2 border-t bg-background/95 px-4 pt-4 backdrop-blur sm:px-6"
-            style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
-          >
-            <Button
-              className="w-full h-12 font-semibold"
-              disabled={!selectedTableId || placementLoading || connectionStale}
-              onClick={handlePlaceTable}
-            >
-              {placementLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : connectionStale ? (
-                <span className="truncate">{t('vipHost.connectionStale')}</span>
-              ) : (
-                <span className="truncate">
-                  {`${t('vipHost.placeTo')} ${selectedTableId ? (floorPlan?.layout?.tables?.find(tbl => tbl.id === selectedTableId)?.name || selectedTableId) : '...'}`}
-                </span>
-              )}
-            </Button>
-
-            {/* No-show / denied entry — only for initial seating, not reassignment */}
-            {!reassignMode && (
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="min-w-0 flex-1 h-11"
-                  disabled={placementLoading || connectionStale}
-                  onClick={() => handleMarkAbsent('no_show')}
-                >
-                  <span className="truncate">{t('vipHost.markNoShow')}</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  className="min-w-0 flex-1 h-11 text-destructive hover:text-destructive"
-                  disabled={placementLoading || connectionStale}
-                  onClick={() => handleMarkAbsent('denied')}
-                >
-                  <span className="truncate">{t('vipHost.markDenied')}</span>
-                </Button>
-              </div>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Arrivals Notifications Sheet */}
-      <Sheet open={showArrivals} onOpenChange={setShowArrivals}>
-        <SheetContent
-          side="right"
-          className="w-full overflow-y-auto sm:max-w-md"
-          style={{
-            paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))',
-            paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
-          }}
-        >
-          <SheetHeader className="pb-4 pr-8">
-            <SheetTitle className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-primary shrink-0" />
-              <span className="truncate">{t('vipHost.vipArrivals')}</span>
-            </SheetTitle>
-          </SheetHeader>
-          <VipEntryNotifications 
-            notifications={notifications}
-            onMarkAsRead={markAsRead}
-            onMarkAllAsRead={markAllAsRead}
-            onPlaceGuest={handleStartPlacement}
-          />
-        </SheetContent>
-      </Sheet>
-
-      {/* Orders Notifications Sheet */}
-      <Sheet open={showOrders} onOpenChange={setShowOrders}>
-        <SheetContent
-          side="right"
-          className="w-full overflow-y-auto sm:max-w-md"
-          style={{
-            paddingTop: 'calc(1.5rem + env(safe-area-inset-top, 0px))',
-            paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))',
-          }}
-        >
-          <SheetHeader className="pb-4 pr-8">
-            <SheetTitle className="flex items-center gap-2">
-              <Bell className="w-5 h-5 shrink-0" />
-              <span className="truncate">{t('vipHost.vipOrders')}</span>
-            </SheetTitle>
-          </SheetHeader>
-          {venueId && (
-            <VipOrderNotifications 
-              venueId={venueId} 
-              onOrderConfirmed={() => refresh()}
-              onPendingCountChange={setPendingOrdersCount}
+              serviceInfo={serviceInfo}
+              disabled={connectionStale}
+              onSelect={r => setSelectedId(r.id)}
+              onSeat={r => setSeatPicker({ reservation: r, moveMode: false })}
             />
           )}
-        </SheetContent>
-      </Sheet>
-    </div>
-  );
-}
 
-function EmptyState() {
-  const { t } = useLanguage();
-  return (
-    <div className="text-center py-12">
-      <Crown className="w-12 h-12 mx-auto mb-3" style={{ color: 'rgba(255,255,255,0.14)' }} />
-      <p style={{ color: 'rgba(255,255,255,0.36)', fontSize: 13 }}>{t('vipHost.noVipReservations')}</p>
+          {tab === 'service' && (
+            <ServiceOrdersTab
+              orders={orders}
+              reservationById={reservationById}
+              busyOrderId={busyOrderId}
+              disabled={connectionStale}
+              onConfirm={handleConfirmOrder}
+              onServe={handleServeOrder}
+              onCancel={handleCancelOrder}
+              onGuestTap={r => setSelectedId(r.id)}
+            />
+          )}
+
+          {tab === 'night' && (
+            <ServiceNightTab
+              reservations={reservations}
+              consumptions={consumptions}
+              serviceInfo={serviceInfo}
+              moments={moments}
+            />
+          )}
+        </main>
+      </PublicPage>
+
+      {/* Tab bar */}
+      <nav
+        className="fixed inset-x-0 bottom-0 z-40 backdrop-blur-xl"
+        style={{ background: 'rgba(10,10,12,0.82)', borderTop: `1px solid ${BORDER}`, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+      >
+        <div className="mx-auto flex max-w-md">
+          {tabs.map(({ key, label, icon: Icon, badge }) => {
+            const active = tab === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => {
+                  haptics.selection();
+                  setTab(key);
+                }}
+                className="relative flex min-w-0 flex-1 cursor-pointer flex-col items-center gap-1 pb-2 pt-2.5 transition-all duration-150"
+                style={{ color: active ? T1 : T3 }}
+              >
+                <span className="relative">
+                  <Icon className="h-5 w-5" style={{ color: active ? RED : undefined }} />
+                  {!!badge && (
+                    <span
+                      className="absolute -right-2 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-bold tabular-nums"
+                      style={{ background: RED, color: '#fff' }}
+                    >
+                      {badge}
+                    </span>
+                  )}
+                </span>
+                <span className="max-w-full truncate px-1" style={{ fontSize: 10, fontWeight: active ? 700 : 500 }}>
+                  {label}
+                </span>
+                {active && (
+                  <span className="absolute inset-x-6 top-0 h-0.5 rounded-full" style={{ background: RED }} />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      {/* Détail table */}
+      <TableServiceSheet
+        reservation={selected}
+        info={selected ? serviceInfo.get(selected.id) || null : null}
+        consumptions={selected ? consumptions.get(selected.id) || [] : []}
+        orders={selected ? ordersByReservation.get(selected.id) || [] : []}
+        moments={moments}
+        venueId={venueId || ''}
+        currentUserId={currentUserId}
+        busyOrderId={busyOrderId}
+        disabled={connectionStale}
+        onClose={() => setSelectedId(null)}
+        onSeat={() => selected && setSeatPicker({ reservation: selected, moveMode: false })}
+        onMove={() => selected && setSeatPicker({ reservation: selected, moveMode: true })}
+        onMarkArrived={() => selected && handleMarkArrived(selected)}
+        onOpenComposer={() => selected && setComposerId(selected.id)}
+        onFinish={() => selected && handleFinish(selected)}
+        onReopen={() => selected && handleReopen(selected)}
+        onConfirmOrder={handleConfirmOrder}
+        onServeOrder={handleServeOrder}
+        onCancelOrder={handleCancelOrder}
+        onUndoConsumption={handleUndoConsumption}
+        onScheduleMoment={handleScheduleMoment}
+        onCompleteMoment={id => night.completeMoment(id).catch(() => toast.error(t('vipnight.error')))}
+      />
+
+      {/* Placement / déplacement */}
+      <SeatPickerSheet
+        open={!!seatPicker}
+        reservation={seatPicker?.reservation || null}
+        moveMode={seatPicker?.moveMode || false}
+        floorPlan={floorPlan}
+        reservations={reservations}
+        serviceInfo={serviceInfo}
+        busy={actionBusy}
+        disabled={connectionStale}
+        onConfirm={handleSeatConfirm}
+        onMarkAbsent={handleMarkAbsent}
+        onClose={() => setSeatPicker(null)}
+      />
+
+      {/* Prise de commande */}
+      <OrderComposerSheet
+        open={!!composerFor}
+        reservation={composerFor}
+        info={composerFor ? serviceInfo.get(composerFor.id) || null : null}
+        menuItems={menuItems}
+        quickItems={quickItems}
+        busy={actionBusy}
+        disabled={connectionStale}
+        onSubmit={handleSubmitCart}
+        onClose={() => setComposerId(null)}
+      />
     </div>
   );
 }
