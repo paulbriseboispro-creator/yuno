@@ -12,6 +12,7 @@ import {
 import { getAbsorbYunoFees } from "../_shared/merchant-fees.ts";
 import { recordSmsConsent } from "../_shared/sms-consent.ts";
 import { resolveAgeDeclaration, AgeDeclarationError, AGE_DECLARATION_REQUIRED_CODE } from "../_shared/age-declaration.ts";
+import { t, resolveLang } from "../_shared/i18n.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -81,7 +82,10 @@ serve(async (req) => {
       ageDeclaration,
       // Pré-commande de bouteilles (préparées pour l'arrivée, réglées à la table)
       preOrderBottles,
+      // Langue de l'acheteur pour les messages d'erreur (en/fr/es)
+      language,
     } = await req.json();
+    const lang = resolveLang(language);
 
     const ALLOWED_SOURCES = ['venue_profile','organizer_profile','dj_profile','explore','promoter','direct'];
     // Default to 'direct' so analytics never show "unknown" — every reservation has a source.
@@ -158,7 +162,7 @@ serve(async (req) => {
 
     const { data: event } = await supabaseAdmin
       .from("events")
-      .select("id, title, venue_id, organizer_user_id, partner_venue_id, partner_organizer_id, event_mode, revenue_split_rules, is_active, is_bde, tables_mode, tables_enabled")
+      .select("id, title, venue_id, organizer_user_id, partner_venue_id, partner_organizer_id, event_mode, revenue_split_rules, revenue_split_proposal, split_approved_by_venue, split_approved_by_organizer, is_active, is_bde, tables_mode, tables_enabled")
       .eq("id", eventId)
       .single();
     if (!event || !event.is_active) throw new Error("Event not found or inactive");
@@ -273,12 +277,23 @@ serve(async (req) => {
       partnershipId = partnership?.id ?? null;
     }
 
-    // CONTRACT GUARD: block checkout if a split proposal is awaiting bilateral approval
+    // CONTRACT GUARD (1/2): block checkout while a split proposal awaits bilateral approval.
     if (event.revenue_split_proposal && !(event.split_approved_by_venue && event.split_approved_by_organizer)) {
-      throw new Error(
-        "Le contrat de partage de revenus pour cette soirée est en attente de validation. " +
-        "Le club et l'organisateur doivent tous deux accepter avant l'ouverture des ventes."
-      );
+      logStep("Checkout refused — collab split proposal pending", { eventId: event.id });
+      throw new Error(t("checkout.collabContractPending", lang));
+    }
+    // CONTRACT GUARD (2/2): a co-event with NO agreed split at all must not sell.
+    // The invitation-onboarding path links partner_venue_id / partner_organizer_id
+    // without creating a contract; without this check, sales would open on a
+    // hardcoded default split that neither party ever signed.
+    // revenue_split_rules is only ever written by a doubly-signed contract.
+    const isCoEventForGuard =
+      ["co_event", "venue_rental", "org_hosted"].includes(event.event_mode ?? "") ||
+      (event.venue_id && event.partner_organizer_id) ||
+      (event.organizer_user_id && event.partner_venue_id);
+    if (isCoEventForGuard && !event.revenue_split_rules && !event.revenue_split_proposal) {
+      logStep("Checkout refused — co-event without signed split contract", { eventId: event.id, eventMode: event.event_mode });
+      throw new Error(t("checkout.collabContractMissing", lang));
     }
 
     logStep("Venue found", { 

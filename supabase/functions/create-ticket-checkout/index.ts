@@ -121,7 +121,7 @@ serve(async (req) => {
     // Get event details
     const { data: event, error: eventError } = await supabaseAdmin
       .from("events")
-      .select("id, title, venue_id, organizer_user_id, partner_venue_id, partner_organizer_id, event_mode, revenue_split_rules, is_active, is_bde, presale_start_at, public_sale_start_at, waitlist_enabled, end_at, ticket_selling_mode, max_tickets, rounds_visibility")
+      .select("id, title, venue_id, organizer_user_id, partner_venue_id, partner_organizer_id, event_mode, revenue_split_rules, revenue_split_proposal, split_approved_by_venue, split_approved_by_organizer, is_active, is_bde, presale_start_at, public_sale_start_at, waitlist_enabled, end_at, ticket_selling_mode, max_tickets, rounds_visibility")
       .eq("id", eventId)
       .single();
 
@@ -341,12 +341,23 @@ serve(async (req) => {
       partnershipId = partnership?.id ?? null;
     }
 
-    // CONTRACT GUARD: block checkout if a split proposal is awaiting bilateral approval
+    // CONTRACT GUARD (1/2): block checkout while a split proposal awaits bilateral approval.
     if (event.revenue_split_proposal && !(event.split_approved_by_venue && event.split_approved_by_organizer)) {
-      throw new Error(
-        "Le contrat de partage de revenus pour cette soirée est en attente de validation. " +
-        "Le club et l'organisateur doivent tous deux accepter avant l'ouverture des ventes."
-      );
+      logStep("Checkout refused — collab split proposal pending", { eventId: event.id });
+      throw new Error(t("checkout.collabContractPending", lang));
+    }
+    // CONTRACT GUARD (2/2): a co-event with NO agreed split at all must not sell.
+    // The invitation-onboarding path links partner_venue_id / partner_organizer_id
+    // without creating a contract; without this check, sales would open on a
+    // hardcoded default split (50/50 tickets) that neither party ever signed.
+    // revenue_split_rules is only ever written by a doubly-signed contract.
+    const isCoEventForGuard =
+      ["co_event", "venue_rental", "org_hosted"].includes(event.event_mode ?? "") ||
+      (event.venue_id && event.partner_organizer_id) ||
+      (event.organizer_user_id && event.partner_venue_id);
+    if (isCoEventForGuard && !event.revenue_split_rules && !event.revenue_split_proposal) {
+      logStep("Checkout refused — co-event without signed split contract", { eventId: event.id, eventMode: event.event_mode });
+      throw new Error(t("checkout.collabContractMissing", lang));
     }
 
     logStep("Payment targets resolved", {

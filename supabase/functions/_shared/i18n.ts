@@ -37,6 +37,8 @@ const MESSAGES: Record<Lang, Record<string, string>> = {
     "checkout.organizerPaymentsNotSetUp": "This organizer can't take payments yet — ticket sales are closed.",
     "checkout.venueStripeNotActive": "The club's payment account isn't active yet — ticket sales are closed. Please contact the club.",
     "checkout.organizerStripeNotActive": "The organizer's payment account isn't active yet — ticket sales are closed.",
+    "checkout.collabContractPending": "The revenue-sharing agreement for this event is awaiting signature. Sales open once both the club and the organizer have signed.",
+    "checkout.collabContractMissing": "This co-organized event doesn't have a signed revenue-sharing agreement yet. Sales open once both parties have signed it.",
     // create-checkout
     "checkout.eventAlreadyEnded": "This event has already ended.",
     // create-table-checkout
@@ -107,6 +109,8 @@ const MESSAGES: Record<Lang, Record<string, string>> = {
     "checkout.organizerPaymentsNotSetUp": "Este organizador todavía no puede cobrar: la venta de entradas está cerrada.",
     "checkout.venueStripeNotActive": "La cuenta de pago del club aún no está activada: la venta de entradas está cerrada. Ponte en contacto con el club.",
     "checkout.organizerStripeNotActive": "La cuenta de pago del organizador aún no está activada: la venta de entradas está cerrada.",
+    "checkout.collabContractPending": "El acuerdo de reparto de ingresos de este evento está pendiente de firma. Las ventas se abrirán cuando el club y el organizador lo hayan firmado.",
+    "checkout.collabContractMissing": "Este evento coorganizado aún no tiene un acuerdo de reparto de ingresos firmado. Las ventas se abrirán cuando ambas partes lo firmen.",
     "checkout.eventAlreadyEnded": "El evento ya ha terminado.",
     "table.needsPartnerClub": "Las mesas VIP requieren un club asociado.",
     "table.notAllowed": "No tienes permiso para reservar una mesa en este club.",
@@ -171,6 +175,8 @@ const MESSAGES: Record<Lang, Record<string, string>> = {
     "checkout.organizerPaymentsNotSetUp": "Cet organisateur ne peut pas encore encaisser : la billetterie est fermée.",
     "checkout.venueStripeNotActive": "Le compte de paiement du club n'est pas encore activé : la billetterie est fermée. Contacte le club.",
     "checkout.organizerStripeNotActive": "Le compte de paiement de l'organisateur n'est pas encore activé : la billetterie est fermée.",
+    "checkout.collabContractPending": "Le contrat de partage des revenus de cette soirée est en attente de signature. Les ventes ouvriront quand le club et l'organisateur auront signé.",
+    "checkout.collabContractMissing": "Cette soirée co-organisée n'a pas encore de contrat de partage des revenus signé. Les ventes ouvriront quand les deux parties l'auront signé.",
     "checkout.eventAlreadyEnded": "L'événement est déjà terminé.",
     "table.needsPartnerClub": "Les tables VIP nécessitent un club partenaire.",
     "table.notAllowed": "Vous n'êtes pas autorisé à réserver une table dans ce club.",

@@ -453,6 +453,7 @@ export default function TableCheckout() {
       const { data, error } = await invokeEdgeFunction('create-table-checkout', {
         body: {
           eventId, packId, zoneId,
+          language,
           purchaseSource,
           trackedLinkId,
           guestCount: Math.min(guestCount, pack!.baseCapacity + pack!.maxExtraPersons),
