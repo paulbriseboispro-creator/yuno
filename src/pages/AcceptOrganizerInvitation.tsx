@@ -9,7 +9,11 @@ import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 
-interface Invitation {
+// Toute la logique vit dans des RPC SECURITY DEFINER (atomiques, vérif email
+// serveur) : l'ancienne version faisait 5 écritures client-side toutes
+// rejetées par RLS en silence — l'invité voyait « Partenariat activé 🎉 »
+// alors que rien n'était écrit, et ne pouvait même pas lire l'invitation.
+interface InvitationView {
   id: string;
   organizer_email: string;
   organizer_name: string | null;
@@ -20,9 +24,9 @@ interface Invitation {
   event_id: string | null;
   status: string;
   expires_at: string;
+  venue: { id: string; name: string; city: string | null; logo_url: string | null } | null;
+  event: { id: string; title: string; start_at: string } | null;
 }
-
-interface VenueInfo { id: string; name: string; city: string | null; logo_url: string | null }
 
 export default function AcceptOrganizerInvitation() {
   const [params] = useSearchParams();
@@ -34,9 +38,7 @@ export default function AcceptOrganizerInvitation() {
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [invitation, setInvitation] = useState<Invitation | null>(null);
-  const [venue, setVenue] = useState<VenueInfo | null>(null);
-  const [event, setEvent] = useState<{ id: string; title: string; start_at: string } | null>(null);
+  const [invitation, setInvitation] = useState<InvitationView | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -44,29 +46,9 @@ export default function AcceptOrganizerInvitation() {
       return;
     }
     (async () => {
-      const { data: inv } = await supabase
-        .from('organizer_claim_invitations' as any)
-        .select('*')
-        .eq('token', token)
-        .maybeSingle();
-      if (!inv) {
-        setLoading(false);
-        return;
-      }
-      setInvitation(inv as any);
-      const { data: v } = await supabase
-        .from('venues')
-        .select('id, name, city, logo_url')
-        .eq('id', (inv as any).inviting_venue_id)
-        .maybeSingle();
-      setVenue(v as any);
-      if ((inv as any).event_id) {
-        const { data: ev } = await supabase
-          .from('events')
-          .select('id, title, start_at')
-          .eq('id', (inv as any).event_id)
-          .maybeSingle();
-        setEvent(ev as any);
+      const { data, error } = await supabase.rpc('get_organizer_claim_invitation' as any, { p_token: token });
+      if (!error && data) {
+        setInvitation(data as unknown as InvitationView);
       }
       setLoading(false);
     })();
@@ -77,55 +59,27 @@ export default function AcceptOrganizerInvitation() {
       navigate(`/auth?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`);
       return;
     }
-    if (!invitation || !venue) return;
+    if (!invitation || !token) return;
     setSubmitting(true);
     try {
-      // 1. Promote profile to organizer
-      await supabase
-        .from('profiles')
-        .update({
-          profile_type: 'organizer',
-          organization_name: invitation.organizer_name || `${invitation.contact_first_name ?? ''} ${invitation.contact_last_name ?? ''}`.trim() || null,
-          first_name: invitation.contact_first_name ?? undefined,
-          last_name: invitation.contact_last_name ?? undefined,
-        })
-        .eq('id', user.id);
-
-      // 2. Add organizer role
-      await supabase
-        .from('user_roles')
-        .insert({ user_id: user.id, role: 'organizer' as any, email: user.email })
-        .select()
-        .maybeSingle();
-
-      // 3. Create active partnership
-      await supabase.from('venue_organizer_partnerships').insert({
-        venue_id: venue.id,
-        organizer_user_id: user.id,
-        status: 'active',
-        initiated_by: 'venue',
-        accepted_at: new Date().toISOString(),
-        invitation_message: invitation.invitation_message,
-      });
-
-      // 4. If event was attached, set partner_organizer_id
-      if (invitation.event_id) {
-        await supabase
-          .from('events')
-          .update({ partner_organizer_id: user.id, event_mode: 'co_event' })
-          .eq('id', invitation.event_id);
+      const { error } = await supabase.rpc('accept_organizer_claim_invitation' as any, { p_token: token });
+      if (error) {
+        const msg = error.message || '';
+        if (msg.includes('email_mismatch')) {
+          toast.error(t(
+            `Cette invitation est réservée à ${invitation.organizer_email}. Connecte-toi avec ce compte pour l'accepter.`,
+            `This invitation is reserved for ${invitation.organizer_email}. Sign in with that account to accept it.`,
+            `Esta invitación está reservada para ${invitation.organizer_email}. Inicia sesión con esa cuenta para aceptarla.`,
+          ));
+        } else if (msg.includes('invitation_expired')) {
+          toast.error(t('Cette invitation est expirée.', 'This invitation has expired.', 'Esta invitación ha caducado.'));
+        } else if (msg.includes('invitation_not_pending')) {
+          toast.error(t('Cette invitation a déjà été traitée.', 'This invitation was already handled.', 'Esta invitación ya fue tratada.'));
+        } else {
+          toast.error(msg || t('Erreur', 'Error', 'Error'));
+        }
+        return;
       }
-
-      // 5. Mark invitation accepted
-      await supabase
-        .from('organizer_claim_invitations' as any)
-        .update({
-          status: 'accepted',
-          accepted_at: new Date().toISOString(),
-          created_organizer_user_id: user.id,
-        })
-        .eq('id', invitation.id);
-
       toast.success(t('Partenariat activé 🎉', 'Partnership activated 🎉', 'Partenariado activado 🎉'));
       navigate('/organizer-app/dashboard');
     } catch (err: any) {
@@ -136,11 +90,12 @@ export default function AcceptOrganizerInvitation() {
   };
 
   const handleDecline = async () => {
-    if (!invitation) return;
-    await supabase
-      .from('organizer_claim_invitations' as any)
-      .update({ status: 'declined' })
-      .eq('id', invitation.id);
+    if (!invitation || !token) return;
+    const { error } = await supabase.rpc('decline_organizer_claim_invitation' as any, { p_token: token });
+    if (error) {
+      toast.error(error.message || t('Erreur', 'Error', 'Error'));
+      return;
+    }
     toast.info(t('Invitation refusée', 'Invitation declined', 'Invitación rechazada'));
     navigate('/');
   };
@@ -149,7 +104,7 @@ export default function AcceptOrganizerInvitation() {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   }
 
-  if (!invitation || !venue) {
+  if (!invitation || !invitation.venue) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="max-w-md w-full">
@@ -161,6 +116,8 @@ export default function AcceptOrganizerInvitation() {
     );
   }
 
+  const venue = invitation.venue;
+  const event = invitation.event;
   const expired = new Date(invitation.expires_at) < new Date();
   if (expired || invitation.status !== 'pending') {
     return (
@@ -217,6 +174,16 @@ export default function AcceptOrganizerInvitation() {
             <strong>{t('organisateur Yuno', 'Yuno organizer', 'organizador Yuno')}</strong>{' '}
             {t('et un partenariat actif sera créé avec ce club.', 'account and an active partnership will be created with this club.', 'y se creará un partenariado activo con este club.')}
           </p>
+
+          {user && user.email && user.email.toLowerCase() !== invitation.organizer_email.toLowerCase() && (
+            <div className="rounded-md bg-destructive/10 border border-destructive/30 p-3 text-sm text-destructive">
+              {t(
+                `Cette invitation est adressée à ${invitation.organizer_email} — tu es connecté avec ${user.email}.`,
+                `This invitation is addressed to ${invitation.organizer_email} — you are signed in as ${user.email}.`,
+                `Esta invitación está dirigida a ${invitation.organizer_email} — has iniciado sesión como ${user.email}.`,
+              )}
+            </div>
+          )}
 
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleDecline} disabled={submitting} className="flex-1">
