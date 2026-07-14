@@ -673,7 +673,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'UserCheck',
         actionLink: { labelKey: 'ohelp.action.goToStaff', path: '/staff' },
         relatedArticleIds: ['menu-setup', 'orders', 'vip-service-mgmt'],
-        keywords: ['staff', 'employé', 'employee', 'ajouter', 'add', 'barman', 'bouncer', 'videur', 'vestiaire', 'cloakroom', 'vip host', 'manager', 'PIN', 'équipe', 'team', 'personnel', 'c&c'],
+        keywords: ['staff', 'employé', 'employee', 'ajouter', 'add', 'barman', 'bouncer', 'videur', 'vestiaire', 'cloakroom', 'vip host', 'manager', 'PIN', 'équipe', 'team', 'personnel', 'c&c', 'notification', 'push', 'alerte', 'alert', 'yuno pro'],
         sections: [
           { headingKey: 'ohelp.pg.staff.s1h', bodyKey: 'ohelp.pg.staff.s1b' },
           { headingKey: 'ohelp.pg.staff.s2h', bodyKey: 'ohelp.pg.staff.s2b', screenshotUrl: '/help/owner-staff.png' },
@@ -682,6 +682,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.staff.s5h', bodyKey: 'ohelp.pg.staff.s5b' },
           { headingKey: 'ohelp.pg.staff.s6h', bodyKey: 'ohelp.pg.staff.s6b', type: 'tip' },
           { headingKey: 'ohelp.pg.staff.s7h', bodyKey: 'ohelp.pg.staff.s7b', type: 'warning' },
+          { headingKey: 'ohelp.pg.staff.s8h', bodyKey: 'ohelp.pg.staff.s8b' },
         ],
       },
       {

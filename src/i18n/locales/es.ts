@@ -9716,6 +9716,8 @@ const es: Record<string, string> = {
   'ohelp.pg.staff.s6b': 'Crea las cuentas del staff un día antes de la noche, no en la puerta. La invitación de PIN va por email, así que da tiempo a tu equipo para configurar el suyo antes del jaleo.',
   'ohelp.pg.staff.s7h': 'Atención',
   'ohelp.pg.staff.s7b': 'El PIN es lo único entre un empleado eventual y tus datos de ventas. Cada persona tiene el suyo, nunca compartáis un mismo PIN en el equipo, o pierdes el rastro de quién hizo qué.',
+  'ohelp.pg.staff.s8h': 'Las alertas push de la app Yuno Pro',
+  'ohelp.pg.staff.s8b': 'Tu personal instala la app « Yuno Pro » y acepta las notificaciones al abrirla por primera vez. A partir de ahí, cada uno recibe avisos en su teléfono — incluso bloqueado — solo de lo que le concierne: el anfitrión VIP cuando un cliente VIP entra y cuando una mesa pide una comanda; el barman cuando llega un pedido y la cola estaba vacía; los porteros cuando se señala un incidente en la puerta. A propósito, solo se envía lo importante: un push por pedido un sábado por la noche sería inmanejable, así que la barra solo se despierta si no quedaba nada esperando. El resto de la actividad se sigue viendo en tiempo real dentro de la app.',
 
   'ohelp.pg.menu.title': 'Carta de bebidas',
   'ohelp.pg.menu.desc': 'Construye el catálogo de tu barra, bebidas, chupitos y refrescos, con precios y orden.',

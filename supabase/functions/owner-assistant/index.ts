@@ -82,6 +82,12 @@ Utilise des liens Markdown : [Événements](/owner/events), [Menu](/owner/menu),
 // ═══════════════════════════════════════════
 
 const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: string; snippet: string }> = {
+  "staff-push-notifications": {
+    title: "Alertes push du staff (app Yuno Pro)",
+    keywords: ["notification", "notifications", "push", "alerte", "alert", "app pro", "yuno pro", "staff", "barman", "videur", "bouncer", "hôte vip", "vip host", "téléphone", "prévenu", "alerté"],
+    path: "/owner/staff",
+    snippet: "Le staff installe l'app « Yuno Pro » et accepte les notifications à la première ouverture. Chacun est ensuite alerté sur son téléphone, même verrouillé, uniquement sur ce qui le concerne : l'hôte VIP quand un client VIP passe la porte et quand une table demande une commande ; le barman quand une commande arrive alors que sa file était vide ; les videurs quand un incident est signalé à la porte. On ne pousse QUE l'important — un push par commande un samedi soir serait ingérable, donc le bar n'est réveillé que si plus rien n'attendait. Le reste de l'activité reste visible en temps réel dans l'app. Rien à configurer côté owner : c'est actif dès que le staff a le rôle et l'app.",
+  },
   "ticketing-modes": {
     title: "Modes de billetterie",
     keywords: ["ticket", "billet", "mode", "round", "simple", "timed", "créneau", "billetterie", "ticketing", "entrée"],

@@ -9035,6 +9035,8 @@ const en: Record<string, string> = {
   'ohelp.pg.staff.s6b': 'Create the staff accounts a day before the night, not at the door. The PIN invite goes by email, so give your team time to set theirs before the rush.',
   'ohelp.pg.staff.s7h': 'Heads up',
   'ohelp.pg.staff.s7b': 'The PIN is the only thing between a casual employee and your sales data. Each person gets their own, never share one PIN across the team, or you lose the audit trail of who did what.',
+  'ohelp.pg.staff.s8h': 'Push alerts in the Yuno Pro app',
+  'ohelp.pg.staff.s8b': 'Your staff install the « Yuno Pro » app and accept notifications on first launch. From then on, each person is alerted on their phone — even locked — for what concerns them, and nothing else: the VIP host when a VIP guest walks in and when a table requests an order; the barman when an order lands while the queue was empty; bouncers when an incident is reported at the door. We deliberately push ONLY what matters: one push per order on a Saturday night would be unusable, so the bar is only woken when nothing else was waiting. Everything else keeps showing in real time inside the app.',
 
   'ohelp.pg.menu.title': 'Drink menu',
   'ohelp.pg.menu.desc': 'Build your bar catalogue, drinks, shots and softs, with prices and ordering.',
