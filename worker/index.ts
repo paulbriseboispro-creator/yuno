@@ -382,6 +382,25 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
         `location_is_secret,status,cancelled_at,venue_id,slug,organizer_user_id,venues!events_venue_id_fkey(name,city,address,latitude,longitude)`,
     );
     if (!ev) return null;
+    // Billetterie + line-up : alimentent offers[] (price / priceCurrency / validFrom) et
+    // performer[] du schema Event. Les deux tables sont lisibles par l'anon (policies
+    // "Everyone can view active ticket rounds" / "Anyone can view event_djs").
+    const [rounds, lineup] = await Promise.all([
+      fetchRows(
+        env,
+        `ticket_rounds?event_id=eq.${encodeURIComponent(id)}&is_active=eq.true&select=name,price,created_at,` +
+          `max_tickets,tickets_sold,manually_sold_out,entry_deadline,position&order=position.asc`,
+      ),
+      fetchRows(env, `event_djs?event_id=eq.${encodeURIComponent(id)}&select=dj_id`),
+    ]);
+    const djIds = lineup.map((l) => l.dj_id as string).filter(Boolean);
+    // La vue djs_public, jamais la table djs (la table expose des colonnes privées).
+    const djs = djIds.length
+      ? await fetchRows(
+          env,
+          `djs_public?id=in.(${djIds.map(encodeURIComponent).join(',')})&select=stage_name,first_name,last_name,slug`,
+        )
+      : [];
     const title = (ev.title as string) || 'Event';
     // Canonical propre : /events/:host/:slug (host = orga si organizer-led, sinon venue_id).
     let host = cleanHost;
@@ -421,6 +440,49 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
     if (typeof venue?.latitude === 'number' && typeof venue?.longitude === 'number') {
       place.geo = { '@type': 'GeoCoordinates', latitude: venue.latitude, longitude: venue.longitude };
     }
+    // Un Offer par palier de billets actif. Google exige price + priceCurrency + validFrom
+    // sur chaque Offer : un Offer sans prix est invalide, donc on n'en émet aucun tant
+    // qu'aucun palier n'a de prix (event gratuit / billetterie pas encore configurée).
+    const isSoldOut = (r: Row) =>
+      r.manually_sold_out === true ||
+      (typeof r.max_tickets === 'number' &&
+        typeof r.tickets_sold === 'number' &&
+        r.max_tickets > 0 &&
+        r.tickets_sold >= r.max_tickets);
+    const offers = rounds
+      .filter((r) => typeof r.price === 'number')
+      .map((r) => {
+        const o: Row = {
+          '@type': 'Offer',
+          name: clean(r.name, 80) || 'Ticket',
+          url: canonical,
+          price: r.price,
+          priceCurrency: 'EUR',
+          availability: isSoldOut(r) ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
+        };
+        // Pas de colonne "ouverture des ventes" : un palier est achetable dès qu'il existe
+        // et qu'il est actif — created_at est donc la vraie date de mise en vente.
+        const from = (r.created_at as string) || '';
+        const until = (r.entry_deadline as string) || (ev.start_at as string) || '';
+        if (from) o.validFrom = from;
+        // Un palier créé après le début de l'event (vente de dernière minute, event passé)
+        // donnerait validThrough <= validFrom, soit un Offer invalide. On l'omet alors.
+        if (until && (!from || Date.parse(until) > Date.parse(from))) o.validThrough = until;
+        return o;
+      });
+
+    // performer — les DJs du line-up. MusicGroup (sous-type de PerformingGroup), cohérent
+    // avec le schema émis par la page /dj/:slug.
+    const performers: Row[] = [];
+    for (const d of djs) {
+      const djName =
+        clean(d.stage_name, 80) || clean([d.first_name, d.last_name].filter(Boolean).join(' '), 80);
+      if (!djName) continue;
+      const p: Row = { '@type': 'MusicGroup', name: djName };
+      if (d.slug) p.url = `${ORIGIN}/dj/${encodeURIComponent(d.slug as string)}`;
+      performers.push(p);
+    }
+
     const jsonLd: Row = {
       '@context': 'https://schema.org',
       '@type': 'MusicEvent',
@@ -433,14 +495,18 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
       location: place,
       url: canonical,
       organizer: { '@type': 'Organization', name: 'Yuno', url: `${ORIGIN}/` },
-      offers: { '@type': 'Offer', url: canonical, availability: 'https://schema.org/InStock' },
     };
+    if (offers.length) jsonLd.offers = offers;
+    if (performers.length) jsonLd.performer = performers;
     if (img) jsonLd.image = [img];
 
+    const fromPrice = offers.length ? Math.min(...offers.map((o) => o.price as number)) : null;
     const facts = [
       ev.start_at ? `<li>When: ${esc(fmtDate(ev.start_at))}</li>` : '',
       placeName ? `<li>Where: ${esc(placeName)}${city ? `, ${esc(city)}` : ''}</li>` : '',
+      performers.length ? `<li>Line-up: ${esc(performers.map((p) => p.name as string).join(', '))}</li>` : '',
       genres.length ? `<li>Music: ${esc(genres.join(', '))}</li>` : '',
+      fromPrice !== null ? `<li>Tickets from €${esc(fromPrice.toFixed(2))}</li>` : '',
     ].filter(Boolean).join('');
     return {
       title: `${title} · Yuno`,
