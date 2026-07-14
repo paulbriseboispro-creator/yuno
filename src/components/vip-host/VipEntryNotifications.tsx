@@ -69,7 +69,9 @@ export function VipEntryNotifications({
         )}
       </div>
 
-      <ScrollArea className="max-h-[400px]">
+      {/* Hauteur relative au viewport, pas un 400px figé : dans le sheet latéral
+          plein écran, le 400px gaspillait le tiers bas d'un grand téléphone. */}
+      <ScrollArea className="max-h-[min(60dvh,640px)]">
         <div className="space-y-2">
           {entryNotifications.map((notification) => {
             const metadata = notification.metadata || {};

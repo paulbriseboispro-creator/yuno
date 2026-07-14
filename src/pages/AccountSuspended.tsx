@@ -11,7 +11,7 @@ export default function AccountSuspended() {
   };
 
   return (
-    // Page plein écran de l'app Pro : pas de <ProShellChrome/> ici, encoche et
+    // Page plein écran de l'app Pro : aucun chrome global dans l.app Pro, encoche et
     // barre d'accueil à notre charge.
     <div
       className="min-h-[100dvh] flex items-center justify-center px-6"

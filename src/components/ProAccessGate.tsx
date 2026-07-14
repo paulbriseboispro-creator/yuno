@@ -104,7 +104,7 @@ export function ProAccessGate({ children }: { children: ReactNode }) {
   if (onOpenRoute) return <>{children}</>;
 
   if (status === 'refused') {
-    // Écran plein écran de l'app Pro : pas de <ProShellChrome/> ici, l'encoche et
+    // Écran plein écran de l'app Pro : aucun chrome global dans l.app Pro, l'encoche et
     // la barre d'accueil sont à notre charge.
     return (
       <div

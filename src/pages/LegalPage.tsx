@@ -1,13 +1,14 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { legalContent, type LegalSection } from '@/data/legalContent';
 import { PublicPage } from '@/components/PublicPage';
+import { useProBack } from '@/hooks/useProBack';
 
 export default function LegalPage() {
   const { section } = useParams<{ section: string }>();
-  const navigate = useNavigate();
+  const goBack = useProBack();
   const { language } = useLanguage();
 
   const validSections: LegalSection[] = ['mentions-legales', 'cgu', 'cgv-utilisateurs', 'cgv-clubs', 'confidentialite', 'dpa', 'privacy', 'cookies'];
@@ -51,12 +52,15 @@ export default function LegalPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* L'encoche est déjà gérée : la règle globale `header.sticky, div.sticky`
+      {/* L'encoche est déjà gérée : la règle globale `header.sticky.top-0`
           (src/index.css) pose padding-top: env(safe-area-inset-top). Ne pas la
           doubler ici. */}
       <header className="sticky top-0 z-40 border-b border-border/40 bg-surface/80 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-3xl items-center gap-3 px-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/settings')} className="h-11 w-11 flex-none -ml-1">
+          {/* Dépile l'historique. `/settings` n'existe pas dans l'app Pro : le
+              lien direct y poussait une entrée que ProAppGate renvoyait aussitôt
+              sur /pro, en gonflant la pile au lieu de reculer. */}
+          <Button variant="ghost" size="icon" onClick={goBack} className="h-11 w-11 flex-none -ml-1">
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <h1 className="text-base font-semibold flex-1 min-w-0 truncate">{doc.title}</h1>

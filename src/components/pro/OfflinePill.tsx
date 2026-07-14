@@ -26,7 +26,7 @@ export function OfflinePill({ label }: { label?: string }) {
 
   return (
     // flex-none + whitespace-nowrap : la pilule est posée dans des rangées
-    // `justify-between` (ProShellChrome, en-tête ProHome) face à un nom de club
+    // `justify-between` (en-tête ProHome) face à un nom de club
     // qui peut être long — sans ça elle se fait comprimer et son libellé passe
     // à la ligne.
     <span

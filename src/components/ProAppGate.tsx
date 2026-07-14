@@ -46,7 +46,7 @@ function WebOnlyNotice() {
   const navigate = useNavigate();
   const { t } = useLanguage();
 
-  // Écran plein écran de l'app Pro : pas de <ProShellChrome/> ici, l'encoche et la
+  // Écran plein écran de l'app Pro : aucun chrome global dans l.app Pro, l'encoche et la
   // barre d'accueil sont à notre charge.
   return (
     <div

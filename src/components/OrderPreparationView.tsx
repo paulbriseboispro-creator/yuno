@@ -22,7 +22,7 @@ export function OrderPreparationView({ order, onComplete, onCancel }: OrderPrepa
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 bg-background flex flex-col"
     >
-      {/* Header — full-screen view: pays the notch itself (no ProShellChrome) */}
+      {/* Header — full-screen view: pays the notch itself (no global chrome) */}
       <div
         className="border-b border-border/40 bg-surface/80 backdrop-blur-md px-4 pb-3 md:pb-4"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}

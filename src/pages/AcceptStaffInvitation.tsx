@@ -19,7 +19,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 /**
- * Page plein écran de l'app Pro : elle ne reçoit PAS <ProShellChrome/>, donc
+ * Page plein écran de l'app Pro : elle ne reçoit aucun chrome global, donc
  * l'encoche et la barre d'accueil sont à sa charge. 100dvh (et non 100vh) pour
  * que la carte se recentre dans la zone visible quand le clavier iOS s'ouvre.
  */

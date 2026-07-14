@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 type Step = 'create' | 'confirm' | 'no-token' | 'success';
 
 /**
- * Écrans plein écran de l'app Pro : pas de <ProShellChrome/> ici, l'encoche et la
+ * Écrans plein écran de l'app Pro : aucun chrome global dans l.app Pro, l'encoche et la
  * barre d'accueil sont à notre charge.
  */
 const PAGE_SAFE = {
