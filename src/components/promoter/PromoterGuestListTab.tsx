@@ -292,9 +292,9 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
   };
 
   const entryTypeBadge = (type: string) => {
-    if (type === 'table') return <Badge variant="outline" className="text-[10px]">VIP</Badge>;
-    if (type === 'drink') return <Badge variant="outline" className="text-[10px]">Boisson</Badge>;
-    return <Badge variant="secondary" className="text-[10px]">Standard</Badge>;
+    if (type === 'table') return <Badge variant="outline" className="shrink-0 whitespace-nowrap text-[10px]">VIP</Badge>;
+    if (type === 'drink') return <Badge variant="outline" className="shrink-0 whitespace-nowrap text-[10px]">Boisson</Badge>;
+    return <Badge variant="secondary" className="shrink-0 whitespace-nowrap text-[10px]">Standard</Badge>;
   };
 
   if (loading) {
@@ -309,13 +309,13 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
     <div className="space-y-4">
       {/* Event Selector */}
       <Card className="border-border">
-        <CardHeader className="pb-2">
+        <CardHeader className="px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
           <CardTitle className="text-base flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            Sélectionner une soirée
+            <Calendar className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 truncate">Sélectionner une soirée</span>
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
           {events.length === 0 ? (
             <p className="text-sm text-muted-foreground">Aucune soirée à venir</p>
           ) : (
@@ -328,15 +328,16 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
                   const status = getEventStatus(ev.startAt, ev.endAt);
                   return (
                     <SelectItem key={ev.id} value={ev.id}>
-                      <div className="flex items-center gap-2">
-                        <span>{ev.title}</span>
+                      {/* Titres de soirée / noms de club saisis par le club → tronquer, pas élargir le popup. */}
+                      <div className="flex max-w-[min(78vw,20rem)] items-center gap-2">
+                        <span className="min-w-0 truncate">{ev.title}</span>
                         {promoterProfiles.length > 1 && (
-                          <span className="text-muted-foreground text-xs">— {ev.venueName}</span>
+                          <span className="min-w-0 truncate text-muted-foreground text-xs">— {ev.venueName}</span>
                         )}
                         {status === 'live' ? (
-                          <Badge className="bg-destructive text-destructive-foreground text-[9px] px-1.5 py-0 animate-pulse">LIVE</Badge>
+                          <Badge className="bg-destructive text-destructive-foreground text-[9px] px-1.5 py-0 animate-pulse shrink-0">LIVE</Badge>
                         ) : (
-                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0">
+                          <Badge variant="secondary" className="shrink-0 whitespace-nowrap text-[9px] px-1.5 py-0">
                             <Clock className="h-2.5 w-2.5 mr-0.5" />
                             À venir
                           </Badge>
@@ -358,10 +359,10 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
           <Card className="border-border">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-3">
-                <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Quota Guest List</span>
+                <BarChart3 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 truncate text-sm font-medium">Quota Guest List</span>
                 {quota.globalQuota != null && (
-                  <Badge variant={isQuotaFull ? 'destructive' : 'secondary'} className="ml-auto text-xs">
+                  <Badge variant={isQuotaFull ? 'destructive' : 'secondary'} className="ml-auto shrink-0 whitespace-nowrap text-xs tabular-nums">
                     {usage.total} / {quota.globalQuota}
                   </Badge>
                 )}
@@ -374,27 +375,27 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
               {/* Per-type breakdown */}
               <div className="grid grid-cols-3 gap-2">
                 {quota.normalQuota != null && (
-                  <div className="bg-muted/50 rounded-lg p-2.5 text-center">
-                    <p className="text-lg font-bold">{usage.normal}<span className="text-xs font-normal text-muted-foreground">/{quota.normalQuota}</span></p>
-                    <p className="text-[10px] text-muted-foreground">Entrées</p>
+                  <div className="min-w-0 bg-muted/50 rounded-lg p-2.5 text-center">
+                    <p className="truncate text-lg font-bold tabular-nums">{usage.normal}<span className="text-xs font-normal text-muted-foreground">/{quota.normalQuota}</span></p>
+                    <p className="truncate text-[10px] text-muted-foreground">Entrées</p>
                     {usage.normal >= quota.normalQuota && (
                       <Badge variant="destructive" className="text-[9px] mt-1">Complet</Badge>
                     )}
                   </div>
                 )}
                 {quota.tableQuota != null && (
-                  <div className="bg-muted/50 rounded-lg p-2.5 text-center">
-                    <p className="text-lg font-bold">{usage.table}<span className="text-xs font-normal text-muted-foreground">/{quota.tableQuota}</span></p>
-                    <p className="text-[10px] text-muted-foreground">Tables VIP</p>
+                  <div className="min-w-0 bg-muted/50 rounded-lg p-2.5 text-center">
+                    <p className="truncate text-lg font-bold tabular-nums">{usage.table}<span className="text-xs font-normal text-muted-foreground">/{quota.tableQuota}</span></p>
+                    <p className="truncate text-[10px] text-muted-foreground">Tables VIP</p>
                     {usage.table >= quota.tableQuota && (
                       <Badge variant="destructive" className="text-[9px] mt-1">Complet</Badge>
                     )}
                   </div>
                 )}
                 {quota.drinkQuota != null && (
-                  <div className="bg-muted/50 rounded-lg p-2.5 text-center">
-                    <p className="text-lg font-bold">{usage.drink}<span className="text-xs font-normal text-muted-foreground">/{quota.drinkQuota}</span></p>
-                    <p className="text-[10px] text-muted-foreground">Boissons</p>
+                  <div className="min-w-0 bg-muted/50 rounded-lg p-2.5 text-center">
+                    <p className="truncate text-lg font-bold tabular-nums">{usage.drink}<span className="text-xs font-normal text-muted-foreground">/{quota.drinkQuota}</span></p>
+                    <p className="truncate text-[10px] text-muted-foreground">Boissons</p>
                     {usage.drink >= quota.drinkQuota && (
                       <Badge variant="destructive" className="text-[9px] mt-1">Complet</Badge>
                     )}
@@ -414,13 +415,13 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
 
           {/* Add Guest Form */}
           <Card className="border-primary/30">
-            <CardHeader className="pb-2">
+            <CardHeader className="px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
               <CardTitle className="text-base flex items-center gap-2">
-                <UserPlus className="h-4 w-4" />
-                Ajouter un invité
+                <UserPlus className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 truncate">Ajouter un invité</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 px-4 pb-4 sm:px-6 sm:pb-6">
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs">Prénom</Label>
@@ -475,12 +476,12 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
           </Card>
 
           {/* Entries List */}
-          <div className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
-            <span className="text-sm text-muted-foreground flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              Invités ajoutés
+          <div className="flex items-center justify-between gap-3 bg-muted/50 rounded-lg p-3">
+            <span className="min-w-0 text-sm text-muted-foreground flex items-center gap-2">
+              <Users className="h-4 w-4 shrink-0" />
+              <span className="truncate">Invités ajoutés</span>
             </span>
-            <Badge variant="secondary">{entries.length}</Badge>
+            <Badge variant="secondary" className="shrink-0 tabular-nums">{entries.length}</Badge>
           </div>
 
           {entries.length === 0 ? (
@@ -494,14 +495,14 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
                   <CardContent className="p-3 flex items-center justify-between">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="font-medium text-sm truncate">{entry.fullName}</p>
+                        <p className="min-w-0 flex-1 font-medium text-sm truncate">{entry.fullName}</p>
                         {entryTypeBadge(entry.entryType)}
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         {entry.email && (
-                          <p className="text-[11px] text-muted-foreground truncate">{entry.email}</p>
+                          <p className="min-w-0 flex-1 text-[11px] text-muted-foreground truncate">{entry.email}</p>
                         )}
-                        <p className="text-[11px] text-muted-foreground">
+                        <p className="shrink-0 whitespace-nowrap text-[11px] text-muted-foreground">
                           {formatDate(entry.createdAt)}
                         </p>
                       </div>

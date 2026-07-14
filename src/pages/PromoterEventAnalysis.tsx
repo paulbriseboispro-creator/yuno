@@ -352,12 +352,12 @@ export default function PromoterEventAnalysis() {
         <Card className="border-primary/30">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
-              <Gift className="h-4 w-4 text-primary" />
-              <span className="text-sm font-semibold">{t('promoter.analysis.reward')}</span>
+              <Gift className="h-4 w-4 shrink-0 text-primary" />
+              <span className="min-w-0 truncate text-sm font-semibold">{t('promoter.analysis.reward')}</span>
             </div>
             <div className="flex items-center gap-3 p-3 rounded-lg bg-primary/10">
-              <Star className="h-5 w-5 text-primary" />
-              <span className="text-sm font-medium">{getRewardLabel(rewardInfo.rewardType, rewardInfo.rewardConfig || {}, t)}</span>
+              <Star className="h-5 w-5 shrink-0 text-primary" />
+              <span className="min-w-0 flex-1 break-words text-sm font-medium">{getRewardLabel(rewardInfo.rewardType, rewardInfo.rewardConfig || {}, t)}</span>
             </div>
           </CardContent>
         </Card>
@@ -375,20 +375,20 @@ export default function PromoterEventAnalysis() {
         <Card className="border-primary/30">
           <CardContent className="p-4 space-y-4">
             <div className="flex items-center gap-2">
-              <Gift className="h-4 w-4 text-primary" />
-              <span className="text-sm font-semibold">{t('promoter.analysis.rewardProgression')}</span>
+              <Gift className="h-4 w-4 shrink-0 text-primary" />
+              <span className="min-w-0 truncate text-sm font-semibold">{t('promoter.analysis.rewardProgression')}</span>
             </div>
-            
+
             {/* Current tier */}
             <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-muted-foreground">{t('promoter.analysis.currentTier')}</span>
-                <Badge variant="outline" className="text-[10px]">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="min-w-0 truncate text-xs text-muted-foreground">{t('promoter.analysis.currentTier')}</span>
+                <Badge variant="outline" className="shrink-0 whitespace-nowrap text-[10px]">
                   {totalConvs} {salesLabel}
                 </Badge>
               </div>
-              <p className="text-sm font-medium">
-                {currentTier.reward_type === 'money' 
+              <p className="break-words text-sm font-medium">
+                {currentTier.reward_type === 'money'
                   ? `${currentTier.ticketValue || 0}€ ${t('promoter.analysis.perSale')}`
                   : getRewardLabel(currentTier.reward_type, currentTier.reward_config, t)}
               </p>
@@ -397,12 +397,12 @@ export default function PromoterEventAnalysis() {
             {/* Progress to next tier */}
             {nextTier && (
               <div>
-                <div className="flex justify-between text-xs mb-1.5">
-                  <span className="text-muted-foreground">{t('promoter.analysis.nextTierAt')} {nextTier.min} {t('promoter.analysis.sales')}</span>
-                  <span className="font-semibold">{Math.min(100, (totalConvs / nextTier.min) * 100).toFixed(0)}%</span>
+                <div className="flex justify-between gap-2 text-xs mb-1.5">
+                  <span className="min-w-0 truncate text-muted-foreground">{t('promoter.analysis.nextTierAt')} {nextTier.min} {t('promoter.analysis.sales')}</span>
+                  <span className="shrink-0 font-semibold tabular-nums">{Math.min(100, (totalConvs / nextTier.min) * 100).toFixed(0)}%</span>
                 </div>
                 <Progress value={Math.min(100, (totalConvs / nextTier.min) * 100)} className="h-2" />
-                <p className="text-xs text-muted-foreground mt-1.5">
+                <p className="break-words text-xs text-muted-foreground mt-1.5">
                   → {nextTier.reward_type === 'money'
                     ? `${nextTier.ticketValue || 0}€ ${t('promoter.analysis.perSale')}`
                     : getRewardLabel(nextTier.reward_type, nextTier.reward_config, t)}
@@ -419,10 +419,10 @@ export default function PromoterEventAnalysis() {
                 return (
                   <div key={i} className={`flex items-center gap-2 text-xs p-2 rounded ${isActive ? 'bg-primary/10 text-foreground' : 'text-muted-foreground'}`}>
                     <div className={`w-2 h-2 rounded-full shrink-0 ${isActive ? 'bg-primary' : isCompleted ? 'bg-primary/50' : 'bg-muted-foreground/30'}`} />
-                    <span className="flex-1">
+                    <span className="min-w-0 flex-1 truncate">
                       {tier.min}{tier.max ? `-${tier.max}` : '+'} {t('promoter.analysis.sales')}
                     </span>
-                    <span className={`font-medium ${isActive ? 'text-primary' : ''}`}>
+                    <span className={`shrink-0 whitespace-nowrap font-medium ${isActive ? 'text-primary' : ''}`}>
                       {tier.reward_type === 'money'
                         ? `${tier.ticketValue || 0}€`
                         : getRewardLabel(tier.reward_type, tier.reward_config, t)}
@@ -439,7 +439,10 @@ export default function PromoterEventAnalysis() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-12">
+    <div
+      className="min-h-screen bg-background"
+      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 3rem)' }}
+    >
       {/* Header */}
       <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b border-border px-4 pb-3 pt-4 flex items-center gap-3" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top, 1rem))' }}>
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
@@ -461,31 +464,31 @@ export default function PromoterEventAnalysis() {
         {/* KPI Grid */}
         <div className="grid grid-cols-2 gap-3">
           <Card>
-            <CardContent className="p-4 text-center">
+            <CardContent className="min-w-0 p-4 text-center">
               <MousePointerClick className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
-              <p className="text-2xl font-bold">{clicks}</p>
-              <p className="text-xs text-muted-foreground">{t('promoter.analysis.clicks')}</p>
+              <p className="truncate text-2xl font-bold tabular-nums">{clicks}</p>
+              <p className="truncate text-xs text-muted-foreground">{t('promoter.analysis.clicks')}</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 text-center">
+            <CardContent className="min-w-0 p-4 text-center">
               <BarChart3 className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
-              <p className="text-2xl font-bold">{conversionRate.toFixed(1)}%</p>
-              <p className="text-xs text-muted-foreground">{t('promoter.analysis.conversionRate')}</p>
+              <p className="truncate text-2xl font-bold tabular-nums">{conversionRate.toFixed(1)}%</p>
+              <p className="truncate text-xs text-muted-foreground">{t('promoter.analysis.conversionRate')}</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 text-center">
+            <CardContent className="min-w-0 p-4 text-center">
               <Ticket className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
-              <p className="text-2xl font-bold">{tickets.length}</p>
-              <p className="text-xs text-muted-foreground">{t('promoter.analysis.ticketsSold')}</p>
+              <p className="truncate text-2xl font-bold tabular-nums">{tickets.length}</p>
+              <p className="truncate text-xs text-muted-foreground">{t('promoter.analysis.ticketsSold')}</p>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="p-4 text-center">
+            <CardContent className="min-w-0 p-4 text-center">
               <Calendar className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
-              <p className="text-2xl font-bold">{tables.length}</p>
-              <p className="text-xs text-muted-foreground">{t('promoter.analysis.tablesReserved')}</p>
+              <p className="truncate text-2xl font-bold tabular-nums">{tables.length}</p>
+              <p className="truncate text-xs text-muted-foreground">{t('promoter.analysis.tablesReserved')}</p>
             </CardContent>
           </Card>
         </div>
@@ -493,7 +496,7 @@ export default function PromoterEventAnalysis() {
         {/* Tracked links — per-channel links for this promoter (attributed to their commission) */}
         {!isOwnerView && promoterId && eventId && (
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="min-w-0 p-4">
               <TrackedLinksManager
                 ownerKind="promoter"
                 promoterId={promoterId}
@@ -507,18 +510,18 @@ export default function PromoterEventAnalysis() {
         {/* Revenue + Commission */}
         <div className={`grid ${isMoneyReward ? 'grid-cols-2' : 'grid-cols-1'} gap-3`}>
           <Card>
-            <CardContent className="p-4 text-center">
+            <CardContent className="min-w-0 p-4 text-center">
               <Euro className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
-              <p className="text-2xl font-bold">{fmtPrice(totalRevenue)}</p>
-              <p className="text-xs text-muted-foreground">{t('promoter.analysis.revenueGenerated')}</p>
+              <p className="truncate text-xl font-bold tabular-nums sm:text-2xl">{fmtPrice(totalRevenue)}</p>
+              <p className="truncate text-xs text-muted-foreground">{t('promoter.analysis.revenueGenerated')}</p>
             </CardContent>
           </Card>
           {isMoneyReward && (
             <Card className="border-primary/30">
-              <CardContent className="p-4 text-center">
+              <CardContent className="min-w-0 p-4 text-center">
                 <TrendingUp className="h-5 w-5 mx-auto text-primary mb-1" />
-                <p className="text-2xl font-bold text-primary">{fmtPrice(totalCommission)}</p>
-                <p className="text-xs text-muted-foreground">{t('promoter.analysis.totalCommission')}</p>
+                <p className="truncate text-xl font-bold tabular-nums text-primary sm:text-2xl">{fmtPrice(totalCommission)}</p>
+                <p className="truncate text-xs text-muted-foreground">{t('promoter.analysis.totalCommission')}</p>
               </CardContent>
             </Card>
           )}
@@ -544,9 +547,9 @@ export default function PromoterEventAnalysis() {
                       <step.icon className="h-4 w-4 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium">{step.label}</span>
-                        <span className="text-sm font-bold">{step.value}</span>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="min-w-0 truncate text-sm font-medium">{step.label}</span>
+                        <span className="shrink-0 whitespace-nowrap text-sm font-bold tabular-nums">{step.value}</span>
                       </div>
                       <div className="h-2 bg-muted rounded-full overflow-hidden">
                         <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${Math.min(step.pct, 100)}%` }} />
@@ -567,9 +570,9 @@ export default function PromoterEventAnalysis() {
 
         {isMoneyReward && pendingCommission > 0 && (
           <Card className="border-primary/30 bg-primary/5">
-            <CardContent className="p-3 flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">{t('promoter.analysis.pendingCommission')}</span>
-              <span className="font-bold text-primary">{fmtPrice(pendingCommission)}</span>
+            <CardContent className="p-3 flex items-center justify-between gap-3">
+              <span className="min-w-0 truncate text-sm text-muted-foreground">{t('promoter.analysis.pendingCommission')}</span>
+              <span className="shrink-0 whitespace-nowrap font-bold tabular-nums text-primary">{fmtPrice(pendingCommission)}</span>
             </CardContent>
           </Card>
         )}
@@ -579,12 +582,12 @@ export default function PromoterEventAnalysis() {
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
-                <Target className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">{t('promoter.analysis.goal')}</span>
+                <Target className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 truncate text-sm font-medium">{t('promoter.analysis.goal')}</span>
               </div>
-              <div className="flex justify-between text-sm mb-2">
-                <span className="text-muted-foreground">{tickets.length} / {goalTarget} {t('promoter.analysis.tickets')}</span>
-                <span className="font-semibold">{Math.min(100, (tickets.length / goalTarget) * 100).toFixed(0)}%</span>
+              <div className="flex justify-between gap-3 text-sm mb-2">
+                <span className="min-w-0 truncate text-muted-foreground">{tickets.length} / {goalTarget} {t('promoter.analysis.tickets')}</span>
+                <span className="shrink-0 font-semibold tabular-nums">{Math.min(100, (tickets.length / goalTarget) * 100).toFixed(0)}%</span>
               </div>
               <Progress value={Math.min(100, (tickets.length / goalTarget) * 100)} className="h-2" />
             </CardContent>
@@ -593,17 +596,19 @@ export default function PromoterEventAnalysis() {
 
         {/* Clicks vs Conversions over time */}
         {clicksByDay.length > 1 && (
-          <Card>
-            <CardHeader className="pb-2">
+          <Card className="overflow-hidden">
+            <CardHeader className="px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
               <CardTitle className="text-sm flex items-center gap-2">
-                <BarChart3 className="h-4 w-4" /> {t('promoter.analysis.clicksVsConversions')}
+                <BarChart3 className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 truncate">{t('promoter.analysis.clicksVsConversions')}</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            {/* Le graphe doit pouvoir rétrécir sous ~350px : min-w-0 + padding réduit sur mobile. */}
+            <CardContent className="min-w-0 px-2 pb-4 sm:px-6 sm:pb-6">
               <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={clicksByDay}>
-                  <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
+                <BarChart data={clicksByDay} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
+                  <XAxis dataKey="date" tick={{ fontSize: 10 }} interval="preserveStartEnd" minTickGap={8} />
+                  <YAxis tick={{ fontSize: 10 }} width={34} allowDecimals={false} />
                   <Tooltip />
                   <Bar dataKey="clicks" name={t('promoter.analysis.clicks')} fill="hsl(var(--muted-foreground))" radius={[2, 2, 0, 0]} />
                   <Bar dataKey="conversions" name={t('promoter.analysis.conversions')} fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />
@@ -615,14 +620,15 @@ export default function PromoterEventAnalysis() {
 
         {/* Type breakdown */}
         {typeBreakdown.length > 0 && (
-          <Card>
-            <CardHeader className="pb-2">
+          <Card className="overflow-hidden">
+            <CardHeader className="px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Ticket className="h-4 w-4" /> {t('promoter.analysis.ticketTypeBreakdown')}
+                <Ticket className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 truncate">{t('promoter.analysis.ticketTypeBreakdown')}</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="flex items-center gap-4">
-              <ResponsiveContainer width={100} height={100}>
+            <CardContent className="flex items-center gap-3 px-4 pb-4 sm:gap-4 sm:px-6 sm:pb-6">
+              <ResponsiveContainer width={100} height={100} className="shrink-0">
                 <PieChart>
                   <Pie data={typeBreakdown} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={40} innerRadius={20}>
                     {typeBreakdown.map((d, i) => (
@@ -631,11 +637,12 @@ export default function PromoterEventAnalysis() {
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
-              <div className="space-y-1">
+              {/* Légende : les noms de type de billet sont saisis par le club → truncate obligatoire. */}
+              <div className="min-w-0 flex-1 space-y-1">
                 {typeBreakdown.map(d => (
                   <div key={d.name} className="flex items-center gap-2 text-sm">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: d.fill }} />
-                    <span>{d.name}: <strong>{d.value}</strong></span>
+                    <div className="w-3 h-3 shrink-0 rounded-full" style={{ backgroundColor: d.fill }} />
+                    <span className="min-w-0 truncate">{d.name}: <strong>{d.value}</strong></span>
                   </div>
                 ))}
               </div>
@@ -645,13 +652,14 @@ export default function PromoterEventAnalysis() {
 
         {/* Event Link - only for promoter's own view */}
         {!isOwnerView && <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
             <CardTitle className="text-sm">{t('promoter.analysis.directEventLink')}</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-2 px-4 pb-4 sm:px-6 sm:pb-6">
             <div className="flex gap-2">
-              <Input value={eventLink} readOnly className="text-xs font-mono" />
-              <Button size="icon" variant="outline" onClick={() => { navigator.clipboard.writeText(eventLink); toast.success(t('promoter.analysis.linkCopied')); }}>
+              {/* min-w-0 : sans ça l'input garde sa largeur intrinsèque et pousse le bouton hors carte. */}
+              <Input value={eventLink} readOnly className="min-w-0 flex-1 text-xs font-mono" />
+              <Button size="icon" variant="outline" className="shrink-0" onClick={() => { navigator.clipboard.writeText(eventLink); toast.success(t('promoter.analysis.linkCopied')); }}>
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
@@ -667,26 +675,28 @@ export default function PromoterEventAnalysis() {
         {/* Conversion Timeline */}
         {conversions.length > 0 && (
           <Card>
-            <CardHeader className="pb-2">
+            <CardHeader className="px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
               <CardTitle className="text-sm flex items-center gap-2">
-                <Clock className="h-4 w-4" /> {t('promoter.analysis.conversionHistory')}
+                <Clock className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 truncate">{t('promoter.analysis.conversionHistory')}</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 max-h-72 overflow-y-auto">
+            <CardContent className="space-y-2 max-h-72 overflow-y-auto px-4 pb-4 sm:px-6 sm:pb-6">
               {conversions.slice(0, 20).map(c => (
-                <div key={c.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                  <div className="flex items-center gap-2">
-                    <Badge variant={c.conversion_type === 'ticket' ? 'default' : 'secondary'} className="text-[10px]">
-                      {c.ticketTypeName || (c.conversion_type === 'ticket' ? 'Ticket' : 'Table')}
+                <div key={c.id} className="flex items-center justify-between gap-3 py-2 border-b border-border last:border-0">
+                  {/* Le nom du type de billet vient du club : il doit tronquer, pas pousser le montant. */}
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <Badge variant={c.conversion_type === 'ticket' ? 'default' : 'secondary'} className="min-w-0 max-w-[9rem] text-[10px]">
+                      <span className="truncate">{c.ticketTypeName || (c.conversion_type === 'ticket' ? 'Ticket' : 'Table')}</span>
                     </Badge>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground tabular-nums">
                       {formatInTimeZone(new Date(c.created_at), PARIS_TIMEZONE, 'dd/MM HH:mm', { locale })}
                     </span>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs font-medium">{fmtPrice(c.basePrice ?? c.amount)}</p>
+                  <div className="shrink-0 text-right">
+                    <p className="whitespace-nowrap text-xs font-medium tabular-nums">{fmtPrice(c.basePrice ?? c.amount)}</p>
                     {c.commission > 0 && (
-                      <p className="text-[10px] text-primary">+{fmtPrice(c.commission)}</p>
+                      <p className="whitespace-nowrap text-[10px] text-primary tabular-nums">+{fmtPrice(c.commission)}</p>
                     )}
                   </div>
                 </div>

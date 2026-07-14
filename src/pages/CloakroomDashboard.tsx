@@ -424,10 +424,10 @@ export default function CloakroomDashboard() {
         className="sticky top-0 z-40 backdrop-blur-xl"
         style={{ background: 'rgba(10,10,12,0.72)', borderBottom: `1px solid ${BORDER}`, paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-3">
-          <div className="flex items-center gap-2">
-            <Link to="/profile">
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Link to="/profile" className="flex-none">
+              <Button variant="ghost" size="icon" className="h-10 w-10">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
@@ -439,7 +439,7 @@ export default function CloakroomDashboard() {
             </div>
             <h1 className="truncate" style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>{t('cloakroom.title')}</h1>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex flex-none items-center gap-1">
             <LanguageSelector />
           </div>
         </div>
@@ -466,15 +466,15 @@ export default function CloakroomDashboard() {
 
         {/* Active Deposits List */}
         <div style={mainCard}>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="flex items-center gap-2" style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>
-              <Package className="h-4 w-4" style={{ color: RED }} />
-              {t('cloakroom.activeDepositsList')}
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h3 className="flex min-w-0 items-center gap-2" style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>
+              <Package className="h-4 w-4 flex-none" style={{ color: RED }} />
+              <span className="truncate">{t('cloakroom.activeDepositsList')}</span>
             </h3>
             <Button
               variant="outline"
               size="sm"
-              className="h-7 text-xs"
+              className="h-9 flex-none text-xs"
               onClick={() => {
                 fetchActiveDeposits();
                 setShowActiveDeposits(!showActiveDeposits);
@@ -492,27 +492,27 @@ export default function CloakroomDashboard() {
                   {activeDepositsList.map((dep) => (
                     <div
                       key={dep.id}
-                      className="flex items-center justify-between"
+                      className="flex items-center justify-between gap-3"
                       style={{ background: TILE_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '10px 12px' }}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
                         <div
                           className="w-10 h-10 rounded-full flex items-center justify-center tabular-nums flex-none"
                           style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)', color: RED, fontSize: 14, fontWeight: 700 }}
                         >
                           {dep.cloakroom_number}
                         </div>
-                        <div>
-                          <p style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{dep.customer_name || 'Client'}</p>
-                          <p className="flex items-center gap-1" style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>
-                            <Clock className="h-3 w-3" />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{dep.customer_name || 'Client'}</p>
+                          <p className="flex items-center gap-1 truncate" style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>
+                            <Clock className="h-3 w-3 flex-none" />
                             {format(new Date(dep.deposited_at), 'HH:mm')}
                             {dep.items_count > 1 && ` • ${dep.items_count} ${t('cloakroom.slots')}`}
                           </p>
                         </div>
                       </div>
                       <span
-                        className="tabular-nums"
+                        className="tabular-nums flex-none whitespace-nowrap"
                         style={{ color: T1, fontSize: 13, fontWeight: 620, padding: '4px 10px', borderRadius: 999, background: C_FAINT, border: `1px solid ${BORDER}` }}
                       >
                         {dep.price}€
@@ -570,25 +570,25 @@ export default function CloakroomDashboard() {
                   >
                     <Shirt className="h-6 w-6" style={{ color: RED }} />
                   </div>
-                  <div>
-                    <h3 style={{ color: T1, fontSize: 18, fontWeight: 640, letterSpacing: '-0.02em' }}>{scanResult.customerName}</h3>
-                    <p style={{ color: T3, fontSize: 13, marginTop: 1 }}>{t('cloakroom.paymentRequired')}</p>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate" style={{ color: T1, fontSize: 18, fontWeight: 640, letterSpacing: '-0.02em' }}>{scanResult.customerName}</h3>
+                    <p className="truncate" style={{ color: T3, fontSize: 13, marginTop: 1 }}>{t('cloakroom.paymentRequired')}</p>
                   </div>
                 </div>
 
                 <div>
                   <Label style={{ color: T3, fontSize: 13 }}>{t('cloakroom.slotsCount')}</Label>
                   <div className="flex items-center gap-4 mt-2">
-                    <Button variant="outline" size="sm" className="h-10 w-10" onClick={() => setItemsCount(Math.max(1, itemsCount - 1))}>-</Button>
+                    <Button variant="outline" size="sm" className="h-11 w-11 flex-none" onClick={() => setItemsCount(Math.max(1, itemsCount - 1))}>-</Button>
                     <span className="w-8 text-center tabular-nums" style={{ color: T1, fontSize: 24, fontWeight: 640, letterSpacing: '-0.02em' }}>{itemsCount}</span>
-                    <Button variant="outline" size="sm" className="h-10 w-10" onClick={() => setItemsCount(itemsCount + 1)}>+</Button>
+                    <Button variant="outline" size="sm" className="h-11 w-11 flex-none" onClick={() => setItemsCount(itemsCount + 1)}>+</Button>
                   </div>
                 </div>
 
                 <div style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 14, padding: 16 }}>
-                  <div className="flex justify-between items-center">
-                    <span style={{ color: T3, fontSize: 13 }}>{t('cloakroom.totalToPay')}</span>
-                    <span className="tabular-nums" style={{ color: T1, fontSize: 20, fontWeight: 640, letterSpacing: '-0.02em' }}>{(cloakroomPrice * itemsCount).toFixed(2)}€</span>
+                  <div className="flex justify-between items-center gap-3">
+                    <span className="min-w-0" style={{ color: T3, fontSize: 13 }}>{t('cloakroom.totalToPay')}</span>
+                    <span className="tabular-nums flex-none whitespace-nowrap" style={{ color: T1, fontSize: 20, fontWeight: 640, letterSpacing: '-0.02em' }}>{(cloakroomPrice * itemsCount).toFixed(2)}€</span>
                   </div>
                 </div>
 
@@ -642,9 +642,9 @@ export default function CloakroomDashboard() {
                   >
                     <Check className="h-6 w-6" style={{ color: POS }} />
                   </div>
-                  <div>
-                    <h3 style={{ color: T1, fontSize: 18, fontWeight: 640, letterSpacing: '-0.02em' }}>{scanResult.customerName}</h3>
-                    <p style={{ color: POS, fontSize: 13, fontWeight: 500, marginTop: 1 }}>{t('cloakroom.prepaidEntry')}</p>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate" style={{ color: T1, fontSize: 18, fontWeight: 640, letterSpacing: '-0.02em' }}>{scanResult.customerName}</h3>
+                    <p className="truncate" style={{ color: POS, fontSize: 13, fontWeight: 500, marginTop: 1 }}>{t('cloakroom.prepaidEntry')}</p>
                   </div>
                 </div>
 
@@ -707,9 +707,9 @@ export default function CloakroomDashboard() {
                   >
                     <Package className="h-6 w-6" style={{ color: '#FCD34D' }} />
                   </div>
-                  <div>
-                    <h3 style={{ color: T1, fontSize: 18, fontWeight: 640, letterSpacing: '-0.02em' }}>{scanResult.customerName}</h3>
-                    <p style={{ color: T3, fontSize: 13, marginTop: 1 }}>{t('cloakroom.retrieval')}</p>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate" style={{ color: T1, fontSize: 18, fontWeight: 640, letterSpacing: '-0.02em' }}>{scanResult.customerName}</h3>
+                    <p className="truncate" style={{ color: T3, fontSize: 13, marginTop: 1 }}>{t('cloakroom.retrieval')}</p>
                   </div>
                 </div>
 

@@ -237,9 +237,11 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
               className={`group rounded-xl border border-white/10 bg-gradient-to-br from-white/[0.04] to-transparent px-4 py-3.5 transition-colors hover:border-white/20 ${row.is_active ? '' : 'opacity-50'}`}
             >
               <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                <span className="font-semibold text-white">{row.label}</span>
+                <span className="max-w-full truncate font-semibold text-white">{row.label}</span>
 
-                <div className="flex items-center gap-4 text-xs text-white/55">
+                {/* flex-wrap : à 390px, 4 stats d'affilée (dont un montant à 4 chiffres)
+                    dépassaient la carte — la ligne doit pouvoir casser. */}
+                <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/55">
                   <span><span className="text-white/85 font-medium">{row.clicks}</span> {t('tlink.clicks')}</span>
                   <span><span className="text-white/85 font-medium">{row.conversions}</span> {t('tlink.sales')}</span>
                   <span><span className="text-white/85 font-medium">{currency.format(Number(row.revenue) || 0)}</span> {t('tlink.revenue')}</span>

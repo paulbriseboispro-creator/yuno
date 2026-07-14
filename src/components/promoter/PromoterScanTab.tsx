@@ -194,15 +194,16 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
   return (
     <div className="space-y-4">
       <Card className="border-primary/30">
-        <CardHeader className="pb-2">
+        <CardHeader className="px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
           <CardTitle className="text-base flex items-center gap-2">
-            <ScanLine className="h-4 w-4" />
-            {t('promoterScan.title')}
+            <ScanLine className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 truncate">{t('promoterScan.title')}</span>
           </CardTitle>
           <p className="text-xs text-muted-foreground">{t('promoterScan.onlyYourTickets')}</p>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-sm font-medium">{eventTitle}</p>
+        <CardContent className="space-y-3 px-4 pb-4 sm:px-6 sm:pb-6">
+          {/* Titre de soirée saisi par le club → tronquer. */}
+          <p className="truncate text-sm font-medium">{eventTitle}</p>
 
           {/* Camera Scanner */}
           {cameraActive ? (
@@ -244,9 +245,9 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
           )}
 
           {/* Scanned count */}
-          <div className="flex items-center justify-between text-sm bg-muted/50 rounded p-3">
-            <span className="text-muted-foreground">{t('promoterScan.title')}</span>
-            <Badge variant="secondary">{scannedCount}</Badge>
+          <div className="flex items-center justify-between gap-3 text-sm bg-muted/50 rounded p-3">
+            <span className="min-w-0 truncate text-muted-foreground">{t('promoterScan.title')}</span>
+            <Badge variant="secondary" className="shrink-0 tabular-nums">{scannedCount}</Badge>
           </div>
         </CardContent>
       </Card>
@@ -262,7 +263,7 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
             {lastResult.status === 'success' && <CheckCircle2 className="h-6 w-6 text-green-500 flex-shrink-0" />}
             {lastResult.status === 'already_scanned' && <AlertTriangle className="h-6 w-6 text-amber-500 flex-shrink-0" />}
             {(lastResult.status === 'not_yours' || lastResult.status === 'invalid') && <XCircle className="h-6 w-6 text-destructive flex-shrink-0" />}
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="font-semibold text-sm">
                 {lastResult.status === 'success' && t('promoterScan.success')}
                 {lastResult.status === 'already_scanned' && t('promoterScan.alreadyScanned')}
@@ -270,7 +271,7 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
                 {lastResult.status === 'invalid' && t('promoterScan.invalid')}
               </p>
               {lastResult.attendeeName && (
-                <p className="text-xs text-muted-foreground">{lastResult.attendeeName}</p>
+                <p className="truncate text-xs text-muted-foreground">{lastResult.attendeeName}</p>
               )}
             </div>
           </CardContent>

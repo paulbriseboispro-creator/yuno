@@ -166,26 +166,28 @@ export function PromoterProfileTab({ promoter, allPromoterProfiles, onSaved }: P
     <div className="space-y-4">
       {/* Profile */}
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader className="px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
           <CardTitle className="text-base flex items-center gap-2">
-            <User className="h-4 w-4" /> Mon profil
+            <User className="h-4 w-4 shrink-0" /> <span className="min-w-0 truncate">Mon profil</span>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 px-4 pb-4 sm:px-6 sm:pb-6">
           <div className="flex items-center gap-4">
-            <ProfilePhotoUpload
-              currentImageUrl={promoter.profile_image_url}
-              onUpload={async (url) => {
-                const { error } = await supabase.from('promoters').update({ profile_image_url: url }).eq('user_id', user!.id);
-                if (error) { toast.error('Erreur lors de la sauvegarde'); return; }
-                onSaved?.();
-              }}
-              size="lg"
-              fallback={firstName?.[0] || promoter.promo_code[0]}
-            />
-            <div className="flex-1">
-              <p className="text-sm font-medium">Photo de profil</p>
-              <p className="text-xs text-muted-foreground">Visible sur votre page promoteur</p>
+            <div className="shrink-0">
+              <ProfilePhotoUpload
+                currentImageUrl={promoter.profile_image_url}
+                onUpload={async (url) => {
+                  const { error } = await supabase.from('promoters').update({ profile_image_url: url }).eq('user_id', user!.id);
+                  if (error) { toast.error('Erreur lors de la sauvegarde'); return; }
+                  onSaved?.();
+                }}
+                size="lg"
+                fallback={firstName?.[0] || promoter.promo_code[0]}
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">Photo de profil</p>
+              <p className="truncate text-xs text-muted-foreground">Visible sur votre page promoteur</p>
             </div>
           </div>
 
@@ -223,21 +225,21 @@ export function PromoterProfileTab({ promoter, allPromoterProfiles, onSaved }: P
 
       {/* Banking Info */}
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader className="px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
           <CardTitle className="text-base flex items-center gap-2">
-            <Landmark className="h-4 w-4" /> {t('promoter.bankInfo')}
+            <Landmark className="h-4 w-4 shrink-0" /> <span className="min-w-0 truncate">{t('promoter.bankInfo')}</span>
           </CardTitle>
           <p className="text-xs text-muted-foreground">{t('promoter.sharedBetweenClubs')}</p>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 px-4 pb-4 sm:px-6 sm:pb-6">
           <div className="space-y-2">
             <Label className="text-xs">{t('promoter.currentIban')}</Label>
-            <Input value={globalIban || t('promoter.notProvided')} readOnly className="text-sm font-mono bg-muted" />
+            <Input value={globalIban || t('promoter.notProvided')} readOnly className="w-full min-w-0 text-sm font-mono bg-muted" />
           </div>
           {globalBic && (
             <div className="space-y-2">
               <Label className="text-xs">BIC</Label>
-              <Input value={globalBic} readOnly className="text-sm font-mono bg-muted" />
+              <Input value={globalBic} readOnly className="w-full min-w-0 text-sm font-mono bg-muted" />
             </div>
           )}
           <Button onClick={handleOpenIbanDialog} variant="outline" className="w-full">

@@ -247,33 +247,38 @@ export default function PromoterDashboard() {
   }
 
   return (
-    <div className="min-h-screen dashboard-gradient-bg pb-8">
+    <div
+      className="min-h-screen dashboard-gradient-bg"
+      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 2rem)' }}
+    >
       <RoleIntroGate role="promoter" />
       <header className="sticky top-0 z-40 border-b border-border/30 bg-surface/60 backdrop-blur-xl" style={{ paddingTop: 'max(0.25rem, env(safe-area-inset-top, 0.25rem))' }}>
-        <div className="mx-auto flex h-14 max-w-3xl items-center gap-3 px-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
+        <div className="mx-auto flex h-14 max-w-3xl items-center gap-2 px-4">
+          <Button variant="ghost" size="icon" className="shrink-0" onClick={() => navigate('/')}>
             <Home className="h-5 w-5" />
           </Button>
-          <div className="flex items-center gap-3 flex-1">
-            <ProfilePhotoUpload
-              currentImageUrl={allPromoterProfiles[0]?.profile_image_url}
-              onUpload={async (url) => {
-                await Promise.all(allPromoterProfiles.map(p =>
-                  supabase.from('promoters').update({ profile_image_url: url }).eq('id', p.id)
-                ));
-                fetchAllPromoterProfiles();
-              }}
-              size="sm"
-              fallback={allPromoterProfiles[0]?.promo_code?.[0] || 'P'}
-            />
-            <div>
-              <h1 className="font-semibold">{t('promoter.title')}</h1>
-              <p className="text-xs text-muted-foreground">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="shrink-0">
+              <ProfilePhotoUpload
+                currentImageUrl={allPromoterProfiles[0]?.profile_image_url}
+                onUpload={async (url) => {
+                  await Promise.all(allPromoterProfiles.map(p =>
+                    supabase.from('promoters').update({ profile_image_url: url }).eq('id', p.id)
+                  ));
+                  fetchAllPromoterProfiles();
+                }}
+                size="sm"
+                fallback={allPromoterProfiles[0]?.promo_code?.[0] || 'P'}
+              />
+            </div>
+            <div className="min-w-0">
+              <h1 className="truncate font-semibold">{t('promoter.title')}</h1>
+              <p className="truncate text-xs text-muted-foreground">
                 {allPromoterProfiles.length} {t('promoter.partnerClubs')}
               </p>
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => setShowChangePinFlow(true)} title="Modifier PIN">
+          <Button variant="ghost" size="icon" className="shrink-0" onClick={() => setShowChangePinFlow(true)} title="Modifier PIN">
             <KeyRound className="h-5 w-5" />
           </Button>
         </div>
@@ -285,14 +290,14 @@ export default function PromoterDashboard() {
           <div className="overflow-x-auto -mx-4 px-4 scrollbar-hide">
             <TabsList className="inline-flex w-max h-auto p-1 bg-muted/50 gap-0.5">
               {allPromoterProfiles.map((p) => (
-                <TabsTrigger key={scopeKey(p)} value={scopeKey(p)} className="gap-2 px-4 py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm whitespace-nowrap">
+                <TabsTrigger key={scopeKey(p)} value={scopeKey(p)} className="min-h-[44px] gap-2 px-4 py-2.5 data-[state=active]:bg-background data-[state=active]:shadow-sm whitespace-nowrap">
                   {p.venue?.logo_url ? (
-                    <img src={p.venue.logo_url} alt={p.venue.name} className="h-5 w-5 rounded-full object-cover" />
+                    <img src={p.venue.logo_url} alt={p.venue.name} className="h-5 w-5 shrink-0 rounded-full object-cover" />
                   ) : (
-                    <Building2 className="h-4 w-4" />
+                    <Building2 className="h-4 w-4 shrink-0" />
                   )}
-                  <span className="font-medium">{p.venue?.name || p.organizerName || 'Organisateur'}</span>
-                  {!p.is_active && <Badge variant="secondary" className="ml-1 text-xs">{t('promoter.inactive')}</Badge>}
+                  <span className="max-w-[8.5rem] truncate font-medium sm:max-w-none">{p.venue?.name || p.organizerName || 'Organisateur'}</span>
+                  {!p.is_active && <Badge variant="secondary" className="ml-1 shrink-0 text-xs">{t('promoter.inactive')}</Badge>}
                 </TabsTrigger>
               ))}
             </TabsList>

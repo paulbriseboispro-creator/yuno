@@ -446,29 +446,29 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
         <Card className="border-primary bg-primary/10 animate-pulse-subtle">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-3">
-              <Zap className="h-5 w-5 text-primary" />
-              <Badge variant="default" className="bg-primary animate-pulse">{t('promoter.liveNow')}</Badge>
-              <span className="font-semibold text-sm">{liveEvent.title}</span>
+              <Zap className="h-5 w-5 shrink-0 text-primary" />
+              <Badge variant="default" className="bg-primary animate-pulse shrink-0">{t('promoter.liveNow')}</Badge>
+              <span className="min-w-0 flex-1 truncate font-semibold text-sm">{liveEvent.title}</span>
             </div>
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div>
-                <p className="text-2xl font-bold">{liveStats.tickets}</p>
-                <p className="text-xs text-muted-foreground">{t('promoter.liveTickets')}</p>
+            <div className="grid grid-cols-3 gap-2 text-center sm:gap-3">
+              <div className="min-w-0">
+                <p className="truncate text-xl font-bold tabular-nums sm:text-2xl">{liveStats.tickets}</p>
+                <p className="truncate text-xs text-muted-foreground">{t('promoter.liveTickets')}</p>
               </div>
-              <div>
-                <p className="text-2xl font-bold">{fmtEur(liveStats.revenue)}</p>
-                <p className="text-xs text-muted-foreground">{t('promoter.liveRevenue')}</p>
+              <div className="min-w-0">
+                <p className="truncate text-xl font-bold tabular-nums sm:text-2xl">{fmtEur(liveStats.revenue)}</p>
+                <p className="truncate text-xs text-muted-foreground">{t('promoter.liveRevenue')}</p>
               </div>
-              <div>
-                <p className="text-2xl font-bold text-primary">{fmtEur(liveStats.commission)}</p>
-                <p className="text-xs text-muted-foreground">{t('promoter.liveCommission')}</p>
+              <div className="min-w-0">
+                <p className="truncate text-xl font-bold tabular-nums text-primary sm:text-2xl">{fmtEur(liveStats.commission)}</p>
+                <p className="truncate text-xs text-muted-foreground">{t('promoter.liveCommission')}</p>
               </div>
             </div>
             {liveStats.goalTarget > 0 && (
               <div className="mt-3">
-                <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                  <span>{t('promoter.goalBar')}</span>
-                  <span>{liveStats.tickets}/{liveStats.goalTarget}</span>
+                <div className="flex justify-between gap-2 text-xs text-muted-foreground mb-1">
+                  <span className="min-w-0 truncate">{t('promoter.goalBar')}</span>
+                  <span className="shrink-0 tabular-nums">{liveStats.tickets}/{liveStats.goalTarget}</span>
                 </div>
                 <Progress value={liveStats.goal} className="h-2" />
               </div>
@@ -482,7 +482,7 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
         <div className="overflow-x-auto -mx-4 px-4 scrollbar-hide">
           <TabsList className="inline-flex w-max h-auto p-1 gap-0.5">
             {tabItems.map(ti => (
-              <TabsTrigger key={ti.value} value={ti.value} className="text-xs py-2 px-3 whitespace-nowrap">{ti.label}</TabsTrigger>
+              <TabsTrigger key={ti.value} value={ti.value} className="min-h-[40px] text-xs py-2 px-3 whitespace-nowrap">{ti.label}</TabsTrigger>
             ))}
           </TabsList>
         </div>
@@ -515,7 +515,7 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
             <Card>
               <CardContent className="p-4 text-center">
                 <Euro className="h-5 w-5 mx-auto text-muted-foreground mb-1" />
-                <p className="text-2xl font-bold">{fmtEur(stats.totalRevenue)}</p>
+                <p className="text-xl font-bold tabular-nums sm:text-2xl">{fmtEur(stats.totalRevenue)}</p>
                 <p className="text-xs text-muted-foreground">{t('promoter.totalRevenue')}</p>
               </CardContent>
             </Card>
@@ -524,24 +524,24 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
           {/* Wallet — what you'll receive / total earned / already paid */}
           <Card className="border-primary/30">
             <CardContent className="p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-muted-foreground">{tt('À recevoir', 'To receive')}</p>
-                  <p className="text-3xl font-bold text-primary">{fmtEur(stats.pendingCommission)}</p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm text-muted-foreground">{tt('À recevoir', 'To receive')}</p>
+                  <p className="truncate text-2xl font-bold tabular-nums text-primary sm:text-3xl">{fmtEur(stats.pendingCommission)}</p>
                 </div>
-                <div className="text-right">
+                <div className="shrink-0 text-right">
                   <p className="text-xs text-muted-foreground">{t('promoter.conversionRate')}</p>
-                  <p className="text-lg font-semibold">{stats.conversionRate.toFixed(1)}%</p>
+                  <p className="text-lg font-semibold tabular-nums">{stats.conversionRate.toFixed(1)}%</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
-                <div className="text-center">
-                  <p className="text-sm font-semibold">{fmtEur(stats.totalCommission)}</p>
-                  <p className="text-xs text-muted-foreground">{tt('Total généré', 'Total earned')}</p>
+                <div className="min-w-0 text-center">
+                  <p className="truncate text-sm font-semibold tabular-nums">{fmtEur(stats.totalCommission)}</p>
+                  <p className="truncate text-xs text-muted-foreground">{tt('Total généré', 'Total earned')}</p>
                 </div>
-                <div className="text-center">
-                  <p className="text-sm font-semibold text-green-500">{fmtEur(stats.paidCommission)}</p>
-                  <p className="text-xs text-muted-foreground">{t('promoter.paid')}</p>
+                <div className="min-w-0 text-center">
+                  <p className="truncate text-sm font-semibold tabular-nums text-green-500">{fmtEur(stats.paidCommission)}</p>
+                  <p className="truncate text-xs text-muted-foreground">{t('promoter.paid')}</p>
                 </div>
               </div>
             </CardContent>
@@ -549,30 +549,30 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
 
           {/* Commission Rules & Rewards - from template */}
           <Card>
-            <CardHeader className="pb-2">
+            <CardHeader className="px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
               <CardTitle className="text-base flex items-center gap-2">
-                <Gift className="h-4 w-4" />
-                {t('promoter.commission')} — {scopeName}
+                <Gift className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 truncate">{t('promoter.commission')} — {scopeName}</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-2 text-sm">
+            <CardContent className="space-y-2 px-4 pb-4 text-sm sm:px-6 sm:pb-6">
               {templateRules ? (
                 <>
                   {/* Only show flat ticket/table rules if NO tiers are defined */}
                   {(!templateRules.tiers || templateRules.tiers.length === 0) && (
                     <>
                       {templateRules.ticket && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">{t('promoter.ticketsSold')}</span>
-                          <span className="font-medium">
+                        <div className="flex justify-between gap-3">
+                          <span className="min-w-0 truncate text-muted-foreground">{t('promoter.ticketsSold')}</span>
+                          <span className="shrink-0 whitespace-nowrap font-medium">
                             {templateRules.ticket.type === 'percentage' ? `${templateRules.ticket.value}%` : `${templateRules.ticket.value}€`}
                           </span>
                         </div>
                       )}
                       {templateRules.table && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">{t('promoter.tablesReserved')}</span>
-                          <span className="font-medium">
+                        <div className="flex justify-between gap-3">
+                          <span className="min-w-0 truncate text-muted-foreground">{t('promoter.tablesReserved')}</span>
+                          <span className="shrink-0 whitespace-nowrap font-medium">
                             {templateRules.table.type === 'percentage' ? `${templateRules.table.value}%` : `${templateRules.table.value}€`}
                           </span>
                         </div>
@@ -590,9 +590,9 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
                           : tier.reward_type === 'money' ? `${tier.ticketValue || 0}€`
                           : tier.reward_type;
                         return (
-                          <div key={i} className="flex justify-between text-xs">
-                            <span>{tier.min}{tier.max ? `–${tier.max}` : '+'} ventes</span>
-                            <Badge variant="outline" className="text-[10px]">{rewardLabel}</Badge>
+                          <div key={i} className="flex items-center justify-between gap-3 text-xs">
+                            <span className="min-w-0 truncate">{tier.min}{tier.max ? `–${tier.max}` : '+'} ventes</span>
+                            <Badge variant="outline" className="shrink-0 text-[10px]">{rewardLabel}</Badge>
                           </div>
                         );
                       })}
@@ -602,9 +602,9 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
                   {templateRules.customer_discount && (
                     <div className="pt-2 border-t border-border">
                       <p className="text-xs font-medium text-muted-foreground mb-1">Avantage client :</p>
-                      <div className="flex justify-between text-xs">
-                        <span>{templateRules.customer_discount.label || 'Réduction via votre lien'}</span>
-                        <Badge variant="secondary" className="text-[10px]">
+                      <div className="flex items-center justify-between gap-3 text-xs">
+                        <span className="min-w-0 truncate">{templateRules.customer_discount.label || 'Réduction via votre lien'}</span>
+                        <Badge variant="secondary" className="shrink-0 text-[10px]">
                           {templateRules.customer_discount.type === 'percentage'
                             ? `-${templateRules.customer_discount.value}%`
                             : `-${templateRules.customer_discount.value}€`}
@@ -615,17 +615,17 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
                 </>
               ) : (
                 <>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t('promoter.ticketsSold')}</span>
-                    <span className="font-medium">
+                  <div className="flex justify-between gap-3">
+                    <span className="min-w-0 truncate text-muted-foreground">{t('promoter.ticketsSold')}</span>
+                    <span className="shrink-0 whitespace-nowrap font-medium">
                       {promoter.ticket_commission_type === 'percentage'
                         ? `${promoter.ticket_commission_value}%`
                         : `${promoter.ticket_commission_value}€`}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">{t('promoter.tablesReserved')}</span>
-                    <span className="font-medium">
+                  <div className="flex justify-between gap-3">
+                    <span className="min-w-0 truncate text-muted-foreground">{t('promoter.tablesReserved')}</span>
+                    <span className="shrink-0 whitespace-nowrap font-medium">
                       {promoter.table_commission_type === 'percentage'
                         ? `${promoter.table_commission_value}%`
                         : `${promoter.table_commission_value}€`}
@@ -642,12 +642,12 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <p className="font-semibold text-sm">{teamInfo.name}</p>
-                  <Badge variant="secondary" className="text-xs">{teamInfo.memberCount} membres</Badge>
+                  <Users className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <p className="min-w-0 flex-1 truncate font-semibold text-sm">{teamInfo.name}</p>
+                  <Badge variant="secondary" className="shrink-0 whitespace-nowrap text-xs">{teamInfo.memberCount} membres</Badge>
                 </div>
                 {teamInfo.leaderName && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1"><Crown className="h-3 w-3 text-primary" /> Chef d'equipe : {teamInfo.leaderName}</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 truncate"><Crown className="h-3 w-3 shrink-0 text-primary" /> Chef d'equipe : {teamInfo.leaderName}</p>
                 )}
               </CardContent>
             </Card>
@@ -656,17 +656,17 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
           {/* Announcements */}
           {announcements.length > 0 && (
             <Card>
-              <CardHeader className="pb-2">
+              <CardHeader className="px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
                 <CardTitle className="text-base flex items-center gap-2">
-                  <Megaphone className="h-4 w-4" />
-                  {scopeName}
+                  <Megaphone className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 truncate">{scopeName}</span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-3 px-4 pb-4 sm:px-6 sm:pb-6">
                 {announcements.map((a) => (
                   <div key={a.id} className="p-3 bg-muted rounded-lg">
-                    <p className="font-medium text-sm">{a.title}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{a.content}</p>
+                    <p className="font-medium text-sm break-words">{a.title}</p>
+                    <p className="text-xs text-muted-foreground mt-1 break-words">{a.content}</p>
                     <p className="text-xs text-muted-foreground mt-2">
                       {new Date(a.created_at).toLocaleDateString(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-US')}
                     </p>
@@ -708,37 +708,37 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
                     >
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="flex items-center gap-2 flex-wrap min-w-0">
-                            <h3 className="font-semibold text-sm truncate">{es.eventTitle}</h3>
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <h3 className="min-w-0 flex-1 font-semibold text-sm truncate">{es.eventTitle}</h3>
                             <Badge variant={status === 'active' ? 'default' : status === 'upcoming' ? 'secondary' : 'outline'} className="text-xs shrink-0">
                               {status === 'active' ? t('promoter.active') : status === 'upcoming' ? t('promoter.upcomingEvents') : t('promoter.pastEvents')}
                             </Badge>
                           </div>
-                          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-                          <div>
-                            <p className="text-lg font-bold">{es.ticketsSold}</p>
-                            <p className="text-xs text-muted-foreground">{t('promoter.ticketsSold')}</p>
+                          <div className="min-w-0">
+                            <p className="truncate text-lg font-bold tabular-nums">{es.ticketsSold}</p>
+                            <p className="truncate text-xs text-muted-foreground">{t('promoter.ticketsSold')}</p>
                           </div>
-                          <div>
-                            <p className="text-lg font-bold">{fmtEur(es.revenue)}</p>
-                            <p className="text-xs text-muted-foreground">{t('promoter.revenue')}</p>
+                          <div className="min-w-0">
+                            <p className="truncate text-lg font-bold tabular-nums">{fmtEur(es.revenue)}</p>
+                            <p className="truncate text-xs text-muted-foreground">{t('promoter.revenue')}</p>
                           </div>
-                          <div>
-                            <p className="text-lg font-bold text-primary">{fmtEur(es.commission)}</p>
-                            <p className="text-xs text-muted-foreground">{t('promoter.commission')}</p>
+                          <div className="min-w-0">
+                            <p className="truncate text-lg font-bold tabular-nums text-primary">{fmtEur(es.commission)}</p>
+                            <p className="truncate text-xs text-muted-foreground">{t('promoter.commission')}</p>
                           </div>
-                          <div>
-                            <p className="text-lg font-bold">{es.conversionRate.toFixed(1)}%</p>
-                            <p className="text-xs text-muted-foreground">{t('promoter.conversionRate')}</p>
+                          <div className="min-w-0">
+                            <p className="truncate text-lg font-bold tabular-nums">{es.conversionRate.toFixed(1)}%</p>
+                            <p className="truncate text-xs text-muted-foreground">{t('promoter.conversionRate')}</p>
                           </div>
                         </div>
                         {es.goalTarget && es.goalProgress !== undefined && (
                           <div className="mt-3">
-                            <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                              <span>{t('promoter.goalProgress')}</span>
-                              <span>{es.ticketsSold}/{es.goalTarget}</span>
+                            <div className="flex justify-between gap-2 text-xs text-muted-foreground mb-1">
+                              <span className="min-w-0 truncate">{t('promoter.goalProgress')}</span>
+                              <span className="shrink-0 tabular-nums">{es.ticketsSold}/{es.goalTarget}</span>
                             </div>
                             <Progress value={es.goalProgress} className="h-1.5" />
                           </div>
@@ -757,13 +757,13 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
         <TabsContent value="links" className="space-y-4 mt-4">
           {/* Main Link */}
           <Card className="border-primary/30 bg-primary/5">
-            <CardHeader className="pb-2">
+            <CardHeader className="px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
               <CardTitle className="text-base flex items-center gap-2">
-                <ExternalLink className="h-4 w-4" />
-                {t('promoter.promoLink')}
+                <ExternalLink className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 truncate">{t('promoter.promoLink')}</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 px-4 pb-4 sm:px-6 sm:pb-6">
               {/* Event filter */}
               <Select value={eventFilter || 'all'} onValueChange={(v) => setEventFilter(v === 'all' ? null : v)}>
                 <SelectTrigger className="h-9 text-sm">
@@ -772,7 +772,10 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
                 <SelectContent>
                   <SelectItem value="all">{t('promoter.allEvents')}</SelectItem>
                   {events.map(e => (
-                    <SelectItem key={e.id} value={e.id}>{e.title}</SelectItem>
+                    <SelectItem key={e.id} value={e.id}>
+                      {/* Titre saisi par le club → tronquer plutôt qu'élargir le popup hors écran. */}
+                      <span className="block max-w-[min(72vw,18rem)] truncate">{e.title}</span>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -795,8 +798,8 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
               {(eventFilter ? eventPromoLink : promoLink) && (
                 <>
                   <div className="flex gap-2">
-                    <Input value={(eventFilter ? eventPromoLink : promoLink)!} readOnly className="text-xs font-mono bg-background/50" />
-                    <Button size="icon" variant="outline" onClick={() => {
+                    <Input value={(eventFilter ? eventPromoLink : promoLink)!} readOnly className="min-w-0 flex-1 text-xs font-mono bg-background/50" />
+                    <Button size="icon" variant="outline" className="shrink-0" onClick={() => {
                       navigator.clipboard.writeText((eventFilter ? eventPromoLink : promoLink)!);
                       toast.success(t('promoter.linkCopied'));
                     }}>
@@ -831,15 +834,16 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
 
           {/* Promo Code Badge */}
           <Card>
-            <CardContent className="p-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Code promo</p>
-                <p className="text-xl font-bold font-mono">{promoter.promo_code}</p>
+            <CardContent className="p-4 flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm text-muted-foreground">Code promo</p>
+                <p className="truncate text-xl font-bold font-mono">{promoter.promo_code}</p>
               </div>
               {promoter.instagram_url && (
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="h-10 shrink-0"
                   onClick={() => window.open(promoter.instagram_url!, '_blank')}
                 >
                   <Instagram className="h-4 w-4 mr-1" />
@@ -859,7 +863,9 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
               </SelectTrigger>
               <SelectContent>
                 {scanEvents.map(a => (
-                  <SelectItem key={a.eventId} value={a.eventId}>{a.eventTitle}</SelectItem>
+                  <SelectItem key={a.eventId} value={a.eventId}>
+                    <span className="block max-w-[min(72vw,18rem)] truncate">{a.eventTitle}</span>
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -892,38 +898,38 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-1">
-                  <Users className="h-4 w-4 text-primary" />
-                  <h3 className="font-semibold text-sm">{teamInfo.name}</h3>
-                  <Badge variant="secondary" className="text-xs">{teamMembers.length} membres</Badge>
+                  <Users className="h-4 w-4 shrink-0 text-primary" />
+                  <h3 className="min-w-0 flex-1 truncate font-semibold text-sm">{teamInfo.name}</h3>
+                  <Badge variant="secondary" className="shrink-0 whitespace-nowrap text-xs">{teamMembers.length} membres</Badge>
                 </div>
                 <p className="text-xs text-muted-foreground mb-4">Performance de votre equipe</p>
                 <div className="grid grid-cols-3 gap-2 mb-4">
-                  <div className="bg-muted/50 rounded-lg p-2 text-center">
-                    <p className="text-lg font-bold">{teamMembers.reduce((s, m) => s + m.conversions, 0)}</p>
-                    <p className="text-[10px] text-muted-foreground">Ventes</p>
+                  <div className="min-w-0 bg-muted/50 rounded-lg p-2 text-center">
+                    <p className="truncate text-lg font-bold tabular-nums">{teamMembers.reduce((s, m) => s + m.conversions, 0)}</p>
+                    <p className="truncate text-[10px] text-muted-foreground">Ventes</p>
                   </div>
-                  <div className="bg-muted/50 rounded-lg p-2 text-center">
-                    <p className="text-lg font-bold">{teamMembers.reduce((s, m) => s + m.revenue, 0).toFixed(0)}€</p>
-                    <p className="text-[10px] text-muted-foreground">CA total</p>
+                  <div className="min-w-0 bg-muted/50 rounded-lg p-2 text-center">
+                    <p className="truncate text-lg font-bold tabular-nums">{teamMembers.reduce((s, m) => s + m.revenue, 0).toFixed(0)}€</p>
+                    <p className="truncate text-[10px] text-muted-foreground">CA total</p>
                   </div>
-                  <div className="bg-muted/50 rounded-lg p-2 text-center">
-                    <p className="text-lg font-bold text-primary">{teamMembers.reduce((s, m) => s + m.commission, 0).toFixed(0)}€</p>
-                    <p className="text-[10px] text-muted-foreground">Commission</p>
+                  <div className="min-w-0 bg-muted/50 rounded-lg p-2 text-center">
+                    <p className="truncate text-lg font-bold tabular-nums text-primary">{teamMembers.reduce((s, m) => s + m.commission, 0).toFixed(0)}€</p>
+                    <p className="truncate text-[10px] text-muted-foreground">Commission</p>
                   </div>
                 </div>
                 <div className="space-y-2">
                   {teamMembers.map((m, idx) => (
                     <div key={m.id} className="p-3 bg-muted/30 rounded-lg">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xs font-bold text-muted-foreground">#{idx + 1}</span>
-                        <span className="text-sm font-medium">{m.label}</span>
-                        {m.id === promoter.id && <Badge variant="outline" className="text-[10px]"><Crown className="h-2.5 w-2.5 mr-0.5" /> Vous</Badge>}
+                        <span className="shrink-0 text-xs font-bold text-muted-foreground">#{idx + 1}</span>
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium">{m.label}</span>
+                        {m.id === promoter.id && <Badge variant="outline" className="shrink-0 whitespace-nowrap text-[10px]"><Crown className="h-2.5 w-2.5 mr-0.5" /> Vous</Badge>}
                       </div>
                       <div className="grid grid-cols-4 gap-2 text-center">
-                        <div><p className="text-xs font-bold">{m.clicks}</p><p className="text-[9px] text-muted-foreground">Clicks</p></div>
-                        <div><p className="text-xs font-bold">{m.conversions}</p><p className="text-[9px] text-muted-foreground">Ventes</p></div>
-                        <div><p className="text-xs font-bold">{m.revenue.toFixed(0)}€</p><p className="text-[9px] text-muted-foreground">CA</p></div>
-                        <div><p className="text-xs font-bold text-primary">{m.commission.toFixed(0)}€</p><p className="text-[9px] text-muted-foreground">Comm.</p></div>
+                        <div className="min-w-0"><p className="truncate text-xs font-bold tabular-nums">{m.clicks}</p><p className="truncate text-[9px] text-muted-foreground">Clicks</p></div>
+                        <div className="min-w-0"><p className="truncate text-xs font-bold tabular-nums">{m.conversions}</p><p className="truncate text-[9px] text-muted-foreground">Ventes</p></div>
+                        <div className="min-w-0"><p className="truncate text-xs font-bold tabular-nums">{m.revenue.toFixed(0)}€</p><p className="truncate text-[9px] text-muted-foreground">CA</p></div>
+                        <div className="min-w-0"><p className="truncate text-xs font-bold tabular-nums text-primary">{m.commission.toFixed(0)}€</p><p className="truncate text-[9px] text-muted-foreground">Comm.</p></div>
                       </div>
                     </div>
                   ))}
