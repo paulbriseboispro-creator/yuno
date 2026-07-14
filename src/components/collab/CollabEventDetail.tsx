@@ -85,6 +85,10 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
   const [orgName, setOrgName] = useState('');
   const [orgSlug, setOrgSlug] = useState<string | null>(null);
   const [myVenue, setMyVenue] = useState<{ id: string; name: string } | null>(null);
+  // Club sans Stripe Connect = sa part de chaque vente ne peut pas lui être
+  // versée (transfer failed). On l'avertit AVANT la première vente — le prompt
+  // d'activation n'existait que côté organisateur.
+  const [venueStripeReady, setVenueStripeReady] = useState<boolean | null>(null);
   const [stats, setStats] = useState<Stats>({ sold: 0, ticketsSold: 0, caSoiree: 0, myShare: 0, checkins: 0, tableGuests: 0, glEntries: 0 });
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -109,10 +113,11 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
       // Venue viewer: resolve the club this owner runs (for scope + framing).
       let venueRow: { id: string; name: string } | null = null;
       if (isVenue) {
-        const { data: v } = await supabase.from('venues').select('id, name').eq('owner_id', user.id).limit(1).maybeSingle();
+        const { data: v } = await supabase.from('venues').select('id, name, stripe_account_id, stripe_charges_enabled').eq('owner_id', user.id).limit(1).maybeSingle();
         if (cancelled) return;
         venueRow = (v as any) ?? null;
-        setMyVenue(venueRow);
+        setMyVenue(venueRow ? { id: (venueRow as any).id, name: (venueRow as any).name } : null);
+        setVenueStripeReady(Boolean((v as any)?.stripe_account_id && (v as any)?.stripe_charges_enabled));
       }
 
       // Event row. Organizer must match a night they lead OR a club proposed to them.
@@ -332,6 +337,32 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
 
         {/* Contract — kept high for trust + sign action */}
         <SplitContractBanner eventId={event.id} side={viewerRole} />
+
+        {/* Club sans Stripe : sa part de chaque vente resterait bloquée chez Yuno
+            (versement en échec). Avertir AVANT la première vente, avec le lien
+            direct vers l'activation — miroir du prompt organisateur plus bas. */}
+        {isVenue && venueStripeReady === false && (
+          <div className="rounded-xl p-4 space-y-3" style={{ background: 'rgba(232,25,44,0.06)', border: '1px solid rgba(232,25,44,0.22)' }}>
+            <div className="flex items-start gap-2">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" style={{ color: RED }} />
+              <div className="flex-1">
+                <p style={{ color: T1, fontSize: 13, fontWeight: 560 }}>
+                  {t('Connectez Stripe pour recevoir votre part', 'Connect Stripe to receive your share', 'Conecta Stripe para recibir tu parte')}
+                </p>
+                <p className="mt-1" style={{ color: T3, fontSize: 11.5 }}>
+                  {t(
+                    'Sans compte Stripe actif, votre part de chaque vente ne peut pas vous être versée après la soirée. L\'activation prend quelques minutes.',
+                    'Without an active Stripe account, your share of each sale cannot be paid out to you after the event. Activation takes a few minutes.',
+                    'Sin una cuenta de Stripe activa, tu parte de cada venta no puede pagarse después del evento. La activación tarda unos minutos.',
+                  )}
+                </p>
+              </div>
+            </div>
+            <OrgButton size="sm" variant="primary" onClick={() => navigate('/owner/billing')}>
+              <CreditCard className="h-4 w-4" />{t('Activer Stripe', 'Activate Stripe', 'Activar Stripe')}
+            </OrgButton>
+          </div>
+        )}
 
         {/* Communication — synced both sides */}
         {isCollab && (
