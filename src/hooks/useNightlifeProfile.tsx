@@ -173,58 +173,61 @@ export function useNightlifeProfile() {
     }
 
     try {
-      // Fetch profile
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('first_name, last_name, avatar_url, background_url, city, birth_date, email, leaderboard_visibility')
-        .eq('id', user.id)
-        .single();
+      /* ══ VAGUE 1 ══════════════════════════════════════════════════════════
+         Tout ne dépend que de user.id : ces requêtes n'avaient AUCUNE raison de
+         s'attendre les unes les autres. Elles partaient pourtant en file indienne
+         (profil → stats → salles → villes → VIP → récompense → boisson → commandes
+         → tickets → goûts → fidélité), soit une douzaine d'allers-retours empilés
+         avant que la page Profil n'ait le droit de s'afficher. D'où l'écran vide.
+
+         Au passage, `venue_customers` était interrogée DEUX fois (une fois pour
+         les salles, une fois pour les villes) : une seule requête sert désormais
+         les salles, les villes, les stats de repli ET les cartes de fidélité. ══ */
+      const [
+        profileRes, statsRes, vcRes, vipRes, rewardRes, favoriteDrinkRes,
+        ordersRes, ticketsRes, tasteRes, loyaltyRes,
+      ] = await Promise.all([
+        supabase.from('profiles')
+          .select('first_name, last_name, avatar_url, background_url, city, birth_date, email, leaderboard_visibility')
+          .eq('id', user.id).single(),
+        supabase.rpc('get_user_nightlife_stats', { p_user_id: user.id }),
+        supabase.from('venue_customers')
+          .select('venue_id, order_count, ticket_count, table_count, total_spent, venues(id, name, logo_url, city)')
+          .eq('user_id', user.id),
+        supabase.from('table_reservations').select('id').eq('user_id', user.id).eq('status', 'paid').limit(1),
+        supabase.from('loyalty_transactions').select('id').eq('transaction_type', 'spend').limit(1),
+        supabase.from('favorites').select('drink_id, drinks(name)')
+          .eq('user_id', user.id).eq('favorite_type', 'drink').not('drink_id', 'is', null)
+          .order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('orders').select('items')
+          .eq('user_id', user.id).in('status', ['paid', 'served', 'ready', 'picked_up']),
+        supabase.from('tickets').select('event_id, events(start_at)')
+          .eq('user_id', user.id).eq('status', 'paid'),
+        supabase.from('user_taste_profiles')
+          .select('music_style, drink_preference, vibe_preference, crowd_size, night_type')
+          .eq('user_id', user.id).maybeSingle(),
+        supabase.from('customer_loyalty')
+          .select('id, venue_id, current_balance, tier, total_points_earned, venues:venue_id (id, name, logo_url)')
+          .eq('user_id', user.id),
+      ]);
+
+      const profileData = profileRes.data;
+      const { data: statsData, error: statsError } = statsRes;
+      const ordersData = ordersRes.data;
+      const loyaltyData = loyaltyRes.data;
+
+      // venue_customers, trié une fois pour toutes (le repli de stats prenait la
+      // salle la plus « fréquentée » — order by ticket_count desc côté serveur).
+      const vcRows = [...(vcRes.data ?? [])].sort(
+        (a, b) => (b.ticket_count || 0) - (a.ticket_count || 0),
+      );
 
       setProfile(profileData ? { ...profileData, leaderboard_visibility: profileData.leaderboard_visibility || 'public' } as Profile : null);
 
-      // Fetch nightlife stats using the database function
-      const { data: statsData, error: statsError } = await supabase
-        .rpc('get_user_nightlife_stats', { p_user_id: user.id });
-
       let fetchedStats: NightlifeStats | null = null;
 
-      // Fetch additional data: venues visited, cities explored, VIP reservation, reward redemption
-      const venuesResult = await supabase
-        .from('venue_customers')
-        .select('venue_id')
-        .eq('user_id', user.id);
-      
-      const citiesResult = await supabase
-        .from('venue_customers')
-        .select('venue_id, venues(city)')
-        .eq('user_id', user.id);
-      
-      const vipResult = await supabase
-        .from('table_reservations')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('status', 'paid')
-        .limit(1);
-      
-      const rewardResult = await supabase
-        .from('loyalty_transactions')
-        .select('id')
-        .eq('transaction_type', 'spend')
-        .limit(1);
-
-      // Fetch favorite drink from favorites as fallback (for users without paid drink orders)
-      const favoriteDrinkResult = await supabase
-        .from('favorites')
-        .select('drink_id, drinks(name)')
-        .eq('user_id', user.id)
-        .eq('favorite_type', 'drink')
-        .not('drink_id', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
       const favoriteDrinkFromFavorites = (() => {
-        const drinkData = favoriteDrinkResult.data?.drinks as
+        const drinkData = favoriteDrinkRes.data?.drinks as
           | { name?: string | null }
           | Array<{ name?: string | null }>
           | null
@@ -236,13 +239,6 @@ export function useNightlifeProfile() {
 
         return drinkData?.name ?? null;
       })();
-
-      // Fetch most ordered drink from actual orders
-      const { data: ordersData } = await supabase
-        .from('orders')
-        .select('items')
-        .eq('user_id', user.id)
-        .in('status', ['paid', 'served', 'ready', 'picked_up']);
 
       let mostOrderedDrink: string | null = null;
       if (ordersData && ordersData.length > 0) {
@@ -282,26 +278,20 @@ export function useNightlifeProfile() {
         });
       }
 
-      const venuesVisited = new Set(venuesResult.data?.map(v => v.venue_id)).size;
+      // Tout se déduit des lignes venue_customers déjà chargées en vague 1.
+      const venuesVisited = new Set(vcRows.map(v => v.venue_id)).size;
       const citiesExplored = new Set(
-        citiesResult.data
-          ?.map(v => {
-            const venue = v.venues as { city: string } | null;
-            return venue?.city;
-          })
+        vcRows
+          .map(v => (v.venues as { city: string } | null)?.city)
           .filter(Boolean)
       ).size;
-      const hasVipReservation = (vipResult.data?.length || 0) > 0;
-      const hasRedeemedReward = (rewardResult.data?.length || 0) > 0;
+      const hasVipReservation = (vipRes.data?.length || 0) > 0;
+      const hasRedeemedReward = (rewardRes.data?.length || 0) > 0;
 
       if (statsError) {
         console.error('Error fetching nightlife stats:', statsError);
-        // Fallback: calculate basic stats from venue_customers
-        const { data: vcData } = await supabase
-          .from('venue_customers')
-          .select('order_count, ticket_count, table_count, total_spent, venue_id, venues(name, logo_url)')
-          .eq('user_id', user.id)
-          .order('ticket_count', { ascending: false });
+        // Repli : stats de base recalculées depuis venue_customers (déjà en mémoire).
+        const vcData = vcRows;
 
       if (vcData && vcData.length > 0) {
           // Count actual drink items from orders instead of order count
@@ -375,19 +365,14 @@ export function useNightlifeProfile() {
         }
       } else if (statsData && statsData.length > 0) {
         const baseStats = statsData[0];
-        
-        // Calculate favorite club visits from venue_customers
+
+        // Visites du club favori : lues dans les lignes venue_customers déjà
+        // chargées, au lieu d'un aller-retour de plus pour une seule ligne.
         let favoriteClubVisits = 0;
         if (baseStats.favorite_club_id) {
-          const { data: vcData } = await supabase
-            .from('venue_customers')
-            .select('ticket_count, order_count, table_count')
-            .eq('user_id', user.id)
-            .eq('venue_id', baseStats.favorite_club_id)
-            .single();
-          
-          if (vcData) {
-            favoriteClubVisits = (vcData.ticket_count || 0) + (vcData.order_count || 0) + (vcData.table_count || 0);
+          const vc = vcRows.find(v => v.venue_id === baseStats.favorite_club_id);
+          if (vc) {
+            favoriteClubVisits = (vc.ticket_count || 0) + (vc.order_count || 0) + (vc.table_count || 0);
           }
         }
 
@@ -404,13 +389,8 @@ export function useNightlifeProfile() {
         setStats(fetchedStats);
       }
 
-      // Calculate party streak from paid tickets + event dates
-      const { data: ticketDates } = await supabase
-        .from('tickets')
-        .select('event_id, events(start_at)')
-        .eq('user_id', user.id)
-        .eq('status', 'paid');
-
+      // Série de soirées : calculée depuis les billets payés (chargés en vague 1).
+      const ticketDates = ticketsRes.data;
       if (ticketDates && ticketDates.length > 0) {
         const eventDatesArr = ticketDates
           .map(t => {
@@ -423,32 +403,10 @@ export function useNightlifeProfile() {
         setStreak({ currentStreak: 0, longestStreak: 0 });
       }
 
-      const { data: tasteData } = await supabase
-        .from('user_taste_profiles')
-        .select('music_style, drink_preference, vibe_preference, crowd_size, night_type')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
+      const tasteData = tasteRes.data;
       if (tasteData) {
         setTasteProfile(tasteData as TasteProfile);
       }
-
-      // Fetch loyalty cards across all venues
-      const { data: loyaltyData } = await supabase
-        .from('customer_loyalty')
-        .select(`
-          id,
-          venue_id,
-          current_balance,
-          tier,
-          total_points_earned,
-          venues:venue_id (
-            id,
-            name,
-            logo_url
-          )
-        `)
-        .eq('user_id', user.id);
 
       let cardsWithRewards: LoyaltyCard[] = [];
 
@@ -497,16 +455,9 @@ export function useNightlifeProfile() {
           })
         );
       } else {
-        // Fallback: create virtual cards from venue_customers
-        const { data: vcData } = await supabase
-          .from('venue_customers')
-          .select(`
-            venue_id,
-            total_spent,
-            venues(id, name, logo_url)
-          `)
-          .eq('user_id', user.id)
-          .gt('total_spent', 0);
+        // Repli : cartes virtuelles dérivées de venue_customers (déjà en mémoire,
+        // filtrées côté client sur total_spent > 0 plutôt qu'en refaisant la requête).
+        const vcData = vcRows.filter(v => Number(v.total_spent || 0) > 0);
 
         if (vcData && vcData.length > 0) {
           cardsWithRewards = await Promise.all(
