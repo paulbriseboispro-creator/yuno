@@ -222,6 +222,18 @@ export function useVipHost() {
     }
   }, [venueId]);
 
+  // Staff sans club rattaché (profiles.venue_id NULL) : `fetchData` sort en amont
+  // sur `!venueId` et l'abonnement realtime ci-dessous aussi, donc `data.loading`
+  // — initialisé à `true` et remis à `false` uniquement DANS `fetchData` — restait
+  // à `true` pour toujours. Le dashboard tournait alors sur son spinner sans jamais
+  // rien dire (c'est ce que voyait un hôte VIP juste après avoir créé son PIN).
+  // Dès que la résolution du venue est terminée sans venue, on arrête le chargement :
+  // la page affiche l'état « aucun club rattaché » au lieu de mentir avec un spinner.
+  useEffect(() => {
+    if (venueLoading || venueId) return;
+    setData(prev => (prev.loading ? { ...prev, loading: false } : prev));
+  }, [venueLoading, venueId]);
+
   // Subscribe to real-time updates
   useEffect(() => {
     if (!venueId) return;
@@ -402,6 +414,9 @@ export function useVipHost() {
     ...data,
     venueId,
     loading: data.loading || venueLoading,
+    // Le compte est bien hôte VIP, mais aucun club n'est rattaché à son profil :
+    // il n'y a rien à charger, et c'est à la page de le dire clairement.
+    noVenue: !venueLoading && !venueId,
     updateReservationStatus,
     addConsumption,
     reassignTable,

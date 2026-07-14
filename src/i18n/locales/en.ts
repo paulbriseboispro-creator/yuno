@@ -5167,6 +5167,8 @@ const en: Record<string, string> = {
   'vipHost.reassignGuest': 'Move {name}',
   'vipHost.reassignTable': 'Move table',
   'vipHost.connectionStale': 'Connection lost — reconnecting, data may be out of date',
+  'vipHost.noVenueTitle': 'No venue linked',
+  'vipHost.noVenueBody': "Your account is a VIP host, but it isn't linked to any venue yet. Ask the venue owner to add you to their team to see tonight's reservations.",
   'vipHost.tableTaken': 'This table is already taken by another guest.',
   'vipHost.tableMissing': 'This table is no longer on the floor plan. Refresh and pick another.',
   'vipHost.bgOpacity': 'Background opacity',

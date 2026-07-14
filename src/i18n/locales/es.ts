@@ -5355,6 +5355,8 @@ const es: Record<string, string> = {
   'vipHost.reassignGuest': 'Mover a {name}',
   'vipHost.reassignTable': 'Cambiar mesa',
   'vipHost.connectionStale': 'Conexión perdida — reconectando, los datos pueden estar desactualizados',
+  'vipHost.noVenueTitle': 'Ningún club vinculado',
+  'vipHost.noVenueBody': 'Tu cuenta es anfitrión VIP, pero no está vinculada a ningún club. Pide al gerente que te añada a su equipo para ver las reservas de la noche.',
   'vipHost.tableTaken': 'Esta mesa ya está ocupada por otro cliente.',
   'vipHost.tableMissing': 'Esta mesa ya no está en el plano. Actualiza y elige otra.',
   'vipHost.bgOpacity': 'Opacidad del fondo',

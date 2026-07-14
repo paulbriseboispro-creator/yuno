@@ -40,7 +40,7 @@ type SortBy = 'status' | 'time';
 export default function VipHostDashboard() {
   const { t } = useLanguage();
   const {
-    reservations, consumptions, floorPlan, loading, activeEvent, venueId,
+    reservations, consumptions, floorPlan, loading, activeEvent, venueId, noVenue,
     updateReservationStatus, addConsumption, reassignTable, refresh, connectionStale
   } = useVipHost();
 
@@ -238,6 +238,29 @@ export default function VipHostDashboard() {
           className="h-12 w-12 animate-spin rounded-full border-2"
           style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }}
         />
+      </div>
+    );
+  }
+
+  // Hôte VIP sans club rattaché : il n'y a aucune donnée à charger. On le dit, au
+  // lieu de laisser tourner un spinner que rien ne viendra jamais arrêter.
+  if (noVenue) {
+    return (
+      <div className="flex min-h-screen items-center justify-center px-6" style={{ background: '#000' }}>
+        <div className="w-full max-w-sm text-center">
+          <div
+            className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl"
+            style={{ background: C_FAINT, border: `1px solid ${BORDER}` }}
+          >
+            <Crown className="h-6 w-6" style={{ color: T3 }} />
+          </div>
+          <h1 style={{ color: T1, fontSize: 19, fontWeight: 700, letterSpacing: '-0.01em' }}>
+            {t('vipHost.noVenueTitle')}
+          </h1>
+          <p style={{ color: T2, fontSize: 14, lineHeight: 1.55, marginTop: 10 }}>
+            {t('vipHost.noVenueBody')}
+          </p>
+        </div>
       </div>
     );
   }

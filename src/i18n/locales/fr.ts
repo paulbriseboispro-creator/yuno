@@ -5093,6 +5093,8 @@ const fr: Record<string, string> = {
   'vipHost.reassignGuest': 'Déplacer {name}',
   'vipHost.reassignTable': 'Changer de table',
   'vipHost.connectionStale': 'Connexion perdue — reconnexion, données possiblement périmées',
+  'vipHost.noVenueTitle': 'Aucun club rattaché',
+  'vipHost.noVenueBody': "Ton compte est bien hôte VIP, mais il n'est rattaché à aucun club. Demande au gérant de t'ajouter à son équipe pour voir les réservations du soir.",
   'vipHost.tableTaken': 'Cette table est déjà prise par un autre client.',
   'vipHost.tableMissing': 'Cette table n\'est plus sur le plan. Actualisez et choisissez-en une autre.',
   'vipHost.bgOpacity': 'Opacité du fond',
