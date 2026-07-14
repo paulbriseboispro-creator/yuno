@@ -1257,7 +1257,8 @@ export default function Bouncer() {
   }
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: '#000' }}>
+    // pb : marge basse + indicateur d'accueil iPhone (app Yuno Pro)
+    <div className="min-h-screen" style={{ background: '#000', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)' }}>
       <RoleIntroGate role="bouncer" />
       {/* Vignette ambiante */}
       <div
@@ -1270,10 +1271,12 @@ export default function Bouncer() {
         className="sticky top-0 z-40 backdrop-blur-xl"
         style={{ background: 'rgba(10,10,12,0.72)', borderBottom: `1px solid ${BORDER}`, paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-3">
-          <div className="flex items-center gap-2">
-            <Link to="/profile">
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-3">
+          {/* min-w-0 : sans ça le truncate du titre ne peut pas s'appliquer */}
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Link to="/profile" className="flex-none">
+              {/* Cible tactile ≥44px sur mobile (une main, dans le noir) */}
+              <Button variant="ghost" size="icon" className="h-11 w-11 md:h-8 md:w-8">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
@@ -1285,7 +1288,7 @@ export default function Bouncer() {
             </div>
             <h1 className="truncate" style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>{t('bouncer.scanner')}</h1>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex flex-none items-center gap-1">
           </div>
         </div>
       </header>
@@ -1307,7 +1310,7 @@ export default function Bouncer() {
             </div>
             <button
               onClick={() => setSyncDrawerOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums"
+              className="inline-flex flex-none min-h-[36px] items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold tabular-nums"
               style={{
                 background: offline.pending > 0 ? 'rgba(251,191,36,0.10)' : INNER_BG,
                 border: `1px solid ${offline.pending > 0 ? 'rgba(251,191,36,0.30)' : BORDER}`,
@@ -1322,14 +1325,14 @@ export default function Bouncer() {
 
         {/* Stats */}
         <div
-          className="flex items-center justify-between"
-          style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}
+          className="flex items-center justify-between gap-3"
+          style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '14px 16px' }}
         >
-          <div className="flex items-center gap-3">
-            <Users className="h-5 w-5" style={{ color: RED }} />
-            <span style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{t('bouncer.scannedToday')}</span>
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <Users className="h-5 w-5 flex-none" style={{ color: RED }} />
+            <span className="truncate" style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{t('bouncer.scannedToday')}</span>
           </div>
-          <div className="tabular-nums" style={{ color: T1, fontSize: 26, fontWeight: 640, letterSpacing: '-0.025em' }}>
+          <div className="flex-none tabular-nums" style={{ color: T1, fontSize: 26, fontWeight: 640, letterSpacing: '-0.025em' }}>
             {/* Compte approximatif quand des scans offline attendent la synchro */}
             {offline.pending > 0 ? `≈ ${stats.scanned + offline.pending}` : stats.scanned}
           </div>
@@ -1346,18 +1349,19 @@ export default function Bouncer() {
           </h3>
             {/* Mode Tabs */}
             <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as 'entry' | 'cancel' | 'client'); resetScan(); setScanning(false); }} className="mb-4">
+              {/* min-w-0 sur les triggers : sans ça un libellé long (ES) déborde de la TabsList */}
               <TabsList className="owner-tabs grid w-full grid-cols-3">
-                <TabsTrigger value="entry" className="gap-1.5 text-xs">
-                  <CheckCircle className="h-3.5 w-3.5" />
-                  {t('bouncer.entry')}
+                <TabsTrigger value="entry" className="min-h-[44px] min-w-0 gap-1.5 px-2 text-xs md:min-h-0">
+                  <CheckCircle className="h-3.5 w-3.5 flex-none" />
+                  <span className="truncate">{t('bouncer.entry')}</span>
                 </TabsTrigger>
-                <TabsTrigger value="cancel" className="gap-1.5 text-xs text-destructive data-[state=active]:text-destructive">
-                  <Ban className="h-3.5 w-3.5" />
-                  {t('bouncer.cancelTab')}
+                <TabsTrigger value="cancel" className="min-h-[44px] min-w-0 gap-1.5 px-2 text-xs text-destructive data-[state=active]:text-destructive md:min-h-0">
+                  <Ban className="h-3.5 w-3.5 flex-none" />
+                  <span className="truncate">{t('bouncer.cancelTab')}</span>
                 </TabsTrigger>
-                <TabsTrigger value="client" className="gap-1.5 text-xs">
-                  <Search className="h-3.5 w-3.5" />
-                  {t('bouncer.clientTab')}
+                <TabsTrigger value="client" className="min-h-[44px] min-w-0 gap-1.5 px-2 text-xs md:min-h-0">
+                  <Search className="h-3.5 w-3.5 flex-none" />
+                  <span className="truncate">{t('bouncer.clientTab')}</span>
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -1366,14 +1370,14 @@ export default function Bouncer() {
               <div className="space-y-4">
                 <div className="flex items-start gap-2" style={{ background: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.25)', borderRadius: 12, padding: 12 }}>
                   <ShieldAlert className="h-5 w-5 shrink-0 mt-0.5" style={{ color: '#60A5FA' }} />
-                  <div>
+                  <div className="min-w-0">
                     <p style={{ color: '#93C5FD', fontSize: 14, fontWeight: 500 }}>{t('bouncer.clientMode')}</p>
                     <p style={{ color: T3, fontSize: 13 }}>{t('bouncer.clientModeDesc')}</p>
                   </div>
                 </div>
 
                 <div className="flex gap-2">
-                  <div className="relative flex-1">
+                  <div className="relative min-w-0 flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none" style={{ color: T3 }} />
                     <input
                       type="text"
@@ -1381,11 +1385,11 @@ export default function Bouncer() {
                       onChange={(e) => setClientQuery(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') searchClients(); }}
                       placeholder={t('bouncer.clientSearchPlaceholder')}
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl text-[13px]"
+                      className="h-11 w-full pl-9 pr-3 rounded-xl text-[16px] md:h-auto md:py-2.5 md:text-[13px]"
                       style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
                     />
                   </div>
-                  <Button onClick={searchClients} disabled={clientSearching || !clientQuery.trim()}>
+                  <Button className="h-11 flex-none md:h-10" onClick={searchClients} disabled={clientSearching || !clientQuery.trim()}>
                     {clientSearching ? '...' : t('bouncer.search')}
                   </Button>
                 </div>
@@ -1408,28 +1412,31 @@ export default function Bouncer() {
                 {clientResults.map((c) => {
                   const cName = [c.first_name, c.last_name].filter(Boolean).join(' ') || c.email;
                   return (
-                    <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+                    <div key={c.id} className="flex items-center gap-2 p-3 rounded-xl sm:gap-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex min-w-0 items-center gap-1.5">
                           <span className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 500 }}>{cName}</span>
                           {c.is_banned && (
-                            <span style={{ background: 'rgba(232,25,44,0.12)', color: RED, fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 999 }}>
+                            <span className="flex-none whitespace-nowrap" style={{ background: 'rgba(232,25,44,0.12)', color: RED, fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 999 }}>
                               {t('bouncer.bannedBadge')}
                             </span>
                           )}
                         </div>
                         <p className="truncate" style={{ color: T3, fontSize: 12 }}>{c.email}</p>
                       </div>
-                      <Button variant="outline" size="sm" className="shrink-0"
-                        onClick={() => openWarn({ userId: c.user_id, email: c.email, name: cName })}>
-                        <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />{t('bouncer.warn')}
-                      </Button>
-                      {!c.is_banned && (
-                        <Button variant="destructive" size="sm" className="shrink-0"
-                          onClick={() => openBan({ userId: c.user_id, email: c.email, name: cName })}>
-                          <Ban className="h-3.5 w-3.5 mr-1.5" />{t('bouncer.ban')}
+                      {/* Actions : bloc non compressible, cibles ≥44px sur mobile */}
+                      <div className="flex flex-none items-center gap-2">
+                        <Button variant="outline" size="sm" className="h-11 shrink-0 px-2.5 md:h-9 md:px-3"
+                          onClick={() => openWarn({ userId: c.user_id, email: c.email, name: cName })}>
+                          <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />{t('bouncer.warn')}
                         </Button>
-                      )}
+                        {!c.is_banned && (
+                          <Button variant="destructive" size="sm" className="h-11 shrink-0 px-2.5 md:h-9 md:px-3"
+                            onClick={() => openBan({ userId: c.user_id, email: c.email, name: cName })}>
+                            <Ban className="h-3.5 w-3.5 mr-1.5" />{t('bouncer.ban')}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -1440,7 +1447,7 @@ export default function Bouncer() {
               <div className="mb-4" style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.3)', borderRadius: 12, padding: 12 }}>
                 <div className="flex items-start gap-2">
                   <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" style={{ color: RED }} />
-                  <div>
+                  <div className="min-w-0">
                     <p style={{ color: RED, fontSize: 14, fontWeight: 500 }}>{t('bouncer.cancelMode')}</p>
                     <p style={{ color: T3, fontSize: 13 }}>
                       {t('bouncer.cancelModeDesc')}
@@ -1454,7 +1461,12 @@ export default function Bouncer() {
             {activeTab !== 'client' && (<>
             <div className="mb-4 space-y-4">
               {scanning && (
-                <div className={`rounded-lg overflow-hidden border-2 bg-black ${activeTab === 'cancel' ? 'border-destructive/50' : 'border-primary/50'}`} style={{ minHeight: '300px' }}>
+                /* Hauteur définie : sans elle le height:100% du Scanner ne résout pas et
+                   la caméra retombe sur son ratio natif (bandes noires, viseur riquiqui). */
+                <div
+                  className={`relative rounded-lg overflow-hidden border-2 bg-black ${activeTab === 'cancel' ? 'border-destructive/50' : 'border-primary/50'}`}
+                  style={{ height: 'clamp(300px, 46vh, 440px)' }}
+                >
                   <Scanner
                     onScan={(result) => {
                       if (!result) return;
@@ -1490,12 +1502,25 @@ export default function Bouncer() {
                       height: { ideal: 720 },
                     }}
                   />
+
+                  {/* Viseur : cadre centré pour aligner le QR dans le noir */}
+                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                    <div
+                      className="rounded-2xl"
+                      style={{
+                        width: 'min(62%, 220px)',
+                        aspectRatio: '1 / 1',
+                        border: `2px solid ${activeTab === 'cancel' ? 'rgba(232,25,44,0.85)' : 'rgba(255,255,255,0.85)'}`,
+                        boxShadow: '0 0 0 9999px rgba(0,0,0,0.35)',
+                      }}
+                    />
+                  </div>
                 </div>
               )}
 
               {!scanResult && (
                 scanning ? (
-                  <Button onClick={stopScanning} variant="outline" className="w-full">
+                  <Button onClick={stopScanning} variant="outline" size="lg" className="w-full">
                     {t('bouncer.stopScanning')}
                   </Button>
                 ) : (
@@ -1531,7 +1556,7 @@ export default function Bouncer() {
                   className="space-y-4"
                 >
                   {/* Result Banner */}
-                  <div className={`p-6 rounded-lg text-center ${
+                  <div className={`p-5 md:p-6 rounded-lg text-center ${
                     scanResult === 'success' || scanResult === 'vip_success'
                       ? 'bg-green-500/20 border border-green-500' 
                       : scanResult === 'already'
@@ -1604,8 +1629,8 @@ export default function Bouncer() {
                               <div className="p-4 rounded-lg bg-orange-500/15 border border-orange-500/40">
                                 <div className="flex items-center gap-3">
                                   <AlertTriangle className="h-7 w-7 text-orange-500 shrink-0" />
-                                  <div className="flex-1">
-                          <p className="font-bold text-orange-500">{t('bouncer.outOfSlot')}</p>
+                                  <div className="min-w-0 flex-1">
+                                    <p className="font-bold text-orange-500">{t('bouncer.outOfSlot')}</p>
                                     <p className="text-xs text-orange-400">
                                       {t('tickets.entryBefore')} {scannedTicket.entryDeadline}
                                     </p>
@@ -1617,9 +1642,11 @@ export default function Bouncer() {
                                   </div>
                               {scanResult === 'success' && (
                                 <div className="space-y-3">
-                                  <div className="grid grid-cols-2 gap-3">
+                                  {/* Empilé sur mobile : « Refuser + Remboursement net » déborde d'une demi-colonne à 390px */}
+                                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                     <Button
                                       variant="destructive"
+                                      className="h-auto min-h-[48px] whitespace-normal py-3 leading-tight"
                                       disabled={isCancelling}
                                       onClick={async () => {
                                         // Auto-refund at 90% for late arrival
@@ -1650,11 +1677,11 @@ export default function Bouncer() {
                                         }
                                       }}
                                     >
-                                      <XCircle className="h-4 w-4 mr-2" />
+                                      <XCircle className="h-4 w-4 mr-2 flex-none" />
                                       {isCancelling ? '...' : `${t('bouncer.deny')} + ${t('bouncer.refund90')}`}
                                     </Button>
                                     <Button
-                                      className="bg-green-600 hover:bg-green-700 text-white"
+                                      className="h-auto min-h-[48px] whitespace-normal bg-green-600 py-3 leading-tight text-white hover:bg-green-700"
                                       onClick={() => {
                                         toast({
                                           title: t('bouncer.entryApproved'),
@@ -1662,7 +1689,7 @@ export default function Bouncer() {
                                         });
                                       }}
                                     >
-                                      <CheckCircle className="h-4 w-4 mr-2" />
+                                      <CheckCircle className="h-4 w-4 mr-2 flex-none" />
                                       {t('bouncer.accept')}
                                     </Button>
                                   </div>
@@ -1680,24 +1707,25 @@ export default function Bouncer() {
                           );
                         })()}
 
+                        {/* Nom + email : min-w-0 + truncate, sinon un nom long casse la ligne en min-content */}
                         <div className="flex items-center gap-2">
-                          <User className="h-4 w-4" style={{ color: T3 }} />
-                          <div>
+                          <User className="h-4 w-4 flex-none" style={{ color: T3 }} />
+                          <div className="min-w-0 flex-1">
                             {scannedTicket.fullName && (
-                              <span className="block" style={{ color: T1, fontSize: 14, fontWeight: 500 }}>{scannedTicket.fullName}</span>
+                              <span className="block truncate" style={{ color: T1, fontSize: 14, fontWeight: 500 }}>{scannedTicket.fullName}</span>
                             )}
-                            <span style={{ color: T3, fontSize: 13 }}>{scannedTicket.userEmail}</span>
+                            <span className="block truncate" style={{ color: T3, fontSize: 13 }}>{scannedTicket.userEmail}</span>
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between">
-                          <span style={{ color: T3, fontSize: 13 }}>{t('bouncer.event')}</span>
-                          <span style={{ color: T1, fontSize: 14, fontWeight: 500 }}>{scannedTicket.eventTitle}</span>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="flex-none" style={{ color: T3, fontSize: 13 }}>{t('bouncer.event')}</span>
+                          <span className="min-w-0 truncate text-right" style={{ color: T1, fontSize: 14, fontWeight: 500 }}>{scannedTicket.eventTitle}</span>
                         </div>
 
-                        <div className="flex items-center justify-between">
-                          <span style={{ color: T3, fontSize: 13 }}>{t('bouncer.ticketType')}</span>
-                          <span style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999 }}>{scannedTicket.roundName}</span>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="flex-none" style={{ color: T3, fontSize: 13 }}>{t('bouncer.ticketType')}</span>
+                          <span className="min-w-0 truncate" style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999 }}>{scannedTicket.roundName}</span>
                         </div>
 
                         {scannedTicket.alcoholFree && (
@@ -1706,7 +1734,7 @@ export default function Bouncer() {
                               <div className="flex h-10 w-10 items-center justify-center rounded-full flex-none" style={{ background: 'rgba(245,158,11,0.22)' }}>
                                 <AlertTriangle className="h-6 w-6" style={{ color: '#F59E0B' }} />
                               </div>
-                              <div className="flex-1">
+                              <div className="min-w-0 flex-1">
                                 <p className="font-bold text-base" style={{ color: '#F59E0B' }}>{t('bouncer.minorNoAlcohol')}</p>
                                 <p style={{ color: T2, fontSize: 13 }}>{t('bouncer.minorNoAlcoholDesc')}</p>
                               </div>
@@ -1715,24 +1743,24 @@ export default function Bouncer() {
                         )}
 
                         {scannedTicket.entryDeadline && (
-                          <div className="flex items-center justify-between">
-                            <span className="flex items-center gap-1.5" style={{ color: T3, fontSize: 13 }}>
-                              <Clock className="h-3.5 w-3.5" />
-                              {t('tickets.entryDeadline')}
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="flex min-w-0 items-center gap-1.5" style={{ color: T3, fontSize: 13 }}>
+                              <Clock className="h-3.5 w-3.5 flex-none" />
+                              <span className="truncate">{t('tickets.entryDeadline')}</span>
                             </span>
-                            <span className="tabular-nums" style={{ color: T1, fontSize: 14, fontWeight: 500 }}>{scannedTicket.entryDeadline}</span>
+                            <span className="flex-none tabular-nums" style={{ color: T1, fontSize: 14, fontWeight: 500 }}>{scannedTicket.entryDeadline}</span>
                           </div>
                         )}
 
-                        <div className="flex items-center justify-between">
-                          <span style={{ color: T3, fontSize: 13 }}>{t('bouncer.quantity')}</span>
-                          <span className="tabular-nums" style={{ color: T1, fontSize: 18, fontWeight: 700 }}>{scannedTicket.quantity}x</span>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="min-w-0 truncate" style={{ color: T3, fontSize: 13 }}>{t('bouncer.quantity')}</span>
+                          <span className="flex-none tabular-nums" style={{ color: T1, fontSize: 18, fontWeight: 700 }}>{scannedTicket.quantity}x</span>
                         </div>
 
                         {scannedTicket.entryScannedAt && scanResult === 'already' && (
-                          <div className="flex items-center justify-between" style={{ color: '#FCD34D' }}>
-                            <span style={{ fontSize: 13 }}>{t('bouncer.scannedAt')}</span>
-                            <span className="tabular-nums" style={{ fontSize: 13 }}>
+                          <div className="flex items-center justify-between gap-3" style={{ color: '#FCD34D' }}>
+                            <span className="min-w-0 truncate" style={{ fontSize: 13 }}>{t('bouncer.scannedAt')}</span>
+                            <span className="flex-none tabular-nums" style={{ fontSize: 13 }}>
                               {format(new Date(scannedTicket.entryScannedAt), 'HH:mm', { locale: dateLocale })}
                             </span>
                           </div>
@@ -1743,10 +1771,10 @@ export default function Bouncer() {
                             {freeDrinkMode === 'bouncer_notify' ? (
                               <div className="p-4 rounded-lg bg-green-500/15 border-2 border-green-500/50">
                                 <div className="flex items-center gap-3">
-                                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/20">
+                                  <div className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-green-500/20">
                                     <Wine className="h-6 w-6 text-green-500" />
                                   </div>
-                                  <div className="flex-1">
+                                  <div className="min-w-0 flex-1">
                                     <p className="font-bold text-green-500 text-base">{t('bouncer.giveDrink')}</p>
                                     <p className="text-xs text-green-400 mt-0.5">
                                       {scannedTicket.quantity}x — {t('bouncer.giveDrinkDesc')}
@@ -1756,14 +1784,14 @@ export default function Bouncer() {
                               </div>
                             ) : (
                               <div className="flex items-center gap-2 flex-wrap">
-                                <Wine className="h-4 w-4" style={{ color: RED }} />
+                                <Wine className="h-4 w-4 flex-none" style={{ color: RED }} />
                                 <span style={{ color: T1, fontSize: 14, fontWeight: 500 }}>{t('bouncer.freeDrinkIncluded')}</span>
                                 {scannedTicket.drinkRedeemed ? (
-                                  <span className="ml-2" style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999 }}>
+                                  <span className="flex-none whitespace-nowrap" style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999 }}>
                                     {t('bouncer.drinkRedeemed')}
                                   </span>
                                 ) : (
-                                  <span className="ml-2" style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: POS, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999 }}>
+                                  <span className="flex-none whitespace-nowrap" style={{ background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.25)', color: POS, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999 }}>
                                     {t('bouncer.drinkPending')}
                                   </span>
                                 )}
@@ -1776,10 +1804,10 @@ export default function Bouncer() {
                         {(scanResult === 'success' || scanResult === 'already') && (
                           <button
                             onClick={() => openWarn({ userId: scannedTicket.userId, email: scannedTicket.userEmail, name: scannedTicket.fullName })}
-                            className="w-full mt-1 py-2.5 rounded-xl text-[13px] font-medium flex items-center justify-center gap-2"
+                            className="w-full mt-1 min-h-[44px] py-2.5 px-3 rounded-xl text-[13px] font-medium flex items-center justify-center gap-2"
                             style={{ background: 'rgba(252,211,77,0.08)', border: '1px solid rgba(252,211,77,0.25)', color: '#FCD34D' }}
                           >
-                            <AlertTriangle className="h-4 w-4" />
+                            <AlertTriangle className="h-4 w-4 flex-none" />
                             {t('bouncer.warnThisCustomer')}
                           </button>
                         )}
@@ -1791,42 +1819,43 @@ export default function Bouncer() {
                     <div style={{ ...mainCard, borderLeft: '4px solid #FCD34D' }} className="space-y-3">
                         <span className="inline-block" style={{ background: 'rgba(234,179,8,0.12)', border: '1px solid rgba(234,179,8,0.3)', color: '#FCD34D', fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 999 }}>VIP</span>
 
+                        {/* Nom / zone / pack : contenu client → truncate + colonne droite non compressible */}
                         <div className="flex items-center gap-2">
-                          <User className="h-4 w-4" style={{ color: T3 }} />
-                          <span style={{ color: T1, fontSize: 14, fontWeight: 500 }}>{scannedVipReservation.fullName}</span>
+                          <User className="h-4 w-4 flex-none" style={{ color: T3 }} />
+                          <span className="min-w-0 truncate" style={{ color: T1, fontSize: 14, fontWeight: 500 }}>{scannedVipReservation.fullName}</span>
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <span style={{ color: T3, fontSize: 12 }}>{scannedVipReservation.userEmail}</span>
+                          <span className="min-w-0 truncate" style={{ color: T3, fontSize: 12 }}>{scannedVipReservation.userEmail}</span>
                         </div>
 
-                        <div className="flex items-center justify-between">
-                          <span style={{ color: T3, fontSize: 13 }}>{t('bouncer.event')}</span>
-                          <span style={{ color: T1, fontSize: 14, fontWeight: 500 }}>{scannedVipReservation.eventTitle}</span>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="flex-none" style={{ color: T3, fontSize: 13 }}>{t('bouncer.event')}</span>
+                          <span className="min-w-0 truncate text-right" style={{ color: T1, fontSize: 14, fontWeight: 500 }}>{scannedVipReservation.eventTitle}</span>
                         </div>
 
-                        <div className="flex items-center justify-between">
-                          <span style={{ color: T3, fontSize: 13 }}>Zone</span>
-                          <span style={{ background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.25)', color: '#FCD34D', fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999 }}>{scannedVipReservation.zoneName}</span>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="flex-none" style={{ color: T3, fontSize: 13 }}>Zone</span>
+                          <span className="min-w-0 truncate" style={{ background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.25)', color: '#FCD34D', fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999 }}>{scannedVipReservation.zoneName}</span>
                         </div>
 
-                        <div className="flex items-center justify-between">
-                          <span style={{ color: T3, fontSize: 13 }}>Pack</span>
-                          <span style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999 }}>{scannedVipReservation.packName}</span>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="flex-none" style={{ color: T3, fontSize: 13 }}>Pack</span>
+                          <span className="min-w-0 truncate" style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999 }}>{scannedVipReservation.packName}</span>
                         </div>
 
-                        <div className="flex items-center justify-between">
-                          <span style={{ color: T3, fontSize: 13 }}>{t('vipTable.guests')}</span>
-                          <div className="flex items-center gap-1 tabular-nums" style={{ color: T1, fontSize: 18, fontWeight: 700 }}>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="min-w-0 truncate" style={{ color: T3, fontSize: 13 }}>{t('vipTable.guests')}</span>
+                          <div className="flex flex-none items-center gap-1 tabular-nums" style={{ color: T1, fontSize: 18, fontWeight: 700 }}>
                             <Users className="h-4 w-4" />
                             {scannedVipReservation.guestCount}
                           </div>
                         </div>
 
                         <div className="pt-3" style={{ borderTop: `1px solid ${F_BORDER}` }}>
-                          <div className="flex items-center justify-between">
-                            <span style={{ color: T3, fontSize: 13 }}>{t('tickets.remainingOnSite')}</span>
-                            <span className="tabular-nums" style={{ color: '#FCD34D', fontSize: 18, fontWeight: 700 }}>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="min-w-0 truncate" style={{ color: T3, fontSize: 13 }}>{t('tickets.remainingOnSite')}</span>
+                            <span className="flex-none tabular-nums" style={{ color: '#FCD34D', fontSize: 18, fontWeight: 700 }}>
                               {(scannedVipReservation.totalPrice - scannedVipReservation.deposit).toFixed(2)}€
                             </span>
                           </div>
@@ -1845,21 +1874,21 @@ export default function Bouncer() {
                         const netRefund = Math.max(0, Math.round((total - yunoFee - stripeFee) * 100) / 100);
                         return (
                           <div style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 12 }}>
-                            <div className="flex items-center justify-between mb-2">
-                              <span style={{ color: T3, fontSize: 13 }}>{t('bouncer.originalPrice')}</span>
-                              <span className="tabular-nums" style={{ color: T1, fontSize: 14, fontWeight: 500 }}>{total.toFixed(2)}€</span>
+                            <div className="flex items-center justify-between gap-3 mb-2">
+                              <span className="min-w-0 truncate" style={{ color: T3, fontSize: 13 }}>{t('bouncer.originalPrice')}</span>
+                              <span className="flex-none tabular-nums" style={{ color: T1, fontSize: 14, fontWeight: 500 }}>{total.toFixed(2)}€</span>
                             </div>
-                            <div className="flex items-center justify-between mb-2">
-                              <span style={{ color: T3, fontSize: 13 }}>Frais de service Yuno</span>
-                              <span className="tabular-nums" style={{ color: RED, fontSize: 14, fontWeight: 500 }}>-{yunoFee.toFixed(2)}€</span>
+                            <div className="flex items-center justify-between gap-3 mb-2">
+                              <span className="min-w-0 truncate" style={{ color: T3, fontSize: 13 }}>Frais de service Yuno</span>
+                              <span className="flex-none tabular-nums" style={{ color: RED, fontSize: 14, fontWeight: 500 }}>-{yunoFee.toFixed(2)}€</span>
                             </div>
-                            <div className="flex items-center justify-between mb-2">
-                              <span style={{ color: T3, fontSize: 13 }}>Frais Stripe</span>
-                              <span className="tabular-nums" style={{ color: RED, fontSize: 14, fontWeight: 500 }}>-{stripeFee.toFixed(2)}€</span>
+                            <div className="flex items-center justify-between gap-3 mb-2">
+                              <span className="min-w-0 truncate" style={{ color: T3, fontSize: 13 }}>Frais Stripe</span>
+                              <span className="flex-none tabular-nums" style={{ color: RED, fontSize: 14, fontWeight: 500 }}>-{stripeFee.toFixed(2)}€</span>
                             </div>
-                            <div className="flex items-center justify-between pt-2" style={{ borderTop: `1px solid ${F_BORDER}` }}>
-                              <span style={{ color: T1, fontSize: 13, fontWeight: 500 }}>{t('bouncer.customerRefund')}</span>
-                              <span className="tabular-nums" style={{ color: POS, fontSize: 14, fontWeight: 700 }}>{netRefund.toFixed(2)}€</span>
+                            <div className="flex items-center justify-between gap-3 pt-2" style={{ borderTop: `1px solid ${F_BORDER}` }}>
+                              <span className="min-w-0 truncate" style={{ color: T1, fontSize: 13, fontWeight: 500 }}>{t('bouncer.customerRefund')}</span>
+                              <span className="flex-none tabular-nums" style={{ color: POS, fontSize: 14, fontWeight: 700 }}>{netRefund.toFixed(2)}€</span>
                             </div>
                           </div>
                         );
@@ -1894,13 +1923,14 @@ export default function Bouncer() {
                       </div>
 
                       {/* Ban checkbox */}
-                      <div className="flex items-start space-x-3" style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.3)', borderRadius: 12, padding: 12 }}>
+                      <div className="flex items-start gap-3" style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.3)', borderRadius: 12, padding: 12 }}>
                         <Checkbox
                           id="ban-customer"
+                          className="mt-0.5 shrink-0"
                           checked={banCustomer}
                           onCheckedChange={(checked) => setBanCustomer(checked as boolean)}
                         />
-                        <div className="space-y-1">
+                        <div className="min-w-0 space-y-1">
                           <Label htmlFor="ban-customer" className="cursor-pointer" style={{ color: RED, fontSize: 13, fontWeight: 500 }}>
                             {t('bouncer.banCustomer')}
                           </Label>
@@ -1939,25 +1969,27 @@ export default function Bouncer() {
 
       {/* Cancel Confirmation Dialog */}
       <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[85vh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              {banCustomer ? t('bouncer.confirmCancelBanTitle') : t('bouncer.confirmCancelTitle')}
+              <AlertTriangle className="h-5 w-5 flex-none text-destructive" />
+              <span className="min-w-0">{banCustomer ? t('bouncer.confirmCancelBanTitle') : t('bouncer.confirmCancelTitle')}</span>
             </AlertDialogTitle>
+            {/* <span className="block"> et pas <p> : AlertDialogDescription rend déjà un <p>,
+                imbriquer des <p> les fait sortir du conteneur (espacement cassé). */}
             <AlertDialogDescription className="space-y-2">
-              <p>
+              <span className="block break-words">
                 {t('bouncer.confirmCancelDesc')}
-              </p>
-              <p className="font-medium">
+              </span>
+              <span className="block break-words font-medium">
                 {t('bouncer.reason')}: {getFinalReason()}
-              </p>
+              </span>
               {banCustomer && (
-                <p className="text-destructive font-medium">
+                <span className="block text-destructive font-medium">
                   {t('bouncer.banWarning')}
-                </p>
+                </span>
               )}
-              <p className="text-sm text-muted-foreground">{t('bouncer.irreversible')}</p>
+              <span className="block text-sm text-muted-foreground">{t('bouncer.irreversible')}</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1982,13 +2014,13 @@ export default function Bouncer() {
 
       {/* Warn Customer Dialog */}
       <AlertDialog open={warnDialogOpen} onOpenChange={setWarnDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[85vh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" style={{ color: '#FCD34D' }} />
-              {t('bouncer.warnCustomer')}
+              <AlertTriangle className="h-5 w-5 flex-none" style={{ color: '#FCD34D' }} />
+              <span className="min-w-0">{t('bouncer.warnCustomer')}</span>
             </AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="break-words">
               {warnTarget?.name || warnTarget?.email} — {t('bouncer.warnDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -2020,13 +2052,13 @@ export default function Bouncer() {
 
       {/* Ban Customer Dialog (from client search) */}
       <AlertDialog open={banDialogOpen} onOpenChange={setBanDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[85vh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <Ban className="h-5 w-5 text-destructive" />
-              {t('bouncer.banCustomerTitle')}
+              <Ban className="h-5 w-5 flex-none text-destructive" />
+              <span className="min-w-0">{t('bouncer.banCustomerTitle')}</span>
             </AlertDialogTitle>
-            <AlertDialogDescription>
+            <AlertDialogDescription className="break-words">
               {banTarget?.name || banTarget?.email} — {t('bouncer.banDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>

@@ -70,11 +70,12 @@ export function TopClientDialog({ open, onClose, clientInfo, ticketHolderName }:
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md border-amber-500/50 bg-gradient-to-b from-surface to-background">
+      {/* max-h + scroll : sur un petit téléphone la fiche VIP dépasse la hauteur d'écran */}
+      <DialogContent className="max-h-[85vh] max-w-md overflow-y-auto border-amber-500/50 bg-gradient-to-b from-surface to-background">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-amber-500">
-            <Crown className="h-6 w-6" />
-            <span>{t('bouncer.topClientTitle')}</span>
+            <Crown className="h-6 w-6 flex-none" />
+            <span className="min-w-0">{t('bouncer.topClientTitle')}</span>
           </DialogTitle>
         </DialogHeader>
 
@@ -96,7 +97,7 @@ export function TopClientDialog({ open, onClose, clientInfo, ticketHolderName }:
 
           {/* Client Name & Tier */}
           <div className="text-center space-y-2">
-            <h3 style={{ color: T1, fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em' }}>{displayName}</h3>
+            <h3 className="break-words" style={{ color: T1, fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em' }}>{displayName}</h3>
             <Badge className={`${getTierColor(clientInfo.tier)} px-4 py-1 text-sm font-bold`}>
               <Sparkles className="h-4 w-4 mr-1" />
               {getTierLabel(clientInfo.tier)}
@@ -144,7 +145,7 @@ export function TopClientDialog({ open, onClose, clientInfo, ticketHolderName }:
             </p>
           </div>
 
-          <Button onClick={onClose} className="w-full" variant="default">
+          <Button onClick={onClose} className="h-12 w-full md:h-10" variant="default">
             {t('bouncer.understood')}
           </Button>
         </motion.div>

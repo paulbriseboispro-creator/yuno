@@ -65,11 +65,12 @@ export function IncidentQuickReport({ venueId, eventId }: Props) {
             key={kind}
             onClick={() => report(kind)}
             disabled={sending !== null}
-            className="flex flex-col items-center justify-center gap-1.5 rounded-xl cursor-pointer transition-opacity disabled:opacity-40"
+            className="flex min-w-0 flex-col items-center justify-center gap-1.5 rounded-xl px-1 cursor-pointer transition-opacity disabled:opacity-40"
             style={{ minHeight: 64, background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.2)' }}
           >
-            <Icon className="h-5 w-5" style={{ color: '#E8192C' }} />
-            <span style={{ color: T1, fontSize: 10.5, fontWeight: 600 }}>{t(labelKey)}</span>
+            <Icon className="h-5 w-5 flex-none" style={{ color: '#E8192C' }} />
+            {/* Libellés courts mais variables selon la langue : tronqué plutôt que débordant */}
+            <span className="max-w-full truncate leading-tight" style={{ color: T1, fontSize: 10.5, fontWeight: 600 }}>{t(labelKey)}</span>
           </button>
         ))}
       </div>
