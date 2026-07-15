@@ -206,7 +206,7 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
 
   async function handleAdd() {
     if (!firstName.trim() || !lastName.trim()) {
-      toast.error('Veuillez renseigner le nom et le prénom');
+      toast.error(t('promoterGuestlist.nameRequired'));
       return;
     }
     if (!activePromoter || !selectedEventId) return;
@@ -275,10 +275,10 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
 
   // Available entry types from the club's per-type allocation (only kinds with quota > 0).
   const availableEntryTypes: Array<{ value: EntryType; label: string }> = [];
-  if ((quota.normalQuota ?? 0) > 0) availableEntryTypes.push({ value: 'normal', label: 'Entrée standard' });
-  if ((quota.tableQuota ?? 0) > 0) availableEntryTypes.push({ value: 'table', label: 'Entrée Table VIP' });
-  if ((quota.drinkQuota ?? 0) > 0) availableEntryTypes.push({ value: 'drink', label: 'Entrée + Boisson offerte' });
-  if (availableEntryTypes.length === 0 && (quota.globalQuota ?? 0) > 0) availableEntryTypes.push({ value: 'normal', label: 'Entrée standard' });
+  if ((quota.normalQuota ?? 0) > 0) availableEntryTypes.push({ value: 'normal', label: t('promoterGuestlist.typeStandard') });
+  if ((quota.tableQuota ?? 0) > 0) availableEntryTypes.push({ value: 'table', label: t('promoterGuestlist.typeTable') });
+  if ((quota.drinkQuota ?? 0) > 0) availableEntryTypes.push({ value: 'drink', label: t('promoterGuestlist.typeDrink') });
+  if (availableEntryTypes.length === 0 && (quota.globalQuota ?? 0) > 0) availableEntryTypes.push({ value: 'normal', label: t('promoterGuestlist.typeStandard') });
 
   const globalQuotaPercent = quota.globalQuota ? Math.min(100, (usage.total / quota.globalQuota) * 100) : 0;
   const isQuotaFull = quota.globalQuota != null && usage.total >= quota.globalQuota;
@@ -292,9 +292,9 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
   };
 
   const entryTypeBadge = (type: string) => {
-    if (type === 'table') return <Badge variant="outline" className="shrink-0 whitespace-nowrap text-[10px]">VIP</Badge>;
-    if (type === 'drink') return <Badge variant="outline" className="shrink-0 whitespace-nowrap text-[10px]">Boisson</Badge>;
-    return <Badge variant="secondary" className="shrink-0 whitespace-nowrap text-[10px]">Standard</Badge>;
+    if (type === 'table') return <Badge variant="outline" className="shrink-0 whitespace-nowrap text-[10px]">{t('promoterGuestlist.badgeVip')}</Badge>;
+    if (type === 'drink') return <Badge variant="outline" className="shrink-0 whitespace-nowrap text-[10px]">{t('promoterGuestlist.badgeDrink')}</Badge>;
+    return <Badge variant="secondary" className="shrink-0 whitespace-nowrap text-[10px]">{t('promoterGuestlist.badgeStandard')}</Badge>;
   };
 
   if (loading) {
@@ -312,16 +312,16 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
         <CardHeader className="px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
           <CardTitle className="text-base flex items-center gap-2">
             <Calendar className="h-4 w-4 shrink-0" />
-            <span className="min-w-0 truncate">Sélectionner une soirée</span>
+            <span className="min-w-0 truncate">{t('promoterGuestlist.selectEvent')}</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
           {events.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Aucune soirée à venir</p>
+            <p className="text-sm text-muted-foreground">{t('promoterGuestlist.noUpcoming')}</p>
           ) : (
             <Select value={selectedEventId} onValueChange={setSelectedEventId}>
               <SelectTrigger>
-                <SelectValue placeholder="Choisir une soirée..." />
+                <SelectValue placeholder={t('promoterGuestlist.chooseEvent')} />
               </SelectTrigger>
               <SelectContent>
                 {events.map(ev => {
@@ -335,11 +335,11 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
                           <span className="min-w-0 truncate text-muted-foreground text-xs">— {ev.venueName}</span>
                         )}
                         {status === 'live' ? (
-                          <Badge className="bg-destructive text-destructive-foreground text-[9px] px-1.5 py-0 animate-pulse shrink-0">LIVE</Badge>
+                          <Badge className="bg-destructive text-destructive-foreground text-[9px] px-1.5 py-0 animate-pulse shrink-0">{t('promoterGuestlist.live')}</Badge>
                         ) : (
                           <Badge variant="secondary" className="shrink-0 whitespace-nowrap text-[9px] px-1.5 py-0">
                             <Clock className="h-2.5 w-2.5 mr-0.5" />
-                            À venir
+                            {t('promoterGuestlist.upcoming')}
                           </Badge>
                         )}
                       </div>
@@ -360,7 +360,7 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-3">
                 <BarChart3 className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 truncate text-sm font-medium">Quota Guest List</span>
+                <span className="min-w-0 truncate text-sm font-medium">{t('promoterGuestlist.quotaLabel')}</span>
                 {quota.globalQuota != null && (
                   <Badge variant={isQuotaFull ? 'destructive' : 'secondary'} className="ml-auto shrink-0 whitespace-nowrap text-xs tabular-nums">
                     {usage.total} / {quota.globalQuota}
@@ -377,38 +377,38 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
                 {quota.normalQuota != null && (
                   <div className="min-w-0 bg-muted/50 rounded-lg p-2.5 text-center">
                     <p className="truncate text-lg font-bold tabular-nums">{usage.normal}<span className="text-xs font-normal text-muted-foreground">/{quota.normalQuota}</span></p>
-                    <p className="truncate text-[10px] text-muted-foreground">Entrées</p>
+                    <p className="truncate text-[10px] text-muted-foreground">{t('promoterGuestlist.entriesLabel')}</p>
                     {usage.normal >= quota.normalQuota && (
-                      <Badge variant="destructive" className="text-[9px] mt-1">Complet</Badge>
+                      <Badge variant="destructive" className="text-[9px] mt-1">{t('promoterGuestlist.full')}</Badge>
                     )}
                   </div>
                 )}
                 {quota.tableQuota != null && (
                   <div className="min-w-0 bg-muted/50 rounded-lg p-2.5 text-center">
                     <p className="truncate text-lg font-bold tabular-nums">{usage.table}<span className="text-xs font-normal text-muted-foreground">/{quota.tableQuota}</span></p>
-                    <p className="truncate text-[10px] text-muted-foreground">Tables VIP</p>
+                    <p className="truncate text-[10px] text-muted-foreground">{t('promoterGuestlist.tablesVip')}</p>
                     {usage.table >= quota.tableQuota && (
-                      <Badge variant="destructive" className="text-[9px] mt-1">Complet</Badge>
+                      <Badge variant="destructive" className="text-[9px] mt-1">{t('promoterGuestlist.full')}</Badge>
                     )}
                   </div>
                 )}
                 {quota.drinkQuota != null && (
                   <div className="min-w-0 bg-muted/50 rounded-lg p-2.5 text-center">
                     <p className="truncate text-lg font-bold tabular-nums">{usage.drink}<span className="text-xs font-normal text-muted-foreground">/{quota.drinkQuota}</span></p>
-                    <p className="truncate text-[10px] text-muted-foreground">Boissons</p>
+                    <p className="truncate text-[10px] text-muted-foreground">{t('promoterGuestlist.drinks')}</p>
                     {usage.drink >= quota.drinkQuota && (
-                      <Badge variant="destructive" className="text-[9px] mt-1">Complet</Badge>
+                      <Badge variant="destructive" className="text-[9px] mt-1">{t('promoterGuestlist.full')}</Badge>
                     )}
                   </div>
                 )}
               </div>
 
               {quota.globalQuota == null && (
-                <p className="text-xs text-amber-500">Aucune guest list allouée pour cette soirée — demande à ton club de t'en attribuer une.</p>
+                <p className="text-xs text-amber-500">{t('promoterGuestlist.noAllocation')}</p>
               )}
 
               {isQuotaFull && (
-                <p className="text-xs text-destructive mt-2">Quota atteint — impossible d'ajouter plus d'invités</p>
+                <p className="text-xs text-destructive mt-2">{t('promoterGuestlist.quotaReachedFull')}</p>
               )}
             </CardContent>
           </Card>
@@ -418,34 +418,34 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
             <CardHeader className="px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
               <CardTitle className="text-base flex items-center gap-2">
                 <UserPlus className="h-4 w-4 shrink-0" />
-                <span className="min-w-0 truncate">Ajouter un invité</span>
+                <span className="min-w-0 truncate">{t('promoterGuestlist.addGuest')}</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 px-4 pb-4 sm:px-6 sm:pb-6">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">Prénom</Label>
-                  <Input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Jean" />
+                  <Label className="text-xs">{t('promoterGuestlist.firstName')}</Label>
+                  <Input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder={t('promoterGuestlist.firstNamePlaceholder')} />
                 </div>
                 <div>
-                  <Label className="text-xs">Nom</Label>
-                  <Input value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Dupont" />
+                  <Label className="text-xs">{t('promoterGuestlist.lastName')}</Label>
+                  <Input value={lastName} onChange={e => setLastName(e.target.value)} placeholder={t('promoterGuestlist.lastNamePlaceholder')} />
                 </div>
               </div>
 
               <div>
                 <Label className="text-xs flex items-center gap-1">
                   <Mail className="h-3 w-3" />
-                  Email
+                  {t('promoterGuestlist.email')}
                 </Label>
-                <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="jean@email.com" />
-                <p className="text-[10px] text-muted-foreground mt-0.5">L'invité recevra son invitation par email</p>
+                <Input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder={t('promoterGuestlist.emailPlaceholder')} />
+                <p className="text-[10px] text-muted-foreground mt-0.5">{t('promoterGuestlist.emailHint')}</p>
               </div>
 
               {/* Entry type selector */}
               {availableEntryTypes.length > 1 && (
                 <div>
-                  <Label className="text-xs">Type d'entrée</Label>
+                  <Label className="text-xs">{t('promoterGuestlist.entryType')}</Label>
                   <Select value={entryType} onValueChange={v => setEntryType(v as EntryType)}>
                     <SelectTrigger>
                       <SelectValue />
@@ -455,7 +455,7 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
                         <SelectItem key={opt.value} value={opt.value} disabled={isTypeFull(opt.value)}>
                           <div className="flex items-center gap-2">
                             <span>{opt.label}</span>
-                            {isTypeFull(opt.value) && <Badge variant="destructive" className="text-[9px]">Complet</Badge>}
+                            {isTypeFull(opt.value) && <Badge variant="destructive" className="text-[9px]">{t('promoterGuestlist.full')}</Badge>}
                           </div>
                         </SelectItem>
                       ))}
@@ -470,7 +470,7 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
                 className="w-full"
               >
                 {adding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <UserPlus className="h-4 w-4 mr-2" />}
-                Ajouter à la Guest List
+                {t('promoterGuestlist.addToList')}
               </Button>
             </CardContent>
           </Card>
@@ -479,14 +479,14 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
           <div className="flex items-center justify-between gap-3 bg-muted/50 rounded-lg p-3">
             <span className="min-w-0 text-sm text-muted-foreground flex items-center gap-2">
               <Users className="h-4 w-4 shrink-0" />
-              <span className="truncate">Invités ajoutés</span>
+              <span className="truncate">{t('promoterGuestlist.guestsAdded')}</span>
             </span>
             <Badge variant="secondary" className="shrink-0 tabular-nums">{entries.length}</Badge>
           </div>
 
           {entries.length === 0 ? (
             <Card><CardContent className="p-6 text-center text-muted-foreground text-sm">
-              Aucun invité pour cette soirée
+              {t('promoterGuestlist.noGuestsEvent')}
             </CardContent></Card>
           ) : (
             <div className="space-y-2">
@@ -519,7 +519,7 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
       {!selectedEventId && events.length > 0 && (
         <Card>
           <CardContent className="p-8 text-center text-muted-foreground text-sm">
-            Sélectionnez une soirée pour gérer la guest list
+            {t('promoterGuestlist.selectToManage')}
           </CardContent>
         </Card>
       )}

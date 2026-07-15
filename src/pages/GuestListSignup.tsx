@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { ArrowLeft, Users, Clock, Wine, CheckCircle, Ticket, LogIn, PartyPopper } from 'lucide-react';
 import { formatInTimeZone } from 'date-fns-tz';
-import { PARIS_TIMEZONE } from '@/lib/timezone';
+import { PARIS_TIMEZONE, fromParisTime } from '@/lib/timezone';
 import { fr, es, enUS } from 'date-fns/locale';
 import QRCode from 'qrcode';
 import { PublicPage } from '@/components/PublicPage';
@@ -68,36 +68,74 @@ export default function GuestListSignup() {
 
   useEffect(() => {
     fetchGuestList();
-  }, [token, eventId]);
+    // `user` is included so the "already registered" check re-runs once auth
+    // resolves (it can settle after the first fetch, otherwise it's missed).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, eventId, user]);
 
   useEffect(() => {
     if (!guestList) return;
-    const timer = setInterval(() => {
-      const eventDate = new Date(guestList.eventStartAt);
-      const [hours, minutes] = guestList.freeBeforeTime.split(':').map(Number);
-      const deadline = new Date(eventDate);
-      deadline.setHours(hours, minutes, 0, 0);
-      if (deadline < eventDate) {
-        deadline.setDate(deadline.getDate() + 1);
-      }
+    // free_before_time is a Paris wall-clock time on the event's Paris calendar date
+    // (rolling to the next day if it lands before the start, e.g. event 23:00 /
+    // free-before 01:30). Resolve it to a real UTC instant so the countdown is
+    // correct in ANY timezone — the old setHours() used the browser's local time,
+    // so a guest in NY/Madrid saw a countdown off by hours.
+    const eventStart = new Date(guestList.eventStartAt);
+    const parisDay = formatInTimeZone(eventStart, PARIS_TIMEZONE, 'yyyy-MM-dd');
+    let deadline = fromParisTime(`${parisDay}T${guestList.freeBeforeTime}:00`);
+    if (deadline < eventStart) {
+      const nextDay = formatInTimeZone(new Date(eventStart.getTime() + 86400000), PARIS_TIMEZONE, 'yyyy-MM-dd');
+      deadline = fromParisTime(`${nextDay}T${guestList.freeBeforeTime}:00`);
+    }
 
-      const now = new Date();
-      const diff = deadline.getTime() - now.getTime();
-
+    const tick = () => {
+      const diff = deadline.getTime() - Date.now();
       if (diff <= 0) {
         setTimeLeft(t('guestList.expired'));
-        clearInterval(timer);
         return;
       }
-
       const days = Math.floor(diff / (1000 * 60 * 60 * 24));
       const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
       setTimeLeft(days > 0 ? `${days}${t('guestList.unitDay')} ${h}h ${m}min` : `${h}h ${m}min`);
-    }, 1000);
-
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
   }, [guestList, t]);
+
+  // Realtime fill updates — dedicated effect so the channel is actually cleaned up
+  // (previously the cleanup was returned from the async fetch and silently dropped,
+  // leaking a channel on every token/eventId change).
+  useEffect(() => {
+    const glId = guestList?.id;
+    if (!glId) return;
+    const channel = supabase
+      .channel(`gl-entries-${glId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'guest_list_entries',
+        filter: `guest_list_id=eq.${glId}`,
+      }, () => {
+        supabase
+          .rpc('get_guest_list_public_fill', { _guest_list_id: glId })
+          .maybeSingle()
+          .then(
+            ({ data: fillUpdate }) => {
+              const f = fillUpdate as { total_count: number; female_count: number; male_count: number } | null;
+              if (f) {
+                setEntriesCount(f.total_count || 0);
+                setFemaleCount(f.female_count || 0);
+                setMaleCount(f.male_count || 0);
+              }
+            },
+            () => { /* keep the previous count if the realtime re-count fails */ },
+          );
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [guestList?.id]);
 
   const fetchGuestList = async () => {
     try {
@@ -117,13 +155,17 @@ export default function GuestListSignup() {
           data = { ...(glRow as any), events: ev };
         }
       } else if (eventId) {
-        const { data: glRow } = await supabase
+        // Multi-part model: an event can carry several parts (club/DJ/promoter).
+        // maybeSingle() used to throw PGRST116 as soon as ≥2 parts were readable
+        // (e.g. an owner who sees all their own parts) → the page showed "not
+        // found" for a list that exists. Prefer the club part, else the first.
+        const { data: glRows } = await supabase
           .from('guest_lists')
           .select('*, events!inner(id, title, start_at, end_at, venue_id, partner_venue_id, poster_url)')
           .eq('is_active', true)
-          .eq('event_id', eventId)
-          .maybeSingle();
-        data = glRow;
+          .eq('event_id', eventId);
+        data = (glRows || []).find((r: { holder_type?: string }) => r.holder_type === 'club')
+          ?? (glRows || [])[0] ?? null;
       } else {
         setLoading(false);
         return;
@@ -185,33 +227,9 @@ export default function GuestListSignup() {
         }
       }
 
-      // Subscribe to realtime
-      const channel = supabase
-        .channel(`gl-entries-${data.id}`)
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'guest_list_entries',
-          filter: `guest_list_id=eq.${data.id}`,
-        }, () => {
-          supabase
-            .rpc('get_guest_list_public_fill', { _guest_list_id: data.id })
-            .maybeSingle()
-            .then(
-              ({ data: fillUpdate }) => {
-                const f = fillUpdate as { total_count: number; female_count: number; male_count: number } | null;
-                if (f) {
-                  setEntriesCount(f.total_count || 0);
-                  setFemaleCount(f.female_count || 0);
-                  setMaleCount(f.male_count || 0);
-                }
-              },
-              () => { /* keep the previous count if the realtime re-count fails */ },
-            );
-        })
-        .subscribe();
-
-      return () => { supabase.removeChannel(channel); };
+      // Realtime fill updates are wired in a dedicated effect keyed on guestList.id
+      // (see below) — returning the cleanup from this async function discarded it,
+      // leaking a channel on every token/eventId change.
     } catch (err) {
       console.error('Error fetching guest list:', err);
     } finally {

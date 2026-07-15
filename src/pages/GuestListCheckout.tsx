@@ -148,22 +148,17 @@ export default function GuestListCheckout() {
         venueName,
       });
 
-      const { count } = await supabase
-        .from('guest_list_entries')
-        .select('*', { count: 'exact', head: true })
-        .eq('guest_list_id', gl.id)
-        .neq('status', 'cancelled');
-      setEntriesCount(count || 0);
-
-      if (genderParam) {
-        const { count: gc } = await supabase
-          .from('guest_list_entries')
-          .select('*', { count: 'exact', head: true })
-          .eq('guest_list_id', gl.id)
-          .eq('gender', genderParam)
-          .neq('status', 'cancelled');
-        setGenderCount(gc || 0);
-      }
+      // Fill counts via the aggregated SECURITY DEFINER RPC. A direct count() on
+      // guest_list_entries returns 0 SILENTLY for an anonymous visitor (no anon
+      // SELECT policy) — a FULL list then rendered wide open on the club page,
+      // over-promising capacity until submit. Same fix as GuestListSignup.
+      const { data: fillRaw } = await supabase
+        .rpc('get_guest_list_public_fill', { _guest_list_id: gl.id })
+        .maybeSingle();
+      const fill = fillRaw as { total_count: number; female_count: number; male_count: number } | null;
+      setEntriesCount(fill?.total_count || 0);
+      if (genderParam === 'female') setGenderCount(fill?.female_count || 0);
+      else if (genderParam === 'male') setGenderCount(fill?.male_count || 0);
 
       if (user) {
         const { count: existing } = await supabase

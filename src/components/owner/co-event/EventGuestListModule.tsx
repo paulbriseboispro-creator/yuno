@@ -12,6 +12,7 @@ import { Users, Save, Copy, CheckCircle, XCircle, QrCode, Search } from 'lucide-
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { buildShareLink, glSlugify } from '@/lib/guestListShare';
 
 const dfLocale = (lng: string) => (lng === 'fr' ? fr : lng === 'es' ? es : enUS);
 
@@ -61,6 +62,7 @@ export function EventGuestListModule({ eventId, readOnly = false }: Props) {
   const [saving, setSaving] = useState(false);
   const [guestList, setGuestList] = useState<GuestListData | null>(null);
   const [entries, setEntries] = useState<EntryData[]>([]);
+  const [venueName, setVenueName] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
   // Form state
@@ -90,10 +92,15 @@ export function EventGuestListModule({ eventId, readOnly = false }: Props) {
 
   async function fetchGuestList() {
     setLoading(true);
+    // Scope to the CLUB (host) part. The event now carries a "part" per holder
+    // (club / DJ / promoter), so an un-scoped maybeSingle() threw PGRST116 as soon
+    // as ≥2 parts existed → the module read "not configured" and its create button
+    // inserted a SECOND club row (duplicate). holder_type='club' is unique per event.
     const { data: gl } = await supabase
       .from('guest_lists')
       .select('*')
       .eq('event_id', eventId)
+      .eq('holder_type', 'club')
       .maybeSingle();
     if (gl) {
       setGuestList(gl as GuestListData);
@@ -104,6 +111,10 @@ export function EventGuestListModule({ eventId, readOnly = false }: Props) {
       setFreeBeforeTime(gl.free_before_time?.substring(0, 5) || '02:00');
       setIncludesDrink(gl.includes_drink);
       setIsActive(gl.is_active);
+      if (gl.venue_id) {
+        const { data: v } = await supabase.from('venues').select('name').eq('id', gl.venue_id).maybeSingle();
+        setVenueName(v?.name ?? null);
+      }
       await refreshEntries(gl.id);
     } else {
       setGuestList(null);
@@ -141,11 +152,22 @@ export function EventGuestListModule({ eventId, readOnly = false }: Props) {
     fetchGuestList();
   }
 
-  function copyShareLink() {
+  async function copyShareLink() {
     if (!guestList) return;
-    const url = `${window.location.origin}/event/${eventId}/guestlist?token=${guestList.share_token}`;
-    navigator.clipboard.writeText(url);
-    toast.success(t('coEvent.linkCopied'));
+    // buildShareLink targets the real route (/club/:slug/event/:eventId/guestlist);
+    // the previous /event/:eventId/guestlist URL 404'd. The slug is cosmetic (the
+    // signup page resolves by ?token=), so a venue-name slug is enough.
+    const url = buildShareLink({
+      slug: glSlugify(venueName),
+      eventId,
+      token: guestList.share_token,
+    });
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success(t('coEvent.linkCopied'));
+    } catch {
+      toast.error(t('coEvent.glSaveError'));
+    }
   }
 
   if (loading) return <Skeleton className="h-64 w-full" />;
@@ -169,6 +191,7 @@ export function EventGuestListModule({ eventId, readOnly = false }: Props) {
                 const { error } = await supabase.from('guest_lists').insert({
                   event_id: eventId,
                   venue_id: glVenueId,
+                  holder_type: 'club',
                   quota: 100,
                   free_before_time: '02:00',
                   includes_drink: false,
