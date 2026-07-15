@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { restrictedCorsHeaders } from "../_shared/cors.ts";
 
 /** Generate client-facing reservation code in YN-XXXXXX format */
 function generateReservationCode(): string {
@@ -23,11 +19,28 @@ function generateQRCode(): string {
   return `GL-${crypto.randomUUID()}`;
 }
 
+/** RFC-lite email check — good enough to reject junk before it hits the list. */
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 200;
+}
+
+/** SHA-256 of the client IP (never store the raw IP for a throttle). */
+async function hashIp(ip: string): Promise<string> {
+  if (!ip) return "";
+  const data = new TextEncoder().encode(`gl-signup:${ip}`);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[CREATE-GUEST-LIST-ENTRY] ${step}`, details ? JSON.stringify(details) : "");
 };
 
 serve(async (req) => {
+  // CORS locked to the app's own origins (yunoapp.eu, native app, local dev,
+  // Cloudflare previews) instead of "*" — no arbitrary site drives this endpoint
+  // from a browser.
+  const corsHeaders = restrictedCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -89,6 +102,18 @@ serve(async (req) => {
       phone = guestPhone ? String(guestPhone).trim() : "";
     }
 
+    // Input validation (backstop — the endpoint is public, no JWT on the guest path).
+    // Length caps keep junk/oversized rows out; email format keeps the list clean.
+    if (!fullName || fullName.length < 1 || fullName.length > 120) {
+      throw new Error("Please provide a valid name.");
+    }
+    if (!isValidEmail(email)) {
+      throw new Error("Please provide a valid email address.");
+    }
+    if (phone.length > 40) {
+      throw new Error("Please provide a valid phone number.");
+    }
+
     logStep("Registrant resolved", { fullName, email, isGuest: !user });
 
     // Find guest list by share token
@@ -105,6 +130,34 @@ serve(async (req) => {
 
     if (new Date(guestList.events.end_at) < new Date()) {
       throw new Error("Event has ended");
+    }
+
+    // Anti-bot throttle — public, JWT-less endpoint. Counted before the dedup/quota
+    // work so it also blunts email enumeration. Generous + fail-open (see the RPC):
+    // only a scripted loop trips it, not a venue crowd behind one NAT.
+    const clientIp = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim();
+    const ipHash = await hashIp(clientIp);
+    const { data: throttleOk } = await supabaseAdmin.rpc("bump_guest_signup_throttle", {
+      _ip_hash: ipHash,
+      _guest_list_id: guestList.id,
+      _max: 30,
+      _window_seconds: 120,
+    });
+    if (throttleOk === false) {
+      throw new Error("Too many attempts, please try again in a few minutes.");
+    }
+
+    // Gender is required when the list runs a gendered split — otherwise an
+    // omitted/junk gender consumes a total slot while dodging the F/M caps
+    // entirely (the client already enforces this; this is the server backstop
+    // for tampered links or direct API calls).
+    const normalizedGender = typeof gender === "string"
+      ? (["female", "f", "femme"].includes(gender.trim().toLowerCase()) ? "female"
+        : ["male", "m", "homme"].includes(gender.trim().toLowerCase()) ? "male"
+        : null)
+      : null;
+    if (((guestList.quota_female ?? 0) > 0 || (guestList.quota_male ?? 0) > 0) && !normalizedGender) {
+      throw new Error("Gender is required for this guest list");
     }
 
     // Check user not already registered (logged-in path only; guests are
@@ -164,9 +217,10 @@ serve(async (req) => {
       }
     }
 
-    // Check gender quotas
-    if (gender && (guestList.quota_female || guestList.quota_male)) {
-      if (gender === "female" && guestList.quota_female) {
+    // Check gender quotas (on the NORMALIZED gender). The DB trigger is the final
+    // arbiter under concurrency; this is the fast pre-check.
+    if (normalizedGender && (guestList.quota_female || guestList.quota_male)) {
+      if (normalizedGender === "female" && guestList.quota_female) {
         const { count: femaleCount } = await supabaseAdmin
           .from("guest_list_entries")
           .select("*", { count: "exact", head: true })
@@ -179,7 +233,7 @@ serve(async (req) => {
         }
       }
 
-      if (gender === "male" && guestList.quota_male) {
+      if (normalizedGender === "male" && guestList.quota_male) {
         const { count: maleCount } = await supabaseAdmin
           .from("guest_list_entries")
           .select("*", { count: "exact", head: true })
@@ -235,7 +289,9 @@ serve(async (req) => {
         full_name: fullName.trim(),
         email: email.toLowerCase().trim(),
         phone: phone || "",
-        gender: gender || null,
+        // Store the normalized gender ('female'|'male'|null) so the F/M caps and
+        // the door counters stay consistent (never 'F'/'femme').
+        gender: normalizedGender,
         qr_code: qrCode,
         reservation_code: reservationCode,
         status: "reserved",
@@ -243,6 +299,10 @@ serve(async (req) => {
         // The resolved entry kind (normal | drink | table=VIP) is stamped so the door
         // scanner and drink credits know what the guest is entitled to.
         entry_type: resolvedEntryType,
+        // Copy the owner-configured entry deadline onto the entry (parity with
+        // promoter-add-guest) so the door scanner enforces the same condition
+        // regardless of the sign-up channel.
+        entry_deadline: guestList.entry_deadline ?? null,
       })
       .select()
       .single();

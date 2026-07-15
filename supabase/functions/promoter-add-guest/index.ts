@@ -1,11 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { wrapEmailWithBranding, escapeHtml } from "../_shared/email-branding.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { restrictedCorsHeaders } from "../_shared/cors.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[PROMOTER-ADD-GUEST] ${step}`, details ? JSON.stringify(details) : "");
@@ -21,15 +17,34 @@ function generateReservationCode(): string {
 }
 
 function generateQRCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "";
-  for (let i = 0; i < 8; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return `GL-${Date.now()}-${code}`;
+  // Cryptographically-random, unguessable code (Deno global crypto). A QR code is
+  // a door credential — a Date.now()+Math.random() code is guessable/enumerable.
+  // Aligned with create-guest-list-entry.
+  return `GL-${crypto.randomUUID()}`;
+}
+
+/** Map the atomic-capacity trigger's error to a clean client message (else null). */
+function capacityErrorMessage(err: { message?: string; code?: string } | null): string | null {
+  const msg = err?.message || "";
+  if (msg.includes("Female quota reached")) return "Female quota reached";
+  if (msg.includes("Male quota reached")) return "Male quota reached";
+  if (msg.includes("Guest list is full")) return "Guest list is full";
+  if (err?.code === "23505") return "This guest is already on the list";
+  return null;
+}
+
+/** Sanitize a poster URL for safe interpolation into an email img src. */
+function safeImageUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const u = String(url).trim();
+  // Only allow http(s) URLs; block javascript:/data: and quote-breaking chars.
+  if (!/^https?:\/\//i.test(u)) return null;
+  if (/["'<>\s]/.test(u)) return null;
+  return u;
 }
 
 serve(async (req) => {
+  const corsHeaders = restrictedCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -115,26 +130,35 @@ serve(async (req) => {
     let existingEntry: { id: string; entry_type: string | null; qr_code: string | null; reservation_code: string | null } | null = null;
 
     if (normalizedEmail) {
-      const { data: existingByEmailAndName } = await supabaseAdmin
+      // Dedup on the normalized email only (the real unique key, stored lowercased).
+      // The previous .ilike() treated user-supplied %/_ as wildcards — a name/email
+      // with those chars could match the wrong row or blow up maybeSingle().
+      const { data: existingByEmail } = await supabaseAdmin
         .from("guest_list_entries")
         .select("id, entry_type, qr_code, reservation_code")
         .eq("guest_list_id", guestList.id)
         .eq("promoter_id", promoterId)
-        .ilike("email", normalizedEmail)
-        .ilike("full_name", normalizedName)
+        .eq("email", normalizedEmail)
         .neq("status", "cancelled")
         .maybeSingle();
-      existingEntry = existingByEmailAndName;
+      existingEntry = existingByEmail;
     }
 
     const isUpdate = Boolean(existingEntry);
+    // Re-inviting an existing guest at a DIFFERENT entry_type re-consumes a slot of
+    // the new type. Without this, a promoter could add N guests as "normal" then
+    // flip them one by one to "table"/"drink" and blow past the per-type allocation
+    // (the per-type checks below were gated on !isUpdate). The DB trigger enforces
+    // this atomically too; here we surface the clean quota message.
+    const typeChanging = isUpdate
+      && (resolvedEntryType !== ((existingEntry?.entry_type) || "normal"));
 
     // Enforce the promoter part's quotas (set by the club on the Guest List page):
     // the per-type allocation (e.g. 10 normal + 2 VIP) AND the global total.
     // Legacy parts created before per-type allocation have all-zero per-type quotas —
     // treat those as standard-only against the global quota (no per-type rejection).
     const hasPerType = ((guestList.quota_normal ?? 0) + (guestList.quota_drink ?? 0) + (guestList.quota_table ?? 0)) > 0;
-    if (!isUpdate && hasPerType) {
+    if ((!isUpdate || typeChanging) && hasPerType) {
       const typeQuota = resolvedEntryType === "table" ? guestList.quota_table
         : resolvedEntryType === "drink" ? guestList.quota_drink
         : guestList.quota_normal;
@@ -206,7 +230,7 @@ serve(async (req) => {
 
       if (updateError || !updatedEntry) {
         console.error("Update error:", updateError);
-        throw new Error("Failed to update guest");
+        throw new Error(capacityErrorMessage(updateError) || "Failed to update guest");
       }
 
       entryId = updatedEntry.id;
@@ -241,7 +265,7 @@ serve(async (req) => {
 
       if (insertError || !insertedEntry) {
         console.error("Insert error:", insertError);
-        throw new Error("Failed to add guest");
+        throw new Error(capacityErrorMessage(insertError) || "Failed to add guest");
       }
 
       entryId = insertedEntry.id;
@@ -307,7 +331,9 @@ serve(async (req) => {
 
           const safeEventTitle = escapeHtml(event?.title || "Événement");
           const safeVenueName = escapeHtml(venueName);
-          const eventImageUrl = event?.poster_url || null;
+          // Validate the URL scheme + reject quote/tag chars before interpolating
+          // into src="…" — a crafted poster_url must not break out of the attribute.
+          const eventImageUrl = safeImageUrl(event?.poster_url);
 
           const emailContent = `
             ${eventImageUrl ? `

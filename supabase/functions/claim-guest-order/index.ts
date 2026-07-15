@@ -1,11 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { buildOtp } from "../_shared/email-templates.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { restrictedCorsHeaders } from "../_shared/cors.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
@@ -14,6 +10,7 @@ const logStep = (step: string, details?: any) => {
 };
 
 serve(async (req) => {
+  const corsHeaders = restrictedCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -611,17 +608,34 @@ serve(async (req) => {
         throw new Error("Cette commande est déjà liée à un compte");
       }
 
-      // Verify OTP was previously verified for this purchase
+      // Proof of ownership — same guard as link_after_signup. The link is allowed
+      // when EITHER the authenticated account's email matches the purchase email,
+      // OR a verified OTP for this purchase was issued to the authenticated email.
+      // Without this, any logged-in user who knows the reference + last name could
+      // ride a victim's abandoned-but-verified OTP and hijack the purchase.
+      const purchaseEmail = (purchase.email || "").toLowerCase();
+      const authEmail = (user.email || "").toLowerCase();
+      const emailMatches = !!purchaseEmail && !!authEmail && purchaseEmail === authEmail;
+
       const { data: verifiedOtp } = await supabaseAdmin
         .from("guest_claim_otps")
-        .select("id")
+        .select("id, email")
         .eq("order_id", purchase.id)
         .eq("verified", true)
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (!verifiedOtp) {
+      if (!emailMatches && !verifiedOtp) {
         throw new Error("Vérification OTP requise avant de lier la commande");
+      }
+
+      // Defense in depth: if an OTP is the proof, its email must match the account.
+      if (!emailMatches && verifiedOtp?.email && authEmail
+          && verifiedOtp.email.toLowerCase() !== authEmail) {
+        logStep("link blocked — OTP email does not match auth email", {
+          purchaseId: purchase.id,
+        });
+        throw new Error("L'email vérifié ne correspond pas à votre compte");
       }
 
       // Link purchase to user
