@@ -1,63 +1,36 @@
-import { useState, useEffect } from 'react';
-import { Bell, Calendar, Wine, MapPin, Music, Users, Compass, ChevronRight, Heart } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Calendar, Wine, MapPin, Music, Users, Compass, ChevronRight, Heart, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFavorites } from '@/hooks/useFavorites';
-import { FavoriteButton } from '@/components/FavoriteButton';
 import { supabase } from '@/integrations/supabase/client';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr, es, enUS } from 'date-fns/locale';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
-import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { FadeInView } from '@/components/motion';
 import { PageFade } from '@/components/PageFade';
 import { EmptyState as GlobalEmptyState } from '@/components/EmptyState';
 import { Shimmer, SkeletonLine, SkeletonCircle } from '@/components/skeletons/Shimmer';
-
-/* ── Design tokens (aligned with Yuno DS: index.css variables) ── */
-const D = {
-  bg:         '#0A0A0A',     // --yuno-black
-  surface:    '#141414',     // --yuno-card
-  surface2:   '#1B1B1E',     // --yuno-card-2
-  elevated:   '#222226',     // --yuno-elev
-  input:      '#1F1F22',     // --yuno-input
-  line:       'rgba(255,255,255,.08)',   // --border-subtle
-  lineStrong: 'rgba(255,255,255,.14)',   // --border-strong
-  muted:      '#9A9A9A',     // --yuno-gray-2
-  faint:      '#5A5A5E',     // --yuno-gray-3
-  red:        '#E8192C',     // --yuno-red
-  redHover:   '#FF2438',     // --yuno-red-hover
-  redSoft:    'rgba(232,25,44,.14)',     // --yuno-red-soft
-  redDim:     'rgba(232,25,44,.10)',     // --yuno-red-dim
-  violet:     '#A78BFA',
-  violetSoft: 'rgba(167,139,250,.16)',
-};
-
-/* Derive a stable hue (0-359) from any string */
-function hueFromId(id: string): number {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) & 0xffff;
-  return h % 360;
-}
-
-/* Coloured glow background — matches design */
-function glowStyle(hue: number): React.CSSProperties {
-  const h2 = (hue + 38) % 360;
-  return {
-    backgroundImage: [
-      `radial-gradient(115% 85% at 28% 12%, hsl(${hue} 85% 58% / .62), transparent 55%)`,
-      `radial-gradient(120% 95% at 88% 92%, hsl(${h2} 80% 48% / .42), transparent 52%)`,
-      `repeating-linear-gradient(125deg, rgba(255,255,255,.03) 0 2px, transparent 2px 9px)`,
-      `linear-gradient(155deg, #17171c, #0b0b0e)`,
-    ].join(','),
-  };
-}
+import { FavoritePosterCard } from '@/components/favorites/FavoritePosterCard';
+import { FavoriteListRow } from '@/components/favorites/FavoriteListRow';
+import { FavoritesHeader } from '@/components/favorites/FavoritesHeader';
+import { D, shuffleSeed, formatCompact, FILTER_OF_KIND, type FavItem, type Filter } from '@/components/favorites/shared';
 
 /* Upcoming-events label, pluralised + interpolated (t() returns the raw string). */
 function upcomingNightsLabel(n: number, t: (k: string) => string): string {
   if (n <= 0) return t('favorites.noUpcoming');
   const key = n === 1 ? 'favorites.upcomingNights_one' : 'favorites.upcomingNights_other';
   return t(key).replace('{{count}}', String(n));
+}
+
+function followersLabel(n: number, locale: string, t: (k: string) => string): string {
+  const key = n === 1 ? 'favorites.followers_one' : 'favorites.followers_other';
+  return t(key).replace('{{count}}', formatCompact(n, locale));
+}
+
+/** 8 → « 8€ » · 8.5 → « 8.50€ ». Une carte de 170px n'a pas la place d'un « ,00 » inutile. */
+function priceLabel(price: number): string {
+  return Number.isInteger(price) ? `${price}€` : `${price.toFixed(2)}€`;
 }
 
 /* ── Types ── */
@@ -129,609 +102,28 @@ interface FollowerRow { organizer_user_id: string }
 interface OrgProfileRow { user_id: string; display_name: string; avatar_url: string | null; slug: string | null; city: string | null }
 interface ClubEventRow { venue_id: string | null; partner_venue_id: string | null }
 interface OrgEventRow { organizer_user_id: string | null }
+interface FavCountRow { target_id: string; total_count: number }
 
-/* ── Tab pill ── */
-function TabPill({
-  label, icon: Icon, count, active, onClick,
-}: {
-  label: string; icon: React.ElementType; count: number;
-  active: boolean; onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        flexShrink: 0,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        fontFamily: 'var(--yuno-mono, ui-monospace, monospace)',
-        fontSize: 12,
-        fontWeight: 600,
-        cursor: 'pointer',
-        whiteSpace: 'nowrap',
-        padding: '7px 11px',
-        borderRadius: 9,
-        transition: 'background-color .18s ease, box-shadow .18s ease, color .18s ease, border-color .18s ease',
-        color: active ? '#fff' : D.muted,
-        backgroundColor: active ? D.red : D.input,
-        border: `1px solid ${active ? 'rgba(232,25,44,.55)' : D.line}`,
-        boxShadow: active ? '0 5px 16px -5px rgba(232,25,44,.55)' : 'none',
-      }}
-    >
-      <Icon size={13} strokeWidth={2} />
-      {label}
-      <span style={{
-        fontFamily: 'var(--yuno-mono, ui-monospace, monospace)',
-        fontSize: 9,
-        fontWeight: 700,
-        lineHeight: 1,
-        padding: '2px 5px',
-        borderRadius: 5,
-        color: active ? 'rgba(255,255,255,.85)' : D.faint,
-        background: active ? 'rgba(255,255,255,.18)' : D.elevated,
-      }}>
-        {count}
-      </span>
-    </button>
-  );
-}
+/* Où mène le CTA « découvrir » selon le filtre actif. Les organisateurs se
+   trouvent depuis la page clubs (cf. le wording de discoverClubsDesc) — il n'y a
+   pas de route /organizers. */
+const DISCOVER: Record<Filter, { path: string; titleKey: string; descKey: string }> = {
+  all:        { path: '/',             titleKey: 'favorites.discoverAllTitle',    descKey: 'favorites.discoverAllDesc' },
+  clubs:      { path: '/clubs',        titleKey: 'favorites.discoverClubsTitle',  descKey: 'favorites.discoverClubsDesc' },
+  organizers: { path: '/clubs',        titleKey: 'favorites.discoverClubsTitle',  descKey: 'favorites.discoverClubsDesc' },
+  events:     { path: '/events',       titleKey: 'favorites.discoverEventsTitle', descKey: 'favorites.discoverEventsDesc' },
+  djs:        { path: '/djs',          titleKey: 'favorites.discoverDJsTitle',    descKey: 'favorites.discoverDJsDesc' },
+  drinks:     { path: '/order-drinks', titleKey: 'favorites.discoverDrinksTitle', descKey: 'favorites.discoverDrinksDesc' },
+};
 
-/* ── Section label ── */
-function SecLabel({ children, count }: { children: React.ReactNode; count: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 20px', marginBottom: 14 }}>
-      <span style={{
-        fontFamily: 'var(--yuno-mono, ui-monospace, monospace)',
-        fontSize: 11,
-        fontWeight: 600,
-        letterSpacing: '.18em',
-        color: D.faint,
-        whiteSpace: 'nowrap',
-      }}>
-        {children}
-      </span>
-      <span style={{ flex: 1, height: 1, background: D.line }} />
-      <span style={{ fontFamily: 'var(--yuno-mono, ui-monospace, monospace)', fontSize: 11, color: D.faint, whiteSpace: 'nowrap' }}>
-        {count}
-      </span>
-    </div>
-  );
-}
-
-/* ── Club card ── */
-function ClubCard({
-  venue, upcoming, onClick,
-}: {
-  venue: FavoriteVenue;
-  upcoming?: number;
-  onClick: () => void;
-}) {
-  const { t } = useLanguage();
-  const hue = hueFromId(venue.id);
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => e.key === 'Enter' && onClick()}
-      style={{
-        width: '100%',
-        textAlign: 'left',
-        cursor: 'pointer',
-        color: 'inherit',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 15,
-        padding: '13px 14px',
-        background: `linear-gradient(150deg, ${D.surface2}, ${D.surface})`,
-        border: `1px solid ${D.line}`,
-        borderRadius: 20,
-        boxShadow: '0 14px 30px -22px rgba(0,0,0,.9)',
-        outline: 'none',
-      }}
-    >
-      {/* Thumbnail */}
-      <div style={{
-        position: 'relative',
-        width: 59,
-        height: 59,
-        flex: 'none',
-        borderRadius: 14,
-        overflow: 'hidden',
-        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.08)',
-        ...(venue.logoUrl || venue.coverUrl ? {} : glowStyle(hue)),
-      }}>
-        {(venue.logoUrl || venue.coverUrl) && (
-          <img
-            src={getOptimizedImageUrl(venue.logoUrl || venue.coverUrl!, { width: 118, height: 118, ...(venue.logoUrl ? { resize: 'contain' as const } : {}) })}
-            alt={venue.name}
-            style={{ width: '100%', height: '100%', objectFit: venue.logoUrl ? 'contain' : 'cover', display: 'block', background: venue.logoUrl ? '#141414' : undefined }}
-          />
-        )}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg, transparent 40%, rgba(8,8,10,.45))' }} />
-      </div>
-
-      {/* Info */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-          <span style={{
-            fontSize: 17,
-            fontWeight: 700,
-            letterSpacing: '-.01em',
-            lineHeight: 1.15,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}>
-            {venue.name}
-          </span>
-          {venue.isAffiliate && (
-            <span style={{
-              flexShrink: 0,
-              fontFamily: 'var(--yuno-mono, ui-monospace, monospace)',
-              fontSize: 9,
-              fontWeight: 600,
-              letterSpacing: '.14em',
-              color: D.violet,
-              background: D.violetSoft,
-              border: `1px solid rgba(167,139,250,.4)`,
-              borderRadius: 7,
-              padding: '3px 7px',
-            }}>
-              PARTENAIRE
-            </span>
-          )}
-          {venue.musicGenre && (
-            <span style={{
-              flexShrink: 0,
-              fontFamily: 'var(--yuno-mono, ui-monospace, monospace)',
-              fontSize: 9.5,
-              fontWeight: 600,
-              letterSpacing: '.06em',
-              color: D.muted,
-              background: D.elevated,
-              border: `1px solid ${D.line}`,
-              borderRadius: 6,
-              padding: '2px 7px',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              maxWidth: 110,
-            }}>
-              {venue.musicGenre}
-            </span>
-          )}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: D.muted, marginBottom: 4 }}>
-          <MapPin size={13} strokeWidth={2} color={D.muted} />
-          <span style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{venue.city}</span>
-        </div>
-        {!venue.isAffiliate && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <Calendar size={12} strokeWidth={2} color={(upcoming ?? 0) > 0 ? D.red : D.faint} />
-            <span style={{
-              fontFamily: 'var(--yuno-mono, ui-monospace, monospace)',
-              fontSize: 11,
-              fontWeight: (upcoming ?? 0) > 0 ? 600 : 400,
-              color: (upcoming ?? 0) > 0 ? D.red : D.faint,
-            }}>
-              {upcomingNightsLabel(upcoming ?? 0, t)}
-            </span>
-          </div>
-        )}
-      </div>
-
-      <div onClick={(e) => e.stopPropagation()}>
-        <FavoriteButton type={venue.isAffiliate ? 'affiliate_venue' : 'club'} id={venue.id} />
-      </div>
-    </div>
-  );
-}
-
-/* ── Organizer card ── */
-function OrganizerCard({
-  org,
-  upcoming,
-  onClick,
-  onUnfollow,
-}: {
-  org: FollowedOrganizer;
-  upcoming?: number;
-  onClick: () => void;
-  onUnfollow: (e: React.MouseEvent) => void;
-}) {
-  const { t } = useLanguage();
-  const hue = hueFromId(org.id);
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => e.key === 'Enter' && onClick()}
-      style={{
-        width: '100%',
-        textAlign: 'left',
-        cursor: 'pointer',
-        color: 'inherit',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 15,
-        padding: '13px 14px',
-        background: `linear-gradient(150deg, ${D.surface2}, ${D.surface})`,
-        border: `1px solid ${D.line}`,
-        borderRadius: 20,
-        boxShadow: '0 14px 30px -22px rgba(0,0,0,.9)',
-        outline: 'none',
-      }}
-    >
-      {/* Thumbnail — same treatment as ClubCard (rounded square + overlay) */}
-      <div style={{
-        position: 'relative',
-        width: 59,
-        height: 59,
-        flex: 'none',
-        borderRadius: 14,
-        overflow: 'hidden',
-        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.08)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...(org.logoUrl ? {} : glowStyle(hue)),
-      }}>
-        {org.logoUrl ? (
-          <img
-            src={getOptimizedImageUrl(org.logoUrl, { width: 118, height: 118, resize: 'contain' })}
-            alt={org.name}
-            style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: '#141414' }}
-          />
-        ) : (
-          <Users size={26} color="rgba(255,255,255,.7)" strokeWidth={1.8} />
-        )}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg, transparent 40%, rgba(8,8,10,.45))' }} />
-      </div>
-
-      {/* Info — mirrors ClubCard: name, then city, then upcoming nights. */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-.01em', lineHeight: 1.15, marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {org.name}
-        </div>
-        {org.city && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: D.muted, marginBottom: 4 }}>
-            <MapPin size={13} strokeWidth={2} color={D.muted} />
-            <span style={{ fontSize: 13, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{org.city}</span>
-          </div>
-        )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <Calendar size={12} strokeWidth={2} color={(upcoming ?? 0) > 0 ? D.red : D.faint} />
-          <span style={{
-            fontFamily: 'var(--yuno-mono, ui-monospace, monospace)',
-            fontSize: 11,
-            fontWeight: (upcoming ?? 0) > 0 ? 600 : 400,
-            color: (upcoming ?? 0) > 0 ? D.red : D.faint,
-          }}>
-            {upcomingNightsLabel(upcoming ?? 0, t)}
-          </span>
-        </div>
-      </div>
-
-      {/* Subscribed bell — mirrors FavoriteButton's active state used by ClubCard:
-          ghost (transparent) button with a red-filled bell, not a solid red disc. */}
-      <button
-        onClick={onUnfollow}
-        aria-label={t('subscribe.active')}
-        style={{
-          width: 40,
-          height: 40,
-          flexShrink: 0,
-          borderRadius: 10,
-          display: 'grid',
-          placeItems: 'center',
-          cursor: 'pointer',
-          background: 'transparent',
-          border: 'none',
-          padding: 0,
-        }}
-      >
-        <Bell size={16} strokeWidth={2} fill={D.red} color={D.red} />
-      </button>
-    </div>
-  );
-}
-
-/* ── Event card ── */
-function EventCard({
-  event,
-  formatDate,
-  formatTime,
-  onClick,
-}: {
-  event: FavoriteEvent;
-  formatDate: (s: string) => string;
-  formatTime: (s: string) => string;
-  onClick: () => void;
-}) {
-  const hue = hueFromId(event.id);
-  const dateStr = formatDate(event.startAt);
-  // e.g. "sam. 7 juin" → extract day number & month for the visual badge
-  const parts = dateStr.split(' ');
-  const dayNum = parts.find((p) => /^\d+$/.test(p)) ?? '';
-  const monthAbbr = (parts.find((p) => /^[a-zéûàâäôùè]{3,4}/i.test(p) && !/sam|dim|lun|mar|mer|jeu|ven|fri|sat|sun|mon|tue|wed|thu/.test(p.toLowerCase())) ?? '').toUpperCase().slice(0, 3);
-  const genres = event.musicGenres?.filter(Boolean) ?? [];
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => e.key === 'Enter' && onClick()}
-      style={{
-        width: '100%',
-        textAlign: 'left',
-        cursor: 'pointer',
-        color: 'inherit',
-        display: 'flex',
-        alignItems: 'stretch',
-        overflow: 'hidden',
-        background: D.surface,
-        border: `1px solid ${D.line}`,
-        borderRadius: 20,
-        boxShadow: '0 14px 30px -22px rgba(0,0,0,.9)',
-        outline: 'none',
-      }}
-    >
-      {/* Left visual + date badge — square 1:1 poster */}
-      <div style={{ position: 'relative', width: 120, aspectRatio: '1 / 1', alignSelf: 'flex-start', flexShrink: 0, overflow: 'hidden', ...glowStyle(hue) }}>
-        {event.posterUrl && (
-          <img
-            src={getOptimizedImageUrl(event.posterUrl, { width: 240, height: 240 })}
-            alt={event.title}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
-        )}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(120deg, rgba(8,8,10,.15), rgba(8,8,10,.7))' }} />
-        <div style={{
-          position: 'absolute',
-          top: 10,
-          left: 10,
-          textAlign: 'center',
-          background: 'rgba(8,8,10,.55)',
-          backdropFilter: 'blur(6px)',
-          borderRadius: 11,
-          padding: '6px 9px',
-          border: '1px solid rgba(255,255,255,.14)',
-        }}>
-          <div style={{ fontSize: 19, fontWeight: 700, lineHeight: 1 }}>{dayNum}</div>
-          <div style={{ fontFamily: 'var(--yuno-mono, ui-monospace, monospace)', fontSize: 9, letterSpacing: '.1em', color: D.muted, marginTop: 2 }}>
-            {monthAbbr}
-          </div>
-        </div>
-      </div>
-
-      {/* Right info */}
-      <div style={{ flex: 1, minWidth: 0, padding: '12px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 5 }}>
-        {/* Affiliate badge */}
-        {event.isAffiliate && (
-          <span style={{
-            display: 'inline-block',
-            width: 'fit-content',
-            fontFamily: 'var(--yuno-mono, ui-monospace, monospace)',
-            fontSize: 9,
-            fontWeight: 600,
-            letterSpacing: '.14em',
-            color: D.violet,
-            background: D.violetSoft,
-            border: `1px solid rgba(167,139,250,.4)`,
-            borderRadius: 7,
-            padding: '3px 7px',
-          }}>
-            PARTENAIRE
-          </span>
-        )}
-
-        {/* Title */}
-        <div style={{ fontSize: 15.5, fontWeight: 700, lineHeight: 1.15, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {event.title}
-        </div>
-
-        {/* Date — single line, no time */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <Calendar size={11} strokeWidth={2} color={D.muted} />
-          <span style={{ fontFamily: 'var(--yuno-mono, ui-monospace, monospace)', fontSize: 11, color: D.muted, whiteSpace: 'nowrap' }}>
-            {dateStr.toUpperCase()}
-          </span>
-        </div>
-
-        {/* Club / host name */}
-        {event.venueName && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
-            <MapPin size={11} strokeWidth={2} color={D.muted} />
-            <span style={{ fontFamily: 'var(--yuno-mono, ui-monospace, monospace)', fontSize: 11, color: D.muted, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {event.venueName.toUpperCase()}
-            </span>
-          </div>
-        )}
-
-        {/* Genre tags */}
-        {genres.length > 0 && (
-          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-            {genres.slice(0, 3).map((g) => (
-              <span key={g} style={{
-                fontFamily: 'var(--yuno-mono, ui-monospace, monospace)',
-                fontSize: 9.5,
-                fontWeight: 600,
-                color: D.faint,
-                background: D.elevated,
-                border: `1px solid ${D.line}`,
-                borderRadius: 6,
-                padding: '2px 7px',
-              }}>
-                {g}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Fav button */}
-      <div style={{ display: 'flex', alignItems: 'center', paddingRight: 12 }} onClick={(e) => e.stopPropagation()}>
-        <FavoriteButton type={event.isAffiliate ? 'affiliate_event' : 'event'} id={event.id} />
-      </div>
-    </div>
-  );
-}
-
-/* ── DJ card ── */
-function DJCard({ dj, onClick }: { dj: FavoriteDJ; onClick: () => void }) {
-  const { t } = useLanguage();
-  const hue = hueFromId(dj.id);
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => e.key === 'Enter' && onClick()}
-      style={{
-        width: '100%',
-        textAlign: 'left',
-        cursor: 'pointer',
-        color: 'inherit',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 15,
-        padding: '13px 14px',
-        background: `linear-gradient(150deg, ${D.surface2}, ${D.surface})`,
-        border: `1px solid ${D.line}`,
-        borderRadius: 20,
-        boxShadow: '0 14px 30px -22px rgba(0,0,0,.9)',
-        outline: 'none',
-      }}
-    >
-      <div style={{
-        position: 'relative',
-        width: 64,
-        height: 64,
-        flexShrink: 0,
-        borderRadius: 16,
-        overflow: 'hidden',
-        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.1)',
-        ...(dj.profileImageUrl ? {} : glowStyle(hue)),
-      }}>
-        {dj.profileImageUrl && (
-          <img
-            src={dj.profileImageUrl}
-            alt={dj.stageName}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
-        )}
-      </div>
-
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-.01em', lineHeight: 1.15, marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {dj.stageName}
-        </div>
-        {dj.musicGenres.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 7, flexWrap: 'wrap' }}>
-            {dj.musicGenres.slice(0, 3).map((g) => (
-              <span key={g} style={{
-                fontFamily: 'var(--yuno-mono, ui-monospace, monospace)',
-                fontSize: 10,
-                fontWeight: 500,
-                color: D.muted,
-                border: `1px solid ${D.lineStrong}`,
-                borderRadius: 6,
-                padding: '2px 7px',
-              }}>
-                {g}
-              </span>
-            ))}
-          </div>
-        )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--yuno-mono, ui-monospace, monospace)', fontSize: 11, color: D.faint }}>
-          <Bell size={12} strokeWidth={2} color={D.faint} />
-          {t('subscribe.active')}
-        </div>
-      </div>
-
-      <div onClick={(e) => e.stopPropagation()}>
-        <FavoriteButton type="dj" id={dj.id} />
-      </div>
-    </div>
-  );
-}
-
-/* ── Drink card ── */
-function DrinkCard({ drink, onClick }: { drink: FavoriteDrink; onClick?: () => void }) {
-  const hue = hueFromId(drink.id);
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => onClick && e.key === 'Enter' && onClick()}
-      style={{
-        width: '100%',
-        textAlign: 'left',
-        cursor: onClick ? 'pointer' : 'default',
-        color: 'inherit',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 15,
-        padding: '13px 14px',
-        background: `linear-gradient(150deg, ${D.surface2}, ${D.surface})`,
-        border: `1px solid ${D.line}`,
-        borderRadius: 20,
-        boxShadow: '0 14px 30px -22px rgba(0,0,0,.9)',
-        outline: 'none',
-      }}
-    >
-      <div style={{
-        position: 'relative',
-        width: 64,
-        height: 64,
-        flexShrink: 0,
-        borderRadius: 16,
-        overflow: 'hidden',
-        display: 'grid',
-        placeItems: 'center',
-        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.08)',
-        ...glowStyle(hue),
-        ...(drink.imgUrl ? {} : {}),
-      }}>
-        {drink.imgUrl ? (
-          <img
-            src={getOptimizedImageUrl(drink.imgUrl, { width: 128, height: 128, resize: 'contain' })}
-            alt={drink.name}
-            style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: '#0A0A0A' }}
-          />
-        ) : (
-          <Wine size={26} strokeWidth={1.8} color="rgba(255,255,255,.85)" />
-        )}
-      </div>
-
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: '-.01em', lineHeight: 1.15, marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {drink.name}
-        </div>
-        {drink.venueName && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: D.faint, marginTop: 2 }}>
-            <MapPin size={12} strokeWidth={2} color={D.faint} />
-            <span style={{ fontFamily: 'var(--yuno-mono, ui-monospace, monospace)', fontSize: 11 }}>{drink.venueName}</span>
-          </div>
-        )}
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 9 }}>
-        <span style={{ fontFamily: 'var(--yuno-mono, ui-monospace, monospace)', fontSize: 14, fontWeight: 700, color: D.red }}>
-          {drink.price.toFixed(2)} €
-        </span>
-        <div onClick={(e) => e.stopPropagation()}>
-          <FavoriteButton type="drink" id={drink.id} />
-        </div>
-      </div>
-    </div>
-  );
-}
+/* État vide propre à chaque filtre. */
+const FILTER_EMPTY: Record<Exclude<Filter, 'all'>, { icon: React.ElementType; titleKey: string; descKey: string }> = {
+  clubs:      { icon: MapPin,   titleKey: 'subscribe.emptyClubs',      descKey: 'subscribe.emptyClubsDesc' },
+  organizers: { icon: Users,    titleKey: 'subscribe.emptyOrganizers', descKey: 'subscribe.emptyOrganizersDesc' },
+  events:     { icon: Calendar, titleKey: 'favorites.noEvents',        descKey: 'favorites.noEventsDesc' },
+  djs:        { icon: Music,    titleKey: 'subscribe.emptyDJs',        descKey: 'subscribe.emptyDJsDesc' },
+  drinks:     { icon: Wine,     titleKey: 'favorites.noDrinks',        descKey: 'favorites.noDrinksDesc' },
+};
 
 /* ── Empty state ── */
 function EmptyState({ icon: Icon, title, description }: { icon: React.ElementType; title: string; description: string }) {
@@ -750,8 +142,8 @@ function EmptyState({ icon: Icon, title, description }: { icon: React.ElementTyp
       }}>
         <Icon size={32} strokeWidth={1.5} color={D.faint} />
       </div>
-      <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 700, letterSpacing: '-.01em' }}>{title}</h3>
-      <p style={{ margin: 0, fontFamily: 'var(--yuno-mono, ui-monospace, monospace)', fontSize: 12.5, color: D.muted, maxWidth: 240, lineHeight: 1.6 }}>
+      <h3 style={{ margin: '0 0 8px', fontFamily: D.display, fontSize: 18, fontWeight: 700, letterSpacing: '-.01em' }}>{title}</h3>
+      <p style={{ margin: 0, fontFamily: D.mono, fontSize: 12.5, color: D.muted, maxWidth: 250, lineHeight: 1.6 }}>
         {description}
       </p>
     </div>
@@ -759,13 +151,9 @@ function EmptyState({ icon: Icon, title, description }: { icon: React.ElementTyp
 }
 
 /* ── Discover CTA — fills the sparse list with a clear next action ── */
-function DiscoverCTA({
-  title, desc, onClick,
-}: {
-  title: string; desc: string; onClick: () => void;
-}) {
+function DiscoverCTA({ title, desc, onClick }: { title: string; desc: string; onClick: () => void }) {
   return (
-    <div style={{ padding: '0 18px' }}>
+    <div style={{ padding: '0 20px' }}>
       <button
         onClick={onClick}
         style={{
@@ -778,8 +166,8 @@ function DiscoverCTA({
           textAlign: 'left',
           color: 'inherit',
           background: `linear-gradient(150deg, rgba(232,25,44,.08), ${D.surface})`,
-          border: `1px solid rgba(232,25,44,.22)`,
-          borderRadius: 20,
+          border: '1px solid rgba(232,25,44,.22)',
+          borderRadius: 18,
           boxShadow: '0 14px 30px -22px rgba(0,0,0,.9)',
         }}
       >
@@ -791,15 +179,15 @@ function DiscoverCTA({
           display: 'grid',
           placeItems: 'center',
           background: D.redSoft,
-          border: `1px solid rgba(232,25,44,.3)`,
+          border: '1px solid rgba(232,25,44,.3)',
         }}>
           <Compass size={22} strokeWidth={2} color={D.red} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '-.01em', lineHeight: 1.2, marginBottom: 3 }}>
+          <div style={{ fontFamily: D.display, fontSize: 15, fontWeight: 700, letterSpacing: '-.01em', lineHeight: 1.2, marginBottom: 3 }}>
             {title}
           </div>
-          <div style={{ fontFamily: 'var(--yuno-mono, ui-monospace, monospace)', fontSize: 11.5, color: D.muted, lineHeight: 1.45 }}>
+          <div style={{ fontFamily: D.mono, fontSize: 11.5, color: D.muted, lineHeight: 1.45 }}>
             {desc}
           </div>
         </div>
@@ -821,30 +209,40 @@ function DiscoverCTA({
 }
 
 /* ── Skeleton ──
-   Remplace l'ancien spinner rouge. Un spinner ne dit rien : il tourne au centre
-   d'un écran noir et l'utilisateur attend sans savoir ce qui arrive. Le skeleton
-   dessine déjà la liste (vignette + deux lignes), donc la page a sa forme finale
-   avant même que les données arrivent, et le remplissage ne fait pas sauter le
-   layout. `count` suit le nombre de favoris déjà connu du contexte : on affiche
-   exactement autant d'ardoises que de cartes à venir. */
-function FavoritesSkeleton({ count }: { count: number }) {
-  const rows = Math.min(Math.max(count, 1), 6);
+   Un spinner ne dit rien : il tourne au centre d'un écran noir et l'utilisateur
+   attend sans savoir ce qui arrive. Le skeleton dessine déjà la mosaïque, donc la
+   page a sa forme finale avant que les données arrivent et le remplissage ne fait
+   pas sauter le layout. `count` suit le nombre de favoris déjà connu du contexte :
+   on affiche exactement autant d'ardoises que de cartes à venir. */
+function FavoritesSkeleton({ count, view }: { count: number; view: 'grid' | 'list' }) {
+  const n = Math.min(Math.max(count, 2), 6);
+
+  if (view === 'grid') {
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14, padding: '0 20px' }}>
+        {Array.from({ length: n }).map((_, i) => (
+          <Shimmer key={i} style={{ width: '100%', aspectRatio: '1 / 1', borderRadius: 18 }} />
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
-      {Array.from({ length: rows }).map((_, i) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 20px' }}>
+      {Array.from({ length: n }).map((_, i) => (
         <div
           key={i}
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 15,
-            padding: '13px 14px',
+            gap: 14,
+            padding: '12px 13px',
             background: `linear-gradient(150deg, ${D.surface2}, ${D.surface})`,
             border: `1px solid ${D.line}`,
-            borderRadius: 20,
+            borderRadius: 16,
           }}
         >
-          <Shimmer width={59} height={59} style={{ flex: 'none', borderRadius: 14 }} />
+          <Shimmer width={56} height={56} style={{ flex: 'none', borderRadius: 13 }} />
           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <SkeletonLine width="55%" height={16} />
             <SkeletonLine width="35%" height={12} />
@@ -864,10 +262,16 @@ export default function Favorites() {
   const { t, language } = useLanguage();
   const { favorites, loading: favLoading } = useFavorites();
 
-  // Single screen, flat tabs (clubs / soirées / DJs / boissons). The favori vs
-  // abonnement distinction lives in the cards (cœur for soirées+boissons, cloche
-  // "abonné" for clubs+orgas+DJs) and the count wording — not in the layout.
-  const [activeTab, setActiveTab] = useState<'clubs' | 'events' | 'djs' | 'drinks'>('clubs');
+  // Un seul écran, une seule mosaïque. La distinction favori vs abonnement vit
+  // dans les cartes (cœur pour soirées/boissons, cloche « abonné » pour
+  // clubs/orgas/DJs) et dans le wording des compteurs — pas dans le layout.
+  const [activeFilter, setActiveFilter] = useState<Filter>('all');
+  const [query, setQuery] = useState('');
+  const [view, setView] = useState<'grid' | 'list'>(() => {
+    if (typeof window === 'undefined') return 'grid';
+    return localStorage.getItem('yuno.favorites.view') === 'list' ? 'list' : 'grid';
+  });
+
   const [venues, setVenues] = useState<FavoriteVenue[]>([]);
   const [events, setEvents] = useState<FavoriteEvent[]>([]);
   const [drinks, setDrinks] = useState<FavoriteDrink[]>([]);
@@ -875,6 +279,7 @@ export default function Favorites() {
   const [followedOrganizers, setFollowedOrganizers] = useState<FollowedOrganizer[]>([]);
   // Upcoming-events count per club id / organizer user id (keys never collide — both UUIDs).
   const [upcomingByEntity, setUpcomingByEntity] = useState<Record<string, number>>({});
+  const [djFollowers, setDjFollowers] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   const locale = language === 'fr' ? fr : language === 'es' ? es : enUS;
@@ -885,6 +290,10 @@ export default function Favorites() {
   const djFavoriteCount = favorites.filter(f => f.favoriteType === 'dj').length;
 
   const totalCount = clubFavoriteCount + eventFavoriteCount + drinkFavoriteCount + djFavoriteCount + followedOrganizers.length;
+
+  useEffect(() => {
+    localStorage.setItem('yuno.favorites.view', view);
+  }, [view]);
 
   useEffect(() => {
     if (favLoading) return;
@@ -916,7 +325,7 @@ export default function Favorites() {
               file indienne. Chaque requête attendait la précédente sans en avoir
               besoin, soit ~10 allers-retours empilés. Ici, un seul. ── */
         const [
-          venueRes, affVenueRes, eventRes, affEventRes, drinkRes, djRes, userRes,
+          venueRes, affVenueRes, eventRes, affEventRes, drinkRes, djRes, djCountRes, userRes,
         ] = await Promise.all([
           clubIds0.length ? supabase.from('venues').select('id, name, city, logo_url, cover_url, music_genre').in('id', clubIds0) : none<VenueRow>(),
           affVenueIds.length ? supabase.from('affiliate_venues').select('id, name, city, cover_image_url, slug').in('id', affVenueIds) : none<AffVenueRow>(),
@@ -925,6 +334,11 @@ export default function Favorites() {
           drinkIds.length ? supabase.from('drinks').select('id, name, price, img_url, venue_id, collection').in('id', drinkIds) : none<DrinkRow>(),
           // djs_public (vue definer, anon-safe) expose le handle propre -> lien /dj/<handle>.
           djIds.length ? supabase.from('djs_public').select('id, stage_name, first_name, last_name, profile_image_url, music_genres, slug, handle').in('id', djIds) : none<DjRow>(),
+          // Compteurs d'abonnés DJ. Le RPC renvoie TOUTE la table (pas de filtre
+          // par ids côté serveur) — même appel que le rail DJ d'Explore, donc
+          // réponse déjà en cache HTTP la plupart du temps. On ne le tire que si
+          // l'utilisateur suit au moins un DJ.
+          djIds.length ? supabase.rpc('get_public_favorite_counts', { _favorite_type: 'dj' }) : none<FavCountRow>(),
           supabase.auth.getUser(),
         ]);
         if (cancelled) return;
@@ -955,6 +369,12 @@ export default function Favorites() {
           handle: d.handle || undefined,
         })));
 
+        const djCounts: Record<string, number> = {};
+        ((djCountRes.data ?? []) as FavCountRow[]).forEach((r) => {
+          djCounts[r.target_id] = Number(r.total_count);
+        });
+        setDjFollowers(djCounts);
+
         const eventRows = (eventRes.data ?? []) as EventRow[];
         const user = userRes.data?.user ?? null;
         const clubIds = regularVenues.map(v => v.id);
@@ -968,15 +388,15 @@ export default function Favorites() {
           hostVenueIds.length ? supabase.from('venues').select('id, name').in('id', hostVenueIds) : none<HostVenueRow>(),
           hostOrgIds.length ? supabase.from('organizer_profiles').select('user_id, display_name').in('user_id', hostOrgIds) : none<HostOrgRow>(),
           user ? supabase.from('organizer_profile_followers').select('organizer_user_id').eq('user_id', user.id) : none<FollowerRow>(),
-          // Soirées à venir par club (compteur des cartes de l'onglet Clubs). Même
-          // règle que VenuePage : soirées du club + co-soirées hébergées, actives,
-          // pas encore terminées. Les clubs affiliés vivent dans une autre table et
-          // restent volontairement sans compteur.
+          // Soirées à venir par club (compteur des cartes Clubs). Même règle que
+          // VenuePage : soirées du club + co-soirées hébergées, actives, pas encore
+          // terminées. Les clubs affiliés vivent dans une autre table et restent
+          // volontairement sans compteur.
           clubIds.length
             ? supabase.from('events').select('venue_id, partner_venue_id')
                 .or(`venue_id.in.(${clubIds.join(',')}),partner_venue_id.in.(${clubIds.join(',')})`)
                 .eq('is_active', true).gte('end_at', nowIso)
-            : none<any>(),
+            : none<ClubEventRow>(),
         ]);
         if (cancelled) return;
 
@@ -1008,7 +428,7 @@ export default function Favorites() {
             ? supabase.from('events').select('organizer_user_id')
                 .in('organizer_user_id', orgUserIds)
                 .eq('visibility', 'public').eq('is_active', true).gte('end_at', nowIso)
-            : none<any>(),
+            : none<OrgEventRow>(),
         ]);
         if (cancelled) return;
 
@@ -1049,97 +469,163 @@ export default function Favorites() {
     }
   };
 
-  const formatEventTime = (startAt: string) => {
-    try {
-      const d = new Date(startAt);
-      if (isNaN(d.getTime())) return startAt.slice(11, 16);
-      return formatInTimeZone(d, PARIS_TIMEZONE, 'HH:mm', { locale });
-    } catch {
-      return startAt.slice(11, 16);
-    }
+  const unfollowOrganizer = async (orgId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from('organizer_profile_followers').delete().eq('organizer_user_id', orgId).eq('user_id', user.id);
+    setFollowedOrganizers(prev => prev.filter(o => o.id !== orgId));
   };
 
-  const tabs = [
-    { id: 'clubs' as const,  label: t('favorites.clubs'),      icon: MapPin,    count: clubFavoriteCount + followedOrganizers.length },
-    { id: 'events' as const, label: t('favorites.tabParties'), icon: Calendar,  count: eventFavoriteCount },
-    { id: 'djs' as const,    label: 'DJs',                     icon: Music,     count: djFavoriteCount },
-    { id: 'drinks' as const, label: t('favorites.drinks'),     icon: Wine,      count: drinkFavoriteCount },
-  ];
+  /* ── Aplatissement des cinq familles en un seul flux ── */
+  const items: FavItem[] = useMemo(() => {
+    const out: FavItem[] = [];
+
+    venues.forEach((v) => {
+      const upcoming = upcomingByEntity[v.id] ?? 0;
+      out.push({
+        key: `club:${v.id}`,
+        kind: 'club',
+        id: v.id,
+        title: v.name,
+        imageUrl: v.coverUrl || v.logoUrl,
+        fit: v.coverUrl ? 'cover' : 'contain',
+        footerTag: v.musicGenre,
+        // Les clubs affiliés n'ont pas de compteur de soirées (autre table) : on
+        // montre la ville plutôt qu'un « aucune soirée » faux.
+        meta: v.isAffiliate ? (v.city || undefined) : upcomingNightsLabel(upcoming, t),
+        metaTone: !v.isAffiliate && upcoming > 0 ? 'accent' : 'default',
+        isAffiliate: v.isAffiliate,
+        favType: v.isAffiliate ? 'affiliate_venue' : 'club',
+        onOpen: () => (v.isAffiliate ? navigate(`/affiliate-venue/${v.slug}`) : navigate(`/club/${v.id}`)),
+        search: [v.name, v.city, v.musicGenre].filter(Boolean).join(' ').toLowerCase(),
+      });
+    });
+
+    followedOrganizers.forEach((o) => {
+      const upcoming = upcomingByEntity[o.id] ?? 0;
+      out.push({
+        key: `organizer:${o.id}`,
+        kind: 'organizer',
+        id: o.id,
+        title: o.name,
+        imageUrl: o.logoUrl,
+        fit: 'contain',
+        meta: upcomingNightsLabel(upcoming, t),
+        metaTone: upcoming > 0 ? 'accent' : 'default',
+        onOpen: o.slug ? () => navigate(`/o/${o.slug}`) : undefined,
+        search: [o.name, o.city].filter(Boolean).join(' ').toLowerCase(),
+      });
+    });
+
+    events.forEach((e) => {
+      const genre = e.musicGenres?.filter(Boolean)[0];
+      out.push({
+        key: `event:${e.id}`,
+        kind: 'event',
+        id: e.id,
+        title: e.title,
+        imageUrl: e.posterUrl,
+        fit: 'cover',
+        meta: [formatEventDate(e.startAt).toUpperCase(), genre].filter(Boolean).join(' · '),
+        isAffiliate: e.isAffiliate,
+        favType: e.isAffiliate ? 'affiliate_event' : 'event',
+        onOpen: () => (e.isAffiliate
+          ? navigate(`/affiliate-event/${e.affiliateSlug}`)
+          : navigate(`/club/${e.venueId}/event/${e.id}`)),
+        search: [e.title, e.venueName, ...(e.musicGenres ?? [])].filter(Boolean).join(' ').toLowerCase(),
+      });
+    });
+
+    djs.forEach((d) => {
+      const followers = djFollowers[d.id] ?? 0;
+      out.push({
+        key: `dj:${d.id}`,
+        kind: 'dj',
+        id: d.id,
+        title: d.stageName,
+        imageUrl: d.profileImageUrl,
+        fit: 'cover',
+        footerTag: d.musicGenres[0],
+        meta: followers > 0 ? followersLabel(followers, language, t) : undefined,
+        favType: 'dj',
+        onOpen: (d.handle || d.slug) ? () => navigate(`/dj/${d.handle || d.slug}`) : undefined,
+        search: [d.stageName, ...d.musicGenres].filter(Boolean).join(' ').toLowerCase(),
+      });
+    });
+
+    drinks.forEach((d) => {
+      out.push({
+        key: `drink:${d.id}`,
+        kind: 'drink',
+        id: d.id,
+        title: d.name,
+        imageUrl: d.imgUrl,
+        fit: 'contain',
+        price: priceLabel(d.price),
+        favType: 'drink',
+        // La carte du club, ouverte sur la catégorie de la boisson : un favori
+        // qu'on ne peut pas commander ne sert à rien.
+        onOpen: () => navigate(`/club/${d.venueId}/drinks/${d.collection}`),
+        search: [d.name, d.venueName, d.collection].filter(Boolean).join(' ').toLowerCase(),
+      });
+    });
+
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [venues, followedOrganizers, events, djs, drinks, upcomingByEntity, djFollowers, t, language, navigate]);
+
+  /* Recherche d'abord (elle alimente les compteurs des chips), filtre ensuite. */
+  const searched = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return q ? items.filter(i => i.search.includes(q)) : items;
+  }, [items, query]);
 
   const isLoading = loading || favLoading;
-  // Aucun favori ni abonnement du tout → état vide global unifié à la place des onglets
+
+  const counts: Record<Filter, number> = useMemo(() => {
+    // Pendant le chargement, les compteurs viennent du contexte (déjà en mémoire,
+    // donc pas de 0 qui saute à N quand le fetch atterrit). `items` est encore vide.
+    if (isLoading) {
+      return {
+        all: totalCount,
+        clubs: clubFavoriteCount,
+        events: eventFavoriteCount,
+        djs: djFavoriteCount,
+        drinks: drinkFavoriteCount,
+        organizers: followedOrganizers.length,
+      };
+    }
+    const c: Record<Filter, number> = { all: searched.length, clubs: 0, events: 0, djs: 0, drinks: 0, organizers: 0 };
+    searched.forEach((i) => { c[FILTER_OF_KIND[i.kind]] += 1; });
+    return c;
+  }, [isLoading, searched, totalCount, clubFavoriteCount, eventFavoriteCount, djFavoriteCount, drinkFavoriteCount, followedOrganizers.length]);
+
+  const visible = useMemo(() => {
+    const list = activeFilter === 'all' ? searched : searched.filter(i => FILTER_OF_KIND[i.kind] === activeFilter);
+    return [...list].sort((a, b) => shuffleSeed(a.key) - shuffleSeed(b.key));
+  }, [searched, activeFilter]);
+
+  // Aucun favori ni abonnement du tout → état vide global unifié à la place de la mosaïque
   const totallyEmpty = !isLoading && totalCount === 0;
+  const searching = query.trim().length > 0;
+  const discover = DISCOVER[activeFilter];
 
   return (
     <div style={{ minHeight: '100vh', background: D.bg, paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--live-banner-offset, 0px) + 128px)' }}>
-      {/* ── Sticky header ── */}
-      <header style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 40,
-        paddingTop: 'env(safe-area-inset-top, 0px)',
-        background: 'rgba(10,10,10,.92)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        borderBottom: `1px solid rgba(255,255,255,.07)`,
-      }}>
-        {/* Title row */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '22px 20px 16px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <h1 style={{ margin: 0, fontSize: 26, fontWeight: 700, letterSpacing: '-.02em', lineHeight: 1 }}>
-              {t('nav.favorites')}
-            </h1>
-          </div>
-          {totalCount > 0 && (
-            <span style={{
-              fontFamily: 'var(--yuno-mono, ui-monospace, monospace)',
-              fontSize: 11,
-              fontWeight: 600,
-              color: D.faint,
-              background: D.elevated,
-              border: `1px solid ${D.line}`,
-              padding: '4px 11px',
-              borderRadius: 999,
-              flexShrink: 0,
-            }}>
-              {totalCount}
-            </span>
-          )}
-        </div>
-
-        {/* ── Scrollable tabs — même pattern qu'ExploreChipRow ── */}
-        <style>{`.fav-hscroll::-webkit-scrollbar{display:none}`}</style>
-        <div
-          className="fav-hscroll flex gap-2 overflow-x-auto"
-          style={{
-            scrollbarWidth: 'none' as const,
-            msOverflowStyle: 'none',
-            WebkitOverflowScrolling: 'touch',
-            paddingLeft: 20,
-            paddingBottom: 18,
-          } as React.CSSProperties}
-        >
-          {tabs.map((tab) => (
-            <TabPill
-              key={tab.id}
-              label={tab.label}
-              icon={tab.icon}
-              count={tab.count}
-              active={activeTab === tab.id}
-              onClick={() => setActiveTab(tab.id)}
-            />
-          ))}
-          <div style={{ width: 20, flexShrink: 0 }} />
-        </div>
-      </header>
+      <FavoritesHeader
+        totalCount={totalCount}
+        bare={totallyEmpty}
+        counts={counts}
+        activeFilter={activeFilter}
+        onFilter={setActiveFilter}
+        query={query}
+        onQuery={setQuery}
+        view={view}
+        onView={setView}
+      />
 
       {/* ── Content ── */}
-      <PageFade style={{ maxWidth: 512, margin: '0 auto', padding: '24px 0 0' }}>
+      <PageFade style={{ maxWidth: 512, margin: '0 auto', padding: '22px 0 0' }}>
 
         {/* Aucun favori du tout → état vide global unifié */}
         {totallyEmpty && (
@@ -1152,172 +638,64 @@ export default function Favorites() {
           />
         )}
 
-        {/* CLUBS TAB — abonnements (clubs + organisateurs) */}
-        {!totallyEmpty && activeTab === 'clubs' && (
-          <>
-            {isLoading ? (
-              <FavoritesSkeleton count={clubFavoriteCount} />
-            ) : clubFavoriteCount === 0 && followedOrganizers.length === 0 ? (
-              <EmptyState icon={MapPin} title={t('subscribe.emptyClubs')} description={t('subscribe.emptyClubsDesc')} />
-            ) : (
-              <>
-                {venues.length > 0 && (
-                  <>
-                    <SecLabel count={`${venues.length} ${t('favorites.unitSubscribers')}`}>{t('favorites.clubs').toUpperCase()}</SecLabel>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
-                      {venues.map((venue, i) => (
-                        <FadeInView key={venue.id} index={i < 6 ? i : 0}>
-                          <ClubCard
-                            venue={venue}
-                            upcoming={upcomingByEntity[venue.id]}
-                            onClick={() => venue.isAffiliate ? navigate(`/affiliate-venue/${venue.slug}`) : navigate(`/club/${venue.id}`)}
-                          />
-                        </FadeInView>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {followedOrganizers.length > 0 && (
-                  <div style={{ marginTop: venues.length > 0 ? 32 : 0 }}>
-                    <SecLabel count={`${followedOrganizers.length} ${t('favorites.unitSubscribers')}`}>{t('favorites.tabOrganizers').toUpperCase()}</SecLabel>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
-                      {followedOrganizers.map((org, i) => (
-                        <FadeInView key={org.id} index={i < 6 ? i : 0}>
-                        <OrganizerCard
-                          org={org}
-                          upcoming={upcomingByEntity[org.id]}
-                          onClick={() => org.slug && navigate(`/o/${org.slug}`)}
-                          onUnfollow={async (e) => {
-                            e.stopPropagation();
-                            const { data: { user } } = await supabase.auth.getUser();
-                            if (!user) return;
-                            await supabase.from('organizer_profile_followers').delete().eq('organizer_user_id', org.id).eq('user_id', user.id);
-                            setFollowedOrganizers(prev => prev.filter(o => o.id !== org.id));
-                          }}
-                        />
-                        </FadeInView>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Discover more — keeps the screen from feeling bare when you follow
-                only a club or two, and points to the next useful action. */}
-            {!isLoading && (
-              <div style={{ marginTop: (clubFavoriteCount === 0 && followedOrganizers.length === 0) ? 8 : 30 }}>
-                <DiscoverCTA
-                  title={t('favorites.discoverClubsTitle')}
-                  desc={t('favorites.discoverClubsDesc')}
-                  onClick={() => navigate('/clubs')}
-                />
-              </div>
-            )}
-          </>
+        {!totallyEmpty && isLoading && (
+          <FavoritesSkeleton count={totalCount} view={view} />
         )}
 
-        {/* EVENTS TAB — favoris (soirées) */}
-        {!totallyEmpty && activeTab === 'events' && (
-          <>
-            {isLoading ? (
-              <FavoritesSkeleton count={eventFavoriteCount} />
-            ) : eventFavoriteCount === 0 ? (
-              <EmptyState icon={Calendar} title={t('favorites.noEvents')} description={t('favorites.noEventsDesc')} />
-            ) : (
-              <>
-                <SecLabel count={`${events.length} ${t('favorites.unitUpcoming')}`}>{t('favorites.tabParties').toUpperCase()}</SecLabel>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
-                  {events.map((event, i) => (
-                    <FadeInView key={event.id} index={i < 6 ? i : 0}>
-                      <EventCard
-                        event={event}
-                        formatDate={formatEventDate}
-                        formatTime={formatEventTime}
-                        onClick={() =>
-                          event.isAffiliate
-                            ? navigate(`/affiliate-event/${event.affiliateSlug}`)
-                            : navigate(`/club/${event.venueId}/event/${event.id}`)
-                        }
-                      />
-                    </FadeInView>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {!isLoading && (
-              <div style={{ marginTop: eventFavoriteCount === 0 ? 8 : 30 }}>
-                <DiscoverCTA
-                  title={t('favorites.discoverEventsTitle')}
-                  desc={t('favorites.discoverEventsDesc')}
-                  onClick={() => navigate('/events')}
-                />
-              </div>
-            )}
-          </>
+        {/* Recherche sans résultat — distinct d'un filtre vide : ici il y a bien
+            des favoris, c'est la requête qui ne matche rien. */}
+        {!totallyEmpty && !isLoading && visible.length === 0 && searching && (
+          <EmptyState
+            icon={Sparkles}
+            title={t('favorites.searchEmpty')}
+            description={t('favorites.searchEmptyDesc').replace('{{query}}', query.trim())}
+          />
         )}
 
-        {/* DJs TAB — abonnements */}
-        {!totallyEmpty && activeTab === 'djs' && (
-          <>
-            {isLoading ? (
-              <FavoritesSkeleton count={djFavoriteCount} />
-            ) : djFavoriteCount === 0 ? (
-              <EmptyState icon={Music} title={t('subscribe.emptyDJs')} description={t('subscribe.emptyDJsDesc')} />
-            ) : (
-              <>
-                <SecLabel count={`${djs.length} ${t('favorites.unitSubscribers')}`}>DJS</SecLabel>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
-                  {djs.map((dj, i) => (
-                    <FadeInView key={dj.id} index={i < 6 ? i : 0}>
-                      <DJCard
-                        dj={dj}
-                        onClick={() => (dj.handle || dj.slug) ? navigate(`/dj/${dj.handle || dj.slug}`) : undefined}
-                      />
-                    </FadeInView>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {!isLoading && (
-              <div style={{ marginTop: djFavoriteCount === 0 ? 8 : 30 }}>
-                <DiscoverCTA
-                  title={t('favorites.discoverDJsTitle')}
-                  desc={t('favorites.discoverDJsDesc')}
-                  onClick={() => navigate('/djs')}
-                />
-              </div>
-            )}
-          </>
+        {/* Filtre vide (sans recherche) */}
+        {!totallyEmpty && !isLoading && visible.length === 0 && !searching && activeFilter !== 'all' && (
+          <EmptyState
+            icon={FILTER_EMPTY[activeFilter].icon}
+            title={t(FILTER_EMPTY[activeFilter].titleKey)}
+            description={t(FILTER_EMPTY[activeFilter].descKey)}
+          />
         )}
 
-        {/* DRINKS TAB — favoris */}
-        {!totallyEmpty && activeTab === 'drinks' && (
-          <>
-            {isLoading ? (
-              <FavoritesSkeleton count={drinkFavoriteCount} />
-            ) : drinkFavoriteCount === 0 ? (
-              <EmptyState icon={Wine} title={t('favorites.noDrinks')} description={t('favorites.noDrinksDesc')} />
-            ) : (
-              <>
-                <SecLabel count={`${drinks.length} ${t('favorites.unitFavorites')}`}>{t('favorites.drinks').toUpperCase()}</SecLabel>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 18px' }}>
-                  {drinks.map((drink, i) => (
-                    <FadeInView key={drink.id} index={i < 6 ? i : 0}>
-                      <DrinkCard drink={drink} />
-                    </FadeInView>
-                  ))}
-                </div>
-              </>
-            )}
-          </>
+        {/* ── La mosaïque ── */}
+        {!totallyEmpty && !isLoading && visible.length > 0 && (
+          view === 'grid' ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14, padding: '0 20px' }}>
+              {visible.map((item, i) => (
+                <FadeInView key={item.key} index={i < 8 ? i : 0}>
+                  <FavoritePosterCard item={item} onUnfollow={() => unfollowOrganizer(item.id)} />
+                </FadeInView>
+              ))}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 20px' }}>
+              {visible.map((item, i) => (
+                <FadeInView key={item.key} index={i < 6 ? i : 0}>
+                  <FavoriteListRow item={item} onUnfollow={() => unfollowOrganizer(item.id)} />
+                </FadeInView>
+              ))}
+            </div>
+          )
+        )}
+
+        {/* Découvrir plus — évite l'écran nu quand on ne suit qu'un club ou deux,
+            et donne l'action suivante. Masqué pendant une recherche : la réponse
+            à « je cherche X » n'est pas « découvre Y ». */}
+        {!totallyEmpty && !isLoading && !searching && (
+          <div style={{ marginTop: visible.length === 0 ? 8 : 30 }}>
+            <DiscoverCTA
+              title={t(discover.titleKey)}
+              desc={t(discover.descKey)}
+              onClick={() => navigate(discover.path)}
+            />
+          </div>
         )}
 
       </PageFade>
-
     </div>
   );
 }
