@@ -88,8 +88,14 @@ const CLIENT_KNOWLEDGE_BASE = `
 - Chaque page d'événement montre : date/heure, lieu, genre, line-up DJ, billets disponibles, guest list et tables VIP si activées.
 
 ❤️ FAVORIS vs 🔔 ABONNEMENTS
-- Le cœur = favori : sauvegarde un club, un event ou un DJ dans ${APP_BASE_URL}/favorites.
-- La cloche = abonnement : tu reçois une notification quand le club ou le DJ annonce une nouvelle soirée. Ce sont deux choses différentes.
+- Le cœur = favori : sauvegarde une soirée ou une boisson dans ${APP_BASE_URL}/favorites.
+- La cloche = abonnement : un club, un organisateur ou un DJ. Tu reçois une notification quand ils annoncent une nouvelle soirée. Ce sont deux choses différentes.
+- La page Favoris (${APP_BASE_URL}/favorites) réunit les deux dans UNE seule mosaïque : clubs, soirées, DJs, boissons et organisateurs mélangés, pas d'onglets séparés.
+  · Filtre par type : Tout / Clubs / Soirées / DJs / Boissons / Organisateurs — le compteur de chaque filtre suit ta recherche.
+  · Cherche un favori par nom, club, ville ou genre musical.
+  · Bascule entre l'affichage grille (grandes affiches) et liste (compact) ; ton choix est mémorisé.
+- Chaque carte mène à sa page : un club vers le club, une soirée vers sa billetterie, un DJ vers son profil, une boisson vers la carte du club où la commander.
+- Une soirée passée disparaît automatiquement de tes favoris — la page ne garde que ce qui est encore à venir.
 
 🎫 BILLETS — comment acheter
 1. Ouvre la page de l'événement, appuie sur "Billets".
