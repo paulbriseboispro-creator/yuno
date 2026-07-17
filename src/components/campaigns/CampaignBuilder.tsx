@@ -101,7 +101,8 @@ export default function CampaignBuilder({ scope, basePath }: Props) {
       q = q.or(`organizer_user_id.eq.${scope.organizerId},partner_organizer_id.eq.${scope.organizerId}`);
     }
     q.then(({ data }) => setEvents(data || []));
-  }, [scope]);
+    // Deps primitives : le parent recrée l'objet `scope` à chaque render.
+  }, [scope.kind, scope.venueId, scope.organizerId]);
 
   // Load existing campaign
   useEffect(() => {
