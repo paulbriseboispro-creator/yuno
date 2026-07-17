@@ -40,6 +40,8 @@ export default function AgencyRoster() {
   const [contractId, setContractId] = useState('');
   const [ticketValue, setTicketValue] = useState('');
   const [ticketType, setTicketType] = useState<'fixed' | 'percentage'>('fixed');
+  const [tableValue, setTableValue] = useState('');
+  const [tableType, setTableType] = useState<'fixed' | 'percentage'>('fixed');
   const [sending, setSending] = useState(false);
   const [settling, setSettling] = useState<string | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
@@ -96,8 +98,8 @@ export default function AgencyRoster() {
         commission_config: {
           ticket_commission_type: ticketType,
           ticket_commission_value: Number(ticketValue) || 0,
-          table_commission_type: ticketType,
-          table_commission_value: Number(ticketValue) || 0,
+          table_commission_type: tableType,
+          table_commission_value: Number(tableValue) || 0,
         },
       },
     });
@@ -107,7 +109,7 @@ export default function AgencyRoster() {
       return;
     }
     toast.success(tt('Invitation envoyée', 'Invitation sent'));
-    setEmail(''); setFirstName(''); setTicketValue(''); setInviteOpen(false);
+    setEmail(''); setFirstName(''); setTicketValue(''); setTableValue(''); setInviteOpen(false);
     refetch();
   };
 
@@ -234,12 +236,29 @@ export default function AgencyRoster() {
               </select>
             </div>
             <div>
-              <FieldLabel>{tt('Commission promoteur (net)', "Promoter commission (net)")}</FieldLabel>
+              <FieldLabel>{tt('Commission billets (net)', 'Ticket commission (net)')}</FieldLabel>
               <div className="flex gap-2">
                 <DarkInput value={ticketValue} onChange={setTicketValue} placeholder="0" type="number" />
                 <select
                   value={ticketType}
                   onChange={e => setTicketType(e.target.value as 'fixed' | 'percentage')}
+                  style={{
+                    background: INNER_BG, border: `1px solid ${BORDER}`,
+                    borderRadius: 10, padding: '0 12px', color: T1, fontSize: 13,
+                  }}
+                >
+                  <option value="fixed" style={{ background: '#111' }}>€</option>
+                  <option value="percentage" style={{ background: '#111' }}>%</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <FieldLabel>{tt('Commission tables (net)', 'Table commission (net)')}</FieldLabel>
+              <div className="flex gap-2">
+                <DarkInput value={tableValue} onChange={setTableValue} placeholder="0" type="number" />
+                <select
+                  value={tableType}
+                  onChange={e => setTableType(e.target.value as 'fixed' | 'percentage')}
                   style={{
                     background: INNER_BG, border: `1px solid ${BORDER}`,
                     borderRadius: 10, padding: '0 12px', color: T1, fontSize: 13,
