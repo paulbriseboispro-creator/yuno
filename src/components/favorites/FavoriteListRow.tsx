@@ -36,7 +36,6 @@ export function FavoriteListRow({ item, onUnfollow }: { item: FavItem; onUnfollo
   const hue = hueFromId(item.id);
   const clickable = !!item.onOpen;
   const Fallback = FALLBACK_ICON[item.kind];
-  const cover = item.fit === 'cover' && item.imageUrl;
 
   return (
     <div
@@ -75,19 +74,15 @@ export function FavoriteListRow({ item, onUnfollow }: { item: FavItem; onUnfollo
         display: 'grid',
         placeItems: 'center',
         boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.08)',
-        ...(cover ? { background: D.surface } : glowStyle(hue)),
+        ...(item.imageUrl ? { background: '#0A0A0A' } : glowStyle(hue)),
       }}>
         {item.imageUrl ? (
           <img
-            src={getOptimizedImageUrl(item.imageUrl, cover
-              ? { width: 112, height: 112 }
-              : { width: 112, height: 112, resize: 'contain' })}
+            src={getOptimizedImageUrl(item.imageUrl, { width: 112, height: 112 })}
             alt=""
             loading="lazy"
             decoding="async"
-            style={cover
-              ? { width: '100%', height: '100%', objectFit: 'cover', display: 'block' }
-              : { width: '78%', height: '78%', objectFit: 'contain', display: 'block' }}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
         ) : (
           <Fallback size={22} strokeWidth={1.8} color="rgba(255,255,255,.8)" />

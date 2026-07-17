@@ -91,7 +91,6 @@ export function FavoritePosterCard({ item, onUnfollow }: { item: FavItem; onUnfo
   const hue = hueFromId(item.id);
   const clickable = !!item.onOpen;
   const Fallback = FALLBACK_ICON[item.kind];
-  const cover = item.fit === 'cover' && item.imageUrl;
 
   return (
     <article
@@ -114,24 +113,20 @@ export function FavoritePosterCard({ item, onUnfollow }: { item: FavItem; onUnfo
         border: `1px solid ${D.line}`,
         boxShadow: '0 18px 38px -26px rgba(0,0,0,.95)',
         cursor: clickable ? 'pointer' : 'default',
-        // Le glow sert de fond aux logos/bouteilles (fit: contain) ET de repli
-        // quand il n'y a aucune image : dans les deux cas la carte reste une
-        // affiche, jamais un rectangle vide.
-        ...(cover ? { background: D.surface } : glowStyle(hue)),
+        // Image → fond noir uni : une image transparente (logo PNG) ne doit pas
+        // laisser passer de couleur. Pas d'image → le glow prend le relais pour
+        // que la carte reste une affiche, jamais un rectangle vide.
+        ...(item.imageUrl ? { background: '#0A0A0A' } : glowStyle(hue)),
       }}
     >
-      {/* Artwork */}
+      {/* Artwork — toujours 1:1 plein cadre */}
       {item.imageUrl ? (
         <img
-          src={getOptimizedImageUrl(item.imageUrl, cover
-            ? { width: 480, height: 480 }
-            : { width: 400, height: 400, resize: 'contain' })}
+          src={getOptimizedImageUrl(item.imageUrl, { width: 480, height: 480 })}
           alt=""
           loading="lazy"
           decoding="async"
-          style={cover
-            ? { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }
-            : { position: 'absolute', inset: '11% 11% 26%', width: '78%', height: '63%', objectFit: 'contain', display: 'block' }}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
         />
       ) : (
         <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>

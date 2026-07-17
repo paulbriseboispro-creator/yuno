@@ -488,7 +488,6 @@ export default function Favorites() {
         id: v.id,
         title: v.name,
         imageUrl: v.coverUrl || v.logoUrl,
-        fit: v.coverUrl ? 'cover' : 'contain',
         footerTag: v.musicGenre,
         // Les clubs affiliés n'ont pas de compteur de soirées (autre table) : on
         // montre la ville plutôt qu'un « aucune soirée » faux.
@@ -509,7 +508,6 @@ export default function Favorites() {
         id: o.id,
         title: o.name,
         imageUrl: o.logoUrl,
-        fit: 'contain',
         meta: upcomingNightsLabel(upcoming, t),
         metaTone: upcoming > 0 ? 'accent' : 'default',
         onOpen: o.slug ? () => navigate(`/o/${o.slug}`) : undefined,
@@ -525,7 +523,6 @@ export default function Favorites() {
         id: e.id,
         title: e.title,
         imageUrl: e.posterUrl,
-        fit: 'cover',
         meta: [formatEventDate(e.startAt).toUpperCase(), genre].filter(Boolean).join(' · '),
         isAffiliate: e.isAffiliate,
         favType: e.isAffiliate ? 'affiliate_event' : 'event',
@@ -544,7 +541,6 @@ export default function Favorites() {
         id: d.id,
         title: d.stageName,
         imageUrl: d.profileImageUrl,
-        fit: 'cover',
         footerTag: d.musicGenres[0],
         meta: followers > 0 ? followersLabel(followers, language, t) : undefined,
         favType: 'dj',
@@ -560,7 +556,6 @@ export default function Favorites() {
         id: d.id,
         title: d.name,
         imageUrl: d.imgUrl,
-        fit: 'contain',
         price: priceLabel(d.price),
         favType: 'drink',
         // La carte du club, ouverte sur la catégorie de la boisson : un favori

@@ -73,9 +73,11 @@ export interface FavItem {
   kind: FavKind;
   id: string;
   title: string;
+  /** Toujours rendue en 1:1 plein cadre (object-fit: cover) sur fond noir uni.
+      Pas de mode `contain` : logos et bouteilles posés au centre laissaient voir
+      le glow coloré autour de l'image (fond « bizarre »). Le glow ne sert plus
+      que de repli quand il n'y a AUCUNE image. */
   imageUrl?: string;
-  /** 'cover' = affiche/portrait plein cadre · 'contain' = logo/bouteille posé sur le glow. */
-  fit: 'cover' | 'contain';
   /** Prix, collé au titre (boissons). Court par nature — « 8€ » ne vole pas de place au nom. */
   price?: string;
   /** Pill de genre, sur la ligne du bas. Jamais collée au titre : sur une carte de
