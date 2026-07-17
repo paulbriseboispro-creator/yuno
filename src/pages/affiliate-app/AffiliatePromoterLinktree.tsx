@@ -202,7 +202,7 @@ export default function AffiliatePromoterLinktree() {
     if (error) {
       toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Demande envoyée', description: 'Ton manager recevra une notification de révision.' });
+      toast({ title: 'Demande envoyée', description: 'Ta demande apparaîtra dans le tableau de bord de ton manager.' });
     }
     setRequestingReview(false);
   }

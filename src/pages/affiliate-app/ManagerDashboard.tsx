@@ -89,10 +89,12 @@ export default function ManagerDashboard() {
   };
 
   const setLinktreeStatus = async (memberId: string, status: string) => {
-    const { error } = await supabase
-      .from('affiliate_members')
-      .update({ linktree_status: status })
-      .eq('id', memberId);
+    // RPC et non UPDATE direct : la RLS d'affiliate_members ne matche que sa
+    // propre ligne ou l'owner de l'affilié — pour un membre 'manager', l'UPDATE
+    // direct ne touchait AUCUNE ligne, sans erreur (approbation silencieusement
+    // perdue). La RPC review_member_linktree vérifie owner OU manager actif.
+    const { error } = await (supabase as any)
+      .rpc('review_member_linktree', { p_member_id: memberId, p_status: status });
     if (error) { toast({ title: 'Erreur', description: error.message, variant: 'destructive' }); return; }
     setMembers(prev => prev.map(m => m.id === memberId ? { ...m, linktree_status: status } : m));
     toast({ title: status === 'approved' ? 'Linktree approuvé' : 'Modification demandée' });
