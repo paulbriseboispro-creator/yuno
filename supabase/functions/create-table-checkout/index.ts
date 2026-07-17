@@ -531,47 +531,22 @@ serve(async (req) => {
         });
       }
 
-      // Create promoter conversion if applicable
-      if (promoterId && validatedDiscount > 0) {
-        // Fetch promoter commission settings
-        const { data: promoter } = await supabaseAdmin
-          .from("promoters")
-          .select("table_commission_type, table_commission_value")
-          .eq("id", promoterId)
-          .single();
-
-        if (promoter) {
-          let commission = 0;
-          if (promoter.table_commission_type === 'percentage') {
-            commission = Math.round(finalTotalPrice * (promoter.table_commission_value / 100) * 100) / 100;
-          } else {
-            commission = promoter.table_commission_value;
-          }
-
-          await supabaseAdmin
-            .from("promoter_conversions")
-            .insert({
-              promoter_id: promoterId,
-              table_reservation_id: reservation.id,
-              conversion_type: 'table',
-              amount: finalTotalPrice,
-              commission,
-              status: 'pending',
-            });
-
-          // Update promoter pending amount
-          const { data: currentPromoter } = await supabaseAdmin
-            .from("promoters")
-            .select("pending_amount")
-            .eq("id", promoterId)
-            .single();
-          
-          await supabaseAdmin
-            .from("promoters")
-            .update({ pending_amount: (currentPromoter?.pending_amount || 0) + commission })
-            .eq("id", promoterId);
-
-          logStep("Promoter conversion created", { promoterId, commission });
+      // Create promoter conversion if applicable — even when the promoter code
+      // carries no customer discount (the promoter still drove the booking).
+      // Same RPC as the live Stripe path (verify-table-payment): template
+      // engine, agency caps and team-leader override all apply.
+      if (promoterId) {
+        const { data: convResult, error: conversionError } = await supabaseAdmin.rpc('record_promoter_conversion', {
+          p_promoter_id: promoterId,
+          p_conversion_type: 'table',
+          p_amount: finalTotalPrice,
+          p_event_id: eventId,
+          p_table_reservation_id: reservation.id,
+        });
+        if (conversionError) {
+          logStep("Error creating promoter conversion", { error: conversionError.message });
+        } else {
+          logStep("Promoter conversion recorded", convResult);
         }
       }
 

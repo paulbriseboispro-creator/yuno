@@ -80,7 +80,7 @@ serve(async (req) => {
 
     const { data: promoter } = await supabaseAdmin
       .from("promoters")
-      .select("id, user_id, venue_id, organizer_user_id, is_active, default_commission_template_id, promo_code")
+      .select("id, user_id, venue_id, organizer_user_id, is_active, default_commission_template_id, promo_code, agency_id, agency_guestlist_quota")
       .eq("id", promoterId)
       .single();
 
@@ -186,6 +186,27 @@ serve(async (req) => {
         .neq("status", "cancelled");
       if ((totalEntries ?? 0) >= guestList.quota) {
         throw new Error("Guest list quota reached");
+      }
+    }
+
+    // Agency-managed promoters: the agency's own guest-list rule applies ON TOP
+    // of the club's allocation (rule templates: NULL = guest list not allowed,
+    // 0 = unlimited, N = max entries per event for this promoter).
+    if (!isUpdate && promoter.agency_id) {
+      const agencyQuota = promoter.agency_guestlist_quota as number | null;
+      if (agencyQuota === null || agencyQuota === undefined) {
+        throw new Error("Your agency hasn't enabled guest list access for you");
+      }
+      if (agencyQuota > 0) {
+        const { count: agencyCount } = await supabaseAdmin
+          .from("guest_list_entries")
+          .select("*", { count: "exact", head: true })
+          .eq("guest_list_id", guestList.id)
+          .eq("promoter_id", promoterId)
+          .neq("status", "cancelled");
+        if ((agencyCount ?? 0) >= agencyQuota) {
+          throw new Error("Agency guest list quota reached");
+        }
       }
     }
 

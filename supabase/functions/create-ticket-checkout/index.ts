@@ -707,48 +707,23 @@ serve(async (req) => {
         }
       }
 
-      // Create promoter conversion if applicable (even if discount is 0, we track the conversion)
+      // Create promoter conversion if applicable (even if discount is 0, we track
+      // the conversion). Same RPC as the live Stripe path (verify-ticket-payment):
+      // template engine, per-event template, bonus, agency caps and team-leader
+      // override all apply — the demo path must not compute money differently.
       if (finalPromoterId) {
         logStep("Creating promoter conversion", { promoterId: finalPromoterId });
-        
-        // Fetch promoter commission settings
-        const { data: promoter } = await supabaseAdmin
-          .from("promoters")
-          .select("ticket_commission_type, ticket_commission_value, pending_amount")
-          .eq("id", finalPromoterId)
-          .single();
-
-        if (promoter) {
-          let commission = 0;
-          if (promoter.ticket_commission_type === 'percentage' && promoter.ticket_commission_value) {
-            commission = Math.round(totalPrice * (promoter.ticket_commission_value / 100) * 100) / 100;
-          } else if (promoter.ticket_commission_value) {
-            commission = promoter.ticket_commission_value * quantity;
-          }
-
-          const { error: conversionError } = await supabaseAdmin
-            .from("promoter_conversions")
-            .insert({
-              promoter_id: finalPromoterId,
-              ticket_id: ticket.id,
-              conversion_type: 'ticket',
-              amount: totalPrice,
-              commission,
-              status: 'pending',
-            });
-
-          if (conversionError) {
-            logStep("Error creating promoter conversion", { error: conversionError.message });
-          } else {
-            // Update promoter pending amount
-            const newPendingAmount = (promoter.pending_amount || 0) + commission;
-            await supabaseAdmin
-              .from("promoters")
-              .update({ pending_amount: newPendingAmount })
-              .eq("id", finalPromoterId);
-
-            logStep("Promoter conversion created successfully", { promoterId: finalPromoterId, commission, newPendingAmount });
-          }
+        const { data: convResult, error: conversionError } = await supabaseAdmin.rpc('record_promoter_conversion', {
+          p_promoter_id: finalPromoterId,
+          p_conversion_type: 'ticket',
+          p_amount: unitPrice * quantity,
+          p_event_id: eventId,
+          p_ticket_id: ticket.id,
+        });
+        if (conversionError) {
+          logStep("Error creating promoter conversion", { error: conversionError.message });
+        } else {
+          logStep("Promoter conversion recorded", convResult);
         }
       }
 
