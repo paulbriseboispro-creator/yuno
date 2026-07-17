@@ -381,25 +381,27 @@ function EventCard({
   memberId,
   isOwner,
   onNavigate,
+  t,
 }: {
   event: LinktreeEvent;
   affiliateId: string;
   memberId: string;
   isOwner: boolean;
   onNavigate: () => void;
+  t: (key: string) => string;
 }) {
   const isSoldOut = event.is_sold_out;
   const isFree = event.is_free;
 
   const priceLabel = isSoldOut
-    ? 'Complet'
+    ? t('promoterLinktree.soldOut')
     : isFree
-    ? 'Gratuit'
+    ? t('promoterLinktree.free')
     : event.price_from != null
     ? `${event.price_from}€`
     : null;
 
-  const ctaLabel = isSoldOut ? 'Complet' : isFree ? 'Rejoindre' : 'Billets';
+  const ctaLabel = isSoldOut ? t('promoterLinktree.soldOut') : isFree ? t('promoterLinktree.join') : t('promoterLinktree.tickets');
   const ctaHref = event.promo_link || (event.external_ticket_url ? event.external_ticket_url : null);
 
   const handleClick = () => {
@@ -495,7 +497,7 @@ function EventCard({
               color: '#E8192C',
             }}
           >
-            Achat direct
+            {t('promoterLinktree.directPurchase')}
           </div>
         )}
         {isSoldOut && (
@@ -522,7 +524,7 @@ function EventCard({
                 textTransform: 'uppercase' as const,
               }}
             >
-              COMPLET
+              {t('promoterLinktree.soldOut')}
             </span>
           </div>
         )}
@@ -685,12 +687,13 @@ function LoadingSkeleton() {
 }
 
 function NotFoundState() {
+  const { t } = useLanguage();
   return (
     <div style={{ minHeight: '100vh', background: '#0A0A0A', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
       <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 800, color: '#E8192C', letterSpacing: '0.16em', fontSize: '18px', marginBottom: '16px' }}>YUNO</span>
-      <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", color: '#FFFFFF', fontSize: '24px', fontWeight: 700, margin: '0 0 8px' }}>Page introuvable</h1>
+      <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", color: '#FFFFFF', fontSize: '24px', fontWeight: 700, margin: '0 0 8px' }}>{t('promoterLinktree.notFoundTitle')}</h1>
       <p style={{ fontFamily: "'JetBrains Mono', monospace", color: '#5A5A5E', fontSize: '13px', maxWidth: '280px' }}>
-        Ce lien promoteur n&apos;existe pas ou n&apos;est pas encore actif.
+        {t('promoterLinktree.notFoundBody')}
       </p>
     </div>
   );
@@ -718,12 +721,12 @@ function groupByDate(events: LinktreeEvent[], locale: Locale): GroupedDate[] {
     });
 }
 
-function sortAndGroupEvents(events: LinktreeEvent[], mode: SortMode, locale: Locale): GroupedDate[] {
+function sortAndGroupEvents(events: LinktreeEvent[], mode: SortMode, locale: Locale, t: (key: string) => string): GroupedDate[] {
   switch (mode) {
     case 'by_genre': {
       const map = new Map<string, LinktreeEvent[]>();
       for (const ev of events) {
-        const genre = ev.genres[0] ?? 'Autre';
+        const genre = ev.genres[0] ?? t('promoterLinktree.otherGenre');
         if (!map.has(genre)) map.set(genre, []);
         map.get(genre)!.push(ev);
       }
@@ -741,7 +744,7 @@ function sortAndGroupEvents(events: LinktreeEvent[], mode: SortMode, locale: Loc
         const pb = b.is_free ? -1 : (b.price_from ?? 9999);
         return pa - pb;
       });
-      return [{ date: '__price__', label: 'PAR PRIX', items: sorted }];
+      return [{ date: '__price__', label: t('promoterLinktree.byPrice').toUpperCase(), items: sorted }];
     }
     case 'custom':
       return [{ date: '__custom__', label: '', items: events }];
@@ -913,7 +916,7 @@ export default function PromoterLinktree() {
     (org?.allow_promoter_sort && member.linktree_sort_mode)
       ? member.linktree_sort_mode
       : (org?.linktree_sort_mode ?? 'by_day');
-  const grouped = sortAndGroupEvents(filteredEvents, effectiveSortMode, dateLocale);
+  const grouped = sortAndGroupEvents(filteredEvents, effectiveSortMode, dateLocale, t);
 
   return (
     <>
@@ -1017,7 +1020,7 @@ export default function PromoterLinktree() {
                       {org?.website && (
                         <SocialButton
                           href={org.website.startsWith('http') ? org.website : `https://${org.website}`}
-                          label="Site web"
+                          label={t('affiliate.website')}
                           icon={<IconGlobe />}
                         />
                       )}
@@ -1128,7 +1131,7 @@ export default function PromoterLinktree() {
                       {org?.website && (
                         <SocialButton
                           href={org.website.startsWith('http') ? org.website : `https://${org.website}`}
-                          label="Site web"
+                          label={t('affiliate.website')}
                           icon={<IconGlobe />}
                         />
                       )}
@@ -1159,7 +1162,7 @@ export default function PromoterLinktree() {
               gap: '14px',
               padding: '32px 24px 28px',
             }}
-            aria-label="Profil promoteur"
+            aria-label={t('promoterLinktree.profileAria')}
           >
             {/* Avatar */}
             {member.avatar_url ? (
@@ -1230,8 +1233,8 @@ export default function PromoterLinktree() {
                   }}
                 >
                   {isYunoInternal
-                    ? `Promoteur ${org?.name ?? 'Yuno'}`
-                    : `Promoteur · ${org?.name ?? ''}`}
+                    ? `${t('promoterLinktree.role')} ${org?.name ?? 'Yuno'}`
+                    : `${t('promoterLinktree.role')} · ${org?.name ?? ''}`}
                 </span>
               </div>
             </div>
@@ -1331,7 +1334,7 @@ export default function PromoterLinktree() {
                         textTransform: 'uppercase' as const,
                       }}
                     >
-                      {group.items.length} EVENT{group.items.length !== 1 ? 'S' : ''}
+                      {group.items.length} {group.items.length !== 1 ? t('promoterLinktree.eventPlural') : t('promoterLinktree.eventSingular')}
                     </span>
                   </div>
 
@@ -1339,6 +1342,7 @@ export default function PromoterLinktree() {
                   {group.items.map((ev, i) => (
                     <FadeInView key={ev.row_id} index={i < 6 ? i : 0}>
                       <EventCard
+                        t={t}
                         event={ev}
                         affiliateId={member?.affiliate_id ?? ''}
                         memberId={member?.id ?? ''}

@@ -63,9 +63,9 @@ function IconArrow() {
   );
 }
 
-function IconVerified() {
+function IconVerified({ label }: { label: string }) {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-label="Promoteur vérifié" role="img">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-label={label} role="img">
       <circle cx="12" cy="12" r="11" fill="#E8192C"/>
       <path d="M7 12.5l3.5 3.5 6.5-7" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
@@ -80,16 +80,17 @@ function EventCard({
   event,
   timeLabel,
   onNavigate,
+  ctaLabel,
 }: {
   event: EventWithOwner;
   timeLabel: string;
   onNavigate: () => void;
+  ctaLabel: string;
 }) {
   const live = (() => {
     const now = new Date();
     return new Date(event.start_at) <= now && new Date(event.end_at) >= now;
   })();
-  const ctaLabel = event.ticketing_enabled ? 'Billets' : 'Voir';
   const img = event.poster_url;
   // Le hover ne doit s'appliquer que sur appareils hover-capable, sinon il
   // "colle" après un tap sur tactile (le lift reste figé). Cf. règle motion.
@@ -313,7 +314,7 @@ export default function PromoterHub() {
   const { promoCode, slug } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const queryRefCode = (searchParams.get('ref') || '').trim();
   const source = (searchParams.get('src') || '').trim();
   const refCode = (promoCode || queryRefCode || '').trim();
@@ -373,16 +374,18 @@ export default function PromoterHub() {
   }, [refCode]);
 
   // Fetch the primary venue's subscription plan to gate the "Powered by Yuno" badge.
+  // Via la VUE publique venue_subscription_public : la table venue_subscriptions
+  // est révoquée pour anon (et sans policy anon) — la lire directement renvoyait
+  // toujours 0 ligne sur cette page publique.
   useEffect(() => {
     if (venues.length === 0) return;
     const primaryVenueId = venues[0].venue_id;
-    supabase
-      .from('venue_subscriptions')
+    (supabase as any)
+      .from('venue_subscription_public')
       .select('subscription_plan')
       .eq('venue_id', primaryVenueId)
-      .in('status', ['active', 'trialing'])
       .maybeSingle()
-      .then(({ data }) => setVenuePlan(data?.subscription_plan || 'core'));
+      .then(({ data }: { data: { subscription_plan: string } | null }) => setVenuePlan(data?.subscription_plan || 'core'));
   }, [venues]);
 
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
@@ -533,7 +536,7 @@ export default function PromoterHub() {
               gap: '14px',
               padding: '48px 24px 28px',
             }}
-            aria-label="Profil promoteur"
+            aria-label={t('promoterLinktree.verified')}
           >
             {/* Avatar */}
             {promoter.profileImageUrl ? (
@@ -589,7 +592,7 @@ export default function PromoterHub() {
                 >
                   {promoterName}
                 </h1>
-                <IconVerified />
+                <IconVerified label={t('promoterLinktree.verified')} />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#E8192C' }} />
@@ -654,7 +657,7 @@ export default function PromoterHub() {
           <div style={{ margin: '0 24px', height: '1px', background: 'rgba(255,255,255,0.08)' }} />
 
           {/* ══ ÉVÉNEMENTS ═══════════════════════════════════════════ */}
-          <section style={{ padding: '8px 20px 0' }} aria-label="Événements">
+          <section style={{ padding: '8px 20px 0' }} aria-label={t('promoterLinktree.events')}>
             {dedupedEvents.length === 0 ? (
               <p
                 style={{
@@ -709,7 +712,7 @@ export default function PromoterHub() {
                         textTransform: 'uppercase' as const,
                       }}
                     >
-                      {events.length} EVENT{events.length !== 1 ? 'S' : ''}
+                      {events.length} {events.length !== 1 ? t('promoterLinktree.eventPlural') : t('promoterLinktree.eventSingular')}
                     </span>
                   </div>
 
@@ -720,6 +723,9 @@ export default function PromoterHub() {
                       event={ev}
                       timeLabel={`${formatTime(ev.start_at)} - ${formatTime(ev.end_at)}`}
                       onNavigate={() => goToEvent(ev)}
+                      ctaLabel={ev.ticketing_enabled
+                        ? t('promoterLinktree.tickets')
+                        : language === 'fr' ? 'Voir' : language === 'es' ? 'Ver' : 'View'}
                     />
                   ))}
                 </div>
@@ -777,7 +783,7 @@ export default function PromoterHub() {
           href="https://www.instagram.com/yunoapp.eu"
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="Propulsé par Yuno"
+          aria-label={t('promoterLinktree.poweredBy')}
           style={{
             position: 'fixed',
             bottom: '20px',
