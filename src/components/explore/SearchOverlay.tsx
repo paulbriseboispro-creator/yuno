@@ -6,6 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { format, isToday, isTomorrow } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { staggerContainer, staggerItem, spring, tapScale, scaleIn } from '@/lib/animations';
+import { searchNorm } from '@/lib/searchNorm';
 
 // ─── Types ────────────────────────────────────────────────────────
 interface SearchResult {
@@ -219,7 +220,10 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
     const now = new Date().toISOString();
     const todayStr = new Date().toISOString().slice(0, 10);
     const hasText = q.trim().length >= 1;
-    const searchTerm = `%${q}%`;
+    // Le terme est normalisé (minuscules + sans accents) et confronté aux colonnes
+    // générées `search_*`, normalisées de la même façon côté Postgres. C'est ce qui
+    // rend « bonsai » capable de trouver « Le Bonsaï » et « soiree ete » « Soirée Été ».
+    const searchTerm = `%${searchNorm(q)}%`;
 
     try {
       // Resolve venue IDs scoped to the user's location.
@@ -262,9 +266,10 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
           .map(v => v.id);
       } else if (city) {
         // Fallback: city name match (less reliable if venues don't have city filled)
+        const cityTerm = `%${searchNorm(city)}%`;
         const [rv, av] = await Promise.all([
-          supabase.from('venues').select('id').ilike('city', `%${city}%`),
-          supabase.from('affiliate_venues').select('id').ilike('city', `%${city}%`),
+          supabase.from('venues').select('id').ilike('search_city', cityTerm),
+          supabase.from('affiliate_venues').select('id').ilike('search_city', cityTerm),
         ]);
         cityVenueIds = (rv.data || []).map(v => v.id);
         cityAffVenueIds = (av.data || []).map(v => v.id);
@@ -312,7 +317,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
             supabase
               .from('events')
               .select('id, title, poster_url, start_at, end_at, venue_id, is_active, music_genres')
-              .ilike('title', searchTerm)
+              .ilike('search_title', searchTerm)
               .limit(10)
           )
         );
@@ -361,7 +366,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
             supabase
               .from('affiliate_events')
               .select('id, name, flyer_url, event_date, start_time, genres, affiliate_venue_id, slug')
-              .ilike('name', searchTerm)
+              .ilike('search_name', searchTerm)
               .limit(8)
           )
         );
@@ -389,7 +394,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
         .select('id, name, logo_url, city')
         .eq('is_hidden', false);
       if (hasText) {
-        venuesQuery = venuesQuery.or(`name.ilike.${searchTerm},city.ilike.${searchTerm}`);
+        venuesQuery = venuesQuery.or(`search_name.ilike.${searchTerm},search_city.ilike.${searchTerm}`);
       } else {
         // Date-only mode: show popular clubs in the city
         if (cityVenueIds.length > 0) venuesQuery = venuesQuery.in('id', cityVenueIds);
@@ -402,7 +407,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
         .select('id, name, cover_image_url, logo_url, city, slug')
         .eq('is_active', true);
       if (hasText) {
-        affVenuesQuery = affVenuesQuery.ilike('name', searchTerm).limit(6);
+        affVenuesQuery = affVenuesQuery.ilike('search_name', searchTerm).limit(6);
       } else {
         if (cityAffVenueIds.length > 0) affVenuesQuery = affVenuesQuery.in('id', cityAffVenueIds);
         affVenuesQuery = affVenuesQuery.limit(6);
@@ -425,7 +430,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
               .from('djs_public')
               .select('id, stage_name, first_name, last_name, profile_image_url, music_genres, slug, handle')
               .eq('is_active', true)
-              .or(`stage_name.ilike.${searchTerm},first_name.ilike.${searchTerm},last_name.ilike.${searchTerm}`)
+              .or(`search_stage_name.ilike.${searchTerm},search_first_name.ilike.${searchTerm},search_last_name.ilike.${searchTerm}`)
               .limit(5)
           : Promise.resolve({ data: [] }),
         hasText
@@ -434,7 +439,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
               .select('user_id, display_name, avatar_url, slug')
               .eq('is_public', true)
               .eq('bde_verified', false) // BDE accounts stay private — never in public search
-              .ilike('display_name', searchTerm)
+              .ilike('search_display_name', searchTerm)
               .limit(5)
           : Promise.resolve({ data: [] }),
       ]);

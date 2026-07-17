@@ -15,6 +15,13 @@
 // If you add a new column that public pages need, add it here AND grant it to anon
 // in a follow-up migration. Never select('*') on these tables from an anon-reachable
 // path — it will 403 once the column grants land.
+//
+// Not listed here on purpose: the generated `search_*` columns (venues.search_name /
+// search_city, organizer_profiles.search_display_name — migration 20260717150000).
+// They ARE granted to anon, because filtering on a column requires SELECT on it, but
+// they're only ever filtered against, never selected — they'd just duplicate name/city
+// over the wire. Adding a new anon-searchable column means granting it in a migration,
+// not adding it here.
 
 export const PUBLIC_VENUE_COLUMNS = [
   'id', 'name', 'address', 'city', 'description', 'short_description', 'music_genre',
