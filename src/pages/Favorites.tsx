@@ -556,6 +556,8 @@ export default function Favorites() {
         id: d.id,
         title: d.name,
         imageUrl: d.imgUrl,
+        // Photo produit détourée : centrée et entière, comme sur la carte du club.
+        imageFit: 'contain',
         price: priceLabel(d.price),
         favType: 'drink',
         // La carte du club, ouverte sur la catégorie de la boisson : un favori

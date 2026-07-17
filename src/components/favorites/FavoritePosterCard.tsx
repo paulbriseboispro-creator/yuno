@@ -91,6 +91,7 @@ export function FavoritePosterCard({ item, onUnfollow }: { item: FavItem; onUnfo
   const hue = hueFromId(item.id);
   const clickable = !!item.onOpen;
   const Fallback = FALLBACK_ICON[item.kind];
+  const contain = item.imageFit === 'contain';
 
   return (
     <article
@@ -119,14 +120,25 @@ export function FavoritePosterCard({ item, onUnfollow }: { item: FavItem; onUnfo
         ...(item.imageUrl ? { background: '#0A0A0A' } : glowStyle(hue)),
       }}
     >
-      {/* Artwork — toujours 1:1 plein cadre */}
+      {/* Artwork — cadre 1:1. `contain` laisse la bouteille entière et centrée
+          sur le noir ; le padding bas la dégage du bloc titre/prix. */}
       {item.imageUrl ? (
         <img
-          src={getOptimizedImageUrl(item.imageUrl, { width: 480, height: 480 })}
+          src={getOptimizedImageUrl(item.imageUrl, contain
+            ? { width: 480, height: 480, resize: 'contain' }
+            : { width: 480, height: 480 })}
           alt=""
           loading="lazy"
           decoding="async"
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: contain ? 'contain' : 'cover',
+            display: 'block',
+            ...(contain ? { padding: '12% 12% 26%', boxSizing: 'border-box' as const } : {}),
+          }}
         />
       ) : (
         <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>

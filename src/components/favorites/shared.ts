@@ -72,12 +72,14 @@ export interface FavItem {
   key: string;
   kind: FavKind;
   id: string;
-  title: string;
-  /** Toujours rendue en 1:1 plein cadre (object-fit: cover) sur fond noir uni.
-      Pas de mode `contain` : logos et bouteilles posés au centre laissaient voir
-      le glow coloré autour de l'image (fond « bizarre »). Le glow ne sert plus
-      que de repli quand il n'y a AUCUNE image. */
+  /** Cadre toujours 1:1, fond noir uni sous l'image. Le glow ne sert plus que de
+      repli quand il n'y a AUCUNE image — jamais derrière une image, sinon il
+      bave autour des visuels détourés. */
   imageUrl?: string;
+  /** Défaut 'cover' (affiches, portraits, logos : ils remplissent le cadre).
+      'contain' pour les photos produit des boissons : la bouteille est centrée
+      et entière, comme sur la carte du club (DrinkCard.tsx:119-126). */
+  imageFit?: 'cover' | 'contain';
   /** Prix, collé au titre (boissons). Court par nature — « 8€ » ne vole pas de place au nom. */
   price?: string;
   /** Pill de genre, sur la ligne du bas. Jamais collée au titre : sur une carte de

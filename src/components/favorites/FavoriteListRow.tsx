@@ -78,11 +78,19 @@ export function FavoriteListRow({ item, onUnfollow }: { item: FavItem; onUnfollo
       }}>
         {item.imageUrl ? (
           <img
-            src={getOptimizedImageUrl(item.imageUrl, { width: 112, height: 112 })}
+            src={getOptimizedImageUrl(item.imageUrl, item.imageFit === 'contain'
+              ? { width: 112, height: 112, resize: 'contain' }
+              : { width: 112, height: 112 })}
             alt=""
             loading="lazy"
             decoding="async"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: item.imageFit === 'contain' ? 'contain' : 'cover',
+              display: 'block',
+              ...(item.imageFit === 'contain' ? { padding: 6, boxSizing: 'border-box' as const } : {}),
+            }}
           />
         ) : (
           <Fallback size={22} strokeWidth={1.8} color="rgba(255,255,255,.8)" />
