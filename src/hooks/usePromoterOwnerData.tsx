@@ -88,8 +88,9 @@ export function usePromoterOwnerData(scope: PromoterScope) {
       if (eventFilter) clicksQuery = clicksQuery.eq('event_id', eventFilter);
       const { data: clicksData } = await clicksQuery;
 
-      // Conversions
-      let convsQuery = supabase.from('promoter_conversions').select('promoter_id, amount, commission, status, conversion_type').in('promoter_id', promoterIds);
+      // Conversions — les lignes 'cancelled' (ventes remboursées) sont exclues :
+      // elles ne comptent ni dans le CA ni dans les commissions dues.
+      let convsQuery = supabase.from('promoter_conversions').select('promoter_id, amount, commission, status, conversion_type').in('promoter_id', promoterIds).neq('status', 'cancelled');
       if (dateFrom) convsQuery = convsQuery.gte('created_at', dateFrom);
       if (eventFilter) convsQuery = convsQuery.eq('event_id', eventFilter);
       const { data: convsData } = await convsQuery;
@@ -103,7 +104,10 @@ export function usePromoterOwnerData(scope: PromoterScope) {
 
       (convsData || []).forEach(c => {
         if (!convStats[c.promoter_id]) convStats[c.promoter_id] = { conversions: 0, revenue: 0, commission: 0 };
-        convStats[c.promoter_id].conversions++;
+        // Les lignes 'override' (part du chef d'équipe) portent de la commission
+        // mais ne sont PAS des ventes : on les compte dans l'argent, pas dans
+        // les compteurs de conversions (sinon taux de conversion gonflé).
+        if (c.conversion_type !== 'override') convStats[c.promoter_id].conversions++;
         convStats[c.promoter_id].revenue += Number(c.amount || 0);
         convStats[c.promoter_id].commission += Number(c.commission || 0);
         if (c.conversion_type === 'ticket' && Number(c.amount || 0) > 0) totalTickets++;
@@ -114,7 +118,7 @@ export function usePromoterOwnerData(scope: PromoterScope) {
       });
 
       const totalClicks = Object.values(clickCounts).reduce((a, b) => a + b, 0);
-      const totalConversions = (convsData || []).length;
+      const totalConversions = (convsData || []).filter(c => c.conversion_type !== 'override').length;
 
       const mapped: PromoterSummary[] = (promotersData || []).map(p => {
         const profile = profileMap.get(p.user_id);

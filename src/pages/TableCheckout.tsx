@@ -34,7 +34,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { TablePack, TableZone, estimateStripeFee } from '@/types/ticketing';
 import { VenueFloorPlan } from '@/types';
-import { getStoredPromoCode } from '@/hooks/usePromoterTracking';
+import { getStoredPromoCodeForVenue } from '@/hooks/usePromoterTracking';
 import { PublicPage } from '@/components/PublicPage';
 
 interface PromoterDiscount {
@@ -314,7 +314,9 @@ export default function TableCheckout() {
   useEffect(() => {
     const checkPromoterDiscount = async () => {
       if (!venue?.id) return;
-      const storedCode = getStoredPromoCode();
+      // Scopé au club (même logique que TicketCheckout) : un code stocké pour
+      // le club A ne doit pas créditer un promoteur homonyme du club B.
+      const storedCode = getStoredPromoCodeForVenue(venue.id);
       if (!storedCode) return;
       try {
         const { data: promoter, error } = await supabase
