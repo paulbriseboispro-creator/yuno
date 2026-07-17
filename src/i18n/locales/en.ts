@@ -1874,6 +1874,9 @@ const en: Record<string, string> = {
   'filter.priceCategory': 'Price category',
   'filter.all': 'All',
 
+  // Club leaderboard (public club page)
+  'leaderboard.noData': 'No ranking data yet',
+
   // Search
   'search.popularSearches': 'Popular searches',
   'search.suggestedFilters': 'Suggested filters',

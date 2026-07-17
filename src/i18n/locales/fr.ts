@@ -1911,6 +1911,9 @@ const fr: Record<string, string> = {
   'filter.priceCategory': 'Catégorie de prix',
   'filter.all': 'Tous',
 
+  // Classement du club (page club publique)
+  'leaderboard.noData': 'Pas encore de classement',
+
   // Search
   'search.popularSearches': 'Recherches populaires',
   'search.suggestedFilters': 'Filtres suggérés',
