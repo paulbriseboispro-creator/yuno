@@ -768,6 +768,7 @@ export default function PromoterLinktree() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [linktreeStatus, setLinktreeStatus] = useState<string>('approved');
 
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const isOwner = !!(user?.id && member?.user_id && user.id === member.user_id);
@@ -790,15 +791,19 @@ export default function PromoterLinktree() {
     try {
       setLoading(true);
 
+      // La RLS ne rend un linktree non 'approved' qu'au membre lui-même, à
+      // l'owner de l'affilié et aux managers — pour un anonyme, la ligne
+      // n'existe pas (→ NotFound). linktree_status sert au bandeau d'aperçu.
       const { data: mem, error: memError } = await supabase
         .from('affiliate_members')
-        .select('id, user_id, first_name, last_name, linktree_slug, avatar_url, instagram, tiktok, affiliate_id, linktree_sort_mode')
+        .select('id, user_id, first_name, last_name, linktree_slug, avatar_url, instagram, tiktok, affiliate_id, linktree_sort_mode, linktree_status')
         .eq('linktree_slug', slug!.toLowerCase())
         .eq('is_active', true)
         .maybeSingle();
 
       if (memError) throw memError;
       if (!mem) { setNotFound(true); setLoading(false); return; }
+      setLinktreeStatus((mem as any).linktree_status ?? 'approved');
 
       const { data: org } = await supabase
         .from('affiliates')
@@ -928,6 +933,29 @@ export default function PromoterLinktree() {
           WebkitFontSmoothing: 'antialiased',
         }}
       >
+        {/* Aperçu non publié — visible seulement du membre / owner / manager :
+            un anonyme ne peut pas charger une page non approuvée (RLS). */}
+        {linktreeStatus !== 'approved' && (
+          <div
+            role="status"
+            style={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 50,
+              textAlign: 'center',
+              padding: '8px 16px',
+              background: 'rgba(232,25,44,0.14)',
+              borderBottom: '1px solid rgba(232,25,44,0.35)',
+              color: '#FF8A94',
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: '11px',
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+            }}
+          >
+            {t('promoterLinktree.previewBanner')}
+          </div>
+        )}
         {/* Glow */}
         <div
           aria-hidden="true"

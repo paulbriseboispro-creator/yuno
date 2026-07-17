@@ -1550,6 +1550,7 @@ const en: Record<string, string> = {
   'promoterLinktree.otherGenre': "Other",
   'promoterLinktree.byPrice': "By price",
   'promoterLinktree.officialPartner': "Official Yuno Partner",
+  'promoterLinktree.previewBanner': "Preview — linktree not published (manager approval required)",
   'promoterLinktree.directPurchase': "Direct purchase",
   'promoterLinktree.role': "Promoter",
   'promoterLinktree.profileAria': "Promoter profile",

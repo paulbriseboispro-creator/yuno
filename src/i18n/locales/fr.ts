@@ -1587,6 +1587,7 @@ const fr: Record<string, string> = {
   'promoterLinktree.otherGenre': "Autre",
   'promoterLinktree.byPrice': "Par prix",
   'promoterLinktree.officialPartner': "Partenaire Officiel Yuno",
+  'promoterLinktree.previewBanner': "Aperçu — linktree non publié (approbation du manager requise)",
   'promoterLinktree.directPurchase': "Achat direct",
   'promoterLinktree.role': "Promoteur",
   'promoterLinktree.profileAria': "Profil promoteur",
