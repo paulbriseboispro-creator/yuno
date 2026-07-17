@@ -35,10 +35,15 @@ export function useAgency() {
       return;
     }
     setLoading(true);
+    // `.order + .limit(1)` et non `.maybeSingle()` seul : si un doublon
+    // d'agence existe (créé avant la garde anti-doublon de create_agency),
+    // maybeSingle() renvoie une erreur PGRST116 et lockait l'owner dehors.
     const { data } = await (supabase as any)
       .from('agencies')
       .select('*')
       .eq('owner_user_id', user.id)
+      .order('created_at', { ascending: true })
+      .limit(1)
       .maybeSingle();
     setAgency((data as Agency) ?? null);
     setLoading(false);

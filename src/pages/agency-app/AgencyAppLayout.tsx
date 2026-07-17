@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutGrid, Users, Building2, Wallet, Layers, Calendar, BarChart2, Settings, X,
-  TrendingUp, ShieldCheck,
+  TrendingUp, ShieldCheck, LogOut,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAgency } from '@/hooks/useAgency';
@@ -151,6 +151,29 @@ export default function AgencyAppLayout() {
     );
   }
 
+  // Agence suspendue (is_active=false, posé par un super admin) : accès coupé.
+  if (agency.is_active === false) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-center gap-4 px-6"
+        style={{ background: '#000' }}>
+        <AgencyIcon className="h-10 w-10" style={{ color: T3 }} />
+        <p style={{ color: T1, fontSize: 15, fontWeight: 600 }}>
+          {tt('Agence désactivée', 'Agency deactivated')}
+        </p>
+        <p style={{ color: T3, fontSize: 13, maxWidth: 320 }}>
+          {tt('Votre agence a été désactivée. Contactez le support Yuno pour en savoir plus.',
+              'Your agency has been deactivated. Contact Yuno support to learn more.')}
+        </p>
+        <PromoButton
+          variant="secondary"
+          onClick={async () => { await supabase.auth.signOut(); navigate('/auth'); }}
+        >
+          <LogOut className="h-4 w-4" /> {tt('Se déconnecter', 'Sign out')}
+        </PromoButton>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen" style={{ background: '#000' }}>
       <header
@@ -200,6 +223,20 @@ export default function AgencyAppLayout() {
             }}
           >
             <Settings className="h-4 w-4" />
+          </button>
+          <button
+            onClick={async () => { await supabase.auth.signOut(); navigate('/auth'); }}
+            title={tt('Se déconnecter', 'Sign out')}
+            style={{
+              color: T3,
+              padding: 6,
+              borderRadius: 8,
+              background: 'transparent',
+              border: '1px solid transparent',
+              cursor: 'pointer',
+            }}
+          >
+            <LogOut className="h-4 w-4" />
           </button>
         </div>
         <nav className="mx-auto flex items-center gap-1 px-3 overflow-x-auto"
