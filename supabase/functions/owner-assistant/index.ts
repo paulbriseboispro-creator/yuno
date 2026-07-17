@@ -144,9 +144,9 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "promoters": {
     title: "Système de promoteurs",
-    keywords: ["promoteur", "promoter", "affiliation", "commission", "lien"],
+    keywords: ["promoteur", "promoter", "affiliation", "commission", "lien", "remboursement", "bonus"],
     path: "/owner/promoters",
-    snippet: "Les promoteurs ont un lien de parrainage unique. Ils gagnent une commission par ticket ou table vendue. Configure les taux de commission par type, avec des fenêtres horaires de validité au scan.",
+    snippet: "Les promoteurs ont un lien de parrainage unique. Ils gagnent une commission par ticket ou table vendue. Configure les taux par type via les modèles de commission : taux fixes ou en pourcentage, paliers de ventes, bonus au franchissement d'un seuil, fenêtres horaires de validité au scan. Un remboursement annule automatiquement la commission en attente liée à la vente.",
   },
   "menu": {
     title: "Gestion de la carte",
