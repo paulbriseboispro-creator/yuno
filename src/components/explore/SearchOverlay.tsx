@@ -380,9 +380,13 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
       }
 
       // ── Clubs + DJs + Orgs ───────────────────────────────────
+      // NB : `venues` n'a pas de colonne `slug` — l'id texte EST le slug public
+      // (ex. « womber »), cf. la route /club/:slug qui résout via .eq('id', slug).
+      // Sélectionner `slug` ici faisait échouer TOUTE la requête (42703) : plus
+      // aucun club ne remontait dans la recherche.
       let venuesQuery = supabase
         .from('venues')
-        .select('id, name, logo_url, city, slug')
+        .select('id, name, logo_url, city')
         .eq('is_hidden', false);
       if (hasText) {
         venuesQuery = venuesQuery.or(`name.ilike.${searchTerm},city.ilike.${searchTerm}`);
@@ -458,13 +462,13 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
 
       // Venue names for regular events
       const venueIds = [...new Set(uniqueRawEvents.map((e: any) => e.venue_id))];
-      let venueMap: Record<string, { name: string; slug?: string }> = {};
+      let venueMap: Record<string, { name: string }> = {};
       if (venueIds.length > 0) {
         const { data: vd } = await supabase
           .from('venues')
-          .select('id, name, slug')
+          .select('id, name')
           .in('id', venueIds);
-        venueMap = Object.fromEntries((vd || []).map((v: any) => [v.id, { name: v.name, slug: v.slug }]));
+        venueMap = Object.fromEntries((vd || []).map((v: any) => [v.id, { name: v.name }]));
       }
 
       // Venue names for affiliate events
@@ -515,7 +519,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
         poster_url: e.poster_url,
         start_at: e.start_at,
         venue_name: venueMap[e.venue_id]?.name || '',
-        venue_slug: venueMap[e.venue_id]?.slug || e.venue_id,
+        venue_slug: e.venue_id,
         interested: favCounts[e.id] || 0,
         music_genres: e.music_genres,
         isAffiliate: false,
@@ -563,7 +567,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
             id: v.id,
             name: v.name,
             logo_url: v.logo_url || null,
-            slug: v.slug || null,
+            slug: null, // l'id fait office de slug pour un club Yuno
             city: v.city || null,
             followers: clubFollowers[v.id] || 0,
             isAffiliate: false,
@@ -644,9 +648,9 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
 
         const venueIds = [...new Set(evs.map(e => e.venue_id).filter(Boolean))] as string[];
         const { data: vens } = venueIds.length
-          ? await supabase.from('venues').select('id, name, slug').in('id', venueIds)
+          ? await supabase.from('venues').select('id, name').in('id', venueIds)
           : { data: [] };
-        const vmap = new Map((vens || []).map((v: { id: string; name: string; slug: string | null }) => [v.id, v]));
+        const vmap = new Map((vens || []).map((v: { id: string; name: string }) => [v.id, v]));
 
         // On respecte l'ordre de pertinence renvoyé par la RPC.
         const byId = new Map(evs.map(e => [e.id, e]));
@@ -659,7 +663,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
             poster_url: e!.poster_url,
             start_at: e!.start_at,
             venue_name: (e!.venue_id && vmap.get(e!.venue_id)?.name) || '',
-            venue_slug: (e!.venue_id && vmap.get(e!.venue_id)?.slug) || e!.venue_id || '',
+            venue_slug: e!.venue_id || '',
             interested: 0,
             music_genres: e!.music_genres,
             isAffiliate: false,

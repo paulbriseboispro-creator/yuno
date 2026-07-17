@@ -28,10 +28,12 @@ export default function VenueLeaderboard() {
     queryKey: ['venue-by-slug', slug],
     queryFn: async () => {
       if (!slug) return null;
+      // `venues` n'a pas de colonne `slug` : l'id texte EST le slug de l'URL
+      // (/club/:slug), comme dans VenuePage. Filtrer sur `slug` échouait (42703).
       const { data } = await (supabase as any)
         .from('venues')
         .select('id, name, logo_url')
-        .eq('slug', slug)
+        .eq('id', slug)
         .maybeSingle();
       return data;
     },
