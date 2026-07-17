@@ -10,9 +10,8 @@ Contraintes Apple (eventTicket) qui pilotent les choix ci-dessous :
                  conserve sa hauteur, donc son air) mais on n'y dessine le
                  wordmark qu'à ~72pt de large, calé à gauche et centré
                  verticalement. Le reste est transparent.
-  - background : 180x220pt, étiré plein cadre par Wallet. Le QR blanc est posé
-                 par iOS dans le tiers bas → le dégradé doit y revenir au noir,
-                 sinon la carte blanche flotte sur du rouge saturé.
+  - background : 180x220pt, étiré plein cadre par Wallet (qui pose le QR blanc
+                 dans le tiers bas, sur le rouge plein du bas de rampe).
 
 Le wordmark n'est pas re-dessiné : on réutilise les glyphes déjà embarqués
 (LOGO3X), simplement remis à l'échelle. Aucune police requise.
@@ -25,7 +24,7 @@ import re
 import textwrap
 from pathlib import Path
 
-from PIL import Image, ImageFilter
+from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS_TS = ROOT / "supabase/functions/_shared/wallet/assets.ts"
@@ -37,18 +36,16 @@ LOGO_INSET_X = 3      # marge gauche, en points
 
 # --- Fond -------------------------------------------------------------------
 BG_BOX = (180, 220)   # cadre Apple, en points
-# Rampe verticale : noir en haut (header), halo rouge profond derrière les
-# champs, retour au noir en bas pour que le QR se pose sur du sombre.
+# Rampe verticale noir -> rouge de marque, choisie par Paul : le pass s'embrase
+# vers le bas et le QR se détache en blanc sur le rouge plein. Paliers linéaires,
+# pas de vignette — c'est la reprise exacte du dégradé d'origine.
 BG_STOPS = [
-    (0.00, (0x0A, 0x0A, 0x0C)),
-    (0.22, (0x18, 0x06, 0x0A)),
-    (0.42, (0x4E, 0x0C, 0x17)),
-    (0.56, (0x8E, 0x12, 0x21)),  # coeur du halo
-    (0.68, (0x5A, 0x0C, 0x16)),
-    (0.82, (0x1C, 0x07, 0x0C)),
-    (1.00, (0x0A, 0x0A, 0x0C)),
+    (0.00, (16, 3, 9)),
+    (0.30, (38, 7, 16)),
+    (0.60, (118, 14, 29)),
+    (0.80, (182, 19, 37)),
+    (1.00, (232, 25, 44)),
 ]
-BG_VIGNETTE = 0.55    # force de l'assombrissement des bords (0 = aucun)
 
 
 def _read_const(src: str, name: str) -> bytes:
@@ -74,7 +71,7 @@ def build_logo(mark: Image.Image, scale: int) -> Image.Image:
 def build_background(scale: int) -> Image.Image:
     w, h = BG_BOX[0] * scale, BG_BOX[1] * scale
     img = Image.new("RGB", (w, h))
-    px = img.load()
+    d = ImageDraw.Draw(img)
 
     for y in range(h):
         t = y / (h - 1)
@@ -83,19 +80,10 @@ def build_background(scale: int) -> Image.Image:
             t1, c1 = BG_STOPS[i + 1]
             if t <= t1 or i == len(BG_STOPS) - 2:
                 k = 0.0 if t1 == t0 else min(max((t - t0) / (t1 - t0), 0.0), 1.0)
-                k = k * k * (3 - 2 * k)  # smoothstep : pas de bande visible
-                row = tuple(round(c0[j] + (c1[j] - c0[j]) * k) for j in range(3))
+                d.line([(0, y), (w, y)],
+                       fill=tuple(round(c0[j] + (c1[j] - c0[j]) * k) for j in range(3)))
                 break
-        cx = (w - 1) / 2
-        for x in range(w):
-            # Vignette horizontale douce : les bords plongent vers le noir.
-            d = abs(x - cx) / cx
-            f = 1.0 - BG_VIGNETTE * (d ** 2.2)
-            px[x, y] = tuple(round(c * f) for c in row)
-
-    # Wallet floute déjà le fond ; on lisse en amont pour éviter tout banding
-    # résiduel une fois l'image étirée sur toute la hauteur du pass.
-    return img.filter(ImageFilter.GaussianBlur(radius=1.2 * scale))
+    return img
 
 
 def to_b64_literal(img: Image.Image, name: str) -> str:

@@ -203,6 +203,9 @@ export async function buildTicketPass(
       primaryFields: [{ key: 'event', value: event.title }],
       // Deux colonnes courtes : date et heure séparées, chacune tient sans
       // troncature là où « 2 juin 2026 à 11:00 » écrasait le nom du club.
+      // `textAlignment` sur la colonne de droite : sans lui, Wallet cale le
+      // bloc à droite mais le TEXTE à gauche dans le bloc — d'où le « 1 » qui
+      // flottait sous « PLACES » au lieu de s'aligner sur le bord du pass.
       secondaryFields: [
         { key: 'venue', label: wl(lang, 'venue'), value: venueName },
         ...(event.start_at
@@ -212,6 +215,7 @@ export async function buildTicketPass(
               value: event.start_at,
               dateStyle: 'PKDateStyleMedium',
               timeStyle: 'PKDateStyleNone',
+              textAlignment: 'PKTextAlignmentRight',
             }]
           : []),
       ],
@@ -225,7 +229,12 @@ export async function buildTicketPass(
               timeStyle: 'PKDateStyleShort',
             }]
           : []),
-        { key: 'qty', label: wl(lang, 'persons'), value: String(ticket.quantity || 1) },
+        {
+          key: 'qty',
+          label: wl(lang, 'persons'),
+          value: String(ticket.quantity || 1),
+          textAlignment: 'PKTextAlignmentRight',
+        },
       ],
       // Le genre musical descend au dos : c'est du contexte, pas de
       // l'information de porte. La face avant garde trois lignes, pas quatre.
@@ -322,6 +331,7 @@ export async function buildVipPass(
               value: event.start_at,
               dateStyle: 'PKDateStyleMedium',
               timeStyle: 'PKDateStyleNone',
+              textAlignment: 'PKTextAlignmentRight',
             }]
           : []),
       ],
@@ -335,7 +345,12 @@ export async function buildVipPass(
               timeStyle: 'PKDateStyleShort',
             }]
           : []),
-        { key: 'guests', label: wl(lang, 'guests'), value: String(resa.guest_count || 1) },
+        {
+          key: 'guests',
+          label: wl(lang, 'guests'),
+          value: String(resa.guest_count || 1),
+          textAlignment: 'PKTextAlignmentRight',
+        },
       ],
       backFields: [
         { key: 'ref', label: wl(lang, 'reference'), value: reference },
