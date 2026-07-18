@@ -44,7 +44,6 @@ export function RequireRole({ children, allowedRoles }: RequireRoleProps) {
   const { user, loading, roles } = useAuth();
   const location = useLocation();
   const [authChecked, setAuthChecked] = useState(false);
-  const [hasValidStaffSession, setHasValidStaffSession] = useState(false);
   // Suspension : optimiste — on ne redirige que sur un `true` confirmé, jamais
   // sur une lecture lente/échouée (évite de verrouiller un compte légitime).
   const [suspended, setSuspended] = useState(false);
@@ -58,25 +57,19 @@ export function RequireRole({ children, allowedRoles }: RequireRoleProps) {
   }, [user]);
 
   useEffect(() => {
-    // Staff session is only valid if user is authenticated (PIN login creates Supabase session)
+    // Ménage de la session PIN expirée (écrite dans localStorage par
+    // RequireStaffSession). Ce garde-ci ne s'appuie PAS dessus pour autoriser :
+    // le blob est modifiable côté client, seul le rôle en base fait foi.
+    // La vérification du PIN elle-même vit dans RequireStaffSession.
     if (user) {
-      const staffSessionStr = sessionStorage.getItem('staffSession');
+      const staffSessionStr = localStorage.getItem('staffSession');
       if (staffSessionStr) {
         try {
-          const staffSession = JSON.parse(staffSessionStr);
-          // Validate: not expired AND role matches allowed roles
-          if (staffSession.expiresAt > Date.now()) {
-            const staffRoleAllowed = allowedRoles.includes(staffSession.role as Role);
-            const isOwnerAllowed = allowedRoles.includes('owner') && staffSession.role === 'owner';
-            if (staffRoleAllowed || isOwnerAllowed) {
-              setHasValidStaffSession(true);
-            }
-          } else {
-            // Session expired, clean it up
-            sessionStorage.removeItem('staffSession');
+          if (JSON.parse(staffSessionStr).expiresAt <= Date.now()) {
+            localStorage.removeItem('staffSession');
           }
         } catch {
-          sessionStorage.removeItem('staffSession');
+          localStorage.removeItem('staffSession');
         }
       }
     }
@@ -86,7 +79,7 @@ export function RequireRole({ children, allowedRoles }: RequireRoleProps) {
       const timer = setTimeout(() => setAuthChecked(true), 100);
       return () => clearTimeout(timer);
     }
-  }, [loading, allowedRoles, user]);
+  }, [loading, user]);
 
   if (loading || !authChecked) {
     return (
@@ -104,11 +97,6 @@ export function RequireRole({ children, allowedRoles }: RequireRoleProps) {
     return <Navigate to="/account-suspended" replace />;
   }
 
-  // If valid staff session exists (user is authenticated via PIN + Supabase), allow access
-  if (hasValidStaffSession) {
-    return <>{children}</>;
-  }
-
   const hasAllowedRole = allowedRoles.some(role => roles.includes(role));
 
   if (!hasAllowedRole) {
@@ -118,7 +106,9 @@ export function RequireRole({ children, allowedRoles }: RequireRoleProps) {
         <RoleGateSkeleton />
       );
     }
-    
+
+    // Rôles chargés et aucun ne correspond : la session PIN ne rattrape rien.
+    // Un employé licencié garde son blob 24 h après la révocation de son rôle.
     return <Navigate to="/" replace />;
   }
 

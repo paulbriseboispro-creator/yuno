@@ -156,6 +156,22 @@ export function hasValidStaffSession(allowedRoles?: string[]): boolean {
   }
 }
 
+/**
+ * Club rattaché à la session PIN en cours, si elle est encore valide.
+ * Repli pour les écrans qui ont besoin du venue avant que `profiles` réponde.
+ */
+export function readStaffSessionVenueId(): string | null {
+  try {
+    const sessionStr = localStorage.getItem(STAFF_SESSION_KEY);
+    if (!sessionStr) return null;
+    const session = JSON.parse(sessionStr);
+    if (session.expiresAt <= Date.now()) return null;
+    return session.venueId ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // Helper function to store staff session after PIN verification
 export function storeStaffSession(venueId: string, role: string): void {
   const expiresAt = Date.now() + STAFF_SESSION_DURATION;
