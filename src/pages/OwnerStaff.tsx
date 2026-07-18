@@ -130,13 +130,26 @@ export default function OwnerStaff() {
         currentVenueId = ownerProfile.venue_id;
       }
       setVenueId(currentVenueId);
-      const { data: employeeRoles } = await supabase.from('user_roles').select('user_id, role').in('role', ['barman','bouncer','manager','vip_host','cloakroom']);
+      // On part des profils rattachés à CE club, puis on va chercher leurs rôles.
+      // L'ordre inverse (tous les user_roles de la plateforme, puis filtre par
+      // venue) ramenait une liste non bornée qui grossit avec chaque club client.
+      const { data, error } = await supabase.from('profiles').select('*').eq('venue_id', currentVenueId);
+      if (error) throw error;
+      const venueUserIds = (data || []).map(p => p.id);
+
+      const { data: employeeRoles } = venueUserIds.length
+        ? await supabase.from('user_roles').select('user_id, role')
+            .in('user_id', venueUserIds)
+            .in('role', ['barman','bouncer','manager','vip_host','cloakroom'])
+        : { data: [] as { user_id: string; role: string }[] };
+
       if (employeeRoles) {
-        const employeeIds = [...new Set(employeeRoles.map(r => r.user_id))];
-        const { data, error } = await supabase.from('profiles').select('*').in('id', employeeIds).eq('venue_id', currentVenueId);
-        if (error) throw error;
+        const staffIds = new Set(employeeRoles.map(r => r.user_id));
+        // `profiles.venue_id` est aussi porté par des non-staff (clients rattachés) :
+        // on ne garde que les profils qui ont réellement un poste.
+        const staffProfiles = (data || []).filter(p => staffIds.has(p.id));
         const { data: permissions } = await supabase.from('manager_permissions').select('*').eq('venue_id', currentVenueId);
-        const employeesWithRoles = (data || []).map(emp => {
+        const employeesWithRoles = staffProfiles.map(emp => {
           const userRoles = employeeRoles.filter(r => r.user_id === emp.id).map(r => r.role as EmployeeRole);
           const managerPerms = permissions?.find(p => p.user_id === emp.id);
           return {

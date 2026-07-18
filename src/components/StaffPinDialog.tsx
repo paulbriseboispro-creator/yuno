@@ -22,12 +22,15 @@ export function StaffPinDialog({ open, onVerified, onCancel, venueId, allowedRol
   const [shake, setShake] = useState(false);
   const pinLength = 6;
 
+  // Chaque poste a son libellé traduit. 'cloakroom' manquait (il retombait sur
+  // « Staff ») et 'vip_host' était codé en dur en anglais.
   const getRoleLabel = () => {
-    if (allowedRoles.includes('barman')) return t('staff.barman') || 'Barman';
-    if (allowedRoles.includes('bouncer')) return t('staff.bouncer') || 'Videur';
-    if (allowedRoles.includes('manager')) return t('staff.manager') || 'Manager';
-    if (allowedRoles.includes('vip_host')) return 'VIP Host';
-    return 'Staff';
+    if (allowedRoles.includes('barman')) return t('staffid.role.barman');
+    if (allowedRoles.includes('bouncer')) return t('staffid.role.bouncer');
+    if (allowedRoles.includes('cloakroom')) return t('staffid.role.cloakroom');
+    if (allowedRoles.includes('vip_host')) return t('staffid.role.vipHost');
+    if (allowedRoles.includes('manager')) return t('staffid.role.manager');
+    return t('staffid.role.generic');
   };
 
   useEffect(() => {

@@ -10,12 +10,14 @@ import { CheckCircle2, XCircle, Loader2, LogIn, Mail, UserPlus } from 'lucide-re
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-const ROLE_LABELS: Record<string, string> = {
-  barman: 'Barman',
-  bouncer: 'Videur',
-  cloakroom: 'Vestiaire',
-  vip_host: 'VIP Host',
-  manager: 'Manager',
+// Libellés de poste : la page était figée en français alors qu'une invitation
+// part vers n'importe quel pays. Les clés vivent avec le reste de l'identité staff.
+const ROLE_LABEL_KEYS: Record<string, string> = {
+  barman: 'staffid.role.barman',
+  bouncer: 'staffid.role.bouncer',
+  cloakroom: 'staffid.role.cloakroom',
+  vip_host: 'staffid.role.vipHost',
+  manager: 'staffid.role.manager',
 };
 
 /**
@@ -151,7 +153,9 @@ export default function AcceptStaffInvitation() {
     }
   }, [user, authLoading, token, result, checkingInvitation, invitationData]);
 
-  const roleLabel = invitationData ? (ROLE_LABELS[invitationData.role] || invitationData.role) : '';
+  const roleLabel = invitationData
+    ? (ROLE_LABEL_KEYS[invitationData.role] ? t(ROLE_LABEL_KEYS[invitationData.role]) : invitationData.role)
+    : '';
 
   if (authLoading || checkingInvitation) {
     return (
