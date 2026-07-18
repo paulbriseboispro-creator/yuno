@@ -126,7 +126,7 @@ export function LiveBottleSection() {
             <div
               key={bottle.id}
               className="flex flex-col overflow-hidden"
-              style={{ background: '#141414', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10 }}
+              style={{ background: '#000', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10 }}
             >
               {/* Cadre 3:4, bouteille toujours en object-contain (jamais crop) */}
               <div

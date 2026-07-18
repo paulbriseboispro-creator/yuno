@@ -37,7 +37,7 @@ function LiveDrinkCardBase({ drink, isFavorite, paying, onAdd, onPay }: Props) {
     <div
       className={`flex flex-col overflow-hidden ${isOut ? 'pointer-events-none opacity-50 grayscale relative' : ''}`}
       style={{
-        background: '#141414',
+        background: '#000',
         // Favori : liseré rouge discret (renforce « en tête = ton goût »).
         border: isFavorite ? '1px solid rgba(232,25,44,0.45)' : '1px solid rgba(255,255,255,0.08)',
         borderRadius: 10,
