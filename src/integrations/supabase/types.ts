@@ -284,6 +284,7 @@ export type Database = {
           name: string
           price_from: number | null
           recurring_template_id: string | null
+          search_name: string | null
           slug: string
           start_time: string | null
           status: string
@@ -307,6 +308,7 @@ export type Database = {
           name: string
           price_from?: number | null
           recurring_template_id?: string | null
+          search_name?: string | null
           slug: string
           start_time?: string | null
           status?: string
@@ -330,6 +332,7 @@ export type Database = {
           name?: string
           price_from?: number | null
           recurring_template_id?: string | null
+          search_name?: string | null
           slug?: string
           start_time?: string | null
           status?: string
@@ -766,6 +769,8 @@ export type Database = {
           min_age: number | null
           name: string
           neighborhood: string | null
+          search_city: string | null
+          search_name: string | null
           short_description: string | null
           slug: string
           sort_order: number
@@ -793,6 +798,8 @@ export type Database = {
           min_age?: number | null
           name: string
           neighborhood?: string | null
+          search_city?: string | null
+          search_name?: string | null
           short_description?: string | null
           slug: string
           sort_order?: number
@@ -820,6 +827,8 @@ export type Database = {
           min_age?: number | null
           name?: string
           neighborhood?: string | null
+          search_city?: string | null
+          search_name?: string | null
           short_description?: string | null
           slug?: string
           sort_order?: number
@@ -1775,6 +1784,7 @@ export type Database = {
           processed_by: string | null
           retrieved: boolean
           retrieved_at: string | null
+          retrieved_by: string | null
           staff_id: string | null
           ticket_id: string | null
           venue_id: string
@@ -1794,6 +1804,7 @@ export type Database = {
           processed_by?: string | null
           retrieved?: boolean
           retrieved_at?: string | null
+          retrieved_by?: string | null
           staff_id?: string | null
           ticket_id?: string | null
           venue_id: string
@@ -1813,6 +1824,7 @@ export type Database = {
           processed_by?: string | null
           retrieved?: boolean
           retrieved_at?: string | null
+          retrieved_by?: string | null
           staff_id?: string | null
           ticket_id?: string | null
           venue_id?: string
@@ -3364,6 +3376,9 @@ export type Database = {
           organizer_user_id: string | null
           pending_amount: number | null
           profile_image_url: string | null
+          search_first_name: string | null
+          search_last_name: string | null
+          search_stage_name: string | null
           slug: string | null
           soundcloud_url: string | null
           spotify_url: string | null
@@ -3397,6 +3412,9 @@ export type Database = {
           organizer_user_id?: string | null
           pending_amount?: number | null
           profile_image_url?: string | null
+          search_first_name?: string | null
+          search_last_name?: string | null
+          search_stage_name?: string | null
           slug?: string | null
           soundcloud_url?: string | null
           spotify_url?: string | null
@@ -3430,6 +3448,9 @@ export type Database = {
           organizer_user_id?: string | null
           pending_amount?: number | null
           profile_image_url?: string | null
+          search_first_name?: string | null
+          search_last_name?: string | null
+          search_stage_name?: string | null
           slug?: string | null
           soundcloud_url?: string | null
           spotify_url?: string | null
@@ -4795,6 +4816,7 @@ export type Database = {
           revenue_split_rules: Json | null
           rounds_visibility: string | null
           sale_password_enabled: boolean
+          search_title: string | null
           slug: string | null
           split_approved_by_organizer: boolean
           split_approved_by_venue: boolean
@@ -4860,6 +4882,7 @@ export type Database = {
           revenue_split_rules?: Json | null
           rounds_visibility?: string | null
           sale_password_enabled?: boolean
+          search_title?: string | null
           slug?: string | null
           split_approved_by_organizer?: boolean
           split_approved_by_venue?: boolean
@@ -4925,6 +4948,7 @@ export type Database = {
           revenue_split_rules?: Json | null
           rounds_visibility?: string | null
           sale_password_enabled?: boolean
+          search_title?: string | null
           slug?: string | null
           split_approved_by_organizer?: boolean
           split_approved_by_venue?: boolean
@@ -5257,6 +5281,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      guest_list_signup_throttle: {
+        Row: {
+          attempts: number
+          guest_list_id: string
+          ip_hash: string
+          window_start: string
+        }
+        Insert: {
+          attempts?: number
+          guest_list_id: string
+          ip_hash: string
+          window_start?: string
+        }
+        Update: {
+          attempts?: number
+          guest_list_id?: string
+          ip_hash?: string
+          window_start?: string
+        }
+        Relationships: []
       }
       guest_list_templates: {
         Row: {
@@ -6786,6 +6831,7 @@ export type Database = {
           refunded_by: string | null
           selected_bar: string | null
           served_at: string | null
+          served_by: string | null
           service_fee: number | null
           status: string
           stripe_connected_account_id: string | null
@@ -6833,6 +6879,7 @@ export type Database = {
           refunded_by?: string | null
           selected_bar?: string | null
           served_at?: string | null
+          served_by?: string | null
           service_fee?: number | null
           status: string
           stripe_connected_account_id?: string | null
@@ -6880,6 +6927,7 @@ export type Database = {
           refunded_by?: string | null
           selected_bar?: string | null
           served_at?: string | null
+          served_by?: string | null
           service_fee?: number | null
           status?: string
           stripe_connected_account_id?: string | null
@@ -7374,6 +7422,7 @@ export type Database = {
           minor_auth_doc_name: string | null
           minor_auth_doc_url: string | null
           minors_allowed: boolean
+          search_display_name: string | null
           siret: string | null
           slug: string | null
           updated_at: string
@@ -7401,6 +7450,7 @@ export type Database = {
           minor_auth_doc_name?: string | null
           minor_auth_doc_url?: string | null
           minors_allowed?: boolean
+          search_display_name?: string | null
           siret?: string | null
           slug?: string | null
           updated_at?: string
@@ -7428,6 +7478,7 @@ export type Database = {
           minor_auth_doc_name?: string | null
           minor_auth_doc_url?: string | null
           minors_allowed?: boolean
+          search_display_name?: string | null
           siret?: string | null
           slug?: string | null
           updated_at?: string
@@ -7773,6 +7824,12 @@ export type Database = {
           preferred_language: string | null
           profile_type: Database["public"]["Enums"]["profile_type"]
           push_token: string | null
+          staff_accent: string | null
+          staff_avatar_url: string | null
+          staff_display_name: string | null
+          staff_emoji: string | null
+          staff_since: string | null
+          staff_title: string | null
           stripe_connect_account_id: string | null
           stripe_connect_charges_enabled: boolean
           stripe_connect_onboarded_at: string | null
@@ -7815,6 +7872,12 @@ export type Database = {
           preferred_language?: string | null
           profile_type?: Database["public"]["Enums"]["profile_type"]
           push_token?: string | null
+          staff_accent?: string | null
+          staff_avatar_url?: string | null
+          staff_display_name?: string | null
+          staff_emoji?: string | null
+          staff_since?: string | null
+          staff_title?: string | null
           stripe_connect_account_id?: string | null
           stripe_connect_charges_enabled?: boolean
           stripe_connect_onboarded_at?: string | null
@@ -7857,6 +7920,12 @@ export type Database = {
           preferred_language?: string | null
           profile_type?: Database["public"]["Enums"]["profile_type"]
           push_token?: string | null
+          staff_accent?: string | null
+          staff_avatar_url?: string | null
+          staff_display_name?: string | null
+          staff_emoji?: string | null
+          staff_since?: string | null
+          staff_title?: string | null
           stripe_connect_account_id?: string | null
           stripe_connect_charges_enabled?: boolean
           stripe_connect_onboarded_at?: string | null
@@ -11872,6 +11941,8 @@ export type Database = {
           name: string
           owner_id: string | null
           post_checkout_upsell_enabled: boolean
+          search_city: string | null
+          search_name: string | null
           short_description: string | null
           siret: string | null
           solo_bottle_sale_enabled: boolean
@@ -11926,6 +11997,8 @@ export type Database = {
           name: string
           owner_id?: string | null
           post_checkout_upsell_enabled?: boolean
+          search_city?: string | null
+          search_name?: string | null
           short_description?: string | null
           siret?: string | null
           solo_bottle_sale_enabled?: boolean
@@ -11980,6 +12053,8 @@ export type Database = {
           name?: string
           owner_id?: string | null
           post_checkout_upsell_enabled?: boolean
+          search_city?: string | null
+          search_name?: string | null
           short_description?: string | null
           siret?: string | null
           solo_bottle_sale_enabled?: boolean
@@ -13030,6 +13105,9 @@ export type Database = {
           last_name: string | null
           music_genres: string[] | null
           profile_image_url: string | null
+          search_first_name: string | null
+          search_last_name: string | null
+          search_stage_name: string | null
           slug: string | null
           soundcloud_url: string | null
           spotify_url: string | null
@@ -13321,6 +13399,10 @@ export type Database = {
         Args: { p_id: string; p_note?: string }
         Returns: string
       }
+      accept_organizer_claim_invitation: {
+        Args: { p_token: string }
+        Returns: Json
+      }
       add_sms_credits: {
         Args: {
           p_amount: number
@@ -13441,6 +13523,15 @@ export type Database = {
         Returns: number
       }
       backfill_missing_invoices: { Args: never; Returns: number }
+      bump_guest_signup_throttle: {
+        Args: {
+          _guest_list_id: string
+          _ip_hash: string
+          _max: number
+          _window_seconds: number
+        }
+        Returns: boolean
+      }
       calculate_client_scores: {
         Args: { p_venue_id: string }
         Returns: undefined
@@ -13639,6 +13730,10 @@ export type Database = {
       current_affiliate_id: { Args: never; Returns: string }
       decline_dj_booking_request: {
         Args: { p_id: string; p_note?: string }
+        Returns: undefined
+      }
+      decline_organizer_claim_invitation: {
+        Args: { p_token: string }
         Returns: undefined
       }
       decrement_balance: {
@@ -14034,6 +14129,10 @@ export type Database = {
         Returns: string
       }
       get_org_staff_organizer: { Args: { _user_id: string }; Returns: string }
+      get_organizer_claim_invitation: {
+        Args: { p_token: string }
+        Returns: Json
+      }
       get_organizer_customer_segments: {
         Args: { p_organizer_user_id: string }
         Returns: {
@@ -14115,6 +14214,7 @@ export type Database = {
         Args: { _reservation_id: string }
         Returns: string
       }
+      get_staff_self_stats: { Args: { p_days?: number }; Returns: Json }
       get_tracked_link_stats: {
         Args: {
           p_dj_id?: string
@@ -14190,6 +14290,20 @@ export type Database = {
           visits_per_month: number
         }[]
       }
+      get_venue_staff_team: {
+        Args: never
+        Returns: {
+          accent: string
+          avatar_url: string
+          display_name: string
+          emoji: string
+          is_me: boolean
+          roles: string[]
+          staff_since: string
+          title: string
+          user_id: string
+        }[]
+      }
       get_venue_user_ids: { Args: { _venue_id: string }; Returns: string[] }
       get_vip_consumption_analytics: {
         Args: {
@@ -14258,6 +14372,10 @@ export type Database = {
       }
       is_account_suspended: { Args: { _user_id: string }; Returns: boolean }
       is_active_affiliate: { Args: never; Returns: boolean }
+      is_affiliate_manager: {
+        Args: { _affiliate_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_agency_owner: {
         Args: { _agency_id: string; _user_id: string }
         Returns: boolean
@@ -14553,6 +14671,10 @@ export type Database = {
         Args: { p_approve: boolean; p_request_id: string }
         Returns: string
       }
+      review_member_linktree: {
+        Args: { p_member_id: string; p_status: string }
+        Returns: string
+      }
       search_djs_marketplace: {
         Args: {
           p_available_on?: string
@@ -14599,6 +14721,7 @@ export type Database = {
           similarity: number
         }[]
       }
+      search_norm: { Args: { p_text: string }; Returns: string }
       search_organizers: {
         Args: { search_term: string }
         Returns: {
