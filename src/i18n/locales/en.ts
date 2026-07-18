@@ -11232,6 +11232,60 @@ const en: Record<string, string> = {
   'vipnight.error': 'Action failed',
   'vipnight.offlineBlocked': 'Reconnecting…',
 
+
+  // ─── Identité staff (header pro, PIN, invitations) ───────────────────────
+  'staffid.role.barman': 'Bartender',
+  'staffid.role.bouncer': 'Door staff',
+  'staffid.role.cloakroom': 'Cloakroom',
+  'staffid.role.vipHost': 'VIP host',
+  'staffid.role.manager': 'Manager',
+  'staffid.role.generic': 'Staff',
+  'staffid.greet.morning': 'Morning',
+  'staffid.greet.afternoon': 'Hi',
+  'staffid.greet.evening': 'Evening',
+  'staffid.openAccount': 'Open my account',
+
+  // ─── Compte staff (/staff/me) ────────────────────────────────────────────
+  'staffme.title': 'My account',
+  'staffme.noName': 'Add your name',
+  'staffme.you': 'you',
+  'staffme.save': 'Save',
+  'staffme.saved': 'Saved',
+  'staffme.saveError': 'Could not save. Try again.',
+  'staffme.memberSince': 'On the team since {date}',
+  'staffme.changePhoto': 'Change photo',
+  'staffme.removePhoto': 'Remove photo',
+  'staffme.photoSaved': 'Photo updated',
+  'staffme.photoError': 'Photo upload failed',
+  'staffme.section.identity': 'How you show up',
+  'staffme.section.stats': 'My numbers',
+  'staffme.section.team': 'The team',
+  'staffme.section.account': 'Account',
+  'staffme.field.name': 'Name on screen',
+  'staffme.field.namePlaceholder': 'Your name',
+  'staffme.field.nameHint': 'What your team and your screens call you. Leave empty to use your first name.',
+  'staffme.field.title': 'Job title',
+  'staffme.field.titleHint': 'Optional. "Head bartender", "Door lead"... Leave empty to keep your role name.',
+  'staffme.field.emoji': 'Your emoji',
+  'staffme.field.accent': 'Your colour',
+  'staffme.emojiNone': 'Use my initials',
+  'staffme.stat.scans': 'Scans',
+  'staffme.stat.orders': 'Drinks served',
+  'staffme.stat.cloakroom': 'Items checked in',
+  'staffme.stat.vip': 'VIP items served',
+  'staffme.stat.tonight': 'tonight',
+  'staffme.stat.over30d': 'over 30 days',
+  'staffme.stat.nights': 'Nights worked (30 days)',
+  'staffme.stat.upsell': 'Upsell generated (30 days)',
+  'staffme.changePin': 'Change my PIN',
+  'staffme.logout': 'Log out',
+
+
+  'ohelp.pg.staff.s9h': 'Several people on the same role',
+  'ohelp.pg.staff.s9b': 'You can put as many people as you need on the same role: three bartenders, two door staff, a full cloakroom team. Each one keeps their own account, their own PIN and their own stats, so the live command center shows you who scanned what, who served what, and who is holding the cloakroom. One person can only belong to one club at a time.',
+  'ohelp.pg.staff.s10h': 'Their account belongs to them',
+  'ohelp.pg.staff.s10b': 'Every staff member taps their name at the top left of their screen to open "My account". There they pick the name shown on their screens, a custom job title ("Head bartender" instead of "Bartender"), an emoji, an accent colour that themes their whole interface, and a work photo. They also see their own numbers for the last 30 days and the rest of the team. Nothing to set up on your side, and nothing you need to approve.',
+
 };
 
 export default en;

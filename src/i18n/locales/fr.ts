@@ -11303,6 +11303,60 @@ const fr: Record<string, string> = {
   'vipnight.error': 'Action impossible',
   'vipnight.offlineBlocked': 'Reconnexion…',
 
+
+  // ─── Identité staff (header pro, PIN, invitations) ───────────────────────
+  'staffid.role.barman': 'Barman',
+  'staffid.role.bouncer': 'Videur',
+  'staffid.role.cloakroom': 'Vestiaire',
+  'staffid.role.vipHost': 'Hôte VIP',
+  'staffid.role.manager': 'Manager',
+  'staffid.role.generic': 'Staff',
+  'staffid.greet.morning': 'Bonjour',
+  'staffid.greet.afternoon': 'Salut',
+  'staffid.greet.evening': 'Bonsoir',
+  'staffid.openAccount': 'Ouvrir mon compte',
+
+  // ─── Compte staff (/staff/me) ────────────────────────────────────────────
+  'staffme.title': 'Mon compte',
+  'staffme.noName': 'Ajoute ton nom',
+  'staffme.you': 'toi',
+  'staffme.save': 'Enregistrer',
+  'staffme.saved': 'Enregistré',
+  'staffme.saveError': 'Enregistrement impossible. Réessaie.',
+  'staffme.memberSince': "Dans l'équipe depuis {date}",
+  'staffme.changePhoto': 'Changer la photo',
+  'staffme.removePhoto': 'Retirer la photo',
+  'staffme.photoSaved': 'Photo mise à jour',
+  'staffme.photoError': "L'envoi de la photo a échoué",
+  'staffme.section.identity': 'Comment tu apparais',
+  'staffme.section.stats': 'Mes chiffres',
+  'staffme.section.team': "L'équipe",
+  'staffme.section.account': 'Compte',
+  'staffme.field.name': "Nom à l'écran",
+  'staffme.field.namePlaceholder': 'Ton nom',
+  'staffme.field.nameHint': "Le nom que voient ton équipe et tes écrans. Vide = ton prénom.",
+  'staffme.field.title': 'Intitulé de poste',
+  'staffme.field.titleHint': 'Optionnel. « Chef de rang », « Responsable porte »... Vide = le nom de ton rôle.',
+  'staffme.field.emoji': 'Ton emoji',
+  'staffme.field.accent': 'Ta couleur',
+  'staffme.emojiNone': 'Utiliser mes initiales',
+  'staffme.stat.scans': 'Scans',
+  'staffme.stat.orders': 'Commandes servies',
+  'staffme.stat.cloakroom': 'Dépôts enregistrés',
+  'staffme.stat.vip': 'Consos VIP servies',
+  'staffme.stat.tonight': 'cette nuit',
+  'staffme.stat.over30d': 'sur 30 jours',
+  'staffme.stat.nights': 'Nuits travaillées (30 jours)',
+  'staffme.stat.upsell': 'Upsell généré (30 jours)',
+  'staffme.changePin': 'Changer mon code PIN',
+  'staffme.logout': 'Se déconnecter',
+
+
+  'ohelp.pg.staff.s9h': 'Plusieurs personnes sur le même rôle',
+  'ohelp.pg.staff.s9b': "Tu peux mettre autant de personnes que nécessaire sur le même rôle : trois barmans, deux videurs, une équipe complète au vestiaire. Chacun garde son compte, son PIN et ses propres statistiques — le centre de commandement live te montre donc qui a scanné quoi, qui a servi quoi, et qui tient le vestiaire. Une personne ne peut appartenir qu'à un seul club à la fois.",
+  'ohelp.pg.staff.s10h': "Leur compte leur appartient",
+  'ohelp.pg.staff.s10b': "Chaque membre du staff tape sur son nom en haut à gauche de son écran pour ouvrir « Mon compte ». Il y choisit le nom affiché sur ses écrans, un intitulé de poste personnalisé (« Chef de rang » plutôt que « Barman »), un emoji, une couleur d'accent qui colore toute son interface, et une photo de service. Il y voit aussi ses propres chiffres sur 30 jours et le reste de l'équipe. Rien à configurer de ton côté, rien à valider.",
+
 };
 
 export default fr;

@@ -11346,6 +11346,60 @@ const es: Record<string, string> = {
   'vipnight.error': 'Acción imposible',
   'vipnight.offlineBlocked': 'Reconectando…',
 
+
+  // ─── Identidad del staff (header pro, PIN, invitaciones) ─────────────────
+  'staffid.role.barman': 'Barman',
+  'staffid.role.bouncer': 'Portero',
+  'staffid.role.cloakroom': 'Guardarropa',
+  'staffid.role.vipHost': 'Anfitrión VIP',
+  'staffid.role.manager': 'Manager',
+  'staffid.role.generic': 'Staff',
+  'staffid.greet.morning': 'Buenos días',
+  'staffid.greet.afternoon': 'Hola',
+  'staffid.greet.evening': 'Buenas noches',
+  'staffid.openAccount': 'Abrir mi cuenta',
+
+  // ─── Cuenta del staff (/staff/me) ────────────────────────────────────────
+  'staffme.title': 'Mi cuenta',
+  'staffme.noName': 'Añade tu nombre',
+  'staffme.you': 'tú',
+  'staffme.save': 'Guardar',
+  'staffme.saved': 'Guardado',
+  'staffme.saveError': 'No se pudo guardar. Inténtalo de nuevo.',
+  'staffme.memberSince': 'En el equipo desde {date}',
+  'staffme.changePhoto': 'Cambiar la foto',
+  'staffme.removePhoto': 'Quitar la foto',
+  'staffme.photoSaved': 'Foto actualizada',
+  'staffme.photoError': 'No se pudo subir la foto',
+  'staffme.section.identity': 'Cómo apareces',
+  'staffme.section.stats': 'Mis números',
+  'staffme.section.team': 'El equipo',
+  'staffme.section.account': 'Cuenta',
+  'staffme.field.name': 'Nombre en pantalla',
+  'staffme.field.namePlaceholder': 'Tu nombre',
+  'staffme.field.nameHint': 'El nombre que ven tu equipo y tus pantallas. Vacío = tu nombre de pila.',
+  'staffme.field.title': 'Puesto',
+  'staffme.field.titleHint': 'Opcional. «Jefe de barra», «Responsable de puerta»... Vacío = el nombre de tu rol.',
+  'staffme.field.emoji': 'Tu emoji',
+  'staffme.field.accent': 'Tu color',
+  'staffme.emojiNone': 'Usar mis iniciales',
+  'staffme.stat.scans': 'Escaneos',
+  'staffme.stat.orders': 'Pedidos servidos',
+  'staffme.stat.cloakroom': 'Depósitos registrados',
+  'staffme.stat.vip': 'Consumos VIP servidos',
+  'staffme.stat.tonight': 'esta noche',
+  'staffme.stat.over30d': 'en 30 días',
+  'staffme.stat.nights': 'Noches trabajadas (30 días)',
+  'staffme.stat.upsell': 'Upsell generado (30 días)',
+  'staffme.changePin': 'Cambiar mi PIN',
+  'staffme.logout': 'Cerrar sesión',
+
+
+  'ohelp.pg.staff.s9h': 'Varias personas en el mismo rol',
+  'ohelp.pg.staff.s9b': 'Puedes poner tantas personas como necesites en el mismo rol: tres barmans, dos porteros, un equipo completo en el guardarropa. Cada uno mantiene su cuenta, su PIN y sus propias estadísticas, así que el centro de mando en directo te muestra quién escaneó qué, quién sirvió qué y quién lleva el guardarropa. Una persona solo puede pertenecer a un club a la vez.',
+  'ohelp.pg.staff.s10h': 'Su cuenta es suya',
+  'ohelp.pg.staff.s10b': 'Cada miembro del staff toca su nombre arriba a la izquierda para abrir «Mi cuenta». Allí elige el nombre que aparece en sus pantallas, un puesto personalizado («Jefe de barra» en vez de «Barman»), un emoji, un color de acento que tiñe toda su interfaz y una foto de servicio. También ve sus propios números de los últimos 30 días y al resto del equipo. Nada que configurar por tu parte, nada que validar.',
+
 };
 
 export default es;

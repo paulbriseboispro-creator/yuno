@@ -104,7 +104,13 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Rôles du staff",
     keywords: ["staff", "employé", "barman", "bouncer", "videur", "manager", "vestiaire", "cloakroom", "rôle", "PIN"],
     path: "/owner/staff",
-    snippet: "Rôles disponibles : Barman, Bouncer, VIP Host, Vestiaire (Cloakroom), Manager. Chaque employé a un PIN à 6 chiffres. L'employé doit déjà avoir un compte Yuno. Le Manager a des permissions granulaires configurables.",
+    snippet: "Rôles disponibles : Barman, Bouncer, VIP Host, Vestiaire (Cloakroom), Manager. Chaque employé a un PIN à 6 chiffres. L'employé doit déjà avoir un compte Yuno. Le Manager a des permissions granulaires configurables. Tu peux mettre autant de personnes que tu veux sur le même rôle (plusieurs barmans, plusieurs videurs) : chacun garde son compte, son PIN et ses propres statistiques. Une personne ne peut en revanche être rattachée qu'à un seul club à la fois.",
+  },
+  "staff-account": {
+    title: "Le compte personnel du staff",
+    keywords: ["compte staff", "profil staff", "mon compte", "personnalisation", "surnom", "photo staff", "emoji", "couleur", "identité", "équipe", "stats staff", "statistiques employé", "qui a scanné", "performance staff"],
+    path: "/owner/staff",
+    snippet: "Chaque membre du staff a désormais un vrai compte personnel, pas juste un écran de poste. Depuis son dashboard il tape sur son nom en haut à gauche pour ouvrir « Mon compte » : il y choisit le nom affiché sur ses écrans (un surnom de service s'il préfère), un intitulé de poste personnalisé (« Chef de rang » plutôt que « Barman »), un emoji, une couleur d'accent qui colore toute son interface, et une photo de profil pro. Il y retrouve aussi ses propres chiffres — scans, commandes servies, dépôts au vestiaire, consos VIP, nuits travaillées sur 30 jours — et la liste de l'équipe avec qui il bosse. Rien à configurer côté owner : chaque personne gère sa propre fiche. Côté club, ça change une chose importante : chaque action est maintenant attribuée à la personne qui l'a faite, donc le centre de commandement live montre correctement qui a scanné, qui a servi et qui tient le vestiaire.",
   },
   "vip-tables": {
     title: "Tables VIP",
