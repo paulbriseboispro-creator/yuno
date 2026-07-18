@@ -17,6 +17,7 @@ import { isDemoLiveForced, setDemoLiveForced } from '@/lib/demoLive';
 import { setMfaBypass, setRoleSessionBypass, MFA_GATED, DEMO_PASSWORD } from '@/lib/demoSession';
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
 import { isDemoButtonHidden, setDemoButtonHidden, DEMO_HIDDEN_EVENT } from '@/lib/demoVisibility';
+import { haptics } from '@/lib/haptics';
 
 /**
  * DemoSwitcher — bascule 1-clic entre les comptes démo (club, orga, promoteur,
@@ -30,12 +31,19 @@ import { isDemoButtonHidden, setDemoButtonHidden, DEMO_HIDDEN_EVENT } from '@/li
  */
 
 const OWNER_EMAIL = 'owner@womber.fr';
-// Réveil du bouton masqué : 3 taps dans le coin bas-gauche en < 1,2 s.
+// Réveil du bouton masqué : 3 taps dans le coin bas-gauche en < 2,5 s.
 // Volontairement détecté par coordonnées (pas d'overlay) pour ne JAMAIS
 // intercepter un tap destiné à l'app pendant une présentation.
+//
+// La zone est large (140 px) et chaque tap dedans déclenche un retour
+// haptique : sans ce retour, la cible est invisible ET muette, donc
+// impossible à viser (leçon de la v1, coin de 64 px sans feedback).
 const REVEAL_TAPS = 3;
-const REVEAL_WINDOW_MS = 1200;
-const REVEAL_CORNER_PX = 64;
+const REVEAL_WINDOW_MS = 2500;
+const REVEAL_CORNER_PX = 140;
+// Filet de sécurité déterministe : ?demo=1 dans l'URL réaffiche toujours
+// le bouton, même si le geste ne passe pas (WebView capricieuse, etc.).
+const REVEAL_QUERY_PARAM = 'demo';
 // DEMO_PASSWORD est centralisé dans @/lib/demoSession (partagé avec le switch preview).
 const ORIGIN_KEY = 'yuno_demo_origin_session';
 
@@ -120,15 +128,25 @@ export function DemoSwitcher() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // Filet de sécurité : ?demo=1 réaffiche le bouton quel que soit l'état du geste.
+  useEffect(() => {
+    if (!hidden) return;
+    try {
+      if (new URLSearchParams(window.location.search).has(REVEAL_QUERY_PARAM)) revealSwitcher();
+    } catch {
+      // URL exotique : on ignore, le geste reste disponible
+    }
+  }, [hidden]);
+
   // Mobile : triple-tap dans le coin bas-gauche quand le bouton est masqué.
   // Écoute passive en capture — on ne stoppe jamais l'événement, le tap
-  // continue son chemin normal vers l'app en dessous.
+  // continue son chemin normal vers l'app en dessous (BottomNav incluse).
   useEffect(() => {
     if (!hidden) return;
     const onDown = (e: PointerEvent) => {
-      const inCorner =
-        e.clientX <= REVEAL_CORNER_PX &&
-        e.clientY >= window.innerHeight - REVEAL_CORNER_PX;
+      // visualViewport : hauteur réelle du WebView (barres iOS, clavier).
+      const vh = window.visualViewport?.height ?? window.innerHeight;
+      const inCorner = e.clientX <= REVEAL_CORNER_PX && e.clientY >= vh - REVEAL_CORNER_PX;
       if (!inCorner) {
         tapsRef.current = [];
         return;
@@ -137,7 +155,12 @@ export function DemoSwitcher() {
       tapsRef.current = [...tapsRef.current, now].filter((t) => now - t < REVEAL_WINDOW_MS);
       if (tapsRef.current.length >= REVEAL_TAPS) {
         tapsRef.current = [];
+        haptics.success();
         revealSwitcher();
+      } else {
+        // Confirme que le doigt est dans la bonne zone — perceptible par
+        // le présentateur, invisible pour la salle.
+        haptics.light();
       }
     };
     window.addEventListener('pointerdown', onDown, { capture: true, passive: true });
@@ -182,7 +205,10 @@ export function DemoSwitcher() {
     setHidden(true);
     setOpen(false);
     toast.success('Bouton démo masqué', {
-      description: 'Triple-tap en bas à gauche (ou Cmd/Ctrl + Maj + D) pour le récupérer.',
+      duration: 8000,
+      description:
+        'Pour le récupérer : 3 taps rapides dans le coin EN BAS À GAUCHE de l’écran '
+        + '(une petite vibration confirme chaque tap). Sur ordinateur : Cmd/Ctrl + Maj + D.',
     });
   }
 
@@ -315,7 +341,7 @@ export function DemoSwitcher() {
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-medium text-white">Masquer le bouton</span>
             <span className="block text-[11px] text-white/45">
-              Triple-tap en bas à gauche pour le récupérer
+              Retour : 3 taps dans le coin bas-gauche (ça vibre)
             </span>
           </span>
         </button>
