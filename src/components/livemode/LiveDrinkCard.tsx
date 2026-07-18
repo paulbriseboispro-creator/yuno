@@ -46,7 +46,7 @@ function LiveDrinkCardBase({ drink, isFavorite, paying, onAdd, onPay }: Props) {
       {/* Visuel — carré, object-contain (jamais crop) */}
       <div
         className="relative w-full"
-        style={{ aspectRatio: '1 / 1', background: 'linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.4))' }}
+        style={{ aspectRatio: '1 / 1', background: '#000' }}
       >
         <img
           src={getOptimizedImageUrl(drink.imgUrl, { width: 300, height: 300, quality: 75, resize: 'contain' })}

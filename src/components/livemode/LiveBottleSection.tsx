@@ -131,7 +131,7 @@ export function LiveBottleSection() {
               {/* Cadre 3:4, bouteille toujours en object-contain (jamais crop) */}
               <div
                 className="relative w-full"
-                style={{ aspectRatio: '3 / 4', background: 'linear-gradient(180deg, rgba(255,255,255,0.05), rgba(0,0,0,0.4))' }}
+                style={{ aspectRatio: '3 / 4', background: '#000' }}
               >
                 {bottle.image_url ? (
                   <img
