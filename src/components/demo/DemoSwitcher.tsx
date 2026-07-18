@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   Building2, CalendarDays, Megaphone, Share2, ShieldCheck, Wine, Shirt,
   Disc3, ChevronRight, Loader2, FlaskConical, LogIn, Globe, Rocket, Crown, GraduationCap, Users,
-  Compass, Radio,
+  Compass, Radio, EyeOff,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,6 +16,7 @@ import { getDemoPlan, setDemoPlan, DEMO_PLAN_EVENT } from '@/lib/demoPlan';
 import { isDemoLiveForced, setDemoLiveForced } from '@/lib/demoLive';
 import { setMfaBypass, setRoleSessionBypass, MFA_GATED, DEMO_PASSWORD } from '@/lib/demoSession';
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
+import { isDemoButtonHidden, setDemoButtonHidden, DEMO_HIDDEN_EVENT } from '@/lib/demoVisibility';
 
 /**
  * DemoSwitcher — bascule 1-clic entre les comptes démo (club, orga, promoteur,
@@ -29,6 +30,12 @@ import { isPreviewActive } from '@/contexts/PreviewModeContext';
  */
 
 const OWNER_EMAIL = 'owner@womber.fr';
+// Réveil du bouton masqué : 3 taps dans le coin bas-gauche en < 1,2 s.
+// Volontairement détecté par coordonnées (pas d'overlay) pour ne JAMAIS
+// intercepter un tap destiné à l'app pendant une présentation.
+const REVEAL_TAPS = 3;
+const REVEAL_WINDOW_MS = 1200;
+const REVEAL_CORNER_PX = 64;
 // DEMO_PASSWORD est centralisé dans @/lib/demoSession (partagé avec le switch preview).
 const ORIGIN_KEY = 'yuno_demo_origin_session';
 
@@ -77,6 +84,8 @@ export function DemoSwitcher() {
   const [clientMode, setClientMode] = useState<'explore' | 'live'>(
     isDemoLiveForced() ? 'live' : 'explore'
   );
+  const [hidden, setHidden] = useState(isDemoButtonHidden);
+  const tapsRef = useRef<number[]>([]);
 
   const currentEmail = user?.email?.toLowerCase() ?? null;
   const isDemoUser = ACCOUNTS.some((a) => a.email === currentEmail);
@@ -87,6 +96,53 @@ export function DemoSwitcher() {
     window.addEventListener(DEMO_PLAN_EVENT, handler);
     return () => window.removeEventListener(DEMO_PLAN_EVENT, handler);
   }, []);
+
+  // Garder l'état masqué/affiché synchro (autre onglet, autre surface de l'app).
+  useEffect(() => {
+    const handler = () => setHidden(isDemoButtonHidden());
+    window.addEventListener(DEMO_HIDDEN_EVENT, handler);
+    window.addEventListener('storage', handler);
+    return () => {
+      window.removeEventListener(DEMO_HIDDEN_EVENT, handler);
+      window.removeEventListener('storage', handler);
+    };
+  }, []);
+
+  // Desktop : Cmd/Ctrl + Maj + D réaffiche le bouton et ouvre le panneau.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || !e.shiftKey) return;
+      if (e.key.toLowerCase() !== 'd') return;
+      e.preventDefault();
+      revealSwitcher();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Mobile : triple-tap dans le coin bas-gauche quand le bouton est masqué.
+  // Écoute passive en capture — on ne stoppe jamais l'événement, le tap
+  // continue son chemin normal vers l'app en dessous.
+  useEffect(() => {
+    if (!hidden) return;
+    const onDown = (e: PointerEvent) => {
+      const inCorner =
+        e.clientX <= REVEAL_CORNER_PX &&
+        e.clientY >= window.innerHeight - REVEAL_CORNER_PX;
+      if (!inCorner) {
+        tapsRef.current = [];
+        return;
+      }
+      const now = Date.now();
+      tapsRef.current = [...tapsRef.current, now].filter((t) => now - t < REVEAL_WINDOW_MS);
+      if (tapsRef.current.length >= REVEAL_TAPS) {
+        tapsRef.current = [];
+        revealSwitcher();
+      }
+    };
+    window.addEventListener('pointerdown', onDown, { capture: true, passive: true });
+    return () => window.removeEventListener('pointerdown', onDown, { capture: true });
+  }, [hidden]);
 
   // Dès qu'on est sur un compte démo MFA-gated, poser le bypass MFA local.
   useEffect(() => {
@@ -118,6 +174,23 @@ export function DemoSwitcher() {
     } finally {
       setLiveBusy(false);
     }
+  }
+
+  // Masque la pastille flottante : plus rien à l'écran pendant une présentation.
+  function hideButton() {
+    setDemoButtonHidden(true);
+    setHidden(true);
+    setOpen(false);
+    toast.success('Bouton démo masqué', {
+      description: 'Triple-tap en bas à gauche (ou Cmd/Ctrl + Maj + D) pour le récupérer.',
+    });
+  }
+
+  // Réaffiche la pastille et ouvre le panneau (triple-tap ou raccourci clavier).
+  function revealSwitcher() {
+    setDemoButtonHidden(false);
+    setHidden(false);
+    setOpen(true);
   }
 
   function pickPlan(code: PlanCode) {
@@ -196,22 +269,26 @@ export function DemoSwitcher() {
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <button
-          type="button"
-          aria-label="Comptes démo"
-          className={`fixed z-[60] ${open ? 'hidden' : 'flex'} items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-primary-foreground shadow-lg ring-1 ring-white/10 transition hover:brightness-110`}
-          style={{
-            // + live-banner-offset : ne jamais recouvrir le bandeau « LIVE — … »
-            // posé juste au-dessus de la BottomNav par LiveModeBanner.
-            bottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--live-banner-offset, 0px) + 6rem)',
-            left: '1.25rem',
-          }}
-        >
-          <FlaskConical className="h-4 w-4" />
-          Démo
-        </button>
-      </SheetTrigger>
+      {/* Masqué : plus aucune pastille à l'écran. Le panneau reste joignable par
+          triple-tap coin bas-gauche ou Cmd/Ctrl + Maj + D (voir les effets ci-dessus). */}
+      {!hidden && (
+        <SheetTrigger asChild>
+          <button
+            type="button"
+            aria-label="Comptes démo"
+            className={`fixed z-[60] ${open ? 'hidden' : 'flex'} items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-primary-foreground shadow-lg ring-1 ring-white/10 transition hover:brightness-110`}
+            style={{
+              // + live-banner-offset : ne jamais recouvrir le bandeau « LIVE — … »
+              // posé juste au-dessus de la BottomNav par LiveModeBanner.
+              bottom: 'calc(env(safe-area-inset-bottom, 0px) + var(--live-banner-offset, 0px) + 6rem)',
+              left: '1.25rem',
+            }}
+          >
+            <FlaskConical className="h-4 w-4" />
+            Démo
+          </button>
+        </SheetTrigger>
+      )}
 
       <SheetContent side="left" className="flex w-[340px] flex-col overflow-y-auto border-white/10 bg-[#0A0A0A] pb-8 text-white">
         <SheetHeader className="text-left">
@@ -224,6 +301,24 @@ export function DemoSwitcher() {
             <span className="font-medium text-white/80">{currentEmail}</span>.
           </p>
         </SheetHeader>
+
+        {/* Masquer la pastille pendant une présentation : les prospects ne
+            comprennent pas ce qu'elle fait, elle parasite le discours. */}
+        <button
+          type="button"
+          onClick={hideButton}
+          className="mt-3 flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-left transition hover:bg-white/[0.07]"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/5">
+            <EyeOff className="h-4 w-4 text-white/50" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium text-white">Masquer le bouton</span>
+            <span className="block text-[11px] text-white/45">
+              Triple-tap en bas à gauche pour le récupérer
+            </span>
+          </span>
+        </button>
 
         {/* Toggle Live : faire apparaître le club/orga démo dans l'app publique (pour les présentations). */}
         <button
