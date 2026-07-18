@@ -110,9 +110,13 @@ export function DemoSwitcher() {
     const handler = () => setHidden(isDemoButtonHidden());
     window.addEventListener(DEMO_HIDDEN_EVENT, handler);
     window.addEventListener('storage', handler);
+    // Retour au premier plan : re-teste l'expiration du masquage (app native
+    // gardée ouverte plusieurs jours, elle ne repasse jamais par un cold start).
+    document.addEventListener('visibilitychange', handler);
     return () => {
       window.removeEventListener(DEMO_HIDDEN_EVENT, handler);
       window.removeEventListener('storage', handler);
+      document.removeEventListener('visibilitychange', handler);
     };
   }, []);
 
@@ -207,8 +211,8 @@ export function DemoSwitcher() {
     toast.success('Bouton démo masqué', {
       duration: 8000,
       description:
-        'Pour le récupérer : 3 taps rapides dans le coin EN BAS À GAUCHE de l’écran '
-        + '(une petite vibration confirme chaque tap). Sur ordinateur : Cmd/Ctrl + Maj + D.',
+        'Il revient tout seul dans 4 h. Avant ça : 3 taps rapides dans le coin EN BAS '
+        + 'À GAUCHE de l’écran (une vibration confirme chaque tap). Ordi : Cmd/Ctrl + Maj + D.',
     });
   }
 
@@ -341,7 +345,7 @@ export function DemoSwitcher() {
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-medium text-white">Masquer le bouton</span>
             <span className="block text-[11px] text-white/45">
-              Retour : 3 taps dans le coin bas-gauche (ça vibre)
+              Revient seul dans 4 h · ou 3 taps en bas à gauche
             </span>
           </span>
         </button>
