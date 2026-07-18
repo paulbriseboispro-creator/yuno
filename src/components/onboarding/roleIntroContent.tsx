@@ -1,9 +1,9 @@
 import {
   Megaphone, Link2, Coins, BarChart3, QrCode, Users, ShieldAlert, ChefHat, Bell, Clock,
-  Crown, Sparkles, MousePointerClick, TrendingUp, type LucideIcon,
+  Crown, Sparkles, MousePointerClick, TrendingUp, Shirt, Package, CreditCard, type LucideIcon,
 } from 'lucide-react';
 
-export type RoleIntroKey = 'promoter' | 'bouncer' | 'barman' | 'viphost' | 'affiliate';
+export type RoleIntroKey = 'promoter' | 'bouncer' | 'barman' | 'viphost' | 'affiliate' | 'cloakroom';
 
 // Trilingual tuple: [fr, en, es]
 type L = [string, string, string];
@@ -84,6 +84,40 @@ export const ROLE_INTROS: Record<RoleIntroKey, RoleIntroDef> = {
           'Signalez un comportement à risque : l\'info remonte instantanément à l\'équipe et au club.',
           'Flag risky behavior: the alert goes straight to the team and the venue.',
           'Reporta un comportamiento de riesgo: la alerta llega al instante al equipo y al local.',
+        ],
+      },
+    ],
+  },
+
+  cloakroom: {
+    icon: Shirt,
+    title: ['Bienvenue au vestiaire', 'Welcome to the cloakroom', 'Bienvenido al guardarropa'],
+    slides: [
+      {
+        icon: QrCode,
+        title: ['Scannez, puis numérotez', 'Scan, then number it', 'Escanea y numera'],
+        desc: [
+          'Scannez le billet du client, saisissez le numéro de patère, c\'est enregistré.',
+          'Scan the guest\'s ticket, type the peg number, and it\'s logged.',
+          'Escanea la entrada del cliente, escribe el número de percha y queda registrado.',
+        ],
+      },
+      {
+        icon: Package,
+        title: ['La restitution', 'Handing things back', 'La devolución'],
+        desc: [
+          'Le client repasse son QR en fin de soirée : son numéro s\'affiche, vous rendez ses affaires.',
+          'The guest scans their QR at the end of the night: their number shows up, you hand their things back.',
+          'El cliente vuelve a escanear su QR al final de la noche: aparece su número y le devuelves sus cosas.',
+        ],
+      },
+      {
+        icon: CreditCard,
+        title: ['Les paiements', 'Payments', 'Los pagos'],
+        desc: [
+          'Payé en ligne : rien à encaisser. Payé sur place : confirmez l\'encaissement avant de valider.',
+          'Paid online: nothing to collect. Paid on site: confirm the payment before validating.',
+          'Pagado en línea: nada que cobrar. Pagado en el sitio: confirma el cobro antes de validar.',
         ],
       },
     ],

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useStaffVenue } from '@/hooks/useStaffVenue';
+import { useStaffIdentity } from '@/hooks/useStaffIdentity';
 import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
 import { QrCode, CheckCircle, XCircle, User, Ticket, Wine, Camera, RefreshCw, Users, Ban, AlertTriangle, Clock, Search, ShieldAlert, UserX } from 'lucide-react';
 import { nowInParis } from '@/lib/timezone';
@@ -18,7 +18,7 @@ import { SyncQueueDrawer } from '@/components/pro/SyncQueueDrawer';
 import { isProApp } from '@/lib/native';
 import { CloudOff } from 'lucide-react';
 import { PublicPage } from '@/components/PublicPage';
-import { ProBackButton } from '@/components/pro/ProBackButton';
+import { StaffHeader } from '@/components/staff/StaffHeader';
 
 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -134,7 +134,7 @@ const REFUND_REASONS = {
 export default function Bouncer() {
   const { toast } = useToast();
   const { t, language } = useLanguage();
-  const { venueId, loading: venueLoading } = useStaffVenue();
+  const { venueId, loading: venueLoading } = useStaffIdentity();
   
   const [activeTab, setActiveTab] = useState<'entry' | 'cancel' | 'client'>('entry');
   const [scanning, setScanning] = useState(false);
@@ -1302,28 +1302,8 @@ export default function Bouncer() {
         style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }}
       />
 
-      {/* Header */}
-      <header
-        className="sticky top-0 z-40 backdrop-blur-xl"
-        style={{ background: 'rgba(10,10,12,0.72)', borderBottom: `1px solid ${BORDER}`, paddingTop: 'env(safe-area-inset-top, 0px)' }}
-      >
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-3">
-          {/* min-w-0 : sans ça le truncate du titre ne peut pas s'appliquer */}
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            {/* Cible tactile ≥44px sur mobile (une main, dans le noir) */}
-            <ProBackButton className="h-11 w-11 flex-none md:h-8 md:w-8" />
-            <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center flex-none"
-              style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}
-            >
-              <QrCode className="h-4 w-4" style={{ color: RED }} />
-            </div>
-            <h1 className="truncate" style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>{t('bouncer.scanner')}</h1>
-          </div>
-          <div className="flex flex-none items-center gap-1">
-          </div>
-        </div>
-      </header>
+      {/* Cible tactile ≥44px sur mobile (une main, dans le noir) */}
+      <StaffHeader role="bouncer" backButtonClassName="h-11 w-11 flex-none md:h-8 md:w-8" />
 
       {/* PublicPage n'enveloppe QUE le contenu défilant : le header sticky et les
           éléments `fixed` restent en sibling (un ancêtre transformé casserait

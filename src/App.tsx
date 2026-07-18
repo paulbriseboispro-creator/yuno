@@ -38,6 +38,7 @@ const AffiliateRoute = lazyWithRetry(() => import("./components/AffiliateRoute")
 const ManagerRoute = lazyWithRetry(() => import("./components/ManagerRoute").then(m => ({ default: m.ManagerRoute })));
 const VipHostRoute = lazyWithRetry(() => import("./components/VipHostRoute").then(m => ({ default: m.VipHostRoute })));
 const CloakroomRoute = lazyWithRetry(() => import("./components/CloakroomRoute").then(m => ({ default: m.CloakroomRoute })));
+const StaffRoute = lazyWithRetry(() => import("./components/StaffRoute").then(m => ({ default: m.StaffRoute })));
 const OwnerPreviewLayout = lazyWithRetry(() => import("./components/OwnerPreviewLayout").then(m => ({ default: m.OwnerPreviewLayout })));
 const OwnerLayout = lazyWithRetry(() => import("./components/OwnerLayout").then(m => ({ default: m.OwnerLayout })));
 import { supabase } from "@/integrations/supabase/client";
@@ -173,6 +174,7 @@ const DJEpkPage = lazyWithRetry(() => import("./pages/DJEpkPage"));
 const ManagerDashboardPage = lazyWithRetry(() => import("./pages/ManagerDashboard"));
 const VipHostDashboard = lazyWithRetry(() => import("./pages/VipHostDashboard"));
 const CloakroomDashboard = lazyWithRetry(() => import("./pages/CloakroomDashboard"));
+const StaffProfile = lazyWithRetry(() => import("./pages/StaffProfile"));
 const VipMenu = lazyWithRetry(() => import("./pages/VipMenu"));
 const MFASetup = lazyWithRetry(() => import("./pages/MFASetup"));
 const MFADisableConfirm = lazyWithRetry(() => import("./pages/MFADisableConfirm"));
@@ -772,6 +774,13 @@ const App = () => (
                 } />
                 <Route path="/dj/team/accept" element={<DJTeamAccept />} />
                 
+                {/* Compte staff — transverse à tous les postes du club */}
+                <Route path="/staff/me" element={
+                  <StaffRoute>
+                    <StaffProfile />
+                  </StaffRoute>
+                } />
+
                 {/* Cloakroom routes */}
                 <Route path="/cloakroom" element={
                   <CloakroomRoute>

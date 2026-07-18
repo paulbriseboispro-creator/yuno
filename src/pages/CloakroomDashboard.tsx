@@ -11,9 +11,11 @@ import { toast } from 'sonner';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { PublicPage } from '@/components/PublicPage';
-import { ProBackButton } from '@/components/pro/ProBackButton';
+import { StaffHeader } from '@/components/staff/StaffHeader';
+import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
+import { readStaffSessionVenueId } from '@/components/RequireStaffSession';
 
-import { useStaffVenue } from '@/hooks/useStaffVenue';
+import { useStaffIdentity } from '@/hooks/useStaffIdentity';
 import { emitShiftStart } from '@/lib/liveops/shiftStart';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -54,7 +56,7 @@ interface ScanResult {
 
 export default function CloakroomDashboard() {
   const { t } = useLanguage();
-  const { venueId: staffVenueId, loading: venueLoading } = useStaffVenue();
+  const { venueId: staffVenueId, loading: venueLoading } = useStaffIdentity();
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [cloakroomNumber, setCloakroomNumber] = useState('');
@@ -71,12 +73,10 @@ export default function CloakroomDashboard() {
 
   useEffect(() => {
     const init = async () => {
-      // Try staffVenueId first, fallback to session storage
-      const vId = staffVenueId || (() => {
-        const staffSession = sessionStorage.getItem('staffSession');
-        if (staffSession) return JSON.parse(staffSession).venueId;
-        return null;
-      })();
+      // Repli sur la session PIN quand le profil n'est pas encore chargé.
+      // Cette session vit dans localStorage (persistance PWA iOS) — l'ancien
+      // repli lisait sessionStorage et ne se déclenchait donc jamais.
+      const vId = staffVenueId || readStaffSessionVenueId();
 
       if (!vId) return;
       setVenueId(vId);
@@ -333,6 +333,9 @@ export default function CloakroomDashboard() {
           price,
           paid_on_site: !isPrepaid,
           payment_confirmed: isPrepaid || paymentConfirmed,
+          // `staff_id` = qui a déposé. C'est la colonne que lit l'activité staff
+          // de la soirée ; `processed_by` reste écrit pour les lectures legacy.
+          staff_id: user?.id,
           processed_by: user?.id,
         });
         if (res.error) throw res.error;
@@ -372,7 +375,9 @@ export default function CloakroomDashboard() {
           .update({
             retrieved: true,
             retrieved_at: new Date().toISOString(),
-            processed_by: user?.id,
+            // Colonne dédiée : la restitution ne doit pas effacer l'identité de
+            // la personne qui a enregistré le dépôt (souvent quelqu'un d'autre).
+            retrieved_by: user?.id,
           })
           .eq('id', scanResult.existingTransaction.id)
           .eq('retrieved', false);
@@ -414,33 +419,14 @@ export default function CloakroomDashboard() {
 
   return (
     <div className="min-h-screen pb-24" style={{ background: '#000' }}>
+      <RoleIntroGate role="cloakroom" />
       {/* Vignette ambiante */}
       <div
         className="fixed inset-0 pointer-events-none z-0"
         style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }}
       />
 
-      {/* Header */}
-      <header
-        className="sticky top-0 z-40 backdrop-blur-xl"
-        style={{ background: 'rgba(10,10,12,0.72)', borderBottom: `1px solid ${BORDER}`, paddingTop: 'env(safe-area-inset-top, 0px)' }}
-      >
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-3">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <ProBackButton className="h-10 w-10 flex-none" />
-            <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center flex-none"
-              style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}
-            >
-              <Shirt className="h-4 w-4" style={{ color: RED }} />
-            </div>
-            <h1 className="truncate" style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>{t('cloakroom.title')}</h1>
-          </div>
-          <div className="flex flex-none items-center gap-1">
-            <LanguageSelector />
-          </div>
-        </div>
-      </header>
+      <StaffHeader role="cloakroom" actions={<LanguageSelector />} backButtonClassName="h-10 w-10 flex-none" />
 
       {/* PublicPage n'enveloppe QUE le contenu défilant : le header sticky et les
           éléments `fixed` restent en sibling (un ancêtre transformé casserait

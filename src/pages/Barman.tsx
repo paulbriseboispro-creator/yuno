@@ -25,10 +25,10 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { PublicPage } from '@/components/PublicPage';
-import { ProBackButton } from '@/components/pro/ProBackButton';
+import { StaffHeader } from '@/components/staff/StaffHeader';
 import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
 import { OrderPreparationView } from '@/components/OrderPreparationView';
-import { useStaffVenue } from '@/hooks/useStaffVenue';
+import { useStaffIdentity } from '@/hooks/useStaffIdentity';
 import { BarmanBarSelection } from '@/components/barman/BarmanBarSelection';
 import { ShiftStats } from '@/components/barman/ShiftStats';
 import { StockPanel } from '@/components/barman/StockPanel';
@@ -75,7 +75,7 @@ const normalizeOrderItems = (items: any[]): any[] =>
 export default function Barman() {
   const { t } = useLanguage();
   const { user } = useAuth();
-  const { venueId: staffVenueId, loading: venueLoading } = useStaffVenue();
+  const { venueId: staffVenueId, loading: venueLoading } = useStaffIdentity();
   const [clickCollectOrders, setClickCollectOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
@@ -926,6 +926,7 @@ export default function Barman() {
                 status: 'served',
                 token_used: true,
                 served_at: new Date().toISOString(),
+                served_by: user?.id,
                 prep_status: 'served',
                 archived: true,
               })
@@ -946,6 +947,7 @@ export default function Barman() {
             status: 'served',
             token_used: true,
             served_at: new Date().toISOString(),
+            served_by: user?.id,
             prep_status: 'served',
           })
           .eq('id', selectedOrder.id)
@@ -991,22 +993,9 @@ export default function Barman() {
         style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }}
       />
 
-      {/* Header */}
-      <header
-        className="sticky top-0 z-40 backdrop-blur-xl"
-        style={{ background: 'rgba(10,10,12,0.72)', borderBottom: `1px solid ${BORDER}`, paddingTop: 'env(safe-area-inset-top, 0px)' }}
-      >
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-3 sm:px-4">
-          {/* min-w-0 + flex-1 : le titre tronque au lieu de pousser les actions hors écran */}
-          <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
-            <ProBackButton className="h-11 w-11 flex-none sm:h-9 sm:w-9" />
-            <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center flex-none"
-              style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}
-            >
-              <ChefHat className="h-4 w-4" style={{ color: RED }} />
-            </div>
-            <h1 className="min-w-0 truncate" style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>{t('barman.title')}</h1>
+      <StaffHeader
+        role="barman"
+        actions={<>
             {/* New order badge */}
             {newOrderCount > 0 && (
               <button
@@ -1023,8 +1012,6 @@ export default function Barman() {
                 </span>
               </button>
             )}
-          </div>
-          <div className="flex flex-none items-center gap-1">
             {staffVenueId && <StockPanel venueId={staffVenueId} />}
             {staffVenueId && (
               <BarmanBarSelection
@@ -1040,10 +1027,8 @@ export default function Barman() {
                 venueId={staffVenueId || ''}
               />
             </div>
-            
-          </div>
-        </div>
-      </header>
+          </>}
+      />
 
       {/* PublicPage n'enveloppe QUE le contenu défilant : le header sticky et les
           éléments `fixed` restent en sibling (un ancêtre transformé casserait

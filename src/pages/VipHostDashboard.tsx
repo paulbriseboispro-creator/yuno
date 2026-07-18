@@ -4,7 +4,7 @@ import { useVipNight } from '@/hooks/useVipNight';
 import { useStaffNotifications } from '@/hooks/useStaffNotifications';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PublicPage } from '@/components/PublicPage';
-import { ProBackButton } from '@/components/pro/ProBackButton';
+import { StaffHeader } from '@/components/staff/StaffHeader';
 import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
 import { emitShiftStart } from '@/lib/liveops/shiftStart';
 import { haptics } from '@/lib/haptics';
@@ -312,32 +312,14 @@ export default function VipHostDashboard() {
       <RoleIntroGate role="viphost" />
       <div className="pointer-events-none fixed inset-0 z-0" style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
 
-      {/* Header compact */}
-      <header
-        className="sticky top-0 z-40 px-3 py-2 backdrop-blur-xl"
-        style={{ background: 'rgba(10,10,12,0.72)', borderBottom: `1px solid ${BORDER}`, paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)' }}
-      >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <ProBackButton className="h-10 w-10 shrink-0" />
-            <div className="flex h-8 w-8 flex-none items-center justify-center rounded-xl" style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)' }}>
-              <Crown className="h-4 w-4" style={{ color: RED }} />
-            </div>
-            <div className="min-w-0">
-              <h1 className="flex items-center gap-1.5 truncate" style={{ color: T1, fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em', margin: 0 }}>
-                {t('vipnight.title')}
-                <span
-                  className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
-                  style={{ background: connectionStale ? RED : 'rgb(52,211,153)' }}
-                />
-              </h1>
-              {activeEvent && (
-                <p className="truncate" style={{ color: T3, fontSize: 10, marginTop: 1 }}>
-                  {activeEvent.title}
-                </p>
-              )}
-            </div>
-          </div>
+      <StaffHeader
+        role="vip_host"
+        online={!connectionStale}
+        // Sur cet écran, l'événement en cours prime sur le nom du club : c'est
+        // le contexte qui change d'une nuit à l'autre.
+        subtitle={activeEvent?.title}
+        backButtonClassName="h-10 w-10 shrink-0"
+        actions={<>
           <button
             type="button"
             className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl transition-all duration-150"
@@ -346,8 +328,8 @@ export default function VipHostDashboard() {
           >
             <RefreshCw className="h-4 w-4" />
           </button>
-        </div>
-      </header>
+        </>}
+      />
 
       {/* Bandeau connexion perdue : données possiblement périmées, écritures gelées. */}
       {connectionStale && (
