@@ -169,12 +169,27 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
         return;
       }
 
-      // Mark as scanned — surface DB errors so a failed write never shows as a successful scan
+      // Mark as scanned — surface DB errors so a failed write never shows as a successful scan.
+      // Même contrat que la branche guest list ci-dessus : horodatage + auteur du
+      // scan + garde `entry_scanned = false` contre un double scan concurrent.
+      // Sans ça, un scan promoteur restait anonyme et non daté.
+      const ticketScanAt = new Date().toISOString();
+      const { data: { user: scanUser } } = await supabase.auth.getUser();
+
       if (attendeeTicket?.attendee) {
-        const { error: attErr } = await supabase.from('ticket_attendees').update({ entry_scanned: true }).eq('id', attendeeTicket.attendee.id);
+        const { data: updatedAtt, error: attErr } = await supabase.from('ticket_attendees')
+          .update({ entry_scanned: true, entry_scanned_at: ticketScanAt, entry_scanned_by: scanUser?.id })
+          .eq('id', attendeeTicket.attendee.id).eq('entry_scanned', false).select();
         if (attErr) throw attErr;
+        if (!updatedAtt || updatedAtt.length === 0) {
+          setLastResult({ status: 'already_scanned', attendeeName: attendeeTicket.attendee.full_name || undefined });
+          toast.warning(t('promoterScan.alreadyScanned'));
+          return;
+        }
       }
-      const { error: tkErr } = await supabase.from('tickets').update({ entry_scanned: true }).eq('id', resolvedTicket.id);
+      const { error: tkErr } = await supabase.from('tickets')
+        .update({ entry_scanned: true, entry_scanned_at: ticketScanAt, entry_scanned_by: scanUser?.id })
+        .eq('id', resolvedTicket.id);
       if (tkErr) throw tkErr;
 
       setLastResult({

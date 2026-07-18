@@ -346,8 +346,9 @@ export default function OrgAppCheckin() {
       if (order.event_id && order.event_id !== eventId) { setDrinkResult({ ok: false, reason: t('Mauvais événement', 'Wrong event') }); return; }
       if (order.status !== 'paid') { setDrinkResult({ ok: false, reason: t('Non payée', 'Not paid') }); return; }
       if (order.served_at || order.token_used) { setDrinkResult({ ok: false, reason: t('Déjà servie', 'Already served') }); return; }
+      const { data: { user: serveUser } } = await supabase.auth.getUser();
       const { error } = await supabase.from('orders')
-        .update({ served_at: new Date().toISOString(), token_used: true, status: 'served' })
+        .update({ served_at: new Date().toISOString(), token_used: true, status: 'served', served_by: serveUser?.id })
         .eq('id', order.id).is('served_at', null);
       if (error) throw error;
       const itemsLabel = Array.isArray(order.items)

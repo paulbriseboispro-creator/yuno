@@ -307,7 +307,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
     const eventId = activeEvent?.id;
 
     try {
-      const orderColumns = 'id, total, status, prep_status, created_at, served_at, ready_at, prep_claimed_by, user_email, service_fee, refunded_at, order_number, refund_amount';
+      const orderColumns = 'id, total, status, prep_status, created_at, served_at, ready_at, prep_claimed_by, served_by, user_email, service_fee, refunded_at, order_number, refund_amount';
       let ordersQuery = supabase
         .from('orders')
         .select(extendedOpt ? `${orderColumns}, items` : orderColumns)
@@ -545,7 +545,12 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
         }
         staffMap.set(key, entry);
       };
-      orders.filter(o => o.prep_claimed_by).forEach(o => bumpStaff(o.prep_claimed_by!, 'barman', o.served_at || o.ready_at || o.created_at));
+      // `served_by` d'abord : `prep_claimed_by` ne couvre que le Click&Collect,
+      // un barman qui scanne et sert directement n'y apparaît jamais.
+      orders.forEach(o => {
+        const by = (o as any).served_by || o.prep_claimed_by;
+        if (by) bumpStaff(by, 'barman', o.served_at || o.ready_at || o.created_at);
+      });
       [...scannedTickets, ...scannedTables, ...scannedGl].forEach(item => {
         const scannedBy = (item as any).entry_scanned_by;
         if (scannedBy) bumpStaff(scannedBy, 'bouncer', (item as any).entry_scanned_at);

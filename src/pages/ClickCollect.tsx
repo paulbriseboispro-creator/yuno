@@ -341,6 +341,10 @@ export default function ClickCollect() {
       const merged = orders.find(o => o.id === orderId);
       const ids = merged?.sourceOrderIds || [orderId];
 
+      // Sans `served_by`, une soirée entière servie depuis le Click&Collect
+      // n'est attribuée à personne et n'apparaît pas dans les stats du barman.
+      const { data: { user } } = await supabase.auth.getUser();
+
       for (const id of ids) {
         await supabase
           .from('orders')
@@ -348,6 +352,7 @@ export default function ClickCollect() {
             status: 'served',
             prep_status: 'served',
             served_at: new Date().toISOString(),
+            served_by: user?.id,
           })
           .eq('id', id);
       }
