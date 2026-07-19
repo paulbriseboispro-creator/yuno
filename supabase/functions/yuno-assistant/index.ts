@@ -114,6 +114,7 @@ const CLIENT_KNOWLEDGE_BASE = `
 - Certaines soirées ont une guest list : inscription GRATUITE, tu reçois un QR dédié.
 - Entrée gratuite avant une heure limite (affichée sur l'event), parfois avec une boisson offerte.
 - Les places sont limitées (quota). Inscris-toi depuis la page de l'événement ou via un lien partagé par le club/promoteur.
+- Le club choisit d'afficher ou non le nombre de places restantes. Si le compteur n'apparaît pas, la liste indique simplement qu'elle est ouverte (et affichera « complet » quand elle le sera) — ce n'est jamais un bug, et ça ne veut pas dire qu'il reste peu de places. Ne JAMAIS inventer un nombre de places restantes qui n'est pas affiché.
 
 🍾 TABLES VIP — comment réserver
 1. Sur la page de l'événement, section "Tables VIP" : choisis ta table/zone (capacité et minimum de consommation affichés).

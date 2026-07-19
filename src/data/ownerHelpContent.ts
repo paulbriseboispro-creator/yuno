@@ -323,7 +323,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Users',
         actionLink: { labelKey: 'ohelp.action.goToGuestList', path: '/guest-list' },
         relatedArticleIds: ['events-setup', 'promoter-system', 'scarcity-fomo'],
-        keywords: ['guest', 'list', 'liste', 'invité', 'invitation', 'gratuit', 'free', 'quota', 'entrée gratuite', 'free entry', 'gender', 'genre', 'drink included', 'lista de invitados'],
+        keywords: ['guest', 'list', 'liste', 'invité', 'invitation', 'gratuit', 'free', 'quota', 'entrée gratuite', 'free entry', 'gender', 'genre', 'drink included', 'lista de invitados', 'places restantes', 'remaining spots', 'compteur', 'counter', 'modèle', 'template', 'récurrente', 'recurring', 'automatique', 'automatic'],
         sections: [
           { headingKey: 'ohelp.ev.guestlist.s1h', bodyKey: 'ohelp.ev.guestlist.s1b' },
           { headingKey: 'ohelp.ev.guestlist.s2h', bodyKey: 'ohelp.ev.guestlist.s2b', screenshotUrl: '/help/owner-guest-list.png' },
@@ -334,6 +334,8 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.ev.guestlist.s7h', bodyKey: 'ohelp.ev.guestlist.s7b', type: 'tip' },
           { headingKey: 'ohelp.ev.guestlist.s8h', bodyKey: 'ohelp.ev.guestlist.s8b', type: 'warning' },
           { headingKey: 'ohelp.ev.guestlist.s9h', bodyKey: 'ohelp.ev.guestlist.s9b' },
+          { headingKey: 'ohelp.ev.guestlist.s10h', bodyKey: 'ohelp.ev.guestlist.s10b' },
+          { headingKey: 'ohelp.ev.guestlist.s11h', bodyKey: 'ohelp.ev.guestlist.s11b', type: 'tip' },
         ],
       },
       {

@@ -126,9 +126,9 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "guest-list": {
     title: "Guest List",
-    keywords: ["guest", "list", "liste", "invité", "gratuit", "free", "quota"],
+    keywords: ["guest", "list", "liste", "invité", "gratuit", "free", "quota", "places restantes", "remaining spots", "compteur", "modèle", "template"],
     path: "/owner/guest-list",
-    snippet: "La guest list permet d'offrir l'entrée gratuite avant une certaine heure. Configure un quota (global ou par genre), active/désactive par event. Crée des parts déléguées par promoteur, DJ ou nom libre, avec quota par type (standard/boisson/VIP) ou « Sans limite » (illimité) : le détenteur ajoute alors autant d'invités qu'il veut et suit ses places restantes en direct dans son app.",
+    snippet: "La guest list permet d'offrir l'entrée gratuite avant une certaine heure. Configure un quota (global ou par genre), active/désactive par event. Crée des parts déléguées par promoteur, DJ ou nom libre, avec quota par type (standard/boisson/VIP) ou « Sans limite » (illimité) : le détenteur ajoute alors autant d'invités qu'il veut et suit ses places restantes en direct dans son app. Chaque modèle de guest list (onglet Modèles) porte aussi le réglage « Afficher les places restantes » : activé, le public lit « 42 places restantes » ; désactivé, il voit seulement si la liste est ouverte ou complète. Le réglage est repris sur chaque part et modifiable soirée par soirée.",
   },
   "onboarding": {
     title: "Parcours de configuration",
@@ -186,9 +186,9 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "recurring-events": {
     title: "Soirées récurrentes",
-    keywords: ["récurrent", "récurrence", "recurring", "hebdomadaire", "weekly", "série", "series", "chaque semaine", "répéter"],
+    keywords: ["récurrent", "récurrence", "recurring", "hebdomadaire", "weekly", "série", "series", "chaque semaine", "répéter", "guest list automatique"],
     path: "/owner/events",
-    snippet: "Crée une soirée récurrente (ex. tous les vendredis) : chaque occurrence est générée automatiquement avec la billetterie, la guest list et le preset de tables VIP de la série. Les rounds de billets s'activent automatiquement à chaque occurrence. Tu peux marquer une occurrence complète manuellement et tu reçois un rappel pour ajouter le line-up DJ de chaque date.",
+    snippet: "Crée une soirée récurrente (ex. tous les vendredis) : chaque occurrence est générée automatiquement avec les presets billets standard/VIP et le preset de tables VIP de la série. Le bloc « Guest list automatique » du réglage de la série te laisse épingler un modèle de guest list : chaque soirée générée naît alors avec sa guest list club déjà publiée (laisse « Pas de guest list automatique » pour la gérer soirée par soirée). Les rounds de billets s'activent automatiquement à chaque occurrence. Tu peux marquer une occurrence complète manuellement et tu reçois un rappel pour ajouter le line-up DJ de chaque date.",
   },
   "collaborations": {
     title: "Co-organisations (clubs ↔ organisateurs)",
