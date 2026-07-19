@@ -273,8 +273,9 @@ Le club est responsable de :
 • l'application de ses politiques internes (dress code, capacité, refus, etc.)
 
 **5. Annulation & "assurance annulation"**
-• Certains événements peuvent proposer une option d'assurance annulation (si l'événement est à plus de 24h), activable/désactivable par le club.
-• Les conditions exactes de cette option sont affichées au moment de l'achat.
+• L'assurance annulation n'est plus commercialisée et ne peut plus être souscrite lors d'un achat.
+• Les billets souscrits avec cette option avant son retrait restent couverts : les conditions affichées au moment de leur achat continuent de s'appliquer.
+• En dehors de ce cas, l'annulation et le remboursement d'un billet relèvent de la décision du club organisateur.
 
 **6. Droit de rétractation**
 Conformément au Code de la consommation, le droit de rétractation ne s'applique pas notamment aux prestations de loisirs devant être fournies à une date ou période déterminée (ex : billets d'événements).
@@ -329,8 +330,9 @@ The club is responsible for:
 • enforcing its internal policies (dress code, capacity, refusal, etc.)
 
 **5. Cancellation & "Cancellation Insurance"**
-• Some events may offer a cancellation insurance option (if the event is more than 24 hours away), which can be enabled/disabled by the club.
-• The exact terms of this option are displayed at the time of purchase.
+• Cancellation insurance is no longer offered and can no longer be added to a purchase.
+• Tickets bought with this option before it was withdrawn remain covered: the terms shown at the time of their purchase continue to apply.
+• Otherwise, cancelling and refunding a ticket is at the organising club's discretion.
 
 **6. Right of Withdrawal**
 In accordance with consumer law, the right of withdrawal does not apply to leisure services to be provided on a specific date or period (e.g., event tickets).
@@ -385,7 +387,9 @@ El club es responsable de:
 • la aplicación de sus políticas internas (código de vestimenta, capacidad, rechazo, etc.)
 
 **5. Cancelación y "seguro de cancelación"**
-• Algunos eventos pueden ofrecer una opción de seguro de cancelación (si el evento es a más de 24 horas), activable/desactivable por el club.
+• El seguro de cancelación ya no se comercializa y no puede añadirse a una compra.
+• Las entradas adquiridas con esta opción antes de su retirada siguen cubiertas: se aplican las condiciones mostradas en el momento de su compra.
+• En los demás casos, la cancelación y el reembolso de una entrada dependen de la decisión del club organizador.
 • Las condiciones exactas de esta opción se muestran en el momento de la compra.
 
 **6. Derecho de desistimiento**

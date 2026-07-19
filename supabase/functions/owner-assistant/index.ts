@@ -92,7 +92,7 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Modes de billetterie",
     keywords: ["ticket", "billet", "mode", "round", "simple", "timed", "créneau", "billetterie", "ticketing", "entrée"],
     path: "/owner/ticketing",
-    snippet: "Yuno propose 3 modes de billetterie :\n1. **Simple** : Un seul type de billet à prix fixe, sans rounds. Idéal pour les soirées simples.\n2. **Rounds** (tours de vente) : Plusieurs tarifs progressifs (Early Bird → Regular → Last Minute). Chaque round a un nom, prix, quota et dates. Quand un round est sold out, le suivant s'active automatiquement.\n3. **Créneaux horaires (Timed Entry)** : Billets liés à des créneaux horaires spécifiques. Permet de gérer le flux d'entrées et d'éviter la surcharge.\n\nChaque mode peut inclure des frais de service et une assurance annulation optionnelle.",
+    snippet: "Yuno propose 3 modes de billetterie :\n1. **Simple** : Un seul type de billet à prix fixe, sans rounds. Idéal pour les soirées simples.\n2. **Rounds** (tours de vente) : Plusieurs tarifs progressifs (Early Bird → Regular → Last Minute). Chaque round a un nom, prix, quota et dates. Quand un round est sold out, le suivant s'active automatiquement.\n3. **Créneaux horaires (Timed Entry)** : Billets liés à des créneaux horaires spécifiques. Permet de gérer le flux d'entrées et d'éviter la surcharge.\n\nChaque mode inclut les frais de service Yuno. L'assurance annulation n'est plus commercialisée : le toggle a été retiré de la page Billetterie et l'option n'apparaît plus au checkout client. Les billets vendus avec assurance avant son retrait restent annulables normalement et continuent d'apparaître en compta.",
   },
   "stripe-connect": {
     title: "Stripe Connect & Paiements",
@@ -140,7 +140,7 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Structure des frais",
     keywords: ["frais", "fee", "commission", "service", "pourcentage", "coût", "stripe"],
     path: "/owner/help",
-    snippet: "Frais Yuno : 3% sur commandes boissons, max(0.99€, 4%) sur billets et acomptes VIP. Le club paie les frais Stripe (1.5% + 0.25€ par transaction). CA Club = Total - Frais Yuno. CA Net = CA Club - Frais Stripe.",
+    snippet: "Frais Yuno : 3% sur commandes boissons, max(0.99€, 4%) sur billets. Sur les acomptes VIP c'est aussi max(0.99€, 4%) mais plafonné à 25€ : le frais est calculé sur le montant réellement débité (l'acompte, pas le prix total de la table), et il ne dépasse jamais 25€ même sur une très grosse table. Le club paie les frais Stripe (1.5% + 0.25€ par transaction). CA Club = Total - Frais Yuno. CA Net = CA Club - Frais Stripe.",
   },
   "loyalty": {
     title: "Programme de fidélité",

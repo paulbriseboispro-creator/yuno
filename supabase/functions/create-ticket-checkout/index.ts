@@ -60,7 +60,9 @@ serve(async (req) => {
     // Parse request body first
     const { 
       eventId, ticketRoundId, quantity, fullName, phone, drinkId, drinkName, 
-      newsletterOptIn, smsOptIn, hasInsurance, promoCode, promoterId, attendees,
+      // `hasInsurance` is intentionally NOT destructured — cancellation insurance is
+      // withdrawn from sale and the field is ignored if a client still sends it.
+      newsletterOptIn, smsOptIn, promoCode, promoterId, attendees,
       guestEmail, guestFullName, guestPhone, packId,
       upsellSelections, cancelUrl,
       purchaseSource, minorAuthDocUrl, language, trackedLinkId,
@@ -116,7 +118,7 @@ serve(async (req) => {
     }
     const simulate = TEST_MODE || paymentMode === "simulate";
 
-    logStep("Request parsed", { eventId, ticketRoundId, quantity, hasInsurance, promoCode, attendeesCount: attendees?.length, simulate });
+    logStep("Request parsed", { eventId, ticketRoundId, quantity, promoCode, attendeesCount: attendees?.length, simulate });
 
     // Get event details
     const { data: event, error: eventError } = await supabaseAdmin
@@ -492,7 +494,16 @@ serve(async (req) => {
     // BDE-verified organizers get a reduced floor (0.49€ vs 0.99€); the 4% rate is unchanged.
     const commissionMin = event.is_bde ? YUNO_COMMISSION_MIN_BDE : YUNO_COMMISSION_MIN;
     const serviceFee = Math.round(Math.max(commissionMin, discountedSubtotal * YUNO_COMMISSION_RATE) * 100) / 100; // max(floor, 4%) service fee
-    const insuranceFee = hasInsurance ? Math.round(discountedSubtotal * 0.10 * 100) / 100 : 0; // 10% insurance
+
+    // Cancellation insurance is WITHDRAWN from sale. The client-supplied
+    // `hasInsurance` is deliberately ignored rather than trusted: the checkout UI no
+    // longer offers it, but a crafted request could otherwise still add a 10% line.
+    // Columns (`tickets.has_insurance` / `insurance_fee`) and every downstream path
+    // — cancel-ticket, owner-refund, invoices, analytics — are left intact so the
+    // tickets already sold with insurance keep working and can still be cancelled.
+    // Re-enabling later means restoring the UI and flipping these two lines back.
+    const insuranceSold = false;
+    const insuranceFee = 0;
 
     // Validate upsell selections from ticket_upsell_offers
     interface ValidatedUpsell {
@@ -637,7 +648,7 @@ serve(async (req) => {
           total_price: totalPrice,
           service_fee: serviceFee,
           fee_absorbed: feeAbsorbed,
-          has_insurance: hasInsurance,
+          has_insurance: insuranceSold,
           insurance_fee: insuranceFee,
           status: "paid",
           paid_at: new Date().toISOString(),
@@ -912,7 +923,7 @@ serve(async (req) => {
         total_price: totalPrice,
         service_fee: serviceFee,
         fee_absorbed: feeAbsorbed,
-        has_insurance: hasInsurance,
+        has_insurance: insuranceSold,
         insurance_fee: insuranceFee,
         status: "pending",
         qr_code: qrCode,
@@ -975,20 +986,6 @@ serve(async (req) => {
         quantity: 1,
       },
     ];
-
-    if (hasInsurance && insuranceFee > 0) {
-      lineItems.push({
-        price_data: {
-          currency: "eur",
-          product_data: {
-            name: "Assurance annulation",
-            description: "Remboursement garanti en cas d'annulation",
-          },
-          unit_amount: Math.round(insuranceFee * 100),
-        },
-        quantity: 1,
-      });
-    }
 
     // Add upsell line items
     for (const upsell of validatedUpsells) {

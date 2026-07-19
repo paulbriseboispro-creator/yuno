@@ -2,10 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEventRoute } from '@/hooks/useEventRoute';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Minus, Plus, ShieldCheck, Tag, ChevronRight, ChevronUp, LogIn, Calendar, Wine, Lock } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, Tag, ChevronRight, ChevronUp, LogIn, Calendar, Wine, Lock } from 'lucide-react';
 import { getEventSalesStatus } from '@/types/ticketing';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { launchCheckout } from '@/lib/native';
@@ -46,12 +45,11 @@ export default function TicketCheckout() {
   const { user, loading: authLoading } = useAuth();
   
   const [event, setEvent] = useState<EventWithTicketing | null>(null);
-  const [venue, setVenue] = useState<{ id: string; name: string; city: string; cancellationInsuranceEnabled: boolean } | null>(null);
+  const [venue, setVenue] = useState<{ id: string; name: string; city: string } | null>(null);
   const [round, setRound] = useState<TicketRound | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [quantity, setQuantity] = useState(1);
-  const [hasInsurance, setHasInsurance] = useState(false);
   const [promoterDiscount, setPromoterDiscount] = useState<PromoterDiscount | null>(null);
   
   // Attendees info - index 0 is always the primary buyer
@@ -93,7 +91,6 @@ export default function TicketCheckout() {
   const [salePasswordEnabled, setSalePasswordEnabled] = useState(false);
   const [perPersonLimit, setPerPersonLimit] = useState<number | null>(null);
   const [alreadyPurchased, setAlreadyPurchased] = useState(0);
-  const INSURANCE_RATE = 0.10;
   
   const getLocale = () => {
     switch (language) {
@@ -267,12 +264,11 @@ export default function TicketCheckout() {
           id: eventData.organizer_user_id || eventData.id,
           name: orgName,
           city: eventData.location_city || '',
-          cancellationInsuranceEnabled: false, // no insurance for standalone events
         });
       } else {
         const { data: venueData, error: venueError } = await supabase
           .from('venues')
-          .select('id, name, city, cancellation_insurance_enabled')
+          .select('id, name, city')
           .eq('id', eventData.venue_id)
           .maybeSingle();
 
@@ -283,7 +279,6 @@ export default function TicketCheckout() {
           id: venueData.id,
           name: venueData.name,
           city: venueData.city,
-          cancellationInsuranceEnabled: venueData.cancellation_insurance_enabled ?? true,
         });
       }
 
@@ -430,9 +425,8 @@ export default function TicketCheckout() {
   // transaction fee. Mirrors create-ticket-checkout so this total matches the charge.
   const feeAbsorbed = useAbsorbYunoFees(venue?.id ?? null);
   const serviceFee = customerTransactionFee(discountedSubtotal, 'tickets', feeAbsorbed, event?.isBde ?? false);
-  const insuranceFee = hasInsurance ? Math.round(discountedSubtotal * INSURANCE_RATE * 100) / 100 : 0;
   const upsellTotal = selectedUpsells.reduce((sum, u) => sum + u.price, 0);
-  const total = discountedSubtotal + serviceFee + insuranceFee + upsellTotal;
+  const total = discountedSubtotal + serviceFee + upsellTotal;
   // Un round marqué épuisé manuellement n'a aucune dispo, même si la capacité n'est pas atteinte.
   const remainingTickets = round ? (round.manuallySoldOut ? 0 : round.maxTickets - round.ticketsSold) : 0;
   // Per-person allowance: limit minus what this buyer already holds. No limit → 10.
@@ -461,15 +455,6 @@ export default function TicketCheckout() {
         if (error) console.error('SMS opt-in persist failed:', error.message);
       });
   };
-
-  // Hide insurance if event < 24h away or venue disabled it
-  const hoursUntilEvent = event ? (new Date(event.startAt).getTime() - Date.now()) / (1000 * 60 * 60) : Infinity;
-  const showInsurance = (venue?.cancellationInsuranceEnabled ?? true) && hoursUntilEvent >= 24;
-
-  // Reset insurance if no longer available
-  useEffect(() => {
-    if (!showInsurance && hasInsurance) setHasInsurance(false);
-  }, [showInsurance]);
 
   // Clamp the selected quantity down when the per-person allowance shrinks.
   useEffect(() => {
@@ -608,8 +593,6 @@ export default function TicketCheckout() {
           unitPrice: round.price,
           serviceFee,
           total,
-          hasInsurance,
-          insuranceFee,
           // Primary buyer info
           fullName: attendees[0].fullName.trim(),
           phone: attendees[0].phone.trim(),
@@ -825,39 +808,6 @@ export default function TicketCheckout() {
           )}
         </motion.div>
 
-        {/* Insurance */}
-        {showInsurance && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.10 }}
-            className="mt-5"
-          >
-            <label
-              htmlFor="insurance"
-              className="flex items-start gap-3 p-4 border cursor-pointer transition-all"
-              style={hasInsurance
-                ? { backgroundColor: 'rgba(232,25,44,0.05)', borderColor: 'rgba(232,25,44,0.28)', borderRadius: 10 }
-                : { backgroundColor: '#141414', borderColor: 'rgba(255,255,255,0.08)', borderRadius: 10 }}
-            >
-              <Checkbox
-                id="insurance"
-                checked={hasInsurance}
-                onCheckedChange={(checked) => setHasInsurance(checked === true)}
-                className="mt-0.5"
-              />
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <ShieldCheck className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-bold text-white">{t('tickets.insurance')}</span>
-                  <span className="font-mono text-[9px] font-bold text-primary px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(232,25,44,0.10)' }}>+10%</span>
-                </div>
-                <p className="text-[11px] text-[#9A9A9A]">{t('tickets.insuranceDescription')}</p>
-              </div>
-            </label>
-          </motion.div>
-        )}
-
         {/* Upsells */}
         {venue && (
           <TicketUpsellSelector
@@ -1062,12 +1012,6 @@ export default function TicketCheckout() {
                       <span className="text-[#9A9A9A]">{t('tickets.serviceFee')}</span>
                       <span className="font-mono font-medium tabular-nums text-[#E5E5E5]">{serviceFee.toFixed(2)} €</span>
                     </div>
-                    {hasInsurance && (
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-[#9A9A9A]">{t('tickets.insurance')}</span>
-                        <span className="font-mono font-medium tabular-nums text-[#E5E5E5]">{insuranceFee.toFixed(2)} €</span>
-                      </div>
-                    )}
                     {selectedUpsells.map((u) => (
                       <div key={u.offerId} className="flex items-center justify-between gap-3">
                         <span className="text-[#9A9A9A]">{u.name}</span>

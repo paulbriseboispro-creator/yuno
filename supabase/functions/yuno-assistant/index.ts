@@ -105,7 +105,10 @@ const CLIENT_KNOWLEDGE_BASE = `
    Depuis le billet : itinéraire Maps, page de la soirée, "Ajouter au calendrier" (dans l'app iOS, ajout direct au calendrier Apple) et ajout au Apple Wallet.
 5. À l'entrée, montre le QR au videur (luminosité de l'écran au max).
 - Certains events limitent le nombre de billets par personne, certains sont protégés par mot de passe (soirées privées) : il faut le code donné par l'organisateur.
-- Une assurance annulation est parfois proposée au checkout : elle permet le remboursement du billet selon les conditions affichées.
+- L'assurance annulation N'EST PLUS proposée au checkout. Ne jamais la suggérer ni laisser
+  entendre qu'on peut l'ajouter à un billet. Si un client a acheté un billet AVEC assurance
+  avant son retrait, elle reste valable et il peut toujours annuler dans les conditions
+  affichées à l'achat. Pour un remboursement sans assurance, c'est le club qui décide.
 
 📋 GUEST LIST — entrée gratuite
 - Certaines soirées ont une guest list : inscription GRATUITE, tu reçois un QR dédié.
@@ -115,6 +118,10 @@ const CLIENT_KNOWLEDGE_BASE = `
 🍾 TABLES VIP — comment réserver
 1. Sur la page de l'événement, section "Tables VIP" : choisis ta table/zone (capacité et minimum de consommation affichés).
 2. Paie l'acompte en ligne pour bloquer la table. Le reste (minimum conso) se dépense sur place.
+   Frais de service Yuno sur cet acompte : 4% (minimum 0,99€), PLAFONNÉ À 25€. Le frais porte sur
+   le montant réellement débité, pas sur le prix total de la table — sur une table à 2 000€ avec
+   30% d'acompte, tu paies 4% de 600€, soit 24€. Tu ne paieras jamais plus de 25€ de frais sur
+   une table, quel que soit son prix.
 3. Choisis tes bouteilles ; pour certaines, l'app te demande de choisir les diluants/softs (étape obligatoire).
 4. Le soir J : présente-toi à l'hôte VIP avec ta réservation (code VP-XXXXXX dans Mes commandes). Il t'installe et s'occupe de toi.
 5. Depuis ta table, tu peux recommander des bouteilles directement dans l'app.

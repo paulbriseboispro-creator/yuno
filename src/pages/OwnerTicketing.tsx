@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Trash2, Ticket, Save, FolderOpen, Zap, Crown, Wine, ShieldCheck, Clock, ChevronDown, Users, Bell, Check, ArrowRight, ArrowLeft, Sparkles, Lock, Copy, Mail } from 'lucide-react';
+import { Plus, Pencil, Trash2, Ticket, Save, FolderOpen, Zap, Crown, Wine, Clock, ChevronDown, Users, Bell, Check, ArrowRight, ArrowLeft, Sparkles, Lock, Copy, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -128,7 +128,6 @@ export default function OwnerTicketing() {
     applyToVip: true,
   });
 
-  const [insuranceEnabled, setInsuranceEnabled] = useState(true);
 
   const defaultRoundPlaceholders = [
     { name: 'Early Birds', price: '8', maxTickets: '20' },
@@ -155,12 +154,9 @@ export default function OwnerTicketing() {
     if (venueId) {
       fetchEvents();
       fetchPresets();
-      // Fetch insurance setting + free drink mode (venue-scoped only)
-      supabase.from('venues').select('cancellation_insurance_enabled, free_drink_mode').eq('id', venueId).maybeSingle().then(({ data }) => {
-        if (data) {
-          setInsuranceEnabled(data.cancellation_insurance_enabled ?? true);
-          setFreeDrinkMode((data as any).free_drink_mode || 'credits');
-        }
+      // Free drink mode (venue-scoped only)
+      supabase.from('venues').select('free_drink_mode').eq('id', venueId).maybeSingle().then(({ data }) => {
+        if (data) setFreeDrinkMode((data as any).free_drink_mode || 'credits');
       });
     }
   }, [venueId, organizerUserId, isOrganizerScope]);
@@ -196,18 +192,6 @@ export default function OwnerTicketing() {
     const emails = entries.map(e => e.email).join(', ');
     navigator.clipboard.writeText(emails);
     toast.success(t('tickets.emailsCopied'));
-  };
-
-  const handleToggleInsurance = async (enabled: boolean) => {
-    if (!venueId) return;
-    setInsuranceEnabled(enabled);
-    const { error } = await supabase.from('venues').update({ cancellation_insurance_enabled: enabled }).eq('id', venueId);
-    if (error) {
-      setInsuranceEnabled(!enabled);
-      toast.error(t('common.error'));
-    } else {
-      toast.success(enabled ? t('tickets.insuranceEnabled') : t('tickets.insuranceDisabled'));
-    }
   };
 
   const fetchEvents = async () => {
@@ -1269,24 +1253,11 @@ export default function OwnerTicketing() {
 
       <div className="relative z-10 container mx-auto px-3 sm:px-4 py-4 sm:py-8 space-y-5">
         <CollabReadOnlyBanner action={t('collab.action.createTicketing')} />
-        {/* Insurance toggle (venue-scoped only) */}
-        {!isOrganizerScope && (
-          <div className="flex items-center justify-between gap-3 px-5 py-4" style={MAIN_CARD}>
-            <div className="flex items-center gap-3">
-              <div
-                className="w-8 h-8 flex items-center justify-center rounded-xl flex-none"
-                style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 }}
-              >
-                <ShieldCheck className="h-4 w-4" />
-              </div>
-              <div>
-                <p style={{ color: T1, fontSize: 14, fontWeight: 600, letterSpacing: '-0.01em' }}>{t('tickets.cancellationInsurance')}</p>
-                <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{t('tickets.cancellationInsuranceDesc')}</p>
-              </div>
-            </div>
-            <Switch checked={insuranceEnabled} onCheckedChange={handleToggleInsurance} />
-          </div>
-        )}
+        {/* Cancellation-insurance toggle removed: the product is withdrawn from sale,
+            so the control would have been inert (flipping it changed nothing for the
+            fan). The `venues.cancellation_insurance_enabled` column and each club's
+            saved preference are left untouched, so re-listing insurance later is a
+            matter of restoring this block plus the checkout UI. */}
 
         {/* Tab bar (DA underline) */}
         <div className="flex gap-0.5" style={{ borderBottom: `1px solid ${BORDER}` }}>
