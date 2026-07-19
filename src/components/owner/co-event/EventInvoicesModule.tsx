@@ -14,7 +14,7 @@ import { fr, es, enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { downloadInvoicePDF, type InvoiceData, type InvoiceItem } from '@/lib/generateInvoicePDF';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { computeYunoFee, getEffectiveSplit, computeShare as computeShareUtil, type InvoiceType } from '@/utils/coEventSplit';
+import { resolveYunoFee, getEffectiveSplit, computeShare as computeShareUtil, type InvoiceType } from '@/utils/coEventSplit';
 
 const dfLocale = (lng: string) => (lng === 'fr' ? fr : lng === 'es' ? es : enUS);
 
@@ -36,6 +36,10 @@ interface Invoice {
   ticket_id: string | null;
   table_reservation_id: string | null;
   order_id: string | null;
+  /** Commission actually charged (table_reservations.management_fee). Takes
+   *  precedence over the rate-card recompute so pre-cap bookings report the real
+   *  fee — see resolveYunoFee in utils/coEventSplit. */
+  stored_yuno_fee?: number | null;
 }
 
 interface EventCoData {
@@ -135,7 +139,23 @@ export function EventInvoicesModule({ eventId }: Props) {
       setLoading(false);
       return;
     }
-    setInvoices(((data || []) as any[]).map(inv => ({
+    // Pull the commission actually billed on each table reservation. Without this the
+    // fee gets re-derived from the current rate card, which misreports any booking
+    // made under a previous one.
+    const rows = (data || []) as any[];
+    const resIds = [...new Set(rows.map(r => r.table_reservation_id).filter(Boolean))] as string[];
+    const storedFees = new Map<string, number>();
+    if (resIds.length) {
+      const { data: resRows } = await supabase
+        .from('table_reservations').select('id, management_fee').in('id', resIds);
+      (resRows || []).forEach(r => {
+        if (r.management_fee !== null && r.management_fee !== undefined) {
+          storedFees.set(r.id, Number(r.management_fee));
+        }
+      });
+    }
+
+    setInvoices(rows.map(inv => ({
       id: inv.id,
       invoice_number: inv.invoice_number,
       created_at: inv.created_at,
@@ -151,6 +171,7 @@ export function EventInvoicesModule({ eventId }: Props) {
       ticket_id: inv.ticket_id,
       table_reservation_id: inv.table_reservation_id,
       order_id: inv.order_id,
+      stored_yuno_fee: inv.table_reservation_id ? storedFees.get(inv.table_reservation_id) ?? null : null,
     })));
     setLoading(false);
   }
@@ -178,7 +199,7 @@ export function EventInvoicesModule({ eventId }: Props) {
 
   /** Compute the viewer's share for an invoice given current viewMode. */
   function computeShare(inv: Invoice, side: 'venue' | 'organizer'): { share: number; pct: number; net: number; yuno: number } {
-    return computeShareUtil(inv.amount, inv.type, side, eventCo?.revenue_split_rules, eventCo?.event_mode ?? null, (eventCo as any)?.is_bde ?? false);
+    return computeShareUtil(inv.amount, inv.type, side, eventCo?.revenue_split_rules, eventCo?.event_mode ?? null, (eventCo as any)?.is_bde ?? false, inv.stored_yuno_fee);
   }
 
   /** Adaptive totals depending on the active viewMode. */
@@ -255,7 +276,7 @@ export function EventInvoicesModule({ eventId }: Props) {
     let coEvent: InvoiceData['coEvent'] = undefined;
     if (isCoEvent && eventCo && (viewMode === 'venue' || viewMode === 'organizer')) {
       const split = getEffectiveSplit(eventCo.revenue_split_rules, invoice.type, eventCo.event_mode);
-      const yuno = computeYunoFee(invoice.type, invoice.amount, (eventCo as any)?.is_bde ?? false);
+      const yuno = resolveYunoFee(invoice.type, invoice.amount, invoice.stored_yuno_fee, (eventCo as any)?.is_bde ?? false);
       const net = invoice.amount - yuno;
       const venueShare = Math.round((net * split.venue_pct) / 100 * 100) / 100;
       const organizerShare = Math.round((net * split.organizer_pct) / 100 * 100) / 100;

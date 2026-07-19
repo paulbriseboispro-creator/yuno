@@ -11,7 +11,7 @@ import {
 } from '@/components/org-ui';
 import { calcStripeFee } from '@/utils/fees';
 import {
-  computeYunoFee, getEffectiveSplit, type InvoiceType,
+  computeYunoFee, resolveYunoFee, getEffectiveSplit, type InvoiceType,
 } from '@/utils/coEventSplit';
 import { downloadAccountingPDF, type AccountingPdfLine } from '@/lib/generateAccountingPDF';
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
@@ -67,6 +67,10 @@ interface InvoiceRow {
   order_id: string | null;
   /** Resolved rate / package / drink label for CSV + tooltip (set during fetch). */
   detail?: string;
+  /** Commission actually charged, resolved once during fetch (stored fee wins over
+   *  the rate-card recompute). Shared by the on-screen report and the CSV export so
+   *  the two can never disagree. */
+  yunoFee?: number;
 }
 
 interface ReportLine { label: string; qty: number; htShare: number; ttcShare: number; }
@@ -192,13 +196,23 @@ export default function OwnerAccounting() {
       const refundMap = new Map<string, number>();
       const [tk, tb, od] = await Promise.all([
         ticketIds.length ? supabase.from('tickets').select('id, refund_amount, ticket_round_id, ticket_type, quantity').in('id', ticketIds) : Promise.resolve({ data: [] }),
-        tableIds.length ? supabase.from('table_reservations').select('id, refund_amount, pack_id').in('id', tableIds) : Promise.resolve({ data: [] }),
+        tableIds.length ? supabase.from('table_reservations').select('id, refund_amount, pack_id, management_fee').in('id', tableIds) : Promise.resolve({ data: [] }),
         orderIds.length ? supabase.from('orders').select('id, refund_amount').in('id', orderIds) : Promise.resolve({ data: [] }),
       ]);
       const tkRows = ((tk as any).data || []) as any[];
       const tbRows = ((tb as any).data || []) as any[];
       [...tkRows, ...tbRows, ...((od as any).data || [])]
         .forEach((r: any) => { if (Number(r.refund_amount)) refundMap.set(r.id, Number(r.refund_amount)); });
+
+      // Commission ACTUALLY charged, per table reservation. Accounting must report
+      // what was billed, not re-price history against the current rate card — a
+      // reservation billed before the 25€ cap shipped must still show its real fee.
+      const feeMap = new Map<string, number>();
+      tbRows.forEach(r => {
+        if (r.management_fee !== null && r.management_fee !== undefined) {
+          feeMap.set(r.id, Number(r.management_fee));
+        }
+      });
 
       // Resolve human rate / package names for the per-line breakdown. Best-effort:
       // any read failure just falls back to the generic type label (no crash).
@@ -251,7 +265,9 @@ export default function OwnerAccounting() {
         for (const inv of invs) {
           const split = getEffectiveSplit(ev.revenue_split_rules, inv.type, ev.event_mode);
           const pct = co ? (side === 'venue' ? split.venue_pct : split.organizer_pct) : 100;
-          const yuno = computeYunoFee(inv.type, inv.amount, ev.is_bde ?? false);
+          const invTxnId = txnId(inv);
+          const yuno = resolveYunoFee(inv.type, inv.amount, invTxnId ? feeMap.get(invTxnId) : undefined, ev.is_bde ?? false);
+          inv.yunoFee = yuno;
           const grossClub = inv.amount - yuno;
           const ttc = r2(grossClub * pct / 100);
           const factor = pct / 100;
@@ -259,8 +275,7 @@ export default function OwnerAccounting() {
           grossClubTotal += grossClub;
           yunoTotal += r2(yuno * factor);
           stripeTotal += r2(calcStripeFee(inv.amount) * factor);
-          const tid = txnId(inv);
-          refundTotal += r2((tid ? refundMap.get(tid) || 0 : 0) * factor);
+          refundTotal += r2((invTxnId ? refundMap.get(invTxnId) || 0 : 0) * factor);
 
           // Distribute this invoice's share across its line items. Drinks keep
           // their per-drink breakdown from the order; tickets/tables roll up under
@@ -271,7 +286,7 @@ export default function OwnerAccounting() {
               ? inv.items as any[]
               : [{ description: inv.event_name || labelForType(inv.type, t), quantity: 1, total: inv.amount }];
           } else {
-            const meta = tid ? txnMeta.get(tid) : undefined;
+            const meta = invTxnId ? txnMeta.get(invTxnId) : undefined;
             items = [{ description: meta?.label || labelForType(inv.type, t), quantity: meta?.qty || 1, total: inv.amount }];
           }
           const sumItems = items.reduce((s, it) => s + (Number(it.total) || 0), 0);
@@ -365,7 +380,10 @@ export default function OwnerAccounting() {
         rep.invoices.forEach(inv => {
           const split = getEffectiveSplit(rep.event.revenue_split_rules, inv.type, rep.event.event_mode);
           const pct = co ? (side === 'venue' ? split.venue_pct : split.organizer_pct) : 100;
-          const ttcShare = r2((inv.amount - computeYunoFee(inv.type, inv.amount, rep.event.is_bde ?? false)) * pct / 100);
+          // Reuse the fee resolved at fetch time; never re-derive it here, or the CSV
+          // would disagree with the on-screen report for pre-cap reservations.
+          const yuno = inv.yunoFee ?? computeYunoFee(inv.type, inv.amount, rep.event.is_bde ?? false);
+          const ttcShare = r2((inv.amount - yuno) * pct / 100);
           const htShare = r2(ttcShare / (1 + vatRate / 100));
           rows.push([
             csvCell(rep.event.title || ''), safeFormat(inv.created_at, 'dd/MM/yyyy'),

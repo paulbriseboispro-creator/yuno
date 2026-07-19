@@ -31,10 +31,38 @@ export interface ShareResult {
 }
 
 /** Yuno fee model — kept in sync with supabase/functions/_shared/commission.ts.
- *  BDE events (events.is_bde) keep the 4% rate but a reduced 0.49€ floor. */
+ *  BDE events (events.is_bde) keep the 4% rate but a reduced 0.49€ floor.
+ *  Tables are additionally capped at 25€; tickets and drinks are uncapped.
+ *
+ *  ESTIMATE ONLY. This re-derives the fee from today's rate card, so it is wrong
+ *  for any transaction billed under a previous one. Use `resolveYunoFee` whenever
+ *  the real charged amount is available on the row. */
 export function computeYunoFee(type: InvoiceType, gross: number, isBde = false): number {
   if (type === 'order') return Math.round(gross * 0.03 * 100) / 100;
-  return Math.max(isBde ? 0.49 : 0.99, gross * 0.04);
+  const withMin = Math.max(isBde ? 0.49 : 0.99, gross * 0.04);
+  return type === 'table' ? Math.min(25, withMin) : withMin;
+}
+
+/**
+ * Yuno fee for a transaction, preferring what was ACTUALLY charged.
+ *
+ * Accounting must report history, not re-price it. A table booked before the 25€
+ * cap shipped was really billed e.g. 80€; recomputing would show 25€ and silently
+ * overstate the club's net by 55€. `storedFee` is the persisted commission
+ * (`table_reservations.management_fee`), and it wins whenever present. The
+ * recompute is only a fallback for rows that predate the column being written.
+ */
+export function resolveYunoFee(
+  type: InvoiceType,
+  gross: number,
+  storedFee: number | null | undefined,
+  isBde = false,
+): number {
+  const stored = Number(storedFee);
+  if (storedFee !== null && storedFee !== undefined && Number.isFinite(stored) && stored >= 0) {
+    return Math.round(stored * 100) / 100;
+  }
+  return computeYunoFee(type, gross, isBde);
 }
 
 /** Default split per event mode, mirroring backend defaultSplitForItem(). */
@@ -79,6 +107,7 @@ export function getEffectiveSplit(rules: any, type: InvoiceType, mode: string | 
  * @param side     which party is viewing ('venue' | 'organizer').
  * @param rules    revenue_split_rules jsonb (null → defaults for the mode).
  * @param mode     event_mode (co_event | venue_rental | org_hosted | solo_*).
+ * @param storedFee the commission actually charged, when known — see resolveYunoFee.
  */
 export function computeShare(
   amount: number,
@@ -87,8 +116,9 @@ export function computeShare(
   rules: any,
   mode: string | null,
   isBde = false,
+  storedFee?: number | null,
 ): ShareResult {
-  const yuno = computeYunoFee(type, amount, isBde);
+  const yuno = resolveYunoFee(type, amount, storedFee, isBde);
   const net = amount - yuno;
   const split = getEffectiveSplit(rules, type, mode);
   const pct = side === 'venue' ? split.venue_pct : split.organizer_pct;
