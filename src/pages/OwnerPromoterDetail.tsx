@@ -77,6 +77,7 @@ export default function OwnerPromoterDetail() {
     guestListTemplateId: null as string | null,
     clientDiscountTemplateId: null as string | null,
     canScanEntries: false,
+    autoAssignEvents: false,
   });
 
   const dateFrom = (() => {
@@ -122,6 +123,7 @@ export default function OwnerPromoterDetail() {
       guestListTemplateId: (data as any).guest_list_template_id || null,
       clientDiscountTemplateId: (data as any).client_discount_template_id || null,
       canScanEntries: mapped.canScanEntries,
+      autoAssignEvents: (data as any).auto_assign_events ?? false,
     });
 
     if (data.default_commission_template_id) {
@@ -286,8 +288,32 @@ export default function OwnerPromoterDetail() {
         guest_list_template_id: null, // guest-list allocation lives on the Guest List page now
         client_discount_template_id: tplId && selRules.customer_discount ? tplId : null,
         can_scan_entries: editForm.canScanEntries,
-      }).eq('id', id);
+        auto_assign_events: editForm.autoAssignEvents,
+      } as any).eq('id', id);
       if (error) throw error;
+
+      // Auto-assignation activée : on rattache immédiatement le promoteur à
+      // toutes les soirées à venir du scope (le trigger DB couvre les futures).
+      if (editForm.autoAssignEvents) {
+        const now = new Date().toISOString();
+        const orClause = scopeEventsOr(scope);
+        let q = supabase.from('events').select('id').eq('is_active', true).gte('end_at', now).limit(100);
+        if (orClause) q = q.or(orClause);
+        const { data: upcoming } = await q;
+        if (upcoming && upcoming.length > 0) {
+          await supabase.from('promoter_event_assignments').upsert(
+            upcoming.map(e => ({
+              promoter_id: id,
+              event_id: e.id,
+              status: 'active',
+              can_access_guestlist: true,
+              can_access_tables: true,
+            })),
+            { onConflict: 'promoter_id,event_id', ignoreDuplicates: true },
+          );
+        }
+      }
+
       toast.success(t('promoterDetail.saved'));
       fetchPromoter();
     } catch (err: any) {
@@ -619,6 +645,13 @@ export default function OwnerPromoterDetail() {
                     <p className={labelClass}>{t('promoterScan.onlyYourTickets')}</p>
                   </div>
                   <Switch checked={editForm.canScanEntries} onCheckedChange={v => setEditForm({ ...editForm, canScanEntries: v })} />
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <Label>{t('promoterDetail.autoAssign')}</Label>
+                    <p className={labelClass}>{t('promoterDetail.autoAssignHint')}</p>
+                  </div>
+                  <Switch checked={editForm.autoAssignEvents} onCheckedChange={v => setEditForm({ ...editForm, autoAssignEvents: v })} />
                 </div>
                 <div>
                   <Label>{t('promoterDetail.promoCode')}</Label>

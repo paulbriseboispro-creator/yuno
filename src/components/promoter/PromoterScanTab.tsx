@@ -255,7 +255,7 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
               disabled={processing}
             >
               <Camera className="h-4 w-4" />
-              Scanner un QR Code
+              {t('promoterScan.scanCta')}
             </Button>
           )}
 

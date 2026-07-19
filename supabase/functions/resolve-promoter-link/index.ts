@@ -26,20 +26,26 @@ Deno.serve(async (req) => {
     );
 
     // Find ALL active promoter profiles matching this promo_code (venue OR organizer scoped)
-    const { data: promoters, error } = await supabase
+    const { data: allMatches, error } = await supabase
       .from("promoters")
-      .select("id, promo_code, venue_id, organizer_user_id, user_id, first_name, last_name, profile_image_url")
+      .select("id, promo_code, venue_id, organizer_user_id, user_id, first_name, last_name, profile_image_url, created_at")
       .ilike("promo_code", promoCode)
-      .eq("is_active", true);
+      .eq("is_active", true)
+      .order("created_at", { ascending: true });
 
-    if (error || !promoters || promoters.length === 0) {
+    if (error || !allMatches || allMatches.length === 0) {
       return new Response(JSON.stringify({ error: "not_found" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const primary = promoters[0];
+    // Un code = une personne (garanti par trigger DB depuis 2026-07). Défense en
+    // profondeur pour les données historiques : si deux users partagent encore le
+    // code, on ne garde QUE les profils du détenteur le plus ancien — sinon la
+    // page mélangeait l'identité de l'un avec les clubs de l'autre.
+    const primary = allMatches[0];
+    const promoters = allMatches.filter((p) => p.user_id === primary.user_id);
 
     // Fetch profile name
     let profileName: { first_name: string | null; last_name: string | null } | null = null;
@@ -59,9 +65,12 @@ Deno.serve(async (req) => {
     const venueIds = [...new Set(promoters.map(p => p.venue_id).filter(Boolean) as string[])];
     const organizerIds = [...new Set(promoters.map(p => p.organizer_user_id).filter(Boolean) as string[])];
 
-    // Fetch venues
+    // Fetch venues. venues n'a PAS de colonne slug : l'id texte EST le slug
+    // public (/club/:id). Sélectionner "slug" faisait échouer toute la requête
+    // (42703) en silence → aucun nom/logo de club sur le hub et des cartes
+    // d'événement qui retombaient sur la home au clic.
     const { data: venues } = venueIds.length > 0
-      ? await supabase.from("venues").select("id, name, logo_url, slug").in("id", venueIds)
+      ? await supabase.from("venues").select("id, name, logo_url").in("id", venueIds)
       : { data: [] };
     const venueMap = new Map((venues || []).map(v => [v.id, v]));
 
@@ -73,17 +82,24 @@ Deno.serve(async (req) => {
 
     const now = new Date().toISOString();
 
-    // Upcoming venue events
-    const { data: venueEvents } = venueIds.length > 0
-      ? await supabase
-          .from("events")
-          .select("id, title, start_at, end_at, poster_url, music_genre, ticketing_enabled, venue_id, organizer_user_id, partner_organizer_id, partner_venue_id")
-          .in("venue_id", venueIds)
-          .eq("is_active", true)
-          .gte("end_at", now)
-          .order("start_at", { ascending: true })
-          .limit(30)
-      : { data: [] };
+    // Upcoming venue events — le club peut être hôte (venue_id) OU partenaire
+    // d'un co-event (partner_venue_id) : les deux comptent pour ses promoteurs.
+    let venueEvents: any[] = [];
+    if (venueIds.length > 0) {
+      const venueOr = venueIds.flatMap(id => [
+        `venue_id.eq.${id}`,
+        `partner_venue_id.eq.${id}`,
+      ]).join(",");
+      const { data } = await supabase
+        .from("events")
+        .select("id, title, start_at, end_at, poster_url, music_genre, ticketing_enabled, venue_id, organizer_user_id, partner_organizer_id, partner_venue_id")
+        .or(venueOr)
+        .eq("is_active", true)
+        .gte("end_at", now)
+        .order("start_at", { ascending: true })
+        .limit(30);
+      venueEvents = data || [];
+    }
 
     // Upcoming organizer events (lead OR partner)
     let organizerEvents: any[] = [];
@@ -103,15 +119,15 @@ Deno.serve(async (req) => {
       organizerEvents = data || [];
     }
 
-    // Build venues payload (clubs)
+    // Build venues payload (clubs) — l'id texte du club est son slug public.
     const venuesPayload = venueIds.map(vid => {
       const v = venueMap.get(vid);
       return {
         venue_id: vid,
         venue_name: v?.name || null,
         venue_logo_url: v?.logo_url || null,
-        venue_slug: v?.slug || null,
-        events: (venueEvents || []).filter(e => e.venue_id === vid),
+        venue_slug: vid,
+        events: (venueEvents || []).filter(e => e.venue_id === vid || e.partner_venue_id === vid),
       };
     });
 

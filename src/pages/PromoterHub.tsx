@@ -406,9 +406,12 @@ export default function PromoterHub() {
     params.set('event', event.id);
     if (source) params.set('src', source);
 
-    // For venue-scoped events, deep-link to club page
-    if (event.venue_id && event.ownerKind === 'venue' && event.ownerSlug) {
-      navigate(`/club/${event.ownerSlug}/event/${event.id}?${params.toString()}`);
+    // For venue-scoped events, deep-link to the HOST club page. On utilise le
+    // venue_id de l'EVENT (l'id texte du club est son slug public), pas celui du
+    // groupe d'affichage : un co-event listé sous le club partenaire doit quand
+    // même ouvrir la page du club hôte.
+    if (event.venue_id && event.ownerKind === 'venue') {
+      navigate(`/club/${event.venue_id}/event/${event.id}?${params.toString()}`);
       return;
     }
     // Organizer-only events → public organizer profile route handles it
@@ -733,47 +736,10 @@ export default function PromoterHub() {
             )}
           </section>
 
-          {/* ══ CTA ══════════════════════════════════════════════════ */}
-          <div style={{ padding: '32px 20px 0', display: 'flex', justifyContent: 'center' }}>
-            <button
-              onClick={() => navigate('/')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: 'clamp(13px, 3.5vw, 16px) clamp(24px, 6vw, 32px)',
-                borderRadius: '999px',
-                background: 'linear-gradient(135deg, #E8192C 0%, #c0121f 100%)',
-                color: '#FFFFFF',
-                fontFamily: "'Space Grotesk', 'Helvetica Neue', Arial, sans-serif",
-                fontSize: 'clamp(14px, 3.5vw, 15px)',
-                fontWeight: 700,
-                letterSpacing: '0.04em',
-                textTransform: 'uppercase' as const,
-                border: 'none',
-                boxShadow: '0 4px 20px rgba(232,25,44,0.35)',
-                cursor: 'pointer',
-                transition: 'transform 200ms ease, box-shadow 200ms ease',
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
-                (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 28px rgba(232,25,44,0.45)';
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
-                (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 20px rgba(232,25,44,0.35)';
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="3" y="4" width="18" height="18" rx="2"/>
-                <line x1="16" y1="2" x2="16" y2="6"/>
-                <line x1="8" y1="2" x2="8" y2="6"/>
-                <line x1="3" y1="10" x2="21" y2="10"/>
-              </svg>
-              {language === 'fr' ? 'Voir plus de soirées' : language === 'es' ? 'Ver más eventos' : 'See more events'}
-              <IconArrow />
-            </button>
-          </div>
+          {/* Pas de CTA « Voir plus de soirées » : il renvoyait vers l'Explore
+              général de yunoapp.eu, donc vers des soirées pour lesquelles le
+              promoteur ne travaille pas (et sans son ?ref= de tracking). Le hub
+              ne montre QUE les soirées du promoteur. */}
 
         </main>
         </PublicPage>

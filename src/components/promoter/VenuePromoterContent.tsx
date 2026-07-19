@@ -164,9 +164,11 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
         .gte('end_at', now)
         .order('start_at', { ascending: true })
         .limit(50);
+      // Le club peut être hôte (venue_id) OU partenaire d'un co-event
+      // (partner_venue_id) : ses promoteurs travaillent les deux.
       const { data } = isOrg
         ? await base.or(`organizer_user_id.eq.${promoter.organizer_user_id},partner_organizer_id.eq.${promoter.organizer_user_id}`)
-        : await base.eq('venue_id', venue!.id);
+        : await base.or(`venue_id.eq.${venue!.id},partner_venue_id.eq.${venue!.id}`);
       setEvents(data || []);
       setEventsLoading(false);
     })();
@@ -282,6 +284,20 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
       }
     })();
   }, [promoter.id]);
+
+  // Auto-détection de la soirée à scanner : l'event en cours (live) d'abord,
+  // sinon le prochain à venir. Le promoteur n'a plus à choisir — le sélecteur
+  // ne sert qu'à déroger quand plusieurs soirées se chevauchent.
+  useEffect(() => {
+    if (selectedScanEvent || scanEvents.length === 0) return;
+    const now = new Date();
+    const live = scanEvents.find(a => a.eventStartAt && new Date(a.eventStartAt) <= now && new Date(a.eventEndAt) >= now);
+    const next = [...scanEvents]
+      .filter(a => a.eventEndAt && new Date(a.eventEndAt) >= now)
+      .sort((a, b) => new Date(a.eventStartAt).getTime() - new Date(b.eventStartAt).getTime())[0];
+    const auto = live || next;
+    if (auto) setSelectedScanEvent(auto.eventId);
+  }, [scanEvents, selectedScanEvent]);
 
   // Check for active event (night mode)
   useEffect(() => {
@@ -857,18 +873,22 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
         {/* ── SCAN ── */}
         {canScan && (
           <TabsContent value="scan" className="space-y-4 mt-4">
-            <Select value={selectedScanEvent} onValueChange={setSelectedScanEvent}>
-              <SelectTrigger>
-                <SelectValue placeholder={t('promoter.filterByEvent')} />
-              </SelectTrigger>
-              <SelectContent>
-                {scanEvents.map(a => (
-                  <SelectItem key={a.eventId} value={a.eventId}>
-                    <span className="block max-w-[min(72vw,18rem)] truncate">{a.eventTitle}</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* La soirée est détectée automatiquement (live, sinon la prochaine).
+                Le sélecteur n'apparaît que s'il y a plusieurs candidates. */}
+            {scanEvents.length > 1 && (
+              <Select value={selectedScanEvent} onValueChange={setSelectedScanEvent}>
+                <SelectTrigger>
+                  <SelectValue placeholder={t('promoter.filterByEvent')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {scanEvents.map(a => (
+                    <SelectItem key={a.eventId} value={a.eventId}>
+                      <span className="block max-w-[min(72vw,18rem)] truncate">{a.eventTitle}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             {selectedScanEvent ? (
               <PromoterScanTab
                 promoterId={promoter.id}
@@ -877,7 +897,7 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
               />
             ) : (
               <Card><CardContent className="p-8 text-center text-muted-foreground text-sm">
-                {t('promoter.filterByEvent')}
+                {t('promoterScan.noEventToScan')}
               </CardContent></Card>
             )}
           </TabsContent>
