@@ -7,11 +7,16 @@ interface ScanOverlayProps {
   result: 'success' | 'error' | 'already' | 'vip_success' | null;
   onDismiss: () => void;
   holderName?: string;
+  /**
+   * Motif du refus, affiché sous « REFUSÉ ». Sans lui le plein écran rouge dit
+   * au videur qu'il doit refuser, mais pas quoi répondre au client.
+   */
+  reason?: string;
   /** Libellé du badge « validé hors ligne » (scan offline, app Yuno Pro). */
   offlineBadge?: string;
 }
 
-export function ScanOverlay({ result, onDismiss, holderName, offlineBadge }: ScanOverlayProps) {
+export function ScanOverlay({ result, onDismiss, holderName, reason, offlineBadge }: ScanOverlayProps) {
   const { t } = useLanguage();
 
   useEffect(() => {
@@ -79,6 +84,19 @@ export function ScanOverlay({ result, onDismiss, holderName, offlineBadge }: Sca
               className="mt-2 max-w-full truncate text-lg text-white/80"
             >
               {holderName}
+            </motion.p>
+          )}
+          {reason && !isSuccess && (
+            /* Motif du refus : borné en largeur et laissé libre de passer à la
+               ligne — les messages longs ne doivent pas être coupés, c'est
+               exactement ce que le videur doit lire. */
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="mt-3 max-w-xs text-balance text-lg leading-snug text-white/85"
+            >
+              {reason}
             </motion.p>
           )}
           {offlineBadge && isSuccess && (

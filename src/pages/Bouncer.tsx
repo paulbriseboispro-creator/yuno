@@ -162,6 +162,15 @@ export default function Bouncer() {
   const [overlayName, setOverlayName] = useState<string | undefined>(undefined);
   const [overlayOffline, setOverlayOffline] = useState(false);
 
+  /**
+   * Contexte affiché sous un refus, pour que le videur puisse l'expliquer au
+   * client au lieu de lire un motif nu. Volontairement distinct de
+   * `scannedTicket` : ce dernier déclenche les actions (annuler, rembourser,
+   * avertir, accepter hors délai), qui n'ont aucun sens sur une entrée refusée.
+   */
+  type DeniedContext = { name?: string | null; eventTitle?: string | null };
+  const [deniedContext, setDeniedContext] = useState<DeniedContext | null>(null);
+
   // Scan offline (app Yuno Pro) : manifeste local + file de rejeu.
   const [offlineEventId, setOfflineEventId] = useState<string | null>(null);
   const [syncDrawerOpen, setSyncDrawerOpen] = useState(false);
@@ -383,6 +392,7 @@ export default function Bouncer() {
   const startScanning = async () => {
     setScanResult(null);
     setErrorMessage('');
+    setDeniedContext(null);
     setIsRequestingCamera(true);
     setScanning(true);
     setIsRequestingCamera(false);
@@ -390,6 +400,22 @@ export default function Bouncer() {
 
   const stopScanning = async () => {
     setScanning(false);
+  };
+
+  /**
+   * Point d'entrée unique de tout refus d'entrée : carte inline, flash plein
+   * écran rouge et vibration d'erreur partent toujours ensemble.
+   *
+   * Passer par ici plutôt que par un `setScanResult('error')` isolé n'est pas
+   * cosmétique : sans flash ni vibration, un refus ne produit qu'une petite
+   * carte sous le viseur, invisible dans un sas sombre et bruyant. Tout nouveau
+   * motif de refus doit appeler cette fonction.
+   */
+  const denyScan = (message: string, context?: DeniedContext) => {
+    setScanResult('error');
+    setErrorMessage(message);
+    setDeniedContext(context ?? null);
+    setOverlayResult('error');
   };
 
   /**
@@ -402,8 +428,7 @@ export default function Bouncer() {
 
     if (activeTab === 'cancel') {
       // L'annulation/remboursement exige l'edge function staff-cancel.
-      setScanResult('error');
-      setErrorMessage(t('offline.cancelUnavailable'));
+      denyScan(t('offline.cancelUnavailable'));
       return;
     }
 
@@ -424,26 +449,24 @@ export default function Bouncer() {
         setOverlayName(name || undefined);
         break;
       case 'not_paid':
-        setScanResult('error');
-        setErrorMessage(t('bouncer.ticketNotPaid'));
+        denyScan(t('bouncer.ticketNotPaid'), { name });
         break;
       case 'cancelled':
-        setScanResult('error');
-        setErrorMessage(t('guestList.cancelled'));
+        denyScan(t('guestList.cancelled'), { name });
         break;
       case 'deadline_passed':
-        setScanResult('error');
-        setErrorMessage(verdict.deadlineSource === 'entry' ? 'Heure limite d\'entrée dépassée' : t('guestList.timeExpired'));
+        denyScan(
+          verdict.deadlineSource === 'entry' ? 'Heure limite d\'entrée dépassée' : t('guestList.timeExpired'),
+          { name },
+        );
         break;
       case 'wrong_venue':
-        setScanResult('error');
-        setErrorMessage(t('bouncer.wrongVenue'));
+        denyScan(t('bouncer.wrongVenue'), { name });
         break;
       default:
         // Introuvable dans le manifeste : peut-être un billet acheté après la
         // dernière synchro — message dédié avec invitation à re-synchroniser.
-        setScanResult('error');
-        setErrorMessage(t('offline.notFound'));
+        denyScan(t('offline.notFound'));
     }
   };
 
@@ -494,22 +517,25 @@ export default function Bouncer() {
           { venueId: venueId!, now: new Date(), mode: activeTab === 'cancel' ? 'cancel' : 'entry' },
         );
 
+        // Contexte de refus : porteur + soirée, de quoi expliquer au client.
+        const attendeeContext: DeniedContext = {
+          name: attendee.full_name || ticket.full_name,
+          eventTitle: ticket.events.title,
+        };
+
         if (verdict.status === 'wrong_venue') {
-          setScanResult('error');
-          setErrorMessage(t('bouncer.wrongVenue'));
+          denyScan(t('bouncer.wrongVenue'), attendeeContext);
           return;
         }
 
         // Cancel mode
         if (activeTab === 'cancel') {
           if (verdict.status === 'not_paid') {
-            setScanResult('error');
-            setErrorMessage(t('bouncer.notPaidOrCancelled'));
+            denyScan(t('bouncer.notPaidOrCancelled'), attendeeContext);
             return;
           }
           if (verdict.status === 'cannot_cancel_scanned') {
-            setScanResult('error');
-            setErrorMessage(t('bouncer.cannotCancelScanned'));
+            denyScan(t('bouncer.cannotCancelScanned'), attendeeContext);
             return;
           }
           setRefundReason('');
@@ -562,8 +588,7 @@ export default function Bouncer() {
         }
 
         if (verdict.status === 'not_paid') {
-          setScanResult('error');
-          setErrorMessage(t('bouncer.ticketNotPaid'));
+          denyScan(t('bouncer.ticketNotPaid'), attendeeContext);
           return;
         }
 
@@ -682,22 +707,25 @@ export default function Bouncer() {
           { venueId: venueId!, now: new Date(), mode: activeTab === 'cancel' ? 'cancel' : 'entry' },
         );
 
+        // Contexte de refus : porteur + soirée, de quoi expliquer au client.
+        const ticketContext: DeniedContext = {
+          name: ticket.full_name,
+          eventTitle: ticket.events.title,
+        };
+
         if (ticketVerdict.status === 'wrong_venue') {
-          setScanResult('error');
-          setErrorMessage(t('bouncer.wrongVenue'));
+          denyScan(t('bouncer.wrongVenue'), ticketContext);
           return;
         }
 
         // Cancel mode
         if (activeTab === 'cancel') {
           if (ticketVerdict.status === 'not_paid') {
-            setScanResult('error');
-            setErrorMessage(t('bouncer.notPaidOrCancelled'));
+            denyScan(t('bouncer.notPaidOrCancelled'), ticketContext);
             return;
           }
           if (ticketVerdict.status === 'cannot_cancel_scanned') {
-            setScanResult('error');
-            setErrorMessage(t('bouncer.cannotCancelScanned'));
+            denyScan(t('bouncer.cannotCancelScanned'), ticketContext);
             return;
           }
           // Reset refund form
@@ -751,8 +779,7 @@ export default function Bouncer() {
         }
 
         if (ticketVerdict.status === 'not_paid') {
-          setScanResult('error');
-          setErrorMessage(t('bouncer.ticketNotPaid'));
+          denyScan(t('bouncer.ticketNotPaid'), ticketContext);
           return;
         }
 
@@ -855,15 +882,19 @@ export default function Bouncer() {
           { venueId: venueId!, now: new Date(), mode: 'entry' },
         );
 
+        // Contexte de refus : porteur + soirée, de quoi expliquer au client.
+        const tableContext: DeniedContext = {
+          name: reservation.full_name,
+          eventTitle: reservation.events.title,
+        };
+
         if (tableVerdict.status === 'wrong_venue') {
-          setScanResult('error');
-          setErrorMessage(t('bouncer.wrongVenue'));
+          denyScan(t('bouncer.wrongVenue'), tableContext);
           return;
         }
 
         if (tableVerdict.status === 'not_paid') {
-          setScanResult('error');
-          setErrorMessage(t('bouncer.ticketNotPaid'));
+          denyScan(t('bouncer.ticketNotPaid'), tableContext);
           return;
         }
 
@@ -1000,9 +1031,14 @@ export default function Bouncer() {
             { venueId: venueId!, now: new Date(), mode: 'entry' },
           );
 
+          // Contexte de refus : porteur + soirée, de quoi expliquer au client.
+          const glContext: DeniedContext = {
+            name: glEntry.full_name,
+            eventTitle: (glEntry.guest_lists as { events: { title: string } }).events.title,
+          };
+
           if (glVerdict.status === 'wrong_venue') {
-            setScanResult('error');
-            setErrorMessage(t('bouncer.wrongVenue'));
+            denyScan(t('bouncer.wrongVenue'), glContext);
             return;
           }
 
@@ -1027,16 +1063,17 @@ export default function Bouncer() {
           }
 
           if (glVerdict.status === 'cancelled') {
-            setScanResult('error');
-            setErrorMessage(t('guestList.cancelled'));
+            denyScan(t('guestList.cancelled'), glContext);
             return;
           }
 
           // Deadline (entrée > guest list > free_before_time) — règle partagée
           // avec le chemin offline, voir computeGuestListDeadline dans rules.ts.
           if (glVerdict.status === 'deadline_passed') {
-            setScanResult('error');
-            setErrorMessage(glVerdict.deadlineSource === 'entry' ? 'Heure limite d\'entrée dépassée' : t('guestList.timeExpired'));
+            denyScan(
+              glVerdict.deadlineSource === 'entry' ? 'Heure limite d\'entrée dépassée' : t('guestList.timeExpired'),
+              glContext,
+            );
             return;
           }
 
@@ -1107,8 +1144,7 @@ export default function Bouncer() {
       }
 
       // No ticket or reservation found
-      setScanResult('error');
-      setErrorMessage(t('bouncer.ticketNotFound'));
+      denyScan(t('bouncer.ticketNotFound'));
     } catch (error) {
       console.error('Error processing scan:', error);
       // Filet : échec réseau en plein scan (connexion tombée entre deux) →
@@ -1117,8 +1153,7 @@ export default function Bouncer() {
         await handleOfflineScan(qrCode);
         return;
       }
-      setScanResult('error');
-      setErrorMessage(t('bouncer.scanError'));
+      denyScan(t('bouncer.scanError'));
     }
   };
 
@@ -1127,6 +1162,7 @@ export default function Bouncer() {
     setScannedVipReservation(null);
     setScanResult(null);
     setErrorMessage('');
+    setDeniedContext(null);
     setRefundReason('');
     setCustomReason('');
     setBanCustomer(false);
@@ -1613,6 +1649,19 @@ export default function Bouncer() {
                         <XCircle className="h-16 w-16 text-red-500 mx-auto mb-3" />
                         <h3 className="text-xl font-bold text-red-500">{t('bouncer.entryDenied')}</h3>
                         <p className="text-sm text-red-400 mt-2">{errorMessage}</p>
+                        {(deniedContext?.name || deniedContext?.eventTitle) && (
+                          /* Qui est devant la porte et pour quelle soirée : sans
+                             ça le videur lit un motif nu et ne peut rien
+                             expliquer au client. */
+                          <div className="mt-3 pt-3 border-t border-red-500/30">
+                            {deniedContext.name && (
+                              <p className="text-sm font-semibold text-white/90 truncate">{deniedContext.name}</p>
+                            )}
+                            {deniedContext.eventTitle && (
+                              <p className="text-xs text-white/50 truncate mt-0.5">{deniedContext.eventTitle}</p>
+                            )}
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -2119,6 +2168,7 @@ export default function Bouncer() {
         result={overlayResult}
         onDismiss={() => setOverlayResult(null)}
         holderName={overlayName}
+        reason={overlayResult === 'error' ? errorMessage : undefined}
         offlineBadge={overlayOffline ? t('offline.validatedOffline') : undefined}
       />
 
