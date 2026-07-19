@@ -119,6 +119,13 @@ statiques sont servis gratuitement et ne comptent pas dans le quota de requêtes
 ## Règles de travail
 
 - Toujours `git add <fichiers précis>` — jamais `git add -A`/`git add .` (parasites + binaires).
+- **Notifications push automatiques** : toute nouvelle notif auto passe par le registre
+  super admin (`platform_notification_settings`, page `/admin/notifications`). Push
+  unitaire → `_shared/auto-push.ts` (`sendAutoPush` : gate + langue FR/EN/ES + tracking
+  `auto_push_events` + clic `?an=`). Fan-out → mécanique campagnes de
+  `_shared/push-automations.ts` (source='auto', clic `?pc=`). Ne JAMAIS appeler
+  `send-push-notification` en direct pour une notif automatique ; ajouter la clé au
+  seed + au `CATALOG` de `AdminNotificationAutomations.tsx` + i18n `adminAutoPush.k.*`.
 - Ajouter les 3 langues i18n pour toute nouvelle string.
 - Migrations : un fichier par changement, timestamp croissant, push via CLI.
 - Respecter le bon design system selon surface (public vs pro).
