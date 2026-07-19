@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { wrapEmailWithBranding, escapeHtml } from "../_shared/email-branding.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
+import { sendAutoPush } from "../_shared/auto-push.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[PROMOTER-ADD-GUEST] ${step}`, details ? JSON.stringify(details) : "");
@@ -450,6 +451,22 @@ serve(async (req) => {
         }
       } catch (emailErr) {
         console.error("Email sending failed (non-blocking):", emailErr);
+      }
+    }
+
+    // Push « tu es sur la guest list » — seulement pour les invités qui ont un
+    // compte Yuno (linkedUserId), à la première inscription (pas aux mises à
+    // jour). Registre auto (clé 'guest_list_added') : gate + langue + tracking.
+    if (linkedUserId && !wasUpdated) {
+      try {
+        await sendAutoPush(supabaseAdmin, {
+          key: "guest_list_added",
+          userId: linkedUserId,
+          url: "/my-orders",
+          vars: { event: event?.title || { fr: "Événement", en: "Event", es: "Evento" } },
+        });
+      } catch (pushErr) {
+        console.error("Guest list push failed (non-blocking):", pushErr);
       }
     }
 

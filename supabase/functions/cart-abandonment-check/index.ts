@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
+import { sendAutoPush, isAutoPushEnabled } from "../_shared/auto-push.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -25,6 +26,13 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, serviceKey);
+
+    // Kill switch plateforme (/admin/notifications, clé 'cart_abandonment').
+    if (!(await isAutoPushEnabled(supabase, 'cart_abandonment'))) {
+      return new Response(JSON.stringify({ success: true, sent: 0, skipped: 'disabled' }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     const now = new Date();
     const thirtyMinAgo = new Date(now.getTime() - 30 * 60 * 1000).toISOString();
@@ -77,26 +85,21 @@ Deno.serve(async (req) => {
 
       if (recentNotif && recentNotif.length > 0) continue;
 
+      // Registre auto (clé 'cart_abandonment', variante billet) : langue +
+      // tracking ?an=. Le helper journalise notification_log type 'marketing'
+      // (mêmes plafonds anti-spam que l'insert manuel qu'il remplace).
       try {
-        const eventTitle = (ticket as any).events?.title || 'cet événement';
-        await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
-          body: JSON.stringify({
-            user_id: ticket.user_id,
-            payload: {
-              title: 'Toujours dispo 🎟️',
-              body: `Tes tickets pour ${eventTitle} sont encore disponibles.`,
-              url: `/my-orders?tab=tickets`
-            }
-          })
+        const eventTitle = (ticket as any).events?.title
+          || { fr: 'cet événement', en: 'this event', es: 'este evento' };
+        const res = await sendAutoPush(supabase, {
+          key: 'cart_abandonment',
+          variant: 'ticket',
+          userId: ticket.user_id,
+          url: `/my-orders?tab=tickets`,
+          vars: { event: eventTitle },
         });
-        sentCount++;
+        if (res.sent > 0) sentCount++;
         notifiedUsers.add(ticket.user_id);
-
-        await supabase.from('notification_log').insert({
-          user_id: ticket.user_id, notification_type: 'marketing', title: 'Cart abandonment: ticket'
-        });
       } catch (e) { console.error('[CART-ABANDON] Ticket error:', e); }
     }
 
@@ -115,27 +118,18 @@ Deno.serve(async (req) => {
 
       if ((todayNotifs?.length || 0) >= 3) continue;
 
+      // Registre auto (clé 'cart_abandonment', variante boissons).
       try {
-        await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
-          body: JSON.stringify({
-            user_id: snapshot.user_id,
-            payload: {
-              title: 'Finaliser ta commande ? 🍹',
-              body: 'Tes cocktails sont toujours dans ton panier.',
-              url: '/cart'
-            }
-          })
+        const res = await sendAutoPush(supabase, {
+          key: 'cart_abandonment',
+          variant: 'drinks',
+          userId: snapshot.user_id,
+          url: '/cart',
         });
-        sentCount++;
+        if (res.sent > 0) sentCount++;
 
         // Mark as notified
         await supabase.from('cart_snapshots').update({ notified_at: now.toISOString() }).eq('id', snapshot.id);
-
-        await supabase.from('notification_log').insert({
-          user_id: snapshot.user_id, notification_type: 'marketing', title: 'Cart abandonment: drink'
-        });
       } catch (e) { console.error('[CART-ABANDON] Drink error:', e); }
     }
 

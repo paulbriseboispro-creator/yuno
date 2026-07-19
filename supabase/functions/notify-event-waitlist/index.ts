@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { wrapEmailWithBranding, t, escapeHtml, type EmailLanguage } from '../_shared/email-branding.ts';
 import { buildWaitlistOpen, fmtDateParts } from "../_shared/email-templates.ts";
+import { sendAutoPush } from "../_shared/auto-push.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -222,8 +223,10 @@ serve(async (req) => {
     }
 
     if (type !== 'confirmation') {
-      const venueName = (event as any).venues?.name || 'Yuno';
-      
+      // Registre auto (clé 'waitlist_presale') : gate super admin + langue du
+      // destinataire + tracking ?an=. NB : l'ancien appel envoyait un corps
+      // { userId, title, ... } que le relay ne comprend pas ({ user_id, payload }
+      // attendu) — le push waitlist ne partait donc JAMAIS. Corrigé ici.
       const { data: waitlistUsers } = await supabaseClient
         .from('event_waitlist')
         .select('user_id')
@@ -231,29 +234,23 @@ serve(async (req) => {
         .not('user_id', 'is', null);
 
       if (waitlistUsers && waitlistUsers.length > 0) {
-        const userIds = waitlistUsers.map(w => w.user_id).filter(Boolean);
-        
+        const userIds = [...new Set(waitlistUsers.map(w => w.user_id).filter(Boolean))];
+
+        let pushSent = 0;
         for (const userId of userIds) {
           try {
-            const pushUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-push-notification`;
-            await fetch(pushUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-              },
-              body: JSON.stringify({
-                userId,
-                title: '🎉 Billets disponibles !',
-                body: `Les billets pour ${event.title} sont maintenant en vente. Tu as un accès prioritaire !`,
-                url: `/club/${event.venue_id}`,
-              }),
+            const res = await sendAutoPush(supabaseClient, {
+              key: 'waitlist_presale',
+              userId,
+              url: `/club/${event.venue_id}`,
+              vars: { event: event.title || '' },
             });
+            if (res.sent > 0) pushSent++;
           } catch (pushErr) {
             console.error(`Push error for user ${userId}:`, pushErr);
           }
         }
-        logStep("Push notifications sent", { userCount: userIds.length });
+        logStep("Push notifications sent", { userCount: userIds.length, pushSent });
       }
     }
 

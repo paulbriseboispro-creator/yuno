@@ -3,6 +3,7 @@ import Stripe from 'https://esm.sh/stripe@18.5.0';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { restrictedCorsHeaders } from '../_shared/cors.ts';
 import { recordSmsConsent } from '../_shared/sms-consent.ts';
+import { sendAutoPush, localizedDate } from '../_shared/auto-push.ts';
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -673,7 +674,8 @@ serve(async (req) => {
         console.error('Error sending ticket confirmation email:', emailError);
       }
 
-      // Send push notification (only for authenticated users)
+      // Push confirmation billet — registre auto (clé 'purchase_ticket') :
+      // gate super admin + texte dans la langue du client + tracking ?an=.
       if (effectiveUserId) {
         try {
           const { data: eventForPush } = await supabaseAdmin
@@ -681,27 +683,17 @@ serve(async (req) => {
             .select('title, start_at')
             .eq('id', ticket.event_id)
             .single();
-          
-          const eventDate = eventForPush?.start_at 
-            ? new Date(eventForPush.start_at).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' })
-            : '';
 
-          const pushResp = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-push-notification`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
-            body: JSON.stringify({
-              user_id: effectiveUserId,
-              payload: {
-                title: 'Ticket confirmé 🎟️',
-                body: `${eventDate} – ${eventForPush?.title || 'Événement'}. Ton QR est prêt.`,
-                url: '/my-orders?tab=tickets'
-              }
-            })
+          const pushRes = await sendAutoPush(supabaseAdmin, {
+            key: 'purchase_ticket',
+            userId: effectiveUserId,
+            url: '/my-orders?tab=tickets',
+            vars: {
+              event: eventForPush?.title || { fr: 'Événement', en: 'Event', es: 'Evento' },
+              date: localizedDate(eventForPush?.start_at),
+            },
           });
-          if (pushResp.ok) {
-            const pushData = await pushResp.json();
-            pushSent = (pushData?.sent || 0) > 0;
-          }
+          pushSent = pushRes.sent > 0;
           logStep("Push notification sent for ticket", { pushSent });
         } catch (pushError) {
           console.error('Push notification error:', pushError);

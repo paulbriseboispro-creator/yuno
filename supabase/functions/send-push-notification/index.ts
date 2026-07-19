@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendApns, apnsConfigured, APNS_TOPIC, APNS_TOPIC_PRO } from "../_shared/apns.ts";
+import { isAutoPushEnabled, autoTrackUrl, renderAutoTpl, resolveUserLang, logAutoPushOutcome } from "../_shared/auto-push.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -332,6 +333,12 @@ async function handleDjLineup(req: Request, supabase: any, vapidPublicKey: strin
     return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 
+  // Kill switch plateforme (/admin/notifications) — coupe le push ET l'email
+  // fallback : c'est la même notification « ton DJ joue près de chez toi ».
+  if (!(await isAutoPushEnabled(supabase, 'dj_lineup'))) {
+    return new Response(JSON.stringify({ success: true, skipped: 'disabled', sent: 0, targeted: 0 }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+  }
+
   let dateStr = '';
   if (event.start_at) {
     try {
@@ -359,7 +366,8 @@ async function handleDjLineup(req: Request, supabase: any, vapidPublicKey: strin
       .select('code')
       .eq('event_id', eventId).eq('dj_id', djId).eq('owner_kind', 'dj')
       .maybeSingle();
-    const url = link?.code ? `${APP_BASE_URL}/l/${link.code}` : `${APP_BASE_URL}/event/${eventId}`;
+    // ?an=dj_lineup → attribution du clic dans auto_push_events (PushClickTracker).
+    const url = autoTrackUrl(link?.code ? `${APP_BASE_URL}/l/${link.code}` : `${APP_BASE_URL}/event/${eventId}`, 'dj_lineup');
 
     const notificationPayload = JSON.stringify({
       title: `🎧 ${djName}`,
@@ -370,12 +378,13 @@ async function handleDjLineup(req: Request, supabase: any, vapidPublicKey: strin
     });
 
     const targetedUserIds = new Set<string>();
+    const sentUserIds = new Set<string>();
     for (const sub of targets as (Subscription & { user_id: string })[]) {
       // App iOS uniquement — les lignes 'web' héritées de la PWA sont ignorées.
       if (!(sub.platform === 'ios' || sub.platform === 'ios_pro' || String(sub.endpoint || '').startsWith('apns:'))) continue;
       targetedUserIds.add(sub.user_id);
       const res = await sendToSubscription(supabase, sub, notificationPayload, vapidPublicKey, vapidPrivateKey);
-      if (res === 'ok') totalSent++;
+      if (res === 'ok') { totalSent++; sentUserIds.add(sub.user_id); }
     }
 
     // Mark targeted followers so re-saving the line-up never re-notifies them.
@@ -388,6 +397,15 @@ async function handleDjLineup(req: Request, supabase: any, vapidPublicKey: strin
       );
       await supabase.from('notification_log').insert(
         ids.map((uid) => ({ user_id: uid, notification_type: 'dj_lineup', title: djName })),
+      );
+      // Tracking du registre auto (/admin/notifications) : sent/failed par follower.
+      await supabase.from('auto_push_events').insert(
+        ids.map((uid) => ({
+          notification_key: 'dj_lineup',
+          user_id: uid,
+          event_type: sentUserIds.has(uid) ? 'sent' : 'failed',
+          platform: 'ios',
+        })),
       );
     }
   }
@@ -552,6 +570,64 @@ async function handleLiveActivityUpdate(supabase: any, body: any): Promise<Respo
 
   console.log(`[LiveActivity] order ${orderId} → ${status} (${sent}/${tokens.length} pushed)`);
   return new Response(JSON.stringify({ success: true, status, sent }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+}
+
+// ---------------------------------------------------------------------------
+// Commande prête — push alerte classique quand une commande boisson passe à
+// « prête ». Déclenché par le trigger DB trg_order_live_activity_push (branche
+// order_ready, transition ready_at NULL → non-NULL, pg_net + x-cron-secret).
+// Comble le trou app-fermée : la Live Activity ne couvre que les clients qui
+// l'ont démarrée, le Realtime ne couvre que l'app ouverte. Gated par le
+// registre super admin (clé 'order_ready') + tracking auto_push_events.
+// ---------------------------------------------------------------------------
+// deno-lint-ignore no-explicit-any
+async function handleOrderReady(supabase: any, body: any, vapidPublicKey: string, vapidPrivateKey: string): Promise<Response> {
+  const json = (payload: unknown, status = 200) =>
+    new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+  const orderId: string | undefined = body.order_id;
+  if (!orderId) return json({ error: 'order_id required' }, 400);
+
+  if (!(await isAutoPushEnabled(supabase, 'order_ready'))) {
+    return json({ message: 'disabled', sent: 0 });
+  }
+
+  const { data: order } = await supabase
+    .from('orders')
+    .select('id, user_id, token')
+    .eq('id', orderId)
+    .maybeSingle();
+  if (!order?.user_id) return json({ message: 'no user on order', sent: 0 });
+
+  const lang = await resolveUserLang(supabase, order.user_id);
+  const pin = order.token ? String(order.token).slice(-4).toUpperCase() : '';
+  const tpl = renderAutoTpl('order_ready', lang, { pin }, pin ? 'default' : 'nopin');
+  if (!tpl) return json({ message: 'no template', sent: 0 });
+
+  const { data: subscriptions } = await supabase
+    .from('push_subscriptions').select('*')
+    .eq('user_id', order.user_id)
+    .in('platform', ['ios', 'ios_pro']);
+  if (!subscriptions?.length) return json({ message: 'no subscriptions', sent: 0 });
+
+  const notificationPayload = JSON.stringify({
+    title: tpl.title,
+    body: tpl.body,
+    icon: '/favicon.ico',
+    badge: '/favicon.ico',
+    url: autoTrackUrl('/my-orders', 'order_ready'),
+  });
+
+  let sent = 0;
+  for (const sub of subscriptions) {
+    const res = await sendToSubscription(supabase, sub, notificationPayload, vapidPublicKey, vapidPrivateKey);
+    if (res === 'ok') sent++;
+  }
+
+  await logAutoPushOutcome(supabase, 'order_ready', order.user_id, sent > 0 ? 'sent' : 'failed', tpl.title);
+
+  console.log(`[OrderReady] order ${orderId} → ${sent}/${subscriptions.length} pushed`);
+  return json({ success: true, sent });
 }
 
 // ---------------------------------------------------------------------------
@@ -761,14 +837,16 @@ Deno.serve(async (req) => {
       return await handleDjLineup(req, supabase, vapidPublicKey, vapidPrivateKey, reqBody);
     }
 
-    // Live Activity + Wallet : triggers DB / appels internes uniquement.
-    if (reqBody?.action === 'live_activity_update' || reqBody?.action === 'wallet_pass_update') {
+    // Live Activity + Wallet + commande prête : triggers DB / appels internes uniquement.
+    if (reqBody?.action === 'live_activity_update' || reqBody?.action === 'wallet_pass_update' || reqBody?.action === 'order_ready') {
       if (!isServiceCall) {
         return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
       return reqBody.action === 'live_activity_update'
         ? await handleLiveActivityUpdate(supabase, reqBody)
-        : await handleWalletPassUpdate(supabase, reqBody);
+        : reqBody.action === 'wallet_pass_update'
+          ? await handleWalletPassUpdate(supabase, reqBody)
+          : await handleOrderReady(supabase, reqBody, vapidPublicKey, vapidPrivateKey);
     }
 
     // Push staff : trigger DB (trg_staff_notification_push) uniquement. Le

@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
+import { sendAutoPush, isAutoPushEnabled } from "../_shared/auto-push.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -38,6 +39,10 @@ Deno.serve(async (req) => {
 
     let totalSent = 0;
 
+    // Kill switches plateforme (/admin/notifications) — lus une fois par run.
+    const reminder4hEnabled = await isAutoPushEnabled(supabase, 'event_reminder_4h');
+    const reminder30mEnabled = await isAutoPushEnabled(supabase, 'event_reminder_30m');
+
     // --- T-4h Reminders ---
     const { data: events4h } = await supabase
       .from('events')
@@ -46,7 +51,7 @@ Deno.serve(async (req) => {
       .lte('start_at', t4hEnd)
       .eq('is_active', true);
 
-    for (const event of events4h || []) {
+    for (const event of reminder4hEnabled ? (events4h || []) : []) {
       // Get ticket holders for this event
       const { data: tickets } = await supabase
         .from('tickets')
@@ -70,24 +75,17 @@ Deno.serve(async (req) => {
 
         if (existing && existing.length > 0) continue;
 
+        // Registre auto (clé 'event_reminder_4h') : langue du client + tracking
+        // ?an=. Le helper journalise aussi notification_log type 'reminder'
+        // (même sémantique anti-spam que l'insert manuel qu'il remplace).
         try {
-          await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
-            body: JSON.stringify({
-              user_id: userId,
-              payload: {
-                title: `Ce soir à ${startTime} 🔥`,
-                body: `${event.title} – Entrée rapide avec ton QR.`,
-                url: `/club/venue/event/${event.id}`
-              }
-            })
+          const res = await sendAutoPush(supabase, {
+            key: 'event_reminder_4h',
+            userId,
+            url: `/club/venue/event/${event.id}`,
+            vars: { event: event.title || '', time: startTime },
           });
-          totalSent++;
-
-          await supabase.from('notification_log').insert({
-            user_id: userId, notification_type: 'reminder', title: `T-4h: ${event.title}`
-          });
+          if (res.sent > 0) totalSent++;
         } catch (e) { console.error('[REMINDER] T-4h error:', e); }
       }
     }
@@ -100,7 +98,7 @@ Deno.serve(async (req) => {
       .lte('start_at', t30mEnd)
       .eq('is_active', true);
 
-    for (const event of events30m || []) {
+    for (const event of reminder30mEnabled ? (events30m || []) : []) {
       const { data: tickets } = await supabase
         .from('tickets')
         .select('user_id')
@@ -121,24 +119,15 @@ Deno.serve(async (req) => {
 
         if (existing && existing.length > 0) continue;
 
+        // Registre auto (clé 'event_reminder_30m') : langue + tracking ?an=.
         try {
-          await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
-            body: JSON.stringify({
-              user_id: userId,
-              payload: {
-                title: 'Ouverture dans 30 min 🎶',
-                body: `${event.title} – Évite la file, ton QR est prêt.`,
-                url: `/my-orders?tab=tickets`
-              }
-            })
+          const res = await sendAutoPush(supabase, {
+            key: 'event_reminder_30m',
+            userId,
+            url: `/my-orders?tab=tickets`,
+            vars: { event: event.title || '' },
           });
-          totalSent++;
-
-          await supabase.from('notification_log').insert({
-            user_id: userId, notification_type: 'reminder', title: `T-30m: ${event.title}`
-          });
+          if (res.sent > 0) totalSent++;
         } catch (e) { console.error('[REMINDER] T-30m error:', e); }
       }
     }

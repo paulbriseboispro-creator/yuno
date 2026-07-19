@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
+import { sendAutoPush, isAutoPushEnabled } from "../_shared/auto-push.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -25,6 +26,13 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, serviceKey);
+
+    // Kill switch plateforme (/admin/notifications, clé 'weekly_digest').
+    if (!(await isAutoPushEnabled(supabase, 'weekly_digest'))) {
+      return new Response(JSON.stringify({ success: true, sent: 0, skipped: 'disabled' }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     const now = new Date();
     const weekendStart = new Date(now);
@@ -80,24 +88,22 @@ Deno.serve(async (req) => {
 
       if ((todayNotifs?.length || 0) >= 3) continue;
 
+      // Registre auto (clé 'weekly_digest') : langue + tracking ?an=.
       try {
-        await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
-          body: JSON.stringify({
-            user_id: userId,
-            payload: {
-              title: 'Ton week-end commence ici 🎉',
-              body: `${eventCount} soirée${eventCount > 1 ? 's' : ''} ce week-end. Découvre la programmation.`,
-              url: '/'
-            }
-          })
+        const s = eventCount > 1;
+        const res = await sendAutoPush(supabase, {
+          key: 'weekly_digest',
+          userId,
+          url: '/',
+          vars: {
+            events: {
+              fr: `${eventCount} soirée${s ? 's' : ''}`,
+              en: `${eventCount} part${s ? 'ies' : 'y'}`,
+              es: `${eventCount} fiesta${s ? 's' : ''}`,
+            },
+          },
         });
-        sentCount++;
-
-        await supabase.from('notification_log').insert({
-          user_id: userId, notification_type: 'marketing', title: 'Weekly digest'
-        });
+        if (res.sent > 0) sentCount++;
       } catch (e) { console.error('[DIGEST] Error:', e); }
     }
 

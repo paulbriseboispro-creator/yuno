@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
+import { sendAutoPush, isAutoPushEnabled } from "../_shared/auto-push.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -25,6 +26,13 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, serviceKey);
+
+    // Kill switch plateforme (/admin/notifications, clé 'inactivity_reminder').
+    if (!(await isAutoPushEnabled(supabase, 'inactivity_reminder'))) {
+      return new Response(JSON.stringify({ success: true, sent: 0, skipped: 'disabled' }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
 
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -69,24 +77,15 @@ Deno.serve(async (req) => {
 
       if ((todayNotifs?.length || 0) >= 3) continue;
 
+      // Registre auto (clé 'inactivity_reminder') : langue + tracking ?an=.
+      // Le helper journalise notification_log type 'marketing' (mêmes plafonds).
       try {
-        await fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
-          body: JSON.stringify({
-            user_id: userId,
-            payload: {
-              title: 'On ne t\'a pas vu récemment 👋',
-              body: 'Nouvelle programmation ce mois-ci. Découvre les prochaines soirées.',
-              url: '/'
-            }
-          })
+        const res = await sendAutoPush(supabase, {
+          key: 'inactivity_reminder',
+          userId,
+          url: '/',
         });
-        sentCount++;
-
-        await supabase.from('notification_log').insert({
-          user_id: userId, notification_type: 'marketing', title: 'Inactivity reminder'
-        });
+        if (res.sent > 0) sentCount++;
       } catch (e) { console.error('[INACTIVITY] Error:', e); }
     }
 

@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
-import { dispatchPushAutomations } from "../_shared/push-automations.ts";
+import { dispatchPushAutomations, dispatchNewEventPushes } from "../_shared/push-automations.ts";
 import { refreshEventEmbeddings, refreshDjEmbeddings } from "../_shared/event-embeddings.ts";
 import { dispatchLiveOpsAlerts } from "../_shared/live-ops-alerts.ts";
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type' };
@@ -94,6 +94,15 @@ Deno.serve(async (req) => {
       console.error('[AUTO-PUSH] dispatch failed:', String(e));
     }
 
+    // Nouvel événement publié → push aux followers du club + de l'organisateur.
+    // Gated par le registre super admin (clé 'new_event'). Best-effort.
+    let newEventPush = { processed: 0, sent: 0 };
+    try {
+      newEventPush = await dispatchNewEventPushes(admin, SUPABASE_URL, SERVICE_KEY);
+    } catch (e) {
+      console.error('[NEW-EVENT-PUSH] dispatch failed:', String(e));
+    }
+
     // Embeddings — events (recos « Pour toi ») et profils DJ (matching DJ↔soirée).
     // Best-effort, ne touchent que ce qui a été créé/modifié depuis le dernier run.
     let embeddings = { scanned: 0, updated: 0 };
@@ -117,7 +126,7 @@ Deno.serve(async (req) => {
       console.error('[LIVE-OPS] dispatch failed:', String(e));
     }
 
-    return new Response(JSON.stringify({ processed, pushProcessed, autoPush, embeddings, djEmbeddings, liveOps }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ processed, pushProcessed, autoPush, newEventPush, embeddings, djEmbeddings, liveOps }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }

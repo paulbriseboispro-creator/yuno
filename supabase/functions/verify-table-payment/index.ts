@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from 'https://esm.sh/stripe@18.5.0';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { recordSmsConsent } from '../_shared/sms-consent.ts';
+import { sendAutoPush } from '../_shared/auto-push.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -432,7 +433,8 @@ serve(async (req) => {
         console.error('Error sending VIP confirmation email:', vipEmailError);
       }
 
-      // Push notification (only for users with IDs)
+      // Push confirmation table VIP — registre auto (clé 'purchase_table') :
+      // gate super admin + texte dans la langue du client + tracking ?an=.
       let pushSent = false;
       if (effectiveUserId) {
         try {
@@ -442,22 +444,16 @@ serve(async (req) => {
             .eq('id', reservation.event_id)
             .single();
 
-          const pushResp = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-push-notification`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
-            body: JSON.stringify({
-              user_id: effectiveUserId,
-              payload: {
-                title: 'Table confirmée 🥂',
-                body: `VIP – ${eventForPush?.title || 'Événement'} – ${reservation.total_price}€`,
-                url: '/my-orders?tab=tables'
-              }
-            })
+          const pushRes = await sendAutoPush(supabaseAdmin, {
+            key: 'purchase_table',
+            userId: effectiveUserId,
+            url: '/my-orders?tab=tables',
+            vars: {
+              event: eventForPush?.title || { fr: 'Événement', en: 'Event', es: 'Evento' },
+              amount: String(reservation.total_price ?? ''),
+            },
           });
-          if (pushResp.ok) {
-            const pushData = await pushResp.json();
-            pushSent = (pushData?.sent || 0) > 0;
-          }
+          pushSent = pushRes.sent > 0;
           logStep("Push notification sent for table", { pushSent });
         } catch (pushError) {
           console.error('Push notification error:', pushError);

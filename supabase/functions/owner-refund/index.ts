@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { type EmailLanguage } from "../_shared/email-branding.ts";
 import { buildRefund } from "../_shared/email-templates.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
+import { sendAutoPush } from "../_shared/auto-push.ts";
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : "";
@@ -344,20 +345,15 @@ serve(async (req) => {
           }
         }
 
-        // Send push notification
+        // Push remboursement — registre auto (clé 'refund_confirmed') :
+        // gate super admin + langue du client + tracking ?an=.
         if (customerUserId) {
           try {
-            await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-push-notification`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
-              body: JSON.stringify({
-                user_id: customerUserId,
-                payload: {
-                  title: 'Remboursement traité 💸',
-                  body: `${refundAmount.toFixed(2)}€ remboursés sur ton moyen de paiement.`,
-                  url: '/my-orders'
-                }
-              })
+            await sendAutoPush(supabaseAdmin, {
+              key: 'refund_confirmed',
+              userId: customerUserId,
+              url: '/my-orders',
+              vars: { amount: refundAmount.toFixed(2) },
             });
           } catch (pushError) {
             console.error('Push notification error:', pushError);
