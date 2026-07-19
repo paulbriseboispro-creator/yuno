@@ -96,11 +96,15 @@ serve(async (req) => {
 
     const { data: event } = await supabaseAdmin
       .from("events")
-      .select("id, title, venue_id, organizer_user_id, partner_organizer_id, start_at, poster_url")
+      .select("id, title, venue_id, organizer_user_id, partner_organizer_id, start_at, end_at, poster_url")
       .eq("id", eventId)
       .maybeSingle();
 
     if (!event) throw new Error("Event not found");
+    // Pas d'ajout d'invité sur une soirée déjà terminée.
+    if (event.end_at && new Date(event.end_at) < new Date()) {
+      throw new Error("Event has ended");
+    }
 
     // A promoter is scoped to a club (venue_id) OR an organizer. Authorize accordingly.
     const venueMatch = !!promoter.venue_id && event.venue_id === promoter.venue_id;
@@ -121,7 +125,8 @@ serve(async (req) => {
       .eq("holder_type", "promoter")
       .eq("promoter_id", promoterId)
       .limit(1);
-    const guestList = promoterParts?.[0] as { id: string; quota: number; includes_drink: boolean; is_active: boolean; entry_deadline: string | null; quota_normal: number; quota_drink: number; quota_table: number } | undefined;
+    // quota NULL = allocation illimitée (accordée par le club).
+    const guestList = promoterParts?.[0] as { id: string; quota: number | null; includes_drink: boolean; is_active: boolean; entry_deadline: string | null; quota_normal: number; quota_drink: number; quota_table: number } | undefined;
     if (!guestList || !guestList.is_active) {
       throw new Error("No guest list allocation for this event. Ask your club to set it up.");
     }

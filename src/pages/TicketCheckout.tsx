@@ -361,9 +361,17 @@ export default function TicketCheckout() {
           presaleStartAt: eventData.presale_start_at || undefined,
           publicSaleStartAt: eventData.public_sale_start_at || undefined,
           waitlistEnabled: eventData.waitlist_enabled || false,
+          endAt: eventData.end_at || undefined,
         },
         false, // We don't check sold out here, just access
       );
+
+      // Soirée terminée : le checkout n'est plus accessible, même via URL directe.
+      if (salesStatus === 'ended') {
+        toast.error(t('salesStatus.ended'));
+        navigate(-1);
+        return;
+      }
 
       // Block guest mode for presale/coming_soon events (guests can't be on waitlist)
       if (salesStatus === 'coming_soon' || salesStatus === 'presale') {

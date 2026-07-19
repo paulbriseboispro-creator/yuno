@@ -4,7 +4,7 @@ export type TicketSellingMode = 'simple' | 'rounds' | 'timed_entry';
 
 export type PresetSellingMode = 'simple' | 'rounds' | 'timed_entry';
 
-export type EventSalesStatus = 'coming_soon' | 'presale' | 'public_sale' | 'sold_out';
+export type EventSalesStatus = 'coming_soon' | 'presale' | 'public_sale' | 'sold_out' | 'ended';
 
 export type TicketRound = {
   id: string;
@@ -247,10 +247,17 @@ export const customerTransactionFee = (
 
 // Helper: compute event sales status from timestamps + waitlist mode
 export function getEventSalesStatus(
-  event: Pick<EventWithTicketing, 'presaleStartAt' | 'publicSaleStartAt' | 'waitlistEnabled'>,
+  event: Pick<EventWithTicketing, 'presaleStartAt' | 'publicSaleStartAt' | 'waitlistEnabled'> & { endAt?: string | null },
   allRoundsSoldOut?: boolean,
 ): EventSalesStatus {
   const now = Date.now();
+
+  // Une soirée terminée ne se vend plus, quel que soit son paramétrage de vente.
+  // Prioritaire sur tout le reste : sans cette branche, un event passé sans
+  // fenêtres de vente restait 'public_sale' pour toujours (CTA d'achat actif
+  // via lien direct alors que la soirée est finie).
+  if (event.endAt && new Date(event.endAt).getTime() < now) return 'ended';
+
   const presaleStart = event.presaleStartAt ? new Date(event.presaleStartAt).getTime() : null;
   const publicStart = event.publicSaleStartAt ? new Date(event.publicSaleStartAt).getTime() : null;
 

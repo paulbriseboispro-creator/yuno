@@ -55,7 +55,7 @@ export default function TicketSelection() {
 
   const [loading, setLoading] = useState(true);
   const [eventData, setEventData] = useState<{
-    title: string; posterUrl?: string; startAt: string;
+    title: string; posterUrl?: string; startAt: string; endAt?: string;
     ticketingEnabled: boolean; tablesEnabled: boolean; venueId: string | null;
     ticketSellingMode: TicketSellingMode; presaleStartAt?: string; publicSaleStartAt?: string;
     waitlistEnabled?: boolean; maxTickets?: number | null; roundsVisibility?: 'sequential' | 'preview_upcoming' | 'all_open';
@@ -71,7 +71,7 @@ export default function TicketSelection() {
   const [zones, setZones] = useState<TableZone[]>([]);
   const [packs, setPacks] = useState<TablePack[]>([]);
   const [reservationsByZone, setReservationsByZone] = useState<Record<string, number>>({});
-  const [guestList, setGuestList] = useState<{ id: string; quota: number; quotaFemale: number | null; quotaMale: number | null; freeBeforeTime: string; includesDrink: boolean; shareToken: string; count: number; femaleCount: number; maleCount: number } | null>(null);
+  const [guestList, setGuestList] = useState<{ id: string; quota: number; quotaFemale: number | null; quotaMale: number | null; freeBeforeTime: string; includesDrink: boolean; showRemaining: boolean; shareToken: string; count: number; femaleCount: number; maleCount: number } | null>(null);
   // A DJ's personal guest list, surfaced ONLY when the visitor arrives with the
   // DJ's private link (?dj=<share_token>) — invisible to the general public.
   const [djGuestList, setDjGuestList] = useState<{ shareToken: string; freeBeforeTime: string; includesDrink: boolean; djName: string } | null>(null);
@@ -122,7 +122,7 @@ export default function TicketSelection() {
     try {
       const { data: ev, error } = await supabase
         .from('events')
-        .select('title, poster_url, start_at, ticketing_enabled, tables_enabled, venue_id, partner_venue_id, tables_mode, ticket_selling_mode, presale_start_at, public_sale_start_at, waitlist_enabled, max_tickets, rounds_visibility, alcohol_free, is_bde, max_tickets_per_person, sale_password_enabled')
+        .select('title, poster_url, start_at, end_at, ticketing_enabled, tables_enabled, venue_id, partner_venue_id, tables_mode, ticket_selling_mode, presale_start_at, public_sale_start_at, waitlist_enabled, max_tickets, rounds_visibility, alcohol_free, is_bde, max_tickets_per_person, sale_password_enabled')
         .eq('id', eventId)
         .single();
       if (error) throw error;
@@ -132,7 +132,8 @@ export default function TicketSelection() {
 
       const evData = {
         title: ev.title, posterUrl: ev.poster_url || undefined,
-        startAt: ev.start_at, ticketingEnabled: ev.ticketing_enabled, tablesEnabled: ev.tables_enabled,
+        startAt: ev.start_at, endAt: (ev as any).end_at as string | undefined,
+        ticketingEnabled: ev.ticketing_enabled, tablesEnabled: ev.tables_enabled,
         venueId: effectiveVenueId,
         ticketSellingMode: ((ev as any).ticket_selling_mode as TicketSellingMode) || 'rounds',
         presaleStartAt: ev.presale_start_at || undefined, publicSaleStartAt: ev.public_sale_start_at || undefined,
@@ -239,7 +240,7 @@ export default function TicketSelection() {
         }
       }
 
-      const { data: glRows } = await supabase.from('guest_lists').select('id, quota, quota_female, quota_male, free_before_time, includes_drink, share_token, visible_on_club_page, holder_type')
+      const { data: glRows } = await supabase.from('guest_lists').select('id, quota, quota_female, quota_male, free_before_time, includes_drink, show_remaining, share_token, visible_on_club_page, holder_type')
         .eq('event_id', eventId!).eq('is_active', true).eq('visible_on_club_page', true);
       // La liste club est prioritaire ; sinon on affiche la première part marquée
       // « publique » (une part déléguée dont le preset a choisi la visibilité publique).
@@ -255,7 +256,7 @@ export default function TicketSelection() {
           .rpc('get_guest_list_public_fill', { _guest_list_id: glData.id })
           .maybeSingle();
         const fill = fillRaw as { total_count: number; female_count: number; male_count: number } | null;
-        setGuestList({ id: glData.id, quota: glData.quota, quotaFemale: glData.quota_female, quotaMale: glData.quota_male, freeBeforeTime: glData.free_before_time?.substring(0, 5) || '02:00', includesDrink: glData.includes_drink, shareToken: glData.share_token, count: fill?.total_count || 0, femaleCount: fill?.female_count || 0, maleCount: fill?.male_count || 0 });
+        setGuestList({ id: glData.id, quota: glData.quota, quotaFemale: glData.quota_female, quotaMale: glData.quota_male, freeBeforeTime: glData.free_before_time?.substring(0, 5) || '02:00', includesDrink: glData.includes_drink, showRemaining: glData.show_remaining ?? true, shareToken: glData.share_token, count: fill?.total_count || 0, femaleCount: fill?.female_count || 0, maleCount: fill?.male_count || 0 });
       }
 
       // DJ guest list via private link (?dj=<share_token>). Resolved by a SECURITY
@@ -309,7 +310,7 @@ export default function TicketSelection() {
   const isRoundSoldOut = (r: TicketRound) => r.manuallySoldOut || r.ticketsSold >= r.maxTickets;
   const allRoundsSoldOut = simpleGlobalSoldOut || (ticketRounds.length > 0 && ticketRounds.every(isRoundSoldOut));
   const salesStatus = eventData
-    ? getEventSalesStatus({ presaleStartAt: eventData.presaleStartAt, publicSaleStartAt: eventData.publicSaleStartAt, waitlistEnabled: eventData.waitlistEnabled }, allRoundsSoldOut)
+    ? getEventSalesStatus({ presaleStartAt: eventData.presaleStartAt, publicSaleStartAt: eventData.publicSaleStartAt, waitlistEnabled: eventData.waitlistEnabled, endAt: eventData.endAt }, allRoundsSoldOut)
     : 'public_sale' as const;
 
   const visibility = eventData?.roundsVisibility ?? 'sequential';
@@ -533,9 +534,9 @@ export default function TicketSelection() {
           of an event publicly — that only appears as a quiet "no alcohol" line under
           the date-of-birth field in checkout, and only once a minor's date is entered. */}
       <div className="px-4 pt-2 space-y-3">
-        {(salesStatus === 'coming_soon' || salesStatus === 'presale' || salesStatus === 'sold_out') && (
+        {(salesStatus === 'coming_soon' || salesStatus === 'presale' || salesStatus === 'sold_out' || salesStatus === 'ended') && (
           <EventSalesStatus
-            event={{ presaleStartAt: eventData.presaleStartAt, publicSaleStartAt: eventData.publicSaleStartAt, waitlistEnabled: eventData.waitlistEnabled }}
+            event={{ presaleStartAt: eventData.presaleStartAt, publicSaleStartAt: eventData.publicSaleStartAt, waitlistEnabled: eventData.waitlistEnabled, endAt: eventData.endAt }}
             allRoundsSoldOut={salesStatus === 'sold_out'}
             hasPresaleAccess={hasPresaleAccess}
           />
@@ -736,7 +737,7 @@ export default function TicketSelection() {
                         ) : (
                           <p className="text-2xl font-bold text-emerald-400">0 €</p>
                         )}
-                        {!isFull && <p className="text-[10px] text-white/35">{c.remaining} {t('guestList.spotsLeft')}</p>}
+                        {!isFull && guestList.showRemaining && <p className="text-[10px] text-white/35">{c.remaining} {t('guestList.spotsLeft')}</p>}
                       </div>
                     </div>
                   </button>

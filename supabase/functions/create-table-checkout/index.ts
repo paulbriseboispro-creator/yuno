@@ -163,11 +163,15 @@ serve(async (req) => {
 
     const { data: event } = await supabaseAdmin
       .from("events")
-      .select("id, title, venue_id, organizer_user_id, partner_venue_id, partner_organizer_id, event_mode, revenue_split_rules, revenue_split_proposal, split_approved_by_venue, split_approved_by_organizer, is_active, is_bde, tables_mode, tables_enabled")
+      .select("id, title, venue_id, organizer_user_id, partner_venue_id, partner_organizer_id, event_mode, revenue_split_rules, revenue_split_proposal, split_approved_by_venue, split_approved_by_organizer, is_active, is_bde, tables_mode, tables_enabled, end_at")
       .eq("id", eventId)
       .single();
     if (!event || !event.is_active) throw new Error("Event not found or inactive");
     if (!event.tables_enabled) throw new Error("Table sales not enabled for this event");
+    // Une soirée terminée ne se vend plus — même garde que create-ticket-checkout.
+    if (event.end_at && new Date(event.end_at) < new Date()) {
+      throw new Error("L'événement est déjà terminé");
+    }
 
     logStep("Event found", { eventId: event.id, venueId: event.venue_id, mode: event.event_mode, tablesMode: event.tables_mode });
 

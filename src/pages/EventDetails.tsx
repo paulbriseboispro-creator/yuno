@@ -589,6 +589,7 @@ export default function EventDetails() {
       presaleStartAt: event?.presaleStartAt,
       publicSaleStartAt: event?.publicSaleStartAt,
       waitlistEnabled: event?.waitlistEnabled ?? false,
+      endAt: event?.endAt,
     },
     isSoldOut,
   );
@@ -597,7 +598,9 @@ export default function EventDetails() {
   // quelque chose à vendre (ou que la vente n'est pas encore publique : bloc
   // waitlist / bientôt). Dans ce cas seulement, elle prend la place de la barre
   // d'onglets — sinon la barre globale reste, y compris pendant le chargement.
-  useSuppressBottomNav(!!event && (hasTicketsOrTables || eventSalesStatus !== 'public_sale'));
+  // Soirée terminée : plus rien à vendre ni à annoncer → la barre d'onglets
+  // globale reste affichée (pas de CTA collant qui la remplacerait).
+  useSuppressBottomNav(!!event && eventSalesStatus !== 'ended' && (hasTicketsOrTables || eventSalesStatus !== 'public_sale'));
 
   if (loading) {
     return <EventDetailsSkeleton />;
@@ -816,13 +819,14 @@ export default function EventDetails() {
         {/* ── Sales status (coming soon / presale / sold out) ── */}
         {/* Generic availability lives in the ticket callout kicker below; only special
             states surface here to avoid repeating "tickets and tables available". */}
-        {(eventSalesStatus === 'coming_soon' || eventSalesStatus === 'presale' || eventSalesStatus === 'sold_out') && (
+        {(eventSalesStatus === 'coming_soon' || eventSalesStatus === 'presale' || eventSalesStatus === 'sold_out' || eventSalesStatus === 'ended') && (
           <div style={{ padding: '16px 20px 0' }}>
             <EventSalesStatus
               event={{
                 presaleStartAt: event.presaleStartAt,
                 publicSaleStartAt: event.publicSaleStartAt,
                 waitlistEnabled: event.waitlistEnabled,
+                endAt: event.endAt,
               }}
               allRoundsSoldOut={isSoldOut}
               hasPresaleAccess={hasPresaleAccess}

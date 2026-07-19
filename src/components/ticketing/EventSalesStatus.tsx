@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { EventSalesStatus as SalesStatusType, getEventSalesStatus, EventWithTicketing } from '@/types/ticketing';
-import { Timer, Lock, Bell, CheckCircle2 } from 'lucide-react';
+import { Timer, Lock, CheckCircle2, CalendarX2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 interface EventSalesStatusProps {
-  event: Pick<EventWithTicketing, 'presaleStartAt' | 'publicSaleStartAt' | 'waitlistEnabled'>;
+  event: Pick<EventWithTicketing, 'presaleStartAt' | 'publicSaleStartAt' | 'waitlistEnabled'> & { endAt?: string | null };
   allRoundsSoldOut?: boolean;
   hasPresaleAccess?: boolean;
   className?: string;
@@ -74,7 +74,20 @@ export function EventSalesStatus({ event, allRoundsSoldOut, hasPresaleAccess, cl
       'border-amber-500/30 bg-amber-500/5': status === 'coming_soon',
       'border-primary/30 bg-primary/5': status === 'presale',
       'border-destructive/30 bg-destructive/5': status === 'sold_out',
+      'border-white/10 bg-white/[0.03]': status === 'ended',
     })}>
+      {status === 'ended' && (
+        <div className="text-center space-y-1.5">
+          <div className="flex items-center justify-center gap-2">
+            <CalendarX2 className="h-5 w-5 text-muted-foreground" />
+            <span className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+              {t('salesStatus.ended')}
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">{t('salesStatus.endedDesc')}</p>
+        </div>
+      )}
+
       {status === 'coming_soon' && (
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center gap-2">
