@@ -57,6 +57,18 @@
 				<string>yunopro</string>
 			</array>
 		</dict>
+		<!-- Google Sign-In : URL scheme INVERSÉ du client OAuth iOS de CETTE app.
+		     Un client Google est lié à son bundle id, donc eu.yunoapp.pro a le
+		     sien — celui de l'app B2C (eu.yunoapp.app) serait rejeté.
+		     Doit rester synchronisé avec VITE_GOOGLE_IOS_CLIENT_ID_PRO. -->
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>google-signin</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.909249484986-bsp4od93uuus00atpcq7gsctoqrj5tpl</string>
+			</array>
+		</dict>
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Yuno Pro scans ticket and guest list QR codes at the venue entrance.</string>
