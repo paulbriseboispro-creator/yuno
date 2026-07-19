@@ -333,6 +333,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.ev.guestlist.s6h', bodyKey: 'ohelp.ev.guestlist.s6b' },
           { headingKey: 'ohelp.ev.guestlist.s7h', bodyKey: 'ohelp.ev.guestlist.s7b', type: 'tip' },
           { headingKey: 'ohelp.ev.guestlist.s8h', bodyKey: 'ohelp.ev.guestlist.s8b', type: 'warning' },
+          { headingKey: 'ohelp.ev.guestlist.s9h', bodyKey: 'ohelp.ev.guestlist.s9b' },
         ],
       },
       {
@@ -543,6 +544,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.promoters.s5h', bodyKey: 'ohelp.pg.promoters.s5b' },
           { headingKey: 'ohelp.pg.promoters.s6h', bodyKey: 'ohelp.pg.promoters.s6b' },
           { headingKey: 'ohelp.pg.promoters.s7h', bodyKey: 'ohelp.pg.promoters.s7b', type: 'tip' },
+          { headingKey: 'ohelp.pg.promoters.s8h', bodyKey: 'ohelp.pg.promoters.s8b' },
         ],
       },
       {

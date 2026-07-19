@@ -128,7 +128,7 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Guest List",
     keywords: ["guest", "list", "liste", "invité", "gratuit", "free", "quota"],
     path: "/owner/guest-list",
-    snippet: "La guest list permet d'offrir l'entrée gratuite avant une certaine heure. Configure un quota (global ou par genre), active/désactive par event. Partage le lien avec tes promoteurs.",
+    snippet: "La guest list permet d'offrir l'entrée gratuite avant une certaine heure. Configure un quota (global ou par genre), active/désactive par event. Crée des parts déléguées par promoteur, DJ ou nom libre, avec quota par type (standard/boisson/VIP) ou « Sans limite » (illimité) : le détenteur ajoute alors autant d'invités qu'il veut et suit ses places restantes en direct dans son app.",
   },
   "onboarding": {
     title: "Parcours de configuration",
@@ -152,7 +152,7 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Système de promoteurs",
     keywords: ["promoteur", "promoter", "affiliation", "commission", "lien", "remboursement", "bonus"],
     path: "/owner/promoters",
-    snippet: "Les promoteurs ont un lien de parrainage unique. Ils gagnent une commission par ticket ou table vendue. Configure les taux par type via les modèles de commission : taux fixes ou en pourcentage, paliers de ventes, bonus au franchissement d'un seuil, fenêtres horaires de validité au scan. Un remboursement annule automatiquement la commission en attente liée à la vente.",
+    snippet: "Les promoteurs ont un lien de parrainage unique (yunoapp.eu/promoteur/CODE — le code est unique par personne, partagé entre ses clubs). Ils gagnent une commission par ticket ou table vendue. Configure les taux par type via les modèles de commission : taux fixes ou en pourcentage, paliers de ventes, bonus au franchissement d'un seuil, fenêtres horaires de validité au scan. Active « Auto-assignation aux soirées » dans la fiche d'un promoteur pour le relier automatiquement à chaque nouvelle soirée (récurrentes et co-events inclus). Son scanner détecte automatiquement la soirée en cours. Un remboursement annule automatiquement la commission en attente liée à la vente.",
   },
   "menu": {
     title: "Gestion de la carte",
