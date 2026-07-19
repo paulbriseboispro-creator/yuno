@@ -5348,6 +5348,7 @@ export type Database = {
           quota_male: number | null
           quota_normal: number
           quota_table: number
+          show_remaining: boolean
           target_mode: string
           venue_id: string | null
           visible_on_club_page: boolean
@@ -5369,6 +5370,7 @@ export type Database = {
           quota_male?: number | null
           quota_normal?: number
           quota_table?: number
+          show_remaining?: boolean
           target_mode?: string
           venue_id?: string | null
           visible_on_club_page?: boolean
@@ -5390,6 +5392,7 @@ export type Database = {
           quota_male?: number | null
           quota_normal?: number
           quota_table?: number
+          show_remaining?: boolean
           target_mode?: string
           venue_id?: string | null
           visible_on_club_page?: boolean
@@ -5419,13 +5422,14 @@ export type Database = {
           is_active: boolean
           organizer_user_id: string | null
           promoter_id: string | null
-          quota: number
+          quota: number | null
           quota_drink: number
           quota_female: number | null
           quota_male: number | null
           quota_normal: number
           quota_table: number
           share_token: string
+          show_remaining: boolean
           updated_at: string
           venue_id: string | null
           visible_on_club_page: boolean
@@ -5444,13 +5448,14 @@ export type Database = {
           is_active?: boolean
           organizer_user_id?: string | null
           promoter_id?: string | null
-          quota?: number
+          quota?: number | null
           quota_drink?: number
           quota_female?: number | null
           quota_male?: number | null
           quota_normal?: number
           quota_table?: number
           share_token?: string
+          show_remaining?: boolean
           updated_at?: string
           venue_id?: string | null
           visible_on_club_page?: boolean
@@ -5469,13 +5474,14 @@ export type Database = {
           is_active?: boolean
           organizer_user_id?: string | null
           promoter_id?: string | null
-          quota?: number
+          quota?: number | null
           quota_drink?: number
           quota_female?: number | null
           quota_male?: number | null
           quota_normal?: number
           quota_table?: number
           share_token?: string
+          show_remaining?: boolean
           updated_at?: string
           venue_id?: string | null
           visible_on_club_page?: boolean
@@ -7641,6 +7647,7 @@ export type Database = {
           description: string | null
           end_time: string
           event_type: string
+          guest_list_template_id: string | null
           id: string
           is_active: boolean
           music_genres: string[]
@@ -7665,6 +7672,7 @@ export type Database = {
           description?: string | null
           end_time: string
           event_type?: string
+          guest_list_template_id?: string | null
           id?: string
           is_active?: boolean
           music_genres?: string[]
@@ -7689,6 +7697,7 @@ export type Database = {
           description?: string | null
           end_time?: string
           event_type?: string
+          guest_list_template_id?: string | null
           id?: string
           is_active?: boolean
           music_genres?: string[]
@@ -7706,6 +7715,13 @@ export type Database = {
           vip_preset_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "owner_recurring_templates_guest_list_template_id_fkey"
+            columns: ["guest_list_template_id"]
+            isOneToOne: false
+            referencedRelation: "guest_list_templates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "owner_recurring_templates_partner_organizer_id_fkey"
             columns: ["partner_organizer_id"]
@@ -8552,6 +8568,7 @@ export type Database = {
           agency_rule_template_id: string | null
           agency_table_cap: number | null
           agency_ticket_cap: number | null
+          auto_assign_events: boolean
           bic: string | null
           can_scan_entries: boolean
           client_discount_template_id: string | null
@@ -8602,6 +8619,7 @@ export type Database = {
           agency_rule_template_id?: string | null
           agency_table_cap?: number | null
           agency_ticket_cap?: number | null
+          auto_assign_events?: boolean
           bic?: string | null
           can_scan_entries?: boolean
           client_discount_template_id?: string | null
@@ -8652,6 +8670,7 @@ export type Database = {
           agency_rule_template_id?: string | null
           agency_table_cap?: number | null
           agency_ticket_cap?: number | null
+          auto_assign_events?: boolean
           bic?: string | null
           can_scan_entries?: boolean
           client_discount_template_id?: string | null
@@ -14101,13 +14120,14 @@ export type Database = {
           is_active: boolean
           organizer_user_id: string | null
           promoter_id: string | null
-          quota: number
+          quota: number | null
           quota_drink: number
           quota_female: number | null
           quota_male: number | null
           quota_normal: number
           quota_table: number
           share_token: string
+          show_remaining: boolean
           updated_at: string
           venue_id: string | null
           visible_on_club_page: boolean
@@ -14497,6 +14517,10 @@ export type Database = {
         Returns: boolean
       }
       is_owner_of_any_venue: { Args: { _user_id: string }; Returns: boolean }
+      is_promoter_for_event: {
+        Args: { _event_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_super_admin: { Args: never; Returns: boolean }
       is_venue_owner: {
         Args: { _user_id: string; _venue_id: string }
