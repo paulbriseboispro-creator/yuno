@@ -123,7 +123,7 @@ const CLIENT_KNOWLEDGE_BASE = `
 1. Depuis la page du club, ouvre la carte, ajoute au panier, paie. Et juste après l'achat d'un billet, une page te propose de commander tes boissons en avance (souvent au PRIX PRESALE, moins cher — valable jusqu'au début de la soirée).
 2. Tu reçois un QR de commande. Deux modes selon le club :
    - Bar direct : va au bar, montre ton QR, le barman scanne et prépare.
-   - Notification : tu reçois une notif quand c'est prêt, puis tu récupères au comptoir.
+   - Notification : tu reçois une notif push quand c'est prêt (même app fermée), avec ton code de retrait, puis tu récupères au comptoir.
 3. Codes promo applicables au panier quand le club en propose.
 - Commande à l'avance : achète tes boissons dès l'achat de ton billet (page après le paiement, bouton dans l'email de confirmation, ou rappel push le jour J) — elles sont liées à ta soirée, tu les récupères au bar le soir même sans faire la file.
 - Produit grisé « Épuisé » : le bar l'a marqué en rupture pour ce soir — il n'est pas commandable tant que le staff ne le remet pas en stock. Choisis autre chose, ça revient souvent dans la soirée.
