@@ -231,6 +231,7 @@ const SetupPinPage = lazyWithRetry(() => import("./pages/SetupPinPage"));
 const ResetPinPage = lazyWithRetry(() => import("./pages/ResetPinPage"));
 
 const AdminPushNotifications = lazyWithRetry(() => import("./pages/admin/AdminPushNotifications"));
+const AdminNotificationAutomations = lazyWithRetry(() => import("./pages/admin/AdminNotificationAutomations"));
 const AdminDirectory = lazyWithRetry(() => import("./pages/admin/AdminDirectory"));
 const AdminUserDetail = lazyWithRetry(() => import("./pages/admin/AdminUserDetail"));
 const AdminVenueDetail = lazyWithRetry(() => import("./pages/admin/AdminVenueDetail"));
@@ -973,6 +974,7 @@ const App = () => (
                   <Route path="waitlist" element={<AdminWaitlist />} />
                   
                   <Route path="push" element={<AdminPushNotifications />} />
+                  <Route path="notifications" element={<AdminNotificationAutomations />} />
                   <Route path="directory" element={<AdminDirectory />} />
                   <Route path="directory/user/:userId" element={<AdminUserDetail />} />
                   <Route path="directory/venue/:venueId" element={<AdminVenueDetail />} />
