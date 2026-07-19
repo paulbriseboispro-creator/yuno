@@ -1595,6 +1595,33 @@ export type Database = {
           },
         ]
       }
+      auto_push_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          notification_key: string
+          platform: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          notification_key: string
+          platform?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          notification_key?: string
+          platform?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       cart_snapshots: {
         Row: {
           cart_data: Json
@@ -7792,6 +7819,30 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_notification_settings: {
+        Row: {
+          category: string
+          enabled: boolean
+          notification_key: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          category?: string
+          enabled?: boolean
+          notification_key: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          category?: string
+          enabled?: boolean
+          notification_key?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           age_verified_at: string | null
@@ -13893,6 +13944,19 @@ export type Database = {
           title: string
           venue_id: string
           venue_name: string
+        }[]
+      }
+      get_auto_push_stats: {
+        Args: never
+        Returns: {
+          clicked_30d: number
+          clicked_total: number
+          failed_30d: number
+          failed_total: number
+          last_sent_at: string
+          notification_key: string
+          sent_30d: number
+          sent_total: number
         }[]
       }
       get_customer_timeline: {
