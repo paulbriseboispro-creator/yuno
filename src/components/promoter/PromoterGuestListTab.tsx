@@ -75,6 +75,9 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
 
   const [quota, setQuota] = useState<QuotaBreakdown>({ globalQuota: null, normalQuota: null, tableQuota: null, drinkQuota: null });
   const [usage, setUsage] = useState<QuotaUsage>({ total: 0, normal: 0, table: 0, drink: 0 });
+  // Une part peut exister avec quota NULL = allocation ILLIMITÉE : il faut donc
+  // distinguer « pas de part » (aucune allocation) de « part sans plafond ».
+  const [hasAllocation, setHasAllocation] = useState(false);
 
   // Get the promoter profile that owns the selected event — by venue for club events,
   // by organizer for organizer events.
@@ -91,6 +94,14 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
     fetchEvents();
   }, [promoterProfiles]);
 
+  // Auto-sélection : la soirée en cours (triée en tête par start_at) ou la
+  // prochaine — le promoteur n'a plus à choisir dans le cas courant.
+  useEffect(() => {
+    if (!selectedEventId && events.length > 0) {
+      setSelectedEventId(events[0].id);
+    }
+  }, [events, selectedEventId]);
+
   async function fetchEvents() {
     setLoading(true);
     try {
@@ -98,9 +109,13 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
       const orgIds = [...new Set(promoterProfiles.map(p => p.organizer_user_id).filter(Boolean))] as string[];
       if (!venueIds.length && !orgIds.length) { setEvents([]); setLoading(false); return; }
 
-      // Cover both scopes: club events (venue_id) and organizer events (own or partner).
+      // Cover both scopes: club events (venue_id, host OU partenaire de co-event)
+      // and organizer events (own or partner).
       const orParts: string[] = [];
-      if (venueIds.length) orParts.push(`venue_id.in.(${venueIds.join(',')})`);
+      if (venueIds.length) {
+        orParts.push(`venue_id.in.(${venueIds.join(',')})`);
+        orParts.push(`partner_venue_id.in.(${venueIds.join(',')})`);
+      }
       if (orgIds.length) {
         orParts.push(`organizer_user_id.in.(${orgIds.join(',')})`);
         orParts.push(`partner_organizer_id.in.(${orgIds.join(',')})`);
@@ -144,6 +159,7 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
       setEntries([]);
       setQuota({ globalQuota: null, normalQuota: null, tableQuota: null, drinkQuota: null });
       setUsage({ total: 0, normal: 0, table: 0, drink: 0 });
+      setHasAllocation(false);
     }
   }, [selectedEventId, activePromoter?.id]);
 
@@ -161,12 +177,15 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
         .maybeSingle();
 
       if (!part) {
+        setHasAllocation(false);
         setQuota({ globalQuota: null, normalQuota: null, tableQuota: null, drinkQuota: null });
         setEntries([]);
         setUsage({ total: 0, normal: 0, table: 0, drink: 0 });
         return;
       }
+      setHasAllocation(true);
       // Per-type allocation set by the club on the Guest List page (e.g. 10 normal + 2 VIP).
+      // part.quota NULL = allocation illimitée.
       setQuota({
         globalQuota: part.quota,
         normalQuota: part.quota_normal || null,
@@ -273,15 +292,20 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
     });
   };
 
+  // Allocation illimitée : une part existe mais sans plafond global (quota NULL).
+  const isUnlimited = hasAllocation && quota.globalQuota == null;
+
   // Available entry types from the club's per-type allocation (only kinds with quota > 0).
   const availableEntryTypes: Array<{ value: EntryType; label: string }> = [];
   if ((quota.normalQuota ?? 0) > 0) availableEntryTypes.push({ value: 'normal', label: t('promoterGuestlist.typeStandard') });
   if ((quota.tableQuota ?? 0) > 0) availableEntryTypes.push({ value: 'table', label: t('promoterGuestlist.typeTable') });
   if ((quota.drinkQuota ?? 0) > 0) availableEntryTypes.push({ value: 'drink', label: t('promoterGuestlist.typeDrink') });
-  if (availableEntryTypes.length === 0 && (quota.globalQuota ?? 0) > 0) availableEntryTypes.push({ value: 'normal', label: t('promoterGuestlist.typeStandard') });
+  if (availableEntryTypes.length === 0 && (isUnlimited || (quota.globalQuota ?? 0) > 0)) availableEntryTypes.push({ value: 'normal', label: t('promoterGuestlist.typeStandard') });
 
   const globalQuotaPercent = quota.globalQuota ? Math.min(100, (usage.total / quota.globalQuota) * 100) : 0;
   const isQuotaFull = quota.globalQuota != null && usage.total >= quota.globalQuota;
+  // Places restantes — le chiffre que le promoteur suit toute la soirée.
+  const remainingGlobal = isUnlimited ? null : quota.globalQuota != null ? Math.max(0, quota.globalQuota - usage.total) : 0;
 
   // Check per-type full
   const isTypeFull = (type: EntryType) => {
@@ -366,10 +390,25 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
                     {usage.total} / {quota.globalQuota}
                   </Badge>
                 )}
+                {isUnlimited && (
+                  <Badge variant="secondary" className="ml-auto shrink-0 whitespace-nowrap text-xs tabular-nums">
+                    {usage.total} / ∞
+                  </Badge>
+                )}
               </div>
 
               {quota.globalQuota != null && (
                 <Progress value={globalQuotaPercent} className="h-2 mb-3" />
+              )}
+
+              {/* Compteur de places restantes — le suivi live du quota. */}
+              {hasAllocation && (
+                <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2.5">
+                  <span className="min-w-0 truncate text-xs text-muted-foreground">{t('promoterGuestlist.remaining')}</span>
+                  <span className={`shrink-0 text-lg font-bold tabular-nums ${isQuotaFull ? 'text-destructive' : 'text-primary'}`}>
+                    {isUnlimited ? '∞' : remainingGlobal}
+                  </span>
+                </div>
               )}
 
               {/* Per-type breakdown */}
@@ -403,8 +442,11 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
                 )}
               </div>
 
-              {quota.globalQuota == null && (
+              {!hasAllocation && (
                 <p className="text-xs text-amber-500">{t('promoterGuestlist.noAllocation')}</p>
+              )}
+              {isUnlimited && (
+                <p className="text-xs text-muted-foreground">{t('promoterGuestlist.unlimitedHint')}</p>
               )}
 
               {isQuotaFull && (
@@ -466,7 +508,7 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
 
               <Button
                 onClick={handleAdd}
-                disabled={adding || !firstName.trim() || !lastName.trim() || isQuotaFull || isTypeFull(entryType)}
+                disabled={adding || !hasAllocation || !firstName.trim() || !lastName.trim() || isQuotaFull || isTypeFull(entryType)}
                 className="w-full"
               >
                 {adding ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <UserPlus className="h-4 w-4 mr-2" />}

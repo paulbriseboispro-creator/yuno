@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Music, Megaphone, UserPlus, X, ChevronLeft, Check, Ticket, Wine, Crown } from 'lucide-react';
+import { Music, Megaphone, UserPlus, X, ChevronLeft, Check, Ticket, Wine, Crown, Infinity as InfinityIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import type { HolderType } from '@/hooks/useGuestListParts';
 import type { GuestListTemplate } from '@/hooks/useGuestListTemplates';
-import { RED, T1, T2, T3, BORDER, F_BORDER, INNER_BG, TILE_BG, CARD_BG, CARD_SHADOW } from './ui';
+import { RED, T1, T2, T3, BORDER, F_BORDER, INNER_BG, TILE_BG, CARD_BG, CARD_SHADOW, YunoSwitch } from './ui';
 
 interface Picklist { id: string; name: string }
 
@@ -16,9 +16,9 @@ interface AddPartSheetProps {
   existingPromoterIds: string[];
   t: (key: string) => string;
   onClose: () => void;
-  onCreateDj: (djId: string, quota: number, extra?: Record<string, unknown>) => Promise<void>;
-  onCreatePromoter: (promoterId: string, label: string, quota: number, extra?: Record<string, unknown>) => Promise<void>;
-  onCreateCustom: (label: string, quota: number, extra?: Record<string, unknown>) => Promise<void>;
+  onCreateDj: (djId: string, quota: number | null, extra?: Record<string, unknown>) => Promise<void>;
+  onCreatePromoter: (promoterId: string, label: string, quota: number | null, extra?: Record<string, unknown>) => Promise<void>;
+  onCreateCustom: (label: string, quota: number | null, extra?: Record<string, unknown>) => Promise<void>;
   presets?: GuestListTemplate[];
 }
 
@@ -49,6 +49,8 @@ export function AddPartSheet({ eventId, ctx, existingDjIds, existingPromoterIds,
   const [qNormal, setQNormal] = useState(20);
   const [qDrink, setQDrink] = useState(0);
   const [qTable, setQTable] = useState(0);
+  // Sans limite : quota NULL en base — le détenteur ajoute autant d'invités qu'il veut.
+  const [unlimited, setUnlimited] = useState(false);
   const [presetId, setPresetId] = useState<string>('');
   const [saving, setSaving] = useState(false);
 
@@ -101,31 +103,41 @@ export function AddPartSheet({ eventId, ctx, existingDjIds, existingPromoterIds,
   };
 
   const confirm = async () => {
-    if (quota < 1) { toast.error(t('guestList.presets.entryKind')); return; }
+    if (!unlimited && quota < 1) { toast.error(t('guestList.presets.entryKind')); return; }
     setSaving(true);
     try {
       const chosen = stepPresets.find(p => p.id === presetId);
       // Per-type allocation set here takes precedence over the preset's quotas.
-      const extra = {
-        ...(chosen ? presetExtraOf(chosen) : {}),
-        quota_normal: qNormal, quota_drink: qDrink, quota_table: qTable,
-        includes_drink: qDrink > 0,
-        entry_kind: qNormal > 0 ? 'normal' : qDrink > 0 ? 'drink' : qTable > 0 ? 'table' : 'normal',
-      };
+      // Illimité : quota NULL, aucun plafond par type (le trigger de capacité
+      // ignore les quotas NULL/0).
+      const extra = unlimited
+        ? {
+            ...(chosen ? presetExtraOf(chosen) : {}),
+            quota_normal: 0, quota_drink: 0, quota_table: 0,
+            includes_drink: false,
+            entry_kind: 'normal',
+          }
+        : {
+            ...(chosen ? presetExtraOf(chosen) : {}),
+            quota_normal: qNormal, quota_drink: qDrink, quota_table: qTable,
+            includes_drink: qDrink > 0,
+            entry_kind: qNormal > 0 ? 'normal' : qDrink > 0 ? 'drink' : qTable > 0 ? 'table' : 'normal',
+          };
+      const effQuota = unlimited ? null : quota;
       if (step === 'custom') {
         if (!customName.trim()) { toast.error(t('guestList.parts.customName')); setSaving(false); return; }
-        await onCreateCustom(customName.trim(), quota, extra);
+        await onCreateCustom(customName.trim(), effQuota, extra);
       } else if (step === 'dj') {
-        await onCreateDj(selected, quota, extra);
+        await onCreateDj(selected, effQuota, extra);
       } else if (step === 'promoter') {
         const label = list.find(l => l.id === selected)?.name || '';
-        await onCreatePromoter(selected, label, quota, extra);
+        await onCreatePromoter(selected, label, effQuota, extra);
       }
       onClose();
     } catch (e) { toast.error(e instanceof Error ? e.message : t('guestList.saveError')); setSaving(false); }
   };
 
-  const canConfirm = (step === 'custom' ? customName.trim().length > 0 : !!selected) && quota >= 1;
+  const canConfirm = (step === 'custom' ? customName.trim().length > 0 : !!selected) && (unlimited || quota >= 1);
 
   return (
     <AnimatePresence>
@@ -213,7 +225,19 @@ export function AddPartSheet({ eventId, ctx, existingDjIds, existingPromoterIds,
                   </div>
                 </div>
               )}
+              {/* Sans limite — quota NULL : le détenteur ajoute autant d'invités qu'il veut. */}
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5" style={{ color: unlimited ? T1 : T3, fontSize: 13, fontWeight: 500 }}>
+                  <InfinityIcon className="h-3.5 w-3.5" />{t('guestList.unlimited')}
+                </span>
+                <YunoSwitch checked={unlimited} onChange={setUnlimited} />
+              </div>
+              {unlimited && (
+                <p style={{ color: T3, fontSize: 11.5 }}>{t('guestList.unlimitedHint')}</p>
+              )}
+
               {/* Per-type allocation — a part can mix kinds (e.g. 10 standard + 2 VIP). 0 = not offered. */}
+              {!unlimited && (
               <div>
                 <p style={{ color: T2, fontSize: 13, fontWeight: 500, marginBottom: 8 }}>{t('guestList.presets.entryKind')}</p>
                 <div className="space-y-2">
@@ -231,6 +255,7 @@ export function AddPartSheet({ eventId, ctx, existingDjIds, existingPromoterIds,
                 </div>
                 <p style={{ color: T3, fontSize: 11.5, marginTop: 6 }}>{t('guestList.presets.totalSpots').replace('{n}', String(quota))}</p>
               </div>
+              )}
               <button onClick={confirm} disabled={!canConfirm || saving}
                 style={{ width: '100%', background: (!canConfirm || saving) ? INNER_BG : RED, border: 'none', borderRadius: 12, padding: '12px', color: '#fff', fontSize: 14, fontWeight: 600, cursor: (!canConfirm || saving) ? 'not-allowed' : 'pointer', opacity: (!canConfirm || saving) ? 0.6 : 1 }}>
                 {saving ? '…' : t('guestList.parts.addPart')}

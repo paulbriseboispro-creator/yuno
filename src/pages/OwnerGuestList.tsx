@@ -29,7 +29,7 @@ function presetExtra(tpl: GuestListTemplate): Record<string, unknown> {
     quota_normal: tpl.quota_normal, quota_drink: tpl.quota_drink, quota_table: tpl.quota_table,
     free_before_time: tpl.free_before_time, entry_deadline: tpl.entry_deadline,
     includes_drink: tpl.includes_drink, visible_on_club_page: tpl.visible_on_club_page,
-    entry_kind: tpl.entry_kind,
+    show_remaining: tpl.show_remaining, entry_kind: tpl.entry_kind,
   };
 }
 
@@ -118,7 +118,8 @@ export default function OwnerGuestList() {
   const existingDjIds = parts.filter(p => p.holder_type === 'dj' && p.dj_id).map(p => p.dj_id!) as string[];
   const existingPromoterIds = parts.filter(p => p.holder_type === 'promoter' && p.promoter_id).map(p => p.promoter_id!) as string[];
 
-  const totalAllocated = parts.reduce((s, p) => s + (p.is_active ? p.quota : 0), 0);
+  // Les parts illimitées (quota NULL) ne comptent pas dans le total chiffré.
+  const totalAllocated = parts.reduce((s, p) => s + (p.is_active ? (p.quota ?? 0) : 0), 0);
   const totalSignups = Object.values(entriesByPart).flat().filter(e => e.status !== 'cancelled').length;
 
   const displayName = (p: Part) =>

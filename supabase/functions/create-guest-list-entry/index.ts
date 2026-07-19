@@ -195,7 +195,9 @@ serve(async (req) => {
       .eq("guest_list_id", guestList.id)
       .neq("status", "cancelled");
 
-    if ((totalEntries ?? 0) >= guestList.quota) {
+    // quota NULL = liste illimitée (jamais pleine). Sans ce garde, `count >= null`
+    // se coerce en `count >= 0` → inscription publique toujours refusée.
+    if (guestList.quota != null && (totalEntries ?? 0) >= guestList.quota) {
       throw new Error("Guest list is full");
     }
 

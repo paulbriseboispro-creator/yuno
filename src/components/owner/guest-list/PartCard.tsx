@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Music, Megaphone, UserPlus, Link2, Copy, Clock, Wine, Eye, Trash2, CheckCircle, ChevronDown, Ticket, Crown } from 'lucide-react';
+import { Users, Music, Megaphone, UserPlus, Link2, Copy, Clock, Wine, Eye, Trash2, CheckCircle, ChevronDown, Ticket, Crown, Hash, Infinity as InfinityIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Part, PartEntry, HolderType } from '@/hooks/useGuestListParts';
 import { buildShareLink } from '@/lib/guestListShare';
@@ -35,6 +35,8 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
   const [saving, setSaving] = useState(false);
 
   const [quota, setQuota] = useState(part?.quota ?? (isClub ? 100 : 20));
+  // quota NULL = part illimitée (déléguées uniquement).
+  const [unlimited, setUnlimited] = useState(!isClub && !!part && part.quota == null);
   // Per-type allocation for delegated parts (dj/promoter/custom). Legacy parts that only
   // carry a global quota seed as all-standard, so a re-save migrates them cleanly.
   const seedPerType = (p: Part | null) =>
@@ -48,6 +50,7 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
   const [entryDeadline, setEntryDeadline] = useState(part?.entry_deadline?.substring(0, 5) || '');
   const [includesDrink, setIncludesDrink] = useState(part?.includes_drink ?? false);
   const [visibleOnClubPage, setVisibleOnClubPage] = useState(part?.visible_on_club_page ?? isClub);
+  const [showRemaining, setShowRemaining] = useState(part?.show_remaining ?? true);
 
   // Gender split — club only.
   const [enableGenderQuota, setEnableGenderQuota] = useState((part?.quota_female ?? null) !== null || (part?.quota_male ?? null) !== null);
@@ -60,17 +63,19 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
   // Re-sync local form when the underlying part changes (reload / switch event).
   useEffect(() => {
     setQuota(part?.quota ?? (isClub ? 100 : 20));
+    setUnlimited(!isClub && !!part && part.quota == null);
     const seed = seedPerType(part);
     setQNormal(seed.n); setQDrink(seed.d); setQTable(seed.tb);
     setFreeBeforeTime(part?.free_before_time?.substring(0, 5) || '02:00');
     setEntryDeadline(part?.entry_deadline?.substring(0, 5) || '');
     setIncludesDrink(part?.includes_drink ?? false);
     setVisibleOnClubPage(part?.visible_on_club_page ?? isClub);
+    setShowRemaining(part?.show_remaining ?? true);
     setEnableGenderQuota((part?.quota_female ?? null) !== null || (part?.quota_male ?? null) !== null);
     setQuotaFemale(part?.quota_female ?? 70);
     setQuotaMale(part?.quota_male ?? 30);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [part?.id, part?.quota, part?.quota_normal, part?.quota_drink, part?.quota_table, part?.quota_female, part?.quota_male, part?.free_before_time, part?.entry_deadline, part?.includes_drink, part?.visible_on_club_page]);
+  }, [part?.id, part?.quota, part?.quota_normal, part?.quota_drink, part?.quota_table, part?.quota_female, part?.quota_male, part?.free_before_time, part?.entry_deadline, part?.includes_drink, part?.visible_on_club_page, part?.show_remaining]);
 
   // Delegated parts allocate per type; the club keeps a single editable quota.
   const perTypeTotal = qNormal + qDrink + qTable;
@@ -84,26 +89,31 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
   const scannedCount  = entries.filter(e => e.entry_scanned).length;
   const femaleCount   = activeEntries.filter(e => e.gender === 'female').length;
   const maleCount     = activeEntries.filter(e => e.gender === 'male').length;
-  const full          = !!part && part.is_active && activeEntries.length >= part.quota;
+  // Une part illimitée (quota NULL) n'est jamais pleine.
+  const full          = !!part && part.is_active && part.quota != null && activeEntries.length >= part.quota;
   const genderLinks   = !!part && (part.quota_female !== null || part.quota_male !== null);
 
   // The reusable config shared by Save and "save as preset" (no identity/holder fields).
   // Delegated parts persist the per-type split (and derive quota + includes_drink from it);
   // the club keeps its single global quota and explicit includes-drink toggle.
   const buildConfig = (): Record<string, unknown> => ({
-    quota: effectiveQuota,
-    ...(isClub ? {} : { quota_normal: qNormal, quota_drink: qDrink, quota_table: qTable }),
+    // Part déléguée illimitée : quota NULL, aucun plafond par type.
+    quota: !isClub && unlimited ? null : effectiveQuota,
+    ...(isClub ? {} : unlimited
+      ? { quota_normal: 0, quota_drink: 0, quota_table: 0 }
+      : { quota_normal: qNormal, quota_drink: qDrink, quota_table: qTable }),
     quota_female: enableGenderQuota ? effectiveFemale : null,
     quota_male:   enableGenderQuota ? effectiveMale : null,
     free_before_time: freeBeforeTime,
     entry_deadline: entryDeadline || null,
-    includes_drink: isClub ? includesDrink : qDrink > 0,
+    includes_drink: isClub ? includesDrink : (!unlimited && qDrink > 0),
     visible_on_club_page: visibleOnClubPage,
+    show_remaining: showRemaining,
   });
 
   const handleSave = async () => {
     if (genderExceedsQuota) { toast.error(t('guestList.quotaExceedsTotal')); return; }
-    if (!isClub && perTypeTotal < 1) { toast.error(t('guestList.presets.entryKind')); return; }
+    if (!isClub && !unlimited && perTypeTotal < 1) { toast.error(t('guestList.presets.entryKind')); return; }
     setSaving(true);
     const payload = { ...buildConfig(), ...(isClub && !part ? { holder_label: null } : {}) };
     try {
@@ -140,7 +150,7 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
             <p className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 600, margin: 0 }}>{displayName}</p>
             <p style={{ color: T3, fontSize: 11, margin: 0 }}>
               {t(`guestList.holderType.${holderType}`)}
-              {part && <> · {activeEntries.length}/{part.quota}{full && <span style={{ color: NEG, fontWeight: 600 }}> · {t('guestList.quotaFull')}</span>}</>}
+              {part && <> · {activeEntries.length}/{part.quota ?? '∞'}{full && <span style={{ color: NEG, fontWeight: 600 }}> · {t('guestList.quotaFull')}</span>}</>}
             </p>
           </div>
         </button>
@@ -163,21 +173,34 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
               <input type="number" min={1} max={10000} value={quota} onChange={e => setQuota(Math.max(1, Number(e.target.value)))} className="outline-none w-full" style={inputStyle} />
             </div>
           ) : (
-            <div>
-              <p style={{ color: T2, fontSize: 13, fontWeight: 500, marginBottom: 8 }}>{t('guestList.presets.entryKind')}</p>
-              <div className="space-y-2">
-                {[
-                  { icon: Ticket, key: 'guestList.presets.entryNormal', val: qNormal, set: setQNormal },
-                  { icon: Wine,   key: 'guestList.presets.entryDrink',  val: qDrink,  set: setQDrink },
-                  { icon: Crown,  key: 'guestList.presets.entryVip',    val: qTable,  set: setQTable },
-                ].map((row, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <span className="flex items-center gap-1.5 flex-1" style={{ color: row.val > 0 ? T1 : T3, fontSize: 13, fontWeight: 500 }}><row.icon className="h-3.5 w-3.5" />{t(row.key)}</span>
-                    <input type="number" min={0} max={10000} value={row.val} onChange={e => row.set(Math.max(0, Number(e.target.value)))} className="outline-none" style={{ ...inputStyle, width: 96, textAlign: 'center' }} />
-                  </div>
-                ))}
+            <div className="space-y-3">
+              {/* Sans limite — quota NULL : le détenteur ajoute autant d'invités qu'il veut. */}
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5" style={{ color: unlimited ? T1 : T3, fontSize: 13, fontWeight: 500 }}>
+                  <InfinityIcon className="h-3.5 w-3.5" />{t('guestList.unlimited')}
+                </span>
+                <YunoSwitch checked={unlimited} onChange={setUnlimited} />
               </div>
-              <p style={{ color: T3, fontSize: 11.5, marginTop: 6 }}>{t('guestList.presets.totalSpots').replace('{n}', String(perTypeTotal))}</p>
+              {unlimited ? (
+                <p style={{ color: T3, fontSize: 11.5 }}>{t('guestList.unlimitedHint')}</p>
+              ) : (
+              <div>
+                <p style={{ color: T2, fontSize: 13, fontWeight: 500, marginBottom: 8 }}>{t('guestList.presets.entryKind')}</p>
+                <div className="space-y-2">
+                  {[
+                    { icon: Ticket, key: 'guestList.presets.entryNormal', val: qNormal, set: setQNormal },
+                    { icon: Wine,   key: 'guestList.presets.entryDrink',  val: qDrink,  set: setQDrink },
+                    { icon: Crown,  key: 'guestList.presets.entryVip',    val: qTable,  set: setQTable },
+                  ].map((row, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <span className="flex items-center gap-1.5 flex-1" style={{ color: row.val > 0 ? T1 : T3, fontSize: 13, fontWeight: 500 }}><row.icon className="h-3.5 w-3.5" />{t(row.key)}</span>
+                      <input type="number" min={0} max={10000} value={row.val} onChange={e => row.set(Math.max(0, Number(e.target.value)))} className="outline-none" style={{ ...inputStyle, width: 96, textAlign: 'center' }} />
+                    </div>
+                  ))}
+                </div>
+                <p style={{ color: T3, fontSize: 11.5, marginTop: 6 }}>{t('guestList.presets.totalSpots').replace('{n}', String(perTypeTotal))}</p>
+              </div>
+              )}
             </div>
           )}
 
@@ -265,12 +288,28 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
             )}
           </div>
 
+          {/* Compteur public — « X places restantes » ou seulement ouvert/complet */}
+          <div>
+            <div className="flex items-center justify-between">
+              <p className="flex items-center gap-2" style={{ color: T2, fontSize: 13, fontWeight: 500, margin: 0 }}>
+                <Hash className="h-4 w-4" style={{ color: T3 }} />{t('guestList.presets.showRemaining')}
+              </p>
+              <YunoSwitch checked={showRemaining} onChange={setShowRemaining} />
+            </div>
+            <p style={{ color: T3, fontSize: 11, marginTop: 4 }}>{t('guestList.presets.showRemainingHint')}</p>
+          </div>
+
           {/* Actions */}
           <div className="flex gap-2 pt-1">
-            <button onClick={handleSave} disabled={saving || genderExceedsQuota || (!isClub && perTypeTotal < 1)}
-              style={{ flex: 1, background: (saving || genderExceedsQuota || (!isClub && perTypeTotal < 1)) ? INNER_BG : RED, border: 'none', borderRadius: 12, padding: '11px', color: '#fff', fontSize: 14, fontWeight: 600, cursor: (saving || genderExceedsQuota || (!isClub && perTypeTotal < 1)) ? 'not-allowed' : 'pointer', opacity: (saving || genderExceedsQuota || (!isClub && perTypeTotal < 1)) ? 0.6 : 1 }}>
-              {saving ? '…' : part ? t('owner.save') : t('guestList.create')}
-            </button>
+            {(() => {
+              const saveDisabled = saving || genderExceedsQuota || (!isClub && !unlimited && perTypeTotal < 1);
+              return (
+                <button onClick={handleSave} disabled={saveDisabled}
+                  style={{ flex: 1, background: saveDisabled ? INNER_BG : RED, border: 'none', borderRadius: 12, padding: '11px', color: '#fff', fontSize: 14, fontWeight: 600, cursor: saveDisabled ? 'not-allowed' : 'pointer', opacity: saveDisabled ? 0.6 : 1 }}>
+                  {saving ? '…' : part ? t('owner.save') : t('guestList.create')}
+                </button>
+              );
+            })()}
             {part && !isClub && onDelete && (
               <button onClick={handleDelete} style={{ width: 44, height: 42, background: 'rgba(255,92,99,0.10)', border: '1px solid rgba(255,92,99,0.25)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: NEG }}>
                 <Trash2 className="h-4 w-4" />

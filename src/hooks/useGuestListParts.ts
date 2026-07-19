@@ -12,7 +12,8 @@ export interface Part {
   promoter_id: string | null;
   venue_id: string | null;
   organizer_user_id: string | null;
-  quota: number;
+  /** NULL = allocation illimitée (parts déléguées uniquement). */
+  quota: number | null;
   quota_female: number | null;
   quota_male: number | null;
   /** Per-type allocation (e.g. 10 standard + 2 VIP). quota = quota_normal + quota_drink + quota_table. */
@@ -23,6 +24,8 @@ export interface Part {
   entry_deadline: string | null;
   includes_drink: boolean;
   visible_on_club_page: boolean;
+  /** Affiche le compteur « X places restantes » sur les pages publiques. */
+  show_remaining: boolean;
   is_active: boolean;
   share_token: string;
   created_at: string;
@@ -49,7 +52,7 @@ export interface PartScopeCtx {
   organizerUserId: string | null;
 }
 
-const PART_COLS = 'id, event_id, holder_type, holder_label, dj_id, promoter_id, venue_id, organizer_user_id, quota, quota_female, quota_male, quota_normal, quota_drink, quota_table, free_before_time, entry_deadline, includes_drink, visible_on_club_page, is_active, share_token, created_at';
+const PART_COLS = 'id, event_id, holder_type, holder_label, dj_id, promoter_id, venue_id, organizer_user_id, quota, quota_female, quota_male, quota_normal, quota_drink, quota_table, free_before_time, entry_deadline, includes_drink, visible_on_club_page, show_remaining, is_active, share_token, created_at';
 
 // Club part first, then by creation order — the host list always leads the stack.
 function orderParts(a: Part, b: Part) {
@@ -182,7 +185,7 @@ export function useGuestListParts(eventId: string, ctx: PartScopeCtx) {
   const createClubPart = useCallback((payload: Record<string, unknown>) =>
     insertPart({ holder_type: 'club', ...payload }), [insertPart]);
 
-  const createDjPart = useCallback((djId: string, quota: number, extra?: Record<string, unknown>) =>
+  const createDjPart = useCallback((djId: string, quota: number | null, extra?: Record<string, unknown>) =>
     insertPart({ holder_type: 'dj', dj_id: djId, quota, ...extra }), [insertPart]);
 
   // Bulk-create one DJ part per id (for "distribute a preset to the whole lineup"),
@@ -203,7 +206,7 @@ export function useGuestListParts(eventId: string, ctx: PartScopeCtx) {
     return rows.length;
   }, [eventId, resolveHost, load]);
 
-  const createPromoterPart = useCallback((promoterId: string, label: string, quota: number, extra?: Record<string, unknown>) =>
+  const createPromoterPart = useCallback((promoterId: string, label: string, quota: number | null, extra?: Record<string, unknown>) =>
     insertPart({ holder_type: 'promoter', promoter_id: promoterId, holder_label: label, quota, ...extra }), [insertPart]);
 
   // Bulk-create one promoter part per item (distribute a preset to all / selected
@@ -223,7 +226,7 @@ export function useGuestListParts(eventId: string, ctx: PartScopeCtx) {
     return rows.length;
   }, [eventId, resolveHost, load]);
 
-  const createCustomPart = useCallback((label: string, quota: number, extra?: Record<string, unknown>) =>
+  const createCustomPart = useCallback((label: string, quota: number | null, extra?: Record<string, unknown>) =>
     insertPart({ holder_type: 'custom', holder_label: label.trim(), quota, ...extra }), [insertPart]);
 
   const updatePart = useCallback(async (id: string, payload: Record<string, unknown>) => {

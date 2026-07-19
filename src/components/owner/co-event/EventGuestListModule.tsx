@@ -104,7 +104,7 @@ export function EventGuestListModule({ eventId, readOnly = false }: Props) {
       .maybeSingle();
     if (gl) {
       setGuestList(gl as GuestListData);
-      setQuota(gl.quota);
+      setQuota(gl.quota ?? 0);
       setEnableGenderQuota(!!(gl.quota_female || gl.quota_male));
       setQuotaFemale(gl.quota_female || 70);
       setQuotaMale(gl.quota_male || 30);
