@@ -1,0 +1,253 @@
+{
+  "projectId": "58f89cdc-d4fc-4516-ac38-d444cc842ec0",
+  "shape": "package",
+  "pkg": "yuno-design-system",
+  "globalName": "YunoDS",
+  "entry": ".design-sync/ds-package/index.mjs",
+  "buildCmd": "npm run build && bash .design-sync/prepare-css.sh && bash .design-sync/build-ds-package.sh",
+  "srcDir": "../../src/components",
+  "tsconfig": "../../tsconfig.app.json",
+  "cssEntry": "yuno-styles.css",
+  "docsDir": "../docs",
+  "runtimeFontPrefixes": [
+    "Inter",
+    "Space Grotesk",
+    "JetBrains Mono",
+    "Cormorant Garamond",
+    "Poppins"
+  ],
+  "guidelinesGlob": [
+    "../../docs/DESIGN_SYSTEM_PUBLIC.md"
+  ],
+  "provider": {
+    "component": "YunoPreviewProvider"
+  },
+  "componentSrcMap": {
+    "YunoPreviewProvider": null
+  },
+  "overrides": {
+    "Select": {
+      "cardMode": "single",
+      "primaryStory": "Ouvert",
+      "viewport": "420x340"
+    },
+    "Dialog": {
+      "cardMode": "single",
+      "viewport": "520x420"
+    },
+    "DialogTrigger": {
+      "cardMode": "single",
+      "viewport": "520x420"
+    },
+    "DialogContent": {
+      "cardMode": "single",
+      "viewport": "520x420"
+    },
+    "DialogHeader": {
+      "cardMode": "single",
+      "viewport": "520x420"
+    },
+    "DialogTitle": {
+      "cardMode": "single",
+      "viewport": "520x420"
+    },
+    "DialogDescription": {
+      "cardMode": "single",
+      "viewport": "520x420"
+    },
+    "DialogFooter": {
+      "cardMode": "single",
+      "viewport": "520x420"
+    },
+    "DialogClose": {
+      "cardMode": "single",
+      "viewport": "520x420"
+    },
+    "DialogOverlay": {
+      "cardMode": "single",
+      "viewport": "520x420"
+    },
+    "DialogPortal": {
+      "cardMode": "single",
+      "viewport": "520x420"
+    },
+    "Drawer": {
+      "cardMode": "single",
+      "viewport": "520x460"
+    },
+    "DrawerTrigger": {
+      "cardMode": "single",
+      "viewport": "520x460"
+    },
+    "DrawerContent": {
+      "cardMode": "single",
+      "viewport": "520x460"
+    },
+    "DrawerHeader": {
+      "cardMode": "single",
+      "viewport": "520x460"
+    },
+    "DrawerTitle": {
+      "cardMode": "single",
+      "viewport": "520x460"
+    },
+    "DrawerDescription": {
+      "cardMode": "single",
+      "viewport": "520x460"
+    },
+    "DrawerFooter": {
+      "cardMode": "single",
+      "viewport": "520x460"
+    },
+    "DrawerClose": {
+      "cardMode": "single",
+      "viewport": "520x460"
+    },
+    "DrawerOverlay": {
+      "cardMode": "single",
+      "viewport": "520x460"
+    },
+    "DrawerPortal": {
+      "cardMode": "single",
+      "viewport": "520x460"
+    },
+    "SelectContent": {
+      "cardMode": "single",
+      "viewport": "420x340"
+    },
+    "SelectItem": {
+      "cardMode": "single",
+      "viewport": "420x340"
+    },
+    "SelectGroup": {
+      "cardMode": "single",
+      "viewport": "420x340"
+    },
+    "SelectLabel": {
+      "cardMode": "single",
+      "viewport": "420x340"
+    },
+    "SelectSeparator": {
+      "cardMode": "single",
+      "viewport": "420x340"
+    },
+    "SelectTrigger": {
+      "cardMode": "single",
+      "viewport": "420x340"
+    },
+    "SelectValue": {
+      "cardMode": "single",
+      "viewport": "420x340"
+    },
+    "SelectScrollUpButton": {
+      "cardMode": "single",
+      "viewport": "420x340"
+    },
+    "SelectScrollDownButton": {
+      "cardMode": "single",
+      "viewport": "420x340"
+    },
+    "Calendar": {
+      "cardMode": "single",
+      "viewport": "420x420"
+    },
+    "EventCard": {
+      "cardMode": "column"
+    },
+    "ExploreChipRow": {
+      "cardMode": "column"
+    },
+    "ExploreDayTabs": {
+      "cardMode": "column"
+    },
+    "ExploreEventCarousel": {
+      "cardMode": "column"
+    },
+    "ExploreListRow": {
+      "cardMode": "column"
+    },
+    "ExplorePopularClubCard": {
+      "cardMode": "column"
+    },
+    "ExploreRailCard": {
+      "cardMode": "column"
+    },
+    "ExploreRankCard": {
+      "cardMode": "column"
+    },
+    "ExploreSectionTitle": {
+      "cardMode": "column"
+    },
+    "ExploreSeeAllCard": {
+      "cardMode": "column"
+    },
+    "Checkbox": {
+      "cardMode": "column"
+    },
+    "Input": {
+      "cardMode": "column"
+    },
+    "InputOTP": {
+      "cardMode": "column"
+    },
+    "InputOTPGroup": {
+      "cardMode": "column"
+    },
+    "InputOTPSeparator": {
+      "cardMode": "column"
+    },
+    "Label": {
+      "cardMode": "column"
+    },
+    "Textarea": {
+      "cardMode": "column"
+    },
+    "AnimatedOrb": {
+      "cardMode": "column"
+    },
+    "BottomNav": {
+      "cardMode": "single",
+      "primaryStory": "Principale"
+    },
+    "BottomNavBar": {
+      "cardMode": "column"
+    },
+    "Tabs": {
+      "cardMode": "column"
+    },
+    "TabsContent": {
+      "cardMode": "column"
+    },
+    "TabsList": {
+      "cardMode": "column"
+    },
+    "TabsTrigger": {
+      "cardMode": "column"
+    },
+    "Card": {
+      "cardMode": "column"
+    },
+    "CardContent": {
+      "cardMode": "column"
+    },
+    "CardDescription": {
+      "cardMode": "column"
+    },
+    "CardFooter": {
+      "cardMode": "column"
+    },
+    "CardHeader": {
+      "cardMode": "column"
+    },
+    "CardTitle": {
+      "cardMode": "column"
+    },
+    "Separator": {
+      "cardMode": "column"
+    },
+    "Skeleton": {
+      "cardMode": "column"
+    }
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}
