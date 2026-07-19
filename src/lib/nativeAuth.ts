@@ -100,6 +100,11 @@ export async function signInWithProviderNative(provider: 'apple' | 'google'): Pr
       options: {
         scopes: provider === 'apple' ? ['email', 'name'] : ['email', 'profile'],
         nonce: hashedNonce,
+        // OBLIGATOIRE côté Google. Sans ça, dès qu'une session Google existe,
+        // GoogleProvider.swift part sur restorePreviousSignIn() — une branche
+        // qui ne lit JAMAIS le nonce et rend un id_token en cache. Notre nonce
+        // serait ignoré en silence et Supabase rejetterait le token.
+        ...(provider === 'google' ? { forcePrompt: true } : {}),
       },
     });
     const result = res.result as { idToken?: string | null };
@@ -109,9 +114,13 @@ export async function signInWithProviderNative(provider: 'apple' | 'google'): Pr
     // même ferait échouer la comparaison côté Supabase (« Nonces mismatch »).
     const claimNonce = idTokenNonce(result.idToken);
     if (claimNonce && claimNonce !== hashedNonce) {
+      // Le marqueur [n3] identifie la version de ce code : s'il n'apparaît pas
+      // dans un message d'erreur de nonce, c'est un ancien bundle qui tourne
+      // (Capgo sert une mise à jour OTA par-dessus l'app installée).
       throw new Error(
-        `${provider} a renvoyé un nonce qui n'est pas le nôtre — Supabase le rejettera. ` +
-        'Activer « Skip nonce check » sur ce provider dans le dashboard Supabase.',
+        `[n3] ${provider} impose son propre nonce (${claimNonce.slice(0, 8)}… au lieu de ` +
+        `${hashedNonce.slice(0, 8)}…) : activer « Skip nonce check » sur ce provider ` +
+        'dans le dashboard Supabase.',
       );
     }
 
