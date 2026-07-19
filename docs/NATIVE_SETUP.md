@@ -104,3 +104,45 @@ sandbox sur BadDeviceToken, rien à changer pour tester).
 Rien à configurer : clés `NSCalendarsWriteOnlyAccessUsageDescription` /
 `NSCalendarsUsageDescription` déjà dans Info.plist. Premier usage → prompt
 système « écriture seule » puis feuille EventKit pré-remplie.
+
+## 7. Social login sur l'app Pro (eu.yunoapp.pro) — 2026-07-19
+
+Symptôme : `"SocialLogin" plugin is not implemented on ios` sur l'écran de
+connexion de l'app Pro. La coquille Pro n'avait jamais été câblée — les §2/§3
+ci-dessus ne couvraient que le bundle B2C `eu.yunoapp.app`.
+
+Fait côté code (commité) :
+
+- `pro/package.json` : `@capgo/capacitor-social-login` ajouté, épinglé sur la
+  MÊME version que la racine (8.3.35) — le CLI Capacitor résout les plugins
+  natifs depuis `pro/node_modules`, une dérive de version y passerait inaperçue.
+- `pro/ios/App/CapApp-SPM/Package.swift` : régénéré par `cap sync` (8 plugins).
+- `pro/ios/App/App/App.entitlements` : `com.apple.developer.applesignin` ajouté.
+- `pro/ios/App/App/Info.plist` : entrée `google-signin` avec le scheme inversé du
+  client iOS Pro (`...bsp4od93uuus00atpcq7gsctoqrj5tpl`).
+- `src/lib/nativeAuth.ts` : le client OAuth iOS Google est choisi au RUNTIME via
+  `isProApp()`. Raison : un client Google est lié à son bundle id, mais les deux
+  coquilles servent le même bundle web (`webDir: '../dist'`) — impossible de
+  trancher au build avec une seule variable.
+
+Client OAuth iOS Pro créé le 2026-07-19 (bundle `eu.yunoapp.pro`) :
+`909249484986-bsp4od93uuus00atpcq7gsctoqrj5tpl.apps.googleusercontent.com`.
+Posé dans `.env.local` (`VITE_GOOGLE_IOS_CLIENT_ID_PRO`) et dans le Info.plist Pro
+sous forme de scheme inversé — les deux vérifiés cohérents, `cap sync` rejoué.
+
+⚠️ `VITE_GOOGLE_IOS_CLIENT_ID_PRO` doit aussi être ajoutée aux variables de build
+Cloudflare Workers, sinon le bouton Google repasse en « SOON » sur les bundles
+livrés par Capgo (le `.env.local` n'existe que sur la machine de dev).
+
+**Reste à faire en console — non automatisable, et non vérifié à ce stade :**
+
+1. **Supabase** → Authentication → Providers → **Google** → `Authorized Client IDs` :
+   AJOUTER le client Pro à la liste existante (« client_web,client_iOS ») — c'est
+   une liste séparée par virgules, ne pas écraser. Sans ça, `signInWithIdToken`
+   rejette le token de l'app Pro alors que la feuille Google s'ouvre normalement.
+2. **Apple Developer** → App ID `eu.yunoapp.pro` → activer « Sign In with Apple ».
+3. **Supabase** → Providers → **Apple** → `Client IDs` : ajouter **`eu.yunoapp.pro`**
+   à côté de `eu.yunoapp.app` (l'identity token natif porte le bundle id).
+4. Dans Xcode (`npx cap open ios` depuis `pro/`) : vérifier que la capability
+   **Sign In with Apple** apparaît sur la target App — l'entitlement est en place,
+   mais Xcode doit régénérer le provisioning profile — puis build sur device.
