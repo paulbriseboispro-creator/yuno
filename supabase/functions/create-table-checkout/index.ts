@@ -3,11 +3,12 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentSplit, estimateStripeFeeEur } from "../_shared/payment-split.ts";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
-// Yuno commission rate — single source of truth (4% min 0.99€, 0.49€ for BDE).
+// Yuno commission rate — single source of truth (4%, min 0.99€ / 0.49€ BDE, max 25€ on tables).
 import {
   YUNO_TICKET_TABLE_RATE as YUNO_COMMISSION_RATE,
   YUNO_TICKET_TABLE_MIN as YUNO_COMMISSION_MIN,
   YUNO_TICKET_TABLE_MIN_BDE as YUNO_COMMISSION_MIN_BDE,
+  YUNO_TABLE_MAX as YUNO_COMMISSION_MAX,
 } from "../_shared/commission.ts";
 import { getAbsorbYunoFees } from "../_shared/merchant-fees.ts";
 import { recordSmsConsent } from "../_shared/sms-consent.ts";
@@ -400,7 +401,9 @@ serve(async (req) => {
 
     const discountedDeposit = serverDeposit - validatedDiscount;
     
-    // Service fee: max(floor, 4% of deposit). BDE events get a reduced floor (0.49€ vs 0.99€).
+    // Service fee: min(cap, max(floor, 4% of deposit)). BDE events get a reduced
+    // floor (0.49€ vs 0.99€). The 25€ cap is table-only and binds above a 625€
+    // charge — see _shared/commission.ts for why tables are capped and tickets aren't.
     const commissionMin = event.is_bde ? YUNO_COMMISSION_MIN_BDE : YUNO_COMMISSION_MIN;
     let serviceFeeBase: number;
     if (discountedDeposit > 0) {
@@ -408,7 +411,9 @@ serve(async (req) => {
     } else {
       serviceFeeBase = (serverTotalPrice / 2) * YUNO_COMMISSION_RATE;
     }
-    const managementFee = Math.round(Math.max(commissionMin, serviceFeeBase) * 100) / 100;
+    const managementFee = Math.round(
+      Math.min(YUNO_COMMISSION_MAX, Math.max(commissionMin, serviceFeeBase)) * 100,
+    ) / 100;
 
     // Fee absorption (co-event: the CLUB / effectiveVenueId is seller of record).
     // When absorbed, the fan does not pay the management fee on top — it comes out of
@@ -755,9 +760,13 @@ serve(async (req) => {
     const split = resolvePaymentSplit({
       itemType: "table",
       grossAmount,
-      // In absorb mode the gross no longer contains the commission, so pass it explicitly.
-      yunoFeeCentsOverride: feeAbsorbed ? Math.round(managementFee * 100) : undefined,
-      // BDE floor must match the managementFee floor so application_fee == charged fee.
+      // ALWAYS pass the commission explicitly: `managementFee` is the exact amount the
+      // fan is billed on the "Frais de service" line, so it must be the exact
+      // application_fee Yuno collects. Letting resolvePaymentSplit recompute 4% of
+      // `grossAmount` would bill 4% of (deposit + fee) — i.e. 4% MORE than displayed,
+      // silently taken out of the club's payout (0.48€ on a 300€ deposit). It would
+      // also re-derive an uncapped fee, defeating the 25€ table cap.
+      yunoFeeCentsOverride: Math.round(managementFee * 100),
       isBde: event.is_bde === true,
       event: {
         id: event.id,

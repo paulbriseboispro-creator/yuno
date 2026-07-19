@@ -188,8 +188,10 @@ export type GuestListEntry = {
 };
 
 // Service fee rates. BDE-verified organizers (events.is_bde) pay the same 4% rate
-// but a reduced per-item floor (0.49€ vs 0.99€) on tickets/tables. Mirror of the
-// backend single source of truth in supabase/functions/_shared/commission.ts.
+// but a reduced per-item floor (0.49€ vs 0.99€) on tickets/tables. Tables are also
+// capped at 25€ — they're the only item type in a price band where 4% runs away.
+// Mirror of the backend single source of truth in
+// supabase/functions/_shared/commission.ts.
 export const SERVICE_FEE_RATES = {
   DRINKS: 0.03,
   TICKETS: 0.04,
@@ -198,6 +200,7 @@ export const SERVICE_FEE_RATES = {
   TABLES_MIN: 0.99,
   TICKETS_MIN_BDE: 0.49,
   TABLES_MIN_BDE: 0.49,
+  TABLES_MAX: 25,
 } as const;
 
 export const calculateServiceFee = (
@@ -208,9 +211,12 @@ export const calculateServiceFee = (
   if (type === 'drinks') {
     return Math.round(amount * SERVICE_FEE_RATES.DRINKS * 100) / 100;
   }
-  // Tickets & Tables: max(floor, 4% of amount). BDE gets a reduced floor; rate is unchanged.
+  // Tickets & Tables: max(floor, 4% of amount). BDE gets a reduced floor; rate is
+  // unchanged. Tables are then capped at 25€ (tickets are uncapped).
   const min = isBde ? SERVICE_FEE_RATES.TICKETS_MIN_BDE : SERVICE_FEE_RATES.TICKETS_MIN;
-  return Math.round(Math.max(min, amount * SERVICE_FEE_RATES.TICKETS) * 100) / 100;
+  const max = type === 'tables' ? SERVICE_FEE_RATES.TABLES_MAX : Infinity;
+  const withMin = Math.max(min, amount * SERVICE_FEE_RATES.TICKETS);
+  return Math.round(Math.min(max, withMin) * 100) / 100;
 };
 
 // Stripe FR card-processing fee estimate. MUST mirror the edge-function

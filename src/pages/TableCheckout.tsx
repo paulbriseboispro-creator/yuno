@@ -44,8 +44,10 @@ interface PromoterDiscount {
   discountValue: number;
 }
 
+// Mirrors supabase/functions/_shared/commission.ts (table: 4%, min 0.99€, max 25€).
 const MANAGEMENT_FEE_RATE = 0.04;
 const MANAGEMENT_FEE_MIN = 0.99;
+const MANAGEMENT_FEE_MAX = 25;
 
 const tableInputClass =
   'h-11 rounded-lg bg-[#1F1F22] border-white/[0.08] text-white placeholder:text-[#5A5A5E] focus-visible:ring-0 focus-visible:border-primary/50';
@@ -380,7 +382,7 @@ export default function TableCheckout() {
     const feeAbsorbed = venue?.absorb_yuno_fees === true;
     const managementFee = feeAbsorbed
       ? estimateStripeFee(deposit)
-      : Math.round(Math.max(MANAGEMENT_FEE_MIN, feeBase) * 100) / 100;
+      : Math.round(Math.min(MANAGEMENT_FEE_MAX, Math.max(MANAGEMENT_FEE_MIN, feeBase)) * 100) / 100;
     const toPay = deposit + managementFee;
     const remainingBalance = totalPrice - deposit;
     return { totalPrice, deposit, managementFee, toPay, remainingBalance, discount };
