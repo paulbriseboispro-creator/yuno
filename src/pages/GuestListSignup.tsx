@@ -20,9 +20,12 @@ import { PublicPage } from '@/components/PublicPage';
 
 interface GuestListInfo {
   id: string;
-  quota: number;
+  /** NULL = allocation illimitée (parts déléguées). */
+  quota: number | null;
   quotaFemale: number | null;
   quotaMale: number | null;
+  /** false = le visiteur voit seulement ouvert/complet, jamais le remplissage. */
+  showRemaining: boolean;
   freeBeforeTime: string;
   includesDrink: boolean;
   eventTitle: string;
@@ -187,6 +190,7 @@ export default function GuestListSignup() {
         quota: data.quota,
         quotaFemale: data.quota_female,
         quotaMale: data.quota_male,
+        showRemaining: data.show_remaining ?? true,
         freeBeforeTime: data.free_before_time?.substring(0, 5) || '02:00',
         includesDrink: data.includes_drink,
         eventTitle: (data.events as any).title,
@@ -359,14 +363,20 @@ export default function GuestListSignup() {
     );
   }
 
-  const isFull = entriesCount >= guestList.quota
+  // Convention quota NULL = illimité : une telle part n'est jamais pleine et n'a
+  // pas de « restantes » à afficher (sans ce garde, quota - count donnait NaN).
+  const isFull = (guestList.quota !== null && entriesCount >= guestList.quota)
     || (genderFromUrl === 'female' && guestList.quotaFemale !== null && femaleCount >= guestList.quotaFemale)
     || (genderFromUrl === 'male' && guestList.quotaMale !== null && maleCount >= guestList.quotaMale);
   const remaining = genderFromUrl === 'female' && guestList.quotaFemale !== null
     ? Math.max(0, guestList.quotaFemale - femaleCount)
     : genderFromUrl === 'male' && guestList.quotaMale !== null
     ? Math.max(0, guestList.quotaMale - maleCount)
-    : guestList.quota - entriesCount;
+    : guestList.quota !== null
+    ? Math.max(0, guestList.quota - entriesCount)
+    : null;
+  // Le compteur ne s'affiche que si le club l'a activé ET qu'il y a un chiffre à montrer.
+  const showCounter = guestList.showRemaining && remaining !== null;
 
   // ── Success state ──
   if (success) {
@@ -461,11 +471,18 @@ export default function GuestListSignup() {
             )}
           </div>
 
-          {/* Spots counter */}
-          {!isFull && (
+          {/* Spots counter — le chiffre est masqué si le club a coupé show_remaining
+              (ou si la part est illimitée) ; le compte à rebours reste utile. */}
+          {!isFull && (showCounter || timeLeft) && (
             <div className="bg-primary/8 border border-primary/15 rounded-xl p-5 text-center">
-              <p className="text-3xl font-bold text-primary">{remaining}</p>
-              <p className="text-sm text-muted-foreground">{t('guestList.spotsLeft')}</p>
+              {showCounter ? (
+                <>
+                  <p className="text-3xl font-bold text-primary">{remaining}</p>
+                  <p className="text-sm text-muted-foreground">{t('guestList.spotsLeft')}</p>
+                </>
+              ) : (
+                <p className="text-sm font-semibold text-primary">{t('guestList.listOpen')}</p>
+              )}
               {timeLeft && (
                 <p className="text-xs text-muted-foreground mt-1">⏱ {timeLeft}</p>
               )}
@@ -626,15 +643,21 @@ export default function GuestListSignup() {
                 {t('guestList.buyTicket')}
               </Button>
             </div>
-          ) : (
+          ) : (showCounter || timeLeft) ? (
             <div className="bg-primary/8 border border-primary/15 rounded-xl p-5">
-              <p className="text-3xl font-bold text-primary">{remaining}</p>
-              <p className="text-sm text-muted-foreground">{t('guestList.spotsLeft')}</p>
+              {showCounter ? (
+                <>
+                  <p className="text-3xl font-bold text-primary">{remaining}</p>
+                  <p className="text-sm text-muted-foreground">{t('guestList.spotsLeft')}</p>
+                </>
+              ) : (
+                <p className="text-sm font-semibold text-primary">{t('guestList.listOpen')}</p>
+              )}
               {timeLeft && (
                 <p className="text-xs text-muted-foreground mt-1">⏱ {timeLeft}</p>
               )}
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Confirmation card (logged in) */}

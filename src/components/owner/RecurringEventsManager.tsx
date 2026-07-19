@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Plus, Pencil, Trash2, Clock, Upload, Info, Music, Tag, Ticket, Crown, Sparkles, ChevronDown, Zap, Handshake, Repeat } from 'lucide-react';
+import { RefreshCw, Plus, Pencil, Trash2, Clock, Upload, Info, Music, Tag, Ticket, Crown, Sparkles, ChevronDown, Zap, Handshake, Repeat, ClipboardList, Users } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
@@ -63,6 +63,8 @@ function getNextOccurrences(dayOfWeek: number, count = 5): Date[] {
 
 type Preset = { id: string; name: string; ticket_type: string; total_capacity: number; selling_mode: string | null };
 type TablePreset = { id: string; name: string };
+// Modèles de guest list « club » réutilisables (gérés dans /owner/guest-list, onglet Modèles).
+type GuestListPreset = { id: string; name: string; quota: number };
 
 type TemplateRow = {
   id: string;
@@ -81,6 +83,7 @@ type TemplateRow = {
   ticket_preset_id: string | null;
   vip_preset_id: string | null;
   table_preset_id: string | null;
+  guest_list_template_id: string | null;
   auto_enable_tables: boolean;
   partner_organizer_id: string | null;
   // Canonical nested shape { tickets/tables/drinks: { organizer_pct, venue_pct } }.
@@ -102,6 +105,7 @@ type FormState = {
   ticketPresetId: string;
   vipPresetId: string;
   tablePresetId: string;
+  guestListTemplateId: string;
   autoEnableTables: boolean;
   partnerOrganizerId: string;
   venueSplitPct: number;
@@ -111,7 +115,7 @@ type FormState = {
 const EMPTY_FORM: FormState = {
   name: '', description: '', posterUrl: '', musicGenres: ['Open Format'], eventType: 'club',
   dayOfWeek: 5, startTime: '23:00', endTime: '06:00', advanceDays: 7,
-  ticketPresetId: '', vipPresetId: '', tablePresetId: '', autoEnableTables: false,
+  ticketPresetId: '', vipPresetId: '', tablePresetId: '', guestListTemplateId: '', autoEnableTables: false,
   partnerOrganizerId: '', venueSplitPct: 70, isActive: true,
 };
 
@@ -139,6 +143,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
   const [presets, setPresets] = useState<Preset[]>([]);
   // Presets de tables VIP (bottle service) — venue-scoped uniquement (club).
   const [tablePresets, setTablePresets] = useState<TablePreset[]>([]);
+  const [guestListPresets, setGuestListPresets] = useState<GuestListPreset[]>([]);
   const [partners, setPartners] = useState<{ id: string; name: string }[]>([]);
   // Contrat-cadre récurrent par template (co-event club-led) : pending | active.
   const [seriesByTemplate, setSeriesByTemplate] = useState<Map<string, { id: string; status: string }>>(new Map());
@@ -178,6 +183,19 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
       } else {
         setTablePresets([]);
       }
+
+      // Modèles de guest list du scope — seuls les modèles « club » ont un sens ici :
+      // l'auto-publication crée la part hôte de la soirée, pas une part déléguée.
+      const glBase = supabase
+        .from('guest_list_templates')
+        .select('id, name, quota')
+        .eq('holder_type', 'club')
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: true });
+      const { data: glData } = isOrg
+        ? await glBase.eq('organizer_user_id', organizerUserId!)
+        : await glBase.eq('venue_id', venueId!);
+      setGuestListPresets((glData || []) as GuestListPreset[]);
 
       // Contrats-cadres récurrents (co-event club-led) → état affiché par template.
       if (!isOrg) {
@@ -245,6 +263,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
       ticketPresetId: tpl.ticket_preset_id || '',
       vipPresetId: tpl.vip_preset_id || '',
       tablePresetId: tpl.table_preset_id || '',
+      guestListTemplateId: tpl.guest_list_template_id || '',
       autoEnableTables: tpl.auto_enable_tables,
       partnerOrganizerId: tpl.partner_organizer_id || '',
       venueSplitPct: normalizeSplitRules(tpl.revenue_split_rules)?.tickets.venue_pct ?? 70,
@@ -297,6 +316,8 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
         ticket_preset_id: form.ticketPresetId || null,
         vip_preset_id: form.vipPresetId || null,
         table_preset_id: !isOrg && form.tablePresetId ? form.tablePresetId : null,
+        // Modèle de guest list auto-publié en part « club » sur chaque occurrence.
+        guest_list_template_id: form.guestListTemplateId || null,
         // Choisir un preset de tables implique des tables en ligne sur chaque occurrence.
         auto_enable_tables: form.autoEnableTables || (!isOrg && !!form.tablePresetId),
         partner_organizer_id: !isOrg && form.partnerOrganizerId ? form.partnerOrganizerId : null,
@@ -486,6 +507,12 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                       {tpl.auto_enable_tables && !tpl.table_preset_id && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
                           style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 }}>{t('owner.recur.vipTablesOnline')}</span>
+                      )}
+                      {tpl.guest_list_template_id && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
+                          style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.22)', color: '#34D399' }}>
+                          <ClipboardList className="w-3 h-3" />{guestListPresets.find(p => p.id === tpl.guest_list_template_id)?.name || t('owner.recur.autoGuestList')}
+                        </span>
                       )}
                       {tpl.partner_organizer_id && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium"
@@ -760,6 +787,33 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                   disabled={!isOrg && !!form.tablePresetId}
                   onCheckedChange={v => set('autoEnableTables', v)}
                 />
+              </div>
+            </div>
+
+            {/* Guest list automatique — le modèle choisi est publié en part « club »
+                sur chaque occurrence générée, comme les presets billets et tables. */}
+            <div className="rounded-xl p-4 space-y-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+              <div className="flex items-center gap-2">
+                <ClipboardList className="w-4 h-4" style={{ color: RED }} />
+                <p style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{t('owner.recur.autoGuestList')}</p>
+              </div>
+              <p style={{ color: T3, fontSize: 11.5, marginTop: -4 }}>
+                {t('owner.recur.autoGuestListDesc')}
+              </p>
+              <div>
+                <FieldLabel><Users className="w-3 h-3 inline mr-1" />{t('owner.recur.guestListTemplate')}</FieldLabel>
+                <div className="relative">
+                  <select value={form.guestListTemplateId} onChange={e => set('guestListTemplateId', e.target.value)} className="appearance-none cursor-pointer" style={inputStyle}>
+                    <option value="" style={{ background: '#0a0a0c' }}>{t('owner.recur.noGuestListOption')}</option>
+                    {guestListPresets.map(p => (
+                      <option key={p.id} value={p.id} style={{ background: '#0a0a0c' }}>{p.name} — {p.quota} {t('owner.recur.spotsWord')}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
+                </div>
+                <p style={{ color: T3, fontSize: 11, marginTop: 4 }}>
+                  {guestListPresets.length === 0 ? t('owner.recur.noGuestListPresetHint') : t('owner.recur.guestListTemplateHint')}
+                </p>
               </div>
             </div>
 

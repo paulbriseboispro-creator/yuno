@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Users, Music, Megaphone, Clock, Star, CheckSquare, Building2, Ticket, Wine, Crown, Eye, Lock } from 'lucide-react';
+import { X, Users, Music, Megaphone, Clock, Star, CheckSquare, Building2, Ticket, Wine, Crown, Eye, Lock, Hash } from 'lucide-react';
 import { toast } from 'sonner';
 import type { GuestListTemplate, TemplateInput, TemplateHolderType, TargetMode, EntryKind } from '@/hooks/useGuestListTemplates';
 import { RED, T1, T2, T3, BORDER, F_BORDER, INNER_BG, TILE_BG, CARD_BG, CARD_SHADOW, YunoSwitch } from './ui';
@@ -53,6 +53,7 @@ export function GuestListPresetDialog({ editing, initial, t, onClose, onSave }: 
   const [freeBefore, setFreeBefore] = useState((seed.free_before_time ?? '02:00').substring(0, 5));
   const [entryDeadline, setEntryDeadline] = useState((seed.entry_deadline ?? '')?.substring(0, 5) || '');
   const [visible, setVisible] = useState(seed.visible_on_club_page ?? false);
+  const [showRemaining, setShowRemaining] = useState(seed.show_remaining ?? true);
   const [isDefault, setIsDefault] = useState(editing?.is_default ?? false);
   const [saving, setSaving] = useState(false);
 
@@ -86,6 +87,7 @@ export function GuestListPresetDialog({ editing, initial, t, onClose, onSave }: 
       entry_deadline: entryDeadline || null,
       includes_drink: qDrink > 0,
       visible_on_club_page: visible,
+      show_remaining: showRemaining,
     };
     try {
       await onSave(input, editing?.id ?? null);
@@ -181,6 +183,15 @@ export function GuestListPresetDialog({ editing, initial, t, onClose, onSave }: 
               <label style={labelStyle}>{t('guestList.presets.visibilityLabel')}</label>
               <Segmented value={visible ? 'public' : 'private'} onChange={(v) => setVisible(v === 'public')}
                 options={[{ value: 'public', icon: Eye, label: t('guestList.presets.visPublic') }, { value: 'private', icon: Lock, label: t('guestList.presets.visPrivate') }]} />
+            </div>
+
+            {/* Compteur public — montrer « X places restantes » ou seulement ouvert/complet. */}
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2" style={{ color: T2, fontSize: 13, fontWeight: 500 }}><Hash className="h-4 w-4" style={{ color: T3 }} />{t('guestList.presets.showRemaining')}</span>
+                <YunoSwitch checked={showRemaining} onChange={setShowRemaining} />
+              </div>
+              <p style={{ color: T3, fontSize: 11, marginTop: 4 }}>{t('guestList.presets.showRemainingHint')}</p>
             </div>
 
             {/* Default — club only (drives the events-page Guest list toggle) */}

@@ -25,6 +25,8 @@ export interface GuestListTemplate {
   entry_deadline: string | null;
   includes_drink: boolean;
   visible_on_club_page: boolean;
+  /** Affiche le compteur « X places restantes » sur les pages publiques de la liste. */
+  show_remaining: boolean;
 }
 
 /** The editor's input — everything but the row id. */
@@ -32,7 +34,7 @@ export type TemplateInput = Omit<GuestListTemplate, 'id'>;
 
 interface Ctx { isOrganizerScope: boolean; venueId: string | null; organizerUserId: string | null }
 
-const COLS = 'id, name, holder_type, is_default, target_mode, entry_kind, quota, quota_normal, quota_drink, quota_table, quota_female, quota_male, free_before_time, entry_deadline, includes_drink, visible_on_club_page';
+const COLS = 'id, name, holder_type, is_default, target_mode, entry_kind, quota, quota_normal, quota_drink, quota_table, quota_female, quota_male, free_before_time, entry_deadline, includes_drink, visible_on_club_page, show_remaining';
 
 /** Reusable, typed guest-list presets (club / DJ / promoter), scoped to the venue or organizer. */
 export function useGuestListTemplates(ctx: Ctx) {

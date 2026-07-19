@@ -31,6 +31,8 @@ interface GuestListInfo {
   quotaMale: number | null;
   freeBeforeTime: string;
   includesDrink: boolean;
+  /** false = le visiteur voit seulement ouvert/complet, jamais le remplissage. */
+  showRemaining: boolean;
   shareToken: string;
   eventTitle: string;
   eventStartAt: string;
@@ -113,7 +115,7 @@ export default function GuestListCheckout() {
       // Public-only gate: a direct URL must point at a list the club chose to show.
       const { data: glRows } = await supabase
         .from('guest_lists')
-        .select('id, quota, quota_female, quota_male, free_before_time, includes_drink, share_token, holder_type, events!inner(id, title, start_at, end_at, venue_id, poster_url)')
+        .select('id, quota, quota_female, quota_male, free_before_time, includes_drink, show_remaining, share_token, holder_type, events!inner(id, title, start_at, end_at, venue_id, poster_url)')
         .eq('event_id', eventId)
         .eq('is_active', true)
         .eq('visible_on_club_page', true);
@@ -139,6 +141,7 @@ export default function GuestListCheckout() {
         quotaMale: gl.quota_male,
         freeBeforeTime: gl.free_before_time?.substring(0, 5) || '02:00',
         includesDrink: gl.includes_drink,
+        showRemaining: gl.show_remaining ?? true,
         shareToken: gl.share_token,
         eventTitle: ev.title,
         eventStartAt: ev.start_at,
@@ -274,8 +277,16 @@ export default function GuestListCheckout() {
   const genderQuota = genderParam === 'female' ? guestList.quotaFemale : genderParam === 'male' ? guestList.quotaMale : null;
   const effectiveQuota = genderParam && genderQuota !== null ? genderQuota : guestList.quota;
   const effectiveCount = genderParam ? genderCount : entriesCount;
-  const isFull = effectiveCount >= effectiveQuota || entriesCount >= guestList.quota;
-  const remaining = Math.max(0, Math.min(effectiveQuota - effectiveCount, guestList.quota - entriesCount));
+  // Convention quota NULL = illimité : jamais plein, aucun « restantes » à montrer
+  // (sans ce garde, quota - count donnait NaN dans le compteur).
+  const isFull = (effectiveQuota !== null && effectiveCount >= effectiveQuota)
+    || (guestList.quota !== null && entriesCount >= guestList.quota);
+  const caps = [
+    effectiveQuota !== null ? effectiveQuota - effectiveCount : null,
+    guestList.quota !== null ? guestList.quota - entriesCount : null,
+  ].filter((n): n is number => n !== null);
+  const remaining = caps.length ? Math.max(0, Math.min(...caps)) : null;
+  const showCounter = guestList.showRemaining && remaining !== null;
   // A gender picker is only needed as a fallback for a gendered list reached without ?gender.
   const genderRequired = (guestList.quotaFemale !== null || guestList.quotaMale !== null) && !genderParam;
   const displayTitle = genderParam === 'female'
@@ -381,11 +392,17 @@ export default function GuestListCheckout() {
           )}
         </div>
 
-        {/* Spots */}
-        {!isFull && (
+        {/* Spots — chiffre masqué si le club a coupé show_remaining (ou part illimitée). */}
+        {!isFull && (showCounter || timeLeft) && (
           <div className="mt-3 border border-emerald-500/15 p-4 text-center" style={{ backgroundColor: 'rgba(16,185,129,0.06)', borderRadius: 10 }}>
-            <p className="text-3xl font-bold text-emerald-400">{remaining}</p>
-            <p className="text-sm text-white/45">{t('guestList.spotsLeft')}</p>
+            {showCounter ? (
+              <>
+                <p className="text-3xl font-bold text-emerald-400">{remaining}</p>
+                <p className="text-sm text-white/45">{t('guestList.spotsLeft')}</p>
+              </>
+            ) : (
+              <p className="text-sm font-semibold text-emerald-400">{t('guestList.listOpen')}</p>
+            )}
             {timeLeft && <p className="text-xs text-white/40 mt-1">⏱ {timeLeft}</p>}
           </div>
         )}
