@@ -136,6 +136,29 @@ statiques sont servis gratuitement et ne comptent pas dans le quota de requêtes
   même chantier — clés `ohelp.*` dans `src/i18n/data.ts` (les 3 langues EN/FR/ES) et
   structure dans `src/data/ownerHelpContent.ts`. Une feature sans doc n'est pas finie.
 
+## Claude Design — design system public synchronisé
+
+Le design system **public** (et lui seul) est synchronisé vers claude.ai/design, projet
+`58f89cdc-d4fc-4516-ac38-d444cc842ec0` (« Yuno Design System ») : 72 composants — les
+19 primitives `ui/` réellement utilisées par une surface publique, les 12 composants
+éditoriaux d'`explore/`, et `BottomNav`. Le design system **pro n'y est pas** et ne doit
+pas y être ajouté : `docs/DESIGN_SYSTEM.md` reste hors périmètre.
+
+Tout vit dans `.design-sync/` (committé) : `config.json`, `conventions.md` (l'en-tête
+injecté dans le prompt de l'agent de design — c'est lui qui interdit de bâtir un écran
+opérateur avec ces composants), `docs/` (une doc par composant → groupe + `.prompt.md`),
+`previews/` (72 aperçus), et 3 scripts de build. **`NOTES.md` est à lire avant tout
+re-sync** — il contient les pièges déjà résolus et les risques de dérive.
+
+Re-sync : invoquer la skill `design-sync`, qui relit `config.json` et enchaîne
+`buildCmd` (build app → CSS compilée → package de déclarations) puis le convertisseur.
+Les notes de validation des 72 composants sont capitalisées dans l'ancre distante, donc
+un re-sync ne revérifie que ce qui a changé.
+
+**Un composant public qui entre ou sort du périmètre** doit être ajouté/retiré de la
+liste dans `.design-sync/build-ds-package.sh` **et** recevoir sa doc via
+`.design-sync/gen-docs.mjs` — sinon il manque en silence, ou atterrit sans groupe.
+
 ## Assistants IA — connaissance à tenir à jour
 
 Deux assistants IA embarqués (modèle `gpt-4o-mini`, constante `OPENAI_MODEL`,
