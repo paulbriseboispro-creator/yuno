@@ -4,6 +4,7 @@ import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 import { dispatchPushAutomations, dispatchNewEventPushes } from "../_shared/push-automations.ts";
 import { refreshEventEmbeddings, refreshDjEmbeddings } from "../_shared/event-embeddings.ts";
 import { dispatchLiveOpsAlerts } from "../_shared/live-ops-alerts.ts";
+import { dispatchPromoterPushes } from "../_shared/promoter-push.ts";
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type' };
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -126,7 +127,18 @@ Deno.serve(async (req) => {
       console.error('[LIVE-OPS] dispatch failed:', String(e));
     }
 
-    return new Response(JSON.stringify({ processed, pushProcessed, autoPush, newEventPush, embeddings, djEmbeddings, liveOps }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    // File de notifications promoteur (app Yuno Pro) — alimentee par des
+    // triggers, vidangee ici. La coalescence a deja eu lieu a l'insertion, donc
+    // un samedi a 50 ventes ne produit pas 50 push. Best-effort : une panne
+    // d'envoi laisse les lignes en file pour le prochain passage.
+    let promoterPush = { processed: 0, sent: 0 };
+    try {
+      promoterPush = await dispatchPromoterPushes(admin);
+    } catch (e) {
+      console.error('[PROMOTER-PUSH] dispatch failed:', String(e));
+    }
+
+    return new Response(JSON.stringify({ processed, pushProcessed, autoPush, newEventPush, embeddings, djEmbeddings, liveOps, promoterPush }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }

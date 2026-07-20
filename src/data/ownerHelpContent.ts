@@ -567,6 +567,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.promoters.s6h', bodyKey: 'ohelp.pg.promoters.s6b' },
           { headingKey: 'ohelp.pg.promoters.s7h', bodyKey: 'ohelp.pg.promoters.s7b', type: 'tip' },
           { headingKey: 'ohelp.pg.promoters.s8h', bodyKey: 'ohelp.pg.promoters.s8b' },
+          { headingKey: 'ohelp.pg.promoters.s9h', bodyKey: 'ohelp.pg.promoters.s9b' },
         ],
       },
       {

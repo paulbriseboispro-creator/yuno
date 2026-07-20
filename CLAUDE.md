@@ -130,6 +130,18 @@ statiques sont servis gratuitement et ne comptent pas dans le quota de requêtes
   `_shared/push-automations.ts` (source='auto', clic `?pc=`). Ne JAMAIS appeler
   `send-push-notification` en direct pour une notif automatique ; ajouter la clé au
   seed + au `CATALOG` de `AdminNotificationAutomations.tsx` + i18n `adminAutoPush.k.*`.
+  Toute clé destinée à l'app Pro doit porter `audience: "pro"` (sinon le push part
+  vers l'app client et n'arrive jamais).
+- **Notifs promoteur : passer par la file, jamais par un push direct.** Les
+  événements promoteur sont mis en file par des triggers dans
+  `promoter_push_queue` (`enqueue_promoter_push()`), et `dispatchPromoterPushes()`
+  la vidange depuis le cron `process-scheduled-campaigns`. Deux garde-fous, et
+  **les deux sont nécessaires** : `dedup_key` fusionne les événements tant que la
+  ligne n'est pas partie (les compteurs s'additionnent), et `p_min_interval` impose
+  un délai entre deux envois de la même clé — sans lui, la vidange toutes les
+  5 min renverrait une notification tous les quarts d'heure. Un soir à 50 ventes
+  doit produire 2 push, pas 50 : le bilan du lendemain raconte la nuit.
+  Ne jamais notifier chaque vente ni chaque entrée d'invité.
 - **Règlement promoteur — jamais de solde unilatéral.** Le cycle est en trois temps
   (`prepare_promoter_payout` → `declare_promoter_payout_sent` → `confirm_promoter_payout_received`),
   et seul le promoteur peut déclencher la dernière étape. Yuno ne touche jamais les

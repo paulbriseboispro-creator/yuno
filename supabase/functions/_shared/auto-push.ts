@@ -181,6 +181,103 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
   // Le seul push réellement indispensable est `promoter_payout_declared` : sans
   // lui, le promoteur ne sait pas qu'on attend son accusé de réception, et le
   // lot part en litige tout seul au bout de quelques jours.
+  // ── Vie du promoteur (app Yuno Pro) ──────────────────────────────────────
+  // Alimentees par la file promoter_push_queue : la coalescence a lieu a
+  // l'insertion, pas ici. Un soir de grosse vente, `promoter_sale_first` part
+  // une fois et c'est `promoter_night_digest` qui raconte la nuit le lendemain.
+  promoter_sale_first: {
+    logType: "reminder",
+    audience: "pro",
+    variants: {
+      default: {
+        fr: { title: "Ca demarre 🔥", body: "Premiere vente de la soiree : +{amount}€ de commission." },
+        en: { title: "It's started 🔥", body: "First sale of the night: +{amount}€ commission." },
+        es: { title: "Ha empezado 🔥", body: "Primera venta de la noche: +{amount}€ de comision." },
+      },
+    },
+  },
+  promoter_night_digest: {
+    logType: "reminder",
+    audience: "pro",
+    variants: {
+      default: {
+        fr: { title: "Ta soiree en resume 🌙", body: "{count} ventes, {amount}€ de commissions." },
+        en: { title: "Your night, wrapped 🌙", body: "{count} sales, {amount}€ in commissions." },
+        es: { title: "Tu noche en resumen 🌙", body: "{count} ventas, {amount}€ en comisiones." },
+      },
+    },
+  },
+  promoter_goal_reached: {
+    logType: "transactional",
+    audience: "pro",
+    variants: {
+      default: {
+        fr: { title: "Objectif atteint 🎯", body: "{event} : tu as passe la barre des {goal} entrees." },
+        en: { title: "Goal reached 🎯", body: "{event}: you passed the {goal} entries mark." },
+        es: { title: "Objetivo alcanzado 🎯", body: "{event}: has superado las {goal} entradas." },
+      },
+    },
+  },
+  promoter_team_override: {
+    logType: "reminder",
+    audience: "pro",
+    variants: {
+      default: {
+        fr: { title: "Ton equipe rapporte 👥", body: "+{amount}€ de commission d'equipe aujourd'hui." },
+        en: { title: "Your team is delivering 👥", body: "+{amount}€ in team commission today." },
+        es: { title: "Tu equipo rinde 👥", body: "+{amount}€ de comision de equipo hoy." },
+      },
+    },
+  },
+  promoter_announcement: {
+    logType: "transactional",
+    audience: "pro",
+    variants: {
+      default: {
+        fr: { title: "{sender} t'a ecrit 📣", body: "{title}" },
+        en: { title: "{sender} posted 📣", body: "{title}" },
+        es: { title: "{sender} te ha escrito 📣", body: "{title}" },
+      },
+    },
+  },
+  promoter_event_assigned: {
+    logType: "reminder",
+    audience: "pro",
+    variants: {
+      default: {
+        fr: { title: "Nouvelle soiree pour toi 🎟️", body: "{event} — {date}. Ton lien est deja actif." },
+        en: { title: "A new night for you 🎟️", body: "{event} — {date}. Your link is already live." },
+        es: { title: "Nueva fiesta para ti 🎟️", body: "{event} — {date}. Tu enlace ya esta activo." },
+      },
+    },
+  },
+  promoter_linktree_reviewed: {
+    logType: "transactional",
+    audience: "pro",
+    variants: {
+      approved: {
+        fr: { title: "Ta page est en ligne ✅", body: "Elle est publique : tu peux partager ton lien." },
+        en: { title: "Your page is live ✅", body: "It's public: you can share your link." },
+        es: { title: "Tu pagina esta en linea ✅", body: "Ya es publica: puedes compartir tu enlace." },
+      },
+      changes: {
+        fr: { title: "Modifications demandees ✏️", body: "Ta page est repassee en brouillon. Corrige-la et renvoie-la." },
+        en: { title: "Changes requested ✏️", body: "Your page went back to draft. Fix it and resubmit." },
+        es: { title: "Cambios solicitados ✏️", body: "Tu pagina volvio a borrador. Corrigela y reenviala." },
+      },
+    },
+  },
+  promoter_commission_cancelled: {
+    logType: "transactional",
+    audience: "pro",
+    variants: {
+      default: {
+        fr: { title: "Commission annulee", body: "{count} vente(s) remboursee(s) : -{amount}€ sur ton solde." },
+        en: { title: "Commission cancelled", body: "{count} sale(s) refunded: -{amount}€ off your balance." },
+        es: { title: "Comision anulada", body: "{count} venta(s) reembolsada(s): -{amount}€ de tu saldo." },
+      },
+    },
+  },
   promoter_payout_declared: {
     logType: "transactional",
     audience: "pro",
