@@ -202,24 +202,37 @@ serve(async (req) => {
         try {
           let resolvedPromoterId = metaPromoterId;
           if (!resolvedPromoterId && metaPromoCode) {
-            const { data: pByCode } = await supabaseAdmin
-              .from('promoters')
-              .select('id')
-              .eq('venue_id', event?.venue_id)
-              .eq('promo_code', metaPromoCode)
-              .eq('is_active', true)
-              .maybeSingle();
-            resolvedPromoterId = pByCode?.id;
+            // Même correctif que verify-ticket-payment : périmètre complet
+            // (club hôte, club partenaire, organisateur, organisateur partenaire)
+            // et comparaison insensible à la casse.
+            const scopeOr: string[] = [];
+            if (event?.venue_id) scopeOr.push(`venue_id.eq.${event.venue_id}`);
+            if (event?.partner_venue_id) scopeOr.push(`venue_id.eq.${event.partner_venue_id}`);
+            if (event?.organizer_user_id) scopeOr.push(`organizer_user_id.eq.${event.organizer_user_id}`);
+            if (event?.partner_organizer_id) scopeOr.push(`organizer_user_id.eq.${event.partner_organizer_id}`);
+            if (scopeOr.length > 0) {
+              const { data: pByCode, error: pErr } = await supabaseAdmin
+                .from('promoters')
+                .select('id')
+                .or(scopeOr.join(','))
+                .ilike('promo_code', metaPromoCode)
+                .eq('is_active', true)
+                .limit(1);
+              if (pErr) logStep("Promoter lookup failed", { error: pErr.message, metaPromoCode });
+              resolvedPromoterId = pByCode?.[0]?.id;
+            }
+            if (!resolvedPromoterId) logStep("Promoter not resolved from code", { metaPromoCode });
           }
           if (resolvedPromoterId) {
-            const { data: convResult } = await supabaseAdmin.rpc('record_promoter_conversion', {
+            const { data: convResult, error: convError } = await supabaseAdmin.rpc('record_promoter_conversion', {
               p_promoter_id: resolvedPromoterId,
               p_conversion_type: 'table',
               p_amount: (reservation.total_price || 0) - (reservation.service_fee || 0),
               p_event_id: reservation.event_id,
               p_table_reservation_id: reservation.id,
             });
-            logStep("Promoter conversion recorded", convResult);
+            if (convError) logStep("Promoter conversion FAILED", { error: convError.message });
+            else logStep("Promoter conversion recorded", convResult);
           }
         } catch (promoError) {
           console.error('Error recording promoter conversion:', promoError);

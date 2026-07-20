@@ -427,25 +427,43 @@ serve(async (req) => {
         try {
           let resolvedPromoterId = metaPromoterId;
           if (!resolvedPromoterId && metaPromoCode) {
-            const { data: pByCode } = await supabaseAdmin
-              .from('promoters')
-              .select('id')
-              .eq('venue_id', event?.venue_id)
-              .eq('promo_code', metaPromoCode)
-              .eq('is_active', true)
-              .maybeSingle();
-            resolvedPromoterId = pByCode?.id;
+            // Le promoteur peut être rattaché au club hôte, au club partenaire
+            // d'un co-event, à l'organisateur ou à l'organisateur partenaire.
+            // Le filtre ne regardait que event.venue_id : un promoteur
+            // d'organisateur (venue_id NULL) ou d'un club partenaire ne
+            // touchait JAMAIS sa commission, en silence.
+            // `ilike` et non `eq` : le front met le code en majuscules avant de
+            // l'envoyer à Stripe, alors que promo_code n'est pas garanti
+            // majuscule — le client obtenait la remise et le promoteur rien.
+            const scopeOr: string[] = [];
+            if (event?.venue_id) scopeOr.push(`venue_id.eq.${event.venue_id}`);
+            if (event?.partner_venue_id) scopeOr.push(`venue_id.eq.${event.partner_venue_id}`);
+            if (event?.organizer_user_id) scopeOr.push(`organizer_user_id.eq.${event.organizer_user_id}`);
+            if (event?.partner_organizer_id) scopeOr.push(`organizer_user_id.eq.${event.partner_organizer_id}`);
+            if (scopeOr.length > 0) {
+              const { data: pByCode, error: pErr } = await supabaseAdmin
+                .from('promoters')
+                .select('id')
+                .or(scopeOr.join(','))
+                .ilike('promo_code', metaPromoCode)
+                .eq('is_active', true)
+                .limit(1);
+              if (pErr) logStep("Promoter lookup failed", { error: pErr.message, metaPromoCode });
+              resolvedPromoterId = pByCode?.[0]?.id;
+            }
+            if (!resolvedPromoterId) logStep("Promoter not resolved from code", { metaPromoCode });
           }
 
           if (resolvedPromoterId) {
-            const { data: convResult } = await supabaseAdmin.rpc('record_promoter_conversion', {
+            const { data: convResult, error: convError } = await supabaseAdmin.rpc('record_promoter_conversion', {
               p_promoter_id: resolvedPromoterId,
               p_conversion_type: 'ticket',
               p_amount: (ticket.unit_price || 0) * (ticket.quantity || 1),
               p_event_id: ticket.event_id,
               p_ticket_id: ticket.id,
             });
-            logStep("Promoter conversion recorded", convResult);
+            if (convError) logStep("Promoter conversion FAILED", { error: convError.message });
+            else logStep("Promoter conversion recorded", convResult);
           }
         } catch (promoError) {
           console.error('Error recording promoter conversion:', promoError);

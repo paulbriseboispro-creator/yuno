@@ -1031,7 +1031,13 @@ serve(async (req) => {
         userId: user?.id || '',
         venueId: event.venue_id || '',
         promoCode: promoCode || '',
-        promoterId: promoterId || '',
+        // On transmet le promoteur DÉJÀ RÉSOLU ici, pas le champ brut reçu du
+        // client. Le client ne peut pas fournir de promoterId (aucune policy ne
+        // lui laisse lire la table promoters) : la metadata partait donc vide et
+        // verify-ticket-payment devait re-résoudre le code après paiement, une
+        // deuxième résolution plus fragile que celle-ci. La remise pouvait être
+        // accordée à l'achat sans qu'aucune commission ne soit enregistrée.
+        promoterId: finalPromoterId || '',
         trackedLinkId: safeTrackedLinkId || '',
         isGuest: isGuestCheckout ? 'true' : 'false',
         upsells: upsellMeta,

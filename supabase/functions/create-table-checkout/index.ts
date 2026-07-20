@@ -68,7 +68,9 @@ serve(async (req) => {
       newsletterOptIn,
       smsOptIn,
       promoCode,
-      promoterId,
+      // Renommé : le promoteur effectif est résolu plus bas (par id fourni, sinon
+      // par code) et porté par la variable `promoterId`.
+      promoterId: rawPromoterId,
       cancelUrl,
       // Guest checkout fields
       guestEmail,
@@ -382,6 +384,32 @@ serve(async (req) => {
       serverDeposit = depositValue;
     } else {
       serverDeposit = serverTotalPrice; // Full payment if no deposit configured
+    }
+
+    // Résolution du promoteur à partir de son CODE, comme create-ticket-checkout.
+    // Elle manquait totalement ici : la fonction n'acceptait qu'un promoterId, que
+    // le client ne peut pas fournir (la table promoters lui est fermée par RLS).
+    // Aucune vente de table n'était donc jamais attribuée. Le périmètre couvre le
+    // club hôte, le club partenaire, l'organisateur et l'organisateur partenaire.
+    let promoterId: string | null = rawPromoterId || null;
+    if (!promoterId && promoCode) {
+      const scopeOr: string[] = [];
+      if (event.venue_id) scopeOr.push(`venue_id.eq.${event.venue_id}`);
+      if (event.partner_venue_id) scopeOr.push(`venue_id.eq.${event.partner_venue_id}`);
+      if (event.organizer_user_id) scopeOr.push(`organizer_user_id.eq.${event.organizer_user_id}`);
+      if (event.partner_organizer_id) scopeOr.push(`organizer_user_id.eq.${event.partner_organizer_id}`);
+      if (scopeOr.length > 0) {
+        const { data: byCode, error: byCodeErr } = await supabaseAdmin
+          .from("promoters")
+          .select("id")
+          .or(scopeOr.join(","))
+          .ilike("promo_code", String(promoCode).trim())
+          .eq("is_active", true)
+          .limit(1);
+        if (byCodeErr) logStep("Promoter lookup by code failed", { error: byCodeErr.message });
+        promoterId = byCode?.[0]?.id ?? null;
+        logStep("Promoter resolved by code", { promoCode, promoterId });
+      }
     }
 
     // Validate promoter discount from database if provided

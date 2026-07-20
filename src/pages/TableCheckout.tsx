@@ -470,7 +470,16 @@ export default function TableCheckout() {
             : remarks.trim(),
           newsletterOptIn,
           smsOptIn,
-          promoCode: promoterDiscount?.promoCode || null,
+          // Le code stocké part TOUJOURS, même sans remise table.
+          //
+          // Ces deux champs venaient de promoterDiscount, qui n'est renseigné
+          // que si (a) la requête cliente sur `promoters` aboutit — or aucune
+          // policy RLS ne laisse un acheteur lire cette table, donc elle ne
+          // renvoie jamais rien — et (b) le promoteur a une remise table non
+          // nulle. Résultat : le checkout partait sans code, et AUCUNE vente de
+          // table n'a jamais généré de commission. Le serveur, lui, sait
+          // résoudre le code (il utilise la clé service).
+          promoCode: promoterDiscount?.promoCode || (venue?.id ? getStoredPromoCodeForVenue(venue.id) : null),
           promoterId: promoterDiscount?.promoterId || null,
           discountAmount: pricing.discount,
           cancelUrl: window.location.pathname,
