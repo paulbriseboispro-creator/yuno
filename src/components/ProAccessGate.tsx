@@ -16,6 +16,15 @@ import { transitions } from '@/lib/motion';
  */
 const OPEN_PREFIXES = ['/auth', '/accept-staff-invitation', '/legal', '/account-suspended'];
 
+/**
+ * Au-delà de ce délai, la vérification du rôle rend la main sans verdict. Le
+ * client Supabase borne déjà ses requêtes, ce plafond couvre le reste (attente
+ * du verrou de session, onglet réveillé de veille). Mieux vaut ouvrir — les
+ * gardes de route en aval refusent de toute façon l'accès aux dashboards — que
+ * laisser le staff devant un spinner sans fin en pleine soirée.
+ */
+const ROLE_CHECK_TIMEOUT_MS = 10_000;
+
 function matches(pathname: string, prefixes: string[]): boolean {
   const clean = pathname.replace(/\/+$/, '') || '/';
   return prefixes.some((p) => clean === p || clean.startsWith(p + '/'));
@@ -40,9 +49,13 @@ export function ProAccessGate({ children }: { children: ReactNode }) {
   const { t } = useLanguage();
 
   const [status, setStatus] = useState<'checking' | 'ok' | 'refused'>('checking');
-  // Le compte pour lequel la décision est déjà prise (évite de re-interroger la
-  // base à chaque navigation).
-  const checkedFor = useRef<string | null>(null);
+  // Le compte pour lequel la décision est déjà PRISE, et laquelle. On mémorise
+  // le verdict, pas l'intention : un rafraîchissement de token en cours de
+  // vérification recrée l'objet `user` (même id), relance cet effet et annule la
+  // lecture au vol. Marquer le compte AVANT d'avoir décidé ferait alors
+  // court-circuiter la relance, et l'app resterait sur 'checking' à jamais.
+  const decidedFor = useRef<string | null>(null);
+  const decision = useRef<'ok' | 'refused'>('ok');
   // Le refus survit à la déconnexion qu'il provoque : sans ça, `user` repasse à
   // null juste après le signOut et l'écran de refus disparaîtrait aussitôt.
   const refusedRef = useRef(false);
@@ -57,46 +70,72 @@ export function ProAccessGate({ children }: { children: ReactNode }) {
       if (!refusedRef.current) setStatus('ok'); // pas de session → /auth fera le travail
       return;
     }
-    if (checkedFor.current === user.id) return;
-    checkedFor.current = user.id;
+    // Verdict déjà rendu pour ce compte : on le réapplique sans réinterroger.
+    if (decidedFor.current === user.id) {
+      setStatus(decision.current);
+      return;
+    }
     setStatus('checking');
 
     let active = true;
+
+    const decide = (verdict: 'ok' | 'refused') => {
+      decidedFor.current = user.id;
+      decision.current = verdict;
+      setStatus(verdict);
+    };
+
+    // Aucune lecture ne doit pouvoir laisser l'app sur son spinner : passé ce
+    // délai on ouvre la porte, comme pour une lecture ratée ci-dessous. Le
+    // verdict n'est pas mémorisé — la prochaine occasion retentera la lecture.
+    const failOpen = setTimeout(() => {
+      if (active) setStatus('ok');
+    }, ROLE_CHECK_TIMEOUT_MS);
+
     (async () => {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', user.id)
-        .neq('role', 'client')
-        .limit(1);
+      // Toute la lecture est gardée : une exception (réseau coupé net, requête
+      // annulée) laisserait sinon `status` sur 'checking' — soit un spinner
+      // définitif, exactement le symptôme qu'on cherche à éliminer.
+      try {
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .neq('role', 'client')
+          .limit(1);
 
-      if (!active) return;
+        if (!active) return;
 
-      // Lecture ratée (réseau du club, RLS) : on laisse passer. Les gardes de
-      // route en aval refuseront de toute façon l'accès aux dashboards — on ne
-      // déconnecte personne sur un simple échec de lecture.
-      if (error) {
-        setStatus('ok');
-        return;
+        // Lecture ratée (réseau du club, RLS) : on laisse passer. Les gardes de
+        // route en aval refuseront de toute façon l'accès aux dashboards — on ne
+        // déconnecte personne sur un simple échec de lecture.
+        if (error) {
+          setStatus('ok'); // échec transitoire : on ne fige pas le verdict
+          return;
+        }
+
+        if (data && data.length > 0) {
+          decide('ok');
+          return;
+        }
+
+        refusedRef.current = true;
+        decide('refused');
+        clearStaffSession();
+        void supabase.auth.signOut();
+      } catch {
+        if (active) setStatus('ok');
+      } finally {
+        clearTimeout(failOpen);
       }
-
-      if (data && data.length > 0) {
-        setStatus('ok');
-        return;
-      }
-
-      refusedRef.current = true;
-      setStatus('refused');
-      clearStaffSession();
-      void supabase.auth.signOut();
     })();
 
-    return () => { active = false; };
+    return () => { active = false; clearTimeout(failOpen); };
   }, [user, loading, onOpenRoute]);
 
   const handleBackToLogin = () => {
     refusedRef.current = false;
-    checkedFor.current = null;
+    decidedFor.current = null;
     setStatus('ok');
     navigate('/auth', { replace: true });
   };
