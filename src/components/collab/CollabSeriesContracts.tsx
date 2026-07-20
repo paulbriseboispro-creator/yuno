@@ -224,7 +224,6 @@ export function CollabSeriesContracts({ role, venueId, onChanged }: Props) {
         open={amendOpen}
         onOpenChange={setAmendOpen}
         target={amendTarget}
-        viewerSide={role === 'venue' ? 'venue' : 'organizer'}
         onDone={load}
       />
     </div>

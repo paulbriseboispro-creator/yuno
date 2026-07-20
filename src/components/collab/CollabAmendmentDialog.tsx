@@ -9,7 +9,7 @@ import { FileSignature, ArrowRight, Lock } from 'lucide-react';
 import { ResponsibilitiesPicker } from './ResponsibilitiesPicker';
 import {
   COLLAB_DOMAINS, normalizeResponsibilities,
-  type CollabResponsibilities, type CollabSide, type DomainHolder,
+  type CollabResponsibilities, type DomainHolder,
 } from '@/utils/collabResponsibilities';
 import { normalizeSplitRules } from '@/lib/splitRules';
 import type { PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
@@ -50,12 +50,11 @@ export interface AmendmentTarget {
  * enregistrement est une promesse qu'on ne tient pas.
  */
 export function CollabAmendmentDialog({
-  open, onOpenChange, target, viewerSide, onDone,
+  open, onOpenChange, target, onDone,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   target: AmendmentTarget | null;
-  viewerSide: CollabSide;
   onDone?: () => void;
 }) {
   const { language } = useLanguage();
