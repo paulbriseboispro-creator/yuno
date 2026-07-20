@@ -54,10 +54,16 @@ export default function OwnerPromoterFinance() {
     if (!sid) return;
     try {
       // Agency-managed promoters are settled by their agency, not the club.
-      const { data: promoters } = await supabase.from('promoters')
+      const { data: promoters, error: promotersError } = await supabase.from('promoters')
         .select('id, user_id, iban, promo_code')
         .eq(scopeFilter.column, sid).is('agency_id', null);
-      if (!promoters || promoters.length === 0) { setLoading(false); return; }
+      // Une erreur RLS/réseau renvoyait `data = null`, indistinguable d'un club
+      // sans promoteur : la page affichait « 0€ / 0€ / 0€ » et un état vide alors
+      // que les dettes et l'historique existaient. On la remonte désormais.
+      if (promotersError) throw promotersError;
+      if (!promoters || promoters.length === 0) {
+        setDebts([]); setPayouts([]); setLoading(false); return;
+      }
 
       const promoterIds = promoters.map(p => p.id);
       const userIds = promoters.map(p => p.user_id);
@@ -73,10 +79,23 @@ export default function OwnerPromoterFinance() {
         }];
       }));
 
-      const { data: pendingConvs } = await supabase.from('promoter_conversions')
-        .select('promoter_id, commission')
-        .in('promoter_id', promoterIds)
-        .eq('status', 'pending');
+      // PostgREST plafonne une réponse à 1000 lignes. Sans pagination, un club
+      // au-delà de ce seuil voyait un « À payer » tronqué et cliquait « Régler
+      // X€ » alors que la RPC, elle, somme le vrai total côté serveur : l'owner
+      // validait un montant plus petit que celui réellement payé.
+      const pendingConvs: Array<{ promoter_id: string; commission: number | null }> = [];
+      const PAGE = 1000;
+      for (let from = 0; ; from += PAGE) {
+        const { data: page, error: pageError } = await supabase.from('promoter_conversions')
+          .select('promoter_id, commission')
+          .in('promoter_id', promoterIds)
+          .eq('status', 'pending')
+          .range(from, from + PAGE - 1);
+        if (pageError) throw pageError;
+        if (!page || page.length === 0) break;
+        pendingConvs.push(...page);
+        if (page.length < PAGE) break;
+      }
 
       const debtMap = new Map<string, { count: number; amount: number }>();
       (pendingConvs || []).forEach(c => {
@@ -102,8 +121,16 @@ export default function OwnerPromoterFinance() {
       debtsList.sort((a, b) => b.pendingAmount - a.pendingAmount);
       setDebts(debtsList);
 
-      const { data: payoutsData } = await supabase.from('promoter_payouts')
-        .select('*').eq(scopeFilter.column, sid).order('created_at', { ascending: false });
+      // Restreint aux promoteurs du club. Un règlement fait par une AGENCE à son
+      // propre promoteur écrit quand même le venue_id du club sur la ligne de
+      // paiement : sans ce filtre, le total « Payé » du club gonflait d'argent
+      // qu'il n'a jamais versé, et ces lignes s'affichaient en « N/A » puisque le
+      // promoteur agence est volontairement exclu plus haut.
+      const { data: payoutsData, error: payoutsError } = await supabase.from('promoter_payouts')
+        .select('*').eq(scopeFilter.column, sid)
+        .in('promoter_id', promoterIds)
+        .order('created_at', { ascending: false });
+      if (payoutsError) throw payoutsError;
 
       setPayouts((payoutsData || []).map(d => ({
         ...d,
@@ -137,6 +164,22 @@ export default function OwnerPromoterFinance() {
     finally { setActing(false); }
   }
 
+  /**
+   * Fait avancer le statut d'une ligne de paiement DÉJÀ existante. Volontairement
+   * limité à la ligne elle-même.
+   *
+   * Cette fonction soldait aussi les commissions : elle passait TOUTES les
+   * conversions en attente du promoteur à « payé », puis créditait total_paid du
+   * seul montant de la ligne. Or aucune table ne relie une ligne de paiement aux
+   * conversions qu'elle couvre. Un versement de 50€ approuvé la semaine passée,
+   * avec 300€ accumulés depuis, marquait 300€ comme payés pour 50€ versés : 250€
+   * de commissions effacés en silence. Le tout sur quatre requêtes sans
+   * transaction, avec un read-modify-write sur total_paid.
+   *
+   * Le solde des commissions passe exclusivement par settleNow() →
+   * settle_promoter_payout, qui fait l'ensemble en une transaction et crée la
+   * ligne de paiement déjà à « payé ».
+   */
   async function updateStatus(id: string, newStatus: 'approved' | 'paid') {
     setActing(true);
     try {
@@ -146,44 +189,44 @@ export default function OwnerPromoterFinance() {
       const { error } = await supabase.from('promoter_payouts').update(updates).eq('id', id);
       if (error) throw error;
 
-      if (newStatus === 'paid') {
-        const payout = payouts.find(p => p.id === id);
-        if (payout) {
-          await supabase.from('promoter_conversions')
-            .update({ status: 'paid', paid_at: new Date().toISOString() })
-            .eq('promoter_id', payout.promoter_id)
-            .eq('status', 'pending');
-
-          const { data: promo } = await supabase.from('promoters')
-            .select('pending_amount, total_paid')
-            .eq('id', payout.promoter_id).maybeSingle();
-          if (promo) {
-            await supabase.from('promoters').update({
-              pending_amount: 0,
-              total_paid: (promo.total_paid || 0) + payout.amount,
-            }).eq('id', payout.promoter_id);
-          }
-        }
-      }
-
       toast.success(t('promoterPayouts.statusUpdated'));
       fetchData();
     } catch { toast.error(t('promoterPayouts.updateError')); }
     finally { setActing(false); }
   }
 
+  /** Échappement CSV : les guillemets internes se doublent, sinon un nom comme
+   *  Jean "JD" Dupont décale toute la ligne. */
+  const csvCell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+
   function exportCSV() {
-    const rows = [[t('owner.promoB.csvPromoter'), t('owner.promoB.csvAmount'), t('owner.promoB.csvStatus'), t('owner.promoB.csvPeriod'), 'IBAN', t('owner.promoB.csvDate')].join(',')];
-    payouts.forEach(p => {
+    // On exporte les virements RESTANT À FAIRE en premier : c'est la raison d'être
+    // du fichier (le coller dans l'interface de virement de sa banque). Avant, seul
+    // l'historique sortait — un club n'ayant jamais réglé téléchargeait un fichier
+    // ne contenant que l'en-tête.
+    const rows = [[
+      t('owner.promoB.csvPromoter'), t('owner.promoB.csvAmount'), t('owner.promoB.csvStatus'),
+      t('owner.promoB.csvPeriod'), 'IBAN', t('owner.promoB.csvDate'),
+    ].map(csvCell).join(',')];
+
+    debts.forEach(d => {
       rows.push([
-        `"${p.promoterName}"`, p.amount.toFixed(2), p.status, `"${p.period_label || ''}"`,
-        `"${p.promoterIban || ''}"`, new Date(p.created_at).toLocaleDateString(),
+        csvCell(d.promoterName), d.pendingAmount.toFixed(2), csvCell(t('promoterPayouts.pending')),
+        csvCell(''), csvCell(d.promoterIban || ''), csvCell(new Date().toISOString().slice(0, 10)),
       ].join(','));
     });
-    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+    payouts.forEach(p => {
+      rows.push([
+        csvCell(p.promoterName), p.amount.toFixed(2), csvCell(p.status), csvCell(p.period_label || ''),
+        csvCell(p.promoterIban || ''), csvCell(new Date(p.created_at).toISOString().slice(0, 10)),
+      ].join(','));
+    });
+
+    // BOM UTF-8 : sans lui Excel affiche les accents en mojibake.
+    const blob = new Blob(['﻿' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `payouts-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.href = url; a.download = `promoteurs-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click(); URL.revokeObjectURL(url);
   }
 
@@ -197,6 +240,11 @@ export default function OwnerPromoterFinance() {
     : <PromoPill tone="muted">{t('promoterPayouts.pending')}</PromoPill>;
 
   const maskIban = (iban: string) => `${iban.slice(0, 4)}···${iban.slice(-4)}`;
+
+  /** Montant lisible : pas de décimales sur un compte rond, deux sinon. Arrondir
+   *  à l'entier affichait « 0€ » pour une dette de 0,40€ — et un bouton « Régler
+   *  0€ maintenant » juste sous une carte indiquant 0,40€. */
+  const euro = (n: number) => Number.isInteger(n) ? `${n}€` : `${n.toFixed(2)}€`;
 
   if (loading) return <OwnerPageSkeleton />;
 
@@ -217,9 +265,9 @@ export default function OwnerPromoterFinance() {
       <PromoPage maxWidth={640}>
         {/* Summary */}
         <div className="grid grid-cols-3 gap-3">
-          <StatTile icon={Clock} value={`${totalDebt.toFixed(0)}€`} label={tt('À payer', 'To pay')} tone="red" />
-          <StatTile icon={ShieldCheck} value={`${totalApproved.toFixed(0)}€`} label={t('promoterPayouts.approved')} tone="warn" />
-          <StatTile icon={CheckCircle2} value={`${totalPaid.toFixed(0)}€`} label={t('promoterPayouts.paid')} tone="pos" />
+          <StatTile icon={Clock} value={euro(totalDebt)} label={tt('À payer', 'To pay')} tone="red" />
+          <StatTile icon={ShieldCheck} value={euro(totalApproved)} label={t('promoterPayouts.approved')} tone="warn" />
+          <StatTile icon={CheckCircle2} value={euro(totalPaid)} label={t('promoterPayouts.paid')} tone="pos" />
         </div>
 
         {/* Debts from real conversions */}
@@ -240,7 +288,7 @@ export default function OwnerPromoterFinance() {
                     <p style={{ color: RED, fontSize: 18, fontWeight: 740, margin: 0, flex: 'none' }}>{debt.pendingAmount.toFixed(2)}€</p>
                   </div>
                   <PromoButton full size="sm" onClick={() => settleNow(debt.promoterId)} disabled={acting}>
-                    <CheckCircle2 className="h-4 w-4" /> {tt(`Régler ${debt.pendingAmount.toFixed(0)}€ maintenant`, `Settle ${debt.pendingAmount.toFixed(0)}€ now`, `Saldar ${debt.pendingAmount.toFixed(0)}€ ahora`)}
+                    <CheckCircle2 className="h-4 w-4" /> {tt(`Régler ${euro(debt.pendingAmount)} maintenant`, `Settle ${euro(debt.pendingAmount)} now`, `Saldar ${euro(debt.pendingAmount)} ahora`)}
                   </PromoButton>
                 </PromoCard>
               ))}
