@@ -678,27 +678,51 @@ serve(async (req) => {
         const charge = event.data.object as Stripe.Charge;
         logStep("Charge refunded", { chargeId: charge.id, amount: charge.amount_refunded });
 
-        // Try to find and update the related order/ticket/reservation
+        // Remboursement TOTAL ou PARTIEL ?
+        //
+        // Passer une ligne à "refunded" déclenche
+        // trg_cancel_promoter_conv_on_refund, qui annule 100 % de la commission.
+        // Or charge.refunded se déclenche aussi sur un remboursement partiel :
+        // rembourser 5€ sur un billet à 60€ faisait perdre au promoteur la
+        // totalité de sa commission. On ne bascule donc le statut que sur un
+        // remboursement complet ; un partiel laisse la ligne intacte (le
+        // détail monétaire est réconcilié dans revenue_distributions plus bas,
+        // qui gère déjà le cas partiel).
+        //
+        // On n'écrit pas "partially_refunded" ici : cette valeur n'est admise
+        // que sur les colonnes de statut de transfert de revenue_distributions,
+        // et la contrainte orders_status_check la refuserait.
+        const isFullRefund = charge.amount_refunded >= charge.amount;
+        if (!isFullRefund) {
+          logStep("Remboursement partiel — statuts et commissions inchangés", {
+            chargeId: charge.id, refunded: charge.amount_refunded, total: charge.amount,
+          });
+        }
+
+        // Try to find and update the related order/ticket/reservation.
+        // NB : la réversion proportionnelle des transferts (SYMMETRIC REFUND, plus
+        // bas dans ce même bloc) DOIT tourner y compris sur un partiel — seules les
+        // trois bascules de statut ci-dessous sont réservées au remboursement total.
         const piId = charge.payment_intent as string;
         if (piId) {
           // Update orders
-          const { data: orderData } = await supabaseClient
+          const { data: orderData } = isFullRefund ? await supabaseClient
             .from("orders")
             .update({ status: "refunded" })
             .eq("stripe_payment_intent_id", piId)
             .eq("status", "paid")
-            .select("id");
+            .select("id") : { data: null };
           if (orderData?.length) {
             logStep("Order(s) marked refunded via charge.refunded", { ids: orderData.map(o => o.id) });
           }
 
           // Update tickets
-          const { data: ticketData } = await supabaseClient
+          const { data: ticketData } = isFullRefund ? await supabaseClient
             .from("tickets")
             .update({ status: "refunded" })
             .eq("stripe_payment_intent_id", piId)
             .eq("status", "paid")
-            .select("id");
+            .select("id") : { data: null };
           if (ticketData?.length) {
             logStep("Ticket(s) marked refunded via charge.refunded", { ids: ticketData.map(t => t.id) });
           }
@@ -712,12 +736,12 @@ serve(async (req) => {
           //      commission (trg_cancel_promoter_conv_on_refund) ne se déclenche
           //      que sur "refunded" — comme pour orders et tickets juste au-dessus.
           //      Le club remboursait donc le client tout en payant la commission.
-          const { data: resData } = await supabaseClient
+          const { data: resData } = isFullRefund ? await supabaseClient
             .from("table_reservations")
             .update({ status: "refunded" })
             .eq("stripe_payment_intent_id", piId)
             .eq("status", "paid")
-            .select("id");
+            .select("id") : { data: null };
           if (resData?.length) {
             logStep("Reservation(s) marked refunded via charge.refunded", { ids: resData.map(r => r.id) });
           }
