@@ -36,17 +36,13 @@ export function OnboardingGate() {
     // pas (allemand, italien…) : là, l'anglais serait un défaut subi et non un
     // choix, donc on demande. Changement possible ensuite dans les Réglages.
     //
-    // On n'escamote l'écran que sur une détection NON anglaise. Tant que les
-    // binaires iOS actuels ne déclarent pas CFBundleLocalizations, la WebView
-    // peut annoncer 'en' à tout le monde : un 'en' est donc ambigu (vrai
-    // anglophone ou repli du bundle ?) alors qu'un 'fr'/'es' ne peut venir que
-    // des préférences réelles. Cette garde tombe quand les builds portant la
-    // clé sont en ligne — d'ici là, un anglophone voit l'écran comme avant,
-    // ce qui n'est pas une régression.
-    const detected = deviceLanguage();
+    // Mesuré sur device (iPhone, iOS 26.5, système en français, installs
+    // neuves) : la WebView remonte 'fr' AVEC et SANS CFBundleLocalizations dans
+    // le bundle. La clé n'est donc pas nécessaire à la détection, et un 'en'
+    // détecté est un vrai anglophone, pas un repli — d'où l'absence de
+    // traitement particulier ici.
     const langAnswered =
-      localStorage.getItem(LANG_ANSWERED_KEY) === 'true' ||
-      (detected !== null && detected !== 'en');
+      localStorage.getItem(LANG_ANSWERED_KEY) === 'true' || deviceLanguage() !== null;
 
     // If already subscribed or permission already decided, mark push as done
     if (!pushAnswered && (isSubscribed || permission === 'granted' || permission === 'denied')) {
