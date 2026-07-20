@@ -59,10 +59,8 @@ export interface CollabTermsLabels {
   /** Colonnes et lignes du tableau « Répartition des responsabilités » (v2026-07-20+). */
   respDomainCol?: L;
   respHolderCol?: L;
-  respCreativeRow?: L;
-  respTicketingRow?: L;
+  respDesignRow?: L;
   respOperationsRow?: L;
-  respPromotionRow?: L;
   respHolderVenue?: L;
   respHolderOrganizer?: L;
   respHolderBoth?: L;
@@ -435,6 +433,11 @@ const TERMS_2026_06_29: CollabTerms = {
 };
 
 // ── v2026-07-20 — la répartition des RESPONSABILITÉS entre au contrat ────────
+// Ce millésime n'a jamais été publié (aucun contrat signé sous cette version), il
+// a donc été corrigé SUR PLACE quand l'axe est passé de quatre domaines à deux.
+// La règle « bumper + ajouter une entrée au REGISTRY » protège les contrats
+// SIGNÉS ; empiler un millésime fantôme que personne n'a signé n'protège rien et
+// encombre le registre pour toujours.
 // Jusqu'ici le contrat ne disait QUE qui touche l'argent. Qui a la main sur
 // l'affiche, les prix, les tables ou la visibilité se négociait hors document,
 // donc ne s'opposait à personne. L'article ci-dessous met cette répartition sur
@@ -444,10 +447,8 @@ const RESP_LABELS_2026_07_20: CollabTermsLabels = {
   ...LABELS_2026_06_24,
   respDomainCol: { fr: 'Domaine', en: 'Domain', es: 'Dominio' },
   respHolderCol: { fr: 'À la charge de', en: 'Held by', es: 'A cargo de' },
-  respCreativeRow: { fr: 'Création (affiche, titre, description, genres)', en: 'Creative (poster, title, description, genres)', es: 'Creación (cartel, título, descripción, géneros)' },
-  respTicketingRow: { fr: 'Billetterie (prix, quotas, ouverture des ventes)', en: 'Ticketing (prices, quotas, sale opening)', es: 'Entradas (precios, cupos, apertura de ventas)' },
-  respOperationsRow: { fr: 'Opérations (tables VIP, plan de salle, accès, lieu)', en: 'Operations (VIP tables, floor plan, access, venue)', es: 'Operaciones (mesas VIP, plano, acceso, lugar)' },
-  respPromotionRow: { fr: 'Promotion (visibilité, découverte, référencement)', en: 'Promotion (visibility, discovery, search)', es: 'Promoción (visibilidad, descubrimiento, posicionamiento)' },
+  respDesignRow: { fr: 'Design (affiche, titre, description, genres, line-up DJ, visibilité)', en: 'Design (poster, title, description, genres, DJ line-up, visibility)', es: 'Diseño (cartel, título, descripción, géneros, line-up de DJ, visibilidad)' },
+  respOperationsRow: { fr: 'Opérationnel (billetterie et prix, tables VIP, horaires, lieu et accès)', en: 'Operations (ticketing and prices, VIP tables, hours, venue and access)', es: 'Operativo (entradas y precios, mesas VIP, horarios, lugar y acceso)' },
   respHolderVenue: { fr: 'Club', en: 'Club', es: 'Club' },
   respHolderOrganizer: { fr: 'Organisateur', en: 'Organizer', es: 'Organizador' },
   respHolderBoth: { fr: 'Les deux', en: 'Both', es: 'Ambos' },
@@ -458,9 +459,9 @@ const RESPONSIBILITIES_ARTICLE_2026_07_20: TermsArticle = {
   kind: 'responsibilities',
   title: { fr: 'Répartition des responsabilités', en: 'Allocation of responsibilities', es: 'Reparto de responsabilidades' },
   note: {
-    fr: "La répartition ci-dessus est distincte de la répartition des revenus : elle dit qui DÉCIDE, non qui ENCAISSE. Les deux se négocient séparément et peuvent être dissymétriques (une partie peut financer sans décider, et l'inverse).",
-    en: 'The allocation above is distinct from the revenue split: it says who DECIDES, not who COLLECTS. The two are negotiated separately and may be asymmetric (a party may fund without deciding, and vice versa).',
-    es: 'El reparto anterior es distinto del reparto de ingresos: dice quién DECIDE, no quién COBRA. Ambos se negocian por separado y pueden ser asimétricos (una parte puede financiar sin decidir, y al revés).',
+    fr: "La collaboration se partage sur deux faces : qui HABILLE la soirée (design) et qui la FAIT TOURNER (opérationnel). Cette répartition est distincte de la répartition des revenus : elle dit qui DÉCIDE, non qui ENCAISSE. Les deux se négocient séparément et peuvent être dissymétriques (une partie peut financer sans décider, et l'inverse).",
+    en: 'The collaboration splits along two faces: who DRESSES the night (design) and who RUNS it (operations). This allocation is distinct from the revenue split: it says who DECIDES, not who COLLECTS. The two are negotiated separately and may be asymmetric (a party may fund without deciding, and vice versa).',
+    es: 'La colaboración se reparte en dos caras: quién VISTE la noche (diseño) y quién la HACE FUNCIONAR (operativo). Este reparto es distinto del reparto de ingresos: dice quién DECIDE, no quién COBRA. Ambos se negocian por separado y pueden ser asimétricos (una parte puede financiar sin decidir, y al revés).',
   },
   clauses: [
     {

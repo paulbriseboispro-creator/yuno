@@ -161,10 +161,8 @@ function ContractTermsView({ data, language }: { data: CollabContractPDFData; la
             <div className="space-y-1.5">
               <ul className="text-xs text-muted-foreground space-y-0.5">
                 {([
-                  ['creative', labels.respCreativeRow],
-                  ['ticketing', labels.respTicketingRow],
+                  ['design', labels.respDesignRow],
                   ['operations', labels.respOperationsRow],
-                  ['promotion', labels.respPromotionRow],
                 ] as const).map(([domain, rowLabel]) => {
                   if (!rowLabel) return null;
                   const holder = data.responsibilities?.[domain];

@@ -234,10 +234,8 @@ export function generateContractPDF(data: CollabContractPDFData): Blob {
       y += 1.5;
       para(article.note);
     } else if (article.kind === 'responsibilities') {
-      respRow(labels.respCreativeRow, 'creative');
-      respRow(labels.respTicketingRow, 'ticketing');
+      respRow(labels.respDesignRow, 'design');
       respRow(labels.respOperationsRow, 'operations');
-      respRow(labels.respPromotionRow, 'promotion');
       y += 1.5;
       para(article.note);
       for (const c of article.clauses ?? []) renderClause(c.term, clauseBody(c, { cancellationPolicy: data.cancellationPolicy, isBde: data.isBde }));
