@@ -18,7 +18,7 @@ export const pickL = (lang: Lang | string, l: L): string =>
   (lang === 'en' ? l.en : lang === 'es' ? l.es : l.fr);
 
 /** Bump + add a REGISTRY entry whenever the article wording changes. */
-export const COLLAB_TERMS_VERSION = '2026-06-29';
+export const COLLAB_TERMS_VERSION = '2026-07-20';
 
 export interface TermsClause {
   term: L;
@@ -33,7 +33,13 @@ export interface TermsClause {
 export type TermsArticle =
   | { num: number; kind: 'parties'; title: L }
   | { num: number; kind: 'split'; title: L; note: L }
-  | { num: number; kind: 'static'; title: L; intro?: L; clauses?: TermsClause[] };
+  | { num: number; kind: 'static'; title: L; intro?: L; clauses?: TermsClause[] }
+  /**
+   * Répartition des responsabilités : rendu en tableau (domaine → partie qui en a
+   * la charge), alimenté par le champ `responsibilities` du contrat. Les clauses
+   * qui suivent le tableau expliquent la portée et le mécanisme d'avenant.
+   */
+  | { num: number; kind: 'responsibilities'; title: L; note: L; clauses?: TermsClause[] };
 
 export interface CollabTermsLabels {
   docTitle: L;
@@ -50,6 +56,16 @@ export interface CollabTermsLabels {
   tablesRow: L;
   drinksRow: L;
   orgShort: L;
+  /** Colonnes et lignes du tableau « Répartition des responsabilités » (v2026-07-20+). */
+  respDomainCol?: L;
+  respHolderCol?: L;
+  respCreativeRow?: L;
+  respTicketingRow?: L;
+  respOperationsRow?: L;
+  respPromotionRow?: L;
+  respHolderVenue?: L;
+  respHolderOrganizer?: L;
+  respHolderBoth?: L;
   signaturesTitle: L;
   forClub: L;
   forOrg: L;
@@ -418,12 +434,88 @@ const TERMS_2026_06_29: CollabTerms = {
   recurringArticle: RECURRING_ARTICLE_2026_06_27,
 };
 
+// ── v2026-07-20 — la répartition des RESPONSABILITÉS entre au contrat ────────
+// Jusqu'ici le contrat ne disait QUE qui touche l'argent. Qui a la main sur
+// l'affiche, les prix, les tables ou la visibilité se négociait hors document,
+// donc ne s'opposait à personne. L'article ci-dessous met cette répartition sur
+// le papier signé, et pose le mécanisme d'AVENANT : les deux parties peuvent la
+// rouvrir à tout moment, mais rien ne bouge sans une nouvelle double signature.
+const RESP_LABELS_2026_07_20: CollabTermsLabels = {
+  ...LABELS_2026_06_24,
+  respDomainCol: { fr: 'Domaine', en: 'Domain', es: 'Dominio' },
+  respHolderCol: { fr: 'À la charge de', en: 'Held by', es: 'A cargo de' },
+  respCreativeRow: { fr: 'Création (affiche, titre, description, genres)', en: 'Creative (poster, title, description, genres)', es: 'Creación (cartel, título, descripción, géneros)' },
+  respTicketingRow: { fr: 'Billetterie (prix, quotas, ouverture des ventes)', en: 'Ticketing (prices, quotas, sale opening)', es: 'Entradas (precios, cupos, apertura de ventas)' },
+  respOperationsRow: { fr: 'Opérations (tables VIP, plan de salle, accès, lieu)', en: 'Operations (VIP tables, floor plan, access, venue)', es: 'Operaciones (mesas VIP, plano, acceso, lugar)' },
+  respPromotionRow: { fr: 'Promotion (visibilité, découverte, référencement)', en: 'Promotion (visibility, discovery, search)', es: 'Promoción (visibilidad, descubrimiento, posicionamiento)' },
+  respHolderVenue: { fr: 'Club', en: 'Club', es: 'Club' },
+  respHolderOrganizer: { fr: 'Organisateur', en: 'Organizer', es: 'Organizador' },
+  respHolderBoth: { fr: 'Les deux', en: 'Both', es: 'Ambos' },
+};
+
+const RESPONSIBILITIES_ARTICLE_2026_07_20: TermsArticle = {
+  num: 0, // renuméroté à l'insertion
+  kind: 'responsibilities',
+  title: { fr: 'Répartition des responsabilités', en: 'Allocation of responsibilities', es: 'Reparto de responsabilidades' },
+  note: {
+    fr: "La répartition ci-dessus est distincte de la répartition des revenus : elle dit qui DÉCIDE, non qui ENCAISSE. Les deux se négocient séparément et peuvent être dissymétriques (une partie peut financer sans décider, et l'inverse).",
+    en: 'The allocation above is distinct from the revenue split: it says who DECIDES, not who COLLECTS. The two are negotiated separately and may be asymmetric (a party may fund without deciding, and vice versa).',
+    es: 'El reparto anterior es distinto del reparto de ingresos: dice quién DECIDE, no quién COBRA. Ambos se negocian por separado y pueden ser asimétricos (una parte puede financiar sin decidir, y al revés).',
+  },
+  clauses: [
+    {
+      term: { fr: 'Portée', en: 'Scope', es: 'Alcance' },
+      body: {
+        fr: "La partie à laquelle un domaine est confié en a la maîtrise exclusive : l'autre partie ne peut pas modifier les éléments qui en relèvent. Un domaine confié « aux deux » reste modifiable par chacune. Cette répartition est appliquée techniquement par la plateforme, et non seulement déclarative.",
+        en: 'The party to whom a domain is allocated has exclusive control over it: the other party cannot modify the items falling within it. A domain allocated to "both" remains editable by each. This allocation is technically enforced by the platform, not merely declaratory.',
+        es: 'La parte a la que se asigna un dominio tiene su control exclusivo: la otra parte no puede modificar los elementos que le corresponden. Un dominio asignado a «ambos» sigue siendo editable por cada una. Este reparto lo aplica técnicamente la plataforma, no es solo declarativo.',
+      },
+    },
+    {
+      term: { fr: 'Modification (avenant)', en: 'Amendment', es: 'Modificación (adenda)' },
+      body: {
+        fr: "Chacune des parties peut à tout moment proposer un avenant modifiant la répartition des responsabilités et, le cas échéant, la répartition des revenus. L'avenant ne prend effet qu'après signature électronique des DEUX parties ; jusque-là, les conditions en vigueur demeurent inchangées. L'avenant s'ajoute au présent contrat sans le remplacer : le contrat d'origine, l'état antérieur et la date d'effet sont conservés à titre de preuve.",
+        en: 'Either party may at any time propose an amendment modifying the allocation of responsibilities and, where applicable, the revenue split. The amendment takes effect only after electronic signature by BOTH parties; until then, the terms in force remain unchanged. The amendment is added to this contract without replacing it: the original contract, the prior state and the effective date are retained as evidence.',
+        es: 'Cualquiera de las partes puede en todo momento proponer una adenda que modifique el reparto de responsabilidades y, en su caso, el reparto de ingresos. La adenda solo surte efecto tras la firma electrónica de AMBAS partes; hasta entonces, las condiciones vigentes permanecen sin cambios. La adenda se añade al presente contrato sin sustituirlo: el contrato original, el estado anterior y la fecha de efecto se conservan como prueba.',
+      },
+    },
+    {
+      term: { fr: 'Effet dans le temps', en: 'Effect over time', es: 'Efecto en el tiempo' },
+      body: {
+        fr: "Un avenant portant sur les responsabilités s'applique à la soirée concernée et, pour un contrat-cadre, à toutes les dates à venir. Un avenant portant sur la répartition des revenus ne s'applique qu'aux soirées dont les ventes n'ont pas commencé : une soirée déjà ouverte à la vente conserve les conditions financières sous lesquelles le public a acheté.",
+        en: 'An amendment to responsibilities applies to the event concerned and, for a framework contract, to all upcoming dates. An amendment to the revenue split applies only to events whose sales have not started: an event already open for sale keeps the financial terms under which the public purchased.',
+        es: 'Una adenda sobre responsabilidades se aplica al evento afectado y, en un contrato marco, a todas las fechas futuras. Una adenda sobre el reparto de ingresos solo se aplica a los eventos cuyas ventas no han comenzado: un evento ya abierto a la venta conserva las condiciones económicas bajo las que el público compró.',
+      },
+    },
+  ],
+};
+
+// La répartition des responsabilités se lit juste après la répartition des
+// revenus (article 3) : c'est son pendant, et les lire l'un après l'autre évite
+// de confondre « qui encaisse » et « qui décide ».
+const ARTICLES_2026_07_20: TermsArticle[] = (() => {
+  const out: TermsArticle[] = [];
+  for (const a of ARTICLES_2026_06_29) {
+    out.push(a);
+    if (a.kind === 'split') out.push(RESPONSIBILITIES_ARTICLE_2026_07_20);
+  }
+  return out.map((a, i) => ({ ...a, num: i + 1 }) as TermsArticle);
+})();
+
+const TERMS_2026_07_20: CollabTerms = {
+  version: '2026-07-20',
+  articles: ARTICLES_2026_07_20,
+  labels: RESP_LABELS_2026_07_20,
+  recurringArticle: RECURRING_ARTICLE_2026_06_27,
+};
+
 /** Every published version is kept here forever so signed contracts re-render as signed. */
 const REGISTRY: Record<string, CollabTerms> = {
   '2026-06-24': TERMS_2026_06_24,
   '2026-06-26': TERMS_2026_06_26,
   '2026-06-27': TERMS_2026_06_27,
   '2026-06-29': TERMS_2026_06_29,
+  '2026-07-20': TERMS_2026_07_20,
 };
 
 /**
@@ -432,7 +524,7 @@ const REGISTRY: Record<string, CollabTerms> = {
  * and renumbers — used for a contrat-cadre and for occurrence contracts derived from one.
  */
 export function getCollabTerms(version?: string | null, opts?: { recurring?: boolean }): CollabTerms {
-  const base = (version && REGISTRY[version]) || TERMS_2026_06_29;
+  const base = (version && REGISTRY[version]) || TERMS_2026_07_20;
   if (!opts?.recurring || !base.recurringArticle) return base;
   const merged = [base.articles[0], base.recurringArticle, ...base.articles.slice(1)]
     .map((a, i) => ({ ...a, num: i + 1 }) as TermsArticle);

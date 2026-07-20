@@ -39,6 +39,12 @@ export interface CollabContractPDFData {
   eventTitle?: string;
   eventDate?: Date | null;
   splitRules: { tickets: SplitPct; tables: SplitPct; drinks: SplitPct };
+  /**
+   * Répartition des responsabilités telle que signée (contrat.responsibilities).
+   * Absente sur les contrats antérieurs à la version 2026-07-20 : l'article
+   * correspondant n'existe alors pas non plus, donc rien à rendre.
+   */
+  responsibilities?: Record<string, string> | null;
   cancellationPolicy: 'pro_rata_refund' | 'no_refund_after_event';
   /** Legal identity of the club (rendered when filled, omitted line-by-line otherwise). */
   venueLegal?: PartyLegal;
@@ -201,6 +207,18 @@ export function generateContractPDF(data: CollabContractPDFData): Blob {
   const splitRow = (label: L, s: SplitPct) =>
     infoRow(label, `${pick(labels.orgShort)} ${s.organizer_pct}%  ·  Club ${s.venue_pct}%`);
 
+  // Une répartition absente ou partielle retombe sur « Les deux » — c'est le
+  // préréglage serveur (collab_domain_holder), donc le PDF dit la même chose que
+  // ce que la plateforme applique réellement.
+  const respRow = (label: L | undefined, domain: string) => {
+    if (!label) return;
+    const holder = data.responsibilities?.[domain];
+    const lbl = holder === 'venue' ? labels.respHolderVenue
+      : holder === 'organizer' ? labels.respHolderOrganizer
+      : labels.respHolderBoth;
+    infoRow(label, lbl ? pick(lbl) : '—');
+  };
+
   // ── Articles (driven by the versioned terms structure) ──
   for (const article of terms.articles) {
     heading(article.num, article.title);
@@ -215,6 +233,14 @@ export function generateContractPDF(data: CollabContractPDFData): Blob {
       splitRow(labels.drinksRow, data.splitRules.drinks);
       y += 1.5;
       para(article.note);
+    } else if (article.kind === 'responsibilities') {
+      respRow(labels.respCreativeRow, 'creative');
+      respRow(labels.respTicketingRow, 'ticketing');
+      respRow(labels.respOperationsRow, 'operations');
+      respRow(labels.respPromotionRow, 'promotion');
+      y += 1.5;
+      para(article.note);
+      for (const c of article.clauses ?? []) renderClause(c.term, clauseBody(c, { cancellationPolicy: data.cancellationPolicy, isBde: data.isBde }));
     } else {
       if (article.intro) para(article.intro);
       for (const c of article.clauses ?? []) renderClause(c.term, clauseBody(c, { cancellationPolicy: data.cancellationPolicy, isBde: data.isBde }));

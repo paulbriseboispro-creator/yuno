@@ -30,6 +30,8 @@ export interface EventCollabContractRow {
   split_rules: PartnershipSplitRules;
   cancellation_policy: 'pro_rata_refund' | 'no_refund_after_event';
   terms_snapshot: Record<string, unknown> | null;
+  /** Répartition des responsabilités signée (domaine → 'venue' | 'organizer' | 'both'). */
+  responsibilities: Record<string, string> | null;
   contract_pdf_url: string | null;
   venue_signed_at: string | null;
   venue_signed_by: string | null;

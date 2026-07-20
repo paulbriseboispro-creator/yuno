@@ -154,6 +154,40 @@ function ContractTermsView({ data, language }: { data: CollabContractPDFData; la
             </div>
           )}
 
+          {/* Répartition des responsabilités — même contenu que le PDF : on signe
+              exactement ce qu'on vient de lire. Un domaine absent retombe sur
+              « Les deux », comme le préréglage serveur. */}
+          {article.kind === 'responsibilities' && (
+            <div className="space-y-1.5">
+              <ul className="text-xs text-muted-foreground space-y-0.5">
+                {([
+                  ['creative', labels.respCreativeRow],
+                  ['ticketing', labels.respTicketingRow],
+                  ['operations', labels.respOperationsRow],
+                  ['promotion', labels.respPromotionRow],
+                ] as const).map(([domain, rowLabel]) => {
+                  if (!rowLabel) return null;
+                  const holder = data.responsibilities?.[domain];
+                  const holderLabel = holder === 'venue' ? labels.respHolderVenue
+                    : holder === 'organizer' ? labels.respHolderOrganizer
+                    : labels.respHolderBoth;
+                  return (
+                    <li key={domain}>
+                      {t(rowLabel)} : <span className="text-foreground">{holderLabel ? t(holderLabel) : '—'}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="text-xs text-muted-foreground">{t(article.note)}</p>
+              {(article.clauses ?? []).map((c, i) => (
+                <div key={i}>
+                  <div className="text-xs font-semibold text-foreground">{t(c.term)}</div>
+                  <p className="text-xs text-muted-foreground whitespace-pre-line">{t(clauseBody(c, { cancellationPolicy: data.cancellationPolicy, isBde: data.isBde }))}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
           {article.kind === 'static' && (
             <div className="space-y-2">
               {article.intro && <p className="text-xs text-muted-foreground">{t(article.intro)}</p>}

@@ -41,6 +41,10 @@ export async function loadCollabContractPdfData(
       drinks: { organizer_pct: 0, venue_pct: 100 },
     },
     cancellationPolicy: contract.cancellation_policy,
+    // Répartition des responsabilités telle que portée par le contrat. Sur un
+    // contrat signé AVANT la version 2026-07-20, termsVersion gèle la version
+    // d'origine, qui n'a pas l'article : rien ne s'affiche, et c'est voulu.
+    responsibilities: (contract.responsibilities as Record<string, string> | null) ?? null,
     venueLegal: {
       legalName: venue?.legal_name,
       legalAddress: venue?.legal_address,
@@ -96,6 +100,10 @@ export async function loadCollabSeriesContractPdfData(
       drinks: { organizer_pct: 0, venue_pct: 100 },
     },
     cancellationPolicy: contract.cancellation_policy,
+    // Répartition des responsabilités telle que portée par le contrat. Sur un
+    // contrat signé AVANT la version 2026-07-20, termsVersion gèle la version
+    // d'origine, qui n'a pas l'article : rien ne s'affiche, et c'est voulu.
+    responsibilities: (contract.responsibilities as Record<string, string> | null) ?? null,
     venueLegal: {
       legalName: venue?.legal_name,
       legalAddress: venue?.legal_address,
