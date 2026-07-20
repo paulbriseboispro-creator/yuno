@@ -4,28 +4,34 @@ import { supabase } from '@/integrations/supabase/client';
 // Storage keys
 const PROMO_CODE_KEY = 'promoter_code';
 const PROMO_VENUE_KEY = 'promoter_venue_id';
+const PROMO_ORG_KEY = 'promoter_organizer_id';
 const PROMO_EVENT_KEY = 'promoter_event_id';
 const PROMO_SOURCE_KEY = 'promoter_source';
 const PROMO_EXPIRY_KEY = 'promoter_expiry';
 const PROMO_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 /**
- * Store promo code in both sessionStorage and localStorage (with expiration)
+ * Store promo code in both sessionStorage and localStorage (with expiration).
+ *
+ * La portée peut être un club OU un organisateur : une soirée d'organisateur n'a
+ * pas de venue_id, et n'enregistrer que la portée club revenait à jeter le code.
  */
-function storePromoCode(code: string, venueId: string, eventId?: string, source?: string) {
+function storePromoCode(code: string, venueId: string | null, organizerUserId: string | null, eventId?: string, source?: string) {
   const expiry = Date.now() + PROMO_DURATION_MS;
-  
-  sessionStorage.setItem(PROMO_CODE_KEY, code);
-  sessionStorage.setItem(PROMO_VENUE_KEY, venueId);
-  if (eventId) sessionStorage.setItem(PROMO_EVENT_KEY, eventId);
-  if (source) sessionStorage.setItem(PROMO_SOURCE_KEY, source);
-  
-  localStorage.setItem(PROMO_CODE_KEY, code);
-  localStorage.setItem(PROMO_VENUE_KEY, venueId);
+
+  const write = (s: Storage) => {
+    s.setItem(PROMO_CODE_KEY, code);
+    // Toujours réécrire les deux portées (y compris à vide) : sinon un code
+    // stocké pour un club précédent resterait collé au nouveau.
+    s.setItem(PROMO_VENUE_KEY, venueId || '');
+    s.setItem(PROMO_ORG_KEY, organizerUserId || '');
+    if (eventId) s.setItem(PROMO_EVENT_KEY, eventId);
+    if (source) s.setItem(PROMO_SOURCE_KEY, source);
+  };
+
+  write(sessionStorage);
+  write(localStorage);
   localStorage.setItem(PROMO_EXPIRY_KEY, expiry.toString());
-  if (eventId) localStorage.setItem(PROMO_EVENT_KEY, eventId);
-  if (source) localStorage.setItem(PROMO_SOURCE_KEY, source);
-  
 }
 
 /**
@@ -54,24 +60,31 @@ export function usePromoterTracking(venueId?: string, routeEventId?: string) {
 
     (async () => {
       let resolvedVenueId = venueId;
+      let resolvedOrganizerId: string | undefined;
 
-      if (!resolvedVenueId && eventId) {
+      // Une soirée d'organisateur (ou un co-event) n'a pas forcément de club :
+      // on récupère les deux portées, club partenaire inclus.
+      if (eventId && (!resolvedVenueId || !resolvedOrganizerId)) {
         const { data: event } = await supabase
           .from('events')
-          .select('venue_id')
+          .select('venue_id, partner_venue_id, organizer_user_id, partner_organizer_id')
           .eq('id', eventId)
           .maybeSingle();
-        resolvedVenueId = event?.venue_id || undefined;
+        resolvedVenueId = resolvedVenueId || event?.venue_id || event?.partner_venue_id || undefined;
+        resolvedOrganizerId = event?.organizer_user_id || event?.partner_organizer_id || undefined;
       }
 
-      if (!resolvedVenueId) {
-        console.warn('[PromoterTracking] Missing venueId, skipping track');
+      // On abandonnait ici dès qu'il n'y avait pas de club : pour une soirée
+      // d'organisateur, le code était jeté, aucun clic n'était tracé et la vente
+      // n'était jamais attribuée. Il suffit désormais d'une portée, quelle qu'elle soit.
+      if (!resolvedVenueId && !resolvedOrganizerId) {
+        console.warn('[PromoterTracking] Aucune portée (club ou organisateur), suivi ignoré');
         return;
       }
 
-
-      storePromoCode(refCode, resolvedVenueId, eventId, source);
-      trackPromoterClick(refCode, resolvedVenueId, eventId, source);
+      storePromoCode(refCode, resolvedVenueId || null, resolvedOrganizerId || null, eventId, source);
+      // track-promoter-click sait déjà résoudre la portée organisateur.
+      trackPromoterClick(refCode, resolvedVenueId || '', eventId, source);
 
       const newUrl = new URL(window.location.href);
       newUrl.searchParams.delete('ref');
@@ -155,6 +168,40 @@ export function getStoredPromoCodeForVenue(venueId: string): string | null {
     if (code && storedVenueId === venueId) return code;
   }
   
+  return null;
+}
+
+/**
+ * Code stocké pour la portée d'un événement : club hôte, club partenaire,
+ * organisateur ou organisateur partenaire. À utiliser partout où l'événement
+ * peut ne pas avoir de club (soirées d'organisateur, co-events).
+ *
+ * Le serveur revalide de toute façon le code contre les portées réelles de
+ * l'événement, et depuis l'unicité par personne un code n'appartient qu'à un
+ * seul promoteur : rendre un code hors portée est sans effet, mais le retenir
+ * trop strictement faisait perdre des commissions.
+ */
+export function getStoredPromoCodeForScope(venueId?: string | null, organizerUserId?: string | null): string | null {
+  const read = (s: Storage) => ({
+    code: s.getItem(PROMO_CODE_KEY),
+    venue: s.getItem(PROMO_VENUE_KEY),
+    org: s.getItem(PROMO_ORG_KEY),
+  });
+  const matches = (r: { code: string | null; venue: string | null; org: string | null }) =>
+    !!r.code && (
+      (!!venueId && r.venue === venueId) ||
+      (!!organizerUserId && r.org === organizerUserId)
+    );
+
+  const fromSession = read(sessionStorage);
+  if (matches(fromSession)) return fromSession.code;
+
+  clearExpiredLocalStorage();
+  const expiry = localStorage.getItem(PROMO_EXPIRY_KEY);
+  if (expiry && parseInt(expiry) > Date.now()) {
+    const fromLocal = read(localStorage);
+    if (matches(fromLocal)) return fromLocal.code;
+  }
   return null;
 }
 

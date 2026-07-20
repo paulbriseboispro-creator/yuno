@@ -19,7 +19,7 @@ import { useAbsorbYunoFees } from '@/hooks/useAbsorbYunoFees';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
-import { getStoredPromoCodeForVenue } from '@/hooks/usePromoterTracking';
+import { getStoredPromoCodeForVenue, getStoredPromoCodeForScope } from '@/hooks/usePromoterTracking';
 import { TicketAttendeeForm, AttendeeInfo } from '@/components/TicketAttendeeForm';
 import { TicketUpsellSelector, SelectedUpsell } from '@/components/upsell/TicketUpsellSelector';
 import { TermsAcceptance } from '@/components/TermsAcceptance';
@@ -203,7 +203,7 @@ export default function TicketCheckout() {
       if (!venue?.id) return;
       
       // Use venue-specific lookup to ensure we match the right venue
-      const storedCode = getStoredPromoCodeForVenue(venue.id);
+      const storedCode = getStoredPromoCodeForScope(venue.id, venue.id);
       
       if (!storedCode) return;
 
@@ -609,7 +609,11 @@ export default function TicketCheckout() {
           // Signed minor authorization uploaded by the buyer (alcohol-free events).
           minorAuthDocUrl: minorDocUrl,
           // Always send promoCode if we have it stored (even if client can't read promoters table due to RLS).
-          promoCode: (venue?.id ? getStoredPromoCodeForVenue(venue.id) : null) ?? promoterDiscount?.promoCode ?? null,
+          // venue.id porte l'id du club, ou celui de l'organisateur quand la soirée
+          // n'a pas de club (cf. fetchData). On cherche donc dans les deux portées :
+          // un id de club est un slug texte, un id d'organisateur un UUID, aucune
+          // collision possible. Sans ça, une soirée d'organisateur partait sans code.
+          promoCode: getStoredPromoCodeForScope(venue?.id, venue?.id) ?? promoterDiscount?.promoCode ?? null,
           promoterId: promoterDiscount?.promoterId || null,
           discountAmount: discount,
           upsellSelections: selectedUpsells.map(u => ({ offerId: u.offerId, offerType: u.offerType, price: u.price, drinkCount: u.drinkCount })),

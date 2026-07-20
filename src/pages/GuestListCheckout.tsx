@@ -14,7 +14,7 @@ import { CheckoutSteps } from '@/components/CheckoutSteps';
 import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { StickyCheckoutFooter } from '@/components/StickyCheckoutFooter';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
-import { getStoredPromoCodeForVenue } from '@/hooks/usePromoterTracking';
+import { getStoredPromoCodeForVenue, getStoredPromoCodeForScope } from '@/hooks/usePromoterTracking';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -193,7 +193,7 @@ export default function GuestListCheckout() {
 
     setSubmitting(true);
     try {
-      const promoterCode = ref || (guestList.venueId ? getStoredPromoCodeForVenue(guestList.venueId) : null) || undefined;
+      const promoterCode = ref || getStoredPromoCodeForScope(guestList.venueId, guestList.venueId) || undefined;
       const { data, error } = await supabase.functions.invoke('create-guest-list-entry', {
         body: {
           shareToken: guestList.shareToken,

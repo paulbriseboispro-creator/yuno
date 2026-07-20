@@ -34,7 +34,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { TablePack, TableZone, estimateStripeFee } from '@/types/ticketing';
 import { VenueFloorPlan } from '@/types';
-import { getStoredPromoCodeForVenue } from '@/hooks/usePromoterTracking';
+import { getStoredPromoCodeForVenue, getStoredPromoCodeForScope } from '@/hooks/usePromoterTracking';
 import { PublicPage } from '@/components/PublicPage';
 
 interface PromoterDiscount {
@@ -479,7 +479,7 @@ export default function TableCheckout() {
           // nulle. Résultat : le checkout partait sans code, et AUCUNE vente de
           // table n'a jamais généré de commission. Le serveur, lui, sait
           // résoudre le code (il utilise la clé service).
-          promoCode: promoterDiscount?.promoCode || (venue?.id ? getStoredPromoCodeForVenue(venue.id) : null),
+          promoCode: promoterDiscount?.promoCode || getStoredPromoCodeForScope(venue?.id, venue?.id),
           promoterId: promoterDiscount?.promoterId || null,
           discountAmount: pricing.discount,
           cancelUrl: window.location.pathname,
