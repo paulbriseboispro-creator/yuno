@@ -3,9 +3,10 @@ import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { transitions, useReducedMotion } from '@/lib/motion';
 import { haptics } from '@/lib/haptics';
-import { Check, Clock, MapPin, Ticket, ArrowLeft, FileText, Download, CalendarPlus, Navigation, Share2, Mail, QrCode } from 'lucide-react';
+import { Check, Clock, MapPin, Ticket, ArrowLeft, FileText, Download, CalendarPlus, Navigation, Share2, Mail, QrCode, Bell } from 'lucide-react';
 import { FavoriteButton } from '@/components/FavoriteButton';
 import { useFavorites } from '@/hooks/useFavorites';
+import { useAuth } from '@/hooks/useAuth';
 import { downloadICS } from '@/lib/calendar';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -30,11 +31,58 @@ interface UpsellSelection {
   offerType: string;
 }
 
+/**
+ * Résout les profils organisateurs d'une soirée (principal + co-orga), dans
+ * l'ordre passé et sans doublon. La RLS de organizer_profiles ne renvoie que
+ * les profils `is_public = true` : un profil privé disparaît donc de la liste,
+ * et aucun bouton d'abonnement n'est proposé pour lui. Jamais bloquant — une
+ * erreur ici ne doit pas empêcher la confirmation de s'afficher.
+ */
+/**
+ * Colonnes de `events` que l'inférence de types Supabase ne fait pas remonter
+ * à travers un join `events!inner(...)` posé sur un select `*`. Un seul cast
+ * typé par branche, plutôt que des `as any` dispersés sur chaque accès.
+ */
+type JoinedEventExtras = {
+  organizer_user_id: string | null;
+  partner_organizer_id: string | null;
+  alcohol_free: boolean | null;
+};
+
+async function fetchEventOrganizers(ids: (string | null | undefined)[]): Promise<EventOrganizer[]> {
+  const unique = [...new Set(ids.filter((v): v is string => !!v))];
+  if (unique.length === 0) return [];
+  try {
+    const { data } = await supabase
+      .from('organizer_profiles')
+      .select('user_id, display_name, slug, avatar_url')
+      .in('user_id', unique);
+    const byId = new Map((data ?? []).map(p => [p.user_id, p]));
+    return unique
+      .map(id => byId.get(id))
+      .filter((p): p is NonNullable<typeof p> => !!p)
+      .map(p => ({ id: p.user_id, name: p.display_name, slug: p.slug, logoUrl: p.avatar_url }));
+  } catch {
+    return [];
+  }
+}
+
+interface EventOrganizer {
+  id: string;
+  name: string;
+  slug: string | null;
+  logoUrl: string | null;
+}
+
 interface ConfirmationData {
   type: 'ticket' | 'table' | 'order';
   id: string;
   qrCode: string;
   eventId?: string;
+  /** Organisateur principal + co-organisateur, résolus et publics. */
+  organizers?: EventOrganizer[];
+  /** Soirée menée par un orga (events.organizer_user_id) → il passe avant le club. */
+  organizerLed?: boolean;
   eventTitle?: string;
   eventDate?: string;
   eventPosterUrl?: string;
@@ -73,7 +121,8 @@ export default function OrderConfirmation() {
   const location = useLocation();
   const { t, language } = useLanguage();
   const reduceMotion = useReducedMotion();
-  const { isFavorite, loading: favoritesLoading } = useFavorites();
+  const { isFavorite, toggleFavorite, loading: favoritesLoading } = useFavorites();
+  const { user } = useAuth();
 
   // Entrées de contenu (rares → célébration légitime). Reduced-motion → opacité seule.
   const rise = (delay: number) =>
@@ -95,6 +144,13 @@ export default function OrderConfirmation() {
   // disparaître le bouton sous son pouce à l'instant du tap, sans confirmation.
   // null = pas encore tranché (favoris en cours de chargement).
   const [followedClubOnArrival, setFollowedClubOnArrival] = useState<boolean | null>(null);
+  // Même logique pour les organisateurs, mais eux vivent hors de la table
+  // `favorites` (→ organizer_profile_followers), donc hors de useFavorites() :
+  // pas de FavoriteButton possible, requête et toggle à la main.
+  // null = pas encore tranché ; sinon map orgId → suivi À L'ARRIVÉE.
+  const [followedOrgsOnArrival, setFollowedOrgsOnArrival] = useState<Record<string, boolean> | null>(null);
+  // État vivant du toggle (optimiste), pour le libellé du bouton après le tap.
+  const [orgFollowing, setOrgFollowing] = useState<Record<string, boolean>>({});
   const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null);
 
   const type = searchParams.get('type') as 'ticket' | 'table' | 'order';
@@ -119,18 +175,42 @@ export default function OrderConfirmation() {
     }
   }, [type, id]);
 
+  // Fige l'abonnement au club dès que les favoris ET la commande sont chargés.
+  useEffect(() => {
+    if (favoritesLoading || !data?.venueId || followedClubOnArrival !== null) return;
+    setFollowedClubOnArrival(isFavorite('club', data.venueId));
+  }, [favoritesLoading, data?.venueId, followedClubOnArrival, isFavorite]);
+
+  // Idem pour les organisateurs de la soirée. Invité sans compte → map vide :
+  // rien n'est suivi, donc tout est proposé (le tap demandera de se connecter).
+  const organizers = data?.organizers;
+  useEffect(() => {
+    if (!organizers?.length || followedOrgsOnArrival !== null) return;
+    let cancelled = false;
+    (async () => {
+      if (!user) {
+        if (!cancelled) setFollowedOrgsOnArrival({});
+        return;
+      }
+      const { data: rows } = await supabase
+        .from('organizer_profile_followers')
+        .select('organizer_user_id')
+        .eq('user_id', user.id)
+        .in('organizer_user_id', organizers.map(o => o.id));
+      if (cancelled) return;
+      const map = Object.fromEntries((rows ?? []).map(r => [r.organizer_user_id, true]));
+      setFollowedOrgsOnArrival(map);
+      setOrgFollowing(map);
+    })();
+    return () => { cancelled = true; };
+  }, [organizers, followedOrgsOnArrival, user]);
+
   // Haptic de succès, une seule fois, quand la confirmation s'affiche.
   // PAS de confettis ici : l'overlay passait par-dessus le QR code, qui est
   // la seule chose que le client vient chercher sur cette page. Le badge
   // « Confirmé » du hero porte déjà la célébration visuelle.
   // Fidélité light : si l'achat a rapporté des points (award_loyalty_points
   // côté verify-*-payment), toast discret « +N points ».
-  // Fige l'état d'abonnement dès que les favoris ET la commande sont chargés.
-  useEffect(() => {
-    if (favoritesLoading || !data?.venueId || followedClubOnArrival !== null) return;
-    setFollowedClubOnArrival(isFavorite('club', data.venueId));
-  }, [favoritesLoading, data?.venueId, followedClubOnArrival, isFavorite]);
-
   useEffect(() => {
     if (loading || !data) return;
     haptics.success();
@@ -169,7 +249,7 @@ export default function OrderConfirmation() {
           .from('tickets')
           .select(`
             *,
-            events!inner(id, title, start_at, venue_id, poster_url, alcohol_free, organizer_user_id),
+            events!inner(id, title, start_at, venue_id, poster_url, alcohol_free, organizer_user_id, partner_organizer_id),
             ticket_rounds!inner(name, price)
           `)
           .eq('id', id)
@@ -220,6 +300,8 @@ export default function OrderConfirmation() {
         }
 
         if (error) throw error;
+
+        const ticketEvent = ticket.events as typeof ticket.events & JoinedEventExtras;
 
         const { data: venue } = await supabase
           .from('venues')
@@ -297,13 +379,13 @@ export default function OrderConfirmation() {
 
         // Alcohol-free events: surface the minor-authorization document (from the
         // venue, or the organizer for venue-less events) so minors can sign it.
-        if ((ticket.events as any)?.alcohol_free) {
+        if (ticketEvent.alcohol_free) {
           let minorDoc: { url: string | null; name: string | null } | null = null;
           if (ticket.events.venue_id) {
             const { data: v } = await supabase.from('venues').select('minor_auth_doc_url, minor_auth_doc_name').eq('id', ticket.events.venue_id).maybeSingle();
             if ((v as any)?.minor_auth_doc_url) minorDoc = { url: (v as any).minor_auth_doc_url, name: (v as any).minor_auth_doc_name };
-          } else if ((ticket.events as any)?.organizer_user_id) {
-            const { data: o } = await supabase.from('organizer_profiles').select('minor_auth_doc_url, minor_auth_doc_name').eq('user_id', (ticket.events as any).organizer_user_id).maybeSingle();
+          } else if (ticketEvent.organizer_user_id) {
+            const { data: o } = await supabase.from('organizer_profiles').select('minor_auth_doc_url, minor_auth_doc_name').eq('user_id', ticketEvent.organizer_user_id).maybeSingle();
             if ((o as any)?.minor_auth_doc_url) minorDoc = { url: (o as any).minor_auth_doc_url, name: (o as any).minor_auth_doc_name };
           }
           if (minorDoc?.url) {
@@ -311,9 +393,16 @@ export default function OrderConfirmation() {
           }
         }
 
+        const ticketOrganizers = await fetchEventOrganizers([
+          ticketEvent.organizer_user_id,
+          ticketEvent.partner_organizer_id,
+        ]);
+
         setData({
           type: 'ticket',
-          alcoholFree: (ticket.events as any)?.alcohol_free ?? false,
+          organizers: ticketOrganizers.length > 0 ? ticketOrganizers : undefined,
+          organizerLed: !!ticketEvent.organizer_user_id,
+          alcoholFree: ticketEvent.alcohol_free ?? false,
           accessDocs: accessDocs.length > 0 ? accessDocs : undefined,
           id: ticket.id,
           qrCode: ticket.qr_code,
@@ -357,7 +446,7 @@ export default function OrderConfirmation() {
           .from('table_reservations')
           .select(`
             *,
-            events!inner(id, title, start_at, venue_id, poster_url),
+            events!inner(id, title, start_at, venue_id, poster_url, organizer_user_id, partner_organizer_id),
             table_packs!inner(name, deposit),
             table_zones(name)
           `)
@@ -365,6 +454,8 @@ export default function OrderConfirmation() {
           .single();
 
         if (error) throw error;
+
+        const reservationEvent = reservation.events as typeof reservation.events & JoinedEventExtras;
 
         const { data: venue } = await supabase
           .from('venues')
@@ -383,8 +474,15 @@ export default function OrderConfirmation() {
           setInvoiceNumber(existingInvoice.invoice_number);
         }
 
+        const tableOrganizers = await fetchEventOrganizers([
+          reservationEvent.organizer_user_id,
+          reservationEvent.partner_organizer_id,
+        ]);
+
         setData({
           type: 'table',
+          organizers: tableOrganizers.length > 0 ? tableOrganizers : undefined,
+          organizerLed: !!reservationEvent.organizer_user_id,
           id: reservation.id,
           qrCode: reservation.qr_code,
           eventId: reservation.events.id,
@@ -480,6 +578,36 @@ export default function OrderConfirmation() {
     if (data?.eventId && data?.venueId) return `${origin}/club/${data.venueId}/event/${data.eventId}`;
     if (data?.eventId) return `${origin}/event/${data.eventId}`;
     return origin;
+  };
+
+  /**
+   * Abonnement à un organisateur. Écrit directement dans
+   * organizer_profile_followers (RLS : insert/delete réservés à
+   * auth.uid() = user_id), avec bascule optimiste et rollback en cas d'échec.
+   * Invité sans compte : toast et on s'arrête là — surtout PAS de redirection
+   * vers /auth comme sur le profil public, ça ferait perdre le QR code au
+   * client qui vient de payer.
+   */
+  const toggleOrganizerFollow = async (orgId: string) => {
+    if (!user) {
+      haptics.error();
+      toast.info(t('event.loginToFollow'));
+      return;
+    }
+    const wasFollowing = orgFollowing[orgId] || false;
+    haptics[wasFollowing ? 'selection' : 'success']();
+    setOrgFollowing(prev => ({ ...prev, [orgId]: !wasFollowing }));
+    try {
+      const { error } = wasFollowing
+        ? await supabase.from('organizer_profile_followers').delete().eq('organizer_user_id', orgId).eq('user_id', user.id)
+        : await supabase.from('organizer_profile_followers').insert({ organizer_user_id: orgId, user_id: user.id });
+      if (error) throw error;
+      toast.success(wasFollowing ? t('subscribe.removed') : t('subscribe.added'));
+    } catch {
+      setOrgFollowing(prev => ({ ...prev, [orgId]: wasFollowing }));
+      haptics.error();
+      toast.error(t('subscribe.error'));
+    }
   };
 
   // Share the event with friends; clipboard fallback when the native sheet is unavailable.
@@ -675,6 +803,26 @@ export default function OrderConfirmation() {
       </div>
     );
   }
+
+  // « Reste dans la boucle » — les entités qu'on peut encore proposer de suivre.
+  // On ne garde que celles NON suivies à l'arrivée : afficher un « Abonné·e »
+  // ici, c'est n'offrir qu'un moyen de se désabonner par erreur. Le club et les
+  // orgas peuvent coexister (soirée d'orga hébergée par un club, ou co-soirée) ;
+  // l'entité qui porte la soirée passe en premier.
+  const clubFollowPending = !!data.venueId && !!data.venueName && followedClubOnArrival === false;
+  const orgsFollowPending = (data.organizers ?? []).filter(o => followedOrgsOnArrival?.[o.id] !== true);
+  // Tant qu'une source n'a pas tranché, on n'affiche rien plutôt que d'afficher
+  // puis rétracter la section sous le pouce.
+  const followResolved =
+    (!data.venueId || followedClubOnArrival !== null) &&
+    (!data.organizers?.length || followedOrgsOnArrival !== null);
+  const clubTarget = clubFollowPending
+    ? [{ kind: 'club' as const, id: data.venueId!, name: data.venueName!, logoUrl: data.venueLogoUrl ?? null }]
+    : [];
+  const orgTargets = orgsFollowPending.map(o => ({ kind: 'organizer' as const, id: o.id, name: o.name, logoUrl: o.logoUrl }));
+  const followTargets = followResolved
+    ? (data.organizerLed ? [...orgTargets, ...clubTarget] : [...clubTarget, ...orgTargets])
+    : [];
 
   const surface: React.CSSProperties = {
     background: '#141414',
@@ -968,20 +1116,88 @@ export default function OrderConfirmation() {
           </button>
         </motion.section>
 
-        {/* RESTE DANS LA BOUCLE — follow the club.
-            Masquée si le client suit DÉJÀ le club : le bouton bascule alors en
-            « Abonné·e », et un seul tap le désabonne. Proposer de s'abonner à
-            quelqu'un qui l'est déjà, c'est ne lui offrir qu'un moyen de se
-            désabonner par erreur. Masquée aussi tant que les favoris chargent
-            (followedClubOnArrival === null), pour ne pas afficher la section
-            puis la rétracter une fraction de seconde plus tard. */}
-        {data.venueId && data.venueName && followedClubOnArrival === false && (
+        {/* RESTE DANS LA BOUCLE — suivre le club et/ou le ou les organisateurs.
+            Voir followTargets plus haut : seules les entités PAS ENCORE suivies
+            à l'arrivée y figurent, donc la section disparaît d'elle-même quand
+            il n'y a plus personne à proposer.
+            Une seule entité → on garde le CTA pleine largeur, qui la nomme dans
+            la phrase (cas de très loin le plus fréquent, et le plus vendeur).
+            Deux entités → une ligne par entité : deux boutons pleine largeur
+            identiques ne diraient pas à quoi on s'abonne. */}
+        {followTargets.length > 0 && (
           <motion.section {...rise(0.36)} className="py-7" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
             <p className="section-label-ruled mb-3">{t('confirmation.followTitle')}</p>
             <p className="font-sans mb-5" style={{ fontSize: '14px', lineHeight: 1.55, color: '#E5E5E5' }}>
-              {t('confirmation.followDescPrefix')} <span className="text-white font-medium">{data.venueName}</span> {t('confirmation.followDescSuffix')}
+              {followTargets.length === 1 ? (
+                <>
+                  {t('confirmation.followDescPrefix')} <span className="text-white font-medium">{followTargets[0].name}</span> {t('confirmation.followDescSuffix')}
+                </>
+              ) : (
+                t('confirmation.followDescMulti')
+              )}
             </p>
-            <FavoriteButton type="club" id={data.venueId} variant="default" size="lg" showLabel className="w-full" />
+
+            {followTargets.length === 1 ? (
+              followTargets[0].kind === 'club' ? (
+                <FavoriteButton type="club" id={followTargets[0].id} variant="default" size="lg" showLabel className="w-full" />
+              ) : (
+                <button
+                  onClick={() => toggleOrganizerFollow(followTargets[0].id)}
+                  className="btn btn--primary w-full"
+                  aria-pressed={!!orgFollowing[followTargets[0].id]}
+                >
+                  <Bell className="h-4 w-4 mr-2" style={{ fill: orgFollowing[followTargets[0].id] ? 'currentColor' : 'transparent' }} />
+                  {orgFollowing[followTargets[0].id] ? t('subscribe.active') : t('subscribe.action')}
+                </button>
+              )
+            ) : (
+              <div className="space-y-2.5">
+                {followTargets.map(target => {
+                  const following = target.kind === 'club'
+                    ? isFavorite('club', target.id)
+                    : !!orgFollowing[target.id];
+                  return (
+                    <div key={`${target.kind}-${target.id}`} className="flex items-center gap-3" style={{ ...surface, padding: '12px 14px' }}>
+                      <div
+                        className="shrink-0 overflow-hidden flex items-center justify-center"
+                        style={{ width: 40, height: 40, borderRadius: 8, border: '1px solid rgba(255,255,255,0.08)', background: '#191919' }}
+                      >
+                        {target.logoUrl ? (
+                          <img src={target.logoUrl} alt="" loading="lazy" className="w-full h-full object-contain" />
+                        ) : (
+                          <span className="font-mono font-bold" style={{ fontSize: '11px', color: '#5A5A5E' }}>{target.name.slice(0, 2).toUpperCase()}</span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-sans font-medium text-white truncate" style={{ fontSize: '14px' }}>{target.name}</p>
+                        <p className="font-mono uppercase mt-0.5" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#5A5A5E' }}>
+                          {target.kind === 'club' ? t('confirmation.followKindClub') : t('confirmation.followKindOrganizer')}
+                        </p>
+                      </div>
+                      {/* Même pilule pour le club et pour l'orga, alors que le
+                          stockage diffère (favorites vs organizer_profile_followers) :
+                          côte à côte dans la même liste, un <FavoriteButton>
+                          shadcn et une pilule mono feraient cohabiter deux
+                          langages visuels. 44px de haut = cible tactile. */}
+                      <button
+                        onClick={() => (target.kind === 'club' ? toggleFavorite('club', target.id) : toggleOrganizerFollow(target.id))}
+                        aria-pressed={following}
+                        className="shrink-0 inline-flex items-center gap-1.5 font-mono font-semibold uppercase cursor-pointer transition-colors active:scale-[0.97]"
+                        style={{
+                          fontSize: '10px', height: 44, padding: '0 14px', borderRadius: 2, letterSpacing: '0.08em',
+                          border: '1px solid', borderColor: following ? 'rgba(232,25,44,0.4)' : '#2A2A2A',
+                          background: following ? 'rgba(232,25,44,0.08)' : 'transparent',
+                          color: following ? '#E8192C' : '#E5E5E5',
+                        }}
+                      >
+                        <Bell className="h-3 w-3" strokeWidth={2} style={{ fill: following ? '#E8192C' : 'transparent' }} />
+                        {following ? t('subscribe.active') : t('subscribe.action')}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </motion.section>
         )}
 

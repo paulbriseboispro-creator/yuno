@@ -90,6 +90,7 @@ const CLIENT_KNOWLEDGE_BASE = `
 ❤️ FAVORIS vs 🔔 ABONNEMENTS
 - Le cœur = favori : sauvegarde une soirée ou une boisson dans ${APP_BASE_URL}/favorites.
 - La cloche = abonnement : un club, un organisateur ou un DJ. Tu reçois une notification quand ils annoncent une nouvelle soirée. Ce sont deux choses différentes.
+- Après un achat, la page de confirmation propose "Reste dans la boucle" : s'abonner au club ET/OU à l'organisateur de la soirée (une soirée peut avoir les deux). Elle ne propose que ce à quoi tu n'es PAS déjà abonné — si tu suis déjà tout le monde, la section n'apparaît pas. Pour te désabonner, passe par la page Favoris ou la page du club/organisateur.
 - La page Favoris (${APP_BASE_URL}/favorites) réunit les deux dans UNE seule mosaïque : clubs, soirées, DJs, boissons et organisateurs mélangés, pas d'onglets séparés.
   · Filtre par type : Tout / Clubs / Soirées / DJs / Boissons / Organisateurs — le compteur de chaque filtre suit ta recherche.
   · Cherche un favori par nom, club, ville ou genre musical.
