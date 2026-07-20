@@ -102,6 +102,16 @@ export function bucketHourParis(iso: string): number {
 }
 
 /**
+ * True during club service hours (18:00 → 06:00 Paris). Drives the night
+ * opening ritual on staff screens: outside these hours a staff app mounting
+ * is prep work, not a shift taking over.
+ */
+export function isNightServiceParis(now: Date = new Date()): boolean {
+  const h = Number(hourFormatter.format(now)) % 24;
+  return h >= 18 || h < 6;
+}
+
+/**
  * Stable key identifying the current Paris night (date of the evening's
  * start). Used to scope per-night client state like dismissed alerts.
  */

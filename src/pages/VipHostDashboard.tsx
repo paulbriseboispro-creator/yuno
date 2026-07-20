@@ -5,8 +5,8 @@ import { useStaffNotifications } from '@/hooks/useStaffNotifications';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PublicPage } from '@/components/PublicPage';
 import { StaffHeader } from '@/components/staff/StaffHeader';
-import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
-import { emitShiftStart } from '@/lib/liveops/shiftStart';
+import { StaffOnboardingGate } from '@/components/staff/StaffOnboardingGate';
+import { StaffNightPanel } from '@/components/staff/StaffNightPanel';
 import { haptics } from '@/lib/haptics';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
@@ -68,10 +68,8 @@ export default function VipHostDashboard() {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data?.user?.id ?? null));
   }, []);
 
-  // Prise de poste visible dans le centre de commandement owner (best-effort).
-  useEffect(() => {
-    if (venueId) emitShiftStart(venueId, 'vip_host');
-  }, [venueId]);
+  // La prise de poste vit dans StaffNightPanel (rituel d'ouverture la nuit,
+  // silencieuse en journée).
 
   const reservationById = useMemo(() => {
     const map = new Map<string, ServiceReservation>();
@@ -309,7 +307,7 @@ export default function VipHostDashboard() {
       // d'accueil iPhone, sinon le dernier élément passe dessous.
       style={{ background: '#000', paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 84px)' }}
     >
-      <RoleIntroGate role="viphost" />
+      <StaffOnboardingGate />
       <div className="pointer-events-none fixed inset-0 z-0" style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
 
       <StaffHeader
@@ -352,6 +350,9 @@ export default function VipHostDashboard() {
           leur positionnement). */}
       <PublicPage variant="flow">
         <main className="relative z-10 space-y-3 p-3">
+          {/* Ce soir : consigne, tables, équipe, appels */}
+          <StaffNightPanel role="vip_host" />
+
           {!activeEvent && (
             <div className="flex items-center gap-3 rounded-2xl px-4 py-3.5" style={{ background: C_FAINT, border: `1px solid ${BORDER}` }}>
               <CalendarOff className="h-5 w-5 shrink-0" style={{ color: T3 }} />

@@ -12,11 +12,11 @@ import { Scanner } from '@yudiel/react-qr-scanner';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { PublicPage } from '@/components/PublicPage';
 import { StaffHeader } from '@/components/staff/StaffHeader';
-import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
+import { StaffOnboardingGate } from '@/components/staff/StaffOnboardingGate';
+import { StaffNightPanel } from '@/components/staff/StaffNightPanel';
 import { readStaffSessionVenueId } from '@/components/RequireStaffSession';
 
 import { useStaffIdentity } from '@/hooks/useStaffIdentity';
-import { emitShiftStart } from '@/lib/liveops/shiftStart';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
@@ -103,10 +103,8 @@ export default function CloakroomDashboard() {
     init();
   }, [staffVenueId]);
 
-  // Prise de poste visible dans le centre de commandement owner (best-effort)
-  useEffect(() => {
-    if (venueId) emitShiftStart(venueId, 'cloakroom');
-  }, [venueId]);
+  // La prise de poste vit dans StaffNightPanel (rituel d'ouverture la nuit,
+  // silencieuse en journée).
 
   // Realtime subscription for cloakroom transactions
   useEffect(() => {
@@ -419,7 +417,7 @@ export default function CloakroomDashboard() {
 
   return (
     <div className="min-h-screen pb-24" style={{ background: '#000' }}>
-      <RoleIntroGate role="cloakroom" />
+      <StaffOnboardingGate />
       {/* Vignette ambiante */}
       <div
         className="fixed inset-0 pointer-events-none z-0"
@@ -433,6 +431,9 @@ export default function CloakroomDashboard() {
           leur positionnement). */}
       <PublicPage variant="flow">
       <div className="relative z-10 container mx-auto px-3 py-4 space-y-4">
+        {/* Ce soir : consigne, dépôts/rendus, équipe, appels */}
+        <StaffNightPanel role="cloakroom" />
+
         {/* Stats Row */}
         <div className="grid grid-cols-2 gap-3">
           <div style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '16px 18px' }}>

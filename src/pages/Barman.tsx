@@ -26,13 +26,13 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { PublicPage } from '@/components/PublicPage';
 import { StaffHeader } from '@/components/staff/StaffHeader';
-import { RoleIntroGate } from '@/components/onboarding/RoleIntroGate';
+import { StaffOnboardingGate } from '@/components/staff/StaffOnboardingGate';
+import { StaffNightPanel } from '@/components/staff/StaffNightPanel';
 import { OrderPreparationView } from '@/components/OrderPreparationView';
 import { useStaffIdentity } from '@/hooks/useStaffIdentity';
 import { BarmanBarSelection } from '@/components/barman/BarmanBarSelection';
 import { ShiftStats } from '@/components/barman/ShiftStats';
 import { StockPanel } from '@/components/barman/StockPanel';
-import { emitShiftStart } from '@/lib/liveops/shiftStart';
 import { calcStripeFee } from '@/utils/fees';
 
 
@@ -144,8 +144,8 @@ export default function Barman() {
     fetchClickCollectOrders();
     fetchClickCollectMode();
     checkClickCollectManager();
-    // Prise de poste visible dans le centre de commandement owner (best-effort)
-    emitShiftStart(staffVenueId, 'barman');
+    // La prise de poste vit dans StaffNightPanel (rituel d'ouverture la nuit,
+    // silencieuse en journée).
 
     // Realtime subscription for orders - filtered updates with sound alert
     const ordersChannel = supabase
@@ -986,7 +986,7 @@ export default function Barman() {
 
   return (
     <div className="min-h-screen pb-24" style={{ background: '#000' }}>
-      <RoleIntroGate role="barman" />
+      <StaffOnboardingGate />
       {/* Vignette ambiante */}
       <div
         className="fixed inset-0 pointer-events-none z-0"
@@ -1035,6 +1035,10 @@ export default function Barman() {
           leur positionnement). */}
       <PublicPage variant="flow">
       <div className="relative z-10 mx-auto max-w-7xl p-3 sm:p-4">
+        {/* Ce soir : consigne, file globale, ruptures, équipe, appels */}
+        <div className="mb-3">
+          <StaffNightPanel role="barman" />
+        </div>
         {/* Shift Stats */}
         <ShiftStats venueId={staffVenueId || ''} />
         {/* Mobile Event Filter */}
