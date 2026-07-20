@@ -5162,6 +5162,7 @@ const es: Record<string, string> = {
   'confirmation.walletComingSoon': '¡Integración de Wallet próximamente!',
   'confirmation.walletAddTo': 'Añadir a',
   'confirmation.walletError': 'No se pudo añadir el pase — inténtalo de nuevo.',
+  'confirmation.walletHint': 'Acceso sin conexión — no hace falta abrir la app',
   'confirmation.viewAllOrders': 'Ver todos mis pedidos',
   'confirmation.notFound': 'Confirmación no encontrada',
   // Confirmation — rediseño (editorial público)

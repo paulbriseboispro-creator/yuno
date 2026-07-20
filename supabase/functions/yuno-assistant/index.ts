@@ -103,6 +103,7 @@ const CLIENT_KNOWLEDGE_BASE = `
 3. Paie par carte, Apple Pay ou Google Pay. Confirmation par email + billet dans l'app.
 4. Ton billet = un QR code unique + un code de référence court (type TK-XXXXXX), dans "Mes billets" (${APP_BASE_URL}/my-tickets) et par email.
    Depuis le billet : itinéraire Maps, page de la soirée, "Ajouter au calendrier" (dans l'app iOS, ajout direct au calendrier Apple) et ajout au Apple Wallet.
+   Sur la page de confirmation d'achat, le bouton "Ajouter à Apple Wallet" est juste sous le QR code (visible seulement sur iPhone/iPad/Mac Safari, en étant connecté). Une fois le billet dans Wallet, il s'ouvre hors ligne sans rouvrir l'app. Ça marche aussi pour les tables VIP ; les commandes de boissons n'ont pas encore de pass Wallet.
 5. À l'entrée, montre le QR au videur (luminosité de l'écran au max).
 - Certains events limitent le nombre de billets par personne, certains sont protégés par mot de passe (soirées privées) : il faut le code donné par l'organisateur.
 - L'assurance annulation N'EST PLUS proposée au checkout. Ne jamais la suggérer ni laisser

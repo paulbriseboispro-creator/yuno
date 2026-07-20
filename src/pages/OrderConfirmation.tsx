@@ -810,6 +810,11 @@ export default function OrderConfirmation() {
               {t('confirmation.showQR') || 'Présentez ce QR code à l\'entrée'}
             </p>
 
+            {/* Apple Wallet — mis en avant ici (et pas en bas de page) : c'est
+                l'instant où l'œil est sur le QR et où « ne pas le reperdre »
+                devient l'action évidente. Le composant rend null hors iOS. */}
+            <WalletButtons type={data.type} id={data.id} variant="hero" />
+
             {/* Details rows */}
             <div className="w-full" style={{ ...surface, padding: '4px 16px' }}>
               {data.quantity && (
@@ -986,7 +991,6 @@ export default function OrderConfirmation() {
               )}
               {t('confirmation.downloadReceipt') || 'Télécharger le reçu'}
             </button>
-            <WalletButtons type={data.type} id={data.id} />
           </div>
 
           <div className="mt-6 text-center">

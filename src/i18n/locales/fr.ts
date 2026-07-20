@@ -4900,6 +4900,7 @@ const fr: Record<string, string> = {
   'confirmation.walletComingSoon': 'Intégration Wallet bientôt disponible !',
   'confirmation.walletAddTo': 'Ajouter à',
   'confirmation.walletError': 'Impossible d’ajouter le pass — réessaie.',
+  'confirmation.walletHint': 'Accès hors ligne — pas besoin de rouvrir l’app',
   'confirmation.viewAllOrders': 'Voir toutes mes commandes',
   'confirmation.notFound': 'Confirmation non trouvée',
   // Confirmation — refonte (éditorial public)

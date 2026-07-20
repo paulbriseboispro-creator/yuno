@@ -4974,6 +4974,7 @@ const en: Record<string, string> = {
   'confirmation.walletComingSoon': 'Wallet integration coming soon!',
   'confirmation.walletAddTo': 'Add to',
   'confirmation.walletError': 'Couldn’t add the pass — try again.',
+  'confirmation.walletHint': 'Offline access — no need to reopen the app',
   'confirmation.viewAllOrders': 'View all my orders',
   'confirmation.notFound': 'Confirmation not found',
   // Confirmation — redesign (public editorial)
