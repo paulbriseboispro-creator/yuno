@@ -8127,7 +8127,7 @@ const en: Record<string, string> = {
   'ohelp.pg.consent.s2h': 'Every club has its own list',
   'ohelp.pg.consent.s2b': "An agreement given to another club never counts for you, and yours never benefits anyone else. A customer booking with you for the first time always sees an unticked box carrying YOUR name, even if they are already subscribed elsewhere on Yuno. That is what makes your list worth having: everyone on it agreed to hear from you, by name.",
   'ohelp.pg.consent.s3h': 'What you cannot do',
-  'ohelp.pg.consent.s3b': 'You cannot manually add a contact who never agreed, nor import a list bought or collected elsewhere. Email and SMS campaigns only go to contacts with active consent for your club, and that check happens at send time, not when the campaign is created. Anyone who unsubscribes drops out of your audiences immediately.',
+  'ohelp.pg.consent.s3b': 'A "Reply STOP to opt out" line is appended automatically to every campaign text: that is a legal requirement separate from consent, and it cannot be removed. You also cannot manually add a contact who never agreed, nor import a list bought or collected elsewhere. Email and SMS campaigns only go to contacts with active consent for your club, and that check happens at send time, not when the campaign is created. Anyone who unsubscribes drops out of your audiences immediately.',
   'ohelp.pg.consent.s4h': 'You are covered if anyone asks',
   'ohelp.pg.consent.s4b': 'Every agreement is archived with its date, the channel, the language and the exact sentence shown to the customer. If there is a complaint or a regulator asks, the proof is available exactly as it appeared that day. There is nothing for you to keep on your side.',
   'ohelp.pg.push.title': 'Push notifications',

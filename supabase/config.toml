@@ -15,6 +15,12 @@ verify_jwt = false
 [functions.sms-twilio-status-webhook]
 verify_jwt = false
 
+# Webhook Twilio des SMS entrants (STOP). Appelé par Twilio, donc sans JWT :
+# l'authenticité est établie par la signature X-Twilio-Signature, vérifiée
+# dans la fonction.
+[functions.sms-inbound-webhook]
+verify_jwt = false
+
 [functions.sms-purchase-checkout]
 verify_jwt = true
 

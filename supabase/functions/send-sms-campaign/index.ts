@@ -147,10 +147,31 @@ serve(async (req) => {
         for (const p of profs ?? []) userLang.set(p.id, p.preferred_language || "fr");
       }
     }
+    // Mention d'opposition, obligatoire dans CHAQUE message de prospection
+    // (art. L34-5 al. 4 CPCE : « chaque fois qu'un [message] de prospection lui
+    // est adressé »). Cumulative avec le consentement, pas alternative : la
+    // CNIL a sanctionné ACCOR sur ce seul fondement (SAN-2022-017, 100 k€ de
+    // la sanction). Ajoutée ici, côté serveur, et pas dans l'éditeur de
+    // campagne : un owner ne doit pas pouvoir l'oublier ni la retirer.
+    const STOP_SUFFIX: Record<string, string> = {
+      fr: "\nSTOP pour ne plus recevoir",
+      en: "\nReply STOP to opt out",
+      es: "\nResponde STOP para darte de baja",
+    };
+    // Le suffixe peut faire basculer un message de 1 à 2 segments SMS alors
+    // qu'un seul crédit est décompté. C'est assumé : la conformité prime sur
+    // le coût, et l'écart est d'environ 30 caractères.
+    const withStop = (body: string, lang: string): string => {
+      const suffix = STOP_SUFFIX[lang] ?? STOP_SUFFIX.fr;
+      // Idempotent : si l'owner a déjà écrit STOP lui-même, on ne double pas.
+      return /\bSTOP\b/i.test(body) ? body : body + suffix;
+    };
+
     const bodyFor = (userId: string | null | undefined): string => {
-      if (!i18n) return input.message_body;
       const lang = (userId && userLang.get(userId)) || "fr";
-      return (i18n as Record<string, string | undefined>)[lang] || input.message_body;
+      if (!i18n) return withStop(input.message_body, lang);
+      const localized = (i18n as Record<string, string | undefined>)[lang] || input.message_body;
+      return withStop(localized, lang);
     };
 
     let sentCount = 0;

@@ -14681,6 +14681,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      normalize_phone_e164: { Args: { _phone: string }; Returns: string }
       normalize_split_rules: { Args: { rules: Json }; Returns: Json }
       notify_collab_party: {
         Args: {
@@ -15036,6 +15037,7 @@ export type Database = {
         }
         Returns: string
       }
+      sms_stop_unsubscribe: { Args: { _phone: string }; Returns: number }
       staff_ban_customer: {
         Args: {
           p_email: string

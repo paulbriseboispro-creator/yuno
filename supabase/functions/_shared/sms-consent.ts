@@ -48,7 +48,17 @@ export async function recordSmsConsent(
   supabaseAdmin: SupabaseClient,
   input: SmsConsentInput,
 ): Promise<void> {
-  const phone = (input.phone ?? "").trim();
+  // Le sélecteur de pays émet « +33 6 44 21 66 89 » : on ramène à de l'E.164
+  // strict avant écriture, sinon la contrainte UNIQUE (venue_id, phone_e164)
+  // laisse passer deux fois la même personne selon le groupement des chiffres.
+  // Un trigger en base normalise aussi — ceinture et bretelles.
+  const normalizeE164 = (raw: string): string => {
+    const t = raw.trim();
+    if (!t) return "";
+    const digits = t.replace(/[^0-9]/g, "");
+    return t.startsWith("+") ? `+${digits}` : digits;
+  };
+  const phone = normalizeE164(input.phone ?? "");
   const consentAt = new Date().toISOString();
 
   try {
