@@ -1,3 +1,4 @@
+import { canSideEdit } from '@/utils/collabResponsibilities';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -56,6 +57,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
   const [tablesMode, setTablesMode] = useState<string | null>(null);
   const [tablesOwnerId, setTablesOwnerId] = useState<string | null>(null);
   const [eventMode, setEventMode] = useState<string | null>(null);
+  const [responsibilities, setResponsibilities] = useState<unknown>(null);
   // When true, the plan + zones come from the club and are read-only here —
   // the organizer only configures packs/prices on top of the club's layout.
   const [lockedToVenue, setLockedToVenue] = useState(false);
@@ -100,7 +102,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
     setLoading(true);
     try {
       const [{ data: ev }, { data: zs }, { data: ps }, { data: fp }] = await Promise.all([
-        supabase.from('events').select('tables_enabled, tables_mode, tables_owner_user_id, event_mode, tables_locked_to_venue').eq('id', eventId).maybeSingle(),
+        supabase.from('events').select('tables_enabled, tables_mode, tables_owner_user_id, event_mode, tables_locked_to_venue, collab_responsibilities').eq('id', eventId).maybeSingle(),
         supabase.from('table_zones').select('id, name, color, tables_count, position').eq('event_id', eventId).order('position', { ascending: true, nullsFirst: false }),
         supabase.from('table_packs').select('id, zone_id, name, description, base_price, base_capacity, deposit, included_items, is_active').eq('event_id', eventId),
         supabase.from('venue_floor_plans').select('id, venue_id, layout, background_image_url').eq('event_id', eventId).maybeSingle(),
@@ -109,6 +111,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
       setTablesMode(ev?.tables_mode ?? null);
       setTablesOwnerId(ev?.tables_owner_user_id ?? null);
       setEventMode(ev?.event_mode ?? null);
+      setResponsibilities(ev?.collab_responsibilities ?? null);
       setLockedToVenue(!!ev?.tables_locked_to_venue);
       setZones((zs ?? []) as BasicZone[]);
       setPacks((ps ?? []) as BasicPack[]);
@@ -306,9 +309,12 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
 
   if (loading) return <OrgCard style={{ padding: 24 }}><p style={{ color: T3, fontSize: 13 }}>…</p></OrgCard>;
 
-  // org_hosted ("le club gère tout, l'orga ne fait que le marketing") — the club
-  // alone manages table sales from its own dashboard. Lock the organizer out.
-  if (eventMode === 'org_hosted') {
+  // Les OPÉRATIONS (tables, plan de salle) peuvent être confiées au club seul :
+  // soit par le mode org_hosted, soit — depuis l'axe responsabilités — sur
+  // n'importe quelle co-soirée où l'orga tient le design et le club la logistique.
+  // On lit le domaine plutôt que le mode, sinon la répartition serait ignorée ici
+  // alors que le serveur, lui, la fait respecter (can_manage_event_tables).
+  if (!canSideEdit(responsibilities, eventMode, 'operations', 'organizer')) {
     return (
       <OrgCard style={{ padding: 20, background: 'rgba(255,255,255,0.02)', border: `1px solid ${BORDER}` }}>
         <h2 className="flex items-center gap-2" style={{ color: T1, fontSize: 15, fontWeight: 600 }}>
@@ -409,7 +415,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
                 'Sell simple VIP tables: zones, packs, visual plan. No interactive client placement, no VIP service — basic reservations only.',
               )}
             </p>
-            {(eventMode === 'co_event' || eventMode === 'venue_rental') && (
+            {canSideEdit(responsibilities, eventMode, 'operations', 'organizer') && (
               <p className="mt-2 flex items-start gap-1.5 max-w-xl" style={{ color: T3, fontSize: 11.5 }}>
                 <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 {tt(

@@ -1,3 +1,4 @@
+import { canSideEdit } from '@/utils/collabResponsibilities';
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -79,6 +80,10 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
 
   const isVenue = viewerRole === 'venue';
   const isOrganizer = viewerRole === 'organizer';
+  // Côté du spectateur pour l'axe RESPONSABILITÉS : la billetterie peut être
+  // confiée au club seul sur n'importe quelle co-soirée, pas seulement en
+  // org_hosted. On lit le domaine, pas le mode.
+  const viewerSide: 'venue' | 'organizer' = isVenue ? 'venue' : 'organizer';
 
   const [event, setEvent] = useState<any>(null);
   const [clubName, setClubName] = useState('');
@@ -122,7 +127,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
 
       // Event row. Organizer must match a night they lead OR a club proposed to them.
       let evQuery: any = supabase.from('events')
-        .select('id, title, description, poster_url, start_at, end_at, is_active, visibility, discovery_status, ticketing_enabled, organizer_user_id, partner_organizer_id, venue_id, partner_venue_id, event_mode, revenue_split_rules, split_locked_at, collab_goal_type, collab_goal_value')
+        .select('id, title, description, poster_url, start_at, end_at, is_active, visibility, discovery_status, ticketing_enabled, organizer_user_id, partner_organizer_id, venue_id, partner_venue_id, event_mode, collab_responsibilities, revenue_split_rules, split_locked_at, collab_goal_type, collab_goal_value')
         .eq('id', eventId);
       if (isOrganizer) evQuery = evQuery.or(`organizer_user_id.eq.${user.id},partner_organizer_id.eq.${user.id}`);
       const { data: ev } = await evQuery.maybeSingle();
@@ -406,7 +411,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                   </div>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                     <ToolTile icon={Radio} label={t('Live', 'Live', 'Live')} onClick={() => navigate(navTo.live)} />
-                    {event.event_mode !== 'org_hosted' && (
+                    {canSideEdit(event.collab_responsibilities, event.event_mode, 'ticketing', viewerSide) && (
                       <ToolTile icon={Ticket} label={t('Billetterie', 'Ticketing', 'Entradas')}
                         onClick={() => (isVenue || ticketingLive ? openTicketing() : setBilletterieOpen(true))} />
                     )}
@@ -428,7 +433,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                   <div className="p-6">
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                       <h2 style={{ color: T1, fontSize: 16, fontWeight: 600 }}>{t('Billetterie', 'Ticketing', 'Entradas')}</h2>
-                      {event.event_mode !== 'org_hosted' && (stripeLoading || canSell) && (
+                      {canSideEdit(event.collab_responsibilities, event.event_mode, 'ticketing', 'organizer') && (stripeLoading || canSell) && (
                         ticketingLive ? (
                           <OrgButton size="sm" variant="primary" onClick={openTicketing}>
                             <Ticket className="h-4 w-4" />{t('Gérer la billetterie', 'Manage ticketing', 'Gestionar entradas')}
@@ -440,7 +445,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                         )
                       )}
                     </div>
-                    {event.event_mode === 'org_hosted' ? (
+                    {!canSideEdit(event.collab_responsibilities, event.event_mode, 'ticketing', 'organizer') ? (
                       <p className="flex items-start gap-2" style={{ color: T3, fontSize: 13 }}>
                         <Lock className="mt-0.5 h-4 w-4 shrink-0" />
                         {t(
