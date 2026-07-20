@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 import { supabase } from '@/integrations/supabase/client';
 import { loadLocale, getLoadedLocale, type Language } from '../i18n/data';
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
+import { deviceLanguage, VALID_LANGS } from '@/lib/deviceLanguage';
 
 export type { Language };
 
@@ -13,14 +14,15 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-const VALID_LANGS: Language[] = ['en', 'es', 'fr'];
-
 function persistedLanguage(): Language {
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem('language') as Language | null;
     if (saved && VALID_LANGS.includes(saved)) return saved;
   }
-  return 'en';
+  // Rien en local : on ouvre dans la langue du téléphone plutôt que d'imposer
+  // l'anglais et de faire choisir. L'anglais ne reste que pour les langues que
+  // Yuno ne parle pas (le popup d'onboarding prend alors le relais).
+  return deviceLanguage() ?? 'en';
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {

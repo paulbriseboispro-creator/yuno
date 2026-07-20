@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Bell, Globe, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { deviceLanguage } from '@/lib/deviceLanguage';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { isNative } from '@/lib/native';
 import { toast } from 'sonner';
@@ -29,7 +30,23 @@ export function OnboardingGate() {
     if (!pushReady) return;
 
     const pushAnswered = localStorage.getItem(PUSH_ANSWERED_KEY) === 'true';
-    const langAnswered = localStorage.getItem(LANG_ANSWERED_KEY) === 'true';
+    // La langue du téléphone vaut réponse : LanguageContext l'a déjà appliquée,
+    // et redemander à quelqu'un ce que son appareil dit déjà est du bruit à
+    // l'ouverture. L'écran ne subsiste que pour les langues que Yuno ne parle
+    // pas (allemand, italien…) : là, l'anglais serait un défaut subi et non un
+    // choix, donc on demande. Changement possible ensuite dans les Réglages.
+    //
+    // On n'escamote l'écran que sur une détection NON anglaise. Tant que les
+    // binaires iOS actuels ne déclarent pas CFBundleLocalizations, la WebView
+    // peut annoncer 'en' à tout le monde : un 'en' est donc ambigu (vrai
+    // anglophone ou repli du bundle ?) alors qu'un 'fr'/'es' ne peut venir que
+    // des préférences réelles. Cette garde tombe quand les builds portant la
+    // clé sont en ligne — d'ici là, un anglophone voit l'écran comme avant,
+    // ce qui n'est pas une régression.
+    const detected = deviceLanguage();
+    const langAnswered =
+      localStorage.getItem(LANG_ANSWERED_KEY) === 'true' ||
+      (detected !== null && detected !== 'en');
 
     // If already subscribed or permission already decided, mark push as done
     if (!pushAnswered && (isSubscribed || permission === 'granted' || permission === 'denied')) {
