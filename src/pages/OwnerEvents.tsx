@@ -1263,7 +1263,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
           <img
             src={event.posterUrl}
             alt={event.title}
-            className="w-16 h-20 sm:w-20 sm:h-28 rounded-xl object-cover flex-shrink-0"
+            className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl object-cover flex-shrink-0"
           />
         )}
         {/* Info */}
