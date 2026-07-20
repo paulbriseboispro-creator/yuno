@@ -11550,6 +11550,10 @@ const es: Record<string, string> = {
   'collabResp.readOnly': "A cargo de la otra parte",
   'collabResp.lockedByContract': "Definido por el contrato firmado. Para cambiarlo, renegocia el contrato.",
   'collabResp.seriesNote': "Este reparto se aplica a todas las noches de la serie.",
+  'ohelp.ev.collab.s10h': "Quién hace qué: el reparto de ingresos no dice quién decide",
+  'ohelp.ev.collab.s10b': "El reparto de ingresos dice quién cobra. No dice quién manda sobre el cartel, los precios o las mesas. Son dos negociaciones distintas, y Yuno las separa.\n\nCuando propones una noche o una residencia, un bloque «Quién hace qué» reparte cuatro dominios entre el club y el organizador: creación (cartel, título, descripción, géneros), entradas (precios, cupos, apertura de ventas), operaciones (mesas VIP, plano de sala, acceso, lugar) y promoción (visibilidad, descubrimiento, posicionamiento). Cada dominio va al club, al organizador o a ambos.\n\nHay cuatro repartos tipo a un clic. «Cada uno a lo suyo» es el más habitual: el club lleva la sala, las mesas y las entradas, el organizador viste la noche y la llena. También puedes ajustar cada dominio a mano.\n\nEste ajuste se aplica de verdad, no solo se muestra: si la creación va al organizador, el club ya no puede cambiar el cartel, y al revés. Una noche existente no cambia de comportamiento mientras no repartas nada.",
+  'ohelp.ev.collab.s11h': "Cambiar el reparto tras la firma",
+  'ohelp.ev.collab.s11b': "Una vez firmado el contrato, el reparto vincula a ambas partes y el formulario lo muestra en solo lectura. Para cambiarlo, resuelve el contrato y propone uno nuevo. En una residencia, resuelve el contrato marco desde la tarjeta de la serie: las noches ya abiertas a la venta mantienen sus condiciones, solo las siguientes siguen el nuevo contrato.",
 };
 
 export default es;

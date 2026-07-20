@@ -386,12 +386,16 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Handshake',
         actionLink: { labelKey: 'ohelp.action.goToCollaborations', path: '/collaborations' },
         relatedArticleIds: ['events-setup', 'dj-management', 'invoices-management'],
-        keywords: ['collaboration', 'organizer', 'organisateur', 'co-event', 'partenaire', 'partner', 'split', 'partage', 'invite', 'inviter', 'propose', 'colaboración', 'paiement', 'versement', 'payout', 'argent', 'retenu', 'reversement', 'quand suis-je payé', 'récurrente', 'recurring', 'résidence', 'residency', 'contrat-cadre', 'framework', 'contrato marco', 'signer une fois', 'sign once'],
+        keywords: ['collaboration', 'organizer', 'organisateur', 'co-event', 'partenaire', 'partner', 'split', 'partage', 'invite', 'inviter', 'propose', 'colaboración', 'paiement', 'versement', 'payout', 'argent', 'retenu', 'reversement', 'quand suis-je payé', 'récurrente', 'recurring', 'résidence', 'residency', 'contrat-cadre', 'framework', 'contrato marco', 'signer une fois', 'sign once', 'qui fait quoi', 'who does what', 'quien hace que', 'responsabilites', 'responsibilities', 'responsabilidades', 'design', 'logistique', 'operations', 'operaciones', 'chacun son metier', 'location de salle', 'venue rental', 'heberge', 'org hosted'],
         sections: [
           { headingKey: 'ohelp.ev.collab.s1h', bodyKey: 'ohelp.ev.collab.s1b' },
           { headingKey: 'ohelp.ev.collab.s2h', bodyKey: 'ohelp.ev.collab.s2b', screenshotUrl: '/help/owner-collaborations.png' },
           { headingKey: 'ohelp.ev.collab.s3h', bodyKey: 'ohelp.ev.collab.s3b', type: 'steps' },
           { headingKey: 'ohelp.ev.collab.s4h', bodyKey: 'ohelp.ev.collab.s4b' },
+          // L'axe RESPONSABILITES se lit juste apres le partage des recettes : c'est
+          // son pendant. Les % disent qui touche l'argent, celui-ci dit qui decide.
+          { headingKey: 'ohelp.ev.collab.s10h', bodyKey: 'ohelp.ev.collab.s10b' },
+          { headingKey: 'ohelp.ev.collab.s11h', bodyKey: 'ohelp.ev.collab.s11b', type: 'warning' },
           { headingKey: 'ohelp.ev.collab.s5h', bodyKey: 'ohelp.ev.collab.s5b' },
           { headingKey: 'ohelp.ev.collab.s6h', bodyKey: 'ohelp.ev.collab.s6b', type: 'warning' },
           { headingKey: 'ohelp.ev.collab.s7h', bodyKey: 'ohelp.ev.collab.s7b' },
