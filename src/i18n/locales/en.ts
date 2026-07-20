@@ -6603,7 +6603,7 @@ const en: Record<string, string> = {
   'ohelp.pg.promoters.s8h': 'Auto-assign to events',
   'ohelp.pg.promoters.s8b': 'In a promoter\'s profile (Settings), enable "Auto-assign to events": they are automatically linked to every new event of your club, recurring nights and co-events included. When enabled, all upcoming events are attached at once. Without assignments, a promoter sees all upcoming club events by default.',
   'ohelp.pg.promoters.s9h': 'What your promoters get on their phone',
-  'ohelp.pg.promoters.s9b': 'Your promoters are notified in the Yuno Pro app, with nothing for you to configure. They get: their first sale of the night, the next-morning recap (sales count and commissions), a night goal reached, a night you assign them, your answer on their public page, and a commission cancelled by a refund.\n\nTwo things are deliberately absent: a push per sale, and a push per guest walking in. A promoter making fifty sales on a Saturday would get fifty notifications and turn everything off. They get two, and the recap tells the story the next day.\n\nWhen you post an announcement to your promoters, it goes out as a notification to each of them: it is the most reliable way to land a brief before a night.',
+  'ohelp.pg.promoters.s9b': 'Your promoters are notified in the Yuno Pro app, with nothing for you to configure. They get: their first sale of the night, the next-morning recap (sales count and commissions), a night goal reached, a night you assign them, and a commission cancelled by a refund.\n\nTwo things are deliberately absent: a push per sale, and a push per guest walking in. A promoter making fifty sales on a Saturday would get fifty notifications and turn everything off. They get two, and the recap tells the story the next day.\n\nWhen you post an announcement to your promoters, it goes out as a notification to each of them: it is the most reliable way to land a brief before a night.',
   'ohelp.ev.guestlist.s9h': 'Unlimited quota for a promoter or DJ',
   'ohelp.ev.guestlist.s9b': 'When creating a guest list part (promoter, DJ or other), enable "No limit": the holder can add as many guests as they want, with no cap. The promoter sees their remaining spots (or ∞) live in their app.',
   'ohelp.ev.guestlist.s10h': 'Show or hide the remaining spots',
@@ -8059,8 +8059,6 @@ const en: Record<string, string> = {
   'adminAutoPush.k.promoter_announcement.desc': "To the club's promoters: the club posted an announcement. A deliberate human action, so one push per announcement.",
   'adminAutoPush.k.promoter_event_assigned.name': 'Night assigned to a promoter',
   'adminAutoPush.k.promoter_event_assigned.desc': "To the promoter: an upcoming night was just assigned to them, manually or automatically. Their link is already live.",
-  'adminAutoPush.k.promoter_linktree_reviewed.name': 'Promoter page approved or sent back',
-  'adminAutoPush.k.promoter_linktree_reviewed.desc': "To the promoter: their public page went live, or back to draft. Without this push they share a dead link without knowing.",
   'adminAutoPush.k.promoter_commission_cancelled.name': 'Commission cancelled by a refund',
   'adminAutoPush.k.promoter_commission_cancelled.desc': "To the promoter: a refund cancelled one or more commissions. Accumulated over the day and delivered at 10am, never in the middle of the night.",
   'adminAutoPush.k.promoter_payout_declared.name': 'Promoter transfer declared',
@@ -11532,6 +11530,10 @@ const en: Record<string, string> = {
   'collabResp.readOnly': "Held by the other side",
   'collabResp.lockedByContract': "Set by the signed contract. To change it, propose an amendment.",
   'collabResp.seriesNote': "This split applies to every night in the series.",
+  'adminAutoPush.k.collab_amendment_proposed.name': "Collaboration amendment proposed",
+  'adminAutoPush.k.collab_amendment_proposed.desc': "Tells the counter-signing party that an amendment changing the allocation of responsibilities (and possibly the revenue split) is awaiting their signature.",
+  'adminAutoPush.k.collab_amendment_signed.name': "Collaboration amendment signed",
+  'adminAutoPush.k.collab_amendment_signed.desc': "Tells the party who proposed the amendment that the other side has just signed it: the new terms are now in force.",
 };
 
 export default en;

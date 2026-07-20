@@ -6520,7 +6520,7 @@ const fr: Record<string, string> = {
   'ohelp.pg.promoters.s8h': 'Auto-assignation aux soirées',
   'ohelp.pg.promoters.s8b': 'Dans la fiche d\'un promoteur (Réglages), active « Auto-assignation aux soirées » : il est relié automatiquement à chaque nouvelle soirée de ton club, soirées récurrentes et co-events inclus. À l\'activation, toutes les soirées à venir lui sont rattachées d\'un coup. Sans assignation, un promoteur voit par défaut toutes les soirées à venir du club.',
   'ohelp.pg.promoters.s9h': 'Ce que tes promoteurs reçoivent sur leur téléphone',
-  'ohelp.pg.promoters.s9b': 'Tes promoteurs sont notifiés dans l\'app Yuno Pro, sans que tu aies rien à régler. Ils reçoivent : leur première vente de la soirée, le bilan du lendemain matin (nombre de ventes et commissions), l\'objectif d\'une soirée atteint, une soirée que tu leur confies, ta réponse sur leur page publique, et une commission annulée par un remboursement.\n\nDeux choses volontairement absentes : un push par vente et un push par invité qui passe la porte. Un promoteur qui fait cinquante ventes un samedi recevrait cinquante notifications et couperait tout. Il en reçoit deux, et le bilan raconte la nuit le lendemain.\n\nQuand tu publies une annonce à tes promoteurs, elle part en notification chez chacun d\'eux : c\'est le moyen le plus sûr de faire passer un brief avant une soirée.',
+  'ohelp.pg.promoters.s9b': 'Tes promoteurs sont notifiés dans l\'app Yuno Pro, sans que tu aies rien à régler. Ils reçoivent : leur première vente de la soirée, le bilan du lendemain matin (nombre de ventes et commissions), l\'objectif d\'une soirée atteint, une soirée que tu leur confies, et une commission annulée par un remboursement.\n\nDeux choses volontairement absentes : un push par vente et un push par invité qui passe la porte. Un promoteur qui fait cinquante ventes un samedi recevrait cinquante notifications et couperait tout. Il en reçoit deux, et le bilan raconte la nuit le lendemain.\n\nQuand tu publies une annonce à tes promoteurs, elle part en notification chez chacun d\'eux : c\'est le moyen le plus sûr de faire passer un brief avant une soirée.',
   'ohelp.ev.guestlist.s9h': 'Quota illimité pour un promoteur ou un DJ',
   'ohelp.ev.guestlist.s9b': 'En créant une part de guest list (promoteur, DJ ou autre), active « Sans limite » : le détenteur peut ajouter autant d\'invités qu\'il veut, sans plafond. Le promoteur voit en direct ses places restantes (ou ∞) dans son app.',
   'ohelp.ev.guestlist.s10h': 'Afficher ou cacher les places restantes',
@@ -7970,8 +7970,6 @@ const fr: Record<string, string> = {
   'adminAutoPush.k.promoter_announcement.desc': "Aux promoteurs du club : le club publie une annonce. Geste humain délibéré, donc un push par annonce.",
   'adminAutoPush.k.promoter_event_assigned.name': 'Soirée confiée à un promoteur',
   'adminAutoPush.k.promoter_event_assigned.desc': "Au promoteur : une soirée à venir vient de lui être assignée, manuellement ou automatiquement. Son lien est déjà actif.",
-  'adminAutoPush.k.promoter_linktree_reviewed.name': 'Page promoteur validée ou à revoir',
-  'adminAutoPush.k.promoter_linktree_reviewed.desc': "Au promoteur : sa page publique est mise en ligne, ou renvoyée en brouillon. Sans ce push il partage un lien mort sans le savoir.",
   'adminAutoPush.k.promoter_commission_cancelled.name': 'Commission annulée par un remboursement',
   'adminAutoPush.k.promoter_commission_cancelled.desc': "Au promoteur : un remboursement a annulé une ou plusieurs commissions. Cumulé sur la journée et livré à 10 h, jamais en pleine nuit.",
   'adminAutoPush.k.promoter_payout_declared.name': 'Virement promoteur déclaré',
@@ -11603,6 +11601,10 @@ const fr: Record<string, string> = {
   'collabResp.readOnly': "Confié à l'autre partie",
   'collabResp.lockedByContract': "Réparti par le contrat signé. Pour changer, proposez un avenant.",
   'collabResp.seriesNote': "Cette répartition s'applique à toutes les soirées de la série.",
+  'adminAutoPush.k.collab_amendment_proposed.name': "Avenant de collaboration proposé",
+  'adminAutoPush.k.collab_amendment_proposed.desc': "Prévient la partie qui doit contresigner qu'un avenant modifiant la répartition des responsabilités (et éventuellement le partage des revenus) attend sa signature.",
+  'adminAutoPush.k.collab_amendment_signed.name': "Avenant de collaboration signé",
+  'adminAutoPush.k.collab_amendment_signed.desc': "Prévient la partie qui a proposé l'avenant que l'autre vient de le signer : les nouvelles conditions sont entrées en vigueur.",
 };
 
 export default fr;

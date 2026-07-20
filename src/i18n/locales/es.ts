@@ -6781,7 +6781,7 @@ const es: Record<string, string> = {
   'ohelp.pg.promoters.s8h': 'Autoasignación a eventos',
   'ohelp.pg.promoters.s8b': 'En la ficha de un promotor (Ajustes), activa «Autoasignación a eventos»: se vincula automáticamente a cada nuevo evento de tu club, incluidos los recurrentes y los co-events. Al activarla, todos los eventos futuros se vinculan de una vez. Sin asignaciones, un promotor ve por defecto todos los eventos futuros del club.',
   'ohelp.pg.promoters.s9h': 'Lo que reciben tus promotores en su teléfono',
-  'ohelp.pg.promoters.s9b': 'Tus promotores reciben notificaciones en la app Yuno Pro, sin que tengas que configurar nada. Reciben: su primera venta de la noche, el resumen de la mañana siguiente (ventas y comisiones), el objetivo de una noche alcanzado, una fiesta que les asignas, tu respuesta sobre su página pública, y una comisión anulada por un reembolso.\n\nDos cosas ausentes a propósito: un push por venta y un push por cada invitado que entra. Un promotor con cincuenta ventas un sábado recibiría cincuenta notificaciones y lo desactivaría todo. Recibe dos, y el resumen cuenta la noche al día siguiente.\n\nCuando publicas un anuncio a tus promotores, sale como notificación a cada uno: es la forma más fiable de hacer llegar un briefing antes de una noche.',
+  'ohelp.pg.promoters.s9b': 'Tus promotores reciben notificaciones en la app Yuno Pro, sin que tengas que configurar nada. Reciben: su primera venta de la noche, el resumen de la mañana siguiente (ventas y comisiones), el objetivo de una noche alcanzado, una fiesta que les asignas, y una comisión anulada por un reembolso.\n\nDos cosas ausentes a propósito: un push por venta y un push por cada invitado que entra. Un promotor con cincuenta ventas un sábado recibiría cincuenta notificaciones y lo desactivaría todo. Recibe dos, y el resumen cuenta la noche al día siguiente.\n\nCuando publicas un anuncio a tus promotores, sale como notificación a cada uno: es la forma más fiable de hacer llegar un briefing antes de una noche.',
   'ohelp.ev.guestlist.s9h': 'Cupo ilimitado para un promotor o DJ',
   'ohelp.ev.guestlist.s9b': 'Al crear una parte de guest list (promotor, DJ u otro), activa «Sin límite»: el titular puede añadir tantos invitados como quiera, sin tope. El promotor ve en directo sus plazas restantes (o ∞) en su app.',
   'ohelp.ev.guestlist.s10h': 'Mostrar u ocultar las plazas restantes',
@@ -8229,8 +8229,6 @@ const es: Record<string, string> = {
   'adminAutoPush.k.promoter_announcement.desc': "A los promotores del club: el club publica un anuncio. Acción humana deliberada, así que un push por anuncio.",
   'adminAutoPush.k.promoter_event_assigned.name': 'Fiesta asignada a un promotor',
   'adminAutoPush.k.promoter_event_assigned.desc': "Al promotor: se le acaba de asignar una fiesta próxima, manual o automáticamente. Su enlace ya está activo.",
-  'adminAutoPush.k.promoter_linktree_reviewed.name': 'Página del promotor aprobada o devuelta',
-  'adminAutoPush.k.promoter_linktree_reviewed.desc': "Al promotor: su página pública se ha publicado, o ha vuelto a borrador. Sin este push comparte un enlace muerto sin saberlo.",
   'adminAutoPush.k.promoter_commission_cancelled.name': 'Comisión anulada por un reembolso',
   'adminAutoPush.k.promoter_commission_cancelled.desc': "Al promotor: un reembolso ha anulado una o varias comisiones. Acumulado durante el día y entregado a las 10 h, nunca de madrugada.",
   'adminAutoPush.k.promoter_payout_declared.name': 'Transferencia de promotor declarada',
@@ -11646,6 +11644,10 @@ const es: Record<string, string> = {
   'collabResp.readOnly': "A cargo de la otra parte",
   'collabResp.lockedByContract': "Definido por el contrato firmado. Para cambiarlo, propone una adenda.",
   'collabResp.seriesNote': "Este reparto se aplica a todas las noches de la serie.",
+  'adminAutoPush.k.collab_amendment_proposed.name': "Adenda de colaboración propuesta",
+  'adminAutoPush.k.collab_amendment_proposed.desc': "Avisa a la parte que debe refrendar que una adenda que cambia el reparto de responsabilidades (y quizá el de ingresos) espera su firma.",
+  'adminAutoPush.k.collab_amendment_signed.name': "Adenda de colaboración firmada",
+  'adminAutoPush.k.collab_amendment_signed.desc': "Avisa a la parte que propuso la adenda de que la otra acaba de firmarla: las nuevas condiciones ya están en vigor.",
 };
 
 export default es;

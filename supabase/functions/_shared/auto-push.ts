@@ -45,6 +45,31 @@ type AutoPushDef = {
 };
 
 export const AUTO_PUSH: Record<string, AutoPushDef> = {
+  // ── Collaborations club ↔ organisateur ──────────────────────────────────
+  // Un avenant est une demande de SIGNATURE : sans push, le partenaire ne la
+  // découvre qu'en ouvrant sa page Collaborations par hasard.
+  collab_amendment_proposed: {
+    logType: "transactional",
+    audience: "pro",
+    variants: {
+      default: {
+        fr: { title: "Avenant à signer ✍️", body: "{partner} propose de modifier la répartition sur {subject}." },
+        en: { title: "Amendment to sign ✍️", body: "{partner} proposes changing the split on {subject}." },
+        es: { title: "Adenda por firmar ✍️", body: "{partner} propone cambiar el reparto en {subject}." },
+      },
+    },
+  },
+  collab_amendment_signed: {
+    logType: "transactional",
+    audience: "pro",
+    variants: {
+      default: {
+        fr: { title: "Avenant signé ✅", body: "{partner} a signé l'avenant sur {subject}. Les nouvelles conditions s'appliquent." },
+        en: { title: "Amendment signed ✅", body: "{partner} signed the amendment on {subject}. The new terms now apply." },
+        es: { title: "Adenda firmada ✅", body: "{partner} firmó la adenda en {subject}. Las nuevas condiciones ya se aplican." },
+      },
+    },
+  },
   purchase_ticket: {
     logType: "transactional",
     audience: "client",
@@ -248,22 +273,6 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
         fr: { title: "Nouvelle soiree pour toi 🎟️", body: "{event} — {date}. Ton lien est deja actif." },
         en: { title: "A new night for you 🎟️", body: "{event} — {date}. Your link is already live." },
         es: { title: "Nueva fiesta para ti 🎟️", body: "{event} — {date}. Tu enlace ya esta activo." },
-      },
-    },
-  },
-  promoter_linktree_reviewed: {
-    logType: "transactional",
-    audience: "pro",
-    variants: {
-      approved: {
-        fr: { title: "Ta page est en ligne ✅", body: "Elle est publique : tu peux partager ton lien." },
-        en: { title: "Your page is live ✅", body: "It's public: you can share your link." },
-        es: { title: "Tu pagina esta en linea ✅", body: "Ya es publica: puedes compartir tu enlace." },
-      },
-      changes: {
-        fr: { title: "Modifications demandees ✏️", body: "Ta page est repassee en brouillon. Corrige-la et renvoie-la." },
-        en: { title: "Changes requested ✏️", body: "Your page went back to draft. Fix it and resubmit." },
-        es: { title: "Cambios solicitados ✏️", body: "Tu pagina volvio a borrador. Corrigela y reenviala." },
       },
     },
   },

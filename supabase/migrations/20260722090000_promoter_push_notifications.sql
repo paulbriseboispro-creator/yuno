@@ -40,7 +40,6 @@
 --   promoter_team_override       commission d'equipe du jour (cumulee)
 --   promoter_announcement        le club ecrit a ses promoteurs
 --   promoter_event_assigned      une soiree lui est confiee
---   promoter_linktree_reviewed   sa page publique validee / a revoir
 --   promoter_commission_cancelled un remboursement annule une commission
 --
 -- Volontairement PAS notifie : chaque vente (c'est le digest qui raconte la
@@ -404,48 +403,7 @@ CREATE TRIGGER trg_promoter_push_on_assignment
   FOR EACH ROW
   EXECUTE FUNCTION public.promoter_push_on_assignment();
 
--- ── 7. Sa page publique est validee, ou renvoyee en brouillon ───────────────
--- Sans notification, la page reste hors ligne et le promoteur ne le sait pas :
--- il partage un lien mort en soiree.
-CREATE OR REPLACE FUNCTION public.promoter_push_on_linktree_review()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $fn$
-BEGIN
-  IF NEW.user_id IS NULL THEN RETURN NEW; END IF;
-
-  IF NEW.linktree_status = 'approved' THEN
-    PERFORM public.enqueue_promoter_push(
-      NEW.user_id, NEW.id, 'promoter_linktree_reviewed',
-      jsonb_build_object('slug', COALESCE(NEW.promo_code, '')),
-      '/promoter',
-      'linktree:' || NEW.id || ':approved:' || to_char(now(), 'YYYYMMDDHH24MI'),
-      'approved'
-    );
-  ELSIF NEW.linktree_status = 'draft' AND OLD.linktree_status = 'pending_review' THEN
-    PERFORM public.enqueue_promoter_push(
-      NEW.user_id, NEW.id, 'promoter_linktree_reviewed',
-      '{}'::jsonb,
-      '/promoter',
-      'linktree:' || NEW.id || ':changes:' || to_char(now(), 'YYYYMMDDHH24MI'),
-      'changes'
-    );
-  END IF;
-
-  RETURN NEW;
-END;
-$fn$;
-
-DROP TRIGGER IF EXISTS trg_promoter_push_on_linktree_review ON public.promoters;
-CREATE TRIGGER trg_promoter_push_on_linktree_review
-  AFTER UPDATE OF linktree_status ON public.promoters
-  FOR EACH ROW
-  WHEN (NEW.linktree_status IS DISTINCT FROM OLD.linktree_status)
-  EXECUTE FUNCTION public.promoter_push_on_linktree_review();
-
--- ── 8. Le bilan du lendemain ────────────────────────────────────────────────
+-- ── 7. Le bilan du lendemain ────────────────────────────────────────────────
 -- C'est LUI qui raconte la nuit, une seule fois, plutot que cinquante push
 -- pendant la soiree. Seuil a 2 ventes : en dessous, `promoter_sale_first` a
 -- deja tout dit.
@@ -485,7 +443,7 @@ BEGIN
 END;
 $fn$;
 
--- ── 9. Relance de l'accuse de reception d'un reglement ──────────────────────
+-- ── 8. Relance de l'accuse de reception d'un reglement ──────────────────────
 -- La cle `promoter_payout_reminder` existait dans le registre sans aucun
 -- appelant : un lot pouvait basculer en litige sans que le promoteur ait ete
 -- relance une seule fois. On relance a 48 h de l'echeance.
@@ -529,7 +487,7 @@ BEGIN
 END;
 $fn$;
 
--- ── 10. Purge ───────────────────────────────────────────────────────────────
+-- ── 9. Purge ───────────────────────────────────────────────────────────────
 -- La file est un tampon, pas un journal : `auto_push_events` garde deja la
 -- trace de ce qui est parti.
 CREATE OR REPLACE FUNCTION public.purge_promoter_push_queue()
@@ -560,7 +518,7 @@ REVOKE ALL ON FUNCTION public.enqueue_promoter_night_digests() FROM public, anon
 REVOKE ALL ON FUNCTION public.enqueue_promoter_payout_reminders() FROM public, anon, authenticated;
 REVOKE ALL ON FUNCTION public.purge_promoter_push_queue() FROM public, anon, authenticated;
 
--- ── 11. Planification ───────────────────────────────────────────────────────
+-- ── 10. Planification ───────────────────────────────────────────────────────
 -- Les trois taches ne font qu'ALIMENTER la file ; c'est le cron edge
 -- (process-scheduled-campaigns, toutes les 5 min) qui envoie reellement.
 DO $$
@@ -586,7 +544,7 @@ BEGIN
   END IF;
 END $$;
 
--- ── 12. Registre super admin ────────────────────────────────────────────────
+-- ── 11. Registre super admin ────────────────────────────────────────────────
 -- Chaque cle reste coupable d'un clic depuis /admin/notifications.
 INSERT INTO public.platform_notification_settings (notification_key, category) VALUES
   ('promoter_sale_first',           'engagement'),
@@ -595,6 +553,5 @@ INSERT INTO public.platform_notification_settings (notification_key, category) V
   ('promoter_team_override',        'engagement'),
   ('promoter_announcement',         'transactional'),
   ('promoter_event_assigned',       'engagement'),
-  ('promoter_linktree_reviewed',    'transactional'),
   ('promoter_commission_cancelled', 'transactional')
 ON CONFLICT (notification_key) DO NOTHING;
