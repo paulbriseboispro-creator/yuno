@@ -52,7 +52,30 @@ export function usePromoterTracking(venueId?: string, routeEventId?: string) {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const refCodeRaw = urlParams.get('ref');
-    if (!refCodeRaw) return;
+
+    // Pas de ?ref= dans l'URL, mais un code déjà stocké et on arrive sur une
+    // soirée : on enregistre le clic MANQUANT pour cette soirée.
+    //
+    // Un lien club « /club/X?ref=CODE » loggue un clic sans event_id, puis le
+    // ?ref= est retiré de l'URL. Le visiteur ouvre ensuite une soirée : plus
+    // aucun clic n'est tracé, alors que la vente, elle, portera bien l'event_id.
+    // Les tableaux par soirée filtrent les clics sur event_id : le clic
+    // disparaissait du dénominateur pendant que la conversion restait au
+    // numérateur, d'où des taux de conversion au-dessus de 100 %.
+    //
+    // Verrou par (soirée) en sessionStorage : un seul clic par soirée et par
+    // session, sinon un simple aller-retour gonflerait le dénominateur.
+    if (!refCodeRaw) {
+      const eid = urlParams.get('event') || routeEventId;
+      if (!eid) return;
+      const stored = getStoredPromoCode();
+      if (!stored) return;
+      const guardKey = `promoter_event_click_${eid}`;
+      if (sessionStorage.getItem(guardKey)) return;
+      sessionStorage.setItem(guardKey, '1');
+      trackPromoterClick(stored, venueId || getStoredPromoVenueId() || '', eid, getStoredPromoSource() || undefined);
+      return;
+    }
 
     const refCode = refCodeRaw.trim().toUpperCase();
     const source = urlParams.get('src') || undefined;
@@ -81,6 +104,10 @@ export function usePromoterTracking(venueId?: string, routeEventId?: string) {
         console.warn('[PromoterTracking] Aucune portée (club ou organisateur), suivi ignoré');
         return;
       }
+
+      // Même verrou que la branche « clic manquant » ci-dessus : sans lui, le
+      // retrait du ?ref= de l'URL provoquerait un second clic pour cette soirée.
+      if (eventId) sessionStorage.setItem(`promoter_event_click_${eventId}`, '1');
 
       storePromoCode(refCode, resolvedVenueId || null, resolvedOrganizerId || null, eventId, source);
       // track-promoter-click sait déjà résoudre la portée organisateur.
