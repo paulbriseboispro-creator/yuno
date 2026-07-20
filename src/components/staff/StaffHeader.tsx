@@ -19,8 +19,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { ProBackButton } from '@/components/pro/ProBackButton';
 import { useStaffIdentity } from '@/hooks/useStaffIdentity';
 import {
-  accentTokens,
   greetingKey,
+  roleTokens,
   staffInitials,
   STAFF_ROLE_DEFS,
   type StaffRole,
@@ -59,7 +59,9 @@ export function StaffHeader({
 
   const def = STAFF_ROLE_DEFS[role];
   const Icon = def.icon;
-  const accent = accentTokens(identity?.accent, role);
+  // Couleur du POSTE, pas de la personne : sur une tablette partagée, la
+  // couleur doit dire « écran porte », pas « qui s'est connecté ».
+  const accent = roleTokens(role);
 
   // La salutation est calculée au montage : ces écrans restent ouverts toute la
   // nuit, on ne veut pas qu'un re-render la fasse basculer en plein service.
@@ -94,7 +96,7 @@ export function StaffHeader({
             className="flex min-w-0 flex-1 items-center gap-2 rounded-xl text-left transition-opacity active:opacity-70"
             aria-label={t('staffid.openAccount')}
           >
-            {/* Avatar : photo > emoji > icône du rôle */}
+            {/* Avatar : photo > initiales > icône du rôle */}
             <div
               className="flex h-9 w-9 flex-none items-center justify-center overflow-hidden rounded-xl"
               style={{ background: accent.soft, border: `1px solid ${accent.ring}` }}
@@ -106,8 +108,6 @@ export function StaffHeader({
                   className="h-full w-full object-cover"
                   loading="lazy"
                 />
-              ) : identity?.emoji ? (
-                <span style={{ fontSize: 17, lineHeight: 1 }}>{identity.emoji}</span>
               ) : name ? (
                 <span style={{ color: accent.solid, fontSize: 12, fontWeight: 700, letterSpacing: '0.02em' }}>
                   {staffInitials(name)}

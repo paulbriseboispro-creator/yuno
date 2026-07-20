@@ -27,15 +27,15 @@ export interface StaffIdentity {
   firstName: string | null;
   lastName: string | null;
   email: string | null;
-  /** Intitulé de poste personnalisé, sinon null (le header retombe sur le rôle). */
+  /** Intitulé de poste fixé par le club, sinon null (le header retombe sur le rôle). */
   title: string | null;
-  emoji: string | null;
-  accent: string | null;
   /** Photo à afficher : la pro si elle existe, sinon l'avatar client. */
   avatarUrl: string | null;
   /** Photo PRO uniquement — null si la personne n'a que son avatar client. */
   staffAvatarUrl: string | null;
   since: string | null;
+  /** Null tant que la personne n'a pas terminé l'onboarding staff (/staff/welcome). */
+  staffOnboardedAt: string | null;
   venueId: string | null;
   venueName: string | null;
   roles: StaffRole[];
@@ -58,7 +58,7 @@ async function fetchStaffIdentity(): Promise<StaffIdentity | null> {
   const [profileRes, rolesRes] = await Promise.all([
     supabase
       .from('profiles')
-      .select('venue_id, first_name, last_name, email, avatar_url, staff_display_name, staff_title, staff_emoji, staff_accent, staff_avatar_url, staff_since')
+      .select('venue_id, first_name, last_name, email, avatar_url, staff_display_name, staff_title, staff_avatar_url, staff_since, staff_onboarded_at')
       .eq('id', user.id)
       .maybeSingle(),
     supabase
@@ -98,11 +98,10 @@ async function fetchStaffIdentity(): Promise<StaffIdentity | null> {
     lastName: profile?.last_name ?? null,
     email: profile?.email ?? user.email ?? null,
     title: profile?.staff_title ?? null,
-    emoji: profile?.staff_emoji ?? null,
-    accent: profile?.staff_accent ?? null,
     avatarUrl: profile?.staff_avatar_url || profile?.avatar_url || null,
     staffAvatarUrl: profile?.staff_avatar_url ?? null,
     since: profile?.staff_since ?? null,
+    staffOnboardedAt: profile?.staff_onboarded_at ?? null,
     venueId: profile?.venue_id ?? null,
     venueName,
     roles: staffRoles,

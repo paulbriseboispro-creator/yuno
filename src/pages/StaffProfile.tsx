@@ -1,10 +1,11 @@
 /**
  * « Mon compte » — l'écran personnel d'un membre du staff club.
  *
- * Le compte pro d'un barman n'existait nulle part : il ouvrait un écran qui
- * disait « Gestion des Commandes » et c'était tout. Cette page lui donne trois
- * choses : une identité qu'il choisit, la trace de ce qu'il a fait, et le
- * visage de l'équipe avec qui il bosse.
+ * V2 sobre : photo, nom d'affichage, et c'est tout côté personnalisation.
+ * L'intitulé de poste appartient au CLUB (owner_set_staff_title) — la personne
+ * le voit, ne l'édite pas. Les emojis et couleurs au choix ont été retirés :
+ * un écran de travail n'est pas un profil de jeu. En dessous : le relevé de
+ * travail (pas un score), les bravos reçus, l'équipe, le compte.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -14,7 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
   Camera, Check, Loader2, LogOut, KeyRound, Users, Sparkles,
-  ScanLine, Wine, Shirt, Crown, CalendarDays, Trash2,
+  ScanLine, Wine, Shirt, Crown, CalendarDays, Trash2, Heart,
 } from 'lucide-react';
 import { PublicPage } from '@/components/PublicPage';
 import { ProBackButton } from '@/components/pro/ProBackButton';
@@ -24,9 +25,8 @@ import { useStaffIdentity } from '@/hooks/useStaffIdentity';
 import { compressImage } from '@/lib/compressImage';
 import { clearStaffSession } from '@/components/RequireStaffSession';
 import {
-  accentTokens, greetingKey, staffInitials, isStaffRole, primaryStaffRole,
-  STAFF_ACCENTS, STAFF_EMOJI_CHOICES, STAFF_ROLE_DEFS,
-  type StaffAccent,
+  roleTokens, greetingKey, staffInitials, isStaffRole, primaryStaffRole,
+  STAFF_ROLE_DEFS,
 } from '@/lib/staffIdentity';
 
 const T1     = 'rgba(255,255,255,0.96)';
@@ -54,12 +54,17 @@ interface TeamMate {
   user_id: string;
   display_name: string | null;
   title: string | null;
-  emoji: string | null;
-  accent: string | null;
   avatar_url: string | null;
   roles: string[];
   staff_since: string | null;
   is_me: boolean;
+}
+
+interface ReceivedKudos {
+  id: string;
+  body: string | null;
+  created_at: string;
+  from_user: string;
 }
 
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
@@ -93,23 +98,19 @@ export default function StaffProfile() {
   // Brouillon local : on n'écrit en base qu'au clic sur « Enregistrer », sinon
   // chaque frappe déclencherait un UPDATE sur `profiles`.
   const [displayName, setDisplayName] = useState('');
-  const [title, setTitle] = useState('');
-  const [emoji, setEmoji] = useState<string | null>(null);
-  const [accent, setAccent] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dirty, setDirty] = useState(false);
 
   const [stats, setStats] = useState<StaffStats | null>(null);
   const [team, setTeam] = useState<TeamMate[]>([]);
+  const [kudos, setKudos] = useState<ReceivedKudos[]>([]);
+  const [kudosNames, setKudosNames] = useState<Record<string, string>>({});
 
   // Hydrate le brouillon dès que l'identité arrive.
   useEffect(() => {
     if (!identity) return;
     setDisplayName(identity.displayName ?? '');
-    setTitle(identity.title ?? '');
-    setEmoji(identity.emoji);
-    setAccent(identity.accent);
     setDirty(false);
   }, [identity]);
 
@@ -129,30 +130,46 @@ export default function StaffProfile() {
     return () => { cancelled = true; };
   }, []);
 
-  const tokens = accentTokens(accent, identity?.role ?? null);
+  // Bravos reçus (30 derniers jours). La RLS borne déjà au club ; les noms des
+  // émetteurs viennent de l'annuaire d'équipe (pas de lecture de profiles).
+  useEffect(() => {
+    if (!identity?.userId) return;
+    let cancelled = false;
+    (async () => {
+      const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+      const { data } = await supabase
+        .from('staff_kudos')
+        .select('id, body, created_at, from_user')
+        .eq('to_user', identity.userId)
+        .gte('created_at', since)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (!cancelled && data) setKudos(data as ReceivedKudos[]);
+    })();
+    return () => { cancelled = true; };
+  }, [identity?.userId]);
+
+  // L'annuaire d'équipe sert de table de noms pour les bravos.
+  useEffect(() => {
+    const map: Record<string, string> = {};
+    for (const mate of team) map[mate.user_id] = mate.display_name ?? '';
+    setKudosNames(map);
+  }, [team]);
+
+  const tokens = roleTokens(identity?.role ?? null);
   const roleDef = identity?.role ? STAFF_ROLE_DEFS[identity.role] : null;
   const RoleIcon = roleDef?.icon;
   const previewName = displayName.trim() || identity?.firstName || identity?.name || '';
-
-  const markDirty = <T,>(setter: (v: T) => void) => (value: T) => {
-    setter(value);
-    setDirty(true);
-  };
 
   const handleSave = useCallback(async () => {
     if (!identity) return;
     setSaving(true);
     try {
-      // Les chaînes vides valent « pas de valeur » : on remet NULL pour que les
-      // règles de repli (prénom, libellé du rôle) reprennent la main.
+      // Chaîne vide = « pas de valeur » : NULL pour que les règles de repli
+      // (prénom, libellé du rôle) reprennent la main.
       const { error } = await supabase
         .from('profiles')
-        .update({
-          staff_display_name: displayName.trim() || null,
-          staff_title: title.trim() || null,
-          staff_emoji: emoji,
-          staff_accent: accent,
-        })
+        .update({ staff_display_name: displayName.trim() || null })
         .eq('id', identity.userId);
 
       if (error) throw error;
@@ -166,7 +183,7 @@ export default function StaffProfile() {
     } finally {
       setSaving(false);
     }
-  }, [identity, displayName, title, emoji, accent, refresh, t]);
+  }, [identity, displayName, refresh, t]);
 
   const handleAvatarPick = async (file: File) => {
     if (!identity) return;
@@ -289,8 +306,6 @@ export default function StaffProfile() {
                 >
                   {identity?.avatarUrl ? (
                     <img src={identity.avatarUrl} alt="" className="h-full w-full object-cover" />
-                  ) : emoji ? (
-                    <span style={{ fontSize: 30, lineHeight: 1 }}>{emoji}</span>
                   ) : previewName ? (
                     <span style={{ color: tokens.solid, fontSize: 20, fontWeight: 700 }}>{staffInitials(previewName)}</span>
                   ) : RoleIcon ? (
@@ -327,7 +342,7 @@ export default function StaffProfile() {
                   {previewName || t('staffme.noName')}
                 </p>
                 <p className="truncate" style={{ color: T2, fontSize: 12, marginTop: 2 }}>
-                  {[title.trim() || (roleDef ? t(roleDef.labelKey) : null), identity?.venueName].filter(Boolean).join(' · ')}
+                  {[identity?.title?.trim() || (roleDef ? t(roleDef.labelKey) : null), identity?.venueName].filter(Boolean).join(' · ')}
                 </p>
               </div>
             </div>
@@ -355,88 +370,35 @@ export default function StaffProfile() {
             )}
           </Card>
 
-          {/* ── Personnalisation ─────────────────────────────────────────── */}
+          {/* ── Personnalisation (sobre : nom d'affichage seulement) ─────── */}
           <Card>
             <SectionTitle icon={Sparkles}>{t('staffme.section.identity')}</SectionTitle>
 
             <label className="mb-1 block" style={{ color: T2, fontSize: 12 }}>{t('staffme.field.name')}</label>
             <input
               value={displayName}
-              onChange={(e) => markDirty(setDisplayName)(e.target.value.slice(0, 40))}
+              onChange={(e) => { setDisplayName(e.target.value.slice(0, 40)); setDirty(true); }}
               placeholder={identity?.firstName ?? t('staffme.field.namePlaceholder')}
               className="mb-1 w-full rounded-xl px-3 py-2.5 outline-none transition-colors"
               style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1, fontSize: 14 }}
             />
-            <p className="mb-4" style={{ color: T3, fontSize: 10.5 }}>{t('staffme.field.nameHint')}</p>
+            <p className="mb-3" style={{ color: T3, fontSize: 10.5 }}>{t('staffme.field.nameHint')}</p>
 
-            <label className="mb-1 block" style={{ color: T2, fontSize: 12 }}>{t('staffme.field.title')}</label>
-            <input
-              value={title}
-              onChange={(e) => markDirty(setTitle)(e.target.value.slice(0, 40))}
-              placeholder={roleDef ? t(roleDef.labelKey) : ''}
-              className="mb-1 w-full rounded-xl px-3 py-2.5 outline-none transition-colors"
-              style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1, fontSize: 14 }}
-            />
-            <p className="mb-4" style={{ color: T3, fontSize: 10.5 }}>{t('staffme.field.titleHint')}</p>
-
-            <label className="mb-2 block" style={{ color: T2, fontSize: 12 }}>{t('staffme.field.emoji')}</label>
-            <div className="mb-4 flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={() => markDirty(setEmoji)(null)}
-                className="flex h-9 w-9 items-center justify-center rounded-xl transition-transform active:scale-95"
-                style={{
-                  background: emoji === null ? tokens.soft : C_FAINT,
-                  border: `1px solid ${emoji === null ? tokens.ring : BORDER}`,
-                  color: T3, fontSize: 11, fontWeight: 600,
-                }}
-                aria-label={t('staffme.emojiNone')}
-              >
-                {previewName ? staffInitials(previewName) : '—'}
-              </button>
-              {STAFF_EMOJI_CHOICES.map((choice) => (
-                <button
-                  key={choice}
-                  type="button"
-                  onClick={() => markDirty(setEmoji)(choice)}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl transition-transform active:scale-95"
-                  style={{
-                    background: emoji === choice ? tokens.soft : C_FAINT,
-                    border: `1px solid ${emoji === choice ? tokens.ring : BORDER}`,
-                    fontSize: 17, lineHeight: 1,
-                  }}
-                >
-                  {choice}
-                </button>
-              ))}
-            </div>
-
-            <label className="mb-2 block" style={{ color: T2, fontSize: 12 }}>{t('staffme.field.accent')}</label>
-            <div className="flex flex-wrap gap-2">
-              {STAFF_ACCENTS.map((key) => {
-                const tk = accentTokens(key, identity?.role ?? null);
-                const selected = (accent ?? (identity?.role ? STAFF_ROLE_DEFS[identity.role].defaultAccent : 'red')) === key;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => markDirty(setAccent)(key as StaffAccent)}
-                    className="flex h-9 w-9 items-center justify-center rounded-full transition-transform active:scale-95"
-                    style={{ background: tk.soft, border: `1.5px solid ${selected ? tk.solid : 'transparent'}` }}
-                    aria-label={key}
-                  >
-                    <span className="h-4 w-4 rounded-full" style={{ background: tk.solid }} />
-                  </button>
-                );
-              })}
-            </div>
+            {/* L'intitulé appartient au club : affiché, jamais édité ici. */}
+            {identity?.title?.trim() && (
+              <div className="mb-3 flex items-center justify-between rounded-xl px-3 py-2.5" style={{ background: C_FAINT, border: `1px solid ${BORDER}` }}>
+                <span style={{ color: T2, fontSize: 12 }}>{t('staffme.field.title')}</span>
+                <span style={{ color: T1, fontSize: 13, fontWeight: 550 }}>{identity.title}</span>
+              </div>
+            )}
+            <p className="mb-4" style={{ color: T3, fontSize: 10.5 }}>{t('staffme.field.titleByClub')}</p>
 
             <motion.button
               type="button"
               onClick={handleSave}
               disabled={!dirty || saving}
               animate={{ opacity: dirty ? 1 : 0.4 }}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold transition-transform active:scale-[0.99]"
+              className="flex w-full items-center justify-center gap-2 rounded-xl py-3 font-semibold transition-transform active:scale-[0.99]"
               style={{ background: dirty ? tokens.solid : C_FAINT, color: dirty ? '#000' : T3, fontSize: 14 }}
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
@@ -444,7 +406,7 @@ export default function StaffProfile() {
             </motion.button>
           </Card>
 
-          {/* ── Mes chiffres ─────────────────────────────────────────────── */}
+          {/* ── Relevé de service ────────────────────────────────────────── */}
           {statTiles.length > 0 && (
             <Card>
               <SectionTitle icon={ScanLine}>{t('staffme.section.stats')}</SectionTitle>
@@ -482,6 +444,26 @@ export default function StaffProfile() {
             </Card>
           )}
 
+          {/* ── Bravos reçus ─────────────────────────────────────────────── */}
+          {kudos.length > 0 && (
+            <Card>
+              <SectionTitle icon={Heart}>{t('staffme.section.kudos')}</SectionTitle>
+              <div className="space-y-2">
+                {kudos.map((k) => (
+                  <div key={k.id} className="flex items-start gap-2.5 rounded-xl px-3 py-2.5" style={{ background: 'rgba(244,114,182,0.06)', border: '1px solid rgba(244,114,182,0.18)' }}>
+                    <Heart className="mt-0.5 h-3.5 w-3.5 flex-none" style={{ color: '#F472B6' }} />
+                    <div className="min-w-0 flex-1">
+                      {k.body && <p style={{ color: T1, fontSize: 12.5 }}>{k.body}</p>}
+                      <p style={{ color: T3, fontSize: 10.5, marginTop: k.body ? 2 : 0 }}>
+                        {[kudosNames[k.from_user], new Date(k.created_at).toLocaleDateString()].filter(Boolean).join(' · ')}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
           {/* ── L'équipe ─────────────────────────────────────────────────── */}
           {team.length > 1 && (
             <Card>
@@ -489,7 +471,7 @@ export default function StaffProfile() {
               <div className="space-y-2">
                 {team.map((mate) => {
                   const mateRoleKeys = mate.roles.filter(isStaffRole);
-                  const mateTokens = accentTokens(mate.accent, primaryStaffRole(mate.roles));
+                  const mateTokens = roleTokens(primaryStaffRole(mate.roles));
                   const mateName = mate.display_name ?? '';
                   const mateRoles = mateRoleKeys.map((r) => t(STAFF_ROLE_DEFS[r].labelKey)).join(' · ');
                   return (
@@ -500,8 +482,6 @@ export default function StaffProfile() {
                       >
                         {mate.avatar_url ? (
                           <img src={mate.avatar_url} alt="" className="h-full w-full object-cover" loading="lazy" />
-                        ) : mate.emoji ? (
-                          <span style={{ fontSize: 16, lineHeight: 1 }}>{mate.emoji}</span>
                         ) : (
                           <span style={{ color: mateTokens.solid, fontSize: 11, fontWeight: 700 }}>
                             {staffInitials(mateName)}
