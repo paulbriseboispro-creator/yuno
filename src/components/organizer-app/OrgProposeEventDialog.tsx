@@ -16,6 +16,11 @@ import {
   T1, T2, T3, RED, BORDER, INNER_BG,
 } from '@/components/org-ui';
 
+import { ResponsibilitiesPicker } from '@/components/collab/ResponsibilitiesPicker';
+import {
+  defaultResponsibilities, sameResponsibilities, type CollabResponsibilities,
+} from '@/utils/collabResponsibilities';
+
 type CollabMode = 'co_event' | 'venue_rental' | 'org_hosted';
 
 interface ProposableEvent {
@@ -56,6 +61,9 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
 
   const [venueId, setVenueId] = useState<string>(preselectedVenueId || '');
   const [mode, setMode] = useState<CollabMode>('co_event');
+  // Axe RESPONSABILITES, independant du mode et des %. Voir collabResponsibilities.ts.
+  const [responsibilities, setResponsibilities] = useState<CollabResponsibilities>(
+    () => defaultResponsibilities('co_event'));
   const [eventId, setEventId] = useState<string>('');
   const [options, setOptions] = useState<ProposableEvent[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
@@ -112,7 +120,7 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
       // 1. Link the chosen night to the partner club. Publish state stays as-is.
       const { error } = await supabase
         .from('events')
-        .update({ partner_venue_id: venueId, event_mode: mode })
+        .update({ partner_venue_id: venueId, event_mode: mode, collab_responsibilities: responsibilities })
         .eq('id', eventId)
         .eq('organizer_user_id', user.id);
       if (error) throw error;
@@ -124,13 +132,17 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
       // .rpc — see rpc-unbound gotcha). Split defaults to the partnership terms.
       const { error: contractErr } = await supabase.rpc(
         'create_event_collab_contract' as never,
-        { p_event_id: eventId, p_cancellation_policy: 'pro_rata_refund' } as never,
+        {
+          p_event_id: eventId,
+          p_cancellation_policy: 'pro_rata_refund',
+          p_responsibilities: responsibilities,
+        } as never,
       );
       if (contractErr) {
         // Roll back the link so we never leave a half-formed co-event with no
         // contract (which would render as a misleading "active" partnership).
         await supabase.from('events')
-          .update({ partner_venue_id: null, event_mode: null })
+          .update({ partner_venue_id: null, event_mode: null, collab_responsibilities: null })
           .eq('id', eventId).eq('organizer_user_id', user.id);
         throw contractErr;
       }
@@ -286,7 +298,14 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
                 {MODES.map(({ value, icon: Icon, title, desc }) => {
                   const active = mode === value;
                   return (
-                    <button key={value} type="button" onClick={() => setMode(value)}
+                    <button key={value} type="button" onClick={() => {
+                      // Changer de mode reamorce la repartition sur le prereglage du
+                      // nouveau mode, SAUF si elle a ete reglee a la main.
+                      setResponsibilities(prev =>
+                        sameResponsibilities(prev, defaultResponsibilities(mode))
+                          ? defaultResponsibilities(value) : prev);
+                      setMode(value);
+                    }}
                       className="flex w-full items-start gap-3 rounded-xl p-3 text-left transition-all duration-150"
                       style={{
                         background: active ? 'rgba(232,25,44,0.06)' : INNER_BG,
@@ -302,6 +321,12 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
                 })}
               </div>
             </div>
+
+            {/* Qui fait quoi — axe distinct du mode et du partage des revenus. */}
+            <ResponsibilitiesPicker
+              value={responsibilities}
+              onChange={setResponsibilities}
+            />
 
             <div className="rounded-xl p-3" style={{ background: 'rgba(232,25,44,0.05)', border: '1px solid rgba(232,25,44,0.2)', color: T3, fontSize: 11.5 }}>
               {t(

@@ -14,6 +14,10 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { fr } from 'date-fns/locale';
 import { Send, Building2, Users, Sparkles, Clock, Image as ImageIcon, User } from 'lucide-react';
+import { ResponsibilitiesPicker } from '@/components/collab/ResponsibilitiesPicker';
+import {
+  defaultResponsibilities, sameResponsibilities, type CollabResponsibilities,
+} from '@/utils/collabResponsibilities';
 
 type CollabMode = 'co_event' | 'venue_rental' | 'org_hosted';
 
@@ -55,6 +59,9 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
 
   const [organizerId, setOrganizerId] = useState<string>(preselectedOrganizerId || '');
   const [mode, setMode] = useState<CollabMode>('co_event');
+  // Axe RESPONSABILITES, independant du mode et des %. Voir collabResponsibilities.ts.
+  const [responsibilities, setResponsibilities] = useState<CollabResponsibilities>(
+    () => defaultResponsibilities('co_event'));
   const [eventId, setEventId] = useState<string>('');
   const [options, setOptions] = useState<ProposableEvent[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
@@ -120,6 +127,7 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
         .update({
           partner_organizer_id: organizerId,
           event_mode: mode,
+          collab_responsibilities: responsibilities,
         })
         .eq('id', eventId)
         .eq('venue_id', venueId);
@@ -134,13 +142,17 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
       // Called bound on `supabase` (never detach .rpc — see rpc-unbound gotcha).
       const { error: contractErr } = await supabase.rpc(
         'create_event_collab_contract' as never,
-        { p_event_id: eventId, p_cancellation_policy: 'pro_rata_refund' } as never,
+        {
+          p_event_id: eventId,
+          p_cancellation_policy: 'pro_rata_refund',
+          p_responsibilities: responsibilities,
+        } as never,
       );
       if (contractErr) {
         // Roll back the link so we never leave a half-formed co-event with no
         // contract (which would render as a misleading "active" partnership).
         await supabase.from('events')
-          .update({ partner_organizer_id: null, event_mode: null })
+          .update({ partner_organizer_id: null, event_mode: null, collab_responsibilities: null })
           .eq('id', eventId).eq('venue_id', venueId);
         throw contractErr;
       }
@@ -300,7 +312,15 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
           {/* Collaboration mode */}
           <div className="space-y-2">
             <Label>{t('proposeEvent.collabMode')}</Label>
-            <RadioGroup value={mode} onValueChange={(v) => setMode(v as CollabMode)} className="space-y-2">
+            <RadioGroup value={mode} onValueChange={(v) => {
+              const next = v as CollabMode;
+              // Changer de mode reamorce la repartition sur le prereglage du
+              // nouveau mode, SAUF si elle a ete reglee a la main.
+              setResponsibilities(prev =>
+                sameResponsibilities(prev, defaultResponsibilities(mode))
+                  ? defaultResponsibilities(next) : prev);
+              setMode(next);
+            }} className="space-y-2">
               <Label className="flex items-start gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-card/40 has-[input:checked]:border-primary has-[input:checked]:bg-primary/5">
                 <RadioGroupItem value="co_event" className="mt-1" />
                 <div className="flex-1">
@@ -339,6 +359,18 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
               </Label>
             </RadioGroup>
           </div>
+
+          {/* Qui fait quoi — axe distinct du mode et du partage des revenus.
+              C'est ici qu'on dit « le club tient l'operationnel, l'orga tient le
+              design », ce que le mode seul ne savait pas exprimer. */}
+          <ResponsibilitiesPicker
+            value={responsibilities}
+            onChange={setResponsibilities}
+            partnerName={(() => {
+              const p = activePartners.find(x => x.organizer_user_id === organizerId);
+              return p ? orgLabel(p) : null;
+            })()}
+          />
 
           <div className="rounded-md bg-primary/5 border border-primary/20 p-3 text-xs text-muted-foreground">
             {t('proposeEvent.footerNote')}

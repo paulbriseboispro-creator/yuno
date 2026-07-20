@@ -13892,14 +13892,24 @@ export type Database = {
         }
         Returns: string
       }
-      create_event_collab_contract: {
-        Args: {
-          p_cancellation_policy?: string
-          p_event_id: string
-          p_split_rules?: Json
-        }
-        Returns: string
-      }
+      create_event_collab_contract:
+        | {
+            Args: {
+              p_cancellation_policy?: string
+              p_event_id: string
+              p_split_rules?: Json
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_cancellation_policy?: string
+              p_event_id: string
+              p_responsibilities?: Json
+              p_split_rules?: Json
+            }
+            Returns: string
+          }
       create_event_collab_series_contract:
         | {
             Args: {
