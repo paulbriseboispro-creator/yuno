@@ -710,6 +710,12 @@ const INCIDENT_LABEL: Record<Lang, Record<string, string>> = {
   es: { incident_fight: 'Pelea', incident_refusal: 'Entrada denegada', incident_medical: 'Urgencia médica', incident_other: 'Incidente' },
 };
 
+const CALL_LABEL: Record<Lang, Record<string, string>> = {
+  fr: { backup: 'Renfort demandé', security: 'Sécurité demandée', vip_arrival: 'Arrivée VIP à la porte', stock: 'Problème de stock', info: 'Viens me voir' },
+  en: { backup: 'Backup needed', security: 'Security needed', vip_arrival: 'VIP arrival at the door', stock: 'Stock issue', info: 'Come see me' },
+  es: { backup: 'Refuerzo solicitado', security: 'Seguridad solicitada', vip_arrival: 'Llegada VIP en la puerta', stock: 'Problema de stock', info: 'Ven a verme' },
+};
+
 // deno-lint-ignore no-explicit-any
 function staffPushCopy(type: string, lang: Lang, md: any): { title: string; body: string } | null {
   const zone = md?.zone_name ? ` — ${md.zone_name}` : '';
@@ -740,6 +746,28 @@ function staffPushCopy(type: string, lang: Lang, md: any): { title: string; body
       if (lang === 'en') return { title: '🚨 Incident at the door', body: `${label}${note}` };
       if (lang === 'es') return { title: '🚨 Incidente en la puerta', body: `${label}${note}` };
       return { title: '🚨 Incident à la porte', body: `${label}${note}` };
+    }
+    case 'station_call': {
+      // Appel entre postes : le libellé du message-type dans la langue du
+      // destinataire, l'émetteur en corps. C'est une sirène, pas un chat.
+      const label = CALL_LABEL[lang][md?.call_kind] || CALL_LABEL[lang].info;
+      const from = md?.from_name || (lang === 'es' ? 'Un compañero' : lang === 'en' ? 'A teammate' : 'Un collègue');
+      if (lang === 'en') return { title: `📻 ${label}`, body: from };
+      if (lang === 'es') return { title: `📻 ${label}`, body: from };
+      return { title: `📻 ${label}`, body: from };
+    }
+    case 'night_brief': {
+      const preview = md?.body_preview || '';
+      if (lang === 'en') return { title: "📋 Tonight's brief", body: preview };
+      if (lang === 'es') return { title: '📋 Consigna de la noche', body: preview };
+      return { title: '📋 Consigne du soir', body: preview };
+    }
+    case 'staff_kudos': {
+      const from = md?.from_name || '';
+      const body = [from, md?.body].filter(Boolean).join(' — ');
+      if (lang === 'en') return { title: '💛 You received kudos', body };
+      if (lang === 'es') return { title: '💛 Has recibido un bravo', body };
+      return { title: '💛 Tu as reçu un bravo', body };
     }
     default:
       return null; // type hors catalogue : pas de push (la DB filtre déjà, ceci est la ceinture).
@@ -779,6 +807,13 @@ async function handleStaffNotification(supabase: any, body: any): Promise<Respon
   const recipients = new Set<string>((roleRows ?? []).map((r: { user_id: string }) => r.user_id));
   // On ne se notifie pas de son propre geste (ex : le videur qui signale l'incident).
   if (notif.metadata?.actor_id) recipients.delete(notif.metadata.actor_id);
+  // Notification nominative (ex : un bravo) : la ligne est routée par rôle pour
+  // l'inbox, mais le push ne réveille QUE la personne visée.
+  if (notif.metadata?.recipient_id) {
+    for (const id of [...recipients]) {
+      if (id !== notif.metadata.recipient_id) recipients.delete(id);
+    }
+  }
   if (!recipients.size) return json({ message: 'no recipient', sent: 0 });
 
   const langById = new Map<string, Lang>(
