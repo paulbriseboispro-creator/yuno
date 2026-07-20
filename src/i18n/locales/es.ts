@@ -11522,6 +11522,34 @@ const es: Record<string, string> = {
   'ohelp.pg.staff.s10h': 'Su cuenta es suya',
   'ohelp.pg.staff.s10b': 'Cada miembro del staff toca su nombre arriba a la izquierda para abrir «Mi cuenta». Allí elige el nombre que aparece en sus pantallas, un puesto personalizado («Jefe de barra» en vez de «Barman»), un emoji, un color de acento que tiñe toda su interfaz y una foto de servicio. También ve sus propios números de los últimos 30 días y al resto del equipo. Nada que configurar por tu parte, nada que validar.',
 
+
+  // ── Collab: quién hace qué (eje de responsabilidades) ─────────────────────
+  'collabResp.title': "Quién hace qué",
+  'collabResp.desc': "El reparto de ingresos dice quién cobra. Esto dice quién manda sobre qué. Se negocian por separado.",
+  'collabResp.domain.creative': "Creación",
+  'collabResp.domain.ticketing': "Entradas",
+  'collabResp.domain.operations': "Operaciones",
+  'collabResp.domain.promotion': "Promoción",
+  'collabResp.domainDesc.creative': "Cartel, título, descripción, géneros musicales",
+  'collabResp.domainDesc.ticketing': "Precios, cupos, apertura de ventas",
+  'collabResp.domainDesc.operations': "Mesas VIP, plano de sala, acceso, lugar",
+  'collabResp.domainDesc.promotion': "Visibilidad, descubrimiento, posicionamiento",
+  'collabResp.holder.venue': "Club",
+  'collabResp.holder.organizer': "Organizador",
+  'collabResp.holder.both': "Ambos",
+  'collabResp.preset.shared': "Todo entre los dos",
+  'collabResp.preset.venue_ops_org_creative': "Cada uno a lo suyo",
+  'collabResp.preset.org_runs': "Manda el organizador",
+  'collabResp.preset.venue_runs': "Manda el club",
+  'collabResp.presetDesc.shared': "Ambas partes pueden cambiarlo todo. Lo más flexible y lo más expuesto a pisarse.",
+  'collabResp.presetDesc.venue_ops_org_creative': "El club lleva la sala, las mesas y las entradas. El organizador viste la noche y la llena.",
+  'collabResp.presetDesc.org_runs': "El organizador lleva toda la noche. El club presta el local.",
+  'collabResp.presetDesc.venue_runs': "El club lleva toda la noche. El organizador trae al público.",
+  'collabResp.preset.custom': "A medida",
+  'collabResp.presetDesc.custom': "Dominio por dominio, ajustado a mano.",
+  'collabResp.readOnly': "A cargo de la otra parte",
+  'collabResp.lockedByContract': "Definido por el contrato firmado. Para cambiarlo, renegocia el contrato.",
+  'collabResp.seriesNote': "Este reparto se aplica a todas las noches de la serie.",
 };
 
 export default es;

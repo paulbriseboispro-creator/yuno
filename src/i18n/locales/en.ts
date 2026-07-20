@@ -11408,6 +11408,34 @@ const en: Record<string, string> = {
   'ohelp.pg.staff.s10h': 'Their account belongs to them',
   'ohelp.pg.staff.s10b': 'Every staff member taps their name at the top left of their screen to open "My account". There they pick the name shown on their screens, a custom job title ("Head bartender" instead of "Bartender"), an emoji, an accent colour that themes their whole interface, and a work photo. They also see their own numbers for the last 30 days and the rest of the team. Nothing to set up on your side, and nothing you need to approve.',
 
+
+  // ── Collab: who does what (responsibilities axis) ─────────────────────────
+  'collabResp.title': "Who does what",
+  'collabResp.desc': "The revenue split says who gets the money. This says who has control over what. The two are negotiated separately.",
+  'collabResp.domain.creative': "Creative",
+  'collabResp.domain.ticketing': "Ticketing",
+  'collabResp.domain.operations': "Operations",
+  'collabResp.domain.promotion': "Promotion",
+  'collabResp.domainDesc.creative': "Poster, title, description, music genres",
+  'collabResp.domainDesc.ticketing': "Prices, quotas, sale opening",
+  'collabResp.domainDesc.operations': "VIP tables, floor plan, access, venue",
+  'collabResp.domainDesc.promotion': "Visibility, discovery, search",
+  'collabResp.holder.venue': "Club",
+  'collabResp.holder.organizer': "Organizer",
+  'collabResp.holder.both': "Both",
+  'collabResp.preset.shared': "Share everything",
+  'collabResp.preset.venue_ops_org_creative': "Each to their craft",
+  'collabResp.preset.org_runs': "Organizer runs it",
+  'collabResp.preset.venue_runs': "Club runs it",
+  'collabResp.preset.custom': "Custom",
+  'collabResp.presetDesc.shared': "Both sides can change anything. The most flexible, the most prone to stepping on each other.",
+  'collabResp.presetDesc.venue_ops_org_creative': "The club holds the room, the tables and the ticketing. The organizer dresses the night and fills it.",
+  'collabResp.presetDesc.org_runs': "The organizer runs the whole night. The club lends the room.",
+  'collabResp.presetDesc.venue_runs': "The club runs the whole night. The organizer brings the crowd.",
+  'collabResp.presetDesc.custom': "Domain by domain, set by hand.",
+  'collabResp.readOnly': "Held by the other side",
+  'collabResp.lockedByContract': "Set by the signed contract. To change it, renegotiate the contract.",
+  'collabResp.seriesNote': "This split applies to every night in the series.",
 };
 
 export default en;

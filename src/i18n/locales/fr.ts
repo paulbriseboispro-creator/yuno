@@ -11479,6 +11479,34 @@ const fr: Record<string, string> = {
   'ohelp.pg.staff.s10h': "Leur compte leur appartient",
   'ohelp.pg.staff.s10b': "Chaque membre du staff tape sur son nom en haut à gauche de son écran pour ouvrir « Mon compte ». Il y choisit le nom affiché sur ses écrans, un intitulé de poste personnalisé (« Chef de rang » plutôt que « Barman »), un emoji, une couleur d'accent qui colore toute son interface, et une photo de service. Il y voit aussi ses propres chiffres sur 30 jours et le reste de l'équipe. Rien à configurer de ton côté, rien à valider.",
 
+
+  // ── Collab : qui fait quoi (axe responsabilités) ──────────────────────────
+  'collabResp.title': "Qui fait quoi",
+  'collabResp.desc': "Le partage des revenus dit qui touche l'argent. Ceci dit qui a la main sur quoi. Les deux se négocient séparément.",
+  'collabResp.domain.creative': "Création",
+  'collabResp.domain.ticketing': "Billetterie",
+  'collabResp.domain.operations': "Opérations",
+  'collabResp.domain.promotion': "Promotion",
+  'collabResp.domainDesc.creative': "Affiche, titre, description, genres musicaux",
+  'collabResp.domainDesc.ticketing': "Prix, quotas, ouverture des ventes",
+  'collabResp.domainDesc.operations': "Tables VIP, plan de salle, accès, lieu",
+  'collabResp.domainDesc.promotion': "Visibilité, découverte, référencement",
+  'collabResp.holder.venue': "Club",
+  'collabResp.holder.organizer': "Organisateur",
+  'collabResp.holder.both': "Les deux",
+  'collabResp.preset.shared': "Tout à deux",
+  'collabResp.preset.venue_ops_org_creative': "Chacun son métier",
+  'collabResp.preset.org_runs': "L'orga pilote",
+  'collabResp.preset.venue_runs': "Le club pilote",
+  'collabResp.preset.custom': "Sur mesure",
+  'collabResp.presetDesc.shared': "Les deux parties peuvent tout modifier. Le plus souple, le plus exposé aux allers-retours.",
+  'collabResp.presetDesc.venue_ops_org_creative': "Le club tient la salle, les tables et la billetterie. L'organisateur habille la soirée et la remplit.",
+  'collabResp.presetDesc.org_runs': "L'organisateur gère toute la soirée. Le club prête ses murs.",
+  'collabResp.presetDesc.venue_runs': "Le club gère toute la soirée. L'organisateur apporte son audience.",
+  'collabResp.presetDesc.custom': "Répartition domaine par domaine, réglée à la main.",
+  'collabResp.readOnly': "Confié à l'autre partie",
+  'collabResp.lockedByContract': "Réparti par le contrat signé. Pour changer, renégociez le contrat.",
+  'collabResp.seriesNote': "Cette répartition s'applique à toutes les soirées de la série.",
 };
 
 export default fr;

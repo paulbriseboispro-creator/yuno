@@ -9,6 +9,14 @@ import { PosterCropper, PosterPosition } from '@/components/PosterCropper';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { normalizeSplitRules } from '@/lib/splitRules';
 import type { PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
+import { ResponsibilitiesPicker } from '@/components/collab/ResponsibilitiesPicker';
+import {
+  RESPONSIBILITY_PRESETS, defaultResponsibilities, normalizeResponsibilities, sameResponsibilities,
+  type CollabResponsibilities,
+} from '@/utils/collabResponsibilities';
+
+/** Axe ARGENT d'une collaboration récurrente — mêmes modes que le ponctuel. */
+type CollabMode = 'co_event' | 'venue_rental' | 'org_hosted';
 
 // ─── Yuno Design Tokens (mirror OwnerEvents) ──────────────────────────────────
 const RED      = '#E8192C';
@@ -89,6 +97,7 @@ type SeriesContractRow = {
   organizer_user_id: string;
   split_rules: Record<string, unknown> | null;
   cancellation_policy: CancellationPolicy | null;
+  responsibilities: Record<string, unknown> | null;
 };
 // Modèles de guest list « club » réutilisables (gérés dans /owner/guest-list, onglet Modèles).
 type GuestListPreset = { id: string; name: string; quota: number };
@@ -116,6 +125,8 @@ type TemplateRow = {
   // Canonical nested shape { tickets/tables/drinks: { organizer_pct, venue_pct } }.
   // Legacy templates may still hold the flat { venue, organizer } shape — read via normalizeSplitRules.
   revenue_split_rules: Record<string, unknown> | null;
+  collab_mode: string | null;
+  collab_responsibilities: Record<string, unknown> | null;
   is_active: boolean;
 };
 
@@ -135,6 +146,12 @@ type FormState = {
   guestListTemplateId: string;
   autoEnableTables: boolean;
   partnerOrganizerId: string;
+  // Axe ARGENT de la collaboration. Le récurrent forçait co_event en dur : un club
+  // ne pouvait proposer qu'une co-organisation sur une résidence, jamais une
+  // location de salle ni un hébergement.
+  collabMode: CollabMode;
+  // Axe RESPONSABILITÉS — indépendant du mode et des %. Voir collabResponsibilities.ts.
+  responsibilities: CollabResponsibilities;
   // Contrat-cadre de la série : reprendre des conditions déjà signées, ou en rédiger de neuves.
   contractMode: 'existing' | 'new';
   contractSourceKey: string;
@@ -149,7 +166,9 @@ const EMPTY_FORM: FormState = {
   name: '', description: '', posterUrl: '', musicGenres: ['Open Format'], eventType: 'club',
   dayOfWeek: 5, startTime: '23:00', endTime: '06:00', advanceDays: 7,
   ticketPresetId: '', vipPresetId: '', tablePresetId: '', guestListTemplateId: '', autoEnableTables: false,
-  partnerOrganizerId: '', contractMode: 'new', contractSourceKey: '',
+  partnerOrganizerId: '', collabMode: 'co_event',
+  responsibilities: { ...RESPONSIBILITY_PRESETS.shared },
+  contractMode: 'new', contractSourceKey: '',
   ticketsVenuePct: 70, tablesVenuePct: 70, drinksVenuePct: 100,
   cancellationPolicy: 'pro_rata_refund', isActive: true,
 };
@@ -235,7 +254,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
   const [guestListPresets, setGuestListPresets] = useState<GuestListPreset[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
   // Contrat-cadre récurrent par template (co-event club-led) : pending | active.
-  const [seriesByTemplate, setSeriesByTemplate] = useState<Map<string, { id: string; status: string; rules: PartnershipSplitRules | null; policy: CancellationPolicy }>>(new Map());
+  const [seriesByTemplate, setSeriesByTemplate] = useState<Map<string, { id: string; status: string; rules: PartnershipSplitRules | null; policy: CancellationPolicy; responsibilities: CollabResponsibilities }>>(new Map());
   // Conditions déjà négociées avec chaque organisateur (autres contrats-cadres + partenariat).
   const [reusableByOrganizer, setReusableByOrganizer] = useState<Map<string, ReusableTerms[]>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -300,7 +319,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
             .eq('venue_id', venueId).eq('status', 'active'),
           supabase
             .from('event_collab_series_contracts' as never)
-            .select('id, template_id, status, organizer_user_id, split_rules, cancellation_policy')
+            .select('id, template_id, status, organizer_user_id, split_rules, cancellation_policy, responsibilities')
             .eq('venue_id' as never, venueId as never)
             .in('status' as never, ['draft', 'pending_signatures', 'active'] as never),
         ]);
@@ -309,6 +328,9 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
           id: s.id, status: s.status,
           rules: normalizeSplitRules(s.split_rules),
           policy: s.cancellation_policy ?? 'pro_rata_refund',
+          // La répartition SIGNÉE fait foi : le formulaire l'affiche en lecture seule
+          // tant que le cadre vit (voir ResponsibilitiesPicker disabled).
+          responsibilities: normalizeResponsibilities(s.responsibilities, 'co_event'),
         }])));
 
         const ids = (parts || []).map(p => p.organizer_user_id).filter(Boolean) as string[];
@@ -397,6 +419,8 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
       guestListTemplateId: tpl.guest_list_template_id || '',
       autoEnableTables: tpl.auto_enable_tables,
       partnerOrganizerId: tpl.partner_organizer_id || '',
+      collabMode: (tpl.collab_mode as CollabMode) || 'co_event',
+      responsibilities: normalizeResponsibilities(tpl.collab_responsibilities, tpl.collab_mode || 'co_event'),
       contractMode: 'new',
       contractSourceKey: '',
       ticketsVenuePct: stored?.tickets.venue_pct ?? 70,
@@ -524,6 +548,13 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
         // Choisir un preset de tables implique des tables en ligne sur chaque occurrence.
         auto_enable_tables: form.autoEnableTables || (!isOrg && !!form.tablePresetId),
         partner_organizer_id: !isOrg && form.partnerOrganizerId ? form.partnerOrganizerId : null,
+        // Mode + répartition ne valent que sur une série co-organisée. Sur une série
+        // solo on les remet à NULL, sinon un template repassé en solo garderait une
+        // répartition fantôme que la génération recopierait sur chaque occurrence.
+        collab_mode: !isOrg && form.partnerOrganizerId ? form.collabMode : null,
+        collab_responsibilities: !isOrg && form.partnerOrganizerId
+          ? (liveSeries?.responsibilities ?? form.responsibilities)
+          : null,
         // Forme canonique imbriquée, un % par catégorie. Quand un contrat-cadre vit déjà
         // sur cette série, il fait foi (generate_recurring_events le lit en priorité) et
         // ses termes sont immuables : on ne réécrit pas le template par-dessus.
@@ -567,6 +598,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
             p_template_id: templateId,
             p_split_rules: terms.rules,
             p_cancellation_policy: terms.policy,
+            p_responsibilities: form.responsibilities,
           } as never);
           if (contractErr) throw contractErr;
 
@@ -943,6 +975,67 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                     <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
                   </div>
                 </div>
+
+                {/* ── Mode de collaboration ─────────────────────────────────────
+                    Le récurrent forçait co_event : une résidence ne pouvait être
+                    qu'une co-organisation. Les trois modes du ponctuel s'appliquent
+                    aussi bien à une série — c'est le même accord, répété. */}
+                {form.partnerOrganizerId && (
+                  <div>
+                    <FieldLabel>{t('proposeEvent.collabMode')}</FieldLabel>
+                    <div className="space-y-1.5">
+                      {([
+                        { m: 'co_event' as const,     label: t('coInv.modeCoEvent'), desc: t('proposeEvent.coEventDesc') },
+                        { m: 'venue_rental' as const, label: t('coInv.modeRental'),  desc: t('proposeEvent.venueRentalDesc') },
+                        { m: 'org_hosted' as const,   label: t('proposeEvent.orgHosted'), desc: t('proposeEvent.orgHostedDesc') },
+                      ]).map(opt => {
+                        const on = form.collabMode === opt.m;
+                        return (
+                          <button
+                            key={opt.m} type="button" disabled={!!liveSeries}
+                            onClick={() => setForm(prev => ({
+                              ...prev,
+                              collabMode: opt.m,
+                              // Changer de mode réamorce la répartition sur le préréglage
+                              // du nouveau mode, SAUF si elle a été réglée à la main —
+                              // sinon un aller-retour entre modes effacerait le travail.
+                              responsibilities: sameResponsibilities(
+                                prev.responsibilities, defaultResponsibilities(prev.collabMode))
+                                ? defaultResponsibilities(opt.m)
+                                : prev.responsibilities,
+                            }))}
+                            className="w-full rounded-xl px-3 py-2.5 text-left transition-all duration-150"
+                            style={{
+                              cursor: liveSeries ? 'not-allowed' : 'pointer',
+                              opacity: liveSeries && !on ? 0.4 : 1,
+                              ...(on
+                                ? { background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.3)' }
+                                : { background: INNER_BG, border: `1px solid ${BORDER}` }),
+                            }}
+                          >
+                            <span style={{ color: on ? RED : T1, fontSize: 12.5, fontWeight: 600 }}>{opt.label}</span>
+                            <span className="block" style={{ color: T3, fontSize: 10.5, lineHeight: 1.35, marginTop: 2 }}>
+                              {opt.desc}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Qui fait quoi ─────────────────────────────────────────────
+                    Axe distinct du mode et des % : c'est ici que « le club tient
+                    l'opérationnel, l'orga tient le design » devient exprimable. */}
+                {form.partnerOrganizerId && (
+                  <ResponsibilitiesPicker
+                    value={liveSeries?.responsibilities ?? form.responsibilities}
+                    onChange={next => setForm(prev => ({ ...prev, responsibilities: next }))}
+                    disabled={!!liveSeries}
+                    partnerName={selectedPartner?.name}
+                    note={t('collabResp.seriesNote')}
+                  />
+                )}
 
                 {/* ── Étape contrat ─────────────────────────────────────────────
                     Un contrat-cadre existe déjà sur cette série : ses termes sont
