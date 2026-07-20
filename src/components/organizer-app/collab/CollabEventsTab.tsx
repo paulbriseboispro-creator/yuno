@@ -15,6 +15,7 @@ import { OrgPendingProposals } from '@/components/organizer-app/OrgPendingPropos
 import { OrgProposeEventDialog } from '@/components/organizer-app/OrgProposeEventDialog';
 import { CollabActionControls } from '@/components/collab/CollabActionControls';
 import { CollabSeriesContracts } from '@/components/collab/CollabSeriesContracts';
+import { CollabPendingAmendments } from '@/components/collab/CollabPendingAmendments';
 
 const dateFnsLocale = (lng: string) => (lng === 'fr' ? fr : lng === 'es' ? es : enUS);
 
@@ -112,6 +113,7 @@ export function CollabEventsTab() {
       <OrgPendingProposals />
 
       {/* Active recurring frameworks — download the contract or terminate for the future */}
+      <CollabPendingAmendments role="organizer" onChanged={load} />
       <CollabSeriesContracts role="organizer" onChanged={load} />
 
       {loading ? (

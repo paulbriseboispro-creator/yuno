@@ -10,6 +10,8 @@ import { ClubProposeEventDialog } from '@/components/owner/ClubProposeEventDialo
 import { PurchaseSourceBreakdown } from '@/components/analytics/PurchaseSourceBreakdown';
 import { CollabActionControls } from '@/components/collab/CollabActionControls';
 import { CollabProposalsInbox } from '@/components/collab/CollabProposalsInbox';
+import { CollabPendingAmendments } from '@/components/collab/CollabPendingAmendments';
+import { CollabSeriesContracts } from '@/components/collab/CollabSeriesContracts';
 import { PartnershipSplitEditor, PartnershipProposalBanner } from '@/components/organizer-app/PartnershipSplitEditor';
 import { getPartnershipProposalStatus } from '@/hooks/useOrganizerPartnerships';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -341,6 +343,14 @@ function CollabEventsTab({ venueId, canPropose }: { venueId: string; canPropose:
     <div className="space-y-4">
       {/* Incoming co-event proposals from organizers (symmetric with the org hub). */}
       <CollabProposalsInbox role="venue" venueId={venueId} onChanged={fetchEvents} />
+
+      {/* Avenants qu'on nous demande de contresigner. Rien n'a change tant qu'ils
+          sont la : le contrat d'origine reste en vigueur. */}
+      <CollabPendingAmendments role="venue" venueId={venueId} onChanged={fetchEvents} />
+
+      {/* Contrats-cadres du club : PDF, avenant, resiliation. Le meme composant
+          role-aware que l'organisateur voit de son cote. */}
+      <CollabSeriesContracts role="venue" venueId={venueId} onChanged={fetchEvents} />
 
       <div className="flex items-center justify-between flex-wrap gap-2">
         <p style={{ color: T3, fontSize: 12 }}>{t('collab.events.subtitle')}</p>

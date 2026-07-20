@@ -4,9 +4,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
-import { Repeat, Clock, FileText, Loader2, XCircle } from 'lucide-react';
+import { Repeat, Clock, FileText, Loader2, XCircle, FileSignature } from 'lucide-react';
 import { loadCollabSeriesContractPdfData } from '@/lib/collabContractData';
 import { previewContractPDF } from '@/lib/generateContractPDF';
+import { CollabAmendmentDialog, type AmendmentTarget } from './CollabAmendmentDialog';
 import type { EventCollabSeriesContractRow } from '@/hooks/useEventCollabSeriesContract';
 
 // ─── Yuno DA tokens (aligned with the collab inbox) ────────────────────────────
@@ -58,6 +59,9 @@ export function CollabSeriesContracts({ role, venueId, onChanged }: Props) {
   const [items, setItems] = useState<ActiveSeries[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Avenant en cours de redaction sur l'une des series.
+  const [amendTarget, setAmendTarget] = useState<AmendmentTarget | null>(null);
+  const [amendOpen, setAmendOpen] = useState(false);
 
   const everyWeekday = (dow: number, time: string) => {
     const hhmm = (time || '').slice(0, 5);
@@ -185,6 +189,24 @@ export function CollabSeriesContracts({ role, venueId, onChanged }: Props) {
                 <FileText className="h-3.5 w-3.5" />{tt('Contrat', 'Contract', 'Contrato')}
               </button>
               <button
+                onClick={() => {
+                  setAmendTarget({
+                    seriesContractId: s.row.id,
+                    responsibilities: s.row.responsibilities,
+                    splitRules: s.row.split_rules,
+                    eventMode: null,
+                    label: s.label,
+                    partnerName: s.partnerName,
+                    recurring: true,
+                  });
+                  setAmendOpen(true);
+                }}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-medium"
+                style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}
+              >
+                <FileSignature className="h-3.5 w-3.5" />{tt('Avenant', 'Amendment', 'Adenda')}
+              </button>
+              <button
                 onClick={() => terminate(s)}
                 disabled={busyId === s.row.id}
                 className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-medium"
@@ -197,6 +219,14 @@ export function CollabSeriesContracts({ role, venueId, onChanged }: Props) {
           </div>
         ))}
       </div>
+
+      <CollabAmendmentDialog
+        open={amendOpen}
+        onOpenChange={setAmendOpen}
+        target={amendTarget}
+        viewerSide={role === 'venue' ? 'venue' : 'organizer'}
+        onDone={load}
+      />
     </div>
   );
 }
