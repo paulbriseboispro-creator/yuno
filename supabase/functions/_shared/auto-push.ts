@@ -22,16 +22,32 @@ export type AutoPushLang = "fr" | "en" | "es";
 type Tpl = { title: string; body: string };
 type TplByLang = Record<AutoPushLang, Tpl>;
 
+// Une personne peut avoir les DEUX apps sur le même téléphone (un patron de club
+// est aussi un client). Sans audience explicite, le relay livrait sur toutes ses
+// plateformes et la même notif arrivait en double, sur Yuno ET sur Yuno Pro.
+// Chaque clé déclare donc l'app à laquelle elle appartient :
+//   client → app Yuno (platform 'ios')      : billets, boissons, marketing…
+//   pro    → app Yuno Pro (platform 'ios_pro') : règlements, exploitation…
+export type PushAudience = "client" | "pro";
+
+/** Plateformes push correspondant à une audience (colonne push_subscriptions.platform). */
+export function audiencePlatforms(audience: PushAudience): string[] {
+  return audience === "pro" ? ["ios_pro"] : ["ios"];
+}
+
 type AutoPushDef = {
   // Type écrit dans notification_log — les caps anti-spam existants comptent
   // sur ces valeurs ('marketing'/'campaign'/'reminder' pour les plafonds).
   logType: "transactional" | "reminder" | "marketing" | "dj_lineup";
+  // App destinataire — jamais les deux (cf. PushAudience).
+  audience: PushAudience;
   variants: Record<string, TplByLang>;
 };
 
 export const AUTO_PUSH: Record<string, AutoPushDef> = {
   purchase_ticket: {
     logType: "transactional",
+    audience: "client",
     variants: {
       default: {
         fr: { title: "Billet confirmé 🎟️", body: "{date} – {event}. Ton QR est prêt." },
@@ -42,6 +58,7 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
   },
   purchase_table: {
     logType: "transactional",
+    audience: "client",
     variants: {
       default: {
         fr: { title: "Table confirmée 🥂", body: "VIP – {event} – {amount}€" },
@@ -52,6 +69,7 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
   },
   order_ready: {
     logType: "transactional",
+    audience: "client",
     variants: {
       default: {
         fr: { title: "Ta commande est prête 🍹", body: "Récupère-la au bar avec le code {pin}." },
@@ -67,6 +85,7 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
   },
   refund_confirmed: {
     logType: "transactional",
+    audience: "client",
     variants: {
       default: {
         fr: { title: "Remboursement traité 💸", body: "{amount}€ remboursés sur ton moyen de paiement." },
@@ -77,6 +96,7 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
   },
   guest_list_added: {
     logType: "transactional",
+    audience: "client",
     variants: {
       default: {
         fr: { title: "Tu es sur la guest list ✨", body: "{event} – ton QR d'entrée t'attend dans l'app." },
@@ -107,6 +127,7 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
   },
   waitlist_presale: {
     logType: "transactional",
+    audience: "client",
     variants: {
       default: {
         fr: { title: "🎉 Billets disponibles !", body: "Les billets pour {event} sont en vente. Tu as un accès prioritaire !" },
@@ -117,6 +138,7 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
   },
   cart_abandonment: {
     logType: "marketing",
+    audience: "client",
     variants: {
       ticket: {
         fr: { title: "Toujours dispo 🎟️", body: "Tes billets pour {event} sont encore disponibles." },
@@ -132,6 +154,7 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
   },
   inactivity_reminder: {
     logType: "marketing",
+    audience: "client",
     variants: {
       default: {
         fr: { title: "On ne t'a pas vu récemment 👋", body: "Nouvelle programmation ce mois-ci. Découvre les prochaines soirées." },
@@ -142,11 +165,63 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
   },
   weekly_digest: {
     logType: "marketing",
+    audience: "client",
     variants: {
       default: {
         fr: { title: "Ton week-end commence ici 🎉", body: "{events} ce week-end. Découvre la programmation." },
         en: { title: "Your weekend starts here 🎉", body: "{events} this weekend. Check out the lineup." },
         es: { title: "Tu finde empieza aquí 🎉", body: "{events} este fin de semana. Descubre la programación." },
+      },
+    },
+  },
+
+  // ── Cycle de règlement promoteur ─────────────────────────────────────────
+  // Le seul push réellement indispensable est `promoter_payout_declared` : sans
+  // lui, le promoteur ne sait pas qu'on attend son accusé de réception, et le
+  // lot part en litige tout seul au bout de quelques jours.
+  promoter_payout_declared: {
+    logType: "transactional",
+    audience: "pro",
+    variants: {
+      default: {
+        fr: { title: "Virement déclaré 💸", body: "{payer} déclare t'avoir versé {amount}€. Confirme la réception dans l'app." },
+        en: { title: "Transfer declared 💸", body: "{payer} says they paid you {amount}€. Confirm receipt in the app." },
+        es: { title: "Transferencia declarada 💸", body: "{payer} declara haberte pagado {amount}€. Confirma la recepción en la app." },
+      },
+    },
+  },
+  promoter_payout_reminder: {
+    logType: "reminder",
+    audience: "pro",
+    variants: {
+      default: {
+        fr: { title: "Tu as reçu {amount}€ ?", body: "{payer} attend ton accusé de réception. Sans réponse, le règlement passe en litige." },
+        en: { title: "Did you receive {amount}€?", body: "{payer} is waiting for your acknowledgement. Without an answer it turns into a dispute." },
+        es: { title: "¿Recibiste {amount}€?", body: "{payer} espera tu acuse de recibo. Sin respuesta, la liquidación pasa a disputa." },
+      },
+    },
+  },
+  // Destiné au club : son promoteur a confirmé, la dette est soldée des deux
+  // côtés et le reçu contresigné est disponible.
+  promoter_payout_confirmed: {
+    logType: "transactional",
+    audience: "pro",
+    variants: {
+      default: {
+        fr: { title: "Règlement confirmé ✅", body: "{promoter} a accusé réception de {amount}€. Reçu disponible." },
+        en: { title: "Settlement confirmed ✅", body: "{promoter} acknowledged receipt of {amount}€. Receipt available." },
+        es: { title: "Liquidación confirmada ✅", body: "{promoter} acusó recibo de {amount}€. Recibo disponible." },
+      },
+    },
+  },
+  promoter_payout_disputed: {
+    logType: "transactional",
+    audience: "pro",
+    variants: {
+      default: {
+        fr: { title: "Litige sur un règlement ⚠️", body: "{promoter} ne trouve pas le virement de {amount}€. Vérifie la référence {reference}." },
+        en: { title: "Settlement disputed ⚠️", body: "{promoter} cannot find the {amount}€ transfer. Check reference {reference}." },
+        es: { title: "Liquidación en disputa ⚠️", body: "{promoter} no encuentra la transferencia de {amount}€. Comprueba la referencia {reference}." },
       },
     },
   },
@@ -178,13 +253,18 @@ export function renderAutoTpl(
   return { title: renderText(tpl.title, vars, lang), body: renderText(tpl.body, vars, lang) };
 }
 
-/** Date « samedi 21 » déclinée dans les trois langues (pour les vars par langue). */
+/**
+ * Date « sam. 21 juin » déclinée dans les trois langues (pour les vars par langue).
+ * Le mois est indispensable : un push part dans les 48 h suivant la création de
+ * la soirée, qui peut avoir lieu des mois plus tard — « samedi 21 » seul laissait
+ * croire à la semaine en cours. Format court pour tenir dans une ligne de notif.
+ */
 export function localizedDate(iso: string | null | undefined): Record<AutoPushLang, string> {
   if (!iso) return { fr: "", en: "", es: "" };
   const d = new Date(iso);
   const fmt = (locale: string) => {
     try {
-      return new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric" }).format(d);
+      return new Intl.DateTimeFormat(locale, { weekday: "short", day: "numeric", month: "short" }).format(d);
     } catch {
       return "";
     }
@@ -248,7 +328,9 @@ export async function logAutoPushOutcome(
       notification_key: key,
       user_id: userId,
       event_type: outcome,
-      platform: "ios",
+      // Reflète l'app réellement ciblée : une notif pro part sur 'ios_pro', et
+      // écrire 'ios' en dur faussait les stats par plateforme.
+      platform: audiencePlatforms(AUTO_PUSH[key]?.audience ?? "client")[0],
     });
     if (outcome === "sent") {
       const logType = AUTO_PUSH[key]?.logType ?? "transactional";
@@ -283,6 +365,7 @@ export async function sendAutoPush(admin: any, opts: {
     console.error(`[AUTO-PUSH] unknown key/variant: ${key}/${opts.variant ?? "default"}`);
     return { sent: 0 };
   }
+  const platforms = audiencePlatforms(AUTO_PUSH[key].audience);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -293,6 +376,7 @@ export async function sendAutoPush(admin: any, opts: {
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
       body: JSON.stringify({
         user_id: userId,
+        platforms,
         payload: { title: tpl.title, body: tpl.body, url: autoTrackUrl(url, key) },
       }),
     });

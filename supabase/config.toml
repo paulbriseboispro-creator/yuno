@@ -312,3 +312,9 @@ verify_jwt = true
 # Outil de traduction de contenu (owner authentifié) → true
 [functions.translate-text]
 verify_jwt = true
+
+# Notifications du cycle de règlement promoteur (déclaration, accusé de
+# réception, litige). Le statut en base décide de ce qui part → owner ou
+# promoteur, jamais le client.
+[functions.promoter-payout-notify]
+verify_jwt = true

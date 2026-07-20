@@ -275,6 +275,17 @@ export function PromoterProfileTab({ promoter, allPromoterProfiles, onSaved }: P
               <Label>{t('promoter.bicOptional')}</Label>
               <Input value={newBic} onChange={(e) => setNewBic(e.target.value)} placeholder="BNPAFRPP" className="font-mono" />
             </div>
+            {/* Le gel de 24 h est une sécurité anti-détournement : changer l'IBAN
+                juste avant un virement est LE vecteur d'attaque de ce type de
+                flux. Sans cet avertissement, un promoteur corrigeant une faute de
+                frappe bloquait son propre règlement pour une journée, dans tous
+                ses clubs, sans jamais comprendre pourquoi. */}
+            {globalIban && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                <p className="text-xs text-muted-foreground">{t('promoter.ibanFreezeWarning')}</p>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowIbanDialog(false)}>{t('promoter.cancel')}</Button>

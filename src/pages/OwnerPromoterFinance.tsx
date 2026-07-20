@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { translate } from '@/i18n/orgTranslate';
 import { supabase } from '@/integrations/supabase/client';
-import type { TablesUpdate } from '@/integrations/supabase/types';
 import { usePromoterScope } from '@/hooks/usePromoterScope';
 import { getScopeFilter, scopeId } from '@/lib/promoterScopeHelpers';
 import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
@@ -9,11 +8,20 @@ import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { toast } from 'sonner';
-import { Clock, CheckCircle2, ShieldCheck, Download, Wallet } from 'lucide-react';
+import {
+  Clock, CheckCircle2, ShieldCheck, Download, Wallet, Landmark,
+  AlertTriangle, X, FileText, Hourglass,
+} from 'lucide-react';
 import {
   PromoHeader, PromoPage, PromoCard, StatTile, SectionLabel, PromoPill, PromoButton, PromoEmpty,
-  RED, POS, WARN, T1, T2, T3, BORDER, TILE_BG,
+  CopyField, RED, POS, WARN, T1, T2, T3, BORDER,
 } from '@/components/promoter/promoter-ui';
+import {
+  preparePayout, declarePayoutSent, resolvePayoutDispute, cancelPayout,
+  notifyPayoutParties, payoutErrorKey, formatIban, euro, daysUntil,
+  PAYOUT_COLUMNS, type PayoutStatus, type PromoterPayoutRow,
+} from '@/lib/promoterPayout';
+import { generatePayoutReceiptPDF, payoutReceiptFilename, type PayoutReceiptLine } from '@/lib/generatePayoutReceiptPDF';
 
 interface PromoterDebt {
   promoterId: string;
@@ -23,20 +31,27 @@ interface PromoterDebt {
   pendingAmount: number;
 }
 
-interface Payout {
-  id: string;
-  promoter_id: string;
-  amount: number;
-  status: 'pending' | 'approved' | 'paid';
-  period_label: string | null;
-  approved_at: string | null;
-  paid_at: string | null;
-  notes: string | null;
-  created_at: string;
+interface Payout extends PromoterPayoutRow {
   promoterName: string;
   promoterIban: string | null;
 }
 
+/**
+ * Règlement des promoteurs, en trois temps.
+ *
+ * L'ancien écran soldait tout d'un clic : le club appuyait sur « Régler », la
+ * dette disparaissait, et rien ne prouvait qu'un euro avait bougé. Un club
+ * pouvait effacer une dette sans payer ; un promoteur pouvait affirmer n'avoir
+ * jamais rien reçu. Aucune des deux parties n'avait de recours.
+ *
+ * Désormais : le club PRÉPARE (le périmètre se fige et devient annulable), vire
+ * depuis sa propre banque avec la référence fournie, DÉCLARE l'avoir fait, et
+ * le promoteur ACCUSE RÉCEPTION. Les commissions ne sont soldées qu'à cette
+ * dernière étape — celle que le club ne contrôle pas.
+ *
+ * Yuno ne touche jamais les fonds : le virement est un SEPA classique de banque
+ * à banque. Ce qui est sécurisé ici, c'est l'accord et son horodatage.
+ */
 export default function OwnerPromoterFinance() {
   const scope = usePromoterScope();
   const sid = scopeId(scope);
@@ -47,8 +62,14 @@ export default function OwnerPromoterFinance() {
   const { canExport } = useCollabReadOnly();
   const [debts, setDebts] = useState<PromoterDebt[]>([]);
   const [payouts, setPayouts] = useState<Payout[]>([]);
+  const [payerName, setPayerName] = useState('');
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+
+  const fail = (err: unknown) => {
+    console.error(err);
+    toast.error(t(payoutErrorKey(err)));
+  };
 
   const fetchData = useCallback(async () => {
     if (!sid) return;
@@ -79,6 +100,16 @@ export default function OwnerPromoterFinance() {
         }];
       }));
 
+      // Qui paie — c'est ce nom qui figure sur le reçu contresigné.
+      if (scope.kind === 'venue') {
+        const { data: venue } = await supabase.from('venues').select('name').eq('id', sid).maybeSingle();
+        setPayerName(venue?.name || '');
+      } else {
+        const { data: me } = await supabase.from('profiles')
+          .select('first_name, last_name, email').eq('id', sid).maybeSingle();
+        setPayerName(me ? `${me.first_name || ''} ${me.last_name || ''}`.trim() || me.email || '' : '');
+      }
+
       // PostgREST plafonne une réponse à 1000 lignes. Sans pagination, un club
       // au-delà de ce seuil voyait un « À payer » tronqué et cliquait « Régler
       // X€ » alors que la RPC, elle, somme le vrai total côté serveur : l'owner
@@ -105,10 +136,37 @@ export default function OwnerPromoterFinance() {
         debtMap.set(c.promoter_id, existing);
       });
 
+      // Restreint aux promoteurs du club. Un règlement fait par une AGENCE à son
+      // propre promoteur écrit quand même le venue_id du club sur la ligne de
+      // paiement : sans ce filtre, le total « Payé » du club gonflait d'argent
+      // qu'il n'a jamais versé, et ces lignes s'affichaient en « N/A » puisque le
+      // promoteur agence est volontairement exclu plus haut.
+      const { data: payoutsData, error: payoutsError } = await supabase.from('promoter_payouts')
+        .select(PAYOUT_COLUMNS).eq(scopeFilter.column, sid)
+        .in('promoter_id', promoterIds)
+        .order('created_at', { ascending: false });
+      if (payoutsError) throw payoutsError;
+
+      const rows = ((payoutsData || []) as unknown as PromoterPayoutRow[]).map(d => ({
+        ...d,
+        status: d.status as PayoutStatus,
+        promoterName: promoterInfoMap.get(d.promoter_id)?.name || 'N/A',
+        promoterIban: promoterInfoMap.get(d.promoter_id)?.iban || null,
+      }));
+      setPayouts(rows);
+
+      // Un promoteur dont le règlement est déjà en cours ne doit plus apparaître
+      // en « commissions dues » : ses commissions sont figées dans le lot ouvert,
+      // et une seconde préparation serait refusée par la base. L'afficher avec un
+      // bouton « Préparer » qui échoue systématiquement n'aide personne.
+      const openPromoterIds = new Set(
+        rows.filter(p => p.status !== 'paid').map(p => p.promoter_id)
+      );
+
       const debtsList: PromoterDebt[] = [];
       debtMap.forEach((val, promoterId) => {
         const info = promoterInfoMap.get(promoterId);
-        if (val.amount > 0) {
+        if (val.amount > 0 && !openPromoterIds.has(promoterId)) {
           debtsList.push({
             promoterId,
             promoterName: info?.name || 'N/A',
@@ -120,24 +178,6 @@ export default function OwnerPromoterFinance() {
       });
       debtsList.sort((a, b) => b.pendingAmount - a.pendingAmount);
       setDebts(debtsList);
-
-      // Restreint aux promoteurs du club. Un règlement fait par une AGENCE à son
-      // propre promoteur écrit quand même le venue_id du club sur la ligne de
-      // paiement : sans ce filtre, le total « Payé » du club gonflait d'argent
-      // qu'il n'a jamais versé, et ces lignes s'affichaient en « N/A » puisque le
-      // promoteur agence est volontairement exclu plus haut.
-      const { data: payoutsData, error: payoutsError } = await supabase.from('promoter_payouts')
-        .select('*').eq(scopeFilter.column, sid)
-        .in('promoter_id', promoterIds)
-        .order('created_at', { ascending: false });
-      if (payoutsError) throw payoutsError;
-
-      setPayouts((payoutsData || []).map(d => ({
-        ...d,
-        status: d.status as 'pending' | 'approved' | 'paid',
-        promoterName: promoterInfoMap.get(d.promoter_id)?.name || 'N/A',
-        promoterIban: promoterInfoMap.get(d.promoter_id)?.iban || null,
-      })));
     } catch (err) {
       console.error(err);
       toast.error(t('promoterPayouts.loadError'));
@@ -148,50 +188,112 @@ export default function OwnerPromoterFinance() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // One-click atomic settle: pays out all pending commissions for a promoter,
-  // flips their conversions to paid and resets their balance in one transaction.
-  async function settleNow(promoterId: string) {
+  // ── Étape 1 : préparer le lot ──────────────────────────────────────────────
+  async function prepare(promoterId: string) {
     if (!sid) return;
     setActing(true);
     try {
-      const { data, error } = await supabase.rpc('settle_promoter_payout', { p_promoter_id: promoterId });
-      if (error) throw error;
-      const res = data as { settled?: boolean; amount?: number } | null;
-      if (res?.settled) toast.success(tt(`Réglé : ${Number(res.amount).toFixed(2)}€`, `Settled: ${Number(res.amount).toFixed(2)}€`, `Saldado: ${Number(res.amount).toFixed(2)}€`));
-      else toast.info(tt('Rien à régler', 'Nothing to settle'));
-      fetchData();
-    } catch { toast.error(t('promoterPayouts.updateError')); }
+      const res = await preparePayout(promoterId);
+      if (res?.prepared) {
+        toast.success(tt(
+          `Règlement préparé : ${euro(Number(res.amount))}`,
+          `Settlement prepared: ${euro(Number(res.amount))}`,
+          `Liquidación preparada: ${euro(Number(res.amount))}`,
+        ));
+      } else {
+        toast.info(t('promoterSettlement.nothingPending'));
+      }
+      await fetchData();
+    } catch (err) { fail(err); }
     finally { setActing(false); }
   }
 
-  /**
-   * Fait avancer le statut d'une ligne de paiement DÉJÀ existante. Volontairement
-   * limité à la ligne elle-même.
-   *
-   * Cette fonction soldait aussi les commissions : elle passait TOUTES les
-   * conversions en attente du promoteur à « payé », puis créditait total_paid du
-   * seul montant de la ligne. Or aucune table ne relie une ligne de paiement aux
-   * conversions qu'elle couvre. Un versement de 50€ approuvé la semaine passée,
-   * avec 300€ accumulés depuis, marquait 300€ comme payés pour 50€ versés : 250€
-   * de commissions effacés en silence. Le tout sur quatre requêtes sans
-   * transaction, avec un read-modify-write sur total_paid.
-   *
-   * Le solde des commissions passe exclusivement par settleNow() →
-   * settle_promoter_payout, qui fait l'ensemble en une transaction et crée la
-   * ligne de paiement déjà à « payé ».
-   */
-  async function updateStatus(id: string, newStatus: 'approved' | 'paid') {
+  // ── Étape 2 : le club déclare avoir viré ───────────────────────────────────
+  async function declareSent(payoutId: string) {
     setActing(true);
     try {
-      const updates: TablesUpdate<'promoter_payouts'> = { status: newStatus };
-      if (newStatus === 'approved') updates.approved_at = new Date().toISOString();
-      if (newStatus === 'paid') updates.paid_at = new Date().toISOString();
-      const { error } = await supabase.from('promoter_payouts').update(updates).eq('id', id);
-      if (error) throw error;
+      await declarePayoutSent(payoutId);
+      notifyPayoutParties(payoutId);
+      toast.success(t('promoterSettlement.declaredToast'));
+      await fetchData();
+    } catch (err) { fail(err); }
+    finally { setActing(false); }
+  }
 
-      toast.success(t('promoterPayouts.statusUpdated'));
-      fetchData();
-    } catch { toast.error(t('promoterPayouts.updateError')); }
+  async function cancel(payoutId: string) {
+    if (!window.confirm(t('promoterSettlement.cancelConfirm'))) return;
+    setActing(true);
+    try {
+      await cancelPayout(payoutId);
+      toast.success(t('promoterSettlement.cancelledToast'));
+      await fetchData();
+    } catch (err) { fail(err); }
+    finally { setActing(false); }
+  }
+
+  // ── Litige : le club tranche ───────────────────────────────────────────────
+  async function resolveDispute(payoutId: string, action: 'redeclare' | 'cancel') {
+    if (action === 'cancel' && !window.confirm(t('promoterSettlement.disputeCancelConfirm'))) return;
+    setActing(true);
+    try {
+      await resolvePayoutDispute(payoutId, action);
+      // « redeclare » remet le lot en attente d'accusé de réception : le
+      // promoteur doit être re-sollicité, sinon il ne saura pas qu'on lui
+      // redemande de vérifier son compte.
+      if (action === 'redeclare') notifyPayoutParties(payoutId);
+      toast.success(t(action === 'redeclare'
+        ? 'promoterSettlement.redeclaredToast'
+        : 'promoterSettlement.cancelledToast'));
+      await fetchData();
+    } catch (err) { fail(err); }
+    finally { setActing(false); }
+  }
+
+  // ── Reçu contresigné ───────────────────────────────────────────────────────
+  async function downloadReceipt(payout: Payout) {
+    setActing(true);
+    try {
+      // Le détail des commissions n'est chargé qu'ici : un club qui consulte
+      // l'historique n'a pas besoin de tirer des centaines de lignes par lot.
+      const { data: items } = await supabase.from('promoter_payout_items' as never)
+        .select('commission, promoter_conversions(conversion_type, amount, created_at)')
+        .eq('payout_id', payout.id);
+
+      const typeLabel: Record<string, string> = {
+        ticket: t('promoterSettlement.line.ticket'),
+        table: t('promoterSettlement.line.table'),
+        order: t('promoterSettlement.line.order'),
+        guestlist: t('promoterSettlement.line.guestlist'),
+        override: t('promoterSettlement.line.override'),
+      };
+
+      const lines: PayoutReceiptLine[] = ((items || []) as unknown as Array<{
+        commission: number;
+        promoter_conversions: { conversion_type: string; amount: number | null; created_at: string } | null;
+      }>).map(it => {
+        const c = it.promoter_conversions;
+        const label = typeLabel[c?.conversion_type || ''] || c?.conversion_type || '—';
+        return {
+          label: c?.amount ? `${label} — ${Number(c.amount).toFixed(2)} €` : label,
+          date: c?.created_at,
+          commission: Number(it.commission || 0),
+        };
+      });
+
+      const doc = generatePayoutReceiptPDF({
+        reference: payout.transfer_reference || '—',
+        amount: Number(payout.amount || 0),
+        periodLabel: payout.period_label,
+        payerName,
+        promoterName: payout.promoterName,
+        promoterIban: payout.promoterIban,
+        preparedAt: payout.created_at,
+        declaredAt: payout.approved_at,
+        confirmedAt: payout.paid_at,
+        lines,
+      }, language);
+      doc.save(payoutReceiptFilename(payout.transfer_reference || payout.id));
+    } catch (err) { fail(err); }
     finally { setActing(false); }
   }
 
@@ -206,19 +308,21 @@ export default function OwnerPromoterFinance() {
     // ne contenant que l'en-tête.
     const rows = [[
       t('owner.promoB.csvPromoter'), t('owner.promoB.csvAmount'), t('owner.promoB.csvStatus'),
-      t('owner.promoB.csvPeriod'), 'IBAN', t('owner.promoB.csvDate'),
+      t('owner.promoB.csvPeriod'), 'IBAN', t('promoterSettlement.reference'), t('owner.promoB.csvDate'),
     ].map(csvCell).join(',')];
 
     debts.forEach(d => {
       rows.push([
         csvCell(d.promoterName), d.pendingAmount.toFixed(2), csvCell(t('promoterPayouts.pending')),
-        csvCell(''), csvCell(d.promoterIban || ''), csvCell(new Date().toISOString().slice(0, 10)),
+        csvCell(''), csvCell(d.promoterIban || ''), csvCell(''),
+        csvCell(new Date().toISOString().slice(0, 10)),
       ].join(','));
     });
     payouts.forEach(p => {
       rows.push([
         csvCell(p.promoterName), p.amount.toFixed(2), csvCell(p.status), csvCell(p.period_label || ''),
-        csvCell(p.promoterIban || ''), csvCell(new Date(p.created_at).toISOString().slice(0, 10)),
+        csvCell(p.promoterIban || ''), csvCell(p.transfer_reference || ''),
+        csvCell(new Date(p.created_at).toISOString().slice(0, 10)),
       ].join(','));
     });
 
@@ -230,21 +334,20 @@ export default function OwnerPromoterFinance() {
     a.click(); URL.revokeObjectURL(url);
   }
 
-  const totalDebt = debts.reduce((s, d) => s + d.pendingAmount, 0);
-  const totalApproved = payouts.filter(p => p.status === 'approved').reduce((s, p) => s + p.amount, 0);
-  const totalPaid = payouts.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount, 0);
+  const openPayouts = payouts.filter(p => p.status !== 'paid');
+  const historyPayouts = payouts.filter(p => p.status === 'paid');
 
-  const statusPill = (s: string) =>
+  const totalDebt = debts.reduce((s, d) => s + d.pendingAmount, 0);
+  const totalInFlight = openPayouts.reduce((s, p) => s + p.amount, 0);
+  const totalPaid = historyPayouts.reduce((s, p) => s + p.amount, 0);
+
+  const statusPill = (s: PayoutStatus) =>
     s === 'paid' ? <PromoPill tone="success">{t('promoterPayouts.paid')}</PromoPill>
-    : s === 'approved' ? <PromoPill tone="warn">{t('promoterPayouts.approved')}</PromoPill>
-    : <PromoPill tone="muted">{t('promoterPayouts.pending')}</PromoPill>;
+    : s === 'disputed' ? <PromoPill tone="danger">{t('promoterSettlement.disputed')}</PromoPill>
+    : s === 'approved' ? <PromoPill tone="warn">{t('promoterSettlement.declared')}</PromoPill>
+    : <PromoPill tone="muted">{t('promoterSettlement.prepared')}</PromoPill>;
 
   const maskIban = (iban: string) => `${iban.slice(0, 4)}···${iban.slice(-4)}`;
-
-  /** Montant lisible : pas de décimales sur un compte rond, deux sinon. Arrondir
-   *  à l'entier affichait « 0€ » pour une dette de 0,40€ — et un bouton « Régler
-   *  0€ maintenant » juste sous une carte indiquant 0,40€. */
-  const euro = (n: number) => Number.isInteger(n) ? `${n}€` : `${n.toFixed(2)}€`;
 
   if (loading) return <OwnerPageSkeleton />;
 
@@ -252,7 +355,7 @@ export default function OwnerPromoterFinance() {
     <>
       <PromoHeader
         title={t('promoterPayouts.title')}
-        subtitle={tt('Soldez vos promoteurs en deux clics', 'Settle your promoters in two clicks')}
+        subtitle={t('promoterSettlement.subtitle')}
         backTo={`${basePath}/promoters`}
         right={
           <PromoButton size="sm" variant="ghost" onClick={exportCSV} disabled={!canExport}
@@ -266,9 +369,117 @@ export default function OwnerPromoterFinance() {
         {/* Summary */}
         <div className="grid grid-cols-3 gap-3">
           <StatTile icon={Clock} value={euro(totalDebt)} label={tt('À payer', 'To pay')} tone="red" />
-          <StatTile icon={ShieldCheck} value={euro(totalApproved)} label={t('promoterPayouts.approved')} tone="warn" />
+          <StatTile icon={Hourglass} value={euro(totalInFlight)} label={t('promoterSettlement.inFlight')} tone="warn" />
           <StatTile icon={CheckCircle2} value={euro(totalPaid)} label={t('promoterPayouts.paid')} tone="pos" />
         </div>
+
+        {/* Règlements en cours — l'action du jour, donc en haut */}
+        {openPayouts.length > 0 && (
+          <>
+            <SectionLabel>{t('promoterSettlement.inProgress')}</SectionLabel>
+            <div className="space-y-2.5">
+              {openPayouts.map(payout => {
+                const left = daysUntil(payout.confirm_due_at);
+                return (
+                  <PromoCard key={payout.id}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="min-w-0">
+                        <p className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 620, margin: 0 }}>{payout.promoterName}</p>
+                        {payout.period_label && <p style={{ color: T3, fontSize: 11.5, margin: 0 }}>{payout.period_label}</p>}
+                      </div>
+                      <div className="text-right flex-none">
+                        <p style={{ color: T1, fontSize: 18, fontWeight: 740, margin: 0 }}>{payout.amount.toFixed(2)}€</p>
+                        <div className="mt-1">{statusPill(payout.status)}</div>
+                      </div>
+                    </div>
+
+                    {/* PRÉPARÉ — les coordonnées à recopier dans sa banque */}
+                    {payout.status === 'pending' && (
+                      <>
+                        <div className="flex items-start gap-2 mb-3" style={{ color: T2, fontSize: 12 }}>
+                          <Landmark className="h-4 w-4 flex-none" style={{ color: T3, marginTop: 1 }} />
+                          <p style={{ margin: 0 }}>{t('promoterSettlement.transferHint')}</p>
+                        </div>
+                        <div className="space-y-2">
+                          {payout.promoterIban && (
+                            <CopyField label="IBAN" value={formatIban(payout.promoterIban)} copiedLabel={t('promoterSettlement.copied')} />
+                          )}
+                          <CopyField
+                            label={t('promoterSettlement.reference')}
+                            value={payout.transfer_reference || '—'}
+                            copiedLabel={t('promoterSettlement.copied')}
+                          />
+                          <CopyField
+                            label={t('promoterSettlement.amountToTransfer')}
+                            value={payout.amount.toFixed(2)}
+                            copiedLabel={t('promoterSettlement.copied')}
+                          />
+                        </div>
+                        <p style={{ color: T3, fontSize: 11, margin: '10px 0 0' }}>{t('promoterSettlement.referenceWhy')}</p>
+                        <div className="flex gap-2 mt-3">
+                          <PromoButton size="sm" onClick={() => declareSent(payout.id)} disabled={acting}>
+                            <ShieldCheck className="h-4 w-4" />{t('promoterSettlement.declareSent')}
+                          </PromoButton>
+                          <PromoButton variant="ghost" size="sm" onClick={() => cancel(payout.id)} disabled={acting}>
+                            <X className="h-4 w-4" />{t('promoterSettlement.cancel')}
+                          </PromoButton>
+                        </div>
+                      </>
+                    )}
+
+                    {/* DÉCLARÉ — la balle est dans le camp du promoteur */}
+                    {payout.status === 'approved' && (
+                      <div style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.18)', borderRadius: 11, padding: '10px 12px' }}>
+                        <p style={{ color: WARN, fontSize: 12.5, fontWeight: 620, margin: 0 }}>
+                          {t('promoterSettlement.awaitingAck')}
+                        </p>
+                        <p style={{ color: T3, fontSize: 11.5, margin: '3px 0 0' }}>
+                          {payout.transfer_reference && <>{t('promoterSettlement.reference')} : {payout.transfer_reference} · </>}
+                          {left !== null && left >= 0
+                            ? t('promoterSettlement.daysLeft').replace('{days}', String(left))
+                            : t('promoterSettlement.overdue')}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* LITIGE — le promoteur dit n'avoir rien reçu */}
+                    {payout.status === 'disputed' && (
+                      <>
+                        <div style={{ background: 'rgba(255,92,99,0.07)', border: '1px solid rgba(255,92,99,0.22)', borderRadius: 11, padding: '10px 12px' }}>
+                          <div className="flex items-start gap-2">
+                            <AlertTriangle className="h-4 w-4 flex-none" style={{ color: RED, marginTop: 1 }} />
+                            <div className="min-w-0">
+                              <p style={{ color: RED, fontSize: 12.5, fontWeight: 620, margin: 0 }}>
+                                {payout.dispute_reason === 'auto:no_acknowledgement'
+                                  ? t('promoterSettlement.disputeAuto')
+                                  : t('promoterSettlement.disputeManual')}
+                              </p>
+                              {payout.dispute_reason && payout.dispute_reason !== 'auto:no_acknowledgement' && (
+                                <p style={{ color: T2, fontSize: 11.5, margin: '3px 0 0' }}>« {payout.dispute_reason} »</p>
+                              )}
+                              <p style={{ color: T3, fontSize: 11.5, margin: '4px 0 0' }}>
+                                {t('promoterSettlement.disputeHint')}
+                                {payout.transfer_reference && <> ({payout.transfer_reference})</>}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 mt-3">
+                          <PromoButton size="sm" onClick={() => resolveDispute(payout.id, 'redeclare')} disabled={acting}>
+                            <ShieldCheck className="h-4 w-4" />{t('promoterSettlement.disputeRedeclare')}
+                          </PromoButton>
+                          <PromoButton variant="danger" size="sm" onClick={() => resolveDispute(payout.id, 'cancel')} disabled={acting}>
+                            <X className="h-4 w-4" />{t('promoterSettlement.disputeCancel')}
+                          </PromoButton>
+                        </div>
+                      </>
+                    )}
+                  </PromoCard>
+                );
+              })}
+            </div>
+          </>
+        )}
 
         {/* Debts from real conversions */}
         {debts.length > 0 && (
@@ -282,13 +493,15 @@ export default function OwnerPromoterFinance() {
                       <p className="truncate" style={{ color: T1, fontSize: 14, fontWeight: 620, margin: 0 }}>{debt.promoterName}</p>
                       <p style={{ color: T3, fontSize: 11.5, margin: 0 }}>
                         {tt(`${debt.pendingConversions} conversion${debt.pendingConversions > 1 ? 's' : ''} en attente`, `${debt.pendingConversions} pending conversion${debt.pendingConversions > 1 ? 's' : ''}`, `${debt.pendingConversions} ${debt.pendingConversions > 1 ? 'conversiones pendientes' : 'conversión pendiente'}`)}
-                        {debt.promoterIban && <> · IBAN {maskIban(debt.promoterIban)}</>}
+                        {debt.promoterIban
+                          ? <> · IBAN {maskIban(debt.promoterIban)}</>
+                          : <> · <span style={{ color: WARN }}>{t('promoterSettlement.noIban')}</span></>}
                       </p>
                     </div>
                     <p style={{ color: RED, fontSize: 18, fontWeight: 740, margin: 0, flex: 'none' }}>{debt.pendingAmount.toFixed(2)}€</p>
                   </div>
-                  <PromoButton full size="sm" onClick={() => settleNow(debt.promoterId)} disabled={acting}>
-                    <CheckCircle2 className="h-4 w-4" /> {tt(`Régler ${euro(debt.pendingAmount)} maintenant`, `Settle ${euro(debt.pendingAmount)} now`, `Saldar ${euro(debt.pendingAmount)} ahora`)}
+                  <PromoButton full size="sm" onClick={() => prepare(debt.promoterId)} disabled={acting || !debt.promoterIban}>
+                    <Landmark className="h-4 w-4" /> {t('promoterSettlement.prepare').replace('{amount}', euro(debt.pendingAmount))}
                   </PromoButton>
                 </PromoCard>
               ))}
@@ -297,11 +510,11 @@ export default function OwnerPromoterFinance() {
         )}
 
         {/* Payout history */}
-        {payouts.length > 0 && (
+        {historyPayouts.length > 0 && (
           <>
             <SectionLabel>{tt('Historique des paiements', 'Payout history')}</SectionLabel>
             <div className="space-y-2.5">
-              {payouts.map(payout => (
+              {historyPayouts.map(payout => (
                 <PromoCard key={payout.id}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="min-w-0">
@@ -313,27 +526,17 @@ export default function OwnerPromoterFinance() {
                       <div className="mt-1">{statusPill(payout.status)}</div>
                     </div>
                   </div>
-                  {(payout.approved_at || payout.paid_at) && (
-                    <p style={{ color: T3, fontSize: 11, margin: 0 }}>
-                      {payout.approved_at && <>{t('promoterPayouts.approvedOn')} {new Date(payout.approved_at).toLocaleDateString('fr-FR')}</>}
-                      {payout.approved_at && payout.paid_at && ' · '}
-                      {payout.paid_at && <>{t('promoterPayouts.paidOn')} {new Date(payout.paid_at).toLocaleDateString('fr-FR')}</>}
-                    </p>
-                  )}
-                  {payout.status !== 'paid' && (
-                    <div className="flex gap-2 mt-3">
-                      {payout.status === 'pending' && (
-                        <PromoButton variant="secondary" size="sm" onClick={() => updateStatus(payout.id, 'approved')} disabled={acting}>
-                          <ShieldCheck className="h-4 w-4" />{t('promoterPayouts.approve')}
-                        </PromoButton>
-                      )}
-                      {payout.status === 'approved' && (
-                        <PromoButton size="sm" onClick={() => updateStatus(payout.id, 'paid')} disabled={acting}>
-                          <CheckCircle2 className="h-4 w-4" />{t('promoterPayouts.markPaid')}
-                        </PromoButton>
-                      )}
-                    </div>
-                  )}
+                  <p style={{ color: T3, fontSize: 11, margin: 0 }}>
+                    {payout.transfer_reference && <>{payout.transfer_reference} · </>}
+                    {payout.approved_at && <>{t('promoterSettlement.declaredOn')} {new Date(payout.approved_at).toLocaleDateString('fr-FR')}</>}
+                    {payout.approved_at && payout.paid_at && ' · '}
+                    {payout.paid_at && <>{t('promoterSettlement.confirmedOn')} {new Date(payout.paid_at).toLocaleDateString('fr-FR')}</>}
+                  </p>
+                  <div className="mt-3">
+                    <PromoButton variant="secondary" size="sm" onClick={() => downloadReceipt(payout)} disabled={acting}>
+                      <FileText className="h-4 w-4" />{t('promoterSettlement.receipt')}
+                    </PromoButton>
+                  </div>
                 </PromoCard>
               ))}
             </div>

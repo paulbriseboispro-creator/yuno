@@ -8,6 +8,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { DateRangeFilter } from '@/components/promoter/DateRangeFilter';
 import { PromoterScanTab } from '@/components/promoter/PromoterScanTab';
 import { PromoterGuestListTab } from '@/components/promoter/PromoterGuestListTab';
+import { PromoterPayoutInbox } from '@/components/promoter/PromoterPayoutInbox';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -565,6 +566,16 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
               </div>
             </CardContent>
           </Card>
+
+          {/* Règlements — accusé de réception, litige, reçus contresignés.
+              Placé juste sous le portefeuille : c'est la suite logique de « À
+              recevoir », et la seule action qui solde réellement les commissions. */}
+          <PromoterPayoutInbox
+            promoterId={promoter.id}
+            promoterIban={promoter.iban}
+            payerName={scopeName}
+            onSettled={onProfileSaved}
+          />
 
           {/* Commission Rules & Rewards - from template */}
           <Card>

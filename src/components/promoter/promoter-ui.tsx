@@ -1,6 +1,6 @@
-import { ReactNode, CSSProperties } from 'react';
+import { ReactNode, CSSProperties, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Copy } from 'lucide-react';
 
 /**
  * Shared design primitives for the owner/organizer/manager Promoter module.
@@ -209,6 +209,61 @@ export function DarkInput({
 
 export function FieldLabel({ children }: { children: ReactNode }) {
   return <p style={{ color: T2, fontSize: 12, fontWeight: 600, marginBottom: 6 }}>{children}</p>;
+}
+
+// ─── Champ à recopier (IBAN, référence de virement, montant) ─────────────────
+/**
+ * Une valeur qu'on va retaper dans une autre interface — celle de sa banque.
+ *
+ * Affichée en entier et en monospace : un IBAN masqué en `FR76···0193` est
+ * inutilisable pour faire un virement, et une police proportionnelle rend la
+ * relecture chiffre à chiffre pénible. Le bouton copier est la voie normale ;
+ * le texte reste sélectionnable pour ceux qui préfèrent.
+ */
+export function CopyField({
+  label, value, onCopy, copiedLabel, mono = true,
+}: { label: string; value: string; onCopy?: () => void; copiedLabel?: string; mono?: boolean }) {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      // Safari sans HTTPS, iframe sans permission… on retombe sur la sélection
+      // manuelle plutôt que d'afficher une erreur qui n'aide personne.
+      return;
+    }
+    setCopied(true);
+    onCopy?.();
+    setTimeout(() => setCopied(false), 1800);
+  };
+
+  return (
+    <div style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 11, padding: '9px 11px' }}>
+      <p style={{ color: T3, fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', margin: 0 }}>{label}</p>
+      <div className="flex items-center gap-2" style={{ marginTop: 3 }}>
+        <span
+          className="min-w-0 flex-1 break-all"
+          style={{ color: T1, fontSize: 13, fontWeight: 600, fontFamily: mono ? 'ui-monospace, SFMono-Regular, Menlo, monospace' : 'inherit', letterSpacing: mono ? '0.01em' : undefined }}
+        >
+          {value}
+        </span>
+        <button
+          type="button"
+          onClick={copy}
+          className="flex-none transition-colors"
+          style={{
+            padding: '4px 9px', borderRadius: 8, cursor: 'pointer',
+            background: copied ? 'rgba(52,211,153,0.12)' : C_FAINT,
+            border: `1px solid ${copied ? 'rgba(52,211,153,0.3)' : BORDER}`,
+            color: copied ? POS : T2, fontSize: 11, fontWeight: 620, fontFamily: 'inherit',
+          }}
+        >
+          {copied ? (copiedLabel || '✓') : <Copy className="h-3.5 w-3.5" />}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 // ─── Empty state ─────────────────────────────────────────────────────────────

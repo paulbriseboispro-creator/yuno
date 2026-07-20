@@ -77,7 +77,11 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   `src/integrations/supabase/types.ts`.
 - **Cap fonctions edge atteint** : `supabase functions deploy` renvoie **402** tant que le
   spend cap Supabase n'est pas relevé. Plusieurs fonctions sont codées mais **pas encore
-  déployées** pour cette raison (auth mineurs, staff PIN, etc.).
+  déployées** pour cette raison (auth mineurs, staff PIN, `promoter-payout-notify`).
+  Pour `promoter-payout-notify` : le cycle de règlement fonctionne sans elle (les
+  demandes d'accusé de réception s'affichent dans l'app et la bascule en litige est
+  un cron SQL), mais le promoteur n'est pas poussé sur son téléphone tant qu'elle
+  n'est pas déployée.
 - **CORS-lock `yunoapp.eu`** : les edge functions n'autorisent que l'origine `https://yunoapp.eu`.
   → checkout impossible en local (échec silencieux, pas de toast) ET la prod DOIT servir depuis
   ce domaine exact.
@@ -126,6 +130,18 @@ statiques sont servis gratuitement et ne comptent pas dans le quota de requêtes
   `_shared/push-automations.ts` (source='auto', clic `?pc=`). Ne JAMAIS appeler
   `send-push-notification` en direct pour une notif automatique ; ajouter la clé au
   seed + au `CATALOG` de `AdminNotificationAutomations.tsx` + i18n `adminAutoPush.k.*`.
+- **Règlement promoteur — jamais de solde unilatéral.** Le cycle est en trois temps
+  (`prepare_promoter_payout` → `declare_promoter_payout_sent` → `confirm_promoter_payout_received`),
+  et seul le promoteur peut déclencher la dernière étape. Yuno ne touche jamais les
+  fonds : virement SEPA de banque à banque, Yuno sécurise et horodate l'accord.
+  Deux triggers `SECURITY INVOKER` (`guard_promoter_payout_write`,
+  `guard_promoter_conversion_settlement`) refusent toute écriture de cycle venant
+  d'un rôle client — ils discriminent sur `current_user`, donc **un trigger de garde
+  ne doit JAMAIS être `SECURITY DEFINER`** (il s'exécuterait sous son propriétaire
+  et se désactiverait lui-même). Toute nouvelle écriture sur `promoter_payouts.status`
+  ou `promoter_conversions.status` doit passer par une fonction `SECURITY DEFINER`.
+  `settle_promoter_payout` (l'ancien règlement en un clic) lève désormais
+  `use_two_step_flow` : ne pas le ressusciter.
 - Ajouter les 3 langues i18n pour toute nouvelle string.
 - Migrations : un fichier par changement, timestamp croissant, push via CLI.
 - Respecter le bon design system selon surface (public vs pro).

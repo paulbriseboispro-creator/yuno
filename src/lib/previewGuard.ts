@@ -30,6 +30,9 @@ const WRITE_RPC_PREFIXES = [
   'decrement_', 'reset_', 'purge_', 'archive_', 'restore_', 'link_', 'unlink_',
   'invite_', 'transfer_', 'publish_', 'unpublish_', 'schedule_', 'book_', 'pay_',
   'charge_', 'notify_', 'dispatch_', 'finalize_', 'complete_', 'confirm_', 'log_',
+  // Cycle de règlement promoteur : préparer fige un périmètre, déclarer engage
+  // le club, contester ouvre un litige. Trois écritures, aucune lecture.
+  'prepare_', 'declare_', 'dispute_', 'resolve_',
 ];
 const WRITE_RPC_EXACT = new Set([
   'demo_set_live', 'staff_ban_customer', 'staff_warn_customer', 'staff_unban_customer',
