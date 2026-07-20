@@ -18,6 +18,7 @@ import { useEventNetGain } from '@/hooks/useEventNetGain';
 import { useCollabReadOnly } from '@/hooks/useCollabReadOnly';
 import { SplitContractBanner } from '@/components/SplitContractBanner';
 import { CollabMessageThread } from '@/components/collab/CollabMessageThread';
+import { CollabSignFooter } from '@/components/collab/CollabSignFooter';
 import { PayoutStatusNote } from '@/components/collab/PayoutStatusNote';
 import { CollabConversionClose } from '@/components/collab/CollabConversionClose';
 import { OrgEventTablesPanel } from '@/components/organizer-app/OrgEventTablesPanel';
@@ -594,6 +595,16 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
               </div>
             </div>
           </OrgCard>
+        )}
+
+        {/* Signer sans remonter : la page est longue, et « Examiner » mène ici. */}
+        {isCollab && (
+          <CollabSignFooter
+            eventId={event.id}
+            side={viewerRole}
+            eventTitle={event.title}
+            onSigned={() => window.location.reload()}
+          />
         )}
       </div>
 

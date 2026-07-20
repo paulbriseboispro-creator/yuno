@@ -51,6 +51,8 @@ interface SeriesProposal {
   /** "Résidence · tous les vendredis · 23:00" — for the contract PDF header. */
   label: string;
   upcomingCount: number;
+  /** Prochaine occurrence — cible d'« Examiner ». null quand la série n'en a aucune. */
+  nextEventId: string | null;
   partnerName: string;
   /** Recap of what signing actually commits to — a framework binds EVERY date. */
   recap: {
@@ -250,6 +252,7 @@ export function CollabProposalsInbox({ role, venueId, onChanged }: Props) {
         cadence: everyWeekday(dow, time),
         label: `${name} · ${everyWeekday(dow, time)}`,
         upcomingCount: occs.length,
+        nextEventId: first?.id ?? null,
         partnerName: partnerOf(s),
         recap: {
           endTime: tp?.end_time ? hhmm(tp.end_time) : null,
@@ -436,12 +439,23 @@ export function CollabProposalsInbox({ role, venueId, onChanged }: Props) {
                 </div>
               </div>
               <div className="flex flex-none flex-col gap-1.5 sm:flex-row">
+                {/* Examiner = voir la soirée. Signer = s'engager. Deux gestes distincts :
+                    on ne fait pas lire un contrat à quelqu'un qui voulait juste voir la date. */}
+                {sp.nextEventId && (
+                  <button
+                    onClick={() => navigate(reviewPath(sp.nextEventId!))}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-medium"
+                    style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}
+                  >
+                    {tt('Examiner', 'Review', 'Revisar')}<ArrowRight className="h-3 w-3" />
+                  </button>
+                )}
                 <button
                   onClick={() => reviewSeries(sp)}
                   className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-semibold"
                   style={{ background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.30)', color: '#FF5C63' }}
                 >
-                  <Check className="h-3.5 w-3.5" />{tt('Examiner', 'Review', 'Revisar')}<ArrowRight className="h-3 w-3" />
+                  <Check className="h-3.5 w-3.5" />{tt('Signer', 'Sign', 'Firmar')}
                 </button>
                 <button
                   onClick={() => declineSeries(sp)}
