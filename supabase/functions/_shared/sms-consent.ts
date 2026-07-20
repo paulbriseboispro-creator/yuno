@@ -1,10 +1,17 @@
 // Enregistrement du consentement SMS marketing — source unique.
 //
 // Le consentement vit à DEUX endroits, et les deux comptent :
-//   1. profiles.phone_sms_opt_in — la réponse de l'acheteur, pour ne plus jamais
-//      la lui redemander au checkout suivant (le front la relit au pré-remplissage).
-//   2. venue_sms_contacts        — la liste SMS du club, celle que les campagnes
-//      utilisent réellement.
+//   1. venue_sms_contacts        — la liste SMS DU CLUB, celle que les campagnes
+//      utilisent réellement, et la seule qui fasse foi. C'est aussi elle que le
+//      checkout relit (RPC get_my_marketing_consent) pour savoir s'il doit
+//      redemander : le consentement est porté par (personne, club), donc un
+//      habitué du Club A n'est plus resollicité pour le Club A, mais voit bien
+//      une case décochée nommant le Club B.
+//   2. profiles.phone_sms_opt_in — indicateur plateforme, conservé pour la
+//      segmentation admin. Il ne sert PLUS à pré-cocher quoi que ce soit : une
+//      case pré-cochée ne vaut pas consentement (CJUE C-673/17, Planet49), et
+//      un flag global ne peut pas valoir consentement pour un club qui n'a
+//      jamais été nommé (EDPB 05/2020 §65).
 //
 // Avant ce module, seul le chemin `simulate` (comptes démo) alimentait
 // venue_sms_contacts : un vrai acheteur qui cochait « Offres exclusives par SMS »
@@ -67,6 +74,13 @@ export async function recordSmsConsent(
           consent_source: input.source,
           source_event_id: input.eventId ?? null,
           is_vip: input.isVip === true,
+          // Un ré-opt-in doit lever un désabonnement antérieur : sans ça, la
+          // personne re-cochait la case et restait exclue des campagnes.
+          // Sûr ici parce que cette fonction n'est appelée QUE sur opt-in, et
+          // que le checkout ne transmet plus `true` par défaut — un désabonné
+          // revoit une case décochée et doit la cocher lui-même.
+          unsubscribed: false,
+          unsubscribed_at: null,
         },
         { onConflict: "venue_id,phone_e164", ignoreDuplicates: false },
       );

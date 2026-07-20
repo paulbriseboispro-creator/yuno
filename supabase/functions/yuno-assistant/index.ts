@@ -87,6 +87,13 @@ const CLIENT_KNOWLEDGE_BASE = `
 - Pages publiques : ${APP_BASE_URL}/events (soirées), ${APP_BASE_URL}/clubs (clubs), ${APP_BASE_URL}/djs (DJs).
 - Chaque page d'événement montre : date/heure, lieu, genre, line-up DJ, billets disponibles, guest list et tables VIP si activées.
 
+📣 ACTUS & OFFRES DES CLUBS (cases à cocher au paiement)
+- Au moment de payer un billet ou une table, deux cases OPTIONNELLES et DÉCOCHÉES proposent de recevoir les actus/offres du club par email et par SMS. Elles nomment le club concerné. Refuser n'empêche jamais d'acheter.
+- L'accord vaut pour TOUT le club, pas pour une soirée : si tu réserves chaque semaine la même soirée récurrente, tu ne coches la case qu'UNE seule fois. Aux réservations suivantes il n'y a plus de case, juste une ligne « tu es inscrit » avec un lien « Se désabonner » à côté.
+- C'est bien par club : accepter les offres du Club A ne t'inscrit jamais au Club B. Chez un club où tu n'as jamais rien accepté, tu reverras une case décochée à son nom, même si tu es déjà inscrit ailleurs sur Yuno.
+- Se désabonner : directement depuis le checkout (lien à côté de la ligne), depuis Réglages (${APP_BASE_URL}/settings) → « Mes abonnements » qui liste chaque club avec ses canaux, ou depuis le lien en bas de chaque email reçu. C'est immédiat.
+- À ne pas confondre avec la cloche 🔔 (abonnement aux annonces de nouvelles soirées, cf. ci-dessous) : les cases du paiement concernent les emails/SMS marketing du club.
+
 ❤️ FAVORIS vs 🔔 ABONNEMENTS
 - Le cœur = favori : sauvegarde une soirée ou une boisson dans ${APP_BASE_URL}/favorites.
 - La cloche = abonnement : un club, un organisateur ou un DJ. Tu reçois une notification quand ils annoncent une nouvelle soirée. Ce sont deux choses différentes.

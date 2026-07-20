@@ -220,6 +220,12 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     path: "/owner/campaigns",
     snippet: "Crée des campagnes email vers tes clients avec l'éditeur intégré (visuel ou avancé). Cible par segments (fidèles, inactifs, VIP…), envoie, puis suis le rapport : ouvertures, clics, désabonnements. Les destinataires désabonnés sont exclus automatiquement des envois suivants.",
   },
+  "marketing-consent": {
+    title: "Consentement marketing (RGPD)",
+    keywords: ["consentement", "consent", "opt-in", "optin", "rgpd", "gdpr", "désabonnement", "désabonné", "unsubscribe", "case à cocher", "acceptation", "preuve", "cnil", "liste marketing"],
+    path: "/owner/help",
+    snippet: "L'accord d'un client vaut pour TON club entier, pas pour une soirée : il coche la case une seule fois, puis les réservations suivantes affichent juste « inscrit » avec un lien de désinscription. L'accord donné à un autre club ne te profite jamais, et le tien ne profite à personne d'autre — un nouveau client voit toujours une case décochée portant TON nom. Tu ne peux pas ajouter à la main ni importer une liste : les campagnes email et SMS ne partent qu'aux contacts au consentement actif pour ton club, vérifié au moment de l'envoi. Chaque accord est archivé avec sa date, son canal, sa langue et la phrase exacte affichée, donc la preuve existe en cas de contrôle CNIL.",
+  },
   "sms": {
     title: "SMS & crédits SMS",
     keywords: ["sms", "texto", "crédit", "credits", "campagne sms", "message"],

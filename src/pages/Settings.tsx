@@ -17,6 +17,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNightlifeProfile } from '@/hooks/useNightlifeProfile';
 import { legalContent, type LegalSection } from '@/data/legalContent';
 import { PublicPage } from '@/components/PublicPage';
+import { MarketingSubscriptions } from '@/components/settings/MarketingSubscriptions';
 
 export default function Settings() {
   const { t, language, setLanguage } = useLanguage();
@@ -462,6 +463,10 @@ export default function Settings() {
             )}
           </CardContent>
         </Card>
+
+        {/* Abonnements marketing — un club par ligne, retrait par canal.
+            Art. 7(3) RGPD : se retirer doit être aussi simple que d'accepter. */}
+        <MarketingSubscriptions />
 
         {/* Security */}
         <Card className="border-border/50">

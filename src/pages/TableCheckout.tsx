@@ -13,6 +13,7 @@ import { ZoneUpsellSheet } from '@/components/vip/ZoneUpsellSheet';
 import { TermsAcceptance } from '@/components/TermsAcceptance';
 import { AgeGate } from '@/components/AgeGate';
 import { MarketingOptIns } from '@/components/MarketingOptIns';
+import { useMarketingConsent, recordConsentGrant, marketingConsentWording } from '@/hooks/useMarketingConsent';
 import { PhoneInputWithCountry } from '@/components/PhoneInputWithCountry';
 import { Separator } from '@/components/ui/separator';
 import { VipCheckoutSteps } from '@/components/vip/VipCheckoutSteps';
@@ -92,6 +93,11 @@ export default function TableCheckout() {
   const [remarks, setRemarks] = useState('');
   const [newsletterOptIn, setNewsletterOptIn] = useState(false);
   const [smsOptIn, setSmsOptIn] = useState(false);
+  // Une table VIP est toujours rattachée à un club (les zones appartiennent à
+  // un venue), donc la portée du consentement est toujours « club ».
+  const marketingConsent = useMarketingConsent(
+    venue?.id ? { venueId: venue.id, organizerUserId: null, scopeName: venue.name ?? '' } : null,
+  );
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [ageVerified, setAgeVerified] = useState(false);
   // Self-declared birth date (honor system) — recorded server-side at checkout.
@@ -137,15 +143,13 @@ export default function TableCheckout() {
       if (!user) return;
       const { data: profile } = await supabase
         .from('profiles')
-        .select('first_name, last_name, phone, phone_sms_opt_in')
+        .select('first_name, last_name, phone')
         .eq('id', user.id)
         .single();
       if (profile) {
         const profileFullName = [profile.first_name, profile.last_name].filter(Boolean).join(' ');
         if (profileFullName) setFullName(profileFullName);
         if (profile.phone) setPhone(profile.phone);
-        // Consentement SMS déjà donné → la case repart cochée, on ne le redemande pas.
-        if (profile.phone_sms_opt_in) setSmsOptIn(true);
       }
       if (user.email) {
         setEmail(user.email);
@@ -155,19 +159,30 @@ export default function TableCheckout() {
     fetchUserProfile();
   }, [user]);
 
-  // Mémorise la réponse SMS dès qu'elle est donnée (pas à la fin du paiement) :
-  // un checkout qui échoue ou un rechargement ne doit pas la faire oublier.
+  // Le consentement marketing n'est plus déduit de `phone_sms_opt_in` : ce
+  // drapeau est global à la plateforme et pré-cochait une case libellée au nom
+  // d'un club précis. Une case pré-cochée ne vaut pas consentement (CJUE
+  // C-673/17, Planet49), et un accord donné à un autre club ne vaut pas pour
+  // celui-ci (EDPB 05/2020 §65). La lecture par club vit dans
+  // useMarketingConsent.
   const handleSmsOptInChange = (value: boolean) => {
     setSmsOptIn(value);
-    if (!user) return;
-    supabase
-      .from('profiles')
-      .update({ phone_sms_opt_in: value })
-      .eq('id', user.id)
-      .then(({ error }) => {
-        if (error) console.error('SMS opt-in persist failed:', error.message);
-      });
   };
+
+  // Retrait sans quitter le checkout (EDPB 05/2020 §114 : « via the same
+  // electronic interface »).
+  const handleWithdrawConsent = async (channel: 'email' | 'sms', wordingText: string) => {
+    const ok = await marketingConsent.withdraw(channel, wordingText, language, 'table_checkout');
+    if (ok) {
+      if (channel === 'email') setNewsletterOptIn(false);
+      else setSmsOptIn(false);
+      toast.success(t('consent.unsubscribed'));
+    } else {
+      toast.error(t('consent.withdrawFailed'));
+    }
+    return ok;
+  };
+
 
   useEffect(() => {
     if (eventId && packId) fetchData();
@@ -454,6 +469,41 @@ export default function TableCheckout() {
       const purchaseSource = getPurchaseSource(eventId);
       const trackedLinkId = getTrackedLinkForCheckout(eventId);
 
+      // Case cochée maintenant, OU consentement déjà actif pour ce club (auquel
+      // cas aucune case n'a été montrée). Le renvoyer rafraîchit la liste du
+      // club et remet à zéro le compteur des 36 mois.
+      const effectiveNewsletterOptIn = newsletterOptIn || marketingConsent.emailGranted;
+      const effectiveSmsOptIn = smsOptIn || marketingConsent.smsGranted;
+
+      // Preuve d'un consentement nouveau seulement (art. 7(1) RGPD ; EDPB
+      // 05/2020 §108 pour le libellé exact, §106 pour ne pas journaliser plus
+      // que nécessaire).
+      const { email: emailConsentWording, sms: smsConsentWording } =
+        marketingConsentWording(t, venue?.name);
+      if (newsletterOptIn && !marketingConsent.emailGranted) {
+        void recordConsentGrant({
+          channel: 'email',
+          wordingText: emailConsentWording,
+          wordingKey: 'consent.emailOffersFrom',
+          venueId: venue?.id ?? null,
+          email: email.trim(),
+          locale: language,
+          source: 'table_checkout',
+        });
+      }
+      if (smsOptIn && !marketingConsent.smsGranted) {
+        void recordConsentGrant({
+          channel: 'sms',
+          wordingText: smsConsentWording,
+          wordingKey: 'consent.smsOffersFrom',
+          venueId: venue?.id ?? null,
+          email: email.trim(),
+          phoneE164: phone.trim(),
+          locale: language,
+          source: 'table_checkout',
+        });
+      }
+
       const { data, error } = await invokeEdgeFunction('create-table-checkout', {
         body: {
           eventId, packId, zoneId,
@@ -468,8 +518,8 @@ export default function TableCheckout() {
           remarks: payAtClubGuests > 0
             ? `${remarks.trim()}\n[+${payAtClubGuests} personne(s) supplémentaire(s) — à régler sur place]`.trim()
             : remarks.trim(),
-          newsletterOptIn,
-          smsOptIn,
+          newsletterOptIn: effectiveNewsletterOptIn,
+          smsOptIn: effectiveSmsOptIn,
           // Le code stocké part TOUJOURS, même sans remise table.
           //
           // Ces deux champs venaient de promoterDiscount, qui n'est renseigné
@@ -814,6 +864,10 @@ export default function TableCheckout() {
                     onNewsletterChange={setNewsletterOptIn}
                     smsOptIn={smsOptIn}
                     onSmsChange={handleSmsOptInChange}
+                    scopeName={venue?.name}
+                    emailAlreadyGranted={marketingConsent.emailGranted}
+                    smsAlreadyGranted={marketingConsent.smsGranted}
+                    onWithdraw={handleWithdrawConsent}
                   />
                   <TermsAcceptance userId={user?.id} guestEmail={!user ? email : null} context="table" onAcceptedChange={setAcceptTerms} />
                 </form>

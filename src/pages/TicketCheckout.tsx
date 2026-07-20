@@ -25,6 +25,7 @@ import { TicketUpsellSelector, SelectedUpsell } from '@/components/upsell/Ticket
 import { TermsAcceptance } from '@/components/TermsAcceptance';
 import { MinorAuthGate } from '@/components/MinorAuthGate';
 import { MarketingOptIns } from '@/components/MarketingOptIns';
+import { useMarketingConsent, recordConsentGrant, marketingConsentWording } from '@/hooks/useMarketingConsent';
 import { CheckoutSteps } from '@/components/CheckoutSteps';
 import { PublicPage } from '@/components/PublicPage';
 
@@ -59,7 +60,16 @@ export default function TicketCheckout() {
   const [confirmEmail, setConfirmEmail] = useState('');
    const [newsletterOptIn, setNewsletterOptIn] = useState(false);
   const [smsOptIn, setSmsOptIn] = useState(false);
-  const [alreadyOptedIn, setAlreadyOptedIn] = useState(false);
+  // Portée du consentement marketing : le club, ou l'organisateur pour une
+  // soirée sans club. `venue` ci-dessus fusionne les deux cas sous un même id
+  // d'affichage, ce qui ne suffit pas ici — il faut savoir LEQUEL des deux.
+  const [consentScope, setConsentScope] = useState<{
+    venueId: string | null;
+    organizerUserId: string | null;
+    scopeName: string;
+  } | null>(null);
+  // « A-t-elle déjà dit oui à CE club ? » — la seule question qui vaille.
+  const marketingConsent = useMarketingConsent(consentScope);
   const [selectedUpsells, setSelectedUpsells] = useState<SelectedUpsell[]>([]);
   const [acceptCgv, setAcceptCgv] = useState(false);
   // Single age/minor gate for ticket sales (decision tree in MinorAuthGate). A
@@ -125,7 +135,7 @@ export default function TicketCheckout() {
       
       const { data: profile } = await supabase
         .from('profiles')
-        .select('first_name, last_name, phone, phone_sms_opt_in')
+        .select('first_name, last_name, phone')
         .eq('id', user.id)
         .single();
 
@@ -142,23 +152,13 @@ export default function TicketCheckout() {
           return updated;
         });
         setConfirmEmail(user.email || '');
-        // Consentement SMS déjà donné une fois → on ne le redemande pas : la case
-        // repart cochée, comme la newsletter juste en dessous.
-        if (profile.phone_sms_opt_in) setSmsOptIn(true);
       }
-
-      // Check if user already opted in to newsletter for any ticket
-      const { data: existingOptIn } = await supabase
-        .from('tickets')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('newsletter_opt_in', true)
-        .limit(1);
-      
-      if (existingOptIn && existingOptIn.length > 0) {
-        setAlreadyOptedIn(true);
-        setNewsletterOptIn(true);
-      }
+      // Le consentement marketing n'est PLUS déduit ici. Il était lu depuis
+      // `profiles.phone_sms_opt_in` (drapeau plateforme) et depuis un `tickets`
+      // sans filtre de club : un opt-in donné au Club A cochait la case pour le
+      // Club B et la masquait, si bien que le Club B héritait d'un contact
+      // marketing sans avoir jamais été nommé. La lecture correcte, portée par
+      // club, vit maintenant dans useMarketingConsent.
     };
     
     fetchUserProfile();
@@ -265,6 +265,11 @@ export default function TicketCheckout() {
           name: orgName,
           city: eventData.location_city || '',
         });
+        setConsentScope({
+          venueId: null,
+          organizerUserId: eventData.organizer_user_id ?? null,
+          scopeName: orgName,
+        });
       } else {
         const { data: venueData, error: venueError } = await supabase
           .from('venues')
@@ -279,6 +284,11 @@ export default function TicketCheckout() {
           id: venueData.id,
           name: venueData.name,
           city: venueData.city,
+        });
+        setConsentScope({
+          venueId: venueData.id,
+          organizerUserId: null,
+          scopeName: venueData.name,
         });
       }
 
@@ -452,17 +462,31 @@ export default function TicketCheckout() {
   // donnée, pas à la fin du paiement. Un checkout qui échoue (ou un rechargement)
   // ne doit pas la perdre — c'est ce qui obligeait à recocher la case à chaque
   // tentative. Best-effort : une écriture qui échoue ne bloque jamais l'achat.
+  // La case SMS ne pousse plus rien sur le profil au moment du clic. Elle est
+  // libellée « offres de <Club> » : la cocher engage ce club, pas la plateforme
+  // entière, or `profiles.phone_sms_opt_in` est un drapeau global qui alimente
+  // la segmentation admin. Écrire l'un depuis l'autre étendait le consentement
+  // à une portée jamais montrée à la personne (EDPB 05/2020 §65).
+  //
+  // La réponse est désormais persistée après paiement par recordSmsConsent(),
+  // qui alimente venue_sms_contacts (la liste du club, celle qui fait foi).
   const handleSmsOptInChange = (value: boolean) => {
     setSmsOptIn(value);
-    if (!user) return; // invité : pas de profil où mémoriser la réponse
-    supabase
-      .from('profiles')
-      .update({ phone_sms_opt_in: value })
-      .eq('id', user.id)
-      .then(({ error }) => {
-        if (error) console.error('SMS opt-in persist failed:', error.message);
-      });
   };
+
+  // Retrait immédiat, sans quitter le checkout (EDPB 05/2020 §114).
+  const handleWithdrawConsent = async (channel: 'email' | 'sms', wordingText: string) => {
+    const ok = await marketingConsent.withdraw(channel, wordingText, language, 'ticket_checkout');
+    if (ok) {
+      if (channel === 'email') setNewsletterOptIn(false);
+      else setSmsOptIn(false);
+      toast.success(t('consent.unsubscribed'));
+    } else {
+      toast.error(t('consent.withdrawFailed'));
+    }
+    return ok;
+  };
+
 
   // Clamp the selected quantity down when the per-person allowance shrinks.
   useEffect(() => {
@@ -590,6 +614,46 @@ export default function TicketCheckout() {
       const purchaseSource = getPurchaseSource(event.id);
       const trackedLinkId = getTrackedLinkForCheckout(event.id);
 
+      // Consentement transmis = la case cochée maintenant, OU le consentement
+      // déjà actif pour ce club (auquel cas aucune case n'a été affichée). Le
+      // renvoyer garde la liste du club à jour et remet à zéro le compteur des
+      // 36 mois côté base : un habitué ne bascule jamais en contact périmé.
+      const effectiveNewsletterOptIn = newsletterOptIn || marketingConsent.emailGranted;
+      const effectiveSmsOptIn = smsOptIn || marketingConsent.smsGranted;
+
+      // Preuve d'un consentement NOUVEAU uniquement (art. 7(1) RGPD). Un
+      // consentement déjà actif a déjà sa ligne au journal : le rejouer à chaque
+      // achat gonflerait la preuve sans rien prouver de plus (EDPB §106).
+      const consentEmail = (user?.email ?? attendees[0].email).trim();
+      const consentPhone = attendees[0].phone.trim();
+      const { email: emailConsentWording, sms: smsConsentWording } =
+        marketingConsentWording(t, consentScope?.scopeName);
+      if (newsletterOptIn && !marketingConsent.emailGranted) {
+        void recordConsentGrant({
+          channel: 'email',
+          wordingText: emailConsentWording,
+          wordingKey: 'consent.emailOffersFrom',
+          venueId: consentScope?.venueId ?? null,
+          organizerUserId: consentScope?.organizerUserId ?? null,
+          email: consentEmail,
+          locale: language,
+          source: 'ticket_checkout',
+        });
+      }
+      if (smsOptIn && !marketingConsent.smsGranted) {
+        void recordConsentGrant({
+          channel: 'sms',
+          wordingText: smsConsentWording,
+          wordingKey: 'consent.smsOffersFrom',
+          venueId: consentScope?.venueId ?? null,
+          organizerUserId: consentScope?.organizerUserId ?? null,
+          email: consentEmail,
+          phoneE164: consentPhone,
+          locale: language,
+          source: 'ticket_checkout',
+        });
+      }
+
       const { data, error } = await invokeEdgeFunction('create-ticket-checkout', {
         body: {
           eventId: event.id,
@@ -604,8 +668,8 @@ export default function TicketCheckout() {
           // Primary buyer info
           fullName: attendees[0].fullName.trim(),
           phone: attendees[0].phone.trim(),
-          newsletterOptIn,
-          smsOptIn,
+          newsletterOptIn: effectiveNewsletterOptIn,
+          smsOptIn: effectiveSmsOptIn,
           // Signed minor authorization uploaded by the buyer (alcohol-free events).
           minorAuthDocUrl: minorDocUrl,
           // Always send promoCode if we have it stored (even if client can't read promoters table due to RLS).
@@ -944,7 +1008,10 @@ export default function TicketCheckout() {
               onNewsletterChange={setNewsletterOptIn}
               smsOptIn={smsOptIn}
               onSmsChange={handleSmsOptInChange}
-              showNewsletter={!alreadyOptedIn}
+              scopeName={consentScope?.scopeName}
+              emailAlreadyGranted={marketingConsent.emailGranted}
+              smsAlreadyGranted={marketingConsent.smsGranted}
+              onWithdraw={handleWithdrawConsent}
             />
 
             {/* Terms consent lives in the scroll flow, right below the marketing

@@ -6399,6 +6399,90 @@ export type Database = {
           },
         ]
       }
+      marketing_consent_events: {
+        Row: {
+          action: string
+          channel: string
+          email: string | null
+          id: string
+          locale: string | null
+          occurred_at: string
+          organizer_user_id: string | null
+          phone_e164: string | null
+          source: string
+          user_id: string | null
+          venue_id: string | null
+          wording_key: string | null
+          wording_text: string
+        }
+        Insert: {
+          action: string
+          channel: string
+          email?: string | null
+          id?: string
+          locale?: string | null
+          occurred_at?: string
+          organizer_user_id?: string | null
+          phone_e164?: string | null
+          source?: string
+          user_id?: string | null
+          venue_id?: string | null
+          wording_key?: string | null
+          wording_text: string
+        }
+        Update: {
+          action?: string
+          channel?: string
+          email?: string | null
+          id?: string
+          locale?: string | null
+          occurred_at?: string
+          organizer_user_id?: string | null
+          phone_e164?: string | null
+          source?: string
+          user_id?: string | null
+          venue_id?: string | null
+          wording_key?: string | null
+          wording_text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_consent_events_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_consent_events_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_consent_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_consent_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "marketing_consent_events_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mfa_disable_requests: {
         Row: {
           created_at: string
@@ -14178,6 +14262,27 @@ export type Database = {
         }[]
       }
       get_mfa_totp_secret: { Args: { p_user_id: string }; Returns: string }
+      get_my_marketing_consent: {
+        Args: { p_organizer_user_id?: string; p_venue_id?: string }
+        Returns: {
+          email_opted_in: boolean
+          email_since: string
+          sms_opted_in: boolean
+          sms_since: string
+        }[]
+      }
+      get_my_marketing_subscriptions: {
+        Args: never
+        Returns: {
+          email_opted_in: boolean
+          organizer_user_id: string
+          scope_name: string
+          scope_type: string
+          since: string
+          sms_opted_in: boolean
+          venue_id: string
+        }[]
+      }
       get_my_table_spend: {
         Args: { p_reservation_id: string }
         Returns: {
@@ -14506,6 +14611,10 @@ export type Database = {
         Args: { p_venue_id: string }
         Returns: boolean
       }
+      is_org_member: {
+        Args: { _organizer_user_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_org_staff: {
         Args: { _organizer_user_id: string; _role?: string; _user_id: string }
         Returns: boolean
@@ -14650,6 +14759,20 @@ export type Database = {
           p_email?: string
         }
         Returns: string
+      }
+      record_marketing_consent_grant: {
+        Args: {
+          p_channel: string
+          p_email?: string
+          p_locale?: string
+          p_organizer_user_id?: string
+          p_phone_e164?: string
+          p_source?: string
+          p_venue_id?: string
+          p_wording_key?: string
+          p_wording_text: string
+        }
+        Returns: undefined
       }
       record_promoter_conversion: {
         Args: {
@@ -15014,6 +15137,17 @@ export type Database = {
         }[]
       }
       verify_maintenance_password: { Args: { plain: string }; Returns: boolean }
+      withdraw_my_marketing_consent: {
+        Args: {
+          p_channel: string
+          p_locale?: string
+          p_organizer_user_id?: string
+          p_source?: string
+          p_venue_id?: string
+          p_wording_text?: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role:
