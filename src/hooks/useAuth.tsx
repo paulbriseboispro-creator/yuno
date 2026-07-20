@@ -55,9 +55,6 @@ const BOOT_WATCHDOG_MS = 8_000;
 /** Au déclenchement du filet, on laisse encore ce délai à `getSession()`. */
 const BOOT_LAST_CHANCE_MS = 4_000;
 
-/** Rôles déjà chargés pour ce compte — évite de réinterroger à chaque événement. */
-let rolesLoadedFor: string | null = null;
-
 async function loadRoles(userId: string) {
   try {
     const { data, error } = await supabase
@@ -89,14 +86,14 @@ function start() {
     const nextUser = newSession?.user ?? null;
 
     if (nextUser) {
-      if (rolesLoadedFor !== nextUser.id) {
-        rolesLoadedFor = nextUser.id;
-        // Différé : appeler Supabase depuis le callback tient le verrou de session.
-        setTimeout(() => { void loadRoles(nextUser.id); }, 0);
-      }
+      // Relu à CHAQUE événement porteur d'une session, comme avant ce magasin
+      // partagé : un compte qui vient d'accepter une invitation staff doit voir
+      // son nouveau rôle sans redémarrer l'app. Le coût est celui d'UNE requête
+      // par événement, contre une par composant monté auparavant.
+      // Différé : appeler Supabase depuis le callback tient le verrou de session.
+      setTimeout(() => { void loadRoles(nextUser.id); }, 0);
       emit({ session: newSession, user: nextUser, loading: false });
     } else {
-      rolesLoadedFor = null;
       emit({ session: null, user: null, roles: EMPTY_ROLES, loading: false });
     }
   });
@@ -123,10 +120,7 @@ function start() {
         settled = true;
         const existing = data.session ?? null;
         const existingUser = existing?.user ?? null;
-        if (existingUser && rolesLoadedFor !== existingUser.id) {
-          rolesLoadedFor = existingUser.id;
-          void loadRoles(existingUser.id);
-        }
+        if (existingUser) void loadRoles(existingUser.id);
         emit({ session: existing, user: existingUser, loading: false });
       })
       .catch(release)
@@ -167,7 +161,6 @@ export function useAuth() {
     clearStaffSession();
     clearMFASession();
     const { error } = await supabase.auth.signOut();
-    rolesLoadedFor = null;
     emit({ roles: EMPTY_ROLES });
     return { error };
   }, []);
