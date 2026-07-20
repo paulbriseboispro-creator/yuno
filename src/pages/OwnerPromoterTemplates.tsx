@@ -86,14 +86,16 @@ export default function OwnerPromoterTemplates() {
     setLoading(false);
   }
 
+  // N'AJOUTER ICI que des setters qui existent encore : cette fonction est le
+  // premier appel de openCreate() ET openEdit(), donc un setter fantôme lève une
+  // ReferenceError et le dialogue ne s'ouvre jamais — c'est ce qui est arrivé
+  // quand la config guest list est sortie des modèles de commission.
   function resetForm() {
     setName(''); setIsDefault(false);
-    setEnableSales(true); setEnableGuestList(false); setEnableClientDiscount(false);
+    setEnableSales(true); setEnableClientDiscount(false);
     setRewardType('money'); setTicketType('percentage'); setTicketValue(10);
     setTableType('percentage'); setTableValue(10); setRewardConfig({});
     setUseTiers(false); setTiers([]); setBonusThreshold(0); setBonusAmount(0); setTimeWindows([]);
-    setGlNormalQuota(20); setGlTableQuota(0); setGlDrinkQuota(0);
-    setGlVipAccess(false); setGlDrinkCount(1); setGlEntryDeadline('');
     setCdType('percentage'); setCdValue(10); setCdAppliesTo('both'); setCdLabel('');
   }
 
