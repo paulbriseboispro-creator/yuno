@@ -386,7 +386,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Handshake',
         actionLink: { labelKey: 'ohelp.action.goToCollaborations', path: '/collaborations' },
         relatedArticleIds: ['events-setup', 'dj-management', 'invoices-management'],
-        keywords: ['collaboration', 'organizer', 'organisateur', 'co-event', 'partenaire', 'partner', 'split', 'partage', 'invite', 'inviter', 'propose', 'colaboración', 'paiement', 'versement', 'payout', 'argent', 'retenu', 'reversement', 'quand suis-je payé'],
+        keywords: ['collaboration', 'organizer', 'organisateur', 'co-event', 'partenaire', 'partner', 'split', 'partage', 'invite', 'inviter', 'propose', 'colaboración', 'paiement', 'versement', 'payout', 'argent', 'retenu', 'reversement', 'quand suis-je payé', 'récurrente', 'recurring', 'résidence', 'residency', 'contrat-cadre', 'framework', 'contrato marco', 'signer une fois', 'sign once'],
         sections: [
           { headingKey: 'ohelp.ev.collab.s1h', bodyKey: 'ohelp.ev.collab.s1b' },
           { headingKey: 'ohelp.ev.collab.s2h', bodyKey: 'ohelp.ev.collab.s2b', screenshotUrl: '/help/owner-collaborations.png' },
@@ -395,6 +395,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.ev.collab.s5h', bodyKey: 'ohelp.ev.collab.s5b' },
           { headingKey: 'ohelp.ev.collab.s6h', bodyKey: 'ohelp.ev.collab.s6b', type: 'warning' },
           { headingKey: 'ohelp.ev.collab.s7h', bodyKey: 'ohelp.ev.collab.s7b' },
+          { headingKey: 'ohelp.ev.collab.s9h', bodyKey: 'ohelp.ev.collab.s9b', type: 'steps' },
           { headingKey: 'ohelp.ev.collab.s8h', bodyKey: 'ohelp.ev.collab.s8b', type: 'tip' },
           { headingKey: 'ohelp.ev.collab.s7h', bodyKey: 'ohelp.ev.collab.s7b', type: 'warning' },
         ],
@@ -478,6 +479,20 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.campaigns.s4h', bodyKey: 'ohelp.pg.campaigns.s4b' },
           { headingKey: 'ohelp.pg.campaigns.s5h', bodyKey: 'ohelp.pg.campaigns.s5b', type: 'warning' },
           { headingKey: 'ohelp.pg.campaigns.s6h', bodyKey: 'ohelp.pg.campaigns.s6b', type: 'tip' },
+        ],
+      },
+      {
+        id: 'marketing-consent',
+        titleKey: 'ohelp.pg.consent.title',
+        descKey: 'ohelp.pg.consent.desc',
+        icon: 'ShieldCheck',
+        relatedArticleIds: ['email-campaigns', 'sms-credits', 'crm-setup'],
+        keywords: ['consentement', 'consent', 'opt-in', 'optin', 'rgpd', 'gdpr', 'désabonnement', 'unsubscribe', 'case à cocher', 'checkbox', 'newsletter', 'sms', 'preuve', 'cnil', 'consentimiento', 'baja'],
+        sections: [
+          { headingKey: 'ohelp.pg.consent.s1h', bodyKey: 'ohelp.pg.consent.s1b' },
+          { headingKey: 'ohelp.pg.consent.s2h', bodyKey: 'ohelp.pg.consent.s2b' },
+          { headingKey: 'ohelp.pg.consent.s3h', bodyKey: 'ohelp.pg.consent.s3b', type: 'warning' },
+          { headingKey: 'ohelp.pg.consent.s4h', bodyKey: 'ohelp.pg.consent.s4b', type: 'tip' },
         ],
       },
       {

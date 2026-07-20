@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, Plus, Pencil, Trash2, Clock, Upload, Info, Music, Tag, Ticket, Crown, Sparkles, ChevronDown, Zap, Handshake, Repeat, ClipboardList, Users } from 'lucide-react';
+import { RefreshCw, Plus, Pencil, Trash2, Clock, Upload, Info, Music, Tag, Ticket, Crown, Sparkles, ChevronDown, Zap, Handshake, Repeat, ClipboardList, Users, FileText, Lock, Send, GlassWater } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { PosterCropper, PosterPosition } from '@/components/PosterCropper';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { normalizeSplitRules } from '@/lib/splitRules';
+import type { PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
 
 // ─── Yuno Design Tokens (mirror OwnerEvents) ──────────────────────────────────
 const RED      = '#E8192C';
@@ -63,6 +64,32 @@ function getNextOccurrences(dayOfWeek: number, count = 5): Date[] {
 
 type Preset = { id: string; name: string; ticket_type: string; total_capacity: number; selling_mode: string | null };
 type TablePreset = { id: string; name: string };
+type CancellationPolicy = 'pro_rata_refund' | 'no_refund_after_event';
+
+/** Partenaire organisateur actif du club. `canSellAlcohol` gate la part boissons. */
+type Partner = { id: string; name: string; canSellAlcohol: boolean };
+
+/**
+ * Conditions déjà négociées avec un organisateur, réutilisables telles quelles pour
+ * une nouvelle série : soit un autre contrat-cadre vivant (autre résidence), soit les
+ * conditions par défaut du partenariat. Évite de re-saisir un split à chaque série et,
+ * surtout, évite deux vérités contractuelles avec le même partenaire.
+ */
+type ReusableTerms = {
+  key: string;                 // 'partnership' | `series:${contractId}`
+  label: string;
+  rules: PartnershipSplitRules;
+  policy: CancellationPolicy;
+};
+
+type SeriesContractRow = {
+  id: string;
+  template_id: string;
+  status: string;
+  organizer_user_id: string;
+  split_rules: Record<string, unknown> | null;
+  cancellation_policy: CancellationPolicy | null;
+};
 // Modèles de guest list « club » réutilisables (gérés dans /owner/guest-list, onglet Modèles).
 type GuestListPreset = { id: string; name: string; quota: number };
 
@@ -108,7 +135,13 @@ type FormState = {
   guestListTemplateId: string;
   autoEnableTables: boolean;
   partnerOrganizerId: string;
-  venueSplitPct: number;
+  // Contrat-cadre de la série : reprendre des conditions déjà signées, ou en rédiger de neuves.
+  contractMode: 'existing' | 'new';
+  contractSourceKey: string;
+  ticketsVenuePct: number;
+  tablesVenuePct: number;
+  drinksVenuePct: number;
+  cancellationPolicy: CancellationPolicy;
   isActive: boolean;
 };
 
@@ -116,7 +149,9 @@ const EMPTY_FORM: FormState = {
   name: '', description: '', posterUrl: '', musicGenres: ['Open Format'], eventType: 'club',
   dayOfWeek: 5, startTime: '23:00', endTime: '06:00', advanceDays: 7,
   ticketPresetId: '', vipPresetId: '', tablePresetId: '', guestListTemplateId: '', autoEnableTables: false,
-  partnerOrganizerId: '', venueSplitPct: 70, isActive: true,
+  partnerOrganizerId: '', contractMode: 'new', contractSourceKey: '',
+  ticketsVenuePct: 70, tablesVenuePct: 70, drinksVenuePct: 100,
+  cancellationPolicy: 'pro_rata_refund', isActive: true,
 };
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
@@ -132,6 +167,60 @@ const inputStyle: React.CSSProperties = {
   background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none', colorScheme: 'dark',
 };
 
+/**
+ * Une ligne du split détaillé (billets / tables / boissons). Défini au niveau module :
+ * un composant redéfini à chaque rendu se remonterait à chaque frappe et l'input
+ * perdrait le focus.
+ */
+function SplitPctRow({ icon, label, hint, value, disabled, partnerLabel, onChange }: {
+  icon: React.ReactNode; label: string; hint?: string; value: number;
+  disabled?: boolean; partnerLabel: string; onChange: (v: number) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div style={{ minWidth: 0 }}>
+        <p style={{ color: T2, fontSize: 12.5, fontWeight: 560, display: 'flex', alignItems: 'center', gap: 6 }}>{icon}{label}</p>
+        {hint && <p style={{ color: T3, fontSize: 10.5, marginTop: 2, lineHeight: 1.35 }}>{hint}</p>}
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <input
+          type="number" min={0} max={100} disabled={disabled}
+          style={{ ...inputStyle, width: 72, textAlign: 'right', opacity: disabled ? 0.45 : 1, cursor: disabled ? 'not-allowed' : 'text' }}
+          value={value}
+          onChange={(e) => onChange(Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))}
+        />
+        <span style={{ color: T3, fontSize: 11, whiteSpace: 'nowrap', width: 96 }}>
+          % club · {100 - value}% {partnerLabel}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** Récapitulatif en lecture seule des conditions d'un contrat (repris ou déjà signé). */
+function TermsRecap({ rules, policy, labels }: {
+  rules: PartnershipSplitRules;
+  policy: CancellationPolicy;
+  labels: { tickets: string; tables: string; drinks: string; policy: string; proRata: string; noRefund: string; club: string; partner: string };
+}) {
+  const row = (k: string, v: string) => (
+    <div key={k} className="flex items-center justify-between gap-3" style={{ padding: '5px 0' }}>
+      <span style={{ color: T3, fontSize: 11.5 }}>{k}</span>
+      <span style={{ color: T2, fontSize: 11.5, fontWeight: 560, textAlign: 'right' }}>{v}</span>
+    </div>
+  );
+  const pct = (b: { venue_pct: number; organizer_pct: number }) =>
+    `${b.venue_pct}% ${labels.club} · ${b.organizer_pct}% ${labels.partner}`;
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${F_BORDER}`, borderRadius: 10, padding: '8px 12px' }}>
+      {row(labels.tickets, pct(rules.tickets))}
+      {row(labels.tables, pct(rules.tables))}
+      {row(labels.drinks, pct(rules.drinks))}
+      {row(labels.policy, policy === 'pro_rata_refund' ? labels.proRata : labels.noRefund)}
+    </div>
+  );
+}
+
 export function RecurringEventsManager({ venueId, organizerUserId, onEventsChanged }: { venueId?: string | null; organizerUserId?: string | null; onEventsChanged?: () => void }) {
   const { t, language } = useLanguage();
   // Inline tri-lingual helper for the few series-contract strings (avoids growing data.ts).
@@ -144,9 +233,11 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
   // Presets de tables VIP (bottle service) — venue-scoped uniquement (club).
   const [tablePresets, setTablePresets] = useState<TablePreset[]>([]);
   const [guestListPresets, setGuestListPresets] = useState<GuestListPreset[]>([]);
-  const [partners, setPartners] = useState<{ id: string; name: string }[]>([]);
+  const [partners, setPartners] = useState<Partner[]>([]);
   // Contrat-cadre récurrent par template (co-event club-led) : pending | active.
-  const [seriesByTemplate, setSeriesByTemplate] = useState<Map<string, { id: string; status: string }>>(new Map());
+  const [seriesByTemplate, setSeriesByTemplate] = useState<Map<string, { id: string; status: string; rules: PartnershipSplitRules | null; policy: CancellationPolicy }>>(new Map());
+  // Conditions déjà négociées avec chaque organisateur (autres contrats-cadres + partenariat).
+  const [reusableByOrganizer, setReusableByOrganizer] = useState<Map<string, ReusableTerms[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<TemplateRow | null>(null);
@@ -197,36 +288,75 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
         : await glBase.eq('venue_id', venueId!);
       setGuestListPresets((glData || []) as GuestListPreset[]);
 
-      // Contrats-cadres récurrents (co-event club-led) → état affiché par template.
-      if (!isOrg) {
-        const coIds = ((tplRes.data || []) as unknown as TemplateRow[]).filter((tp) => tp.partner_organizer_id).map((tp) => tp.id);
-        if (coIds.length) {
-          const { data: sc } = await supabase
-            .from('event_collab_series_contracts' as never)
-            .select('id, template_id, status')
-            .in('template_id' as never, coIds as never)
-            .in('status' as never, ['pending_signatures', 'active'] as never);
-          setSeriesByTemplate(new Map(((sc as unknown as { id: string; template_id: string; status: string }[]) || []).map((s) => [s.template_id, { id: s.id, status: s.status }])));
-        } else {
-          setSeriesByTemplate(new Map());
-        }
-      }
-
-      // Partenaires organisateurs actifs (scope club) → co-events récurrents
+      // Partenaires organisateurs actifs + contrats-cadres du club. Les deux nourrissent
+      // l'étape « contrat » du bloc co-organisation : état par template ET conditions
+      // déjà négociées avec chaque organisateur, réutilisables pour une nouvelle série.
       if (!isOrg && venueId) {
-        const { data: parts } = await supabase
-          .from('venue_organizer_partnerships')
-          .select('organizer_user_id')
-          .eq('venue_id', venueId).eq('status', 'active');
+        const tplRows = (tplRes.data || []) as unknown as TemplateRow[];
+        const [{ data: parts }, { data: sc }] = await Promise.all([
+          supabase
+            .from('venue_organizer_partnerships')
+            .select('organizer_user_id, default_split_rules')
+            .eq('venue_id', venueId).eq('status', 'active'),
+          supabase
+            .from('event_collab_series_contracts' as never)
+            .select('id, template_id, status, organizer_user_id, split_rules, cancellation_policy')
+            .eq('venue_id' as never, venueId as never)
+            .in('status' as never, ['draft', 'pending_signatures', 'active'] as never),
+        ]);
+        const series = ((sc as unknown as SeriesContractRow[]) || []);
+        setSeriesByTemplate(new Map(series.map((s) => [s.template_id, {
+          id: s.id, status: s.status,
+          rules: normalizeSplitRules(s.split_rules),
+          policy: s.cancellation_policy ?? 'pro_rata_refund',
+        }])));
+
         const ids = (parts || []).map(p => p.organizer_user_id).filter(Boolean) as string[];
+        let nameMap = new Map<string, string | null>();
+        let alcoholMap = new Map<string, boolean>();
         if (ids.length) {
           const { data: profs } = await supabase
-            .from('organizer_profiles').select('user_id, display_name').in('user_id', ids);
-          const nameMap = new Map((profs || []).map(p => [p.user_id, p.display_name]));
-          setPartners(ids.map(id => ({ id, name: nameMap.get(id) || t('owner.recur.organizerFallback') })));
-        } else {
-          setPartners([]);
+            .from('organizer_profiles').select('user_id, display_name, can_sell_alcohol').in('user_id', ids);
+          const rows = (profs || []) as { user_id: string; display_name: string | null; can_sell_alcohol: boolean | null }[];
+          nameMap = new Map(rows.map(p => [p.user_id, p.display_name]));
+          alcoholMap = new Map(rows.map(p => [p.user_id, !!p.can_sell_alcohol]));
         }
+        setPartners(ids.map(id => ({
+          id,
+          name: nameMap.get(id) || t('owner.recur.organizerFallback'),
+          canSellAlcohol: alcoholMap.get(id) ?? false,
+        })));
+
+        // Sources réutilisables, par organisateur : les autres résidences signées d'abord
+        // (conditions les plus concrètes), puis le socle du partenariat.
+        const tplNames = new Map(tplRows.map(tp => [tp.id, tp.name]));
+        const reuse = new Map<string, ReusableTerms[]>();
+        const push = (orgId: string, item: ReusableTerms) => {
+          const list = reuse.get(orgId) ?? [];
+          list.push(item);
+          reuse.set(orgId, list);
+        };
+        for (const s of series) {
+          const rules = normalizeSplitRules(s.split_rules);
+          if (!rules || !s.organizer_user_id) continue;
+          push(s.organizer_user_id, {
+            key: `series:${s.id}`,
+            label: tplNames.get(s.template_id) || tl('Autre série récurrente', 'Another recurring series', 'Otra serie recurrente'),
+            rules,
+            policy: s.cancellation_policy ?? 'pro_rata_refund',
+          });
+        }
+        for (const p of (parts || [])) {
+          const rules = normalizeSplitRules(p.default_split_rules);
+          if (!rules || !p.organizer_user_id) continue;
+          push(p.organizer_user_id, {
+            key: 'partnership',
+            label: tl('Conditions du partenariat', 'Partnership terms', 'Condiciones de la asociación'),
+            rules,
+            policy: 'pro_rata_refund',
+          });
+        }
+        setReusableByOrganizer(reuse);
       }
     } catch (err) {
       console.error('Error loading recurring templates:', err);
@@ -249,6 +379,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
   };
 
   const openEdit = (tpl: TemplateRow) => {
+    const stored = normalizeSplitRules(tpl.revenue_split_rules);
     setEditing(tpl);
     setForm({
       name: tpl.name,
@@ -266,7 +397,12 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
       guestListTemplateId: tpl.guest_list_template_id || '',
       autoEnableTables: tpl.auto_enable_tables,
       partnerOrganizerId: tpl.partner_organizer_id || '',
-      venueSplitPct: normalizeSplitRules(tpl.revenue_split_rules)?.tickets.venue_pct ?? 70,
+      contractMode: 'new',
+      contractSourceKey: '',
+      ticketsVenuePct: stored?.tickets.venue_pct ?? 70,
+      tablesVenuePct: stored?.tables.venue_pct ?? 70,
+      drinksVenuePct: stored?.drinks.venue_pct ?? 100,
+      cancellationPolicy: 'pro_rata_refund',
       isActive: tpl.is_active,
     });
     setPosterFile(null);
@@ -284,11 +420,78 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
     reader.readAsDataURL(file);
   };
 
+  // ─── Contrat-cadre de la série (co-event club-led) ──────────────────────────
+  // Un contrat-cadre vivant sur CE template verrouille tout : le partenaire et les %
+  // sont signés (ou en cours de signature), le RPC refuse un second cadre, et changer
+  // de partenaire laisserait un contrat pointant vers une série qui ne lui appartient
+  // plus. Il faut le résilier d'abord.
+  const liveSeries = editing ? seriesByTemplate.get(editing.id) : undefined;
+  const selectedPartner = partners.find(p => p.id === form.partnerOrganizerId) || null;
+  const reusableTerms = (reusableByOrganizer.get(form.partnerOrganizerId) ?? [])
+    .filter(r => !liveSeries || r.key !== `series:${liveSeries.id}`);
+  const selectedReusable = reusableTerms.find(r => r.key === form.contractSourceKey) || null;
+
+  const recapLabels = {
+    tickets: tl('Billets', 'Tickets', 'Entradas'),
+    tables: tl('Tables VIP', 'VIP tables', 'Mesas VIP'),
+    drinks: tl('Boissons', 'Drinks', 'Bebidas'),
+    policy: tl('Annulation', 'Cancellation', 'Cancelación'),
+    proRata: tl('Prorata', 'Pro-rata', 'Prorrateo'),
+    noRefund: tl('Sans remboursement', 'No refund', 'Sin reembolso'),
+    club: tl('club', 'club', 'club'),
+    partner: tl('orga', 'org', 'orga'),
+  };
+
+  // Sélectionner un partenaire réamorce l'étape contrat : on reprend par défaut les
+  // conditions déjà négociées avec lui quand il y en a, sinon on part sur du neuf.
+  const handlePartnerChange = (organizerId: string) => {
+    const reuse = organizerId ? (reusableByOrganizer.get(organizerId) ?? []) : [];
+    const first = reuse[0];
+    setForm(prev => ({
+      ...prev,
+      partnerOrganizerId: organizerId,
+      contractMode: first ? 'existing' : 'new',
+      contractSourceKey: first?.key ?? '',
+      ticketsVenuePct: first?.rules.tickets.venue_pct ?? prev.ticketsVenuePct,
+      tablesVenuePct: first?.rules.tables.venue_pct ?? prev.tablesVenuePct,
+      drinksVenuePct: first?.rules.drinks.venue_pct ?? 100,
+      cancellationPolicy: first?.policy ?? 'pro_rata_refund',
+    }));
+  };
+
+  /**
+   * Les conditions qui partiront dans le contrat-cadre. Les boissons restent 100% club
+   * tant que l'organisateur n'a pas attesté sa licence d'alcool — le RPC applique la
+   * même règle côté serveur, on ne fait que l'afficher honnêtement avant l'envoi.
+   */
+  const effectiveTerms = (): { rules: PartnershipSplitRules; policy: CancellationPolicy } | null => {
+    if (isOrg || !form.partnerOrganizerId) return null;
+    const base = form.contractMode === 'existing' && selectedReusable
+      ? { rules: selectedReusable.rules, policy: selectedReusable.policy }
+      : {
+          rules: {
+            tickets: { organizer_pct: 100 - form.ticketsVenuePct, venue_pct: form.ticketsVenuePct },
+            tables: { organizer_pct: 100 - form.tablesVenuePct, venue_pct: form.tablesVenuePct },
+            drinks: { organizer_pct: 100 - form.drinksVenuePct, venue_pct: form.drinksVenuePct },
+          } as PartnershipSplitRules,
+          policy: form.cancellationPolicy,
+        };
+    if (!selectedPartner?.canSellAlcohol) {
+      base.rules = { ...base.rules, drinks: { organizer_pct: 0, venue_pct: 100 } };
+    }
+    return base;
+  };
+
   const handleSave = async () => {
     if (saving) return;
     if (!form.name.trim()) { toast.error(t('owner.recur.nameRequired')); return; }
     if (!scopeReady) return;
+    if (!isOrg && form.partnerOrganizerId && !liveSeries && form.contractMode === 'existing' && !selectedReusable) {
+      toast.error(tl('Choisis le contrat à reprendre.', 'Pick the contract to carry over.', 'Elige el contrato a reutilizar.'));
+      return;
+    }
     setSaving(true);
+    const terms = effectiveTerms();
     try {
       let posterUrl = form.posterUrl;
       if (posterFile && posterPreview) {
@@ -321,14 +524,11 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
         // Choisir un preset de tables implique des tables en ligne sur chaque occurrence.
         auto_enable_tables: form.autoEnableTables || (!isOrg && !!form.tablePresetId),
         partner_organizer_id: !isOrg && form.partnerOrganizerId ? form.partnerOrganizerId : null,
-        // Write the canonical nested shape. The single club/partner slider sets the
-        // global split applied to tickets + tables; drinks stay 100% club (alcohol licence).
+        // Forme canonique imbriquée, un % par catégorie. Quand un contrat-cadre vit déjà
+        // sur cette série, il fait foi (generate_recurring_events le lit en priorité) et
+        // ses termes sont immuables : on ne réécrit pas le template par-dessus.
         revenue_split_rules: !isOrg && form.partnerOrganizerId
-          ? {
-              tickets: { organizer_pct: 100 - form.venueSplitPct, venue_pct: form.venueSplitPct },
-              tables: { organizer_pct: 100 - form.venueSplitPct, venue_pct: form.venueSplitPct },
-              drinks: { organizer_pct: 0, venue_pct: 100 },
-            }
+          ? (liveSeries?.rules ?? terms?.rules ?? null)
           : null,
         is_active: form.isActive,
       };
@@ -352,31 +552,60 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
       // Le club pré-signe ici ; l'organisateur signe une seule fois (inbox collab) → toutes
       // les occurrences en attente s'activent et les suivantes naissent actives (plus de
       // signature par-soirée). On ne crée qu'un seul cadre vivant par template.
-      if (!isOrg && form.partnerOrganizerId && templateId) {
-        try {
-          const { data: existing } = await supabase
-            .from('event_collab_series_contracts' as never)
-            .select('id')
-            .eq('template_id' as never, templateId as never)
-            .in('status' as never, ['draft', 'pending_signatures', 'active'] as never)
-            .limit(1);
-          if (!existing || (existing as unknown[]).length === 0) {
-            await supabase.rpc('create_event_collab_series_contract' as never, {
-              p_template_id: templateId,
-              p_split_rules: payload.revenue_split_rules,
-              p_cancellation_policy: 'pro_rata_refund',
-            } as never);
-          }
-        } catch (e) { console.warn('[series-contract] create failed', e); }
+      let contractSent = false;
+      if (!isOrg && form.partnerOrganizerId && templateId && terms) {
+        const { data: existing } = await supabase
+          .from('event_collab_series_contracts' as never)
+          .select('id')
+          .eq('template_id' as never, templateId as never)
+          .in('status' as never, ['draft', 'pending_signatures', 'active'] as never)
+          .limit(1);
+        if (!existing || (existing as unknown[]).length === 0) {
+          // Échec bloquant : sans contrat, le CONTRACT GUARD gèle la billetterie de chaque
+          // occurrence. Le taire laisserait une série qui ne peut rien vendre sans dire pourquoi.
+          const { error: contractErr } = await supabase.rpc('create_event_collab_series_contract' as never, {
+            p_template_id: templateId,
+            p_split_rules: terms.rules,
+            p_cancellation_policy: terms.policy,
+          } as never);
+          if (contractErr) throw contractErr;
+
+          // Le récap de la série + les termes du contrat partent à l'organisateur
+          // (e-mail + push). Best-effort : le contrat est la source de vérité, un envoi
+          // raté ne doit pas annuler la proposition — elle reste dans son inbox collab.
+          try {
+            await supabase.functions.invoke('notify-split-proposal', {
+              body: { kind: 'series', id: templateId, action: 'proposed', proposer_side: 'venue', rules: terms.rules },
+            });
+          } catch (e) { console.warn('[series-contract] notify failed', e); }
+          contractSent = true;
+        }
       }
 
-      toast.success(editing ? t('owner.recur.updated') : t('owner.recur.created'));
+      if (contractSent) {
+        toast.success(tl(
+          `Contrat envoyé à ${selectedPartner?.name ?? 'ton partenaire'}`,
+          `Contract sent to ${selectedPartner?.name ?? 'your partner'}`,
+          `Contrato enviado a ${selectedPartner?.name ?? 'tu socio'}`,
+        ), {
+          description: tl(
+            'Le récap de la série et les conditions viennent de partir. Une seule signature de sa part active toutes les soirées.',
+            'The series recap and terms just went out. One signature from them activates every night.',
+            'El resumen de la serie y las condiciones acaban de salir. Una sola firma suya activa todas las noches.',
+          ),
+        });
+      } else {
+        toast.success(editing ? t('owner.recur.updated') : t('owner.recur.created'));
+      }
       setDialogOpen(false);
       fetchData();
       onEventsChanged?.();
     } catch (err) {
       console.error('Error saving recurring template:', err);
-      toast.error(t('owner.recur.saveError'));
+      // Un refus du RPC contrat (cadre déjà vivant, partenariat révoqué…) porte un
+      // message métier utile — l'écraser par un « erreur » générique cacherait pourquoi
+      // la billetterie de la série va rester bloquée.
+      toast.error((err as { message?: string })?.message || t('owner.recur.saveError'));
     } finally {
       setSaving(false);
     }
@@ -701,20 +930,184 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
                 <div>
                   <FieldLabel>{t('owner.recur.coOrgWith')}</FieldLabel>
                   <div className="relative">
-                    <select value={form.partnerOrganizerId} onChange={e => set('partnerOrganizerId', e.target.value)} className="appearance-none cursor-pointer" style={inputStyle}>
+                    <select
+                      value={form.partnerOrganizerId}
+                      disabled={!!liveSeries}
+                      onChange={e => handlePartnerChange(e.target.value)}
+                      className="appearance-none cursor-pointer"
+                      style={{ ...inputStyle, opacity: liveSeries ? 0.5 : 1, cursor: liveSeries ? 'not-allowed' : 'pointer' }}
+                    >
                       <option value="" style={{ background: '#0a0a0c' }}>{t('owner.recur.soloOption')}</option>
                       {partners.map(p => <option key={p.id} value={p.id} style={{ background: '#0a0a0c' }}>{p.name}</option>)}
                     </select>
                     <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
                   </div>
                 </div>
-                {form.partnerOrganizerId && (
-                  <div>
-                    <FieldLabel>{t('owner.recur.revenueSplit')}</FieldLabel>
-                    <div className="flex items-center gap-3">
-                      <input type="number" min={0} max={100} style={{ ...inputStyle, width: 90 }} value={form.venueSplitPct}
-                        onChange={e => set('venueSplitPct', Math.max(0, Math.min(100, parseInt(e.target.value) || 0)))} />
-                      <span style={{ color: T2, fontSize: 12.5 }}>{t('owner.recur.splitClubPartner').replace('{partner}', String(100 - form.venueSplitPct))}</span>
+
+                {/* ── Étape contrat ─────────────────────────────────────────────
+                    Un contrat-cadre existe déjà sur cette série : ses termes sont
+                    engagés (signés ou en cours de signature) et ne se réécrivent pas
+                    depuis ce formulaire. On les montre, on ne les édite pas. */}
+                {form.partnerOrganizerId && liveSeries && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Lock className="w-3.5 h-3.5" style={{ color: liveSeries.status === 'active' ? '#34D399' : '#F5A623' }} />
+                      <p style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>
+                        {liveSeries.status === 'active'
+                          ? tl('Contrat-cadre signé', 'Framework contract signed', 'Contrato marco firmado')
+                          : tl('Contrat-cadre envoyé, en attente de signature', 'Framework contract sent, awaiting signature', 'Contrato marco enviado, pendiente de firma')}
+                      </p>
+                    </div>
+                    {liveSeries.rules && (
+                      <TermsRecap rules={liveSeries.rules} policy={liveSeries.policy} labels={recapLabels} />
+                    )}
+                    <p style={{ color: T3, fontSize: 11, lineHeight: 1.45 }}>
+                      {tl(
+                        'Ces conditions engagent les deux parties pour toute la série. Pour changer de partenaire ou de répartition, résilie le contrat-cadre depuis la carte de la série, puis crées-en un nouveau.',
+                        'These terms bind both parties for the whole series. To change partner or split, terminate the framework contract from the series card, then create a new one.',
+                        'Estas condiciones vinculan a ambas partes para toda la serie. Para cambiar de socio o de reparto, resuelve el contrato marco desde la tarjeta de la serie y crea uno nuevo.',
+                      )}
+                    </p>
+                  </div>
+                )}
+
+                {/* Pas encore de contrat sur cette série : reprendre des conditions déjà
+                    négociées avec cet organisateur, ou en rédiger de neuves. */}
+                {form.partnerOrganizerId && !liveSeries && (
+                  <div className="space-y-3">
+                    <div>
+                      <FieldLabel><FileText className="w-3 h-3 inline mr-1" />{tl('Contrat de la série', 'Series contract', 'Contrato de la serie')}</FieldLabel>
+                      {reusableTerms.length > 0 ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          {([
+                            { m: 'existing' as const, label: tl('Reprendre un contrat', 'Reuse a contract', 'Reutilizar un contrato') },
+                            { m: 'new' as const, label: tl('Nouveau contrat', 'New contract', 'Nuevo contrato') },
+                          ]).map(opt => {
+                            const on = form.contractMode === opt.m;
+                            return (
+                              <button
+                                key={opt.m} type="button"
+                                onClick={() => setForm(prev => {
+                                  if (opt.m === 'new') return { ...prev, contractMode: 'new' };
+                                  const src = reusableTerms.find(r => r.key === prev.contractSourceKey) ?? reusableTerms[0];
+                                  return {
+                                    ...prev, contractMode: 'existing', contractSourceKey: src.key,
+                                    ticketsVenuePct: src.rules.tickets.venue_pct,
+                                    tablesVenuePct: src.rules.tables.venue_pct,
+                                    drinksVenuePct: src.rules.drinks.venue_pct,
+                                    cancellationPolicy: src.policy,
+                                  };
+                                })}
+                                className="rounded-xl px-3 py-2.5 text-[12.5px] font-medium cursor-pointer transition-all duration-150"
+                                style={on
+                                  ? { background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.3)', color: RED }
+                                  : { background: INNER_BG, border: `1px solid ${BORDER}`, color: T3 }}
+                              >
+                                {opt.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.45 }}>
+                          {tl(
+                            `Aucun contrat encore signé avec ${selectedPartner?.name ?? 'ce partenaire'}. Fixe la répartition ci-dessous : elle deviendra le contrat-cadre de la série.`,
+                            `No contract signed with ${selectedPartner?.name ?? 'this partner'} yet. Set the split below — it becomes the framework contract for the series.`,
+                            `Aún no hay contrato firmado con ${selectedPartner?.name ?? 'este socio'}. Fija el reparto abajo: será el contrato marco de la serie.`,
+                          )}
+                        </p>
+                      )}
+                    </div>
+
+                    {form.contractMode === 'existing' && reusableTerms.length > 0 && (
+                      <div className="space-y-2">
+                        {reusableTerms.length > 1 && (
+                          <div className="relative">
+                            <select
+                              value={form.contractSourceKey}
+                              onChange={e => {
+                                const src = reusableTerms.find(r => r.key === e.target.value);
+                                if (!src) return;
+                                setForm(prev => ({
+                                  ...prev, contractSourceKey: src.key,
+                                  ticketsVenuePct: src.rules.tickets.venue_pct,
+                                  tablesVenuePct: src.rules.tables.venue_pct,
+                                  drinksVenuePct: src.rules.drinks.venue_pct,
+                                  cancellationPolicy: src.policy,
+                                }));
+                              }}
+                              className="appearance-none cursor-pointer" style={inputStyle}
+                            >
+                              {reusableTerms.map(r => (
+                                <option key={r.key} value={r.key} style={{ background: '#0a0a0c' }}>{r.label}</option>
+                              ))}
+                            </select>
+                            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
+                          </div>
+                        )}
+                        {selectedReusable && (
+                          <TermsRecap rules={selectedReusable.rules} policy={selectedReusable.policy} labels={recapLabels} />
+                        )}
+                      </div>
+                    )}
+
+                    {form.contractMode === 'new' && (
+                      <div className="space-y-3">
+                        <SplitPctRow
+                          icon={<Ticket className="w-3 h-3" style={{ color: T3 }} />}
+                          label={tl('Billets', 'Tickets', 'Entradas')}
+                          value={form.ticketsVenuePct}
+                          partnerLabel={tl('orga', 'org', 'orga')}
+                          onChange={v => set('ticketsVenuePct', v)}
+                        />
+                        <SplitPctRow
+                          icon={<Crown className="w-3 h-3" style={{ color: T3 }} />}
+                          label={tl('Tables VIP', 'VIP tables', 'Mesas VIP')}
+                          value={form.tablesVenuePct}
+                          partnerLabel={tl('orga', 'org', 'orga')}
+                          onChange={v => set('tablesVenuePct', v)}
+                        />
+                        <SplitPctRow
+                          icon={<GlassWater className="w-3 h-3" style={{ color: T3 }} />}
+                          label={tl('Boissons', 'Drinks', 'Bebidas')}
+                          hint={selectedPartner?.canSellAlcohol
+                            ? tl('Ce partenaire a attesté sa licence d\'alcool.', 'This partner attested their alcohol licence.', 'Este socio acreditó su licencia de alcohol.')
+                            : tl('100% club : la licence d\'alcool est au nom du club.', '100% club: the alcohol licence is the club\'s.', '100% club: la licencia de alcohol es del club.')}
+                          value={selectedPartner?.canSellAlcohol ? form.drinksVenuePct : 100}
+                          disabled={!selectedPartner?.canSellAlcohol}
+                          partnerLabel={tl('orga', 'org', 'orga')}
+                          onChange={v => set('drinksVenuePct', v)}
+                        />
+                        <div>
+                          <FieldLabel>{tl('En cas d\'annulation', 'If the night is cancelled', 'Si se cancela')}</FieldLabel>
+                          <div className="relative">
+                            <select
+                              value={form.cancellationPolicy}
+                              onChange={e => set('cancellationPolicy', e.target.value as CancellationPolicy)}
+                              className="appearance-none cursor-pointer" style={inputStyle}
+                            >
+                              <option value="pro_rata_refund" style={{ background: '#0a0a0c' }}>
+                                {tl('Remboursement au prorata', 'Pro-rata refund', 'Reembolso prorrateado')}
+                              </option>
+                              <option value="no_refund_after_event" style={{ background: '#0a0a0c' }}>
+                                {tl('Pas de remboursement après la soirée', 'No refund after the event', 'Sin reembolso tras el evento')}
+                              </option>
+                            </select>
+                            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-start gap-2 p-2.5 rounded-lg" style={{ background: 'rgba(232,25,44,0.06)', border: '1px solid rgba(232,25,44,0.16)' }}>
+                      <Send className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: RED }} />
+                      <p style={{ color: T2, fontSize: 11.5, lineHeight: 1.45 }}>
+                        {tl(
+                          `En enregistrant, le récap de la série (jour, horaires, billetterie, tables, guest list) et ces conditions partent à ${selectedPartner?.name ?? 'ton partenaire'}. Une seule signature de sa part et toutes les soirées de la série s'ouvrent à la vente automatiquement.`,
+                          `On save, the series recap (day, hours, ticketing, tables, guest list) and these terms go out to ${selectedPartner?.name ?? 'your partner'}. One signature from them and every night in the series opens for sale automatically.`,
+                          `Al guardar, el resumen de la serie (día, horarios, entradas, mesas, lista) y estas condiciones se envían a ${selectedPartner?.name ?? 'tu socio'}. Con una sola firma suya, todas las noches se abren a la venta automáticamente.`,
+                        )}
+                      </p>
                     </div>
                   </div>
                 )}
