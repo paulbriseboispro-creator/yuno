@@ -104,7 +104,12 @@ GRANT EXECUTE ON FUNCTION public.settle_promoter_payout(uuid, text) TO authentic
 --
 -- On sépare : lecture pour view_finance + admin, écriture réservée à l'admin.
 -- ============================================================================
+-- Idempotent : un autre fichier de migration partage cet horodatage (collision
+-- de timestamp entre deux chantiers du meme jour), donc la CLI peut rejouer
+-- celui-ci. Sans ces DROP, le rejeu echoue en 42710 et bloque toute la file.
 DROP POLICY IF EXISTS "Organizer can manage own payouts" ON public.promoter_payouts;
+DROP POLICY IF EXISTS "Organizer can view own payouts" ON public.promoter_payouts;
+DROP POLICY IF EXISTS "Organizer admins can write own payouts" ON public.promoter_payouts;
 
 CREATE POLICY "Organizer can view own payouts"
 ON public.promoter_payouts FOR SELECT

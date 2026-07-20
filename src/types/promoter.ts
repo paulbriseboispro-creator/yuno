@@ -139,6 +139,9 @@ export type CommissionRules = {
   tiers?: CommissionRuleTier[];
   bonus?: CommissionRuleBonus;
   time_windows?: CommissionTimeWindow[];
+  /** Guest list : montant fixe PAR TETE (euros). Jamais un pourcentage : une
+   *  entree gratuite n'a pas de montant, un pourcentage vaudrait toujours 0. */
+  guestlist?: { value: number };
   guest_list?: GuestListPreset;
   customer_discount?: ClientDiscountPreset;
 };

@@ -66,6 +66,8 @@ export default function OwnerPromoterTemplates() {
   const [bonusThreshold, setBonusThreshold] = useState(0);
   const [bonusAmount, setBonusAmount] = useState(0);
   const [timeWindows, setTimeWindows] = useState<CommissionTimeWindow[]>([]);
+  // Guest list : euros par tete (voir migration 20260720160000).
+  const [glPerHead, setGlPerHead] = useState(0);
 
 
   // Client-discount state
@@ -96,6 +98,7 @@ export default function OwnerPromoterTemplates() {
     setRewardType('money'); setTicketType('percentage'); setTicketValue(10);
     setTableType('percentage'); setTableValue(10); setRewardConfig({});
     setUseTiers(false); setTiers([]); setBonusThreshold(0); setBonusAmount(0); setTimeWindows([]);
+    setGlPerHead(0);
     setCdType('percentage'); setCdValue(10); setCdAppliesTo('both'); setCdLabel('');
   }
 
@@ -122,6 +125,7 @@ export default function OwnerPromoterTemplates() {
       setBonusThreshold(r.bonus?.threshold || 0);
       setBonusAmount(r.bonus?.bonusAmount || 0);
       setTimeWindows(r.time_windows || []);
+      setGlPerHead(r.guestlist?.value ?? 0);
     }
     if (s.clientDiscount && r.customer_discount) {
       const cd = r.customer_discount;
@@ -143,6 +147,7 @@ export default function OwnerPromoterTemplates() {
       if (useTiers && tiers.length > 0) rules.tiers = tiers;
       if (bonusThreshold > 0) rules.bonus = { threshold: bonusThreshold, bonusAmount };
       if (timeWindows.length > 0) rules.time_windows = timeWindows;
+      if (glPerHead > 0) rules.guestlist = { value: glPerHead };
     }
     if (enableClientDiscount) {
       rules.customer_discount = { type: cdType, value: cdValue, appliesTo: cdAppliesTo, label: cdLabel || undefined };
@@ -422,6 +427,14 @@ export default function OwnerPromoterTemplates() {
                         <button className="text-destructive h-9 flex items-center" onClick={() => removeWindow(i)}><Trash2 className="h-4 w-4" /></button>
                       </div>
                     ))}
+                  </div>
+
+                  {/* Guest list — forfait par tete */}
+                  <div className="rounded-lg border p-3 space-y-2">
+                    <Label className="text-xs font-medium">{t('owner.promo.guestlistPerHead')}</Label>
+                    <p className="text-[11px] text-muted-foreground">{t('owner.promo.guestlistPerHeadDesc')}</p>
+                    <Input type="number" min={0} step="0.5" value={glPerHead}
+                      onChange={e => setGlPerHead(parseFloat(e.target.value) || 0)} />
                   </div>
 
                   {/* Bonus */}
