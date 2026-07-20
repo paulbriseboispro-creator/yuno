@@ -64,10 +64,13 @@ const AUTOMATIONS: Record<string, AutomationConfig> = {
 };
 
 // Nouvel événement publié → followers. {name} = nom du club ou de l'organisateur.
+// Le titre reste court et de longueur stable : iOS le tronque vers 30 caractères,
+// et « {name} annonce : {event} » y perdait systématiquement le nom de la soirée.
+// Le nom de l'événement passe donc dans le corps, qui dispose de deux lignes.
 const NEW_EVENT_TPL: Record<Lang, LocalizedText> = {
-  fr: { title: "📅 {name} annonce : {event}", body: "{date} — sois dans les premiers à réserver." },
-  en: { title: "📅 {name} just announced: {event}", body: "{date} — be one of the first to book." },
-  es: { title: "📅 {name} anuncia: {event}", body: "{date} — sé de los primeros en reservar." },
+  fr: { title: "📅 Nouveau chez {name}", body: "{event} — {date}. Sois dans les premiers à réserver." },
+  en: { title: "📅 New at {name}", body: "{event} — {date}. Be one of the first to book." },
+  es: { title: "📅 Novedad en {name}", body: "{event} — {date}. Sé de los primeros en reservar." },
 };
 
 function render(text: string, vars: Record<string, string>): string {
@@ -87,9 +90,13 @@ type DueRow = {
   automation_key: string;
 };
 
+// Abonnés de l'app grand public uniquement. Les automatisations club et les
+// annonces de soirée sont du marketing client : un membre du staff qui n'a que
+// Yuno Pro ne doit pas les recevoir (et n'était comptabilisé que comme échec).
 // deno-lint-ignore no-explicit-any
 async function subscriberSet(admin: any): Promise<Set<string>> {
-  const { data } = await admin.from("push_subscriptions").select("user_id");
+  const { data } = await admin
+    .from("push_subscriptions").select("user_id").eq("platform", "ios");
   // deno-lint-ignore no-explicit-any
   return new Set((data || []).map((d: any) => d.user_id));
 }
@@ -191,6 +198,8 @@ async function fanoutCampaign(
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceKey}` },
           body: JSON.stringify({
             user_id: uid,
+            // Automatisations club et annonces : app Yuno grand public uniquement.
+            platforms: ["ios"],
             payload: { title: tpl.title, body: tpl.body, url: trackedUrl },
           }),
         });
@@ -354,9 +363,18 @@ export async function dispatchNewEventPushes(
       const { data: v } = await admin.from("venues").select("name").eq("id", ev.venue_id).maybeSingle();
       hostName = v?.name || "";
     } else if (ev.organizer_user_id) {
-      const { data: p } = await admin
-        .from("profiles").select("first_name, last_name").eq("id", ev.organizer_user_id).maybeSingle();
-      hostName = `${p?.first_name || ""} ${p?.last_name || ""}`.trim();
+      // D'abord le nom public de l'organisateur : c'est celui que le client
+      // connaît, et un compte organisateur a rarement first_name/last_name
+      // renseignés — d'où les notifications signées « Yuno » au lieu du nom
+      // de la soirée. Les prénom/nom ne servent que de repli.
+      const { data: op } = await admin
+        .from("organizer_profiles").select("display_name").eq("user_id", ev.organizer_user_id).maybeSingle();
+      hostName = (op?.display_name || "").trim();
+      if (!hostName) {
+        const { data: p } = await admin
+          .from("profiles").select("first_name, last_name").eq("id", ev.organizer_user_id).maybeSingle();
+        hostName = `${p?.first_name || ""} ${p?.last_name || ""}`.trim();
+      }
     }
     if (!hostName) hostName = "Yuno";
 
