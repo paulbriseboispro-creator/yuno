@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, Plus, Pencil, Trash2, Clock, Upload, X, Archive, ChevronDown, ChevronUp, Info, Tag, Lock, Users, Ticket, Crown, RefreshCw, Sparkles, ExternalLink, Eye, Building2, Check, Settings2, Link2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -642,6 +642,20 @@ export default function OwnerEvents() {
       toast.error(t('owner.toastSaveError'));
     }
   };
+
+  // Ouverture directe d'une soirée depuis un lien externe (?edit=<id>) — le
+  // tableau de bord collab y renvoie pour l'outil « Infos & affiche ». Un seul
+  // déclenchement : sans le drapeau, refermer la modale la rouvrirait aussitôt.
+  const editParamDone = useRef(false);
+  useEffect(() => {
+    if (editParamDone.current || !events.length) return;
+    const wanted = new URLSearchParams(window.location.search).get('edit');
+    if (!wanted) return;
+    const found = events.find((e) => e.id === wanted);
+    if (!found) return;
+    editParamDone.current = true;
+    handleEdit(found as never);
+  }, [events]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleEdit = async (event: Event & { posterPosition?: PosterPosition }) => {
     setEditingEvent(event);
