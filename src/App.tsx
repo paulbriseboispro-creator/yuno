@@ -175,6 +175,7 @@ const ManagerDashboardPage = lazyWithRetry(() => import("./pages/ManagerDashboar
 const VipHostDashboard = lazyWithRetry(() => import("./pages/VipHostDashboard"));
 const CloakroomDashboard = lazyWithRetry(() => import("./pages/CloakroomDashboard"));
 const StaffProfile = lazyWithRetry(() => import("./pages/StaffProfile"));
+const StaffOnboarding = lazyWithRetry(() => import("./pages/StaffOnboarding"));
 const VipMenu = lazyWithRetry(() => import("./pages/VipMenu"));
 const MFASetup = lazyWithRetry(() => import("./pages/MFASetup"));
 const MFADisableConfirm = lazyWithRetry(() => import("./pages/MFADisableConfirm"));
@@ -779,6 +780,12 @@ const App = () => (
                 <Route path="/staff/me" element={
                   <StaffRoute>
                     <StaffProfile />
+                  </StaffRoute>
+                } />
+                {/* Onboarding staff (première connexion, après le PIN) */}
+                <Route path="/staff/welcome" element={
+                  <StaffRoute>
+                    <StaffOnboarding />
                   </StaffRoute>
                 } />
 

@@ -65,16 +65,20 @@ export default function SetupPinPage() {
       if (fnError) throw fnError;
 
       if (data?.success) {
+        let staffNeedsOnboarding = false;
         if (staffRole) {
           // Open a staff session immediately so they aren't re-prompted for the PIN.
           const { data: profile } = await supabase
-            .from('profiles').select('venue_id').eq('id', user!.id).maybeSingle();
+            .from('profiles').select('venue_id, staff_onboarded_at').eq('id', user!.id).maybeSingle();
           storeStaffSession(profile?.venue_id ?? '', staffRole);
+          // Premier compte staff terrain : l'onboarding (photo, nom, premiers
+          // gestes) passe avant le dashboard. Le manager va droit au sien.
+          staffNeedsOnboarding = staffRole !== 'manager' && !profile?.staff_onboarded_at;
         } else if (talentRole) {
           storePinSession(talentRole);
         }
         toast.success('Code PIN créé avec succès !');
-        navigate(getDashboardPath(), { replace: true });
+        navigate(staffNeedsOnboarding ? '/staff/welcome' : getDashboardPath(), { replace: true });
       } else {
         setError(data?.error || 'Erreur lors de la création du PIN');
       }
