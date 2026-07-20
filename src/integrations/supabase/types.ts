@@ -4107,6 +4107,7 @@ export type Database = {
           org_signed_user_agent: string | null
           organizer_user_id: string
           partnership_id: string | null
+          responsibilities: Json | null
           split_rules: Json
           status: string
           terms_snapshot: Json | null
@@ -4133,6 +4134,7 @@ export type Database = {
           org_signed_user_agent?: string | null
           organizer_user_id: string
           partnership_id?: string | null
+          responsibilities?: Json | null
           split_rules: Json
           status?: string
           terms_snapshot?: Json | null
@@ -4159,6 +4161,7 @@ export type Database = {
           org_signed_user_agent?: string | null
           organizer_user_id?: string
           partnership_id?: string | null
+          responsibilities?: Json | null
           split_rules?: Json
           status?: string
           terms_snapshot?: Json | null
@@ -4318,6 +4321,7 @@ export type Database = {
           org_signed_user_agent: string | null
           organizer_user_id: string
           partnership_id: string | null
+          responsibilities: Json | null
           split_rules: Json
           status: string
           template_id: string
@@ -4344,6 +4348,7 @@ export type Database = {
           org_signed_user_agent?: string | null
           organizer_user_id: string
           partnership_id?: string | null
+          responsibilities?: Json | null
           split_rules: Json
           status?: string
           template_id: string
@@ -4370,6 +4375,7 @@ export type Database = {
           org_signed_user_agent?: string | null
           organizer_user_id?: string
           partnership_id?: string | null
+          responsibilities?: Json | null
           split_rules?: Json
           status?: string
           template_id?: string
@@ -4422,7 +4428,7 @@ export type Database = {
           {
             foreignKeyName: "event_collab_series_contracts_template_id_fkey"
             columns: ["template_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "owner_recurring_templates"
             referencedColumns: ["id"]
           },
@@ -4807,6 +4813,7 @@ export type Database = {
           collab_goal_type: string | null
           collab_goal_value: number | null
           collab_paused_at: string | null
+          collab_responsibilities: Json | null
           created_at: string
           description: string | null
           discovery_status: Database["public"]["Enums"]["discovery_status"]
@@ -4873,6 +4880,7 @@ export type Database = {
           collab_goal_type?: string | null
           collab_goal_value?: number | null
           collab_paused_at?: string | null
+          collab_responsibilities?: Json | null
           created_at?: string
           description?: string | null
           discovery_status?: Database["public"]["Enums"]["discovery_status"]
@@ -4939,6 +4947,7 @@ export type Database = {
           collab_goal_type?: string | null
           collab_goal_value?: number | null
           collab_paused_at?: string | null
+          collab_responsibilities?: Json | null
           created_at?: string
           description?: string | null
           discovery_status?: Database["public"]["Enums"]["discovery_status"]
@@ -7726,6 +7735,8 @@ export type Database = {
         Row: {
           advance_days: number
           auto_enable_tables: boolean
+          collab_mode: Database["public"]["Enums"]["event_mode"] | null
+          collab_responsibilities: Json | null
           created_at: string
           day_of_week: number
           description: string | null
@@ -7751,6 +7762,8 @@ export type Database = {
         Insert: {
           advance_days?: number
           auto_enable_tables?: boolean
+          collab_mode?: Database["public"]["Enums"]["event_mode"] | null
+          collab_responsibilities?: Json | null
           created_at?: string
           day_of_week: number
           description?: string | null
@@ -7776,6 +7789,8 @@ export type Database = {
         Update: {
           advance_days?: number
           auto_enable_tables?: boolean
+          collab_mode?: Database["public"]["Enums"]["event_mode"] | null
+          collab_responsibilities?: Json | null
           created_at?: string
           day_of_week?: number
           description?: string | null
@@ -13655,6 +13670,10 @@ export type Database = {
         }
         Returns: Json
       }
+      apply_series_responsibilities: {
+        Args: { p_contract_id: string }
+        Returns: undefined
+      }
       archive_expired_event_orders: { Args: never; Returns: undefined }
       assign_agency_promoter_to_event: {
         Args: { p_assign?: boolean; p_event_id: string; p_promoter_id: string }
@@ -13762,6 +13781,14 @@ export type Database = {
       clear_dj_availability_block: {
         Args: { p_date: string }
         Returns: undefined
+      }
+      collab_domain_holder: {
+        Args: {
+          p_domain: string
+          p_mode: Database["public"]["Enums"]["event_mode"]
+          p_resp: Json
+        }
+        Returns: string
       }
       collab_event_parties: {
         Args: { p_event_id: string }
@@ -13873,14 +13900,24 @@ export type Database = {
         }
         Returns: string
       }
-      create_event_collab_series_contract: {
-        Args: {
-          p_cancellation_policy?: string
-          p_split_rules?: Json
-          p_template_id: string
-        }
-        Returns: string
-      }
+      create_event_collab_series_contract:
+        | {
+            Args: {
+              p_cancellation_policy?: string
+              p_split_rules?: Json
+              p_template_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_cancellation_policy?: string
+              p_responsibilities?: Json
+              p_split_rules?: Json
+              p_template_id: string
+            }
+            Returns: string
+          }
       current_affiliate_id: { Args: never; Returns: string }
       decline_dj_booking_request: {
         Args: { p_id: string; p_note?: string }
@@ -13893,6 +13930,10 @@ export type Database = {
       decrement_balance: {
         Args: { amount: number; current_val: number }
         Returns: number
+      }
+      default_collab_responsibilities: {
+        Args: { p_mode: Database["public"]["Enums"]["event_mode"] }
+        Returns: Json
       }
       delete_mfa_totp_secret: {
         Args: { p_user_id: string }
@@ -13940,6 +13981,14 @@ export type Database = {
           p_to?: string
         }
         Returns: Json
+      }
+      event_domain_allows_partner: {
+        Args: { p_domain: string; p_event_id: string }
+        Returns: boolean
+      }
+      event_domain_allows_venue: {
+        Args: { p_domain: string; p_event_id: string }
+        Returns: boolean
       }
       event_host_slug: { Args: { p_event_id: string }; Returns: string }
       event_origin_cities: {
