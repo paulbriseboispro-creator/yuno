@@ -116,8 +116,11 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
   const [teamInfo, setTeamInfo] = useState<{ name: string; leaderName: string | null; memberCount: number; isLeader: boolean; teamId: string | null } | null>(null);
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; label: string; clicks: number; conversions: number; revenue: number; commission: number }>>([]);
 
-  // Scan always available for promoter operations
-  const canScan = true;
+  // L'interrupteur « Scanner les entrées » de la fiche owner fait foi. Il était
+  // ignoré ici (codé en dur à true) : l'owner croyait retirer le scan à un
+  // promoteur sans aucun effet. La policy RLS s'appuie sur le même drapeau, donc
+  // masquer l'onglet et refuser l'écriture disent désormais la même chose.
+  const canScan = promoter.can_scan_entries ?? false;
   
   // Smart mixed: guestlist access from assignments OR all upcoming events if no specific assignments
   const guestListEvents = assignments.length > 0 

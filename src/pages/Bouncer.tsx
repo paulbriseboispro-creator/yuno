@@ -1004,7 +1004,7 @@ export default function Bouncer() {
           .from('guest_list_entries')
           .select(`
             *,
-            guest_lists!inner(free_before_time, entry_deadline, includes_drink, venue_id, events!inner(title, venue_id, partner_venue_id, start_at))
+            guest_lists!inner(event_id, free_before_time, entry_deadline, includes_drink, venue_id, events!inner(title, venue_id, partner_venue_id, start_at))
           `)
           .eq('qr_code', qrCode)
           .maybeSingle();
@@ -1113,6 +1113,31 @@ export default function Bouncer() {
               drinkName: null,
             });
             return;
+          }
+
+          // Commission « à la tête » du promoteur qui a placé cet invité.
+          //
+          // Elle n'était déclenchée que par le scanner du PROMOTEUR lui-même.
+          // Or à la porte c'est le videur du club qui scanne : son passage posait
+          // entry_scanned = true, et le scan du promoteur ressortait ensuite en
+          // « déjà scanné » sans jamais atteindre la RPC. Autrement dit, dans le
+          // cas normal, un promoteur n'était JAMAIS payé sur ses invités.
+          //
+          // Volontairement non bloquant : la porte doit avancer même si
+          // l'enregistrement de la commission échoue.
+          const glPromoterId = (glEntry as { promoter_id?: string | null }).promoter_id;
+          const glEventId = (glEntry.guest_lists as { event_id?: string })?.event_id;
+          if (glPromoterId && glEventId) {
+            supabase.rpc('record_promoter_conversion', {
+              p_promoter_id: glPromoterId,
+              p_conversion_type: 'guestlist',
+              p_amount: 0,
+              p_event_id: glEventId,
+              p_guest_list_entry_id: glEntry.id,
+              p_scan_at: new Date().toISOString(),
+            }).then(({ error }) => {
+              if (error) console.error('record_promoter_conversion (bouncer guestlist)', error);
+            });
           }
 
           // Bouncer view: show entry type info
