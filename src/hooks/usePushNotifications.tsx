@@ -96,27 +96,24 @@ function nativePlatform(): 'ios' | 'ios_pro' {
   return isProApp() ? 'ios_pro' : 'ios';
 }
 
-/** Upsert le token APNs courant et purge les anciens tokens de CETTE app. */
+/**
+ * Revendique le token APNs courant pour le compte connecté.
+ *
+ * Passe par la RPC `register_push_token` plutôt que par un upsert direct : le
+ * ménage à faire inclut la suppression des lignes d'AUTRES comptes pointant
+ * vers ce même téléphone (comptes déconnectés depuis), ce que le RLS de
+ * l'appelant interdit à juste titre. Sans ce ménage, chaque compte encore
+ * rattaché au téléphone recevait la même notification dans SA langue — d'où
+ * les notifications reçues en trois langues.
+ */
 async function syncNativeTokenToDb(token: string): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
-  const endpoint = `apns:${token}`;
-  const platform = nativePlatform();
-  await supabase
-    .from('push_subscriptions' as any)
-    .upsert({
-      user_id: user.id,
-      endpoint,
-      p256dh: null,
-      auth: null,
-      platform,
-    }, { onConflict: 'user_id,endpoint' });
-  await supabase
-    .from('push_subscriptions' as any)
-    .delete()
-    .eq('user_id', user.id)
-    .eq('platform', platform)
-    .neq('endpoint', endpoint);
+  const { error } = await supabase.rpc('register_push_token' as any, {
+    p_endpoint: `apns:${token}`,
+    p_platform: nativePlatform(),
+  });
+  if (error) console.error('[push] register_push_token failed', error);
 }
 
 async function deleteNativeSubscription(): Promise<void> {
