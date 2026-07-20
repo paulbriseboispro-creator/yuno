@@ -75,7 +75,11 @@ type TablePreset = { id: string; name: string };
 type CancellationPolicy = 'pro_rata_refund' | 'no_refund_after_event';
 
 /** Partenaire organisateur actif du club. `canSellAlcohol` gate la part boissons. */
-type Partner = { id: string; name: string; canSellAlcohol: boolean };
+type Partner = {
+  id: string; name: string; canSellAlcohol: boolean;
+  /** Répartition « Qui fait quoi » convenue par défaut avec CE partenaire. */
+  defaultResponsibilities: CollabResponsibilities | null;
+};
 
 /**
  * Conditions déjà négociées avec un organisateur, réutilisables telles quelles pour
@@ -315,7 +319,7 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
         const [{ data: parts }, { data: sc }] = await Promise.all([
           supabase
             .from('venue_organizer_partnerships')
-            .select('organizer_user_id, default_split_rules')
+            .select('organizer_user_id, default_split_rules, default_responsibilities')
             .eq('venue_id', venueId).eq('status', 'active'),
           supabase
             .from('event_collab_series_contracts' as never)
@@ -343,10 +347,20 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
           nameMap = new Map(rows.map(p => [p.user_id, p.display_name]));
           alcoholMap = new Map(rows.map(p => [p.user_id, !!p.can_sell_alcohol]));
         }
+        // La répartition par défaut du partenariat pré-remplit « Qui fait quoi » :
+        // un club qui travaille toujours pareil avec cet organisateur ne refait
+        // pas le réglage à chaque série.
+        const respMap = new Map<string, CollabResponsibilities | null>(
+          (parts || []).map(pp => {
+            const raw = (pp as { default_responsibilities?: unknown }).default_responsibilities;
+            return [pp.organizer_user_id as string, raw ? normalizeResponsibilities(raw, 'co_event') : null];
+          }),
+        );
         setPartners(ids.map(id => ({
           id,
           name: nameMap.get(id) || t('owner.recur.organizerFallback'),
           canSellAlcohol: alcoholMap.get(id) ?? false,
+          defaultResponsibilities: respMap.get(id) ?? null,
         })));
 
         // Sources réutilisables, par organisateur : les autres résidences signées d'abord
@@ -471,9 +485,15 @@ export function RecurringEventsManager({ venueId, organizerUserId, onEventsChang
   const handlePartnerChange = (organizerId: string) => {
     const reuse = organizerId ? (reusableByOrganizer.get(organizerId) ?? []) : [];
     const first = reuse[0];
+    const partnerDefault = organizerId
+      ? (partners.find(pp => pp.id === organizerId)?.defaultResponsibilities ?? null)
+      : null;
     setForm(prev => ({
       ...prev,
       partnerOrganizerId: organizerId,
+      // Répartition convenue avec CE partenaire. Sans défaut enregistré on garde
+      // ce qui est déjà à l'écran : l'owner a pu régler à la main avant de choisir.
+      responsibilities: partnerDefault ?? prev.responsibilities,
       contractMode: first ? 'existing' : 'new',
       contractSourceKey: first?.key ?? '',
       ticketsVenuePct: first?.rules.tickets.venue_pct ?? prev.ticketsVenuePct,

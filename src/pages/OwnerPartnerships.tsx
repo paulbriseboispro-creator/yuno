@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useVenuePartnerships, DEFAULT_PARTNERSHIP_SPLIT, type PartnershipSplitRules, type VenueOrganizerPartnership, getPartnershipProposalStatus } from '@/hooks/useOrganizerPartnerships';
 import { PartnershipSplitEditor, PartnershipProposalBanner } from '@/components/organizer-app/PartnershipSplitEditor';
+import { PartnershipResponsibilitiesDialog } from '@/components/collab/PartnershipResponsibilitiesDialog';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { User, Send, Check, X, Trash2, Inbox, Handshake, Search, ArrowLeft, Settings2 } from 'lucide-react';
+import { User, Send, Check, X, Trash2, Inbox, Handshake, Search, ArrowLeft, Settings2, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
@@ -60,7 +61,9 @@ export default function OwnerPartnerships() {
     })();
   }, [user]);
 
-  const { partnerships, isLoading, inviteOrganizer, respond, proposeSplitUpdate, respondToSplitProposal, revoke } = useVenuePartnerships(venueId);
+  const { partnerships, isLoading, inviteOrganizer, respond, proposeSplitUpdate, respondToSplitProposal, revoke, updateResponsibilities } = useVenuePartnerships(venueId);
+  // Répartition « Qui fait quoi » par défaut de ce partenariat (pré-remplissage).
+  const [respDialogPartnership, setRespDialogPartnership] = useState<VenueOrganizerPartnership | null>(null);
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -175,6 +178,7 @@ export default function OwnerPartnerships() {
                     key={p.id}
                     partnership={p}
                     onEditSplit={() => setSplitDialogPartnership(p)}
+                    onEditResponsibilities={() => setRespDialogPartnership(p)}
                     onAcceptProposal={() => respondToSplitProposal.mutate({ partnership: p, accept: true })}
                     onDeclineProposal={() => respondToSplitProposal.mutate({ partnership: p, accept: false })}
                     proposalPending={respondToSplitProposal.isPending}
@@ -322,6 +326,22 @@ export default function OwnerPartnerships() {
           isPending={proposeSplitUpdate.isPending}
         />
       )}
+
+      {/* Qui fait quoi par défaut — pré-remplit les futures collaborations avec
+          ce partenaire. Pas de flux de proposition : ça n'engage rien. */}
+      {respDialogPartnership && (
+        <PartnershipResponsibilitiesDialog
+          open={!!respDialogPartnership}
+          onOpenChange={(o) => !o && setRespDialogPartnership(null)}
+          current={respDialogPartnership.default_responsibilities}
+          partnerName={respDialogPartnership.organizer?.organization_name ?? null}
+          isPending={updateResponsibilities.isPending}
+          onSave={async (responsibilities) => {
+            await updateResponsibilities.mutateAsync({ id: respDialogPartnership.id, responsibilities });
+            setRespDialogPartnership(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -333,6 +353,7 @@ function PartnershipCard({
   onDecline,
   onRevoke,
   onEditSplit,
+  onEditResponsibilities,
   onAcceptProposal,
   onDeclineProposal,
   proposalPending,
@@ -343,6 +364,7 @@ function PartnershipCard({
   onDecline?: () => void;
   onRevoke?: () => void;
   onEditSplit?: () => void;
+  onEditResponsibilities?: () => void;
   onAcceptProposal?: () => void;
   onDeclineProposal?: () => void;
   proposalPending?: boolean;
@@ -419,6 +441,13 @@ function PartnershipCard({
           {onEditSplit && proposalStatus === 'no_proposal' && (
             <Button size="sm" variant="outline" onClick={onEditSplit} className="gap-1">
               <Settings2 className="h-3.5 w-3.5" /> {t('partnerships.splits')}
+            </Button>
+          )}
+          {/* Pendant de « Partages » pour les responsabilités : l'argent d'un côté,
+              qui décide de l'autre, réglés une fois pour ce partenaire. */}
+          {onEditResponsibilities && partnership.status === 'active' && (
+            <Button size="sm" variant="outline" onClick={onEditResponsibilities} className="gap-1">
+              <Users className="h-3.5 w-3.5" /> {t('partnerships.responsibilities')}
             </Button>
           )}
           {onRevoke && partnership.status !== 'revoked' && partnership.status !== 'declined' && (

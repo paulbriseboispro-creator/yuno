@@ -16,7 +16,8 @@ import { fr } from 'date-fns/locale';
 import { Send, Building2, Users, Sparkles, Clock, Image as ImageIcon, User } from 'lucide-react';
 import { ResponsibilitiesPicker } from '@/components/collab/ResponsibilitiesPicker';
 import {
-  defaultResponsibilities, sameResponsibilities, type CollabResponsibilities,
+  defaultResponsibilities, normalizeResponsibilities, sameResponsibilities,
+  type CollabResponsibilities,
 } from '@/utils/collabResponsibilities';
 
 type CollabMode = 'co_event' | 'venue_rental' | 'org_hosted';
@@ -62,6 +63,15 @@ export function ClubProposeEventDialog({ open, onOpenChange, venueId, preselecte
   // Axe RESPONSABILITES, independant du mode et des %. Voir collabResponsibilities.ts.
   const [responsibilities, setResponsibilities] = useState<CollabResponsibilities>(
     () => defaultResponsibilities('co_event'));
+  // Choisir un organisateur applique la répartition convenue par défaut AVEC LUI
+  // (venue_organizer_partnerships.default_responsibilities) — même logique que
+  // les conditions financières, qui se pré-remplissent déjà depuis le partenariat.
+  useEffect(() => {
+    if (!organizerId) return;
+    const p = activePartners.find(x => x.organizer_user_id === organizerId);
+    const raw = (p as { default_responsibilities?: unknown } | undefined)?.default_responsibilities;
+    if (raw) setResponsibilities(normalizeResponsibilities(raw, mode));
+  }, [organizerId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [eventId, setEventId] = useState<string>('');
   const [options, setOptions] = useState<ProposableEvent[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);

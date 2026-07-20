@@ -18,7 +18,8 @@ import {
 
 import { ResponsibilitiesPicker } from '@/components/collab/ResponsibilitiesPicker';
 import {
-  defaultResponsibilities, sameResponsibilities, type CollabResponsibilities,
+  defaultResponsibilities, normalizeResponsibilities, sameResponsibilities,
+  type CollabResponsibilities,
 } from '@/utils/collabResponsibilities';
 
 type CollabMode = 'co_event' | 'venue_rental' | 'org_hosted';
@@ -64,6 +65,23 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
   // Axe RESPONSABILITES, independant du mode et des %. Voir collabResponsibilities.ts.
   const [responsibilities, setResponsibilities] = useState<CollabResponsibilities>(
     () => defaultResponsibilities('co_event'));
+  // Répartition convenue par défaut avec CE club, s'il y en a une.
+  useEffect(() => {
+    if (!venueId) return;
+    let active = true;
+    (async () => {
+      const { data } = await supabase
+        .from('venue_organizer_partnerships')
+        .select('default_responsibilities')
+        .eq('venue_id', venueId)
+        .eq('organizer_user_id', user!.id)
+        .eq('status', 'active')
+        .maybeSingle();
+      const raw = (data as { default_responsibilities?: unknown } | null)?.default_responsibilities;
+      if (active && raw) setResponsibilities(normalizeResponsibilities(raw, mode));
+    })();
+    return () => { active = false; };
+  }, [venueId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [eventId, setEventId] = useState<string>('');
   const [options, setOptions] = useState<ProposableEvent[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);

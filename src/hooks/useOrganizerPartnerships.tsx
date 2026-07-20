@@ -20,6 +20,14 @@ export interface VenueOrganizerPartnership {
   initiated_by: PartnershipInitiator;
   invitation_message: string | null;
   default_split_rules: PartnershipSplitRules;
+  /**
+   * Répartition des domaines par défaut pour ce partenariat
+   * ({"design":"organizer","operations":"venue"}). Pré-remplit les nouvelles
+   * collaborations ; n'engage rien tant qu'un contrat n'est pas signé — c'est
+   * pourquoi elle se modifie directement, sans le flux de proposition que
+   * l'argent impose.
+   */
+  default_responsibilities?: Record<string, string> | null;
   /** Pending split modification awaiting both-side approval. */
   split_proposal: PartnershipSplitRules | null;
   split_proposed_by: string | null;
@@ -263,7 +271,10 @@ export function useVenuePartnerships(venueId: string | undefined) {
 
       type OrgProfileRow = { user_id: string; display_name: string | null; avatar_url: string | null; slug: string | null };
       const profileMap = new Map(
-        ((orgProfiles || []) as OrgProfileRow[]).map((p) => [p.user_id, {
+        // `.from(... as any)` prive PostgREST de toute inférence : le retour est
+        // un SelectQueryError, pas une ligne. Le double cast dit explicitement
+        // qu'on assume la forme, au lieu de laisser TS échouer sur un chevauchement.
+        ((orgProfiles || []) as unknown as OrgProfileRow[]).map((p) => [p.user_id, {
           id: p.user_id,
           first_name: null,
           last_name: null,
@@ -314,6 +325,21 @@ export function useVenuePartnerships(venueId: string | undefined) {
       queryClient.invalidateQueries({ queryKey: ['venue-partnerships', venueId] });
       toast({ title: vars.accept ? 'Partenariat accepté' : 'Demande refusée' });
     },
+  });
+
+  const updateResponsibilities = useMutation({
+    mutationFn: async (params: { id: string; responsibilities: Record<string, string> }) => {
+      const { error } = await supabase
+        .from('venue_organizer_partnerships')
+        .update({ default_responsibilities: params.responsibilities as never })
+        .eq('id', params.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['venue-partnerships', venueId] });
+      toast({ title: 'Répartition par défaut mise à jour' });
+    },
+    onError: (err: any) => toast({ title: 'Erreur', description: err.message, variant: 'destructive' }),
   });
 
   const updateSplit = useMutation({
@@ -428,6 +454,7 @@ export function useVenuePartnerships(venueId: string | undefined) {
     inviteOrganizer,
     respond,
     updateSplit,
+    updateResponsibilities,
     proposeSplitUpdate,
     respondToSplitProposal,
     revoke,
