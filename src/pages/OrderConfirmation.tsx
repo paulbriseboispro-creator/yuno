@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { transitions, useReducedMotion } from '@/lib/motion';
-import { celebrate } from '@/lib/celebrate';
+import { haptics } from '@/lib/haptics';
 import { Check, Clock, MapPin, Ticket, ArrowLeft, FileText, Download, CalendarPlus, Navigation, Share2, Mail, QrCode } from 'lucide-react';
 import { FavoriteButton } from '@/components/FavoriteButton';
+import { useFavorites } from '@/hooks/useFavorites';
 import { downloadICS } from '@/lib/calendar';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -72,6 +73,7 @@ export default function OrderConfirmation() {
   const location = useLocation();
   const { t, language } = useLanguage();
   const reduceMotion = useReducedMotion();
+  const { isFavorite, loading: favoritesLoading } = useFavorites();
 
   // Entrées de contenu (rares → célébration légitime). Reduced-motion → opacité seule.
   const rise = (delay: number) =>
@@ -88,6 +90,11 @@ export default function OrderConfirmation() {
   const [downloadingBillet, setDownloadingBillet] = useState(false);
   const [data, setData] = useState<ConfirmationData | null>(null);
   const [qrCodeImage, setQrCodeImage] = useState<string>('');
+  // Abonnement au club AU CHARGEMENT, figé. On ne peut pas lire isFavorite()
+  // directement au rendu : le client qui s'abonne depuis cette section ferait
+  // disparaître le bouton sous son pouce à l'instant du tap, sans confirmation.
+  // null = pas encore tranché (favoris en cours de chargement).
+  const [followedClubOnArrival, setFollowedClubOnArrival] = useState<boolean | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState<string | null>(null);
 
   const type = searchParams.get('type') as 'ticket' | 'table' | 'order';
@@ -112,14 +119,21 @@ export default function OrderConfirmation() {
     }
   }, [type, id]);
 
-  // Célébration synchronisée avec le badge « Confirmé » (spring
-  // transitions.celebrate) : haptic + confettis, une seule fois, quand la
-  // confirmation s'affiche. Fidélité light : si l'achat a rapporté des
-  // points (award_loyalty_points côté verify-*-payment), toast discret
-  // « +N points » après la retombée des confettis.
+  // Haptic de succès, une seule fois, quand la confirmation s'affiche.
+  // PAS de confettis ici : l'overlay passait par-dessus le QR code, qui est
+  // la seule chose que le client vient chercher sur cette page. Le badge
+  // « Confirmé » du hero porte déjà la célébration visuelle.
+  // Fidélité light : si l'achat a rapporté des points (award_loyalty_points
+  // côté verify-*-payment), toast discret « +N points ».
+  // Fige l'état d'abonnement dès que les favoris ET la commande sont chargés.
+  useEffect(() => {
+    if (favoritesLoading || !data?.venueId || followedClubOnArrival !== null) return;
+    setFollowedClubOnArrival(isFavorite('club', data.venueId));
+  }, [favoritesLoading, data?.venueId, followedClubOnArrival, isFavorite]);
+
   useEffect(() => {
     if (loading || !data) return;
-    celebrate('purchase');
+    haptics.success();
 
     let cancelled = false;
     (async () => {
@@ -954,8 +968,14 @@ export default function OrderConfirmation() {
           </button>
         </motion.section>
 
-        {/* RESTE DANS LA BOUCLE — follow the club */}
-        {data.venueId && data.venueName && (
+        {/* RESTE DANS LA BOUCLE — follow the club.
+            Masquée si le client suit DÉJÀ le club : le bouton bascule alors en
+            « Abonné·e », et un seul tap le désabonne. Proposer de s'abonner à
+            quelqu'un qui l'est déjà, c'est ne lui offrir qu'un moyen de se
+            désabonner par erreur. Masquée aussi tant que les favoris chargent
+            (followedClubOnArrival === null), pour ne pas afficher la section
+            puis la rétracter une fraction de seconde plus tard. */}
+        {data.venueId && data.venueName && followedClubOnArrival === false && (
           <motion.section {...rise(0.36)} className="py-7" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
             <p className="section-label-ruled mb-3">{t('confirmation.followTitle')}</p>
             <p className="font-sans mb-5" style={{ fontSize: '14px', lineHeight: 1.55, color: '#E5E5E5' }}>
