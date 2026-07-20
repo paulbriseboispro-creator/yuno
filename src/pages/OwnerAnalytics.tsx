@@ -7,6 +7,7 @@ import {
   MousePointerClick, TrendingUp, Layers, Flame, Clock,
   ArrowUpRight, ArrowDownRight, Globe, Calendar, Activity, ArrowLeft, ChevronDown,
   DoorOpen, UserCheck, Footprints, Megaphone, Target, Repeat, Crown, HeartHandshake,
+  ClipboardList,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,6 +29,7 @@ import { AnalyticsAnchorNav, type AnchorSection } from '@/components/analytics/A
 import { DrinkAnalyticsSection } from '@/components/analytics/DrinkAnalyticsSection';
 import { TableAnalyticsSection } from '@/components/analytics/TableAnalyticsSection';
 import { VipConsumptionSection } from '@/components/analytics/VipConsumptionSection';
+import { GuestListAnalyticsSection } from '@/components/analytics/GuestListAnalyticsSection';
 import { VipHostLeaderboard } from '@/components/analytics/VipHostLeaderboard';
 import { TicketAnalyticsOverview } from '@/components/analytics/TicketAnalyticsOverview';
 import { TicketAnalyticsLaunch } from '@/components/analytics/TicketAnalyticsLaunch';
@@ -633,6 +635,7 @@ export default function OwnerAnalytics() {
   const navSections: AnchorSection[] = [
     { id: 'an-overview', label: t('owner.an.zoneOverview'), icon: Layers },
     ...(hasNight ? [{ id: 'an-night', label: t('owner.an.theNight'), icon: DoorOpen }] : []),
+    ...(venueId ? [{ id: 'an-guestlist', label: t('owner.an.guestList'), icon: ClipboardList }] : []),
     ...(hasPromoter ? [{ id: 'an-promoter', label: t('owner.an.promoterRoi'), icon: Megaphone }] : []),
     ...(hasLoyalty ? [{ id: 'an-loyalty', label: t('owner.an.loyalty'), icon: HeartHandshake }] : []),
     ...(venueId ? [{ id: 'an-audience', label: t('owner.an.audience'), icon: Users }] : []),
@@ -972,6 +975,19 @@ export default function OwnerAnalytics() {
             </motion.div>
           );
         })()}
+
+        {/* ── Guest list : volume, no-show, peak time, valeur réelle ─────── */}
+        {venueId && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.23 }} className="space-y-3">
+            <ZoneHeading id="an-guestlist" icon={<ClipboardList className="w-4 h-4" />} label={t('owner.an.guestList')} />
+            <GuestListAnalyticsSection
+              venueId={venueId}
+              eventId={mode === 'event' ? selectedEventId : null}
+              from={webWindow.from}
+              to={webWindow.to}
+            />
+          </motion.div>
+        )}
 
         {/* ── Promoter ROI ───────────────────────────────────────────────── */}
         {promoterAnalytics && promoterAnalytics.promoters.length > 0 && (

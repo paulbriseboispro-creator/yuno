@@ -272,7 +272,13 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Analytics",
     keywords: ["analytics", "statistiques", "stats", "démographie", "audience", "origine", "villes", "âge", "funnel", "performance"],
     path: "/owner/analytics",
-    snippet: "Analytics couvre tes ventes (CA par source et par soirée), ton audience (âge, sexe, villes d'origine des participants) et le funnel d'achat. Après chaque soirée, une analyse post-event résume la performance. Utilise ces données pour caler ta programmation et tes prix.",
+    snippet: "Analytics couvre tes ventes (CA par source et par soirée), ton audience (âge, sexe, villes d'origine des participants), le funnel d'achat, et une zone Guest list dédiée. Après chaque soirée, une analyse post-event résume la performance. Utilise ces données pour caler ta programmation et tes prix.",
+  },
+  "analytics-guest-list": {
+    title: "Analytics guest list",
+    keywords: ["guest list", "guestlist", "invité", "invités", "no-show", "no show", "présence", "taux de présence", "remplissage", "quota", "peak time", "heure d'arrivée", "valeur invité", "rentabilité guest list", "guest list roi"],
+    path: "/owner/analytics",
+    snippet: "La zone Guest list d'Analytics répond à « est-ce que mes guest lists rapportent ? ». Elle donne le nombre d'inscrits, le taux de présence et de no-show, le remplissage vs quota (les listes illimitées en sont exclues), l'heure d'arrivée réelle à la porte avec le pic, et surtout la valeur par invité : ce qu'un invité consomme au bar et en VIP une fois entré. Un comparatif place l'invité guest list face au détenteur de billet payant sur les mêmes soirées. Le détail se décline par détenteur de liste (promoteur, DJ, orga), type d'invitation, genre, délai d'inscription et soirée par soirée.",
   },
   "dj-booking": {
     title: "DJs & booking",

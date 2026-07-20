@@ -14104,6 +14104,16 @@ export type Database = {
           similarity: number
         }[]
       }
+      get_guest_list_analytics: {
+        Args: {
+          p_event_id?: string
+          p_from?: string
+          p_to?: string
+          p_tz?: string
+          p_venue_id: string
+        }
+        Returns: Json
+      }
       get_guest_list_by_token: {
         Args: { _token: string }
         Returns: {
@@ -14621,6 +14631,14 @@ export type Database = {
         }[]
       }
       process_due_collab_actions: { Args: never; Returns: undefined }
+      promoter_owns_guest_entry: {
+        Args: { _entry_id: string; _user_id: string }
+        Returns: boolean
+      }
+      promoter_owns_ticket: {
+        Args: { _ticket_id: string; _user_id: string }
+        Returns: boolean
+      }
       purge_expired_personal_data: { Args: never; Returns: undefined }
       recalc_all_leaderboards: { Args: never; Returns: number }
       record_legal_acceptance: {
