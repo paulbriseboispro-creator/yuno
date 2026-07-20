@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { translate } from '@/i18n/orgTranslate';
 import {
   DoorOpen, UserCheck, UserX, TrendingUp, Wine, Clock, Users,
-  CalendarClock, Megaphone, Target, Scale,
+  CalendarClock, Megaphone, Target, Scale, ChevronDown,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -16,6 +16,8 @@ const T2 = 'rgba(255,255,255,0.58)';
 const T3 = 'rgba(255,255,255,0.36)';
 const BORDER = 'rgba(255,255,255,0.085)';
 const FAINT = 'rgba(255,255,255,0.06)';
+const INNER_BG = 'rgba(255,255,255,0.032)';
+const TILE_BG = 'rgba(255,255,255,0.025)';
 const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
 const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
 
@@ -33,6 +35,35 @@ const fmtPrice = (n: number): string => {
 };
 
 // ─── Types (RPC get_guest_list_analytics → jsonb) ──────────────────────────────
+interface HolderStats {
+  holder_key: string;
+  holder_type: string;
+  holder_label: string;
+  lists: number;
+  events: number;
+  signups: number;
+  arrived: number;
+  no_show: number;
+  no_show_rate: number | null;
+  show_rate: number | null;
+  quota_total: number;
+  capped_lists: number;
+  fill_rate: number | null;
+  revenue: number;
+  bar_revenue: number;
+  vip_revenue: number;
+  bar_orders: number;
+  vip_reservations: number;
+  spenders: number;
+  conversion_rate: number | null;
+  avg_per_arrived: number | null;
+  avg_per_spender: number | null;
+  peak_hour: number | null;
+  arrivals_by_hour: { hour: number; arrivals: number }[];
+  by_entry_type: { entry_type: string; signups: number; arrived: number; revenue: number }[];
+  top_event: { event_id: string; title: string; start_at: string; signups: number; arrived: number; revenue: number } | null;
+}
+
 interface GuestListAnalytics {
   ok: boolean;
   totals: {
@@ -56,7 +87,7 @@ interface GuestListAnalytics {
   signup_lead: { bucket: string; signups: number; arrived: number }[];
   by_entry_type: { entry_type: string; signups: number; arrived: number; no_show_rate: number; revenue: number; avg_per_arrived: number | null }[];
   by_gender: { gender: string; signups: number; arrived: number; no_show_rate: number; revenue: number; avg_per_arrived: number | null }[];
-  by_holder: { holder_type: string; holder_label: string; lists: number; signups: number; arrived: number; no_show_rate: number; revenue: number; avg_per_arrived: number | null }[];
+  by_holder: HolderStats[];
   by_event: { event_id: string; title: string; start_at: string; signups: number; arrived: number; no_show_rate: number; revenue: number; avg_per_arrived: number | null }[];
 }
 
@@ -130,11 +161,170 @@ function BarRow({ label, pct, right, sub, color }: {
   );
 }
 
+/** Tuile de niveau 3 — une métrique dans le panneau déplié d'un propriétaire. */
+function Tile({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div style={{ background: TILE_BG, border: `1px solid ${BORDER}`, borderRadius: 12, padding: '10px 12px' }}>
+      <div className="text-[10px] uppercase tracking-[0.07em] mb-1.5" style={{ color: T3 }}>{label}</div>
+      <div className="text-[15px] font-[640] tabular-nums leading-none" style={{ color: tone ?? T1, letterSpacing: '-0.015em' }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Ligne dépliable d'un propriétaire de liste. Fermée : le classement et les chiffres
+ * qui tranchent (venus, no-show, CA). Ouverte : le détail complet renvoyé par la RPC.
+ */
+function HolderRow({ h, rank, maxRevenue, open, onToggle, tt, entryLabel, holderLabel }: {
+  h: HolderStats;
+  rank: number;
+  maxRevenue: number;
+  open: boolean;
+  onToggle: () => void;
+  tt: (fr: string, en: string, es?: string) => string;
+  entryLabel: (k: string) => string;
+  holderLabel: (k: string) => string;
+}) {
+  const pct = maxRevenue > 0 ? Math.round((h.revenue / maxRevenue) * 100) : 0;
+  const hourMax = Math.max(0, ...h.arrivals_by_hour.map(x => x.arrivals));
+  const typeMax = Math.max(0, ...h.by_entry_type.map(x => x.signups));
+  const noShow = h.no_show_rate ?? 0;
+
+  return (
+    <div style={{ borderTop: `1px solid ${BORDER}` }}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="w-full text-left py-3.5 grid items-center gap-3 cursor-pointer"
+        style={{ gridTemplateColumns: '22px 1fr auto 16px', background: 'transparent' }}
+      >
+        <span className="text-[12.5px] tabular-nums" style={{ color: T3 }}>{String(rank).padStart(2, '0')}</span>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-[560] truncate" style={{ color: T1, letterSpacing: '-0.01em' }}>
+              {h.holder_label !== '—' ? h.holder_label : holderLabel(h.holder_type)}
+            </span>
+            <span className="text-[10px] uppercase tracking-[0.06em] px-1.5 py-0.5 rounded flex-none"
+              style={{ color: T3, background: FAINT, border: `1px solid ${BORDER}` }}>
+              {holderLabel(h.holder_type)}
+            </span>
+          </div>
+          <div className="text-[11.5px] mt-1" style={{ color: T3 }}>
+            {h.arrived}/{h.signups} {tt('venus', 'showed', 'asistieron')}
+            {' · '}{tt('no-show', 'no-show', 'no-show')} <span style={{ color: noShow > 40 ? NEG : T3 }}>{noShow}%</span>
+            {' · '}{fmtPrice(h.avg_per_arrived ?? 0)}/{tt('invité', 'guest', 'invitado')}
+          </div>
+          <div className="h-1 rounded mt-2 overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+            <div className="h-full rounded transition-all"
+              style={{ width: `${pct}%`, background: rank === 1 ? `linear-gradient(90deg,${RED}88,${RED})` : 'rgba(255,255,255,0.42)' }} />
+          </div>
+        </div>
+        <div className="text-right flex-none">
+          <div className="text-sm font-[620] tabular-nums" style={{ color: T1, letterSpacing: '-0.01em' }}>{fmtPrice(h.revenue)}</div>
+          <div className="text-[11px] mt-1" style={{ color: T3 }}>
+            {h.lists} {h.lists > 1 ? tt('listes', 'lists', 'listas') : tt('liste', 'list', 'lista')}
+          </div>
+        </div>
+        <ChevronDown className="w-4 h-4 flex-none transition-transform duration-200"
+          style={{ color: T3, transform: open ? 'rotate(180deg)' : 'none' }} />
+      </button>
+
+      {open && (
+        <div style={{ background: INNER_BG, borderRadius: 14, padding: 16, marginBottom: 12 }}>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+            <Tile label={tt('CA total', 'Total revenue', 'Ingresos totales')} value={fmtPrice(h.revenue)} />
+            <Tile label={tt('Dont bar', 'Of which bar', 'De ello barra')} value={fmtPrice(h.bar_revenue)} />
+            <Tile label={tt('Dont VIP', 'Of which VIP', 'De ello VIP')} value={fmtPrice(h.vip_revenue)} />
+            <Tile label={tt('Panier moyen', 'Avg basket', 'Ticket medio')} value={fmtPrice(h.avg_per_spender ?? 0)} />
+            <Tile label={tt('Inscrits', 'Signups', 'Inscritos')} value={h.signups.toLocaleString()} />
+            <Tile label={tt('Venus', 'Showed up', 'Asistieron')} value={`${h.arrived} · ${h.show_rate ?? 0}%`}
+              tone={(h.show_rate ?? 0) >= 60 ? POS : T1} />
+            <Tile label={tt('No-show', 'No-show', 'No-show')} value={`${h.no_show} · ${noShow}%`}
+              tone={noShow > 40 ? NEG : T1} />
+            <Tile label={tt('Ont consommé', 'Spent money', 'Consumieron')}
+              value={`${h.spenders} · ${h.conversion_rate ?? 0}%`} />
+            <Tile label={tt('Commandes bar', 'Bar orders', 'Pedidos barra')} value={h.bar_orders.toLocaleString()} />
+            <Tile label={tt('Tables VIP', 'VIP tables', 'Mesas VIP')} value={h.vip_reservations.toLocaleString()} />
+            <Tile label={tt('Remplissage', 'Fill rate', 'Llenado')}
+              value={h.capped_lists > 0 ? `${h.fill_rate ?? 0}%` : '—'} />
+            <Tile label={tt('Heure de pic', 'Peak hour', 'Hora pico')}
+              value={h.peak_hour !== null ? `${h.peak_hour}h` : '—'} />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mt-4">
+            {h.arrivals_by_hour.length > 0 && (
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.07em] mb-2.5" style={{ color: T3 }}>
+                  {tt('Arrivées à la porte', 'Door arrivals', 'Llegadas en puerta')}
+                </div>
+                <div className="flex items-end gap-1" style={{ height: 64 }}>
+                  {h.arrivals_by_hour.map(x => (
+                    <div key={x.hour} className="flex-1 flex flex-col items-center justify-end gap-1"
+                      title={`${x.hour}h · ${x.arrivals}`}>
+                      <div className="w-full rounded-t"
+                        style={{
+                          height: `${hourMax ? Math.max(3, Math.round((x.arrivals / hourMax) * 100)) : 0}%`,
+                          background: x.arrivals === hourMax ? RED : 'rgba(255,255,255,0.28)',
+                          minHeight: 3,
+                        }} />
+                      <span className="text-[9px] tabular-nums" style={{ color: T3 }}>{x.hour}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {h.by_entry_type.length > 0 && (
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.07em] mb-2.5" style={{ color: T3 }}>
+                  {tt('Par type d\'invitation', 'By invite type', 'Por tipo de invitación')}
+                </div>
+                <div className="space-y-2.5">
+                  {h.by_entry_type.map((e, i) => (
+                    <BarRow key={e.entry_type}
+                      label={entryLabel(e.entry_type)}
+                      pct={typeMax ? Math.round((e.signups / typeMax) * 100) : 0}
+                      right={`${e.signups} · ${fmtPrice(e.revenue)}`}
+                      color={i === 0 ? RED : 'rgba(255,255,255,0.42)'} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {h.top_event && (
+            <div className="mt-4 pt-3.5 flex items-center justify-between gap-3" style={{ borderTop: `1px solid ${BORDER}` }}>
+              <div className="min-w-0">
+                <div className="text-[11px] uppercase tracking-[0.07em] mb-1" style={{ color: T3 }}>
+                  {tt('Meilleure soirée', 'Best night', 'Mejor noche')}
+                </div>
+                <div className="text-[13px] font-[560] truncate" style={{ color: T1 }}>{h.top_event.title}</div>
+                <div className="text-[11px] mt-0.5" style={{ color: T3 }}>
+                  {h.top_event.arrived}/{h.top_event.signups} {tt('venus', 'showed', 'asistieron')}
+                  {' · '}{h.events} {h.events > 1 ? tt('soirées couvertes', 'nights covered', 'noches cubiertas') : tt('soirée couverte', 'night covered', 'noche cubierta')}
+                </div>
+              </div>
+              <div className="text-[15px] font-[640] tabular-nums flex-none" style={{ color: T1 }}>
+                {fmtPrice(h.top_event.revenue)}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function GuestListAnalyticsSection({ venueId, eventId, from, to }: Props) {
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [data, setData] = useState<GuestListAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
+  // Un seul propriétaire déplié à la fois — la liste reste lisible.
+  const [openHolder, setOpenHolder] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -388,30 +578,37 @@ export function GuestListAnalyticsSection({ venueId, eventId, from, to }: Props)
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {/* ── Qui amène du monde qui consomme ───────────────────────────── */}
-        {data.by_holder.length > 0 && (
-          <div style={{ ...crd, padding: '20px 22px' }}>
-            <h3 className="text-[15px] font-semibold mb-1 flex items-center gap-2.5" style={{ color: T1, letterSpacing: '-0.01em' }}>
-              <Megaphone className="h-4 w-4 flex-none" style={{ color: RED }} />
-              {tt('Par détenteur de liste', 'By list holder', 'Por titular de lista')}
-            </h3>
-            <p className="text-[11.5px] mb-4" style={{ color: T3 }}>
-              {tt('Classé par CA généré une fois les invités entrés', 'Ranked by revenue once guests are inside', 'Ordenado por ingresos una vez dentro')}
-            </p>
-            <div className="space-y-3.5">
-              {data.by_holder.slice(0, 8).map((h, i) => (
-                <BarRow key={`${h.holder_type}-${h.holder_label}-${i}`}
-                  label={h.holder_label !== '—' ? h.holder_label : holderLabel(h.holder_type)}
-                  pct={holderMax ? Math.round((h.revenue / holderMax) * 100) : 0}
-                  right={fmtPrice(h.revenue)}
-                  sub={`${holderLabel(h.holder_type)} · ${h.arrived}/${h.signups} ${tt('venus', 'showed', 'asistieron')} · ${tt('no-show', 'no-show', 'no-show')} ${h.no_show_rate}% · ${fmtPrice(h.avg_per_arrived ?? 0)}/${tt('invité', 'guest', 'invitado')}`}
-                  color={i === 0 ? RED : 'rgba(255,255,255,0.42)'} />
-              ))}
-            </div>
+      {/* ── Qui amène du monde qui consomme (déroulant par propriétaire) ── */}
+      {data.by_holder.length > 0 && (
+        <div style={{ ...crd, padding: '20px 22px' }}>
+          <h3 className="text-[15px] font-semibold mb-1 flex items-center gap-2.5" style={{ color: T1, letterSpacing: '-0.01em' }}>
+            <Megaphone className="h-4 w-4 flex-none" style={{ color: RED }} />
+            {tt('Par détenteur de liste', 'By list holder', 'Por titular de lista')}
+          </h3>
+          <p className="text-[11.5px] mb-1" style={{ color: T3 }}>
+            {tt(
+              'Classé par CA généré une fois les invités entrés. Cliquez sur un propriétaire pour son détail complet.',
+              'Ranked by revenue once guests are inside. Click a holder for the full breakdown.',
+              'Ordenado por ingresos una vez dentro. Haz clic en un titular para ver el detalle completo.',
+            )}
+          </p>
+          <div>
+            {data.by_holder.map((h, i) => (
+              <HolderRow key={h.holder_key}
+                h={h}
+                rank={i + 1}
+                maxRevenue={holderMax}
+                open={openHolder === h.holder_key}
+                onToggle={() => setOpenHolder(openHolder === h.holder_key ? null : h.holder_key)}
+                tt={tt}
+                entryLabel={entryLabel}
+                holderLabel={holderLabel} />
+            ))}
           </div>
-        )}
+        </div>
+      )}
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* ── Anticipation des inscriptions ──────────────────────────────── */}
         {data.signup_lead.length > 0 && (
           <div style={{ ...crd, padding: '20px 22px' }}>
@@ -437,9 +634,7 @@ export function GuestListAnalyticsSection({ venueId, eventId, from, to }: Props)
             </div>
           </div>
         )}
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* ── Par type d'entrée ──────────────────────────────────────────── */}
         {data.by_entry_type.length > 0 && (
           <div style={{ ...crd, padding: '20px 22px' }}>
