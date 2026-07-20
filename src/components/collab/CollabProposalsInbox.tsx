@@ -13,6 +13,7 @@ import { loadCollabSeriesContractPdfData } from '@/lib/collabContractData';
 import { COLLAB_TERMS_VERSION } from '@/lib/collabContractTerms';
 import type { CollabContractPDFData } from '@/lib/generateContractPDF';
 import type { EventCollabSeriesContractRow } from '@/hooks/useEventCollabSeriesContract';
+import { normalizeSplitRules } from '@/lib/splitRules';
 
 // ─── Yuno DA tokens (aligned with the Org dashboard) ───────────────────────────
 const AMBER = '#F5A623';
@@ -51,6 +52,20 @@ interface SeriesProposal {
   label: string;
   upcomingCount: number;
   partnerName: string;
+  /** Recap of what signing actually commits to — a framework binds EVERY date. */
+  recap: {
+    /** Closing time, appended to the cadence ("… · 23:00 → 06:00"). */
+    endTime: string | null;
+    /** Publication lead time, in days. */
+    advanceDays: number | null;
+    /** "24 juil · 31 juil · 7 août" — the real upcoming dates. */
+    nextDates: string;
+    ticketing: boolean;
+    tables: boolean;
+    /** MY share as the reviewing side, per revenue type. */
+    myShare: { tickets: number; tables: number; drinks: number } | null;
+    cancellation: string;
+  };
 }
 
 interface Props {
@@ -147,18 +162,38 @@ export function CollabProposalsInbox({ role, venueId, onChanged }: Props) {
       for (const e of (events || []) as { id: string; title: string; poster_url: string | null; start_at: string; recurring_template_id: string | null }[]) evMap.set(e.id, e);
     }
 
-    // Templates + upcoming counts for the framework cards.
-    const tplMap = new Map<string, { id: string; name: string; poster_url: string | null; day_of_week: number; start_time: string }>();
-    const countMap = new Map<string, number>();
+    // Templates + upcoming occurrences for the framework cards. Signing a framework
+    // commits to EVERY date of the residency, so the card has to show what that is.
+    type TplRow = {
+      id: string; name: string; poster_url: string | null; day_of_week: number;
+      start_time: string; end_time: string | null; advance_days: number | null;
+    };
+    type OccRow = {
+      id: string; recurring_template_id: string | null; title: string; poster_url: string | null;
+      start_at: string; ticketing_enabled: boolean | null; tables_enabled: boolean | null;
+    };
+    const tplMap = new Map<string, TplRow>();
+    const occMap = new Map<string, OccRow[]>();
     if (pendingSeries.length) {
       const tplIds = pendingSeries.map((s) => s.template_id);
       const { data: tpls } = await supabase
-        .from('owner_recurring_templates').select('id, name, poster_url, day_of_week, start_time').in('id', tplIds);
-      for (const tp of (tpls || []) as { id: string; name: string; poster_url: string | null; day_of_week: number; start_time: string }[]) tplMap.set(tp.id, tp);
+        .from('owner_recurring_templates')
+        .select('id, name, poster_url, day_of_week, start_time, end_time, advance_days')
+        .in('id', tplIds);
+      for (const tp of (tpls || []) as TplRow[]) tplMap.set(tp.id, tp);
+      // The occurrences double as an RLS-proof fallback: a partner organizer always
+      // has read access to the events they co-host, even where the template is denied.
       const { data: occ } = await supabase
-        .from('events').select('id, recurring_template_id').in('recurring_template_id', tplIds).gt('start_at', new Date().toISOString());
-      for (const o of (occ || []) as { id: string; recurring_template_id: string | null }[]) {
-        if (o.recurring_template_id) countMap.set(o.recurring_template_id, (countMap.get(o.recurring_template_id) || 0) + 1);
+        .from('events')
+        .select('id, recurring_template_id, title, poster_url, start_at, ticketing_enabled, tables_enabled')
+        .in('recurring_template_id', tplIds)
+        .gt('start_at', new Date().toISOString())
+        .order('start_at', { ascending: true });
+      for (const o of (occ || []) as OccRow[]) {
+        if (!o.recurring_template_id) continue;
+        const list = occMap.get(o.recurring_template_id) ?? [];
+        list.push(o);
+        occMap.set(o.recurring_template_id, list);
       }
     }
 
@@ -196,15 +231,39 @@ export function CollabProposalsInbox({ role, venueId, onChanged }: Props) {
 
     const seriesList: SeriesProposal[] = pendingSeries.map((s): SeriesProposal => {
       const tp = tplMap.get(s.template_id);
-      const dow = tp?.day_of_week ?? 5;
+      const occs = occMap.get(s.template_id) ?? [];
+      const first = occs[0];
+      // Fall back on the occurrences before falling back on a generic label: an
+      // empty "Soirée récurrente" card asks someone to sign a residency blind.
+      const dow = tp?.day_of_week ?? (first ? new Date(first.start_at).getDay() : 5);
       const time = tp?.start_time ?? '23:00';
-      const name = tp?.name || tt('Soirée récurrente', 'Recurring event', 'Evento recurrente');
+      const name = tp?.name || first?.title || tt('Soirée récurrente', 'Recurring event', 'Evento recurrente');
+      const rules = normalizeSplitRules(s.split_rules);
+      const mine = rules
+        ? (role === 'organizer'
+            ? { tickets: rules.tickets.organizer_pct, tables: rules.tables.organizer_pct, drinks: rules.drinks.organizer_pct }
+            : { tickets: rules.tickets.venue_pct, tables: rules.tables.venue_pct, drinks: rules.drinks.venue_pct })
+        : null;
+      const hhmm = (v: string | null | undefined) => (v || '').slice(0, 5);
       return {
-        row: s, templateName: name, posterUrl: tp?.poster_url ?? null,
+        row: s, templateName: name, posterUrl: tp?.poster_url ?? first?.poster_url ?? null,
         cadence: everyWeekday(dow, time),
         label: `${name} · ${everyWeekday(dow, time)}`,
-        upcomingCount: countMap.get(s.template_id) || 0,
+        upcomingCount: occs.length,
         partnerName: partnerOf(s),
+        recap: {
+          endTime: tp?.end_time ? hhmm(tp.end_time) : null,
+          advanceDays: tp?.advance_days ?? null,
+          nextDates: occs.slice(0, 3)
+            .map((o) => format(new Date(o.start_at), 'd MMM', { locale }))
+            .join(' · '),
+          ticketing: occs.some((o) => o.ticketing_enabled),
+          tables: occs.some((o) => o.tables_enabled),
+          myShare: mine,
+          cancellation: s.cancellation_policy === 'no_refund_after_event'
+            ? tt('Pas de remboursement après la soirée', 'No refund after the event', 'Sin reembolso tras el evento')
+            : tt('Remboursement au prorata', 'Pro-rata refund', 'Reembolso prorrateado'),
+        },
       };
     });
 
@@ -321,7 +380,7 @@ export function CollabProposalsInbox({ role, venueId, onChanged }: Props) {
         <div className="space-y-2 px-3 pb-3">
           {/* Recurring framework proposals — one signature covers the whole series. */}
           {series.map((sp) => (
-            <div key={sp.row.id} className="flex items-center gap-3 rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${AMBER}30` }}>
+            <div key={sp.row.id} className="flex items-start gap-3 rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${AMBER}30` }}>
               {sp.posterUrl ? (
                 <img src={sp.posterUrl} alt="" className="h-14 w-11 flex-none rounded-lg object-cover" style={{ border: `1px solid ${BORDER}` }} />
               ) : (
@@ -334,7 +393,9 @@ export function CollabProposalsInbox({ role, venueId, onChanged }: Props) {
                 </div>
                 <p className="truncate" style={{ color: T2, fontSize: 12 }}>{tt('Proposé par', 'Proposed by', 'Propuesto por')} {sp.partnerName}</p>
                 <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5" style={{ color: T3, fontSize: 11 }}>
-                  <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{sp.cadence}</span>
+                  <span className="inline-flex items-center gap-1">
+                    <Clock className="h-3 w-3" />{sp.cadence}{sp.recap.endTime ? ` → ${sp.recap.endTime}` : ''}
+                  </span>
                   <span style={{ color: AMBER }}>
                     {tt(
                       'Signe une fois pour toutes les soirées',
@@ -344,6 +405,35 @@ export function CollabProposalsInbox({ role, venueId, onChanged }: Props) {
                     {sp.upcomingCount > 0 ? ` (${sp.upcomingCount})` : ''}
                   </span>
                 </p>
+
+                {/* Récap de la série — on ne demande pas de signer un engagement
+                    récurrent sur un titre et une heure. */}
+                <div className="mt-1.5 space-y-1 rounded-lg px-2.5 py-2" style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}` }}>
+                  {sp.recap.myShare && (
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5" style={{ fontSize: 11 }}>
+                      <span style={{ color: T3 }}>{tt('Ta part', 'Your share', 'Tu parte')}</span>
+                      <span style={{ color: T1, fontWeight: 600 }}>
+                        {tt('Billets', 'Tickets', 'Entradas')} {sp.recap.myShare.tickets}%
+                        {' · '}{tt('Tables', 'Tables', 'Mesas')} {sp.recap.myShare.tables}%
+                        {' · '}{tt('Boissons', 'Drinks', 'Bebidas')} {sp.recap.myShare.drinks}%
+                      </span>
+                    </div>
+                  )}
+                  {sp.recap.nextDates && (
+                    <div className="flex flex-wrap items-center gap-x-2" style={{ fontSize: 11 }}>
+                      <span style={{ color: T3 }}>{tt('Prochaines dates', 'Next dates', 'Próximas fechas')}</span>
+                      <span style={{ color: T2 }}>{sp.recap.nextDates}</span>
+                    </div>
+                  )}
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5" style={{ fontSize: 10.5, color: T3 }}>
+                    {sp.recap.advanceDays != null && (
+                      <span>{tt('En ligne J-', 'Live D-', 'En línea D-')}{sp.recap.advanceDays}</span>
+                    )}
+                    {sp.recap.ticketing && <span>· {tt('Billetterie auto', 'Auto ticketing', 'Entradas auto')}</span>}
+                    {sp.recap.tables && <span>· {tt('Tables VIP', 'VIP tables', 'Mesas VIP')}</span>}
+                    <span>· {sp.recap.cancellation}</span>
+                  </div>
+                </div>
               </div>
               <div className="flex flex-none flex-col gap-1.5 sm:flex-row">
                 <button
