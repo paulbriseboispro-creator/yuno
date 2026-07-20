@@ -8125,6 +8125,7 @@ export type Database = {
           staff_avatar_url: string | null
           staff_display_name: string | null
           staff_emoji: string | null
+          staff_onboarded_at: string | null
           staff_since: string | null
           staff_title: string | null
           stripe_connect_account_id: string | null
@@ -8173,6 +8174,7 @@ export type Database = {
           staff_avatar_url?: string | null
           staff_display_name?: string | null
           staff_emoji?: string | null
+          staff_onboarded_at?: string | null
           staff_since?: string | null
           staff_title?: string | null
           stripe_connect_account_id?: string | null
@@ -8221,6 +8223,7 @@ export type Database = {
           staff_avatar_url?: string | null
           staff_display_name?: string | null
           staff_emoji?: string | null
+          staff_onboarded_at?: string | null
           staff_since?: string | null
           staff_title?: string | null
           stripe_connect_account_id?: string | null
@@ -8778,6 +8781,56 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promoter_push_queue: {
+        Row: {
+          created_at: string
+          dedup_key: string | null
+          id: number
+          not_before: string
+          promoter_id: string | null
+          push_key: string
+          sent_at: string | null
+          url: string
+          user_id: string
+          variant: string
+          vars: Json
+        }
+        Insert: {
+          created_at?: string
+          dedup_key?: string | null
+          id?: number
+          not_before?: string
+          promoter_id?: string | null
+          push_key: string
+          sent_at?: string | null
+          url?: string
+          user_id: string
+          variant?: string
+          vars?: Json
+        }
+        Update: {
+          created_at?: string
+          dedup_key?: string | null
+          id?: number
+          not_before?: string
+          promoter_id?: string | null
+          push_key?: string
+          sent_at?: string | null
+          url?: string
+          user_id?: string
+          variant?: string
+          vars?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promoter_push_queue_promoter_id_fkey"
+            columns: ["promoter_id"]
+            isOneToOne: false
+            referencedRelation: "promoters"
             referencedColumns: ["id"]
           },
         ]
@@ -9788,6 +9841,70 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_brief_reads: {
+        Row: {
+          brief_id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          brief_id: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          brief_id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_brief_reads_brief_id_fkey"
+            columns: ["brief_id"]
+            isOneToOne: false
+            referencedRelation: "staff_briefs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_briefs: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          night_date: string
+          updated_at: string
+          updated_by: string
+          venue_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          night_date: string
+          updated_at?: string
+          updated_by: string
+          venue_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          night_date?: string
+          updated_at?: string
+          updated_by?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_briefs_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_invitations: {
         Row: {
           accepted_at: string | null
@@ -9837,6 +9954,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "staff_invitations_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_kudos: {
+        Row: {
+          body: string | null
+          created_at: string
+          from_user: string
+          id: string
+          night_date: string
+          to_user: string
+          venue_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          from_user: string
+          id?: string
+          night_date?: string
+          to_user: string
+          venue_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          from_user?: string
+          id?: string
+          night_date?: string
+          to_user?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_kudos_venue_id_fkey"
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
@@ -12032,6 +12187,7 @@ export type Database = {
         Row: {
           accepted_at: string | null
           created_at: string
+          default_responsibilities: Json | null
           default_split_rules: Json
           id: string
           initiated_by: Database["public"]["Enums"]["partnership_initiator"]
@@ -12052,6 +12208,7 @@ export type Database = {
         Insert: {
           accepted_at?: string | null
           created_at?: string
+          default_responsibilities?: Json | null
           default_split_rules?: Json
           id?: string
           initiated_by: Database["public"]["Enums"]["partnership_initiator"]
@@ -12072,6 +12229,7 @@ export type Database = {
         Update: {
           accepted_at?: string | null
           created_at?: string
+          default_responsibilities?: Json | null
           default_split_rules?: Json
           id?: string
           initiated_by?: Database["public"]["Enums"]["partnership_initiator"]
@@ -14191,6 +14349,22 @@ export type Database = {
         Args: { p_org_id: string; p_rules: Json }
         Returns: Json
       }
+      enqueue_promoter_night_digests: { Args: never; Returns: Json }
+      enqueue_promoter_payout_reminders: { Args: never; Returns: Json }
+      enqueue_promoter_push: {
+        Args: {
+          p_dedup_key?: string
+          p_min_interval?: string
+          p_not_before?: string
+          p_promoter_id: string
+          p_push_key: string
+          p_url?: string
+          p_user_id: string
+          p_variant?: string
+          p_vars?: Json
+        }
+        Returns: undefined
+      }
       event_audience_demographics: {
         Args: {
           p_event_id?: string
@@ -14681,6 +14855,7 @@ export type Database = {
         Args: { _reservation_id: string }
         Returns: string
       }
+      get_staff_night_pulse: { Args: { p_venue_id?: string }; Returns: Json }
       get_staff_self_stats: { Args: { p_days?: number }; Returns: Json }
       get_tracked_link_stats: {
         Args: {
@@ -14756,6 +14931,10 @@ export type Database = {
           visit_nights: number
           visits_per_month: number
         }[]
+      }
+      get_venue_staff_activity: {
+        Args: { p_days?: number; p_venue_id?: string }
+        Returns: Json
       }
       get_venue_staff_team: {
         Args: never
@@ -15000,6 +15179,11 @@ export type Database = {
         }
         Returns: undefined
       }
+      owner_set_staff_title: {
+        Args: { p_title: string; p_user_id: string }
+        Returns: Json
+      }
+      paris_night_date: { Args: { p_at?: string }; Returns: string }
       prepare_promoter_payout: {
         Args: { p_period_label?: string; p_promoter_id: string }
         Returns: Json
@@ -15034,6 +15218,7 @@ export type Database = {
         Returns: string
       }
       purge_expired_personal_data: { Args: never; Returns: undefined }
+      purge_promoter_push_queue: { Args: never; Returns: Json }
       recalc_all_leaderboards: { Args: never; Returns: number }
       record_legal_acceptance: {
         Args: {
@@ -15274,6 +15459,10 @@ export type Database = {
         Args: { p_venue_id: string }
         Returns: undefined
       }
+      send_staff_kudos: {
+        Args: { p_body?: string; p_to_user: string }
+        Returns: Json
+      }
       set_agency_contract_status: {
         Args: { p_contract_id: string; p_status: string }
         Returns: string
@@ -15354,6 +15543,10 @@ export type Database = {
         Args: { p_drink_id: string; p_out: boolean }
         Returns: undefined
       }
+      staff_station_call: {
+        Args: { p_call_kind: string; p_target_role: string }
+        Returns: Json
+      }
       staff_unban_customer: {
         Args: {
           p_email: string
@@ -15413,6 +15606,10 @@ export type Database = {
       update_maintenance_password: {
         Args: { new_password: string }
         Returns: undefined
+      }
+      upsert_staff_brief: {
+        Args: { p_body: string; p_venue_id: string }
+        Returns: Json
       }
       upsert_venue_floor_plan: {
         Args: {
