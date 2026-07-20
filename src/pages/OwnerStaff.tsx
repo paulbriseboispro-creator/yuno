@@ -4,7 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
-import { UserPlus, Trash2, Key, Shield, Wine, Pencil, UserCog, RefreshCw, CheckCircle, Crown, Shirt, Lock } from 'lucide-react';
+import { UserPlus, Trash2, Key, Shield, Wine, Pencil, UserCog, RefreshCw, CheckCircle, Crown, Shirt, Lock, Users, Megaphone, Activity, Tag, Check, X } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TeamBriefingTab } from '@/components/owner/staff/TeamBriefingTab';
+import { TeamActivityTab } from '@/components/owner/staff/TeamActivityTab';
 import { useToast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -44,7 +47,15 @@ interface ManagerPermissions {
 interface Employee {
   id: string; email: string; first_name: string | null; last_name: string | null;
   employee_pin: string | null; is_click_collect_manager: boolean | null;
+  staff_title: string | null; staff_display_name: string | null; staff_avatar_url: string | null;
   roles: EmployeeRole[]; managerPermissions?: ManagerPermissions | null;
+}
+
+/** Nom public d'un membre — mêmes replis que l'annuaire d'équipe côté DB. */
+function employeeName(e: Employee): string {
+  return e.staff_display_name?.trim()
+    || [e.first_name, e.last_name].filter(Boolean).join(' ').trim()
+    || e.email.split('@')[0];
 }
 
 const defaultManagerPermissions: ManagerPermissions = {
@@ -99,6 +110,14 @@ export default function OwnerStaff() {
   const canAddVipHost = hasFeature('vip_service');
 
   const [pendingInvites, setPendingInvites] = useState<{ id: string; email: string; role: EmployeeRole; created_at: string }[]>([]);
+
+  // Hub équipe : Équipe (gestion) / Briefing (consigne + bravos) / Activité (relevé).
+  const [tab, setTab] = useState<'team' | 'briefing' | 'activity'>('team');
+
+  // Édition inline de l'intitulé de poste (il appartient au club, pas au staff).
+  const [titleEditId, setTitleEditId] = useState<string | null>(null);
+  const [titleDraft, setTitleDraft] = useState('');
+  const [titleSaving, setTitleSaving] = useState(false);
 
   // Core plan is capped at 5 staff (active + pending). Essential+ / collab are unlimited.
   // Backend enforces this in invite-staff; this drives the proactive UI block.
@@ -155,6 +174,8 @@ export default function OwnerStaff() {
           return {
             id: emp.id, email: emp.email, first_name: emp.first_name, last_name: emp.last_name,
             employee_pin: emp.employee_pin, is_click_collect_manager: emp.is_click_collect_manager,
+            staff_title: emp.staff_title ?? null, staff_display_name: emp.staff_display_name ?? null,
+            staff_avatar_url: emp.staff_avatar_url ?? null,
             roles: userRoles.length > 0 ? userRoles : [],
             managerPermissions: managerPerms ? { can_manage_events: managerPerms.can_manage_events || false, can_manage_menu: managerPerms.can_manage_menu || false, can_manage_staff: managerPerms.can_manage_staff || false, can_manage_promoters: managerPerms.can_manage_promoters || false, can_manage_djs: managerPerms.can_manage_djs || false, can_manage_tables: managerPerms.can_manage_tables || false, can_manage_tickets: managerPerms.can_manage_tickets || false, can_view_analytics: managerPerms.can_view_analytics || false, can_view_orders: managerPerms.can_view_orders || false, can_view_finance: managerPerms.can_view_finance || false, can_manage_loyalty: managerPerms.can_manage_loyalty || false, can_manage_upsell: managerPerms.can_manage_upsell || false, can_manage_guest_list: managerPerms.can_manage_guest_list || false, can_view_customers: managerPerms.can_view_customers || false, can_manage_invoices: managerPerms.can_manage_invoices || false, can_manage_venue: managerPerms.can_manage_venue || false, can_manage_refunds: managerPerms.can_manage_refunds || false, can_manage_crm: managerPerms.can_manage_crm || false, can_view_hype: managerPerms.can_view_hype || false, can_manage_scarcity: managerPerms.can_manage_scarcity || false, can_manage_organizations: managerPerms.can_manage_organizations || false, can_view_live: managerPerms.can_view_live || false, can_manage_vip_service: managerPerms.can_manage_vip_service || false } : null,
           };
@@ -289,6 +310,24 @@ export default function OwnerStaff() {
     } catch (error) { toast({ title: t('common.error'), description: t('owner.cannotModifyStatus'), variant: 'destructive' }); }
   };
 
+  const handleSaveTitle = async (employeeId: string) => {
+    setTitleSaving(true);
+    try {
+      const { error } = await supabase.rpc('owner_set_staff_title', {
+        p_user_id: employeeId,
+        p_title: titleDraft,
+      });
+      if (error) throw error;
+      toast({ title: t('ownerteam.titleSaved') });
+      setTitleEditId(null);
+      fetchEmployees();
+    } catch (error: any) {
+      toast({ title: t('common.error'), description: error.message, variant: 'destructive' });
+    } finally {
+      setTitleSaving(false);
+    }
+  };
+
   const handleDeleteEmployee = async (employeeId: string) => {
     if (!confirm(t('owner.confirmDeleteEmployee'))) return;
     try {
@@ -407,6 +446,37 @@ export default function OwnerStaff() {
           </div>
         </div>
 
+        {/* Hub équipe : gestion / briefing / activité */}
+        <Tabs value={tab} onValueChange={(v) => setTab(v as 'team' | 'briefing' | 'activity')}>
+          <TabsList className="owner-tabs grid w-full max-w-md grid-cols-3">
+            <TabsTrigger value="team" className="gap-1.5 text-xs">
+              <Users className="h-3.5 w-3.5 flex-none" />
+              {t('ownerteam.tabTeam')}
+            </TabsTrigger>
+            <TabsTrigger value="briefing" className="gap-1.5 text-xs">
+              <Megaphone className="h-3.5 w-3.5 flex-none" />
+              {t('ownerteam.tabBriefing')}
+            </TabsTrigger>
+            <TabsTrigger value="activity" className="gap-1.5 text-xs">
+              <Activity className="h-3.5 w-3.5 flex-none" />
+              {t('ownerteam.tabActivity')}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="briefing" className="mt-4">
+            {venueId && (
+              <TeamBriefingTab
+                venueId={venueId}
+                staff={employees.map(e => ({ id: e.id, name: employeeName(e) }))}
+              />
+            )}
+          </TabsContent>
+
+          <TabsContent value="activity" className="mt-4">
+            {venueId && <TeamActivityTab venueId={venueId} />}
+          </TabsContent>
+
+          <TabsContent value="team" className="mt-4 space-y-4">
         {/* Grid */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
@@ -426,9 +496,20 @@ export default function OwnerStaff() {
                 <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 20 }}>
                   {/* Header */}
                   <div className="flex items-start justify-between mb-3">
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                    {/* Photo pro (identité de travail) — repli initiales */}
+                    <div className="flex h-10 w-10 flex-none items-center justify-center overflow-hidden rounded-xl" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+                      {employee.staff_avatar_url ? (
+                        <img src={employee.staff_avatar_url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                      ) : (
+                        <span style={{ color: T2, fontSize: 12, fontWeight: 700 }}>
+                          {employeeName(employee).split(/\s+/).map(p => p[0]).slice(0, 2).join('').toUpperCase()}
+                        </span>
+                      )}
+                    </div>
                     <div className="min-w-0 flex-1">
                       <p style={{ color: T1, fontSize: 14, fontWeight: 600 }}>
-                        {[employee.first_name, employee.last_name].filter(Boolean).join(' ') || '—'}
+                        {[employee.first_name, employee.last_name].filter(Boolean).join(' ') || employeeName(employee)}
                       </p>
                       <p style={{ color: T3, fontSize: 12, marginTop: 2 }} className="truncate">{employee.email}</p>
                       {/* Role pills */}
@@ -448,6 +529,7 @@ export default function OwnerStaff() {
                         <p className="text-[11px] mt-1" style={{ color: POS }}>{t('owner.stf.ccManagerActive')}</p>
                       )}
                     </div>
+                    </div>
                     <div className="flex gap-1 ml-2">
                       <button onClick={() => handleEditEmployee(employee)}
                         className="w-8 h-8 flex items-center justify-center rounded-lg cursor-pointer transition-all duration-150"
@@ -460,6 +542,48 @@ export default function OwnerStaff() {
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
+                  </div>
+
+                  {/* Intitulé de poste — décidé par le club. Vide = libellé du rôle. */}
+                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl mb-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+                    <Tag className="w-3.5 h-3.5 flex-shrink-0" style={{ color: T3 }} />
+                    {titleEditId === employee.id ? (
+                      <>
+                        <input
+                          value={titleDraft}
+                          onChange={e => setTitleDraft(e.target.value.slice(0, 40))}
+                          placeholder={t('ownerteam.titlePh')}
+                          autoFocus
+                          onKeyDown={e => { if (e.key === 'Enter') handleSaveTitle(employee.id); if (e.key === 'Escape') setTitleEditId(null); }}
+                          className="min-w-0 flex-1 bg-transparent text-[12px] outline-none"
+                          style={{ color: T1 }}
+                        />
+                        <button onClick={() => handleSaveTitle(employee.id)} disabled={titleSaving}
+                          className="w-6 h-6 flex items-center justify-center rounded-md cursor-pointer flex-shrink-0"
+                          style={{ background: 'rgba(52,211,153,0.12)', color: POS }}>
+                          <Check className="w-3 h-3" />
+                        </button>
+                        <button onClick={() => setTitleEditId(null)}
+                          className="w-6 h-6 flex items-center justify-center rounded-md cursor-pointer flex-shrink-0"
+                          style={{ background: C_FAINT, color: T3 }}>
+                          <X className="w-3 h-3" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="min-w-0 flex-1 truncate text-[12px]" style={{ color: employee.staff_title ? T1 : T3 }}>
+                          {employee.staff_title || t('ownerteam.titleEmpty')}
+                        </span>
+                        <button
+                          onClick={() => { setTitleEditId(employee.id); setTitleDraft(employee.staff_title ?? ''); }}
+                          className="w-6 h-6 flex items-center justify-center rounded-md cursor-pointer flex-shrink-0"
+                          style={{ background: C_FAINT, color: T3 }}
+                          title={t('ownerteam.titleLabel')}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      </>
+                    )}
                   </div>
 
                   {/* PIN status — the employee sets their own PIN; the owner only sees whether it's done. */}
@@ -528,6 +652,8 @@ export default function OwnerStaff() {
             })}
           </div>
         )}
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Add Employee Dialog */}
