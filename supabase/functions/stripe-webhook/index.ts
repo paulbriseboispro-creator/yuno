@@ -703,15 +703,23 @@ serve(async (req) => {
             logStep("Ticket(s) marked refunded via charge.refunded", { ids: ticketData.map(t => t.id) });
           }
 
-          // Update table reservations
+          // Update table reservations.
+          // Deux bugs corrigés ici, qui se cumulaient en fuite d'argent :
+          //   1. le filtre portait sur "confirmed", alors qu'une réservation
+          //      payée vaut "paid" (verify-table-payment) → 0 ligne touchée, la
+          //      table restait vendue et bloquait l'inventaire après remboursement ;
+          //   2. on écrivait "cancelled", alors que le trigger de réversion de
+          //      commission (trg_cancel_promoter_conv_on_refund) ne se déclenche
+          //      que sur "refunded" — comme pour orders et tickets juste au-dessus.
+          //      Le club remboursait donc le client tout en payant la commission.
           const { data: resData } = await supabaseClient
             .from("table_reservations")
-            .update({ status: "cancelled" })
+            .update({ status: "refunded" })
             .eq("stripe_payment_intent_id", piId)
-            .eq("status", "confirmed")
+            .eq("status", "paid")
             .select("id");
           if (resData?.length) {
-            logStep("Reservation(s) cancelled via charge.refunded", { ids: resData.map(r => r.id) });
+            logStep("Reservation(s) marked refunded via charge.refunded", { ids: resData.map(r => r.id) });
           }
 
           // SYMMETRIC REFUND: reverse both primary and secondary transfers proportionally

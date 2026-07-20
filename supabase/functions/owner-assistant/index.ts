@@ -836,7 +836,7 @@ async function executeTool(
         let tablesData: any[] = [];
         let tablesCount = 0;
         if (zoneIds.length > 0) {
-          let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee", { count: "exact" }).eq("status", "confirmed").in("zone_id", zoneIds).gte("created_at", since);
+          let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee", { count: "exact" }).eq("status", "paid").in("zone_id", zoneIds).gte("created_at", since);
           if (periodEnd) trq = trq.lt("created_at", periodEnd);
           const tres = await trq;
           tablesData = tres.data || [];
@@ -882,7 +882,7 @@ async function executeTool(
 
         let tablesData: any[] = [];
         if (znIds.length > 0) {
-          let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee").eq("status", "confirmed").in("zone_id", znIds).gte("created_at", since);
+          let trq = supabase.from("table_reservations").select("total_price, service_fee, management_fee").eq("status", "paid").in("zone_id", znIds).gte("created_at", since);
           if (periodEnd) trq = trq.lt("created_at", periodEnd);
           tablesData = (await trq).data || [];
         }
@@ -1009,7 +1009,7 @@ async function executeTool(
 
         let tablesData: any[] = [];
         if (zoneIds.length > 0) {
-          const tres = await supabase.from("table_reservations").select("total_price, service_fee, management_fee").eq("status", "confirmed").in("zone_id", zoneIds).gte("created_at", since).lt("created_at", until);
+          const tres = await supabase.from("table_reservations").select("total_price, service_fee, management_fee").eq("status", "paid").in("zone_id", zoneIds).gte("created_at", since).lt("created_at", until);
           tablesData = tres.data || [];
         }
 
@@ -1244,7 +1244,7 @@ async function executeTool(
           supabase.from("tickets").select("total_price, service_fee, insurance_fee", { count: "exact" }).eq("event_id", args.event_id).eq("status", "paid"),
           supabase.from("orders").select("total, service_fee").eq("event_id", args.event_id).eq("venue_id", venueId).eq("status", "paid"),
           zoneIds.length > 0
-            ? supabase.from("table_reservations").select("total_price, service_fee, management_fee").eq("event_id", args.event_id).eq("status", "confirmed").in("zone_id", zoneIds)
+            ? supabase.from("table_reservations").select("total_price, service_fee, management_fee").eq("event_id", args.event_id).eq("status", "paid").in("zone_id", zoneIds)
             : Promise.resolve({ data: [] }),
         ]);
 
@@ -1289,7 +1289,7 @@ async function executeTool(
           supabase.from("tickets").select("total_price, service_fee, insurance_fee").eq("event_id", args.event_id).eq("status", "paid"),
           supabase.from("orders").select("total, service_fee").eq("event_id", args.event_id).eq("venue_id", venueId).eq("status", "paid"),
           zoneIds.length > 0
-            ? supabase.from("table_reservations").select("total_price, service_fee, management_fee").eq("event_id", args.event_id).eq("status", "confirmed").in("zone_id", zoneIds)
+            ? supabase.from("table_reservations").select("total_price, service_fee, management_fee").eq("event_id", args.event_id).eq("status", "paid").in("zone_id", zoneIds)
             : Promise.resolve({ data: [] }),
         ]);
 
