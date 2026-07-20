@@ -108,9 +108,15 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "staff-account": {
     title: "Le compte personnel du staff",
-    keywords: ["compte staff", "profil staff", "mon compte", "personnalisation", "surnom", "photo staff", "emoji", "couleur", "identité", "équipe", "stats staff", "statistiques employé", "qui a scanné", "performance staff"],
+    keywords: ["compte staff", "profil staff", "mon compte", "personnalisation", "surnom", "photo staff", "intitulé", "poste", "identité", "équipe", "stats staff", "statistiques employé", "qui a scanné", "performance staff", "onboarding staff", "relevé"],
     path: "/owner/staff",
-    snippet: "Chaque membre du staff a désormais un vrai compte personnel, pas juste un écran de poste. Depuis son dashboard il tape sur son nom en haut à gauche pour ouvrir « Mon compte » : il y choisit le nom affiché sur ses écrans (un surnom de service s'il préfère), un intitulé de poste personnalisé (« Chef de rang » plutôt que « Barman »), un emoji, une couleur d'accent qui colore toute son interface, et une photo de profil pro. Il y retrouve aussi ses propres chiffres — scans, commandes servies, dépôts au vestiaire, consos VIP, nuits travaillées sur 30 jours — et la liste de l'équipe avec qui il bosse. Rien à configurer côté owner : chaque personne gère sa propre fiche. Côté club, ça change une chose importante : chaque action est maintenant attribuée à la personne qui l'a faite, donc le centre de commandement live montre correctement qui a scanné, qui a servi et qui tient le vestiaire.",
+    snippet: "Chaque membre du staff a un vrai compte personnel. Depuis son dashboard il tape sur son nom en haut à gauche pour ouvrir « Mon compte » : il y choisit son nom d'affichage et sa photo de service, et y consulte son relevé de travail — scans, commandes servies, dépôts au vestiaire, consos VIP, nuits travaillées sur 30 jours — les bravos reçus et la liste de l'équipe. L'intitulé de poste (« Responsable porte », « Chef de rang ») est défini par TOI depuis la page Staff, sur la carte de chaque membre ; sans intitulé, l'écran affiche le nom du rôle. À la première connexion, chaque nouveau membre passe par un accueil d'une minute (poste, photo, nom). Chaque action est attribuée à la personne qui l'a faite : le centre de commandement montre qui a scanné, qui a servi, qui tient le vestiaire.",
+  },
+  "staff-briefing": {
+    title: "Consigne du soir, bravos et pouls de la nuit",
+    keywords: ["consigne", "brief", "briefing", "consigne du soir", "bravo", "kudos", "félicit", "équipe connectée", "en poste", "appel de poste", "radio staff", "qui est en poste", "fin de service", "récap staff", "prise de poste"],
+    path: "/owner/staff",
+    snippet: "La page Staff a trois onglets. ÉQUIPE : gestion des comptes, rôles, PIN et intitulés de poste. BRIEFING : tu écris la consigne du soir (dress code, tarifs, priorités, interdits) — elle s'affiche en haut de l'écran de chaque staff avec un push, et tu vois qui l'a lue (« Vu par 4/6 ») ; tu peux aussi envoyer un bravo nominatif, visible par toute l'équipe et poussé sur le téléphone de la personne (de la reconnaissance, jamais un classement). ACTIVITÉ : le relevé de travail de chaque membre sur 30 jours (nuits, actions par domaine, dernière action), trié par ancienneté. Côté staff, chaque écran porte un panneau « Ce soir » avec les chiffres de son poste en direct, la prise de poste à l'ouverture, le récap en fin de service, et un bouton pour appeler un autre poste (renfort, sécurité, arrivée VIP, stock).",
   },
   "vip-tables": {
     title: "Tables VIP",
@@ -711,6 +717,20 @@ const TOOLS = [
       parameters: { type: "object", properties: {}, required: [] },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "set_night_brief",
+      description: "Write (or clear) tonight's staff brief. It shows on top of every staff screen (door, bar, cloakroom, VIP) with a push notification, and the owner sees who read it. Use when the owner wants to brief the team: dress code, pricing changes, priorities, banned guests. Empty body clears the brief.",
+      parameters: {
+        type: "object",
+        properties: {
+          body: { type: "string", description: "The brief text (max 800 chars). Empty string clears tonight's brief." },
+        },
+        required: ["body"],
+      },
+    },
+  },
 ];
 // ═══════════════════════════════════════════
 // UTILITIES
@@ -724,6 +744,7 @@ function calcStripeFee(totalEuros: number): number {
 const WRITE_TOOLS = new Set([
   "activate_ticket_round", "toggle_drink", "update_drink_price", "toggle_post_checkout_upsell",
   "toggle_event_ticketing", "update_event", "toggle_guest_list", "toggle_event_tables",
+  "set_night_brief",
 ]);
 
 const TOOL_MIN_PLAN: Record<string, string> = {
@@ -1381,6 +1402,46 @@ async function executeTool(
         const { error } = await supabase.from("guest_lists").update({ is_active: args.active }).eq("id", gl.id);
         if (error) return JSON.stringify({ error: error.message });
         return JSON.stringify({ success: true, event_id: args.event_id, guest_list_active: args.active });
+      }
+
+      // ─── ÉQUIPE ───
+      case "set_night_brief": {
+        // Réplique d'upsert_staff_brief pour le client service-role (auth.uid()
+        // absent) : le périmètre venue est déjà garanti par l'appelant.
+        const body = (args.body || "").trim();
+        const { data: nightDate } = await supabase.rpc("paris_night_date");
+        if (!nightDate) return JSON.stringify({ error: "could not resolve night date" });
+
+        if (!body) {
+          await supabase.from("staff_briefs").delete().eq("venue_id", venueId).eq("night_date", nightDate);
+          return JSON.stringify({ success: true, cleared: true });
+        }
+        if (body.length > 800) return JSON.stringify({ error: "Brief too long (800 chars max)" });
+
+        const { data: venue } = await supabase.from("venues").select("owner_id").eq("id", venueId).maybeSingle();
+        if (!venue) return JSON.stringify({ error: "Venue not found" });
+
+        const { error: upErr } = await supabase.from("staff_briefs").upsert(
+          { venue_id: venueId, night_date: nightDate, body, updated_by: venue.owner_id, updated_at: new Date().toISOString() },
+          { onConflict: "venue_id,night_date" },
+        );
+        if (upErr) return JSON.stringify({ error: upErr.message });
+
+        // Réveil du staff terrain, throttlé à 15 min (même règle que la RPC).
+        const { data: lastNotif } = await supabase
+          .from("staff_notifications").select("created_at")
+          .eq("venue_id", venueId).eq("notification_type", "night_brief")
+          .gte("created_at", new Date(Date.now() - 15 * 60 * 1000).toISOString())
+          .limit(1);
+        if (!lastNotif?.length) {
+          const rows = ["bouncer", "barman", "cloakroom", "vip_host"].map((role) => ({
+            venue_id: venueId, target_role: role, notification_type: "night_brief",
+            title: "Consigne du soir", message: body.slice(0, 180), priority: "high",
+            metadata: { body_preview: body.slice(0, 140) },
+          }));
+          await supabase.from("staff_notifications").insert(rows);
+        }
+        return JSON.stringify({ success: true, night_date: nightDate, body_length: body.length });
       }
 
       // ─── ONBOARDING ───
