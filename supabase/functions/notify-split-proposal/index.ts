@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { buildSplitProposal } from "../_shared/email-templates.ts";
+import { sendAutoPush } from "../_shared/auto-push.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,7 +13,7 @@ const corsHeaders = {
  * is created, accepted, or declined.
  *
  * Body:
- *  - kind: 'partnership' | 'event' | 'series'   — which contract object
+ *  - kind: 'partnership' | 'event' | 'series' | 'amendment'   — which contract object
  *  - id: string                       — partnership.id OR event.id OR owner_recurring_templates.id
  *  - action: 'proposed' | 'accepted' | 'declined'
  *  - proposer_side: 'venue' | 'organizer'   — who triggered the action
@@ -115,6 +116,10 @@ const handler = async (req: Request): Promise<Response> => {
     let recapTerms: Array<{ k: string; v: string }> = [];
     // Termes réellement enregistrés côté contrat — priment sur le payload client.
     let storedRules: SplitRules | null = null;
+    // Avenant : la ligne brute + sa portee, pour le corps du push et de l'e-mail.
+    // deno-lint-ignore no-explicit-any
+    let amendment: any = null;
+    let amendmentRecurring = false;
     let storedPolicy: string | null = null;
 
     if (kind === "series") {
@@ -180,6 +185,72 @@ const handler = async (req: Request): Promise<Response> => {
         storedRules = sc.split_rules as SplitRules;
         storedPolicy = sc.cancellation_policy as string;
       }
+    } else if (kind === "amendment") {
+      // AVENANT — l'id est celui de event_collab_amendments. Les deux parties y
+      // sont déjà dénormalisées ; il reste à retrouver SUR QUOI il porte, sinon
+      // le partenaire reçoit « signe » sans savoir de quelle soirée il s'agit.
+      const { data: am, error } = await admin
+        .from("event_collab_amendments")
+        .select("id, contract_id, series_contract_id, venue_id, organizer_user_id, proposed_by, responsibilities, prev_responsibilities, split_rules, reason")
+        .eq("id", id)
+        .maybeSingle();
+      if (error || !am) {
+        log("amendment not found", error);
+        return new Response(JSON.stringify({ ok: false, reason: "not_found" }), {
+          status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      venueId = am.venue_id;
+      organizerUserId = am.organizer_user_id;
+      amendment = am;
+
+      if (am.series_contract_id) {
+        const { data: sc } = await admin
+          .from("event_collab_series_contracts").select("template_id").eq("id", am.series_contract_id).maybeSingle();
+        const { data: tpl } = sc?.template_id
+          ? await admin.from("owner_recurring_templates")
+              .select("name, day_of_week, start_time").eq("id", sc.template_id).maybeSingle()
+          : { data: null };
+        const day = tpl ? (WEEKDAYS_FR[tpl.day_of_week] ?? "") : "";
+        eventTitle = tpl ? `${tpl.name} · tous les ${day}s` : "une série récurrente";
+        contextLabel = tpl ? `la série « ${tpl.name} »` : "une série récurrente";
+        amendmentRecurring = true;
+      } else if (am.contract_id) {
+        const { data: oc } = await admin
+          .from("event_collab_contracts").select("event_id").eq("id", am.contract_id).maybeSingle();
+        const { data: ev } = oc?.event_id
+          ? await admin.from("events").select("title, start_at").eq("id", oc.event_id).maybeSingle()
+          : { data: null };
+        eventTitle = ev?.title ?? "une soirée";
+        contextLabel = `la soirée « ${ev?.title ?? "événement"} »`;
+      }
+
+      // Le récap de l'e-mail EST le delta : c'est ce qu'on demande de signer.
+      const HOLDER: Record<string, string> = {
+        venue: "le Club", organizer: "l'Organisateur", both: "les deux",
+      };
+      const holder = (bag: Record<string, string> | null, d: string) => {
+        const v = bag?.[d];
+        return HOLDER[v ?? ""] ?? "les deux";
+      };
+      const prevR = (am.prev_responsibilities ?? null) as Record<string, string> | null;
+      const nextR = (am.responsibilities ?? null) as Record<string, string> | null;
+      if (nextR) {
+        for (const d of ["design", "operations"]) {
+          const before = holder(prevR, d);
+          const after = holder(nextR, d);
+          if (before !== after) {
+            recapTerms.push({
+              k: d === "design" ? "Design" : "Opérationnel",
+              v: `${before} → ${after}`,
+            });
+          }
+        }
+      }
+      if (am.split_rules) {
+        storedRules = am.split_rules as SplitRules;
+      }
+      if (am.reason) recapTerms.push({ k: "Motif", v: String(am.reason) });
     } else if (kind === "partnership") {
       const { data, error } = await admin
         .from("venue_organizer_partnerships")
@@ -213,7 +284,18 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // The partner = the side OPPOSITE the proposer
-    const partnerSide: "venue" | "organizer" = proposer_side === "venue" ? "organizer" : "venue";
+    // AVENANT — le cote proposant se DEDUIT de la ligne (proposed_by), jamais du
+    // client : c'est lui qui decide qui recoit la demande de signature. Et a la
+    // signature ('accepted'), c'est le PROPOSANT qu'on previent, donc on inverse.
+    let effectiveProposerSide: "venue" | "organizer" = proposer_side;
+    if (kind === "amendment" && amendment) {
+      const proposedByOrganizer = amendment.proposed_by === amendment.organizer_user_id;
+      const proposedSide: "venue" | "organizer" = proposedByOrganizer ? "organizer" : "venue";
+      effectiveProposerSide = action === "accepted"
+        ? (proposedSide === "venue" ? "organizer" : "venue")
+        : proposedSide;
+    }
+    const partnerSide: "venue" | "organizer" = effectiveProposerSide === "venue" ? "organizer" : "venue";
 
     // Resolve recipient user IDs + email
     const recipientUserIds: string[] = [];
@@ -397,6 +479,27 @@ const handler = async (req: Request): Promise<Response> => {
         : action === "accepted"
         ? `${proposerName} a accepté la nouvelle répartition.`
         : `${proposerName} a refusé la proposition de répartition.`;
+
+      // AVENANT : circuit auto-push (gate registre super admin + langue FR/EN/ES
+      // + tracking auto_push_events). Les autres kinds gardent leur appel direct
+      // historique — les migrer est un chantier a part, pas celui-ci.
+      if (kind === "amendment") {
+        const subjectLabel = eventTitle ?? "cette collaboration";
+        const pushKey = action === "accepted" ? "collab_amendment_signed" : "collab_amendment_proposed";
+        await Promise.all(recipientUserIds.map((uid) =>
+          sendAutoPush(admin, {
+            key: pushKey,
+            userId: uid,
+            url: "/organizer-app/collaborations",
+            vars: { partner: proposerName, subject: subjectLabel },
+          }).catch((e) => log("auto-push failed", String(e)))
+        ));
+        log("auto-push dispatched", { key: pushKey, count: recipientUserIds.length, recurring: amendmentRecurring });
+        return new Response(
+          JSON.stringify({ ok: true, notified: recipientUserIds.length, email: !!recipientEmail }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
 
       const pushUrl = `${supabaseUrl}/functions/v1/send-push-notification`;
       const payload = {

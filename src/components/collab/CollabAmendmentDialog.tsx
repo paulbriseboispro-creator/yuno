@@ -100,7 +100,7 @@ export function CollabAmendmentDialog({
     if (saving || nothingToDo) return;
     setSaving(true);
     try {
-      const { error } = await supabase.rpc('propose_collab_amendment' as never, {
+      const { data: amendmentId, error } = await supabase.rpc('propose_collab_amendment' as never, {
         p_contract_id: target.contractId ?? null,
         p_series_contract_id: target.seriesContractId ?? null,
         p_responsibilities: respChanged ? resp : null,
@@ -116,6 +116,23 @@ export function CollabAmendmentDialog({
         p_user_agent: navigator.userAgent,
       } as never);
       if (error) throw error;
+
+      // Prevenir la partie qui doit contresigner. Best-effort : l'avenant est la
+      // source de verite, un envoi rate ne doit pas annuler la proposition - elle
+      // reste dans sa page Collaborations.
+      try {
+        await supabase.functions.invoke('notify-split-proposal', {
+          body: {
+            kind: 'amendment',
+            id: amendmentId,
+            action: 'proposed',
+            // proposer_side est deduit SERVEUR depuis amendment.proposed_by :
+            // le destinataire d'une demande de signature ne se laisse pas
+            // choisir par le client.
+            proposer_side: 'venue',
+          },
+        });
+      } catch (e) { console.warn('[amendment] notify failed', e); }
 
       toast.success(tt('Avenant envoyé', 'Amendment sent', 'Adenda enviada'), {
         description: tt(
