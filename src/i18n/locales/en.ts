@@ -11496,36 +11496,24 @@ const en: Record<string, string> = {
 
 
   // ── Collab: who does what (responsibilities axis) ─────────────────────────
+  'ohelp.ev.collab.s10h': "Who does what: the revenue split doesn't say who decides",
+  'ohelp.ev.collab.s10b': "The revenue split says who gets the money. It doesn't say who controls the poster, the prices or the tables. Those are two different negotiations, and Yuno keeps them apart.\n\nWhen you propose an event or a residency, a \"Who does what\" block splits the collaboration along two faces. DESIGN: poster, title, description, music genres, DJ line-up, and how the night is shown (visibility, discovery, search). OPERATIONS: the whole ticketing setup with prices and tiers, VIP tables and floor plan, hours, venue and access.\n\nFor each of the two you pick: the club, the organizer, or both. The most common setup is the club on operations and the organizer on design: the club holds the room and runs the night, the organizer dresses it and fills it.\n\nThis setting is actually enforced, not just displayed: if design goes to the organizer, the club can no longer change the poster or add a DJ, and vice versa. An existing event keeps behaving exactly as before until you split anything.\n\nOne exception on residencies: the day and time of the series stay with the club even when the organizer holds operations, because they are frozen in the framework contract as the identity of the series.",
+  'ohelp.ev.collab.s11h': "Changing the split along the way: amendments",
+  'ohelp.ev.collab.s11b': "Once the contract is signed, the allocation binds both parties and the form shows it read-only. But you are not stuck with it.\n\nOn the Collaborations page, every contract in force has an \"Amendment\" button. Club and organizer can both propose one, it is symmetric. You pick the new allocation, optionally add a reason, and the other party receives the amendment to sign.\n\nNothing changes until both signatures are in. The amendment never rewrites the original contract: it is added to it, with the state before, the state after, who proposed it and both timestamps. The full history stays on the record.\n\nAn amendment can also move the revenue split, with one limit: once an event has started selling, its financial terms are frozen, the public bought under those terms. On a residency, a financial amendment therefore applies to upcoming dates that have not sold yet. Responsibilities have no such limit and apply to every upcoming date.",
+
+  // ── Collab : qui fait quoi (design / opérationnel) ────────────────────────
   'collabResp.title': "Who does what",
   'collabResp.desc': "The revenue split says who gets the money. This says who has control over what. The two are negotiated separately.",
-  'collabResp.domain.creative': "Creative",
-  'collabResp.domain.ticketing': "Ticketing",
+  'collabResp.domain.design': "Design",
   'collabResp.domain.operations': "Operations",
-  'collabResp.domain.promotion': "Promotion",
-  'collabResp.domainDesc.creative': "Poster, title, description, music genres",
-  'collabResp.domainDesc.ticketing': "Prices, quotas, sale opening",
-  'collabResp.domainDesc.operations': "VIP tables, floor plan, access, venue",
-  'collabResp.domainDesc.promotion': "Visibility, discovery, search",
+  'collabResp.domainDesc.design': "Poster, title, description, music genres, DJ line-up, and how the night is shown",
+  'collabResp.domainDesc.operations': "Ticketing and prices, VIP tables and floor plan, hours, venue and access",
   'collabResp.holder.venue': "Club",
   'collabResp.holder.organizer': "Organizer",
   'collabResp.holder.both': "Both",
-  'collabResp.preset.shared': "Share everything",
-  'collabResp.preset.venue_ops_org_creative': "Each to their craft",
-  'collabResp.preset.org_runs': "Organizer runs it",
-  'collabResp.preset.venue_runs': "Club runs it",
-  'collabResp.preset.custom': "Custom",
-  'collabResp.presetDesc.shared': "Both sides can change anything. The most flexible, the most prone to stepping on each other.",
-  'collabResp.presetDesc.venue_ops_org_creative': "The club holds the room, the tables and the ticketing. The organizer dresses the night and fills it.",
-  'collabResp.presetDesc.org_runs': "The organizer runs the whole night. The club lends the room.",
-  'collabResp.presetDesc.venue_runs': "The club runs the whole night. The organizer brings the crowd.",
-  'collabResp.presetDesc.custom': "Domain by domain, set by hand.",
   'collabResp.readOnly': "Held by the other side",
-  'collabResp.lockedByContract': "Set by the signed contract. To change it, renegotiate the contract.",
+  'collabResp.lockedByContract': "Set by the signed contract. To change it, propose an amendment.",
   'collabResp.seriesNote': "This split applies to every night in the series.",
-  'ohelp.ev.collab.s10h': "Who does what: the revenue split doesn't say who decides",
-  'ohelp.ev.collab.s10b': "The revenue split says who gets the money. It doesn't say who controls the poster, the prices or the tables. Those are two different negotiations, and Yuno keeps them apart.\n\nWhen you propose an event or a residency, a \"Who does what\" block splits four domains between the club and the organizer: creative (poster, title, description, genres), ticketing (prices, quotas, sale opening), operations (VIP tables, floor plan, access, venue) and promotion (visibility, discovery, search). Each domain goes to the club, to the organizer, or to both.\n\nFour ready-made splits are one click away. \"Each to their craft\" is the most common: the club holds the room, the tables and the ticketing, the organizer dresses the night and fills it. You can also set each domain by hand.\n\nThis setting is actually enforced, not just displayed: if creative goes to the organizer, the club can no longer change the poster, and vice versa. An existing event keeps behaving exactly as before until you split anything.",
-  'ohelp.ev.collab.s11h': "Changing the split along the way: amendments",
-  'ohelp.ev.collab.s11b': "Once the contract is signed, the allocation binds both parties and the form shows it read-only. But you are not stuck with it.\n\nOn the Collaborations page, every contract in force has an \"Amendment\" button. Club and organizer can both propose one, it is symmetric. You pick the new allocation, optionally add a reason, and the other party receives the amendment to sign.\n\nNothing changes until both signatures are in. The amendment never rewrites the original contract: it is added to it, with the state before, the state after, who proposed it and both timestamps. The full history stays on the record.\n\nAn amendment can also move the revenue split, with one limit: once an event has started selling, its financial terms are frozen, the public bought under those terms. On a residency, a financial amendment therefore applies to upcoming dates that have not sold yet. Responsibilities have no such limit and apply to every upcoming date.",
 };
 
 export default en;

@@ -1,8 +1,8 @@
-import { Users, Palette, Ticket, Building2, Megaphone, Lock } from 'lucide-react';
+import { Users, Palette, Settings2, Lock } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
-  COLLAB_DOMAINS, RESPONSIBILITY_PRESETS, matchPreset,
-  type CollabDomain, type CollabResponsibilities, type DomainHolder, type ResponsibilityPresetKey,
+  COLLAB_DOMAINS,
+  type CollabDomain, type CollabResponsibilities, type DomainHolder,
 } from '@/utils/collabResponsibilities';
 
 const RED      = '#E8192C';
@@ -12,26 +12,24 @@ const BORDER   = 'rgba(255,255,255,0.085)';
 const INNER_BG = 'rgba(255,255,255,0.032)';
 
 const DOMAIN_ICON: Record<CollabDomain, typeof Palette> = {
-  creative: Palette,
-  ticketing: Ticket,
-  operations: Building2,
-  promotion: Megaphone,
+  design: Palette,
+  operations: Settings2,
 };
 
-const PRESET_ORDER: ResponsibilityPresetKey[] = [
-  'venue_ops_org_creative', 'shared', 'org_runs', 'venue_runs',
-];
-
+/** Club · Les deux · Organisateur — l'ordre met « les deux » au milieu, entre les deux extrêmes. */
 const HOLDERS: DomainHolder[] = ['venue', 'both', 'organizer'];
 
 /**
- * Réglage de l'axe RESPONSABILITÉS d'une collaboration : qui a la main sur la
- * création, la billetterie, les opérations et la promotion.
+ * Réglage de l'axe RESPONSABILITÉS : qui habille la soirée, qui la fait tourner.
+ *
+ * Deux lignes, trois boutons. Pas de préréglages : ils n'existaient que pour
+ * éviter de cliquer quatre lignes, et avec deux domaines la grille EST le
+ * préréglage.
  *
  * Volontairement séparé du réglage des %. Un club et un organisateur peuvent
- * très bien partager 50/50 les billets sans partager la main sur l'affiche —
- * c'est précisément ce que le modèle ne savait pas dire tant que `event_mode`
- * portait les deux sens à la fois.
+ * partager 50/50 les billets sans partager la main sur l'affiche — c'est
+ * précisément ce que le modèle ne savait pas dire quand `event_mode` portait
+ * les deux sens à la fois.
  */
 export function ResponsibilitiesPicker({
   value, onChange, disabled = false, partnerName, note,
@@ -43,10 +41,14 @@ export function ResponsibilitiesPicker({
   note?: string;
 }) {
   const { t } = useLanguage();
-  const preset = matchPreset(value);
 
+  // Le nom réel du partenaire rend le choix concret, mais seul il devient
+  // ambigu quand l'organisateur s'appelle comme la plateforme. On garde donc
+  // toujours le rôle devant le nom.
   const holderLabel = (h: DomainHolder) =>
-    h === 'organizer' && partnerName ? partnerName : t(`collabResp.holder.${h}`);
+    h === 'organizer' && partnerName
+      ? `${t('collabResp.holder.organizer')} · ${partnerName}`
+      : t(`collabResp.holder.${h}`);
 
   return (
     <div className="space-y-3">
@@ -59,51 +61,22 @@ export function ResponsibilitiesPicker({
         {disabled ? t('collabResp.lockedByContract') : t('collabResp.desc')}
       </p>
 
-      {/* Répartitions types — un clic pour la configuration courante. */}
-      <div className="grid grid-cols-2 gap-2">
-        {PRESET_ORDER.map(key => {
-          const on = preset === key;
-          return (
-            <button
-              key={key} type="button" disabled={disabled}
-              onClick={() => onChange({ ...RESPONSIBILITY_PRESETS[key] })}
-              className="rounded-xl px-3 py-2.5 text-left transition-all duration-150"
-              style={{
-                cursor: disabled ? 'not-allowed' : 'pointer',
-                opacity: disabled && !on ? 0.4 : 1,
-                ...(on
-                  ? { background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.3)' }
-                  : { background: INNER_BG, border: `1px solid ${BORDER}` }),
-              }}
-            >
-              <span style={{ color: on ? RED : T1, fontSize: 12.5, fontWeight: 600 }}>
-                {t(`collabResp.preset.${key}`)}
-              </span>
-              <span className="block" style={{ color: T3, fontSize: 10.5, lineHeight: 1.35, marginTop: 2 }}>
-                {t(`collabResp.presetDesc.${key}`)}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Détail domaine par domaine — toute combinaison hors préréglage est légale. */}
       <div className="space-y-2">
         {COLLAB_DOMAINS.map(domain => {
           const Icon = DOMAIN_ICON[domain];
           return (
             <div
               key={domain}
-              className="rounded-xl p-2.5"
+              className="rounded-xl p-3"
               style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}
             >
-              <div className="flex items-center gap-2 mb-2">
-                <Icon className="w-3.5 h-3.5" style={{ color: T3 }} />
-                <div className="flex-1 min-w-0">
-                  <p style={{ color: T1, fontSize: 12, fontWeight: 600 }}>
+              <div className="flex items-start gap-2 mb-2.5">
+                <Icon className="w-4 h-4 mt-0.5 flex-none" style={{ color: T3 }} />
+                <div className="min-w-0">
+                  <p style={{ color: T1, fontSize: 12.5, fontWeight: 600 }}>
                     {t(`collabResp.domain.${domain}`)}
                   </p>
-                  <p style={{ color: T3, fontSize: 10.5, lineHeight: 1.3 }}>
+                  <p style={{ color: T3, fontSize: 11, lineHeight: 1.4 }}>
                     {t(`collabResp.domainDesc.${domain}`)}
                   </p>
                 </div>
@@ -115,7 +88,7 @@ export function ResponsibilitiesPicker({
                     <button
                       key={h} type="button" disabled={disabled}
                       onClick={() => onChange({ ...value, [domain]: h })}
-                      className="rounded-lg px-2 py-1.5 text-[11.5px] font-medium truncate transition-all duration-150"
+                      className="rounded-lg px-2 py-2 text-[11.5px] font-medium truncate transition-all duration-150"
                       style={{
                         cursor: disabled ? 'not-allowed' : 'pointer',
                         opacity: disabled && !on ? 0.4 : 1,
@@ -134,9 +107,7 @@ export function ResponsibilitiesPicker({
         })}
       </div>
 
-      {note && (
-        <p style={{ color: T3, fontSize: 11, lineHeight: 1.45 }}>{note}</p>
-      )}
+      {note && <p style={{ color: T3, fontSize: 11, lineHeight: 1.45 }}>{note}</p>}
     </div>
   );
 }

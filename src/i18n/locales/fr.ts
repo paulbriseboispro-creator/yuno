@@ -11567,36 +11567,24 @@ const fr: Record<string, string> = {
 
 
   // ── Collab : qui fait quoi (axe responsabilités) ──────────────────────────
+  'ohelp.ev.collab.s10h': "Qui fait quoi : le partage des recettes ne dit pas qui décide",
+  'ohelp.ev.collab.s10b': "Le partage des recettes dit qui touche l'argent. Il ne dit pas qui a la main sur l'affiche, sur les prix ou sur les tables. Ce sont deux négociations différentes, et Yuno les sépare.\n\nQuand tu proposes une soirée ou une résidence, un bloc « Qui fait quoi » partage la collaboration en deux faces. Le DESIGN : affiche, titre, description, genres musicaux, line-up DJ, et la façon dont la soirée est montrée (visibilité, découverte, référencement). L'OPÉRATIONNEL : la billetterie complète avec les prix et les paliers, les tables VIP et le plan de salle, les horaires, le lieu et les accès.\n\nPour chacune des deux, tu choisis : le club, l'organisateur, ou les deux. La configuration la plus courante est le club sur l'opérationnel et l'organisateur sur le design : le club tient la salle et fait tourner la soirée, l'organisateur l'habille et la remplit.\n\nCe réglage est appliqué pour de vrai, pas seulement affiché : si le design revient à l'organisateur, le club ne peut plus changer l'affiche ni ajouter un DJ, et inversement. Une soirée existante ne change pas de comportement tant que tu n'as rien réparti.\n\nUne exception sur les résidences : le jour et l'heure de la série restent au club même quand l'organisateur tient l'opérationnel, parce qu'ils sont gelés dans le contrat-cadre comme identité de la série.",
+  'ohelp.ev.collab.s11h': "Changer la répartition en cours de route : l'avenant",
+  'ohelp.ev.collab.s11b': "Une fois le contrat signé, la répartition engage les deux parties : le formulaire l'affiche en lecture seule. Mais tu n'es pas coincé pour autant.\n\nDepuis la page Collaborations, chaque contrat en vigueur a un bouton « Avenant ». Le club comme l'organisateur peuvent en proposer un — c'est symétrique. Tu choisis la nouvelle répartition, tu peux ajouter un motif, et l'autre partie reçoit l'avenant à signer.\n\nRien ne change tant que les deux signatures ne sont pas là. L'avenant ne réécrit jamais le contrat d'origine : il s'y ajoute, avec l'état d'avant, l'état d'après, qui l'a proposé et les deux horodatages. L'historique complet reste opposable.\n\nUn avenant peut aussi déplacer le partage des revenus, avec une limite : dès qu'une soirée a commencé à vendre, ses conditions financières sont figées — le public a acheté sous ces conditions. Sur une résidence, l'avenant financier s'applique donc aux dates à venir non encore vendues. Les responsabilités, elles, n'ont pas cette limite et s'appliquent à toutes les dates à venir.",
+
+  // ── Collab : qui fait quoi (design / opérationnel) ────────────────────────
   'collabResp.title': "Qui fait quoi",
   'collabResp.desc': "Le partage des revenus dit qui touche l'argent. Ceci dit qui a la main sur quoi. Les deux se négocient séparément.",
-  'collabResp.domain.creative': "Création",
-  'collabResp.domain.ticketing': "Billetterie",
-  'collabResp.domain.operations': "Opérations",
-  'collabResp.domain.promotion': "Promotion",
-  'collabResp.domainDesc.creative': "Affiche, titre, description, genres musicaux",
-  'collabResp.domainDesc.ticketing': "Prix, quotas, ouverture des ventes",
-  'collabResp.domainDesc.operations': "Tables VIP, plan de salle, accès, lieu",
-  'collabResp.domainDesc.promotion': "Visibilité, découverte, référencement",
+  'collabResp.domain.design': "Design",
+  'collabResp.domain.operations': "Opérationnel",
+  'collabResp.domainDesc.design': "Affiche, titre, description, genres musicaux, line-up DJ, et la façon dont la soirée est montrée",
+  'collabResp.domainDesc.operations': "Billetterie et prix, tables VIP et plan de salle, horaires, lieu et accès",
   'collabResp.holder.venue': "Club",
   'collabResp.holder.organizer': "Organisateur",
   'collabResp.holder.both': "Les deux",
-  'collabResp.preset.shared': "Tout à deux",
-  'collabResp.preset.venue_ops_org_creative': "Chacun son métier",
-  'collabResp.preset.org_runs': "L'orga pilote",
-  'collabResp.preset.venue_runs': "Le club pilote",
-  'collabResp.preset.custom': "Sur mesure",
-  'collabResp.presetDesc.shared': "Les deux parties peuvent tout modifier. Le plus souple, le plus exposé aux allers-retours.",
-  'collabResp.presetDesc.venue_ops_org_creative': "Le club tient la salle, les tables et la billetterie. L'organisateur habille la soirée et la remplit.",
-  'collabResp.presetDesc.org_runs': "L'organisateur gère toute la soirée. Le club prête ses murs.",
-  'collabResp.presetDesc.venue_runs': "Le club gère toute la soirée. L'organisateur apporte son audience.",
-  'collabResp.presetDesc.custom': "Répartition domaine par domaine, réglée à la main.",
   'collabResp.readOnly': "Confié à l'autre partie",
-  'collabResp.lockedByContract': "Réparti par le contrat signé. Pour changer, renégociez le contrat.",
+  'collabResp.lockedByContract': "Réparti par le contrat signé. Pour changer, proposez un avenant.",
   'collabResp.seriesNote': "Cette répartition s'applique à toutes les soirées de la série.",
-  'ohelp.ev.collab.s10h': "Qui fait quoi : le partage des recettes ne dit pas qui décide",
-  'ohelp.ev.collab.s10b': "Le partage des recettes dit qui touche l'argent. Il ne dit pas qui a la main sur l'affiche, sur les prix ou sur les tables. Ce sont deux négociations différentes, et Yuno les sépare.\n\nQuand tu proposes une soirée ou une résidence, un bloc « Qui fait quoi » répartit quatre domaines entre le club et l'organisateur : la création (affiche, titre, description, genres), la billetterie (prix, quotas, ouverture des ventes), les opérations (tables VIP, plan de salle, accès, lieu) et la promotion (visibilité, découverte, référencement). Chaque domaine va au club, à l'organisateur, ou aux deux.\n\nQuatre répartitions types sont proposées en un clic. « Chacun son métier » est la plus courante : le club tient la salle, les tables et la billetterie, l'organisateur habille la soirée et la remplit. Tu peux aussi régler chaque domaine à la main.\n\nCe réglage est appliqué pour de vrai, pas seulement affiché : si la création revient à l'organisateur, le club ne peut plus changer l'affiche, et inversement. Une soirée existante ne change pas de comportement tant que tu n'as rien réparti.",
-  'ohelp.ev.collab.s11h': "Changer la répartition en cours de route : l'avenant",
-  'ohelp.ev.collab.s11b': "Une fois le contrat signé, la répartition engage les deux parties : le formulaire l'affiche en lecture seule. Mais tu n'es pas coincé pour autant.\n\nDepuis la page Collaborations, chaque contrat en vigueur a un bouton « Avenant ». Le club comme l'organisateur peuvent en proposer un — c'est symétrique. Tu choisis la nouvelle répartition, tu peux ajouter un motif, et l'autre partie reçoit l'avenant à signer.\n\nRien ne change tant que les deux signatures ne sont pas là. L'avenant ne réécrit jamais le contrat d'origine : il s'y ajoute, avec l'état d'avant, l'état d'après, qui l'a proposé et les deux horodatages. L'historique complet reste opposable.\n\nUn avenant peut aussi déplacer le partage des revenus, avec une limite : dès qu'une soirée a commencé à vendre, ses conditions financières sont figées — le public a acheté sous ces conditions. Sur une résidence, l'avenant financier s'applique donc aux dates à venir non encore vendues. Les responsabilités, elles, n'ont pas cette limite et s'appliquent à toutes les dates à venir.",
 };
 
 export default fr;

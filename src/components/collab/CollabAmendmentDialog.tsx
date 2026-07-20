@@ -175,9 +175,9 @@ export function CollabAmendmentDialog({
               {COLLAB_DOMAINS.filter(d => resp[d] !== current[d]).map(d => (
                 <p key={d} className="flex items-center gap-1.5" style={{ color: T3, fontSize: 11.5 }}>
                   <span>{tt(
-                    d === 'creative' ? 'Création' : d === 'ticketing' ? 'Billetterie' : d === 'operations' ? 'Opérations' : 'Promotion',
-                    d === 'creative' ? 'Creative' : d === 'ticketing' ? 'Ticketing' : d === 'operations' ? 'Operations' : 'Promotion',
-                    d === 'creative' ? 'Creación' : d === 'ticketing' ? 'Entradas' : d === 'operations' ? 'Operaciones' : 'Promoción',
+                    d === 'design' ? 'Design' : 'Opérationnel',
+                    d === 'design' ? 'Design' : 'Operations',
+                    d === 'design' ? 'Diseño' : 'Operativo',
                   )}</span>
                   <span>{holderLabel(current[d])}</span>
                   <ArrowRight className="h-3 w-3" />

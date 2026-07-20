@@ -11610,36 +11610,24 @@ const es: Record<string, string> = {
 
 
   // ── Collab: quién hace qué (eje de responsabilidades) ─────────────────────
+  'ohelp.ev.collab.s10h': "Quién hace qué: el reparto de ingresos no dice quién decide",
+  'ohelp.ev.collab.s10b': "El reparto de ingresos dice quién cobra. No dice quién manda sobre el cartel, los precios o las mesas. Son dos negociaciones distintas, y Yuno las separa.\n\nCuando propones una noche o una residencia, un bloque «Quién hace qué» reparte la colaboración en dos caras. El DISEÑO: cartel, título, descripción, géneros musicales, line-up de DJ y cómo se muestra la noche (visibilidad, descubrimiento, posicionamiento). LO OPERATIVO: todas las entradas con precios y tramos, mesas VIP y plano de sala, horarios, lugar y accesos.\n\nPara cada una eliges: el club, el organizador o ambos. La configuración más habitual es el club en lo operativo y el organizador en el diseño: el club lleva la sala y hace funcionar la noche, el organizador la viste y la llena.\n\nEste ajuste se aplica de verdad, no solo se muestra: si el diseño va al organizador, el club ya no puede cambiar el cartel ni añadir un DJ, y al revés. Una noche existente no cambia de comportamiento mientras no repartas nada.\n\nUna excepción en las residencias: el día y la hora de la serie siguen siendo del club aunque el organizador lleve lo operativo, porque están congelados en el contrato marco como identidad de la serie.",
+  'ohelp.ev.collab.s11h': "Cambiar el reparto sobre la marcha: la adenda",
+  'ohelp.ev.collab.s11b': "Una vez firmado el contrato, el reparto vincula a ambas partes y el formulario lo muestra en solo lectura. Pero no te quedas atrapado.\n\nEn la página de Colaboraciones, cada contrato vigente tiene un botón «Adenda». Tanto el club como el organizador pueden proponer una: es simétrico. Eliges el nuevo reparto, puedes añadir un motivo, y la otra parte recibe la adenda para firmar.\n\nNada cambia hasta que estén las dos firmas. La adenda nunca reescribe el contrato original: se le añade, con el estado anterior, el posterior, quién la propuso y ambas marcas de tiempo. El historial completo sigue siendo oponible.\n\nUna adenda también puede mover el reparto de ingresos, con un límite: en cuanto una noche empieza a vender, sus condiciones económicas quedan congeladas, el público compró bajo esas condiciones. En una residencia, la adenda económica se aplica por tanto a las fechas futuras aún no vendidas. Las responsabilidades no tienen ese límite y se aplican a todas las fechas futuras.",
+
+  // ── Collab : qui fait quoi (design / opérationnel) ────────────────────────
   'collabResp.title': "Quién hace qué",
   'collabResp.desc': "El reparto de ingresos dice quién cobra. Esto dice quién manda sobre qué. Se negocian por separado.",
-  'collabResp.domain.creative': "Creación",
-  'collabResp.domain.ticketing': "Entradas",
-  'collabResp.domain.operations': "Operaciones",
-  'collabResp.domain.promotion': "Promoción",
-  'collabResp.domainDesc.creative': "Cartel, título, descripción, géneros musicales",
-  'collabResp.domainDesc.ticketing': "Precios, cupos, apertura de ventas",
-  'collabResp.domainDesc.operations': "Mesas VIP, plano de sala, acceso, lugar",
-  'collabResp.domainDesc.promotion': "Visibilidad, descubrimiento, posicionamiento",
+  'collabResp.domain.design': "Diseño",
+  'collabResp.domain.operations': "Operativo",
+  'collabResp.domainDesc.design': "Cartel, título, descripción, géneros musicales, line-up de DJ y cómo se muestra la noche",
+  'collabResp.domainDesc.operations': "Entradas y precios, mesas VIP y plano de sala, horarios, lugar y acceso",
   'collabResp.holder.venue': "Club",
   'collabResp.holder.organizer': "Organizador",
   'collabResp.holder.both': "Ambos",
-  'collabResp.preset.shared': "Todo entre los dos",
-  'collabResp.preset.venue_ops_org_creative': "Cada uno a lo suyo",
-  'collabResp.preset.org_runs': "Manda el organizador",
-  'collabResp.preset.venue_runs': "Manda el club",
-  'collabResp.presetDesc.shared': "Ambas partes pueden cambiarlo todo. Lo más flexible y lo más expuesto a pisarse.",
-  'collabResp.presetDesc.venue_ops_org_creative': "El club lleva la sala, las mesas y las entradas. El organizador viste la noche y la llena.",
-  'collabResp.presetDesc.org_runs': "El organizador lleva toda la noche. El club presta el local.",
-  'collabResp.presetDesc.venue_runs': "El club lleva toda la noche. El organizador trae al público.",
-  'collabResp.preset.custom': "A medida",
-  'collabResp.presetDesc.custom': "Dominio por dominio, ajustado a mano.",
   'collabResp.readOnly': "A cargo de la otra parte",
-  'collabResp.lockedByContract': "Definido por el contrato firmado. Para cambiarlo, renegocia el contrato.",
+  'collabResp.lockedByContract': "Definido por el contrato firmado. Para cambiarlo, propone una adenda.",
   'collabResp.seriesNote': "Este reparto se aplica a todas las noches de la serie.",
-  'ohelp.ev.collab.s10h': "Quién hace qué: el reparto de ingresos no dice quién decide",
-  'ohelp.ev.collab.s10b': "El reparto de ingresos dice quién cobra. No dice quién manda sobre el cartel, los precios o las mesas. Son dos negociaciones distintas, y Yuno las separa.\n\nCuando propones una noche o una residencia, un bloque «Quién hace qué» reparte cuatro dominios entre el club y el organizador: creación (cartel, título, descripción, géneros), entradas (precios, cupos, apertura de ventas), operaciones (mesas VIP, plano de sala, acceso, lugar) y promoción (visibilidad, descubrimiento, posicionamiento). Cada dominio va al club, al organizador o a ambos.\n\nHay cuatro repartos tipo a un clic. «Cada uno a lo suyo» es el más habitual: el club lleva la sala, las mesas y las entradas, el organizador viste la noche y la llena. También puedes ajustar cada dominio a mano.\n\nEste ajuste se aplica de verdad, no solo se muestra: si la creación va al organizador, el club ya no puede cambiar el cartel, y al revés. Una noche existente no cambia de comportamiento mientras no repartas nada.",
-  'ohelp.ev.collab.s11h': "Cambiar el reparto sobre la marcha: la adenda",
-  'ohelp.ev.collab.s11b': "Una vez firmado el contrato, el reparto vincula a ambas partes y el formulario lo muestra en solo lectura. Pero no te quedas atrapado.\n\nEn la página de Colaboraciones, cada contrato vigente tiene un botón «Adenda». Tanto el club como el organizador pueden proponer una: es simétrico. Eliges el nuevo reparto, puedes añadir un motivo, y la otra parte recibe la adenda para firmar.\n\nNada cambia hasta que estén las dos firmas. La adenda nunca reescribe el contrato original: se le añade, con el estado anterior, el posterior, quién la propuso y ambas marcas de tiempo. El historial completo sigue siendo oponible.\n\nUna adenda también puede mover el reparto de ingresos, con un límite: en cuanto una noche empieza a vender, sus condiciones económicas quedan congeladas, el público compró bajo esas condiciones. En una residencia, la adenda económica se aplica por tanto a las fechas futuras aún no vendidas. Las responsabilidades no tienen ese límite y se aplican a todas las fechas futuras.",
 };
 
 export default es;

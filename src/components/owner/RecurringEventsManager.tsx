@@ -11,7 +11,7 @@ import { normalizeSplitRules } from '@/lib/splitRules';
 import type { PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
 import { ResponsibilitiesPicker } from '@/components/collab/ResponsibilitiesPicker';
 import {
-  RESPONSIBILITY_PRESETS, defaultResponsibilities, normalizeResponsibilities, sameResponsibilities,
+  defaultResponsibilities, normalizeResponsibilities, sameResponsibilities,
   type CollabResponsibilities,
 } from '@/utils/collabResponsibilities';
 
@@ -167,7 +167,7 @@ const EMPTY_FORM: FormState = {
   dayOfWeek: 5, startTime: '23:00', endTime: '06:00', advanceDays: 7,
   ticketPresetId: '', vipPresetId: '', tablePresetId: '', guestListTemplateId: '', autoEnableTables: false,
   partnerOrganizerId: '', collabMode: 'co_event',
-  responsibilities: { ...RESPONSIBILITY_PRESETS.shared },
+  responsibilities: defaultResponsibilities('co_event'),
   contractMode: 'new', contractSourceKey: '',
   ticketsVenuePct: 70, tablesVenuePct: 70, drinksVenuePct: 100,
   cancellationPolicy: 'pro_rata_refund', isActive: true,

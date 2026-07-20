@@ -412,7 +412,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                   </div>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                     <ToolTile icon={Radio} label={t('Live', 'Live', 'Live')} onClick={() => navigate(navTo.live)} />
-                    {canSideEdit(event.collab_responsibilities, event.event_mode, 'ticketing', viewerSide) && (
+                    {canSideEdit(event.collab_responsibilities, event.event_mode, 'operations', viewerSide) && (
                       <ToolTile icon={Ticket} label={t('Billetterie', 'Ticketing', 'Entradas')}
                         onClick={() => (isVenue || ticketingLive ? openTicketing() : setBilletterieOpen(true))} />
                     )}
@@ -434,7 +434,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                   <div className="p-6">
                     <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                       <h2 style={{ color: T1, fontSize: 16, fontWeight: 600 }}>{t('Billetterie', 'Ticketing', 'Entradas')}</h2>
-                      {canSideEdit(event.collab_responsibilities, event.event_mode, 'ticketing', 'organizer') && (stripeLoading || canSell) && (
+                      {canSideEdit(event.collab_responsibilities, event.event_mode, 'operations', 'organizer') && (stripeLoading || canSell) && (
                         ticketingLive ? (
                           <OrgButton size="sm" variant="primary" onClick={openTicketing}>
                             <Ticket className="h-4 w-4" />{t('Gérer la billetterie', 'Manage ticketing', 'Gestionar entradas')}
@@ -446,7 +446,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                         )
                       )}
                     </div>
-                    {!canSideEdit(event.collab_responsibilities, event.event_mode, 'ticketing', 'organizer') ? (
+                    {!canSideEdit(event.collab_responsibilities, event.event_mode, 'operations', 'organizer') ? (
                       <p className="flex items-start gap-2" style={{ color: T3, fontSize: 13 }}>
                         <Lock className="mt-0.5 h-4 w-4 shrink-0" />
                         {t(

@@ -117,9 +117,9 @@ export function CollabPendingAmendments({
   if (!rows.length) return null;
 
   const domainLabel = (d: CollabDomain) => tt(
-    d === 'creative' ? 'Création' : d === 'ticketing' ? 'Billetterie' : d === 'operations' ? 'Opérations' : 'Promotion',
-    d === 'creative' ? 'Creative' : d === 'ticketing' ? 'Ticketing' : d === 'operations' ? 'Operations' : 'Promotion',
-    d === 'creative' ? 'Creación' : d === 'ticketing' ? 'Entradas' : d === 'operations' ? 'Operaciones' : 'Promoción',
+    d === 'design' ? 'Design' : 'Opérationnel',
+    d === 'design' ? 'Design' : 'Operations',
+    d === 'design' ? 'Diseño' : 'Operativo',
   );
   const holderLabel = (h: DomainHolder) => tt(
     h === 'venue' ? 'Club' : h === 'organizer' ? 'Organisateur' : 'Les deux',
