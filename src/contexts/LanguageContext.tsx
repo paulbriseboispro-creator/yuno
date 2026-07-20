@@ -82,16 +82,27 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
           .eq('id', user.id)
           .single();
 
-        if (profile?.preferred_language) {
-          const dbLang = profile.preferred_language as Language;
-          if (VALID_LANGS.includes(dbLang)) {
-            setLanguageState(dbLang);
-            localStorage.setItem('language', dbLang);
-            // Mark language as already chosen so OnboardingGate won't re-ask
-            localStorage.setItem('onboarding_language_answered', 'true');
-            localStorage.setItem('languageSelected', 'true');
-          }
+        const dbLang = profile?.preferred_language as Language | null | undefined;
+
+        if (dbLang && VALID_LANGS.includes(dbLang)) {
+          setLanguageState(dbLang);
+          localStorage.setItem('language', dbLang);
+          // Mark language as already chosen so OnboardingGate won't re-ask
+          localStorage.setItem('onboarding_language_answered', 'true');
+          localStorage.setItem('languageSelected', 'true');
+          return;
         }
+
+        // Aucun choix explicite en base (NULL) : c'est l'appareil qui fait foi,
+        // et on l'écrit dans le profil. Sans ce retour d'écriture, la colonne
+        // restait sur sa valeur par défaut et les notifications push partaient
+        // dans une langue que la personne n'avait jamais choisie — alors que son
+        // interface était dans une autre.
+        const deviceLang = persistedLanguage();
+        await supabase
+          .from('profiles')
+          .update({ preferred_language: deviceLang } as any)
+          .eq('id', user.id);
       }
     };
 
