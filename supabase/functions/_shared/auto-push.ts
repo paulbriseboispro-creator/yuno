@@ -107,6 +107,7 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
   },
   event_reminder_4h: {
     logType: "reminder",
+    audience: "client",
     variants: {
       default: {
         fr: { title: "Ce soir à {time} 🔥", body: "{event} – Entrée rapide avec ton QR." },
@@ -117,6 +118,7 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
   },
   event_reminder_30m: {
     logType: "reminder",
+    audience: "client",
     variants: {
       default: {
         fr: { title: "Ouverture dans 30 min 🎶", body: "{event} – Évite la file, ton QR est prêt." },

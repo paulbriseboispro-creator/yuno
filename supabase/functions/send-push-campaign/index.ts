@@ -436,6 +436,9 @@ async function sendCampaign(
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${serviceKey}` },
           body: JSON.stringify({
             user_id: userId,
+            // Campagne marketing : app Yuno grand public uniquement — l'audience
+            // est déjà filtrée sur 'ios', le relay doit l'être aussi.
+            platforms: ['ios'],
             payload: { title: localized.title, body: localized.body, url: trackedUrl },
           }),
         });

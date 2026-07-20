@@ -291,6 +291,8 @@ serve(async (req) => {
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}` },
           body: JSON.stringify({
             user_id: order.user_id,
+            // Confirmation d'achat client : app Yuno uniquement.
+            platforms: ['ios'],
             payload: { title: 'Commande confirmée 🍸', body: `${itemsSummary} – Paiement validé.`, url: '/my-orders' }
           })
         });

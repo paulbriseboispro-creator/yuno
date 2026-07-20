@@ -112,6 +112,8 @@ async function pushToOwner(
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
       body: JSON.stringify({
         user_id: ownerId,
+        // Alerte Mode Live destinée au patron : app Yuno Pro uniquement.
+        platforms: ['ios_pro'],
         payload: { title: render(text.title, vars), body: render(text.body, vars), url: '/owner/live' },
       }),
     });

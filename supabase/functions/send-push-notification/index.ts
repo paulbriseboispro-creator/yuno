@@ -380,8 +380,9 @@ async function handleDjLineup(req: Request, supabase: any, vapidPublicKey: strin
     const targetedUserIds = new Set<string>();
     const sentUserIds = new Set<string>();
     for (const sub of targets as (Subscription & { user_id: string })[]) {
-      // App iOS uniquement — les lignes 'web' héritées de la PWA sont ignorées.
-      if (!(sub.platform === 'ios' || sub.platform === 'ios_pro' || String(sub.endpoint || '').startsWith('apns:'))) continue;
+      // Annonce de line-up : contenu client, app Yuno uniquement. Les lignes
+      // 'web' héritées de la PWA et les tokens Yuno Pro sont ignorés.
+      if (sub.platform !== 'ios') continue;
       targetedUserIds.add(sub.user_id);
       const res = await sendToSubscription(supabase, sub, notificationPayload, vapidPublicKey, vapidPrivateKey);
       if (res === 'ok') { totalSent++; sentUserIds.add(sub.user_id); }
@@ -604,10 +605,11 @@ async function handleOrderReady(supabase: any, body: any, vapidPublicKey: string
   const tpl = renderAutoTpl('order_ready', lang, { pin }, pin ? 'default' : 'nopin');
   if (!tpl) return json({ message: 'no template', sent: 0 });
 
+  // « Ta commande est prête » s'adresse au client au bar : app Yuno uniquement.
   const { data: subscriptions } = await supabase
     .from('push_subscriptions').select('*')
     .eq('user_id', order.user_id)
-    .in('platform', ['ios', 'ios_pro']);
+    .eq('platform', 'ios');
   if (!subscriptions?.length) return json({ message: 'no subscriptions', sent: 0 });
 
   const notificationPayload = JSON.stringify({
@@ -889,15 +891,29 @@ Deno.serve(async (req) => {
       }
     }
 
-    const { user_id, payload } = reqBody;
+    const { user_id, payload, platforms } = reqBody;
     if (!user_id || !payload) {
       return new Response(JSON.stringify({ error: 'user_id and payload required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // Une même personne peut avoir Yuno ET Yuno Pro sur le même téléphone. Sans
+    // `platforms`, la notif partait sur les deux apps et arrivait en double.
+    // Chaque appelant déclare donc l'app visée ('ios' = client, 'ios_pro' = pro).
+    const ALLOWED_PLATFORMS = ['ios', 'ios_pro'];
+    let targetPlatforms = Array.isArray(platforms)
+      ? platforms.filter((p: unknown) => typeof p === 'string' && ALLOWED_PLATFORMS.includes(p))
+      : [];
+    if (targetPlatforms.length === 0) {
+      // Repli sur l'ancien comportement plutôt que de perdre la notification —
+      // mais on le trace pour repérer l'appelant qui n'a pas encore migré.
+      console.warn(`[PUSH] no platforms specified for user ${user_id} — falling back to both apps`);
+      targetPlatforms = ALLOWED_PLATFORMS;
     }
 
     // App iOS uniquement — les abonnements 'web' hérités sont ignorés.
     const { data: subscriptions, error: subError } = await supabase
       .from('push_subscriptions').select('*').eq('user_id', user_id)
-      .in('platform', ['ios', 'ios_pro']);
+      .in('platform', targetPlatforms);
     if (subError || !subscriptions?.length) {
       return new Response(JSON.stringify({ message: 'No subscriptions found', sent: 0 }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }

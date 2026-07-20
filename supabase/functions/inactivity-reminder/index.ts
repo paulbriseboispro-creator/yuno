@@ -37,8 +37,10 @@ Deno.serve(async (req) => {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-    // Get all push subscribers
-    const { data: subs } = await supabase.from('push_subscriptions').select('user_id');
+    // Abonnés de l'app grand public uniquement : la relance est du marketing
+    // client, elle n'a rien à faire sur l'app Yuno Pro du staff.
+    const { data: subs } = await supabase
+      .from('push_subscriptions').select('user_id').eq('platform', 'ios');
     const allSubUsers = [...new Set((subs || []).map(s => s.user_id))];
 
     // Get recently active users (orders or tickets in last 30 days)

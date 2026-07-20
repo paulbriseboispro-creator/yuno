@@ -413,7 +413,8 @@ const handler = async (req: Request): Promise<Response> => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
           },
-          body: JSON.stringify({ user_id: uid, payload }),
+          // Répartition d'une collab : sujet pro, app Yuno Pro uniquement.
+          body: JSON.stringify({ user_id: uid, platforms: ["ios_pro"], payload }),
         }).catch((e) => log("push send failed", String(e)))
       ));
       log("push dispatched", { count: recipientUserIds.length });

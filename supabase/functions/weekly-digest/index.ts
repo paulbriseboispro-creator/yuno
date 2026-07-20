@@ -58,8 +58,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Get all push subscribers
-    const { data: subs } = await supabase.from('push_subscriptions').select('user_id');
+    // Abonnés de l'app grand public uniquement : le digest est du marketing
+    // client, il n'a rien à faire sur l'app Yuno Pro du staff.
+    const { data: subs } = await supabase
+      .from('push_subscriptions').select('user_id').eq('platform', 'ios');
     const userIds = [...new Set((subs || []).map(s => s.user_id))];
 
     let sentCount = 0;

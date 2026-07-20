@@ -94,6 +94,8 @@ Deno.serve(async (req) => {
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}` },
           body: JSON.stringify({
             user_id: uid,
+            // Alerte d'exploitation (VIP à l'entrée) : app Yuno Pro uniquement.
+            platforms: ['ios_pro'],
             payload: { title, body, url: '/owner/live' },
           }),
         }).catch((e) => console.warn('push failed', uid, e))
