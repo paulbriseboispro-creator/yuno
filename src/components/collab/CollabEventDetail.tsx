@@ -1,4 +1,6 @@
 import { canSideEdit } from '@/utils/collabResponsibilities';
+import { CollabOperationsPreview } from './CollabOperationsPreview';
+import { OrgEventFormDialog } from '@/components/organizer-app/OrgEventFormDialog';
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -102,6 +104,9 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
 
   const { canSell, status: stripeStatus, loading: stripeLoading } = useOrganizerStripe(user?.id);
   const { isReadOnly } = useCollabReadOnly();
+  // Le chargement de la soirée est un effet anonyme : plutôt que de l'extraire,
+  // une clé qu'on incrémente le relance après une édition.
+  const [refreshKey, setRefreshKey] = useState(0);
   const { status: contractStatus, isLoading: contractLoading } = useEventCollabContract(eventId, viewerRole);
 
   const scopeId = isVenue ? myVenue?.id : user?.id;
@@ -195,7 +200,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [user, eventId, viewerRole]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, eventId, viewerRole, refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const phase = useMemo<Phase>(() => (event ? computePhase(event.start_at, event.end_at) : 'before'), [event]);
 
@@ -269,6 +274,9 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
     ticketing: isVenue ? '/owner/ticketing' : '/organizer-app/ticketing',
   };
   const openTicketing = () => navigate(navTo.ticketing);
+  // Édition des infos de la soirée — l'outil qui correspond au domaine `design`.
+  const [editOpen, setEditOpen] = useState(false);
+  const canEditDesign = canSideEdit(event?.collab_responsibilities, event?.event_mode, 'design', viewerSide);
 
   const phasePill =
     phase === 'before' ? { tone: 'info' as const, label: t('À venir', 'Upcoming', 'Próximo') }
@@ -411,6 +419,13 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                     <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('Outils de la soirée', 'Event tools', 'Herramientas de la noche')}</h2>
                   </div>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                    {/* Infos & affiche = le domaine `design`. La tuile manquait : on
+                        pouvait tenir le design sans avoir d'endroit pour l'exercer. */}
+                    {canEditDesign && (
+                      isOrganizer
+                        ? <ToolTile icon={Pencil} label={t('Infos & affiche', 'Info & poster', 'Info y cartel')} onClick={() => setEditOpen(true)} />
+                        : <ToolTile icon={Pencil} label={t('Infos & affiche', 'Info & poster', 'Info y cartel')} onClick={() => navigate(`/owner/events?edit=${eventId}`)} />
+                    )}
                     <ToolTile icon={Radio} label={t('Live', 'Live', 'Live')} onClick={() => navigate(navTo.live)} />
                     {canSideEdit(event.collab_responsibilities, event.event_mode, 'operations', viewerSide) && (
                       <ToolTile icon={Ticket} label={t('Billetterie', 'Ticketing', 'Entradas')}
@@ -447,14 +462,19 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                       )}
                     </div>
                     {!canSideEdit(event.collab_responsibilities, event.event_mode, 'operations', 'organizer') ? (
-                      <p className="flex items-start gap-2" style={{ color: T3, fontSize: 13 }}>
-                        <Lock className="mt-0.5 h-4 w-4 shrink-0" />
-                        {t(
-                          'Sur cette soirée, le club gère seul la billetterie. Vous vous concentrez sur le marketing et le partage.',
-                          'For this event the club alone manages ticketing. You focus on marketing and sharing.',
-                          'En esta noche, el club gestiona solo la venta de entradas. Tú te enfocas en el marketing y la difusión.',
-                        )}
-                      </p>
+                      <div className="space-y-3">
+                        <p className="flex items-start gap-2" style={{ color: T3, fontSize: 13 }}>
+                          <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+                          {t(
+                            'Sur cette soirée, le club gère seul la billetterie. Vous vous concentrez sur le marketing et le partage.',
+                            'For this event the club alone manages ticketing. You focus on marketing and sharing.',
+                            'En esta noche, el club gestiona solo la venta de entradas. Tú te enfocas en el marketing y la difusión.',
+                          )}
+                        </p>
+                        {/* Verrouiller n'est pas aveugler : celui qui porte le design
+                            doit savoir a quel prix la soiree se vend pour en parler. */}
+                        <CollabOperationsPreview eventId={eventId} kind="ticketing" />
+                      </div>
                     ) : !stripeLoading && !canSell ? (
                       <div className="space-y-3 rounded-xl p-4" style={{ background: 'rgba(232,25,44,0.06)', border: '1px solid rgba(232,25,44,0.22)' }}>
                         <div className="flex items-start gap-2">
@@ -615,6 +635,18 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
           onOpenChange={setBilletterieOpen}
           onCreate={() => { setBilletterieOpen(false); openTicketing(); }}
           onActivated={() => setEvent((e: any) => (e ? { ...e, ticketing_enabled: true } : e))}
+        />
+      )}
+
+      {/* Édition des infos de la soirée. Réservée à qui tient le design : le
+          serveur refuse de toute façon, autant ne pas ouvrir la porte. */}
+      {isOrganizer && canEditDesign && user && (
+        <OrgEventFormDialog
+          open={editOpen}
+          onOpenChange={setEditOpen}
+          organizerUserId={user.id}
+          eventId={eventId}
+          onSaved={() => { setEditOpen(false); setRefreshKey(k => k + 1); }}
         />
       )}
     </>
@@ -869,6 +901,7 @@ function DetailsDrawer({ eventId, isVenue, guestReadOnly, t }: { eventId: string
           <EventInvoicesModule eventId={eventId} />
         </div>
       )}
+
     </div>
   );
 }

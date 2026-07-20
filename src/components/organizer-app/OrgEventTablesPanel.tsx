@@ -1,4 +1,5 @@
 import { canSideEdit } from '@/utils/collabResponsibilities';
+import { CollabOperationsPreview } from '@/components/collab/CollabOperationsPreview';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -328,6 +329,10 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
             'En esta noche, el club gestiona solo la venta de mesas. Tú te enfocas en el marketing y la difusión.',
           )}
         </p>
+        {/* Lecture seule : savoir ce qui est en ligne sans pouvoir y toucher. */}
+        <div className="mt-3">
+          <CollabOperationsPreview eventId={eventId} kind="tables" />
+        </div>
       </OrgCard>
     );
   }
