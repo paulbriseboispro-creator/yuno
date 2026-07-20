@@ -8,7 +8,9 @@ import { FileSignature, ArrowRight, Clock, Repeat, CalendarDays, FileText } from
 import { COLLAB_DOMAINS, normalizeResponsibilities, type CollabDomain, type DomainHolder } from '@/utils/collabResponsibilities';
 import { normalizeSplitRules } from '@/lib/splitRules';
 import { COLLAB_TERMS_VERSION } from '@/lib/collabContractTerms';
-import { previewAmendmentPDF } from '@/lib/generateAmendmentPDF';
+import { previewAmendmentPDF, type AmendmentPDFData } from '@/lib/generateAmendmentPDF';
+import { loadAmendmentPdfData, type CollabAmendmentRow as AmendmentRow } from '@/lib/collabAmendmentData';
+import { CollabAmendmentReviewDialog } from './CollabAmendmentReviewDialog';
 
 const T1 = 'rgba(255,255,255,0.96)';
 const T3 = 'rgba(255,255,255,0.36)';
@@ -17,22 +19,6 @@ const BORDER = 'rgba(255,255,255,0.085)';
 const CARD_BG = 'rgba(255,255,255,0.022)';
 const INNER_BG = 'rgba(255,255,255,0.032)';
 
-type AmendmentRow = {
-  id: string;
-  contract_id: string | null;
-  series_contract_id: string | null;
-  venue_id: string;
-  organizer_user_id: string;
-  responsibilities: Record<string, string> | null;
-  split_rules: Record<string, unknown> | null;
-  prev_responsibilities: Record<string, string> | null;
-  prev_split_rules: Record<string, unknown> | null;
-  reason: string | null;
-  proposed_by: string;
-  venue_signed_at: string | null;
-  org_signed_at: string | null;
-  created_at: string;
-};
 
 /**
  * Un avenant + de quoi savoir SUR QUOI on signe. La ligne seule ne porte que des
@@ -69,6 +55,10 @@ export function CollabPendingAmendments({
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [rows, setRows] = useState<AmendmentCard[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Relecture avant signature : on ne signe plus depuis la carte.
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewData, setReviewData] = useState<AmendmentPDFData | null>(null);
+  const [reviewCard, setReviewCard] = useState<AmendmentCard | null>(null);
 
   const load = useCallback(async () => {
     if (!user || (role === 'venue' && !venueId)) { setRows([]); return; }
@@ -193,6 +183,7 @@ export function CollabPendingAmendments({
           'Las nuevas condiciones están en vigor.',
         ),
       });
+      setReviewOpen(false);
       setRows(prev => prev.filter(x => x.row.id !== a.id));
       onChanged?.();
     } catch (e) {
@@ -223,54 +214,39 @@ export function CollabPendingAmendments({
    * Les identités légales viennent des fiches club / organisateur : un avenant
    * sans dénomination sociale ni SIRET vaut beaucoup moins comme preuve.
    */
-  const openPdf = async (card: AmendmentCard) => {
-    const a = card.row;
-    try {
-      const [{ data: venue }, { data: orgProfile }, { data: prof }] = await Promise.all([
-        supabase.from('venues')
-          .select('name, legal_name, legal_address, siret, vat_number').eq('id', a.venue_id).maybeSingle(),
-        supabase.from('organizer_profiles' as never)
-          .select('display_name, legal_name, legal_address, siret, vat_number')
-          .eq('user_id' as never, a.organizer_user_id as never).maybeSingle(),
-        supabase.from('profiles').select('first_name, last_name').eq('id', a.organizer_user_id).maybeSingle(),
-      ]);
-      const op = orgProfile as unknown as {
-        display_name?: string | null; legal_name?: string | null; legal_address?: string | null;
-        siret?: string | null; vat_number?: string | null;
-      } | null;
-      const pr = prof as { first_name?: string | null; last_name?: string | null } | null;
-      const orgName = op?.display_name
-        || [pr?.first_name, pr?.last_name].filter(Boolean).join(' ')
-        || tt('Organisateur', 'Organizer', 'Organizador');
+  /** Construit les données de l'avenant depuis la source partagée avec le PDF. */
+  const buildData = (card: AmendmentCard) => loadAmendmentPdfData(card.row, {
+    subject: card.subject,
+    recurring: card.recurring,
+    proposerLabel: card.proposerLabel,
+    language: language === 'en' ? 'en' : language === 'es' ? 'es' : 'fr',
+    fallbackOrgName: tt('Organisateur', 'Organizer', 'Organizador'),
+  });
 
-      previewAmendmentPDF({
-        amendmentId: a.id,
-        contractRef: a.series_contract_id ?? a.contract_id ?? a.id,
-        recurring: card.recurring,
-        subject: card.subject,
-        venue: {
-          name: venue?.name || 'Club',
-          legalName: venue?.legal_name, legalAddress: venue?.legal_address,
-          registrationNumber: venue?.siret, vatNumber: venue?.vat_number,
-        },
-        organizer: {
-          name: orgName,
-          legalName: op?.legal_name, legalAddress: op?.legal_address,
-          registrationNumber: op?.siret, vatNumber: op?.vat_number,
-        },
-        prevResponsibilities: a.prev_responsibilities,
-        nextResponsibilities: a.responsibilities,
-        prevSplit: normalizeSplitRules(a.prev_split_rules),
-        nextSplit: normalizeSplitRules(a.split_rules),
-        reason: a.reason,
-        proposedByLabel: card.proposerLabel,
-        proposedAt: new Date(a.created_at),
-        venueSignedAt: a.venue_signed_at ? new Date(a.venue_signed_at) : null,
-        orgSignedAt: a.org_signed_at ? new Date(a.org_signed_at) : null,
-        language: language === 'en' ? 'en' : language === 'es' ? 'es' : 'fr',
-      });
+  /** Aperçu direct du PDF, sans passer par la relecture. */
+  const openPdf = async (card: AmendmentCard) => {
+    try {
+      previewAmendmentPDF(await buildData(card));
     } catch (e) {
       toast.error((e as { message?: string }).message || tt('Erreur', 'Error', 'Error'));
+    }
+  };
+
+  /**
+   * Ouvre la RELECTURE. La signature ne part plus d'un clic sur la carte : la
+   * signature électronique simple est une preuve imparfaite (eIDAS), et ce qui
+   * la renforce, c'est de pouvoir montrer que le signataire avait le texte
+   * intégral sous les yeux. Même gate que le flux de contrat.
+   */
+  const openReview = async (card: AmendmentCard) => {
+    setReviewCard(card);
+    setReviewData(null);
+    setReviewOpen(true);
+    try {
+      setReviewData(await buildData(card));
+    } catch (e) {
+      toast.error((e as { message?: string }).message || tt('Erreur', 'Error', 'Error'));
+      setReviewOpen(false);
     }
   };
 
@@ -380,7 +356,7 @@ export function CollabPendingAmendments({
                   {tt("Lire l'avenant", 'Read the amendment', 'Leer la adenda')}
                 </button>
                 <button
-                  type="button" disabled={busyId === a.id} onClick={() => sign(a)}
+                  type="button" disabled={busyId === a.id} onClick={() => openReview(card)}
                   className="rounded-lg px-3 py-1.5 text-[12px] font-medium"
                   style={{ background: 'rgba(232,25,44,0.14)', border: '1px solid rgba(232,25,44,0.32)', color: RED, cursor: 'pointer' }}
                 >
@@ -398,6 +374,14 @@ export function CollabPendingAmendments({
           );
         })}
       </div>
+
+      <CollabAmendmentReviewDialog
+        open={reviewOpen}
+        onOpenChange={setReviewOpen}
+        data={reviewData}
+        confirming={!!reviewCard && busyId === reviewCard.row.id}
+        onConfirm={() => { if (reviewCard) sign(reviewCard.row); }}
+      />
     </div>
   );
 }
