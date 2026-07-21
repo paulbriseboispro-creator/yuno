@@ -111,7 +111,7 @@ export default function OwnerStaff() {
 
   const [pendingInvites, setPendingInvites] = useState<{ id: string; email: string; role: EmployeeRole; created_at: string }[]>([]);
 
-  // Hub équipe : Équipe (gestion) / Briefing (consigne + bravos) / Activité (relevé).
+  // Hub équipe : Équipe (gestion) / Briefing (consigne du soir) / Activité (relevé).
   const [tab, setTab] = useState<'team' | 'briefing' | 'activity'>('team');
 
   // Édition inline de l'intitulé de poste (il appartient au club, pas au staff).
@@ -465,10 +465,7 @@ export default function OwnerStaff() {
 
           <TabsContent value="briefing" className="mt-4">
             {venueId && (
-              <TeamBriefingTab
-                venueId={venueId}
-                staff={employees.map(e => ({ id: e.id, name: employeeName(e) }))}
-              />
+              <TeamBriefingTab venueId={venueId} staffCount={employees.length} />
             )}
           </TabsContent>
 

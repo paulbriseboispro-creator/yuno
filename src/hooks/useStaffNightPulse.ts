@@ -2,7 +2,7 @@
  * Le pouls de la nuit — état partagé des écrans staff et du hub équipe owner.
  *
  * Une seule RPC (get_staff_night_pulse) rend tout : l'événement du soir, les
- * attendus, le direct, l'équipe en poste, la consigne et les bravos. Le staff
+ * attendus, le direct, l'équipe en poste et la consigne. Le staff
  * ne peut PAS lire ces tables en direct (RLS par domaine), c'est la RPC
  * SECURITY DEFINER qui agrège — donc pas de Realtime table par table ici :
  * un poll de 25 s + un canal sur staff_briefs (la consigne peut tomber en
@@ -22,15 +22,6 @@ export interface PulseTeamMember {
   role: string | null;
   started_at: string;
   ended_at: string | null;
-}
-
-export interface PulseKudos {
-  id: string;
-  from_name: string;
-  to_user: string;
-  to_name: string;
-  body: string | null;
-  created_at: string;
 }
 
 export interface PulseBriefReader {
@@ -72,7 +63,6 @@ export interface NightPulse {
     read_by_me: boolean;
     readers: PulseBriefReader[];
   } | null;
-  kudos: PulseKudos[];
 }
 
 const pulseKey = (venueId: string | null) => ['staff-night-pulse', venueId ?? 'none'] as const;

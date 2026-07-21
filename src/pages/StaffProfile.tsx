@@ -5,7 +5,7 @@
  * L'intitulé de poste appartient au CLUB (owner_set_staff_title) — la personne
  * le voit, ne l'édite pas. Les emojis et couleurs au choix ont été retirés :
  * un écran de travail n'est pas un profil de jeu. En dessous : le relevé de
- * travail (pas un score), les bravos reçus, l'équipe, le compte.
+ * travail (pas un score), l'équipe, le compte.
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -15,7 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
   Camera, Check, Loader2, LogOut, KeyRound, Users, Sparkles,
-  ScanLine, Wine, Shirt, Crown, CalendarDays, Trash2, Heart,
+  ScanLine, Wine, Shirt, Crown, CalendarDays, Trash2,
 } from 'lucide-react';
 import { PublicPage } from '@/components/PublicPage';
 import { ProBackButton } from '@/components/pro/ProBackButton';
@@ -60,13 +60,6 @@ interface TeamMate {
   is_me: boolean;
 }
 
-interface ReceivedKudos {
-  id: string;
-  body: string | null;
-  created_at: string;
-  from_user: string;
-}
-
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
     <div
@@ -104,8 +97,6 @@ export default function StaffProfile() {
 
   const [stats, setStats] = useState<StaffStats | null>(null);
   const [team, setTeam] = useState<TeamMate[]>([]);
-  const [kudos, setKudos] = useState<ReceivedKudos[]>([]);
-  const [kudosNames, setKudosNames] = useState<Record<string, string>>({});
 
   // Hydrate le brouillon dès que l'identité arrive.
   useEffect(() => {
@@ -129,32 +120,6 @@ export default function StaffProfile() {
 
     return () => { cancelled = true; };
   }, []);
-
-  // Bravos reçus (30 derniers jours). La RLS borne déjà au club ; les noms des
-  // émetteurs viennent de l'annuaire d'équipe (pas de lecture de profiles).
-  useEffect(() => {
-    if (!identity?.userId) return;
-    let cancelled = false;
-    (async () => {
-      const since = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
-      const { data } = await supabase
-        .from('staff_kudos')
-        .select('id, body, created_at, from_user')
-        .eq('to_user', identity.userId)
-        .gte('created_at', since)
-        .order('created_at', { ascending: false })
-        .limit(10);
-      if (!cancelled && data) setKudos(data as ReceivedKudos[]);
-    })();
-    return () => { cancelled = true; };
-  }, [identity?.userId]);
-
-  // L'annuaire d'équipe sert de table de noms pour les bravos.
-  useEffect(() => {
-    const map: Record<string, string> = {};
-    for (const mate of team) map[mate.user_id] = mate.display_name ?? '';
-    setKudosNames(map);
-  }, [team]);
 
   const tokens = roleTokens(identity?.role ?? null);
   const roleDef = identity?.role ? STAFF_ROLE_DEFS[identity.role] : null;
@@ -441,26 +406,6 @@ export default function StaffProfile() {
                   </span>
                 </div>
               )}
-            </Card>
-          )}
-
-          {/* ── Bravos reçus ─────────────────────────────────────────────── */}
-          {kudos.length > 0 && (
-            <Card>
-              <SectionTitle icon={Heart}>{t('staffme.section.kudos')}</SectionTitle>
-              <div className="space-y-2">
-                {kudos.map((k) => (
-                  <div key={k.id} className="flex items-start gap-2.5 rounded-xl px-3 py-2.5" style={{ background: 'rgba(244,114,182,0.06)', border: '1px solid rgba(244,114,182,0.18)' }}>
-                    <Heart className="mt-0.5 h-3.5 w-3.5 flex-none" style={{ color: '#F472B6' }} />
-                    <div className="min-w-0 flex-1">
-                      {k.body && <p style={{ color: T1, fontSize: 12.5 }}>{k.body}</p>}
-                      <p style={{ color: T3, fontSize: 10.5, marginTop: k.body ? 2 : 0 }}>
-                        {[kudosNames[k.from_user], new Date(k.created_at).toLocaleDateString()].filter(Boolean).join(' · ')}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
             </Card>
           )}
 

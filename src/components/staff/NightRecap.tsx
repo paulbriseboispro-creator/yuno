@@ -4,7 +4,7 @@
  * Deux étages, jamais de comparaison entre collègues :
  *   1. « Ton service » — les chiffres de la personne (scans, commandes,
  *      dépôts, consos selon son poste) + la durée si la prise de poste est
- *      connue, + les bravos reçus cette nuit.
+ *      connue.
  *   2. « L'équipe ce soir » — les totaux du club (entrées, bar, vestiaire) :
  *      on ferme la nuit en voyant ce que L'ÉQUIPE a encaissé ensemble.
  *
@@ -16,7 +16,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  X, ScanLine, Wine, Shirt, Crown, Clock, Users, Heart, LogOut, CheckCircle2, Moon,
+  X, ScanLine, Wine, Shirt, Crown, Clock, Users, LogOut, CheckCircle2, Moon,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -66,7 +66,6 @@ export function NightRecap({ open, onClose, role, venueId, userId, pulse }: Prop
   const durationMin = me?.started_at
     ? Math.max(0, Math.round((Date.now() - new Date(me.started_at).getTime()) / 60_000))
     : null;
-  const myKudos = pulse.kudos.filter((k) => k.to_user === userId);
 
   const myTiles: { icon: typeof ScanLine; labelKey: string; value: number }[] = [];
   if (stats) {
@@ -161,26 +160,6 @@ export function NightRecap({ open, onClose, role, venueId, userId, pulse }: Prop
                 </div>
               )}
             </motion.div>
-
-            {/* ── Bravos reçus ── */}
-            {myKudos.length > 0 && (
-              <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mt-5">
-                <p className="mb-2.5" style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                  {t('staffrecap.kudosTitle')}
-                </p>
-                <div className="space-y-2">
-                  {myKudos.map((k) => (
-                    <div key={k.id} className="flex items-start gap-2.5 rounded-2xl px-4 py-3" style={{ background: 'rgba(244,114,182,0.07)', border: '1px solid rgba(244,114,182,0.20)' }}>
-                      <Heart className="mt-0.5 h-4 w-4 flex-none" style={{ color: '#F472B6' }} />
-                      <div className="min-w-0">
-                        <p style={{ color: T1, fontSize: 13, fontWeight: 550 }}>{k.from_name}</p>
-                        {k.body && <p style={{ color: T2, fontSize: 12.5, marginTop: 1 }}>{k.body}</p>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
 
             {/* ── L'équipe ce soir ── */}
             {teamTiles.length > 0 && (

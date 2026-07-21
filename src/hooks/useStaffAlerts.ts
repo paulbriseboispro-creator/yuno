@@ -1,10 +1,10 @@
 /**
- * Alertes entrantes des écrans staff : appels de poste, consigne du soir,
- * bravos. Écoute staff_notifications en realtime (la table est déjà publiée)
- * et traduit en toasts — le son et la vibration réveillent une main occupée.
+ * Alertes entrantes des écrans staff : appels de poste et consigne du soir.
+ * Écoute staff_notifications en realtime (la table est déjà publiée) et
+ * traduit en toasts — le son et la vibration réveillent une main occupée.
  *
  * Distinct de useStaffNotifications (l'inbox de l'hôte VIP) : ici pas d'état,
- * pas d'historique, juste la réaction immédiate aux trois types « sociaux ».
+ * pas d'historique, juste la réaction immédiate.
  */
 
 import { useEffect, useRef } from 'react';
@@ -84,15 +84,6 @@ export function useStaffAlerts({ venueId, role, userId, onBrief }: Options) {
             });
             buzz([180, 90, 180]);
             onBriefRef.current?.();
-            return;
-          }
-
-          if (n.notification_type === 'staff_kudos' && userId && md.recipient_id === userId) {
-            toast.success(tt('staffnight.kudosIncoming'), {
-              description: [md.from_name, md.body].filter(Boolean).join(' — ') || undefined,
-              duration: 10_000,
-            });
-            buzz([120, 60, 120]);
           }
         },
       )

@@ -762,13 +762,6 @@ function staffPushCopy(type: string, lang: Lang, md: any): { title: string; body
       if (lang === 'es') return { title: '📋 Consigna de la noche', body: preview };
       return { title: '📋 Consigne du soir', body: preview };
     }
-    case 'staff_kudos': {
-      const from = md?.from_name || '';
-      const body = [from, md?.body].filter(Boolean).join(' — ');
-      if (lang === 'en') return { title: '💛 You received kudos', body };
-      if (lang === 'es') return { title: '💛 Has recibido un bravo', body };
-      return { title: '💛 Tu as reçu un bravo', body };
-    }
     default:
       return null; // type hors catalogue : pas de push (la DB filtre déjà, ceci est la ceinture).
   }
@@ -807,13 +800,6 @@ async function handleStaffNotification(supabase: any, body: any): Promise<Respon
   const recipients = new Set<string>((roleRows ?? []).map((r: { user_id: string }) => r.user_id));
   // On ne se notifie pas de son propre geste (ex : le videur qui signale l'incident).
   if (notif.metadata?.actor_id) recipients.delete(notif.metadata.actor_id);
-  // Notification nominative (ex : un bravo) : la ligne est routée par rôle pour
-  // l'inbox, mais le push ne réveille QUE la personne visée.
-  if (notif.metadata?.recipient_id) {
-    for (const id of [...recipients]) {
-      if (id !== notif.metadata.recipient_id) recipients.delete(id);
-    }
-  }
   if (!recipients.size) return json({ message: 'no recipient', sent: 0 });
 
   const langById = new Map<string, Lang>(

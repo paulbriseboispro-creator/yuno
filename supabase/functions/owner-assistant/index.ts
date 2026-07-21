@@ -110,13 +110,13 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Le compte personnel du staff",
     keywords: ["compte staff", "profil staff", "mon compte", "personnalisation", "surnom", "photo staff", "intitulé", "poste", "identité", "équipe", "stats staff", "statistiques employé", "qui a scanné", "performance staff", "onboarding staff", "relevé"],
     path: "/owner/staff",
-    snippet: "Chaque membre du staff a un vrai compte personnel. Depuis son dashboard il tape sur son nom en haut à gauche pour ouvrir « Mon compte » : il y choisit son nom d'affichage et sa photo de service, et y consulte son relevé de travail — scans, commandes servies, dépôts au vestiaire, consos VIP, nuits travaillées sur 30 jours — les bravos reçus et la liste de l'équipe. L'intitulé de poste (« Responsable porte », « Chef de rang ») est défini par TOI depuis la page Staff, sur la carte de chaque membre ; sans intitulé, l'écran affiche le nom du rôle. À la première connexion, chaque nouveau membre passe par un accueil d'une minute (poste, photo, nom). Chaque action est attribuée à la personne qui l'a faite : le centre de commandement montre qui a scanné, qui a servi, qui tient le vestiaire.",
+    snippet: "Chaque membre du staff a un vrai compte personnel. Depuis son dashboard il tape sur son nom en haut à gauche pour ouvrir « Mon compte » : il y choisit son nom d'affichage et sa photo de service, et y consulte son relevé de travail — scans, commandes servies, dépôts au vestiaire, consos VIP, nuits travaillées sur 30 jours — et la liste de l'équipe. L'intitulé de poste (« Responsable porte », « Chef de rang ») est défini par TOI depuis la page Staff, sur la carte de chaque membre ; sans intitulé, l'écran affiche le nom du rôle. À la première connexion, chaque nouveau membre passe par un accueil d'une minute (poste, photo, nom). Chaque action est attribuée à la personne qui l'a faite : le centre de commandement montre qui a scanné, qui a servi, qui tient le vestiaire.",
   },
   "staff-briefing": {
-    title: "Consigne du soir, bravos et pouls de la nuit",
-    keywords: ["consigne", "brief", "briefing", "consigne du soir", "bravo", "kudos", "félicit", "équipe connectée", "en poste", "appel de poste", "radio staff", "qui est en poste", "fin de service", "récap staff", "prise de poste"],
+    title: "Consigne du soir et pouls de la nuit",
+    keywords: ["consigne", "brief", "briefing", "consigne du soir", "équipe connectée", "en poste", "appel de poste", "radio staff", "qui est en poste", "fin de service", "récap staff", "prise de poste"],
     path: "/owner/staff",
-    snippet: "La page Staff a trois onglets. ÉQUIPE : gestion des comptes, rôles, PIN et intitulés de poste. BRIEFING : tu écris la consigne du soir (dress code, tarifs, priorités, interdits) — elle s'affiche en haut de l'écran de chaque staff avec un push, et tu vois qui l'a lue (« Vu par 4/6 ») ; tu peux aussi envoyer un bravo nominatif, visible par toute l'équipe et poussé sur le téléphone de la personne (de la reconnaissance, jamais un classement). ACTIVITÉ : le relevé de travail de chaque membre sur 30 jours (nuits, actions par domaine, dernière action), trié par ancienneté. Côté staff, chaque écran porte un panneau « Ce soir » avec les chiffres de son poste en direct, la prise de poste à l'ouverture, le récap en fin de service, et un bouton pour appeler un autre poste (renfort, sécurité, arrivée VIP, stock).",
+    snippet: "La page Staff a trois onglets. ÉQUIPE : gestion des comptes, rôles, PIN et intitulés de poste. BRIEFING : tu écris la consigne du soir (dress code, tarifs, priorités, interdits) — elle s'affiche en haut de l'écran de chaque staff avec un push, et tu vois qui l'a lue (« Vu par 4/6 ») et qui est en poste en ce moment. ACTIVITÉ : le relevé de travail de chaque membre sur 30 jours (nuits, actions par domaine, dernière action), trié par ancienneté — jamais un classement. Côté staff, chaque écran porte un panneau « Ce soir » avec les chiffres de son poste en direct, la prise de poste à l'ouverture, le récap en fin de service, et un bouton pour appeler un autre poste (renfort, sécurité, arrivée VIP, stock).",
   },
   "vip-tables": {
     title: "Tables VIP",
@@ -2225,7 +2225,7 @@ serve(async (req) => {
     // MULTI-ROUND TOOL CALLING (max 3 rounds)
     // ═══════════════════════════════════════
 
-    let conversationMessages: any[] = [
+    const conversationMessages: any[] = [
       { role: "system", content: systemPrompt },
       ...messages,
     ];
