@@ -9961,44 +9961,6 @@ export type Database = {
           },
         ]
       }
-      staff_kudos: {
-        Row: {
-          body: string | null
-          created_at: string
-          from_user: string
-          id: string
-          night_date: string
-          to_user: string
-          venue_id: string
-        }
-        Insert: {
-          body?: string | null
-          created_at?: string
-          from_user: string
-          id?: string
-          night_date?: string
-          to_user: string
-          venue_id: string
-        }
-        Update: {
-          body?: string | null
-          created_at?: string
-          from_user?: string
-          id?: string
-          night_date?: string
-          to_user?: string
-          venue_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "staff_kudos_venue_id_fkey"
-            columns: ["venue_id"]
-            isOneToOne: false
-            referencedRelation: "venues"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       staff_notifications: {
         Row: {
           created_at: string | null
@@ -15458,10 +15420,6 @@ export type Database = {
       seed_venue_tracked_links: {
         Args: { p_venue_id: string }
         Returns: undefined
-      }
-      send_staff_kudos: {
-        Args: { p_body?: string; p_to_user: string }
-        Returns: Json
       }
       set_agency_contract_status: {
         Args: { p_contract_id: string; p_status: string }
