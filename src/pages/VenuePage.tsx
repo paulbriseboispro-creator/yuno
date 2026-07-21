@@ -25,7 +25,7 @@ import { PARIS_TIMEZONE, nowInParis } from '@/lib/timezone';
 import { hasFeature, SUBSCRIPTIONS_ENABLED, type PlanCode } from '@/lib/planFeatures';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { usePromoterTracking } from '@/hooks/usePromoterTracking';
-import { getOptimizedImageUrl } from '@/lib/imageOptimization';
+import { getOptimizedImageUrl, getResponsiveSrcSet } from '@/lib/imageOptimization';
 import { eventPath } from '@/lib/eventUrl';
 import { shareContent } from '@/lib/share';
 import { useFavorites } from '@/hooks/useFavorites';
@@ -811,7 +811,9 @@ export default function VenuePage() {
                   <div className="relative aspect-square rounded-xl overflow-hidden bg-muted">
                     {posterSrc ? (
                       <img
-                        src={getOptimizedImageUrl(posterSrc, { width: 400, height: 400, quality: 75 })}
+                        src={getOptimizedImageUrl(posterSrc, { width: 800, quality: 80 })}
+                        srcSet={getResponsiveSrcSet(posterSrc, [480, 800, 1200])}
+                        sizes="(max-width: 576px) calc(100vw - 40px), 536px"
                         alt={event.title}
                         className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         loading="lazy"

@@ -12,7 +12,7 @@ import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { FavoriteButton } from '@/components/FavoriteButton';
 import { toast } from 'sonner';
-import { getOptimizedImageUrl } from '@/lib/imageOptimization';
+import { getOptimizedImageUrl, getResponsiveSrcSet } from '@/lib/imageOptimization';
 import { eventPath } from '@/lib/eventUrl';
 import { shareContent } from '@/lib/share';
 import { hasFeature, type PlanCode } from '@/lib/planFeatures';
@@ -516,7 +516,9 @@ export default function OrganizerPublicProfile() {
                   <div className="relative aspect-square rounded-xl overflow-hidden bg-muted">
                     {event.poster_url ? (
                       <img
-                        src={getOptimizedImageUrl(event.poster_url, { width: 400, height: 400, quality: 75 })}
+                        src={getOptimizedImageUrl(event.poster_url, { width: 800, quality: 80 })}
+                        srcSet={getResponsiveSrcSet(event.poster_url, [480, 800, 1200])}
+                        sizes="(max-width: 576px) calc(100vw - 40px), 536px"
                         alt={event.title}
                         className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />

@@ -11,7 +11,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { fr, es, enUS } from 'date-fns/locale';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { FavoriteButton } from '@/components/FavoriteButton';
-import { getOptimizedImageUrl } from '@/lib/imageOptimization';
+import { getOptimizedImageUrl, getResponsiveSrcSet } from '@/lib/imageOptimization';
 import { shareContent } from '@/lib/share';
 import { DJTrackPlayer } from '@/components/dj/DJTrackPlayer';
 import { formatCompactCount } from '@/components/formater';
@@ -494,7 +494,9 @@ export default function DJPublicPage() {
                   <div className="relative aspect-square overflow-hidden" style={{ borderRadius: 10, background: 'rgba(255,255,255,0.05)' }}>
                     {event.poster_url ? (
                       <img
-                        src={getOptimizedImageUrl(event.poster_url, { width: 400, height: 400, quality: 75 })}
+                        src={getOptimizedImageUrl(event.poster_url, { width: 800, quality: 80 })}
+                        srcSet={getResponsiveSrcSet(event.poster_url, [480, 800, 1200])}
+                        sizes="(max-width: 576px) calc(100vw - 40px), 536px"
                         alt={event.title}
                         className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
