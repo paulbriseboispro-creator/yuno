@@ -107,6 +107,9 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
   // Le chargement de la soirée est un effet anonyme : plutôt que de l'extraire,
   // une clé qu'on incrémente le relance après une édition.
   const [refreshKey, setRefreshKey] = useState(0);
+  // Édition des infos de la soirée (domaine `design`). Déclaré ici, AVANT les
+  // early-returns loading/contrat : un hook conditionnel fait crasher React.
+  const [editOpen, setEditOpen] = useState(false);
   const { status: contractStatus, isLoading: contractLoading } = useEventCollabContract(eventId, viewerRole);
 
   const scopeId = isVenue ? myVenue?.id : user?.id;
@@ -274,8 +277,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
     ticketing: isVenue ? '/owner/ticketing' : '/organizer-app/ticketing',
   };
   const openTicketing = () => navigate(navTo.ticketing);
-  // Édition des infos de la soirée — l'outil qui correspond au domaine `design`.
-  const [editOpen, setEditOpen] = useState(false);
+  // L'outil « Infos & affiche » correspond au domaine `design`.
   const canEditDesign = canSideEdit(event?.collab_responsibilities, event?.event_mode, 'design', viewerSide);
 
   const phasePill =
