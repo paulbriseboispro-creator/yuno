@@ -1,34 +1,54 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { Eye, Crown, Loader2 } from 'lucide-react';
-import { ClientFloorPlanPicker } from '@/components/vip/ClientFloorPlanPicker';
+import { ServiceFloorPlan } from '@/components/vip-service/ServiceFloorPlan';
+import type { ServiceReservation, TableServiceInfo } from '@/components/vip-service/serviceTypes';
 import { OwnerVipOrders } from '@/components/owner/OwnerVipOrders';
-import { useTableAvailability } from '@/hooks/useTableAvailability';
 import { CollabOperationsPreview } from './CollabOperationsPreview';
-import type { VenueFloorPlan } from '@/types';
+import type { VenueFloorPlan, VipReservation } from '@/types';
 
 const T1 = 'rgba(255,255,255,0.96)';
 const T3 = 'rgba(255,255,255,0.36)';
-const BORDER = 'rgba(255,255,255,0.085)';
-const INNER_BG = 'rgba(255,255,255,0.032)';
+
+type ResaRow = {
+  id: string;
+  zone_id: string | null;
+  event_id: string;
+  user_email: string | null;
+  full_name: string | null;
+  guest_count: number | null;
+  deposit: number | null;
+  total_price: number | null;
+  minimum_spend: number | null;
+  status: string;
+  vip_status: string | null;
+  paid_at: string | null;
+  placed_at: string | null;
+  assigned_table_id: string | null;
+  requested_table_id: string | null;
+  placement_status: string | null;
+  created_at: string;
+  checked_in_at: string | null;
+};
 
 /**
  * Aperçu LECTURE SEULE des tables VIP, pour la partie qui ne tient pas
- * l'opérationnel. Montre EXACTEMENT ce que voit le client :
+ * l'opérationnel. Montre EXACTEMENT ce que voit / gère le club :
  *
- *  - plan de salle interactif (élite) quand le club en a publié un — le plan est
+ *  - plan de salle interactif (élite) quand le club en a publié un. Le plan est
  *    VENUE-scopé (event_id NULL, ouvert par `venues.vip_placement_enabled`), pas
- *    event-scopé. On réplique donc le fallback event→venue de la réservation
- *    cliente (TableCheckout / useVipNight), sinon le plan du club reste invisible
- *    ici et l'aperçu affiche « aucune table » à tort.
- *  - sinon, la liste des packs (mode basic) via CollabOperationsPreview.
+ *    event-scopé : on réplique le fallback event→venue de la réservation cliente,
+ *    sinon le plan du club reste invisible et l'aperçu dit « aucune table » à tort.
+ *  - sur ce plan, l'état RÉEL de chaque table : réservée/demandée, et le PRÉNOM
+ *    de la personne placée (via ServiceFloorPlan en lecture seule).
+ *  - sinon (mode basic), la liste des packs via CollabOperationsPreview.
  *
- * Puis, en dessous, la liste des réservations VIP de la soirée. Aucune écriture :
- * OwnerVipOrders ne fait que lire, et le partenaire organisateur a bien le droit
- * SELECT sur le plan (policy vip_placement_enabled) comme sur les réservations
- * (policy partner organizer).
+ * Puis, en dessous, la liste des réservations VIP. Aucune écriture : on ne fait
+ * que lire `table_reservations`, `venue_floor_plans` et `venues`, tout ce que le
+ * partenaire organisateur a déjà le droit de lire (policies partner organizer /
+ * vip_placement_enabled).
  */
 export function CollabTablesPreview({
   eventId,
@@ -46,6 +66,7 @@ export function CollabTablesPreview({
   const [floorPlan, setFloorPlan] = useState<VenueFloorPlan | null>(null);
   const [placementEnabled, setPlacementEnabled] = useState(false);
   const [mode, setMode] = useState<string | null>(null);
+  const [reservations, setReservations] = useState<ServiceReservation[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -84,6 +105,13 @@ export function CollabTablesPreview({
         placement = !!(v as { vip_placement_enabled?: boolean } | null)?.vip_placement_enabled;
       }
 
+      // Réservations actives → placements sur le plan (prénom + état de table).
+      const { data: resa } = await supabase
+        .from('table_reservations')
+        .select('id, zone_id, event_id, user_email, full_name, guest_count, deposit, total_price, minimum_spend, status, vip_status, paid_at, placed_at, assigned_table_id, requested_table_id, placement_status, created_at, checked_in_at')
+        .eq('event_id', eventId)
+        .in('status', ['pending', 'paid', 'confirmed']);
+
       if (!active) return;
       setMode((ev as { tables_mode?: string | null } | null)?.tables_mode ?? null);
       setPlacementEnabled(placement);
@@ -94,15 +122,36 @@ export function CollabTablesPreview({
         layout: (fp.layout ?? { tables: [] }) as VenueFloorPlan['layout'],
         createdAt: '', updatedAt: '',
       } : null);
+      setReservations(((resa as ResaRow[] | null) ?? []).map((r): ServiceReservation => ({
+        id: r.id,
+        zoneId: r.zone_id ?? '',
+        eventId: r.event_id,
+        userEmail: r.user_email ?? '',
+        fullName: r.full_name || r.user_email?.split('@')[0] || tt('Invité', 'Guest', 'Invitado'),
+        guestCount: r.guest_count ?? 0,
+        deposit: r.deposit ?? 0,
+        totalPrice: r.total_price ?? 0,
+        minimumSpend: r.minimum_spend ?? 0,
+        status: r.status,
+        vipStatus: (r.vip_status || 'waiting') as VipReservation['vipStatus'],
+        paidAt: r.paid_at ?? undefined,
+        placedAt: r.placed_at ?? undefined,
+        assignedTableId: r.assigned_table_id ?? undefined,
+        createdAt: r.created_at,
+        checkedInAt: r.checked_in_at ?? undefined,
+        hasArrived: r.checked_in_at !== null || ['placed', 'active', 'finished'].includes(r.vip_status || ''),
+        placementStatus: r.placement_status || 'none',
+        requestedTableId: r.requested_table_id,
+      })));
       setLoading(false);
     })();
     return () => { active = false; };
-  }, [eventId]);
+  }, [eventId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Sans données de service (conso/commandes) : les tables placées s'affichent en
+  // vert avec le prénom, les tables demandées en rouge pointillé, le reste libre.
+  const emptyServiceInfo = useMemo(() => new Map<string, TableServiceInfo>(), []);
   const hasInteractive = (floorPlan?.layout?.tables?.length ?? 0) > 0 && placementEnabled && mode !== 'basic';
-  // Hook inconditionnel : eventId seulement quand un plan interactif existe, sinon
-  // undefined (le hook ne requête rien). React gère le changement d'argument.
-  const { unavailableTableIds } = useTableAvailability(hasInteractive ? eventId : undefined);
 
   if (loading) {
     return (
@@ -123,21 +172,19 @@ export function CollabTablesPreview({
 
       {hasInteractive && floorPlan ? (
         <>
-          <div className="overflow-hidden rounded-xl" style={{ border: `1px solid ${BORDER}`, background: INNER_BG }}>
-            <ClientFloorPlanPicker
-              floorPlan={floorPlan}
-              unavailableTableIds={unavailableTableIds}
-              selectedTableId={null}
-              onSelectTable={() => {}}
-              onSkip={() => {}}
-              readOnly
-            />
-          </div>
+          <ServiceFloorPlan
+            floorPlan={floorPlan}
+            reservations={reservations}
+            serviceInfo={emptyServiceInfo}
+            mode="live"
+            readOnly
+            onTableTap={() => {}}
+          />
           <p style={{ color: T3, fontSize: 11, lineHeight: 1.45 }}>
             {tt(
-              'Plan interactif du club. Les tables déjà réservées apparaissent indisponibles — vue identique à celle du client.',
-              'Club interactive plan. Already-booked tables show as unavailable — same view your customers see.',
-              'Plano interactivo del club. Las mesas ya reservadas aparecen no disponibles — la misma vista que ve tu cliente.',
+              'Plan interactif du club — état en direct : tables réservées ou demandées, et le prénom des personnes placées. Vous ne pouvez pas le modifier.',
+              'Club interactive plan — live state: reserved or requested tables, and the first name of seated guests. You cannot edit it.',
+              'Plano interactivo del club — estado en vivo: mesas reservadas o solicitadas y el nombre de las personas sentadas. No puedes editarlo.',
             )}
           </p>
         </>

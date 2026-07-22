@@ -35,6 +35,9 @@ interface ServiceFloorPlanProps {
   /** pick : table demandée par le client au checkout (anneau rouge pulsé). */
   highlightTableId?: string | null;
   showBackground?: boolean;
+  /** Aperçu : aucune interaction (pas de tap), légende simplifiée sans consommation.
+   *  Sert à montrer qui est placé à une partie qui ne fait pas le service. */
+  readOnly?: boolean;
   onTableTap: (tableId: string, reservation?: ServiceReservation) => void;
 }
 
@@ -55,14 +58,15 @@ export function ServiceFloorPlan({
   selectedTableId,
   highlightTableId,
   showBackground = true,
+  readOnly = false,
   onTableTap,
 }: ServiceFloorPlanProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const tables = (floorPlan?.layout?.tables || []) as FloorPlanTable[];
-  const zoneAreas = ((floorPlan?.layout as any)?.zoneAreas || []) as ZoneArea[];
+  const zoneAreas = (floorPlan?.layout?.zoneAreas || []) as ZoneArea[];
   const backgroundUrl = showBackground ? floorPlan?.backgroundImageUrl || null : null;
-  const bgOffset = (floorPlan?.layout as any)?.bgOffset || { x: 0, y: 0 };
-  const bgScale = (floorPlan?.layout as any)?.bgScale || 1;
+  const bgOffset = floorPlan?.layout?.bgOffset || { x: 0, y: 0 };
+  const bgScale = floorPlan?.layout?.bgScale || 1;
 
   const [zoom, setZoom] = useState(1);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
@@ -102,7 +106,7 @@ export function ServiceFloorPlan({
     const map = new Map<string, { name: string; color: string }>();
     tables.forEach(tb => {
       if (tb.zoneId && tb.zoneColor) {
-        map.set(tb.zoneId, { name: (tb as any).zoneName || '', color: tb.zoneColor });
+        map.set(tb.zoneId, { name: (tb as FloorPlanTable & { zoneName?: string }).zoneName || '', color: tb.zoneColor });
       }
     });
     return map;
@@ -293,7 +297,7 @@ export function ServiceFloorPlan({
               const colors = TABLE_STATE_COLORS[state];
               const isSelected = selectedTableId === table.id;
               const isHighlight = highlightTableId === table.id;
-              const isClickable = mode === 'pick' ? !seated : true;
+              const isClickable = readOnly ? false : (mode === 'pick' ? !seated : true);
 
               const shortLabel = table.name.replace(/^table\s*/i, '').trim() || table.name;
               const compact = Math.min(table.width, table.height) < 26;
@@ -307,7 +311,7 @@ export function ServiceFloorPlan({
                 <g
                   key={table.id}
                   onClick={() => isClickable && onTableTap(table.id, seated)}
-                  className={cn('cursor-pointer', !isClickable && 'cursor-default opacity-45')}
+                  className={cn('cursor-pointer', !isClickable && (readOnly ? 'cursor-default' : 'cursor-default opacity-45'))}
                 >
                   {(isSelected || isHighlight) && (
                     <rect
@@ -410,29 +414,47 @@ export function ServiceFloorPlan({
         </div>
       </div>
 
-      {/* Légende */}
-      <div className="flex flex-wrap gap-x-3 gap-y-1 px-1" style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.5)' }}>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 shrink-0 rounded" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.3)' }} />
-          {t('vipHost.legendFree')}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 shrink-0 rounded" style={{ background: 'rgba(245,158,11,0.3)', border: '1px solid rgb(245,158,11)' }} />
-          {t('vipHost.legendUnderMin')}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 shrink-0 rounded" style={{ background: 'rgba(16,185,129,0.35)', border: '1px solid rgb(16,185,129)' }} />
-          {t('vipnight.legendOk')}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 shrink-0 rounded" style={{ background: 'rgba(231,193,90,0.35)', border: '1px solid #E7C15A' }} />
-          {t('vipnight.legendExtra')}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 shrink-0 rounded" style={{ background: 'rgba(232,25,44,0.16)', border: '1px dashed #E8192C' }} />
-          {t('vipnight.legendRequested')}
-        </span>
-      </div>
+      {/* Légende — service complet, ou version simplifiée en aperçu lecture seule
+          (pas de consommation à montrer à qui ne fait pas le service). */}
+      {readOnly ? (
+        <div className="flex flex-wrap gap-x-3 gap-y-1 px-1" style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.5)' }}>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 shrink-0 rounded" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.3)' }} />
+            {language === 'fr' ? 'Libre' : language === 'es' ? 'Libre' : 'Free'}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 shrink-0 rounded" style={{ background: 'rgba(232,25,44,0.16)', border: '1px dashed #E8192C' }} />
+            {language === 'fr' ? 'Table demandée' : language === 'es' ? 'Mesa solicitada' : 'Requested'}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 shrink-0 rounded" style={{ background: 'rgba(16,185,129,0.35)', border: '1px solid rgb(16,185,129)' }} />
+            {language === 'fr' ? 'Placé' : language === 'es' ? 'Sentado' : 'Seated'}
+          </span>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-x-3 gap-y-1 px-1" style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.5)' }}>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 shrink-0 rounded" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.3)' }} />
+            {t('vipHost.legendFree')}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 shrink-0 rounded" style={{ background: 'rgba(245,158,11,0.3)', border: '1px solid rgb(245,158,11)' }} />
+            {t('vipHost.legendUnderMin')}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 shrink-0 rounded" style={{ background: 'rgba(16,185,129,0.35)', border: '1px solid rgb(16,185,129)' }} />
+            {t('vipnight.legendOk')}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 shrink-0 rounded" style={{ background: 'rgba(231,193,90,0.35)', border: '1px solid #E7C15A' }} />
+            {t('vipnight.legendExtra')}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 shrink-0 rounded" style={{ background: 'rgba(232,25,44,0.16)', border: '1px dashed #E8192C' }} />
+            {t('vipnight.legendRequested')}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
