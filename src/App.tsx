@@ -436,7 +436,10 @@ const App = () => (
             {!isProApp() && <OnboardingGate />}
             <Toaster />
             <Sonner />
-            {!isProApp() && <DemoSwitcher />}
+            {/* Bascule de comptes démo : active AUSSI dans l'app Pro (staff) — c'est
+                là qu'on présente owner/orga/promoteur aux patrons. Auto-gaté aux
+                comptes @womber.fr (return null sinon), donc jamais visible d'un vrai user. */}
+            <DemoSwitcher />
             <PreviewModeBanner />
             <ScrollToTop />
             {!isProApp() && <CartCleanup />}
