@@ -6602,8 +6602,8 @@ const en: Record<string, string> = {
   'promoterDetail.codeTaken': 'This promo code is already used',
   'promoterDetail.autoAssign': 'Auto-assign to events',
   'promoterDetail.autoAssignHint': 'Automatically links this promoter to every new event (recurring included).',
-  'ohelp.pg.promoters.s8h': 'Auto-assign to events',
-  'ohelp.pg.promoters.s8b': 'In a promoter\'s profile (Settings), enable "Auto-assign to events": they are automatically linked to every new event of your club, recurring nights and co-events included. When enabled, all upcoming events are attached at once. Without assignments, a promoter sees all upcoming club events by default.',
+  'ohelp.pg.promoters.s8h': 'Link a promoter to events',
+  'ohelp.pg.promoters.s8b': 'A promoter only sees, promotes and gets paid on the events you link them to. An event they are not linked to does not appear on their public linktree: no promotion without a reward. Three ways to link them:\n1. One by one, from an event (activate them under "Upcoming events").\n2. By enabling "Auto-assign to events" in their profile (Settings): they are attached to every upcoming event at once, recurring nights and co-events included, and to future ones automatically.\n3. By applying a commission template that carries "Link to all events": picking that template on their profile pre-enables their auto-assign.',
   'ohelp.pg.promoters.s9h': 'What your promoters get on their phone',
   'ohelp.pg.promoters.s9b': 'Your promoters are notified in the Yuno Pro app, with nothing for you to configure. They get: their first sale of the night, the next-morning recap (sales count and commissions), a night goal reached, a night you assign them, and a commission cancelled by a refund.\n\nTwo things are deliberately absent: a push per sale, and a push per guest walking in. A promoter making fifty sales on a Saturday would get fifty notifications and turn everything off. They get two, and the recap tells the story the next day.\n\nWhen you post an announcement to your promoters, it goes out as a notification to each of them: it is the most reliable way to land a brief before a night.',
   'ohelp.ev.guestlist.s9h': 'Unlimited quota for a promoter or DJ',
@@ -8167,7 +8167,7 @@ const en: Record<string, string> = {
   'pushTpl.lastTickets.body': "It's filling up fast. Grab yours before it sells out.",
   'pushTpl.eventLive.title': '🔥 {event} is on right now',
   'pushTpl.eventLive.body': 'Doors are open at {venue}. See you inside.',
-  'pushTpl.thankYou.title': 'Thanks for coming 🖤',
+  'pushTpl.thankYou.title': 'Thanks for coming ❤️',
   'pushTpl.thankYou.body': '{venue} — tonight was special. See you next time.',
   'pushTpl.custom.title': '{venue}',
   'pushTpl.custom.body': 'Write your message here.',
@@ -10299,6 +10299,8 @@ const en: Record<string, string> = {
   'ohelp.commissionTemplates.s5b': 'Create 2-3 templates for different promoter tiers (standard, senior, VIP). Set a default template for quick onboarding. Review templates monthly to ensure commission rates remain competitive.',
   'ohelp.commissionTemplates.s6h': 'Important',
   'ohelp.commissionTemplates.s6b': 'Changing a template does not retroactively affect past commissions. Only future sales use the new rules. Deleting a template that is assigned to active promoters is not allowed — reassign them first.',
+  'ohelp.commissionTemplates.s7h': 'Link to all events',
+  'ohelp.commissionTemplates.s7b': 'A "Link to all events" switch at the bottom of the template. Any promoter carrying this template is automatically attached to every upcoming event of the club (and future ones): they see all of them and earn on all of them. Ideal for a sales force that works everything, without ticking each event. Picking this template on a promoter\'s profile pre-enables their auto-assign (you can turn it back off). Leave the switch off for a sales force you link event by event.',
 
   // ─── New articles EN: Promoter Teams ───
   'ohelp.promoterTeams.title': 'Promoter Teams',

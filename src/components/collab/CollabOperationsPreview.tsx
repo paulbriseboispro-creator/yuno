@@ -37,7 +37,21 @@ const euro = (n: number | null | undefined) =>
  * `table_packs` sur is_active), donc il ne contourne aucun garde-fou — il montre
  * exactement ce que le public verra.
  */
-export function CollabOperationsPreview({ eventId, kind }: { eventId: string; kind: 'ticketing' | 'tables' }) {
+export function CollabOperationsPreview({
+  eventId,
+  kind,
+  showChrome = true,
+  heading,
+}: {
+  eventId: string;
+  kind: 'ticketing' | 'tables';
+  /** Bandeau « Aperçu — lecture seule » + note « propose un avenant ». Coupé
+   *  quand plusieurs sections sont empilées dans un dialogue (chrome montré une
+   *  seule fois autour). Par défaut vrai → usage inline inchangé. */
+  showChrome?: boolean;
+  /** Petit intitulé de section, utile quand on empile plusieurs aperçus. */
+  heading?: string;
+}) {
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [rounds, setRounds] = useState<Round[]>([]);
@@ -70,23 +84,33 @@ export function CollabOperationsPreview({ eventId, kind }: { eventId: string; ki
 
   if (loading) return null;
 
+  const sectionHeading = heading ? (
+    <p style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{heading}</p>
+  ) : null;
+
   const items = kind === 'ticketing' ? rounds : packs;
   if (!items.length) {
     return (
-      <p style={{ color: T3, fontSize: 12 }}>
-        {kind === 'ticketing'
-          ? tt('Aucun palier de billets pour le moment.', 'No ticket tiers yet.', 'Aún no hay tramos de entradas.')
-          : tt('Aucune table en ligne pour le moment.', 'No tables online yet.', 'Aún no hay mesas en línea.')}
-      </p>
+      <div className="space-y-1.5">
+        {sectionHeading}
+        <p style={{ color: T3, fontSize: 12 }}>
+          {kind === 'ticketing'
+            ? tt('Aucun palier de billets pour le moment.', 'No ticket tiers yet.', 'Aún no hay tramos de entradas.')
+            : tt('Aucune table en ligne pour le moment.', 'No tables online yet.', 'Aún no hay mesas en línea.')}
+        </p>
+      </div>
     );
   }
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-1.5" style={{ color: T3, fontSize: 11 }}>
-        <Eye className="h-3.5 w-3.5" />
-        {tt('Aperçu — lecture seule', 'Preview — read only', 'Vista previa — solo lectura')}
-      </div>
+      {sectionHeading}
+      {showChrome && (
+        <div className="flex items-center gap-1.5" style={{ color: T3, fontSize: 11 }}>
+          <Eye className="h-3.5 w-3.5" />
+          {tt('Aperçu — lecture seule', 'Preview — read only', 'Vista previa — solo lectura')}
+        </div>
+      )}
 
       {kind === 'ticketing' && rounds.map(r => {
         const soldOut = r.manually_sold_out
@@ -150,13 +174,15 @@ export function CollabOperationsPreview({ eventId, kind }: { eventId: string; ki
         </div>
       ))}
 
-      <p style={{ color: T2, fontSize: 11, lineHeight: 1.45 }}>
-        {tt(
-          "C'est ce que voit le public. Pour modifier, il faut tenir l'opérationnel — proposez un avenant.",
-          'This is what the public sees. To change it you must hold operations — propose an amendment.',
-          'Esto es lo que ve el público. Para cambiarlo hay que llevar lo operativo: propón una adenda.',
-        )}
-      </p>
+      {showChrome && (
+        <p style={{ color: T2, fontSize: 11, lineHeight: 1.45 }}>
+          {tt(
+            "C'est ce que voit le public. Pour modifier, il faut tenir l'opérationnel — proposez un avenant.",
+            'This is what the public sees. To change it you must hold operations — propose an amendment.',
+            'Esto es lo que ve el público. Para cambiarlo hay que llevar lo operativo: propón una adenda.',
+          )}
+        </p>
+      )}
     </div>
   );
 }

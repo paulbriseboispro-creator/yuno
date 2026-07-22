@@ -1,5 +1,6 @@
-import { canSideEdit } from '@/utils/collabResponsibilities';
+import { canSideEdit, type CollabDomain } from '@/utils/collabResponsibilities';
 import { CollabOperationsPreview } from './CollabOperationsPreview';
+import { CollabPreviewDialog } from './CollabPreviewDialog';
 import { OrgEventFormDialog } from '@/components/organizer-app/OrgEventFormDialog';
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
@@ -43,9 +44,19 @@ import {
   OrgPage, OrgCard, OrgPill, OrgButton,
   RED, T1, T2, T3, BORDER, INNER_BG,
 } from '@/components/org-ui';
+import type { Tables } from '@/integrations/supabase/types';
+import type { LucideIcon } from 'lucide-react';
 
 type ViewerRole = 'venue' | 'organizer';
 type Phase = 'before' | 'live' | 'after';
+
+/** Columns actually selected on `events` by this dashboard. */
+type CollabEvent = Pick<Tables<'events'>,
+  'id' | 'title' | 'description' | 'poster_url' | 'start_at' | 'end_at' | 'is_active'
+  | 'visibility' | 'discovery_status' | 'ticketing_enabled' | 'organizer_user_id'
+  | 'partner_organizer_id' | 'venue_id' | 'partner_venue_id' | 'event_mode'
+  | 'collab_responsibilities' | 'revenue_split_rules' | 'split_locked_at'
+  | 'collab_goal_type' | 'collab_goal_value'>;
 
 function computePhase(startAt: string, endAt: string): Phase {
   const now = Date.now();
@@ -88,7 +99,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
   // org_hosted. On lit le domaine, pas le mode.
   const viewerSide: 'venue' | 'organizer' = isVenue ? 'venue' : 'organizer';
 
-  const [event, setEvent] = useState<any>(null);
+  const [event, setEvent] = useState<CollabEvent | null>(null);
   const [clubName, setClubName] = useState('');
   const [orgName, setOrgName] = useState('');
   const [orgSlug, setOrgSlug] = useState<string | null>(null);
@@ -110,6 +121,9 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
   // Édition des infos de la soirée (domaine `design`). Déclaré ici, AVANT les
   // early-returns loading/contrat : un hook conditionnel fait crasher React.
   const [editOpen, setEditOpen] = useState(false);
+  // Aperçu lecture seule d'un volet qu'on ne tient pas (design / operations).
+  // Verrouiller n'est pas aveugler : on ouvre l'outil, mais en preview.
+  const [previewDomain, setPreviewDomain] = useState<CollabDomain | null>(null);
   const { status: contractStatus, isLoading: contractLoading } = useEventCollabContract(eventId, viewerRole);
 
   const scopeId = isVenue ? myVenue?.id : user?.id;
@@ -129,13 +143,13 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
       if (isVenue) {
         const { data: v } = await supabase.from('venues').select('id, name, stripe_account_id, stripe_charges_enabled').eq('owner_id', user.id).limit(1).maybeSingle();
         if (cancelled) return;
-        venueRow = (v as any) ?? null;
-        setMyVenue(venueRow ? { id: (venueRow as any).id, name: (venueRow as any).name } : null);
-        setVenueStripeReady(Boolean((v as any)?.stripe_account_id && (v as any)?.stripe_charges_enabled));
+        venueRow = v ?? null;
+        setMyVenue(venueRow ? { id: venueRow.id, name: venueRow.name } : null);
+        setVenueStripeReady(Boolean(v?.stripe_account_id && v?.stripe_charges_enabled));
       }
 
       // Event row. Organizer must match a night they lead OR a club proposed to them.
-      let evQuery: any = supabase.from('events')
+      let evQuery = supabase.from('events')
         .select('id, title, description, poster_url, start_at, end_at, is_active, visibility, discovery_status, ticketing_enabled, organizer_user_id, partner_organizer_id, venue_id, partner_venue_id, event_mode, collab_responsibilities, revenue_split_rules, split_locked_at, collab_goal_type, collab_goal_value')
         .eq('id', eventId);
       if (isOrganizer) evQuery = evQuery.or(`organizer_user_id.eq.${user.id},partner_organizer_id.eq.${user.id}`);
@@ -150,18 +164,18 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
         setClubName(venueRow?.name ?? '');
       } else if (clubVenueId) {
         const { data: v } = await supabase.from('venues').select('name').eq('id', clubVenueId).maybeSingle();
-        if (!cancelled && v) setClubName((v as any).name);
+        if (!cancelled && v) setClubName(v.name);
       }
 
       // Partner organizer identity (name + public slug).
       const orgId = ev.organizer_user_id ?? ev.partner_organizer_id;
       if (orgId) {
         const { data: prof } = await supabase
-          .from('organizer_profiles' as any)
+          .from('organizer_profiles')
           .select('display_name, slug')
           .eq('user_id', orgId)
           .maybeSingle();
-        if (!cancelled && prof) { setOrgName((prof as any).display_name ?? ''); setOrgSlug((prof as any).slug ?? null); }
+        if (!cancelled && prof) { setOrgName(prof.display_name ?? ''); setOrgSlug(prof.slug ?? null); }
       }
 
       // Revenue stats — shared night revenue + the viewer's own share.
@@ -170,26 +184,28 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
       // un « CA de la soirée » qui ignorait sa recette principale.
       const [{ data: tickets }, { data: reservations }, { data: gl }, { data: drinkOrders }] = await Promise.all([
         supabase.from('tickets').select('total_price, service_fee, insurance_fee, quantity, entry_scanned').eq('event_id', eventId).eq('status', 'paid'),
-        supabase.from('table_reservations').select('total_price, service_fee, management_fee, guests_count').eq('event_id', eventId).eq('status', 'confirmed'),
+        // `guest_count` (sans s) : l'ancien `guests_count` n'existait pas → la requête
+        // échouait en 400 et le compteur d'invités tables restait silencieusement à 0.
+        supabase.from('table_reservations').select('total_price, service_fee, management_fee, guest_count').eq('event_id', eventId).eq('status', 'confirmed'),
         supabase.from('guest_list_entries').select('id, guest_lists!inner(event_id)').eq('guest_lists.event_id', eventId),
         isVenue
           ? supabase.from('orders').select('total, service_fee, refund_amount').eq('event_id', eventId).eq('status', 'paid')
-          : Promise.resolve({ data: null } as any),
+          : Promise.resolve({ data: null as Pick<Tables<'orders'>, 'total' | 'service_fee' | 'refund_amount'>[] | null }),
       ]);
       if (cancelled) return;
 
-      const tk = (tickets ?? []) as any[];
-      const tr = (reservations ?? []) as any[];
-      const entries = (gl ?? []) as any[];
-      const dr = (drinkOrders ?? []) as any[];
+      const tk = tickets ?? [];
+      const tr = reservations ?? [];
+      const entries = gl ?? [];
+      const dr = drinkOrders ?? [];
       // CA hors frais Yuno (les frais Yuno ne sont jamais du revenu).
       const ticketCA = tk.reduce((s, x) => s + ticketRevenue(x).gross, 0);
       const tableCA = tr.reduce((s, x) => s + tableRevenue(x).gross, 0);
       const drinksCA = dr.reduce((s, x) => s + orderRevenue(x).gross, 0);
       const shareKey = isVenue ? 'venue_pct' : 'organizer_pct';
-      const ticketPct = (getEffectiveSplit(ev.revenue_split_rules, 'ticket', ev.event_mode) as any)[shareKey] / 100;
-      const tablePct = (getEffectiveSplit(ev.revenue_split_rules, 'table', ev.event_mode) as any)[shareKey] / 100;
-      const drinksPct = (getEffectiveSplit(ev.revenue_split_rules, 'order', ev.event_mode) as any)[shareKey] / 100;
+      const ticketPct = getEffectiveSplit(ev.revenue_split_rules, 'ticket', ev.event_mode)[shareKey] / 100;
+      const tablePct = getEffectiveSplit(ev.revenue_split_rules, 'table', ev.event_mode)[shareKey] / 100;
+      const drinksPct = getEffectiveSplit(ev.revenue_split_rules, 'order', ev.event_mode)[shareKey] / 100;
 
       setStats({
         sold: tk.length,
@@ -197,7 +213,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
         caSoiree: ticketCA + tableCA + drinksCA,
         myShare: ticketCA * ticketPct + tableCA * tablePct + drinksCA * drinksPct,
         checkins: tk.filter((x) => x.entry_scanned).length,
-        tableGuests: tr.reduce((s, x) => s + (x.guests_count || 0), 0),
+        tableGuests: tr.reduce((s, x) => s + (x.guest_count || 0), 0),
         glEntries: entries.length,
       });
       setLoading(false);
@@ -421,17 +437,25 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                     <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('Outils de la soirée', 'Event tools', 'Herramientas de la noche')}</h2>
                   </div>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
-                    {/* Infos & affiche = le domaine `design`. La tuile manquait : on
-                        pouvait tenir le design sans avoir d'endroit pour l'exercer. */}
-                    {canEditDesign && (
+                    {/* Infos & affiche = le domaine `design`. Détenteur → édition ;
+                        non-détenteur → aperçu lecture seule. Verrouiller n'est pas
+                        aveugler : l'outil s'ouvre quand même, juste sans modif. */}
+                    {canEditDesign ? (
                       isOrganizer
                         ? <ToolTile icon={Pencil} label={t('Infos & affiche', 'Info & poster', 'Info y cartel')} onClick={() => setEditOpen(true)} />
                         : <ToolTile icon={Pencil} label={t('Infos & affiche', 'Info & poster', 'Info y cartel')} onClick={() => navigate(`/owner/events?edit=${eventId}`)} />
+                    ) : (
+                      <ToolTile icon={Pencil} label={t('Infos & affiche', 'Info & poster', 'Info y cartel')}
+                        badge={t('Aperçu', 'Preview', 'Vista')} onClick={() => setPreviewDomain('design')} />
                     )}
                     <ToolTile icon={Radio} label={t('Live', 'Live', 'Live')} onClick={() => navigate(navTo.live)} />
-                    {canSideEdit(event.collab_responsibilities, event.event_mode, 'operations', viewerSide) && (
+                    {/* Billetterie = le domaine `operations`. Même logique d'aperçu. */}
+                    {canSideEdit(event.collab_responsibilities, event.event_mode, 'operations', viewerSide) ? (
                       <ToolTile icon={Ticket} label={t('Billetterie', 'Ticketing', 'Entradas')}
                         onClick={() => (isVenue || ticketingLive ? openTicketing() : setBilletterieOpen(true))} />
+                    ) : (
+                      <ToolTile icon={Ticket} label={t('Billetterie', 'Ticketing', 'Entradas')}
+                        badge={t('Aperçu', 'Preview', 'Vista')} onClick={() => setPreviewDomain('operations')} />
                     )}
                     <ToolTile icon={BarChart3} label={t('Analyse', 'Analytics', 'Análisis')} onClick={() => navigate(navTo.analytics)} />
                     <ToolTile icon={Megaphone} label={t('Promoteurs', 'Promoters', 'Promotores')} onClick={() => navigate(navTo.promoters)} />
@@ -521,7 +545,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                   revenue={stats.caSoiree}
                   participants={goalParticipants}
                   canEdit={canEditGoal}
-                  onSaved={(gt, gv) => setEvent((prev: any) => (prev ? { ...prev, collab_goal_type: gt, collab_goal_value: gv } : prev))}
+                  onSaved={(gt, gv) => setEvent((prev) => (prev ? { ...prev, collab_goal_type: gt, collab_goal_value: gv } : prev))}
                 />
               </Section>
             )}
@@ -636,7 +660,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
           open={billetterieOpen}
           onOpenChange={setBilletterieOpen}
           onCreate={() => { setBilletterieOpen(false); openTicketing(); }}
-          onActivated={() => setEvent((e: any) => (e ? { ...e, ticketing_enabled: true } : e))}
+          onActivated={() => setEvent((e) => (e ? { ...e, ticketing_enabled: true } : e))}
         />
       )}
 
@@ -649,6 +673,17 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
           organizerUserId={user.id}
           eventId={eventId}
           onSaved={() => { setEditOpen(false); setRefreshKey(k => k + 1); }}
+        />
+      )}
+
+      {/* Aperçu lecture seule d'un volet tenu par l'autre partie (design / ops).
+          Symétrique club ↔ orga : la vue lit les mêmes données que le public. */}
+      {eventId && (
+        <CollabPreviewDialog
+          eventId={eventId}
+          domain={previewDomain}
+          onClose={() => setPreviewDomain(null)}
+          partnerLabel={isVenue ? (orgName || undefined) : (clubName || undefined)}
         />
       )}
     </>
@@ -671,7 +706,7 @@ function Chrome({ isVenue, title, children }: { isVenue: boolean; title: string;
 }
 
 /* ── Section wrapper — chapter header (icon + title + subtitle) ─────────────── */
-function Section({ icon: Icon, title, sub, children }: { icon: any; title: string; sub?: string; children: React.ReactNode }) {
+function Section({ icon: Icon, title, sub, children }: { icon: LucideIcon; title: string; sub?: string; children: React.ReactNode }) {
   return (
     <section className="space-y-4">
       <div className="flex items-center gap-3">
@@ -688,14 +723,20 @@ function Section({ icon: Icon, title, sub, children }: { icon: any; title: strin
   );
 }
 
-function ToolTile({ icon: Icon, label, onClick, href }: { icon: any; label: string; onClick?: () => void; href?: string }) {
+function ToolTile({ icon: Icon, label, onClick, href, badge }: { icon: LucideIcon; label: string; onClick?: () => void; href?: string; badge?: string }) {
   const inner = (
     <>
-      <Icon className="h-5 w-5" style={{ color: RED }} />
+      {badge && (
+        <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5"
+          style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${BORDER}`, color: T3, fontSize: 9, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+          <Eye className="h-2.5 w-2.5" /> {badge}
+        </span>
+      )}
+      <Icon className="h-5 w-5" style={{ color: badge ? T2 : RED }} />
       <span style={{ color: T1, fontSize: 12, fontWeight: 540 }}>{label}</span>
     </>
   );
-  const cls = 'flex flex-col items-center justify-center gap-2 rounded-xl p-4 text-center transition-colors hover:bg-white/[0.03]';
+  const cls = 'relative flex flex-col items-center justify-center gap-2 rounded-xl p-4 text-center transition-colors hover:bg-white/[0.03]';
   const style = { border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.015)' } as const;
   return href ? (
     <a href={href} target="_blank" rel="noreferrer" className={cls} style={style}>{inner}</a>
@@ -704,7 +745,7 @@ function ToolTile({ icon: Icon, label, onClick, href }: { icon: any; label: stri
   );
 }
 
-function StatCard({ icon: Icon, label, value, sub, accent }: { icon: any; label: string; value: number | string; sub?: string; accent?: boolean }) {
+function StatCard({ icon: Icon, label, value, sub, accent }: { icon: LucideIcon; label: string; value: number | string; sub?: string; accent?: boolean }) {
   return (
     <OrgCard style={accent ? { boxShadow: `0 0 0 1px rgba(232,25,44,0.2), 0 1px 0 rgba(255,255,255,.05) inset` } : undefined}>
       <div className="p-4">
@@ -733,7 +774,7 @@ function CollabGoal({ eventId, goalType, goalValue, ticketsSold, revenue, partic
   const { language } = useLanguage();
   const tt = (frv: string, en: string, es?: string) => translate(language, frv, en, es);
   const [editing, setEditing] = useState(false);
-  const [type, setType] = useState<'tickets' | 'revenue' | 'attendees'>((goalType as any) || 'tickets');
+  const [type, setType] = useState<'tickets' | 'revenue' | 'attendees'>((goalType as 'tickets' | 'revenue' | 'attendees' | null) || 'tickets');
   const [value, setValue] = useState<string>(goalValue ? String(goalValue) : '');
   const [saving, setSaving] = useState(false);
 
@@ -753,7 +794,7 @@ function CollabGoal({ eventId, goalType, goalValue, ticketsSold, revenue, partic
     const v = Number(value);
     if (!v || v <= 0) { toast.error(tt('Entre une cible valide.', 'Enter a valid target.', 'Indica un objetivo válido.')); return; }
     setSaving(true);
-    const { error } = await (supabase.from('events') as any).update({ collab_goal_type: type, collab_goal_value: v }).eq('id', eventId);
+    const { error } = await supabase.from('events').update({ collab_goal_type: type, collab_goal_value: v }).eq('id', eventId);
     setSaving(false);
     if (error) { toast.error(tt('Échec de l\'enregistrement.', 'Could not save.', 'No se pudo guardar.')); return; }
     onSaved(type, v);
@@ -763,7 +804,7 @@ function CollabGoal({ eventId, goalType, goalValue, ticketsSold, revenue, partic
 
   const clear = async () => {
     setSaving(true);
-    const { error } = await (supabase.from('events') as any).update({ collab_goal_type: null, collab_goal_value: null }).eq('id', eventId);
+    const { error } = await supabase.from('events').update({ collab_goal_type: null, collab_goal_value: null }).eq('id', eventId);
     setSaving(false);
     if (error) { toast.error(tt('Échec.', 'Failed.', 'Error.')); return; }
     onSaved(null, null);
@@ -852,14 +893,14 @@ function CollabGoal({ eventId, goalType, goalValue, ticketsSold, revenue, partic
 }
 
 /* ── Split contract view — normalized split rules per category ──────────────── */
-function SplitContractView({ rules, t }: { rules: any; t: (fr: string, en: string, es?: string) => string }) {
+function SplitContractView({ rules, t }: { rules: unknown; t: (fr: string, en: string, es?: string) => string }) {
   const normalized = normalizeSplitRules(rules);
   if (!normalized) return <p style={{ color: T3, fontSize: 13 }}>{t('Aucun contrat.', 'No contract.', 'Sin contrato.')}</p>;
   const entries = Object.entries(normalized).filter(([, v]) => typeof v === 'object' && v !== null);
   const catLabel = (k: string) => k === 'tickets' ? t('Billets', 'Tickets', 'Entradas') : k === 'tables' ? t('Tables', 'Tables', 'Mesas') : k === 'drinks' ? t('Boissons', 'Drinks', 'Bebidas') : k.replace(/_/g, ' ');
   return (
     <div className="space-y-2" style={{ fontSize: 13 }}>
-      {entries.map(([key, val]: [string, any]) => (
+      {entries.map(([key, val]: [string, { venue_pct?: number; organizer_pct?: number; venue?: number; organizer?: number }]) => (
         <div key={key} className="flex items-center justify-between rounded-lg p-2.5" style={{ background: INNER_BG }}>
           <span style={{ color: T2 }}>{catLabel(key)}</span>
           <div className="flex gap-3" style={{ fontSize: 12 }}>
@@ -908,7 +949,7 @@ function DetailsDrawer({ eventId, isVenue, guestReadOnly, t }: { eventId: string
   );
 }
 
-function DrawerCard({ icon: Icon, title, children }: { icon: any; title: string; children: React.ReactNode }) {
+function DrawerCard({ icon: Icon, title, children }: { icon: LucideIcon; title: string; children: React.ReactNode }) {
   return (
     <OrgCard>
       <div className="p-5">
