@@ -13,6 +13,7 @@ import { Eye, Palette, Settings2, CalendarClock, MapPin, Lock } from 'lucide-rea
 import type { CollabDomain } from '@/utils/collabResponsibilities';
 import { CollabDesignPreview } from './CollabDesignPreview';
 import { CollabOperationsPreview } from './CollabOperationsPreview';
+import { CollabTablesPreview } from './CollabTablesPreview';
 
 const T1 = 'rgba(255,255,255,0.96)';
 const T2 = 'rgba(255,255,255,0.58)';
@@ -100,12 +101,12 @@ export function CollabPreviewDialog({
                 showChrome={false}
                 heading={tt('Billetterie', 'Ticketing', 'Entradas')}
               />
-              <CollabOperationsPreview
-                eventId={eventId}
-                kind="tables"
-                showChrome={false}
-                heading={tt('Tables VIP', 'VIP tables', 'Mesas VIP')}
-              />
+              <div className="space-y-1.5">
+                <p style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  {tt('Tables VIP', 'VIP tables', 'Mesas VIP')}
+                </p>
+                <CollabTablesPreview eventId={eventId} showChrome={false} showReservations={false} />
+              </div>
             </div>
           )}
 
