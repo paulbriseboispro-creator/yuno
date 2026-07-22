@@ -872,8 +872,11 @@ export function OrgEventFormDialog({
             {/* Discoverability warning — mirrors the server trigger that gates is_discoverable.
                 Public events silently stay out of Explore unless they have a poster + a
                 description of >= 30 chars. Without this notice the organizer toggles the
-                event live, sees "Actif", and never learns why it isn't surfacing publicly. */}
-            {eventKind === 'public_event' && (description.trim().length < 30 || !posterPreview) && (
+                event live, sees "Actif", and never learns why it isn't surfacing publicly.
+                Exception: co-organized / partner-club events (requiresPartner) inherit a
+                vetted venue, so the 30-char description is optional there — only the poster
+                is required. Keep this in step with evaluate_event_discoverability(). */}
+            {eventKind === 'public_event' && ((!requiresPartner && description.trim().length < 30) || !posterPreview) && (
               <div style={{ background: 'rgba(232,160,25,0.08)', border: '1px solid rgba(232,160,25,0.28)', borderRadius: 12, padding: '12px 14px' }}>
                 <div className="flex items-start gap-2.5">
                   <AlertTriangle className="h-4 w-4 shrink-0" style={{ color: '#E8A019', marginTop: 1 }} />
@@ -890,7 +893,7 @@ export function OrgEventFormDialog({
                     </p>
                     <ul style={{ color: T2, paddingLeft: 16, listStyleType: 'disc' }}>
                       {!posterPreview && <li>{t('une affiche', 'a poster', 'un cartel')}</li>}
-                      {description.trim().length < 30 && (
+                      {!requiresPartner && description.trim().length < 30 && (
                         <li>
                           {t(
                             `une description d'au moins 30 caractères (actuellement ${description.trim().length})`,
