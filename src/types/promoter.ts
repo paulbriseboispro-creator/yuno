@@ -144,6 +144,10 @@ export type CommissionRules = {
   guestlist?: { value: number };
   guest_list?: GuestListPreset;
   customer_discount?: ClientDiscountPreset;
+  /** Rattache automatiquement tout promoteur portant ce modèle à TOUTES les
+   *  soirées à venir du club (et aux futures via le trigger). Pré-active
+   *  `promoters.auto_assign_events` quand le modèle est appliqué. */
+  auto_assign_events?: boolean;
 };
 
 export type CommissionTemplate = {

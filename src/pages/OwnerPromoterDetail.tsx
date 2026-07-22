@@ -17,7 +17,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from 'sonner';
 import { MessageCircle, Copy, TrendingUp, Euro, Ticket, Trash2, MousePointerClick, ArrowRight, Gift, Star, Layers, Calendar } from 'lucide-react';
 import { Instagram } from '@/components/icons/Instagram';
-import type { Promoter, PromoterConversion, CommissionTemplate, CommissionRuleTier } from '@/types/promoter';
+import type { Promoter, PromoterConversion, CommissionTemplate, CommissionRuleTier, CommissionRules } from '@/types/promoter';
 import {
   PromoHeader, PromoPage, PromoCard, StatTile, SectionLabel, PromoPill, PromoButton, PromoProgress,
   PromoAvatar, PromoEmpty, RED, POS, WARN, T1, T2, T3, BORDER, F_BORDER, TILE_BG, INNER_BG,
@@ -25,17 +25,27 @@ import {
 
 type DateRange = '7d' | '30d' | '90d' | 'all';
 
+// Forme réellement lue par getRewardLabel ; le JSON DB peut porter d'autres clés, ignorées ici.
+interface RewardConfig {
+  ticketValue?: number | string;
+  value?: number | string;
+  entryCount?: number;
+  vipType?: string;
+  drinkCount?: number;
+  drinkCategory?: string;
+}
+
 interface RewardInfo {
   type: 'money' | 'tiers' | 'flat_advantage';
   tiers?: CommissionRuleTier[];
   currentTierIndex?: number;
   totalConversions: number;
   rewardType?: string;
-  rewardConfig?: Record<string, any>;
+  rewardConfig?: RewardConfig;
   rewardEarnedCounts?: Record<string, number>;
 }
 
-function getRewardLabel(t: (k: string) => string, rewardType: string, rewardConfig: Record<string, any> = {}): string {
+function getRewardLabel(t: (k: string) => string, rewardType: string, rewardConfig: RewardConfig = {}): string {
   if (rewardType === 'money') return t('owner.promoB.rewardPerSale').replace('{x}', String(rewardConfig?.ticketValue || rewardConfig?.value || 0));
   if (rewardType === 'free_entry') return t('owner.promoB.freeEntries').replace('{n}', String(rewardConfig?.entryCount || 1));
   if (rewardType === 'vip') return t('owner.promoB.vipAccess') + (rewardConfig?.vipType ? ` (${rewardConfig.vipType})` : '');
@@ -105,8 +115,8 @@ export default function OwnerPromoterDetail() {
     const mapped: Promoter = {
       id: data.id, userId: data.user_id, venueId: data.venue_id, promoCode: data.promo_code,
       instagramUrl: data.instagram_url, whatsappNumber: data.whatsapp_number, iban: data.iban, bic: data.bic,
-      ticketCommissionType: data.ticket_commission_type as any, ticketCommissionValue: data.ticket_commission_value,
-      tableCommissionType: data.table_commission_type as any, tableCommissionValue: data.table_commission_value,
+      ticketCommissionType: data.ticket_commission_type as 'fixed' | 'percentage', ticketCommissionValue: data.ticket_commission_value,
+      tableCommissionType: data.table_commission_type as 'fixed' | 'percentage', tableCommissionValue: data.table_commission_value,
       pendingAmount: data.pending_amount, totalPaid: data.total_paid, isActive: data.is_active,
       createdAt: data.created_at, updatedAt: data.updated_at,
       defaultCommissionTemplateId: data.default_commission_template_id,
@@ -120,20 +130,21 @@ export default function OwnerPromoterDetail() {
       ticketCommissionType: mapped.ticketCommissionType, ticketCommissionValue: mapped.ticketCommissionValue,
       tableCommissionType: mapped.tableCommissionType, tableCommissionValue: mapped.tableCommissionValue,
       isActive: mapped.isActive, defaultCommissionTemplateId: mapped.defaultCommissionTemplateId || null,
-      guestListTemplateId: (data as any).guest_list_template_id || null,
-      clientDiscountTemplateId: (data as any).client_discount_template_id || null,
+      guestListTemplateId: data.guest_list_template_id || null,
+      clientDiscountTemplateId: data.client_discount_template_id || null,
       canScanEntries: mapped.canScanEntries,
-      autoAssignEvents: (data as any).auto_assign_events ?? false,
+      autoAssignEvents: data.auto_assign_events ?? false,
     });
 
     if (data.default_commission_template_id) {
       const { data: tplData } = await supabase.from('commission_templates')
         .select('rules').eq('id', data.default_commission_template_id).maybeSingle();
-      const rules = tplData?.rules as Record<string, any> | null;
+      // Json généré → forme métier connue des règles de commission (assertion structurelle).
+      const rules = tplData?.rules as unknown as CommissionRules | null | undefined;
       if (rules) {
-        const tiers = rules.tiers as any[] | undefined;
+        const tiers = rules.tiers;
         if (tiers && tiers.length > 0) {
-          const parsedTiers: CommissionRuleTier[] = tiers.map((t: any) => ({
+          const parsedTiers: CommissionRuleTier[] = tiers.map((t) => ({
             min: t.min, max: t.max ?? null, reward_type: t.reward_type || 'money',
             reward_config: t.reward_config || {},
             ticketValue: t.ticketValue ? Number(t.ticketValue) : undefined,
@@ -191,7 +202,8 @@ export default function OwnerPromoterDetail() {
     if (!sid) return;
     const { data } = await supabase.from('commission_templates').select('*').eq(scopeFilter.column, sid);
     setTemplates((data || []).map(d => ({
-      id: d.id, venueId: d.venue_id, name: d.name, rules: d.rules as any,
+      // Json généré → CommissionRules (assertion structurelle, même contrainte que fetchPromoter).
+      id: d.id, venueId: d.venue_id, name: d.name, rules: d.rules as unknown as CommissionRules,
       isDefault: d.is_default, createdAt: d.created_at, updatedAt: d.updated_at,
     })));
   }
@@ -223,11 +235,12 @@ export default function OwnerPromoterDetail() {
     if (dateFrom) q = q.gte('created_at', dateFrom);
     if (eventFilter) q = q.eq('event_id', eventFilter);
     const { data } = await q;
-    setConversions((data || []).map((c: any) => ({
+    // Colonnes nullables DB (null) portées vers les champs optionnels (undefined) du type app : assertion structurelle.
+    setConversions((data || []).map((c) => ({
       id: c.id, promoterId: c.promoter_id, orderId: c.order_id, ticketId: c.ticket_id,
       tableReservationId: c.table_reservation_id, conversionType: c.conversion_type,
       amount: c.amount, commission: c.commission, status: c.status, paidAt: c.paid_at, createdAt: c.created_at,
-    })));
+    })) as unknown as PromoterConversion[]);
   }
 
   async function fetchAssignedEvents() {
@@ -273,7 +286,7 @@ export default function OwnerPromoterDetail() {
       // One unified template drives all three slots: point guest-list / client-discount
       // at the same template only when it actually contains those sections.
       const selTpl = templates.find(tp => tp.id === editForm.defaultCommissionTemplateId);
-      const selRules = (selTpl?.rules || {}) as any;
+      const selRules = (selTpl?.rules || {}) as CommissionRules;
       const tplId = editForm.defaultCommissionTemplateId;
       const { error } = await supabase.from('promoters').update({
         promo_code: editForm.promoCode.toUpperCase(),
@@ -289,7 +302,7 @@ export default function OwnerPromoterDetail() {
         client_discount_template_id: tplId && selRules.customer_discount ? tplId : null,
         can_scan_entries: editForm.canScanEntries,
         auto_assign_events: editForm.autoAssignEvents,
-      } as any).eq('id', id);
+      }).eq('id', id);
       if (error) throw error;
 
       // Auto-assignation activée : on rattache immédiatement le promoteur à
@@ -305,6 +318,7 @@ export default function OwnerPromoterDetail() {
             upcoming.map(e => ({
               promoter_id: id,
               event_id: e.id,
+              commission_template_id: tplId,
               status: 'active',
               can_access_guestlist: true,
               can_access_tables: true,
@@ -316,8 +330,8 @@ export default function OwnerPromoterDetail() {
 
       toast.success(t('promoterDetail.saved'));
       fetchPromoter();
-    } catch (err: any) {
-      if (err.code === '23505') toast.error(t('promoterDetail.codeTaken'));
+    } catch (err) {
+      if ((err as { code?: string }).code === '23505') toast.error(t('promoterDetail.codeTaken'));
       else toast.error(t('promoterDetail.saveError'));
     } finally { setSaving(false); }
   }
@@ -670,7 +684,17 @@ export default function OwnerPromoterDetail() {
                   <div className="space-y-2" style={{ borderTop: `1px solid ${F_BORDER}`, paddingTop: 16 }}>
                     <Label>{t('promoterDetail.commissionTemplate')}</Label>
                     <p className={labelClass} style={{ marginBottom: 4 }}>{tt('Un seul modèle couvre ventes, guest list et avantages clients.', 'A single template covers sales, guest list and customer perks.')}</p>
-                    <Select value={editForm.defaultCommissionTemplateId || 'none'} onValueChange={v => setEditForm({ ...editForm, defaultCommissionTemplateId: v === 'none' ? null : v })}>
+                    <Select value={editForm.defaultCommissionTemplateId || 'none'} onValueChange={v => {
+                      const tplId = v === 'none' ? null : v;
+                      const sel = templates.find(tp => tp.id === tplId);
+                      setEditForm(f => ({
+                        ...f,
+                        defaultCommissionTemplateId: tplId,
+                        // Un modèle « Relier à tous les événements » pré-active l'auto-assignation
+                        // (reste débrayable). Ne jamais la désactiver en changeant de modèle.
+                        autoAssignEvents: sel?.rules.auto_assign_events ? true : f.autoAssignEvents,
+                      }));
+                    }}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">{t('promoterDetail.manualConfig')}</SelectItem>
@@ -680,7 +704,7 @@ export default function OwnerPromoterDetail() {
                     {(() => {
                       const sel = templates.find(tp => tp.id === editForm.defaultCommissionTemplateId);
                       if (!sel) return null;
-                      const r = sel.rules as any;
+                      const r = sel.rules;
                       const chips = [
                         (r.reward_type || r.ticket || (r.tiers && r.tiers.length)) ? tt('Ventes', 'Sales') : null,
                         r.customer_discount ? tt('Avantages clients', 'Customer perks') : null,
@@ -701,7 +725,7 @@ export default function OwnerPromoterDetail() {
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <Label>Type</Label>
-                          <Select value={editForm.ticketCommissionType} onValueChange={v => setEditForm({ ...editForm, ticketCommissionType: v as any })}>
+                          <Select value={editForm.ticketCommissionType} onValueChange={v => setEditForm({ ...editForm, ticketCommissionType: v as 'fixed' | 'percentage' })}>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent><SelectItem value="percentage">%</SelectItem><SelectItem value="fixed">€</SelectItem></SelectContent>
                           </Select>
@@ -717,7 +741,7 @@ export default function OwnerPromoterDetail() {
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <Label>Type</Label>
-                          <Select value={editForm.tableCommissionType} onValueChange={v => setEditForm({ ...editForm, tableCommissionType: v as any })}>
+                          <Select value={editForm.tableCommissionType} onValueChange={v => setEditForm({ ...editForm, tableCommissionType: v as 'fixed' | 'percentage' })}>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent><SelectItem value="percentage">%</SelectItem><SelectItem value="fixed">€</SelectItem></SelectContent>
                           </Select>

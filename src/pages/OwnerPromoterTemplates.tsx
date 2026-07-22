@@ -48,6 +48,7 @@ export default function OwnerPromoterTemplates() {
   // Common
   const [name, setName] = useState('');
   const [isDefault, setIsDefault] = useState(false);
+  const [autoAssignEvents, setAutoAssignEvents] = useState(false);
 
   // Section toggles. Guest-list config moved out of commission templates: a promoter's
   // guest list is now their allocation (a 'promoter' part) on the Guest List page.
@@ -93,7 +94,7 @@ export default function OwnerPromoterTemplates() {
   // ReferenceError et le dialogue ne s'ouvre jamais — c'est ce qui est arrivé
   // quand la config guest list est sortie des modèles de commission.
   function resetForm() {
-    setName(''); setIsDefault(false);
+    setName(''); setIsDefault(false); setAutoAssignEvents(false);
     setEnableSales(true); setEnableClientDiscount(false);
     setRewardType('money'); setTicketType('percentage'); setTicketValue(10);
     setTableType('percentage'); setTableValue(10); setRewardConfig({});
@@ -109,6 +110,7 @@ export default function OwnerPromoterTemplates() {
     resetForm();
     setName(tpl.name);
     setIsDefault(tpl.isDefault);
+    setAutoAssignEvents(!!tpl.rules.auto_assign_events);
     const r = tpl.rules;
     const s = sectionsOf(r);
     setEnableSales(s.sales); setEnableClientDiscount(s.clientDiscount);
@@ -152,6 +154,7 @@ export default function OwnerPromoterTemplates() {
     if (enableClientDiscount) {
       rules.customer_discount = { type: cdType, value: cdValue, appliesTo: cdAppliesTo, label: cdLabel || undefined };
     }
+    if (autoAssignEvents) rules.auto_assign_events = true;
     return rules;
   }
 
@@ -489,6 +492,14 @@ export default function OwnerPromoterTemplates() {
             <div className="flex items-center justify-between pt-1">
               <Label>{t('promoterTemplates.setDefault')}</Label>
               <Switch checked={isDefault} onCheckedChange={setIsDefault} />
+            </div>
+
+            <div className="flex items-center justify-between gap-3 pt-1">
+              <div className="min-w-0">
+                <Label>{t('promoterTemplates.autoAssign')}</Label>
+                <p className="text-xs text-muted-foreground">{t('promoterTemplates.autoAssignHint')}</p>
+              </div>
+              <Switch checked={autoAssignEvents} onCheckedChange={setAutoAssignEvents} />
             </div>
           </div>
           <DialogFooter>

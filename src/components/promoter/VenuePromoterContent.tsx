@@ -123,22 +123,14 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
   // masquer l'onglet et refuser l'écriture disent désormais la même chose.
   const canScan = promoter.can_scan_entries ?? false;
   
-  // Smart mixed: guestlist access from assignments OR all upcoming events if no specific assignments
-  const guestListEvents = assignments.length > 0 
-    ? assignments.filter(a => a.canAccessGuestlist)
-    : events.filter(e => new Date(e.end_at) >= new Date()).map(e => ({
-        eventId: e.id, eventTitle: e.title, eventStartAt: e.start_at, eventEndAt: e.end_at,
-        canAccessGuestlist: true, canAccessTables: true,
-      }));
+  // Linkage authoritative : guest list & scan ne portent QUE sur les soirées
+  // rattachées (assignations actives). Plus de fallback « toutes les soirées » —
+  // un promoteur non rattaché à une soirée n'en gère ni la guest list ni le scan,
+  // cohérent avec « Mes Événements » et le linktree public.
+  const guestListEvents = assignments.filter(a => a.canAccessGuestlist);
   const hasGuestListAccess = guestListEvents.length > 0;
 
-  // Smart mixed: scan events from assignments or all upcoming
-  const scanEvents = assignments.length > 0
-    ? assignments
-    : events.filter(e => new Date(e.end_at) >= new Date()).map(e => ({
-        eventId: e.id, eventTitle: e.title, eventStartAt: e.start_at, eventEndAt: e.end_at,
-        canAccessGuestlist: true, canAccessTables: true,
-      }));
+  const scanEvents = assignments;
 
   const getBaseUrl = () => 'https://yunoapp.eu';
 
@@ -272,7 +264,7 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
         (clicks || []).forEach(c => { clickMap[c.promoter_id] = (clickMap[c.promoter_id] || 0) + 1; });
 
         const userIds = members.map(m => m.user_id).filter(Boolean);
-        let profMap: Record<string, { first_name: string | null; last_name: string | null }> = {};
+        const profMap: Record<string, { first_name: string | null; last_name: string | null }> = {};
         if (userIds.length) {
           const { data: profiles } = await supabase.from('profiles').select('id, first_name, last_name').in('id', userIds);
           (profiles || []).forEach(p => { profMap[p.id] = p; });
@@ -356,18 +348,18 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
       return d.toISOString();
     })();
 
-    // Smart mixed: use assignments if any, else ALL upcoming venue events
+    // Linkage authoritative : « Mes Événements » ne montre QUE les soirées
+    // auxquelles le promoteur est rattaché (assignations actives) — exactement le
+    // même jeu que son linktree public. Le rattachement à toutes les soirées du
+    // club se fait côté owner via le toggle « Relier à tous les événements »
+    // (auto_assign_events, qui backfill les assignations). Pas de rattachement ⇒
+    // rien à promouvoir, donc rien à afficher.
     const { data: assgn } = await supabase.from('promoter_event_assignments')
       .select('event_id, goal_target')
-      .eq('promoter_id', promoter.id);
+      .eq('promoter_id', promoter.id)
+      .eq('status', 'active');
 
-    const hasAssignments = (assgn || []).length > 0;
-    let eventIds: string[];
-    if (hasAssignments) {
-      eventIds = (assgn || []).map(a => a.event_id);
-    } else {
-      eventIds = events.map(e => e.id);
-    }
+    const eventIds = (assgn || []).map(a => a.event_id);
     if (!eventIds.length) { setEventStats([]); setEventStatsLoading(false); return; }
 
     const { data: evts } = await supabase.from('events')
@@ -415,7 +407,7 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
       };
     }));
     setEventStatsLoading(false);
-  }, [promoter.id, dateRange, events]);
+  }, [promoter.id, dateRange]);
 
   useEffect(() => { if (tab === 'events') fetchEventStats(); }, [tab, fetchEventStats]);
 
