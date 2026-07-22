@@ -40,6 +40,8 @@ interface QuotaBreakdown {
   normalQuota: number | null;
   tableQuota: number | null;
   drinkQuota: number | null;
+  femaleQuota: number | null;
+  maleQuota: number | null;
 }
 
 interface QuotaUsage {
@@ -72,8 +74,11 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [entryType, setEntryType] = useState<EntryType>('normal');
+  // Sexe optionnel : ne compte que si le club a fixé un quota Femmes/Hommes sur la
+  // part (valeurs stockées 'female'/'male' ; le trigger d'atomic-capacity applique).
+  const [gender, setGender] = useState<'female' | 'male' | ''>('');
 
-  const [quota, setQuota] = useState<QuotaBreakdown>({ globalQuota: null, normalQuota: null, tableQuota: null, drinkQuota: null });
+  const [quota, setQuota] = useState<QuotaBreakdown>({ globalQuota: null, normalQuota: null, tableQuota: null, drinkQuota: null, femaleQuota: null, maleQuota: null });
   const [usage, setUsage] = useState<QuotaUsage>({ total: 0, normal: 0, table: 0, drink: 0 });
   // Une part peut exister avec quota NULL = allocation ILLIMITÉE : il faut donc
   // distinguer « pas de part » (aucune allocation) de « part sans plafond ».
@@ -157,7 +162,7 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
       fetchQuotaAndEntries();
     } else {
       setEntries([]);
-      setQuota({ globalQuota: null, normalQuota: null, tableQuota: null, drinkQuota: null });
+      setQuota({ globalQuota: null, normalQuota: null, tableQuota: null, drinkQuota: null, femaleQuota: null, maleQuota: null });
       setUsage({ total: 0, normal: 0, table: 0, drink: 0 });
       setHasAllocation(false);
     }
@@ -170,7 +175,7 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
       // with holder_type='promoter', created and capped by the club on the Guest List
       // page (single global quota). No part = no allocation yet.
       const { data: part } = await supabase.from('guest_lists')
-        .select('id, quota, quota_normal, quota_drink, quota_table')
+        .select('id, quota, quota_normal, quota_drink, quota_table, quota_female, quota_male')
         .eq('event_id', selectedEventId)
         .eq('holder_type', 'promoter')
         .eq('promoter_id', activePromoter.id)
@@ -178,7 +183,7 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
 
       if (!part) {
         setHasAllocation(false);
-        setQuota({ globalQuota: null, normalQuota: null, tableQuota: null, drinkQuota: null });
+        setQuota({ globalQuota: null, normalQuota: null, tableQuota: null, drinkQuota: null, femaleQuota: null, maleQuota: null });
         setEntries([]);
         setUsage({ total: 0, normal: 0, table: 0, drink: 0 });
         return;
@@ -191,6 +196,8 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
         normalQuota: part.quota_normal || null,
         drinkQuota: part.quota_drink || null,
         tableQuota: part.quota_table || null,
+        femaleQuota: part.quota_female || null,
+        maleQuota: part.quota_male || null,
       });
 
       // Fetch entries by this promoter on their part
@@ -244,7 +251,7 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
           promoterId: activePromoter.id,
           eventId: selectedEventId,
           fullName,
-          gender: null,
+          gender: gender || null,
           email: email.trim() || null,
           entryType: sendType,
         },
@@ -273,6 +280,7 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
       setLastName('');
       setEmail('');
       setEntryType('normal');
+      setGender('');
       fetchQuotaAndEntries();
     } catch (err: any) {
       console.error(err);
@@ -501,6 +509,23 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
                           </div>
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              {/* Sexe — n'apparaît que si le club a fixé un quota Femmes/Hommes */}
+              {((quota.femaleQuota ?? 0) > 0 || (quota.maleQuota ?? 0) > 0) && (
+                <div>
+                  <Label className="text-xs">{t('promoterGuestlist.gender')}</Label>
+                  <Select value={gender || 'none'} onValueChange={v => setGender(v === 'none' ? '' : v as 'female' | 'male')}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">{t('promoterGuestlist.genderUnset')}</SelectItem>
+                      <SelectItem value="female">{t('promoterGuestlist.female')}</SelectItem>
+                      <SelectItem value="male">{t('promoterGuestlist.male')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

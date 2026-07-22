@@ -149,11 +149,24 @@ export type CommissionRules = {
    *  `promoters.auto_assign_events` quand le modèle est appliqué. */
   auto_assign_events?: boolean;
   /** Allocation guest list pilotée par le modèle : chaque promoteur portant ce
-   *  modèle reçoit automatiquement `spots` places de guest list par soirée reliée
-   *  (part `guest_lists` matérialisée à l'assignation). `free_before` = heure
-   *  limite d'entrée gratuite (HH:MM, défaut 02:00). Le € par tête reste dans
-   *  `guestlist.value`. Absent / spots 0 = pas d'allocation. */
-  guestlist_allocation?: { spots: number; free_before?: string };
+   *  modèle reçoit automatiquement des places de guest list PAR TYPE sur chaque
+   *  soirée reliée (part `guest_lists` matérialisée à l'assignation), avec une
+   *  commission PAR TÊTE propre à chaque type (lue au scan par
+   *  record_promoter_conversion). `table` = le type « VIP ». `gender` = quotas
+   *  par sexe optionnels. `free_before` = heure limite d'entrée gratuite (HH:MM,
+   *  défaut 02:00). `spots` = ancienne forme v1 (un seul nombre), lue en
+   *  rétrocompat = tout en normal. */
+  guestlist_allocation?: {
+    free_before?: string;
+    types?: {
+      normal?: { spots: number; commission: number };
+      drink?: { spots: number; commission: number };
+      table?: { spots: number; commission: number };
+    };
+    gender?: { female: number; male: number };
+    /** @deprecated v1 — lecture rétrocompat uniquement. */
+    spots?: number;
+  };
 };
 
 export type CommissionTemplate = {

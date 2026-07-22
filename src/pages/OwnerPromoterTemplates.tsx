@@ -28,6 +28,7 @@ function emptyTier(): CommissionRuleTier { return { min: 0, max: null, reward_ty
 function sectionsOf(rules: CommissionRules) {
   return {
     sales: !!(rules.reward_type || rules.ticket || (rules.tiers && rules.tiers.length > 0)),
+    guestList: !!(rules.guestlist_allocation || rules.guestlist),
     clientDiscount: !!rules.customer_discount,
   };
 }
@@ -67,10 +68,18 @@ export default function OwnerPromoterTemplates() {
   const [bonusThreshold, setBonusThreshold] = useState(0);
   const [bonusAmount, setBonusAmount] = useState(0);
   const [timeWindows, setTimeWindows] = useState<CommissionTimeWindow[]>([]);
-  // Guest list : euros par tete (voir migration 20260720160000).
-  const [glPerHead, setGlPerHead] = useState(0);
-  const [glSpots, setGlSpots] = useState(0);
+  // Guest list : places ET commission par tête, par type (normal / boisson / VIP).
+  const [enableGuestList, setEnableGuestList] = useState(false);
+  const [glNormal, setGlNormal] = useState(0);
+  const [glNormalPay, setGlNormalPay] = useState(0);
+  const [glDrink, setGlDrink] = useState(0);
+  const [glDrinkPay, setGlDrinkPay] = useState(0);
+  const [glVip, setGlVip] = useState(0);
+  const [glVipPay, setGlVipPay] = useState(0);
   const [glFreeBefore, setGlFreeBefore] = useState('02:00');
+  const [glGender, setGlGender] = useState(false);
+  const [glFemale, setGlFemale] = useState(0);
+  const [glMale, setGlMale] = useState(0);
 
 
   // Client-discount state
@@ -101,7 +110,9 @@ export default function OwnerPromoterTemplates() {
     setRewardType('money'); setTicketType('percentage'); setTicketValue(10);
     setTableType('percentage'); setTableValue(10); setRewardConfig({});
     setUseTiers(false); setTiers([]); setBonusThreshold(0); setBonusAmount(0); setTimeWindows([]);
-    setGlPerHead(0); setGlSpots(0); setGlFreeBefore('02:00');
+    setEnableGuestList(false);
+    setGlNormal(0); setGlNormalPay(0); setGlDrink(0); setGlDrinkPay(0); setGlVip(0); setGlVipPay(0);
+    setGlFreeBefore('02:00'); setGlGender(false); setGlFemale(0); setGlMale(0);
     setCdType('percentage'); setCdValue(10); setCdAppliesTo('both'); setCdLabel('');
   }
 
@@ -115,7 +126,7 @@ export default function OwnerPromoterTemplates() {
     setAutoAssignEvents(!!tpl.rules.auto_assign_events);
     const r = tpl.rules;
     const s = sectionsOf(r);
-    setEnableSales(s.sales); setEnableClientDiscount(s.clientDiscount);
+    setEnableSales(s.sales); setEnableGuestList(s.guestList); setEnableClientDiscount(s.clientDiscount);
 
     if (s.sales) {
       setRewardType(r.reward_type || 'money');
@@ -129,9 +140,22 @@ export default function OwnerPromoterTemplates() {
       setBonusThreshold(r.bonus?.threshold || 0);
       setBonusAmount(r.bonus?.bonusAmount || 0);
       setTimeWindows(r.time_windows || []);
-      setGlPerHead(r.guestlist?.value ?? 0);
-      setGlSpots(r.guestlist_allocation?.spots ?? 0);
-      setGlFreeBefore(r.guestlist_allocation?.free_before || '02:00');
+    }
+    if (s.guestList) {
+      const alloc = r.guestlist_allocation;
+      const ty = alloc?.types;
+      // Rétrocompat : ancienne forme { spots } (tout normal) + ancien forfait
+      // global rules.guestlist.value → commission du type normal.
+      setGlNormal(ty?.normal?.spots ?? alloc?.spots ?? 0);
+      setGlNormalPay(ty?.normal?.commission ?? r.guestlist?.value ?? 0);
+      setGlDrink(ty?.drink?.spots ?? 0);
+      setGlDrinkPay(ty?.drink?.commission ?? 0);
+      setGlVip(ty?.table?.spots ?? 0);
+      setGlVipPay(ty?.table?.commission ?? 0);
+      setGlFreeBefore(alloc?.free_before || '02:00');
+      setGlGender(!!alloc?.gender);
+      setGlFemale(alloc?.gender?.female ?? 0);
+      setGlMale(alloc?.gender?.male ?? 0);
     }
     if (s.clientDiscount && r.customer_discount) {
       const cd = r.customer_discount;
@@ -153,8 +177,18 @@ export default function OwnerPromoterTemplates() {
       if (useTiers && tiers.length > 0) rules.tiers = tiers;
       if (bonusThreshold > 0) rules.bonus = { threshold: bonusThreshold, bonusAmount };
       if (timeWindows.length > 0) rules.time_windows = timeWindows;
-      if (glPerHead > 0) rules.guestlist = { value: glPerHead };
-      if (glSpots > 0) rules.guestlist_allocation = { spots: glSpots, free_before: glFreeBefore };
+    }
+    if (enableGuestList) {
+      const types: NonNullable<CommissionRules['guestlist_allocation']>['types'] = {};
+      if (glNormal > 0 || glNormalPay > 0) types.normal = { spots: glNormal, commission: glNormalPay };
+      if (glDrink > 0 || glDrinkPay > 0) types.drink = { spots: glDrink, commission: glDrinkPay };
+      if (glVip > 0 || glVipPay > 0) types.table = { spots: glVip, commission: glVipPay };
+      const alloc: NonNullable<CommissionRules['guestlist_allocation']> = { free_before: glFreeBefore, types };
+      if (glGender && (glFemale > 0 || glMale > 0)) alloc.gender = { female: glFemale, male: glMale };
+      rules.guestlist_allocation = alloc;
+      // Repli global (record_promoter_conversion lit d'abord par type, puis ceci) :
+      // garder guestlist.value = commission « normal » pour les anciens lecteurs.
+      if (glNormalPay > 0) rules.guestlist = { value: glNormalPay };
     }
     if (enableClientDiscount) {
       rules.customer_discount = { type: cdType, value: cdValue, appliesTo: cdAppliesTo, label: cdLabel || undefined };
@@ -165,7 +199,7 @@ export default function OwnerPromoterTemplates() {
 
   async function handleSave() {
     if (!sid || !name.trim()) return;
-    if (!enableSales && !enableClientDiscount) {
+    if (!enableSales && !enableGuestList && !enableClientDiscount) {
       toast.error(t('owner.promo.enableOneSection'));
       return;
     }
@@ -179,7 +213,7 @@ export default function OwnerPromoterTemplates() {
         // des promoteurs qui l'utilisent, sur leurs soirées à venir déjà reliées
         // (les nouvelles assignations passent par le trigger). ON CONFLICT DO
         // NOTHING côté SQL : on ne réécrit jamais une part ajustée à la main.
-        if (glSpots > 0) {
+        if (enableGuestList && (glNormal + glDrink + glVip) > 0) {
           const { data: promos } = await supabase.from('promoters')
             .select('id').eq('default_commission_template_id', editing.id).eq('is_active', true);
           await Promise.all((promos || []).map(p =>
@@ -447,32 +481,6 @@ export default function OwnerPromoterTemplates() {
                     ))}
                   </div>
 
-                  {/* Guest list — allocation (places par soirée) + forfait par tête */}
-                  <div className="rounded-lg border p-3 space-y-3">
-                    <div className="space-y-2">
-                      <Label className="text-xs font-medium">{t('promoterTemplates.glSpots')}</Label>
-                      <p className="text-[11px] text-muted-foreground">{t('promoterTemplates.glSpotsDesc')}</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <Label className="text-[11px]">{t('promoterTemplates.glSpotsLabel')}</Label>
-                          <Input type="number" min={0} value={glSpots}
-                            onChange={e => setGlSpots(parseInt(e.target.value) || 0)} />
-                        </div>
-                        <div>
-                          <Label className="text-[11px]">{t('promoterTemplates.glFreeBefore')}</Label>
-                          <Input type="time" value={glFreeBefore}
-                            onChange={e => setGlFreeBefore(e.target.value)} disabled={glSpots <= 0} />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-2 border-t pt-2">
-                      <Label className="text-xs font-medium">{t('owner.promo.guestlistPerHead')}</Label>
-                      <p className="text-[11px] text-muted-foreground">{t('owner.promo.guestlistPerHeadDesc')}</p>
-                      <Input type="number" min={0} step="0.5" value={glPerHead}
-                        onChange={e => setGlPerHead(parseFloat(e.target.value) || 0)} />
-                    </div>
-                  </div>
-
                   {/* Bonus */}
                   <div className="rounded-lg border p-3 space-y-2">
                     <Label className="text-xs font-medium">{t('owner.promo.performanceBonus')}</Label>
@@ -486,7 +494,49 @@ export default function OwnerPromoterTemplates() {
               )}
             </SectionCard>
 
-            {/* Guest-list config moved to the Guest List page (promoter parts). */}
+            {/* SECTION — Guest list (allocation par type + commission par type) */}
+            <SectionCard
+              icon={<UserPlus className="h-4 w-4 text-primary" />}
+              title={t('promoterTemplates.glSection')}
+              desc={t('promoterTemplates.glSectionDesc')}
+              enabled={enableGuestList} onToggle={setEnableGuestList}
+            >
+              <p className="text-[11px] text-muted-foreground">{t('promoterTemplates.glExplain')}</p>
+              <div className="rounded-lg border p-3 space-y-2">
+                <div className="grid grid-cols-[1fr_72px_88px] gap-2 items-center">
+                  <span />
+                  <span className="text-[11px] text-muted-foreground text-center">{t('promoterTemplates.glPlaces')}</span>
+                  <span className="text-[11px] text-muted-foreground text-center">{t('promoterTemplates.glPay')}</span>
+                </div>
+                {([
+                  { icon: <Ticket className="h-3.5 w-3.5" />, label: t('promoterTemplates.typeNormal'), n: glNormal, setN: setGlNormal, p: glNormalPay, setP: setGlNormalPay },
+                  { icon: <Wine className="h-3.5 w-3.5" />, label: t('promoterTemplates.typeDrink'), n: glDrink, setN: setGlDrink, p: glDrinkPay, setP: setGlDrinkPay },
+                  { icon: <Crown className="h-3.5 w-3.5" />, label: t('promoterTemplates.typeVip'), n: glVip, setN: setGlVip, p: glVipPay, setP: setGlVipPay },
+                ]).map((row, i) => (
+                  <div key={i} className="grid grid-cols-[1fr_72px_88px] gap-2 items-center">
+                    <span className="flex items-center gap-1.5 text-xs font-medium">{row.icon}{row.label}</span>
+                    <Input type="number" min={0} value={row.n} onChange={e => row.setN(parseInt(e.target.value) || 0)} className="text-center" />
+                    <Input type="number" min={0} step="0.5" value={row.p} onChange={e => row.setP(parseFloat(e.target.value) || 0)} className="text-center" />
+                  </div>
+                ))}
+              </div>
+              <div>
+                <Label className="text-xs">{t('promoterTemplates.glFreeBefore')}</Label>
+                <Input type="time" value={glFreeBefore} onChange={e => setGlFreeBefore(e.target.value)} />
+              </div>
+              <div className="rounded-lg border p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium">{t('promoterTemplates.glGender')}</Label>
+                  <Switch checked={glGender} onCheckedChange={setGlGender} />
+                </div>
+                {glGender && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div><Label className="text-[11px]">{t('promoterTemplates.glFemale')}</Label><Input type="number" min={0} value={glFemale} onChange={e => setGlFemale(parseInt(e.target.value) || 0)} /></div>
+                    <div><Label className="text-[11px]">{t('promoterTemplates.glMale')}</Label><Input type="number" min={0} value={glMale} onChange={e => setGlMale(parseInt(e.target.value) || 0)} /></div>
+                  </div>
+                )}
+              </div>
+            </SectionCard>
 
             {/* SECTION 2 — Customer perks */}
             <SectionCard
