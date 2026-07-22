@@ -121,8 +121,8 @@ export default function OwnerPromoters() {
       toast.success(t('owner.invitationSent'));
       setInviteOpen(false);
       setNewPromoterEmail('');
-    } catch (err: any) {
-      toast.error(err.message || t('owner.errorInviting'));
+    } catch (err) {
+      toast.error((err as Error).message || t('owner.errorInviting'));
     } finally {
       setCreating(false);
     }
@@ -254,6 +254,27 @@ export default function OwnerPromoters() {
           <StatTile icon={Percent} value={`${kpis.conversionRate.toFixed(1)}%`} label={t('promoterProgram.convRate')} />
         </div>
 
+        {/* ── Configuration : gérer les promoteurs (mis en avant, plus caché) ─ */}
+        <SectionLabel>{t('owner.promo.setup')}</SectionLabel>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: t('promoterProgram.templates'), Icon: FileText, path: `${basePath}/promoters/templates`, hint: t('owner.promo.setupTemplatesHint') },
+            { label: t('promoterTeams.title'), Icon: Users, path: `${basePath}/promoters/teams`, hint: t('owner.promo.setupTeamsHint') },
+            { label: t('owner.announcements'), Icon: Megaphone, path: `${basePath}/promoters/announcements`, hint: t('owner.promo.setupAnnouncementsHint') },
+          ].map(({ label, Icon, path, hint }) => (
+            <button key={path} onClick={() => navigate(path)}
+              className="flex flex-col items-center gap-1.5 transition-colors"
+              style={{ background: INNER_BG, border: `1px solid ${F_BORDER}`, borderRadius: 13, padding: '16px 10px', cursor: 'pointer' }}
+              onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'rgba(232,25,44,0.35)')}
+              onMouseLeave={(e) => (e.currentTarget.style.borderColor = F_BORDER)}
+            >
+              <Icon className="h-5 w-5" style={{ color: RED }} />
+              <span style={{ color: T1, fontSize: 12, fontWeight: 600, textAlign: 'center', lineHeight: 1.2 }}>{label}</span>
+              <span style={{ color: T3, fontSize: 10, textAlign: 'center', lineHeight: 1.15 }}>{hint}</span>
+            </button>
+          ))}
+        </div>
+
         {/* ── Next nights: activate promoters ───────────────────────────── */}
         {upcomingEvents.length > 0 && (
           <>
@@ -378,25 +399,6 @@ export default function OwnerPromoters() {
           )}
         </div>
 
-        {/* ── Configuration ─────────────────────────────────────────────── */}
-        <SectionLabel>{t('owner.promo.setup')}</SectionLabel>
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            { label: t('promoterProgram.templates'), Icon: FileText, path: `${basePath}/promoters/templates`, hint: 'Règles' },
-            { label: t('promoterTeams.title'), Icon: Users, path: `${basePath}/promoters/teams`, hint: 'Équipes' },
-            { label: t('owner.announcements'), Icon: Megaphone, path: `${basePath}/promoters/announcements`, hint: 'Annonces' },
-          ].map(({ label, Icon, path }) => (
-            <button key={path} onClick={() => navigate(path)}
-              className="flex flex-col items-center gap-2 transition-colors"
-              style={{ background: INNER_BG, border: `1px solid ${F_BORDER}`, borderRadius: 13, padding: '15px 10px', cursor: 'pointer' }}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)')}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = F_BORDER)}
-            >
-              <Icon className="h-[18px] w-[18px]" style={{ color: T2 }} />
-              <span style={{ color: T2, fontSize: 11.5, fontWeight: 540, textAlign: 'center', lineHeight: 1.2 }}>{label}</span>
-            </button>
-          ))}
-        </div>
       </PromoPage>
 
       {/* ── Invite modal ──────────────────────────────────────────────── */}

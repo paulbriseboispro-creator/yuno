@@ -214,8 +214,13 @@ export default function OwnerPromoterTemplates() {
         // (les nouvelles assignations passent par le trigger). ON CONFLICT DO
         // NOTHING côté SQL : on ne réécrit jamais une part ajustée à la main.
         if (enableGuestList && (glNormal + glDrink + glVip) > 0) {
-          const { data: promos } = await supabase.from('promoters')
-            .select('id').eq('default_commission_template_id', editing.id).eq('is_active', true);
+          // Promoteurs portant explicitement ce modèle + (si c'est le modèle par
+          // défaut) ceux SANS modèle explicite, qui en héritent via le repli serveur.
+          let q = supabase.from('promoters').select('id').eq('is_active', true).eq(scopeFilter.column, sid);
+          q = isDefault
+            ? q.or(`default_commission_template_id.eq.${editing.id},default_commission_template_id.is.null`)
+            : q.eq('default_commission_template_id', editing.id);
+          const { data: promos } = await q;
           await Promise.all((promos || []).map(p =>
             (supabase as any).rpc('sync_promoter_guestlist_parts', { p_promoter_id: p.id })));
         }

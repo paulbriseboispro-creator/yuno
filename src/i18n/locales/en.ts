@@ -3003,6 +3003,9 @@ const en: Record<string, string> = {
   'owner.promo.inviteAPromoter': "Invite a promoter",
   'owner.promo.owed': "owed",
   'owner.promo.setup': "Setup",
+  'owner.promo.setupTemplatesHint': "Commissions & guest list",
+  'owner.promo.setupTeamsHint': "Team leaders",
+  'owner.promo.setupAnnouncementsHint': "Pushed briefs",
   'owner.promo.enableOneSection': "Enable at least one section.",
   'owner.promo.freeEntry': "Free entry",
   'owner.promo.vip': "VIP",
@@ -10324,7 +10327,7 @@ const en: Record<string, string> = {
   'ohelp.commissionTemplates.s6h': 'Important',
   'ohelp.commissionTemplates.s6b': 'Changing a template does not retroactively affect past commissions. Only future sales use the new rules. Deleting a template that is assigned to active promoters is not allowed — reassign them first.',
   'ohelp.commissionTemplates.s8h': 'Guest list per event',
-  'ohelp.commissionTemplates.s8b': 'Guest list is its own section of the template, with its own switch. You hand out spots by TYPE — Standard, With drink, VIP access — and each type carries its OWN per-head commission (paid to the promoter for every guest of that type who actually shows up). Optionally split by gender (Women / Men quotas) and set the free-entry cutoff time. Every promoter on this template automatically gets these spots on each event they are linked to; they add guests from their app, picking the type (and gender if you enabled it). You can still fine-tune a specific event by hand on the Guest List page (never overwritten).',
+  'ohelp.commissionTemplates.s8b': 'Guest list is its own section of the template, with its own switch. You hand out spots by TYPE — Standard, With drink, VIP access — and each type carries its OWN per-head commission (paid to the promoter for every guest of that type who actually shows up). Optionally split by gender (Women / Men quotas) and set the free-entry cutoff time. Every promoter on this template automatically gets these spots on each event they are linked to; they add guests from their app, picking the type (and gender if you enabled it). If this is your default template, the allocation ALSO applies to promoters who have no specific template — no need to assign it one by one. You can still fine-tune a specific event by hand on the Guest List page (never overwritten).',
   'ohelp.commissionTemplates.s7h': 'Link to all events',
   'ohelp.commissionTemplates.s7b': 'A "Link to all events" switch at the bottom of the template. Any promoter carrying this template is automatically attached to every upcoming event of the club (and future ones): they see all of them and earn on all of them. Ideal for a sales force that works everything, without ticking each event. Picking this template on a promoter\'s profile pre-enables their auto-assign (you can turn it back off). Leave the switch off for a sales force you link event by event.',
 

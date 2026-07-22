@@ -455,11 +455,12 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
     { value: 'overview', label: t('promoter.overview') },
     { value: 'events', label: t('promoter.myEvents') },
     { value: 'links', label: t('promoter.linkTools') },
-    { value: 'profile', label: 'Profil' },
   ];
   if (canScan) tabItems.push({ value: 'scan', label: t('promoterScan.title') });
   if (hasGuestListAccess) tabItems.push({ value: 'guestlist', label: t('promoterGuestlist.title') });
   if (teamInfo?.isLeader) tabItems.push({ value: 'team', label: 'Equipe' });
+  // Profil en dernier : c'est de la config perso, pas un outil de soirée.
+  tabItems.push({ value: 'profile', label: 'Profil' });
 
   return (
     <div className="space-y-4">
