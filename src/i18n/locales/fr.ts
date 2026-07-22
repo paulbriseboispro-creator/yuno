@@ -6283,6 +6283,7 @@ const fr: Record<string, string> = {
 
   // Promoter Program (Batch 2)
   'promoterProgram.title': 'Programme Promoteurs',
+  'promoterProgram.upcoming': 'À venir',
   'promoterProgram.last7d': '7 derniers jours',
   'promoterProgram.last30d': '30 derniers jours',
   'promoterProgram.last90d': '90 derniers jours',

@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { PromoterScope } from '@/hooks/usePromoterScope';
 import { getScopeFilter, scopeId, scopeReady, scopeEventsOr } from '@/lib/promoterScopeHelpers';
-
-type DateRange = '7d' | '30d' | '90d' | 'all';
+import type { DateRange } from '@/components/promoter/DateRangeFilter';
 
 interface PromoterSummary {
   id: string;

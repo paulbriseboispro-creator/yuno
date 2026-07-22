@@ -5,7 +5,7 @@ import { PromoterProfileTab } from '@/components/promoter/PromoterProfileTab';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { DateRangeFilter } from '@/components/promoter/DateRangeFilter';
+import { DateRangeFilter, type DateRange } from '@/components/promoter/DateRangeFilter';
 import { PromoterScanTab } from '@/components/promoter/PromoterScanTab';
 import { PromoterGuestListTab } from '@/components/promoter/PromoterGuestListTab';
 import { PromoterPayoutInbox } from '@/components/promoter/PromoterPayoutInbox';
@@ -27,7 +27,6 @@ import QRCode from 'qrcode';
 import { shareContent } from '@/lib/share';
 import type { PromoterStats, PromoterEventStats } from '@/types/promoter';
 
-type DateRange = '7d' | '30d' | '90d' | 'all';
 
 interface Promoter {
   id: string;
@@ -93,7 +92,7 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
   const isOrg = !promoter.venue_id && !!promoter.organizer_user_id;
   const scopeName = venue?.name || promoter.organizerName || 'Organisateur';
   const [tab, setTab] = useState('overview');
-  const [dateRange, setDateRange] = useState<DateRange>('30d');
+  const [dateRange, setDateRange] = useState<DateRange>('upcoming');
   const [eventFilter, setEventFilter] = useState<string | null>(null);
   const [events, setEvents] = useState<Array<{ id: string; title: string; start_at: string; end_at: string }>>([]);
   const [eventStats, setEventStats] = useState<PromoterEventStats[]>([]);
@@ -340,13 +339,6 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
   const fetchEventStats = useCallback(async () => {
     if (!promoter.id) return;
     setEventStatsLoading(true);
-    const dateFrom = dateRange === 'all' ? null : (() => {
-      const d = new Date();
-      if (dateRange === '7d') d.setDate(d.getDate() - 7);
-      else if (dateRange === '30d') d.setDate(d.getDate() - 30);
-      else if (dateRange === '90d') d.setDate(d.getDate() - 90);
-      return d.toISOString();
-    })();
 
     // Linkage authoritative : « Mes Événements » ne montre QUE les soirées
     // auxquelles le promoteur est rattaché (assignations actives) — exactement le
@@ -362,16 +354,34 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
     const eventIds = (assgn || []).map(a => a.event_id);
     if (!eventIds.length) { setEventStats([]); setEventStatsLoading(false); return; }
 
-    const { data: evts } = await supabase.from('events')
-      .select('id, title, start_at, end_at').in('id', eventIds).order('start_at', { ascending: false });
+    const { data: evtsRaw } = await supabase.from('events')
+      .select('id, title, start_at, end_at').in('id', eventIds);
 
-    let clicksQ = supabase.from('promoter_clicks').select('event_id').eq('promoter_id', promoter.id).in('event_id', eventIds);
-    if (dateFrom) clicksQ = clicksQ.gte('clicked_at', dateFrom);
-    const { data: clicks } = await clicksQ;
+    // Le sélecteur de date choisit QUELLES soirées afficher, pas une fenêtre
+    // glissante sur les stats (chaque carte montre le bilan complet de sa soirée).
+    // « À venir » (défaut) : soirées live + à venir, la live/la plus proche en
+    // tête — le promoteur voit d'abord ce qu'il vend ce soir. Les fenêtres passées
+    // (7/30/90 j) : soirées terminées dans la période, la plus récente d'abord.
+    const nowMs = Date.now();
+    const windowDays = dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : dateRange === '90d' ? 90 : 0;
+    const endMs = (e: { start_at: string; end_at: string }) =>
+      new Date(e.end_at || e.start_at).getTime();
+    const filtered = (evtsRaw || [])
+      .filter(e => {
+        if (dateRange === 'upcoming') return endMs(e) >= nowMs;
+        if (dateRange === 'all') return true;
+        return endMs(e) < nowMs && new Date(e.start_at).getTime() >= nowMs - windowDays * 86400000;
+      })
+      .sort((a, b) => {
+        const sa = new Date(a.start_at).getTime(), sb = new Date(b.start_at).getTime();
+        return dateRange === 'upcoming' ? sa - sb : sb - sa;
+      });
 
-    let convsQ = supabase.from('promoter_conversions').select('event_id, amount, commission, conversion_type').eq('promoter_id', promoter.id).in('event_id', eventIds);
-    if (dateFrom) convsQ = convsQ.gte('created_at', dateFrom);
-    const { data: convs } = await convsQ;
+    const shownIds = filtered.map(e => e.id);
+    if (!shownIds.length) { setEventStats([]); setEventStatsLoading(false); return; }
+
+    const { data: clicks } = await supabase.from('promoter_clicks').select('event_id').eq('promoter_id', promoter.id).in('event_id', shownIds);
+    const { data: convs } = await supabase.from('promoter_conversions').select('event_id, amount, commission, conversion_type').eq('promoter_id', promoter.id).in('event_id', shownIds);
 
     const clickMap: Record<string, number> = {};
     (clicks || []).forEach(c => { if (c.event_id) clickMap[c.event_id] = (clickMap[c.event_id] || 0) + 1; });
@@ -388,7 +398,7 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
 
     const goalMap = new Map((assgn || []).map(a => [a.event_id, a.goal_target]));
 
-    setEventStats((evts || []).map(e => {
+    setEventStats(filtered.map(e => {
       const cl = clickMap[e.id] || 0;
       const cv = convMap[e.id] || { tickets: 0, tables: 0, revenue: 0, commission: 0 };
       const gt = goalMap.get(e.id) || undefined;
@@ -701,7 +711,7 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
 
         {/* ── MY EVENTS ── */}
         <TabsContent value="events" className="space-y-4 mt-4">
-          <DateRangeFilter value={dateRange} onChange={setDateRange} />
+          <DateRangeFilter value={dateRange} onChange={setDateRange} includeUpcoming />
 
           {eventStatsLoading ? (
             <div className="space-y-3">

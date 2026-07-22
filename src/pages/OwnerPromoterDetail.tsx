@@ -7,7 +7,7 @@ import { getScopeFilter, scopeId, scopeEventsOr } from '@/lib/promoterScopeHelpe
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
-import { DateRangeFilter } from '@/components/promoter/DateRangeFilter';
+import { DateRangeFilter, type DateRange } from '@/components/promoter/DateRangeFilter';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -23,7 +23,6 @@ import {
   PromoAvatar, PromoEmpty, RED, POS, WARN, T1, T2, T3, BORDER, F_BORDER, TILE_BG, INNER_BG,
 } from '@/components/promoter/promoter-ui';
 
-type DateRange = '7d' | '30d' | '90d' | 'all';
 
 // Forme réellement lue par getRewardLabel ; le JSON DB peut porter d'autres clés, ignorées ici.
 interface RewardConfig {

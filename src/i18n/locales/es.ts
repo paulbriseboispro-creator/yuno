@@ -6544,6 +6544,7 @@ const es: Record<string, string> = {
 
   // Promoter Program (Batch 2)
   'promoterProgram.title': 'Programa de Promotores',
+  'promoterProgram.upcoming': 'Próximos',
   'promoterProgram.last7d': 'Últimos 7 días',
   'promoterProgram.last30d': 'Últimos 30 días',
   'promoterProgram.last90d': 'Últimos 90 días',

@@ -1,17 +1,22 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-type DateRange = '7d' | '30d' | '90d' | 'all';
+/** Shared across the promoter dashboard and owner promoter surfaces. `upcoming`
+ *  is only offered where `includeUpcoming` is passed (the promoter's own events). */
+export type DateRange = 'upcoming' | '7d' | '30d' | '90d' | 'all';
 
 interface Props {
   value: DateRange;
   onChange: (v: DateRange) => void;
+  /** Show the "À venir" (upcoming) option first. Off by default: owner analytics
+   *  surfaces window past stats, they have no meaning for an upcoming bucket. */
+  includeUpcoming?: boolean;
   eventFilter?: string | null;
   onEventChange?: (v: string | null) => void;
   events?: Array<{ id: string; title: string }>;
 }
 
-export function DateRangeFilter({ value, onChange, eventFilter, onEventChange, events }: Props) {
+export function DateRangeFilter({ value, onChange, includeUpcoming, eventFilter, onEventChange, events }: Props) {
   const { t } = useLanguage();
 
   return (
@@ -21,6 +26,7 @@ export function DateRangeFilter({ value, onChange, eventFilter, onEventChange, e
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
+          {includeUpcoming && <SelectItem value="upcoming">{t('promoterProgram.upcoming')}</SelectItem>}
           <SelectItem value="7d">{t('promoterProgram.last7d')}</SelectItem>
           <SelectItem value="30d">{t('promoterProgram.last30d')}</SelectItem>
           <SelectItem value="90d">{t('promoterProgram.last90d')}</SelectItem>
