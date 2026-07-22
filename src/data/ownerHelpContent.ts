@@ -584,6 +584,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.commissionTemplates.s4h', bodyKey: 'ohelp.commissionTemplates.s4b', type: 'example' },
           { headingKey: 'ohelp.commissionTemplates.s5h', bodyKey: 'ohelp.commissionTemplates.s5b', type: 'tip' },
           { headingKey: 'ohelp.commissionTemplates.s6h', bodyKey: 'ohelp.commissionTemplates.s6b', type: 'warning' },
+          { headingKey: 'ohelp.commissionTemplates.s7h', bodyKey: 'ohelp.commissionTemplates.s7b' },
         ],
       },
       {
