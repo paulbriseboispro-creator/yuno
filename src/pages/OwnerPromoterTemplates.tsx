@@ -69,6 +69,8 @@ export default function OwnerPromoterTemplates() {
   const [timeWindows, setTimeWindows] = useState<CommissionTimeWindow[]>([]);
   // Guest list : euros par tete (voir migration 20260720160000).
   const [glPerHead, setGlPerHead] = useState(0);
+  const [glSpots, setGlSpots] = useState(0);
+  const [glFreeBefore, setGlFreeBefore] = useState('02:00');
 
 
   // Client-discount state
@@ -99,7 +101,7 @@ export default function OwnerPromoterTemplates() {
     setRewardType('money'); setTicketType('percentage'); setTicketValue(10);
     setTableType('percentage'); setTableValue(10); setRewardConfig({});
     setUseTiers(false); setTiers([]); setBonusThreshold(0); setBonusAmount(0); setTimeWindows([]);
-    setGlPerHead(0);
+    setGlPerHead(0); setGlSpots(0); setGlFreeBefore('02:00');
     setCdType('percentage'); setCdValue(10); setCdAppliesTo('both'); setCdLabel('');
   }
 
@@ -128,6 +130,8 @@ export default function OwnerPromoterTemplates() {
       setBonusAmount(r.bonus?.bonusAmount || 0);
       setTimeWindows(r.time_windows || []);
       setGlPerHead(r.guestlist?.value ?? 0);
+      setGlSpots(r.guestlist_allocation?.spots ?? 0);
+      setGlFreeBefore(r.guestlist_allocation?.free_before || '02:00');
     }
     if (s.clientDiscount && r.customer_discount) {
       const cd = r.customer_discount;
@@ -150,6 +154,7 @@ export default function OwnerPromoterTemplates() {
       if (bonusThreshold > 0) rules.bonus = { threshold: bonusThreshold, bonusAmount };
       if (timeWindows.length > 0) rules.time_windows = timeWindows;
       if (glPerHead > 0) rules.guestlist = { value: glPerHead };
+      if (glSpots > 0) rules.guestlist_allocation = { spots: glSpots, free_before: glFreeBefore };
     }
     if (enableClientDiscount) {
       rules.customer_discount = { type: cdType, value: cdValue, appliesTo: cdAppliesTo, label: cdLabel || undefined };
@@ -170,6 +175,16 @@ export default function OwnerPromoterTemplates() {
       if (isDefault) await supabase.from('commission_templates').update({ is_default: false }).eq(scopeFilter.column, sid);
       if (editing) {
         await supabase.from('commission_templates').update({ name, rules: rules as any, is_default: isDefault }).eq('id', editing.id);
+        // Le modèle porte une allocation guest list : (re)matérialiser les parts
+        // des promoteurs qui l'utilisent, sur leurs soirées à venir déjà reliées
+        // (les nouvelles assignations passent par le trigger). ON CONFLICT DO
+        // NOTHING côté SQL : on ne réécrit jamais une part ajustée à la main.
+        if (glSpots > 0) {
+          const { data: promos } = await supabase.from('promoters')
+            .select('id').eq('default_commission_template_id', editing.id).eq('is_active', true);
+          await Promise.all((promos || []).map(p =>
+            (supabase as any).rpc('sync_promoter_guestlist_parts', { p_promoter_id: p.id })));
+        }
       } else {
         await supabase.from('commission_templates').insert({ ...scopeFilter.payload, name, rules: rules as any, is_default: isDefault });
       }
@@ -432,12 +447,30 @@ export default function OwnerPromoterTemplates() {
                     ))}
                   </div>
 
-                  {/* Guest list — forfait par tete */}
-                  <div className="rounded-lg border p-3 space-y-2">
-                    <Label className="text-xs font-medium">{t('owner.promo.guestlistPerHead')}</Label>
-                    <p className="text-[11px] text-muted-foreground">{t('owner.promo.guestlistPerHeadDesc')}</p>
-                    <Input type="number" min={0} step="0.5" value={glPerHead}
-                      onChange={e => setGlPerHead(parseFloat(e.target.value) || 0)} />
+                  {/* Guest list — allocation (places par soirée) + forfait par tête */}
+                  <div className="rounded-lg border p-3 space-y-3">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-medium">{t('promoterTemplates.glSpots')}</Label>
+                      <p className="text-[11px] text-muted-foreground">{t('promoterTemplates.glSpotsDesc')}</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-[11px]">{t('promoterTemplates.glSpotsLabel')}</Label>
+                          <Input type="number" min={0} value={glSpots}
+                            onChange={e => setGlSpots(parseInt(e.target.value) || 0)} />
+                        </div>
+                        <div>
+                          <Label className="text-[11px]">{t('promoterTemplates.glFreeBefore')}</Label>
+                          <Input type="time" value={glFreeBefore}
+                            onChange={e => setGlFreeBefore(e.target.value)} disabled={glSpots <= 0} />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2 border-t pt-2">
+                      <Label className="text-xs font-medium">{t('owner.promo.guestlistPerHead')}</Label>
+                      <p className="text-[11px] text-muted-foreground">{t('owner.promo.guestlistPerHeadDesc')}</p>
+                      <Input type="number" min={0} step="0.5" value={glPerHead}
+                        onChange={e => setGlPerHead(parseFloat(e.target.value) || 0)} />
+                    </div>
                   </div>
 
                   {/* Bonus */}

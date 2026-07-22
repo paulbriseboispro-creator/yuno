@@ -132,9 +132,9 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "guest-list": {
     title: "Guest List",
-    keywords: ["guest", "list", "liste", "invité", "gratuit", "free", "quota", "places restantes", "remaining spots", "compteur", "modèle", "template"],
+    keywords: ["guest", "list", "liste", "invité", "gratuit", "free", "quota", "places restantes", "remaining spots", "compteur", "modèle", "template", "promoteur", "allocation", "part"],
     path: "/owner/guest-list",
-    snippet: "La guest list permet d'offrir l'entrée gratuite avant une certaine heure. Configure un quota (global ou par genre), active/désactive par event. Crée des parts déléguées par promoteur, DJ ou nom libre, avec quota par type (standard/boisson/VIP) ou « Sans limite » (illimité) : le détenteur ajoute alors autant d'invités qu'il veut et suit ses places restantes en direct dans son app. Chaque modèle de guest list (onglet Modèles) porte aussi le réglage « Afficher les places restantes » : activé, le public lit « 42 places restantes » ; désactivé, il voit seulement si la liste est ouverte ou complète. Le réglage est repris sur chaque part et modifiable soirée par soirée.",
+    snippet: "La guest list permet d'offrir l'entrée gratuite avant une certaine heure. Configure un quota (global ou par genre), active/désactive par event. Crée des parts déléguées par promoteur, DJ ou nom libre, avec quota par type (standard/boisson/VIP) ou « Sans limite » (illimité) : le détenteur ajoute alors autant d'invités qu'il veut et suit ses places restantes en direct dans son app. Chaque modèle de guest list (onglet Modèles) porte aussi le réglage « Afficher les places restantes » : activé, le public lit « 42 places restantes » ; désactivé, il voit seulement si la liste est ouverte ou complète. Le réglage est repris sur chaque part et modifiable soirée par soirée. POUR LES PROMOTEURS, le plus simple est de piloter la guest list depuis le MODÈLE DE COMMISSION : le champ « Guest list par soirée » (Promoteurs > Modèles) donne à chaque promoteur portant ce modèle X places par soirée reliée, automatiquement (la part est créée dès qu'il est relié à une soirée). Cette page Guest List reste là pour ajuster une soirée précise à la main.",
   },
   "onboarding": {
     title: "Parcours de configuration",

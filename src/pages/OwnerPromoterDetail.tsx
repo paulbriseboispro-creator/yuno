@@ -327,6 +327,11 @@ export default function OwnerPromoterDetail() {
         }
       }
 
+      // Si le modèle du promoteur porte une allocation guest list, matérialiser
+      // ses parts sur ses soirées à venir déjà reliées (les futures assignations
+      // passent par le trigger). No-op si le modèle n'a pas d'allocation.
+      await (supabase as any).rpc('sync_promoter_guestlist_parts', { p_promoter_id: id });
+
       toast.success(t('promoterDetail.saved'));
       fetchPromoter();
     } catch (err) {

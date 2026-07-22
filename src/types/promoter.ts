@@ -148,6 +148,12 @@ export type CommissionRules = {
    *  soirées à venir du club (et aux futures via le trigger). Pré-active
    *  `promoters.auto_assign_events` quand le modèle est appliqué. */
   auto_assign_events?: boolean;
+  /** Allocation guest list pilotée par le modèle : chaque promoteur portant ce
+   *  modèle reçoit automatiquement `spots` places de guest list par soirée reliée
+   *  (part `guest_lists` matérialisée à l'assignation). `free_before` = heure
+   *  limite d'entrée gratuite (HH:MM, défaut 02:00). Le € par tête reste dans
+   *  `guestlist.value`. Absent / spots 0 = pas d'allocation. */
+  guestlist_allocation?: { spots: number; free_before?: string };
 };
 
 export type CommissionTemplate = {
