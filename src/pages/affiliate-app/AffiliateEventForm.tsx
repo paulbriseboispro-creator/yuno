@@ -69,7 +69,7 @@ export default function AffiliateEventForm() {
 
   useEffect(() => {
     if (user) init();
-  }, [user, id]);
+  }, [user?.id, id]);
 
   const init = async () => {
     if (!user) return;

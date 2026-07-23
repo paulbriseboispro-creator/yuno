@@ -172,7 +172,7 @@ export default function AffiliateSettings() {
 
   useEffect(() => {
     if (user) fetchProfile();
-  }, [user]);
+  }, [user?.id]);
 
   const fetchProfile = async () => {
     setLoading(true);

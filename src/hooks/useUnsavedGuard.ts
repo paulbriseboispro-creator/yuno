@@ -125,20 +125,21 @@ export function useUnsavedGuard<T extends object>({
   const currentStr = baseline ? serialize(value) : '';
   const isDirty = !disabled && baseline !== null && currentStr !== baseline.str;
 
-  // Écriture du brouillon (débounce). `wasDirty` évite de supprimer, au montage,
-  // le brouillon qu'on vient tout juste de restaurer.
+  // Écriture du brouillon (débounce).
+  //
+  // Le brouillon n'est JAMAIS supprimé parce que le formulaire « redevient
+  // propre » : un rechargement de données qui réécrit les valeurs serveur
+  // par-dessus une saisie en cours passe exactement par cet état-là, et on
+  // effacerait alors le seul endroit où le travail existe encore. Il n'est
+  // supprimé que sur un enregistrement réussi (`markSaved`), un abandon
+  // volontaire (`discard`) ou son expiration. Un brouillon devenu identique aux
+  // données enregistrées est nettoyé tout seul au montage suivant.
   const wasDirty = useRef(false);
   useEffect(() => {
-    if (!baseline || disabled) return;
-    if (isDirty) {
-      wasDirty.current = true;
-      const id = setTimeout(() => writeDraft(keyRef.current, strip(valueRef.current)), 600);
-      return () => clearTimeout(id);
-    }
-    if (wasDirty.current) {
-      wasDirty.current = false;
-      clearDraft(keyRef.current);
-    }
+    if (!baseline || disabled || !isDirty) return;
+    wasDirty.current = true;
+    const id = setTimeout(() => writeDraft(keyRef.current, strip(valueRef.current)), 600);
+    return () => clearTimeout(id);
   }, [isDirty, currentStr, baseline, disabled, strip]);
 
   // Flush immédiat quand la page part en arrière-plan. Le débounce de 600 ms ne
@@ -155,6 +156,49 @@ export function useUnsavedGuard<T extends object>({
       window.removeEventListener('pagehide', flush);
     };
   }, [isDirty, disabled, strip]);
+
+  // Filet anti-écrasement. La page reste montée quand on bascule d'onglet, donc
+  // la restauration du montage ne joue pas : si quelque chose recharge les
+  // données serveur par-dessus la saisie (événement d'auth, temps réel, refetch
+  // au focus…), le formulaire retombe EXACTEMENT sur la référence, sans un mot.
+  // On le détecte au retour sur l'onglet et on remet le brouillon.
+  //
+  // La condition est étroite : il faut qu'il y ait EU des modifications, que le
+  // formulaire soit revenu au mot près sur les données enregistrées, et qu'un
+  // brouillon dise autre chose. Une remise à zéro volontaire ne coche pas les
+  // trois à la fois au retour d'un onglet.
+  useEffect(() => {
+    if (disabled) return;
+    const timers: number[] = [];
+
+    const check = () => {
+      const b = baselineRef.current;
+      if (!b || !wasDirty.current) return;
+      if (serialize(valueRef.current) !== b.str) return; // rien n'a été écrasé
+      const draft = readDraft<Partial<T>>(keyRef.current);
+      if (!draft) return;
+      const merged = { ...valueRef.current, ...draft.data } as T;
+      if (serialize(merged) === b.str) return; // le brouillon ne dit rien de plus
+      restoreRef.current(merged);
+      setDraftRestoredAt(draft.at);
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') return;
+      // Les rechargements déclenchés par le retour d'onglet arrivent juste
+      // après, et à des vitesses très variables selon le réseau : on repasse
+      // plusieurs fois plutôt que de parier sur un seul délai.
+      [300, 1200, 3000].forEach((delay) => timers.push(window.setTimeout(check, delay)));
+    };
+
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', onVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', onVisibility);
+      timers.forEach(clearTimeout);
+    };
+  }, [disabled, serialize]);
 
   /** Nouvelle référence après un enregistrement réussi + brouillon supprimé. */
   const markSaved = useCallback((next?: T) => {

@@ -107,7 +107,7 @@ export default function OrgAppProfile() {
       }
       setLoading(false);
     })();
-  }, [user]);
+  }, [user?.id]);
 
   const uploadImage = async (file: File, type: 'avatar' | 'cover'): Promise<string | null> => {
     if (!user) return null;

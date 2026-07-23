@@ -41,7 +41,7 @@ export default function AffiliateEventBrief() {
 
   useEffect(() => {
     if (user && id) fetchBrief();
-  }, [user, id]);
+  }, [user?.id, id]);
 
   const fetchBrief = async () => {
     setLoading(true);

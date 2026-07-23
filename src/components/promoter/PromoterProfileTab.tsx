@@ -78,7 +78,7 @@ export function PromoterProfileTab({ promoter, allPromoterProfiles, onSaved }: P
       setHydrated(true);
     })();
     return () => { cancelled = true; };
-  }, [user, promoter.id]);
+  }, [user?.id, promoter.id]);
 
   function generatePromoCode(first: string, last: string): string {
     const clean = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z]/g, '').toUpperCase();

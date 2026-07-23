@@ -30,8 +30,34 @@ let snapshot: AuthSnapshot = { user: null, session: null, loading: true, roles: 
 
 const listeners = new Set<() => void>();
 
+/**
+ * Deux objets `user` décrivent-ils le même compte, à l'identique ?
+ *
+ * auth-js réémet un OBJET tout neuf à chaque rafraîchissement de token, alors
+ * que le compte, lui, n'a pas bougé. Et il rafraîchit précisément au retour sur
+ * l'onglet (`_onVisibilityChanged` → `_recoverAndRefresh`). Sans ce recollage
+ * d'identité, les dizaines d'effets branchés sur `[user]` se redéclenchent tous
+ * dès qu'on revient d'Instagram — et ceux qui rechargent un formulaire depuis
+ * la base ÉCRASENT la saisie en cours. C'est le « je reviens, tout est vide ».
+ *
+ * On compare le contenu : si quoi que ce soit a réellement changé (email,
+ * user_metadata…), le nouvel objet passe et les effets se redéclenchent, comme
+ * ils le doivent.
+ */
+function sameUser(a: User | null, b: User | null): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.id !== b.id) return false;
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false; // objet non sérialisable : on ne prend pas le risque de figer
+  }
+}
+
 function emit(patch: Partial<AuthSnapshot>) {
   const next: AuthSnapshot = { ...snapshot, ...patch };
+  // Même compte, contenu identique : on garde la référence précédente.
+  if (sameUser(next.user, snapshot.user)) next.user = snapshot.user;
   if (
     next.user === snapshot.user &&
     next.session === snapshot.session &&

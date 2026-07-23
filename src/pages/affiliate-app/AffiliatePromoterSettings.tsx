@@ -64,7 +64,7 @@ export default function AffiliatePromoterSettings() {
 
   useEffect(() => {
     if (user) fetchProfile();
-  }, [user]);
+  }, [user?.id]);
 
   const fetchProfile = async () => {
     setLoading(true);
