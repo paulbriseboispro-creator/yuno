@@ -8,7 +8,7 @@ import {
 } from './ui';
 
 const HOLDER_ICON: Record<HolderType, typeof Users> = {
-  club: Users, dj: Music, promoter: Megaphone, custom: UserPlus,
+  club: Users, dj: Music, promoter: Megaphone, custom: UserPlus, organizer: Crown,
 };
 
 interface PartCardProps {
@@ -25,9 +25,12 @@ interface PartCardProps {
   onToggleActive?: (id: string, active: boolean) => Promise<void>;
   onSaveAsPreset?: (config: Record<string, unknown>, holderType: HolderType) => void;
   defaultOpen?: boolean;
+  /** Quota fixé par le club (part d'allocation de l'orga) : on le montre, on ne
+   *  l'édite pas. Le serveur refuse de toute façon toute hausse unilatérale. */
+  quotaLocked?: boolean;
 }
 
-export function PartCard({ part, holderType, displayName, entries, slug, eventId, t, onCreate, onUpdate, onDelete, onToggleActive, onSaveAsPreset, defaultOpen }: PartCardProps) {
+export function PartCard({ part, holderType, displayName, entries, slug, eventId, t, onCreate, onUpdate, onDelete, onToggleActive, onSaveAsPreset, defaultOpen, quotaLocked = false }: PartCardProps) {
   const isClub = holderType === 'club';
   const Icon = HOLDER_ICON[holderType];
 
@@ -166,8 +169,17 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
 
       {open && (
         <div className="mt-4 space-y-4">
-          {/* Quota — club keeps one global number; delegated parts allocate per entry type */}
-          {isClub ? (
+          {/* Quota — club keeps one global number; delegated parts allocate per entry type.
+              quotaLocked = allocation accordée par le club : on la montre, on ne l'édite pas. */}
+          {quotaLocked ? (
+            <div>
+              <p style={{ color: T2, fontSize: 13, fontWeight: 500, marginBottom: 6 }}>{t('guestList.totalQuota')}</p>
+              <div className="flex items-center justify-between" style={{ ...inputStyle, opacity: 0.75 }}>
+                <span style={{ color: T1 }}>{part?.quota ?? '—'}</span>
+                <span style={{ color: T3, fontSize: 11 }}>{t('guestList.house.quotaByClub')}</span>
+              </div>
+            </div>
+          ) : isClub ? (
             <div>
               <p style={{ color: T2, fontSize: 13, fontWeight: 500, marginBottom: 6 }}>{t('guestList.totalQuota')}</p>
               <input type="number" min={1} max={10000} value={quota} onChange={e => setQuota(Math.max(1, Number(e.target.value)))} className="outline-none w-full" style={inputStyle} />

@@ -20,6 +20,8 @@ import { DistributeSheet } from '@/components/owner/guest-list/DistributeSheet';
 import { partSlug } from '@/lib/guestListShare';
 import { canSideEdit } from '@/utils/collabResponsibilities';
 import { CollabGuestListPreview } from '@/components/collab/CollabGuestListPreview';
+import { GuestListAllocation } from '@/components/owner/guest-list/GuestListAllocation';
+import { GuestListRequestsInbox } from '@/components/owner/guest-list/GuestListRequestsInbox';
 import { RED, T1, T2, T3, BORDER, F_BORDER, C_FAINT, INNER_BG, CARD_BG, CARD_SHADOW } from '@/components/owner/guest-list/ui';
 
 interface EventOption { id: string; title: string; startAt: string; endAt: string }
@@ -89,7 +91,7 @@ export default function OwnerGuestList() {
 
   const ctx = { isOrganizerScope, venueId: venueId ?? null, organizerUserId: organizerUserId ?? null };
   const {
-    parts, entriesByPart, loading,
+    parts, entriesByPart, loading, reload,
     createClubPart, createDjPart, createDjPartsBulk, createPromoterPart, createPromoterPartsBulk, createCustomPart, updatePart, deletePart, setActive,
   } = useGuestListParts(selectedEventId, ctx);
   const { templates, createTemplate, updateTemplate, deleteTemplate } = useGuestListTemplates(ctx);
@@ -140,6 +142,10 @@ export default function OwnerGuestList() {
   // Part maison en lecture seule quand on est sur une co-soirée dont on ne tient
   // pas l'opérationnel.
   const houseReadOnly = !!eventCollab?.isCollab && !canSideEdit(eventCollab.resp, eventCollab.mode, 'operations', viewerSide);
+  // Orga sur une co-soirée dont le club tient la porte : il ne s'auto-alloue pas,
+  // il DEMANDE. Sa part accordée est éditable (quota verrouillé), le reste = stats.
+  const delegatedMode = isOrganizerScope && houseReadOnly;
+  const myAllocationPart = parts.find(p => p.holder_type === 'organizer' && p.organizer_user_id === organizerUserId) ?? null;
   const existingDjIds = parts.filter(p => p.holder_type === 'dj' && p.dj_id).map(p => p.dj_id!) as string[];
   const existingPromoterIds = parts.filter(p => p.holder_type === 'promoter' && p.promoter_id).map(p => p.promoter_id!) as string[];
 
@@ -183,7 +189,9 @@ export default function OwnerGuestList() {
   };
   // "Save as preset" from a part's config opens the full editor, pre-filled.
   const openPresetFromConfig = (config: Record<string, unknown>, holderType: HolderType) => {
-    const ht: TemplateHolderType = holderType === 'custom' ? 'club' : holderType;
+    // Les presets ne connaissent que club/dj/promoter : custom et organizer
+    // (part d'allocation) retombent sur 'club'.
+    const ht: TemplateHolderType = (holderType === 'custom' || holderType === 'organizer') ? 'club' : holderType;
     setPresetDialog({ editing: null, initial: { ...(config as Partial<TemplateInput>), holder_type: ht } });
   };
   const savePreset = (input: TemplateInput, id: string | null) =>
@@ -248,6 +256,38 @@ export default function OwnerGuestList() {
               </div>
             </div>
 
+            {/* Demandes d'allocation — pour la partie qui tient l'opérationnel */}
+            {!houseReadOnly && <GuestListRequestsInbox eventId={selectedEventId} onDecided={reload} />}
+
+            {/* Orga sans l'opérationnel : sa part accordée par le club, puis le
+                reste de la guest list en stats lecture seule. */}
+            {delegatedMode && (
+              <>
+                <GuestListAllocation
+                  eventId={selectedEventId}
+                  hasAllocation={!!myAllocationPart}
+                  onChanged={reload}
+                />
+                {myAllocationPart && (
+                  <PartCard
+                    part={myAllocationPart}
+                    holderType="organizer"
+                    displayName={t('guestList.alloc.myPart')}
+                    entries={entriesByPart[myAllocationPart.id] || []}
+                    slug={slug}
+                    eventId={selectedEventId}
+                    t={t}
+                    onUpdate={updatePart}
+                    onToggleActive={setActive}
+                    quotaLocked
+                  />
+                )}
+                <CollabGuestListPreview eventId={selectedEventId} />
+              </>
+            )}
+
+            {!delegatedMode && (
+            <>
             {/* Presets — appliquer un preset club en un clic (gestion dans l'onglet Templates) */}
             <PresetBar
               templates={templates}
@@ -306,6 +346,8 @@ export default function OwnerGuestList() {
               style={{ padding: '14px', borderRadius: 14, background: 'rgba(232,25,44,0.08)', border: `1px dashed rgba(232,25,44,0.35)`, color: '#ff5d68', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
               <Plus className="h-4 w-4" />{t('guestList.parts.addPart')}
             </button>
+            </>
+            )}
 
             {parts.length === 0 && !clubPart && (
               <div className="text-center py-6">

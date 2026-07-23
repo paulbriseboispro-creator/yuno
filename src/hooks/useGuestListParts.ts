@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesUpdate } from '@/integrations/supabase/types';
 
-export type HolderType = 'club' | 'dj' | 'promoter' | 'custom';
+/** 'organizer' = la part d'ALLOCATION de l'organisateur, accordée par le club
+ *  (modèle demande/validation) — distincte de la part MAISON 'club'. */
+export type HolderType = 'club' | 'dj' | 'promoter' | 'custom' | 'organizer';
 
 export interface Part {
   id: string;
@@ -229,7 +232,7 @@ export function useGuestListParts(eventId: string, ctx: PartScopeCtx) {
   const createCustomPart = useCallback((label: string, quota: number | null, extra?: Record<string, unknown>) =>
     insertPart({ holder_type: 'custom', holder_label: label.trim(), quota, ...extra }), [insertPart]);
 
-  const updatePart = useCallback(async (id: string, payload: Record<string, unknown>) => {
+  const updatePart = useCallback(async (id: string, payload: TablesUpdate<'guest_lists'>) => {
     const { error } = await supabase.from('guest_lists').update(payload).eq('id', id);
     if (error) throw error;
     await load();
