@@ -45,8 +45,8 @@ export function ExploreRailCard({ event }: { event: EventCardData }) {
         border: '1px solid rgba(255,255,255,0.08)',
       }}
     >
-      {/* Image area */}
-      <div className="relative" style={{ height: 150 }}>
+      {/* Image area — carré 1:1 */}
+      <div className="relative" style={{ aspectRatio: '1 / 1' }}>
         {event.posterUrl ? (
           <img
             src={event.posterUrl}

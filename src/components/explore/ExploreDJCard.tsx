@@ -43,11 +43,11 @@ export function ExploreDJCard({ dj, rank }: { dj: ExploreDJItem; rank?: number }
         cursor: djPath ? 'pointer' : 'default',
       }}
     >
-      {/* Portrait + overlays */}
-      <div className="relative" style={{ height: 150 }}>
+      {/* Portrait carré 1:1 + overlays */}
+      <div className="relative" style={{ aspectRatio: '1 / 1' }}>
         {dj.profileImageUrl ? (
           <img
-            src={getOptimizedImageUrl(dj.profileImageUrl, { width: 280, height: 300 })}
+            src={getOptimizedImageUrl(dj.profileImageUrl, { width: 280, height: 280 })}
             alt={dj.stageName}
             loading="lazy"
             className="absolute inset-0 w-full h-full object-cover"

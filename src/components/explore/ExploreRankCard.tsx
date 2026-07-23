@@ -27,8 +27,8 @@ export function ExploreRankCard({ event, rank }: { event: EventCardData; rank: n
         border: '1px solid rgba(255,255,255,0.08)',
       }}
     >
-      {/* Image avec numéro en overlay */}
-      <div className="relative" style={{ height: 100 }}>
+      {/* Image carrée (1:1) avec numéro en overlay */}
+      <div className="relative" style={{ aspectRatio: '1 / 1' }}>
         {event.posterUrl ? (
           <img
             src={event.posterUrl}
@@ -47,9 +47,9 @@ export function ExploreRankCard({ event, rank }: { event: EventCardData; rank: n
           className="font-display font-bold"
           style={{
             position: 'absolute',
-            bottom: 4,
+            bottom: 6,
             left: 8,
-            fontSize: '52px',
+            fontSize: '72px',
             lineHeight: 0.85,
             color: 'transparent',
             WebkitTextStroke: '1.5px rgba(255,255,255,0.32)',

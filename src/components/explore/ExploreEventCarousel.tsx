@@ -47,8 +47,8 @@ function CarouselCard({ event }: { event: EventCardData }) {
         scrollSnapAlign: 'start',
       }}
     >
-      {/* Image zone */}
-      <div className="relative" style={{ height: 210 }}>
+      {/* Image zone — carré 1:1 */}
+      <div className="relative" style={{ aspectRatio: '1 / 1' }}>
         {event.posterUrl ? (
           <img
             src={event.posterUrl}
@@ -169,7 +169,7 @@ function HeroCard({ event }: { event: EventCardData }) {
     <div
       onClick={handleClick}
       className="relative cursor-pointer overflow-hidden"
-      style={{ borderRadius: 20, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 18px 40px -20px rgba(0,0,0,0.7)', height: 310 }}
+      style={{ borderRadius: 20, border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 18px 40px -20px rgba(0,0,0,0.7)', aspectRatio: '1 / 1' }}
     >
       {event.posterUrl ? (
         <img src={event.posterUrl} alt={event.title} className="absolute inset-0 w-full h-full object-cover" />

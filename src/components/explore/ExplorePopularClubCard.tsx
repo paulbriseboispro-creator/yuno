@@ -46,7 +46,7 @@ export function ExplorePopularClubCard({ id, name, coverUrl, logoUrl, city, prim
     >
       <div
         className="relative overflow-hidden"
-        style={{ height: 258, borderRadius: 20 }}
+        style={{ aspectRatio: '1 / 1', borderRadius: 20 }}
       >
         {/* Background: photo or gradient */}
         {imgSrc ? (
