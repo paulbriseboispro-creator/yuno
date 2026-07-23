@@ -21,13 +21,23 @@ import { ExplorePopularClubCard } from '@/components/explore/ExplorePopularClubC
 import { ExploreSeeAllCard } from '@/components/explore/ExploreSeeAllCard';
 import { ExploreDayTabs, WeekDayData } from '@/components/explore/ExploreDayTabs';
 import { FadeInView } from '@/components/motion';
-import { useForYouEvents } from '@/hooks/useForYouEvents';
+import { useForYouFeed } from '@/hooks/useForYouFeed';
+import { ExploreForYouRail } from '@/components/explore/ExploreForYouRail';
 import { PublicPage } from '@/components/PublicPage';
 import { ExploreCardsSkeleton } from '@/components/skeletons/ExploreCardsSkeleton';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
+import type { Tables } from '@/integrations/supabase/types';
 
 type DateFilter = 'today' | 'tomorrow' | 'weekend' | 'week';
+
+// Lignes venues/affiliate_venues telles que sélectionnées par fetchData.
+type ExploreVenueRow = Pick<Tables<'venues'>,
+  'id' | 'name' | 'city' | 'address' | 'logo_url' | 'cover_url' | 'latitude' | 'longitude' | 'is_hidden' | 'hidden_from_map'>;
+type ExploreAffiliateVenueRow = Pick<Tables<'affiliate_venues'>,
+  'id' | 'name' | 'city' | 'slug' | 'cover_image_url' | 'logo_url' | 'lat' | 'lng' | 'genres' | 'is_active'>;
+type ExploreTicketRoundRow = Pick<Tables<'ticket_rounds'>,
+  'event_id' | 'price' | 'tickets_sold' | 'max_tickets' | 'is_active'>;
 
 function getDateRange(filter: DateFilter | Date): { start: string; end: string } {
   const now = new Date();
@@ -137,15 +147,12 @@ export default function Explore() {
   // ── Events + venues ──
   const [events, setEvents] = useState<EventCardData[]>([]);
   const [allEvents, setAllEvents] = useState<EventCardData[]>([]);
-  const [venues, setVenues] = useState<any[]>([]);
-  const [affiliateVenues, setAffiliateVenues] = useState<any[]>([]);
+  const [venues, setVenues] = useState<ExploreVenueRow[]>([]);
+  const [affiliateVenues, setAffiliateVenues] = useState<ExploreAffiliateVenueRow[]>([]);
   const [venueFavCounts, setVenueFavCounts] = useState<Record<string, number>>({});
 
   // ── Week data for "Cette semaine" section ──
   const [weekData, setWeekData] = useState<WeekDayData[]>([]);
-
-  // ── « Pour toi » : ids classés par la RPC embeddings (vide si pas de signal) ──
-  const forYouIds = useForYouEvents();
 
   // ── Top DJs jouant cette semaine dans la zone (les plus suivis) ──
   const [topDjs, setTopDjs] = useState<ExploreDJItem[]>([]);
@@ -178,6 +185,11 @@ export default function Explore() {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(() => getManualCoords());
   const [city, setCity] = useState(() => getStoredCity());
 
+  // ── Module « Pour toi » : cartes + raisons, autonome (horizon 45 j, ville
+  //    courante). Déclaré après `city` dont il dépend. Vide = rien à
+  //    recommander, la section se masque d'elle-même.
+  const forYouItems = useForYouFeed(city);
+
   // ── Geolocation init ──
   useEffect(() => {
     if (hasManualCity()) return;
@@ -205,7 +217,7 @@ export default function Explore() {
               }
               setCity(cityName);
               setResolvedCity(cityName);
-            } catch {}
+            } catch { /* géoloc best-effort : on garde la ville par défaut */ }
           }
         },
         async () => {
@@ -223,7 +235,7 @@ export default function Explore() {
                   setResolvedCity(profile.city);
                 }
               }
-            } catch {}
+            } catch { /* géoloc best-effort : on garde la ville par défaut */ }
           }
         }
       );
@@ -412,21 +424,6 @@ export default function Explore() {
       .slice(0, 10);
   }, [weekData, carouselIds, freeOnly, chipGenres, filters]);
 
-  // « Pour toi » : intersection du classement RPC (embeddings) avec les events
-  // déjà chargés/mappés (semaine + période), dans l'ordre du classement.
-  const forYouEvents = useMemo(() => {
-    if (forYouIds.length === 0) return [];
-    const byId = new Map<string, EventCardData>();
-    for (const day of weekData) {
-      for (const e of day.events) if (!byId.has(e.id)) byId.set(e.id, e);
-    }
-    for (const e of carouselEvents) if (!byId.has(e.id)) byId.set(e.id, e);
-    return forYouIds
-      .map((id) => byId.get(id))
-      .filter((e): e is EventCardData => Boolean(e))
-      .slice(0, 10);
-  }, [forYouIds, weekData, carouselEvents]);
-
   // Trending: top events from the next 7 days sorted by likes, adaptive count (max 10)
   const trendingEvents = useMemo(() => {
     const seen = new Set<string>();
@@ -521,12 +518,12 @@ export default function Explore() {
 
     return [...regularItems, ...affiliateItems]
       .sort((a, b) => {
-        const fa = (a as any).followersCount as number;
-        const fb = (b as any).followersCount as number;
+        const fa = a.followersCount;
+        const fb = b.followersCount;
         if (fa !== fb) return fb - fa;
         // Tie-break: by distance if available
-        const da = (a as any).distance as number | null;
-        const db = (b as any).distance as number | null;
+        const da = a.distance;
+        const db = b.distance;
         if (da != null && db != null) return da - db;
         return 0;
       })
@@ -620,7 +617,7 @@ export default function Explore() {
       setAffiliateVenues(affiliateVenuesRes.data || []);
 
       const venueFavCounts: Record<string, number> = {};
-      (clubFavCountsRes.data || []).forEach((f: any) => {
+      (clubFavCountsRes.data || []).forEach(f => {
         if (f.target_id) venueFavCounts[f.target_id] = f.total_count;
       });
       setVenueFavCounts(venueFavCounts);
@@ -628,12 +625,12 @@ export default function Explore() {
       const venueMap = new Map(venuesList.map(v => [v.id, v]));
 
       const favCounts: Record<string, number> = {};
-      (favCountsRes.data || []).forEach((f: any) => {
+      (favCountsRes.data || []).forEach(f => {
         if (f.target_id) favCounts[f.target_id] = f.total_count;
       });
 
       const affiliateFavCounts: Record<string, number> = {};
-      (affiliateFavCountsRes.data || []).forEach((f: any) => {
+      (affiliateFavCountsRes.data || []).forEach(f => {
         if (f.target_id) affiliateFavCounts[f.target_id] = f.total_count;
       });
 
@@ -668,7 +665,7 @@ export default function Explore() {
       }
 
       const eventIds = mergedEvents.map(e => e.id);
-      let ticketRounds: any[] = [];
+      let ticketRounds: ExploreTicketRoundRow[] = [];
       if (eventIds.length > 0) {
         const { data } = await supabase
           .from('ticket_rounds')
@@ -709,7 +706,7 @@ export default function Explore() {
 
       const allCards: EventCardData[] = mergedEvents.map(e => {
         const isOrganizerLed = !!e.organizer_user_id;
-        const displayVenueId = e.venue_id || (isOrganizerLed ? (e as any).partner_venue_id : null);
+        const displayVenueId = e.venue_id || (isOrganizerLed ? e.partner_venue_id : null);
         const venue = displayVenueId ? venueMap.get(displayVenueId) : undefined;
         const organizerInfo = isOrganizerLed && e.organizer_user_id ? organizerMap.get(e.organizer_user_id) : undefined;
 
@@ -724,8 +721,8 @@ export default function Explore() {
         }
 
         const eventGenres =
-          (e as any).music_genres && (e as any).music_genres.length > 0
-            ? ((e as any).music_genres as string[])
+          e.music_genres && e.music_genres.length > 0
+            ? e.music_genres
             : e.music_genre
             ? [e.music_genre]
             : Array.from(genreMap[e.id] || []);
@@ -736,7 +733,7 @@ export default function Explore() {
 
         return {
           id: e.id,
-          slug: (e as any).slug ?? null,
+          slug: e.slug ?? null,
           organizerSlug: organizerInfo?.slug ?? null,
           title: e.title,
           posterUrl: e.poster_url,
@@ -747,7 +744,7 @@ export default function Explore() {
           // Organizer-led events without a club venue carry their own city in
           // events.location_city. Fall back to it so they filter by city instead
           // of slipping through with an empty city.
-          venueCity: venue?.city || (e as any).location_city || '',
+          venueCity: venue?.city || e.location_city || '',
           minPrice: minPriceMap[e.id] ?? null,
           genres: eventGenres,
           interestedCount,
@@ -775,7 +772,7 @@ export default function Explore() {
       });
 
       // Merge affiliate events
-      const affiliateCards: EventCardData[] = (affiliateEventsRes.data ?? []).flatMap((ae: any) => {
+      const affiliateCards: EventCardData[] = (affiliateEventsRes.data ?? []).flatMap(ae => {
         const venue = ae.affiliate_venues;
         if (!venue) return [];
         const startAt = `${ae.event_date}T${(ae.start_time || '22:00').substring(0, 5)}:00`;
@@ -886,18 +883,18 @@ export default function Explore() {
       });
 
       const weekFavCounts: Record<string, number> = {};
-      (favCountsRes.data || []).forEach((f: any) => {
+      (favCountsRes.data || []).forEach(f => {
         if (f.target_id) weekFavCounts[f.target_id] = f.total_count;
       });
 
       const weekAffiliateFavCounts: Record<string, number> = {};
-      (affiliateFavCountsRes.data || []).forEach((f: any) => {
+      (affiliateFavCountsRes.data || []).forEach(f => {
         if (f.target_id) weekAffiliateFavCounts[f.target_id] = f.total_count;
       });
 
       // Group affiliate events by date
       const affiliateByDate: Record<string, EventCardData[]> = {};
-      (affiliateEventsRes.data ?? []).forEach((ae: any) => {
+      (affiliateEventsRes.data ?? []).forEach(ae => {
         const venue = ae.affiliate_venues;
         if (!venue) return;
         if (city && !(venue.city || '').toLowerCase().includes(city.toLowerCase())) return;
@@ -940,13 +937,13 @@ export default function Explore() {
           .filter(e => e.start_at.startsWith(dayStr))
           .map(e => {
             const isOrganizerLed = !!e.organizer_user_id;
-            const displayVenueId = e.venue_id || (isOrganizerLed ? (e as any).partner_venue_id : null);
+            const displayVenueId = e.venue_id || (isOrganizerLed ? e.partner_venue_id : null);
             const venue = displayVenueId ? venueMap.get(displayVenueId) : undefined;
             // Resolve city from the venue, falling back to the event's own
             // location_city (organizer-led events without a club venue). Filter
             // strictly: an event we can't place in the selected city is hidden,
             // not shown in every city.
-            const venueCity = venue?.city || (e as any).location_city || '';
+            const venueCity = venue?.city || e.location_city || '';
             if (city && !venueCity.toLowerCase().includes(city.toLowerCase())) return null;
             const genres =
               (e.music_genres && e.music_genres.length > 0)
@@ -957,7 +954,7 @@ export default function Explore() {
 
             return {
               id: e.id,
-              slug: (e as any).slug ?? null,
+              slug: e.slug ?? null,
               title: e.title,
               posterUrl: e.poster_url,
               startAt: e.start_at,
@@ -1028,15 +1025,16 @@ export default function Explore() {
       ]);
 
       const followerMap: Record<string, number> = {};
-      (countsRes.data || []).forEach((f: any) => {
+      (countsRes.data || []).forEach(f => {
         if (f.target_id) followerMap[f.target_id] = f.total_count;
       });
 
       // Classement par abonnés décroissant, puis dédoublonnage par personne
       // (un même DJ a une ligne par club/orga ; on garde la plus suivie).
       const ranked = (djsRes.data || [])
-        .map((d: any) => ({
-          id: d.id,
+        .map(d => ({
+          // La vue djs_public expose id nullable, mais .in('id', djIds) garantit sa présence.
+          id: d.id as string,
           slug: d.slug,
           handle: d.handle ?? null,
           stageName: (d.stage_name || `${d.first_name ?? ''} ${d.last_name ?? ''}`).trim(),
@@ -1116,23 +1114,9 @@ export default function Explore() {
               periodLabel={periodLabel}
             />
 
-            {/* ═══ MODULE 1bis : « Pour toi » — reco personnalisée (embeddings) ═══ */}
-            {forYouEvents.length >= 3 && (
-              <FadeInView style={{ marginTop: 32 }}>
-                <ExploreSectionTitle
-                  kicker={language === 'fr' ? 'SÉLECTION PERSONNALISÉE' : language === 'es' ? 'SELECCIÓN PERSONAL' : 'PICKED FOR YOU'}
-                  title={language === 'fr' ? 'Pour toi' : language === 'es' ? 'Para ti' : 'For you'}
-                />
-                <div
-                  className="flex overflow-x-auto"
-                  style={{ gap: 14, paddingBottom: 8, paddingLeft: 20, paddingRight: 20, scrollbarWidth: 'none' } as React.CSSProperties}
-                >
-                  {forYouEvents.map(e => (
-                    <ExploreRailCard key={e.id} event={e} />
-                  ))}
-                </div>
-              </FadeInView>
-            )}
+            {/* ═══ MODULE 1bis : « Pour toi » — module de reco autonome ═══
+                Se masque tout seul quand rien ne passe sa porte. */}
+            <ExploreForYouRail items={forYouItems} />
 
             {/* ═══ MODULE 2 : Recommandé — soirées à venir cette semaine ═══ */}
             {recoEvents.length > 0 && (
@@ -1184,7 +1168,7 @@ export default function Explore() {
                       label={language === 'fr' ? 'Tout voir' : language === 'es' ? 'Ver todo' : 'See all'}
                       onClick={() => navigate('/djs')}
                       width={140}
-                      minHeight={198}
+                      minHeight={188}
                       borderRadius={14}
                     />
                   )}
@@ -1222,7 +1206,7 @@ export default function Explore() {
                       label={language === 'fr' ? 'Tout voir' : language === 'es' ? 'Ver todo' : 'See all'}
                       onClick={() => navigate('/map')}
                       width={282}
-                      minHeight={258}
+                      minHeight={282}
                       borderRadius={20}
                     />
                   )}
