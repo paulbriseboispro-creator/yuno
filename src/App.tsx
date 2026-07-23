@@ -243,6 +243,7 @@ const AdminAffiliates = lazyWithRetry(() => import("./pages/admin/AdminAffiliate
 const AdminEvents = lazyWithRetry(() => import("./pages/admin/AdminEvents"));
 const AdminAuditLog = lazyWithRetry(() => import("./pages/admin/AdminAuditLog"));
 const AdminDemoAccess = lazyWithRetry(() => import("./pages/admin/AdminDemoAccess"));
+const AdminAlerts = lazyWithRetry(() => import("./pages/admin/AdminAlerts"));
 const AccountSuspended = lazyWithRetry(() => import("./pages/AccountSuspended"));
 
 // Affiliate app pages
@@ -974,6 +975,10 @@ const App = () => (
                 {/* Admin routes */}
                 <Route path="/admin" element={<AdminLayout />}>
                   <Route index element={<AdminDashboard />} />
+                  {/* /admin/alerts = boîte de réception plateforme (échéances +
+                      incidents). À ne pas confondre avec /admin/notifications,
+                      qui est le registre des push automatiques aux clients. */}
+                  <Route path="alerts" element={<AdminAlerts />} />
                   <Route path="venues" element={<AdminVenues />} />
                   <Route path="analytics" element={<AdminAnalytics />} />
                   <Route path="segmentation" element={<AdminSegmentation />} />

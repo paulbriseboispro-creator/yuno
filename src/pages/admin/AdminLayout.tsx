@@ -28,9 +28,13 @@ import {
   CalendarDays,
   ScrollText,
   KeyRound,
+  Siren,
   type LucideIcon,
 } from 'lucide-react';
 import AdminSearchBar from '@/components/admin/AdminSearchBar';
+import { NotificationsBell } from '@/components/NotificationsBell';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { ADMIN_FEED_CONFIG } from '@/lib/notifications';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED        = '#E8192C';
@@ -57,6 +61,7 @@ export default function AdminLayout() {
       label: t('admin.navGroupOverview'),
       items: [
         { title: 'Dashboard', path: '/admin', icon: LayoutDashboard },
+        { title: t('admin.navAlerts'), path: '/admin/alerts', icon: Siren },
         { title: t('admin.dir.navTitle'), path: '/admin/directory', icon: BookOpen },
         { title: 'Analytics', path: '/admin/analytics', icon: BarChart3 },
         { title: t('admin.navSegmentation'), path: '/admin/segmentation', icon: UsersRound },
@@ -193,6 +198,9 @@ export default function AdminLayout() {
             <ArrowLeft className="h-5 w-5" />
           </button>
           <span className="flex-1 text-lg font-bold tracking-tight" style={{ color: T1 }}>{t('admin.title')}</span>
+          <TooltipProvider delayDuration={300}>
+            <NotificationsBell config={ADMIN_FEED_CONFIG} />
+          </TooltipProvider>
           <button onClick={() => setSidebarOpen(true)} className="flex h-9 w-9 items-center justify-center rounded-lg transition-colors" style={{ color: T1 }}>
             <Menu className="h-5 w-5" />
           </button>
@@ -237,6 +245,12 @@ export default function AdminLayout() {
             <div className="text-base font-bold tracking-tight leading-none" style={{ color: T1 }}>Yuno</div>
             <div className="text-[10px] font-semibold uppercase leading-none mt-1" style={{ color: RED, letterSpacing: '0.1em' }}>Super Admin</div>
           </div>
+          {/* Même cloche que les dashboards club et organisateur, branchée sur le
+              flux plateforme : les échéances et incidents se voient depuis
+              n'importe quelle page admin, pas seulement depuis /admin/alerts. */}
+          <TooltipProvider delayDuration={300}>
+            <NotificationsBell config={ADMIN_FEED_CONFIG} />
+          </TooltipProvider>
         </div>
         <div className="px-3 pt-3">
           <AdminSearchBar />

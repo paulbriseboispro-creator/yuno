@@ -1,7 +1,8 @@
-// Shared notification model used by both the owner inbox (venue-scoped
-// `staff_notifications`) and the organizer inbox (`organizer_notifications`).
-// The catalogue, priority config and scope-aware feed config all live here so
-// the full-page inbox and the header bell popover stay in sync.
+// Shared notification model used by the three inboxes: the owner one
+// (venue-scoped `staff_notifications`), the organizer one
+// (`organizer_notifications`) and the platform one (`admin_notifications`,
+// super admin). The catalogue, priority config and scope-aware feed config all
+// live here so the full-page inbox and the header bell popover stay in sync.
 
 import {
   ShoppingCart, Ticket, Crown, Users, Star,
@@ -9,6 +10,8 @@ import {
   AlertCircle, Info, Radio, TrendingUp,
   UserCheck, AlertTriangle, Receipt, Music, Handshake, MessageSquare,
   Martini, DoorOpen, Gauge, Target, ShieldAlert, Clock,
+  KeyRound, CalendarClock, Hourglass, ListChecks, Building2, UserPlus,
+  Briefcase, Rocket, CreditCard, Banknote, LifeBuoy, Wrench, Siren,
 } from 'lucide-react';
 
 export interface AppNotif {
@@ -83,16 +86,49 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   liveops_refund_spike:   { icon: Receipt,       category: 'liveops', label: 'notif.type.liveops_refund_spike' },
   liveops_revenue_goal:   { icon: Target,        category: 'liveops', label: 'notif.type.liveops_revenue_goal' },
   liveops_incident:       { icon: ShieldAlert,   category: 'liveops', label: 'notif.type.liveops_incident' },
+
+  // ── 🛡️ Super admin (flux plateforme) ───────────────────────────────────────
+  // Échéances : les credentials et revues qui expirent tout seuls.
+  admin_credential_due:      { icon: CalendarClock, category: 'deadlines', label: 'notif.type.admin_credential_due' },
+  admin_credential_urgent:   { icon: Hourglass,     category: 'deadlines', label: 'notif.type.admin_credential_urgent' },
+  admin_credential_overdue:  { icon: KeyRound,      category: 'deadlines', label: 'notif.type.admin_credential_overdue' },
+  admin_credential_undated:  { icon: ListChecks,    category: 'deadlines', label: 'notif.type.admin_credential_undated' },
+  // Croissance : qui arrive sur la plateforme, et qui s'active.
+  admin_new_venue:           { icon: Building2,     category: 'growth',    label: 'notif.type.admin_new_venue' },
+  admin_new_organizer:       { icon: UserPlus,      category: 'growth',    label: 'notif.type.admin_new_organizer' },
+  admin_new_agency:          { icon: Briefcase,     category: 'growth',    label: 'notif.type.admin_new_agency' },
+  admin_waitlist_signup:     { icon: Users,         category: 'growth',    label: 'notif.type.admin_waitlist_signup' },
+  admin_venue_first_sale:    { icon: Rocket,        category: 'growth',    label: 'notif.type.admin_venue_first_sale' },
+  // Encaissement : ce qui empêche l'argent d'entrer, ou le fait ressortir.
+  admin_stripe_onboarding_stuck: { icon: CreditCard, category: 'billing',  label: 'notif.type.admin_stripe_onboarding_stuck' },
+  admin_subscription_changed:    { icon: CreditCard, category: 'billing',  label: 'notif.type.admin_subscription_changed' },
+  admin_refund_spike:            { icon: Receipt,    category: 'billing',  label: 'notif.type.admin_refund_spike' },
+  // Arbitrage : ce sur quoi Yuno doit trancher.
+  admin_payout_disputed:     { icon: Banknote,      category: 'compliance', label: 'notif.type.admin_payout_disputed' },
+  admin_feedback_new:        { icon: MessageSquare, category: 'compliance', label: 'notif.type.admin_feedback_new' },
+  admin_feedback_critical:   { icon: LifeBuoy,      category: 'compliance', label: 'notif.type.admin_feedback_critical' },
+  admin_mfa_reset_requested: { icon: ShieldAlert,   category: 'compliance', label: 'notif.type.admin_mfa_reset_requested' },
+  // Système : l'état de la plateforme elle-même.
+  admin_maintenance_mode:    { icon: Wrench,        category: 'system',    label: 'notif.type.admin_maintenance_mode' },
+  admin_payments_switch:     { icon: Siren,         category: 'system',    label: 'notif.type.admin_payments_switch' },
+  admin_security_burst:      { icon: ShieldAlert,   category: 'system',    label: 'notif.type.admin_security_burst' },
+  admin_push_queue_stuck:    { icon: Radio,         category: 'system',    label: 'notif.type.admin_push_queue_stuck' },
 };
 
 export const CATEGORY_META: Record<string, { label: string; color: string }> = {
-  revenue:   { label: 'notif.cat.revenue',    color: 'text-emerald-400' },
-  capacity:  { label: 'notif.cat.capacity',   color: 'text-orange-400'  },
-  events:    { label: 'notif.cat.events',     color: 'text-blue-400'    },
-  bookings:  { label: 'notif.cat.bookings',   color: 'text-violet-400'  },
-  people:    { label: 'notif.cat.people',     color: 'text-purple-400'  },
-  marketing: { label: 'notif.cat.marketing',  color: 'text-pink-400'    },
-  liveops:   { label: 'notif.cat.liveops',    color: 'text-red-400'     },
+  revenue:    { label: 'notif.cat.revenue',    color: 'text-emerald-400' },
+  capacity:   { label: 'notif.cat.capacity',   color: 'text-orange-400'  },
+  events:     { label: 'notif.cat.events',     color: 'text-blue-400'    },
+  bookings:   { label: 'notif.cat.bookings',   color: 'text-violet-400'  },
+  people:     { label: 'notif.cat.people',     color: 'text-purple-400'  },
+  marketing:  { label: 'notif.cat.marketing',  color: 'text-pink-400'    },
+  liveops:    { label: 'notif.cat.liveops',    color: 'text-red-400'     },
+  // Catégories propres au flux super admin.
+  deadlines:  { label: 'notif.cat.deadlines',  color: 'text-amber-400'   },
+  growth:     { label: 'notif.cat.growth',     color: 'text-emerald-400' },
+  billing:    { label: 'notif.cat.billing',    color: 'text-sky-400'     },
+  compliance: { label: 'notif.cat.compliance', color: 'text-rose-400'    },
+  system:     { label: 'notif.cat.system',     color: 'text-slate-300'   },
 };
 
 export function getNotifDef(type: string): NotifDef {
@@ -131,14 +167,17 @@ export const PRIORITY_CONFIG = {
 } as const;
 
 // ─── Scope-aware feed config ──────────────────────────────────────────────────
-// Owner/manager read the venue inbox; organizers read their own. One config
-// object drives the table name, the filter column/value and the realtime
-// channel filter so every consumer (page + bell) queries the right place.
+// Owner/manager read the venue inbox; organizers read their own; the super
+// admin reads the platform one. One config object drives the table name, the
+// filter column/value and the realtime channel filter so every consumer
+// (page + bell) queries the right place.
 
 export interface FeedConfig {
-  table: 'staff_notifications' | 'organizer_notifications';
-  filterColumn: 'venue_id' | 'organizer_user_id';
+  table: 'staff_notifications' | 'organizer_notifications' | 'admin_notifications';
+  filterColumn: 'venue_id' | 'organizer_user_id' | 'scope';
   filterValue: string;
+  /** Dashboard root this feed belongs to (`/owner`, `/organizer-app`, `/admin`…). */
+  basePath: string;
   /** Path to the full notifications inbox for this scope. */
   pagePath: string;
   /** Postgres-changes filter string for the realtime subscription. */
@@ -147,19 +186,37 @@ export interface FeedConfig {
   channelKey: string;
 }
 
+/**
+ * The platform inbox. It has no per-user key — there is one super admin feed —
+ * so the constant `scope` column stands in as the filter, keeping the shape
+ * identical to the two scoped feeds. Its page lives at `/admin/alerts` and not
+ * `/admin/notifications`, which is already the automatic-push registry.
+ */
+export const ADMIN_FEED_CONFIG: FeedConfig = {
+  table: 'admin_notifications',
+  filterColumn: 'scope',
+  filterValue: 'platform',
+  basePath: '/admin',
+  pagePath: '/admin/alerts',
+  realtimeFilter: 'scope=eq.platform',
+  channelKey: 'admin_platform',
+};
+
 export function getFeedConfig(params: {
-  scope: 'venue' | 'organizer';
+  scope: 'venue' | 'organizer' | 'admin';
   venueId: string | null;
   organizerUserId: string | null;
   basePath: string;
 }): FeedConfig | null {
   const { scope, venueId, organizerUserId, basePath } = params;
+  if (scope === 'admin') return ADMIN_FEED_CONFIG;
   if (scope === 'organizer') {
     if (!organizerUserId) return null;
     return {
       table: 'organizer_notifications',
       filterColumn: 'organizer_user_id',
       filterValue: organizerUserId,
+      basePath,
       pagePath: `${basePath}/notifications`,
       realtimeFilter: `organizer_user_id=eq.${organizerUserId}`,
       channelKey: `org_${organizerUserId}`,
@@ -170,6 +227,7 @@ export function getFeedConfig(params: {
     table: 'staff_notifications',
     filterColumn: 'venue_id',
     filterValue: venueId,
+    basePath,
     pagePath: `${basePath}/notifications`,
     realtimeFilter: `venue_id=eq.${venueId}`,
     channelKey: `venue_${venueId}`,
@@ -185,10 +243,14 @@ export function getFeedConfig(params: {
 // in which case a click just marks the notification as read without navigating.
 
 export function notifLink(n: AppNotif, config: FeedConfig): string | null {
-  const basePath = config.pagePath.replace(/\/notifications$/, '');
+  const basePath = config.basePath;
   const isOrganizer = config.table === 'organizer_notifications';
   const isOwner = basePath === '/owner';
   const isManager = basePath === '/manager';
+
+  // The platform feed shares nothing with the two dashboard feeds — different
+  // types, different routes — so it branches out before the shared switch.
+  if (config.table === 'admin_notifications') return adminNotifLink(n);
   const metaEventId = typeof n.metadata?.event_id === 'string' ? n.metadata.event_id : null;
   const eventId = n.event_id ?? metaEventId;
   // Sale notifications carry the order/ticket/reservation id in reference_id, so
@@ -308,6 +370,69 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
     case 'liveops_revenue_goal':
     case 'liveops_incident':
       return isOrganizer ? null : `${basePath}/live`;
+
+    default:
+      return null;
+  }
+}
+
+/**
+ * Platform-feed routing. Every alert points at the admin surface where the
+ * matching decision gets made, so a click is one step from the fix rather than
+ * from a search. Deadline alerts land back on the alerts page itself, where the
+ * registry and its "renewed today" button live.
+ */
+function adminNotifLink(n: AppNotif): string | null {
+  const ref = n.reference_id;
+
+  switch (n.notification_type) {
+    case 'admin_credential_due':
+    case 'admin_credential_urgent':
+    case 'admin_credential_overdue':
+    case 'admin_credential_undated':
+      return '/admin/alerts';
+
+    case 'admin_new_venue':
+    case 'admin_venue_first_sale':
+    case 'admin_stripe_onboarding_stuck':
+      return ref ? `/admin/directory/venue/${ref}` : '/admin/venues';
+
+    case 'admin_new_organizer':
+      return ref ? `/admin/directory/user/${ref}` : '/admin/organizers';
+
+    case 'admin_new_agency':
+      return '/admin/directory';
+
+    case 'admin_waitlist_signup':
+      return '/admin/waitlist';
+
+    case 'admin_subscription_changed':
+      return '/admin/subscriptions';
+
+    case 'admin_refund_spike':
+      return '/admin/orders';
+
+    // Pas de page dédiée aux règlements promoteur côté admin : la comptabilité
+    // est l'endroit où le litige se tranche.
+    case 'admin_payout_disputed':
+      return '/admin/accounting';
+
+    case 'admin_feedback_new':
+    case 'admin_feedback_critical':
+      return '/admin/feedback';
+
+    case 'admin_mfa_reset_requested':
+      return ref ? `/admin/directory/user/${ref}` : '/admin/directory';
+
+    case 'admin_maintenance_mode':
+    case 'admin_payments_switch':
+      return '/admin';
+
+    case 'admin_security_burst':
+      return '/admin/audit';
+
+    case 'admin_push_queue_stuck':
+      return '/admin/push';
 
     default:
       return null;
