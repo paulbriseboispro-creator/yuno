@@ -114,13 +114,26 @@ atterrirait sur ce JSON. **Faire la config ci-dessous AVANT de déployer le fron
      `signInWithOAuth`, alors que `signInWithIdToken` (natif) accepte n'importe
      quelle entrée de la liste comme audience. Si un bundle id passe devant, le
      natif continue de marcher et le web se fait rejeter par Apple.
+
+     Symptôme exact du mauvais ordre (constaté le 2026-07-23) : Supabase redirige
+     bien vers `appleid.apple.com`, mais avec `client_id=eu.yunoapp.app`, et Apple
+     affiche **`invalid_request — Invalid client id or web redirect url`**. Un App
+     ID ne porte aucune Return URL — elles vivent sur le Services ID — donc Apple
+     ne peut que refuser. Ce n'est PAS un problème de Return URL malgré le message.
    - `Secret Key (for OAuth)` : générer via l'outil du dashboard (Team ID + Key ID
      + contenu du `.p8`).
 
 4. **Apple impose de régénérer ce secret tous les 6 mois** — sinon le bouton web
    casse du jour au lendemain. Prochaine échéance à noter au moment de la création.
 
-Vérification une fois configuré (doit renvoyer un `location:` vers `appleid.apple.com`) :
+Le `.p8` est une **clé privée** : elle signe les client secrets Apple. Qui l'a, avec
+le Team ID et le Key ID, peut se faire passer pour Yuno auprès d'Apple. Ne jamais la
+committer, la coller dans un chat, ni la laisser traîner dans `~/Downloads`. En cas
+de doute : Apple Developer → Keys → révoquer, puis en créer une neuve et regénérer
+le secret Supabase (2 clés Sign in with Apple maximum par compte).
+
+Vérification une fois configuré : le `location:` doit pointer vers `appleid.apple.com`
+**avec `client_id=eu.yunoapp.web`** (le Services ID, pas le bundle id) :
 
 ```bash
 curl -sS -o /dev/null -D - \
