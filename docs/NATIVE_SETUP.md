@@ -63,6 +63,29 @@ atterrirait sur ce JSON. **Faire la config ci-dessous AVANT de déployer le fron
    Le domaine est celui de **Supabase**, pas `yunoapp.eu` : c'est Supabase qui
    reçoit le callback puis redirige vers `https://yunoapp.eu/auth`.
 
+   ⚠️ **Les deux champs n'ont pas le même format**, et c'est le piège n°1 :
+   *Domains and Subdomains* attend un hôte NU (jamais `https://`, jamais de chemin,
+   jamais de `/` final) ; *Return URLs* attend l'URL COMPLÈTE avec `https://`.
+   Un protocole dans le premier champ, ou son absence dans le second, donne
+   « There is a problem with the request entity — One or more Return URLs do not
+   include a supported protocol or match the expected format ».
+
+   ⚠️ **Piège n°2, celui qui fait tourner en rond** : quand on ÉDITE une Return URL
+   déjà enregistrée, Apple retire le `https://` en silence. Corriger l'entrée en
+   place rejoue donc la même erreur indéfiniment, alors que le champ a l'air bon à
+   l'écran. Il faut **supprimer la ligne fautive** (pas la réécrire), sauvegarder,
+   puis rajouter l'URL complète. Si Apple refuse toujours, supprimer le Services ID
+   et le recréer en saisissant la Return URL avec `https://` du premier coup — c'est
+   la seule voie fiable rapportée. Un identifiant supprimé n'est pas toujours
+   réutilisable chez Apple : dans ce cas prendre `eu.yunoapp.webauth`, la chaîne
+   n'a pas d'importance tant qu'elle est reprise à l'identique dans `Client IDs`
+   côté Supabase (étape 3).
+
+   ⚠️ Apple valide TOUTES les entrées à chaque Save. Une ligne héritée d'un premier
+   essai (URL sans protocole, ligne vide laissée par un copier-coller) bloque
+   l'enregistrement même si la ligne qu'on vient de taper est correcte. La config
+   finale ne doit contenir QUE ces deux valeurs, une par champ.
+
 2. **Apple Developer → Keys** : créer une clé « Sign In with Apple » → télécharger
    le `AuthKey_XXXXXXXXXX.p8` (téléchargeable une seule fois). Noter le **Key ID**
    et le **Team ID** (coin haut-droit de la console).
