@@ -20,7 +20,7 @@ type VenueRow = {
   instagram: string | null;
   website: string | null;
   is_active: boolean;
-  cover_image_url: string | null;
+  logo_url: string | null;
 };
 
 export default function AffiliateVenues() {
@@ -41,7 +41,7 @@ export default function AffiliateVenues() {
 
     const { data } = await supabase
       .from('affiliate_venues')
-      .select('id, name, city, neighborhood, genres, instagram, website, is_active, cover_image_url')
+      .select('id, name, city, neighborhood, genres, instagram, website, is_active, logo_url')
       .eq('affiliate_id', aff.id)
       .order('sort_order', { ascending: true });
 
@@ -92,8 +92,8 @@ export default function AffiliateVenues() {
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 + i * 0.03 }}>
               <AffCard padding={14}>
                 <div className="flex items-center gap-4">
-                  {venue.cover_image_url ? (
-                    <img src={venue.cover_image_url} alt={venue.name} className="w-16 h-16 rounded-xl object-cover flex-none" style={{ border: `1px solid ${BORDER}` }} />
+                  {venue.logo_url ? (
+                    <img src={venue.logo_url} alt={venue.name} className="w-16 h-16 rounded-xl object-cover flex-none" style={{ border: `1px solid ${BORDER}`, background: C_FAINT }} />
                   ) : (
                     <div className="w-16 h-16 rounded-xl flex-none flex items-center justify-center" style={{ background: C_FAINT, border: `1px solid ${BORDER}` }}>
                       <MapPin className="h-5 w-5" style={{ color: T3 }} />
