@@ -55,13 +55,31 @@ et comme `signInWithOAuth` navigue la page sans requête préalable, l'utilisate
 atterrirait sur ce JSON. **Faire la config ci-dessous AVANT de déployer le front.**
 
 1. **Apple Developer → Identifiers → Services IDs** : créer `eu.yunoapp.web`
-   (description libre), cocher « Sign In with Apple » → Configure :
-   - Primary App ID : `eu.yunoapp.app`
-   - Domains and Subdomains : `fulawxvdlwtdlpkycixe.supabase.co`
-   - Return URLs : `https://fulawxvdlwtdlpkycixe.supabase.co/auth/v1/callback`
+   (description libre), cocher « Sign In with Apple » → Configure. Primary App ID :
+   `eu.yunoapp.app`. Les deux champs Website URLs sont en blocs séparés ci-dessous,
+   pour qu'un copier-coller ne ramasse pas de backtick markdown.
+
+   Domains and Subdomains :
+
+   ```
+   fulawxvdlwtdlpkycixe.supabase.co
+   ```
+
+   Return URLs :
+
+   ```
+   https://fulawxvdlwtdlpkycixe.supabase.co/auth/v1/callback
+   ```
 
    Le domaine est celui de **Supabase**, pas `yunoapp.eu` : c'est Supabase qui
    reçoit le callback puis redirige vers `https://yunoapp.eu/auth`.
+
+   ⚠️ **Piège n°0, celui qui a réellement mordu le 2026-07-23** : un caractère
+   parasite collé à la fin de la Return URL (un backtick ramassé en copiant depuis
+   ce doc) suffit à déclencher « One or more Return URLs do not include a supported
+   protocol or match the expected format ». Le message accuse le protocole, mais le
+   protocole peut être parfaitement là. Relire le champ CARACTÈRE PAR CARACTÈRE
+   avant de chercher plus loin — la chaîne doit finir exactement par `callback`.
 
    ⚠️ **Les deux champs n'ont pas le même format**, et c'est le piège n°1 :
    *Domains and Subdomains* attend un hôte NU (jamais `https://`, jamais de chemin,
