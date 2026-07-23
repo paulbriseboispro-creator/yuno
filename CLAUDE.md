@@ -154,6 +154,27 @@ statiques sont servis gratuitement et ne comptent pas dans le quota de requêtes
   ou `promoter_conversions.status` doit passer par une fonction `SECURITY DEFINER`.
   `settle_promoter_payout` (l'ancien règlement en un clic) lève désormais
   `use_two_step_flow` : ne pas le ressusciter.
+- **Alertes super admin : passer par `emit_admin_notification`, jamais par un
+  INSERT direct.** Le flux plateforme (`admin_notifications`, page
+  `/admin/alerts`, cloche du layout admin) est le troisième du même modèle que
+  `staff_notifications` (club) et `organizer_notifications` (organisateur) —
+  même forme de table, mêmes composants front (`NotificationsBell` +
+  `src/lib/notifications.ts`). Toute nouvelle alerte : (1) émettre via
+  `emit_admin_notification(...)` depuis un trigger `SECURITY DEFINER` ou depuis
+  `run_admin_alert_sweep()` (cron quotidien 7 h UTC) ; (2) passer un
+  `dedup_key` dès que l'émetteur est périodique, sinon le balayage réinsère la
+  même ligne tous les matins ; (3) ajouter le type au `NOTIF_CATALOGUE` et sa
+  route à `adminNotifLink()` dans `src/lib/notifications.ts` ; (4) ajouter
+  `notif.type.<clé>` dans les 3 langues. Les corps de trigger sont enveloppés
+  d'un `EXCEPTION WHEN OTHERS THEN RETURN NEW` : une alerte d'observabilité ne
+  doit jamais faire échouer l'écriture métier qu'elle observe.
+  Ce flux est IN-APP : il n'entre PAS dans `platform_notification_settings`, qui
+  pilote les push envoyés aux utilisateurs.
+  Les échéances (`admin_credential_deadlines`) sont le cœur du système : tout ce
+  qui expire seul — secret OAuth Apple à 6 mois en tête — y a une ligne datée qui
+  déclenche des rappels à J-30/14/7/2/1 puis relance en retard. Une échéance sans
+  date ne surveille rien : le balayage émet un rappel hebdomadaire tant qu'il en
+  reste. `/admin/alerts` ≠ `/admin/notifications` (registre des push auto).
 - Ajouter les 3 langues i18n pour toute nouvelle string.
 - Migrations : un fichier par changement, timestamp croissant, push via CLI.
 - Respecter le bon design system selon surface (public vs pro).
