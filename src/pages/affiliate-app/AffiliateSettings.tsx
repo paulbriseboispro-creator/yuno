@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
 import {
   Camera, Copy, Check, ExternalLink, Plus, Trash2, GripVertical, QrCode,
   User, Share2, ShieldCheck, Globe, ListOrdered,
@@ -207,9 +208,9 @@ export default function AffiliateSettings() {
     setSaveStates(prev => ({ ...prev, [key]: state }));
 
   // Single partial-update runner shared by every save (autosave + explicit button).
-  const runSave = async (key: string, fields: Record<string, unknown>) => {
+  const runSave = async (key: string, fields: Record<string, unknown>): Promise<boolean> => {
     const id = profileIdRef.current;
-    if (!id) return;
+    if (!id) return false;
     setSaveState(key, 'saving');
     try {
       const { error } = await supabase.from('affiliates').update(fields as TablesUpdate<'affiliates'>).eq('id', id);
@@ -217,10 +218,12 @@ export default function AffiliateSettings() {
       setProfile(p => (p ? { ...p, ...(fields as Partial<AffiliateProfile>) } : p));
       setSaveState(key, 'saved');
       setTimeout(() => setSaveState(key, 'idle'), 2000);
+      return true;
     } catch (err) {
       setSaveState(key, 'idle');
       const msg = err instanceof Error ? err.message : 'Erreur inconnue';
       toast({ title: 'Erreur', description: msg, variant: 'destructive' });
+      return false;
     }
   };
 
@@ -242,31 +245,88 @@ export default function AffiliateSettings() {
   };
 
   // ─── Explicit saves (text sections) ────────────────────────────────────────
-  const saveIdentity = () => {
+  // Chaque section a son propre bouton — donc sa propre garde : la barre
+  // « modifications non enregistrées » nomme celle(s) qui reste(nt) en attente.
+  const saveIdentity = async (): Promise<boolean> => {
     if (!form.name.trim()) {
       toast({ title: 'Nom requis', description: "Le nom de l'entité est obligatoire.", variant: 'destructive' });
-      return;
+      return false;
     }
-    runSave('identity', {
-      name: form.name.trim(),
-      city: form.city.trim() || null,
-      bio: form.bio.trim() || null,
+    const next = { name: form.name.trim(), city: form.city.trim(), bio: form.bio.trim() };
+    const ok = await runSave('identity', {
+      name: next.name,
+      city: next.city || null,
+      bio: next.bio || null,
     });
+    if (ok) { setForm(f => ({ ...f, ...next })); identityGuard.markSaved(next); }
+    return ok;
   };
 
-  const saveSocialLinks = () => runSave('links', {
-    instagram: form.instagram.trim() || null,
-    tiktok: form.tiktok.trim() || null,
-    website: form.website.trim() || null,
-    whatsapp: form.whatsapp.trim() || null,
+  const saveSocialLinks = async (): Promise<boolean> => {
+    const next = {
+      instagram: form.instagram.trim(), tiktok: form.tiktok.trim(),
+      website: form.website.trim(), whatsapp: form.whatsapp.trim(),
+    };
+    const ok = await runSave('links', {
+      instagram: next.instagram || null,
+      tiktok: next.tiktok || null,
+      website: next.website || null,
+      whatsapp: next.whatsapp || null,
+    });
+    if (ok) { setForm(f => ({ ...f, ...next })); linksGuard.markSaved(next); }
+    return ok;
+  };
+
+  const saveTrustStats = async (): Promise<boolean> => {
+    const next = trustStats.filter(s => s.value.trim() && s.label.trim());
+    const ok = await runSave('trust', { trust_stats: next });
+    if (ok) { setTrustStats(next); trustGuard.markSaved({ trustStats: next }); }
+    return ok;
+  };
+
+  const saveSlug = async (): Promise<boolean> => {
+    const next = form.linktree_slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '');
+    const ok = await runSave('slug', { linktree_slug: next || null });
+    if (ok) { setForm(f => ({ ...f, linktree_slug: next })); slugGuard.markSaved({ linktree_slug: next }); }
+    return ok;
+  };
+
+  const guardReady = !loading && Boolean(profile);
+
+  const identityGuard = useUnsavedGuard({
+    scope: 'affiliate-settings:identity',
+    label: 'Identité',
+    ready: guardReady,
+    value: { name: form.name, city: form.city, bio: form.bio },
+    onRestore: (v) => setForm(f => ({ ...f, ...v })),
+    onSave: saveIdentity,
   });
 
-  const saveTrustStats = () => runSave('trust', {
-    trust_stats: trustStats.filter(s => s.value.trim() && s.label.trim()),
+  const linksGuard = useUnsavedGuard({
+    scope: 'affiliate-settings:links',
+    label: 'Liens & réseaux',
+    ready: guardReady,
+    value: { instagram: form.instagram, tiktok: form.tiktok, website: form.website, whatsapp: form.whatsapp },
+    onRestore: (v) => setForm(f => ({ ...f, ...v })),
+    onSave: saveSocialLinks,
   });
 
-  const saveSlug = () => runSave('slug', {
-    linktree_slug: form.linktree_slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '') || null,
+  const trustGuard = useUnsavedGuard({
+    scope: 'affiliate-settings:trust',
+    label: 'Chiffres de confiance',
+    ready: guardReady,
+    value: { trustStats },
+    onRestore: (v) => setTrustStats(v.trustStats),
+    onSave: saveTrustStats,
+  });
+
+  const slugGuard = useUnsavedGuard({
+    scope: 'affiliate-settings:slug',
+    label: 'Lien public',
+    ready: guardReady,
+    value: { linktree_slug: form.linktree_slug },
+    onRestore: (v) => setForm(f => ({ ...f, ...v })),
+    onSave: saveSlug,
   });
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

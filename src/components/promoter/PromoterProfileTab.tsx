@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { TablesUpdate } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { Save, MessageCircle, User, Landmark, AlertTriangle, Loader2 } from 'lucide-react';
 import { Instagram } from '@/components/icons/Instagram';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
 
 interface Promoter {
   id: string;
@@ -38,7 +39,8 @@ export function PromoterProfileTab({ promoter, allPromoterProfiles, onSaved }: P
   const [instagram, setInstagram] = useState(promoter.instagram_url || '');
   const [whatsapp, setWhatsapp] = useState('');
   const [saving, setSaving] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const loadedRef = useRef(false);
 
   // Bank info state
   const allProfiles = allPromoterProfiles || [promoter];
@@ -50,25 +52,33 @@ export function PromoterProfileTab({ promoter, allPromoterProfiles, onSaved }: P
   const [newBic, setNewBic] = useState('');
   const [savingBank, setSavingBank] = useState(false);
 
-  // Load profile data on first render
-  if (!loaded && user) {
-    setLoaded(true);
-    supabase.from('profiles').select('first_name, last_name, phone').eq('id', user.id).single()
-      .then(({ data }) => {
-        if (data) {
-          setFirstName(data.first_name || '');
-          setLastName(data.last_name || '');
-          setWhatsapp(data.phone || '');
-        }
-      });
-    supabase.from('promoters').select('whatsapp_number, instagram_url').eq('id', promoter.id).single()
-      .then(({ data }) => {
-        if (data) {
-          if (data.whatsapp_number) setWhatsapp(data.whatsapp_number);
-          if (data.instagram_url) setInstagram(data.instagram_url);
-        }
-      });
-  }
+  // Chargement initial du profil. Les deux requêtes sont attendues ENSEMBLE :
+  // la garde des modifications non enregistrées fige sa référence sur `hydrated`,
+  // et une réponse en retard écrirait un champ après coup — le formulaire
+  // passerait alors pour « modifié » sans que personne n'ait rien tapé.
+  useEffect(() => {
+    if (loadedRef.current || !user) return;
+    loadedRef.current = true;
+    let cancelled = false;
+    (async () => {
+      const [prof, prom] = await Promise.all([
+        supabase.from('profiles').select('first_name, last_name, phone').eq('id', user.id).single(),
+        supabase.from('promoters').select('whatsapp_number, instagram_url').eq('id', promoter.id).single(),
+      ]);
+      if (cancelled) return;
+      if (prof.data) {
+        setFirstName(prof.data.first_name || '');
+        setLastName(prof.data.last_name || '');
+        setWhatsapp(prof.data.phone || '');
+      }
+      if (prom.data) {
+        if (prom.data.whatsapp_number) setWhatsapp(prom.data.whatsapp_number);
+        if (prom.data.instagram_url) setInstagram(prom.data.instagram_url);
+      }
+      setHydrated(true);
+    })();
+    return () => { cancelled = true; };
+  }, [user, promoter.id]);
 
   function generatePromoCode(first: string, last: string): string {
     const clean = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z]/g, '').toUpperCase();
@@ -78,8 +88,8 @@ export function PromoterProfileTab({ promoter, allPromoterProfiles, onSaved }: P
     return f + (l ? l[0] : '');
   }
 
-  async function handleSave() {
-    if (!user) return;
+  async function handleSave(): Promise<boolean> {
+    if (!user) return false;
     setSaving(true);
     try {
       const { error: profErr } = await supabase.from('profiles').update({
@@ -89,7 +99,7 @@ export function PromoterProfileTab({ promoter, allPromoterProfiles, onSaved }: P
       if (profErr) throw profErr;
 
       const newCode = generatePromoCode(firstName, lastName);
-      const updateData: Record<string, any> = {
+      const updateData: TablesUpdate<'promoters'> = {
         instagram_url: instagram || null,
         whatsapp_number: whatsapp || null,
       };
@@ -123,14 +133,29 @@ export function PromoterProfileTab({ promoter, allPromoterProfiles, onSaved }: P
       const { error: promErr } = await supabase.from('promoters').update(updateData as TablesUpdate<'promoters'>).eq('user_id', user.id);
       if (promErr) throw promErr;
 
+      markSaved();
       toast.success('Profil mis à jour');
       onSaved?.();
+      return true;
     } catch {
       toast.error('Erreur lors de la sauvegarde');
+      return false;
     } finally {
       setSaving(false);
     }
   }
+
+  const { markSaved } = useUnsavedGuard({
+    scope: `promoter-profile:${promoter.id}`,
+    label: t('unsaved.section.promoterProfile'),
+    ready: hydrated,
+    value: { firstName, lastName, instagram, whatsapp },
+    onRestore: (v) => {
+      setFirstName(v.firstName); setLastName(v.lastName);
+      setInstagram(v.instagram); setWhatsapp(v.whatsapp);
+    },
+    onSave: handleSave,
+  });
 
   const handleOpenIbanDialog = () => {
     setNewIban(globalIban);

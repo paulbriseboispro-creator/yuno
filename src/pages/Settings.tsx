@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
 import { useAuth } from '@/hooks/useAuth';
 import { useNightlifeProfile } from '@/hooks/useNightlifeProfile';
 import { legalContent, type LegalSection } from '@/data/legalContent';
@@ -32,6 +33,7 @@ export default function Settings() {
   const [isOwner, setIsOwner] = useState(false);
   // Opt-out RGPD des recommandations personnalisées (rail « Pour toi »).
   const [personalizationOptOut, setPersonalizationOptOut] = useState(false);
+  const [discoveryOptOut, setDiscoveryOptOut] = useState(false);
 
   // Email change state
   const [emailChangeLoading, setEmailChangeLoading] = useState(false);
@@ -62,11 +64,12 @@ export default function Settings() {
     if (!user) return;
     supabase
       .from('profiles')
-      .select('personalization_opt_out')
+      .select('personalization_opt_out, discovery_opt_out')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data }) => {
         setPersonalizationOptOut(Boolean(data?.personalization_opt_out));
+        setDiscoveryOptOut(Boolean(data?.discovery_opt_out));
       });
   }, [user]);
 
@@ -169,17 +172,31 @@ export default function Settings() {
     return new Date(dateStr).toLocaleDateString(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-US');
   };
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<boolean> => {
     setSaving(true);
     const result = await updateProfile(formData);
     setSaving(false);
     if (result.success) {
+      markSaved();
       toast.success(t('profile.saved'));
       setEditMode(false);
-    } else {
-      toast.error(t('profile.saveError'));
+      return true;
     }
+    toast.error(t('profile.saveError'));
+    return false;
   };
+
+  // La garde n'est armée qu'en mode édition : hors édition les champs ne sont
+  // pas modifiables, il n'y a rien à perdre ni à avertir.
+  const { markSaved } = useUnsavedGuard({
+    scope: 'account-settings',
+    label: t('profile.personalInfo'),
+    ready: Boolean(profile),
+    value: formData,
+    onRestore: setFormData,
+    onSave: handleSave,
+    disabled: !editMode,
+  });
 
   const handleResetPassword = async () => {
     try {
@@ -536,6 +553,29 @@ export default function Settings() {
                     .eq('id', user!.id);
                   if (error) {
                     setPersonalizationOptOut(!optOut);
+                    toast.error(t('settings.prefError'));
+                  } else {
+                    toast.success(t('settings.prefUpdated'));
+                  }
+                }}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-sm">{t('settings.discovery')}</span>
+                <p className="text-xs text-muted-foreground mt-0.5">{t('settings.discoveryHint')}</p>
+              </div>
+              <Switch
+                checked={!discoveryOptOut}
+                onCheckedChange={async (on) => {
+                  const optOut = !on;
+                  setDiscoveryOptOut(optOut);
+                  const { error } = await supabase
+                    .from('profiles')
+                    .update({ discovery_opt_out: optOut })
+                    .eq('id', user!.id);
+                  if (error) {
+                    setDiscoveryOptOut(!optOut);
                     toast.error(t('settings.prefError'));
                   } else {
                     toast.success(t('settings.prefUpdated'));

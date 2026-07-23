@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { KeyRound, Save, Music, Image as ImageIcon, Trash2, ArrowLeft, ArrowRight, Plus, Euro } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { makeDjT } from '@/i18n/djTranslate';
 import { useDJData } from '@/contexts/DJDataContext';
+import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
 import { ChangePinFlow } from '@/components/ChangePinFlow';
 import { ProfilePhotoUpload } from '@/components/ProfilePhotoUpload';
 import { DJShareCard } from '@/components/dj/DJShareCard';
@@ -49,6 +50,11 @@ export default function DJProfile() {
   // Photo gallery (per person, table dj_photos).
   const [photos, setPhotos] = useState<{ id: string; url: string; sort_order: number }[]>([]);
   const [galleryBusy, setGalleryBusy] = useState(false);
+  // Profil dont le formulaire est effectivement chargé. La garde des
+  // modifications non enregistrées ne fige sa référence qu'à partir de là :
+  // sur `dj` seul, elle photographierait le formulaire encore vide et
+  // annoncerait des modifications en attente dès l'ouverture de la page.
+  const [hydratedFor, setHydratedFor] = useState<string | null>(null);
 
   useEffect(() => {
     if (!dj) return;
@@ -70,6 +76,7 @@ export default function DJProfile() {
     });
     setTrackUrl(dj.featured_track_url || null);
     setTrackTitle(dj.featured_track_title || '');
+    setHydratedFor(dj.id);
     // Repopulate the form only when the active profile (venue) changes, not on
     // every dj object identity change — otherwise it would clobber in-progress edits.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -111,16 +118,29 @@ export default function DJProfile() {
     setPhotos(data || []);
   };
 
+  // Garde de sortie + auto-save local. Le hook doit être appelé avant tout
+  // retour anticipé : l'enregistrement passe donc par une référence, remplie
+  // juste après la définition de handleSave.
+  const saveRef = useRef<() => Promise<boolean>>();
+  const { markSaved } = useUnsavedGuard({
+    scope: `dj-profile:${dj?.id ?? 'none'}`,
+    label: t('dj.myProfile'),
+    ready: Boolean(dj) && hydratedFor === dj?.id,
+    value: editForm,
+    onRestore: setEditForm,
+    onSave: () => saveRef.current?.() ?? false,
+  });
+
   if (!dj) return null;
   const displayName = dj.stage_name || `${dj.first_name} ${dj.last_name}`;
   const BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu';
   const publicSlug = handle || dj.slug;
   const epkUrl = publicSlug ? `${BASE_URL}/dj/${publicSlug}/epk` : undefined;
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<boolean> => {
     if (!editForm.firstName || !editForm.lastName) {
       toast.error(t('dj.firstLastRequired'));
-      return;
+      return false;
     }
     setSaving(true);
     try {
@@ -149,15 +169,19 @@ export default function DJProfile() {
         })
         .eq('id', dj.id);
       if (error) throw error;
+      markSaved();
       toast.success(t('dj.profileUpdated'));
       refetchProfiles();
+      return true;
     } catch (error) {
       console.error('Error saving:', error);
       toast.error(t('dj.saveError'));
+      return false;
     } finally {
       setSaving(false);
     }
   };
+  saveRef.current = handleSave;
 
   // Track + gallery write by user_id so they show on ALL of the person's profiles.
   const persistTrack = async (url: string | null, title: string | null) => {

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
 import { Camera, Copy, Check, ExternalLink, QrCode, User, Link2, Share2 } from 'lucide-react';
 import AffiliateQRSection from '@/components/affiliate/AffiliateQRSection';
 import AvatarCropModal from '@/components/AvatarCropModal';
@@ -122,37 +123,62 @@ export default function AffiliatePromoterSettings() {
     setForm(f => ({ ...f, linktree_slug: clean }));
   };
 
-  const handleSave = async () => {
-    if (!profile) return;
+  const handleSave = async (): Promise<boolean> => {
+    if (!profile) return false;
     if (!form.first_name.trim() || !form.last_name.trim()) {
       toast({ title: 'Champs requis', description: 'Prénom et nom sont obligatoires.', variant: 'destructive' });
-      return;
+      return false;
     }
     setSaving(true);
     try {
+      // Les valeurs enregistrées sont les valeurs nettoyées : c'est celles-là
+      // qui deviennent la référence, sinon un espace en trop laisserait la
+      // garde croire à une modification en attente juste après l'enregistrement.
+      const trimmed: FormState = {
+        first_name: form.first_name.trim(),
+        last_name: form.last_name.trim(),
+        linktree_slug: form.linktree_slug.trim(),
+        instagram: form.instagram.trim(),
+        tiktok: form.tiktok.trim(),
+        whatsapp: form.whatsapp.trim(),
+        website: form.website.trim(),
+      };
       const { error } = await supabase
         .from('affiliate_members')
         .update({
-          first_name: form.first_name.trim(),
-          last_name: form.last_name.trim(),
-          linktree_slug: form.linktree_slug.trim() || null,
-          instagram: form.instagram.trim() || null,
-          tiktok: form.tiktok.trim() || null,
-          whatsapp: form.whatsapp.trim() || null,
-          website: form.website.trim() || null,
+          first_name: trimmed.first_name,
+          last_name: trimmed.last_name,
+          linktree_slug: trimmed.linktree_slug || null,
+          instagram: trimmed.instagram || null,
+          tiktok: trimmed.tiktok || null,
+          whatsapp: trimmed.whatsapp || null,
+          website: trimmed.website || null,
         })
         .eq('id', profile.id);
 
       if (error) throw error;
+      setForm(trimmed);
+      markSaved(trimmed);
       toast({ title: 'Profil mis à jour', description: 'Vos informations ont été sauvegardées.' });
       fetchProfile();
+      return true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erreur inconnue';
       toast({ title: 'Erreur', description: msg, variant: 'destructive' });
+      return false;
     } finally {
       setSaving(false);
     }
   };
+
+  const { markSaved } = useUnsavedGuard({
+    scope: 'affiliate-promoter-settings',
+    label: 'Mon profil',
+    ready: !loading && Boolean(profile),
+    value: form,
+    onRestore: setForm,
+    onSave: handleSave,
+  });
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

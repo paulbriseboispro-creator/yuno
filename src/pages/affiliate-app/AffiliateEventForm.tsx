@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
 import { ExternalLink, Loader2, CalendarDays, Ticket, ImageIcon, ListMusic } from 'lucide-react';
 import { AffiliateImageUploader } from '@/components/affiliate/AffiliateImageUploader';
 import { AffiliateDraggableGallery } from '@/components/affiliate/AffiliateDraggableGallery';
@@ -121,21 +122,22 @@ export default function AffiliateEventForm() {
   const toggleGenre = (g: string) =>
     set('genres', form.genres.includes(g) ? form.genres.filter((x) => x !== g) : [...form.genres, g]);
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<boolean> => {
     if (!affiliateId || !form.name || !form.event_date) {
       toast({ title: 'Champs requis', description: 'Nom et date sont obligatoires.', variant: 'destructive' });
-      return;
+      return false;
     }
 
     setSaving(true);
     try {
       const djNames = form.dj_names.split(',').map((d) => d.trim()).filter(Boolean);
+      const slug = form.slug || slugify(`${form.name}-${form.event_date}`);
 
       const payload = {
         affiliate_id: affiliateId,
         affiliate_venue_id: form.affiliate_venue_id || null,
         name: form.name,
-        slug: form.slug || slugify(`${form.name}-${form.event_date}`),
+        slug,
         event_date: form.event_date,
         start_time: form.start_time || null,
         end_time: form.end_time || null,
@@ -151,24 +153,42 @@ export default function AffiliateEventForm() {
         status: form.status,
       };
 
+      const saved: FormData = { ...form, slug };
+
       if (isEdit && id) {
         const { error } = await supabase.from('affiliate_events').update(payload).eq('id', id);
         if (error) throw error;
+        setForm(saved);
+        markSaved(saved);
         toast({ title: 'Soirée mise à jour' });
+        // On RESTE sur la soirée après une modification.
       } else {
-        const { error } = await supabase.from('affiliate_events').insert(payload);
+        const { data, error } = await supabase.from('affiliate_events').insert(payload).select('id').single();
         if (error) throw error;
+        setForm(saved);
+        markSaved(saved);
         toast({ title: 'Soirée créée' });
+        // Bascule en édition sur place : un second « Enregistrer » met à jour.
+        if (data?.id) navigate(`/affiliate/events/${data.id}/edit`, { replace: true });
       }
-
-      navigate('/affiliate/events');
+      return true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erreur';
       toast({ title: 'Erreur', description: msg, variant: 'destructive' });
+      return false;
     } finally {
       setSaving(false);
     }
   };
+
+  const { markSaved, guardedNavigate } = useUnsavedGuard({
+    scope: `affiliate-event:${id ?? 'new'}`,
+    label: isEdit ? 'Fiche soirée' : 'Nouvelle soirée',
+    ready: !loadingData && Boolean(affiliateId),
+    value: form,
+    onRestore: setForm,
+    onSave: handleSave,
+  });
 
   if (loadingData) return <AffSpinner />;
 
@@ -179,7 +199,7 @@ export default function AffiliateEventForm() {
   return (
     <AffPage maxWidth={760}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-        <AffBackHeader title={isEdit ? 'Modifier la soirée' : 'Nouvelle soirée'} onBack={() => navigate('/affiliate/events')} />
+        <AffBackHeader title={isEdit ? 'Modifier la soirée' : 'Nouvelle soirée'} onBack={() => guardedNavigate('/affiliate/events')} />
       </motion.div>
 
       {/* Infos de base */}
@@ -286,7 +306,7 @@ export default function AffiliateEventForm() {
           {saving && <Loader2 className="h-4 w-4 animate-spin" />}
           {isEdit ? 'Enregistrer' : 'Créer la soirée'}
         </AffButton>
-        <AffButton variant="ghost" onClick={() => navigate('/affiliate/events')}>Annuler</AffButton>
+        <AffButton variant="ghost" onClick={() => guardedNavigate('/affiliate/events')}>Annuler</AffButton>
       </div>
     </AffPage>
   );

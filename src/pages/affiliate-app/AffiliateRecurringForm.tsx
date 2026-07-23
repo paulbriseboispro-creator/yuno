@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
 import { Loader2, Zap, RefreshCw, Sparkles, ImageIcon } from 'lucide-react';
 import { AffiliateImageUploader } from '@/components/affiliate/AffiliateImageUploader';
 import {
@@ -157,12 +158,12 @@ export default function AffiliateRecurringForm() {
   const toggleBulkDay = (day: number) =>
     setBulkSelectedDays((prev) => prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]);
 
-  const handleSave = async () => {
-    if (!affiliateId) return;
+  const handleSave = async (): Promise<boolean> => {
+    if (!affiliateId) return false;
 
     if (bulkMode && !isEdit) {
-      if (!form.affiliate_venue_id) { toast({ title: 'Sélectionne un club', variant: 'destructive' }); return; }
-      if (bulkSelectedDays.length === 0) { toast({ title: 'Sélectionne au moins un jour', variant: 'destructive' }); return; }
+      if (!form.affiliate_venue_id) { toast({ title: 'Sélectionne un club', variant: 'destructive' }); return false; }
+      if (bulkSelectedDays.length === 0) { toast({ title: 'Sélectionne au moins un jour', variant: 'destructive' }); return false; }
       setSaving(true);
       const clubName = venues.find((v) => v.id === form.affiliate_venue_id)?.name ?? 'Club';
       const errors: string[] = [];
@@ -190,22 +191,26 @@ export default function AffiliateRecurringForm() {
       setSaving(false);
       if (errors.length > 0) {
         toast({ title: 'Erreurs', description: errors.join(' · '), variant: 'destructive' });
-      } else {
-        await supabase.functions.invoke('create-affiliate-recurring-events');
-        toast({ title: `${bulkSelectedDays.length} template(s) créé(s) — soirées publiées` });
-        navigate('/affiliate/recurring');
+        return false;
       }
-      return;
+      await supabase.functions.invoke('create-affiliate-recurring-events');
+      markSaved();
+      toast({ title: `${bulkSelectedDays.length} template(s) créé(s) — soirées publiées` });
+      // Le mode groupé crée PLUSIEURS templates d'un coup : il n'y a pas de
+      // « la » fiche sur laquelle rester, la liste est la bonne destination.
+      navigate('/affiliate/recurring');
+      return true;
     }
 
-    if (!form.name) { toast({ title: 'Nom requis', variant: 'destructive' }); return; }
+    if (!form.name) { toast({ title: 'Nom requis', variant: 'destructive' }); return false; }
     setSaving(true);
     try {
+      const slug = form.slug || slugify(form.name);
       const payload = {
         affiliate_id: affiliateId,
         affiliate_venue_id: form.affiliate_venue_id || null,
         name: form.name,
-        slug: form.slug || slugify(form.name),
+        slug,
         day_of_week: form.day_of_week,
         advance_days: form.advance_days,
         start_time: form.start_time || null,
@@ -218,25 +223,47 @@ export default function AffiliateRecurringForm() {
         publication_url: form.publication_url || null,
       };
 
+      const saved: FormData = { ...form, slug };
+      let createdId: string | null = null;
+
       if (isEdit && id) {
         const { error } = await supabase.from('affiliate_recurring_templates').update(payload).eq('id', id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('affiliate_recurring_templates').insert(payload);
+        const { data, error } = await supabase.from('affiliate_recurring_templates').insert(payload).select('id').single();
         if (error) throw error;
+        createdId = data?.id ?? null;
       }
 
       await supabase.functions.invoke('create-affiliate-recurring-events');
 
+      setForm(saved);
+      markSaved({ form: saved, bulkMode, bulkSelectedDays });
       toast({ title: isEdit ? 'Template mis à jour — soirées synchronisées' : 'Template créé — soirées publiées' });
-      navigate('/affiliate/recurring');
+      // On RESTE sur le template : après édition rien ne bouge, après création
+      // on bascule en mode édition sur place.
+      if (createdId) navigate(`/affiliate/recurring/${createdId}/edit`, { replace: true });
+      return true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erreur';
       toast({ title: 'Erreur', description: msg, variant: 'destructive' });
+      return false;
     } finally {
       setSaving(false);
     }
   };
+
+  // Le mode groupé fait partie de l'état à protéger : le jour sélectionné et le
+  // club choisi disparaissaient avec le reste au moindre changement d'onglet.
+  const guardValue = { form, bulkMode, bulkSelectedDays };
+  const { markSaved, guardedNavigate } = useUnsavedGuard({
+    scope: `affiliate-recurring:${id ?? 'new'}`,
+    label: isEdit ? 'Template récurrent' : 'Nouveau template',
+    ready: !loadingData && Boolean(affiliateId),
+    value: guardValue,
+    onRestore: (v) => { setForm(v.form); setBulkMode(v.bulkMode); setBulkSelectedDays(v.bulkSelectedDays); },
+    onSave: handleSave,
+  });
 
   if (loadingData) return <AffSpinner />;
 
@@ -247,7 +274,7 @@ export default function AffiliateRecurringForm() {
   return (
     <AffPage maxWidth={760}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-        <AffBackHeader title={isEdit ? 'Modifier le template' : 'Nouveau template récurrent'} onBack={() => navigate('/affiliate/recurring')} />
+        <AffBackHeader title={isEdit ? 'Modifier le template' : 'Nouveau template récurrent'} onBack={() => guardedNavigate('/affiliate/recurring')} />
       </motion.div>
 
       {/* Bulk mode toggle — création uniquement */}
@@ -387,7 +414,7 @@ export default function AffiliateRecurringForm() {
                 ? `Créer ${bulkSelectedDays.length} template${bulkSelectedDays.length !== 1 ? 's' : ''}`
                 : 'Créer le template'}
         </AffButton>
-        <AffButton variant="ghost" onClick={() => navigate('/affiliate/recurring')}>Annuler</AffButton>
+        <AffButton variant="ghost" onClick={() => guardedNavigate('/affiliate/recurring')}>Annuler</AffButton>
       </div>
     </AffPage>
   );

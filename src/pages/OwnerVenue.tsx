@@ -33,6 +33,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { useVenueContext } from '@/hooks/useVenueContext';
+import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
 import { Switch } from '@/components/ui/switch';
 import { BarConfigSection } from '@/components/owner/BarConfigSection';
 import TrackedLinksManager from '@/components/tracking/TrackedLinksManager';
@@ -236,7 +237,7 @@ export default function OwnerVenue() {
       .eq('venue_id', venueId)
       .eq('is_active', true)
       .order('position', { ascending: true });
-    if (data) setAccessDocs(data.map((d: any) => ({ id: d.id, label: d.label, fileUrl: d.file_url, fileName: d.file_name })));
+    if (data) setAccessDocs(data.map(d => ({ id: d.id, label: d.label, fileUrl: d.file_url, fileName: d.file_name })));
   };
 
   const fetchVenue = async () => {
@@ -258,20 +259,20 @@ export default function OwnerVenue() {
       setTwitterUrl(data.twitter_url || '');
       setWhatsappNumber(data.whatsapp_number || '');
       setHiddenFromMap(data.hidden_from_map || false);
-      setVenueDescription((data as any).description || '');
-      setShortDescription((data as any).short_description || '');
-      setMusicGenre((data as any).music_genre || '');
-      setMinAge((data as any).min_age || '');
-      setMinorsAllowed((data as any).minors_allowed ?? false);
-      setMinorAuthDoc((data as any).minor_auth_doc_url ? { url: (data as any).minor_auth_doc_url, name: (data as any).minor_auth_doc_name || 'Document' } : null);
-      setMenuEnabled((data as any).menu_enabled !== false);
-      setFreeDrinkMode((data as any).free_drink_mode || 'credits');
-      setAbsorbFees((data as any).absorb_yuno_fees === true);
-      setLegalName((data as any).legal_name || '');
-      setSiret((data as any).siret || '');
-      setVatNumber((data as any).vat_number || '');
-      setLegalAddress((data as any).legal_address || '');
-      setInvoicePrefix((data as any).invoice_prefix || 'FAC');
+      setVenueDescription(data.description || '');
+      setShortDescription(data.short_description || '');
+      setMusicGenre(data.music_genre || '');
+      setMinAge(data.min_age || '');
+      setMinorsAllowed(data.minors_allowed ?? false);
+      setMinorAuthDoc(data.minor_auth_doc_url ? { url: data.minor_auth_doc_url, name: data.minor_auth_doc_name || 'Document' } : null);
+      setMenuEnabled(data.menu_enabled !== false);
+      setFreeDrinkMode((data.free_drink_mode as 'credits' | 'bouncer_notify' | null) || 'credits');
+      setAbsorbFees(data.absorb_yuno_fees === true);
+      setLegalName(data.legal_name || '');
+      setSiret(data.siret || '');
+      setVatNumber(data.vat_number || '');
+      setLegalAddress(data.legal_address || '');
+      setInvoicePrefix(data.invoice_prefix || 'FAC');
     } catch { toast.error(t('owner.errorLoadingVenue')); }
     finally { setLoading(false); }
   };
@@ -283,7 +284,7 @@ export default function OwnerVenue() {
       const { data, error } = await supabase.functions.invoke('geocode-address', { body: { address: addr } });
       if (error) throw error;
       if (data?.latitude && data?.longitude) { setCoordinates({ lat: data.latitude, lng: data.longitude }); return { lat: data.latitude, lng: data.longitude }; }
-    } catch {}
+    } catch { /* géocodage best-effort : retourne null plus bas */ }
     finally { setGeocoding(false); }
     return null;
   }, []);
@@ -350,7 +351,7 @@ export default function OwnerVenue() {
   };
   const handleMouseUp = () => setIsDragging(false);
 
-  const handleSaveVenueInfo = async () => {
+  const handleSaveVenueInfo = async (): Promise<boolean> => {
     try {
       let lat = coordinates.lat, lng = coordinates.lng;
       if (address && address.length >= 5) { const coords = await geocodeAddress(address); if (coords) { lat = coords.lat; lng = coords.lng; } }
@@ -361,13 +362,18 @@ export default function OwnerVenue() {
         music_genre: musicGenre || null,
         min_age: minAge !== '' ? Number(minAge) : null,
         minors_allowed: minorsAllowed,
-      } as any).eq('id', venueId);
+      }).eq('id', venueId);
       if (error) throw error;
+      // Le géocodage a pu écrire de nouvelles coordonnées : la référence doit
+      // intégrer CE qui est parti en base, pas ce qui était à l'écran avant.
+      setCoordinates({ lat, lng });
+      infoGuard.markSaved({ city, address, coordinates: { lat, lng }, venueDescription, shortDescription, musicGenre, minAge, minorsAllowed });
       toast.success(lat && lng ? t('owner.infoGpsUpdated') : t('owner.infoUpdated'));
-    } catch { toast.error(t('owner.errorSaving')); }
+      return true;
+    } catch { toast.error(t('owner.errorSaving')); return false; }
   };
 
-  const handleSaveSocialMedia = async () => {
+  const handleSaveSocialMedia = async (): Promise<boolean> => {
     setSavingSocial(true);
     try {
       const { error } = await supabase.from('venues').update({
@@ -376,23 +382,70 @@ export default function OwnerVenue() {
         whatsapp_number: whatsappNumber || null,
       }).eq('id', venueId);
       if (error) throw error;
+      socialGuard.markSaved({ instagramUrl, facebookUrl, tiktokUrl, twitterUrl, whatsappNumber });
       toast.success(t('owner.socialMediaSaved'));
-    } catch { toast.error(t('owner.errorSaving')); }
+      return true;
+    } catch { toast.error(t('owner.errorSaving')); return false; }
     finally { setSavingSocial(false); }
   };
 
-  const handleSaveLegalInfo = async () => {
+  const handleSaveLegalInfo = async (): Promise<boolean> => {
     setSavingLegal(true);
     try {
       const { error } = await supabase.from('venues').update({
         legal_name: legalName || null, siret: siret || null, vat_number: vatNumber || null,
         legal_address: legalAddress || null, invoice_prefix: invoicePrefix || 'FAC',
-      } as any).eq('id', venueId);
+      }).eq('id', venueId);
       if (error) throw error;
+      legalGuard.markSaved({ legalName, siret, vatNumber, legalAddress, invoicePrefix });
       toast.success(t('owner.legalInfoSaved'));
-    } catch { toast.error(t('owner.errorSaving')); }
+      return true;
+    } catch { toast.error(t('owner.errorSaving')); return false; }
     finally { setSavingLegal(false); }
   };
+
+  // ─── Garde « modifications non enregistrées » ──────────────────────────────
+  // Une garde par section, parce que la page enregistre section par section :
+  // la barre nomme exactement ce qui reste en attente, et « Enregistrer » ne
+  // pousse que les sections réellement modifiées.
+  const guardReady = !loading && Boolean(venueId);
+
+  const infoGuard = useUnsavedGuard({
+    scope: `owner-venue-info:${venueId ?? 'none'}`,
+    label: t('owner.venueInfo'),
+    ready: guardReady,
+    value: { city, address, coordinates, venueDescription, shortDescription, musicGenre, minAge, minorsAllowed },
+    onRestore: (v) => {
+      setCity(v.city); setAddress(v.address); setCoordinates(v.coordinates);
+      setVenueDescription(v.venueDescription); setShortDescription(v.shortDescription);
+      setMusicGenre(v.musicGenre); setMinAge(v.minAge); setMinorsAllowed(v.minorsAllowed);
+    },
+    onSave: handleSaveVenueInfo,
+  });
+
+  const socialGuard = useUnsavedGuard({
+    scope: `owner-venue-social:${venueId ?? 'none'}`,
+    label: t('owner.socialMedia'),
+    ready: guardReady,
+    value: { instagramUrl, facebookUrl, tiktokUrl, twitterUrl, whatsappNumber },
+    onRestore: (v) => {
+      setInstagramUrl(v.instagramUrl); setFacebookUrl(v.facebookUrl); setTiktokUrl(v.tiktokUrl);
+      setTwitterUrl(v.twitterUrl); setWhatsappNumber(v.whatsappNumber);
+    },
+    onSave: handleSaveSocialMedia,
+  });
+
+  const legalGuard = useUnsavedGuard({
+    scope: `owner-venue-legal:${venueId ?? 'none'}`,
+    label: t('owner.legalInfoTitle'),
+    ready: guardReady,
+    value: { legalName, siret, vatNumber, legalAddress, invoicePrefix },
+    onRestore: (v) => {
+      setLegalName(v.legalName); setSiret(v.siret); setVatNumber(v.vatNumber);
+      setLegalAddress(v.legalAddress); setInvoicePrefix(v.invoicePrefix);
+    },
+    onSave: handleSaveLegalInfo,
+  });
 
   const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -438,7 +491,7 @@ export default function OwnerVenue() {
       const { error: uploadError } = await supabase.storage.from('venue-assets').upload(filePath, file, { contentType: file.type || (isTxt ? 'text/plain' : 'application/pdf') });
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from('venue-assets').getPublicUrl(filePath);
-      const { error } = await supabase.from('venues').update({ minor_auth_doc_url: publicUrl, minor_auth_doc_name: file.name } as any).eq('id', venueId);
+      const { error } = await supabase.from('venues').update({ minor_auth_doc_url: publicUrl, minor_auth_doc_name: file.name }).eq('id', venueId);
       if (error) throw error;
       setMinorAuthDoc({ url: publicUrl, name: file.name });
       toast.success(t('owner.accessDocsAdded'));
@@ -448,7 +501,7 @@ export default function OwnerVenue() {
 
   const handleRemoveMinorDoc = async () => {
     try {
-      const { error } = await supabase.from('venues').update({ minor_auth_doc_url: null, minor_auth_doc_name: null } as any).eq('id', venueId);
+      const { error } = await supabase.from('venues').update({ minor_auth_doc_url: null, minor_auth_doc_name: null }).eq('id', venueId);
       if (error) throw error;
       setMinorAuthDoc(null);
       toast.success(t('owner.accessDocsRemoved'));
@@ -471,7 +524,7 @@ export default function OwnerVenue() {
       const label = file.name.replace(/\.pdf$/i, '').slice(0, 80) || t('owner.accessDocsDefaultLabel');
       const { data: inserted, error } = await supabase.from('venue_access_documents').insert({
         venue_id: venueId, label, file_url: publicUrl, file_name: file.name, position: accessDocs.length,
-      } as any).select('id, label, file_url, file_name').single();
+      }).select('id, label, file_url, file_name').single();
       if (error) throw error;
       setAccessDocs([...accessDocs, { id: inserted.id, label: inserted.label, fileUrl: inserted.file_url, fileName: inserted.file_name }]);
       toast.success(t('owner.accessDocsAdded'));
@@ -481,7 +534,7 @@ export default function OwnerVenue() {
 
   const handleRenameAccessDoc = async (id: string, label: string) => {
     setAccessDocs(docs => docs.map(d => d.id === id ? { ...d, label } : d));
-    await supabase.from('venue_access_documents').update({ label: label || t('owner.accessDocsDefaultLabel') } as any).eq('id', id);
+    await supabase.from('venue_access_documents').update({ label: label || t('owner.accessDocsDefaultLabel') }).eq('id', id);
   };
 
   const handleRemoveAccessDoc = async (id: string) => {
@@ -855,7 +908,7 @@ export default function OwnerVenue() {
             </div>
             <Switch checked={menuEnabled} onCheckedChange={async checked => {
               setMenuEnabled(checked);
-              const { error } = await supabase.from('venues').update({ menu_enabled: checked } as any).eq('id', venueId);
+              const { error } = await supabase.from('venues').update({ menu_enabled: checked }).eq('id', venueId);
               if (error) { setMenuEnabled(!checked); toast.error(t('owner.barConfigError')); }
               else { toast.success(checked ? t('owner.menuActivated') : t('owner.menuDeactivated')); }
             }} />
@@ -874,7 +927,7 @@ export default function OwnerVenue() {
             </div>
             <Switch checked={absorbFees} onCheckedChange={async checked => {
               setAbsorbFees(checked);
-              const { error } = await supabase.from('venues').update({ absorb_yuno_fees: checked } as any).eq('id', venueId);
+              const { error } = await supabase.from('venues').update({ absorb_yuno_fees: checked }).eq('id', venueId);
               if (error) { setAbsorbFees(!checked); toast.error(t('owner.errorSaving')); }
               else { toast.success(checked ? t('owner.absorbFeesOn') : t('owner.absorbFeesOff')); }
             }} />
@@ -898,7 +951,7 @@ export default function OwnerVenue() {
                   onClick={async () => {
                     if (!menuEnabled) return;
                     setFreeDrinkMode(val);
-                    if (venueId) await supabase.from('venues').update({ free_drink_mode: val } as any).eq('id', venueId);
+                    if (venueId) await supabase.from('venues').update({ free_drink_mode: val }).eq('id', venueId);
                   }}>
                   <div className="mt-0.5 h-4 w-4 rounded-full border-2 flex items-center justify-center flex-shrink-0"
                     style={{ borderColor: freeDrinkMode === val ? RED : T3 }}>

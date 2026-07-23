@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
 import { Loader2, Lock, Building2, ImageIcon, Sliders, LinkIcon } from 'lucide-react';
 import { AffiliateImageUploader } from '@/components/affiliate/AffiliateImageUploader';
 import { AffiliateDraggableGallery } from '@/components/affiliate/AffiliateDraggableGallery';
@@ -127,10 +128,10 @@ export default function AffiliateVenueForm() {
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<boolean> => {
     if (!affiliateId || !form.name) {
       toast({ title: 'Nom requis', variant: 'destructive' });
-      return;
+      return false;
     }
 
     setSaving(true);
@@ -160,25 +161,50 @@ export default function AffiliateVenueForm() {
         lng: form.lng,
       };
 
+      // Le slug peut avoir été désambiguïsé (suffixe -1, -2…) : on remet la
+      // valeur réellement enregistrée dans le formulaire avant de figer la
+      // référence, sinon la garde croirait à une modification en attente.
+      const saved: FormData = { ...form, slug };
+
       if (isEdit && id) {
         const { error } = await supabase.from('affiliate_venues').update(payload).eq('id', id).select().single();
         if (error) throw error;
+        setForm(saved);
+        markSaved(saved);
         toast({ title: 'Club mis à jour' });
+        // On RESTE sur la fiche : après une modification, repartir sur la liste
+        // fait perdre le fil (et oblige à rouvrir le club pour vérifier).
       } else {
-        const { error } = await supabase.from('affiliate_venues').insert(payload).select().single();
+        const { data, error } = await supabase.from('affiliate_venues').insert(payload).select('id').single();
         if (error) throw error;
+        setForm(saved);
+        markSaved(saved);
         toast({ title: 'Club créé' });
+        // Bascule en mode édition sur place : même écran, même contenu, mais un
+        // second « Enregistrer » met à jour au lieu de créer un doublon.
+        if (data?.id) navigate(`/affiliate/venues/${data.id}/edit`, { replace: true });
       }
-
-      navigate('/affiliate/venues');
+      return true;
     } catch (err) {
       const msg = (err as any)?.message ?? (err instanceof Error ? err.message : 'Erreur inconnue');
       const hint = (err as any)?.hint ?? (err as any)?.details ?? '';
       toast({ title: 'Erreur', description: hint ? `${msg} — ${hint}` : msg, variant: 'destructive' });
+      return false;
     } finally {
       setSaving(false);
     }
   };
+
+  // Auto-save local + garde de sortie. `scope` porte l'id : le brouillon d'une
+  // création ne peut pas se déverser dans l'édition d'un autre club.
+  const { markSaved, guardedNavigate } = useUnsavedGuard({
+    scope: `affiliate-venue:${id ?? 'new'}`,
+    label: isEdit ? 'Fiche club' : 'Nouveau club',
+    ready: !loadingData && Boolean(affiliateId),
+    value: form,
+    onRestore: setForm,
+    onSave: handleSave,
+  });
 
   if (loadingData) return <AffSpinner />;
 
@@ -189,7 +215,7 @@ export default function AffiliateVenueForm() {
   return (
     <AffPage maxWidth={760}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-        <AffBackHeader title={isEdit ? 'Modifier le club' : 'Nouveau club'} onBack={() => navigate('/affiliate/venues')} />
+        <AffBackHeader title={isEdit ? 'Modifier le club' : 'Nouveau club'} onBack={() => guardedNavigate('/affiliate/venues')} />
       </motion.div>
 
       {/* Identité */}
@@ -306,7 +332,7 @@ export default function AffiliateVenueForm() {
           {saving && <Loader2 className="h-4 w-4 animate-spin" />}
           {isEdit ? 'Enregistrer' : 'Créer le club'}
         </AffButton>
-        <AffButton variant="ghost" onClick={() => navigate('/affiliate/venues')}>Annuler</AffButton>
+        <AffButton variant="ghost" onClick={() => guardedNavigate('/affiliate/venues')}>Annuler</AffButton>
       </div>
     </AffPage>
   );

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
 import { translate } from '@/i18n/orgTranslate';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
@@ -166,11 +167,11 @@ export default function OrgAppProfile() {
     }
   };
 
-  const save = async () => {
-    if (!user) return;
+  const save = async (): Promise<boolean> => {
+    if (!user) return false;
     if (!profile.display_name.trim()) {
       toast.error(t('Nom requis', 'Name required'));
-      return;
+      return false;
     }
     setSaving(true);
     try {
@@ -217,13 +218,44 @@ export default function OrgAppProfile() {
         .select('slug')
         .eq('user_id', user.id)
         .maybeSingle();
-      if (refreshed?.slug) setProfile((p) => ({ ...p, slug: refreshed.slug }));
+      // La référence de la garde est ce qui est PARTI en base (valeurs nettoyées,
+      // date d'attestation horodatée, slug renvoyé par le serveur) — sinon le
+      // profil resterait « modifié » juste après un enregistrement réussi.
+      const saved: OrgProfile = {
+        ...profile,
+        display_name: payload.display_name,
+        bio: payload.bio ?? '',
+        city: payload.city ?? '',
+        instagram_url: payload.instagram_url ?? '',
+        website_url: payload.website_url ?? '',
+        legal_name: payload.legal_name ?? '',
+        legal_address: payload.legal_address ?? '',
+        siret: payload.siret ?? '',
+        vat_number: payload.vat_number ?? '',
+        billing_email: payload.billing_email ?? '',
+        can_sell_alcohol_confirmed_at: payload.can_sell_alcohol_confirmed_at,
+        user_id: user.id,
+        slug: refreshed?.slug ?? profile.slug,
+      };
+      setProfile(saved);
+      markSaved(saved);
+      return true;
     } catch (e: any) {
       toast.error(e.message || t('Erreur', 'Error'));
+      return false;
     } finally {
       setSaving(false);
     }
   };
+
+  const { markSaved } = useUnsavedGuard({
+    scope: 'org-profile',
+    label: t('Profil organisateur', 'Organizer profile'),
+    ready: !loading,
+    value: profile,
+    onRestore: setProfile,
+    onSave: save,
+  });
 
   if (loading) {
     return <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin" style={{ color: T3 }} /></div>;
