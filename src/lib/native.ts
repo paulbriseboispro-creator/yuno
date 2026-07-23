@@ -50,6 +50,20 @@ const DJ_DASHBOARD_PATHS = new Set([
   '/dj/onboarding',
 ]);
 
+/**
+ * Espace DJ (le dashboard), par opposition aux profils publics `/dj/:slug`.
+ *
+ * Sert deux gardes de sens opposé, d'où le prédicat exporté plutôt qu'un
+ * préfixe recopié de chaque côté :
+ *   • NativeProGate (app B2C) : ces paths partent sur le web ;
+ *   • ProAppGate (app Pro) : ce sont les SEULS paths `/dj` admis — un profil
+ *     public est une surface B2C, elle n'a rien à faire dans l'app Pro.
+ */
+export function isDJAppPath(pathname: string): boolean {
+  const clean = pathname.replace(/\/+$/, '') || '/';
+  return DJ_DASHBOARD_PATHS.has(clean);
+}
+
 export function isProPath(pathname: string): boolean {
   const clean = pathname.replace(/\/+$/, '') || '/';
   if (DJ_DASHBOARD_PATHS.has(clean)) return true;

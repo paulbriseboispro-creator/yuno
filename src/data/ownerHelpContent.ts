@@ -342,6 +342,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.ev.guestlist.s12h', bodyKey: 'ohelp.ev.guestlist.s12b' },
           { headingKey: 'ohelp.ev.guestlist.s13h', bodyKey: 'ohelp.ev.guestlist.s13b' },
           { headingKey: 'ohelp.ev.guestlist.s14h', bodyKey: 'ohelp.ev.guestlist.s14b', type: 'tip' },
+          { headingKey: 'ohelp.ev.guestlist.s15h', bodyKey: 'ohelp.ev.guestlist.s15b' },
         ],
       },
       {
@@ -380,6 +381,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.ev.djs.s3h', bodyKey: 'ohelp.ev.djs.s3b', type: 'steps' },
           { headingKey: 'ohelp.ev.djs.s4h', bodyKey: 'ohelp.ev.djs.s4b', type: 'steps' },
           { headingKey: 'ohelp.ev.djs.s5h', bodyKey: 'ohelp.ev.djs.s5b' },
+          { headingKey: 'ohelp.ev.djs.s8h', bodyKey: 'ohelp.ev.djs.s8b' },
           { headingKey: 'ohelp.ev.djs.s6h', bodyKey: 'ohelp.ev.djs.s6b', type: 'tip' },
           { headingKey: 'ohelp.ev.djs.s7h', bodyKey: 'ohelp.ev.djs.s7b', type: 'warning' },
         ],

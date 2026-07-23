@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Martini, ShieldCheck, Shirt, Crown, Megaphone, LogOut, Bell, Loader2, ChevronRight, Monitor } from 'lucide-react';
+import { Martini, ShieldCheck, Shirt, Crown, Megaphone, Disc3, LogOut, Bell, Loader2, ChevronRight, Monitor } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useStaffVenue } from '@/hooks/useStaffVenue';
@@ -24,7 +24,7 @@ const TILE_BG = 'rgba(255,255,255,0.025)';
 const CARD_BG = 'linear-gradient(180deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.008) 100%),#0a0a0c';
 const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28px rgba(0,0,0,.9)';
 
-type StaffRole = 'barman' | 'bouncer' | 'cloakroom' | 'vip_host' | 'promoter';
+type StaffRole = 'barman' | 'bouncer' | 'cloakroom' | 'vip_host' | 'promoter' | 'dj';
 
 const ROLE_CONFIG: Record<StaffRole, { path: string; icon: typeof Martini; labelKey: string; descKey: string }> = {
   barman: { path: '/barman', icon: Martini, labelKey: 'proapp.role.barman', descKey: 'proapp.roleDesc.barman' },
@@ -32,10 +32,11 @@ const ROLE_CONFIG: Record<StaffRole, { path: string; icon: typeof Martini; label
   cloakroom: { path: '/cloakroom', icon: Shirt, labelKey: 'proapp.role.cloakroom', descKey: 'proapp.roleDesc.cloakroom' },
   vip_host: { path: '/vip-host', icon: Crown, labelKey: 'proapp.role.vipHost', descKey: 'proapp.roleDesc.vipHost' },
   promoter: { path: '/promoter', icon: Megaphone, labelKey: 'proapp.role.promoter', descKey: 'proapp.roleDesc.promoter' },
+  dj: { path: '/dj', icon: Disc3, labelKey: 'proapp.role.dj', descKey: 'proapp.roleDesc.dj' },
 };
 
 /** Rôles pro dont le dashboard reste sur le web (desktop). */
-const WEB_ONLY_ROLES = new Set(['owner', 'manager', 'organizer', 'dj', 'affiliate_owner', 'affiliate_member']);
+const WEB_ONLY_ROLES = new Set(['owner', 'manager', 'organizer', 'affiliate_owner', 'affiliate_member']);
 
 const WEB_BASE_URL = import.meta.env.VITE_APP_BASE_URL || 'https://yunoapp.eu';
 

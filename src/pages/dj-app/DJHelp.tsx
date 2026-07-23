@@ -4,7 +4,7 @@ import { fr, enUS, es } from 'date-fns/locale';
 import {
   LifeBuoy, Search, ChevronDown, Send, Bug, HelpCircle, Lightbulb, MoreHorizontal,
   Clock, CheckCircle, Loader2, LayoutDashboard, CalendarDays, MousePointerClick,
-  BarChart2, User, Users, Bell,
+  BarChart2, User, Users, Bell, Smartphone,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -103,6 +103,13 @@ export default function DJHelp() {
         "Oui. Dans Équipe, invite ton manager ou booker par email et choisis ce qu'il peut voir (planning, paiements) et s'il peut modifier. Tu peux révoquer l'accès à tout moment.",
         'Yes. In Team, invite your manager or booker by email and choose what they can see (schedule, payments) and whether they can edit. You can revoke access anytime.',
         'Sí. En Equipo, invita a tu mánager o booker por email y elige qué puede ver (agenda, pagos) y si puede editar. Puedes revocar el acceso cuando quieras.',
+      ) },
+    { id: 'proapp', icon: Smartphone,
+      q: tt("Puis-je utiliser Yuno sur mon téléphone ?", 'Can I use Yuno on my phone?', '¿Puedo usar Yuno en mi teléfono?'),
+      a: tt(
+        "Oui : ton espace DJ vit dans l'app Yuno Pro (iPhone). Connecte-toi avec le même compte, choisis « DJ » sur l'écran d'accueil et tu retrouves tes dates, tes cachets et tes demandes de booking. La barre du bas donne accès aux cinq sections du quotidien ; le bouton en haut à gauche ouvre le reste (statistiques, liens, notifications, équipe, aide). Ton code PIN protège l'entrée, comme sur le web.",
+        'Yes: your DJ space lives in the Yuno Pro app (iPhone). Sign in with the same account, pick "DJ" on the home screen and you get your gigs, fees and booking requests. The bottom bar holds the five day-to-day sections; the top-left button opens the rest (analytics, links, notifications, team, help). Your PIN guards the entrance, same as on the web.',
+        'Sí: tu espacio DJ vive en la app Yuno Pro (iPhone). Inicia sesión con la misma cuenta, elige «DJ» en la pantalla de inicio y ahí están tus fechas, tus cachés y tus solicitudes de booking. La barra inferior reúne las cinco secciones del día a día; el botón arriba a la izquierda abre el resto (estadísticas, enlaces, notificaciones, equipo, ayuda). Tu PIN protege la entrada, igual que en la web.',
       ) },
   ], [tt]);
 

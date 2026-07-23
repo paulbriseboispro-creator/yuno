@@ -3,13 +3,20 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { Monitor, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { isProApp } from '@/lib/native';
+import { isDJAppPath, isProApp } from '@/lib/native';
 import { openOnWebWithSession } from '@/lib/webHandoff';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { transitions } from '@/lib/motion';
 import { ProAccessGate } from '@/components/ProAccessGate';
 
-/** Routes autorisées dans l'app Yuno Pro (staff + promoteurs). */
+/**
+ * Routes autorisées dans l'app Yuno Pro (staff, promoteurs, DJs).
+ *
+ * L'espace DJ n'est PAS un préfixe : `/dj` est partagé avec les profils publics
+ * `/dj/:slug`, qui sont une surface B2C. Il est autorisé path par path via
+ * `isDJAppPath()`, la même liste que celle qui renvoie le dashboard DJ sur le
+ * web depuis l'app client.
+ */
 const PRO_ALLOWED_PREFIXES = [
   '/pro',
   '/barman',
@@ -100,7 +107,7 @@ export function ProAppGate({ children }: { children: ReactNode }) {
     <ProAccessGate>
       {matches(location.pathname, PRO_WEB_ONLY_PREFIXES) ? (
         <WebOnlyNotice />
-      ) : !matches(location.pathname, PRO_ALLOWED_PREFIXES) ? (
+      ) : !matches(location.pathname, PRO_ALLOWED_PREFIXES) && !isDJAppPath(location.pathname) ? (
         <Navigate to="/pro" replace />
       ) : (
         children

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { VenueSelector } from '@/components/VenueSelector';
 import { useDJData } from '@/contexts/DJDataContext';
+import { isProApp } from '@/lib/native';
 
 /**
  * Shared design primitives for the DJ dashboard app. One visual language across
@@ -35,8 +36,12 @@ export const CARD_SHADOW = '0 1px 0 rgba(255,255,255,.05) inset,0 18px 40px -28p
 // content column over the ambient vignette.
 export function DJPage({ children, maxWidth = 1100 }: { children: ReactNode; maxWidth?: number }) {
   const { venues, selectedVenueId, setSelectedVenueId } = useDJData();
+  // Dans l'app Pro, la barre d'onglets flotte au-dessus du contenu : sans cette
+  // réserve (hauteur de la barre + marge basse + encoche du bas), le dernier
+  // bloc de chaque page finit caché derrière elle.
+  const bottomPad = isProApp() ? 'calc(env(safe-area-inset-bottom, 0px) + 92px)' : undefined;
   return (
-    <div className="min-h-screen pb-24 relative" style={{ background: '#000' }}>
+    <div className="min-h-screen pb-24 relative" style={{ background: '#000', paddingBottom: bottomPad }}>
       <div className="fixed inset-0 pointer-events-none z-0"
         style={{ background: 'radial-gradient(120% 60% at 50% -10%,rgba(255,255,255,.025),transparent 55%)' }} />
       <div className="relative z-10 flex items-center justify-between gap-2 px-4 sm:px-6 pt-3"

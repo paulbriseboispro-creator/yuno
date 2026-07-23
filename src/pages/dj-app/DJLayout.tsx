@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { DJAppSidebar } from '@/components/dj/dj-app-sidebar';
+import { DJProTabBar } from '@/components/dj/DJProTabBar';
 import { DJDataProvider, useDJData } from '@/contexts/DJDataContext';
 import { DJSpinner } from '@/components/dj/dj-ui';
 
@@ -16,6 +17,8 @@ function DJLayoutInner() {
       <SidebarInset className="overflow-y-auto" style={{ background: '#000' }}>
         <Outlet />
       </SidebarInset>
+      {/* App Yuno Pro seulement — sur le web la sidebar reste la navigation. */}
+      <DJProTabBar />
     </SidebarProvider>
   );
 }
