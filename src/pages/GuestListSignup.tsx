@@ -83,8 +83,8 @@ export default function GuestListSignup() {
   const { user, loading: authLoading } = useAuth();
   const token = searchParams.get('token');
   const inviteParam = searchParams.get('invite');
-  // Canal de diffusion (lien segmenté du détenteur) — attribution seulement.
-  const sourceParam = searchParams.get('s');
+  // Canal de diffusion : id du lien suivi (tracked_links) posé par /l/<code>.
+  const trackedLinkParam = searchParams.get('tl');
   const ref = searchParams.get('ref');
   const genderFromUrl = searchParams.get('gender') as 'female' | 'male' | null;
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
@@ -365,7 +365,8 @@ export default function GuestListSignup() {
           // Lien unique (?invite=) OU lien public de la part.
           ...(inviteParam
             ? { inviteToken: inviteParam }
-            : { shareToken: token || guestList.shareToken, ...(sourceParam ? { sourceToken: sourceParam } : {}) }),
+            : { shareToken: token || guestList.shareToken }),
+          ...(trackedLinkParam ? { trackedLinkId: trackedLinkParam } : {}),
           // Type choisi parmi l'offre publique (le lien unique impose le sien).
           ...(!inviteParam && guestList.publicEntryTypes && chosenType
             ? { entryType: chosenType }

@@ -32,9 +32,15 @@ interface PartCardProps {
   /** Quota fixé par le club (part d'allocation de l'orga) : on le montre, on ne
    *  l'édite pas. Le serveur refuse de toute façon toute hausse unilatérale. */
   quotaLocked?: boolean;
+  /** Propriété des liens PAR CANAL (tracked_links). Renseignés seulement pour
+   *  les parts que l'utilisateur courant détient lui-même : les canaux d'une
+   *  part déléguée appartiennent au DJ / promoteur, qui les gère dans son app
+   *  (la RLS de tracked_links les refuserait ici de toute façon). */
+  trackedVenueId?: string | null;
+  trackedOrganizerUserId?: string | null;
 }
 
-export function PartCard({ part, holderType, displayName, entries, slug, eventId, t, onCreate, onUpdate, onDelete, onToggleActive, onSaveAsPreset, defaultOpen, quotaLocked = false }: PartCardProps) {
+export function PartCard({ part, holderType, displayName, entries, slug, eventId, t, onCreate, onUpdate, onDelete, onToggleActive, onSaveAsPreset, defaultOpen, quotaLocked = false, trackedVenueId, trackedOrganizerUserId }: PartCardProps) {
   const isClub = holderType === 'club';
   const Icon = HOLDER_ICON[holderType];
 
@@ -382,15 +388,21 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
       {part && (holderType !== 'organizer' || quotaLocked) && (
         <>
           <PublicTypesEditor guestList={part} />
-          {/* showMainLink=false : la carte rend déjà son lien de partage plus bas
-              (avec ses variantes ♀/♂ quand la part est genrée). */}
-          <PublicLinksPanel
-            guestListId={part.id}
-            shareToken={part.share_token}
-            slug={slug}
-            eventId={eventId}
-            showMainLink={false}
-          />
+          {/* Liens par canal : seulement sur les parts que l'utilisateur détient
+              (maison / son allocation). showMainLink=false — la carte rend déjà
+              son lien de partage plus bas, avec ses variantes ♀/♂. */}
+          {(trackedVenueId || trackedOrganizerUserId) && (
+            <PublicLinksPanel
+              guestListId={part.id}
+              shareToken={part.share_token}
+              slug={slug}
+              eventId={eventId}
+              showMainLink={false}
+              ownerKind={trackedVenueId ? 'venue' : 'organizer'}
+              venueId={trackedVenueId ?? null}
+              organizerUserId={trackedOrganizerUserId ?? null}
+            />
+          )}
           <div className="mt-3">
             <button type="button" onClick={() => setAddGuestOpen(true)}
               style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '9px', color: T1, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>

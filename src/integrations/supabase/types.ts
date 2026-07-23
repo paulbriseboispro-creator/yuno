@@ -5618,8 +5618,8 @@ export type Database = {
           promoter_id: string | null
           qr_code: string
           reservation_code: string | null
-          share_link_id: string | null
           status: string
+          tracked_link_id: string | null
           user_id: string | null
         }
         Insert: {
@@ -5639,8 +5639,8 @@ export type Database = {
           promoter_id?: string | null
           qr_code: string
           reservation_code?: string | null
-          share_link_id?: string | null
           status?: string
+          tracked_link_id?: string | null
           user_id?: string | null
         }
         Update: {
@@ -5660,8 +5660,8 @@ export type Database = {
           promoter_id?: string | null
           qr_code?: string
           reservation_code?: string | null
-          share_link_id?: string | null
           status?: string
+          tracked_link_id?: string | null
           user_id?: string | null
         }
         Relationships: [
@@ -5687,10 +5687,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "guest_list_entries_share_link_id_fkey"
-            columns: ["share_link_id"]
+            foreignKeyName: "guest_list_entries_tracked_link_id_fkey"
+            columns: ["tracked_link_id"]
             isOneToOne: false
-            referencedRelation: "guest_list_share_links"
+            referencedRelation: "tracked_links"
             referencedColumns: ["id"]
           },
         ]
@@ -5744,44 +5744,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "guest_list_invites_guest_list_id_fkey"
-            columns: ["guest_list_id"]
-            isOneToOne: false
-            referencedRelation: "guest_lists"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      guest_list_share_links: {
-        Row: {
-          created_at: string
-          created_by: string | null
-          guest_list_id: string
-          id: string
-          is_active: boolean
-          label: string
-          token: string
-        }
-        Insert: {
-          created_at?: string
-          created_by?: string | null
-          guest_list_id: string
-          id?: string
-          is_active?: boolean
-          label: string
-          token?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string | null
-          guest_list_id?: string
-          id?: string
-          is_active?: boolean
-          label?: string
-          token?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "guest_list_share_links_guest_list_id_fkey"
             columns: ["guest_list_id"]
             isOneToOne: false
             referencedRelation: "guest_lists"
@@ -11692,6 +11654,7 @@ export type Database = {
           created_by: string
           dj_id: string | null
           event_id: string | null
+          guest_list_id: string | null
           id: string
           is_active: boolean
           label: string
@@ -11712,6 +11675,7 @@ export type Database = {
           created_by?: string
           dj_id?: string | null
           event_id?: string | null
+          guest_list_id?: string | null
           id?: string
           is_active?: boolean
           label: string
@@ -11732,6 +11696,7 @@ export type Database = {
           created_by?: string
           dj_id?: string | null
           event_id?: string | null
+          guest_list_id?: string | null
           id?: string
           is_active?: boolean
           label?: string
@@ -11765,6 +11730,13 @@ export type Database = {
             columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tracked_links_guest_list_id_fkey"
+            columns: ["guest_list_id"]
+            isOneToOne: false
+            referencedRelation: "guest_lists"
             referencedColumns: ["id"]
           },
           {
@@ -14469,6 +14441,7 @@ export type Database = {
         Returns: undefined
       }
       archive_expired_event_orders: { Args: never; Returns: undefined }
+      assert_admin_or_backend: { Args: never; Returns: undefined }
       assign_agency_promoter_to_event: {
         Args: { p_assign?: boolean; p_event_id: string; p_promoter_id: string }
         Returns: undefined
@@ -15212,13 +15185,6 @@ export type Database = {
           total_count: number
         }[]
       }
-      get_guest_list_share_link_stats: {
-        Args: { _guest_list_id: string }
-        Returns: {
-          share_link_id: string
-          signups: number
-        }[]
-      }
       get_live_session: {
         Args: never
         Returns: {
@@ -15410,6 +15376,7 @@ export type Database = {
         Args: {
           p_dj_id?: string
           p_event_id?: string
+          p_guest_list_id?: string
           p_organizer_user_id?: string
           p_owner_kind: string
           p_promoter_id?: string
@@ -16030,6 +15997,10 @@ export type Database = {
       }
       seed_event_tracked_links: {
         Args: { p_event_id: string }
+        Returns: undefined
+      }
+      seed_guest_list_tracked_links: {
+        Args: { p_guest_list_id: string }
         Returns: undefined
       }
       seed_venue_tracked_links: {

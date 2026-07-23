@@ -19,6 +19,9 @@ function generateQRCode(): string {
   return `GL-${crypto.randomUUID()}`;
 }
 
+/** Un `tl` venant de l'URL est une donnée non fiable : forme validée avant requête. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** RFC-lite email check — good enough to reject junk before it hits the list. */
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 200;
@@ -54,7 +57,7 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    const { shareToken, inviteToken, sourceToken, entryType, gender, promoterCode, guestEmail, guestFullName, guestPhone } = await req.json();
+    const { shareToken, inviteToken, trackedLinkId, entryType, gender, promoterCode, guestEmail, guestFullName, guestPhone } = await req.json();
 
     // Deux portes d'entrée : le lien public de la part (shareToken) ou un lien
     // unique personnel (inviteToken, table guest_list_invites).
@@ -239,19 +242,22 @@ serve(async (req) => {
       throw new Error("Guest list is full");
     }
 
-    // Canal de diffusion (lien segmenté Instagram/WhatsApp/…) : purement une
-    // attribution, jamais une autorisation. Un token inconnu, inactif ou
-    // appartenant à une autre part est simplement ignoré — l'inscription passe
-    // quand même, elle est juste non attribuée.
-    let shareLinkId: string | null = null;
-    if (sourceToken) {
-      const { data: srcRow } = await supabaseAdmin
-        .from("guest_list_share_links")
-        .select("id, guest_list_id, is_active")
-        .eq("token", sourceToken)
+    // Canal de diffusion (lien suivi Instagram/WhatsApp/… posé par /l/<code>) :
+    // purement une attribution, jamais une autorisation. Un id inconnu, inactif
+    // ou visant une autre part est ignoré — l'inscription passe quand même,
+    // elle est juste non attribuée. Même contrat que le `tl` des checkouts.
+    let resolvedTrackedLinkId: string | null = null;
+    if (trackedLinkId && UUID_RE.test(String(trackedLinkId))) {
+      const { data: linkRow } = await supabaseAdmin
+        .from("tracked_links")
+        .select("id, guest_list_id, event_id, is_active")
+        .eq("id", trackedLinkId)
         .maybeSingle();
-      if (srcRow?.is_active && srcRow.guest_list_id === guestList.id) {
-        shareLinkId = srcRow.id;
+      if (
+        linkRow?.is_active &&
+        (linkRow.guest_list_id === guestList.id || linkRow.event_id === guestList.events.id)
+      ) {
+        resolvedTrackedLinkId = linkRow.id;
       }
     }
 
@@ -374,7 +380,7 @@ serve(async (req) => {
         guest_list_id: guestList.id,
         user_id: registrantUser?.id ?? null,
         invite_id: invite?.id ?? null,
-        share_link_id: shareLinkId,
+        tracked_link_id: resolvedTrackedLinkId,
         full_name: fullName.trim(),
         email: email.toLowerCase().trim(),
         phone: phone || "",

@@ -289,6 +289,7 @@ export default function OwnerGuestList() {
                     onUpdate={updatePart}
                     onToggleActive={setActive}
                     quotaLocked
+                    trackedOrganizerUserId={organizerUserId ?? null}
                   />
                 )}
                 <CollabGuestListPreview eventId={selectedEventId} />
@@ -329,6 +330,8 @@ export default function OwnerGuestList() {
                 onToggleActive={setActive}
                 onSaveAsPreset={openPresetFromConfig}
                 defaultOpen={!clubPart}
+                trackedVenueId={isOrganizerScope ? null : venueId ?? null}
+                trackedOrganizerUserId={isOrganizerScope ? organizerUserId ?? null : null}
               />
             )}
 

@@ -573,6 +573,8 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
                         shareToken={partRow.share_token}
                         slug={partSlugValue}
                         eventId={selectedEvent.id}
+                        ownerKind="promoter"
+                        promoterId={activePromoter?.id ?? null}
                       />
                       <InviteLinksPanel guestList={partRow} slug={partSlugValue} eventId={selectedEvent.id} />
                     </>

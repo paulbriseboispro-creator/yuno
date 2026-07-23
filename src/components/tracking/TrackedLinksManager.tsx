@@ -19,8 +19,8 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 
-export type TrackedOwnerKind = 'venue' | 'organizer' | 'promoter';
-export type TrackedTargetKind = 'event' | 'venue' | 'organizer';
+export type TrackedOwnerKind = 'venue' | 'organizer' | 'promoter' | 'dj';
+export type TrackedTargetKind = 'event' | 'venue' | 'organizer' | 'guestlist';
 
 interface TrackedLinksManagerProps {
   ownerKind: TrackedOwnerKind;
@@ -30,12 +30,16 @@ interface TrackedLinksManagerProps {
   organizerUserId?: string | null;
   /** promoters.id — required when ownerKind === 'promoter' */
   promoterId?: string | null;
+  /** djs.id — required when ownerKind === 'dj' */
+  djId?: string | null;
   /** what the created links point to */
   targetKind: TrackedTargetKind;
   /** required when targetKind === 'event' */
   eventId?: string | null;
   /** required when targetKind === 'venue' */
   targetVenueId?: string | null;
+  /** guest_lists.id — required when targetKind === 'guestlist' */
+  guestListId?: string | null;
 }
 
 interface LinkRow {
@@ -53,6 +57,13 @@ interface LinkRow {
 
 const CHANNEL_PRESETS = ['instagram', 'tiktok', 'newsletter', 'facebook', 'whatsapp', 'flyer', 'snapchat'];
 
+/**
+ * Origine PUBLIQUE des liens partagés. Jamais `window.location.origin` : dans
+ * la WebView Capacitor (apps Pro / B2C) celui-ci vaut `capacitor://localhost`,
+ * donc le lien copié depuis le téléphone était inutilisable ailleurs.
+ */
+const PUBLIC_BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu';
+
 function genCode(): string {
   const alphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
   const bytes = new Uint8Array(8);
@@ -61,8 +72,11 @@ function genCode(): string {
 }
 
 export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
-  const { ownerKind, venueId, organizerUserId, promoterId, targetKind, eventId, targetVenueId } = props;
+  const { ownerKind, venueId, organizerUserId, promoterId, djId, targetKind, eventId, targetVenueId, guestListId } = props;
   const { t, language } = useLanguage();
+  // Une guest list est gratuite : « ventes » et « CA » n'ont pas de sens, la
+  // conversion utile est le nombre d'inscrits.
+  const isGuestList = targetKind === 'guestlist';
 
   const [rows, setRows] = useState<LinkRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,18 +95,20 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
   );
 
   const fetchStats = useCallback(async () => {
-    // `as any` on the name: p_target_kind is newer than the generated RPC types.
-    return supabase.rpc('get_tracked_link_stats' as any, {
+    return supabase.rpc('get_tracked_link_stats', {
       p_owner_kind: ownerKind,
       p_venue_id: ownerKind === 'venue' ? venueId ?? null : null,
       p_organizer_user_id: ownerKind === 'organizer' ? organizerUserId ?? null : null,
       p_promoter_id: ownerKind === 'promoter' ? promoterId ?? null : null,
+      p_dj_id: ownerKind === 'dj' ? djId ?? null : null,
       p_event_id: targetKind === 'event' ? eventId ?? null : null,
       // Scope to this surface: the club/profile page only shows permanent links,
       // not the per-event links auto-seeded for every soirée.
       p_target_kind: targetKind,
+      // Une part guest list a ses propres canaux, distincts de ceux de la soirée.
+      p_guest_list_id: targetKind === 'guestlist' ? guestListId ?? null : null,
     });
-  }, [ownerKind, venueId, organizerUserId, promoterId, targetKind, eventId]);
+  }, [ownerKind, venueId, organizerUserId, promoterId, djId, targetKind, eventId, guestListId]);
 
   const fetchRows = useCallback(async () => {
     setLoading(true);
@@ -118,6 +134,20 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
         if (!refetchErr) result = (seeded ?? []) as LinkRow[];
       }
     }
+    // Idem pour une part de guest list : les 4 canaux naissent tout seuls, le
+    // détenteur n'a plus qu'à partager (même promesse que côté soirée).
+    if (
+      result.length === 0 &&
+      targetKind === 'guestlist' && guestListId &&
+      autoSeededRef.current !== guestListId
+    ) {
+      autoSeededRef.current = guestListId;
+      const { error: seedErr } = await supabase.rpc('seed_guest_list_tracked_links', { p_guest_list_id: guestListId });
+      if (!seedErr) {
+        const { data: seeded, error: refetchErr } = await fetchStats();
+        if (!refetchErr) result = (seeded ?? []) as LinkRow[];
+      }
+    }
     // Same self-heal for a club page → one permanent link per channel (one per origin).
     if (
       result.length === 0 &&
@@ -125,7 +155,7 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
       autoSeededRef.current !== venueId
     ) {
       autoSeededRef.current = venueId;
-      const { error: seedErr } = await supabase.rpc('seed_venue_tracked_links' as any, { p_venue_id: venueId });
+      const { error: seedErr } = await supabase.rpc('seed_venue_tracked_links', { p_venue_id: venueId });
       if (!seedErr) {
         const { data: seeded, error: refetchErr } = await fetchStats();
         if (!refetchErr) result = (seeded ?? []) as LinkRow[];
@@ -133,11 +163,11 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
     }
     setRows(result);
     setLoading(false);
-  }, [fetchStats, ownerKind, targetKind, eventId, venueId, t]);
+  }, [fetchStats, ownerKind, targetKind, eventId, venueId, guestListId, t]);
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
 
-  const linkUrl = (code: string) => `${window.location.origin}/l/${code}`;
+  const linkUrl = (code: string) => `${PUBLIC_BASE_URL}/l/${code}`;
 
   const copyLink = async (row: LinkRow) => {
     try {
@@ -175,11 +205,17 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
         venue_id: ownerKind === 'venue' ? venueId ?? null : null,
         organizer_user_id: ownerKind === 'organizer' ? organizerUserId ?? null : null,
         promoter_id: ownerKind === 'promoter' ? promoterId ?? null : null,
+        dj_id: ownerKind === 'dj' ? djId ?? null : null,
         target_kind: targetKind,
-        event_id: targetKind === 'event' ? eventId ?? null : null,
+        // Une part guest list garde l'event_id (filtres + lecture), sa cible
+        // réelle étant guest_list_id.
+        event_id: targetKind === 'event' || targetKind === 'guestlist' ? eventId ?? null : null,
         target_venue_id: targetKind === 'venue' ? targetVenueId ?? null : null,
+        guest_list_id: targetKind === 'guestlist' ? guestListId ?? null : null,
         utm_source: label.toLowerCase().replace(/\s+/g, '-'),
-        utm_medium: targetKind === 'event' ? 'event_link' : 'profile_link',
+        utm_medium: targetKind === 'event' ? 'event_link'
+          : targetKind === 'guestlist' ? 'guestlist_link'
+          : 'profile_link',
       };
       const { error } = await supabase.from('tracked_links').insert(insert);
       if (error) {
@@ -243,8 +279,13 @@ export default function TrackedLinksManager(props: TrackedLinksManagerProps) {
                     dépassaient la carte — la ligne doit pouvoir casser. */}
                 <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/55">
                   <span><span className="text-white/85 font-medium">{row.clicks}</span> {t('tlink.clicks')}</span>
-                  <span><span className="text-white/85 font-medium">{row.conversions}</span> {t('tlink.sales')}</span>
-                  <span><span className="text-white/85 font-medium">{currency.format(Number(row.revenue) || 0)}</span> {t('tlink.revenue')}</span>
+                  <span>
+                    <span className="text-white/85 font-medium">{row.conversions}</span>{' '}
+                    {isGuestList ? t('tlink.signups') : t('tlink.sales')}
+                  </span>
+                  {!isGuestList && (
+                    <span><span className="text-white/85 font-medium">{currency.format(Number(row.revenue) || 0)}</span> {t('tlink.revenue')}</span>
+                  )}
                   <span className="text-white/35">{row.clicks > 0 ? Math.round((row.conversions / row.clicks) * 100) : 0}% {t('tlink.convRate')}</span>
                 </div>
 

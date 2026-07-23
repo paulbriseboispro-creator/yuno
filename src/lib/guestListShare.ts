@@ -3,6 +3,13 @@
 // page (GuestListSignup) resolves the row by ?token=, so any stable slug works.
 // This consolidates the two divergent builders that lived in OwnerGuestList.
 
+/**
+ * Origine PUBLIQUE des liens partagés. Jamais `window.location.origin` : dans
+ * la WebView Capacitor (apps Pro / B2C) celui-ci vaut `capacitor://localhost`,
+ * ce qui produisait un lien inutilisable une fois copié hors du téléphone.
+ */
+const PUBLIC_BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu';
+
 /** URL-safe slug from a venue/holder name (strips accents). Display-only. */
 export function glSlugify(name: string | null | undefined): string {
   const s = (name || 'event')
@@ -37,7 +44,7 @@ export function buildShareLink(opts: {
   sourceToken?: string;
   origin?: string;
 }): string {
-  const origin = opts.origin ?? (typeof window !== 'undefined' ? window.location.origin : '');
+  const origin = opts.origin ?? PUBLIC_BASE_URL;
   let url = `${origin}/club/${opts.slug}/event/${opts.eventId}/guestlist?token=${opts.token}`;
   if (opts.gender) url += `&gender=${opts.gender}`;
   if (opts.sourceToken) url += `&s=${opts.sourceToken}`;
@@ -51,6 +58,6 @@ export function buildInviteLink(opts: {
   token: string;
   origin?: string;
 }): string {
-  const origin = opts.origin ?? (typeof window !== 'undefined' ? window.location.origin : '');
+  const origin = opts.origin ?? PUBLIC_BASE_URL;
   return `${origin}/club/${opts.slug}/event/${opts.eventId}/guestlist?invite=${opts.token}`;
 }

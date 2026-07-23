@@ -14,6 +14,7 @@ type PartRow = GLTypeSource & {
   quota_male: number | null;
   public_entry_types: string[] | null;
   share_token: string;
+  dj_id: string | null;
 };
 
 interface DJGuestListToolsProps {
@@ -38,7 +39,7 @@ export function DJGuestListTools({ guestListId, slug, eventId }: DJGuestListTool
     (async () => {
       const { data } = await supabase
         .from('guest_lists')
-        .select('id, holder_type, quota_normal, quota_drink, quota_table, quota_female, quota_male, entry_kind, public_entry_types, share_token')
+        .select('id, holder_type, quota_normal, quota_drink, quota_table, quota_female, quota_male, entry_kind, public_entry_types, share_token, dj_id')
         .eq('id', guestListId)
         .maybeSingle();
       if (active) setPart((data as PartRow) || null);
@@ -58,6 +59,8 @@ export function DJGuestListTools({ guestListId, slug, eventId }: DJGuestListTool
         slug={slug}
         eventId={eventId}
         showMainLink={false}
+        ownerKind="dj"
+        djId={part.dj_id}
       />
       <div className="mt-3">
         <button

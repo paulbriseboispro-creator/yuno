@@ -68,6 +68,8 @@ export default function TrackedLinkRedirect() {
           target_venue_id?: string;
           organizer_slug?: string;
           promo_code?: string;
+          guest_list_token?: string;
+          guest_list_event_id?: string;
         };
 
         if (!error && res.found && res.tracked_link_id) {
@@ -80,6 +82,14 @@ export default function TrackedLinkRedirect() {
             target = res.event_venue_id
               ? `/club/${res.event_venue_id}/event/${res.event_id}?tl=${linkId}${refParam}`
               : `/event/${res.event_id}?tl=${linkId}${refParam}`;
+          } else if (res.target_kind === 'guestlist' && res.guest_list_token && res.guest_list_event_id) {
+            // Le token de la part est indispensable : une part déléguée (DJ,
+            // promoteur) n'est pas listée sur la page publique de la soirée.
+            // `tl` suit pour que l'inscription soit attribuée à ce canal.
+            setTrackedLinkForEvent(res.guest_list_event_id, linkId);
+            const slug = res.event_venue_id || 'event';
+            target = `/club/${slug}/event/${res.guest_list_event_id}/guestlist`
+              + `?token=${encodeURIComponent(res.guest_list_token)}&tl=${linkId}${refParam}`;
           } else if (res.target_kind === 'venue' && res.target_venue_id) {
             setActiveTrackedLink(linkId);
             target = `/club/${res.target_venue_id}`;
