@@ -1,6 +1,7 @@
 import { canSideEdit, type CollabDomain } from '@/utils/collabResponsibilities';
 import { CollabOperationsPreview } from './CollabOperationsPreview';
 import { CollabPreviewDialog } from './CollabPreviewDialog';
+import { GuestListRequestAlert } from '@/components/owner/guest-list/GuestListRequestAlert';
 import { OrgEventFormDialog } from '@/components/organizer-app/OrgEventFormDialog';
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
@@ -384,6 +385,13 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
 
         {/* Contract — kept high for trust + sign action */}
         <SplitContractBanner eventId={event.id} side={viewerRole} />
+
+        {/* Une allocation de guest list attend une réponse : on le dit ici, sur la
+            page de la soirée, pas seulement dans l'onglet Guest list. */}
+        <GuestListRequestAlert
+          eventId={event.id}
+          basePath={isVenue ? '/owner/guest-list' : '/organizer-app/guest-list'}
+        />
 
         {/* Club sans Stripe : sa part de chaque vente resterait bloquée chez Yuno
             (versement en échec). Avertir AVANT la première vente, avec le lien

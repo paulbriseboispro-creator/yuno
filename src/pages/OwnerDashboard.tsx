@@ -45,6 +45,7 @@ import {
 import { startOfDay, subDays, format, formatDistanceToNow } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
+import { GuestListRequestAlert } from '@/components/owner/guest-list/GuestListRequestAlert';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useState, useEffect, useMemo, useId } from 'react';
 import { motion } from 'framer-motion';
@@ -541,6 +542,10 @@ export default function OwnerDashboard() {
         {!onbLoading && !onboardingComplete && (
           <OnboardingSidebar currentStep={currentStep} stepStatuses={stepStatuses} />
         )}
+
+        {/* Demandes d'allocation guest list en attente (co-soirées dont on tient
+            l'opérationnel). Ne s'affiche que s'il y en a. */}
+        <GuestListRequestAlert />
 
         {/* Plan banners */}
         {isTrial && daysRemaining !== null && (
