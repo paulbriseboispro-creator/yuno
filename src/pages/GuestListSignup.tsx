@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useBackConfirm } from '@/hooks/useBackConfirm';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useEventRoute } from '@/hooks/useEventRoute';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
@@ -90,20 +95,6 @@ export default function GuestListSignup() {
   const { eventId, basePath, venueSlug: slug } = useEventRoute();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const location = useLocation();
-
-  /**
-   * Retour de l'en-tête. Il DÉPILE l'historique au lieu de pousser la page de
-   * la soirée : un `navigate(basePath)` ajoutait une entrée, si bien qu'un
-   * geste de retour ramenait sur la guest list — l'aller-retour tournait en
-   * boucle. `location.key === 'default'` = on est entré directement ici (lien
-   * partagé ouvert dans l'app), il n'y a donc rien à dépiler : on sort vers
-   * Explore plutôt que de laisser l'utilisateur coincé.
-   */
-  const goBack = () => {
-    if (location.key !== 'default') navigate(-1);
-    else navigate('/');
-  };
   const { t, language } = useLanguage();
   const { user, loading: authLoading } = useAuth();
   const token = searchParams.get('token');
@@ -140,6 +131,19 @@ export default function GuestListSignup() {
 
   // Countdown
   const [timeLeft, setTimeLeft] = useState('');
+
+  // Garde de sortie. On ne pose la question que tant qu'il reste réellement une
+  // inscription à faire : une fois confirmée (ou la soirée finie, ou la liste
+  // pleine), le retour part directement — sinon le geste paraîtrait ignoré.
+  const stillRegistrable = !!guestList
+    && !success
+    && !alreadyRegistered
+    && new Date(guestList.eventEndAt) >= new Date()
+    && !(guestList.quota !== null && entriesCount >= guestList.quota);
+  const { asking: askLeave, requestBack, stay: stayOnPage, leave: leavePage } = useBackConfirm({
+    ready: !!guestList,
+    shouldAsk: stillRegistrable,
+  });
 
   useEffect(() => {
     fetchGuestList();
@@ -570,6 +574,23 @@ export default function GuestListSignup() {
     : (chosenType || guestList.publicEntryTypes?.[0] || null);
   const drinkIncluded = drinkFor(activeEntryType);
 
+  // Double confirmation avant de quitter : le geste de retour est facile à
+  // déclencher par erreur en plein remplissage du formulaire.
+  const leaveDialog = (
+    <AlertDialog open={askLeave} onOpenChange={(open) => { if (!open) stayOnPage(); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{t('guestList.leave.title')}</AlertDialogTitle>
+          <AlertDialogDescription>{t('guestList.leave.desc')}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel onClick={stayOnPage}>{t('guestList.leave.stay')}</AlertDialogCancel>
+          <AlertDialogAction onClick={leavePage}>{t('guestList.leave.confirm')}</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+
   // ── Badges spécifiques aux canaux (invitation personnelle / offre à 1 type) ──
   const inviteBadges = inviteMeta ? (
     <>
@@ -686,7 +707,7 @@ export default function GuestListSignup() {
         {/* Header */}
         <div className="sticky top-0 z-40 border-b border-border/40 bg-surface/80 backdrop-blur-md">
           <div className="flex items-center gap-3 px-4 h-14">
-            <Button variant="ghost" size="icon" onClick={goBack}>
+            <Button variant="ghost" size="icon" onClick={requestBack}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <h1 className="font-semibold truncate">{t('guestList.title')}</h1>
@@ -842,6 +863,7 @@ export default function GuestListSignup() {
           )}
         </div>
         </PublicPage>
+        {leaveDialog}
       </div>
     );
   }
@@ -852,7 +874,7 @@ export default function GuestListSignup() {
       {/* Header */}
       <div className="sticky top-0 z-40 border-b border-border/40 bg-surface/80 backdrop-blur-md">
         <div className="flex items-center gap-3 px-4 h-14">
-          <Button variant="ghost" size="icon" onClick={goBack}>
+          <Button variant="ghost" size="icon" onClick={requestBack}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <h1 className="font-semibold truncate">{t('guestList.title')}</h1>
@@ -1009,6 +1031,7 @@ export default function GuestListSignup() {
         )}
       </div>
       </PublicPage>
+      {leaveDialog}
     </div>
   );
 }

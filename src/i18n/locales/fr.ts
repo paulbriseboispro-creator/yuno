@@ -6022,6 +6022,10 @@ const fr: Record<string, string> = {
   'guestList.presets.emptyClub': 'Aucun preset club. Crées-en un pour publier en un clic.',
   // Canaux de distribution guest list — offre publique par type, ajout direct, liens uniques
   'guestList.chooseType': "Type d'entrée",
+  'guestList.leave.title': 'Quitter la guest list ?',
+  'guestList.leave.desc': "Ton inscription n'est pas encore confirmée. Si tu pars maintenant, ta place n'est pas gardée.",
+  'guestList.leave.stay': "Rester et m'inscrire",
+  'guestList.leave.confirm': 'Quitter',
   'guestList.typeDesc.normal': 'Entrée gratuite',
   'guestList.typeDesc.drink': 'Entrée + boisson offerte',
   'guestList.typeDesc.table': 'Accès VIP',

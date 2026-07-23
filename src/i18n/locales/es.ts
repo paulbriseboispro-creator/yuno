@@ -6283,6 +6283,10 @@ const es: Record<string, string> = {
   'guestList.presets.emptyClub': 'Aún no hay preset de club. Crea uno para publicar en un toque.',
   // Canales de distribución de guest list — oferta pública por tipo, alta directa, enlaces únicos
   'guestList.chooseType': 'Tipo de entrada',
+  'guestList.leave.title': '¿Salir de la guest list?',
+  'guestList.leave.desc': 'Tu inscripción aún no está confirmada. Si sales ahora, tu plaza no queda reservada.',
+  'guestList.leave.stay': 'Quedarme y apuntarme',
+  'guestList.leave.confirm': 'Salir',
   'guestList.typeDesc.normal': 'Entrada gratuita',
   'guestList.typeDesc.drink': 'Entrada + bebida gratis',
   'guestList.typeDesc.table': 'Acceso VIP',

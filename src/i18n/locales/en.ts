@@ -6098,6 +6098,10 @@ const en: Record<string, string> = {
   'guestList.presets.emptyClub': 'No club preset yet. Create one to publish in one tap.',
   // Guest list distribution channels — public offer per type, direct add, unique links
   'guestList.chooseType': 'Entry type',
+  'guestList.leave.title': 'Leave the guest list?',
+  'guestList.leave.desc': "Your registration isn't confirmed yet. If you leave now, your spot isn't held.",
+  'guestList.leave.stay': 'Stay and sign up',
+  'guestList.leave.confirm': 'Leave',
   'guestList.typeDesc.normal': 'Free entry',
   'guestList.typeDesc.drink': 'Entry + free drink',
   'guestList.typeDesc.table': 'VIP access',
