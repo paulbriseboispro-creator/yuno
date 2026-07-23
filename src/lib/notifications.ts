@@ -63,6 +63,10 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   collab_message:          { icon: MessageSquare, category: 'people', label: 'notif.type.collab_message' },
   collab_tables_online:    { icon: Crown,          category: 'people', label: 'notif.type.collab_tables_online' },
   collab_tickets_online:   { icon: Ticket,         category: 'people', label: 'notif.type.collab_tickets_online' },
+  // Allocation guest list : l'orga demande, le club tranche.
+  guest_list_allocation_request: { icon: Users,      category: 'people', label: 'notif.type.guest_list_allocation_request' },
+  guest_list_allocation_granted: { icon: UserCheck,  category: 'people', label: 'notif.type.guest_list_allocation_granted' },
+  guest_list_allocation_denied:  { icon: AlertCircle, category: 'people', label: 'notif.type.guest_list_allocation_denied' },
   connection_accepted: { icon: UserCheck, category: 'people', label: 'notif.type.connection_accepted' },
   staff_login:         { icon: Users,     category: 'people', label: 'notif.type.staff_login' },
   favorite_added:      { icon: Heart,     category: 'people', label: 'notif.type.favorite_added' },
@@ -213,6 +217,17 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
     case 'collab_tickets_online':
       if (isOwner) return eventId ? `/owner/collab/event/${eventId}` : '/owner/collaborations';
       if (isOrganizer) return eventId ? `${basePath}/events/${eventId}` : `${basePath}/collaborations`;
+      return null;
+
+    // Allocation guest list : on ouvre la page Guest list SUR la bonne soirée
+    // (sans ?event= elle retombe sur la 1re de la liste). Le manager gère aussi
+    // la guest list, il a donc droit au même lien.
+    case 'guest_list_allocation_request':
+    case 'guest_list_allocation_granted':
+    case 'guest_list_allocation_denied':
+      if (isOwner || isManager || isOrganizer) {
+        return eventId ? `${basePath}/guest-list?event=${eventId}` : `${basePath}/guest-list`;
+      }
       return null;
 
     // Account-level partnerships.
