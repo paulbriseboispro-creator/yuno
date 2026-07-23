@@ -541,6 +541,21 @@ export default function GuestListSignup() {
   // Le compteur ne s'affiche que si le club l'a activé ET qu'il y a un chiffre à montrer.
   const showCounter = guestList.showRemaining && remaining !== null;
 
+  // ── La boisson offerte suit le TYPE, pas la part ──────────────────────────
+  // `includes_drink` vaut vrai dès qu'une part alloue des places « boisson »
+  // (PartCard le dérive de quota_drink > 0). L'annoncer tel quel promettait un
+  // verre à tout le monde, y compris à qui choisit « Normale ». Quand plusieurs
+  // types sont proposés, seul le type retenu fait foi ; sur une offre à type
+  // unique, on garde le sens historique du réglage (le club offre un verre à
+  // toute sa liste).
+  const multiTypeOffer = !inviteMeta && (guestList.publicEntryTypes?.length ?? 0) > 1;
+  const drinkFor = (type: GLEntryType | null): boolean =>
+    type === 'drink' || (!multiTypeOffer && guestList.includesDrink);
+  const activeEntryType: GLEntryType | null = inviteMeta
+    ? inviteMeta.entryType
+    : (chosenType || guestList.publicEntryTypes?.[0] || null);
+  const drinkIncluded = drinkFor(activeEntryType);
+
   // ── Badges spécifiques aux canaux (invitation personnelle / offre à 1 type) ──
   const inviteBadges = inviteMeta ? (
     <>
@@ -611,7 +626,7 @@ export default function GuestListSignup() {
                 <Clock className="h-3.5 w-3.5 inline mr-1" />
                 {t('guestList.freeBefore')} {guestList.freeBeforeTime}
               </p>
-              {guestList.includesDrink && (
+              {drinkFor(successEntryType) && (
                 <p className="text-primary">
                   <Wine className="h-3.5 w-3.5 inline mr-1" />
                   {t('guestList.drinkIncluded')}
@@ -695,7 +710,7 @@ export default function GuestListSignup() {
               <Clock className="h-3.5 w-3.5 mr-1.5" />
               {t('guestList.freeBefore')} {guestList.freeBeforeTime}
             </Badge>
-            {guestList.includesDrink && (
+            {drinkIncluded && (
               <Badge className="bg-primary/15 text-primary border border-primary/20 text-sm px-3 py-1">
                 <Wine className="h-3.5 w-3.5 mr-1.5" />
                 {t('guestList.drinkIncluded')}
@@ -793,7 +808,7 @@ export default function GuestListSignup() {
                     <span>Guest List — {guestList.eventTitle}</span>
                     <span className="font-bold text-primary">0 €</span>
                   </div>
-                  {guestList.includesDrink && (
+                  {drinkIncluded && (
                     <div className="flex justify-between text-sm text-muted-foreground">
                       <span>🍸 {t('guestList.drinkIncluded')}</span>
                       <span>{t('guestList.included')}</span>
@@ -861,7 +876,7 @@ export default function GuestListSignup() {
             <Clock className="h-3.5 w-3.5 mr-1.5" />
             {t('guestList.freeBefore')} {guestList.freeBeforeTime}
           </Badge>
-          {guestList.includesDrink && (
+          {drinkIncluded && (
             <Badge className="bg-primary/15 text-primary border border-primary/20 text-sm px-3 py-1">
               <Wine className="h-3.5 w-3.5 mr-1.5" />
               {t('guestList.drinkIncluded')}
@@ -943,7 +958,7 @@ export default function GuestListSignup() {
                   <span>Guest List — {guestList.eventTitle}</span>
                   <span className="font-bold text-primary">0 €</span>
                 </div>
-                {guestList.includesDrink && (
+                {drinkIncluded && (
                   <div className="flex justify-between text-sm text-muted-foreground">
                     <span>🍸 {t('guestList.drinkIncluded')}</span>
                     <span>{t('guestList.included')}</span>
