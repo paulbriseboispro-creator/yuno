@@ -19,6 +19,8 @@ interface InviteRow {
   entry_type: string;
   max_uses: number;
   used_count: number;
+  /** Nom donné AU LIEN par son détenteur (≠ guest_name, le destinataire). */
+  label: string | null;
   guest_name: string | null;
   guest_email: string | null;
   email_sent_at: string | null;
@@ -46,6 +48,7 @@ export function InviteLinksPanel({ guestList, slug, eventId }: InviteLinksPanelP
   const [showForm, setShowForm] = useState(false);
   const [entryType, setEntryType] = useState<GLEntryType>(types[0] ?? 'normal');
   const [maxUses, setMaxUses] = useState(1);
+  const [inviteLabel, setInviteLabel] = useState('');
   const [guestName, setGuestName] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
   const [creating, setCreating] = useState(false);
@@ -55,7 +58,7 @@ export function InviteLinksPanel({ guestList, slug, eventId }: InviteLinksPanelP
   const load = useCallback(async () => {
     const { data } = await supabase
       .from('guest_list_invites')
-      .select('id, token, entry_type, max_uses, used_count, guest_name, guest_email, email_sent_at, revoked_at, created_at')
+      .select('id, token, entry_type, max_uses, used_count, label, guest_name, guest_email, email_sent_at, revoked_at, created_at')
       .eq('guest_list_id', guestList.id)
       .order('created_at', { ascending: false });
     setInvites((data as InviteRow[]) || []);
@@ -79,6 +82,7 @@ export function InviteLinksPanel({ guestList, slug, eventId }: InviteLinksPanelP
           guest_list_id: guestList.id,
           entry_type: types.includes(entryType) ? entryType : (types[0] ?? 'normal'),
           max_uses: Math.min(50, Math.max(1, maxUses)),
+          label: inviteLabel.trim() || null,
           guest_name: guestName.trim() || null,
           guest_email: guestEmail.trim().toLowerCase() || null,
         })
@@ -92,7 +96,7 @@ export function InviteLinksPanel({ guestList, slug, eventId }: InviteLinksPanelP
       } else {
         toast.success(t('glTools.inviteCreated'));
       }
-      setGuestName(''); setGuestEmail(''); setMaxUses(1); setShowForm(false);
+      setInviteLabel(''); setGuestName(''); setGuestEmail(''); setMaxUses(1); setShowForm(false);
       await load();
     } catch (err) {
       console.error(err);
@@ -154,6 +158,13 @@ export function InviteLinksPanel({ guestList, slug, eventId }: InviteLinksPanelP
 
       {showForm && (
         <div className="mt-2 space-y-2.5 rounded-lg border border-border/60 bg-muted/20 p-3">
+          {/* Nom DU LIEN — ce que le détenteur lit dans sa liste pour s'y retrouver. */}
+          <div>
+            <Label className="text-xs">{t('glTools.inviteLabelOpt')}</Label>
+            <Input value={inviteLabel} onChange={e => setInviteLabel(e.target.value)} maxLength={60}
+              placeholder={t('glTools.inviteLabelPlaceholder')} className="h-9" />
+            <p className="mt-0.5 text-[10px] text-muted-foreground">{t('glTools.inviteLabelHint')}</p>
+          </div>
           <div className="grid grid-cols-2 gap-2.5">
             {types.length > 1 && (
               <div>
@@ -204,10 +215,14 @@ export function InviteLinksPanel({ guestList, slug, eventId }: InviteLinksPanelP
                 className={`flex items-center gap-2 rounded-lg border border-border/50 bg-muted/20 px-2.5 py-2 ${revoked ? 'opacity-50' : ''}`}>
                 <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
                 <div className="min-w-0 flex-1">
+                  {/* Nom du lien en tête ; le destinataire passe en sous-titre. */}
                   <p className="truncate text-xs font-medium">
-                    {invite.guest_name || invite.guest_email || t('glTools.inviteAnonymous')}
+                    {invite.label || invite.guest_name || invite.guest_email || t('glTools.inviteAnonymous')}
                   </p>
-                  <p className="text-[10px] text-muted-foreground tabular-nums">
+                  <p className="truncate text-[10px] text-muted-foreground tabular-nums">
+                    {invite.label && (invite.guest_name || invite.guest_email) && (
+                      <>{invite.guest_name || invite.guest_email} · </>
+                    )}
                     {t(entryTypeLabelKey(type))} · {invite.used_count}/{invite.max_uses} {t('glTools.usedLabel')}
                     {revoked && <> · {t('glTools.inviteRevokedBadge')}</>}
                   </p>

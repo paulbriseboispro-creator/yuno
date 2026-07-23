@@ -54,7 +54,7 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    const { shareToken, inviteToken, entryType, gender, promoterCode, guestEmail, guestFullName, guestPhone } = await req.json();
+    const { shareToken, inviteToken, sourceToken, entryType, gender, promoterCode, guestEmail, guestFullName, guestPhone } = await req.json();
 
     // Deux portes d'entrée : le lien public de la part (shareToken) ou un lien
     // unique personnel (inviteToken, table guest_list_invites).
@@ -239,6 +239,22 @@ serve(async (req) => {
       throw new Error("Guest list is full");
     }
 
+    // Canal de diffusion (lien segmenté Instagram/WhatsApp/…) : purement une
+    // attribution, jamais une autorisation. Un token inconnu, inactif ou
+    // appartenant à une autre part est simplement ignoré — l'inscription passe
+    // quand même, elle est juste non attribuée.
+    let shareLinkId: string | null = null;
+    if (sourceToken) {
+      const { data: srcRow } = await supabaseAdmin
+        .from("guest_list_share_links")
+        .select("id, guest_list_id, is_active")
+        .eq("token", sourceToken)
+        .maybeSingle();
+      if (srcRow?.is_active && srcRow.guest_list_id === guestList.id) {
+        shareLinkId = srcRow.id;
+      }
+    }
+
     // Résolution du type d'entrée, par canal :
     //   - lien unique  → le type est IMPOSÉ par l'invitation ;
     //   - lien public avec offre configurée (public_entry_types) → le guest
@@ -358,6 +374,7 @@ serve(async (req) => {
         guest_list_id: guestList.id,
         user_id: registrantUser?.id ?? null,
         invite_id: invite?.id ?? null,
+        share_link_id: shareLinkId,
         full_name: fullName.trim(),
         email: email.toLowerCase().trim(),
         phone: phone || "",

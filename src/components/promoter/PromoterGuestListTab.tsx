@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { UserPlus, Users, Loader2, BarChart3, Calendar, Zap, Clock, Mail, Link2 } from 'lucide-react';
 import { PublicTypesEditor } from '@/components/guest-list/PublicTypesEditor';
+import { PublicLinksPanel } from '@/components/guest-list/PublicLinksPanel';
 import { InviteLinksPanel } from '@/components/guest-list/InviteLinksPanel';
 import { glSlugify } from '@/lib/guestListShare';
 import type { GLTypeSource } from '@/lib/guestListTypes';
@@ -88,7 +89,7 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
   // distinguer « pas de part » (aucune allocation) de « part sans plafond ».
   const [hasAllocation, setHasAllocation] = useState(false);
   // La part complète — nécessaire aux canaux (types offerts, liens uniques).
-  const [partRow, setPartRow] = useState<(GLTypeSource & { id: string; public_entry_types: string[] | null }) | null>(null);
+  const [partRow, setPartRow] = useState<(GLTypeSource & { id: string; public_entry_types: string[] | null; share_token: string }) | null>(null);
 
   // Get the promoter profile that owns the selected event — by venue for club events,
   // by organizer for organizer events.
@@ -181,7 +182,7 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
       // with holder_type='promoter', created and capped by the club on the Guest List
       // page (single global quota). No part = no allocation yet.
       const { data: part } = await supabase.from('guest_lists')
-        .select('id, holder_type, quota, quota_normal, quota_drink, quota_table, quota_female, quota_male, entry_kind, public_entry_types')
+        .select('id, holder_type, quota, quota_normal, quota_drink, quota_table, quota_female, quota_male, entry_kind, public_entry_types, share_token')
         .eq('event_id', selectedEventId)
         .eq('holder_type', 'promoter')
         .eq('promoter_id', activePromoter.id)
@@ -560,12 +561,23 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
-                <PublicTypesEditor guestList={partRow} />
-                <InviteLinksPanel
-                  guestList={partRow}
-                  slug={selectedEvent.venueId ? glSlugify(selectedEvent.venueName) : (activePromoter?.organizer_user_id ?? 'organizer')}
-                  eventId={selectedEvent.id}
-                />
+                {(() => {
+                  const partSlugValue = selectedEvent.venueId
+                    ? glSlugify(selectedEvent.venueName)
+                    : (activePromoter?.organizer_user_id ?? 'organizer');
+                  return (
+                    <>
+                      <PublicTypesEditor guestList={partRow} />
+                      <PublicLinksPanel
+                        guestListId={partRow.id}
+                        shareToken={partRow.share_token}
+                        slug={partSlugValue}
+                        eventId={selectedEvent.id}
+                      />
+                      <InviteLinksPanel guestList={partRow} slug={partSlugValue} eventId={selectedEvent.id} />
+                    </>
+                  );
+                })()}
               </CardContent>
             </Card>
           )}

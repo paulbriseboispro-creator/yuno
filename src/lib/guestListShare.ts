@@ -32,11 +32,16 @@ export function buildShareLink(opts: {
   eventId: string;
   token: string;
   gender?: 'female' | 'male';
+  /** Token d'un lien de canal (guest_list_share_links) : même page, même offre,
+   *  mais l'inscription est attribuée à ce canal (Instagram, WhatsApp…). */
+  sourceToken?: string;
   origin?: string;
 }): string {
   const origin = opts.origin ?? (typeof window !== 'undefined' ? window.location.origin : '');
-  const base = `${origin}/club/${opts.slug}/event/${opts.eventId}/guestlist?token=${opts.token}`;
-  return opts.gender ? `${base}&gender=${opts.gender}` : base;
+  let url = `${origin}/club/${opts.slug}/event/${opts.eventId}/guestlist?token=${opts.token}`;
+  if (opts.gender) url += `&gender=${opts.gender}`;
+  if (opts.sourceToken) url += `&s=${opts.sourceToken}`;
+  return url;
 }
 
 /** Lien UNIQUE personnel (guest_list_invites) — même page, résolu par ?invite=. */

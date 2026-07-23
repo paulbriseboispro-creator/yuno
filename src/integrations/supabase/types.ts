@@ -69,6 +69,119 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_credential_deadlines: {
+        Row: {
+          console_url: string | null
+          created_at: string
+          description: string | null
+          due_at: string | null
+          interval_months: number
+          is_active: boolean
+          is_builtin: boolean
+          key: string
+          label: string
+          last_rotated_at: string | null
+          notes: string | null
+          provider: string
+          remind_days: number[]
+          severity: string
+          updated_at: string
+        }
+        Insert: {
+          console_url?: string | null
+          created_at?: string
+          description?: string | null
+          due_at?: string | null
+          interval_months?: number
+          is_active?: boolean
+          is_builtin?: boolean
+          key: string
+          label: string
+          last_rotated_at?: string | null
+          notes?: string | null
+          provider: string
+          remind_days?: number[]
+          severity?: string
+          updated_at?: string
+        }
+        Update: {
+          console_url?: string | null
+          created_at?: string
+          description?: string | null
+          due_at?: string | null
+          interval_months?: number
+          is_active?: boolean
+          is_builtin?: boolean
+          key?: string
+          label?: string
+          last_rotated_at?: string | null
+          notes?: string | null
+          provider?: string
+          remind_days?: number[]
+          severity?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      admin_notifications: {
+        Row: {
+          created_at: string
+          dedup_key: string | null
+          event_id: string | null
+          id: string
+          message: string
+          metadata: Json
+          notification_type: string
+          priority: string
+          read_at: string | null
+          read_by: string | null
+          reference_id: string | null
+          reference_type: string | null
+          scope: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          dedup_key?: string | null
+          event_id?: string | null
+          id?: string
+          message: string
+          metadata?: Json
+          notification_type: string
+          priority?: string
+          read_at?: string | null
+          read_by?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          scope?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          dedup_key?: string | null
+          event_id?: string | null
+          id?: string
+          message?: string
+          metadata?: Json
+          notification_type?: string
+          priority?: string
+          read_at?: string | null
+          read_by?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          scope?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_notifications_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       affiliate_clicks: {
         Row: {
           affiliate_event_id: string
@@ -5505,6 +5618,7 @@ export type Database = {
           promoter_id: string | null
           qr_code: string
           reservation_code: string | null
+          share_link_id: string | null
           status: string
           user_id: string | null
         }
@@ -5525,6 +5639,7 @@ export type Database = {
           promoter_id?: string | null
           qr_code: string
           reservation_code?: string | null
+          share_link_id?: string | null
           status?: string
           user_id?: string | null
         }
@@ -5545,6 +5660,7 @@ export type Database = {
           promoter_id?: string | null
           qr_code?: string
           reservation_code?: string | null
+          share_link_id?: string | null
           status?: string
           user_id?: string | null
         }
@@ -5570,6 +5686,13 @@ export type Database = {
             referencedRelation: "promoters"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "guest_list_entries_share_link_id_fkey"
+            columns: ["share_link_id"]
+            isOneToOne: false
+            referencedRelation: "guest_list_share_links"
+            referencedColumns: ["id"]
+          },
         ]
       }
       guest_list_invites: {
@@ -5582,6 +5705,7 @@ export type Database = {
           guest_list_id: string
           guest_name: string | null
           id: string
+          label: string | null
           max_uses: number
           revoked_at: string | null
           token: string
@@ -5596,6 +5720,7 @@ export type Database = {
           guest_list_id: string
           guest_name?: string | null
           id?: string
+          label?: string | null
           max_uses?: number
           revoked_at?: string | null
           token?: string
@@ -5610,6 +5735,7 @@ export type Database = {
           guest_list_id?: string
           guest_name?: string | null
           id?: string
+          label?: string | null
           max_uses?: number
           revoked_at?: string | null
           token?: string
@@ -5618,6 +5744,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "guest_list_invites_guest_list_id_fkey"
+            columns: ["guest_list_id"]
+            isOneToOne: false
+            referencedRelation: "guest_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guest_list_share_links: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          guest_list_id: string
+          id: string
+          is_active: boolean
+          label: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          guest_list_id: string
+          id?: string
+          is_active?: boolean
+          label: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          guest_list_id?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_list_share_links_guest_list_id_fkey"
             columns: ["guest_list_id"]
             isOneToOne: false
             referencedRelation: "guest_lists"
@@ -14122,6 +14286,10 @@ export type Database = {
         Returns: undefined
       }
       admin_customer_detail: { Args: { p_email: string }; Returns: Json }
+      admin_delete_credential_deadline: {
+        Args: { p_key: string }
+        Returns: boolean
+      }
       admin_delete_organizer: { Args: { _user_id: string }; Returns: undefined }
       admin_delete_venue: { Args: { _venue_id: string }; Returns: undefined }
       admin_log_action: {
@@ -14132,6 +14300,32 @@ export type Database = {
           _metadata?: Json
         }
         Returns: undefined
+      }
+      admin_mark_credential_renewed: {
+        Args: { p_done_on?: string; p_key: string }
+        Returns: {
+          console_url: string | null
+          created_at: string
+          description: string | null
+          due_at: string | null
+          interval_months: number
+          is_active: boolean
+          is_builtin: boolean
+          key: string
+          label: string
+          last_rotated_at: string | null
+          notes: string | null
+          provider: string
+          remind_days: number[]
+          severity: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "admin_credential_deadlines"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       admin_platform_analytics: {
         Args: { p_from: string; p_to: string; p_venue_id?: string }
@@ -14154,6 +14348,32 @@ export type Database = {
         Returns: Json
       }
       admin_segmentation_overview: { Args: never; Returns: Json }
+      admin_set_credential_due: {
+        Args: { p_due: string; p_key: string }
+        Returns: {
+          console_url: string | null
+          created_at: string
+          description: string | null
+          due_at: string | null
+          interval_months: number
+          is_active: boolean
+          is_builtin: boolean
+          key: string
+          label: string
+          last_rotated_at: string | null
+          notes: string | null
+          provider: string
+          remind_days: number[]
+          severity: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "admin_credential_deadlines"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       admin_set_dj_verified: {
         Args: { p_dj_user_id: string; p_reason?: string; p_verified: boolean }
         Returns: undefined
@@ -14181,6 +14401,44 @@ export type Database = {
       admin_set_user_suspended: {
         Args: { _reason?: string; _suspended: boolean; _user_id: string }
         Returns: undefined
+      }
+      admin_upsert_credential_deadline: {
+        Args: {
+          p_console_url?: string
+          p_description?: string
+          p_due_at?: string
+          p_interval_months: number
+          p_is_active?: boolean
+          p_key: string
+          p_label: string
+          p_notes?: string
+          p_provider: string
+          p_remind_days?: number[]
+          p_severity?: string
+        }
+        Returns: {
+          console_url: string | null
+          created_at: string
+          description: string | null
+          due_at: string | null
+          interval_months: number
+          is_active: boolean
+          is_builtin: boolean
+          key: string
+          label: string
+          last_rotated_at: string | null
+          notes: string | null
+          provider: string
+          remind_days: number[]
+          severity: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "admin_credential_deadlines"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       advance_dj_contracts_after_onboarding: {
         Args: { p_user_id: string }
@@ -14562,6 +14820,20 @@ export type Database = {
       dj_revoke_team_invitation: { Args: { p_id: string }; Returns: Json }
       dj_team_owner_ids: { Args: never; Returns: string[] }
       dj_user_from_slug: { Args: { p_slug: string }; Returns: string }
+      emit_admin_notification: {
+        Args: {
+          p_dedup_key?: string
+          p_event_id?: string
+          p_message: string
+          p_metadata?: Json
+          p_priority?: string
+          p_reference_id?: string
+          p_reference_type?: string
+          p_title: string
+          p_type: string
+        }
+        Returns: string
+      }
       enable_collab_basic_tables: {
         Args: { p_event_id: string }
         Returns: undefined
@@ -14938,6 +15210,13 @@ export type Database = {
           female_count: number
           male_count: number
           total_count: number
+        }[]
+      }
+      get_guest_list_share_link_stats: {
+        Args: { _guest_list_id: string }
+        Returns: {
+          share_link_id: string
+          signups: number
         }[]
       }
       get_live_session: {
@@ -15495,6 +15774,7 @@ export type Database = {
         }
         Returns: string
       }
+      purge_admin_notifications: { Args: never; Returns: number }
       purge_expired_personal_data: { Args: never; Returns: undefined }
       purge_promoter_push_queue: { Args: never; Returns: Json }
       recalc_all_leaderboards: { Args: never; Returns: number }
@@ -15678,6 +15958,7 @@ export type Database = {
         Args: { p_member_id: string; p_status: string }
         Returns: string
       }
+      run_admin_alert_sweep: { Args: never; Returns: Json }
       search_djs_marketplace: {
         Args: {
           p_available_on?: string

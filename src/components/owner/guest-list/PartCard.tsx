@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import type { Part, PartEntry, HolderType } from '@/hooks/useGuestListParts';
 import { buildShareLink } from '@/lib/guestListShare';
 import { PublicTypesEditor } from '@/components/guest-list/PublicTypesEditor';
+import { PublicLinksPanel } from '@/components/guest-list/PublicLinksPanel';
 import { InviteLinksPanel } from '@/components/guest-list/InviteLinksPanel';
 import { DirectAddGuestDialog } from '@/components/guest-list/DirectAddGuestDialog';
 import {
@@ -381,6 +382,15 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
       {part && (holderType !== 'organizer' || quotaLocked) && (
         <>
           <PublicTypesEditor guestList={part} />
+          {/* showMainLink=false : la carte rend déjà son lien de partage plus bas
+              (avec ses variantes ♀/♂ quand la part est genrée). */}
+          <PublicLinksPanel
+            guestListId={part.id}
+            shareToken={part.share_token}
+            slug={slug}
+            eventId={eventId}
+            showMainLink={false}
+          />
           <div className="mt-3">
             <button type="button" onClick={() => setAddGuestOpen(true)}
               style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '9px', color: T1, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>

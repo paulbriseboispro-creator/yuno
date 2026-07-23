@@ -3,6 +3,7 @@ import { UserPlus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PublicTypesEditor } from '@/components/guest-list/PublicTypesEditor';
+import { PublicLinksPanel } from '@/components/guest-list/PublicLinksPanel';
 import { InviteLinksPanel } from '@/components/guest-list/InviteLinksPanel';
 import { DirectAddGuestDialog } from '@/components/guest-list/DirectAddGuestDialog';
 import type { GLTypeSource } from '@/lib/guestListTypes';
@@ -12,6 +13,7 @@ type PartRow = GLTypeSource & {
   quota_female: number | null;
   quota_male: number | null;
   public_entry_types: string[] | null;
+  share_token: string;
 };
 
 interface DJGuestListToolsProps {
@@ -36,7 +38,7 @@ export function DJGuestListTools({ guestListId, slug, eventId }: DJGuestListTool
     (async () => {
       const { data } = await supabase
         .from('guest_lists')
-        .select('id, holder_type, quota_normal, quota_drink, quota_table, quota_female, quota_male, entry_kind, public_entry_types')
+        .select('id, holder_type, quota_normal, quota_drink, quota_table, quota_female, quota_male, entry_kind, public_entry_types, share_token')
         .eq('id', guestListId)
         .maybeSingle();
       if (active) setPart((data as PartRow) || null);
@@ -49,6 +51,14 @@ export function DJGuestListTools({ guestListId, slug, eventId }: DJGuestListTool
   return (
     <div>
       <PublicTypesEditor guestList={part} />
+      {/* showMainLink=false : la carte du DJ affiche déjà son lien guest list. */}
+      <PublicLinksPanel
+        guestListId={part.id}
+        shareToken={part.share_token}
+        slug={slug}
+        eventId={eventId}
+        showMainLink={false}
+      />
       <div className="mt-3">
         <button
           type="button"
