@@ -105,7 +105,9 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
   const maleCount     = activeEntries.filter(e => e.gender === 'male').length;
   // Une part illimitée (quota NULL) n'est jamais pleine.
   const full          = !!part && part.is_active && part.quota != null && activeEntries.length >= part.quota;
-  const genderLinks   = !!part && (part.quota_female !== null || part.quota_male !== null);
+  // Quota genre à 0 = pas de quota : sans ce garde, une part non genrée
+  // affichait deux liens ♀/♂ marqués « 0/0 », donc complets.
+  const genderLinks   = !!part && ((part.quota_female ?? 0) > 0 || (part.quota_male ?? 0) > 0);
 
   // The reusable config shared by Save and "save as preset" (no identity/holder fields).
   // Delegated parts persist the per-type split (and derive quota + includes_drink from it);

@@ -37,9 +37,15 @@ export function allowedEntryTypes(part: GLTypeSource): GLEntryType[] {
 }
 
 /**
- * Offre effective du lien public : le choix explicite du détenteur
- * (public_entry_types), sinon le type primaire historique (résolu comme le
- * fait create-guest-list-entry quand la colonne est NULL).
+ * Offre effective du lien public :
+ *  - le choix explicite du détenteur (public_entry_types) s'il en a fait un ;
+ *  - sinon TOUS les types que la part alloue réellement (quota > 0) — une part
+ *    « 10 normales + 2 VIP » propose donc les deux, sans réglage préalable ;
+ *  - sinon son type primaire seul (part club à quota global, sans ventilation).
+ *
+ * Miroir exact de la résolution serveur dans create-guest-list-entry : les deux
+ * doivent offrir la même chose, sinon le guest choisit un type que le serveur
+ * refuse.
  */
 export function effectivePublicTypes(part: GLTypeSource & { public_entry_types?: string[] | null }): GLEntryType[] {
   const explicit = (part.public_entry_types || []).filter(
@@ -47,9 +53,15 @@ export function effectivePublicTypes(part: GLTypeSource & { public_entry_types?:
   );
   if (explicit.length) return GL_ENTRY_TYPES.filter(t => explicit.includes(t));
   const qn = part.quota_normal ?? 0, qd = part.quota_drink ?? 0, qt = part.quota_table ?? 0;
-  const legacy: GLEntryType = qn > 0 ? 'normal' : qd > 0 ? 'drink' : qt > 0 ? 'table'
-    : ((part.entry_kind || 'normal') as GLEntryType);
-  return [GL_ENTRY_TYPES.includes(legacy) ? legacy : 'normal'];
+  if (qn + qd + qt > 0) {
+    const out: GLEntryType[] = [];
+    if (qn > 0) out.push('normal');
+    if (qd > 0) out.push('drink');
+    if (qt > 0) out.push('table');
+    return out;
+  }
+  const kind = (part.entry_kind || 'normal') as GLEntryType;
+  return [GL_ENTRY_TYPES.includes(kind) ? kind : 'normal'];
 }
 
 /** Clé i18n du libellé d'un type (le 3e type est affiché « VIP » partout). */

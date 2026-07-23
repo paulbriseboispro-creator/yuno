@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { ArrowLeft, Users, Clock, Wine, CheckCircle, Ticket, LogIn, PartyPopper, Crown, UserPlus, Ban } from 'lucide-react';
-import { GL_ENTRY_TYPES, entryTypeLabelKey, type GLEntryType } from '@/lib/guestListTypes';
+import { GL_ENTRY_TYPES, effectivePublicTypes, entryTypeLabelKey, type GLEntryType } from '@/lib/guestListTypes';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE, fromParisTime } from '@/lib/timezone';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -67,6 +67,17 @@ interface InviteMeta {
 }
 
 const TYPE_ICON: Record<GLEntryType, typeof Ticket> = { normal: Ticket, drink: Wine, table: Crown };
+
+/**
+ * La part impose-t-elle une répartition Femmes/Hommes ? Un quota à 0 vaut
+ * « pas de quota » (convention de toute l'app) : le tester avec `!== null`
+ * affichait un sélecteur de genre obligatoire ET vide — les deux options
+ * étant filtrées sur `> 0` — donc une inscription impossible à valider.
+ * Miroir du garde serveur dans create-guest-list-entry.
+ */
+function hasGenderSplit(gl: { quotaFemale: number | null; quotaMale: number | null } | null): boolean {
+  return !!gl && ((gl.quotaFemale ?? 0) > 0 || (gl.quotaMale ?? 0) > 0);
+}
 
 /** Clé i18n de la courte description d'un type sur le sélecteur public. */
 function typeDescKey(type: GLEntryType): string {
@@ -275,10 +286,16 @@ export default function GuestListSignup() {
         ? await supabase.from('venues').select('name').eq('id', eventVenueId).single()
         : { data: null };
 
-      // Offre publique explicite du détenteur — un choix ne s'affiche qu'à
-      // partir de 2 types (1 type = badge informatif, 0/NULL = historique).
-      const publicTypes = GL_ENTRY_TYPES.filter(tp =>
-        ((data!.public_entry_types as string[] | null) || []).includes(tp));
+      // Offre publique de la part : choix explicite du détenteur, sinon tous les
+      // types réellement alloués (quota > 0). Même règle que le serveur.
+      const publicTypes = effectivePublicTypes({
+        holder_type: data.holder_type,
+        quota_normal: data.quota_normal,
+        quota_drink: data.quota_drink,
+        quota_table: data.quota_table,
+        entry_kind: data.entry_kind,
+        public_entry_types: data.public_entry_types as string[] | null,
+      });
 
       setGuestList({
         id: data.id,
@@ -345,7 +362,7 @@ export default function GuestListSignup() {
     if (!guestList) return;
 
     // Validate gender required if quotas are set
-    if ((guestList.quotaFemale !== null || guestList.quotaMale !== null) && !gender) {
+    if (hasGenderSplit(guestList) && !gender) {
       toast.error(t('guestList.genderRequired'));
       return;
     }
@@ -509,13 +526,15 @@ export default function GuestListSignup() {
 
   // Convention quota NULL = illimité : une telle part n'est jamais pleine et n'a
   // pas de « restantes » à afficher (sans ce garde, quota - count donnait NaN).
+  // Un quota genre à 0 = pas de quota : le tester avec `!== null` rendait toute
+  // liste genrée « complète » d'entrée (count >= 0 toujours vrai).
   const isFull = (guestList.quota !== null && entriesCount >= guestList.quota)
-    || (genderFromUrl === 'female' && guestList.quotaFemale !== null && femaleCount >= guestList.quotaFemale)
-    || (genderFromUrl === 'male' && guestList.quotaMale !== null && maleCount >= guestList.quotaMale);
-  const remaining = genderFromUrl === 'female' && guestList.quotaFemale !== null
-    ? Math.max(0, guestList.quotaFemale - femaleCount)
-    : genderFromUrl === 'male' && guestList.quotaMale !== null
-    ? Math.max(0, guestList.quotaMale - maleCount)
+    || (genderFromUrl === 'female' && (guestList.quotaFemale ?? 0) > 0 && femaleCount >= guestList.quotaFemale!)
+    || (genderFromUrl === 'male' && (guestList.quotaMale ?? 0) > 0 && maleCount >= guestList.quotaMale!);
+  const remaining = genderFromUrl === 'female' && (guestList.quotaFemale ?? 0) > 0
+    ? Math.max(0, guestList.quotaFemale! - femaleCount)
+    : genderFromUrl === 'male' && (guestList.quotaMale ?? 0) > 0
+    ? Math.max(0, guestList.quotaMale! - maleCount)
     : guestList.quota !== null
     ? Math.max(0, guestList.quota - entriesCount)
     : null;
@@ -741,7 +760,7 @@ export default function GuestListSignup() {
                 {typeSelector}
 
                 {/* Gender selection if quotas */}
-                {(guestList.quotaFemale !== null || guestList.quotaMale !== null) && (
+                {hasGenderSplit(guestList) && (
                   <div>
                     <p className="text-sm font-medium mb-2">{t('guestList.gender')} *</p>
                     {genderFromUrl ? (
@@ -891,7 +910,7 @@ export default function GuestListSignup() {
               {typeSelector}
 
               {/* Gender selection if quotas */}
-              {(guestList.quotaFemale !== null || guestList.quotaMale !== null) && (
+              {hasGenderSplit(guestList) && (
                 <div>
                   <p className="text-sm font-medium mb-2">{t('guestList.gender')} *</p>
                   {genderFromUrl ? (

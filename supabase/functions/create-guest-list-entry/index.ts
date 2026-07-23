@@ -268,22 +268,32 @@ serve(async (req) => {
     //   - lien public historique (public_entry_types NULL) → type primaire
     //     résolu automatiquement (normal de préférence), comportement inchangé.
     const qn = guestList.quota_normal ?? 0, qd = guestList.quota_drink ?? 0, qtb = guestList.quota_table ?? 0;
-    const offeredTypes: string[] | null = Array.isArray(guestList.public_entry_types) && guestList.public_entry_types.length > 0
-      ? guestList.public_entry_types
-      : null;
+    // Offre du lien public — MIROIR de effectivePublicTypes côté front :
+    // le choix explicite du détenteur, sinon tous les types réellement alloués
+    // (quota > 0), sinon le type primaire seul. Les deux doivent coïncider,
+    // sinon le guest choisit un type que le serveur refuse.
+    let offeredTypes: string[];
+    if (Array.isArray(guestList.public_entry_types) && guestList.public_entry_types.length > 0) {
+      offeredTypes = guestList.public_entry_types;
+    } else if (qn + qd + qtb > 0) {
+      offeredTypes = [];
+      if (qn > 0) offeredTypes.push("normal");
+      if (qd > 0) offeredTypes.push("drink");
+      if (qtb > 0) offeredTypes.push("table");
+    } else {
+      offeredTypes = [guestList.entry_kind || "normal"];
+    }
     const requestedType = typeof entryType === "string" && ["normal", "drink", "table"].includes(entryType)
       ? entryType
       : null;
     let resolvedEntryType: string;
     if (invite) {
       resolvedEntryType = invite.entry_type;
-    } else if (offeredTypes) {
+    } else {
       if (requestedType && !offeredTypes.includes(requestedType)) {
         throw new Error("This entry type is not offered on this guest list");
       }
       resolvedEntryType = requestedType ?? offeredTypes[0];
-    } else {
-      resolvedEntryType = qn > 0 ? "normal" : qd > 0 ? "drink" : qtb > 0 ? "table" : (guestList.entry_kind || "normal");
     }
     const typeQuota = resolvedEntryType === "table" ? qtb : resolvedEntryType === "drink" ? qd : qn;
     if (typeQuota > 0) {
