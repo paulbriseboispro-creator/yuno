@@ -52,8 +52,15 @@ export function NativeBridge() {
             return;
           }
           // Universal Link https://yunoapp.eu/...
+          // Rouvrir le lien de la page déjà affichée (cas courant : on repart
+          // dans Safari puis on retape le même lien partagé) empilerait une
+          // seconde entrée identique — le geste de retour ferait alors du
+          // sur-place entre deux copies de la même page. On remplace.
           const internal = toInternalPath(url);
-          if (internal) navigate(internal);
+          if (internal) {
+            const here = window.location.pathname + window.location.search;
+            navigate(internal, { replace: internal === here });
+          }
         } catch {
           // Deep link malformé : ignorer.
         }
