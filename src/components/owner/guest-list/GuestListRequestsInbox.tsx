@@ -10,9 +10,15 @@ type Req = {
   id: string;
   requester_user_id: string;
   requested_quota: number;
+  requested_quota_normal: number;
+  requested_quota_drink: number;
+  requested_quota_table: number;
   note: string | null;
   created_at: string;
 };
+
+/** Ce que le club s'apprête à accorder, type par type. */
+type Grant = { n: number; d: number; t: number };
 
 const rpc = (name: string, args: Record<string, unknown>) =>
   supabase.rpc(name as never, args as never);
@@ -31,7 +37,7 @@ export function GuestListRequestsInbox({ eventId, onDecided }: { eventId: string
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [reqs, setReqs] = useState<Req[]>([]);
   const [names, setNames] = useState<Record<string, string>>({});
-  const [grant, setGrant] = useState<Record<string, number>>({});
+  const [grant, setGrant] = useState<Record<string, Grant>>({});
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -44,7 +50,10 @@ export function GuestListRequestsInbox({ eventId, onDecided }: { eventId: string
       .order('created_at', { ascending: true });
     const list = (data as unknown as Req[] | null) ?? [];
     setReqs(list);
-    setGrant(Object.fromEntries(list.map(r => [r.id, r.requested_quota])));
+    // Pré-rempli sur ce qui est demandé : accorder tel quel doit être un clic.
+    setGrant(Object.fromEntries(list.map(r => [r.id, {
+      n: r.requested_quota_normal, d: r.requested_quota_drink, t: r.requested_quota_table,
+    }])));
 
     const ids = [...new Set(list.map(r => r.requester_user_id))];
     if (ids.length) {
@@ -60,11 +69,18 @@ export function GuestListRequestsInbox({ eventId, onDecided }: { eventId: string
   useEffect(() => { load(); }, [load]);
 
   const decide = async (id: string, approve: boolean) => {
+    const g = grant[id];
+    if (approve && g && g.n + g.d + g.t <= 0) {
+      toast.error(tt('Accordez au moins une place.', 'Grant at least one spot.', 'Concede al menos una plaza.'));
+      return;
+    }
     setBusy(id);
     const { error } = await rpc('decide_guest_list_allocation_request', {
       p_request_id: id,
       p_approve: approve,
-      p_granted_quota: approve ? (grant[id] ?? null) : null,
+      p_quota_normal: approve ? (g?.n ?? null) : null,
+      p_quota_drink: approve ? (g?.d ?? null) : null,
+      p_quota_table: approve ? (g?.t ?? null) : null,
     });
     setBusy(null);
     if (error) { toast.error(error.message); return; }
@@ -106,14 +122,39 @@ export function GuestListRequestsInbox({ eventId, onDecided }: { eventId: string
                 `Requests ${r.requested_quota} spots`,
                 `Solicita ${r.requested_quota} plazas`,
               )}
+              {' · '}
+              {[
+                r.requested_quota_normal > 0 ? `${r.requested_quota_normal} ${tt('standard', 'standard', 'estándar')}` : null,
+                r.requested_quota_drink > 0 ? `${r.requested_quota_drink} ${tt('boisson', 'drink', 'bebida')}` : null,
+                r.requested_quota_table > 0 ? `${r.requested_quota_table} ${tt('table', 'table', 'mesa')}` : null,
+              ].filter(Boolean).join(' · ')}
             </p>
             {r.note && <p className="mt-1" style={{ color: T2, fontSize: 12, fontStyle: 'italic' }}>« {r.note} »</p>}
 
-            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            {/* Accorder type par type — pré-rempli sur la demande */}
+            <div className="mt-2.5 space-y-1.5">
               <span style={{ color: T3, fontSize: 11.5 }}>{tt('Accorder', 'Grant', 'Conceder')}</span>
-              <input type="number" min={1} max={10000} value={grant[r.id] ?? r.requested_quota}
-                onChange={e => setGrant(g => ({ ...g, [r.id]: Math.max(1, Number(e.target.value)) }))}
-                style={inputStyle} />
+              <div className="flex flex-wrap items-center gap-2">
+                {([
+                  { k: 'n' as const, label: tt('Standard', 'Standard', 'Estándar') },
+                  { k: 'd' as const, label: tt('Boisson', 'Drink', 'Bebida') },
+                  { k: 't' as const, label: tt('Table', 'Table', 'Mesa') },
+                ]).map(col => (
+                  <div key={col.k} className="flex items-center gap-1.5">
+                    <span style={{ color: T3, fontSize: 11 }}>{col.label}</span>
+                    <input type="number" min={0} max={10000}
+                      value={grant[r.id]?.[col.k] ?? 0}
+                      onChange={e => setGrant(g => ({
+                        ...g,
+                        [r.id]: { ...(g[r.id] ?? { n: 0, d: 0, t: 0 }), [col.k]: Math.max(0, Number(e.target.value)) },
+                      }))}
+                      style={inputStyle} />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
               <button type="button" disabled={busy === r.id} onClick={() => decide(r.id, true)}
                 className="flex items-center gap-1.5 cursor-pointer"
                 style={{ padding: '8px 12px', borderRadius: 9, background: RED, border: 'none', color: '#fff', fontSize: 12.5, fontWeight: 600, opacity: busy === r.id ? 0.6 : 1 }}>

@@ -18,6 +18,7 @@ import { GuestListPresetDialog } from '@/components/owner/guest-list/GuestListPr
 import { PresetsManager } from '@/components/owner/guest-list/PresetsManager';
 import { DistributeSheet } from '@/components/owner/guest-list/DistributeSheet';
 import { partSlug } from '@/lib/guestListShare';
+import { useSearchParams } from 'react-router-dom';
 import { canSideEdit } from '@/utils/collabResponsibilities';
 import { CollabGuestListPreview } from '@/components/collab/CollabGuestListPreview';
 import { GuestListAllocation } from '@/components/owner/guest-list/GuestListAllocation';
@@ -121,6 +122,14 @@ export default function OwnerGuestList() {
     if (scopeReady) fetchEvents();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [venueId, organizerUserId, isOrganizerScope, scopeReady]);
+
+  // ?event=<id> : on arrive depuis la tuile « Guest list » d'une soirée précise.
+  // Sans ça la page ouvrait toujours la 1re soirée de la liste.
+  const [searchParams] = useSearchParams();
+  const eventParam = searchParams.get('event');
+  useEffect(() => {
+    if (eventParam && events.some(e => e.id === eventParam)) setSelectedEventId(eventParam);
+  }, [eventParam, events]);
 
   const fetchEvents = async () => {
     if (!scopeReady) return;

@@ -287,7 +287,9 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
     live: isVenue ? '/owner/live' : `/organizer-app/events/${eventId}/live`,
     analytics: isVenue ? '/owner/analytics' : `/organizer-app/analytics?event=${eventId}`,
     promoters: isVenue ? '/owner/promoters' : `/organizer-app/promoters/event/${eventId}`,
-    guestList: isVenue ? '/owner/guest-list' : '/organizer-app/guest-list',
+    // ?event= : sans lui la page Guest list retombe sur la 1re soirée de la liste
+    // (on ouvrait « Amore » et on atterrissait sur une autre).
+    guestList: isVenue ? `/owner/guest-list?event=${eventId}` : `/organizer-app/guest-list?event=${eventId}`,
     checkin: isVenue ? '/owner/live' : '/organizer-app/checkin',
     bookDj: isVenue ? '/owner/book-dj' : '/organizer-app/book-dj',
     ticketing: isVenue ? '/owner/ticketing' : '/organizer-app/ticketing',
