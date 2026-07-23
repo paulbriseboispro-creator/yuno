@@ -2350,6 +2350,39 @@ export type Database = {
         }
         Relationships: []
       }
+      discovery_event_notifications: {
+        Row: {
+          event_id: string
+          sent_at: string
+          user_id: string
+        }
+        Insert: {
+          event_id: string
+          sent_at?: string
+          user_id: string
+        }
+        Update: {
+          event_id?: string
+          sent_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      discovery_genre_map: {
+        Row: {
+          event_genres: string[]
+          quiz_code: string
+        }
+        Insert: {
+          event_genres: string[]
+          quiz_code: string
+        }
+        Update: {
+          event_genres?: string[]
+          quiz_code?: string
+        }
+        Relationships: []
+      }
       dj_availability: {
         Row: {
           blocked_date: string
@@ -5374,6 +5407,68 @@ export type Database = {
           },
         ]
       }
+      guest_list_allocation_requests: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          event_id: string
+          granted_quota: number | null
+          id: string
+          note: string | null
+          requested_free_before_time: string | null
+          requested_includes_drink: boolean
+          requested_quota: number
+          requested_quota_female: number | null
+          requested_quota_male: number | null
+          requester_user_id: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          event_id: string
+          granted_quota?: number | null
+          id?: string
+          note?: string | null
+          requested_free_before_time?: string | null
+          requested_includes_drink?: boolean
+          requested_quota: number
+          requested_quota_female?: number | null
+          requested_quota_male?: number | null
+          requester_user_id: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          event_id?: string
+          granted_quota?: number | null
+          id?: string
+          note?: string | null
+          requested_free_before_time?: string | null
+          requested_includes_drink?: boolean
+          requested_quota?: number
+          requested_quota_female?: number | null
+          requested_quota_male?: number | null
+          requester_user_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_list_allocation_requests_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       guest_list_entries: {
         Row: {
           created_at: string
@@ -8097,6 +8192,7 @@ export type Database = {
           birth_date: string | null
           city: string | null
           created_at: string
+          discovery_opt_out: boolean
           email: string
           employee_pin: string | null
           first_name: string | null
@@ -8146,6 +8242,7 @@ export type Database = {
           birth_date?: string | null
           city?: string | null
           created_at?: string
+          discovery_opt_out?: boolean
           email: string
           employee_pin?: string | null
           first_name?: string | null
@@ -8195,6 +8292,7 @@ export type Database = {
           birth_date?: string | null
           city?: string | null
           created_at?: string
+          discovery_opt_out?: boolean
           email?: string
           employee_pin?: string | null
           first_name?: string | null
@@ -11647,36 +11745,87 @@ export type Database = {
         }
         Relationships: []
       }
+      user_send_profiles: {
+        Row: {
+          cadence_days: number
+          engagement_score: number
+          last_sent_at: string | null
+          preferred_dow: number
+          preferred_hour: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cadence_days?: number
+          engagement_score?: number
+          last_sent_at?: string | null
+          preferred_dow?: number
+          preferred_hour?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cadence_days?: number
+          engagement_score?: number
+          last_sent_at?: string | null
+          preferred_dow?: number
+          preferred_hour?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_taste_profiles: {
         Row: {
+          booking_pref: string | null
+          budget: string | null
           created_at: string
           crowd_size: string
           drink_preference: string
+          energy: string | null
+          frequency: string | null
+          genres: string[]
           id: string
           music_style: string
           night_type: string
+          taste_content_hash: string | null
+          taste_embedding: string | null
           updated_at: string
           user_id: string
           vibe_preference: string
         }
         Insert: {
+          booking_pref?: string | null
+          budget?: string | null
           created_at?: string
           crowd_size: string
           drink_preference: string
+          energy?: string | null
+          frequency?: string | null
+          genres?: string[]
           id?: string
           music_style: string
           night_type: string
+          taste_content_hash?: string | null
+          taste_embedding?: string | null
           updated_at?: string
           user_id: string
           vibe_preference: string
         }
         Update: {
+          booking_pref?: string | null
+          budget?: string | null
           created_at?: string
           crowd_size?: string
           drink_preference?: string
+          energy?: string | null
+          frequency?: string | null
+          genres?: string[]
           id?: string
           music_style?: string
           night_type?: string
+          taste_content_hash?: string | null
+          taste_embedding?: string | null
           updated_at?: string
           user_id?: string
           vibe_preference?: string
@@ -14043,6 +14192,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      can_manage_event_guestlist_house: {
+        Args: { _event_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_manage_event_split: {
         Args: { _event_id: string; _user_id: string }
         Returns: boolean
@@ -14245,7 +14398,20 @@ export type Database = {
             }
             Returns: string
           }
+      create_promoter_guestlist_part: {
+        Args: { p_event_id: string; p_promoter_id: string }
+        Returns: undefined
+      }
       current_affiliate_id: { Args: never; Returns: string }
+      decide_guest_list_allocation_request: {
+        Args: {
+          p_approve: boolean
+          p_decision_note?: string
+          p_granted_quota?: number
+          p_request_id: string
+        }
+        Returns: undefined
+      }
       declare_promoter_payout_sent: {
         Args: { p_confirm_days?: number; p_payout_id: string }
         Returns: Json
@@ -14493,6 +14659,17 @@ export type Database = {
           target_accounts: string[]
         }[]
       }
+      get_discovery_events_for_user: {
+        Args: { p_user_id: string; p_window: string }
+        Returns: {
+          city: string
+          event_id: string
+          slug: string
+          start_at: string
+          title: string
+          venue_id: string
+        }[]
+      }
       get_dj_audience: {
         Args: never
         Returns: {
@@ -14590,6 +14767,28 @@ export type Database = {
         Returns: {
           event_id: string
           similarity: number
+        }[]
+      }
+      get_for_you_feed: {
+        Args: { p_city?: string; p_days?: number; p_limit?: number }
+        Returns: {
+          ends_at: string
+          event_id: string
+          event_slug: string
+          event_title: string
+          genres: string[]
+          min_price: number
+          organizer_name: string
+          organizer_slug: string
+          poster_url: string
+          reason_code: string
+          reason_value: string
+          score: number
+          starts_at: string
+          tables_enabled: boolean
+          venue_city: string
+          venue_id: string
+          venue_name: string
         }[]
       }
       get_guest_list_analytics: {
@@ -14819,6 +15018,19 @@ export type Database = {
       }
       get_staff_night_pulse: { Args: { p_venue_id?: string }; Returns: Json }
       get_staff_self_stats: { Args: { p_days?: number }; Returns: Json }
+      get_taste_events_for_user: {
+        Args: { p_days?: number; p_limit?: number; p_user_id: string }
+        Returns: {
+          city: string
+          event_id: string
+          music_genres: string[]
+          similarity: number
+          slug: string
+          start_at: string
+          title: string
+          venue_id: string
+        }[]
+      }
       get_tracked_link_stats: {
         Args: {
           p_dj_id?: string
@@ -15159,6 +15371,10 @@ export type Database = {
         }[]
       }
       process_due_collab_actions: { Args: never; Returns: undefined }
+      promoter_guestlist_head_commission: {
+        Args: { p_entry_id: string; v_rules: Json }
+        Returns: number
+      }
       promoter_owns_guest_entry: {
         Args: { _entry_id: string; _user_id: string }
         Returns: boolean
@@ -15233,6 +15449,7 @@ export type Database = {
       }
       refresh_analytics_daily_rollup: { Args: never; Returns: undefined }
       refresh_analytics_rollup: { Args: never; Returns: undefined }
+      refresh_user_send_profiles: { Args: never; Returns: number }
       refund_sms_credits: {
         Args: {
           p_amount: number
@@ -15252,6 +15469,18 @@ export type Database = {
       }
       request_event_collab_action: {
         Args: { p_action: string; p_event_id: string }
+        Returns: string
+      }
+      request_guest_list_allocation: {
+        Args: {
+          p_event_id: string
+          p_free_before_time?: string
+          p_includes_drink?: boolean
+          p_note?: string
+          p_quota: number
+          p_quota_female?: number
+          p_quota_male?: number
+        }
         Returns: string
       }
       reserve_table_slot: {
@@ -15531,6 +15760,10 @@ export type Database = {
         Returns: undefined
       }
       sync_offline_scans: { Args: { p_scans: Json }; Returns: Json }
+      sync_promoter_guestlist_parts: {
+        Args: { p_promoter_id: string }
+        Returns: undefined
+      }
       terminate_event_collab_series_contract: {
         Args: { p_contract_id: string }
         Returns: undefined
