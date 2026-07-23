@@ -3,6 +3,9 @@ import { Users, Music, Megaphone, UserPlus, Link2, Copy, Clock, Wine, Eye, Trash
 import { toast } from 'sonner';
 import type { Part, PartEntry, HolderType } from '@/hooks/useGuestListParts';
 import { buildShareLink } from '@/lib/guestListShare';
+import { PublicTypesEditor } from '@/components/guest-list/PublicTypesEditor';
+import { InviteLinksPanel } from '@/components/guest-list/InviteLinksPanel';
+import { DirectAddGuestDialog } from '@/components/guest-list/DirectAddGuestDialog';
 import {
   RED, POS, NEG, T1, T2, T3, BORDER, F_BORDER, INNER_BG, TILE_BG, CARD_BG, CARD_SHADOW, YunoSwitch,
 } from './ui';
@@ -36,6 +39,7 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
 
   const [open, setOpen] = useState(defaultOpen ?? (isClub && !part));
   const [saving, setSaving] = useState(false);
+  const [addGuestOpen, setAddGuestOpen] = useState(false);
 
   const [quota, setQuota] = useState(part?.quota ?? (isClub ? 100 : 20));
   // quota NULL = part illimitée (déléguées uniquement).
@@ -369,6 +373,24 @@ export function PartCard({ part, holderType, displayName, entries, slug, eventId
             </div>
           </div>
         )
+      )}
+
+      {/* Canaux de distribution — types offerts sur le lien public, ajout direct,
+          liens uniques. La part d'allocation 'organizer' n'est pilotable que par
+          l'organisateur lui-même (quotaLocked = sa propre vue). */}
+      {part && (holderType !== 'organizer' || quotaLocked) && (
+        <>
+          <PublicTypesEditor guestList={part} />
+          <div className="mt-3">
+            <button type="button" onClick={() => setAddGuestOpen(true)}
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '9px', color: T1, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
+              <UserPlus className="h-3.5 w-3.5" style={{ color: RED }} />
+              {t('glTools.addGuest')}
+            </button>
+          </div>
+          <InviteLinksPanel guestList={part} slug={slug} eventId={eventId} />
+          <DirectAddGuestDialog open={addGuestOpen} onOpenChange={setAddGuestOpen} guestList={part} />
+        </>
       )}
 
       {/* Entries — persisted parts only, when any exist */}

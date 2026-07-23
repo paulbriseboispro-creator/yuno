@@ -80,8 +80,11 @@ const CLIENT_KNOWLEDGE_BASE = `
 
 🔍 DÉCOUVRIR
 - Explorer (${APP_BASE_URL}/explore) : toutes les soirées proches, filtrables par date, ville et genre musical.
-- Section « Pour toi » dans Explorer : des soirées recommandées PERSONNELLEMENT, calculées à partir de tes achats de billets, tes favoris et les clubs que tu suis. Elle apparaît quand tu es connecté et que tu as déjà un peu d'activité (achats ou favoris) — sinon elle reste masquée.
+- Section « Pour toi » dans Explorer : une VRAIE sélection, pas la programmation re-triée. Yuno ne garde qu'une soirée qui sort nettement du lot par rapport au reste de ta ville, ou qui a une raison personnelle évidente : un club que tu suis, un DJ que tu suis à l'affiche. Chaque carte AFFICHE sa raison (« GUEST joue », « Le Sabot · tu suis ce club », « Comme la soirée que tu as aimée », « Techno · ton son »). Trois garde-fous : jamais plus d'environ 40 % des soirées de ta ville, un quota par club (pour ne pas empiler le même lieu quand la ville en a plusieurs), et rien du tout s'il n'y a pas au moins 3 soirées qui méritent d'y être — la section se masque alors complètement.
+- Elle regarde jusqu'à 45 jours devant, donc elle peut te sortir un samedi dans trois semaines que tu ne verrais nulle part ailleurs sur la page.
+- Ce qui la nourrit : le quiz de goût de l'inscription (genres, budget, billets ou tables), tes achats de billets, tes favoris, les clubs que tu suis et les DJs que tu suis. Le quiz suffit à lui seul : la section peut apparaître dès l'inscription, avant tout achat. Aucun signal du tout (quiz sauté et zéro activité) → elle reste masquée.
 - Ces recommandations se désactivent à tout moment : Réglages (${APP_BASE_URL}/settings) → « Recommandations personnalisées ».
+- Yuno t'envoie aussi, par NOTIFICATION, une sélection de soirées près de chez toi qui collent à tes goûts (les genres de musique de ton profil) : une le lundi pour la semaine, une le jeudi pour le week-end. Ce n'est jamais du spam — on n'envoie que s'il y a une vraie soirée pour toi, au plus deux par semaine. Ça marche pour TOUT le monde (même sans suivre de club), à partir de ta ville et de tes goûts. Tu peux couper ça à tout moment dans Réglages (${APP_BASE_URL}/settings) → « Découverte de soirées » — ça n'affecte pas les notifications de tes billets, commandes ou tables.
 - La recherche (loupe d'Explorer) comprend aussi le SENS de ce que tu écris : si tes mots-clés ne donnent rien, elle repêche des soirées proches de ton idée sous « Peut-être que tu cherches ça » (il faut être connecté).
 - Carte (${APP_BASE_URL}/map) : les clubs sur une carte interactive, appuie sur un pin pour voir le club.
 - Pages publiques : ${APP_BASE_URL}/events (soirées), ${APP_BASE_URL}/clubs (clubs), ${APP_BASE_URL}/djs (DJs).
@@ -123,7 +126,10 @@ const CLIENT_KNOWLEDGE_BASE = `
 📋 GUEST LIST — entrée gratuite
 - Certaines soirées ont une guest list : inscription GRATUITE, tu reçois un QR dédié.
 - Entrée gratuite avant une heure limite (affichée sur l'event), parfois avec une boisson offerte.
+- Trois types d'entrée existent : normale, avec boisson offerte, ou accès VIP. Sur certains liens, tu choisis ton type au moment de l'inscription (selon ce que le club/DJ/promoteur propose).
 - Les places sont limitées (quota). Inscris-toi depuis la page de l'événement ou via un lien partagé par le club/promoteur.
+- Tu peux aussi recevoir un LIEN D'INVITATION PERSONNEL (par email ou message) : le type d'entrée y est déjà fixé et le lien a un nombre de places précis (ex. toi + 1 accompagnant). Tant qu'il reste des places sur ce lien, tu peux inscrire tes accompagnants (chacun avec son propre email). Si le lien affiche « épuisé » ou « désactivé », vois avec la personne qui t'a invité.
+- Un club/promoteur peut aussi t'ajouter DIRECTEMENT : dans ce cas ton QR d'entrée arrive par email, rien à faire (crée un compte avec le même email pour le retrouver dans « Mes Commandes »).
 - Le club choisit d'afficher ou non le nombre de places restantes. Si le compteur n'apparaît pas, la liste indique simplement qu'elle est ouverte (et affichera « complet » quand elle le sera) — ce n'est jamais un bug, et ça ne veut pas dire qu'il reste peu de places. Ne JAMAIS inventer un nombre de places restantes qui n'est pas affiché.
 
 🍾 TABLES VIP — comment réserver

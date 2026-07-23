@@ -6,6 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { shareContent } from '@/lib/share';
+import { DJGuestListTools } from '@/components/dj/DJGuestListTools';
 
 const BASE_URL = (import.meta.env.VITE_APP_BASE_URL as string | undefined) || 'https://yunoapp.eu';
 
@@ -266,6 +267,11 @@ export function DJEventLinks() {
                         <UserCheck className="h-3 w-3" style={{ color: POS }} />
                         <span className="tabular-nums">{r.gl_scanned} {t('dj.guestList.entered')}</span>
                       </div>
+                      {/* Canaux de distribution : types offerts sur le lien, ajout
+                          direct (email + QR), liens uniques personnels. */}
+                      {r.gl_id && (
+                        <DJGuestListTools guestListId={r.gl_id} slug={slugify(r.location_name)} eventId={r.event_id} />
+                      )}
                     </div>
                   )}
                 </div>

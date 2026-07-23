@@ -38,3 +38,14 @@ export function buildShareLink(opts: {
   const base = `${origin}/club/${opts.slug}/event/${opts.eventId}/guestlist?token=${opts.token}`;
   return opts.gender ? `${base}&gender=${opts.gender}` : base;
 }
+
+/** Lien UNIQUE personnel (guest_list_invites) — même page, résolu par ?invite=. */
+export function buildInviteLink(opts: {
+  slug: string;
+  eventId: string;
+  token: string;
+  origin?: string;
+}): string {
+  const origin = opts.origin ?? (typeof window !== 'undefined' ? window.location.origin : '');
+  return `${origin}/club/${opts.slug}/event/${opts.eventId}/guestlist?invite=${opts.token}`;
+}

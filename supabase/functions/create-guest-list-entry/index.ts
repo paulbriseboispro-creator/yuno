@@ -54,9 +54,11 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    const { shareToken, gender, promoterCode, guestEmail, guestFullName, guestPhone } = await req.json();
+    const { shareToken, inviteToken, entryType, gender, promoterCode, guestEmail, guestFullName, guestPhone } = await req.json();
 
-    if (!shareToken) {
+    // Deux portes d'entrée : le lien public de la part (shareToken) ou un lien
+    // unique personnel (inviteToken, table guest_list_invites).
+    if (!shareToken && !inviteToken) {
       throw new Error("Missing required field: shareToken");
     }
 
@@ -81,7 +83,13 @@ serve(async (req) => {
     let email: string;
     let phone: string;
 
-    if (user) {
+    // Un lien unique multi-places doit permettre à un utilisateur loggé
+    // d'inscrire AUSSI un proche : des coordonnées explicites priment alors
+    // sur l'identité du JWT (l'entrée est celle du proche, sans user_id).
+    const hasExplicitGuestInfo = Boolean(guestEmail && guestFullName);
+    const useProfileIdentity = Boolean(user) && !hasExplicitGuestInfo;
+
+    if (user && useProfileIdentity) {
       logStep("User authenticated", { userId: user.id, email: user.email });
       const { data: profile } = await supabaseAdmin
         .from("profiles")
@@ -114,15 +122,45 @@ serve(async (req) => {
       throw new Error("Please provide a valid phone number.");
     }
 
-    logStep("Registrant resolved", { fullName, email, isGuest: !user });
+    // registrantUser = identité réellement inscrite (null quand un loggé inscrit
+    // un proche via des coordonnées explicites) — gouverne user_id, le check
+    // « déjà inscrit » et le crédit boisson.
+    const registrantUser = useProfileIdentity ? user : null;
 
-    // Find guest list by share token
-    const { data: guestList, error: glError } = await supabaseAdmin
+    logStep("Registrant resolved", { fullName, email, isGuest: !registrantUser });
+
+    // Résolution de la part : lien unique (invite) d'abord, sinon lien public.
+    let invite: { id: string; entry_type: string; max_uses: number; used_count: number; revoked_at: string | null } | null = null;
+    let guestListId: string | null = null;
+
+    if (inviteToken) {
+      const { data: inviteRow } = await supabaseAdmin
+        .from("guest_list_invites")
+        .select("id, guest_list_id, entry_type, max_uses, used_count, revoked_at")
+        .eq("token", inviteToken)
+        .maybeSingle();
+      if (!inviteRow) {
+        throw new Error("Invite link not found");
+      }
+      if (inviteRow.revoked_at) {
+        throw new Error("This invite link has been revoked");
+      }
+      // Pré-check lisible ; le claim atomique ci-dessous reste l'arbitre final.
+      if ((inviteRow.used_count ?? 0) >= inviteRow.max_uses) {
+        throw new Error("This invite link has no remaining spots");
+      }
+      invite = inviteRow;
+      guestListId = inviteRow.guest_list_id;
+    }
+
+    const glQuery = supabaseAdmin
       .from("guest_lists")
       .select("*, events!inner(id, title, start_at, end_at, venue_id)")
-      .eq("share_token", shareToken)
-      .eq("is_active", true)
-      .single();
+      .eq("is_active", true);
+    const { data: guestList, error: glError } = await (guestListId
+      ? glQuery.eq("id", guestListId)
+      : glQuery.eq("share_token", shareToken)
+    ).single();
 
     if (glError || !guestList) {
       throw new Error("Guest list not found or inactive");
@@ -162,12 +200,12 @@ serve(async (req) => {
 
     // Check user not already registered (logged-in path only; guests are
     // de-duplicated by email below).
-    if (user) {
+    if (registrantUser) {
       const { data: existingByUser } = await supabaseAdmin
         .from("guest_list_entries")
         .select("id")
         .eq("guest_list_id", guestList.id)
-        .eq("user_id", user.id)
+        .eq("user_id", registrantUser.id)
         .neq("status", "cancelled")
         .maybeSingle();
 
@@ -201,11 +239,30 @@ serve(async (req) => {
       throw new Error("Guest list is full");
     }
 
-    // A public self-signup takes the list's primary available kind (normal preferred);
-    // the drink/VIP slots are filled by the promoter (app) or the owner. Enforce that
-    // kind's per-type quota so a "10 normal + 2 VIP" list keeps its split.
+    // Résolution du type d'entrée, par canal :
+    //   - lien unique  → le type est IMPOSÉ par l'invitation ;
+    //   - lien public avec offre configurée (public_entry_types) → le guest
+    //     choisit parmi les types offerts (défaut : le premier de l'offre) ;
+    //   - lien public historique (public_entry_types NULL) → type primaire
+    //     résolu automatiquement (normal de préférence), comportement inchangé.
     const qn = guestList.quota_normal ?? 0, qd = guestList.quota_drink ?? 0, qtb = guestList.quota_table ?? 0;
-    const resolvedEntryType = qn > 0 ? "normal" : qd > 0 ? "drink" : qtb > 0 ? "table" : (guestList.entry_kind || "normal");
+    const offeredTypes: string[] | null = Array.isArray(guestList.public_entry_types) && guestList.public_entry_types.length > 0
+      ? guestList.public_entry_types
+      : null;
+    const requestedType = typeof entryType === "string" && ["normal", "drink", "table"].includes(entryType)
+      ? entryType
+      : null;
+    let resolvedEntryType: string;
+    if (invite) {
+      resolvedEntryType = invite.entry_type;
+    } else if (offeredTypes) {
+      if (requestedType && !offeredTypes.includes(requestedType)) {
+        throw new Error("This entry type is not offered on this guest list");
+      }
+      resolvedEntryType = requestedType ?? offeredTypes[0];
+    } else {
+      resolvedEntryType = qn > 0 ? "normal" : qd > 0 ? "drink" : qtb > 0 ? "table" : (guestList.entry_kind || "normal");
+    }
     const typeQuota = resolvedEntryType === "table" ? qtb : resolvedEntryType === "drink" ? qd : qn;
     if (typeQuota > 0) {
       const { count: typeCount } = await supabaseAdmin
@@ -272,22 +329,35 @@ serve(async (req) => {
     const nameParts = fullName.trim().split(" ");
     await supabaseAdmin.rpc("get_or_create_venue_customer", {
       p_venue_id: guestList.venue_id,
-      p_user_id: user?.id ?? null,
+      p_user_id: registrantUser?.id ?? null,
       p_email: email.toLowerCase().trim(),
       p_first_name: nameParts[0] || null,
       p_last_name: nameParts.slice(1).join(" ") || null,
       p_phone: phone || null,
     });
 
+    // Un lien unique réserve sa place AVANT l'insertion (UPDATE conditionnel
+    // atomique : deux claims concurrents ne dépassent jamais max_uses). Si le
+    // trigger de capacité rejette ensuite l'insertion, la place est relâchée.
+    if (invite) {
+      const { data: claimed } = await supabaseAdmin.rpc("claim_guest_list_invite_use", {
+        _invite_id: invite.id,
+      });
+      if (claimed !== true) {
+        throw new Error("This invite link has no remaining spots");
+      }
+    }
+
     // Create the entry with YN-XXXXXX reservation code
     const qrCode = generateQRCode();
     const reservationCode = generateReservationCode();
-    
+
     const { data: entry, error: insertError } = await supabaseAdmin
       .from("guest_list_entries")
       .insert({
         guest_list_id: guestList.id,
-        user_id: user?.id ?? null,
+        user_id: registrantUser?.id ?? null,
+        invite_id: invite?.id ?? null,
         full_name: fullName.trim(),
         email: email.toLowerCase().trim(),
         phone: phone || "",
@@ -311,6 +381,15 @@ serve(async (req) => {
 
     if (insertError) {
       console.error("Insert error:", insertError);
+      // L'insertion a échoué : on relâche la place du lien unique réservée
+      // au-dessus (best-effort — un échec ici laisse au pire une place fantôme
+      // sur le lien, jamais une entrée fantôme).
+      if (invite) {
+        await supabaseAdmin.rpc("release_guest_list_invite_use", { _invite_id: invite.id }).then(
+          () => {},
+          (releaseErr: unknown) => console.error("Invite release failed:", releaseErr),
+        );
+      }
       // Le trigger enforce_guest_list_capacity (verrou atomique côté base) est
       // l'arbitre final sous forte concurrence : ses messages doivent remonter
       // tels quels — le front matche « full » / « quota reached ».
@@ -326,12 +405,12 @@ serve(async (req) => {
       throw new Error("Failed to create guest list entry");
     }
 
-    logStep("Entry created", { entryId: entry.id, userId: user?.id ?? null, reservationCode });
+    logStep("Entry created", { entryId: entry.id, userId: registrantUser?.id ?? null, inviteId: invite?.id ?? null, reservationCode });
 
     // ── Grant drink credits if guest list includes_drink AND venue uses credits mode ──
     // Credits key on user_id, so only logged-in registrants get them here. A guest
     // who later creates an account (via /guest/finalize) can claim the drink then.
-    if (resolvedEntryType === "drink" && user) {
+    if (resolvedEntryType === "drink" && registrantUser) {
       // Check venue free_drink_mode
       const { data: venueForDrink } = await supabaseAdmin
         .from("venues")
@@ -349,7 +428,7 @@ serve(async (req) => {
         await supabaseAdmin
           .from("order_pack_credits")
           .upsert({
-            user_id: user.id,
+            user_id: registrantUser.id,
             venue_id: guestList.venue_id,
             event_id: guestList.events.id,
             pack_id: `gl-drink-${entry.id}`,
@@ -357,9 +436,9 @@ serve(async (req) => {
             used_credits: 0,
             expires_at: expiresAt,
           }, { onConflict: "user_id,pack_id" });
-        logStep("Drink credits created for club GL", { userId: user.id });
+        logStep("Drink credits created for club GL", { userId: registrantUser.id });
       } else {
-        logStep("Drink credits skipped for GL (bouncer_notify mode)", { userId: user.id });
+        logStep("Drink credits skipped for GL (bouncer_notify mode)", { userId: registrantUser.id });
       }
     }
 
@@ -376,7 +455,11 @@ serve(async (req) => {
           eventStartAt: guestList.events.start_at,
           freeBeforeTime: guestList.free_before_time,
           includesDrink: guestList.includes_drink,
+          entryType: resolvedEntryType,
         },
+        // Places restantes sur le lien unique après CETTE inscription (le front
+        // propose « inscrire une autre personne » tant qu'il en reste).
+        inviteRemaining: invite ? Math.max(0, invite.max_uses - invite.used_count - 1) : null,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

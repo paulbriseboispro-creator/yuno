@@ -324,7 +324,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Users',
         actionLink: { labelKey: 'ohelp.action.goToGuestList', path: '/guest-list' },
         relatedArticleIds: ['events-setup', 'promoter-system', 'scarcity-fomo'],
-        keywords: ['guest', 'list', 'liste', 'invité', 'invitation', 'gratuit', 'free', 'quota', 'entrée gratuite', 'free entry', 'gender', 'genre', 'drink included', 'lista de invitados', 'places restantes', 'remaining spots', 'compteur', 'counter', 'modèle', 'template', 'récurrente', 'recurring', 'automatique', 'automatic'],
+        keywords: ['guest', 'list', 'liste', 'invité', 'invitation', 'gratuit', 'free', 'quota', 'entrée gratuite', 'free entry', 'gender', 'genre', 'drink included', 'lista de invitados', 'places restantes', 'remaining spots', 'compteur', 'counter', 'modèle', 'template', 'récurrente', 'recurring', 'automatique', 'automatic', 'lien unique', 'unique link', 'invite link', 'ajout direct', 'boisson', 'vip', 'types proposés'],
         sections: [
           { headingKey: 'ohelp.ev.guestlist.s1h', bodyKey: 'ohelp.ev.guestlist.s1b' },
           { headingKey: 'ohelp.ev.guestlist.s2h', bodyKey: 'ohelp.ev.guestlist.s2b', screenshotUrl: '/help/owner-guest-list.png' },
@@ -337,6 +337,11 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.ev.guestlist.s9h', bodyKey: 'ohelp.ev.guestlist.s9b' },
           { headingKey: 'ohelp.ev.guestlist.s10h', bodyKey: 'ohelp.ev.guestlist.s10b' },
           { headingKey: 'ohelp.ev.guestlist.s11h', bodyKey: 'ohelp.ev.guestlist.s11b', type: 'tip' },
+          // Les trois canaux de distribution d'une part (lien public par type,
+          // ajout direct avec email, liens uniques limités).
+          { headingKey: 'ohelp.ev.guestlist.s12h', bodyKey: 'ohelp.ev.guestlist.s12b' },
+          { headingKey: 'ohelp.ev.guestlist.s13h', bodyKey: 'ohelp.ev.guestlist.s13b' },
+          { headingKey: 'ohelp.ev.guestlist.s14h', bodyKey: 'ohelp.ev.guestlist.s14b', type: 'tip' },
         ],
       },
       {

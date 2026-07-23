@@ -294,6 +294,10 @@ verify_jwt = true
 [functions.promoter-add-guest]
 verify_jwt = true
 
+# Ajout direct + email de lien unique par tout détenteur de part guest list.
+[functions.guest-list-manage]
+verify_jwt = true
+
 [functions.send-crm-campaign]
 verify_jwt = true
 

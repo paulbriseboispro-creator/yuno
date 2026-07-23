@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { wrapEmailWithBranding, escapeHtml } from "../_shared/email-branding.ts";
+import { wrapEmailWithBranding } from "../_shared/email-branding.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { sendAutoPush } from "../_shared/auto-push.ts";
+import { entryTypeLabelFr, guestListEntryEmailContent } from "../_shared/guest-list-email.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[PROMOTER-ADD-GUEST] ${step}`, details ? JSON.stringify(details) : "");
@@ -32,16 +33,6 @@ function capacityErrorMessage(err: { message?: string; code?: string } | null): 
   if (msg.includes("Guest list is full")) return "Guest list is full";
   if (err?.code === "23505") return "This guest is already on the list";
   return null;
-}
-
-/** Sanitize a poster URL for safe interpolation into an email img src. */
-function safeImageUrl(url: string | null | undefined): string | null {
-  if (!url) return null;
-  const u = String(url).trim();
-  // Only allow http(s) URLs; block javascript:/data: and quote-breaking chars.
-  if (!/^https?:\/\//i.test(u)) return null;
-  if (/["'<>\s]/.test(u)) return null;
-  return u;
 }
 
 serve(async (req) => {
@@ -345,8 +336,6 @@ serve(async (req) => {
           ? new Date(event.start_at).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })
           : "";
 
-        const entryLabel = resolvedEntryType === "table" ? "Entrée Table VIP" : resolvedEntryType === "drink" ? "Entrée + Boisson offerte" : "Entrée standard";
-
         const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
         const RESEND_FROM = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@yunoapp.eu";
         const APP_URL = "https://yunoapp.eu";
@@ -356,83 +345,19 @@ serve(async (req) => {
             ? `${APP_URL}/my-orders`
             : `${APP_URL}/auth?redirect=/my-orders`;
 
-          const safeEventTitle = escapeHtml(event?.title || "Événement");
-          const safeVenueName = escapeHtml(venueName);
-          // Validate the URL scheme + reject quote/tag chars before interpolating
-          // into src="…" — a crafted poster_url must not break out of the attribute.
-          const eventImageUrl = safeImageUrl(event?.poster_url);
-
-          const emailContent = `
-            ${eventImageUrl ? `
-            <table width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <td>
-                  <img src="${eventImageUrl}" alt="${safeEventTitle}" style="width: 100%; max-height: 200px; object-fit: cover; display: block;" />
-                </td>
-              </tr>
-            </table>
-            ` : ''}
-
-            <!-- Header gradient -->
-            <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding: 24px 28px; text-align: center;">
-              <div style="font-size: 20px; font-weight: bold; color: #fff; margin-bottom: 4px;">${safeVenueName}</div>
-              <h1 style="color: white; margin: 0; font-size: 22px;">Vous êtes sur la Guest List</h1>
-            </div>
-
-            <!-- Content -->
-            <div style="padding: 28px;">
-              <!-- Details Card -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 24px;">
-                ${eventDate ? `
-                <tr>
-                  <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <p style="color: #888; font-size: 12px; margin: 0;">📅 Date</p>
-                    <p style="color: #fff; font-size: 14px; font-weight: 500; margin: 4px 0 0;">${eventDate}</p>
-                  </td>
-                </tr>
-                ` : ''}
-                <tr>
-                  <td style="padding: 12px 16px; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <p style="color: #888; font-size: 12px; margin: 0;">🎫 Type d'entrée</p>
-                    <p style="color: #fff; font-size: 14px; font-weight: 500; margin: 4px 0 0;">${entryLabel}</p>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding: 12px 16px;">
-                    <p style="color: #888; font-size: 12px; margin: 0;">👤 Invité par</p>
-                    <p style="color: #fff; font-size: 14px; font-weight: 500; margin: 4px 0 0;">${escapeHtml(promoterName)}</p>
-                  </td>
-                </tr>
-              </table>
-
-              <!-- QR Code -->
-              <div style="text-align: center; margin: 24px 0; padding: 24px 20px; background-color: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
-                <h3 style="color: #0a0a0a; margin-bottom: 16px; font-size: 17px; font-weight: 700;">QR Code d'entrée</h3>
-                <div style="background: #f8f8f8; border-radius: 12px; padding: 20px; display: inline-block;">
-                  <img src="https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCode)}" alt="QR Code" style="width: 220px; height: 220px; display: block;" />
-                </div>
-                <div style="margin-top: 16px; background: #f5f5f5; border-radius: 8px; padding: 12px 16px; display: inline-block;">
-                  <p style="color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 4px;">Code de réservation</p>
-                  <p style="color: #0a0a0a; font-size: 20px; font-weight: 800; font-family: 'Courier New', monospace; letter-spacing: 2px; margin: 0;">${reservationCode}</p>
-                </div>
-              </div>
-
-              <!-- CTA -->
-              <div style="text-align: center; margin: 24px 0;">
-                <a href="${ctaUrl}" style="display: inline-block; background: #dc2626; color: #fff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 15px;">
-                  ${linkedUserId ? "Voir dans Mes Commandes" : "Connectez-vous pour voir votre ticket"}
-                </a>
-                <p style="color: #666; font-size: 12px; margin: 10px 0 0;">
-                  ${linkedUserId ? "Retrouvez votre invitation dans l'application Yuno" : "Créez un compte ou connectez-vous pour retrouver votre invitation"}
-                </p>
-              </div>
-
-              <!-- Footer -->
-              <div style="text-align: center; margin-top: 24px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
-                <p style="color: #666; font-size: 13px; margin: 0;">L'équipe Yuno</p>
-              </div>
-            </div>
-          `;
+          // Gabarit partagé avec guest-list-manage (_shared/guest-list-email.ts).
+          const emailContent = guestListEntryEmailContent({
+            eventTitle: event?.title || "Événement",
+            eventDate,
+            venueName,
+            posterUrl: event?.poster_url,
+            entryLabel: entryTypeLabelFr(resolvedEntryType),
+            invitedBy: promoterName,
+            qrCode,
+            reservationCode,
+            ctaUrl,
+            hasAccount: !!linkedUserId,
+          });
 
           const html = wrapEmailWithBranding(emailContent, 'fr', venueName);
 

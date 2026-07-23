@@ -5415,13 +5415,19 @@ export type Database = {
           decision_note: string | null
           event_id: string
           granted_quota: number | null
+          granted_quota_drink: number | null
+          granted_quota_normal: number | null
+          granted_quota_table: number | null
           id: string
           note: string | null
           requested_free_before_time: string | null
           requested_includes_drink: boolean
           requested_quota: number
+          requested_quota_drink: number
           requested_quota_female: number | null
           requested_quota_male: number | null
+          requested_quota_normal: number
+          requested_quota_table: number
           requester_user_id: string
           status: string
         }
@@ -5432,13 +5438,19 @@ export type Database = {
           decision_note?: string | null
           event_id: string
           granted_quota?: number | null
+          granted_quota_drink?: number | null
+          granted_quota_normal?: number | null
+          granted_quota_table?: number | null
           id?: string
           note?: string | null
           requested_free_before_time?: string | null
           requested_includes_drink?: boolean
           requested_quota: number
+          requested_quota_drink?: number
           requested_quota_female?: number | null
           requested_quota_male?: number | null
+          requested_quota_normal?: number
+          requested_quota_table?: number
           requester_user_id: string
           status?: string
         }
@@ -5449,13 +5461,19 @@ export type Database = {
           decision_note?: string | null
           event_id?: string
           granted_quota?: number | null
+          granted_quota_drink?: number | null
+          granted_quota_normal?: number | null
+          granted_quota_table?: number | null
           id?: string
           note?: string | null
           requested_free_before_time?: string | null
           requested_includes_drink?: boolean
           requested_quota?: number
+          requested_quota_drink?: number
           requested_quota_female?: number | null
           requested_quota_male?: number | null
+          requested_quota_normal?: number
+          requested_quota_table?: number
           requester_user_id?: string
           status?: string
         }
@@ -5482,6 +5500,7 @@ export type Database = {
           gender: string | null
           guest_list_id: string
           id: string
+          invite_id: string | null
           phone: string
           promoter_id: string | null
           qr_code: string
@@ -5501,6 +5520,7 @@ export type Database = {
           gender?: string | null
           guest_list_id: string
           id?: string
+          invite_id?: string | null
           phone: string
           promoter_id?: string | null
           qr_code: string
@@ -5520,6 +5540,7 @@ export type Database = {
           gender?: string | null
           guest_list_id?: string
           id?: string
+          invite_id?: string | null
           phone?: string
           promoter_id?: string | null
           qr_code?: string
@@ -5536,10 +5557,70 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "guest_list_entries_invite_id_fkey"
+            columns: ["invite_id"]
+            isOneToOne: false
+            referencedRelation: "guest_list_invites"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "guest_list_entries_promoter_id_fkey"
             columns: ["promoter_id"]
             isOneToOne: false
             referencedRelation: "promoters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      guest_list_invites: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          email_sent_at: string | null
+          entry_type: string
+          guest_email: string | null
+          guest_list_id: string
+          guest_name: string | null
+          id: string
+          max_uses: number
+          revoked_at: string | null
+          token: string
+          used_count: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          email_sent_at?: string | null
+          entry_type?: string
+          guest_email?: string | null
+          guest_list_id: string
+          guest_name?: string | null
+          id?: string
+          max_uses?: number
+          revoked_at?: string | null
+          token?: string
+          used_count?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          email_sent_at?: string | null
+          entry_type?: string
+          guest_email?: string | null
+          guest_list_id?: string
+          guest_name?: string | null
+          id?: string
+          max_uses?: number
+          revoked_at?: string | null
+          token?: string
+          used_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_list_invites_guest_list_id_fkey"
+            columns: ["guest_list_id"]
+            isOneToOne: false
+            referencedRelation: "guest_lists"
             referencedColumns: ["id"]
           },
         ]
@@ -5657,6 +5738,7 @@ export type Database = {
           is_active: boolean
           organizer_user_id: string | null
           promoter_id: string | null
+          public_entry_types: string[] | null
           quota: number | null
           quota_drink: number
           quota_female: number | null
@@ -5683,6 +5765,7 @@ export type Database = {
           is_active?: boolean
           organizer_user_id?: string | null
           promoter_id?: string | null
+          public_entry_types?: string[] | null
           quota?: number | null
           quota_drink?: number
           quota_female?: number | null
@@ -5709,6 +5792,7 @@ export type Database = {
           is_active?: boolean
           organizer_user_id?: string | null
           promoter_id?: string | null
+          public_entry_types?: string[] | null
           quota?: number | null
           quota_drink?: number
           quota_female?: number | null
@@ -14204,6 +14288,10 @@ export type Database = {
         Args: { _event_id: string; _user_id: string }
         Returns: boolean
       }
+      can_manage_guest_list_part: {
+        Args: { _guest_list_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_manage_organizer: {
         Args: { p_organizer_user_id: string }
         Returns: boolean
@@ -14237,6 +14325,10 @@ export type Database = {
       }
       check_mfa_disable_rate_limit: {
         Args: { _user_id: string }
+        Returns: boolean
+      }
+      claim_guest_list_invite_use: {
+        Args: { _invite_id: string }
         Returns: boolean
       }
       cleanup_affiliate_invitation_meta: { Args: never; Returns: undefined }
@@ -14407,7 +14499,9 @@ export type Database = {
         Args: {
           p_approve: boolean
           p_decision_note?: string
-          p_granted_quota?: number
+          p_quota_drink?: number
+          p_quota_normal?: number
+          p_quota_table?: number
           p_request_id: string
         }
         Returns: undefined
@@ -14817,6 +14911,7 @@ export type Database = {
           is_active: boolean
           organizer_user_id: string | null
           promoter_id: string | null
+          public_entry_types: string[] | null
           quota: number | null
           quota_drink: number
           quota_female: number | null
@@ -14836,6 +14931,7 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_guest_list_invite: { Args: { _token: string }; Returns: Json }
       get_guest_list_public_fill: {
         Args: { _guest_list_id: string }
         Returns: {
@@ -15163,6 +15259,10 @@ export type Database = {
           previous_visits: number
         }[]
       }
+      guest_list_allowed_entry_types: {
+        Args: { _gl: Database["public"]["Tables"]["guest_lists"]["Row"] }
+        Returns: string[]
+      }
       has_accepted_legal: {
         Args: { p_doc_type: string; p_doc_version: string }
         Returns: boolean
@@ -15463,6 +15563,10 @@ export type Database = {
         Args: { p_endpoint: string; p_platform: string }
         Returns: undefined
       }
+      release_guest_list_invite_use: {
+        Args: { _invite_id: string }
+        Returns: undefined
+      }
       release_pack_credit: {
         Args: { p_amount: number; p_credit_id: string }
         Returns: undefined
@@ -15475,11 +15579,12 @@ export type Database = {
         Args: {
           p_event_id: string
           p_free_before_time?: string
-          p_includes_drink?: boolean
           p_note?: string
-          p_quota: number
+          p_quota_drink?: number
           p_quota_female?: number
           p_quota_male?: number
+          p_quota_normal?: number
+          p_quota_table?: number
         }
         Returns: string
       }
@@ -15660,6 +15765,10 @@ export type Database = {
       }
       set_event_sale_password: {
         Args: { p_event_id: string; p_password: string }
+        Returns: undefined
+      }
+      set_guest_list_public_types: {
+        Args: { p_guest_list_id: string; p_types: string[] }
         Returns: undefined
       }
       settle_agency_promoter_payout: {

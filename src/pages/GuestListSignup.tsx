@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useEventRoute } from '@/hooks/useEventRoute';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -11,12 +12,28 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { ArrowLeft, Users, Clock, Wine, CheckCircle, Ticket, LogIn, PartyPopper } from 'lucide-react';
+import { ArrowLeft, Users, Clock, Wine, CheckCircle, Ticket, LogIn, PartyPopper, Crown, UserPlus, Ban } from 'lucide-react';
+import { GL_ENTRY_TYPES, entryTypeLabelKey, type GLEntryType } from '@/lib/guestListTypes';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE, fromParisTime } from '@/lib/timezone';
 import { fr, es, enUS } from 'date-fns/locale';
 import QRCode from 'qrcode';
 import { PublicPage } from '@/components/PublicPage';
+
+/** Colonnes d'event embarquées avec la guest list (select imbriqué). */
+interface GuestListEventInfo {
+  id: string;
+  title: string;
+  start_at: string;
+  end_at: string;
+  venue_id: string | null;
+  partner_venue_id: string | null;
+  poster_url: string | null;
+}
+
+interface GuestListWithEvent extends Tables<'guest_lists'> {
+  events: GuestListEventInfo | null;
+}
 
 interface GuestListInfo {
   id: string;
@@ -35,6 +52,27 @@ interface GuestListInfo {
   venueId: string;
   venueName: string;
   shareToken: string;
+  /** Types offerts sur le lien public (canal 1). NULL/[] = pas de choix affiché. */
+  publicEntryTypes: GLEntryType[] | null;
+}
+
+/** Lien unique personnel (?invite=) : type imposé + nombre de places limité. */
+interface InviteMeta {
+  id: string;
+  entryType: GLEntryType;
+  maxUses: number;
+  usedCount: number;
+  guestName: string | null;
+  revoked: boolean;
+}
+
+const TYPE_ICON: Record<GLEntryType, typeof Ticket> = { normal: Ticket, drink: Wine, table: Crown };
+
+/** Clé i18n de la courte description d'un type sur le sélecteur public. */
+function typeDescKey(type: GLEntryType): string {
+  return type === 'table' ? 'guestList.typeDesc.table'
+    : type === 'drink' ? 'guestList.typeDesc.drink'
+    : 'guestList.typeDesc.normal';
 }
 
 export default function GuestListSignup() {
@@ -44,11 +82,13 @@ export default function GuestListSignup() {
   const { t, language } = useLanguage();
   const { user, loading: authLoading } = useAuth();
   const token = searchParams.get('token');
+  const inviteParam = searchParams.get('invite');
   const ref = searchParams.get('ref');
   const genderFromUrl = searchParams.get('gender') as 'female' | 'male' | null;
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
 
   const [guestList, setGuestList] = useState<GuestListInfo | null>(null);
+  const [inviteMeta, setInviteMeta] = useState<InviteMeta | null>(null);
   const [entriesCount, setEntriesCount] = useState(0);
   const [femaleCount, setFemaleCount] = useState(0);
   const [maleCount, setMaleCount] = useState(0);
@@ -57,6 +97,11 @@ export default function GuestListSignup() {
   const [success, setSuccess] = useState(false);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [qrImage, setQrImage] = useState('');
+  // Choix du type d'entrée sur le lien public (quand le détenteur offre >1 type).
+  const [chosenType, setChosenType] = useState<GLEntryType | ''>('');
+  // Lien unique multi-places : inscrire un proche après sa propre inscription.
+  const [addAnother, setAddAnother] = useState(false);
+  const [successEntryType, setSuccessEntryType] = useState<GLEntryType | null>(null);
 
   // Form (gender only - rest comes from profile)
   // Pre-fill from URL param when coming from a gender-specific share link
@@ -74,7 +119,7 @@ export default function GuestListSignup() {
     // `user` is included so the "already registered" check re-runs once auth
     // resolves (it can settle after the first fetch, otherwise it's missed).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, eventId, user]);
+  }, [token, eventId, user, inviteParam]);
 
   useEffect(() => {
     if (!guestList) return;
@@ -142,8 +187,51 @@ export default function GuestListSignup() {
 
   const fetchGuestList = async () => {
     try {
-      let data: any = null;
-      if (token) {
+      let data: GuestListWithEvent | null = null;
+      if (inviteParam) {
+        // Lien unique personnel : résolution par RPC SECURITY DEFINER (jamais de
+        // share_token dans la réponse — le lien invite ne donne pas le lien public).
+        const { data: inviteRaw } = await supabase.rpc('get_guest_list_invite', { _token: inviteParam });
+        const parsed = inviteRaw as unknown as {
+          invite: { id: string; entry_type: string; max_uses: number; used_count: number; guest_name: string | null; revoked: boolean };
+          guest_list: {
+            id: string; event_id: string; holder_type: string; quota: number | null;
+            quota_female: number | null; quota_male: number | null; show_remaining: boolean;
+            free_before_time: string; entry_deadline: string | null; includes_drink: boolean; is_active: boolean;
+          };
+        } | null;
+        if (parsed?.invite && parsed.guest_list?.is_active) {
+          const { data: ev } = await supabase
+            .from('events')
+            .select('id, title, start_at, end_at, venue_id, partner_venue_id, poster_url')
+            .eq('id', parsed.guest_list.event_id)
+            .maybeSingle();
+          if (ev) {
+            const gl = parsed.guest_list;
+            setInviteMeta({
+              id: parsed.invite.id,
+              entryType: (GL_ENTRY_TYPES.includes(parsed.invite.entry_type as GLEntryType)
+                ? parsed.invite.entry_type : 'normal') as GLEntryType,
+              maxUses: parsed.invite.max_uses,
+              usedCount: parsed.invite.used_count,
+              guestName: parsed.invite.guest_name,
+              revoked: parsed.invite.revoked,
+            });
+            data = {
+              id: gl.id,
+              quota: gl.quota,
+              quota_female: gl.quota_female,
+              quota_male: gl.quota_male,
+              show_remaining: gl.show_remaining,
+              free_before_time: gl.free_before_time,
+              includes_drink: gl.includes_drink,
+              share_token: '',
+              public_entry_types: null,
+              events: ev,
+            } as unknown as GuestListWithEvent;
+          }
+        }
+      } else if (token) {
         // Token-based lookup goes through a SECURITY DEFINER RPC so we don't
         // expose share_token enumeration via the public SELECT policy.
         const { data: glRow } = await supabase
@@ -153,9 +241,9 @@ export default function GuestListSignup() {
           const { data: ev } = await supabase
             .from('events')
             .select('id, title, start_at, end_at, venue_id, partner_venue_id, poster_url')
-            .eq('id', (glRow as any).event_id)
+            .eq('id', glRow.event_id)
             .maybeSingle();
-          data = { ...(glRow as any), events: ev };
+          data = { ...glRow, events: ev };
         }
       } else if (eventId) {
         // Multi-part model: an event can carry several parts (club/DJ/promoter).
@@ -180,10 +268,15 @@ export default function GuestListSignup() {
       }
 
       // Co-soirée org-led : le club physique est partner_venue_id.
-      const eventVenueId = (data.events as any).venue_id ?? (data.events as any).partner_venue_id;
+      const eventVenueId = data.events!.venue_id ?? data.events!.partner_venue_id;
       const { data: venue } = eventVenueId
         ? await supabase.from('venues').select('name').eq('id', eventVenueId).single()
         : { data: null };
+
+      // Offre publique explicite du détenteur — un choix ne s'affiche qu'à
+      // partir de 2 types (1 type = badge informatif, 0/NULL = historique).
+      const publicTypes = GL_ENTRY_TYPES.filter(tp =>
+        ((data!.public_entry_types as string[] | null) || []).includes(tp));
 
       setGuestList({
         id: data.id,
@@ -193,14 +286,16 @@ export default function GuestListSignup() {
         showRemaining: data.show_remaining ?? true,
         freeBeforeTime: data.free_before_time?.substring(0, 5) || '02:00',
         includesDrink: data.includes_drink,
-        eventTitle: (data.events as any).title,
-        eventStartAt: (data.events as any).start_at,
-        eventEndAt: (data.events as any).end_at,
-        eventImageUrl: (data.events as any).poster_url || null,
-        venueId: eventVenueId,
+        eventTitle: data.events!.title,
+        eventStartAt: data.events!.start_at,
+        eventEndAt: data.events!.end_at,
+        eventImageUrl: data.events!.poster_url || null,
+        venueId: eventVenueId as string,
         venueName: venue?.name || '',
         shareToken: data.share_token,
+        publicEntryTypes: publicTypes.length ? publicTypes : null,
       });
+      if (publicTypes.length) setChosenType(prev => (prev && publicTypes.includes(prev) ? prev : publicTypes[0]));
 
       // Fetch counts via la RPC agrégée SECURITY DEFINER : un count() direct sur
       // guest_list_entries renvoie 0 EN SILENCE pour un visiteur anonyme (aucune
@@ -227,7 +322,10 @@ export default function GuestListSignup() {
           .neq('status', 'cancelled');
         
         if (existingCount && existingCount > 0) {
-          setAlreadyRegistered(true);
+          // Sur un lien unique multi-places, être déjà inscrit ne bloque pas :
+          // on bascule direct sur le formulaire « inscrire une autre personne ».
+          if (inviteParam) setAddAnother(true);
+          else setAlreadyRegistered(true);
         }
       }
 
@@ -249,8 +347,11 @@ export default function GuestListSignup() {
       toast.error(t('guestList.genderRequired'));
       return;
     }
-    // Guests register without an account — validate their contact info.
-    if (!user && (!guestName.trim() || !guestEmail.trim() || !guestPhone.trim())) {
+    // Guests register without an account — validate their contact info. Le mode
+    // « inscrire une autre personne » (lien unique) exige aussi des coordonnées
+    // explicites, même connecté.
+    const useGuestFields = !user || addAnother;
+    if (useGuestFields && (!guestName.trim() || !guestEmail.trim() || !guestPhone.trim())) {
       toast.error(t('tickets.fillRequired'));
       return;
     }
@@ -259,15 +360,23 @@ export default function GuestListSignup() {
     try {
       const { data, error } = await supabase.functions.invoke('create-guest-list-entry', {
         body: {
-          shareToken: token || guestList.shareToken,
+          // Lien unique (?invite=) OU lien public de la part.
+          ...(inviteParam
+            ? { inviteToken: inviteParam }
+            : { shareToken: token || guestList.shareToken }),
+          // Type choisi parmi l'offre publique (le lien unique impose le sien).
+          ...(!inviteParam && guestList.publicEntryTypes && chosenType
+            ? { entryType: chosenType }
+            : {}),
           gender: gender || undefined,
           promoterCode: ref || undefined,
-          // Guest contact info — used by the function only when no JWT is present.
-          ...(user ? {} : {
+          // Guest contact info — used by the function when no JWT is present or
+          // when a logged-in user registers someone else via a unique link.
+          ...(useGuestFields ? {
             guestFullName: guestName.trim(),
             guestEmail: guestEmail.trim(),
             guestPhone: guestPhone.trim(),
-          }),
+          } : {}),
         },
       });
 
@@ -285,19 +394,26 @@ export default function GuestListSignup() {
       }
 
       setSuccess(true);
+      setSuccessEntryType((data.entry?.entryType as GLEntryType) || null);
+      // Décompte local du lien unique (le serveur renvoie le restant réel).
+      if (inviteMeta && typeof data.inviteRemaining === 'number') {
+        setInviteMeta({ ...inviteMeta, usedCount: inviteMeta.maxUses - data.inviteRemaining });
+      }
       toast.success(t('guestList.registrationSuccess'));
 
       // Sync gender to the user's profile so the DJ audience analytics can use it
       // as a primary source (rather than relying on guest_list_entries coverage).
-      if (user && gender) {
+      if (user && gender && !addAnother) {
         supabase.from('profiles').update({ gender }).eq('id', user.id).then(() => {/* best-effort */});
       }
-    } catch (err: any) {
-      let msg = err?.message || t('guestList.registrationError');
+    } catch (err) {
+      // Erreur d'edge function supabase-js : message + réponse HTTP dans err.context.
+      const fnError = err as { message?: string; context?: { json?: () => Promise<{ error?: string }> } };
+      let msg = fnError?.message || t('guestList.registrationError');
       // supabase-js wraps a non-2xx function response; the real message is in the body.
       try {
-        if (err?.context && typeof err.context.json === 'function') {
-          const body = await err.context.json();
+        if (fnError?.context && typeof fnError.context.json === 'function') {
+          const body = await fnError.context.json();
           if (body?.error) msg = body.error;
         }
       } catch { /* ignore body parse errors */ }
@@ -363,6 +479,31 @@ export default function GuestListSignup() {
     );
   }
 
+  // ── Lien unique épuisé ou révoqué (hors écran de succès) ──
+  if (inviteMeta && !success && (inviteMeta.revoked || inviteMeta.usedCount >= inviteMeta.maxUses)) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-sm w-full border-border/50">
+          <CardContent className="p-6 text-center space-y-4">
+            <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto">
+              <Ban className="h-9 w-9 text-muted-foreground" />
+            </div>
+            <h2 className="text-xl font-bold">
+              {inviteMeta.revoked ? t('guestList.invite.revokedTitle') : t('guestList.invite.exhaustedTitle')}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {inviteMeta.revoked ? t('guestList.invite.revokedDesc') : t('guestList.invite.exhaustedDesc')}
+            </p>
+            <p className="text-sm text-muted-foreground">{guestList.eventTitle}</p>
+            <Button className="w-full" onClick={() => navigate('/')}>
+              {t('common.backToHome')}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // Convention quota NULL = illimité : une telle part n'est jamais pleine et n'a
   // pas de « restantes » à afficher (sans ce garde, quota - count donnait NaN).
   const isFull = (guestList.quota !== null && entriesCount >= guestList.quota)
@@ -378,8 +519,57 @@ export default function GuestListSignup() {
   // Le compteur ne s'affiche que si le club l'a activé ET qu'il y a un chiffre à montrer.
   const showCounter = guestList.showRemaining && remaining !== null;
 
+  // ── Badges spécifiques aux canaux (invitation personnelle / offre à 1 type) ──
+  const inviteBadges = inviteMeta ? (
+    <>
+      <Badge className="bg-primary/15 text-primary border border-primary/20 text-sm px-3 py-1">
+        {t('guestList.invite.personal')}
+        {inviteMeta.guestName ? ` · ${inviteMeta.guestName}` : ''}
+      </Badge>
+      <Badge variant="secondary" className="text-sm px-3 py-1 border border-border/50">
+        {t(entryTypeLabelKey(inviteMeta.entryType))}
+        {inviteMeta.maxUses > 1 ? ` · ${Math.max(0, inviteMeta.maxUses - inviteMeta.usedCount)}/${inviteMeta.maxUses}` : ''}
+      </Badge>
+    </>
+  ) : (guestList.publicEntryTypes && guestList.publicEntryTypes.length === 1 && guestList.publicEntryTypes[0] !== 'normal') ? (
+    <Badge variant="secondary" className="text-sm px-3 py-1 border border-border/50">
+      {t(entryTypeLabelKey(guestList.publicEntryTypes[0]))}
+    </Badge>
+  ) : null;
+
+  // ── Sélecteur de type d'entrée (lien public, offre multi-types) ──
+  const typeSelector = !inviteMeta && guestList.publicEntryTypes && guestList.publicEntryTypes.length > 1 ? (
+    <div>
+      <p className="text-sm font-medium mb-2">{t('guestList.chooseType')} *</p>
+      <div className="grid gap-2">
+        {guestList.publicEntryTypes.map(tp => {
+          const Icon = TYPE_ICON[tp];
+          const active = chosenType === tp;
+          return (
+            <button
+              key={tp}
+              type="button"
+              onClick={() => setChosenType(tp)}
+              className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
+                active ? 'border-primary bg-primary/10' : 'border-border/50 bg-muted/30 hover:border-border'
+              }`}
+            >
+              <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-primary' : 'text-muted-foreground'}`} />
+              <span className="min-w-0 flex-1">
+                <span className={`block text-sm font-semibold ${active ? 'text-primary' : ''}`}>{t(entryTypeLabelKey(tp))}</span>
+                <span className="block text-xs text-muted-foreground">{t(typeDescKey(tp))}</span>
+              </span>
+              {active && <CheckCircle className="h-4 w-4 shrink-0 text-primary" />}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  ) : null;
+
   // ── Success state ──
   if (success) {
+    const inviteRemainingNow = inviteMeta ? Math.max(0, inviteMeta.maxUses - inviteMeta.usedCount) : 0;
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="max-w-sm w-full border-border/50">
@@ -389,6 +579,11 @@ export default function GuestListSignup() {
             </div>
             <h2 className="text-xl font-bold">{t('guestList.confirmed')}</h2>
             <p className="text-sm text-muted-foreground">{guestList.eventTitle}</p>
+            {successEntryType && successEntryType !== 'normal' && (
+              <Badge className="bg-primary/15 text-primary border border-primary/20">
+                {t(entryTypeLabelKey(successEntryType))}
+              </Badge>
+            )}
             <div className="text-sm space-y-1 text-muted-foreground">
               <p>
                 <Clock className="h-3.5 w-3.5 inline mr-1" />
@@ -405,6 +600,20 @@ export default function GuestListSignup() {
               <img src={qrImage} alt="QR Code" className="mx-auto rounded-lg" />
             )}
             <p className="text-xs text-muted-foreground">{t('guestList.showQR')}</p>
+            {/* Lien unique multi-places : proposer d'inscrire un proche tant
+                qu'il reste des places sur CE lien. */}
+            {inviteMeta && inviteRemainingNow > 0 && (
+              <Button variant="outline" className="w-full" onClick={() => {
+                setSuccess(false);
+                setAddAnother(true);
+                setQrImage('');
+                setGuestName(''); setGuestEmail(''); setGuestPhone('');
+                setGender(genderFromUrl || '');
+              }}>
+                <UserPlus className="h-4 w-4 mr-2" />
+                {t('guestList.invite.addAnother')} ({inviteRemainingNow})
+              </Button>
+            )}
             <Button className="w-full" onClick={() => navigate('/my-orders')}>
               <Ticket className="h-4 w-4 mr-2" />
               {t('guestList.viewInOrders')}
@@ -418,8 +627,9 @@ export default function GuestListSignup() {
     );
   }
 
-  // ── Auth gate: not logged in ──
-  if (!user) {
+  // ── Auth gate: not logged in — ou « inscrire une autre personne » (lien
+  // unique) : même connecté, on saisit les coordonnées du proche. ──
+  if (!user || addAnother) {
     return (
       <div className="min-h-screen bg-background">
         {/* Header */}
@@ -469,6 +679,7 @@ export default function GuestListSignup() {
                 {t('guestList.drinkIncluded')}
               </Badge>
             )}
+            {inviteBadges}
           </div>
 
           {/* Spots counter — le chiffre est masqué si le club a coupé show_remaining
@@ -522,6 +733,9 @@ export default function GuestListSignup() {
                   <Label htmlFor="gls-phone" className="text-xs text-muted-foreground">{t('guestList.phone')} *</Label>
                   <Input id="gls-phone" type="tel" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder={t('guestList.phonePlaceholder')} />
                 </div>
+
+                {/* Choix du type d'entrée (offre publique multi-types) */}
+                {typeSelector}
 
                 {/* Gender selection if quotas */}
                 {(guestList.quotaFemale !== null || guestList.quotaMale !== null) && (
@@ -631,6 +845,7 @@ export default function GuestListSignup() {
               {t('guestList.drinkIncluded')}
             </Badge>
           )}
+          {inviteBadges}
         </div>
 
         {/* Counter */}
@@ -668,6 +883,9 @@ export default function GuestListSignup() {
                 <p className="text-sm font-medium">{t('guestList.registeredAs')}</p>
                 <p className="text-sm text-muted-foreground">{user.email}</p>
               </div>
+
+              {/* Choix du type d'entrée (offre publique multi-types) */}
+              {typeSelector}
 
               {/* Gender selection if quotas */}
               {(guestList.quotaFemale !== null || guestList.quotaMale !== null) && (

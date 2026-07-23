@@ -23,6 +23,10 @@ export interface Part {
   quota_normal: number;
   quota_drink: number;
   quota_table: number;
+  /** Type primaire historique — sert de repli quand public_entry_types est NULL. */
+  entry_kind: string;
+  /** Types proposés sur le lien public (canal 1). NULL = repli historique. */
+  public_entry_types: string[] | null;
   free_before_time: string;
   entry_deadline: string | null;
   includes_drink: boolean;
@@ -55,7 +59,7 @@ export interface PartScopeCtx {
   organizerUserId: string | null;
 }
 
-const PART_COLS = 'id, event_id, holder_type, holder_label, dj_id, promoter_id, venue_id, organizer_user_id, quota, quota_female, quota_male, quota_normal, quota_drink, quota_table, free_before_time, entry_deadline, includes_drink, visible_on_club_page, show_remaining, is_active, share_token, created_at';
+const PART_COLS = 'id, event_id, holder_type, holder_label, dj_id, promoter_id, venue_id, organizer_user_id, quota, quota_female, quota_male, quota_normal, quota_drink, quota_table, entry_kind, public_entry_types, free_before_time, entry_deadline, includes_drink, visible_on_club_page, show_remaining, is_active, share_token, created_at';
 
 // Club part first, then by creation order — the host list always leads the stack.
 function orderParts(a: Part, b: Part) {

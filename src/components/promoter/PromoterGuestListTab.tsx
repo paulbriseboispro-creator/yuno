@@ -9,7 +9,11 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { UserPlus, Users, Loader2, BarChart3, Calendar, Zap, Clock, Mail } from 'lucide-react';
+import { UserPlus, Users, Loader2, BarChart3, Calendar, Zap, Clock, Mail, Link2 } from 'lucide-react';
+import { PublicTypesEditor } from '@/components/guest-list/PublicTypesEditor';
+import { InviteLinksPanel } from '@/components/guest-list/InviteLinksPanel';
+import { glSlugify } from '@/lib/guestListShare';
+import type { GLTypeSource } from '@/lib/guestListTypes';
 
 interface PromoterProfile {
   id: string;
@@ -83,6 +87,8 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
   // Une part peut exister avec quota NULL = allocation ILLIMITÉE : il faut donc
   // distinguer « pas de part » (aucune allocation) de « part sans plafond ».
   const [hasAllocation, setHasAllocation] = useState(false);
+  // La part complète — nécessaire aux canaux (types offerts, liens uniques).
+  const [partRow, setPartRow] = useState<(GLTypeSource & { id: string; public_entry_types: string[] | null }) | null>(null);
 
   // Get the promoter profile that owns the selected event — by venue for club events,
   // by organizer for organizer events.
@@ -175,7 +181,7 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
       // with holder_type='promoter', created and capped by the club on the Guest List
       // page (single global quota). No part = no allocation yet.
       const { data: part } = await supabase.from('guest_lists')
-        .select('id, quota, quota_normal, quota_drink, quota_table, quota_female, quota_male')
+        .select('id, holder_type, quota, quota_normal, quota_drink, quota_table, quota_female, quota_male, entry_kind, public_entry_types')
         .eq('event_id', selectedEventId)
         .eq('holder_type', 'promoter')
         .eq('promoter_id', activePromoter.id)
@@ -183,12 +189,14 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
 
       if (!part) {
         setHasAllocation(false);
+        setPartRow(null);
         setQuota({ globalQuota: null, normalQuota: null, tableQuota: null, drinkQuota: null, femaleQuota: null, maleQuota: null });
         setEntries([]);
         setUsage({ total: 0, normal: 0, table: 0, drink: 0 });
         return;
       }
       setHasAllocation(true);
+      setPartRow(part);
       // Per-type allocation set by the club on the Guest List page (e.g. 10 normal + 2 VIP).
       // part.quota NULL = allocation illimitée.
       setQuota({
@@ -541,6 +549,26 @@ export function PromoterGuestListTab({ promoterProfiles }: PromoterGuestListTabP
               </Button>
             </CardContent>
           </Card>
+
+          {/* Lien public & liens uniques — les deux autres canaux de distribution */}
+          {partRow && selectedEvent && (
+            <Card className="border-border">
+              <CardHeader className="px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Link2 className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 truncate">{t('glTools.channelsTitle')}</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
+                <PublicTypesEditor guestList={partRow} />
+                <InviteLinksPanel
+                  guestList={partRow}
+                  slug={selectedEvent.venueId ? glSlugify(selectedEvent.venueName) : (activePromoter?.organizer_user_id ?? 'organizer')}
+                  eventId={selectedEvent.id}
+                />
+              </CardContent>
+            </Card>
+          )}
 
           {/* Entries List */}
           <div className="flex items-center justify-between gap-3 bg-muted/50 rounded-lg p-3">
