@@ -11830,6 +11830,7 @@ const en: Record<string, string> = {
   'unsaved.stay': 'Stay on this page',
   'unsaved.leaveAnyway': 'Leave without saving',
   'unsaved.draftNote': 'A local copy is kept on this device, so your work is still here when you come back.',
+  'unsaved.section.promoterProfile': 'My profile',
 };
 
 export default en;

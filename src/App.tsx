@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { LanguageProvider } from "./contexts/LanguageContext";
+import { UnsavedChangesProvider } from "./contexts/UnsavedChangesContext";
 import { FavoritesProvider } from "./contexts/FavoritesContext";
 import { VenueNavProvider } from "./contexts/VenueNavContext";
 import { OnboardingGate } from "./components/OnboardingGate";
@@ -58,6 +59,7 @@ import { PreviewModeProvider } from "@/contexts/PreviewModeContext";
 import { LiveModeProvider } from "@/contexts/LiveModeContext";
 import { PreviewModeBanner } from "@/components/PreviewModeBanner";
 import { BottomNavVisibilityProvider, PersistentBottomNav } from "@/components/PersistentBottomNav";
+import { pruneExpiredDrafts } from "@/lib/formDraft";
 import "@/lib/previewGuard"; // installe l'intercepteur lecture seule (effet de bord)
 
 // Lazy load all pages including VenuePage
@@ -399,6 +401,12 @@ function CartCleanup() {
   return null;
 }
 
+/** Balayage unique des brouillons de formulaire périmés (> 7 jours). */
+function DraftPruner() {
+  useEffect(() => { pruneExpiredDrafts(); }, []);
+  return null;
+}
+
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
@@ -425,6 +433,12 @@ const App = () => (
   <BrowserRouter future={{ v7_startTransition: true }}>
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>
+        {/* Garde « modifications non enregistrées » : auto-save local des
+            formulaires pro + avertissement avant de quitter une page modifiée.
+            Doit rester DANS le routeur (elle rejoue la navigation interceptée)
+            et DANS LanguageProvider (ses libellés passent par t()). */}
+        <UnsavedChangesProvider>
+        <DraftPruner />
         <FavoritesProvider>
           <VenueNavProvider>
           <TooltipProvider>
@@ -1056,6 +1070,7 @@ const App = () => (
           </TooltipProvider>
           </VenueNavProvider>
         </FavoritesProvider>
+        </UnsavedChangesProvider>
       </LanguageProvider>
     </QueryClientProvider>
   </BrowserRouter>

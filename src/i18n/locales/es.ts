@@ -11944,6 +11944,7 @@ const es: Record<string, string> = {
   'unsaved.stay': 'Quedarme en la página',
   'unsaved.leaveAnyway': 'Salir sin guardar',
   'unsaved.draftNote': 'Se guarda una copia local en este dispositivo: si vuelves, tu trabajo sigue ahí.',
+  'unsaved.section.promoterProfile': 'Mi perfil',
 };
 
 export default es;
