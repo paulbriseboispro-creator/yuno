@@ -18,6 +18,8 @@ import { GuestListPresetDialog } from '@/components/owner/guest-list/GuestListPr
 import { PresetsManager } from '@/components/owner/guest-list/PresetsManager';
 import { DistributeSheet } from '@/components/owner/guest-list/DistributeSheet';
 import { partSlug } from '@/lib/guestListShare';
+import { canSideEdit } from '@/utils/collabResponsibilities';
+import { CollabGuestListPreview } from '@/components/collab/CollabGuestListPreview';
 import { RED, T1, T2, T3, BORDER, F_BORDER, C_FAINT, INNER_BG, CARD_BG, CARD_SHADOW } from '@/components/owner/guest-list/ui';
 
 interface EventOption { id: string; title: string; startAt: string; endAt: string }
@@ -91,6 +93,25 @@ export default function OwnerGuestList() {
     createClubPart, createDjPart, createDjPartsBulk, createPromoterPart, createPromoterPartsBulk, createCustomPart, updatePart, deletePart, setActive,
   } = useGuestListParts(selectedEventId, ctx);
   const { templates, createTemplate, updateTemplate, deleteTemplate } = useGuestListTemplates(ctx);
+
+  // Modèle hybride : la part MAISON (holder_type='club') suit le domaine
+  // `operations`. Si le viewer ne le tient pas sur une co-soirée, la part maison
+  // passe en lecture seule (le serveur la verrouille de toute façon) ; il garde
+  // ses propres parts déléguées éditables.
+  const [eventCollab, setEventCollab] = useState<{ resp: unknown; mode: string | null; isCollab: boolean } | null>(null);
+  useEffect(() => {
+    if (!selectedEventId) { setEventCollab(null); return; }
+    let active = true;
+    (async () => {
+      const { data: ev } = await supabase.from('events')
+        .select('collab_responsibilities, event_mode, partner_venue_id, partner_organizer_id')
+        .eq('id', selectedEventId).maybeSingle();
+      if (!active) return;
+      const isCollab = !!(ev?.partner_venue_id || ev?.partner_organizer_id || ev?.event_mode === 'co_event');
+      setEventCollab(ev ? { resp: (ev as { collab_responsibilities?: unknown }).collab_responsibilities, mode: ev.event_mode, isCollab } : null);
+    })();
+    return () => { active = false; };
+  }, [selectedEventId]);
   const [presetDialog, setPresetDialog] = useState<{ editing: GuestListTemplate | null; initial?: Partial<TemplateInput> } | null>(null);
   const [distribute, setDistribute] = useState<{ tpl: GuestListTemplate; holderType: 'dj' | 'promoter'; mode: TargetMode } | null>(null);
 
@@ -115,6 +136,10 @@ export default function OwnerGuestList() {
   const slug = partSlug({ isOrganizerScope, organizerUserId, venueName: venue?.name ?? null });
   const clubPart = parts.find(p => p.holder_type === 'club') ?? null;
   const otherParts = parts.filter(p => p.holder_type !== 'club');
+  const viewerSide: 'venue' | 'organizer' = isOrganizerScope ? 'organizer' : 'venue';
+  // Part maison en lecture seule quand on est sur une co-soirée dont on ne tient
+  // pas l'opérationnel.
+  const houseReadOnly = !!eventCollab?.isCollab && !canSideEdit(eventCollab.resp, eventCollab.mode, 'operations', viewerSide);
   const existingDjIds = parts.filter(p => p.holder_type === 'dj' && p.dj_id).map(p => p.dj_id!) as string[];
   const existingPromoterIds = parts.filter(p => p.holder_type === 'promoter' && p.promoter_id).map(p => p.promoter_id!) as string[];
 
@@ -130,6 +155,7 @@ export default function OwnerGuestList() {
   // Apply a CLUB preset to the club list: create it (one-click publish) if none
   // exists, else overwrite the current club config with the preset.
   const applyPresetToClub = (tpl: GuestListTemplate) => {
+    if (houseReadOnly) { toast.error(t('guestList.house.readOnly')); return; }
     const config = { quota: tpl.quota, ...presetExtra(tpl) };
     const action = clubPart ? updatePart(clubPart.id, config) : createClubPart(config);
     action.then(() => toast.success(t('guestList.presets.applied'))).catch(e => toast.error(e instanceof Error ? e.message : t('guestList.saveError')));
@@ -233,21 +259,29 @@ export default function OwnerGuestList() {
               t={t}
             />
 
-            {/* Club part (toujours en tête — créée à la volée si absente) */}
-            <PartCard
-              part={clubPart}
-              holderType="club"
-              displayName={venue?.name || t('guestList.holderType.club')}
-              entries={clubPart ? (entriesByPart[clubPart.id] || []) : []}
-              slug={slug}
-              eventId={selectedEventId}
-              t={t}
-              onCreate={createClubPart}
-              onUpdate={updatePart}
-              onToggleActive={setActive}
-              onSaveAsPreset={openPresetFromConfig}
-              defaultOpen={!clubPart}
-            />
+            {/* Part maison — éditable si on tient l'opérationnel, sinon aperçu
+                lecture seule (modèle hybride ; le serveur la verrouille aussi). */}
+            {houseReadOnly ? (
+              <div>
+                <p className="mb-2" style={{ color: T2, fontSize: 13, fontWeight: 600 }}>{t('guestList.house.title')}</p>
+                <CollabGuestListPreview eventId={selectedEventId} houseOnly />
+              </div>
+            ) : (
+              <PartCard
+                part={clubPart}
+                holderType="club"
+                displayName={venue?.name || t('guestList.holderType.club')}
+                entries={clubPart ? (entriesByPart[clubPart.id] || []) : []}
+                slug={slug}
+                eventId={selectedEventId}
+                t={t}
+                onCreate={createClubPart}
+                onUpdate={updatePart}
+                onToggleActive={setActive}
+                onSaveAsPreset={openPresetFromConfig}
+                defaultOpen={!clubPart}
+              />
+            )}
 
             {/* Other parts */}
             {otherParts.map(p => (

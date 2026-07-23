@@ -295,6 +295,10 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
   const openTicketing = () => navigate(navTo.ticketing);
   // L'outil « Infos & affiche » correspond au domaine `design`.
   const canEditDesign = canSideEdit(event?.collab_responsibilities, event?.event_mode, 'design', viewerSide);
+  // La guest list MAISON suit le domaine `operations` (modèle hybride) : qui tient
+  // l'opérationnel la gère, l'autre la prévisualise. Les parts déléguées restent
+  // gérées par chacun sur sa page Guest list.
+  const holdsOperations = canSideEdit(event?.collab_responsibilities, event?.event_mode, 'operations', viewerSide);
 
   const phasePill =
     phase === 'before' ? { tone: 'info' as const, label: t('À venir', 'Upcoming', 'Próximo') }
@@ -598,7 +602,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
               <DetailsDrawer
                 eventId={event.id}
                 isVenue={isVenue}
-                guestReadOnly={isOrganizer || isPartnerVenue}
+                guestReadOnly={!holdsOperations}
                 t={t}
               />
             )}

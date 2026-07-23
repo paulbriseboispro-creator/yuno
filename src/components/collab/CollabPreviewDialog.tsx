@@ -14,6 +14,7 @@ import type { CollabDomain } from '@/utils/collabResponsibilities';
 import { CollabDesignPreview } from './CollabDesignPreview';
 import { CollabOperationsPreview } from './CollabOperationsPreview';
 import { CollabTablesPreview } from './CollabTablesPreview';
+import { CollabGuestListPreview } from './CollabGuestListPreview';
 
 const T1 = 'rgba(255,255,255,0.96)';
 const T2 = 'rgba(255,255,255,0.58)';
@@ -106,6 +107,12 @@ export function CollabPreviewDialog({
                   {tt('Tables VIP', 'VIP tables', 'Mesas VIP')}
                 </p>
                 <CollabTablesPreview eventId={eventId} showChrome={false} showReservations={false} />
+              </div>
+              <div className="space-y-1.5">
+                <p style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  {tt('Guest list', 'Guest list', 'Guest list')}
+                </p>
+                <CollabGuestListPreview eventId={eventId} showChrome={false} />
               </div>
             </div>
           )}
