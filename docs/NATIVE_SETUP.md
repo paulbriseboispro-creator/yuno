@@ -14,6 +14,9 @@ des edge functions, et le rebuild Xcode.
 - Front : poussé sur main → build Cloudflare Workers.
 - Supabase Auth : Apple OK (client eu.yunoapp.app) ; Google
   `external_google_client_id` = « client_web,client_iOS » (liste — ne pas écraser).
+  ⚠️ **La virgule a sauté depuis** : au 2026-07-23 la valeur live est
+  `<client_web><client_iOS>` collés, donc Google reçoit un client_id inexistant et
+  répond `401 invalid_client` sur yunoapp.eu. Voir §3 bis.
 - Info.plist : URL scheme Google inversé ajouté ; `VITE_GOOGLE_IOS_CLIENT_ID`
   dans .env.local (build local de l'app).
 - **RESTE** : rebuild Xcode (§1) + secrets VAPID (§5 — commande prête ci-dessous,
@@ -42,8 +45,47 @@ est déjà dans `App.entitlements` ; Xcode doit régénérer le provisioning pro
   - Enable.
   - `Client IDs` (authorized) : ajouter **`eu.yunoapp.app`** (le bundle id — c'est
     lui que porte l'identity token natif).
-  - Le Services ID / secret key ne sont nécessaires QUE pour le bouton Apple web
-    (encore en « SOON » côté web, rien à faire pour l'app).
+
+### 2 bis. Apple web (bouton « Continuer avec Apple » sur yunoapp.eu)
+
+Le bouton web est actif dans `Auth.tsx` depuis 2026-07-23, mais il ne peut pas
+fonctionner tant que le provider Apple n'a pas de **secret OAuth** : `/auth/v1/authorize?provider=apple`
+répond aujourd'hui `400 {"error_code":"validation_failed","msg":"Unsupported provider: missing OAuth secret"}`,
+et comme `signInWithOAuth` navigue la page sans requête préalable, l'utilisateur
+atterrirait sur ce JSON. **Faire la config ci-dessous AVANT de déployer le front.**
+
+1. **Apple Developer → Identifiers → Services IDs** : créer `eu.yunoapp.web`
+   (description libre), cocher « Sign In with Apple » → Configure :
+   - Primary App ID : `eu.yunoapp.app`
+   - Domains and Subdomains : `fulawxvdlwtdlpkycixe.supabase.co`
+   - Return URLs : `https://fulawxvdlwtdlpkycixe.supabase.co/auth/v1/callback`
+
+   Le domaine est celui de **Supabase**, pas `yunoapp.eu` : c'est Supabase qui
+   reçoit le callback puis redirige vers `https://yunoapp.eu/auth`.
+
+2. **Apple Developer → Keys** : créer une clé « Sign In with Apple » → télécharger
+   le `AuthKey_XXXXXXXXXX.p8` (téléchargeable une seule fois). Noter le **Key ID**
+   et le **Team ID** (coin haut-droit de la console).
+
+3. **Supabase → Authentication → Providers → Apple** :
+   - `Client IDs` : **`eu.yunoapp.web,eu.yunoapp.app,eu.yunoapp.pro`** — le
+     Services ID en PREMIER. Supabase prend `ClientID[0]` pour le flux web
+     `signInWithOAuth`, alors que `signInWithIdToken` (natif) accepte n'importe
+     quelle entrée de la liste comme audience. Si un bundle id passe devant, le
+     natif continue de marcher et le web se fait rejeter par Apple.
+   - `Secret Key (for OAuth)` : générer via l'outil du dashboard (Team ID + Key ID
+     + contenu du `.p8`).
+
+4. **Apple impose de régénérer ce secret tous les 6 mois** — sinon le bouton web
+   casse du jour au lendemain. Prochaine échéance à noter au moment de la création.
+
+Vérification une fois configuré (doit renvoyer un `location:` vers `appleid.apple.com`) :
+
+```bash
+curl -sS -o /dev/null -D - \
+  "https://fulawxvdlwtdlpkycixe.supabase.co/auth/v1/authorize?provider=apple&redirect_to=https%3A%2F%2Fyunoapp.eu%2Fauth" \
+  | grep -i '^location'
+```
 
 ## 3. Google Sign-In natif (item 6)
 
@@ -56,6 +98,41 @@ est déjà dans `App.entitlements` ; Xcode doit régénérer le provisioning pro
   (`com.googleusercontent.apps.xxxx`) dans `CFBundleURLTypes`.
 - **Supabase Dashboard** → Providers → Google : ajouter le client id iOS dans
   « Authorized Client IDs » (en plus du client web existant).
+
+### 3 bis. Panne « Accès bloqué / 401 invalid_client » sur yunoapp.eu (2026-07-23)
+
+Symptôme : « Continuer avec Google » sur le web renvoie vers
+`accounts.google.com/signin/oauth/error` → « The OAuth client was not found.
+Erreur 401 : invalid_client ».
+
+Cause : les client IDs du provider Google Supabase ont été saisis **sans virgule**.
+Le champ est une LISTE ; collés, les deux ids ne forment qu'une seule chaîne que
+Google ne connaît pas. Constat direct :
+
+```bash
+curl -sS -o /dev/null -D - \
+  "https://fulawxvdlwtdlpkycixe.supabase.co/auth/v1/authorize?provider=google" \
+  | grep -i '^location'
+# → client_id=909249484986-fumq7…googleusercontent.com909249484986-9q4p8…googleusercontent.com
+#                                                     ↑ virgule manquante
+```
+
+Correctif — **Supabase → Authentication → Providers → Google → `Client IDs`**,
+remettre la liste séparée par des virgules, **client web en premier** (c'est
+`ClientID[0]` qui sert au flux redirect web ; les suivants ne sont que des
+audiences acceptées pour `signInWithIdToken`) :
+
+```
+909249484986-fumq7eg2fccjepekqm9fie27sg5ds853.apps.googleusercontent.com,909249484986-9q4p8vbsqaq5mbhbl2efr8859bac0147.apps.googleusercontent.com,909249484986-bsp4od93uuus00atpcq7gsctoqrj5tpl.apps.googleusercontent.com
+```
+
+Dans l'ordre : client **web**, client **iOS app client** (`eu.yunoapp.app`,
+= `VITE_GOOGLE_IOS_CLIENT_ID`), client **iOS app Pro** (`eu.yunoapp.pro`,
+= `VITE_GOOGLE_IOS_CLIENT_ID_PRO`). Ce dernier était absent de la liste : le
+Google natif de l'app Pro échouait donc aussi, sur une audience non reconnue.
+
+Vérification : rejouer le `curl` ci-dessus, le `client_id=` doit s'arrêter au
+premier `.apps.googleusercontent.com`.
 
 ## 4. Edge functions à redéployer (fonctions EXISTANTES — pas de blocage 402)
 
