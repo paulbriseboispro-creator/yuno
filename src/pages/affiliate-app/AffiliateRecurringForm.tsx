@@ -12,11 +12,12 @@ import {
   FieldLabel, DarkInput, DarkSelect,
   RED, T1, T2, T3, BORDER, INNER_BG, TILE_BG, F_BORDER,
 } from '@/components/affiliate/affiliate-ui';
+import { MUSIC_GENRES, canonicalGenres } from '@/lib/musicGenres';
 
 const DAYS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 const BULK_DAYS = [1, 2, 3, 4, 5, 6, 0]; // Lun → Dim
 
-const GENRES = ['House', 'Techno', 'Reggaeton', 'Open Format', 'Latin', 'Afrobeats', 'R&B', 'Drum & Bass', 'Hip-Hop', 'Electronic'];
+const GENRES = MUSIC_GENRES;
 
 function slugify(text: string) {
   return text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -141,7 +142,8 @@ export default function AffiliateRecurringForm() {
           is_free: data.is_free ?? false,
           is_active: data.is_active ?? true,
           flyer_url: (data as any).flyer_url ?? null,
-          genres: data.genres ?? [],
+          // Anciens libellés ramenés sur les puces réelles (cf. musicGenres.ts).
+          genres: canonicalGenres(data.genres),
           publication_url: (data as any).publication_url ?? '',
         });
       }

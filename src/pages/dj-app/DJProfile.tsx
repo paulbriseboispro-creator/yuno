@@ -17,10 +17,7 @@ import {
   RED, T1, T2, T3, WARN, C_FAINT, BORDER, INNER_BG,
 } from '@/components/dj/dj-ui';
 
-const YUNO_MUSIC_GENRES = [
-  'House', 'Techno', 'Rap / Hip-Hop', 'Afro / Shatta',
-  'Reggaeton / Latino', 'Commercial / Hits', 'Electro / EDM', 'Open Format',
-];
+import { MUSIC_GENRES as YUNO_MUSIC_GENRES } from '@/lib/musicGenres';
 
 export default function DJProfile() {
   const { t, language } = useLanguage();

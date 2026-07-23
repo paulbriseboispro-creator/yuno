@@ -32,6 +32,8 @@ import { DJLineupSelector } from '@/components/dj/DJLineupSelector';
 import { fromParisTime } from '@/lib/timezone';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
+// Libellés RÉELS du filtre public — une seule liste pour toute l'app.
+import { MUSIC_GENRES } from '@/lib/musicGenres';
 
 // ─── Yuno Design Tokens (aligned with the Owner dashboard DA) ──────────────────
 const RED      = '#E8192C';
@@ -43,17 +45,6 @@ const INNER_BG = 'rgba(255,255,255,0.032)';
 
 type EventKind = 'public_event' | 'private_event';
 type CollabMode = 'solo' | 'co_event' | 'venue_rental' | 'hosted_by_venue';
-
-const MUSIC_GENRES = [
-  'House',
-  'Techno',
-  'Rap / Hip-Hop',
-  'Afro / Shatta',
-  'Reggaeton / Latino',
-  'Commercial / Hits',
-  'Electro / EDM',
-  'Open Format',
-];
 
 const EVENT_TYPES = [
   { value: 'club', label: 'Club' },

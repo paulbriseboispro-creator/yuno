@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { Slider } from '@/components/ui/slider';
 import { motion, AnimatePresence } from 'framer-motion';
 import { spring } from '@/lib/animations';
+import { MUSIC_GENRES } from '@/lib/musicGenres';
 
 export interface ExploreFilters {
   eventTypes: string[];
@@ -22,10 +23,6 @@ const EVENT_TYPES = [
   { id: 'open_air', label: 'Open Air' },
 ];
 
-const MUSIC_GENRES = [
-  'House', 'Techno', 'Rap / Hip-Hop', 'Afro / Shatta',
-  'Reggaeton / Latino', 'Commercial / Hits', 'Electro / EDM', 'Open Format',
-];
 
 const DATE_OPTIONS = [
   { id: 'today', labelKey: 'explore.today' },

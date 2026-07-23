@@ -35,7 +35,7 @@ const CROPPER_CONTAINER_PX = 144;
 // 0 = Sunday — matches Postgres / JS getDay()
 const DAYS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Lun → Dim for pickers
-const MUSIC_GENRES = ['House', 'Techno', 'Rap / Hip-Hop', 'Afro / Shatta', 'Reggaeton / Latino', 'Commercial / Hits', 'Electro / EDM', 'Open Format'];
+import { MUSIC_GENRES } from '@/lib/musicGenres';
 
 function cropToSquare(dataUrl: string, position: { x: number; y: number; scale: number } | null, outputSize = 1080): Promise<Blob> {
   return new Promise((resolve, reject) => {

@@ -62,7 +62,4 @@ export const DEFAULT_BOOKER_RADIUS_KM = 50;
 // Genre facet — MUST mirror YUNO_MUSIC_GENRES in src/pages/dj-app/DJProfile.tsx exactly.
 // The server filter matches stored genres by case-insensitive equality, so any string
 // here that isn't what DJs actually pick would silently return zero results.
-export const DJ_GENRES = [
-  'House', 'Techno', 'Rap / Hip-Hop', 'Afro / Shatta',
-  'Reggaeton / Latino', 'Commercial / Hits', 'Electro / EDM', 'Open Format',
-] as const;
+export { MUSIC_GENRES as DJ_GENRES } from '@/lib/musicGenres';

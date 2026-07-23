@@ -1,4 +1,5 @@
 import { useLanguage } from '@/contexts/LanguageContext';
+import { MUSIC_GENRES } from '@/lib/musicGenres';
 
 type DateChip = 'today' | 'tomorrow' | 'weekend';
 
@@ -17,7 +18,11 @@ const DATE_CHIPS: { key: DateChip; i18n: string }[] = [
   { key: 'weekend', i18n: 'explore.weekend' },
 ];
 
-const GENRE_CHIPS = ['House', 'Open Format', 'Reggaeton'];
+// Raccourcis vers les 3 genres les plus joués. Repris TELS QUELS du vocabulaire
+// officiel : une puce dont le libellé ne figure pas dans MUSIC_GENRES ne filtre
+// rien (« Reggaeton » ne matchait pas les soirées « Reggaeton / Latino »).
+const QUICK_GENRES = ['House', 'Open Format', 'Reggaeton / Latino'];
+const GENRE_CHIPS = QUICK_GENRES.filter(g => (MUSIC_GENRES as readonly string[]).includes(g));
 
 export function ExploreChipRow({
   dateFilter,

@@ -37,6 +37,8 @@ import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
 import { Switch } from '@/components/ui/switch';
 import { BarConfigSection } from '@/components/owner/BarConfigSection';
 import TrackedLinksManager from '@/components/tracking/TrackedLinksManager';
+// Libellés RÉELS du filtre public — une seule liste pour toute l'app.
+import { MUSIC_GENRES } from '@/lib/musicGenres';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED      = '#E8192C';
@@ -547,8 +549,6 @@ export default function OwnerVenue() {
   };
 
   if (loading) return <OwnerPageSkeleton />;
-
-  const MUSIC_GENRES = ['Techno', 'House', 'Afro', 'Hip-Hop', 'R&B', 'Électro', 'Open Format', 'Latino', 'Reggaeton', 'Commercial'];
 
   return (
     <div className="min-h-screen pb-28" style={{ background: '#000' }}>

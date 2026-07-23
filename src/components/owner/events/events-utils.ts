@@ -1,7 +1,7 @@
 // Pure helpers + constants extracted verbatim from OwnerEvents.tsx.
 export const CROPPER_CONTAINER_PX = 144;
 
-export const MUSIC_GENRES = ['House', 'Techno', 'Rap / Hip-Hop', 'Afro / Shatta', 'Reggaeton / Latino', 'Commercial / Hits', 'Electro / EDM', 'Open Format'];
+export { MUSIC_GENRES } from '@/lib/musicGenres';
 
 export function cropToSquare(dataUrl: string, position: { x: number; y: number; scale: number } | null, outputSize = 1080): Promise<Blob> {
   return new Promise((resolve, reject) => {

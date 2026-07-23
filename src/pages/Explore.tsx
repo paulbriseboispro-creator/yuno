@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getManualCoords, getStoredCity, hasManualCity, setManualLocation, setResolvedCity } from '@/lib/userLocation';
 import { markAppReady } from '@/lib/appReady';
 import { getCurrentPosition } from '@/lib/geolocation';
+import { genresMatch } from '@/lib/musicGenres';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ExploreHeader } from '@/components/explore/ExploreHeader';
 import { EventCardData } from '@/components/explore/EventCard';
@@ -30,6 +31,12 @@ import { fr, es, enUS } from 'date-fns/locale';
 import type { Tables } from '@/integrations/supabase/types';
 
 type DateFilter = 'today' | 'tomorrow' | 'weekend' | 'week';
+
+// Un genre stocké correspond-il à un genre coché ? `genresMatch` passe par les
+// alias du vocabulaire officiel, donc une vieille fiche taguée « reggaeton »
+// remonte bien sur le filtre « Reggaeton / Latino ».
+const matchesAny = (stored: string[], selected: string[]) =>
+  stored.some(g => selected.some(sel => genresMatch(g, sel)));
 
 // Lignes venues/affiliate_venues telles que sélectionnées par fetchData.
 type ExploreVenueRow = Pick<Tables<'venues'>,
@@ -313,10 +320,6 @@ export default function Explore() {
 
   const sliderToHour = (val: number): number => (18 + val) % 24;
 
-  // Normalize genres for case/punctuation-insensitive matching
-  const normGenre = (g: string) =>
-    g.toLowerCase().replace(/[-_/]/g, ' ').replace(/\s+/g, ' ').trim();
-
   // ── FilterPage-filtered events ──
   const filteredEvents = useMemo(() => {
     let result = [...events];
@@ -327,10 +330,7 @@ export default function Explore() {
       );
     }
     if (filters.genres.length > 0) {
-      const normalizedFilterGenres = filters.genres.map(normGenre);
-      result = result.filter(e =>
-        e.genres.some(g => normalizedFilterGenres.includes(normGenre(g)))
-      );
+      result = result.filter(e => matchesAny(e.genres, filters.genres));
     }
     const defaultPriceMax = filterDynamicData.ticketPriceMax;
     const priceChanged = filters.priceRange[0] > 0 || filters.priceRange[1] < (defaultPriceMax || 200);
@@ -349,18 +349,12 @@ export default function Explore() {
     return result;
   }, [events, filters, filterDynamicData]);
 
-  // ── Genre normalizer (handles "open-format" vs "open format" etc.) ──
-  const normalizeGenre = useCallback(normGenre, []);
-
   // ── Chip-filtered events ──
   const chipFilteredEvents = useMemo(() => {
     let result = filteredEvents;
     if (freeOnly) result = result.filter(e => e.minPrice === 0);
     if (chipGenres.length > 0) {
-      const normalizedChips = chipGenres.map(normGenre);
-      result = result.filter(e =>
-        e.genres.some(g => normalizedChips.includes(normGenre(g)))
-      );
+      result = result.filter(e => matchesAny(e.genres, chipGenres));
     }
     return result;
   }, [filteredEvents, freeOnly, chipGenres]);
@@ -406,8 +400,7 @@ export default function Explore() {
     // Apply chip filters
     if (freeOnly) result = result.filter(e => e.minPrice === 0);
     if (chipGenres.length > 0) {
-      const normalizedChips = chipGenres.map(normGenre);
-      result = result.filter(e => e.genres.some(g => normalizedChips.includes(normGenre(g))));
+      result = result.filter(e => matchesAny(e.genres, chipGenres));
     }
     // Apply FilterPage filters (eventType + genre)
     if (filters.eventTypes.length > 0) {
@@ -416,8 +409,7 @@ export default function Explore() {
       );
     }
     if (filters.genres.length > 0) {
-      const normalizedFilterGenres = filters.genres.map(normGenre);
-      result = result.filter(e => e.genres.some(g => normalizedFilterGenres.includes(normGenre(g))));
+      result = result.filter(e => matchesAny(e.genres, filters.genres));
     }
     return result
       .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
@@ -441,10 +433,7 @@ export default function Explore() {
       );
     }
     if (filters.genres.length > 0) {
-      const normalizedFilterGenres = filters.genres.map(normGenre);
-      allWeekEvents = allWeekEvents.filter(e =>
-        e.genres.some(g => normalizedFilterGenres.includes(normGenre(g)))
-      );
+      allWeekEvents = allWeekEvents.filter(e => matchesAny(e.genres, filters.genres));
     }
     return allWeekEvents
       .sort((a, b) => b.interestedCount - a.interestedCount)

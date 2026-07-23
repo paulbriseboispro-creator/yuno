@@ -13,8 +13,9 @@ import {
   FieldLabel, DarkInput, DarkSelect, DarkTextarea,
   RED, T2, T3, BORDER, INNER_BG,
 } from '@/components/affiliate/affiliate-ui';
+import { MUSIC_GENRES, canonicalGenres } from '@/lib/musicGenres';
 
-const GENRES = ['House', 'Techno', 'Reggaeton', 'Open Format', 'Latin', 'Afrobeats', 'R&B', 'Drum & Bass', 'Hip-Hop', 'Electronic'];
+const GENRES = MUSIC_GENRES;
 
 function slugify(text: string) {
   return text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -103,7 +104,9 @@ export default function AffiliateEventForm() {
           flyer_url: data.flyer_url ?? null,
           gallery_urls: data.gallery_urls ?? [],
           description: data.description ?? '',
-          genres: data.genres ?? [],
+          // Anciens libellés (« Afrobeats », « open-format »…) ramenés sur les
+          // puces réelles, sinon la soirée repart sans genre au prochain save.
+          genres: canonicalGenres(data.genres),
           dj_names: (data.dj_names ?? []).join(', '),
           external_ticket_url: data.external_ticket_url ?? '',
           price_from: data.price_from?.toString() ?? '',

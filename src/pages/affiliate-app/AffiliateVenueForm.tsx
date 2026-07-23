@@ -14,8 +14,9 @@ import {
   FieldLabel, DarkInput, DarkTextarea,
   T1, T2, T3, BORDER, TILE_BG, F_BORDER,
 } from '@/components/affiliate/affiliate-ui';
+import { MUSIC_GENRES, canonicalGenres } from '@/lib/musicGenres';
 
-const GENRES = ['House', 'Techno', 'Reggaeton', 'Open Format', 'Latin', 'Afrobeats', 'R&B', 'Drum & Bass', 'Hip-Hop', 'Electronic'];
+const GENRES = MUSIC_GENRES;
 
 function slugify(text: string) {
   return text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -98,7 +99,10 @@ export default function AffiliateVenueForm() {
           tiktok: data.tiktok ?? '',
           website: data.website ?? '',
           external_booking_url: data.external_booking_url ?? '',
-          genres: data.genres ?? [],
+          // Les fiches créées avant l'unification portent d'anciens libellés
+          // (« Afrobeats », « house »…) : on les ramène sur les puces réelles,
+          // sinon aucune ne s'allume et le club repart avec zéro genre.
+          genres: canonicalGenres(data.genres),
           min_age: data.min_age?.toString() ?? '',
           dress_code: data.dress_code ?? '',
           address: data.address ?? '',
