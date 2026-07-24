@@ -26,7 +26,7 @@ export interface WalletIssueResult {
  * Émet (idempotent) puis ouvre le pass Wallet de l'entité.
  * Throw en cas d'échec — l'appelant gère son toast.
  */
-export async function addToWallet(type: 'ticket' | 'table', id: string): Promise<void> {
+export async function addToWallet(type: 'ticket' | 'table' | 'guestlist', id: string): Promise<void> {
   const { data, error } = await invokeEdgeFunction('send-ticket-confirmation/wallet/issue', {
     body: { type, id },
   });

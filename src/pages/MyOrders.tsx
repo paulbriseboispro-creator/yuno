@@ -1646,7 +1646,7 @@ export default function MyOrders() {
     restoreParam?: string;
     restoreId?: string | null;
     /** Pass Apple Wallet (billets + tables VIP) — visible sur appareil Apple. */
-    wallet?: { type: 'ticket' | 'table'; id: string };
+    wallet?: { type: 'ticket' | 'table' | 'guestlist'; id: string };
   }): QRAction[] => {
     const acts: QRAction[] = [];
     if (opts.wallet && isAppleDevice) {
@@ -1920,6 +1920,9 @@ export default function MyOrders() {
             },
             restoreParam: 'guest_id',
             restoreId: selectedGuestEntry.id,
+            // Le QR de guest list est un vrai billet de porte : il s'ajoute à
+            // Wallet comme un billet payant.
+            wallet: { type: 'guestlist', id: selectedGuestEntry.id },
           })}
         />
       )}

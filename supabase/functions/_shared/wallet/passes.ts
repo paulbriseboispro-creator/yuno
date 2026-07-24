@@ -13,12 +13,85 @@
 // Décision D2 : webServiceURL pointe dès l'émission vers le routeur /wallet de
 // send-ticket-confirmation — les devices s'enregistrent dès maintenant, les
 // pushes de mise à jour arriveront en Phase 5 sans réémettre les passes.
-// deno-lint-ignore-file no-explicit-any
 import { normalizeWalletLang, wl, type WalletLang } from './i18n.ts';
+
+/** Ligne event embarquée (`events!inner(...)`) des deux selects ci-dessous. */
+interface WalletEventRow {
+  title: string;
+  start_at: string | null;
+  end_at: string | null;
+  venue_id: string | null;
+  partner_venue_id: string | null;
+  location_name: string | null;
+  location_city?: string | null;
+  location_is_secret: boolean | null;
+  music_genres: string[] | null;
+}
+
+/** Ligne venues (latitude/longitude peuvent arriver en numeric → string). */
+interface WalletVenueRow {
+  name: string | null;
+  address?: string | null;
+  city?: string | null;
+  latitude: number | string | null;
+  longitude: number | string | null;
+}
+
+interface WalletTicketRow {
+  id: string;
+  qr_code: string | null;
+  reference_code: string | null;
+  quantity: number | null;
+  status: string | null;
+  user_id: string | null;
+  full_name: string | null;
+  ticket_rounds: { name: string | null } | null;
+  events: WalletEventRow;
+}
+
+/** Entrée de guest list — l'événement passe par la part (guest_lists). */
+interface WalletGuestListRow {
+  id: string;
+  qr_code: string | null;
+  reservation_code: string | null;
+  status: string | null;
+  user_id: string | null;
+  full_name: string | null;
+  entry_type: string | null;
+  guest_lists: {
+    free_before_time: string | null;
+    includes_drink: boolean | null;
+    events: WalletEventRow;
+  };
+}
+
+interface WalletReservationRow {
+  id: string;
+  qr_code: string | null;
+  reference_code: string | null;
+  guest_count: number | null;
+  status: string | null;
+  user_id: string | null;
+  full_name: string | null;
+  table_packs: { name: string | null } | null;
+  table_zones: { name: string | null } | null;
+  events: WalletEventRow;
+}
+
+interface WalletQuery<Row> {
+  select(columns: string): WalletQuery<Row>;
+  eq(column: string, value: unknown): WalletQuery<Row>;
+  single(): PromiseLike<{ data: Row | null; error: unknown }>;
+  maybeSingle(): PromiseLike<{ data: Row | null; error?: unknown }>;
+}
 
 /** Client Supabase admin minimal (évite d'importer le SDK ici). */
 interface AdminClient {
-  from(table: string): any;
+  from(table: 'profiles'): WalletQuery<{ preferred_language: string | null }>;
+  from(table: 'tickets'): WalletQuery<WalletTicketRow>;
+  from(table: 'table_reservations'): WalletQuery<WalletReservationRow>;
+  from(table: 'guest_list_entries'): WalletQuery<WalletGuestListRow>;
+  from(table: 'venues'): WalletQuery<WalletVenueRow>;
 }
 
 export interface PassBuild {
@@ -145,9 +218,9 @@ export async function buildTicketPass(
   if (error || !ticket) throw new Error('Ticket not found');
   if (!ticket.qr_code) throw new Error('Ticket has no QR');
 
-  const event = ticket.events as any;
+  const event = ticket.events;
   const venueId = event.venue_id ?? event.partner_venue_id;
-  let venue: any = null;
+  let venue: WalletVenueRow | null = null;
   if (venueId) {
     const { data } = await admin
       .from('venues')
@@ -167,7 +240,7 @@ export async function buildTicketPass(
       ? { lat: Number(venue.latitude), lng: Number(venue.longitude) }
       : null;
 
-  const round = (ticket.ticket_rounds as any)?.name || null;
+  const round = ticket.ticket_rounds?.name || null;
   const genre = Array.isArray(event.music_genres)
     ? event.music_genres.filter(Boolean).slice(0, 2).join(' · ') || null
     : null;
@@ -269,9 +342,9 @@ export async function buildVipPass(
   if (error || !resa) throw new Error('Reservation not found');
   if (!resa.qr_code) throw new Error('Reservation has no QR');
 
-  const event = resa.events as any;
+  const event = resa.events;
   const venueId = event.venue_id ?? event.partner_venue_id;
-  let venue: any = null;
+  let venue: WalletVenueRow | null = null;
   if (venueId) {
     const { data } = await admin
       .from('venues')
@@ -290,7 +363,7 @@ export async function buildVipPass(
       : null;
 
   const tableName =
-    (resa.table_packs as any)?.name || (resa.table_zones as any)?.name || null;
+    resa.table_packs?.name || resa.table_zones?.name || null;
   const genre = Array.isArray(event.music_genres)
     ? event.music_genres.filter(Boolean).slice(0, 2).join(' · ') || null
     : null;
@@ -362,4 +435,126 @@ export async function buildVipPass(
   };
 
   return { passJson, serial: `v-${resa.id}`, userId: resa.user_id, lang };
+}
+
+/**
+ * Entrée de guest list — pass eventTicket, QR = guest_list_entries.qr_code
+ * (le videur scanne le même code que pour un billet payant).
+ *
+ * Deux différences avec un billet : l'heure limite d'entrée gratuite est LE
+ * renseignement décisif (elle passe donc en en-tête), et la boisson offerte
+ * dépend du type retenu à l'inscription, pas seulement du réglage de la part.
+ */
+export async function buildGuestListPass(
+  admin: AdminClient,
+  entryId: string,
+  authToken: string,
+): Promise<PassBuild> {
+  const { data: entry, error } = await admin
+    .from('guest_list_entries')
+    .select(`
+      id, qr_code, reservation_code, status, user_id, full_name, entry_type,
+      guest_lists!inner(
+        free_before_time, includes_drink,
+        events!inner(title, start_at, end_at, venue_id, partner_venue_id, location_name, location_city, location_is_secret, music_genres)
+      )
+    `)
+    .eq('id', entryId)
+    .single();
+  if (error || !entry) throw new Error('Guest list entry not found');
+  if (!entry.qr_code) throw new Error('Guest list entry has no QR');
+
+  const event = entry.guest_lists.events;
+  const venueId = event.venue_id ?? event.partner_venue_id;
+  let venue: WalletVenueRow | null = null;
+  if (venueId) {
+    const { data } = await admin
+      .from('venues')
+      .select('name, address, city, latitude, longitude')
+      .eq('id', venueId)
+      .maybeSingle();
+    venue = data;
+  }
+
+  const lang = await resolveLang(admin, entry.user_id);
+  const venueName = venue?.name || event.location_name || 'Yuno';
+  // Lieu secret : jamais de coordonnées sur le pass (même règle que le billet).
+  const isSecret = !!event.location_is_secret;
+  const location =
+    !isSecret && venue?.latitude != null && venue?.longitude != null
+      ? { lat: Number(venue.latitude), lng: Number(venue.longitude) }
+      : null;
+
+  const entryType = entry.entry_type || 'normal';
+  const typeLabel = entryType === 'table' ? wl(lang, 'entryVip')
+    : entryType === 'drink' ? wl(lang, 'entryDrink')
+    : wl(lang, 'entryNormal');
+  // La boisson suit le type retenu ; `includes_drink` ne vaut que pour une part
+  // sans ventilation (le club offre un verre à toute sa liste).
+  const hasDrink = entryType === 'drink' || (entryType === 'normal' && !!entry.guest_lists.includes_drink);
+  const freeBefore = entry.guest_lists.free_before_time?.substring(0, 5) || null;
+  const genre = Array.isArray(event.music_genres)
+    ? event.music_genres.filter(Boolean).slice(0, 2).join(' · ') || null
+    : null;
+  const reference = entry.reservation_code || entry.qr_code;
+
+  const passJson = {
+    ...passShell({
+      serial: `g-${entry.id}`,
+      description: `${wl(lang, 'guestListDescription')} — ${event.title}`,
+      authToken,
+      qr: entry.qr_code,
+      qrAlt: entry.reservation_code || null,
+      relevantDate: event.start_at || null,
+      expirationDate: expiration(event.end_at),
+      location,
+      voided: entry.status === 'cancelled',
+    }),
+    ...eventSemantics({
+      eventName: event.title,
+      venueName,
+      startAt: event.start_at || null,
+      endAt: event.end_at || null,
+      location,
+    }),
+    eventTicket: {
+      headerFields: [{ key: 'kind', label: wl(lang, 'guestList'), value: typeLabel }],
+      primaryFields: [{ key: 'event', value: event.title }],
+      secondaryFields: [
+        { key: 'venue', label: wl(lang, 'venue'), value: venueName },
+        ...(event.start_at
+          ? [{
+              key: 'date',
+              label: wl(lang, 'date'),
+              value: event.start_at,
+              dateStyle: 'PKDateStyleMedium',
+              timeStyle: 'PKDateStyleNone',
+              textAlignment: 'PKTextAlignmentRight',
+            }]
+          : []),
+      ],
+      auxiliaryFields: [
+        // L'heure limite prime : passé cette heure, l'entrée n'est plus gratuite.
+        ...(freeBefore
+          ? [{ key: 'free', label: wl(lang, 'freeBefore'), value: freeBefore }]
+          : []),
+        ...(hasDrink
+          ? [{
+              key: 'drink',
+              label: wl(lang, 'entryType'),
+              value: wl(lang, 'entryDrink'),
+              textAlignment: 'PKTextAlignmentRight',
+            }]
+          : []),
+      ],
+      backFields: [
+        { key: 'ref', label: wl(lang, 'reference'), value: reference },
+        ...(entry.full_name ? [{ key: 'holder', label: wl(lang, 'holder'), value: entry.full_name }] : []),
+        ...(genre ? [{ key: 'genre', label: wl(lang, 'genre'), value: genre }] : []),
+        { key: 'help', label: wl(lang, 'help'), value: 'https://yunoapp.eu/my-orders' },
+      ],
+    },
+  };
+
+  return { passJson, serial: `g-${entry.id}`, userId: entry.user_id, lang };
 }

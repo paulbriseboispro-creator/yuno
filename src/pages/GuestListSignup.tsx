@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { ArrowLeft, Users, Clock, Wine, CheckCircle, Ticket, LogIn, PartyPopper, Crown, UserPlus, Ban } from 'lucide-react';
 import { GL_ENTRY_TYPES, effectivePublicTypes, entryTypeLabelKey, type GLEntryType } from '@/lib/guestListTypes';
+import { WalletButtons } from '@/components/WalletButtons';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE, fromParisTime } from '@/lib/timezone';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -42,6 +43,10 @@ interface GuestListWithEvent extends Tables<'guest_lists'> {
 
 interface GuestListInfo {
   id: string;
+  /** Allocation par type de la part — 0 partout = pas de ventilation. */
+  quotaNormal: number;
+  quotaDrink: number;
+  quotaTable: number;
   /** NULL = allocation illimitée (parts déléguées). */
   quota: number | null;
   quotaFemale: number | null;
@@ -59,6 +64,16 @@ interface GuestListInfo {
   shareToken: string;
   /** Types offerts sur le lien public (canal 1). NULL/[] = pas de choix affiché. */
   publicEntryTypes: GLEntryType[] | null;
+}
+
+/** Remplissage agrégé renvoyé par get_guest_list_public_fill (aucune donnée d'invité). */
+interface GuestListFill {
+  total_count: number;
+  female_count: number;
+  male_count: number;
+  normal_count: number;
+  drink_count: number;
+  table_count: number;
 }
 
 /** Lien unique personnel (?invite=) : type imposé + nombre de places limité. */
@@ -110,6 +125,8 @@ export default function GuestListSignup() {
   const [entriesCount, setEntriesCount] = useState(0);
   const [femaleCount, setFemaleCount] = useState(0);
   const [maleCount, setMaleCount] = useState(0);
+  /** Remplissage ventilé par type — sert à ne compter que ce que CE lien propose. */
+  const [typeCounts, setTypeCounts] = useState<Record<GLEntryType, number>>({ normal: 0, drink: 0, table: 0 });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -120,6 +137,8 @@ export default function GuestListSignup() {
   // Lien unique multi-places : inscrire un proche après sa propre inscription.
   const [addAnother, setAddAnother] = useState(false);
   const [successEntryType, setSuccessEntryType] = useState<GLEntryType | null>(null);
+  /** Id de l'entrée créée — clé du pass Apple Wallet proposé après inscription. */
+  const [successEntryId, setSuccessEntryId] = useState<string | null>(null);
 
   // Form (gender only - rest comes from profile)
   // Pre-fill from URL param when coming from a gender-specific share link
@@ -132,17 +151,13 @@ export default function GuestListSignup() {
   // Countdown
   const [timeLeft, setTimeLeft] = useState('');
 
-  // Garde de sortie. On ne pose la question que tant qu'il reste réellement une
-  // inscription à faire : une fois confirmée (ou la soirée finie, ou la liste
-  // pleine), le retour part directement — sinon le geste paraîtrait ignoré.
-  const stillRegistrable = !!guestList
-    && !success
-    && !alreadyRegistered
-    && new Date(guestList.eventEndAt) >= new Date()
-    && !(guestList.quota !== null && entriesCount >= guestList.quota);
+  // Garde de sortie : la question se pose sur TOUTE la page d'inscription, y
+  // compris quand on est déjà inscrit ou que la liste est pleine — le but est
+  // qu'aucune sortie ne soit accidentelle. Seul l'écran de confirmation en est
+  // exempt : on y a déjà son QR, et « Retour à l'accueil » y est explicite.
   const { asking: askLeave, requestBack, stay: stayOnPage, leave: leavePage } = useBackConfirm({
     ready: !!guestList,
-    shouldAsk: stillRegistrable,
+    shouldAsk: !!guestList && !success,
   });
 
   useEffect(() => {
@@ -202,11 +217,16 @@ export default function GuestListSignup() {
           .maybeSingle()
           .then(
             ({ data: fillUpdate }) => {
-              const f = fillUpdate as { total_count: number; female_count: number; male_count: number } | null;
+              const f = fillUpdate as GuestListFill | null;
               if (f) {
                 setEntriesCount(f.total_count || 0);
                 setFemaleCount(f.female_count || 0);
                 setMaleCount(f.male_count || 0);
+                setTypeCounts({
+                  normal: f.normal_count || 0,
+                  drink: f.drink_count || 0,
+                  table: f.table_count || 0,
+                });
               }
             },
             () => { /* keep the previous count if the realtime re-count fails */ },
@@ -317,6 +337,9 @@ export default function GuestListSignup() {
 
       setGuestList({
         id: data.id,
+        quotaNormal: data.quota_normal ?? 0,
+        quotaDrink: data.quota_drink ?? 0,
+        quotaTable: data.quota_table ?? 0,
         quota: data.quota,
         quotaFemale: data.quota_female,
         quotaMale: data.quota_male,
@@ -342,8 +365,13 @@ export default function GuestListSignup() {
       const { data: fillRaw } = await supabase
         .rpc('get_guest_list_public_fill', { _guest_list_id: data.id })
         .maybeSingle();
-      const fill = fillRaw as { total_count: number; female_count: number; male_count: number } | null;
+      const fill = fillRaw as GuestListFill | null;
       setEntriesCount(fill?.total_count || 0);
+      setTypeCounts({
+        normal: fill?.normal_count || 0,
+        drink: fill?.drink_count || 0,
+        table: fill?.table_count || 0,
+      });
       if (data.quota_female !== null || data.quota_male !== null) {
         setFemaleCount(fill?.female_count || 0);
         setMaleCount(fill?.male_count || 0);
@@ -433,6 +461,7 @@ export default function GuestListSignup() {
 
       setSuccess(true);
       setSuccessEntryType((data.entry?.entryType as GLEntryType) || null);
+      setSuccessEntryId((data.entry?.id as string) || null);
       // Décompte local du lien unique (le serveur renvoie le restant réel).
       if (inviteMeta && typeof data.inviteRemaining === 'number') {
         setInviteMeta({ ...inviteMeta, usedCount: inviteMeta.maxUses - data.inviteRemaining });
@@ -544,18 +573,34 @@ export default function GuestListSignup() {
 
   // Convention quota NULL = illimité : une telle part n'est jamais pleine et n'a
   // pas de « restantes » à afficher (sans ce garde, quota - count donnait NaN).
+  // ── Places restantes, comptées sur ce que CE lien propose ─────────────────
+  // Une part ventilée (ex. 25 normales + 1 VIP) dont le lien n'offre pas le VIP
+  // ne doit pas décompter les entrées VIP : sinon le visiteur lit un chiffre
+  // plus petit que ce qui lui est réellement ouvert. On somme donc le restant
+  // des seuls types offerts, plafonné par le quota global de la part.
+  const offeredTypes = inviteMeta ? [inviteMeta.entryType] : (guestList.publicEntryTypes ?? []);
+  const perTypeAllocated = guestList.quotaNormal + guestList.quotaDrink + guestList.quotaTable;
+  const quotaByType: Record<GLEntryType, number> = {
+    normal: guestList.quotaNormal, drink: guestList.quotaDrink, table: guestList.quotaTable,
+  };
+  const globalRemaining = guestList.quota !== null ? Math.max(0, guestList.quota - entriesCount) : null;
+  const offeredRemaining = perTypeAllocated > 0 && offeredTypes.length
+    ? offeredTypes.reduce((sum, tp) => sum + Math.max(0, quotaByType[tp] - typeCounts[tp]), 0)
+    : null;
+
   // Un quota genre à 0 = pas de quota : le tester avec `!== null` rendait toute
   // liste genrée « complète » d'entrée (count >= 0 toujours vrai).
   const isFull = (guestList.quota !== null && entriesCount >= guestList.quota)
+    || (offeredRemaining !== null && offeredRemaining <= 0)
     || (genderFromUrl === 'female' && (guestList.quotaFemale ?? 0) > 0 && femaleCount >= guestList.quotaFemale!)
     || (genderFromUrl === 'male' && (guestList.quotaMale ?? 0) > 0 && maleCount >= guestList.quotaMale!);
   const remaining = genderFromUrl === 'female' && (guestList.quotaFemale ?? 0) > 0
     ? Math.max(0, guestList.quotaFemale! - femaleCount)
     : genderFromUrl === 'male' && (guestList.quotaMale ?? 0) > 0
     ? Math.max(0, guestList.quotaMale! - maleCount)
-    : guestList.quota !== null
-    ? Math.max(0, guestList.quota - entriesCount)
-    : null;
+    : offeredRemaining !== null
+    ? (globalRemaining !== null ? Math.min(offeredRemaining, globalRemaining) : offeredRemaining)
+    : globalRemaining;
   // Le compteur ne s'affiche que si le club l'a activé ET qu'il y a un chiffre à montrer.
   const showCounter = guestList.showRemaining && remaining !== null;
 
@@ -672,6 +717,11 @@ export default function GuestListSignup() {
               <img src={qrImage} alt="QR Code" className="mx-auto rounded-lg" />
             )}
             <p className="text-xs text-muted-foreground">{t('guestList.showQR')}</p>
+            {/* Apple Wallet — juste sous le QR, au moment où « ne pas le
+                reperdre » est l'action évidente. Le composant se masque hors
+                appareil Apple et pour une inscription sans compte (l'émission
+                du pass exige une session). */}
+            {successEntryId && <WalletButtons type="guestlist" id={successEntryId} variant="hero" />}
             {/* Lien unique multi-places : proposer d'inscrire un proche tant
                 qu'il reste des places sur CE lien. */}
             {inviteMeta && inviteRemainingNow > 0 && (

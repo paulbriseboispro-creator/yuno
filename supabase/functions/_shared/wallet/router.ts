@@ -13,10 +13,22 @@
 //
 // Les devices s'enregistrent dès la Phase 2 ; les pushes de mise à jour
 // (topic = Pass Type ID, payload {}) arrivent en Phase 5.
-// deno-lint-ignore-file no-explicit-any
 import { buildPkpass, walletCertsFromEnv } from './signer.ts';
 import { walletAssets } from './assets.ts';
-import { buildTicketPass, buildVipPass, type PassBuild } from './passes.ts';
+import { buildTicketPass, buildVipPass, buildGuestListPass, type PassBuild } from './passes.ts';
+
+/** Types de pass émis par Yuno. Le préfixe du serial en découle. */
+type PassType = 'ticket' | 'vip' | 'guestlist';
+
+/** Préfixe de serial par type — jamais de collision entre entités. */
+const SERIAL_PREFIX: Record<PassType, string> = { ticket: 't', vip: 'v', guestlist: 'g' };
+
+/** Table portant la propriété de l'entité référencée par le pass. */
+const OWNER_TABLE: Record<PassType, 'tickets' | 'table_reservations' | 'guest_list_entries'> = {
+  ticket: 'tickets',
+  vip: 'table_reservations',
+  guestlist: 'guest_list_entries',
+};
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -41,6 +53,55 @@ function randomToken(): string {
   return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+// ── Typage minimal du client Supabase admin utilisé par ce routeur ──────────
+
+/** Ligne wallet_passes (colonnes des selects ci-dessous). */
+interface WalletPassesRow {
+  serial: string;
+  pass_type: string;
+  reference_id: string;
+  user_id: string | null;
+  auth_token: string;
+  voided: boolean | null;
+  updated_at: string;
+}
+
+interface WalletRegistrationRow {
+  push_token: string;
+  pass_serial: string;
+  wallet_passes: { updated_at: string };
+}
+
+/** Ligne tickets / table_reservations pour le contrôle de propriété. */
+interface WalletOwnershipRow {
+  id: string;
+  user_id: string | null;
+  status: string | null;
+}
+
+interface WalletRouterFilter<Row> extends PromiseLike<{ data: Row[] | null; error: unknown }> {
+  eq(column: string, value: unknown): WalletRouterFilter<Row>;
+  maybeSingle(): PromiseLike<{ data: Row | null; error?: unknown }>;
+}
+
+interface WalletRouterBuilder<Row> {
+  select(columns: string): WalletRouterFilter<Row>;
+  insert(values: Record<string, unknown>): PromiseLike<{ error: unknown }>;
+  update(values: Record<string, unknown>): WalletRouterFilter<Row>;
+  delete(): WalletRouterFilter<Row>;
+}
+
+interface WalletAdminClient {
+  auth: {
+    getUser(
+      jwt: string,
+    ): Promise<{ data: { user: { id: string } | null } | null; error: unknown }>;
+  };
+  from(table: 'wallet_passes'): WalletRouterBuilder<WalletPassesRow>;
+  from(table: 'wallet_pass_registrations'): WalletRouterBuilder<WalletRegistrationRow>;
+  from(table: 'tickets' | 'table_reservations' | 'guest_list_entries'): WalletRouterBuilder<WalletOwnershipRow>;
+}
+
 /** Comparaison à temps constant (tokens de même longueur attendus). */
 function safeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -55,12 +116,12 @@ function safeEqual(a: string, b: string): boolean {
  * Utilisé par /wallet/issue ET par les emails de confirmation.
  */
 export async function ensureWalletPass(
-  admin: any,
-  passType: 'ticket' | 'vip',
+  admin: WalletAdminClient,
+  passType: PassType,
   referenceId: string,
   userId: string | null,
 ): Promise<{ serial: string; authToken: string }> {
-  const serial = `${passType === 'ticket' ? 't' : 'v'}-${referenceId}`;
+  const serial = `${SERIAL_PREFIX[passType]}-${referenceId}`;
   const { data: existing } = await admin
     .from('wallet_passes')
     .select('serial, auth_token')
@@ -96,10 +157,12 @@ export function walletPassUrl(serial: string, authToken: string): string {
 }
 
 /** Régénère le .pkpass signé d'une ligne wallet_passes. */
-async function renderPass(admin: any, row: { serial: string; pass_type: string; reference_id: string; auth_token: string }): Promise<Uint8Array> {
+async function renderPass(admin: WalletAdminClient, row: { serial: string; pass_type: string; reference_id: string; auth_token: string }): Promise<Uint8Array> {
   const build: PassBuild =
     row.pass_type === 'vip'
       ? await buildVipPass(admin, row.reference_id, row.auth_token)
+      : row.pass_type === 'guestlist'
+      ? await buildGuestListPass(admin, row.reference_id, row.auth_token)
       : await buildTicketPass(admin, row.reference_id, row.auth_token);
   return await buildPkpass(build.passJson, walletAssets(), walletCertsFromEnv());
 }
@@ -127,7 +190,7 @@ function b64FromBytes(bytes: Uint8Array): string {
 }
 
 /** Ligne wallet_passes par serial, ou null. */
-async function passRow(admin: any, serial: string) {
+async function passRow(admin: WalletAdminClient, serial: string) {
   const { data } = await admin
     .from('wallet_passes')
     .select('serial, pass_type, reference_id, user_id, auth_token, voided, updated_at')
@@ -147,7 +210,7 @@ function applePassToken(req: Request): string | null {
  * Point d'entrée : à appeler en tête de serve() de send-ticket-confirmation.
  * Retourne null si la requête ne concerne pas /wallet (→ flux email existant).
  */
-export async function handleWalletRequest(req: Request, admin: any): Promise<Response | null> {
+export async function handleWalletRequest(req: Request, admin: WalletAdminClient): Promise<Response | null> {
   const url = new URL(req.url);
   const idx = url.pathname.indexOf('/wallet/');
   if (idx === -1) return null;
@@ -164,14 +227,20 @@ export async function handleWalletRequest(req: Request, admin: any): Promise<Res
       if (userErr || !user) return json({ error: 'Unauthorized' }, 401);
 
       const { type, id } = (await req.json()) as { type?: string; id?: string };
-      const passType = type === 'table' || type === 'vip' ? 'vip' : type === 'ticket' ? 'ticket' : null;
+      const passType: PassType | null =
+        type === 'table' || type === 'vip' ? 'vip'
+        : type === 'ticket' ? 'ticket'
+        : type === 'guestlist' ? 'guestlist'
+        : null;
       if (!passType || !id) return json({ error: 'type and id required' }, 400);
 
       // Contrôle de propriété AVANT toute émission.
-      const table = passType === 'ticket' ? 'tickets' : 'table_reservations';
-      const { data: row } = await admin.from(table).select('id, user_id, status').eq('id', id).maybeSingle();
+      const { data: row } = await admin.from(OWNER_TABLE[passType]).select('id, user_id, status').eq('id', id).maybeSingle();
       if (!row || row.user_id !== user.id) return json({ error: 'Not found' }, 404);
-      if (row.status !== 'paid') return json({ error: 'Not paid' }, 400);
+      // Une entrée de guest list est gratuite : elle n'est jamais 'paid'. Seule
+      // une annulation la disqualifie.
+      const stillValid = passType === 'guestlist' ? row.status !== 'cancelled' : row.status === 'paid';
+      if (!stillValid) return json({ error: 'Not paid' }, 400);
 
       const { serial, authToken } = await ensureWalletPass(admin, passType, id, user.id);
       const pass = await passRow(admin, serial);
@@ -204,7 +273,7 @@ export async function handleWalletRequest(req: Request, admin: any): Promise<Res
 
       if (req.method === 'POST') {
         const body = await req.json().catch(() => ({}));
-        const pushToken = (body as any)?.pushToken;
+        const pushToken = (body as { pushToken?: string } | null)?.pushToken;
         if (!pushToken) return json({}, 400);
         const { data: existing } = await admin
           .from('wallet_pass_registrations')

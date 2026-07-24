@@ -7,7 +7,7 @@ import { addToWallet } from '@/lib/wallet';
 import { haptics } from '@/lib/haptics';
 
 interface WalletButtonsProps {
-  type: 'ticket' | 'table' | 'order';
+  type: 'ticket' | 'table' | 'order' | 'guestlist';
   id: string;
   /**
    * 'documents' — rangé dans la liste des téléchargements (bas de page).

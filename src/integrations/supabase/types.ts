@@ -182,13 +182,80 @@ export type Database = {
           },
         ]
       }
+      affiliate_app_notifications: {
+        Row: {
+          affiliate_id: string
+          created_at: string
+          feed_key: string
+          id: string
+          member_id: string | null
+          message: string
+          metadata: Json
+          notification_type: string
+          priority: string
+          read_at: string | null
+          read_by: string | null
+          reference_id: string | null
+          reference_type: string | null
+          title: string
+        }
+        Insert: {
+          affiliate_id: string
+          created_at?: string
+          feed_key: string
+          id?: string
+          member_id?: string | null
+          message: string
+          metadata?: Json
+          notification_type: string
+          priority?: string
+          read_at?: string | null
+          read_by?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          title: string
+        }
+        Update: {
+          affiliate_id?: string
+          created_at?: string
+          feed_key?: string
+          id?: string
+          member_id?: string | null
+          message?: string
+          metadata?: Json
+          notification_type?: string
+          priority?: string
+          read_at?: string | null
+          read_by?: string | null
+          reference_id?: string | null
+          reference_type?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_app_notifications_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "affiliates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "affiliate_app_notifications_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       affiliate_clicks: {
         Row: {
-          affiliate_event_id: string
+          affiliate_event_id: string | null
           affiliate_id: string
           affiliate_member_id: string | null
           affiliate_venue_id: string | null
           browser_id: string | null
+          click_type: string
           clicked_at: string
           device_type: string | null
           id: string
@@ -204,11 +271,12 @@ export type Database = {
           visitor_id: string | null
         }
         Insert: {
-          affiliate_event_id: string
+          affiliate_event_id?: string | null
           affiliate_id: string
           affiliate_member_id?: string | null
           affiliate_venue_id?: string | null
           browser_id?: string | null
+          click_type?: string
           clicked_at?: string
           device_type?: string | null
           id?: string
@@ -224,11 +292,12 @@ export type Database = {
           visitor_id?: string | null
         }
         Update: {
-          affiliate_event_id?: string
+          affiliate_event_id?: string | null
           affiliate_id?: string
           affiliate_member_id?: string | null
           affiliate_venue_id?: string | null
           browser_id?: string | null
+          click_type?: string
           clicked_at?: string
           device_type?: string | null
           id?: string
@@ -14554,6 +14623,8 @@ export type Database = {
         Args: { _reservation_id: string }
         Returns: undefined
       }
+      canonical_music_genre: { Args: { p_raw: string }; Returns: string }
+      canonical_music_genres: { Args: { p_raw: string[] }; Returns: string[] }
       check_mfa_disable_rate_limit: {
         Args: { _user_id: string }
         Returns: boolean
@@ -14807,6 +14878,20 @@ export type Database = {
         }
         Returns: string
       }
+      emit_affiliate_app_notification: {
+        Args: {
+          p_affiliate_id: string
+          p_member_id: string
+          p_message: string
+          p_metadata?: Json
+          p_priority?: string
+          p_reference_id?: string
+          p_reference_type?: string
+          p_title: string
+          p_type: string
+        }
+        Returns: undefined
+      }
       enable_collab_basic_tables: {
         Args: { p_event_id: string }
         Returns: undefined
@@ -14866,6 +14951,15 @@ export type Database = {
       finalize_leaderboard_contest: {
         Args: { p_contest_id: string }
         Returns: Json
+      }
+      flush_affiliate_session: {
+        Args: {
+          p_affiliate_id: string
+          p_duration_seconds: number
+          p_scroll_depth: number
+          p_session_id: string
+        }
+        Returns: undefined
       }
       gen_dj_handle: {
         Args: { p_exclude?: string; p_name: string }
@@ -15180,8 +15274,11 @@ export type Database = {
       get_guest_list_public_fill: {
         Args: { _guest_list_id: string }
         Returns: {
+          drink_count: number
           female_count: number
           male_count: number
+          normal_count: number
+          table_count: number
           total_count: number
         }[]
       }
@@ -15648,6 +15745,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      music_genre_key: { Args: { p_raw: string }; Returns: string }
       normalize_phone_e164: { Args: { _phone: string }; Returns: string }
       normalize_split_rules: { Args: { rules: Json }; Returns: Json }
       notify_collab_party: {
@@ -15704,6 +15802,17 @@ export type Database = {
         Returns: Json
       }
       paris_night_date: { Args: { p_at?: string }; Returns: string }
+      ping_affiliate_live: {
+        Args: {
+          p_affiliate_id: string
+          p_event_id?: string
+          p_member_id?: string
+          p_page_path?: string
+          p_session_id: string
+          p_venue_id?: string
+        }
+        Returns: undefined
+      }
       prepare_promoter_payout: {
         Args: { p_period_label?: string; p_promoter_id: string }
         Returns: Json
@@ -16129,6 +16238,7 @@ export type Database = {
         Args: { p_contract_id: string }
         Returns: undefined
       }
+      unaccent_music_genre: { Args: { p_raw: string }; Returns: string }
       unlock_event_sale: {
         Args: { p_event_id: string; p_guest_email?: string; p_password: string }
         Returns: boolean

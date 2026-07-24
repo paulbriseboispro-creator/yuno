@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { isNative } from '@/lib/native';
 
 interface Options {
   /** `true` dès que la page est prête : c'est là qu'on arme la sentinelle. */
@@ -97,6 +98,54 @@ export function useBackConfirm({ ready, shouldAsk }: Options) {
     if (shouldAskRef.current) setAsking(true);
     else leave();
   }, [leave]);
+
+  // Geste de retour dans les apps natives. Le geste système est coupé sur ces
+  // pages (AppDelegate) pour que l'écran ne glisse pas : sans ça il n'est pas
+  // annulable. Il ne remonte donc plus rien, et un balayage depuis le bord
+  // semblerait mort — on le reconnaît nous-mêmes pour ouvrir la question.
+  // Sur le web, le navigateur garde son geste : c'est la sentinelle qui joue.
+  const requestBackRef = useRef(requestBack);
+  requestBackRef.current = requestBack;
+  useEffect(() => {
+    if (!ready || !isNative()) return;
+    const EDGE_PX = 32;      // zone de départ, comme le geste système
+    const TRIGGER_PX = 60;   // course horizontale avant de déclencher
+    let startX = 0, startY = 0, tracking = false, fired = false;
+
+    const onStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (!t) return;
+      tracking = t.clientX <= EDGE_PX;
+      fired = false;
+      startX = t.clientX;
+      startY = t.clientY;
+    };
+    const onMove = (e: TouchEvent) => {
+      if (!tracking || fired) return;
+      const t = e.touches[0];
+      if (!t) return;
+      const dx = t.clientX - startX;
+      const dy = Math.abs(t.clientY - startY);
+      // Franchement horizontal, sinon c'est un défilement.
+      if (dx > TRIGGER_PX && dx > dy * 1.5) {
+        fired = true;
+        tracking = false;
+        requestBackRef.current();
+      }
+    };
+    const stopTracking = () => { tracking = false; };
+
+    window.addEventListener('touchstart', onStart, { passive: true });
+    window.addEventListener('touchmove', onMove, { passive: true });
+    window.addEventListener('touchend', stopTracking, { passive: true });
+    window.addEventListener('touchcancel', stopTracking, { passive: true });
+    return () => {
+      window.removeEventListener('touchstart', onStart);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', stopTracking);
+      window.removeEventListener('touchcancel', stopTracking);
+    };
+  }, [ready]);
 
   return { asking, requestBack, stay, leave };
 }
