@@ -9,20 +9,24 @@ interface Options {
 }
 
 /**
- * Confirmation avant de quitter une page par un retour arrière — **geste de
- * glissement iOS compris**.
+ * Confirmation avant de quitter une page par un retour arrière.
  *
- * Le geste natif n'est pas annulable : quand il se produit, l'historique a déjà
- * bougé. Le seul levier est d'empiler au montage une entrée « sentinelle » qui
- * pointe sur la même URL. Le retour la consomme sans rien changer à l'écran,
- * on pose alors la question, et on la réempile si la réponse est « rester ».
+ * Deux chemins de sortie, traités différemment pour que l'écran ne bouge JAMAIS
+ * sans raison :
  *
- * Deux règles qui évitent les boucles de navigation :
- *  - le bouton retour de l'en-tête ne pose PAS la question lui-même, il déclenche
- *    `history.back()` : un seul chemin de sortie, donc un seul comportement ;
- *  - la sentinelle est armée une fois pour la vie de la page. Quand il n'y a
- *    plus rien à protéger (inscription confirmée, soirée terminée), le retour
- *    part directement au lieu d'être avalé — sinon le geste semblerait ignoré.
+ *  - **Bouton retour de l'en-tête** : la question s'ouvre directement, sans
+ *    toucher à l'historique. Rien ne glisse, seule la modale s'anime.
+ *  - **Geste de retour du navigateur** (bord d'écran) : il n'est pas annulable —
+ *    l'historique a déjà bougé quand on est prévenu. On empile donc au montage
+ *    une entrée « sentinelle » sur la même URL ; le geste la consomme et la
+ *    question s'ouvre. Dans les apps natives, ce geste est désactivé sur les
+ *    pages gardées (AppDelegate), donc ce chemin ne sert que sur le web.
+ *
+ * Le point d'entrée est mémorisé AU MONTAGE. Le lire plus tard est faux : après
+ * le passage de la sentinelle, React Router attribue une nouvelle clé, on croit
+ * alors avoir un historique à dépiler et le `navigate(-1)` sort sous la première
+ * entrée — le WebView recharge le document et l'app rejoue son écran de
+ * lancement.
  */
 export function useBackConfirm({ ready, shouldAsk }: Options) {
   const navigate = useNavigate();
@@ -30,16 +34,18 @@ export function useBackConfirm({ ready, shouldAsk }: Options) {
   const [asking, setAsking] = useState(false);
 
   const armedRef = useRef(false);
-  // Miroirs : le écouteur popstate est posé une fois et doit lire l'état courant.
+  /** Sortie confirmée en attente de la consommation de la sentinelle. */
+  const leavingRef = useRef(false);
+  // Miroirs : l'écouteur popstate est posé une fois et doit lire l'état courant.
   const shouldAskRef = useRef(shouldAsk);
   shouldAskRef.current = shouldAsk;
-  const keyRef = useRef(location.key);
-  keyRef.current = location.key;
+  /** Figé au montage — voir l'avertissement en tête de fichier. */
+  const isEntryPointRef = useRef(location.key === 'default');
 
-  /** Sortie réelle. `location.key === 'default'` = entrée directe (lien partagé
-   *  ouvert dans l'app) : rien à dépiler, on sort vers Explore. */
+  /** Sortie réelle : on dépile, ou on rejoint Explore si on est arrivé ici en
+   *  premier (lien partagé ouvert directement). */
   const exit = useCallback(() => {
-    if (keyRef.current !== 'default') navigate(-1);
+    if (!isEntryPointRef.current) navigate(-1);
     else navigate('/');
   }, [navigate]);
 
@@ -54,6 +60,12 @@ export function useBackConfirm({ ready, shouldAsk }: Options) {
     arm();
     const onPop = () => {
       armedRef.current = false;
+      // Sortie déjà confirmée : la sentinelle vient de partir, on enchaîne.
+      if (leavingRef.current) {
+        leavingRef.current = false;
+        exit();
+        return;
+      }
       if (shouldAskRef.current) setAsking(true);
       else exit();
     };
@@ -67,18 +79,24 @@ export function useBackConfirm({ ready, shouldAsk }: Options) {
     arm();
   }, [arm]);
 
-  /** « Quitter » : la sentinelle est déjà consommée, on dépile pour de vrai. */
+  /** « Quitter ». Si la sentinelle est encore là (question ouverte depuis le
+   *  bouton, sans geste), on la retire d'abord : sans ça le retour suivant
+   *  ramènerait sur cette page. */
   const leave = useCallback(() => {
     setAsking(false);
-    exit();
+    if (armedRef.current) {
+      leavingRef.current = true;
+      window.history.back(); // → popstate → exit()
+    } else {
+      exit();
+    }
   }, [exit]);
 
-  /** À brancher sur le bouton retour de l'en-tête. */
+  /** Bouton retour de l'en-tête : aucune navigation, juste la question. */
   const requestBack = useCallback(() => {
-    if (armedRef.current) window.history.back(); // → popstate → même chemin
-    else if (shouldAskRef.current) setAsking(true);
-    else exit();
-  }, [exit]);
+    if (shouldAskRef.current) setAsking(true);
+    else leave();
+  }, [leave]);
 
   return { asking, requestBack, stay, leave };
 }

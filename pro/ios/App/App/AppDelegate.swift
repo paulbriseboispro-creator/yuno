@@ -25,10 +25,26 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
     }
 
+    /// Pages qui gardent leur sortie côté web (voir app B2C) : geste bord-écran
+    /// coupé, sinon l'écran glisse avant que la question n'apparaisse.
+    static func guardsItsOwnBack(_ url: URL?) -> Bool {
+        guard let path = url?.path else { return false }
+        return path.hasSuffix("/guestlist")
+    }
+
+    private var urlObservation: NSKeyValueObservation?
+
     func applicationDidBecomeActive(_ application: UIApplication) {
         // Swipe back natif : active le geste bord-écran du WKWebView (voir app B2C).
-        if let vc = window?.rootViewController as? CAPBridgeViewController {
-            vc.webView?.allowsBackForwardNavigationGestures = true
+        guard let vc = window?.rootViewController as? CAPBridgeViewController,
+              let webView = vc.webView else { return }
+
+        webView.allowsBackForwardNavigationGestures = !AppDelegate.guardsItsOwnBack(webView.url)
+
+        if urlObservation == nil {
+            urlObservation = webView.observe(\.url, options: [.new]) { wv, _ in
+                wv.allowsBackForwardNavigationGestures = !AppDelegate.guardsItsOwnBack(wv.url)
+            }
         }
     }
 

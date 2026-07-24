@@ -25,12 +25,33 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
     }
 
+    /// Pages qui gardent leur sortie côté web (confirmation avant de quitter).
+    /// Le geste bord-écran y est coupé : il n'est pas annulable une fois lancé,
+    /// et le laisser actif faisait glisser l'écran avant que la question
+    /// n'apparaisse — un aller-retour visuel pour rien. Ailleurs, le geste reste
+    /// celui d'une app iOS classique.
+    static func guardsItsOwnBack(_ url: URL?) -> Bool {
+        guard let path = url?.path else { return false }
+        return path.hasSuffix("/guestlist")
+    }
+
+    private var urlObservation: NSKeyValueObservation?
+
     func applicationDidBecomeActive(_ application: UIApplication) {
         // Swipe back natif : active le geste bord-écran du WKWebView. L'historique
         // SPA (pushState) est dans la back-forward list du WebView, donc le geste
         // dépile la navigation comme une app iOS classique. Idempotent.
-        if let vc = window?.rootViewController as? CAPBridgeViewController {
-            vc.webView?.allowsBackForwardNavigationGestures = true
+        guard let vc = window?.rootViewController as? CAPBridgeViewController,
+              let webView = vc.webView else { return }
+
+        webView.allowsBackForwardNavigationGestures = !AppDelegate.guardsItsOwnBack(webView.url)
+
+        // `url` est observable et suit les pushState/replaceState de la SPA :
+        // le geste se recoupe et se rétablit page par page, sans plugin.
+        if urlObservation == nil {
+            urlObservation = webView.observe(\.url, options: [.new]) { wv, _ in
+                wv.allowsBackForwardNavigationGestures = !AppDelegate.guardsItsOwnBack(wv.url)
+            }
         }
     }
 
