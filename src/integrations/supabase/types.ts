@@ -15214,8 +15214,7 @@ export type Database = {
           organizer_name: string
           organizer_slug: string
           poster_url: string
-          reason_code: string
-          reason_value: string
+          reasons: Json
           score: number
           starts_at: string
           tables_enabled: boolean
@@ -15581,6 +15580,24 @@ export type Database = {
       get_vip_host_leaderboard: {
         Args: {
           p_event_id?: string
+          p_from?: string
+          p_to?: string
+          p_venue_id: string
+        }
+        Returns: Json
+      }
+      get_vip_table_analytics: {
+        Args: {
+          p_event_id?: string
+          p_from?: string
+          p_to?: string
+          p_tz?: string
+          p_venue_id: string
+        }
+        Returns: Json
+      }
+      get_events_pnl: {
+        Args: {
           p_from?: string
           p_to?: string
           p_venue_id: string
