@@ -19,6 +19,7 @@ import { useOrganizerEventIds } from '@/hooks/useOrganizerEventIds';
 import { buildOrganizerScopeOr } from '@/components/analytics/scopeFilter';
 import { TableAnalyticsSection } from '@/components/analytics/TableAnalyticsSection';
 import { TicketAnalyticsOverview } from '@/components/analytics/TicketAnalyticsOverview';
+import { TicketPillarInsights } from '@/components/analytics/TicketPillarInsights';
 import { TicketAnalyticsLaunch } from '@/components/analytics/TicketAnalyticsLaunch';
 import { TicketAnalyticsTypes } from '@/components/analytics/TicketAnalyticsTypes';
 import { TicketAnalyticsPhases } from '@/components/analytics/TicketAnalyticsPhases';
@@ -353,7 +354,7 @@ export default function OrgAppAnalytics() {
   const [exporting, setExporting] = useState(false);
   const [liveVisitors, setLiveVisitors] = useState(0);
   const [funnel, setFunnel] = useState({ visitors: 0, addedToCart: 0, proceededToCheckout: 0, completed: 0, conversionRate: 0 });
-  const [activeTab, setActiveTab] = useState<'tickets' | 'tables' | 'refunds'>('tickets');
+  const [primaryView, setPrimaryView] = useState<'overview' | 'tickets' | 'tables' | 'refunds'>('overview');
   // Per-event verdict (post-event analysis) collapses the raw breakdown behind a toggle.
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [ticketSubTab, setTicketSubTab] = useState<'overview' | 'launch' | 'types' | 'phases'>('overview');
@@ -596,10 +597,13 @@ export default function OrgAppAnalytics() {
     { key: 'alltime' as DateRange, label: tt('Tout', 'All time') },
   ];
 
-  const tabs = [
-    { id: 'tickets' as const, label: tt('Billets', 'Tickets'), icon: Ticket },
-    { id: 'tables' as const, label: tt('Tables VIP', 'VIP Tables'), icon: Wine },
-    { id: 'refunds' as const, label: tt('Remboursements', 'Refunds'), icon: RotateCcw },
+  // Primary pillar navigation — Tickets / VIP Tables promoted to first-class
+  // destinations (each tab shows its own revenue). Organizers don't sell drinks.
+  const pillarTabs = [
+    { id: 'overview' as const, label: tt("Vue d'ensemble", 'Overview'), icon: Layers, value: fmt(totalRevenue) },
+    { id: 'tickets' as const, label: tt('Billets', 'Tickets'), icon: Ticket, value: fmt(ticketAnalytics.totalRevenue) },
+    { id: 'tables' as const, label: tt('Tables VIP', 'VIP Tables'), icon: Wine, value: fmt(tableAnalytics.totalRevenue) },
+    { id: 'refunds' as const, label: tt('Remboursements', 'Refunds'), icon: RotateCcw, value: (refundAnalytics && refundAnalytics.totalRefunded > 0) ? `−${fmt(refundAnalytics.totalRefunded)}` : '—' },
   ];
 
   // Event mode shows the post-event verdict first; the raw breakdown collapses behind a toggle.
@@ -610,7 +614,6 @@ export default function OrgAppAnalytics() {
     { id: 'an-web', label: tt('Trafic web', 'Web traffic'), icon: Globe },
     { id: 'an-engagement', label: tt('Engagement', 'Engagement'), icon: Activity },
     { id: 'an-audience', label: tt('Audience', 'Audience'), icon: Users },
-    { id: 'an-detail', label: tt('Détails', 'Details'), icon: Calendar },
   ];
 
   return (
@@ -698,10 +701,36 @@ export default function OrgAppAnalytics() {
           </motion.div>
         )}
 
+        {showBreakdown && (<>
+
+        {/* ── Primary pillar navigation — tickets / VIP tables promoted ── */}
+        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+          className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {pillarTabs.map(pt => {
+            const Icon = pt.icon;
+            const active = primaryView === pt.id;
+            return (
+              <button
+                key={pt.id}
+                onClick={() => { setPrimaryView(pt.id); if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                className="text-left rounded-2xl px-4 py-3 cursor-pointer transition-all duration-150"
+                style={active
+                  ? { background: 'linear-gradient(180deg,rgba(232,25,44,.16),rgba(232,25,44,.05)),#0a0a0c', border: `1px solid rgba(232,25,44,0.5)`, boxShadow: `0 0 22px -8px ${RED}` }
+                  : { background: CARD_BG, border: `1px solid ${BORDER}` }}
+              >
+                <div className="flex items-center gap-2 mb-1.5">
+                  <Icon className="w-4 h-4 flex-none" style={{ color: active ? RED : T3 }} />
+                  <span className="text-[12.5px] font-[560] truncate" style={{ color: active ? T1 : T2 }}>{pt.label}</span>
+                </div>
+                <div className="text-[19px] font-[680] tabular-nums leading-none" style={{ color: active ? T1 : T2, letterSpacing: '-0.02em' }}>{pt.value}</div>
+              </button>
+            );
+          })}
+        </motion.div>
+
+        {primaryView === 'overview' && (<>
         {/* ── Global anchor-nav spine ───────────────────────────────────── */}
         {mode === 'global' && <AnalyticsAnchorNav sections={navSections} />}
-
-        {showBreakdown && (<>
         {/* ── KPI row ───────────────────────────────────────────────────── */}
         <motion.div id="an-overview" style={{ scrollMarginTop: 80 }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {kpis.map((kpi, i) => (
@@ -861,67 +890,7 @@ export default function OrgAppAnalytics() {
           </>
         )}
 
-        {/* ── Category tabs ─────────────────────────────────────────────── */}
-        <motion.div id="an-detail" style={{ scrollMarginTop: 80 }} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-          <div className="flex gap-0.5 mb-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
-            {tabs.map(tab => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                  className="relative inline-flex items-center gap-2 px-4 py-3 text-[13.5px] font-[560] transition-colors duration-150 cursor-pointer"
-                  style={{ color: isActive ? T1 : T3 }}>
-                  <Icon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                  {isActive && <span className="absolute left-3 right-3 rounded-full" style={{ bottom: -1, height: 2, background: RED, boxShadow: `0 0 10px rgba(232,25,44,0.6)` }} />}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="space-y-4">
-            {activeTab === 'tickets' && (
-              <>
-                <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}` }}>
-                  {([
-                    { k: 'overview', l: tt("Vue d'ensemble", 'Overview') },
-                    { k: 'launch', l: tt('Lancement', 'Launch') },
-                    { k: 'types', l: tt('Types', 'Types') },
-                    { k: 'phases', l: tt('Phases', 'Phases') },
-                  ] as const).map(sub => (
-                    <button key={sub.k} onClick={() => setTicketSubTab(sub.k)}
-                      className="px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer transition-all duration-150"
-                      style={ticketSubTab === sub.k ? { color: '#fff', background: RED } : { color: T3 }}>
-                      {sub.l}
-                    </button>
-                  ))}
-                </div>
-                {ticketSubTab === 'overview' && <TicketAnalyticsOverview data={ticketAnalytics} />}
-                {ticketSubTab === 'launch' && <TicketAnalyticsLaunch data={ticketAnalytics} />}
-                {ticketSubTab === 'types' && <TicketAnalyticsTypes data={ticketAnalytics} />}
-                {ticketSubTab === 'phases' && <TicketAnalyticsPhases data={ticketAnalytics} />}
-              </>
-            )}
-            {activeTab === 'tables' && (
-              tableAnalytics.totalReservations > 0
-                ? <TableAnalyticsSection data={tableAnalytics} hasVipTables={true} />
-                : <div className="flex flex-col items-center justify-center py-16" style={{ color: T3 }}>
-                    <Wine className="w-10 h-10 mb-3 opacity-40" />
-                    <p className="text-sm">{tt('Aucune réservation.', 'No bookings.')}</p>
-                  </div>
-            )}
-            {activeTab === 'refunds' && (
-              refundAnalytics && refundAnalytics.totalRefundCount > 0
-                ? <RefundAnalyticsSection data={refundAnalytics} />
-                : <div className="flex flex-col items-center justify-center py-16" style={{ color: T3 }}>
-                    <RotateCcw className="w-10 h-10 mb-3 opacity-40" />
-                    <p className="text-sm">{tt('Aucun remboursement.', 'No refunds.')}</p>
-                  </div>
-            )}
-          </div>
-        </motion.div>
-
-        {/* ── Finance strip ─────────────────────────────────────────────── */}
+        {/* ── Finance strip — cross-pillar settlement (Overview) ────────── */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.28 }}>
           <PCard icon={<CreditCard className="w-4 h-4" />} title={tt('Règlement', 'Settlement')} sub={tt('Versements via Stripe', 'Payouts via Stripe')}>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -935,6 +904,58 @@ export default function OrgAppAnalytics() {
             </div>
           </PCard>
         </motion.div>
+
+        </>)}
+
+        {/* ═══ Billetterie pillar ═══════════════════════════════════════════ */}
+        {primaryView === 'tickets' && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+            <TicketPillarInsights data={ticketAnalytics} />
+            <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}` }}>
+              {([
+                { k: 'overview', l: tt("Vue d'ensemble", 'Overview') },
+                { k: 'launch', l: tt('Lancement', 'Launch') },
+                { k: 'types', l: tt('Types', 'Types') },
+                { k: 'phases', l: tt('Phases', 'Phases') },
+              ] as const).map(sub => (
+                <button key={sub.k} onClick={() => setTicketSubTab(sub.k)}
+                  className="px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer transition-all duration-150"
+                  style={ticketSubTab === sub.k ? { color: '#fff', background: RED } : { color: T3 }}>
+                  {sub.l}
+                </button>
+              ))}
+            </div>
+            {ticketSubTab === 'overview' && <TicketAnalyticsOverview data={ticketAnalytics} />}
+            {ticketSubTab === 'launch' && <TicketAnalyticsLaunch data={ticketAnalytics} />}
+            {ticketSubTab === 'types' && <TicketAnalyticsTypes data={ticketAnalytics} />}
+            {ticketSubTab === 'phases' && <TicketAnalyticsPhases data={ticketAnalytics} />}
+          </motion.div>
+        )}
+
+        {/* ═══ Tables VIP pillar ════════════════════════════════════════════ */}
+        {primaryView === 'tables' && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            {tableAnalytics.totalReservations > 0
+              ? <TableAnalyticsSection data={tableAnalytics} hasVipTables={true} />
+              : <div className="flex flex-col items-center justify-center py-16" style={{ color: T3 }}>
+                  <Wine className="w-10 h-10 mb-3 opacity-40" />
+                  <p className="text-sm">{tt('Aucune réservation.', 'No bookings.')}</p>
+                </div>}
+          </motion.div>
+        )}
+
+        {/* ═══ Remboursements pillar ════════════════════════════════════════ */}
+        {primaryView === 'refunds' && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            {refundAnalytics && refundAnalytics.totalRefundCount > 0
+              ? <RefundAnalyticsSection data={refundAnalytics} />
+              : <div className="flex flex-col items-center justify-center py-16" style={{ color: T3 }}>
+                  <RotateCcw className="w-10 h-10 mb-3 opacity-40" />
+                  <p className="text-sm">{tt('Aucun remboursement.', 'No refunds.')}</p>
+                </div>}
+          </motion.div>
+        )}
+
         </>)}
 
       </div>
