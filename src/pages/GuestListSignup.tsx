@@ -151,13 +151,14 @@ export default function GuestListSignup() {
   // Countdown
   const [timeLeft, setTimeLeft] = useState('');
 
-  // Garde de sortie : la question se pose sur TOUTE la page d'inscription, y
-  // compris quand on est déjà inscrit ou que la liste est pleine — le but est
-  // qu'aucune sortie ne soit accidentelle. Seul l'écran de confirmation en est
-  // exempt : on y a déjà son QR, et « Retour à l'accueil » y est explicite.
+  // Garde de sortie : la question ne se pose que quand une inscription est
+  // réellement en cours et pourrait être perdue. Elle disparaît dès qu'il n'y a
+  // plus rien à saisir — inscription confirmée (`success`) ou déjà inscrit sur
+  // la soirée (`alreadyRegistered`, on voit alors l'écran « déjà sur la liste »
+  // avec son propre bouton) : le retour part alors sans friction.
   const { asking: askLeave, requestBack, stay: stayOnPage, leave: leavePage } = useBackConfirm({
     ready: !!guestList,
-    shouldAsk: !!guestList && !success,
+    shouldAsk: !!guestList && !success && !alreadyRegistered,
   });
 
   useEffect(() => {
@@ -377,16 +378,15 @@ export default function GuestListSignup() {
         setMaleCount(fill?.male_count || 0);
       }
 
-      // Check if user already registered
+      // Déjà inscrit ? On regarde TOUTE la soirée, pas cette seule part : être
+      // sur la liste du DJ compte comme « déjà inscrit » même en ouvrant le
+      // lien du club. Via une RPC SECURITY DEFINER — une jointure directe
+      // manquerait une part déléguée que le client n'a pas le droit de lire.
       if (user) {
-        const { count: existingCount } = await supabase
-          .from('guest_list_entries')
-          .select('*', { count: 'exact', head: true })
-          .eq('guest_list_id', data.id)
-          .eq('user_id', user.id)
-          .neq('status', 'cancelled');
-        
-        if (existingCount && existingCount > 0) {
+        const { data: onList } = await supabase.rpc('is_on_event_guest_list', {
+          _event_id: data.events!.id,
+        });
+        if (onList === true) {
           // Sur un lien unique multi-places, être déjà inscrit ne bloque pas :
           // on bascule direct sur le formulaire « inscrire une autre personne ».
           if (inviteParam) setAddAnother(true);

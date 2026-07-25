@@ -15675,6 +15675,7 @@ export type Database = {
         Args: { p_venue_id: string }
         Returns: boolean
       }
+      is_on_event_guest_list: { Args: { _event_id: string }; Returns: boolean }
       is_org_member: {
         Args: { _organizer_user_id: string; _user_id: string }
         Returns: boolean

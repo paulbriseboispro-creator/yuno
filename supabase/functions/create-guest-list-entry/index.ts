@@ -201,18 +201,28 @@ serve(async (req) => {
       throw new Error("Gender is required for this guest list");
     }
 
-    // Check user not already registered (logged-in path only; guests are
-    // de-duplicated by email below).
+    // Une seule inscription par personne et par SOIRÉE : être sur la liste du
+    // DJ interdit de reprendre celle du club ou d'un promoteur pour le même
+    // soir. On déduplique l'identité RÉELLEMENT inscrite (l'utilisateur loggé,
+    // sinon l'email) sur TOUTES les parts de l'event, pas seulement celle-ci.
+    // (Un proche ajouté via un lien multi-places a son propre email → il est
+    // vérifié pour lui-même, pas contre l'inscrivant.)
+    const { data: eventParts } = await supabaseAdmin
+      .from("guest_lists")
+      .select("id")
+      .eq("event_id", guestList.events.id);
+    const eventPartIds = (eventParts ?? []).map((p: { id: string }) => p.id);
+
     if (registrantUser) {
       const { data: existingByUser } = await supabaseAdmin
         .from("guest_list_entries")
         .select("id")
-        .eq("guest_list_id", guestList.id)
+        .in("guest_list_id", eventPartIds)
         .eq("user_id", registrantUser.id)
         .neq("status", "cancelled")
-        .maybeSingle();
+        .limit(1);
 
-      if (existingByUser) {
+      if (existingByUser && existingByUser.length > 0) {
         throw new Error("You are already registered for this guest list");
       }
     }
@@ -220,12 +230,12 @@ serve(async (req) => {
     const { data: existingByEmail } = await supabaseAdmin
       .from("guest_list_entries")
       .select("id")
-      .eq("guest_list_id", guestList.id)
+      .in("guest_list_id", eventPartIds)
       .eq("email", email.toLowerCase().trim())
       .neq("status", "cancelled")
-      .maybeSingle();
+      .limit(1);
 
-    if (existingByEmail) {
+    if (existingByEmail && existingByEmail.length > 0) {
       throw new Error("Email already registered for this guest list");
     }
 
