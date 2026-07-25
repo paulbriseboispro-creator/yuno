@@ -300,9 +300,9 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "analytics": {
     title: "Analytics",
-    keywords: ["analytics", "statistiques", "stats", "démographie", "audience", "origine", "villes", "âge", "funnel", "performance"],
+    keywords: ["analytics", "statistiques", "stats", "démographie", "audience", "origine", "villes", "âge", "funnel", "performance", "attach boisson", "temps de service", "par bar", "bilan par soirée", "rotation table", "réservé consommé", "anticipation des ventes", "revenu par tête", "piliers", "vue d'ensemble"],
     path: "/owner/analytics",
-    snippet: "Analytics couvre tes ventes (CA par source et par soirée), ton audience (âge, sexe, villes d'origine des participants), le funnel d'achat, et une zone Guest list dédiée. Après chaque soirée, une analyse post-event résume la performance. Utilise ces données pour caler ta programmation et tes prix.",
+    snippet: "Analytics s'organise par pilier : une Vue d'ensemble (KPI, bilan par soirée, funnel, audience, trafic, règlement) puis un onglet plein écran par pilier de vente — Billetterie, Boissons, Tables VIP, Remboursements — chacun affichant son propre CA. Billetterie : attach boisson (billets avec conso incluse) et sa récupération, upgrades, fidélité, achat invité, et l'anticipation des ventes (à combien de jours de la soirée les billets partent). Boissons : temps de service médian, cycle de préparation (payées → prêtes → servies), performance par bar, CA par soirée. Tables VIP : réservé vs consommé (upsell au-delà du minimum), revenu par tête, taille des groupes, rotation des tables, top bouteilles et classement des hôtes. La Vue d'ensemble contient le « Bilan par soirée » : billets + boissons + tables + guest list + remboursements, une ligne nette par nuit. Après chaque soirée, une analyse post-event résume la performance.",
   },
   "analytics-guest-list": {
     title: "Analytics guest list",
