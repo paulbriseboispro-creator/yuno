@@ -1,10 +1,11 @@
-import { Heart, Disc3, Star, Sparkles, Music } from 'lucide-react';
+import { Heart, Disc3, Star, Sparkles, Music, MapPin, Flame, Ticket, Compass } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { eventTargetPath } from '@/lib/eventNavigation';
+import { canonicalGenre } from '@/lib/musicGenres';
 import { FadeInView } from '@/components/motion';
 import { ExploreSectionTitle } from './ExploreSectionTitle';
 import type { EventCardData } from './EventCard';
@@ -12,20 +13,49 @@ import type { ForYouItem, ForYouReasonCode } from '@/hooks/useForYouFeed';
 
 // Module « Pour toi » — DESIGN_SYSTEM_PUBLIC (éditorial, noir, mono trackée).
 //
-// La carte porte SA RAISON. C'est la seule chose qui distingue visuellement une
-// recommandation d'une ligne de programme : « GUEST joue », « Au Sabot, que tu
-// suis », « Comme la soirée que tu as aimée ». Sans elle le module redevient
-// une liste, quel que soit le classement derrière.
+// La carte porte SA RAISON, et cette raison est PROPRE à la carte : le hook
+// garantit que deux cartes de la rangée n'affichent jamais le même argument.
+// C'est la seule chose qui distingue visuellement une recommandation d'une
+// ligne de programme : « BYAO joue », « Le Sabot, que tu suis », « Tu connais
+// la maison », « Reggaeton, ton genre nº1 ». Sans elle le module redevient une
+// liste, quel que soit le classement derrière.
 
 const dfLocale = (lang: string) => (lang === 'fr' ? fr : lang === 'es' ? es : enUS);
 
 const REASON_ICON: Record<ForYouReasonCode, typeof Disc3> = {
   dj: Disc3,
   venue: Star,
+  venue_return: MapPin,
   similar: Sparkles,
+  top_genre: Flame,
   genre: Music,
+  budget: Ticket,
+  new_venue: Compass,
   taste: Sparkles,
 };
+
+// Chaque code d'argument → sa phrase localisée. Les genres passent par le
+// vocabulaire officiel (`canonicalGenre`) : la base stocke « reggaeton », la
+// puce doit lire « Reggaeton / Latino ». `budget` et `taste` n'ont pas de valeur.
+function reasonText(
+  t: (k: string) => string,
+  code: ForYouReasonCode,
+  rawValue: string | null,
+): string {
+  const isGenre = code === 'genre' || code === 'top_genre';
+  const value = isGenre ? (canonicalGenre(rawValue) ?? rawValue ?? '') : (rawValue ?? '');
+  switch (code) {
+    case 'dj':           return t('foryou.reason.dj').replace('{name}', value);
+    case 'venue':        return t('foryou.reason.venue').replace('{name}', value);
+    case 'venue_return': return t('foryou.reason.venueReturn').replace('{name}', value);
+    case 'similar':      return t('foryou.reason.similar').replace('{title}', value);
+    case 'top_genre':    return t('foryou.reason.topGenre').replace('{genre}', value);
+    case 'genre':        return t('foryou.reason.genre').replace('{genre}', value);
+    case 'budget':       return t('foryou.reason.budget');
+    case 'new_venue':    return t('foryou.reason.newVenue').replace('{name}', value);
+    default:             return t('foryou.reason.taste');
+  }
+}
 
 function ForYouCard({ item }: { item: ForYouItem }) {
   const navigate = useNavigate();
@@ -40,14 +70,7 @@ function ForYouCard({ item }: { item: ForYouItem }) {
     : event.minPrice !== null ? `${t('explore.priceFrom')} ${event.minPrice}€`
     : '';
 
-  const value = item.reasonValue || '';
-  const reason =
-    item.reasonCode === 'dj'      ? t('foryou.reason.dj').replace('{name}', value)
-    : item.reasonCode === 'venue' ? t('foryou.reason.venue').replace('{name}', value)
-    : item.reasonCode === 'similar' ? t('foryou.reason.similar').replace('{title}', value)
-    : item.reasonCode === 'genre' ? t('foryou.reason.genre').replace('{genre}', value)
-    : t('foryou.reason.taste');
-
+  const reason = reasonText(t, item.reasonCode, item.reasonValue);
   const ReasonIcon = REASON_ICON[item.reasonCode];
 
   return (
