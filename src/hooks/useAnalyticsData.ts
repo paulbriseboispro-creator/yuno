@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { subDays, subHours, startOfDay } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
@@ -35,6 +36,12 @@ export interface DrinkAnalytics {
   conversionRate: number;
   cartConversionRate: number;
   checkoutConversionRate: number;
+  // Ops insights (real orders columns: per-bar, service time, prep funnel, per-night)
+  byBar: { bar: string; orders: number; revenue: number; avgServiceMin: number | null }[];
+  serviceTime: { medianMin: number | null; avgMin: number | null; sample: number };
+  prepFunnel: { paid: number; ready: number; served: number };
+  byEvent: { eventTitle: string; orders: number; revenue: number; isWalkIn: boolean }[];
+  avgItemsPerOrder: number;
 }
 
 export interface TicketAnalytics {
@@ -59,6 +66,13 @@ export interface TicketAnalytics {
   velocityMilestones: { label: string; time: string | null }[];
   cumulativeSales: { minutesSinceLaunch: number; ticketsSold: number }[];
   presaleVsPublic: { name: string; value: number; color: string }[];
+  // Insight metrics (real ticket columns: bundled drink, upgrade, loyalty, guest, insurance, lead time)
+  drinkAttach: { withDrink: number; redeemed: number; attachRate: number; redemptionRate: number };
+  upgrades: { count: number; revenue: number; rate: number };
+  loyaltyRewards: number;
+  guestShare: { guest: number; account: number; guestRate: number };
+  insuranceAttach: { withInsurance: number; rate: number };
+  leadTime: { bucket: string; count: number; revenue: number }[];
 }
 
 export interface TableAnalytics {
@@ -108,6 +122,9 @@ interface UseAnalyticsDataProps {
   mode: AnalyticsMode;
   selectedEventId: string | null;
 }
+
+/** Shape of one line item stored in orders.items (Json column). */
+interface OrderLineItem { drinkId: string; name: string; qty: number; unitPrice: number; }
 
 function getStartDate(dateRange: DateRange): Date | null {
   if (dateRange === '24h') return subHours(new Date(), 24);
@@ -165,9 +182,9 @@ async function fetchPreviousTotals(venueId: string, prevStart: Date, prevEnd: Da
     paidOrders.reduce((s, o) => s + orderRevenue(o).gross, 0) +
     tickets.reduce((s, t) => s + ticketRevenue(t).gross, 0) +
     tables.reduce((s, t) => s + tableRevenue(t).gross, 0);
-  const orders = paidOrders.length + tickets.reduce((s, t: any) => s + (t.quantity || 0), 0) + tables.length;
+  const orders = paidOrders.length + tickets.reduce((s, t) => s + (t.quantity || 0), 0) + tables.length;
   const guests = new Set<string>();
-  [...paidOrders, ...tickets, ...tables].forEach((r: any) => { if (r.user_email) guests.add(r.user_email); });
+  [...paidOrders, ...tickets, ...tables].forEach((r) => { if (r.user_email) guests.add(r.user_email); });
   return { revenue, orders, guests: guests.size };
 }
 
@@ -250,6 +267,10 @@ export function useAnalyticsData({
             ticketsByEvent: [], ticketsByRound: [], ticketsByType: [], revenueByDay: [], hourlyData: [],
             waitlistSize: 0, presaleBuyers: 0, presaleRevenue: 0, presaleConversionRate: null, demandRatio: 0,
             velocityMilestones: [], cumulativeSales: [], presaleVsPublic: [],
+            drinkAttach: { withDrink: 0, redeemed: 0, attachRate: 0, redemptionRate: 0 },
+            upgrades: { count: 0, revenue: 0, rate: 0 }, loyaltyRewards: 0,
+            guestShare: { guest: 0, account: 0, guestRate: 0 },
+            insuranceAttach: { withInsurance: 0, rate: 0 }, leadTime: [],
           });
           setTableAnalytics({
             totalRevenue: 0, netRevenue: 0, stripeFee: 0, partialRefunded: 0, totalReservations: 0, avgReservationValue: 0,
@@ -268,7 +289,7 @@ export function useAnalyticsData({
       }
 
       // === ORDERS (drinks) ===
-      let allOrders: any[] | null = null;
+      let allOrders: Tables<'orders'>[] | null = null;
       if (!isOrganizerScope && venueId) {
         let ordersQuery = supabase.from('orders').select('*').eq('venue_id', venueId);
         if (mode === 'event' && selectedEventId) {
@@ -286,7 +307,7 @@ export function useAnalyticsData({
       // === TICKETS ===
       let ticketsQuery = supabase
         .from('tickets')
-        .select(`*, events!inner(venue_id, title), ticket_rounds(name, max_tickets, tickets_sold, position, ticket_type)`)
+        .select(`*, events!inner(venue_id, title, start_at), ticket_rounds(name, max_tickets, tickets_sold, position, ticket_type)`)
         .eq('status', 'paid');
       // PRIORITY: when an event is explicitly selected, ALWAYS scope to that event
       // — independently of organizer/venue scope. This fixes the bug where org-scope
@@ -324,9 +345,9 @@ export function useAnalyticsData({
       console.debug('[useAnalyticsData]', { scope, mode, selectedEventId, ticketRows: allTickets?.length ?? 0, tableRows: allTableReservations?.length ?? 0 });
 
       // === VISITOR SESSIONS ===
-      let visitorSessions: any[] | null = null;
+      let visitorSessions: Tables<'visitor_sessions'>[] | null = null;
       if (!isOrganizerScope && venueId) {
-        let visitorQuery = supabase.from('visitor_sessions').select('*').eq('venue_id', venueId) as any;
+        let visitorQuery = supabase.from('visitor_sessions').select('*').eq('venue_id', venueId);
         if (mode === 'event' && selectedEventId) {
           visitorQuery = visitorQuery.eq('event_id', selectedEventId);
         } else if (startDate) {
@@ -371,7 +392,7 @@ export function useAnalyticsData({
 
         const productCounts: Record<string, { quantity: number; revenue: number }> = {};
         paidOrders.forEach(order => {
-          const items = order.items as any[];
+          const items = order.items as unknown as OrderLineItem[];
           items.forEach(item => {
             if (!productCounts[item.name]) productCounts[item.name] = { quantity: 0, revenue: 0 };
             productCounts[item.name].quantity += item.qty;
@@ -407,7 +428,7 @@ export function useAnalyticsData({
         const drinkMap = new Map(drinksData?.map(d => [d.id, { collection: d.collection, name: d.name }]) || []);
         const drinkSales: Record<string, { name: string; qty: number; revenue: number }> = {};
         paidOrders.forEach(order => {
-          const items = order.items as any[];
+          const items = order.items as unknown as OrderLineItem[];
           items.forEach(item => {
             if (!drinkSales[item.drinkId]) drinkSales[item.drinkId] = { name: item.name, qty: 0, revenue: 0 };
             drinkSales[item.drinkId].qty += item.qty;
@@ -447,6 +468,53 @@ export function useAnalyticsData({
         const cartConversionRate = addedToCart > 0 ? Math.min((proceededToCheckout / addedToCart) * 100, 100) : 0;
         const checkoutConversionRate = proceededToCheckout > 0 ? Math.min((completedFromSessions / proceededToCheckout) * 100, 100) : 0;
 
+        // ── Ops insights (real orders columns) ──────────────────────────────
+        const barAgg: Record<string, { orders: number; revenue: number; svc: number[] }> = {};
+        const serviceMins: number[] = [];
+        let readyCount = 0, servedCount = 0, itemsTotal = 0;
+        const eventTitleById = new Map(events.map(e => [e.id, e.title]));
+        const drinkByEvent: Record<string, { orders: number; revenue: number }> = {};
+        paidOrders.forEach(o => {
+          const bar = o.assigned_bar || o.selected_bar || 'Bar';
+          if (!barAgg[bar]) barAgg[bar] = { orders: 0, revenue: 0, svc: [] };
+          const rev = orderRevenue(o).gross;
+          barAgg[bar].orders += 1;
+          barAgg[bar].revenue += rev;
+          // Service time = served_at − paid_at, in minutes (guard against clock/format noise).
+          if (o.paid_at && o.served_at) {
+            const mins = (new Date(o.served_at).getTime() - new Date(o.paid_at).getTime()) / 60000;
+            if (mins >= 0 && mins < 720) { serviceMins.push(mins); barAgg[bar].svc.push(mins); }
+          }
+          if (o.ready_at || o.served_at || o.status === 'served') readyCount += 1;
+          if (o.served_at || o.status === 'served') servedCount += 1;
+          const oItems = (o.items as unknown as OrderLineItem[]) || [];
+          itemsTotal += oItems.reduce((s, it) => s + (it.qty || 0), 0);
+          const key = o.event_id || '__none__';
+          if (!drinkByEvent[key]) drinkByEvent[key] = { orders: 0, revenue: 0 };
+          drinkByEvent[key].orders += 1;
+          drinkByEvent[key].revenue += rev;
+        });
+        const median = (arr: number[]): number | null => {
+          if (arr.length === 0) return null;
+          const s = [...arr].sort((a, b) => a - b);
+          const mid = Math.floor(s.length / 2);
+          return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+        };
+        const mean = (arr: number[]): number => arr.reduce((a, b) => a + b, 0) / arr.length;
+        const byBar = Object.entries(barAgg)
+          .map(([bar, d]) => ({ bar, orders: d.orders, revenue: d.revenue, avgServiceMin: d.svc.length ? Math.round(mean(d.svc)) : null }))
+          .sort((a, b) => b.revenue - a.revenue);
+        const serviceTime = {
+          medianMin: serviceMins.length ? Math.round(median(serviceMins)!) : null,
+          avgMin: serviceMins.length ? Math.round(mean(serviceMins)) : null,
+          sample: serviceMins.length,
+        };
+        const prepFunnel = { paid: totalOrders, ready: readyCount, served: servedCount };
+        const byEvent = Object.entries(drinkByEvent)
+          .map(([id, d]) => ({ eventTitle: id === '__none__' ? '' : (eventTitleById.get(id) || ''), orders: d.orders, revenue: d.revenue, isWalkIn: id === '__none__' }))
+          .sort((a, b) => b.revenue - a.revenue);
+        const avgItemsPerOrder = totalOrders > 0 ? itemsTotal / totalOrders : 0;
+
         setDrinkAnalytics({
           totalRevenue: drinkTotalRevenue, netRevenue: drinkNetRevenue, stripeFee: drinkStripeFee,
           partialRefunded: drinkRev.refunded,
@@ -454,6 +522,7 @@ export function useAnalyticsData({
           revenueByDay: drinkRevenueByDayArray, ordersByStatus, categoryData, hourlyData,
           rushHours: rushHours || 'N/A', visitors, addedToCart, proceededToCheckout,
           conversionRate, cartConversionRate, checkoutConversionRate,
+          byBar, serviceTime, prepFunnel, byEvent, avgItemsPerOrder,
         });
       }
 
@@ -573,6 +642,54 @@ export function useAnalyticsData({
         { name: 'Public', value: publicBuyers, color: 'hsl(199 89% 48%)' },
       ].filter(d => d.value > 0);
 
+      // ── Insight metrics (real ticket columns) — weighted by quantity to match totalTickets ──
+      const q = (t: any) => t.quantity || 0;
+      const withDrinkQty = paidTickets.filter((t: any) => t.drink_id || t.drink_name).reduce((s, t) => s + q(t), 0);
+      const redeemedQty = paidTickets.filter((t: any) => (t.drink_id || t.drink_name) && t.drink_redeemed).reduce((s, t) => s + q(t), 0);
+      const upgradeTickets = paidTickets.filter((t: any) => t.is_upgrade);
+      const upgradeQty = upgradeTickets.reduce((s, t) => s + q(t), 0);
+      const upgradeRevenue = upgradeTickets.reduce((s, t: any) => s + Number(t.unit_price) * q(t), 0);
+      const loyaltyQty = paidTickets.filter((t: any) => t.is_loyalty_reward).reduce((s, t) => s + q(t), 0);
+      // "Guest checkout" = explicitly flagged guest OR no linked account (user_id null).
+      const guestQty = paidTickets.filter((t: any) => t.is_guest || !t.user_id).reduce((s, t) => s + q(t), 0);
+      const insuranceQty = paidTickets.filter((t: any) => t.has_insurance).reduce((s, t) => s + q(t), 0);
+
+      const drinkAttach = {
+        withDrink: withDrinkQty,
+        redeemed: redeemedQty,
+        attachRate: totalTicketQuantity > 0 ? (withDrinkQty / totalTicketQuantity) * 100 : 0,
+        redemptionRate: withDrinkQty > 0 ? (redeemedQty / withDrinkQty) * 100 : 0,
+      };
+      const upgrades = {
+        count: upgradeQty, revenue: upgradeRevenue,
+        rate: totalTicketQuantity > 0 ? (upgradeQty / totalTicketQuantity) * 100 : 0,
+      };
+      const guestShare = {
+        guest: guestQty, account: totalTicketQuantity - guestQty,
+        guestRate: totalTicketQuantity > 0 ? (guestQty / totalTicketQuantity) * 100 : 0,
+      };
+      const insuranceAttach = {
+        withInsurance: insuranceQty,
+        rate: totalTicketQuantity > 0 ? (insuranceQty / totalTicketQuantity) * 100 : 0,
+      };
+
+      // Booking lead time vs event start — how far ahead tickets actually sell.
+      const leadBuckets: Record<string, { count: number; revenue: number }> = {
+        'J-0': { count: 0, revenue: 0 }, 'J-1': { count: 0, revenue: 0 },
+        'J-2-3': { count: 0, revenue: 0 }, 'J-4-7': { count: 0, revenue: 0 }, 'J-8+': { count: 0, revenue: 0 },
+      };
+      paidTickets.forEach((t: any) => {
+        const start = t.events?.start_at;
+        if (!start) return;
+        const days = (new Date(start).getTime() - new Date(t.created_at).getTime()) / 86400000;
+        const key = days < 1 ? 'J-0' : days < 2 ? 'J-1' : days < 4 ? 'J-2-3' : days < 8 ? 'J-4-7' : 'J-8+';
+        leadBuckets[key].count += q(t);
+        leadBuckets[key].revenue += Number(t.unit_price) * q(t);
+      });
+      const leadTime = ['J-0', 'J-1', 'J-2-3', 'J-4-7', 'J-8+']
+        .map(bucket => ({ bucket, count: leadBuckets[bucket].count, revenue: leadBuckets[bucket].revenue }))
+        .filter(d => d.count > 0);
+
       setTicketAnalytics({
         totalRevenue: ticketTotalRevenue, netRevenue: ticketNetRevenue, stripeFee: ticketStripeFee,
         partialRefunded: ticketRev.refunded,
@@ -580,6 +697,7 @@ export function useAnalyticsData({
         ticketsByEvent, ticketsByRound, ticketsByType, revenueByDay: ticketRevenueByDayArray, hourlyData: ticketHourlyData,
         waitlistSize: waitlistCount, presaleBuyers, presaleRevenue, presaleConversionRate, demandRatio,
         velocityMilestones, cumulativeSales, presaleVsPublic,
+        drinkAttach, upgrades, loyaltyRewards: loyaltyQty, guestShare, insuranceAttach, leadTime,
       });
 
       // ==================== PROCESS TABLE ANALYTICS ====================
