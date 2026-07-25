@@ -49,6 +49,7 @@ function buildOrgNavGroups(tt: TT): SidebarNavGroup[] {
 			items: [
 				{ title: tt("Dashboard", "Dashboard"), path: "/organizer-app", icon: <LayoutGridIcon /> },
 				{ title: tt("Analytique", "Analytics"), path: "/organizer-app/analytics", icon: <BarChart3Icon /> },
+				{ title: tt("Audience", "Audience"), path: "/organizer-app/audience", icon: <UsersIcon /> },
 			],
 		},
 		{

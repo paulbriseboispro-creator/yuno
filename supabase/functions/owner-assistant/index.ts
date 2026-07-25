@@ -82,6 +82,12 @@ Utilise des liens Markdown : [Événements](/owner/events), [Menu](/owner/menu),
 // ═══════════════════════════════════════════
 
 const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: string; snippet: string }> = {
+  "audience-tracking": {
+    title: "Suivre son audience (abonnés)",
+    keywords: ["audience", "abonnés", "abonnes", "subscribers", "followers", "suivis", "fans", "statistiques abonnés", "démographie", "demographics", "portée", "reachable", "joignables", "croissance", "growth", "segmentation", "notifications", "efficacité notifs", "revenu abonnés", "clients fidèles"],
+    path: "/owner/audience",
+    snippet: "La page Audience (menu Aperçu) montre qui suit ton club et ce que ça rapporte. Quatre blocs : (1) Croissance — nombre d'abonnés et évolution nette dans le temps (le suivi net démarre avec la capture ; avant, c'est l'historique brut, sans les désabonnements passés). (2) Portée & notifications — combien de tes abonnés peuvent recevoir un push (le reste a coupé les notifs), le meilleur créneau d'envoi, et le taux de clic de tes campagnes. (3) Démographie agrégée et anonyme — âge, sexe (estimé via guest lists), villes, langues, goûts musicaux. (4) Segmentation & revenu — abonnés engagés/passifs/injoignables, abonnés qui ont acheté chez toi et leur valeur, et surtout combien de ton chiffre vient de tes abonnés vs des non-abonnés. Le bouton « Notifier mes abonnés » ouvre l'envoi de push. Tout est agrégé : tu ne vois jamais l'identité de chaque abonné.",
+  },
   "staff-push-notifications": {
     title: "Alertes push du staff (app Yuno Pro)",
     keywords: ["notification", "notifications", "push", "alerte", "alert", "app pro", "yuno pro", "staff", "barman", "videur", "bouncer", "hôte vip", "vip host", "téléphone", "prévenu", "alerté"],

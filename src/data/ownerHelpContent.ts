@@ -210,6 +210,20 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         ],
       },
       {
+        id: 'understand-audience',
+        titleKey: 'ohelp.pg.audience.title',
+        descKey: 'ohelp.pg.audience.desc',
+        icon: 'Users',
+        actionLink: { labelKey: 'ohelp.action.goToAudience', path: '/audience' },
+        relatedArticleIds: ['understand-analytics', 'crm-setup'],
+        keywords: ['audience', 'abonnés', 'subscribers', 'followers', 'fans', 'démographie', 'portée', 'reachable', 'joignables', 'croissance', 'segmentation', 'notifications', 'revenu abonnés'],
+        sections: [
+          { headingKey: 'ohelp.pg.audience.s1h', bodyKey: 'ohelp.pg.audience.s1b' },
+          { headingKey: 'ohelp.pg.audience.s2h', bodyKey: 'ohelp.pg.audience.s2b' },
+          { headingKey: 'ohelp.pg.audience.s3h', bodyKey: 'ohelp.pg.audience.s3b', type: 'tip' },
+        ],
+      },
+      {
         id: 'understand-analytics',
         titleKey: 'ohelp.pg.analytics.title',
         descKey: 'ohelp.pg.analytics.desc',

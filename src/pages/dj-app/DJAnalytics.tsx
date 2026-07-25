@@ -3,7 +3,7 @@ import { format, parse } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
 import {
   BarChart3, MapPin, Music, TrendingUp, Users, Sparkles, Cake, Languages as LangIcon,
-  Heart, Star, Loader2, Info,
+  Heart, Star, Loader2, Info, Bell, Clock, Zap,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDJData } from '@/contexts/DJDataContext';
@@ -32,6 +32,14 @@ interface AudienceData {
   languages: { lang: string; count: number }[];
   personas: { persona: string; count: number }[];
   music: { style: string; count: number }[];
+}
+
+// RPC get_audience_notifications → jsonb (portée + notifs, ajout audience v1)
+interface NotifData {
+  ok: boolean;
+  reach: { reachable: number; total: number };
+  best_send: { dow: number | null; hour: number | null; engagement: number | null };
+  push_30d: { sent: number; clicked: number; ctr: number };
 }
 
 // ─── Ranked / distribution bar row ─────────────────────────────────────────────
@@ -117,6 +125,7 @@ export default function DJAnalytics() {
 
   const multiVenue = venues.length > 1;
   const [aud, setAud] = useState<AudienceData | null>(null);
+  const [notif, setNotif] = useState<NotifData | null>(null);
   const [loadingAud, setLoadingAud] = useState(true);
 
   const fetchAudience = useCallback(async () => {
@@ -125,6 +134,11 @@ export default function DJAnalytics() {
     const { data } = await supabase.rpc('dj_audience_analytics', { p_dj_user_id: dj.user_id });
     const res = data as unknown as AudienceData | null;
     setAud(res && res.ok ? res : null);
+    // Portée + notifs (nouveau backbone audience — pas encore dans les types générés)
+    const rpc = supabase.rpc as unknown as (n: string, p: Record<string, unknown>) => Promise<{ data: unknown }>;
+    const { data: nd } = await rpc('get_audience_notifications', { p_subject_type: 'dj', p_subject_id: dj.user_id });
+    const nres = nd as NotifData | null;
+    setNotif(nres && nres.ok ? nres : null);
     setLoadingAud(false);
   }, [dj?.user_id]);
 
@@ -220,6 +234,43 @@ export default function DJAnalytics() {
             <Kpi icon={<MapPin className="w-4 h-4" />} label={tt('Villes', 'Cities', 'Ciudades')} value={String(aud.cities.length)}
               sub={aud.cities[0]?.city} />
           </div>
+
+          {/* Portée & notifications */}
+          {notif && notif.reach.total > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <PCard style={{ padding: 16 }}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: T3 }}>{tt('Joignables', 'Reachable', 'Localizables')}</span>
+                  <Bell className="w-4 h-4" style={{ color: T3 }} />
+                </div>
+                <div className="mt-2.5 text-[22px] font-[640] tabular-nums"
+                  style={{ color: notif.reach.reachable / Math.max(1, notif.reach.total) >= 0.6 ? POS : RED }}>
+                  {Math.round((notif.reach.reachable / Math.max(1, notif.reach.total)) * 100)}%
+                </div>
+                <p className="mt-1.5 text-[11px]" style={{ color: T3 }}>{notif.reach.reachable}/{notif.reach.total} {tt('avec notifs', 'push-enabled', 'con push')}</p>
+              </PCard>
+              <PCard style={{ padding: 16 }}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: T3 }}>{tt('Meilleur créneau', 'Best time', 'Mejor momento')}</span>
+                  <Clock className="w-4 h-4" style={{ color: T3 }} />
+                </div>
+                <div className="mt-2.5 text-[22px] font-[640]" style={{ color: T1 }}>
+                  {notif.best_send.hour != null ? `${notif.best_send.hour}h` : '—'}
+                </div>
+                <p className="mt-1.5 text-[11px]" style={{ color: T3 }}>{tt('Quand ton audience est active', 'When your audience is active', 'Cuando tu audiencia está activa')}</p>
+              </PCard>
+              <PCard style={{ padding: 16 }}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: T3 }}>{tt('Clics notifs 30j', 'Push clicks 30d', 'Clics push 30d')}</span>
+                  <Zap className="w-4 h-4" style={{ color: T3 }} />
+                </div>
+                <div className="mt-2.5 text-[22px] font-[640] tabular-nums" style={{ color: T1 }}>
+                  {notif.push_30d.sent > 0 ? `${notif.push_30d.ctr}%` : '—'}
+                </div>
+                <p className="mt-1.5 text-[11px]" style={{ color: T3 }}>{notif.push_30d.clicked} / {notif.push_30d.sent} {tt('envois', 'sent', 'envíos')}</p>
+              </PCard>
+            </div>
+          )}
 
           {/* Growth */}
           {growthData.length > 1 && (

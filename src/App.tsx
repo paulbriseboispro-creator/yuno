@@ -94,6 +94,7 @@ const OwnerDJs = lazyWithRetry(() => import("./pages/OwnerDJs"));
 const OwnerDJDetail = lazyWithRetry(() => import("./pages/OwnerDJDetail"));
 const OwnerManagers = lazyWithRetry(() => import("./pages/OwnerManagers"));
 const OwnerCustomers = lazyWithRetry(() => import("./pages/OwnerCustomers"));
+const OwnerAudience = lazyWithRetry(() => import("./pages/OwnerAudience"));
 const OwnerInvoices = lazyWithRetry(() => import("./pages/OwnerInvoices"));
 const OwnerAccounting = lazyWithRetry(() => import("./pages/OwnerAccounting"));
 const OwnerLoyalty = lazyWithRetry(() => import("./pages/OwnerLoyalty"));
@@ -146,6 +147,7 @@ const OrgAppCollabHub = lazyWithRetry(() => import("./pages/organizer-app/OrgApp
 const OrgAppProfile = lazyWithRetry(() => import("./pages/organizer-app/OrgAppProfile"));
 const OrgAppTeam = lazyWithRetry(() => import("./pages/organizer-app/OrgAppTeam"));
 const OrgAppCustomers = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCustomers"));
+const OrgAppAudience = lazyWithRetry(() => import("./pages/organizer-app/OrgAppAudience"));
 const OrgAppTables = lazyWithRetry(() => import("./pages/organizer-app/OrgAppTables"));
 const OrgAppCampaigns = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCampaigns").then(m => ({ default: m.default })));
 const OrgAppCampaignEditor = lazyWithRetry(() => import("./pages/organizer-app/OrgAppCampaigns").then(m => ({ default: m.OrgAppCampaignEditor })));
@@ -268,6 +270,8 @@ const AffiliateWeekCalendar = lazyWithRetry(() => import("./pages/affiliate-app/
 const AffiliateEventBrief = lazyWithRetry(() => import("./pages/affiliate-app/AffiliateEventBrief"));
 const AffiliateAssignments = lazyWithRetry(() => import("./pages/affiliate-app/AffiliateAssignments"));
 const AffiliateNotifications = lazyWithRetry(() => import("./pages/affiliate-app/AffiliateNotifications"));
+const AffiliateInbox = lazyWithRetry(() => import("./pages/affiliate-app/AffiliateInbox"));
+const AffiliateHelp = lazyWithRetry(() => import("./pages/affiliate-app/AffiliateHelp"));
 const ManagerDashboard = lazyWithRetry(() => import("./pages/affiliate-app/ManagerDashboard"));
 // Public affiliate pages
 const AffiliateEventPage = lazyWithRetry(() => import("./pages/AffiliateEventPage"));
@@ -586,6 +590,7 @@ const App = () => (
                   <Route path="profile" element={<OrgAppProfile />} />
                   <Route path="team" element={<OrgAppTeam />} />
                   <Route path="customers" element={<OrgAppCustomers />} />
+                  <Route path="audience" element={<OrgAppAudience />} />
                   <Route path="invoices" element={<OwnerInvoices />} />
                   <Route path="accounting" element={<OwnerAccounting />} />
                   <Route path="refunds" element={<OwnerRefunds />} />
@@ -724,6 +729,7 @@ const App = () => (
                   <Route path="collab/event/:eventId" element={<OwnerCollabEventDashboard />} />
                   <Route path="scarcity" element={<OwnerScarcity />} />
                   <Route path="customers" element={<PlanGuard feature="clients_basic"><OwnerCustomers /></PlanGuard>} />
+                  <Route path="audience" element={<PlanGuard feature="analytics_basic"><OwnerAudience /></PlanGuard>} />
                   <Route path="loyalty" element={<PlanGuard feature="loyalty_crm"><OwnerLoyalty /></PlanGuard>} />
                   <Route path="campaigns" element={<PlanGuard feature="email_campaigns_promotional"><OwnerCampaigns /></PlanGuard>} />
                   <Route path="campaigns/new" element={<PlanGuard feature="email_campaigns_promotional"><OwnerCampaignEditor /></PlanGuard>} />
@@ -1039,6 +1045,8 @@ const App = () => (
                   <Route path="semaine" element={<AffiliateWeekCalendar />} />
                   <Route path="assignments" element={<AffiliateAssignments />} />
                   <Route path="notifications" element={<AffiliateNotifications />} />
+                  <Route path="inbox" element={<AffiliateInbox />} />
+                  <Route path="help" element={<AffiliateHelp />} />
                   <Route path="events/:id/brief" element={<AffiliateEventBrief />} />
                   <Route path="manager" element={<ManagerDashboard />} />
                   {/* Promoter (affiliate_member) sub-routes */}

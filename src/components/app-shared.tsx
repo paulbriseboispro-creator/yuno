@@ -61,6 +61,11 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					icon: <BarChart3Icon />,
 				},
 				{
+					title: t('sidebar.audience'),
+					path: "/owner/audience",
+					icon: <UsersIcon />,
+				},
+				{
 					title: t('sidebar.liveNight'),
 					path: "/owner/live",
 					icon: <RadioIcon />,
