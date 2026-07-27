@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendApns, apnsConfigured, APNS_TOPIC, APNS_TOPIC_PRO } from "../_shared/apns.ts";
 import { isAutoPushEnabled, autoTrackUrl, renderAutoTpl, resolveUserLang, logAutoPushOutcome } from "../_shared/auto-push.ts";
 
@@ -139,9 +140,8 @@ type Subscription = { id: string; endpoint: string; p256dh: string | null; auth:
  * Envoie une alerte APNs à un device token. Retry sandbox sur BadDeviceToken
  * (builds Xcode dev) ; 410/Unregistered supprime la ligne.
  */
-// deno-lint-ignore no-explicit-any
 async function sendToApns(
-  supabase: any,
+  supabase: SupabaseClient,
   subscription: Subscription,
   payload: { title: string; body: string; url: string },
 ): Promise<'ok' | 'stale' | 'fail'> {
@@ -178,9 +178,8 @@ async function sendToApns(
  * or 'fail'. Stale subscriptions (401/403/404/410) are deleted so the table self-heals.
  * Routes par plateforme : lignes 'ios' → APNs, lignes 'web' → Web Push chiffré.
  */
-// deno-lint-ignore no-explicit-any
 async function sendToSubscription(
-  supabase: any,
+  supabase: SupabaseClient,
   subscription: Subscription,
   notificationPayload: string,
   vapidPublicKey: string,
@@ -294,8 +293,13 @@ function buildDjLineupEmail(opts: {
  * followers. Geo-filtered + opt-in + dedup all live in the RPC; this only sends.
  * Only the event's owner (venue owner or organizer) may trigger it.
  */
-// deno-lint-ignore no-explicit-any
-async function handleDjLineup(req: Request, supabase: any, vapidPublicKey: string, vapidPrivateKey: string, body: any) {
+async function handleDjLineup(
+  req: Request,
+  supabase: SupabaseClient,
+  vapidPublicKey: string,
+  vapidPrivateKey: string,
+  body: { event_id?: string; dj_ids?: string[]; dj_id?: string },
+) {
   const eventId: string | undefined = body.event_id;
   const djIds: string[] = Array.isArray(body.dj_ids) ? body.dj_ids : (body.dj_id ? [body.dj_id] : []);
   if (!eventId || djIds.length === 0) {
@@ -388,20 +392,27 @@ async function handleDjLineup(req: Request, supabase: any, vapidPublicKey: strin
       if (res === 'ok') { totalSent++; sentUserIds.add(sub.user_id); }
     }
 
-    // Mark targeted followers so re-saving the line-up never re-notifies them.
+    // On ne marque « notifié » que les push RÉUSSIS. Un échec ne doit jamais entrer
+    // dans dj_lineup_notifications : le RPC (filtre not-already-notified) exclurait ce
+    // follower à jamais — ni retry au prochain enregistrement du line-up, ni email
+    // fallback (même table de dédup). auto_push_events, lui, garde la trace de CHAQUE
+    // tentative (sent/failed) pour le registre /admin/notifications.
     if (targetedUserIds.size > 0) {
-      const ids = [...targetedUserIds];
-      totalTargeted += ids.length;
-      await supabase.from('dj_lineup_notifications').upsert(
-        ids.map((uid) => ({ user_id: uid, event_id: eventId, dj_id: djId })),
-        { onConflict: 'user_id,event_id,dj_id', ignoreDuplicates: true },
-      );
-      await supabase.from('notification_log').insert(
-        ids.map((uid) => ({ user_id: uid, notification_type: 'dj_lineup', title: djName })),
-      );
+      const targetedIds = [...targetedUserIds];
+      totalTargeted += targetedIds.length;
+      const sentIds = [...sentUserIds];
+      if (sentIds.length > 0) {
+        await supabase.from('dj_lineup_notifications').upsert(
+          sentIds.map((uid) => ({ user_id: uid, event_id: eventId, dj_id: djId })),
+          { onConflict: 'user_id,event_id,dj_id', ignoreDuplicates: true },
+        );
+        await supabase.from('notification_log').insert(
+          sentIds.map((uid) => ({ user_id: uid, notification_type: 'dj_lineup', title: djName })),
+        );
+      }
       // Tracking du registre auto (/admin/notifications) : sent/failed par follower.
       await supabase.from('auto_push_events').insert(
-        ids.map((uid) => ({
+        targetedIds.map((uid) => ({
           notification_key: 'dj_lineup',
           user_id: uid,
           event_type: sentUserIds.has(uid) ? 'sent' : 'failed',
@@ -433,8 +444,15 @@ async function handleDjLineup(req: Request, supabase: any, vapidPublicKey: strin
         .maybeSingle();
       const eventUrl = link?.code ? `${APP_BASE_URL}/l/${link.code}` : `${APP_BASE_URL}/event/${eventId}`;
 
-      // deno-lint-ignore no-explicit-any
-      const batch = (emailTargets as any[]).map((r) => {
+      // Ligne renvoyée par get_dj_lineup_email_targets (seuls champs consommés).
+      type DjLineupEmailTarget = {
+        user_id: string;
+        email: string;
+        first_name: string | null;
+        preferred_language: string | null;
+        unsubscribe_token: string | null;
+      };
+      const batch = (emailTargets as DjLineupEmailTarget[]).map((r) => {
         const lang = r.preferred_language === 'fr' ? 'fr' : r.preferred_language === 'es' ? 'es' : 'en';
         const city: string = event.location_city || '';
         const subject = lang === 'fr'
@@ -468,8 +486,7 @@ async function handleDjLineup(req: Request, supabase: any, vapidPublicKey: strin
       }
 
       // Mark emailed users as notified so they don't receive push next time.
-      // deno-lint-ignore no-explicit-any
-      const emailUserIds = (emailTargets as any[]).map((r) => r.user_id);
+      const emailUserIds = (emailTargets as { user_id: string }[]).map((r) => r.user_id);
       await supabase.from('dj_lineup_notifications').upsert(
         emailUserIds.map((uid: string) => ({ user_id: uid, event_id: eventId, dj_id: djId })),
         { onConflict: 'user_id,event_id,dj_id', ignoreDuplicates: true },
@@ -490,8 +507,7 @@ async function handleDjLineup(req: Request, supabase: any, vapidPublicKey: strin
 // PAS d'alert dans ces pushes : la bannière « commande prête » part déjà par
 // le push alert classique — l'activité, elle, se met à jour silencieusement.
 // ---------------------------------------------------------------------------
-// deno-lint-ignore no-explicit-any
-async function handleLiveActivityUpdate(supabase: any, body: any): Promise<Response> {
+async function handleLiveActivityUpdate(supabase: SupabaseClient, body: { order_id?: string }): Promise<Response> {
   const orderId: string | undefined = body.order_id;
   if (!orderId) {
     return new Response(JSON.stringify({ error: 'order_id required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
@@ -581,8 +597,7 @@ async function handleLiveActivityUpdate(supabase: any, body: any): Promise<Respo
 // l'ont démarrée, le Realtime ne couvre que l'app ouverte. Gated par le
 // registre super admin (clé 'order_ready') + tracking auto_push_events.
 // ---------------------------------------------------------------------------
-// deno-lint-ignore no-explicit-any
-async function handleOrderReady(supabase: any, body: any, vapidPublicKey: string, vapidPrivateKey: string): Promise<Response> {
+async function handleOrderReady(supabase: SupabaseClient, body: { order_id?: string }, vapidPublicKey: string, vapidPrivateKey: string): Promise<Response> {
   const json = (payload: unknown, status = 200) =>
     new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
@@ -638,8 +653,7 @@ async function handleOrderReady(supabase: any, body: any, vapidPublicKey: string
 // par spécification Apple ; topic = Pass Type ID, PAS le bundle de l'app.
 // Déclenché par les triggers refund (pass voided) — Phase 5.
 // ---------------------------------------------------------------------------
-// deno-lint-ignore no-explicit-any
-async function handleWalletPassUpdate(supabase: any, body: any): Promise<Response> {
+async function handleWalletPassUpdate(supabase: SupabaseClient, body: { serial?: string }): Promise<Response> {
   const serial: string | undefined = body.serial;
   const passTypeId = Deno.env.get('WALLET_PASS_TYPE_ID');
   if (!serial) {
@@ -702,6 +716,9 @@ const ROLE_DEEPLINK: Record<string, string> = {
   bouncer: '/bouncer',
   cloakroom: '/cloakroom',
   promoter: '/promoter',
+  // Rappel multi-rôles (soirée dans ~6h) : pas de dashboard unique — l'accueil
+  // Pro redirige chaque membre vers le sien.
+  all_staff: '/',
 };
 
 const INCIDENT_LABEL: Record<Lang, Record<string, string>> = {
@@ -716,8 +733,23 @@ const CALL_LABEL: Record<Lang, Record<string, string>> = {
   es: { backup: 'Refuerzo solicitado', security: 'Seguridad solicitada', vip_arrival: 'Llegada VIP en la puerta', stock: 'Problema de stock', info: 'Ven a verme' },
 };
 
-// deno-lint-ignore no-explicit-any
-function staffPushCopy(type: string, lang: Lang, md: any): { title: string; body: string } | null {
+// metadata (jsonb) des lignes staff_notifications — seuls champs consommés ici.
+type StaffPushMetadata = {
+  zone_name?: string;
+  guest_count?: number | string;
+  guest_name?: string;
+  order_number?: string | number;
+  kind?: string;
+  note?: string;
+  call_kind?: string;
+  from_name?: string;
+  body_preview?: string;
+  actor_id?: string;
+  event_title?: string;
+  start_time?: string;
+};
+
+function staffPushCopy(type: string, lang: Lang, md: StaffPushMetadata | null): { title: string; body: string } | null {
   const zone = md?.zone_name ? ` — ${md.zone_name}` : '';
   const guests = Number(md?.guest_count) || 1;
 
@@ -762,13 +794,20 @@ function staffPushCopy(type: string, lang: Lang, md: any): { title: string; body
       if (lang === 'es') return { title: '📋 Consigna de la noche', body: preview };
       return { title: '📋 Consigne du soir', body: preview };
     }
+    case 'event_prep_6h': {
+      // Rappel d'exploitation ~6h avant le début : préparer le service.
+      const ev = md?.event_title || (lang === 'es' ? 'tu evento' : lang === 'en' ? 'your event' : 'ta soirée');
+      const at = md?.start_time ? ` (${md.start_time})` : '';
+      if (lang === 'en') return { title: '📣 Tonight — get ready', body: `${ev} starts in ~6h${at}. Prep your station.` };
+      if (lang === 'es') return { title: '📣 Esta noche — prepárate', body: `${ev} empieza en ~6h${at}. Prepara tu puesto.` };
+      return { title: '📣 Ce soir — prépare-toi', body: `${ev} commence dans ~6h${at}. Prépare ton poste.` };
+    }
     default:
       return null; // type hors catalogue : pas de push (la DB filtre déjà, ceci est la ceinture).
   }
 }
 
-// deno-lint-ignore no-explicit-any
-async function handleStaffNotification(supabase: any, body: any): Promise<Response> {
+async function handleStaffNotification(supabase: SupabaseClient, body: { notification_id?: string }): Promise<Response> {
   const json = (payload: unknown, status = 200) =>
     new Response(JSON.stringify(payload), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
@@ -788,16 +827,34 @@ async function handleStaffNotification(supabase: any, body: any): Promise<Respon
   // Destinataires : le staff de CE club qui porte CE rôle. Le rattachement
   // staff↔club vit sur profiles.venue_id (user_roles ne porte pas de venue_id) —
   // même source de vérité que useStaffVenue() côté app.
-  const { data: staff } = await supabase
+  const { data: staffRows } = await supabase
     .from('profiles').select('id, preferred_language').eq('venue_id', notif.venue_id);
-  if (!staff?.length) return json({ message: 'no staff at venue', sent: 0 });
+  const staff = staffRows ?? [];
 
-  const { data: roleRows } = await supabase
-    .from('user_roles').select('user_id')
-    .eq('role', notif.target_role)
-    .in('user_id', staff.map((s: { id: string }) => s.id));
+  // Résolution des destinataires.
+  //  • cas normal : le staff de ce club qui porte CE rôle.
+  //  • cas 'all_staff' (rappel soirée T-6h) : tout le staff du club, tous rôles
+  //    confondus, + le patron (souvent rattaché via venues.owner_id plutôt que
+  //    profiles.venue_id) — sans filtre de rôle.
+  let recipients: Set<string>;
+  if (notif.target_role === 'all_staff') {
+    const { data: venue } = await supabase
+      .from('venues').select('owner_id').eq('id', notif.venue_id).maybeSingle();
+    if (venue?.owner_id && !staff.some((s: { id: string }) => s.id === venue.owner_id)) {
+      const { data: ownerProfile } = await supabase
+        .from('profiles').select('id, preferred_language').eq('id', venue.owner_id).maybeSingle();
+      if (ownerProfile) staff.push(ownerProfile);
+    }
+    recipients = new Set<string>(staff.map((s: { id: string }) => s.id));
+  } else {
+    if (!staff.length) return json({ message: 'no staff at venue', sent: 0 });
+    const { data: roleRows } = await supabase
+      .from('user_roles').select('user_id')
+      .eq('role', notif.target_role)
+      .in('user_id', staff.map((s: { id: string }) => s.id));
+    recipients = new Set<string>((roleRows ?? []).map((r: { user_id: string }) => r.user_id));
+  }
 
-  const recipients = new Set<string>((roleRows ?? []).map((r: { user_id: string }) => r.user_id));
   // On ne se notifie pas de son propre geste (ex : le videur qui signale l'incident).
   if (notif.metadata?.actor_id) recipients.delete(notif.metadata.actor_id);
   if (!recipients.size) return json({ message: 'no recipient', sent: 0 });
