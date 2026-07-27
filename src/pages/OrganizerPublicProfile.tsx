@@ -259,16 +259,23 @@ export default function OrganizerPublicProfile() {
       navigate('/auth');
       return;
     }
-    if (isFollowing) {
-      await supabase.from('organizer_profile_followers')
-        .delete().eq('organizer_user_id', profile.user_id).eq('user_id', user.id);
-      setIsFollowing(false);
-      setFollowersCount(c => Math.max(0, c - 1));
-    } else {
-      await supabase.from('organizer_profile_followers')
-        .insert({ organizer_user_id: profile.user_id, user_id: user.id });
-      setIsFollowing(true);
-      setFollowersCount(c => c + 1);
+    // Optimiste : on bascule l'UI tout de suite (le pouce doit sentir le tap),
+    // puis on annule si l'écriture échoue — sinon le bouton et le compteur mentent
+    // sur l'état réel (abonnement fantôme resté à l'écran).
+    const wasFollowing = isFollowing;
+    setIsFollowing(!wasFollowing);
+    setFollowersCount(c => wasFollowing ? Math.max(0, c - 1) : c + 1);
+
+    const { error } = wasFollowing
+      ? await supabase.from('organizer_profile_followers')
+          .delete().eq('organizer_user_id', profile.user_id).eq('user_id', user.id)
+      : await supabase.from('organizer_profile_followers')
+          .insert({ organizer_user_id: profile.user_id, user_id: user.id });
+
+    if (error) {
+      setIsFollowing(wasFollowing);
+      setFollowersCount(c => wasFollowing ? c + 1 : Math.max(0, c - 1));
+      toast.error(t('subscribe.error') || 'Erreur, réessaie');
     }
   };
 
