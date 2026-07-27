@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -48,8 +49,7 @@ function sanitizeI18n(input: unknown): Record<string, string> | null {
   return Object.keys(out).length > 0 ? out : null;
 }
 
-// deno-lint-ignore no-explicit-any
-async function pushSubscriberIds(supabase: any): Promise<Set<string>> {
+async function pushSubscriberIds(supabase: SupabaseClient): Promise<Set<string>> {
   // Campagnes = clients de l'APP iOS uniquement (stratégie app-first : le web
   // push est abandonné, les visiteurs web sont redirigés vers l'app). On ne
   // cible jamais 'web' ni 'ios_pro' (staff).
@@ -64,19 +64,38 @@ async function pushSubscriberIds(supabase: any): Promise<Set<string>> {
       .eq('platform', 'ios')
       .range(from, from + PAGE - 1);
     if (error) throw new Error(`push_subscriptions read failed: ${error.message}`);
-    // deno-lint-ignore no-explicit-any
-    (data || []).forEach((d: any) => { if (d.user_id) out.add(d.user_id); });
+    (data || []).forEach((d: { user_id: string | null }) => { if (d.user_id) out.add(d.user_id); });
     if (!data || data.length < PAGE) break;
   }
   return out;
+}
+
+// Lecture paginée générique d'une colonne user_id (même raison que pushSubscriberIds :
+// le select PostgREST plafonne à ~1000 lignes). Sans .range(), une audience de club
+// ou un segment plateforme au-delà de 1000 personnes était tronqué en silence. Le
+// thunk reconstruit la requête par page (un builder n'est thenable qu'une fois).
+async function collectUserIds(
+  makeQuery: (from: number, to: number) => PromiseLike<{
+    data: Array<{ user_id: string | null }> | null;
+    error: { message: string } | null;
+  }>,
+): Promise<string[]> {
+  const out = new Set<string>();
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await makeQuery(from, from + PAGE - 1);
+    if (error) throw new Error(`paginated user_id read failed: ${error.message}`);
+    for (const d of data || []) if (d.user_id) out.add(d.user_id);
+    if (!data || data.length < PAGE) break;
+  }
+  return [...out];
 }
 
 /**
  * Résout l'audience en user_ids abonnés au push.
  * Scopes club (venue_id) : toujours bornés aux données DU club.
  */
-// deno-lint-ignore no-explicit-any
-async function resolveAudience(supabase: any, req: CampaignRequest): Promise<{ userIds: string[]; error?: string }> {
+async function resolveAudience(supabase: SupabaseClient, req: CampaignRequest): Promise<{ userIds: string[]; error?: string }> {
   let subscribers: Set<string>;
   try {
     subscribers = await pushSubscriberIds(supabase);
@@ -98,25 +117,21 @@ async function resolveAudience(supabase: any, req: CampaignRequest): Promise<{ u
       if (!event || event.venue_id !== req.venue_id) {
         return { userIds: [], error: 'event does not belong to this venue' };
       }
-      let q = supabase.from('tickets').select('user_id').eq('event_id', req.event_id).eq('status', 'paid').not('user_id', 'is', null);
-      if (scope === 'checked_in') q = q.eq('entry_scanned', true);
-      const { data } = await q;
-      // deno-lint-ignore no-explicit-any
-      ids = new Set((data || []).map((d: any) => d.user_id));
+      ids = new Set(await collectUserIds((f, t) => {
+        let q = supabase.from('tickets').select('user_id').eq('event_id', req.event_id!).eq('status', 'paid').not('user_id', 'is', null);
+        if (scope === 'checked_in') q = q.eq('entry_scanned', true);
+        return q.range(f, t);
+      }));
       // Une soirée se vit aussi en tables et en commandes : pour "checked_in"
       // on reste strict (scan billets) ; pour event_tickets on ajoute les
       // réservations VIP payées de la même soirée.
       if (scope === 'event_tickets') {
-        const { data: tables } = await supabase
-          .from('table_reservations').select('user_id').eq('event_id', req.event_id).eq('status', 'paid').not('user_id', 'is', null);
-        // deno-lint-ignore no-explicit-any
-        (tables || []).forEach((d: any) => ids.add(d.user_id));
+        for (const id of await collectUserIds((f, t) => supabase
+          .from('table_reservations').select('user_id').eq('event_id', req.event_id!).eq('status', 'paid').not('user_id', 'is', null).range(f, t))) ids.add(id);
       }
     } else if (scope === 'followers') {
-      const { data } = await supabase
-        .from('favorites').select('user_id').eq('venue_id', req.venue_id).not('user_id', 'is', null);
-      // deno-lint-ignore no-explicit-any
-      ids = new Set((data || []).map((d: any) => d.user_id));
+      ids = new Set(await collectUserIds((f, t) => supabase
+        .from('favorites').select('user_id').eq('venue_id', req.venue_id!).not('user_id', 'is', null).range(f, t)));
     } else if (scope.startsWith('rfm:')) {
       const wanted = scope.slice(4);
       const { data, error } = await supabase.rpc('get_venue_customer_segments', { p_venue_id: req.venue_id });
@@ -126,14 +141,24 @@ async function resolveAudience(supabase: any, req: CampaignRequest): Promise<{ u
       // (quintiles relatifs au club) pour que la cible du push corresponde à
       // ce que l'owner voit sur sa page Clients. Avant ce fix, r.segment était
       // toujours undefined → tous les segments RFM ciblaient 0 personne.
-      // deno-lint-ignore no-explicit-any
-      const rows: any[] = data || [];
+      // Ligne renvoyée par get_venue_customer_segments — seuls les champs
+      // consommés par le scoring RFM ci-dessous sont déclarés.
+      type RfmCustomerRow = {
+        user_id: string | null;
+        first_visit_at: string;
+        last_visit_at: string | null;
+        last_activity_at: string | null;
+        visit_nights: number | null;
+        ticket_count: number | null;
+        order_count: number | null;
+        table_count: number | null;
+        total_spent: number | string | null;
+      };
+      const rows: RfmCustomerRow[] = data || [];
       const now = Date.now();
-      // deno-lint-ignore no-explicit-any
-      const recencyOf = (r: any) =>
+      const recencyOf = (r: RfmCustomerRow) =>
         Math.floor((now - new Date(r.last_activity_at || r.last_visit_at || r.first_visit_at).getTime()) / 86400000);
-      // deno-lint-ignore no-explicit-any
-      const freqOf = (r: any) => r.visit_nights || ((r.ticket_count || 0) + (r.order_count || 0) + (r.table_count || 0));
+      const freqOf = (r: RfmCustomerRow) => r.visit_nights || ((r.ticket_count || 0) + (r.order_count || 0) + (r.table_count || 0));
       const quintile = (value: number, sortedAsc: number[], invert = false): number => {
         const n = sortedAsc.length;
         if (n <= 1) return 3;
@@ -164,13 +189,11 @@ async function resolveAudience(supabase: any, req: CampaignRequest): Promise<{ u
             const m = quintile(Number(row.total_spent) || 0, monArr);
             return segmentOf(r, f, m) === wanted;
           })
-          .map((row) => row.user_id),
+          .map((row) => row.user_id as string), // non-null garanti par le filtre ci-dessus
       );
     } else { // all_customers
-      const { data } = await supabase
-        .from('venue_customers').select('user_id').eq('venue_id', req.venue_id).not('user_id', 'is', null);
-      // deno-lint-ignore no-explicit-any
-      ids = new Set((data || []).map((d: any) => d.user_id));
+      ids = new Set(await collectUserIds((f, t) => supabase
+        .from('venue_customers').select('user_id').eq('venue_id', req.venue_id!).not('user_id', 'is', null).range(f, t)));
     }
 
     return { userIds: [...ids].filter((id) => subscribers.has(id)) };
@@ -182,29 +205,22 @@ async function resolveAudience(supabase: any, req: CampaignRequest): Promise<{ u
 
   if (segment === 'active_30d' || segment === 'inactive_30d') {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: recentOrders } = await supabase.from('orders').select('user_id').gte('created_at', thirtyDaysAgo);
-    const { data: recentTickets } = await supabase.from('tickets').select('user_id').gte('created_at', thirtyDaysAgo);
-    const activeSet = new Set([
-      // deno-lint-ignore no-explicit-any
-      ...(recentOrders || []).map((d: any) => d.user_id),
-      // deno-lint-ignore no-explicit-any
-      ...(recentTickets || []).map((d: any) => d.user_id),
-    ].filter(Boolean));
+    const activeSet = new Set<string>([
+      ...(await collectUserIds((f, t) => supabase.from('orders').select('user_id').gte('created_at', thirtyDaysAgo).range(f, t))),
+      ...(await collectUserIds((f, t) => supabase.from('tickets').select('user_id').gte('created_at', thirtyDaysAgo).range(f, t))),
+    ]);
     ids = segment === 'active_30d'
-      ? [...activeSet].filter((id) => subscribers.has(id as string)) as string[]
+      ? [...activeSet].filter((id) => subscribers.has(id))
       : [...subscribers].filter((id) => !activeSet.has(id));
   } else if (segment === 'ticket_holders') {
-    const { data } = await supabase.from('tickets').select('user_id').eq('status', 'paid');
-    // deno-lint-ignore no-explicit-any
-    ids = [...new Set((data || []).map((d: any) => d.user_id).filter(Boolean))].filter((id) => subscribers.has(id as string)) as string[];
+    ids = (await collectUserIds((f, t) => supabase.from('tickets').select('user_id').eq('status', 'paid').range(f, t)))
+      .filter((id) => subscribers.has(id));
   } else if (segment === 'vip') {
-    const { data } = await supabase.from('table_reservations').select('user_id').eq('status', 'paid');
-    // deno-lint-ignore no-explicit-any
-    ids = [...new Set((data || []).map((d: any) => d.user_id).filter(Boolean))].filter((id) => subscribers.has(id as string)) as string[];
+    ids = (await collectUserIds((f, t) => supabase.from('table_reservations').select('user_id').eq('status', 'paid').range(f, t)))
+      .filter((id) => subscribers.has(id));
   } else if (segment === 'loyal') {
-    const { data } = await supabase.from('customer_loyalty').select('user_id').in('tier', ['silver', 'gold', 'platinum']);
-    // deno-lint-ignore no-explicit-any
-    ids = [...new Set((data || []).map((d: any) => d.user_id).filter(Boolean))].filter((id) => subscribers.has(id as string)) as string[];
+    ids = (await collectUserIds((f, t) => supabase.from('customer_loyalty').select('user_id').in('tier', ['silver', 'gold', 'platinum']).range(f, t)))
+      .filter((id) => subscribers.has(id));
   } else { // all
     ids = [...subscribers];
   }
@@ -216,8 +232,7 @@ async function resolveAudience(supabase: any, req: CampaignRequest): Promise<{ u
       const chunk = ids.slice(i, i + 500);
       const { data } = await supabase
         .from('profiles').select('id').in('id', chunk).ilike('city', `%${req.city}%`);
-      // deno-lint-ignore no-explicit-any
-      (data || []).forEach((d: any) => cityIds.add(d.id));
+      (data || []).forEach((d: { id: string }) => cityIds.add(d.id));
     }
     ids = ids.filter((id) => cityIds.has(id));
   }
@@ -386,9 +401,8 @@ Deno.serve(async (req) => {
  * Fan-out d'une campagne vers ses destinataires + tracking sent/failed.
  * La campagne (row.id) existe déjà ; on met à jour ses compteurs à la fin.
  */
-// deno-lint-ignore no-explicit-any
 async function sendCampaign(
-  supabase: any,
+  supabase: SupabaseClient,
   supabaseUrl: string,
   serviceKey: string,
   campaignId: string,
@@ -407,8 +421,7 @@ async function sendCampaign(
     for (let i = 0; i < userIds.length; i += 500) {
       const { data } = await supabase
         .from('profiles').select('id, preferred_language').in('id', userIds.slice(i, i + 500));
-      // deno-lint-ignore no-explicit-any
-      (data || []).forEach((p: any) => userLang.set(p.id, p.preferred_language || 'fr'));
+      (data || []).forEach((p: { id: string; preferred_language: string | null }) => userLang.set(p.id, p.preferred_language || 'fr'));
     }
   }
   const contentFor = (userId: string): { title: string; body: string } => {

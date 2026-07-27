@@ -20,6 +20,7 @@
 // get_auto_push_stats() agrège le tout par template_key pour la page admin.
 
 import { isAutoPushEnabled, localizedDate } from "./auto-push.ts";
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 type Lang = "fr" | "en" | "es";
 type LocalizedText = { title: string; body: string };
@@ -45,9 +46,9 @@ const AUTOMATIONS: Record<string, AutomationConfig> = {
   },
   thank_you: {
     scope: "checked_in",
-    fr: { title: "Merci d'être venus 🖤", body: "{venue} — cette soirée était spéciale. À très vite." },
-    en: { title: "Thanks for coming 🖤", body: "{venue} — tonight was special. See you next time." },
-    es: { title: "Gracias por venir 🖤", body: "{venue}: esta noche fue especial. Hasta la próxima." },
+    fr: { title: "Merci d'être venus ❤️", body: "{venue} — cette soirée était spéciale. À très vite." },
+    en: { title: "Thanks for coming ❤️", body: "{venue} — tonight was special. See you next time." },
+    es: { title: "Gracias por venir ❤️", body: "{venue}: esta noche fue especial. Hasta la próxima." },
   },
   almost_sold_out: {
     scope: "followers",
@@ -90,65 +91,73 @@ type DueRow = {
   automation_key: string;
 };
 
+// Lecture paginée d'une colonne user_id. Le select PostgREST plafonne à ~1000
+// lignes : sans .range(), toute audience au-delà était silencieusement tronquée
+// (les abonnés au-delà du 1000e n'étaient jamais notifiés). Le thunk reconstruit
+// la requête pour chaque page — un builder Supabase n'est thenable qu'une fois.
+async function collectUserIds(
+  makeQuery: (from: number, to: number) => PromiseLike<{
+    data: Array<{ user_id: string | null }> | null;
+    error: { message: string } | null;
+  }>,
+): Promise<string[]> {
+  const out = new Set<string>();
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await makeQuery(from, from + PAGE - 1);
+    if (error) throw new Error(`paginated user_id read failed: ${error.message}`);
+    for (const d of data || []) if (d.user_id) out.add(d.user_id);
+    if (!data || data.length < PAGE) break;
+  }
+  return [...out];
+}
+
 // Abonnés de l'app grand public uniquement. Les automatisations club et les
 // annonces de soirée sont du marketing client : un membre du staff qui n'a que
 // Yuno Pro ne doit pas les recevoir (et n'était comptabilisé que comme échec).
-// deno-lint-ignore no-explicit-any
-async function subscriberSet(admin: any): Promise<Set<string>> {
-  const { data } = await admin
-    .from("push_subscriptions").select("user_id").eq("platform", "ios");
-  // deno-lint-ignore no-explicit-any
-  return new Set((data || []).map((d: any) => d.user_id));
+async function subscriberSet(admin: SupabaseClient): Promise<Set<string>> {
+  return new Set(await collectUserIds((from, to) =>
+    admin.from("push_subscriptions").select("user_id").eq("platform", "ios").range(from, to)));
 }
 
 /** Clés désactivées par le super admin (platform_notification_settings). */
-// deno-lint-ignore no-explicit-any
-async function disabledKeySet(admin: any): Promise<Set<string>> {
+async function disabledKeySet(admin: SupabaseClient): Promise<Set<string>> {
   try {
     const { data } = await admin
       .from("platform_notification_settings")
       .select("notification_key")
       .eq("enabled", false);
-    // deno-lint-ignore no-explicit-any
-    return new Set((data || []).map((d: any) => d.notification_key));
+    return new Set((data || []).map((d: { notification_key: string }) => d.notification_key));
   } catch {
     return new Set(); // fail-open
   }
 }
 
-// deno-lint-ignore no-explicit-any
 async function resolveAudience(
-  admin: any,
+  admin: SupabaseClient,
   venueId: string,
   eventId: string,
   scope: AutomationConfig["scope"],
   subscribers: Set<string>,
 ): Promise<string[]> {
   const ids = new Set<string>();
+  const add = (arr: string[]) => { for (const id of arr) ids.add(id); };
 
   if (scope === "event_tickets") {
-    const { data: tk } = await admin
+    add(await collectUserIds((f, t) => admin
       .from("tickets").select("user_id")
-      .eq("event_id", eventId).eq("status", "paid").not("user_id", "is", null);
-    // deno-lint-ignore no-explicit-any
-    (tk || []).forEach((d: any) => ids.add(d.user_id));
-    const { data: tr } = await admin
+      .eq("event_id", eventId).eq("status", "paid").not("user_id", "is", null).range(f, t)));
+    add(await collectUserIds((f, t) => admin
       .from("table_reservations").select("user_id")
-      .eq("event_id", eventId).eq("status", "paid").not("user_id", "is", null);
-    // deno-lint-ignore no-explicit-any
-    (tr || []).forEach((d: any) => ids.add(d.user_id));
+      .eq("event_id", eventId).eq("status", "paid").not("user_id", "is", null).range(f, t)));
   } else if (scope === "checked_in") {
-    const { data } = await admin
+    add(await collectUserIds((f, t) => admin
       .from("tickets").select("user_id")
-      .eq("event_id", eventId).eq("status", "paid").eq("entry_scanned", true).not("user_id", "is", null);
-    // deno-lint-ignore no-explicit-any
-    (data || []).forEach((d: any) => ids.add(d.user_id));
+      .eq("event_id", eventId).eq("status", "paid").eq("entry_scanned", true).not("user_id", "is", null).range(f, t)));
   } else { // followers
-    const { data } = await admin
+    add(await collectUserIds((f, t) => admin
       .from("favorites").select("user_id")
-      .eq("venue_id", venueId).not("user_id", "is", null);
-    // deno-lint-ignore no-explicit-any
-    (data || []).forEach((d: any) => ids.add(d.user_id));
+      .eq("venue_id", venueId).not("user_id", "is", null).range(f, t)));
   }
 
   return [...ids].filter((id) => subscribers.has(id));
@@ -159,9 +168,8 @@ async function resolveAudience(
  * journalise sent/failed + notification_log, met à jour les compteurs.
  * Renvoie le nombre d'envois réussis.
  */
-// deno-lint-ignore no-explicit-any
 async function fanoutCampaign(
-  admin: any,
+  admin: SupabaseClient,
   pushUrl: string,
   serviceKey: string,
   campaignId: string,
@@ -177,8 +185,7 @@ async function fanoutCampaign(
   for (let i = 0; i < userIds.length; i += 500) {
     const { data } = await admin
       .from("profiles").select("id, preferred_language").in("id", userIds.slice(i, i + 500));
-    // deno-lint-ignore no-explicit-any
-    (data || []).forEach((p: any) => {
+    (data || []).forEach((p: { id: string; preferred_language: string | null }) => {
       const l = (p.preferred_language as Lang) || "fr";
       langByUser.set(p.id, l === "en" || l === "es" ? l : "fr");
     });
@@ -243,9 +250,8 @@ async function fanoutCampaign(
  * Traite toutes les automatisations CLUB dues. Best-effort : une soirée qui
  * échoue n'empêche pas les autres. Renvoie un petit résumé pour les logs du cron.
  */
-// deno-lint-ignore no-explicit-any
 export async function dispatchPushAutomations(
-  admin: any,
+  admin: SupabaseClient,
   supabaseUrl: string,
   serviceKey: string,
 ): Promise<{ processed: number; sent: number }> {
@@ -332,9 +338,8 @@ export async function dispatchPushAutomations(
  * WHERE source='auto' — la fenêtre 48 h évite de notifier tout le back
  * catalogue au premier déploiement.
  */
-// deno-lint-ignore no-explicit-any
 export async function dispatchNewEventPushes(
-  admin: any,
+  admin: SupabaseClient,
   supabaseUrl: string,
   serviceKey: string,
 ): Promise<{ processed: number; sent: number }> {
@@ -411,18 +416,14 @@ export async function dispatchNewEventPushes(
     // Audience : followers du club + followers de l'organisateur.
     const ids = new Set<string>();
     if (ev.venue_id) {
-      const { data } = await admin
+      for (const id of await collectUserIds((f, t) => admin
         .from("favorites").select("user_id")
-        .eq("venue_id", ev.venue_id).not("user_id", "is", null);
-      // deno-lint-ignore no-explicit-any
-      (data || []).forEach((d: any) => ids.add(d.user_id));
+        .eq("venue_id", ev.venue_id).not("user_id", "is", null).range(f, t))) ids.add(id);
     }
     if (ev.organizer_user_id) {
-      const { data } = await admin
+      for (const id of await collectUserIds((f, t) => admin
         .from("organizer_profile_followers").select("user_id")
-        .eq("organizer_user_id", ev.organizer_user_id);
-      // deno-lint-ignore no-explicit-any
-      (data || []).forEach((d: any) => ids.add(d.user_id));
+        .eq("organizer_user_id", ev.organizer_user_id).range(f, t))) ids.add(id);
     }
     const userIds = [...ids].filter((id) => subscribers.has(id));
 
