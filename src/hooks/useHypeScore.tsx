@@ -217,10 +217,16 @@ export function useHypeScore(venueId: string | null, eventId?: string | null) {
         .gte('created_at', last24h.toISOString());
       if (eventId) orders24Q = orders24Q.eq('event_id', eventId);
 
-      // Favorites (event-scoped when possible).
-      const favQ = eventId
-        ? supabase.from('favorites').select('created_at').eq('event_id', eventId).eq('favorite_type', 'event')
-        : supabase.from('favorites').select('created_at').eq('venue_id', venueId);
+      // Favorites (event-scoped when possible). Les compteurs sont PUBLICS mais la RLS
+      // de favorites est owner-only (auth.uid() = user_id) : un `.from('favorites')`
+      // client ne verrait que la ligne du viewer → 0/1. Le RPC DEFINER renvoie total +
+      // fenêtre récente, pour préserver le signal de momentum (favorites7d).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- RPC pas encore dans types.ts (regen en follow-up)
+      const favStatsQ = (supabase.rpc as any)('get_hype_favorite_stats', {
+        _venue_id: eventId ? null : venueId,
+        _event_id: eventId ?? null,
+        _since: last7days.toISOString(),
+      }) as PromiseLike<{ data: { total_count: number; recent_count: number }[] | null }>;
 
       // Loyalty (venue base).
       const loyaltyQ = supabase
@@ -249,10 +255,10 @@ export function useHypeScore(venueId: string | null, eventId?: string | null) {
         { data: venueSessions },
         { data: ticketRows },
         { data: orders24 },
-        { data: favRows },
+        { data: favStatsRows },
         { data: loyaltyData },
         { data: baselineRow },
-      ] = await Promise.all([eventSessionsQ, venueSessionsQ, ticketsQ, orders24Q, favQ, loyaltyQ, baselineQ]);
+      ] = await Promise.all([eventSessionsQ, venueSessionsQ, ticketsQ, orders24Q, favStatsQ, loyaltyQ, baselineQ]);
 
       const baseline: BaselineProfile | null = baselineRow
         ? {
@@ -266,7 +272,7 @@ export function useHypeScore(venueId: string | null, eventId?: string | null) {
       const eventSess = (eventSessions || []) as unknown as SessionRow[];
       const venueSess = (venueSessions || []) as { session_id: string; visited_at: string }[];
       const tickets = (ticketRows || []) as unknown as TicketRow[];
-      const favs = (favRows || []) as { created_at: string }[];
+      const favStats = (favStatsRows || [])[0] as { total_count: number; recent_count: number } | undefined;
 
       // Event meta + capacity.
       let maxTickets: number | null = null;
@@ -395,8 +401,8 @@ export function useHypeScore(venueId: string | null, eventId?: string | null) {
       const cartRate = uniqueVisitors24 > 0 ? Math.min(100, (cartAddsCount / uniqueVisitors24) * 100) : 0;
 
       // ── Favorites velocity ──
-      const favCount = favs.length;
-      const favorites7d = favs.filter((f) => new Date(f.created_at) >= last7days).length;
+      const favCount = favStats?.total_count ?? 0;
+      const favorites7d = favStats?.recent_count ?? 0;
 
       // ── Loyalty ──
       const loyaltyTotal = loyaltyData?.length || 0;
