@@ -80,6 +80,9 @@ interface DJProfile {
   slug: string;
   featured_track_url: string | null;
   featured_track_title: string | null;
+  // Fiche que l'utilisateur courant suit pour cette PERSONNE (grain personne),
+  // renvoyée par get_dj_public_profile. NULL si pas suivi ou visiteur anonyme.
+  followed_dj_id?: string | null;
 }
 
 interface DJVenueChip { id: string; name: string; city: string | null; logo_url: string | null; followers: number }
@@ -358,7 +361,10 @@ export default function DJPublicPage() {
           <div className="flex items-center gap-3">
             <FavoriteButton
               type="dj"
-              id={dj.id}
+              // Grain personne : si l'utilisateur suit déjà cette personne via une
+              // AUTRE fiche, on passe CETTE fiche au bouton pour que isFavorite/toggle
+              // visent la bonne ligne. Sinon la fiche canonique (nouveau suivi).
+              id={dj.followed_dj_id ?? dj.id}
               size="sm"
               variant="default"
               showLabel
