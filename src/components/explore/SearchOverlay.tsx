@@ -58,6 +58,49 @@ interface OrgResult {
   slug: string | null;
 }
 
+// Lignes telles que sélectionnées par les requêtes de recherche (colonnes du select).
+interface EventRow {
+  id: string;
+  title: string;
+  poster_url: string | null;
+  start_at: string;
+  end_at: string;
+  venue_id: string | null;
+  is_active: boolean;
+  music_genres: string[] | null;
+}
+
+interface AffEventRow {
+  id: string;
+  name: string;
+  flyer_url: string | null;
+  event_date: string;
+  start_time: string | null;
+  genres: string[] | null;
+  affiliate_venue_id: string | null;
+  slug: string;
+}
+
+interface DjRow {
+  id: string | null;
+  stage_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  profile_image_url: string | null;
+  music_genres: string[] | null;
+  slug: string | null;
+  handle: string | null;
+}
+
+// Interface structurelle minimale du query builder Supabase : chaînable + thenable.
+interface SearchQuery<Row> extends PromiseLike<{ data: Row[] | null }> {
+  eq(column: string, value: string | boolean): SearchQuery<Row>;
+  or(filters: string): SearchQuery<Row>;
+  gte(column: string, value: string): SearchQuery<Row>;
+  lte(column: string, value: string): SearchQuery<Row>;
+  in(column: string, values: string[]): SearchQuery<Row>;
+}
+
 type DateFilter = 'today' | 'tomorrow';
 
 type ChipAction =
@@ -281,7 +324,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
 
       // ── Build event queries ──────────────────────────────────
       // Helper to apply common constraints to an event query
-      const applyEventConstraints = (baseQ: any) => {
+      const applyEventConstraints = (baseQ: SearchQuery<EventRow>) => {
         // BDE soirées are private by default and must never surface in public search.
         // Non-BDE events keep their current behavior; BDE events appear only once a
         // super admin has approved them (is_discoverable = true), like in Explore.
@@ -297,17 +340,19 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
 
       // When no text query: fetch all events in the date range
       // When text query: search by title + genre (multiple case variants)
-      const eventQueries: Promise<any>[] = [];
+      const eventQueries: PromiseLike<{ data: EventRow[] | null }>[] = [];
 
       if (!hasText && dateFilter) {
         // Date-only: show all events for that day
         eventQueries.push(
           applyEventConstraints(
+            // Double cast : comparer le builder complet (générique sur tout le
+            // schéma) à SearchQuery fait exploser la profondeur de types (TS2589).
             supabase
               .from('events')
               .select('id, title, poster_url, start_at, end_at, venue_id, is_active, music_genres')
               .order('start_at', { ascending: true })
-              .limit(20)
+              .limit(20) as unknown as SearchQuery<EventRow>
           )
         );
       } else if (hasText) {
@@ -318,7 +363,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
               .from('events')
               .select('id, title, poster_url, start_at, end_at, venue_id, is_active, music_genres')
               .ilike('search_title', searchTerm)
-              .limit(10)
+              .limit(10) as unknown as SearchQuery<EventRow>
           )
         );
         // Genre search — try multiple case variants to handle DB inconsistencies
@@ -329,14 +374,14 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
                 .from('events')
                 .select('id, title, poster_url, start_at, end_at, venue_id, is_active, music_genres')
                 .contains('music_genres', [variant])
-                .limit(10)
+                .limit(10) as unknown as SearchQuery<EventRow>
             )
           );
         }
       }
 
       // ── Build affiliate event queries ────────────────────────
-      const applyAffEventConstraints = (baseQ: any) => {
+      const applyAffEventConstraints = (baseQ: SearchQuery<AffEventRow>) => {
         let q2 = baseQ.in('status', ['published', 'featured']);
         if (affDateRange) {
           q2 = q2.gte('event_date', affDateRange.start).lte('event_date', affDateRange.end);
@@ -347,16 +392,17 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
         return q2;
       };
 
-      const affEventQueries: Promise<any>[] = [];
+      const affEventQueries: PromiseLike<{ data: AffEventRow[] | null }>[] = [];
 
       if (!hasText && dateFilter) {
         affEventQueries.push(
           applyAffEventConstraints(
+            // Double cast : même contournement TS2589 que pour eventQueries.
             supabase
               .from('affiliate_events')
               .select('id, name, flyer_url, event_date, start_time, genres, affiliate_venue_id, slug')
               .order('event_date', { ascending: true })
-              .limit(20)
+              .limit(20) as unknown as SearchQuery<AffEventRow>
           )
         );
       } else if (hasText) {
@@ -367,7 +413,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
               .from('affiliate_events')
               .select('id, name, flyer_url, event_date, start_time, genres, affiliate_venue_id, slug')
               .ilike('search_name', searchTerm)
-              .limit(8)
+              .limit(8) as unknown as SearchQuery<AffEventRow>
           )
         );
         // By genre (multiple case variants)
@@ -378,7 +424,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
                 .from('affiliate_events')
                 .select('id, name, flyer_url, event_date, start_time, genres, affiliate_venue_id, slug')
                 .contains('genres', [variant])
-                .limit(8)
+                .limit(8) as unknown as SearchQuery<AffEventRow>
             )
           );
         }
@@ -445,7 +491,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
       ]);
 
       // Supplemental DJ genre search
-      let djsByGenre: any[] = [];
+      let djsByGenre: DjRow[] = [];
       if (hasText && q.length >= 2) {
         for (const variant of genreVariants(q)) {
           const { data } = await supabase
@@ -459,78 +505,76 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
       }
 
       // ── Merge + dedup events ─────────────────────────────────
-      const allRawEvents = eventResults.flatMap((r: any) => r?.data || []);
-      const uniqueRawEvents = Array.from(new Map(allRawEvents.map((e: any) => [e.id, e])).values()).slice(0, 12);
+      const allRawEvents = eventResults.flatMap((r) => r?.data || []);
+      const uniqueRawEvents = Array.from(new Map(allRawEvents.map((e) => [e.id, e] as const)).values()).slice(0, 12);
 
-      const allAffRaw = affEventResults.flatMap((r: any) => r?.data || []);
-      const uniqueAffRaw = Array.from(new Map(allAffRaw.map((e: any) => [e.id, e])).values()).slice(0, 8);
+      const allAffRaw = affEventResults.flatMap((r) => r?.data || []);
+      const uniqueAffRaw = Array.from(new Map(allAffRaw.map((e) => [e.id, e] as const)).values()).slice(0, 8);
 
       // Venue names for regular events
-      const venueIds = [...new Set(uniqueRawEvents.map((e: any) => e.venue_id))];
+      const venueIds = [...new Set(uniqueRawEvents.map((e) => e.venue_id))] as string[];
       let venueMap: Record<string, { name: string }> = {};
       if (venueIds.length > 0) {
         const { data: vd } = await supabase
           .from('venues')
           .select('id, name')
           .in('id', venueIds);
-        venueMap = Object.fromEntries((vd || []).map((v: any) => [v.id, { name: v.name }]));
+        venueMap = Object.fromEntries((vd || []).map((v) => [v.id, { name: v.name }] as const));
       }
 
       // Venue names for affiliate events
-      const affVenueIds = [...new Set(uniqueAffRaw.map((e: any) => e.affiliate_venue_id).filter(Boolean))];
+      const affVenueIds = [...new Set(uniqueAffRaw.map((e) => e.affiliate_venue_id).filter(Boolean))] as string[];
       let affVenueMap: Record<string, string> = {};
       if (affVenueIds.length > 0) {
         const { data: avd } = await supabase
           .from('affiliate_venues')
           .select('id, name')
           .in('id', affVenueIds);
-        affVenueMap = Object.fromEntries((avd || []).map((v: any) => [v.id, v.name]));
+        affVenueMap = Object.fromEntries((avd || []).map((v) => [v.id, v.name] as const));
       }
 
-      // Favorites for regular events
-      const eventIds = uniqueRawEvents.map((e: any) => e.id);
-      let favCounts: Record<string, number> = {};
+      // Compteurs d'abonnés (events + clubs) : PUBLICS, mais la RLS de `favorites`
+      // est owner-only (auth.uid() = user_id). Un `.from('favorites')` client direct
+      // ne verrait que les lignes du viewer → 0/1. On passe par le RPC DEFINER
+      // (comme Explore.tsx), qui renvoie tous les totaux ; on filtre côté client sur
+      // les identifiants affichés.
+      const eventIds = uniqueRawEvents.map((e) => e.id);
+      const favCounts: Record<string, number> = {};
       if (eventIds.length > 0) {
-        const { data: favs } = await supabase
-          .from('favorites')
-          .select('event_id')
-          .eq('favorite_type', 'event')
-          .in('event_id', eventIds);
-        (favs || []).forEach((f: any) => {
-          if (f.event_id) favCounts[f.event_id] = (favCounts[f.event_id] || 0) + 1;
+        const wanted = new Set(eventIds);
+        const { data: favs } = await supabase.rpc('get_public_favorite_counts', { _favorite_type: 'event' });
+        (favs || []).forEach((f) => {
+          if (f.target_id && wanted.has(f.target_id)) favCounts[f.target_id] = f.total_count;
         });
       }
 
       // Club followers
-      const clubIds = (venuesRes.data || []).map((v: any) => v.id);
-      let clubFollowers: Record<string, number> = {};
+      const clubIds = (venuesRes.data || []).map((v) => v.id);
+      const clubFollowers: Record<string, number> = {};
       if (clubIds.length > 0) {
-        const { data: cf } = await supabase
-          .from('favorites')
-          .select('venue_id')
-          .eq('favorite_type', 'club')
-          .in('venue_id', clubIds);
-        (cf || []).forEach((f: any) => {
-          if (f.venue_id) clubFollowers[f.venue_id] = (clubFollowers[f.venue_id] || 0) + 1;
+        const wanted = new Set(clubIds);
+        const { data: cf } = await supabase.rpc('get_public_favorite_counts', { _favorite_type: 'club' });
+        (cf || []).forEach((f) => {
+          if (f.target_id && wanted.has(f.target_id)) clubFollowers[f.target_id] = f.total_count;
         });
       }
 
       if (hasText && q.length >= 2) saveRecentSearch(q);
 
       // ── Build result objects ─────────────────────────────────
-      const regularEvents: EventResult[] = uniqueRawEvents.map((e: any) => ({
+      const regularEvents: EventResult[] = uniqueRawEvents.map((e) => ({
         id: e.id,
         title: e.title,
         poster_url: e.poster_url,
         start_at: e.start_at,
-        venue_name: venueMap[e.venue_id]?.name || '',
-        venue_slug: e.venue_id,
+        venue_name: venueMap[e.venue_id as string]?.name || '',
+        venue_slug: e.venue_id as string,
         interested: favCounts[e.id] || 0,
         music_genres: e.music_genres,
         isAffiliate: false,
       }));
 
-      const affiliateEvents: EventResult[] = uniqueAffRaw.map((ae: any) => ({
+      const affiliateEvents: EventResult[] = uniqueAffRaw.map((ae) => ({
         id: ae.id,
         title: ae.name,
         poster_url: ae.flyer_url || null,
@@ -553,13 +597,13 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
       // 2 lignes djs (profil perso venue_id NULL + entrée roster d'un club) qui
       // remonteraient toutes les deux. handle est joint par user_id donc identique.
       const uniqueDjs = Array.from(
-        new Map(allDjs.map((d: any) => [d.handle || d.stage_name || d.id, d])).values()
+        new Map(allDjs.map((d) => [d.handle || d.stage_name || d.id, d] as const)).values()
       ).slice(0, 5);
 
       setResults({
         events: Array.from(mergedEventsMap.values()).slice(0, 12),
         clubs: [
-          ...(affVenuesRes.data || []).map((av: any) => ({
+          ...(affVenuesRes.data || []).map((av) => ({
             id: av.id,
             name: av.name,
             logo_url: av.logo_url || av.cover_image_url || null,
@@ -568,7 +612,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
             followers: 0,
             isAffiliate: true,
           })),
-          ...(venuesRes.data || []).map((v: any) => ({
+          ...(venuesRes.data || []).map((v) => ({
             id: v.id,
             name: v.name,
             logo_url: v.logo_url || null,
@@ -578,17 +622,17 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
             isAffiliate: false,
           })),
         ],
-        djs: uniqueDjs.map((d: any) => ({
-          id: d.id,
+        djs: uniqueDjs.map((d) => ({
+          id: d.id as string,
           stage_name: d.stage_name,
-          first_name: d.first_name,
-          last_name: d.last_name,
+          first_name: d.first_name as string,
+          last_name: d.last_name as string,
           profile_image_url: d.profile_image_url,
           music_genres: d.music_genres,
           slug: d.slug || null,
           handle: d.handle || null,
         })),
-        organizers: (organizersRes.data || []).map((o: any) => ({
+        organizers: (organizersRes.data || []).map((o) => ({
           id: o.user_id,
           name: o.display_name,
           logo_url: o.avatar_url,

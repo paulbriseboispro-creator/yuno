@@ -96,8 +96,10 @@ export default function EventDetails() {
   // (Partner venue drinks intentionally not loaded on event page — surfaced only on venue + organizer pages)
   const addToCart = useStore((state) => state.addToCart);
   // Live visitor tracking — scope to venue (drinks bar), event, and organizer when present
-  const venueIdForTracking = (event as any)?.venueId || (event as any)?.partner_venue_id || null;
-  const organizerIdForTracking = (event as any)?.organizer_user_id || (event as any)?.partner_organizer_id || null;
+  // Champs snake_case éventuels (jamais posés par setEvent) lus par le tracking : typés en option.
+  const trackingEvent = event as (typeof event & { partner_venue_id?: string | null; organizer_user_id?: string | null; partner_organizer_id?: string | null }) | null;
+  const venueIdForTracking = trackingEvent?.venueId || trackingEvent?.partner_venue_id || null;
+  const organizerIdForTracking = trackingEvent?.organizer_user_id || trackingEvent?.partner_organizer_id || null;
   const { trackAddToCart } = useVisitorTracking(
     venueIdForTracking || undefined,
     eventId || undefined,
@@ -179,12 +181,16 @@ export default function EventDetails() {
   // Tout part en une seule salve : avant, chaque `count` attendait le précédent
   // et la boucle par organisateur faisait 3 requêtes séquentielles CHACUN.
   const fetchStats = useCallback(async (venueId: string | null, organizerIds: string[], user: { id: string } | null) => {
-    const headCount = (q: any) => q.then((r: { count: number | null }) => r.count || 0);
+    const headCount = (q: PromiseLike<{ count: number | null }>) => q.then((r) => r.count || 0);
+    // Les compteurs d'abonnés sont PUBLICS mais la RLS de `favorites` est owner-only
+    // (auth.uid() = user_id) : un `.count` client direct ne verrait que la ligne du
+    // viewer et renverrait 0/1. On passe donc par le RPC DEFINER dédié.
+    const rpcCount = (q: PromiseLike<{ data: number | null }>) => q.then((r) => r.data || 0);
 
     const [venueStats, orgStats] = await Promise.all([
       venueId
         ? Promise.all([
-            headCount(supabase.from('favorites').select('*', { count: 'exact', head: true }).eq('favorite_type', 'club').eq('venue_id', venueId)),
+            rpcCount(supabase.rpc('get_public_favorite_count', { _favorite_type: 'club', _venue_id: venueId })),
             headCount(supabase.from('events').select('*', { count: 'exact', head: true }).eq('venue_id', venueId)),
           ])
         : Promise.resolve([0, 0] as [number, number]),
@@ -202,8 +208,8 @@ export default function EventDetails() {
 
     // Le compteur « intéressés » vaut pour toute soirée, avec club ou non.
     if (eventId) {
-      const intCount = await headCount(
-        supabase.from('favorites').select('*', { count: 'exact', head: true }).eq('favorite_type', 'event').eq('event_id', eventId),
+      const intCount = await rpcCount(
+        supabase.rpc('get_public_favorite_count', { _favorite_type: 'event', _event_id: eventId }),
       );
       setInterestedCount(intCount);
     }
@@ -244,16 +250,16 @@ export default function EventDetails() {
 
       const user = userRes.data?.user ?? null;
       const eventSettingsData = tableSettingsRes.data;
-      const djIds = (eventDjsRes.data ?? []).map((ed: any) => ed.dj_id).filter(Boolean);
+      const djIds = (eventDjsRes.data ?? []).map((ed) => ed.dj_id).filter(Boolean);
 
       const isOrganizerLed = !!eventData.organizer_user_id;
       // Host venue: main venue_id (club event) OR partner_venue_id (organizer-led co-event)
-      const hostVenueId = eventData.venue_id || (isOrganizerLed ? (eventData as any).partner_venue_id : null);
-      const partnerOrgId = (eventData as any).partner_organizer_id as string | null;
+      const hostVenueId = eventData.venue_id || (isOrganizerLed ? eventData.partner_venue_id : null);
+      const partnerOrgId = eventData.partner_organizer_id;
 
       // Tables : mode « basic » (soirée hébergée / tables à l'event) → périmètre
       // event_id. Mode club/Elite → périmètre venue_id.
-      const isBasicTables = (eventData as any).tables_mode === 'basic' || !eventData.venue_id;
+      const isBasicTables = eventData.tables_mode === 'basic' || !eventData.venue_id;
       const tableScope = isBasicTables
         ? { col: 'event_id' as const, val: eventId as string }
         : { col: 'venue_id' as const, val: eventData.venue_id as string };
@@ -345,7 +351,7 @@ export default function EventDetails() {
       }
 
       // ── Salle hôte (adresse, carte) ──
-      const venueData = venueRes.data as any;
+      const venueData = venueRes.data;
       if (venueData) {
         setVenue({
           id: venueData.id,
@@ -371,7 +377,8 @@ export default function EventDetails() {
       // ── Line-up ── .in() ne garantit pas l'ordre : on rejoue celui d'event_djs
       // (tête d'affiche en premier).
       if (djIds.length > 0) {
-        const byId = new Map(((djRowsRes.data ?? []) as any[]).map((d: any) => [d.id, d]));
+        // Colonnes de la vue djs_public toutes nullables dans les types générés ; les lignes réelles portent les champs d'EventDJ.
+        const byId = new Map((djRowsRes.data ?? []).map((d) => [d.id, d as unknown as EventDJ] as const));
         setDjs(djIds.map((id) => byId.get(id)).filter(Boolean) as EventDJ[]);
 
         // Abonnés par DJ (preuve sociale du line-up) : même agrégat que le module
@@ -380,7 +387,7 @@ export default function EventDetails() {
         // l'attente du premier rendu.
         void supabase.rpc('get_public_favorite_counts', { _favorite_type: 'dj' }).then(({ data: counts }) => {
           const followerMap: Record<string, number> = {};
-          (counts ?? []).forEach((c: any) => { if (c.target_id) followerMap[c.target_id] = c.total_count; });
+          (counts ?? []).forEach((c) => { if (c.target_id) followerMap[c.target_id] = c.total_count; });
           setDjFollowers(followerMap);
         });
       }
@@ -399,13 +406,13 @@ export default function EventDetails() {
         position: r.position,
         isActive: r.is_active,
         autoActivate: r.auto_activate,
-        manuallySoldOut: (r as any).manually_sold_out ?? false,
+        manuallySoldOut: r.manually_sold_out ?? false,
         lastTicketsThreshold: r.last_tickets_threshold ?? 20,
         includesDrink: r.includes_drink ?? false,
         drinkDeadlineType: (r.drink_deadline_type as 'hours_after_start' | 'fixed_time') ?? 'hours_after_start',
         drinkDeadlineHours: r.drink_deadline_hours,
         drinkCutoffTime: r.drink_cutoff_time,
-        ticketType: ((r as any).ticket_type as 'standard' | 'vip') ?? 'standard',
+        ticketType: (r.ticket_type as 'standard' | 'vip') ?? 'standard',
         createdAt: r.created_at,
         updatedAt: r.updated_at,
       })));
@@ -413,7 +420,7 @@ export default function EventDetails() {
       // ── Tables ── Les prix peuvent être écrasés par un preset OU par les prix
       // custom de la soirée.
       const priceOverrides: Record<string, number> = {};
-      const presetPacks = (presetRes.data as any)?.packs as { packId: string; customPrice: number | null }[] | undefined;
+      const presetPacks = presetRes.data?.packs as { packId: string; customPrice: number | null }[] | undefined;
       const customPrices = eventSettingsData?.custom_prices as { packId: string; customPrice: number | null }[] | undefined;
       (presetPacks ?? customPrices ?? []).forEach(p => {
         if (p.customPrice !== null) priceOverrides[p.packId] = p.customPrice;
@@ -442,10 +449,10 @@ export default function EventDetails() {
         extraPersonPrice: p.extra_person_price ? Number(p.extra_person_price) : 0,
         maxExtraPersons: p.max_extra_persons ?? 0,
         deposit: p.deposit ? Number(p.deposit) : 0,
-        depositType: ((p as any).deposit_type as 'fixed' | 'percentage') || 'fixed',
+        depositType: (p.deposit_type as 'fixed' | 'percentage') || 'fixed',
         includedItems: p.included_items,
-        includedBottlesQuota: (p as any).included_bottles_quota || 0,
-        minimumSpend: Number((p as any).minimum_spend) || 0,
+        includedBottlesQuota: p.included_bottles_quota || 0,
+        minimumSpend: Number(p.minimum_spend) || 0,
         tablesCount: p.tables_count || 1,
         position: p.position,
         isActive: p.is_active,
@@ -470,20 +477,20 @@ export default function EventDetails() {
         ticketingEnabled: eventData.ticketing_enabled,
         maxTickets: eventData.max_tickets,
         tablesEnabled: eventData.tables_enabled,
-        ticketSellingMode: ((eventData as any).ticket_selling_mode as 'rounds' | 'timed_entry') || 'rounds',
+        ticketSellingMode: (eventData.ticket_selling_mode as 'rounds' | 'timed_entry' | null) || 'rounds',
         presaleStartAt: eventData.presale_start_at || undefined,
         publicSaleStartAt: eventData.public_sale_start_at || undefined,
         waitlistEnabled: eventData.waitlist_enabled || false,
-        roundsVisibility: ((eventData as any).rounds_visibility as 'sequential' | 'preview_upcoming' | 'all_open') ?? 'sequential',
-        locationIsSecret: !!(eventData as any).location_is_secret,
+        roundsVisibility: (eventData.rounds_visibility as 'sequential' | 'preview_upcoming' | 'all_open' | null) ?? 'sequential',
+        locationIsSecret: !!eventData.location_is_secret,
         createdAt: eventData.created_at,
         updatedAt: eventData.updated_at,
         eventType: eventData.event_type,
-        musicGenres: (((eventData as any).music_genres as string[] | null)?.length
-          ? ((eventData as any).music_genres as string[])
+        musicGenres: (eventData.music_genres?.length
+          ? eventData.music_genres
           : eventData.music_genre ? [eventData.music_genre] : []),
-        visibility: (eventData as any).visibility as string | undefined,
-        hideYunoNavigation: !!(eventData as any).hide_yuno_navigation,
+        visibility: eventData.visibility as string | undefined,
+        hideYunoNavigation: !!eventData.hide_yuno_navigation,
       });
 
       // Compteurs de preuve sociale : lancés SANS await. La page est déjà
