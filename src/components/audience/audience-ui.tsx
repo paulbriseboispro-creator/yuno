@@ -119,11 +119,12 @@ export function Coverage({ known, total, label }: { known: number; total: number
   );
 }
 
-// Courbe d'évolution (SVG autonome). `series` = points {label, value}. `boundary`
-// = index à partir duquel la donnée est NETTE (avant = brut) : on trace en pointillé
-// avant, plein après, pour ne jamais présenter du brut comme du net (correctif 1.3).
-export function MiniLine({ series, boundaryIndex }: {
-  series: { label: string; value: number }[]; boundaryIndex?: number;
+// Courbe d'évolution (SVG autonome). `series` = points {label, value}.
+// (Le marqueur brut/net a été retiré : brut mensuel et net-snapshots sont deux
+// séries distinctes, jamais cousues en une seule courbe — le flag `net` côté
+// AudienceDashboard porte déjà l'étiquetage.)
+export function MiniLine({ series }: {
+  series: { label: string; value: number }[];
 }) {
   const W = 640, H = 120, P = 6;
   if (series.length < 2) return <div className="text-[12px]" style={{ color: T3 }}>—</div>;
@@ -133,13 +134,9 @@ export function MiniLine({ series, boundaryIndex }: {
   const x = (i: number) => P + (i / (series.length - 1)) * (W - 2 * P);
   const y = (v: number) => H - P - ((v - min) / span) * (H - 2 * P);
   const pts = series.map((s, i) => `${x(i)},${y(s.value)}`);
-  const b = Math.max(1, Math.min(series.length - 1, boundaryIndex ?? 0));
-  const grossPath = boundaryIndex && boundaryIndex > 0 ? pts.slice(0, b + 1).join(' ') : '';
-  const netPath = pts.slice(boundaryIndex && boundaryIndex > 0 ? b : 0).join(' ');
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: 120 }} preserveAspectRatio="none">
-      {grossPath && <polyline points={grossPath} fill="none" stroke={T3} strokeWidth={2} strokeDasharray="4 4" />}
-      <polyline points={netPath} fill="none" stroke={RED} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
+      <polyline points={pts.join(' ')} fill="none" stroke={RED} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );
 }

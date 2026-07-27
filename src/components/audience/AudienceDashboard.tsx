@@ -30,12 +30,12 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
   // ── Courbe : série nette (snapshots) sinon brut mensuel (analytics.growth) ──
   const growthSeries = useMemo(() => {
     if (g?.series?.length && g.series.length >= 2) {
-      return { pts: g.series.map(s => ({ label: s.date.slice(5), value: s.total })), boundary: undefined as number | undefined, net: true };
+      return { pts: g.series.map(s => ({ label: s.date.slice(5), value: s.total })), net: true };
     }
     if (a?.growth?.length && a.growth.length >= 2) {
       let run = 0;
       const pts = a.growth.map(m => { run += m.count; return { label: m.month.slice(2), value: run }; });
-      return { pts, boundary: undefined, net: false };
+      return { pts, net: false };
     }
     return null;
   }, [g, a]);
@@ -132,7 +132,7 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
               : t('Cumul des abonnements (historique brut)', 'Cumulative follows (raw history)', 'Suscripciones acumuladas (histórico bruto)')}>
             {growthSeries ? (
               <>
-                <MiniLine series={growthSeries.pts} boundaryIndex={growthSeries.boundary} />
+                <MiniLine series={growthSeries.pts} />
                 {!growthSeries.net && (
                   <p className="text-[11px] mt-2" style={{ color: T3 }}>
                     {t('Le suivi net (avec désabonnements) démarre avec la capture — la courbe s\'affine chaque jour.',
