@@ -12,21 +12,25 @@ import {
 import { NavGroup } from '@/components/nav-group';
 import type { SidebarNavGroup } from '@/components/app-shared';
 import { supabase } from '@/integrations/supabase/client';
+import { useLanguage } from '@/contexts/LanguageContext';
 import {
   LayoutDashboard, MapPin, CalendarDays, RefreshCw, BarChart2, LogOut, Settings,
-  Users, Link2, Activity, CalendarRange, UserPlus, Bell, LifeBuoy,
+  Users, Link2, Activity, CalendarRange, UserPlus, Megaphone, LifeBuoy, Inbox, UserRound,
 } from 'lucide-react';
 
 export type AffiliateRole = 'admin' | 'manager' | 'member';
 
-function buildGroups(role: AffiliateRole): SidebarNavGroup[] {
+type T = (key: string) => string;
+
+function buildGroups(role: AffiliateRole, t: T): SidebarNavGroup[] {
   if (role === 'manager') {
     return [
       {
-        label: "Vue d'ensemble",
+        label: t('aff.nav.overview'),
         items: [
-          { title: 'Mon équipe', path: '/affiliate/manager', icon: <Users /> },
-          { title: 'Analytics', path: '/affiliate/analytics', icon: <BarChart2 /> },
+          { title: t('aff.nav.myTeam'), path: '/affiliate/manager', icon: <Users /> },
+          { title: t('aff.nav.analytics'), path: '/affiliate/analytics', icon: <BarChart2 /> },
+          { title: t('aff.nav.inbox'), path: '/affiliate/inbox', icon: <Inbox /> },
         ],
       },
     ];
@@ -35,22 +39,23 @@ function buildGroups(role: AffiliateRole): SidebarNavGroup[] {
   if (role === 'member') {
     return [
       {
-        label: "Vue d'ensemble",
+        label: t('aff.nav.overview'),
         items: [
-          { title: 'Mon espace', path: '/affiliate/promoteur', icon: <LayoutDashboard /> },
-          { title: 'Analytics', path: '/affiliate/analytics', icon: <BarChart2 /> },
+          { title: t('aff.nav.mySpace'), path: '/affiliate/promoteur', icon: <LayoutDashboard /> },
+          { title: t('aff.nav.analytics'), path: '/affiliate/analytics', icon: <BarChart2 /> },
+          { title: t('aff.nav.inbox'), path: '/affiliate/inbox', icon: <Inbox /> },
         ],
       },
       {
-        label: 'Ma promo',
+        label: t('aff.nav.myPromo'),
         items: [
-          { title: 'Mon Linktree', path: '/affiliate/promoteur/linktree', icon: <Link2 /> },
+          { title: t('aff.nav.myLinktree'), path: '/affiliate/promoteur/linktree', icon: <Link2 /> },
         ],
       },
       {
-        label: 'Réglages',
+        label: t('aff.nav.settingsGroup'),
         items: [
-          { title: 'Mon profil', path: '/affiliate/promoteur/settings', icon: <Settings /> },
+          { title: t('aff.nav.myProfile'), path: '/affiliate/promoteur/settings', icon: <Settings /> },
         ],
       },
     ];
@@ -59,34 +64,35 @@ function buildGroups(role: AffiliateRole): SidebarNavGroup[] {
   // admin
   return [
     {
-      label: "Vue d'ensemble",
+      label: t('aff.nav.overview'),
       items: [
-        { title: 'Accueil', path: '/affiliate', icon: <LayoutDashboard /> },
-        { title: 'Cette semaine', path: '/affiliate/semaine', icon: <CalendarRange /> },
-        { title: 'Analytics', path: '/affiliate/analytics', icon: <BarChart2 /> },
+        { title: t('aff.nav.home'), path: '/affiliate', icon: <LayoutDashboard /> },
+        { title: t('aff.nav.week'), path: '/affiliate/semaine', icon: <CalendarRange /> },
+        { title: t('aff.nav.analytics'), path: '/affiliate/analytics', icon: <BarChart2 /> },
+        { title: t('aff.nav.inbox'), path: '/affiliate/inbox', icon: <Inbox /> },
       ],
     },
     {
-      label: 'Soirées & Clubs',
+      label: t('aff.nav.eventsClubs'),
       items: [
-        { title: 'Clubs', path: '/affiliate/venues', icon: <MapPin /> },
-        { title: 'Soirées', path: '/affiliate/events', icon: <CalendarDays /> },
-        { title: 'Récurrents', path: '/affiliate/recurring', icon: <RefreshCw /> },
+        { title: t('aff.nav.clubs'), path: '/affiliate/venues', icon: <MapPin /> },
+        { title: t('aff.nav.events'), path: '/affiliate/events', icon: <CalendarDays /> },
+        { title: t('aff.nav.recurring'), path: '/affiliate/recurring', icon: <RefreshCw /> },
       ],
     },
     {
-      label: 'Équipe & Promo',
+      label: t('aff.nav.teamPromo'),
       items: [
-        { title: 'Assignments', path: '/affiliate/assignments', icon: <UserPlus /> },
-        { title: 'Équipe', path: '/affiliate/members', icon: <Users /> },
-        { title: 'Suivi promoteurs', path: '/affiliate/suivi', icon: <Activity /> },
-        { title: 'Notifications', path: '/affiliate/notifications', icon: <Bell /> },
+        { title: t('aff.nav.assignments'), path: '/affiliate/assignments', icon: <UserPlus /> },
+        { title: t('aff.nav.team'), path: '/affiliate/members', icon: <Users /> },
+        { title: t('aff.nav.promoterTracking'), path: '/affiliate/suivi', icon: <Activity /> },
+        { title: t('aff.nav.teamComms'), path: '/affiliate/notifications', icon: <Megaphone /> },
       ],
     },
     {
-      label: 'Réglages',
+      label: t('aff.nav.settingsGroup'),
       items: [
-        { title: 'Paramètres', path: '/affiliate/settings', icon: <Settings /> },
+        { title: t('aff.nav.settings'), path: '/affiliate/settings', icon: <Settings /> },
       ],
     },
   ];
@@ -94,9 +100,10 @@ function buildGroups(role: AffiliateRole): SidebarNavGroup[] {
 
 export function AffiliateAppSidebar({ role }: { role: AffiliateRole }) {
   const navigate = useNavigate();
-  const groups = buildGroups(role);
+  const { t } = useLanguage();
+  const groups = buildGroups(role, t);
   const home = role === 'admin' ? '/affiliate' : role === 'manager' ? '/affiliate/manager' : '/affiliate/promoteur';
-  const roleLabel = role === 'admin' ? 'Espace Affilié' : role === 'manager' ? 'Manager' : 'Espace Promoteur';
+  const roleLabel = role === 'admin' ? t('aff.role.admin') : role === 'manager' ? t('aff.role.manager') : t('aff.role.member');
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -127,16 +134,24 @@ export function AffiliateAppSidebar({ role }: { role: AffiliateRole }) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="text-muted-foreground" size="sm">
-              <a href="mailto:support@yunoapp.eu">
+              <Link to="/affiliate/help">
                 <LifeBuoy />
-                <span>Aide & support</span>
-              </a>
+                <span>{t('aff.nav.help')}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild className="text-muted-foreground" size="sm">
+              <Link to="/profile">
+                <UserRound />
+                <span>{t('sidebar.backToProfile')}</span>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton onClick={handleSignOut} className="text-muted-foreground" size="sm">
               <LogOut />
-              <span>Déconnexion</span>
+              <span>{t('aff.nav.signOut')}</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

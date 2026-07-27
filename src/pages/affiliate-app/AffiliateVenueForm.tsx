@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
 import { Loader2, Lock, Building2, ImageIcon, Sliders, LinkIcon } from 'lucide-react';
 import { AffiliateImageUploader } from '@/components/affiliate/AffiliateImageUploader';
@@ -55,6 +56,7 @@ export default function AffiliateVenueForm() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const isEdit = Boolean(id);
 
   const [affiliateId, setAffiliateId] = useState<string | null>(null);
@@ -134,7 +136,7 @@ export default function AffiliateVenueForm() {
 
   const handleSave = async (): Promise<boolean> => {
     if (!affiliateId || !form.name) {
-      toast({ title: 'Nom requis', variant: 'destructive' });
+      toast({ title: t('aff.venueForm.nameRequired'), variant: 'destructive' });
       return false;
     }
 
@@ -175,7 +177,7 @@ export default function AffiliateVenueForm() {
         if (error) throw error;
         setForm(saved);
         markSaved(saved);
-        toast({ title: 'Club mis à jour' });
+        toast({ title: t('aff.venueForm.updatedToast') });
         // On RESTE sur la fiche : après une modification, repartir sur la liste
         // fait perdre le fil (et oblige à rouvrir le club pour vérifier).
       } else {
@@ -183,16 +185,16 @@ export default function AffiliateVenueForm() {
         if (error) throw error;
         setForm(saved);
         markSaved(saved);
-        toast({ title: 'Club créé' });
+        toast({ title: t('aff.venueForm.createdToast') });
         // Bascule en mode édition sur place : même écran, même contenu, mais un
         // second « Enregistrer » met à jour au lieu de créer un doublon.
         if (data?.id) navigate(`/affiliate/venues/${data.id}/edit`, { replace: true });
       }
       return true;
     } catch (err) {
-      const msg = (err as any)?.message ?? (err instanceof Error ? err.message : 'Erreur inconnue');
+      const msg = (err as any)?.message ?? (err instanceof Error ? err.message : t('aff.venueForm.unknownError'));
       const hint = (err as any)?.hint ?? (err as any)?.details ?? '';
-      toast({ title: 'Erreur', description: hint ? `${msg} — ${hint}` : msg, variant: 'destructive' });
+      toast({ title: t('aff.venueForm.errorTitle'), description: hint ? `${msg} — ${hint}` : msg, variant: 'destructive' });
       return false;
     } finally {
       setSaving(false);
@@ -203,7 +205,7 @@ export default function AffiliateVenueForm() {
   // création ne peut pas se déverser dans l'édition d'un autre club.
   const { markSaved, guardedNavigate } = useUnsavedGuard({
     scope: `affiliate-venue:${id ?? 'new'}`,
-    label: isEdit ? 'Fiche club' : 'Nouveau club',
+    label: isEdit ? t('aff.venueForm.guardEdit') : t('aff.venueForm.guardNew'),
     ready: !loadingData && Boolean(affiliateId),
     value: form,
     onRestore: setForm,
@@ -213,36 +215,36 @@ export default function AffiliateVenueForm() {
   if (loadingData) return <AffSpinner />;
 
   if (!affiliateId) {
-    return <AffPage maxWidth={760}><p style={{ color: T2 }}>Profil affilié introuvable.</p></AffPage>;
+    return <AffPage maxWidth={760}><p style={{ color: T2 }}>{t('aff.venueForm.profileNotFound')}</p></AffPage>;
   }
 
   return (
     <AffPage maxWidth={760}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-        <AffBackHeader title={isEdit ? 'Modifier le club' : 'Nouveau club'} onBack={() => guardedNavigate('/affiliate/venues')} />
+        <AffBackHeader title={isEdit ? t('aff.venueForm.editTitle') : t('aff.venueForm.newTitle')} onBack={() => guardedNavigate('/affiliate/venues')} />
       </motion.div>
 
       {/* Identité */}
       <AffCard padding={20}>
-        <AffCardHeader icon={Building2} title="Identité" />
+        <AffCardHeader icon={Building2} title={t('aff.venueForm.identity')} />
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <FieldLabel>Nom du club *</FieldLabel>
+              <FieldLabel>{t('aff.venueForm.nameLabel')}</FieldLabel>
               <DarkInput value={form.name} onChange={(v) => { set('name', v); if (!isEdit) set('slug', slugify(v)); }} placeholder="Fabrik Madrid" />
             </div>
             <div>
-              <FieldLabel>Slug (URL)</FieldLabel>
+              <FieldLabel>{t('aff.venueForm.slugLabel')}</FieldLabel>
               <DarkInput value={form.slug} onChange={(v) => set('slug', v)} placeholder="fabrik-madrid" />
             </div>
           </div>
 
           {/* Ville verrouillée */}
           <div>
-            <FieldLabel><span className="inline-flex items-center gap-1.5"><Lock className="h-3 w-3" /> Ville</span></FieldLabel>
+            <FieldLabel><span className="inline-flex items-center gap-1.5"><Lock className="h-3 w-3" /> {t('aff.venueForm.cityLabel')}</span></FieldLabel>
             <div className="flex items-center gap-2 px-3" style={{ height: 40, borderRadius: 10, background: TILE_BG, border: `1px solid ${F_BORDER}` }}>
               <span style={{ color: T1, fontSize: 13 }}>{affiliateCity || '—'}</span>
-              <span style={{ color: T3, fontSize: 11, marginLeft: 'auto' }}>Assignée par l'admin Yuno</span>
+              <span style={{ color: T3, fontSize: 11, marginLeft: 'auto' }}>{t('aff.venueForm.cityAssigned')}</span>
             </div>
           </div>
 
@@ -255,48 +257,48 @@ export default function AffiliateVenueForm() {
           />
 
           <div>
-            <FieldLabel hint="(accroche affichée sous le nom)">Bio courte</FieldLabel>
-            <DarkTextarea value={form.short_description} onChange={(v) => set('short_description', v.slice(0, 160))} placeholder="Une phrase courte et percutante…" rows={2} />
+            <FieldLabel hint={t('aff.venueForm.shortBioHint')}>{t('aff.venueForm.shortBioLabel')}</FieldLabel>
+            <DarkTextarea value={form.short_description} onChange={(v) => set('short_description', v.slice(0, 160))} placeholder={t('aff.venueForm.shortBioPlaceholder')} rows={2} />
             <p style={{ color: T3, fontSize: 11, textAlign: 'right', marginTop: 4 }}>{form.short_description.length}/160</p>
           </div>
 
           <div>
-            <FieldLabel>Description complète</FieldLabel>
-            <DarkTextarea value={form.description} onChange={(v) => set('description', v)} placeholder="Description complète du club…" rows={4} />
+            <FieldLabel>{t('aff.venueForm.descriptionLabel')}</FieldLabel>
+            <DarkTextarea value={form.description} onChange={(v) => set('description', v)} placeholder={t('aff.venueForm.descriptionPlaceholder')} rows={4} />
           </div>
         </div>
       </AffCard>
 
       {/* Médias */}
       <AffCard padding={20}>
-        <AffCardHeader icon={ImageIcon} title="Photos" />
+        <AffCardHeader icon={ImageIcon} title={t('aff.venueForm.photos')} />
         <div className="space-y-6">
           <AffiliateImageUploader affiliateId={affiliateId} value={form.logo_url} onChange={(url) => set('logo_url', url)}
-            folder="venues/logos" label="Logo du club" hint="Image carrée recommandée" shape="circle" />
+            folder="venues/logos" label={t('aff.venueForm.logoLabel')} hint={t('aff.venueForm.logoHint')} shape="circle" />
           <AffiliateImageUploader affiliateId={affiliateId} value={form.cover_image_url} onChange={(url) => set('cover_image_url', url)}
-            folder="venues/covers" label="Photo principale (bannière)" hint="Format paysage 16:9 recommandé · 1400px max" />
+            folder="venues/covers" label={t('aff.venueForm.coverLabel')} hint={t('aff.venueForm.coverHint')} />
           <AffiliateDraggableGallery affiliateId={affiliateId} folder="venues/gallery" urls={form.gallery_urls}
-            onChange={(urls) => set('gallery_urls', urls)} label="Galerie photos" maxFiles={15} />
+            onChange={(urls) => set('gallery_urls', urls)} label={t('aff.venueForm.galleryLabel')} maxFiles={15} />
         </div>
       </AffCard>
 
       {/* Caractéristiques */}
       <AffCard padding={20}>
-        <AffCardHeader icon={Sliders} title="Caractéristiques" />
+        <AffCardHeader icon={Sliders} title={t('aff.venueForm.characteristics')} />
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <FieldLabel>Âge minimum</FieldLabel>
+              <FieldLabel>{t('aff.venueForm.minAgeLabel')}</FieldLabel>
               <DarkInput type="number" value={form.min_age} onChange={(v) => set('min_age', v)} placeholder="18" />
             </div>
             <div>
-              <FieldLabel>Dress code</FieldLabel>
+              <FieldLabel>{t('aff.venueForm.dressCodeLabel')}</FieldLabel>
               <DarkInput value={form.dress_code} onChange={(v) => set('dress_code', v)} placeholder="Smart casual" />
             </div>
           </div>
 
           <div>
-            <FieldLabel>Genres musicaux</FieldLabel>
+            <FieldLabel>{t('aff.venueForm.musicGenresLabel')}</FieldLabel>
             <div className="flex flex-wrap gap-2">
               {GENRES.map((g) => <ChoiceChip key={g} active={form.genres.includes(g)} onClick={() => toggleGenre(g)}>{g}</ChoiceChip>)}
             </div>
@@ -306,7 +308,7 @@ export default function AffiliateVenueForm() {
 
       {/* Social + billetterie */}
       <AffCard padding={20}>
-        <AffCardHeader icon={LinkIcon} title="Liens" />
+        <AffCardHeader icon={LinkIcon} title={t('aff.venueForm.links')} />
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
@@ -318,15 +320,15 @@ export default function AffiliateVenueForm() {
               <DarkInput value={form.tiktok} onChange={(v) => set('tiktok', v)} placeholder="@fabrikmadrid" />
             </div>
             <div>
-              <FieldLabel>Site web</FieldLabel>
+              <FieldLabel>{t('aff.venueForm.websiteLabel')}</FieldLabel>
               <DarkInput value={form.website} onChange={(v) => set('website', v)} placeholder="https://…" />
             </div>
           </div>
 
           <div>
-            <FieldLabel>Lien billetterie du club (Shotgun, RA, site officiel…)</FieldLabel>
+            <FieldLabel>{t('aff.venueForm.bookingUrlLabel')}</FieldLabel>
             <DarkInput value={form.external_booking_url} onChange={(v) => set('external_booking_url', v)} placeholder="https://ra.co/clubs/fabrik" />
-            <p style={{ color: T3, fontSize: 11, marginTop: 6 }}>Page principale du club sur la billetterie. Différent du lien soirée.</p>
+            <p style={{ color: T3, fontSize: 11, marginTop: 6 }}>{t('aff.venueForm.bookingUrlHelp')}</p>
           </div>
         </div>
       </AffCard>
@@ -334,9 +336,9 @@ export default function AffiliateVenueForm() {
       <div className="flex gap-3 pb-8">
         <AffButton onClick={handleSave} disabled={saving}>
           {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-          {isEdit ? 'Enregistrer' : 'Créer le club'}
+          {isEdit ? t('aff.venueForm.save') : t('aff.venueForm.create')}
         </AffButton>
-        <AffButton variant="ghost" onClick={() => guardedNavigate('/affiliate/venues')}>Annuler</AffButton>
+        <AffButton variant="ghost" onClick={() => guardedNavigate('/affiliate/venues')}>{t('aff.venueForm.cancel')}</AffButton>
       </div>
     </AffPage>
   );

@@ -3,9 +3,10 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarDays, Plus, Trash2, ExternalLink, Link2, Save, ArrowUpDown, Send } from 'lucide-react';
+import { CalendarDays, Plus, Trash2, ExternalLink, Link2, Save, ArrowUpDown, Send, Copy } from 'lucide-react';
 import { format, addDays } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, enUS, es } from 'date-fns/locale';
+import { useLanguage } from '@/contexts/LanguageContext';
 import {
   AffPage, AffHeading, AffCard, AffButton, AffLinkButton, SectionLabel, AffSpinner,
   RED, T1, T2, T3, BORDER, F_BORDER, INNER_BG, TILE_BG,
@@ -31,11 +32,18 @@ type LinktreeEntry = {
   event: AffiliateEvent | null;
 };
 
-const SORT_LABELS: Record<string, string> = { by_day: 'Par jour', by_genre: 'Par genre', by_price: 'Par prix', custom: 'Personnalisé' };
+const SORT_LABEL_KEYS: Record<string, string> = {
+  by_day: 'aff.plink.sortByDay',
+  by_genre: 'aff.plink.sortByGenre',
+  by_price: 'aff.plink.sortByPrice',
+  custom: 'aff.plink.sortCustom',
+};
 
 export default function AffiliatePromoterLinktree() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
 
   const [memberId, setMemberId] = useState<string | null>(null);
   const [linktreeSlug, setLinktreeSlug] = useState<string | null>(null);
@@ -136,7 +144,7 @@ export default function AffiliatePromoterLinktree() {
   async function addEvent(event: AffiliateEvent) {
     if (!memberId) return;
     if (entries.length >= MAX_EVENTS) {
-      toast({ title: `Maximum ${MAX_EVENTS} soirées atteint`, variant: 'destructive' });
+      toast({ title: t('aff.plink.maxReached').replace('{max}', String(MAX_EVENTS)), variant: 'destructive' });
       return;
     }
     setSaving(event.id);
@@ -148,7 +156,7 @@ export default function AffiliatePromoterLinktree() {
       .single();
 
     if (error || !data) {
-      toast({ title: 'Erreur', description: error?.message, variant: 'destructive' });
+      toast({ title: t('aff.plink.errorTitle'), description: error?.message, variant: 'destructive' });
     } else {
       setEntries(prev => [...prev, { ...data, event }]);
     }
@@ -159,7 +167,7 @@ export default function AffiliatePromoterLinktree() {
     setSaving(entryId);
     const { error } = await supabase.from('promoter_linktree_events').delete().eq('id', entryId);
     if (error) {
-      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+      toast({ title: t('aff.plink.errorTitle'), description: error.message, variant: 'destructive' });
     } else {
       setEntries(prev => prev.filter(e => e.id !== entryId));
     }
@@ -170,10 +178,10 @@ export default function AffiliatePromoterLinktree() {
     setSaving(entryId);
     const { error } = await supabase.from('promoter_linktree_events').update({ promo_link: link.trim() || null }).eq('id', entryId);
     if (error) {
-      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+      toast({ title: t('aff.plink.errorTitle'), description: error.message, variant: 'destructive' });
     } else {
       setEntries(prev => prev.map(e => e.id === entryId ? { ...e, promo_link: link.trim() || null } : e));
-      toast({ title: 'Lien sauvegardé' });
+      toast({ title: t('aff.plink.linkSaved') });
     }
     setSaving(null);
   }
@@ -187,10 +195,10 @@ export default function AffiliatePromoterLinktree() {
     setSavingSort(true);
     const { error } = await supabase.from('affiliate_members').update({ linktree_sort_mode: mode }).eq('id', memberId);
     if (error) {
-      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+      toast({ title: t('aff.plink.errorTitle'), description: error.message, variant: 'destructive' });
     } else {
       setMemberSortMode(mode);
-      toast({ title: 'Classement mis à jour' });
+      toast({ title: t('aff.plink.sortUpdated') });
     }
     setSavingSort(false);
   }
@@ -200,9 +208,9 @@ export default function AffiliatePromoterLinktree() {
     setRequestingReview(true);
     const { error } = await supabase.from('affiliate_members').update({ linktree_status: 'pending_review' }).eq('id', memberId);
     if (error) {
-      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+      toast({ title: t('aff.plink.errorTitle'), description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Demande envoyée', description: 'Ta demande apparaîtra dans le tableau de bord de ton manager.' });
+      toast({ title: t('aff.plink.reviewSentTitle'), description: t('aff.plink.reviewSentDesc') });
     }
     setRequestingReview(false);
   }
@@ -221,9 +229,9 @@ export default function AffiliatePromoterLinktree() {
     <AffPage maxWidth={760}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <AffHeading
-          title="Mon Linktree"
-          subtitle={`Choisis jusqu'à ${MAX_EVENTS} soirées (7 prochains jours) à afficher sur ta page publique.`}
-          right={linktreeUrl ? <AffLinkButton href={linktreeUrl} external variant="secondary" size="sm"><ExternalLink className="h-3.5 w-3.5" /> Voir ma page</AffLinkButton> : undefined}
+          title={t('aff.plink.title')}
+          subtitle={t('aff.plink.subtitle').replace('{max}', String(MAX_EVENTS))}
+          right={linktreeUrl ? <AffLinkButton href={linktreeUrl} external variant="secondary" size="sm"><ExternalLink className="h-3.5 w-3.5" /> {t('aff.plink.viewMyPage')}</AffLinkButton> : undefined}
         />
       </motion.div>
 
@@ -231,7 +239,7 @@ export default function AffiliatePromoterLinktree() {
         <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.25)' }}>
           <Link2 className="h-4 w-4 flex-none" style={{ color: RED }} />
           <p style={{ color: T2, fontSize: 13 }}>
-            Configure d'abord ton identifiant URL dans <a href="/affiliate/promoteur/settings" className="underline" style={{ color: RED }}>Paramètres</a> pour activer ta page publique.
+            {t('aff.plink.configureSlugPrefix')} <a href="/affiliate/promoteur/settings" className="underline" style={{ color: RED }}>{t('aff.plink.settingsLink')}</a> {t('aff.plink.configureSlugSuffix')}
           </p>
         </div>
       )}
@@ -242,7 +250,7 @@ export default function AffiliatePromoterLinktree() {
           <AffCard padding={16} className="flex-1">
             <div className="flex items-center gap-2 mb-2">
               <ArrowUpDown className="h-3.5 w-3.5" style={{ color: T3 }} />
-              <SectionLabel>Classement</SectionLabel>
+              <SectionLabel>{t('aff.plink.sortLabel')}</SectionLabel>
             </div>
             <div className="flex gap-2 flex-wrap">
               {(['by_day', 'by_genre', 'by_price', 'custom'] as const).map(mode => {
@@ -253,7 +261,7 @@ export default function AffiliatePromoterLinktree() {
                     style={active
                       ? { background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.35)', color: RED }
                       : { background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}`, color: T2 }}>
-                    {SORT_LABELS[mode]}
+                    {t(SORT_LABEL_KEYS[mode])}
                   </button>
                 );
               })}
@@ -262,35 +270,35 @@ export default function AffiliatePromoterLinktree() {
         ) : (
           <AffCard padding={16} className="flex items-center gap-2 flex-1">
             <ArrowUpDown className="h-3.5 w-3.5 flex-none" style={{ color: T3 }} />
-            <span style={{ color: T3, fontSize: 12 }}>Classement imposé par l'agence :&nbsp;
-              <span style={{ color: T2, fontWeight: 600 }}>{SORT_LABELS[adminSortMode] ?? 'Personnalisé'}</span>
+            <span style={{ color: T3, fontSize: 12 }}>{t('aff.plink.sortImposed')}&nbsp;
+              <span style={{ color: T2, fontWeight: 600 }}>{t(SORT_LABEL_KEYS[adminSortMode] ?? 'aff.plink.sortCustom')}</span>
             </span>
           </AffCard>
         )}
 
         <AffButton variant="secondary" onClick={requestReview} disabled={requestingReview}>
-          <Send className="h-3.5 w-3.5" /> Demander révision
+          <Send className="h-3.5 w-3.5" /> {t('aff.plink.requestReview')}
         </AffButton>
       </div>
 
       {/* Selected events */}
       <div>
         <div className="mb-3">
-          <SectionLabel>Sur mon linktree · {entries.length}/{MAX_EVENTS}</SectionLabel>
+          <SectionLabel>{t('aff.plink.onMyLinktree')} · {entries.length}/{MAX_EVENTS}</SectionLabel>
         </div>
 
         {entries.length === 0 ? (
           <div className="rounded-2xl p-8 text-center" style={{ border: '1px dashed rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.015)' }}>
             <CalendarDays className="h-8 w-8 mx-auto mb-3" style={{ color: 'rgba(255,255,255,0.14)' }} />
-            <p style={{ color: T2, fontSize: 13 }}>Aucune soirée sélectionnée.</p>
-            <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>Ajoute des soirées depuis la liste ci-dessous.</p>
+            <p style={{ color: T2, fontSize: 13 }}>{t('aff.plink.noneSelected')}</p>
+            <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{t('aff.plink.addFromBelow')}</p>
           </div>
         ) : (
           <div className="space-y-2">
             {entries.map((entry, idx) => {
               const ev = entry.event ?? getEvent(entry.affiliate_event_id);
               if (!ev) return null;
-              const dateStr = format(new Date(`${ev.event_date}T12:00:00`), 'EEE d MMM', { locale: fr });
+              const dateStr = format(new Date(`${ev.event_date}T12:00:00`), 'EEE d MMM', { locale: dateLocale });
 
               return (
                 <AffCard key={entry.id} padding={12}>
@@ -303,7 +311,21 @@ export default function AffiliatePromoterLinktree() {
                       <p className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{ev.name}</p>
                       <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>{dateStr}{ev.affiliate_venues ? ` · ${ev.affiliate_venues.name}` : ''}</p>
                     </div>
-                    <button onClick={() => removeEntry(entry.id)} disabled={saving === entry.id} title="Retirer"
+                    {linktreeSlug && (
+                      <button
+                        onClick={() => {
+                          // Lien tracé du promoteur vers la page publique de la
+                          // soirée : les vues ET les clics lui sont crédités.
+                          navigator.clipboard.writeText(`${window.location.origin}/affiliate-event/${ev.slug}?via=${linktreeSlug}`);
+                          toast({ title: t('aff.plink.trackedCopied'), description: t('aff.plink.trackedCopiedDesc') });
+                        }}
+                        title={t('aff.plink.copyTracked')}
+                        className="p-1.5 transition-colors flex-none" style={{ color: T3 }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = T1)} onMouseLeave={(e) => (e.currentTarget.style.color = T3)}>
+                        <Copy className="h-4 w-4" />
+                      </button>
+                    )}
+                    <button onClick={() => removeEntry(entry.id)} disabled={saving === entry.id} title={t('aff.plink.remove')}
                       className="p-1.5 transition-colors flex-none disabled:opacity-30" style={{ color: T3 }}
                       onMouseEnter={(e) => (e.currentTarget.style.color = RED)} onMouseLeave={(e) => (e.currentTarget.style.color = T3)}>
                       <Trash2 className="h-4 w-4" />
@@ -313,7 +335,7 @@ export default function AffiliatePromoterLinktree() {
                   {/* Promo link row */}
                   <div className="flex items-center gap-2 pl-7 mt-2.5">
                     <div className="flex items-center px-2 flex-none" style={{ height: 32, borderRadius: '8px 0 0 8px', background: 'rgba(255,255,255,0.02)', border: `1px solid ${BORDER}`, borderRight: 'none', color: T3, fontSize: 11.5 }}>
-                      Lien
+                      {t('aff.plink.linkAdorn')}
                     </div>
                     <input type="url" value={entry.promo_link ?? ''}
                       onChange={e => updatePromoLinkLocal(entry.id, e.target.value)}
@@ -322,7 +344,7 @@ export default function AffiliatePromoterLinktree() {
                       className="flex-1 outline-none"
                       style={{ height: 32, background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: '0 8px 8px 0', padding: '0 12px', color: T1, fontSize: 12 }}
                       onFocus={(e) => (e.target.style.borderColor = 'rgba(232,25,44,0.55)')} onBlurCapture={(e) => (e.currentTarget.style.borderColor = BORDER)} />
-                    <button onClick={() => savePromoLink(entry.id, entry.promo_link ?? '')} disabled={saving === entry.id} title="Sauvegarder"
+                    <button onClick={() => savePromoLink(entry.id, entry.promo_link ?? '')} disabled={saving === entry.id} title={t('aff.plink.saveLink')}
                       className="p-1.5 transition-colors disabled:opacity-30" style={{ color: T3 }}
                       onMouseEnter={(e) => (e.currentTarget.style.color = T1)} onMouseLeave={(e) => (e.currentTarget.style.color = T3)}>
                       <Save className="h-3.5 w-3.5" />
@@ -338,10 +360,10 @@ export default function AffiliatePromoterLinktree() {
       {/* Add events */}
       <div>
         <div className="mb-3">
-          <SectionLabel>Ajouter une soirée · 7 prochains jours</SectionLabel>
+          <SectionLabel>{t('aff.plink.addEventSection')}</SectionLabel>
         </div>
 
-        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher une soirée…"
+        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder={t('aff.plink.searchPlaceholder')}
           className="w-full mb-3 outline-none"
           style={{ height: 38, background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '0 12px', color: T1, fontSize: 13.5 }}
           onFocus={(e) => (e.target.style.borderColor = 'rgba(232,25,44,0.55)')} onBlur={(e) => (e.target.style.borderColor = BORDER)} />
@@ -349,13 +371,13 @@ export default function AffiliatePromoterLinktree() {
         <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
           {filteredAvailable.length === 0 ? (
             <p className="text-center py-8" style={{ color: T3, fontSize: 13 }}>
-              {search ? 'Aucun résultat pour cette recherche.'
-                : availableEvents.length === 0 ? 'Aucune soirée publiée dans les 7 prochains jours.'
-                : 'Toutes les soirées disponibles sont déjà sur ton linktree.'}
+              {search ? t('aff.plink.noSearchResults')
+                : availableEvents.length === 0 ? t('aff.plink.noUpcoming')
+                : t('aff.plink.allAdded')}
             </p>
           ) : (
             filteredAvailable.map(ev => {
-              const dateStr = format(new Date(`${ev.event_date}T12:00:00`), 'EEE d MMM', { locale: fr });
+              const dateStr = format(new Date(`${ev.event_date}T12:00:00`), 'EEE d MMM', { locale: dateLocale });
               return (
                 <div key={ev.id} className="flex items-center gap-3 rounded-xl p-3" style={{ background: TILE_BG, border: `1px solid ${F_BORDER}` }}>
                   {ev.flyer_url
@@ -368,7 +390,7 @@ export default function AffiliatePromoterLinktree() {
                   <button onClick={() => addEvent(ev)} disabled={saving === ev.id || entries.length >= MAX_EVENTS}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex-none"
                     style={{ background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.3)', color: RED }}>
-                    <Plus className="h-3 w-3" /> Ajouter
+                    <Plus className="h-3 w-3" /> {t('aff.plink.add')}
                   </button>
                 </div>
               );

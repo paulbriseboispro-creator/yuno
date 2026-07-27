@@ -2,13 +2,14 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/contexts/LanguageContext';
 import {
   Eye, MousePointerClick, Users, ChevronDown,
   Trophy, ExternalLink, Smartphone, Monitor, Tablet,
   Share2, Search, Mail, QrCode, Link2,
 } from 'lucide-react';
 import { format, subDays } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, es, enUS } from 'date-fns/locale';
 import {
   AffPage, AffHeading, AffCard, KpiCard, Pill, AffAvatar, AffSpinner,
   RED, POS, WARN, T1, T2, T3, BORDER, F_BORDER, C_FAINT, C_HI, C_MID, TILE_BG,
@@ -17,7 +18,7 @@ import {
 type Period = '7d' | '30d' | '90d' | 'all';
 type SortBy = 'views' | 'clicks' | 'ctr' | 'duration';
 
-const PERIOD_LABELS: Record<Period, string> = { '7d': '7j', '30d': '30j', '90d': '90j', all: 'Tout' };
+const PERIOD_LABEL_KEYS: Record<Period, string> = { '7d': 'aff.suivi.period.7d', '30d': 'aff.suivi.period.30d', '90d': 'aff.suivi.period.90d', all: 'aff.suivi.period.all' };
 const PERIOD_DAYS: Record<Period, number | null> = { '7d': 7, '30d': 30, '90d': 90, all: null };
 
 type MemberRow = {
@@ -76,10 +77,10 @@ function fmtPct(n: number): string {
   return `${n.toFixed(1)}%`;
 }
 
-const SOURCE_LABELS: Record<string, string> = {
-  direct: 'Direct', social: 'Social', paid_social: 'Social payant',
-  search: 'Recherche', paid_search: 'Recherche payée', qr: 'QR Code',
-  email: 'Email', referral: 'Référence', internal: 'Interne',
+const SOURCE_LABEL_KEYS: Record<string, string> = {
+  direct: 'aff.suivi.source.direct', social: 'aff.suivi.source.social', paid_social: 'aff.suivi.source.paid_social',
+  search: 'aff.suivi.source.search', paid_search: 'aff.suivi.source.paid_search', qr: 'aff.suivi.source.qr',
+  email: 'aff.suivi.source.email', referral: 'aff.suivi.source.referral', internal: 'aff.suivi.source.internal',
 };
 
 const SOURCE_ICONS: Record<string, React.ElementType> = {
@@ -90,13 +91,15 @@ const SOURCE_ICONS: Record<string, React.ElementType> = {
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
 function MiniDualChart({ data }: { data: Array<{ date: string; views: number; clicks: number }> }) {
+  const { t, language } = useLanguage();
+  const dfLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const visible = data.slice(-30);
   const maxViews = Math.max(...visible.map(d => d.views), 1);
   const maxClicks = Math.max(...visible.map(d => d.clicks), 1);
   const hasData = visible.some(d => d.views > 0 || d.clicks > 0);
 
   if (!hasData) {
-    return <div className="flex items-center justify-center h-20"><p style={{ color: T3, fontSize: 11.5 }}>Aucune activité sur cette période</p></div>;
+    return <div className="flex items-center justify-center h-20"><p style={{ color: T3, fontSize: 11.5 }}>{t('aff.suivi.chart.noActivity')}</p></div>;
   }
 
   return (
@@ -104,7 +107,7 @@ function MiniDualChart({ data }: { data: Array<{ date: string; views: number; cl
       <div>
         <div className="flex items-center gap-2 mb-1">
           <span className="inline-block w-2 h-2 rounded-sm" style={{ background: RED }} />
-          <span style={{ color: T3, fontSize: 11 }}>Vues</span>
+          <span style={{ color: T3, fontSize: 11 }}>{t('aff.suivi.col.views')}</span>
           <span className="ml-auto tabular-nums" style={{ color: T2, fontSize: 11, fontWeight: 600 }}>{visible.reduce((s, d) => s + d.views, 0)}</span>
         </div>
         <div className="flex items-end gap-px h-14">
@@ -113,8 +116,8 @@ function MiniDualChart({ data }: { data: Array<{ date: string; views: number; cl
               <div className="w-full rounded-sm" style={{ height: `${(views / maxViews) * 100}%`, minHeight: views > 0 ? '2px' : '1px', background: RED, opacity: 0.85 }} />
               <div className="absolute bottom-full mb-1.5 hidden group-hover:flex flex-col text-xs px-2 py-1 rounded whitespace-nowrap z-20 pointer-events-none"
                 style={{ background: '#1a1a1d', border: `1px solid ${BORDER}`, color: T1 }}>
-                <span style={{ color: T3 }}>{format(new Date(date), 'd MMM', { locale: fr })}</span>
-                <span style={{ color: RED }}>{views} vues</span>
+                <span style={{ color: T3 }}>{format(new Date(date), 'd MMM', { locale: dfLocale })}</span>
+                <span style={{ color: RED }}>{t('aff.suivi.viewsCount').replace('{n}', String(views))}</span>
               </div>
             </div>
           ))}
@@ -123,7 +126,7 @@ function MiniDualChart({ data }: { data: Array<{ date: string; views: number; cl
       <div>
         <div className="flex items-center gap-2 mb-1">
           <span className="inline-block w-2 h-2 rounded-sm" style={{ background: C_HI }} />
-          <span style={{ color: T3, fontSize: 11 }}>Clics billetterie</span>
+          <span style={{ color: T3, fontSize: 11 }}>{t('aff.suivi.kpi.ticketClicks')}</span>
           <span className="ml-auto tabular-nums" style={{ color: T2, fontSize: 11, fontWeight: 600 }}>{visible.reduce((s, d) => s + d.clicks, 0)}</span>
         </div>
         <div className="flex items-end gap-px h-8">
@@ -135,21 +138,22 @@ function MiniDualChart({ data }: { data: Array<{ date: string; views: number; cl
         </div>
       </div>
       <div className="flex justify-between mt-1">
-        <span style={{ color: T3, fontSize: 10.5 }}>{visible.length > 0 ? format(new Date(visible[0].date), 'd MMM', { locale: fr }) : ''}</span>
-        <span style={{ color: T3, fontSize: 10.5 }}>Auj.</span>
+        <span style={{ color: T3, fontSize: 10.5 }}>{visible.length > 0 ? format(new Date(visible[0].date), 'd MMM', { locale: dfLocale }) : ''}</span>
+        <span style={{ color: T3, fontSize: 10.5 }}>{t('aff.suivi.chart.today')}</span>
       </div>
     </div>
   );
 }
 
 function DeviceBreakdown({ devices, total }: { devices: { mobile: number; desktop: number; tablet: number }; total: number }) {
+  const { t } = useLanguage();
   const items = [
-    { label: 'Mobile', val: devices.mobile, Icon: Smartphone, color: C_HI },
-    { label: 'Desktop', val: devices.desktop, Icon: Monitor, color: C_MID },
-    { label: 'Tablette', val: devices.tablet, Icon: Tablet, color: 'rgba(255,255,255,0.22)' },
+    { label: t('aff.suivi.device.mobile'), val: devices.mobile, Icon: Smartphone, color: C_HI },
+    { label: t('aff.suivi.device.desktop'), val: devices.desktop, Icon: Monitor, color: C_MID },
+    { label: t('aff.suivi.device.tablet'), val: devices.tablet, Icon: Tablet, color: 'rgba(255,255,255,0.22)' },
   ].filter(d => d.val > 0);
 
-  if (items.length === 0) return <p style={{ color: T3, fontSize: 11.5 }}>Pas de données</p>;
+  if (items.length === 0) return <p style={{ color: T3, fontSize: 11.5 }}>{t('aff.suivi.noData')}</p>;
 
   return (
     <div className="space-y-2.5">
@@ -190,6 +194,7 @@ function RankBadge({ rank }: { rank: number }) {
 
 export default function AffiliatePromotersTracking() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [sessions, setSessions] = useState<RawSession[]>([]);
   const [clicks, setClicks] = useState<RawClick[]>([]);
@@ -315,7 +320,7 @@ export default function AffiliatePromotersTracking() {
 
     const globalCtr = totalViews > 0 ? (totalClicks / totalViews) * 100 : 0;
     const bestName = bestMember
-      ? [bestMember.first_name, bestMember.last_name].filter(Boolean).join(' ') || 'Promoteur'
+      ? [bestMember.first_name, bestMember.last_name].filter(Boolean).join(' ') || t('aff.suivi.promoter')
       : null;
 
     return { activeCount: active.length, totalCount: members.length, totalViews, totalClicks, globalCtr, bestName, bestViews };
@@ -332,15 +337,15 @@ export default function AffiliatePromotersTracking() {
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <AffHeading
-          title="Suivi Promoteurs"
-          subtitle="Performances individuelles de chaque membre de votre équipe."
+          title={t('aff.suivi.title')}
+          subtitle={t('aff.suivi.subtitle')}
           right={
             <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.025)', border: `1px solid ${BORDER}` }}>
               {(['7d', '30d', '90d', 'all'] as Period[]).map(p => (
                 <button key={p} onClick={() => setPeriod(p)}
                   className="px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer transition-all duration-150"
                   style={period === p ? { color: '#fff', background: RED, boxShadow: `0 0 14px -4px ${RED}88` } : { color: T3 }}>
-                  {PERIOD_LABELS[p]}
+                  {t(PERIOD_LABEL_KEYS[p])}
                 </button>
               ))}
             </div>
@@ -350,10 +355,10 @@ export default function AffiliatePromotersTracking() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard icon={Users} label="Promoteurs actifs" value={kpis.activeCount} hint={`${kpis.totalCount} au total`} />
-        <KpiCard icon={Eye} label="Vues totales" value={kpis.totalViews.toLocaleString()} tone="red" hint="sur tous les linktrees" />
-        <KpiCard icon={MousePointerClick} label="Clics billetterie" value={kpis.totalClicks.toLocaleString()} tone="pos" hint={`${fmtPct(kpis.globalCtr)} CTR global`} />
-        <KpiCard icon={Trophy} label="Top promoteur" value={kpis.bestName ?? '—'} hint={kpis.bestViews > 0 ? `${kpis.bestViews.toLocaleString()} vues` : 'Aucune donnée'} />
+        <KpiCard icon={Users} label={t('aff.suivi.kpi.activePromoters')} value={kpis.activeCount} hint={t('aff.suivi.kpi.totalHint').replace('{n}', String(kpis.totalCount))} />
+        <KpiCard icon={Eye} label={t('aff.suivi.kpi.totalViews')} value={kpis.totalViews.toLocaleString()} tone="red" hint={t('aff.suivi.kpi.allLinktrees')} />
+        <KpiCard icon={MousePointerClick} label={t('aff.suivi.kpi.ticketClicks')} value={kpis.totalClicks.toLocaleString()} tone="pos" hint={t('aff.suivi.kpi.globalCtr').replace('{pct}', fmtPct(kpis.globalCtr))} />
+        <KpiCard icon={Trophy} label={t('aff.suivi.kpi.topPromoter')} value={kpis.bestName ?? '—'} hint={kpis.bestViews > 0 ? t('aff.suivi.viewsCount').replace('{n}', kpis.bestViews.toLocaleString()) : t('aff.suivi.kpi.noData')} />
       </div>
 
       {/* Leaderboard */}
@@ -361,10 +366,10 @@ export default function AffiliatePromotersTracking() {
         {/* Column headers */}
         <div className="grid items-center px-5 py-3 gap-2" style={{ gridTemplateColumns: COLS, borderBottom: `1px solid ${F_BORDER}` }}>
           <span style={{ color: T3, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>#</span>
-          <span style={{ color: T3, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Promoteur</span>
+          <span style={{ color: T3, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{t('aff.suivi.promoter')}</span>
           {([
-            { key: 'views', label: 'Vues' }, { key: 'clicks', label: 'Clics' },
-            { key: 'ctr', label: 'CTR' }, { key: 'duration', label: 'Durée moy.' },
+            { key: 'views', label: t('aff.suivi.col.views') }, { key: 'clicks', label: t('aff.suivi.col.clicks') },
+            { key: 'ctr', label: t('aff.suivi.col.ctr') }, { key: 'duration', label: t('aff.suivi.col.avgDuration') },
           ] as { key: SortBy; label: string }[]).map(col => (
             <button key={col.key} onClick={() => setSortBy(col.key)}
               className="text-left flex items-center gap-1 transition-colors"
@@ -373,15 +378,15 @@ export default function AffiliatePromotersTracking() {
               {sortBy === col.key && <span style={{ color: RED, fontSize: 9 }}>▼</span>}
             </button>
           ))}
-          <span style={{ color: T3, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Retour</span>
+          <span style={{ color: T3, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{t('aff.suivi.col.returning')}</span>
           <span />
         </div>
 
         {rankedMembers.length === 0 ? (
           <div className="text-center py-16">
             <Users className="h-10 w-10 mx-auto mb-3" style={{ color: 'rgba(255,255,255,0.14)' }} />
-            <p style={{ color: T2, fontSize: 13 }}>Aucun promoteur dans votre équipe.</p>
-            <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>Invitez des promoteurs depuis la page Équipe.</p>
+            <p style={{ color: T2, fontSize: 13 }}>{t('aff.suivi.emptyTitle')}</p>
+            <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{t('aff.suivi.emptyHint')}</p>
           </div>
         ) : (
           <div>
@@ -392,7 +397,7 @@ export default function AffiliatePromotersTracking() {
               };
               const isExpanded = expandedId === member.id;
               const activeRank = member.is_active ? rankedMembers.filter(m => m.is_active).indexOf(member) + 1 : null;
-              const displayName = [member.first_name, member.last_name].filter(Boolean).join(' ') || `Promoteur ${idx + 1}`;
+              const displayName = [member.first_name, member.last_name].filter(Boolean).join(' ') || t('aff.suivi.promoterN').replace('{n}', String(idx + 1));
               const barWidth = maxViews > 0 ? (stats.views / maxViews) * 100 : 0;
               const ctrColor = stats.ctr >= 10 ? POS : stats.ctr >= 5 ? WARN : stats.ctr > 0 ? RED : T3;
               const SourceIcon = stats.topSource ? (SOURCE_ICONS[stats.topSource] ?? Link2) : Link2;
@@ -417,8 +422,8 @@ export default function AffiliatePromotersTracking() {
                             {member.linktree_slug && (
                               <span className="truncate" style={{ color: T3, fontSize: 11, maxWidth: 110 }}>/promo/{member.linktree_slug}</span>
                             )}
-                            <Pill tone={member.role === 'manager' ? 'red' : 'muted'}>{member.role === 'manager' ? 'Manager' : 'Promoteur'}</Pill>
-                            {!member.is_active && <Pill tone="muted">Inactif</Pill>}
+                            <Pill tone={member.role === 'manager' ? 'red' : 'muted'}>{member.role === 'manager' ? t('aff.suivi.manager') : t('aff.suivi.promoter')}</Pill>
+                            {!member.is_active && <Pill tone="muted">{t('aff.suivi.inactive')}</Pill>}
                           </div>
                         </div>
                       </div>
@@ -434,7 +439,7 @@ export default function AffiliatePromotersTracking() {
                       {/* Clicks + unique */}
                       <div>
                         <p className="tabular-nums" style={{ color: T1, fontSize: 13.5, fontWeight: 620 }}>{stats.clicks.toLocaleString()}</p>
-                        <p className="tabular-nums" style={{ color: T3, fontSize: 11, marginTop: 1 }}>{stats.uniqueVisitors} uniques</p>
+                        <p className="tabular-nums" style={{ color: T3, fontSize: 11, marginTop: 1 }}>{t('aff.suivi.uniquesCount').replace('{n}', String(stats.uniqueVisitors))}</p>
                       </div>
 
                       {/* CTR */}
@@ -459,33 +464,33 @@ export default function AffiliatePromotersTracking() {
                       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                         {/* Chart */}
                         <div className="lg:col-span-2 rounded-xl p-4" style={{ background: TILE_BG, border: `1px solid ${F_BORDER}` }}>
-                          <p style={{ color: T3, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 16 }}>Activité</p>
+                          <p style={{ color: T3, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 16 }}>{t('aff.suivi.activity')}</p>
                           <MiniDualChart data={stats.dailyPoints} />
                         </div>
 
                         {/* Side panels */}
                         <div className="space-y-3">
                           <div className="rounded-xl p-4" style={{ background: TILE_BG, border: `1px solid ${F_BORDER}` }}>
-                            <p style={{ color: T3, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>Appareils</p>
+                            <p style={{ color: T3, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 12 }}>{t('aff.suivi.devices')}</p>
                             <DeviceBreakdown devices={stats.devices} total={stats.views} />
                           </div>
 
                           <div className="rounded-xl p-4" style={{ background: TILE_BG, border: `1px solid ${F_BORDER}` }}>
-                            <p style={{ color: T3, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>Source principale</p>
+                            <p style={{ color: T3, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>{t('aff.suivi.mainSource')}</p>
                             {stats.topSource ? (
                               <div className="flex items-center gap-2">
                                 <SourceIcon className="h-4 w-4 flex-none" style={{ color: T2 }} />
-                                <span style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{SOURCE_LABELS[stats.topSource] ?? stats.topSource}</span>
+                                <span style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{SOURCE_LABEL_KEYS[stats.topSource] ? t(SOURCE_LABEL_KEYS[stats.topSource]) : stats.topSource}</span>
                               </div>
-                            ) : <p style={{ color: T3, fontSize: 13 }}>Pas de données</p>}
+                            ) : <p style={{ color: T3, fontSize: 13 }}>{t('aff.suivi.noData')}</p>}
 
                             <div className="mt-3 pt-3 grid grid-cols-2 gap-2" style={{ borderTop: `1px solid ${F_BORDER}` }}>
                               <div>
-                                <p style={{ color: T3, fontSize: 11 }}>Scroll moy.</p>
+                                <p style={{ color: T3, fontSize: 11 }}>{t('aff.suivi.avgScroll')}</p>
                                 <p style={{ color: T1, fontSize: 13, fontWeight: 600, marginTop: 1 }}>—</p>
                               </div>
                               <div>
-                                <p style={{ color: T3, fontSize: 11 }}>Visites uniques</p>
+                                <p style={{ color: T3, fontSize: 11 }}>{t('aff.suivi.uniqueVisits')}</p>
                                 <p className="tabular-nums" style={{ color: T1, fontSize: 13, fontWeight: 600, marginTop: 1 }}>{stats.uniqueVisitors}</p>
                               </div>
                             </div>
@@ -494,7 +499,7 @@ export default function AffiliatePromotersTracking() {
                               <a href={`https://yunoapp.eu/promo/${member.linktree_slug}`} target="_blank" rel="noopener noreferrer"
                                 className="mt-3 inline-flex items-center gap-1.5 transition-colors" style={{ color: RED, fontSize: 12, fontWeight: 600 }}
                                 onClick={e => e.stopPropagation()}>
-                                <ExternalLink className="h-3 w-3" /> Voir la page publique
+                                <ExternalLink className="h-3 w-3" /> {t('aff.suivi.viewPublicPage')}
                               </a>
                             )}
                           </div>

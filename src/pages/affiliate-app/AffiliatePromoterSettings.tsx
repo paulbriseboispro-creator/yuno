@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { Camera, Copy, Check, ExternalLink, QrCode, User, Link2, Share2 } from 'lucide-react';
 import AffiliateQRSection from '@/components/affiliate/AffiliateQRSection';
 import AvatarCropModal from '@/components/AvatarCropModal';
@@ -48,6 +49,7 @@ function toSlug(first: string, last: string): string {
 export default function AffiliatePromoterSettings() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [profile, setProfile] = useState<MemberProfile | null>(null);
@@ -126,7 +128,7 @@ export default function AffiliatePromoterSettings() {
   const handleSave = async (): Promise<boolean> => {
     if (!profile) return false;
     if (!form.first_name.trim() || !form.last_name.trim()) {
-      toast({ title: 'Champs requis', description: 'Prénom et nom sont obligatoires.', variant: 'destructive' });
+      toast({ title: t('aff.pset.requiredTitle'), description: t('aff.pset.requiredDesc'), variant: 'destructive' });
       return false;
     }
     setSaving(true);
@@ -159,12 +161,12 @@ export default function AffiliatePromoterSettings() {
       if (error) throw error;
       setForm(trimmed);
       markSaved(trimmed);
-      toast({ title: 'Profil mis à jour', description: 'Vos informations ont été sauvegardées.' });
+      toast({ title: t('aff.pset.profileUpdated'), description: t('aff.pset.profileUpdatedDesc') });
       fetchProfile();
       return true;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erreur inconnue';
-      toast({ title: 'Erreur', description: msg, variant: 'destructive' });
+      const msg = err instanceof Error ? err.message : t('aff.pset.unknownError');
+      toast({ title: t('aff.pset.errorTitle'), description: msg, variant: 'destructive' });
       return false;
     } finally {
       setSaving(false);
@@ -173,7 +175,7 @@ export default function AffiliatePromoterSettings() {
 
   const { markSaved } = useUnsavedGuard({
     scope: 'affiliate-promoter-settings',
-    label: 'Mon profil',
+    label: t('aff.pset.myProfile'),
     ready: !loading && Boolean(profile),
     value: form,
     onRestore: setForm,
@@ -206,10 +208,10 @@ export default function AffiliatePromoterSettings() {
       if (updateError) throw updateError;
 
       setProfile(p => p ? { ...p, avatar_url: avatarUrl } : p);
-      toast({ title: 'Photo mise à jour' });
+      toast({ title: t('aff.pset.photoUpdated') });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erreur upload';
-      toast({ title: 'Erreur', description: msg, variant: 'destructive' });
+      const msg = err instanceof Error ? err.message : t('aff.pset.uploadError');
+      toast({ title: t('aff.pset.errorTitle'), description: msg, variant: 'destructive' });
     } finally {
       setUploadingAvatar(false);
     }
@@ -234,7 +236,7 @@ export default function AffiliatePromoterSettings() {
       {cropFile && <AvatarCropModal file={cropFile} onConfirm={handleCropConfirm} onCancel={() => setCropFile(null)} />}
       <AffPage maxWidth={760}>
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-          <AffHeading title="Mon profil" subtitle="Gérez votre identité et votre page publique" />
+          <AffHeading title={t('aff.pset.myProfile')} subtitle={t('aff.pset.subtitle')} />
         </motion.div>
 
         {/* Avatar + identity preview */}
@@ -273,30 +275,30 @@ export default function AffiliatePromoterSettings() {
 
         {/* Profil */}
         <AffCard padding={20}>
-          <AffCardHeader icon={User} title="Profil" />
+          <AffCardHeader icon={User} title={t('aff.pset.profileSection')} />
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <FieldLabel>Prénom *</FieldLabel>
-                <DarkInput value={form.first_name} onChange={(v) => handleNameChange('first_name', v)} placeholder="Jean" />
+                <FieldLabel>{t('aff.pset.firstName')}</FieldLabel>
+                <DarkInput value={form.first_name} onChange={(v) => handleNameChange('first_name', v)} placeholder={t('aff.pset.firstNamePlaceholder')} />
               </div>
               <div>
-                <FieldLabel>Nom *</FieldLabel>
-                <DarkInput value={form.last_name} onChange={(v) => handleNameChange('last_name', v)} placeholder="Dupont" />
+                <FieldLabel>{t('aff.pset.lastName')}</FieldLabel>
+                <DarkInput value={form.last_name} onChange={(v) => handleNameChange('last_name', v)} placeholder={t('aff.pset.lastNamePlaceholder')} />
               </div>
             </div>
 
             {profile?.affiliate && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <FieldLabel>Agence</FieldLabel>
+                  <FieldLabel>{t('aff.pset.agency')}</FieldLabel>
                   <div className="flex items-center px-3" style={{ height: 40, borderRadius: 10, background: TILE_BG, border: `1px solid ${F_BORDER}`, color: T2, fontSize: 13 }}>
                     {profile.affiliate.name}
                   </div>
                 </div>
                 {profile.affiliate.city && (
                   <div>
-                    <FieldLabel>Ville</FieldLabel>
+                    <FieldLabel>{t('aff.pset.city')}</FieldLabel>
                     <div className="flex items-center px-3" style={{ height: 40, borderRadius: 10, background: TILE_BG, border: `1px solid ${F_BORDER}`, color: T2, fontSize: 13 }}>
                       {profile.affiliate.city}
                     </div>
@@ -309,34 +311,34 @@ export default function AffiliatePromoterSettings() {
 
         {/* Linktree / Page publique */}
         <AffCard padding={20}>
-          <AffCardHeader icon={Link2} title="Page publique" subtitle="Votre lien partageable, généré depuis votre nom" accent />
+          <AffCardHeader icon={Link2} title={t('aff.pset.publicPageTitle')} subtitle={t('aff.pset.publicPageSubtitle')} accent />
           <div className="space-y-4">
             <div>
-              <FieldLabel>Identifiant URL</FieldLabel>
+              <FieldLabel>{t('aff.pset.slugLabel')}</FieldLabel>
               <div className="flex items-stretch">
                 <div className="flex items-center px-3 flex-none whitespace-nowrap"
                   style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${BORDER}`, borderRight: 'none', borderRadius: '10px 0 0 10px', color: T3, fontSize: 12.5 }}>
                   /promo/
                 </div>
-                <input value={form.linktree_slug} onChange={(e) => handleSlugChange(e.target.value)} placeholder="jean-dupont"
+                <input value={form.linktree_slug} onChange={(e) => handleSlugChange(e.target.value)} placeholder={t('aff.pset.slugPlaceholder')}
                   className="flex-1 outline-none"
                   style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: '0 10px 10px 0', padding: '9px 12px', color: T1, fontSize: 13.5 }}
                   onFocus={(e) => (e.target.style.borderColor = 'rgba(232,25,44,0.55)')} onBlur={(e) => (e.target.style.borderColor = BORDER)} />
               </div>
-              <p style={{ color: T3, fontSize: 11, marginTop: 6 }}>Lettres minuscules, chiffres et tirets uniquement.</p>
+              <p style={{ color: T3, fontSize: 11, marginTop: 6 }}>{t('aff.pset.slugHint')}</p>
             </div>
 
             {form.linktree_slug && (
               <div className="flex items-center gap-2">
                 <AffButton variant="secondary" size="sm" onClick={copyLinktreeUrl}>
                   {copied ? <Check className="h-3.5 w-3.5" style={{ color: POS }} /> : <Copy className="h-3.5 w-3.5" />}
-                  {copied ? 'Copié !' : 'Copier le lien'}
+                  {copied ? t('aff.pset.copied') : t('aff.pset.copyLink')}
                 </AffButton>
                 <a href={`/promo/${form.linktree_slug}`} target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors"
                   style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, fontSize: 12.5, fontWeight: 600 }}
                   onMouseEnter={(e) => (e.currentTarget.style.color = T1)} onMouseLeave={(e) => (e.currentTarget.style.color = T2)}>
-                  <ExternalLink className="h-3.5 w-3.5" /> Voir la page
+                  <ExternalLink className="h-3.5 w-3.5" /> {t('aff.pset.viewPage')}
                 </a>
               </div>
             )}
@@ -346,11 +348,11 @@ export default function AffiliatePromoterSettings() {
         {/* QR codes */}
         {form.linktree_slug && (
           <AffCard padding={20}>
-            <AffCardHeader icon={QrCode} title="Mon QR Code" subtitle='Scans trackés comme source "QR" dans tes stats' />
+            <AffCardHeader icon={QrCode} title={t('aff.pset.qrTitle')} subtitle={t('aff.pset.qrSubtitle')} />
             <AffiliateQRSection
               items={[{
-                label: 'Mon Linktree',
-                description: 'Redirige vers ton linktree personnel',
+                label: t('aff.pset.qrItemLabel'),
+                description: t('aff.pset.qrItemDesc'),
                 url: `${window.location.origin}/promo/${form.linktree_slug}?utm_medium=qr&utm_source=print`,
               }]}
             />
@@ -359,13 +361,13 @@ export default function AffiliatePromoterSettings() {
 
         {/* Réseaux sociaux */}
         <AffCard padding={20}>
-          <AffCardHeader icon={Share2} title="Réseaux sociaux" />
+          <AffCardHeader icon={Share2} title={t('aff.pset.socialTitle')} />
           <div className="grid grid-cols-2 gap-4">
             <div>
               <FieldLabel>Instagram</FieldLabel>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: T3, fontSize: 13 }}>@</span>
-                <input value={form.instagram} onChange={(e) => setForm(f => ({ ...f, instagram: e.target.value }))} placeholder="moncompte"
+                <input value={form.instagram} onChange={(e) => setForm(f => ({ ...f, instagram: e.target.value }))} placeholder={t('aff.pset.handlePlaceholder')}
                   className="w-full outline-none" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '9px 12px 9px 26px', color: T1, fontSize: 13.5 }}
                   onFocus={(e) => (e.target.style.borderColor = 'rgba(232,25,44,0.55)')} onBlur={(e) => (e.target.style.borderColor = BORDER)} />
               </div>
@@ -374,7 +376,7 @@ export default function AffiliatePromoterSettings() {
               <FieldLabel>TikTok</FieldLabel>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: T3, fontSize: 13 }}>@</span>
-                <input value={form.tiktok} onChange={(e) => setForm(f => ({ ...f, tiktok: e.target.value }))} placeholder="moncompte"
+                <input value={form.tiktok} onChange={(e) => setForm(f => ({ ...f, tiktok: e.target.value }))} placeholder={t('aff.pset.handlePlaceholder')}
                   className="w-full outline-none" style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '9px 12px 9px 26px', color: T1, fontSize: 13.5 }}
                   onFocus={(e) => (e.target.style.borderColor = 'rgba(232,25,44,0.55)')} onBlur={(e) => (e.target.style.borderColor = BORDER)} />
               </div>
@@ -384,14 +386,14 @@ export default function AffiliatePromoterSettings() {
               <DarkInput value={form.whatsapp} onChange={(v) => setForm(f => ({ ...f, whatsapp: v }))} placeholder="+34 600 000 000" />
             </div>
             <div>
-              <FieldLabel>Site web</FieldLabel>
+              <FieldLabel>{t('aff.pset.website')}</FieldLabel>
               <DarkInput value={form.website} onChange={(v) => setForm(f => ({ ...f, website: v }))} placeholder="https://monsite.com" />
             </div>
           </div>
         </AffCard>
 
         <AffButton onClick={handleSave} disabled={saving}>
-          {saving ? 'Sauvegarde…' : 'Sauvegarder'}
+          {saving ? t('aff.pset.savingBtn') : t('aff.pset.saveBtn')}
         </AffButton>
       </AffPage>
     </>

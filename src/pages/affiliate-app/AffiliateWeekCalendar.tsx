@@ -5,7 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { format, addDays, startOfDay, isToday, parseISO } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, es, enUS } from 'date-fns/locale';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { CheckCircle, Pencil, FileText, AlertTriangle } from 'lucide-react';
 import {
   AffPage, AffHeading, AffSpinner,
@@ -32,14 +33,16 @@ function getDayStatus(ev: EventRow): DayStatus {
 }
 
 const STATUS_STYLE: Record<DayStatus, { dot: string; label: string }> = {
-  ok:          { dot: POS, label: 'Publié' },
-  missing_url: { dot: WARN, label: 'URL manquante' },
-  soldout:     { dot: RED, label: 'Complet' },
-  draft:       { dot: T3, label: 'Brouillon' },
+  ok:          { dot: POS, label: 'aff.week.statusOk' },
+  missing_url: { dot: WARN, label: 'aff.week.statusMissingUrl' },
+  soldout:     { dot: RED, label: 'aff.week.statusSoldout' },
+  draft:       { dot: T3, label: 'aff.week.statusDraft' },
 };
 
 export default function AffiliateWeekCalendar() {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const { toast } = useToast();
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,9 +77,9 @@ export default function AffiliateWeekCalendar() {
 
   const toggleSoldOut = async (id: string, current: boolean) => {
     const { error } = await supabase.from('affiliate_events').update({ is_sold_out: !current }).eq('id', id);
-    if (error) { toast({ title: 'Erreur', description: error.message, variant: 'destructive' }); return; }
+    if (error) { toast({ title: t('aff.week.error'), description: error.message, variant: 'destructive' }); return; }
     setEvents(prev => prev.map(e => e.id === id ? { ...e, is_sold_out: !current } : e));
-    toast({ title: current ? 'Soirée remise en vente' : 'Marquée comme complète' });
+    toast({ title: current ? t('aff.week.backOnSale') : t('aff.week.markedSoldOut') });
   };
 
   const eventsForDay = (dateStr: string) => events.filter(e => e.event_date === dateStr);
@@ -87,8 +90,8 @@ export default function AffiliateWeekCalendar() {
     <AffPage>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <AffHeading
-          title="Cette semaine"
-          subtitle={`Vue 7 jours — ${format(today, 'd MMM', { locale: fr })} → ${format(addDays(today, 6), 'd MMM yyyy', { locale: fr })}`}
+          title={t('aff.nav.week')}
+          subtitle={`${t('aff.week.subtitle')} — ${format(today, 'd MMM', { locale: dateLocale })} → ${format(addDays(today, 6), 'd MMM yyyy', { locale: dateLocale })}`}
         />
       </motion.div>
 
@@ -97,7 +100,7 @@ export default function AffiliateWeekCalendar() {
         {Object.values(STATUS_STYLE).map((s) => (
           <div key={s.label} className="flex items-center gap-1.5">
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.dot, display: 'inline-block' }} />
-            <span style={{ fontSize: 11.5, color: T3 }}>{s.label}</span>
+            <span style={{ fontSize: 11.5, color: T3 }}>{t(s.label)}</span>
           </div>
         ))}
       </div>
@@ -107,7 +110,7 @@ export default function AffiliateWeekCalendar() {
         {days.map((day, di) => {
           const dateStr = format(day, 'yyyy-MM-dd');
           const dayEvents = eventsForDay(dateStr);
-          const dayLabel = format(day, 'EEEE d MMMM', { locale: fr });
+          const dayLabel = format(day, 'EEEE d MMMM', { locale: dateLocale });
           const isNow = isToday(day);
 
           return (
@@ -126,14 +129,14 @@ export default function AffiliateWeekCalendar() {
                 style={{ borderBottom: dayEvents.length > 0 ? `1px solid ${F_BORDER}` : 'none', background: isNow ? 'rgba(232,25,44,0.06)' : 'rgba(255,255,255,0.02)' }}>
                 <span className="capitalize" style={{ fontSize: 13.5, fontWeight: 600, color: isNow ? RED : T2 }}>
                   {dayLabel}
-                  {isNow && <span style={{ marginLeft: 8, fontSize: 11, color: 'rgba(232,25,44,0.75)' }}>Aujourd'hui</span>}
+                  {isNow && <span style={{ marginLeft: 8, fontSize: 11, color: 'rgba(232,25,44,0.75)' }}>{t('aff.week.today')}</span>}
                 </span>
-                <span style={{ fontSize: 11, color: T3 }}>{dayEvents.length} soirée{dayEvents.length !== 1 ? 's' : ''}</span>
+                <span style={{ fontSize: 11, color: T3 }}>{dayEvents.length} {dayEvents.length !== 1 ? t('aff.week.eventMany') : t('aff.week.eventOne')}</span>
               </div>
 
               {/* Events */}
               {dayEvents.length === 0 ? (
-                <div className="px-4 py-3" style={{ fontSize: 11.5, color: T3, fontStyle: 'italic' }}>Aucune soirée planifiée</div>
+                <div className="px-4 py-3" style={{ fontSize: 11.5, color: T3, fontStyle: 'italic' }}>{t('aff.week.noEvents')}</div>
               ) : (
                 <div className="divide-y" style={{ borderColor: F_BORDER }}>
                   {dayEvents.map(ev => {
@@ -158,7 +161,7 @@ export default function AffiliateWeekCalendar() {
                           <p className="truncate" style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{ev.name}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <span style={{ width: 6, height: 6, borderRadius: '50%', background: style.dot, display: 'inline-block' }} />
-                            <span style={{ fontSize: 11, color: T3 }}>{style.label}</span>
+                            <span style={{ fontSize: 11, color: T3 }}>{t(style.label)}</span>
                           </div>
                         </div>
 
@@ -167,17 +170,17 @@ export default function AffiliateWeekCalendar() {
                         {/* Actions */}
                         <div className="flex items-center gap-1 flex-none">
                           <button onClick={() => toggleSoldOut(ev.id, ev.is_sold_out)}
-                            title={ev.is_sold_out ? 'Remettre en vente' : 'Marquer complet'}
+                            title={ev.is_sold_out ? t('aff.week.putBackOnSale') : t('aff.week.markSoldOut')}
                             className="p-1.5 transition-colors" style={{ color: ev.is_sold_out ? RED : T3 }}
                             onMouseEnter={(e) => (e.currentTarget.style.color = RED)} onMouseLeave={(e) => (e.currentTarget.style.color = ev.is_sold_out ? RED : T3)}>
                             <CheckCircle className="h-3.5 w-3.5" />
                           </button>
-                          <Link to={`/affiliate/events/${ev.id}/brief`} title="Brief"
+                          <Link to={`/affiliate/events/${ev.id}/brief`} title={t('aff.week.brief')}
                             className="p-1.5 transition-colors" style={{ color: T3 }}
                             onMouseEnter={(e) => (e.currentTarget.style.color = RED)} onMouseLeave={(e) => (e.currentTarget.style.color = T3)}>
                             <FileText className="h-3.5 w-3.5" />
                           </Link>
-                          <Link to={`/affiliate/events/${ev.id}/edit`} title="Modifier"
+                          <Link to={`/affiliate/events/${ev.id}/edit`} title={t('aff.week.edit')}
                             className="p-1.5 transition-colors" style={{ color: T3 }}
                             onMouseEnter={(e) => (e.currentTarget.style.color = T1)} onMouseLeave={(e) => (e.currentTarget.style.color = T3)}>
                             <Pencil className="h-3.5 w-3.5" />

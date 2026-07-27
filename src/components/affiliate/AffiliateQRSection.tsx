@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 type QRItem = {
   label: string;
@@ -12,6 +13,7 @@ type Props = {
 };
 
 function QRCard({ item }: { item: QRItem }) {
+  const { t } = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [ready, setReady] = useState(false);
 
@@ -101,7 +103,7 @@ function QRCard({ item }: { item: QRItem }) {
             <polyline points="7 10 12 15 17 10"/>
             <line x1="12" y1="15" x2="12" y2="3"/>
           </svg>
-          Télécharger PNG
+          {t('aff.qr.downloadPng')}
         </button>
         <button
           onClick={() => navigator.clipboard.writeText(item.url)}
@@ -124,7 +126,7 @@ function QRCard({ item }: { item: QRItem }) {
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
           </svg>
-          Copier le lien
+          {t('aff.qr.copyLink')}
         </button>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
 import { ExternalLink, Loader2, CalendarDays, Ticket, ImageIcon, ListMusic } from 'lucide-react';
 import { AffiliateImageUploader } from '@/components/affiliate/AffiliateImageUploader';
@@ -60,6 +61,7 @@ export default function AffiliateEventForm() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const isEdit = Boolean(id);
 
   const [affiliateId, setAffiliateId] = useState<string | null>(null);
@@ -127,7 +129,7 @@ export default function AffiliateEventForm() {
 
   const handleSave = async (): Promise<boolean> => {
     if (!affiliateId || !form.name || !form.event_date) {
-      toast({ title: 'Champs requis', description: 'Nom et date sont obligatoires.', variant: 'destructive' });
+      toast({ title: t('aff.eventForm.requiredTitle'), description: t('aff.eventForm.requiredDesc'), variant: 'destructive' });
       return false;
     }
 
@@ -163,21 +165,21 @@ export default function AffiliateEventForm() {
         if (error) throw error;
         setForm(saved);
         markSaved(saved);
-        toast({ title: 'Soirée mise à jour' });
+        toast({ title: t('aff.eventForm.updatedToast') });
         // On RESTE sur la soirée après une modification.
       } else {
         const { data, error } = await supabase.from('affiliate_events').insert(payload).select('id').single();
         if (error) throw error;
         setForm(saved);
         markSaved(saved);
-        toast({ title: 'Soirée créée' });
+        toast({ title: t('aff.eventForm.createdToast') });
         // Bascule en édition sur place : un second « Enregistrer » met à jour.
         if (data?.id) navigate(`/affiliate/events/${data.id}/edit`, { replace: true });
       }
       return true;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erreur';
-      toast({ title: 'Erreur', description: msg, variant: 'destructive' });
+      const msg = err instanceof Error ? err.message : t('aff.eventForm.errorTitle');
+      toast({ title: t('aff.eventForm.errorTitle'), description: msg, variant: 'destructive' });
       return false;
     } finally {
       setSaving(false);
@@ -186,7 +188,7 @@ export default function AffiliateEventForm() {
 
   const { markSaved, guardedNavigate } = useUnsavedGuard({
     scope: `affiliate-event:${id ?? 'new'}`,
-    label: isEdit ? 'Fiche soirée' : 'Nouvelle soirée',
+    label: isEdit ? t('aff.eventForm.guardEdit') : t('aff.eventForm.guardNew'),
     ready: !loadingData && Boolean(affiliateId),
     value: form,
     onRestore: setForm,
@@ -196,53 +198,53 @@ export default function AffiliateEventForm() {
   if (loadingData) return <AffSpinner />;
 
   if (!affiliateId) {
-    return <AffPage maxWidth={760}><p style={{ color: T2 }}>Profil affilié introuvable.</p></AffPage>;
+    return <AffPage maxWidth={760}><p style={{ color: T2 }}>{t('aff.eventForm.profileNotFound')}</p></AffPage>;
   }
 
   return (
     <AffPage maxWidth={760}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-        <AffBackHeader title={isEdit ? 'Modifier la soirée' : 'Nouvelle soirée'} onBack={() => guardedNavigate('/affiliate/events')} />
+        <AffBackHeader title={isEdit ? t('aff.eventForm.editTitle') : t('aff.eventForm.newTitle')} onBack={() => guardedNavigate('/affiliate/events')} />
       </motion.div>
 
       {/* Infos de base */}
       <AffCard padding={20}>
-        <AffCardHeader icon={CalendarDays} title="Infos de base" />
+        <AffCardHeader icon={CalendarDays} title={t('aff.eventForm.basicInfo')} />
         <div className="space-y-4">
           <div>
-            <FieldLabel>Club partenaire</FieldLabel>
+            <FieldLabel>{t('aff.eventForm.venueLabel')}</FieldLabel>
             <DarkSelect value={form.affiliate_venue_id} onChange={(v) => set('affiliate_venue_id', v)}>
-              <option value="">Sélectionner un club…</option>
+              <option value="">{t('aff.eventForm.selectVenue')}</option>
               {venues.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
             </DarkSelect>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <FieldLabel>Nom de la soirée *</FieldLabel>
+              <FieldLabel>{t('aff.eventForm.nameLabel')}</FieldLabel>
               <DarkInput value={form.name} onChange={(v) => { set('name', v); if (!isEdit) set('slug', slugify(`${v}-${form.event_date}`)); }} placeholder="Club de los Viernes" />
             </div>
             <div>
-              <FieldLabel>Statut</FieldLabel>
+              <FieldLabel>{t('aff.eventForm.statusLabel')}</FieldLabel>
               <DarkSelect value={form.status} onChange={(v) => set('status', v as FormData['status'])}>
-                <option value="draft">Brouillon</option>
-                <option value="published">Publié</option>
-                <option value="featured">À la une</option>
+                <option value="draft">{t('aff.eventForm.statusDraft')}</option>
+                <option value="published">{t('aff.eventForm.statusPublished')}</option>
+                <option value="featured">{t('aff.eventForm.statusFeatured')}</option>
               </DarkSelect>
             </div>
           </div>
 
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <FieldLabel>Date *</FieldLabel>
+              <FieldLabel>{t('aff.eventForm.dateLabel')}</FieldLabel>
               <input type="date" value={form.event_date} onChange={(e) => set('event_date', e.target.value)} style={dateInputStyle} />
             </div>
             <div>
-              <FieldLabel>Ouverture</FieldLabel>
+              <FieldLabel>{t('aff.eventForm.openLabel')}</FieldLabel>
               <input type="time" value={form.start_time} onChange={(e) => set('start_time', e.target.value)} style={dateInputStyle} />
             </div>
             <div>
-              <FieldLabel>Fermeture</FieldLabel>
+              <FieldLabel>{t('aff.eventForm.closeLabel')}</FieldLabel>
               <input type="time" value={form.end_time} onChange={(e) => set('end_time', e.target.value)} style={dateInputStyle} />
             </div>
           </div>
@@ -251,52 +253,52 @@ export default function AffiliateEventForm() {
 
       {/* Billetterie */}
       <AffCard padding={20}>
-        <AffCardHeader icon={Ticket} title="Billetterie" accent />
+        <AffCardHeader icon={Ticket} title={t('aff.eventForm.ticketing')} accent />
         <div className="space-y-4">
           <div>
-            <FieldLabel><span className="inline-flex items-center gap-1.5"><ExternalLink className="h-3.5 w-3.5" style={{ color: RED }} /> Lien billetterie (Shotgun, RA, site club…)</span></FieldLabel>
-            <DarkInput value={form.external_ticket_url} onChange={(v) => set('external_ticket_url', v)} placeholder="https://shotgun.live/…  ou  https://ra.co/events/…" />
+            <FieldLabel><span className="inline-flex items-center gap-1.5"><ExternalLink className="h-3.5 w-3.5" style={{ color: RED }} /> {t('aff.eventForm.ticketUrlLabel')}</span></FieldLabel>
+            <DarkInput value={form.external_ticket_url} onChange={(v) => set('external_ticket_url', v)} placeholder={t('aff.eventForm.ticketUrlPlaceholder')} />
             <p style={{ color: T3, fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>
-              Yuno tracke le clic avant de rediriger vers la billetterie externe. Sans ce lien, la soirée ne sera pas visible du public.
+              {t('aff.eventForm.ticketUrlHelp')}
             </p>
           </div>
 
           <div className="grid grid-cols-3 gap-4 items-end">
             <div>
-              <FieldLabel>Prix à partir de (€)</FieldLabel>
+              <FieldLabel>{t('aff.eventForm.priceFromLabel')}</FieldLabel>
               <DarkInput type="number" value={form.price_from} onChange={(v) => set('price_from', v)} placeholder="10" />
             </div>
-            <div className="pb-2.5"><CheckBox checked={form.is_free} onChange={(v) => set('is_free', v)} label="Entrée gratuite" /></div>
-            <div className="pb-2.5"><CheckBox checked={form.is_sold_out} onChange={(v) => set('is_sold_out', v)} label="Complet" /></div>
+            <div className="pb-2.5"><CheckBox checked={form.is_free} onChange={(v) => set('is_free', v)} label={t('aff.eventForm.freeEntry')} /></div>
+            <div className="pb-2.5"><CheckBox checked={form.is_sold_out} onChange={(v) => set('is_sold_out', v)} label={t('aff.eventForm.soldOut')} /></div>
           </div>
         </div>
       </AffCard>
 
       {/* Médias */}
       <AffCard padding={20}>
-        <AffCardHeader icon={ImageIcon} title="Médias" />
+        <AffCardHeader icon={ImageIcon} title={t('aff.eventForm.media')} />
         <div className="space-y-6">
           <AffiliateImageUploader affiliateId={affiliateId} value={form.flyer_url} onChange={(url) => set('flyer_url', url)}
-            folder="events/flyers" label="Flyer / Poster de la soirée" hint="Format portrait recommandé · PNG, JPG, WEBP" />
+            folder="events/flyers" label={t('aff.eventForm.flyerLabel')} hint={t('aff.eventForm.flyerHint')} />
           <AffiliateDraggableGallery affiliateId={affiliateId} folder="events/gallery" urls={form.gallery_urls}
-            onChange={(urls) => set('gallery_urls', urls)} label="Galerie photos (after, ambiance…)" maxFiles={10} />
+            onChange={(urls) => set('gallery_urls', urls)} label={t('aff.eventForm.galleryLabel')} maxFiles={10} />
         </div>
       </AffCard>
 
       {/* Détails */}
       <AffCard padding={20}>
-        <AffCardHeader icon={ListMusic} title="Détails" />
+        <AffCardHeader icon={ListMusic} title={t('aff.eventForm.details')} />
         <div className="space-y-4">
           <div>
-            <FieldLabel hint="(séparés par des virgules)">DJs / Artistes</FieldLabel>
+            <FieldLabel hint={t('aff.eventForm.djsHint')}>{t('aff.eventForm.djsLabel')}</FieldLabel>
             <DarkInput value={form.dj_names} onChange={(v) => set('dj_names', v)} placeholder="Ricardo Villalobos, Len Faki, Marcel Dettmann" />
           </div>
           <div>
-            <FieldLabel>Description</FieldLabel>
-            <DarkTextarea value={form.description} onChange={(v) => set('description', v)} placeholder="Description de la soirée…" rows={3} />
+            <FieldLabel>{t('aff.eventForm.descriptionLabel')}</FieldLabel>
+            <DarkTextarea value={form.description} onChange={(v) => set('description', v)} placeholder={t('aff.eventForm.descriptionPlaceholder')} rows={3} />
           </div>
           <div>
-            <FieldLabel>Genres</FieldLabel>
+            <FieldLabel>{t('aff.eventForm.genresLabel')}</FieldLabel>
             <div className="flex flex-wrap gap-2">
               {GENRES.map((g) => <ChoiceChip key={g} active={form.genres.includes(g)} onClick={() => toggleGenre(g)}>{g}</ChoiceChip>)}
             </div>
@@ -307,9 +309,9 @@ export default function AffiliateEventForm() {
       <div className="flex gap-3 pb-8">
         <AffButton onClick={handleSave} disabled={saving}>
           {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-          {isEdit ? 'Enregistrer' : 'Créer la soirée'}
+          {isEdit ? t('aff.eventForm.save') : t('aff.eventForm.create')}
         </AffButton>
-        <AffButton variant="ghost" onClick={() => guardedNavigate('/affiliate/events')}>Annuler</AffButton>
+        <AffButton variant="ghost" onClick={() => guardedNavigate('/affiliate/events')}>{t('aff.eventForm.cancel')}</AffButton>
       </div>
     </AffPage>
   );

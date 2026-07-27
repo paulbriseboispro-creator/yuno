@@ -20,6 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { compressImage } from '@/lib/compressImage';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { RED, T2, T3, BORDER, INNER_BG } from '@/components/affiliate/affiliate-ui';
 
 interface SortableItemProps {
@@ -83,6 +84,7 @@ export function AffiliateDraggableGallery({
 }: AffiliateDraggableGalleryProps) {
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -115,20 +117,20 @@ export function AffiliateDraggableGallery({
         if (uploaded.length > 0) onChange([...urls, ...uploaded]);
         if (failCount > 0) {
           toast({
-            title: 'Erreur d\'upload',
-            description: `${failCount} photo(s) n'ont pas pu être uploadées.`,
+            title: t('aff.gallery.errorTitle'),
+            description: t('aff.gallery.failCount').replace('{count}', String(failCount)),
             variant: 'destructive',
           });
         }
       } catch (err) {
         console.error('Gallery upload failed', err);
-        const msg = (err as any)?.message ?? (err instanceof Error ? err.message : 'Erreur upload');
-        toast({ title: 'Erreur d\'upload galerie', description: msg, variant: 'destructive' });
+        const msg = (err as any)?.message ?? (err instanceof Error ? err.message : t('aff.gallery.errorFallback'));
+        toast({ title: t('aff.gallery.errorGalleryTitle'), description: msg, variant: 'destructive' });
       } finally {
         setUploading(false);
       }
     },
-    [affiliateId, folder, urls, onChange, maxFiles, toast]
+    [affiliateId, folder, urls, onChange, maxFiles, toast, t]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -170,7 +172,7 @@ export function AffiliateDraggableGallery({
           {uploading ? (
             <div className="flex items-center justify-center gap-2 py-1" style={{ color: T2 }}>
               <Loader2 className="w-5 h-5 animate-spin" />
-              <span style={{ fontSize: 13 }}>Upload en cours…</span>
+              <span style={{ fontSize: 13 }}>{t('aff.gallery.uploading')}</span>
             </div>
           ) : (
             <div className="py-1">
@@ -178,9 +180,9 @@ export function AffiliateDraggableGallery({
                 <Upload className="w-4 h-4" style={{ color: T2 }} />
               </div>
               <p style={{ color: T2, fontSize: 13 }}>
-                {isDragActive ? 'Dépose les images ici' : `Dépose plusieurs photos (max ${maxFiles})`}
+                {isDragActive ? t('aff.gallery.dropHere') : t('aff.gallery.dropMultiple').replace('{max}', String(maxFiles))}
               </p>
-              <p style={{ color: T3, fontSize: 11, marginTop: 2 }}>{urls.length}/{maxFiles} photos</p>
+              <p style={{ color: T3, fontSize: 11, marginTop: 2 }}>{urls.length}/{maxFiles} {t('aff.gallery.photos')}</p>
             </div>
           )}
         </div>

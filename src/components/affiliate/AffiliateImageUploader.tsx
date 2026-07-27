@@ -4,6 +4,7 @@ import { Loader2, Upload, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { compressImage } from '@/lib/compressImage';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { RED, T1, T2, T3, BORDER, INNER_BG } from '@/components/affiliate/affiliate-ui';
 
 interface AffiliateImageUploaderProps {
@@ -30,6 +31,7 @@ export function AffiliateImageUploader({
 }: AffiliateImageUploaderProps) {
   const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
+  const { t } = useLanguage();
 
   const onDrop = useCallback(
     async (accepted: File[]) => {
@@ -51,13 +53,13 @@ export function AffiliateImageUploader({
         onChange(data.publicUrl);
       } catch (err) {
         console.error('Upload failed', err);
-        const msg = (err as any)?.message ?? (err instanceof Error ? err.message : 'Erreur upload');
-        toast({ title: "Erreur d'upload", description: msg, variant: 'destructive' });
+        const msg = (err as any)?.message ?? (err instanceof Error ? err.message : t('aff.upload.errorFallback'));
+        toast({ title: t('aff.upload.errorTitle'), description: msg, variant: 'destructive' });
       } finally {
         setUploading(false);
       }
     },
-    [affiliateId, folder, compress, onChange, toast]
+    [affiliateId, folder, compress, onChange, toast, t]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -108,8 +110,8 @@ export function AffiliateImageUploader({
           <div className="flex items-center gap-4">
             <img src={value} alt="" className="w-20 h-20 rounded-lg object-cover flex-none" style={{ border: `1px solid ${BORDER}` }} />
             <div className="text-left flex-1 min-w-0">
-              <p style={{ color: T1, fontSize: 13.5, fontWeight: 500 }}>Photo uploadée</p>
-              <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>Dépose une nouvelle image pour remplacer</p>
+              <p style={{ color: T1, fontSize: 13.5, fontWeight: 500 }}>{t('aff.upload.photoUploaded')}</p>
+              <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{t('aff.upload.dropToReplace')}</p>
             </div>
             <button type="button" onClick={(e) => { e.stopPropagation(); onChange(null); }}
               className="flex-none transition-colors" style={{ color: T3 }}
@@ -120,14 +122,14 @@ export function AffiliateImageUploader({
         ) : uploading ? (
           <div className="flex items-center justify-center gap-2 py-2" style={{ color: T2 }}>
             <Loader2 className="w-5 h-5 animate-spin" />
-            <span style={{ fontSize: 13 }}>Upload en cours…</span>
+            <span style={{ fontSize: 13 }}>{t('aff.upload.uploading')}</span>
           </div>
         ) : (
           <div className="py-2">
             <div className="w-10 h-10 rounded-xl mx-auto mb-2 flex items-center justify-center" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
               <Upload className="w-4 h-4" style={{ color: T2 }} />
             </div>
-            <p style={{ color: T2, fontSize: 13 }}>{isDragActive ? "Dépose l'image ici" : 'Dépose une image ou clique pour parcourir'}</p>
+            <p style={{ color: T2, fontSize: 13 }}>{isDragActive ? t('aff.upload.dropHere') : t('aff.upload.dropOrBrowse')}</p>
             {hint && <p style={{ color: T3, fontSize: 11, marginTop: 4 }}>{hint}</p>}
           </div>
         )}

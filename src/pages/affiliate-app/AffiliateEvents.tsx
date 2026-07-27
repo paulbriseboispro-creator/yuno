@@ -5,8 +5,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Plus, Pencil, Trash2, AlertTriangle, ExternalLink, Flame, CheckCircle, FileText, CalendarOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { format, isPast, parseISO } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, es, enUS } from 'date-fns/locale';
 import {
   AffPage, AffHeading, AffCard, Pill, AffButton, AffLinkButton, AffSpinner, AffEmpty,
   RED, POS, WARN, T1, T2, T3, BORDER, C_FAINT,
@@ -27,19 +28,21 @@ type EventRow = {
 const STATUS_TONE: Record<string, 'muted' | 'success' | 'warn'> = {
   draft: 'muted', published: 'success', featured: 'warn',
 };
-const STATUS_LABEL: Record<string, string> = {
-  draft: 'Brouillon', published: 'Publiée', featured: 'À la une',
+const STATUS_LABEL_KEY: Record<string, string> = {
+  draft: 'aff.events.statusDraft', published: 'aff.events.statusPublished', featured: 'aff.events.statusFeatured',
 };
 
 const FILTERS = ['all', 'draft', 'published', 'featured'] as const;
 type Filter = (typeof FILTERS)[number];
-const FILTER_LABEL: Record<Filter, string> = {
-  all: 'Toutes', draft: 'Brouillon', published: 'Publiée', featured: 'À la une',
+const FILTER_LABEL_KEY: Record<Filter, string> = {
+  all: 'aff.events.filterAll', draft: 'aff.events.statusDraft', published: 'aff.events.statusPublished', featured: 'aff.events.statusFeatured',
 };
 
 export default function AffiliateEvents() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const [events, setEvents] = useState<EventRow[]>([]);
   const [filter, setFilter] = useState<Filter>('all');
   const [loading, setLoading] = useState(true);
@@ -71,31 +74,31 @@ export default function AffiliateEvents() {
       .update({ is_sold_out: !currentValue })
       .eq('id', id);
     if (error) {
-      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+      toast({ title: t('aff.events.errorTitle'), description: error.message, variant: 'destructive' });
       return;
     }
     setEvents((prev) => prev.map((e) => e.id === id ? { ...e, is_sold_out: !currentValue } : e));
-    toast({ title: currentValue ? 'Soirée remise en vente' : 'Soirée marquée comme complète' });
+    toast({ title: currentValue ? t('aff.events.backOnSaleToast') : t('aff.events.soldOutToast') });
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer cette soirée ?')) return;
+    if (!confirm(t('aff.events.deleteConfirm'))) return;
     const { error } = await supabase.from('affiliate_events').delete().eq('id', id);
     if (error) {
-      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+      toast({ title: t('aff.events.errorTitle'), description: error.message, variant: 'destructive' });
       return;
     }
     setEvents((prev) => prev.filter((e) => e.id !== id));
-    toast({ title: 'Soirée supprimée' });
+    toast({ title: t('aff.events.deletedToast') });
   };
 
   const handlePurgePast = async () => {
     const pastEvents = events.filter((e) => isPast(parseISO(e.event_date)));
     if (pastEvents.length === 0) {
-      toast({ title: 'Aucune soirée passée à purger' });
+      toast({ title: t('aff.events.noPastToPurge') });
       return;
     }
-    if (!confirm(`Supprimer définitivement ${pastEvents.length} soirée${pastEvents.length > 1 ? 's' : ''} passée${pastEvents.length > 1 ? 's' : ''} et leurs images ?`)) return;
+    if (!confirm((pastEvents.length > 1 ? t('aff.events.purgeConfirmMany') : t('aff.events.purgeConfirmOne')).replace('{count}', String(pastEvents.length)))) return;
 
     setPurging(true);
     let errors = 0;
@@ -125,9 +128,9 @@ export default function AffiliateEvents() {
     setPurging(false);
 
     if (errors > 0) {
-      toast({ title: `Purge partielle`, description: `${errors} erreur(s) lors de la suppression.`, variant: 'destructive' });
+      toast({ title: t('aff.events.purgePartialTitle'), description: t('aff.events.purgeErrorsDesc').replace('{count}', String(errors)), variant: 'destructive' });
     } else {
-      toast({ title: `${pastEvents.length} soirée${pastEvents.length > 1 ? 's' : ''} purgée${pastEvents.length > 1 ? 's' : ''}`, description: 'Données et images supprimées.' });
+      toast({ title: (pastEvents.length > 1 ? t('aff.events.purgedMany') : t('aff.events.purgedOne')).replace('{count}', String(pastEvents.length)), description: t('aff.events.purgedDesc') });
     }
   };
 
@@ -142,18 +145,18 @@ export default function AffiliateEvents() {
     <AffPage>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <AffHeading
-          title="Soirées affiliées"
-          subtitle={`${upcomingCount} à venir${pastCount > 0 ? ` · ${pastCount} passée${pastCount > 1 ? 's' : ''}` : ''}`}
+          title={t('aff.events.title')}
+          subtitle={`${t('aff.events.upcomingCount').replace('{count}', String(upcomingCount))}${pastCount > 0 ? ` · ${(pastCount > 1 ? t('aff.events.pastCountMany') : t('aff.events.pastCountOne')).replace('{count}', String(pastCount))}` : ''}`}
           right={
             <div className="flex items-center gap-2">
               {pastCount > 0 && (
                 <AffButton variant="ghost" size="sm" onClick={handlePurgePast} disabled={purging}>
                   <Flame className="h-3.5 w-3.5" />
-                  {purging ? 'Purge…' : `Purger (${pastCount})`}
+                  {purging ? t('aff.events.purging') : t('aff.events.purgeBtn').replace('{count}', String(pastCount))}
                 </AffButton>
               )}
               <AffLinkButton to="/affiliate/events/new" size="sm">
-                <Plus className="h-4 w-4" /> Nouvelle soirée
+                <Plus className="h-4 w-4" /> {t('aff.events.newEvent')}
               </AffLinkButton>
             </div>
           }
@@ -166,7 +169,7 @@ export default function AffiliateEvents() {
           style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.22)' }}>
           <AlertTriangle className="h-4 w-4 flex-none" style={{ color: WARN }} />
           <p style={{ color: T2, fontSize: 12.5 }}>
-            <strong style={{ color: T1 }}>{missingLink}</strong> soirée{missingLink > 1 ? 's' : ''} sans lien billetterie — non visible{missingLink > 1 ? 's' : ''} du public tant qu'aucun lien n'est ajouté.
+            <strong style={{ color: T1 }}>{missingLink}</strong> {missingLink > 1 ? t('aff.events.missingLinkMany') : t('aff.events.missingLinkOne')}
           </p>
         </div>
       )}
@@ -179,7 +182,7 @@ export default function AffiliateEvents() {
             style={filter === f
               ? { color: '#fff', background: RED, boxShadow: `0 0 14px -4px ${RED}88` }
               : { color: T3 }}>
-            {FILTER_LABEL[f]}
+            {t(FILTER_LABEL_KEY[f])}
           </button>
         ))}
       </div>
@@ -187,9 +190,9 @@ export default function AffiliateEvents() {
       {filtered.length === 0 ? (
         <AffEmpty
           icon={CalendarOff}
-          title={`Aucune soirée${filter !== 'all' ? ` · ${FILTER_LABEL[filter]}` : ''}`}
-          description="Créez une soirée pour la voir apparaître ici."
-          action={<AffLinkButton to="/affiliate/events/new" size="sm"><Plus className="h-4 w-4" /> Créer une soirée</AffLinkButton>}
+          title={`${t('aff.events.emptyTitle')}${filter !== 'all' ? ` · ${t(FILTER_LABEL_KEY[filter])}` : ''}`}
+          description={t('aff.events.emptyDesc')}
+          action={<AffLinkButton to="/affiliate/events/new" size="sm"><Plus className="h-4 w-4" /> {t('aff.events.createEvent')}</AffLinkButton>}
         />
       ) : (
         <AffCard padding={0}>
@@ -216,12 +219,12 @@ export default function AffiliateEvents() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{event.name}</p>
-                      {event.is_sold_out && <Pill tone="red">Complet</Pill>}
+                      {event.is_sold_out && <Pill tone="red">{t('aff.events.soldOutPill')}</Pill>}
                     </div>
                     <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>
-                      {event.affiliate_venues?.name ?? 'Sans club'}
+                      {event.affiliate_venues?.name ?? t('aff.events.noVenue')}
                       {' · '}
-                      {format(parseISO(event.event_date), 'd MMM yyyy', { locale: fr })}
+                      {format(parseISO(event.event_date), 'd MMM yyyy', { locale: dateLocale })}
                     </p>
                   </div>
 
@@ -230,35 +233,35 @@ export default function AffiliateEvents() {
                     {event.external_ticket_url ? (
                       <a href={event.external_ticket_url} target="_blank" rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-[11.5px] font-medium" style={{ color: POS }}>
-                        <ExternalLink className="h-3 w-3" /> Lien actif
+                        <ExternalLink className="h-3 w-3" /> {t('aff.events.linkActive')}
                       </a>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-[11.5px] font-medium" style={{ color: WARN }}>
-                        <AlertTriangle className="h-3 w-3" /> Lien manquant
+                        <AlertTriangle className="h-3 w-3" /> {t('aff.events.linkMissing')}
                       </span>
                     )}
                   </div>
 
                   {/* Status + actions */}
                   <div className="flex items-center gap-1.5 flex-none">
-                    <Pill tone={STATUS_TONE[event.status] ?? 'muted'}>{STATUS_LABEL[event.status] ?? event.status}</Pill>
+                    <Pill tone={STATUS_TONE[event.status] ?? 'muted'}>{STATUS_LABEL_KEY[event.status] ? t(STATUS_LABEL_KEY[event.status]) : event.status}</Pill>
                     <button onClick={() => toggleSoldOut(event.id, event.is_sold_out)}
-                      title={event.is_sold_out ? 'Remettre en vente' : 'Marquer complet'}
+                      title={event.is_sold_out ? t('aff.events.markOnSale') : t('aff.events.markSoldOut')}
                       className="p-1.5 transition-colors" style={{ color: event.is_sold_out ? RED : T3 }}
                       onMouseEnter={(e) => (e.currentTarget.style.color = RED)} onMouseLeave={(e) => (e.currentTarget.style.color = event.is_sold_out ? RED : T3)}>
                       <CheckCircle className="h-3.5 w-3.5" />
                     </button>
-                    <Link to={`/affiliate/events/${event.id}/brief`} title="Brief"
+                    <Link to={`/affiliate/events/${event.id}/brief`} title={t('aff.events.briefTitle')}
                       className="p-1.5 transition-colors" style={{ color: T3 }}
                       onMouseEnter={(e) => (e.currentTarget.style.color = RED)} onMouseLeave={(e) => (e.currentTarget.style.color = T3)}>
                       <FileText className="h-3.5 w-3.5" />
                     </Link>
-                    <Link to={`/affiliate/events/${event.id}/edit`} title="Éditer"
+                    <Link to={`/affiliate/events/${event.id}/edit`} title={t('aff.events.editTitle')}
                       className="p-1.5 transition-colors" style={{ color: T3 }}
                       onMouseEnter={(e) => (e.currentTarget.style.color = T1)} onMouseLeave={(e) => (e.currentTarget.style.color = T3)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Link>
-                    <button onClick={() => handleDelete(event.id)} className="p-1.5 transition-colors" style={{ color: T3 }} title="Supprimer"
+                    <button onClick={() => handleDelete(event.id)} className="p-1.5 transition-colors" style={{ color: T3 }} title={t('aff.events.deleteTitle')}
                       onMouseEnter={(e) => (e.currentTarget.style.color = RED)} onMouseLeave={(e) => (e.currentTarget.style.color = T3)}>
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>

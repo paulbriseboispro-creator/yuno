@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
+import { useLanguage } from '@/contexts/LanguageContext';
 import {
   Camera, Copy, Check, ExternalLink, Plus, Trash2, GripVertical, QrCode,
   User, Share2, ShieldCheck, Globe, ListOrdered,
@@ -78,6 +79,7 @@ const fieldLabel: React.CSSProperties = { color: T2, fontSize: 12, fontWeight: 5
 
 // Saved/saving indicator for autosaved (non-text) controls.
 function SavedIndicator({ state }: { state: SaveState | undefined }) {
+  const { t } = useLanguage();
   if (!state || state === 'idle') return null;
   return (
     <span
@@ -85,20 +87,21 @@ function SavedIndicator({ state }: { state: SaveState | undefined }) {
       style={{ color: state === 'saved' ? POS : T3 }}
     >
       {state === 'saving' ? (
-        <><div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />Enregistrement…</>
+        <><div className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />{t('aff.settings.saving')}</>
       ) : (
-        <><Check className="h-3 w-3" />Enregistré</>
+        <><Check className="h-3 w-3" />{t('aff.settings.saved')}</>
       )}
     </span>
   );
 }
 
 // Explicit save button for text sections, placed at the bottom of each card.
-function SaveButton({ state, onClick, label = 'Enregistrer' }: {
+function SaveButton({ state, onClick, label }: {
   state: SaveState | undefined;
   onClick: () => void;
   label?: string;
 }) {
+  const { t } = useLanguage();
   const saving = state === 'saving';
   const saved = state === 'saved';
   return (
@@ -117,7 +120,7 @@ function SaveButton({ state, onClick, label = 'Enregistrer' }: {
       ) : saved ? (
         <Check className="h-3.5 w-3.5" />
       ) : null}
-      {saving ? 'Enregistrement…' : saved ? 'Enregistré !' : label}
+      {saving ? t('aff.settings.saving') : saved ? t('aff.settings.savedExcl') : (label ?? t('aff.settings.save'))}
     </button>
   );
 }
@@ -145,6 +148,7 @@ type AffiliateProfile = {
 export default function AffiliateSettings() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [profile, setProfile] = useState<AffiliateProfile | null>(null);
@@ -221,8 +225,8 @@ export default function AffiliateSettings() {
       return true;
     } catch (err) {
       setSaveState(key, 'idle');
-      const msg = err instanceof Error ? err.message : 'Erreur inconnue';
-      toast({ title: 'Erreur', description: msg, variant: 'destructive' });
+      const msg = err instanceof Error ? err.message : t('aff.settings.unknownError');
+      toast({ title: t('aff.settings.errorTitle'), description: msg, variant: 'destructive' });
       return false;
     }
   };
@@ -249,7 +253,7 @@ export default function AffiliateSettings() {
   // « modifications non enregistrées » nomme celle(s) qui reste(nt) en attente.
   const saveIdentity = async (): Promise<boolean> => {
     if (!form.name.trim()) {
-      toast({ title: 'Nom requis', description: "Le nom de l'entité est obligatoire.", variant: 'destructive' });
+      toast({ title: t('aff.settings.nameRequiredTitle'), description: t('aff.settings.nameRequiredDesc'), variant: 'destructive' });
       return false;
     }
     const next = { name: form.name.trim(), city: form.city.trim(), bio: form.bio.trim() };
@@ -295,7 +299,7 @@ export default function AffiliateSettings() {
 
   const identityGuard = useUnsavedGuard({
     scope: 'affiliate-settings:identity',
-    label: 'Identité',
+    label: t('aff.settings.identity'),
     ready: guardReady,
     value: { name: form.name, city: form.city, bio: form.bio },
     onRestore: (v) => setForm(f => ({ ...f, ...v })),
@@ -304,7 +308,7 @@ export default function AffiliateSettings() {
 
   const linksGuard = useUnsavedGuard({
     scope: 'affiliate-settings:links',
-    label: 'Liens & réseaux',
+    label: t('aff.settings.guardLinks'),
     ready: guardReady,
     value: { instagram: form.instagram, tiktok: form.tiktok, website: form.website, whatsapp: form.whatsapp },
     onRestore: (v) => setForm(f => ({ ...f, ...v })),
@@ -313,7 +317,7 @@ export default function AffiliateSettings() {
 
   const trustGuard = useUnsavedGuard({
     scope: 'affiliate-settings:trust',
-    label: 'Chiffres de confiance',
+    label: t('aff.settings.guardTrust'),
     ready: guardReady,
     value: { trustStats },
     onRestore: (v) => setTrustStats(v.trustStats),
@@ -322,7 +326,7 @@ export default function AffiliateSettings() {
 
   const slugGuard = useUnsavedGuard({
     scope: 'affiliate-settings:slug',
-    label: 'Lien public',
+    label: t('aff.settings.guardSlug'),
     ready: guardReady,
     value: { linktree_slug: form.linktree_slug },
     onRestore: (v) => setForm(f => ({ ...f, ...v })),
@@ -349,10 +353,10 @@ export default function AffiliateSettings() {
       if (updateError) throw updateError;
 
       setProfile(p => p ? { ...p, avatar_url: urlData.publicUrl } : p);
-      toast({ title: 'Avatar mis à jour' });
+      toast({ title: t('aff.settings.avatarUpdated') });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erreur upload';
-      toast({ title: 'Erreur', description: msg, variant: 'destructive' });
+      const msg = err instanceof Error ? err.message : t('aff.settings.uploadError');
+      toast({ title: t('aff.settings.errorTitle'), description: msg, variant: 'destructive' });
     } finally {
       setUploadingAvatar(false);
     }
@@ -389,9 +393,9 @@ export default function AffiliateSettings() {
   if (loading) return <AffSpinner />;
 
   const TYPE_LABELS: Record<string, string> = {
-    yuno_internal: 'Yuno Interne',
-    city_agency: 'Agence Ville',
-    independent: 'Indépendant',
+    yuno_internal: t('aff.settings.typeYunoInternal'),
+    city_agency: t('aff.settings.typeCityAgency'),
+    independent: t('aff.settings.typeIndependent'),
   };
 
   const isYunoInternal = profile?.type === 'yuno_internal';
@@ -408,9 +412,9 @@ export default function AffiliateSettings() {
           transition={{ duration: 0.3 }}
         >
           <h1 style={{ color: T1, fontSize: 26, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>
-            Paramètres
+            {t('aff.settings.title')}
           </h1>
-          <p style={{ color: T3, fontSize: 13, marginTop: 4 }}>Gérez votre profil et votre page publique</p>
+          <p style={{ color: T3, fontSize: 13, marginTop: 4 }}>{t('aff.settings.subtitle')}</p>
         </motion.div>
 
         {/* Avatar */}
@@ -468,21 +472,21 @@ export default function AffiliateSettings() {
 
         {/* Identité */}
         <SectionCard delay={0.08}>
-          <SectionHead icon={User} title="Identité" />
+          <SectionHead icon={User} title={t('aff.settings.identity')} />
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label style={fieldLabel}>Nom de l'entité *</Label>
+              <Label style={fieldLabel}>{t('aff.settings.entityName')}</Label>
               <Input
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="Agence Nightlife Madrid"
+                placeholder={t('aff.settings.entityNamePlaceholder')}
                 className={fieldClass}
                 style={fieldStyle}
               />
             </div>
             <div className="space-y-1.5">
-              <Label style={fieldLabel}>Ville</Label>
+              <Label style={fieldLabel}>{t('aff.settings.city')}</Label>
               <Input
                 value={form.city}
                 onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
@@ -494,11 +498,11 @@ export default function AffiliateSettings() {
           </div>
 
           <div className="space-y-1.5 mt-4">
-            <Label style={fieldLabel}>Bio</Label>
+            <Label style={fieldLabel}>{t('aff.settings.bio')}</Label>
             <Textarea
               value={form.bio}
               onChange={e => setForm(f => ({ ...f, bio: e.target.value }))}
-              placeholder="Décrivez votre organisation en quelques mots..."
+              placeholder={t('aff.settings.bioPlaceholder')}
               rows={3}
               className="rounded-lg text-[14px] placeholder:text-white/25 resize-none focus-visible:ring-1 focus-visible:ring-white/20 focus-visible:ring-offset-0"
               style={fieldStyle}
@@ -514,10 +518,10 @@ export default function AffiliateSettings() {
         <SectionCard delay={0.12}>
           <SectionHead
             icon={Share2}
-            title="Liens sociaux"
+            title={t('aff.settings.socialTitle')}
             subtitle={isYunoInternal
-              ? 'Ces liens apparaissent dans le header YUNO de vos promoteurs.'
-              : 'Ces liens remplacent le header YUNO sur les linktrees de vos promoteurs.'}
+              ? t('aff.settings.socialSubInternal')
+              : t('aff.settings.socialSubAgency')}
           />
 
           {/* Toggle : liens du promoteur vs liens de l'agence (autosave) */}
@@ -527,7 +531,7 @@ export default function AffiliateSettings() {
           >
             <div className="flex items-center justify-between gap-3">
               <p style={{ color: T3, fontSize: 11, fontWeight: 600, letterSpacing: '0.07em', textTransform: 'uppercase' }}>
-                Liens dans le profil promoteur
+                {t('aff.settings.socialModeLabel')}
               </p>
               <SavedIndicator state={saveStates.social_mode} />
             </div>
@@ -536,13 +540,13 @@ export default function AffiliateSettings() {
                 [
                   {
                     value: 'promoter',
-                    title: 'Liens personnels du promoteur',
-                    desc: 'Chaque promoteur configure ses propres réseaux (Instagram, TikTok…) depuis son profil.',
+                    title: t('aff.settings.modePromoterTitle'),
+                    desc: t('aff.settings.modePromoterDesc'),
                   },
                   {
                     value: 'agency',
-                    title: "Liens imposés par l'agence",
-                    desc: "Vos liens ci-dessous s'affichent à la place des liens personnels sur tous les linktrees.",
+                    title: t('aff.settings.modeAgencyTitle'),
+                    desc: t('aff.settings.modeAgencyDesc'),
                   },
                 ] as const
               ).map((opt) => {
@@ -607,7 +611,7 @@ export default function AffiliateSettings() {
           </div>
 
           <div className="space-y-1.5 mt-4">
-            <Label style={fieldLabel}>Site web</Label>
+            <Label style={fieldLabel}>{t('aff.settings.website')}</Label>
             <Input
               value={form.website}
               onChange={e => setForm(f => ({ ...f, website: e.target.value }))}
@@ -618,7 +622,7 @@ export default function AffiliateSettings() {
           </div>
 
           <div className="space-y-1.5 mt-4">
-            <Label style={fieldLabel}>WhatsApp — groupe communauté</Label>
+            <Label style={fieldLabel}>{t('aff.settings.whatsappCommunity')}</Label>
             <Input
               value={form.whatsapp}
               onChange={e => setForm(f => ({ ...f, whatsapp: e.target.value }))}
@@ -626,7 +630,7 @@ export default function AffiliateSettings() {
               className={fieldClass}
               style={fieldStyle}
             />
-            <p style={{ color: T3, fontSize: 11.5 }}>Lien d'invitation vers le groupe WhatsApp.</p>
+            <p style={{ color: T3, fontSize: 11.5 }}>{t('aff.settings.whatsappHint')}</p>
           </div>
 
           <div className="flex justify-end mt-4">
@@ -638,8 +642,8 @@ export default function AffiliateSettings() {
         <SectionCard delay={0.16}>
           <SectionHead
             icon={ShieldCheck}
-            title="Élément de confiance"
-            subtitle="S'affiche sur les linktrees de tous vos promoteurs sous forme de statistiques rotatives. Laissez vide pour masquer l'élément."
+            title={t('aff.settings.trustTitle')}
+            subtitle={t('aff.settings.trustSubtitle')}
           />
 
           {/* Preview — slider animé identique au vrai composant */}
@@ -661,7 +665,7 @@ export default function AffiliateSettings() {
                   gap: '6px',
                 }}
               >
-                <p style={{ color: T3, fontSize: 10.5, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 4 }}>Aperçu</p>
+                <p style={{ color: T3, fontSize: 10.5, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 4 }}>{t('aff.settings.preview')}</p>
                 <div
                   key={idx}
                   style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', animation: 'fadeSlide 0.4s ease' }}
@@ -715,7 +719,7 @@ export default function AffiliateSettings() {
                 <Input
                   value={stat.label}
                   onChange={e => updateTrustStat(i, 'label', e.target.value)}
-                  placeholder="Clients satisfaits"
+                  placeholder={t('aff.settings.trustLabelPlaceholder')}
                   className={`${fieldClass} flex-1`}
                   style={fieldStyle}
                   maxLength={40}
@@ -738,7 +742,7 @@ export default function AffiliateSettings() {
             style={{ background: TILE_BG, border: `1px solid ${BORDER}`, color: T2 }}
           >
             <Plus className="h-3.5 w-3.5" />
-            Ajouter une statistique
+            {t('aff.settings.addStat')}
             {trustStats.length > 0 && (
               <span style={{ color: T3, fontSize: 12 }}>({trustStats.length}/6)</span>
             )}
@@ -753,12 +757,12 @@ export default function AffiliateSettings() {
         <SectionCard delay={0.2}>
           <SectionHead
             icon={Globe}
-            title="Page publique (Linktree agence)"
-            subtitle="Choisissez un identifiant pour votre page publique partageable sur les réseaux."
+            title={t('aff.settings.slugTitle')}
+            subtitle={t('aff.settings.slugSubtitle')}
           />
 
           <div className="space-y-1.5">
-            <Label style={fieldLabel}>Identifiant URL</Label>
+            <Label style={fieldLabel}>{t('aff.settings.slugLabel')}</Label>
             <div className="flex items-center gap-0">
               <div className="flex items-center px-3 h-10 rounded-l-lg text-sm shrink-0 whitespace-nowrap" style={adornStyle}>
                 {window.location.origin}/p/
@@ -769,12 +773,12 @@ export default function AffiliateSettings() {
                   ...f,
                   linktree_slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')
                 }))}
-                placeholder="mon-agence"
+                placeholder={t('aff.settings.slugPlaceholder')}
                 className={`${fieldClass} rounded-l-none`}
                 style={fieldStyle}
               />
             </div>
-            <p style={{ color: T3, fontSize: 11.5 }}>Uniquement des lettres minuscules, chiffres et tirets.</p>
+            <p style={{ color: T3, fontSize: 11.5 }}>{t('aff.settings.slugHint')}</p>
           </div>
 
           {form.linktree_slug && (
@@ -785,7 +789,7 @@ export default function AffiliateSettings() {
                 style={{ background: TILE_BG, border: `1px solid ${BORDER}`, color: T2 }}
               >
                 {copied ? <Check className="h-3.5 w-3.5" style={{ color: POS }} /> : <Copy className="h-3.5 w-3.5" />}
-                {copied ? 'Copié !' : 'Copier le lien'}
+                {copied ? t('aff.settings.copied') : t('aff.settings.copyLink')}
               </button>
               <a
                 href={`/p/${form.linktree_slug}`}
@@ -795,7 +799,7 @@ export default function AffiliateSettings() {
                 style={{ background: TILE_BG, border: `1px solid ${BORDER}`, color: T2 }}
               >
                 <ExternalLink className="h-3.5 w-3.5" />
-                Voir la page agence
+                {t('aff.settings.viewAgencyPage')}
               </a>
             </div>
           )}
@@ -809,18 +813,18 @@ export default function AffiliateSettings() {
         <SectionCard delay={0.24}>
           <SectionHead
             icon={ListOrdered}
-            title="Classement du linktree"
-            subtitle="Choisissez comment les soirées sont triées sur votre page publique et sur les linktrees de vos promoteurs."
+            title={t('aff.settings.sortTitle')}
+            subtitle={t('aff.settings.sortSubtitle')}
             right={<SavedIndicator state={saveStates.sort} />}
           />
 
           <div className="space-y-2">
             {(
               [
-                { value: 'by_day', label: 'Par jour', desc: 'Les soirées sont groupées par date (défaut)' },
-                { value: 'by_genre', label: 'Par genre musical', desc: 'Groupées par premier genre (House, Techno, R&B…)' },
-                { value: 'by_price', label: 'Par prix', desc: 'Du moins cher au plus cher, gratuit en premier' },
-                { value: 'custom', label: 'Ordre personnalisé', desc: "L'ordre drag-and-drop défini dans l'éditeur linktree" },
+                { value: 'by_day', label: t('aff.settings.sortByDay'), desc: t('aff.settings.sortByDayDesc') },
+                { value: 'by_genre', label: t('aff.settings.sortByGenre'), desc: t('aff.settings.sortByGenreDesc') },
+                { value: 'by_price', label: t('aff.settings.sortByPrice'), desc: t('aff.settings.sortByPriceDesc') },
+                { value: 'custom', label: t('aff.settings.sortCustom'), desc: t('aff.settings.sortCustomDesc') },
               ] as const
             ).map((opt) => {
               const active = form.linktree_sort_mode === opt.value;
@@ -854,9 +858,9 @@ export default function AffiliateSettings() {
             style={{ background: TILE_BG, border: `1px solid ${BORDER}` }}
           >
             <div>
-              <p style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>Laisser les promoteurs choisir</p>
+              <p style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{t('aff.settings.allowPromoterSort')}</p>
               <p style={{ color: T3, fontSize: 12, marginTop: 2 }}>
-                Si activé, chaque promoteur peut sélectionner son propre mode de tri depuis son éditeur linktree.
+                {t('aff.settings.allowPromoterSortDesc')}
               </p>
             </div>
             <button
@@ -880,19 +884,19 @@ export default function AffiliateSettings() {
           <SectionCard delay={0.28}>
             <SectionHead
               icon={QrCode}
-              title="QR Codes"
-              subtitle="Imprimez ou partagez ces QR codes. Les scans sont trackés séparément (source « QR ») dans vos analytics."
+              title={t('aff.settings.qrTitle')}
+              subtitle={t('aff.settings.qrSubtitle')}
             />
             <AffiliateQRSection
               items={[
                 {
-                  label: 'Page Agence',
-                  description: 'Redirige vers votre linktree agence',
+                  label: t('aff.settings.qrAgencyLabel'),
+                  description: t('aff.settings.qrAgencyDesc'),
                   url: `${window.location.origin}/p/${form.linktree_slug}?utm_medium=qr&utm_source=print`,
                 },
                 {
-                  label: `Toutes les soirées · ${form.city ?? 'Ville'}`,
-                  description: 'Redirige vers l\'Explore Yuno filtré sur votre ville',
+                  label: `${t('aff.settings.qrAllEvents')} · ${form.city || t('aff.settings.cityFallback')}`,
+                  description: t('aff.settings.qrExploreDesc'),
                   url: `${window.location.origin}/explore?city=${encodeURIComponent(form.city ?? '')}&utm_medium=qr&utm_source=print`,
                 },
               ]}

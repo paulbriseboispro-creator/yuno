@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
 import { Loader2, Zap, RefreshCw, Sparkles, ImageIcon } from 'lucide-react';
 import { AffiliateImageUploader } from '@/components/affiliate/AffiliateImageUploader';
@@ -14,7 +15,12 @@ import {
 } from '@/components/affiliate/affiliate-ui';
 import { MUSIC_GENRES, canonicalGenres } from '@/lib/musicGenres';
 
+// DAYS reste en français : ces libellés sont ÉCRITS EN BASE (nom + slug des
+// templates créés en mode groupé). Les traduire ferait dériver les données
+// selon la langue d'affichage (et casserait les slugs avec les accents es).
+// L'affichage passe par les clés i18n via DAY_KEYS.
 const DAYS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+const DAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 const BULK_DAYS = [1, 2, 3, 4, 5, 6, 0]; // Lun → Dim
 
 const GENRES = MUSIC_GENRES;
@@ -42,19 +48,21 @@ function getNextOccurrences(dayOfWeek: number, count = 5): Date[] {
 }
 
 function NextOccurrencesPreview({ dayOfWeek, advanceDays }: { dayOfWeek: number; advanceDays: number }) {
+  const { t, language } = useLanguage();
+  const localeTag = language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-US';
   const dates = getNextOccurrences(dayOfWeek);
   return (
     <AffCard padding={18}>
-      <AffCardHeader icon={Sparkles} title="5 prochaines occurrences" subtitle="Aperçu de la génération automatique" accent />
+      <AffCardHeader icon={Sparkles} title={t('aff.recurringForm.nextOccurrences')} subtitle={t('aff.recurringForm.nextOccurrencesSub')} accent />
       <ul className="space-y-2">
         {dates.map((d, i) => {
           const createdOn = new Date(d.getTime() - advanceDays * 24 * 60 * 60 * 1000);
-          const dateLabel = d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-          const createdLabel = createdOn.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+          const dateLabel = d.toLocaleDateString(localeTag, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+          const createdLabel = createdOn.toLocaleDateString(localeTag, { day: 'numeric', month: 'short' });
           return (
             <li key={i} className="flex items-center justify-between gap-4 py-1.5" style={{ borderBottom: i < dates.length - 1 ? `1px solid ${F_BORDER}` : 'none' }}>
               <span style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{dateLabel}</span>
-              <span style={{ color: T3, fontSize: 11 }}>créé {advanceDays}j avant · {createdLabel}</span>
+              <span style={{ color: T3, fontSize: 11 }}>{t('aff.recurringForm.createdBefore').replace('{count}', String(advanceDays))} · {createdLabel}</span>
             </li>
           );
         })}
@@ -93,6 +101,7 @@ export default function AffiliateRecurringForm() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const isEdit = Boolean(id);
 
   const [affiliateId, setAffiliateId] = useState<string | null>(null);
@@ -164,8 +173,8 @@ export default function AffiliateRecurringForm() {
     if (!affiliateId) return false;
 
     if (bulkMode && !isEdit) {
-      if (!form.affiliate_venue_id) { toast({ title: 'Sélectionne un club', variant: 'destructive' }); return false; }
-      if (bulkSelectedDays.length === 0) { toast({ title: 'Sélectionne au moins un jour', variant: 'destructive' }); return false; }
+      if (!form.affiliate_venue_id) { toast({ title: t('aff.recurringForm.selectVenueToast'), variant: 'destructive' }); return false; }
+      if (bulkSelectedDays.length === 0) { toast({ title: t('aff.recurringForm.selectDayToast'), variant: 'destructive' }); return false; }
       setSaving(true);
       const clubName = venues.find((v) => v.id === form.affiliate_venue_id)?.name ?? 'Club';
       const errors: string[] = [];
@@ -192,19 +201,19 @@ export default function AffiliateRecurringForm() {
       }
       setSaving(false);
       if (errors.length > 0) {
-        toast({ title: 'Erreurs', description: errors.join(' · '), variant: 'destructive' });
+        toast({ title: t('aff.recurringForm.errorsTitle'), description: errors.join(' · '), variant: 'destructive' });
         return false;
       }
       await supabase.functions.invoke('create-affiliate-recurring-events');
       markSaved();
-      toast({ title: `${bulkSelectedDays.length} template(s) créé(s) — soirées publiées` });
+      toast({ title: t('aff.recurringForm.bulkCreatedToast').replace('{count}', String(bulkSelectedDays.length)) });
       // Le mode groupé crée PLUSIEURS templates d'un coup : il n'y a pas de
       // « la » fiche sur laquelle rester, la liste est la bonne destination.
       navigate('/affiliate/recurring');
       return true;
     }
 
-    if (!form.name) { toast({ title: 'Nom requis', variant: 'destructive' }); return false; }
+    if (!form.name) { toast({ title: t('aff.recurringForm.nameRequired'), variant: 'destructive' }); return false; }
     setSaving(true);
     try {
       const slug = form.slug || slugify(form.name);
@@ -241,14 +250,14 @@ export default function AffiliateRecurringForm() {
 
       setForm(saved);
       markSaved({ form: saved, bulkMode, bulkSelectedDays });
-      toast({ title: isEdit ? 'Template mis à jour — soirées synchronisées' : 'Template créé — soirées publiées' });
+      toast({ title: isEdit ? t('aff.recurringForm.updatedToast') : t('aff.recurringForm.createdToast') });
       // On RESTE sur le template : après édition rien ne bouge, après création
       // on bascule en mode édition sur place.
       if (createdId) navigate(`/affiliate/recurring/${createdId}/edit`, { replace: true });
       return true;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erreur';
-      toast({ title: 'Erreur', description: msg, variant: 'destructive' });
+      const msg = err instanceof Error ? err.message : t('aff.recurringForm.errorTitle');
+      toast({ title: t('aff.recurringForm.errorTitle'), description: msg, variant: 'destructive' });
       return false;
     } finally {
       setSaving(false);
@@ -260,7 +269,7 @@ export default function AffiliateRecurringForm() {
   const guardValue = { form, bulkMode, bulkSelectedDays };
   const { markSaved, guardedNavigate } = useUnsavedGuard({
     scope: `affiliate-recurring:${id ?? 'new'}`,
-    label: isEdit ? 'Template récurrent' : 'Nouveau template',
+    label: isEdit ? t('aff.recurringForm.guardEdit') : t('aff.recurringForm.guardNew'),
     ready: !loadingData && Boolean(affiliateId),
     value: guardValue,
     onRestore: (v) => { setForm(v.form); setBulkMode(v.bulkMode); setBulkSelectedDays(v.bulkSelectedDays); },
@@ -270,13 +279,13 @@ export default function AffiliateRecurringForm() {
   if (loadingData) return <AffSpinner />;
 
   if (!affiliateId) {
-    return <AffPage maxWidth={760}><p style={{ color: T2 }}>Profil affilié introuvable.</p></AffPage>;
+    return <AffPage maxWidth={760}><p style={{ color: T2 }}>{t('aff.recurringForm.profileNotFound')}</p></AffPage>;
   }
 
   return (
     <AffPage maxWidth={760}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-        <AffBackHeader title={isEdit ? 'Modifier le template' : 'Nouveau template récurrent'} onBack={() => guardedNavigate('/affiliate/recurring')} />
+        <AffBackHeader title={isEdit ? t('aff.recurringForm.editTitle') : t('aff.recurringForm.newTitle')} onBack={() => guardedNavigate('/affiliate/recurring')} />
       </motion.div>
 
       {/* Bulk mode toggle — création uniquement */}
@@ -287,8 +296,8 @@ export default function AffiliateRecurringForm() {
               <Zap className="w-4 h-4" style={{ color: RED }} />
             </div>
             <div className="flex-1 min-w-0">
-              <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>Créer pour plusieurs jours à la fois</p>
-              <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>Génère un template par jour sélectionné : <em>Nom du club + Jour</em></p>
+              <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('aff.recurringForm.bulkTitle')}</p>
+              <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>{t('aff.recurringForm.bulkDesc')} <em>{t('aff.recurringForm.bulkDescPattern')}</em></p>
             </div>
             <Toggle checked={bulkMode} onChange={() => setBulkMode(!bulkMode)} />
           </div>
@@ -297,23 +306,23 @@ export default function AffiliateRecurringForm() {
 
       {/* Template info */}
       <AffCard padding={20}>
-        <AffCardHeader icon={RefreshCw} title="Template" />
+        <AffCardHeader icon={RefreshCw} title={t('aff.recurringForm.templateCard')} />
         <div className="space-y-4">
           <div>
-            <FieldLabel>Club {bulkMode && !isEdit ? '*' : ''}</FieldLabel>
+            <FieldLabel>{t('aff.recurringForm.clubLabel')} {bulkMode && !isEdit ? '*' : ''}</FieldLabel>
             <DarkSelect value={form.affiliate_venue_id} onChange={(v) => set('affiliate_venue_id', v)}>
-              <option value="">— Sélectionner un club —</option>
+              <option value="">{t('aff.recurringForm.selectVenue')}</option>
               {venues.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
             </DarkSelect>
           </div>
 
           {bulkMode && !isEdit ? (
             <div>
-              <FieldLabel>Jours à créer</FieldLabel>
+              <FieldLabel>{t('aff.recurringForm.daysToCreate')}</FieldLabel>
               <div className="flex flex-wrap gap-2">
                 {BULK_DAYS.map((dayIdx) => (
                   <ChoiceChip key={dayIdx} active={bulkSelectedDays.includes(dayIdx)} onClick={() => toggleBulkDay(dayIdx)}>
-                    {DAYS[dayIdx].slice(0, 3)}
+                    {t(`aff.recurringForm.dayShort.${DAY_KEYS[dayIdx]}`)}
                   </ChoiceChip>
                 ))}
               </div>
@@ -330,18 +339,18 @@ export default function AffiliateRecurringForm() {
             <>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <FieldLabel>Nom *</FieldLabel>
+                  <FieldLabel>{t('aff.recurringForm.nameLabel')}</FieldLabel>
                   <DarkInput value={form.name} onChange={(v) => { set('name', v); if (!isEdit) set('slug', slugify(v)); }} placeholder="Club de los Viernes" />
                 </div>
                 <div>
-                  <FieldLabel>Slug</FieldLabel>
+                  <FieldLabel>{t('aff.recurringForm.slugLabel')}</FieldLabel>
                   <DarkInput value={form.slug} onChange={(v) => set('slug', v)} placeholder="club-viernes" />
                 </div>
               </div>
               <div>
-                <FieldLabel>Jour de la semaine</FieldLabel>
+                <FieldLabel>{t('aff.recurringForm.dayOfWeekLabel')}</FieldLabel>
                 <DarkSelect value={String(form.day_of_week)} onChange={(v) => set('day_of_week', parseInt(v))}>
-                  {DAYS.map((day, i) => <option key={i} value={i}>{day}</option>)}
+                  {DAY_KEYS.map((k, i) => <option key={i} value={i}>{t(`aff.recurringForm.dayFull.${k}`)}</option>)}
                 </DarkSelect>
               </div>
             </>
@@ -350,11 +359,11 @@ export default function AffiliateRecurringForm() {
           {/* Horaires */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <FieldLabel>Ouverture</FieldLabel>
+              <FieldLabel>{t('aff.recurringForm.openLabel')}</FieldLabel>
               <input type="time" value={form.start_time} onChange={(e) => set('start_time', e.target.value)} style={timeInputStyle} />
             </div>
             <div>
-              <FieldLabel>Fermeture</FieldLabel>
+              <FieldLabel>{t('aff.recurringForm.closeLabel')}</FieldLabel>
               <input type="time" value={form.end_time} onChange={(e) => set('end_time', e.target.value)} style={timeInputStyle} />
             </div>
           </div>
@@ -362,34 +371,34 @@ export default function AffiliateRecurringForm() {
           {/* Prix */}
           <div className="grid grid-cols-3 gap-4 items-end">
             <div>
-              <FieldLabel>Prix à partir de (€)</FieldLabel>
+              <FieldLabel>{t('aff.recurringForm.priceFromLabel')}</FieldLabel>
               <DarkInput type="number" value={form.price_from} onChange={(v) => set('price_from', v)} placeholder="10" />
             </div>
-            <div className="pb-2.5"><CheckBox checked={form.is_free} onChange={(v) => set('is_free', v)} label="Gratuit" /></div>
+            <div className="pb-2.5"><CheckBox checked={form.is_free} onChange={(v) => set('is_free', v)} label={t('aff.recurringForm.free')} /></div>
             <div>
-              <FieldLabel>Générer X jours avant</FieldLabel>
+              <FieldLabel>{t('aff.recurringForm.advanceDaysLabel')}</FieldLabel>
               <DarkInput type="number" value={String(form.advance_days)} onChange={(v) => set('advance_days', parseInt(v) || 7)} />
             </div>
           </div>
 
           {/* Lien de publication */}
           <div>
-            <FieldLabel>Lien de publication (billetterie / page événement)</FieldLabel>
+            <FieldLabel>{t('aff.recurringForm.publicationUrlLabel')}</FieldLabel>
             <DarkInput type="url" value={form.publication_url} onChange={(v) => set('publication_url', v)} placeholder="https://shotgun.live/events/ma-soiree" />
-            <p style={{ color: T3, fontSize: 11, marginTop: 6 }}>Sera ajouté automatiquement à chaque soirée générée. Modifiable sur chaque occurrence.</p>
+            <p style={{ color: T3, fontSize: 11, marginTop: 6 }}>{t('aff.recurringForm.publicationUrlHelp')}</p>
           </div>
 
           {/* is_active toggle */}
           <div className="flex items-center gap-3">
             <Toggle checked={form.is_active} onChange={() => set('is_active', !form.is_active)} />
-            <span style={{ color: T2, fontSize: 13 }}>{form.is_active ? 'Actif — génère des soirées automatiquement' : 'Inactif — aucune génération'}</span>
+            <span style={{ color: T2, fontSize: 13 }}>{form.is_active ? t('aff.recurringForm.activeOn') : t('aff.recurringForm.activeOff')}</span>
           </div>
         </div>
       </AffCard>
 
       {/* Genres */}
       <AffCard padding={20}>
-        <AffCardHeader title="Genres" />
+        <AffCardHeader title={t('aff.recurringForm.genresLabel')} />
         <div className="flex flex-wrap gap-2">
           {GENRES.map((g) => <ChoiceChip key={g} active={form.genres.includes(g)} onClick={() => toggleGenre(g)}>{g}</ChoiceChip>)}
         </div>
@@ -397,9 +406,9 @@ export default function AffiliateRecurringForm() {
 
       {/* Flyer par défaut */}
       <AffCard padding={20}>
-        <AffCardHeader icon={ImageIcon} title="Flyer par défaut" subtitle="Utilisé pour chaque occurrence générée" />
+        <AffCardHeader icon={ImageIcon} title={t('aff.recurringForm.defaultFlyer')} subtitle={t('aff.recurringForm.defaultFlyerSub')} />
         <AffiliateImageUploader affiliateId={affiliateId} value={form.flyer_url} onChange={(url) => set('flyer_url', url)}
-          folder="recurring/flyers" hint="Format portrait recommandé" />
+          folder="recurring/flyers" hint={t('aff.recurringForm.flyerHint')} />
       </AffCard>
 
       {/* Preview occurrences — mode single uniquement */}
@@ -409,14 +418,14 @@ export default function AffiliateRecurringForm() {
         <AffButton onClick={handleSave} disabled={saving}>
           {saving && <Loader2 className="h-4 w-4 animate-spin" />}
           {saving
-            ? (bulkMode && !isEdit ? `Création de ${bulkSelectedDays.length} templates…` : 'Enregistrement…')
+            ? (bulkMode && !isEdit ? t('aff.recurringForm.bulkCreating').replace('{count}', String(bulkSelectedDays.length)) : t('aff.recurringForm.savingLabel'))
             : isEdit
-              ? 'Enregistrer'
+              ? t('aff.recurringForm.save')
               : bulkMode
-                ? `Créer ${bulkSelectedDays.length} template${bulkSelectedDays.length !== 1 ? 's' : ''}`
-                : 'Créer le template'}
+                ? (bulkSelectedDays.length !== 1 ? t('aff.recurringForm.bulkCreateMany') : t('aff.recurringForm.bulkCreateOne')).replace('{count}', String(bulkSelectedDays.length))
+                : t('aff.recurringForm.create')}
         </AffButton>
-        <AffButton variant="ghost" onClick={() => guardedNavigate('/affiliate/recurring')}>Annuler</AffButton>
+        <AffButton variant="ghost" onClick={() => guardedNavigate('/affiliate/recurring')}>{t('aff.recurringForm.cancel')}</AffButton>
       </div>
     </AffPage>
   );

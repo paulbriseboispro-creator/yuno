@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { CheckCircle, XCircle, Users, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -29,11 +30,12 @@ const STATUS_TONE: Record<string, 'muted' | 'warn' | 'success'> = {
   draft: 'muted', pending_review: 'warn', approved: 'success',
 };
 const STATUS_LABEL: Record<string, string> = {
-  draft: 'Brouillon', pending_review: 'En révision', approved: 'Approuvé',
+  draft: 'aff.mgr.statusDraft', pending_review: 'aff.mgr.statusPending', approved: 'aff.mgr.statusApproved',
 };
 
 export default function ManagerDashboard() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const { toast } = useToast();
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [briefEvents, setBriefEvents] = useState<BriefEvent[]>([]);
@@ -53,8 +55,8 @@ export default function ManagerDashboard() {
       .maybeSingle();
     if (!mem) { setLoading(false); return; }
     await Promise.all([
-      fetchTeam((mem as any).affiliate_id),
-      fetchBriefs((mem as any).affiliate_id),
+      fetchTeam(mem.affiliate_id),
+      fetchBriefs(mem.affiliate_id),
     ]);
     setLoading(false);
   };
@@ -83,9 +85,9 @@ export default function ManagerDashboard() {
     const { data: briefs } = await supabase
       .from('affiliate_event_briefs')
       .select('affiliate_event_id')
-      .in('affiliate_event_id', evs.map((e: any) => e.id));
-    const briefSet = new Set((briefs ?? []).map((b: any) => b.affiliate_event_id));
-    setBriefEvents(evs.filter((e: any) => briefSet.has(e.id)) as BriefEvent[]);
+      .in('affiliate_event_id', evs.map((e) => e.id));
+    const briefSet = new Set((briefs ?? []).map((b) => b.affiliate_event_id));
+    setBriefEvents(evs.filter((e) => briefSet.has(e.id)) as BriefEvent[]);
   };
 
   const setLinktreeStatus = async (memberId: string, status: string) => {
@@ -93,11 +95,11 @@ export default function ManagerDashboard() {
     // propre ligne ou l'owner de l'affilié — pour un membre 'manager', l'UPDATE
     // direct ne touchait AUCUNE ligne, sans erreur (approbation silencieusement
     // perdue). La RPC review_member_linktree vérifie owner OU manager actif.
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .rpc('review_member_linktree', { p_member_id: memberId, p_status: status });
-    if (error) { toast({ title: 'Erreur', description: error.message, variant: 'destructive' }); return; }
+    if (error) { toast({ title: t('aff.mgr.error'), description: error.message, variant: 'destructive' }); return; }
     setMembers(prev => prev.map(m => m.id === memberId ? { ...m, linktree_status: status } : m));
-    toast({ title: status === 'approved' ? 'Linktree approuvé' : 'Modification demandée' });
+    toast({ title: status === 'approved' ? t('aff.mgr.linktreeApproved') : t('aff.mgr.changeRequested') });
   };
 
   if (loading) return <AffSpinner />;
@@ -110,8 +112,8 @@ export default function ManagerDashboard() {
     <AffPage maxWidth={760}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <AffHeading
-          title="Dashboard Manager"
-          subtitle={`${members.length} promoteur${members.length !== 1 ? 's' : ''} dans l'équipe`}
+          title={t('aff.mgr.title')}
+          subtitle={`${members.length} ${members.length !== 1 ? t('aff.mgr.promotersTeamMany') : t('aff.mgr.promotersTeamOne')}`}
         />
       </motion.div>
 
@@ -121,7 +123,7 @@ export default function ManagerDashboard() {
           <SectionLabel>
             <span className="inline-flex items-center gap-2" style={{ color: WARN }}>
               <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: WARN }} />
-              Linktrees en attente de validation ({pending.length})
+              {t('aff.mgr.pendingLinktrees')} ({pending.length})
             </span>
           </SectionLabel>
           <AffCard padding={0} style={{ border: '1px solid rgba(251,191,36,0.22)' }}>
@@ -141,10 +143,10 @@ export default function ManagerDashboard() {
                   </div>
                   <div className="flex items-center gap-2 flex-none">
                     <AffButton size="sm" variant="secondary" onClick={() => setLinktreeStatus(m.id, 'approved')}>
-                      <CheckCircle className="h-3.5 w-3.5" style={{ color: POS }} /> Approuver
+                      <CheckCircle className="h-3.5 w-3.5" style={{ color: POS }} /> {t('aff.mgr.approve')}
                     </AffButton>
                     <AffButton size="sm" variant="ghost" onClick={() => setLinktreeStatus(m.id, 'draft')}>
-                      <XCircle className="h-3.5 w-3.5" /> Retour
+                      <XCircle className="h-3.5 w-3.5" /> {t('aff.mgr.sendBack')}
                     </AffButton>
                   </div>
                 </div>
@@ -157,9 +159,9 @@ export default function ManagerDashboard() {
       {/* All team members */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
         <AffCard padding={18}>
-          <AffCardHeader icon={Users} title="Équipe" subtitle={`${members.length} promoteur${members.length !== 1 ? 's' : ''}`} />
+          <AffCardHeader icon={Users} title={t('aff.nav.team')} subtitle={`${members.length} ${members.length !== 1 ? t('aff.mgr.promoterMany') : t('aff.mgr.promoterOne')}`} />
           {members.length === 0 ? (
-            <div className="py-8 text-center" style={{ color: T3, fontSize: 13 }}>Aucun promoteur dans l'équipe</div>
+            <div className="py-8 text-center" style={{ color: T3, fontSize: 13 }}>{t('aff.mgr.noPromoters')}</div>
           ) : (
             <div className="divide-y" style={{ borderColor: BORDER }}>
               {members.map(m => (
@@ -176,7 +178,7 @@ export default function ManagerDashboard() {
                     )}
                   </div>
                   <Pill tone={STATUS_TONE[m.linktree_status] ?? 'muted'}>
-                    {STATUS_LABEL[m.linktree_status] ?? m.linktree_status}
+                    {STATUS_LABEL[m.linktree_status] ? t(STATUS_LABEL[m.linktree_status]) : m.linktree_status}
                   </Pill>
                 </div>
               ))}
@@ -189,7 +191,7 @@ export default function ManagerDashboard() {
       {briefEvents.length > 0 && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
           <AffCard padding={18}>
-            <AffCardHeader icon={FileText} title="Briefs à venir" subtitle="Consignes de promo publiées" accent />
+            <AffCardHeader icon={FileText} title={t('aff.mgr.upcomingBriefs')} subtitle={t('aff.mgr.briefsSubtitle')} accent />
             <div className="divide-y" style={{ borderColor: BORDER }}>
               {briefEvents.map(ev => (
                 <Link key={ev.id} to={`/affiliate/events/${ev.id}/brief`} className="flex items-center gap-3 py-3">

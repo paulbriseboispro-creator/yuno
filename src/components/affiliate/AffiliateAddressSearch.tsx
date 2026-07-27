@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Loader2, MapPin, Search, X } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { RED, POS, T1, T2, T3, BORDER, INNER_BG } from '@/components/affiliate/affiliate-ui';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string;
@@ -18,6 +19,7 @@ interface AffiliateAddressSearchProps {
 }
 
 export function AffiliateAddressSearch({ address, lat, lng, onSelect, onClear }: AffiliateAddressSearchProps) {
+  const { t } = useLanguage();
   const [query, setQuery] = useState(address);
   const [results, setResults] = useState<GeoResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -89,7 +91,7 @@ export function AffiliateAddressSearch({ address, lat, lng, onSelect, onClear }:
 
   return (
     <div className="space-y-3">
-      <p style={{ color: T2, fontSize: 12.5, fontWeight: 600 }}>Adresse et localisation</p>
+      <p style={{ color: T2, fontSize: 12.5, fontWeight: 600 }}>{t('aff.address.title')}</p>
 
       {/* Search input */}
       <div ref={containerRef} className="relative">
@@ -100,7 +102,7 @@ export function AffiliateAddressSearch({ address, lat, lng, onSelect, onClear }:
             value={query}
             onChange={(e) => handleChange(e.target.value)}
             onFocus={() => results.length > 0 && setShowResults(true)}
-            placeholder="Rechercher une adresse…"
+            placeholder={t('aff.address.searchPlaceholder')}
             className="w-full outline-none transition-colors"
             style={{ ...inputStyle, padding: '10px 36px' }}
             onFocusCapture={(e) => (e.currentTarget.style.borderColor = 'rgba(232,25,44,0.55)')}
@@ -139,14 +141,14 @@ export function AffiliateAddressSearch({ address, lat, lng, onSelect, onClear }:
           <div className="flex items-center gap-3 px-3 py-2 rounded-lg" style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.22)' }}>
             <MapPin className="w-4 h-4 flex-none" style={{ color: POS }} />
             <span className="tabular-nums" style={{ color: POS, fontSize: 11.5, fontFamily: 'monospace' }}>{lat.toFixed(6)}, {lng.toFixed(6)}</span>
-            <span style={{ color: T3, fontSize: 11, marginLeft: 'auto' }}>Localisé ✓</span>
+            <span style={{ color: T3, fontSize: 11, marginLeft: 'auto' }}>{t('aff.address.located')}</span>
           </div>
           {staticMapUrl && (
-            <img src={staticMapUrl} alt="Aperçu carte" className="w-full h-36 object-cover rounded-xl" style={{ border: `1px solid ${BORDER}` }} />
+            <img src={staticMapUrl} alt={t('aff.address.mapPreviewAlt')} className="w-full h-36 object-cover rounded-xl" style={{ border: `1px solid ${BORDER}` }} />
           )}
         </div>
       ) : (
-        <p style={{ color: T3, fontSize: 11 }}>Recherche une adresse pour afficher le club sur la map Yuno.</p>
+        <p style={{ color: T3, fontSize: 11 }}>{t('aff.address.searchHint')}</p>
       )}
     </div>
   );

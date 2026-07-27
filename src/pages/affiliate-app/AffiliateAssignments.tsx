@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, es, enUS } from 'date-fns/locale';
 import { UserPlus, ListChecks, ExternalLink } from 'lucide-react';
 import {
   AffPage, AffHeading, AffCard, Pill, AffButton, AffSpinner, AffEmpty, TabBar,
@@ -27,15 +28,17 @@ type AssignmentRow = {
 const STATUS_TONE: Record<string, 'warn' | 'success' | 'muted'> = {
   pending_url: 'warn', url_submitted: 'success', skipped: 'muted',
 };
-const STATUS_LABEL: Record<string, string> = {
-  pending_url: "En attente d'URL", url_submitted: 'URL soumise', skipped: 'Ignoré',
+const STATUS_LABEL_KEYS: Record<string, string> = {
+  pending_url: 'aff.assign.status.pendingUrl', url_submitted: 'aff.assign.status.urlSubmitted', skipped: 'aff.assign.status.skipped',
 };
 
 type Tab = 'assign' | 'track';
 
 export default function AffiliateAssignments() {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
+  const dfLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const [affiliateId, setAffiliateId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('assign');
 
@@ -82,12 +85,12 @@ export default function AffiliateAssignments() {
   };
 
   const handleAssign = async () => {
-    if (!selectedEvent) { toast({ title: 'Sélectionne une soirée', variant: 'destructive' }); return; }
+    if (!selectedEvent) { toast({ title: t('aff.assign.toast.selectEvent'), variant: 'destructive' }); return; }
     setAssigning(true);
 
     const targets = targetAll ? [null] : Array.from(selectedMembers);
     if (!targetAll && targets.length === 0) {
-      toast({ title: 'Sélectionne au moins un promoteur', variant: 'destructive' });
+      toast({ title: t('aff.assign.toast.selectOnePromoter'), variant: 'destructive' });
       setAssigning(false);
       return;
     }
@@ -106,9 +109,9 @@ export default function AffiliateAssignments() {
 
     setAssigning(false);
     if (error) {
-      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+      toast({ title: t('aff.assign.toast.error'), description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: `Assignment créé pour ${targetAll ? 'tous les promoteurs' : `${targets.length} promoteur(s)`}` });
+      toast({ title: t('aff.assign.toast.created').replace('{target}', targetAll ? t('aff.assign.toast.allPromoters') : t('aff.assign.toast.nPromoters').replace('{n}', String(targets.length))) });
       setSelectedEvent('');
       setSelectedMembers(new Set());
       setTargetAll(true);
@@ -134,7 +137,7 @@ export default function AffiliateAssignments() {
       event_name: r.affiliate_events?.name ?? '—',
       event_date: r.affiliate_events?.event_date ?? '',
       member_name: r.member_id === null
-        ? 'Tous les promoteurs'
+        ? t('aff.assign.allPromoters')
         : [r.affiliate_members?.first_name, r.affiliate_members?.last_name].filter(Boolean).join(' ') || '—',
       status: r.status,
       submitted_url: r.submitted_url,
@@ -152,7 +155,7 @@ export default function AffiliateAssignments() {
   const toggleMember = (id: string) => {
     setSelectedMembers(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   };
@@ -166,12 +169,12 @@ export default function AffiliateAssignments() {
   return (
     <AffPage>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-        <AffHeading title="Assignments" subtitle="Assignez des soirées à vos promoteurs pour collecte d'URL promo" />
+        <AffHeading title={t('aff.assign.title')} subtitle={t('aff.assign.subtitle')} />
       </motion.div>
 
       <TabBar<Tab>
         active={tab} onChange={setTab}
-        tabs={[{ id: 'assign', label: 'Assigner', icon: UserPlus }, { id: 'track', label: 'Suivi', icon: ListChecks }]}
+        tabs={[{ id: 'assign', label: t('aff.assign.tabAssign'), icon: UserPlus }, { id: 'track', label: t('aff.assign.tabTrack'), icon: ListChecks }]}
       />
 
       {/* ── Assign tab ── */}
@@ -179,23 +182,23 @@ export default function AffiliateAssignments() {
         <AffCard padding={22} style={{ maxWidth: 540 }}>
           <div className="space-y-5">
             <div>
-              <FieldLabel>Soirée</FieldLabel>
+              <FieldLabel>{t('aff.assign.eventLabel')}</FieldLabel>
               <DarkSelect value={selectedEvent} onChange={setSelectedEvent}>
-                <option value="">Sélectionner une soirée…</option>
+                <option value="">{t('aff.assign.selectEventPh')}</option>
                 {events.map(ev => (
                   <option key={ev.id} value={ev.id}>
-                    {ev.name} — {format(parseISO(ev.event_date), 'd MMM yyyy', { locale: fr })}
+                    {ev.name} — {format(parseISO(ev.event_date), 'd MMM yyyy', { locale: dfLocale })}
                   </option>
                 ))}
               </DarkSelect>
             </div>
 
             <div>
-              <FieldLabel>Cible</FieldLabel>
+              <FieldLabel>{t('aff.assign.targetLabel')}</FieldLabel>
               <SegToggle<'all' | 'sel'>
                 value={targetAll ? 'all' : 'sel'}
                 onChange={(v) => setTargetAll(v === 'all')}
-                options={[{ key: 'all', label: 'Tous les promoteurs' }, { key: 'sel', label: 'Sélection individuelle' }]}
+                options={[{ key: 'all', label: t('aff.assign.allPromoters') }, { key: 'sel', label: t('aff.assign.individualSelection') }]}
               />
             </div>
 
@@ -215,12 +218,12 @@ export default function AffiliateAssignments() {
                     </button>
                   );
                 })}
-                {members.length === 0 && <p style={{ color: T3, fontSize: 11.5, fontStyle: 'italic' }}>Aucun promoteur actif</p>}
+                {members.length === 0 && <p style={{ color: T3, fontSize: 11.5, fontStyle: 'italic' }}>{t('aff.assign.noActivePromoters')}</p>}
               </div>
             )}
 
             <AffButton onClick={handleAssign} disabled={assigning} full>
-              <UserPlus className="h-4 w-4" /> {assigning ? 'Assignment en cours…' : 'Assigner'}
+              <UserPlus className="h-4 w-4" /> {assigning ? t('aff.assign.assigning') : t('aff.assign.assignBtn')}
             </AffButton>
           </div>
         </AffCard>
@@ -232,14 +235,14 @@ export default function AffiliateAssignments() {
           <div className="flex flex-wrap gap-3">
             <div style={{ minWidth: 200 }}>
               <DarkSelect value={filterEvent} onChange={setFilterEvent}>
-                <option value="">Toutes les soirées</option>
+                <option value="">{t('aff.assign.allEvents')}</option>
                 {Array.from(new Set(assignments.map(a => a.event_name))).map(n => <option key={n} value={n}>{n}</option>)}
               </DarkSelect>
             </div>
             <div style={{ minWidth: 180 }}>
               <DarkSelect value={filterStatus} onChange={setFilterStatus}>
-                <option value="">Tous les statuts</option>
-                {Object.entries(STATUS_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                <option value="">{t('aff.assign.allStatuses')}</option>
+                {Object.entries(STATUS_LABEL_KEYS).map(([k, key]) => <option key={k} value={k}>{t(key)}</option>)}
               </DarkSelect>
             </div>
           </div>
@@ -247,7 +250,7 @@ export default function AffiliateAssignments() {
           {loadingTrack ? (
             <AffSpinner />
           ) : filteredAssignments.length === 0 ? (
-            <AffEmpty icon={ListChecks} title="Aucun assignment trouvé" />
+            <AffEmpty icon={ListChecks} title={t('aff.assign.emptyTitle')} />
           ) : (
             <AffCard padding={0}>
               <div className="divide-y" style={{ borderColor: BORDER }}>
@@ -258,12 +261,12 @@ export default function AffiliateAssignments() {
                     <div className="flex-1 min-w-0">
                       <p className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{a.event_name}</p>
                       <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>
-                        {a.event_date ? format(parseISO(a.event_date), 'd MMM', { locale: fr }) : '—'} · {a.member_name}
+                        {a.event_date ? format(parseISO(a.event_date), 'd MMM', { locale: dfLocale }) : '—'} · {a.member_name}
                       </p>
                     </div>
-                    <Pill tone={STATUS_TONE[a.status] ?? 'muted'}>{STATUS_LABEL[a.status] ?? a.status}</Pill>
+                    <Pill tone={STATUS_TONE[a.status] ?? 'muted'}>{STATUS_LABEL_KEYS[a.status] ? t(STATUS_LABEL_KEYS[a.status]) : a.status}</Pill>
                     {a.submitted_url && (
-                      <a href={a.submitted_url} target="_blank" rel="noopener noreferrer" title="Voir le lien soumis"
+                      <a href={a.submitted_url} target="_blank" rel="noopener noreferrer" title={t('aff.assign.viewSubmittedLink')}
                         className="flex-none p-1 transition-colors" style={{ color: T3 }}
                         onMouseEnter={(e) => (e.currentTarget.style.color = POS)} onMouseLeave={(e) => (e.currentTarget.style.color = T3)}>
                         <ExternalLink className="h-3.5 w-3.5" />

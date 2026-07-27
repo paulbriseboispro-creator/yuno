@@ -9,7 +9,8 @@ import {
   LayoutGrid, Info, FileBarChart, TrendingDown,
 } from 'lucide-react';
 import { format, subDays, subMinutes, getDay, getHours } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, es, enUS } from 'date-fns/locale';
+import { useLanguage } from '@/contexts/LanguageContext';
 import {
   AffPage, AffHeading, AffCard, AffCardHeader, KpiCard, TabBar, AffSpinner, AffEmpty,
   RED, POS, NEG, WARN, T1, T2, T3, BORDER, F_BORDER, C_HI, C_MID, TILE_BG,
@@ -38,6 +39,10 @@ interface KPIs {
   avgDurationSeconds: number;
   avgScrollDepth: number;
   liveNow: number;
+  newVisitors: number;
+  returningVisitors: number;
+  /** Part des vues arrivées depuis Yuno (marketplace/app) plutôt que des canaux de l'agence. */
+  yunoShare: number;
 }
 
 interface DailyPoint { date: string; views: number; clicks: number }
@@ -72,27 +77,27 @@ interface RawClick {
 }
 
 const PERIOD_DAYS: Record<Period, number | null> = { '7d': 7, '30d': 30, '90d': 90, all: null };
-const PERIOD_LABELS: Record<Period, string> = { '7d': '7j', '30d': '30j', '90d': '90j', all: 'Tout' };
+const PERIOD_LABELS: Record<Period, string> = { '7d': 'aff.ana.period7d', '30d': 'aff.ana.period30d', '90d': 'aff.ana.period90d', all: 'aff.ana.periodAll' };
 
 const SOURCE_META: Record<string, { label: string; icon: any }> = {
-  direct:       { label: 'Direct',          icon: Link2 },
-  social:       { label: 'Social',          icon: Share2 },
-  paid_social:  { label: 'Social Payant',   icon: Share2 },
-  search:       { label: 'Recherche',       icon: Search },
-  paid_search:  { label: 'Recherche Payée', icon: Search },
-  qr:           { label: 'QR Code',         icon: QrCode },
-  email:        { label: 'Email',           icon: Mail },
-  referral:     { label: 'Référence',       icon: ExternalLink },
-  internal:     { label: 'Interne',         icon: Link2 },
+  direct:       { label: 'aff.ana.srcDirect',     icon: Link2 },
+  social:       { label: 'aff.ana.srcSocial',     icon: Share2 },
+  paid_social:  { label: 'aff.ana.srcPaidSocial', icon: Share2 },
+  search:       { label: 'aff.ana.srcSearch',     icon: Search },
+  paid_search:  { label: 'aff.ana.srcPaidSearch', icon: Search },
+  qr:           { label: 'aff.ana.srcQr',         icon: QrCode },
+  email:        { label: 'aff.ana.srcEmail',      icon: Mail },
+  referral:     { label: 'aff.ana.srcReferral',   icon: ExternalLink },
+  internal:     { label: 'aff.ana.srcInternal',   icon: Link2 },
 };
 
 const DEVICE_META: Record<string, { label: string; icon: any }> = {
-  mobile:  { label: 'Mobile',   icon: Smartphone },
-  desktop: { label: 'Desktop',  icon: Monitor },
-  tablet:  { label: 'Tablette', icon: Tablet },
+  mobile:  { label: 'aff.ana.devMobile',  icon: Smartphone },
+  desktop: { label: 'aff.ana.devDesktop', icon: Monitor },
+  tablet:  { label: 'aff.ana.devTablet',  icon: Tablet },
 };
 
-const DAYS_FR = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+const DAY_KEYS = ['aff.ana.daySun', 'aff.ana.dayMon', 'aff.ana.dayTue', 'aff.ana.dayWed', 'aff.ana.dayThu', 'aff.ana.dayFri', 'aff.ana.daySat'];
 
 function periodFrom(p: Period): string | null {
   const days = PERIOD_DAYS[p];
@@ -112,6 +117,8 @@ function fmtPct(n: number): string { return `${n.toFixed(1)}%`; }
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function DualChart({ data }: { data: DailyPoint[] }) {
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const maxViews  = Math.max(...data.map(d => d.views), 1);
   const maxClicks = Math.max(...data.map(d => d.clicks), 1);
 
@@ -120,7 +127,7 @@ function DualChart({ data }: { data: DailyPoint[] }) {
       <div>
         <div className="flex items-center gap-2 mb-1.5">
           <span className="inline-block w-2.5 h-2.5 rounded-sm flex-none" style={{ background: RED }} />
-          <span style={{ color: T3, fontSize: 11 }}>Vues de page</span>
+          <span style={{ color: T3, fontSize: 11 }}>{t('aff.ana.pageViews')}</span>
           <span className="ml-auto tabular-nums" style={{ color: T2, fontSize: 11, fontWeight: 600 }}>{data.reduce((s, d) => s + d.views, 0).toLocaleString()}</span>
         </div>
         <div className="flex items-end gap-0.5 h-16">
@@ -129,9 +136,9 @@ function DualChart({ data }: { data: DailyPoint[] }) {
               <div className="w-full rounded-sm" style={{ height: `${(views / maxViews) * 100}%`, minHeight: views > 0 ? '3px' : '1px', background: RED, opacity: 0.85 }} />
               <div className="absolute bottom-full mb-1.5 hidden group-hover:block text-xs px-2 py-1 rounded whitespace-nowrap z-10 pointer-events-none"
                 style={{ background: '#1a1a1d', border: `1px solid ${BORDER}`, color: T1 }}>
-                {format(new Date(date), 'd MMM', { locale: fr })}
-                <br /><span style={{ color: RED }}>vues : {views}</span>
-                <br /><span style={{ color: C_HI }}>clics : {clicks}</span>
+                {format(new Date(date), 'd MMM', { locale: dateLocale })}
+                <br /><span style={{ color: RED }}>{t('aff.ana.tooltipViews')} {views}</span>
+                <br /><span style={{ color: C_HI }}>{t('aff.ana.tooltipClicks')} {clicks}</span>
               </div>
             </div>
           ))}
@@ -140,7 +147,7 @@ function DualChart({ data }: { data: DailyPoint[] }) {
       <div>
         <div className="flex items-center gap-2 mb-1.5">
           <span className="inline-block w-2.5 h-2.5 rounded-sm flex-none" style={{ background: C_HI }} />
-          <span style={{ color: T3, fontSize: 11 }}>Clics billetterie</span>
+          <span style={{ color: T3, fontSize: 11 }}>{t('aff.ana.ticketClicks')}</span>
           <span className="ml-auto tabular-nums" style={{ color: T2, fontSize: 11, fontWeight: 600 }}>{data.reduce((s, d) => s + d.clicks, 0).toLocaleString()}</span>
         </div>
         <div className="flex items-end gap-0.5 h-10">
@@ -152,14 +159,15 @@ function DualChart({ data }: { data: DailyPoint[] }) {
         </div>
       </div>
       <div className="flex justify-between">
-        <span style={{ color: T3, fontSize: 10.5 }}>{data.length > 0 ? format(new Date(data[0].date), 'd MMM', { locale: fr }) : ''}</span>
-        <span style={{ color: T3, fontSize: 10.5 }}>Aujourd'hui</span>
+        <span style={{ color: T3, fontSize: 10.5 }}>{data.length > 0 ? format(new Date(data[0].date), 'd MMM', { locale: dateLocale }) : ''}</span>
+        <span style={{ color: T3, fontSize: 10.5 }}>{t('aff.ana.today')}</span>
       </div>
     </div>
   );
 }
 
 function HeatmapChart({ matrix }: { matrix: number[][] }) {
+  const { t } = useLanguage();
   const flat = matrix.flat();
   const maxVal = Math.max(...flat, 1);
   const HOURS = Array.from({ length: 24 }, (_, h) => h);
@@ -176,13 +184,13 @@ function HeatmapChart({ matrix }: { matrix: number[][] }) {
       </div>
       {matrix.map((row, dayIdx) => (
         <div key={dayIdx} className="flex items-center gap-0.5 mb-0.5">
-          <div className="w-8 shrink-0 text-right pr-1" style={{ fontSize: '9px', color: T3 }}>{DAYS_FR[dayIdx]}</div>
+          <div className="w-8 shrink-0 text-right pr-1" style={{ fontSize: '9px', color: T3 }}>{t(DAY_KEYS[dayIdx])}</div>
           {row.map((val, hour) => {
             const intensity = maxVal > 0 ? val / maxVal : 0;
             return (
               <div key={hour} className="flex-1 rounded-[2px]"
                 style={{ height: '14px', background: intensity > 0 ? `rgba(232,25,44,${0.10 + intensity * 0.68})` : 'rgba(255,255,255,0.03)' }}
-                title={`${DAYS_FR[dayIdx]} ${hour}h : ${val} visites`} />
+                title={`${t(DAY_KEYS[dayIdx])} ${hour}h : ${val} ${t('aff.ana.visits')}`} />
             );
           })}
         </div>
@@ -236,12 +244,13 @@ function ScrollDepthGauge({ avg }: { avg: number }) {
 }
 
 function LinktreeScore({ kpis }: { kpis: KPIs }) {
+  const { t } = useLanguage();
   const ctrScore    = Math.min(kpis.clickRate / 15, 1) * 40;
   const returnScore = Math.min(kpis.returningRate / 25, 1) * 30;
   const engScore    = Math.min(kpis.avgScrollDepth / 60, 1) * 30;
   const total       = Math.round(ctrScore + returnScore + engScore);
   const color       = total >= 70 ? POS : total >= 40 ? WARN : RED;
-  const label       = total >= 70 ? 'Excellent' : total >= 40 ? 'Correct' : 'À améliorer';
+  const label       = total >= 70 ? t('aff.ana.scoreExcellent') : total >= 40 ? t('aff.ana.scoreOk') : t('aff.ana.scoreImprove');
 
   const circumference = 2 * Math.PI * 28;
   const offset = circumference * (1 - total / 100);
@@ -269,9 +278,9 @@ function LinktreeScore({ kpis }: { kpis: KPIs }) {
       <div>
         <p style={{ color: T1, fontSize: 13.5, fontWeight: 700 }}>{label}</p>
         <div className="mt-1 space-y-0.5" style={{ color: T3, fontSize: 11 }}>
-          {bar('Taux clic', Math.min(kpis.clickRate / 15, 1))}
-          {bar('Fidélité', Math.min(kpis.returningRate / 25, 1))}
-          {bar('Engagement', Math.min(kpis.avgScrollDepth / 60, 1))}
+          {bar(t('aff.ana.scoreCtr'), Math.min(kpis.clickRate / 15, 1))}
+          {bar(t('aff.ana.scoreLoyalty'), Math.min(kpis.returningRate / 25, 1))}
+          {bar(t('aff.ana.scoreEngagement'), Math.min(kpis.avgScrollDepth / 60, 1))}
         </div>
       </div>
     </div>
@@ -282,6 +291,8 @@ function LinktreeScore({ kpis }: { kpis: KPIs }) {
 
 export default function AffiliateAnalytics() {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
 
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [identityLoading, setIdentityLoading] = useState(true);
@@ -289,7 +300,7 @@ export default function AffiliateAnalytics() {
   const [period, setPeriod]  = useState<Period>('30d');
   const [pillar, setPillar]  = useState<Pillar>('overview');
 
-  const [kpis, setKpis]               = useState<KPIs>({ totalViews: 0, linktreeViews: 0, uniqueVisitors: 0, totalClicks: 0, clickRate: 0, returningRate: 0, avgDurationSeconds: 0, avgScrollDepth: 0, liveNow: 0 });
+  const [kpis, setKpis]               = useState<KPIs>({ totalViews: 0, linktreeViews: 0, uniqueVisitors: 0, totalClicks: 0, clickRate: 0, returningRate: 0, avgDurationSeconds: 0, avgScrollDepth: 0, liveNow: 0, newVisitors: 0, returningVisitors: 0, yunoShare: 0 });
   const [daily, setDaily]             = useState<DailyPoint[]>([]);
   const [sources, setSources]         = useState<SourceRow[]>([]);
   const [devices, setDevices]         = useState<DeviceRow[]>([]);
@@ -395,6 +406,15 @@ export default function AffiliateAnalytics() {
       const scrollRows        = rows.filter(r => typeof r.scroll_depth_max === 'number' && (r.scroll_depth_max ?? 0) > 0);
       const avgScroll         = scrollRows.length > 0 ? Math.round(scrollRows.reduce((s, r) => s + (r.scroll_depth_max ?? 0), 0) / scrollRows.length) : 0;
       const linktreeViews     = rows.filter(r => r.entry_page_type === 'linktree' || r.entry_page_type === 'member_linktree').length;
+      // Comptages réels par visiteur (et non une estimation à partir du taux
+      // par session) : un visiteur est « fidèle » si au moins une de ses
+      // sessions est un retour.
+      const returningVids     = new Set(rows.filter(r => r.is_returning && r.visitor_id).map(r => r.visitor_id));
+      const returningVisitors = [...uniqueVids].filter(v => returningVids.has(v)).length;
+      const newVisitors       = uniqueVids.size - returningVisitors;
+      // Trafic apporté par Yuno : sessions arrivées depuis yunoapp.eu
+      // (marketplace, app, pages Yuno) — l'argument « revenu passif ».
+      const yunoViews         = rows.filter(r => r.referrer_category === 'internal').length;
 
       setKpis({
         totalViews: rows.length,
@@ -406,6 +426,9 @@ export default function AffiliateAnalytics() {
         avgDurationSeconds: avgDur,
         avgScrollDepth: avgScroll,
         liveNow: (livePings ?? []).length,
+        newVisitors,
+        returningVisitors,
+        yunoShare: rows.length > 0 ? (yunoViews / rows.length) * 100 : 0,
       });
 
       const days       = Math.min(PERIOD_DAYS[period] ?? 90, 90);
@@ -513,7 +536,7 @@ export default function AffiliateAnalytics() {
   if (!identity) {
     return (
       <AffPage>
-        <AffEmpty icon={BarChart3} title="Aucun compte affilié trouvé." description="Votre compte n'est pas encore lié à un affilié Yuno." />
+        <AffEmpty icon={BarChart3} title={t('aff.ana.noAccountTitle')} description={t('aff.ana.noAccountDesc')} />
       </AffPage>
     );
   }
@@ -523,15 +546,15 @@ export default function AffiliateAnalytics() {
   const totalDeviceViews     = devices.reduce((s, d) => s + d.views, 0);
 
   const PILLARS: { id: Pillar; label: string; icon: any }[] = [
-    { id: 'overview',  label: "Vue d'ensemble", icon: LayoutGrid },
-    { id: 'audience',  label: 'Audience',        icon: Users },
-    { id: 'events',    label: 'Soirées',         icon: TrendingUp },
-    { id: 'campaigns', label: 'Campagnes',       icon: Zap },
-    { id: 'rapport',   label: 'Rapport',         icon: FileBarChart },
+    { id: 'overview',  label: t('aff.ana.pillarOverview'),  icon: LayoutGrid },
+    { id: 'audience',  label: t('aff.ana.pillarAudience'),  icon: Users },
+    { id: 'events',    label: t('aff.ana.pillarEvents'),    icon: TrendingUp },
+    { id: 'campaigns', label: t('aff.ana.pillarCampaigns'), icon: Zap },
+    { id: 'rapport',   label: t('aff.ana.pillarReport'),    icon: FileBarChart },
   ];
 
-  const sectionLabel = (t: string) => (
-    <span style={{ color: T3, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{t}</span>
+  const sectionLabel = (txt: string) => (
+    <span style={{ color: T3, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{txt}</span>
   );
 
   return (
@@ -540,7 +563,7 @@ export default function AffiliateAnalytics() {
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
         <AffHeading
           title="Analytics"
-          subtitle={identity.role === 'member' ? 'Données de votre linktree promoteur' : 'Données de vos pages affiliés'}
+          subtitle={identity.role === 'member' ? t('aff.ana.subtitleMember') : t('aff.ana.subtitleAdmin')}
           right={
             <div className="flex items-center gap-2 rounded-full px-3 py-2" style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)' }}>
               <div className="relative">
@@ -548,7 +571,7 @@ export default function AffiliateAnalytics() {
                 <div className="absolute inset-0 h-2 w-2 rounded-full animate-ping opacity-70" style={{ background: POS }} />
               </div>
               <span className="tabular-nums" style={{ color: POS, fontSize: 13.5, fontWeight: 600 }}>{kpis.liveNow}</span>
-              <span className="hidden sm:inline" style={{ color: POS, opacity: 0.7, fontSize: 11.5 }}>en ligne</span>
+              <span className="hidden sm:inline" style={{ color: POS, opacity: 0.7, fontSize: 11.5 }}>{t('aff.ana.online')}</span>
             </div>
           }
         />
@@ -557,7 +580,7 @@ export default function AffiliateAnalytics() {
       {/* Member no-slug notice */}
       {identity.role === 'member' && !identity.memberSlug && (
         <div className="rounded-2xl px-4 py-3.5" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.22)' }}>
-          <p style={{ color: WARN, fontSize: 13 }}><strong>Configurez d'abord votre linktree</strong> dans les paramètres pour commencer à recevoir des données.</p>
+          <p style={{ color: WARN, fontSize: 13 }}><strong>{t('aff.ana.noSlugStrong')}</strong> {t('aff.ana.noSlugRest')}</p>
         </div>
       )}
 
@@ -567,7 +590,7 @@ export default function AffiliateAnalytics() {
           <button key={p} onClick={() => setPeriod(p)}
             className="px-3 py-1.5 rounded-lg text-[12.5px] font-medium cursor-pointer transition-all duration-150"
             style={period === p ? { color: '#fff', background: RED, boxShadow: `0 0 14px -4px ${RED}88` } : { color: T3 }}>
-            {PERIOD_LABELS[p]}
+            {t(PERIOD_LABELS[p])}
           </button>
         ))}
       </div>
@@ -578,26 +601,49 @@ export default function AffiliateAnalytics() {
         <>
           {/* KPI grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <KpiCard icon={Eye} label="Vues totales" value={kpis.totalViews.toLocaleString()} tone="red" />
-            <KpiCard icon={Users} label="Visiteurs uniques" value={kpis.uniqueVisitors.toLocaleString()} />
-            <KpiCard icon={MousePointerClick} label="Clics billetterie" value={kpis.totalClicks.toLocaleString()} />
-            <KpiCard icon={TrendingUp} label="Taux de clic" value={fmtPct(kpis.clickRate)} tone="pos" />
-            <KpiCard icon={Repeat2} label="Visiteurs fidèles" value={fmtPct(kpis.returningRate)} />
-            <KpiCard icon={Clock} label="Durée moy." value={fmtDuration(kpis.avgDurationSeconds)} />
-            <KpiCard icon={Activity} label="Scroll moyen" value={`${kpis.avgScrollDepth}%`} />
-            <KpiCard icon={Link2} label="Vues linktree" value={kpis.linktreeViews.toLocaleString()} />
+            <KpiCard icon={Eye} label={t('aff.ana.totalViews')} value={kpis.totalViews.toLocaleString()} tone="red" />
+            <KpiCard icon={Users} label={t('aff.ana.uniqueVisitors')} value={kpis.uniqueVisitors.toLocaleString()} />
+            <KpiCard icon={MousePointerClick} label={t('aff.ana.ticketClicks')} value={kpis.totalClicks.toLocaleString()} />
+            <KpiCard icon={TrendingUp} label={t('aff.ana.clickRate')} value={fmtPct(kpis.clickRate)} tone="pos" />
+            <KpiCard icon={Repeat2} label={t('aff.ana.returningVisitors')} value={fmtPct(kpis.returningRate)} />
+            <KpiCard icon={Clock} label={t('aff.ana.avgDuration')} value={fmtDuration(kpis.avgDurationSeconds)} />
+            <KpiCard icon={Activity} label={t('aff.ana.avgScroll')} value={`${kpis.avgScrollDepth}%`} />
+            <KpiCard icon={Link2} label={t('aff.ana.linktreeViews')} value={kpis.linktreeViews.toLocaleString()} />
           </div>
+
+          {/* Trafic apporté par Yuno — l'app amène des visiteurs sans action de l'agence */}
+          {kpis.totalViews > 0 && (
+            <AffCard padding={16}>
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-3 min-w-0">
+                  <img src="/yuno-icon-192.png" alt="Yuno" className="w-8 h-8 rounded-lg flex-none" />
+                  <div className="min-w-0">
+                    <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('aff.ana.yunoTrafficTitle')}</p>
+                    <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>
+                      {t('aff.ana.yunoTrafficDesc')}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right flex-none">
+                  <span className="tabular-nums" style={{ color: RED, fontSize: 22, fontWeight: 700, letterSpacing: '-0.02em' }}>
+                    {fmtPct(kpis.yunoShare)}
+                  </span>
+                  <p style={{ color: T3, fontSize: 10.5 }}>{t('aff.ana.yunoTrafficShare')}</p>
+                </div>
+              </div>
+            </AffCard>
+          )}
 
           {/* Linktree score + funnel */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <AffCard padding={20}>
               <div className="flex items-center gap-2 mb-4">
-                {sectionLabel('Score Linktree')}
+                {sectionLabel(t('aff.ana.linktreeScore'))}
                 <div className="group relative">
                   <Info className="h-3.5 w-3.5 cursor-help" style={{ color: T3 }} />
                   <div className="absolute bottom-full left-0 mb-1.5 hidden group-hover:block text-xs px-2 py-1.5 rounded z-10"
                     style={{ background: '#1a1a1d', border: `1px solid ${BORDER}`, color: T2, width: 208 }}>
-                    Basé sur taux de clic (40pts), fidélité (30pts) et profondeur de scroll (30pts).
+                    {t('aff.ana.scoreTooltip')}
                   </div>
                 </div>
               </div>
@@ -605,12 +651,12 @@ export default function AffiliateAnalytics() {
             </AffCard>
 
             <AffCard padding={20}>
-              <div className="mb-4">{sectionLabel('Tunnel de conversion')}</div>
+              <div className="mb-4">{sectionLabel(t('aff.ana.funnel'))}</div>
               <div className="flex items-center gap-2">
                 <div className="flex-1 text-center">
                   <div className="flex items-center justify-center gap-1 mb-1">
                     <Eye className="h-4 w-4" style={{ color: RED }} />
-                    <span style={{ color: T3, fontSize: 11 }}>Vues</span>
+                    <span style={{ color: T3, fontSize: 11 }}>{t('aff.ana.views')}</span>
                   </div>
                   <div className="tabular-nums" style={{ color: T1, fontSize: 24, fontWeight: 640 }}>{kpis.totalViews.toLocaleString()}</div>
                   <div style={{ color: T3, fontSize: 11, marginTop: 1 }}>100%</div>
@@ -619,7 +665,7 @@ export default function AffiliateAnalytics() {
                 <div className="flex-1 text-center">
                   <div className="flex items-center justify-center gap-1 mb-1">
                     <MousePointerClick className="h-4 w-4" style={{ color: C_HI }} />
-                    <span style={{ color: T3, fontSize: 11 }}>Clics</span>
+                    <span style={{ color: T3, fontSize: 11 }}>{t('aff.ana.clicks')}</span>
                   </div>
                   <div className="tabular-nums" style={{ color: T1, fontSize: 24, fontWeight: 640 }}>{kpis.totalClicks.toLocaleString()}</div>
                   <div className="tabular-nums" style={{ color: POS, fontSize: 11, marginTop: 1, fontWeight: 600 }}>{fmtPct(kpis.clickRate)}</div>
@@ -631,11 +677,11 @@ export default function AffiliateAnalytics() {
           {/* Trend chart */}
           <AffCard padding={20}>
             <div className="flex items-center justify-between mb-4">
-              <h2 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>Vues & Clics par jour</h2>
-              <span style={{ color: T3, fontSize: 11 }}>échelles indépendantes</span>
+              <h2 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em' }}>{t('aff.ana.dailyChartTitle')}</h2>
+              <span style={{ color: T3, fontSize: 11 }}>{t('aff.ana.independentScales')}</span>
             </div>
             {daily.every(d => d.views === 0 && d.clicks === 0) ? (
-              <div className="text-center py-8" style={{ color: T3, fontSize: 13 }}>Aucune donnée sur cette période.</div>
+              <div className="text-center py-8" style={{ color: T3, fontSize: 13 }}>{t('aff.ana.noDataPeriod')}</div>
             ) : <DualChart data={daily} />}
           </AffCard>
 
@@ -649,21 +695,22 @@ export default function AffiliateAnalytics() {
             <div className="space-y-4">
               <AffCard padding={0}>
                 <div className="px-5 py-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
-                  <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>Sources d'acquisition</h2>
-                  <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>D'où viennent vos visiteurs</p>
+                  <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('aff.ana.acquisitionSources')}</h2>
+                  <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>{t('aff.ana.acquisitionSubtitle')}</p>
                 </div>
                 {sources.length === 0 ? (
-                  <div className="text-center py-8" style={{ color: T3, fontSize: 13 }}>Pas encore de données.</div>
+                  <div className="text-center py-8" style={{ color: T3, fontSize: 13 }}>{t('aff.ana.noDataYet')}</div>
                 ) : (
                   <div className="px-5 divide-y" style={{ borderColor: F_BORDER }}>
                     {sources.map(row => {
-                      const meta = SOURCE_META[row.category] ?? { label: row.category, icon: Globe };
-                      const Icon = meta.icon;
+                      const meta = SOURCE_META[row.category];
+                      const Icon = meta?.icon ?? Globe;
+                      const label = meta ? t(meta.label) : row.category;
                       return (
                         <div key={row.category} className="flex items-center gap-3 py-2.5">
                           <div className="flex items-center gap-2 flex-none" style={{ width: 144 }}>
                             <Icon className="h-3.5 w-3.5 flex-none" style={{ color: T2 }} />
-                            <span className="truncate" style={{ color: T2, fontSize: 11.5 }}>{meta.label}</span>
+                            <span className="truncate" style={{ color: T2, fontSize: 11.5 }}>{label}</span>
                           </div>
                           <div className="flex-1">
                             <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
@@ -683,22 +730,23 @@ export default function AffiliateAnalytics() {
 
               <AffCard padding={0}>
                 <div className="px-5 py-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
-                  <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>Appareils</h2>
+                  <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('aff.ana.devicesTitle')}</h2>
                 </div>
                 {devices.length === 0 ? (
-                  <div className="text-center py-8" style={{ color: T3, fontSize: 13 }}>Pas encore de données.</div>
+                  <div className="text-center py-8" style={{ color: T3, fontSize: 13 }}>{t('aff.ana.noDataYet')}</div>
                 ) : (
                   <div className="divide-y" style={{ borderColor: F_BORDER }}>
                     {devices.map(({ device, views }) => {
-                      const meta = DEVICE_META[device] ?? { label: device, icon: Monitor };
-                      const Icon = meta.icon;
+                      const meta = DEVICE_META[device];
+                      const Icon = meta?.icon ?? Monitor;
+                      const label = meta ? t(meta.label) : device;
                       const pct = totalDeviceViews > 0 ? (views / totalDeviceViews) * 100 : 0;
                       return (
                         <div key={device} className="flex items-center gap-4 px-5 py-3.5">
                           <Icon className="h-4 w-4 flex-none" style={{ color: T2 }} />
                           <div className="flex-1">
                             <div className="flex items-center justify-between mb-1.5">
-                              <span style={{ color: T1, fontSize: 13 }}>{meta.label}</span>
+                              <span style={{ color: T1, fontSize: 13 }}>{label}</span>
                               <span className="tabular-nums" style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{views.toLocaleString()}</span>
                             </div>
                             <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
@@ -715,18 +763,18 @@ export default function AffiliateAnalytics() {
 
               <AffCard padding={20}>
                 <div className="flex items-center justify-between mb-4">
-                  <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>Heures de pointe</h2>
+                  <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('aff.ana.peakHours')}</h2>
                   <div className="flex items-center gap-1.5" style={{ color: T3, fontSize: 11 }}>
                     <div className="w-3 h-3 rounded-sm" style={{ background: 'rgba(232,25,44,0.18)' }} />
-                    <span>faible</span>
+                    <span>{t('aff.ana.low')}</span>
                     <div className="w-3 h-3 rounded-sm" style={{ background: RED }} />
-                    <span>fort</span>
+                    <span>{t('aff.ana.high')}</span>
                   </div>
                 </div>
                 {heatmap.every(row => row.every(v => v === 0)) ? (
-                  <div className="text-center py-4" style={{ color: T3, fontSize: 13 }}>Pas encore de données.</div>
+                  <div className="text-center py-4" style={{ color: T3, fontSize: 13 }}>{t('aff.ana.noDataYet')}</div>
                 ) : <HeatmapChart matrix={heatmap} />}
-                <p style={{ color: T3, fontSize: 11, marginTop: 12 }}>Heure locale des visiteurs au moment de leur visite.</p>
+                <p style={{ color: T3, fontSize: 11, marginTop: 12 }}>{t('aff.ana.heatmapNote')}</p>
               </AffCard>
             </div>
           )}
@@ -735,49 +783,49 @@ export default function AffiliateAnalytics() {
           {pillar === 'audience' && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
-                <KpiCard icon={Users} label="Nouveaux visiteurs" value={Math.max(kpis.uniqueVisitors - Math.round(kpis.uniqueVisitors * kpis.returningRate / 100), 0).toLocaleString()} />
-                <KpiCard icon={Repeat2} label="Visiteurs fidèles" value={Math.max(Math.round(kpis.uniqueVisitors * kpis.returningRate / 100), 0).toLocaleString()} tone="red" />
+                <KpiCard icon={Users} label={t('aff.ana.newVisitors')} value={kpis.newVisitors.toLocaleString()} />
+                <KpiCard icon={Repeat2} label={t('aff.ana.returningVisitors')} value={kpis.returningVisitors.toLocaleString()} tone="red" />
               </div>
 
               <AffCard padding={20}>
-                <h2 style={{ color: T1, fontSize: 15, fontWeight: 600, marginBottom: 2 }}>Profondeur de scroll</h2>
-                <p style={{ color: T3, fontSize: 11.5, marginBottom: 16 }}>Jusqu'où les visiteurs font défiler votre page</p>
+                <h2 style={{ color: T1, fontSize: 15, fontWeight: 600, marginBottom: 2 }}>{t('aff.ana.scrollDepthTitle')}</h2>
+                <p style={{ color: T3, fontSize: 11.5, marginBottom: 16 }}>{t('aff.ana.scrollDepthSubtitle')}</p>
                 <ScrollDepthGauge avg={kpis.avgScrollDepth} />
                 <p style={{ color: T3, fontSize: 11, marginTop: 12 }}>
-                  {kpis.avgScrollDepth >= 70 ? "Excellent — vos visiteurs voient l'essentiel de votre contenu." :
-                   kpis.avgScrollDepth >= 40 ? 'Correct — placez les soirées les plus importantes en haut de page.' :
-                   "À améliorer — votre contenu n'est pas assez engageant pour pousser à scroller."}
+                  {kpis.avgScrollDepth >= 70 ? t('aff.ana.scrollAdviceHigh') :
+                   kpis.avgScrollDepth >= 40 ? t('aff.ana.scrollAdviceMid') :
+                   t('aff.ana.scrollAdviceLow')}
                 </p>
               </AffCard>
 
               <AffCard padding={20}>
-                <h2 style={{ color: T1, fontSize: 15, fontWeight: 600, marginBottom: 2 }}>Durée des sessions</h2>
-                <p style={{ color: T3, fontSize: 11.5, marginBottom: 16 }}>Répartition du temps passé sur votre page</p>
+                <h2 style={{ color: T1, fontSize: 15, fontWeight: 600, marginBottom: 2 }}>{t('aff.ana.sessionDuration')}</h2>
+                <p style={{ color: T3, fontSize: 11.5, marginBottom: 16 }}>{t('aff.ana.sessionDurationSubtitle')}</p>
                 {allSessions.length === 0 ? (
-                  <div className="text-center py-4" style={{ color: T3, fontSize: 13 }}>Pas encore de données.</div>
+                  <div className="text-center py-4" style={{ color: T3, fontSize: 13 }}>{t('aff.ana.noDataYet')}</div>
                 ) : <DurationHistogram sessions={allSessions} />}
               </AffCard>
 
               <AffCard padding={0}>
                 <div className="px-5 py-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
-                  <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>Pages visitées</h2>
+                  <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('aff.ana.pagesVisited')}</h2>
                 </div>
                 <div className="divide-y" style={{ borderColor: F_BORDER }}>
                   {(['linktree', 'member_linktree', 'event_page', 'venue_page'] as const).map(type => {
                     const count = allSessions.filter(s => s.entry_page_type === type).length;
                     if (count === 0) return null;
                     const labels: Record<string, string> = {
-                      linktree: 'Linktree affilié (/p/…)',
-                      member_linktree: 'Linktree promoteur (/promo/…)',
-                      event_page: 'Pages soirée (/affiliate-event/…)',
-                      venue_page: 'Pages club (/affiliate-venue/…)',
+                      linktree: 'aff.ana.pageTypeLinktree',
+                      member_linktree: 'aff.ana.pageTypeMemberLinktree',
+                      event_page: 'aff.ana.pageTypeEvent',
+                      venue_page: 'aff.ana.pageTypeVenue',
                     };
                     const pct = allSessions.length > 0 ? (count / allSessions.length) * 100 : 0;
                     return (
                       <div key={type} className="flex items-center gap-4 px-5 py-3.5">
                         <div className="flex-1">
                           <div className="flex items-center justify-between mb-1.5">
-                            <span style={{ color: T2, fontSize: 13 }}>{labels[type]}</span>
+                            <span style={{ color: T2, fontSize: 13 }}>{t(labels[type])}</span>
                             <span className="tabular-nums" style={{ color: T1, fontSize: 13, fontWeight: 600 }}>{count.toLocaleString()}</span>
                           </div>
                           <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
@@ -798,11 +846,11 @@ export default function AffiliateAnalytics() {
             <div className="space-y-4">
               <AffCard padding={0}>
                 <div className="px-5 py-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
-                  <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>Performances par soirée</h2>
-                  <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>Vues · Clics · Taux de conversion</p>
+                  <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('aff.ana.eventPerfTitle')}</h2>
+                  <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>{t('aff.ana.eventPerfSubtitle')}</p>
                 </div>
                 {topEvents.length === 0 ? (
-                  <div className="text-center py-8" style={{ color: T3, fontSize: 13 }}>Pas encore de données.</div>
+                  <div className="text-center py-8" style={{ color: T3, fontSize: 13 }}>{t('aff.ana.noDataYet')}</div>
                 ) : (
                   <div className="divide-y" style={{ borderColor: F_BORDER }}>
                     {topEvents.map((e, i) => (
@@ -835,9 +883,9 @@ export default function AffiliateAnalytics() {
                   <div className="flex items-start gap-2">
                     <Info className="h-4 w-4 flex-none mt-0.5" style={{ color: WARN }} />
                     <div>
-                      <p style={{ color: WARN, fontSize: 13, fontWeight: 600 }}>Soirées sans trafic</p>
+                      <p style={{ color: WARN, fontSize: 13, fontWeight: 600 }}>{t('aff.ana.noTrafficTitle')}</p>
                       <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>
-                        Assurez-vous que vos soirées sont bien liées à votre linktree dans <strong style={{ color: T2 }}>Soirées → Gérer le linktree</strong>.
+                        {t('aff.ana.noTrafficBody')} <strong style={{ color: T2 }}>{t('aff.ana.noTrafficPath')}</strong>.
                       </p>
                     </div>
                   </div>
@@ -850,33 +898,33 @@ export default function AffiliateAnalytics() {
           {pillar === 'campaigns' && (
             <div className="space-y-4">
               <AffCard padding={16}>
-                <div className="mb-2">{sectionLabel('Comment utiliser')}</div>
-                <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>Ajoutez des paramètres UTM à vos liens pour tracker vos campagnes. Exemple :</p>
+                <div className="mb-2">{sectionLabel(t('aff.ana.howToUse'))}</div>
+                <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>{t('aff.ana.utmIntro')}</p>
                 <div className="mt-2 rounded-lg px-3 py-2 break-all" style={{ background: TILE_BG, border: `1px solid ${F_BORDER}`, fontFamily: 'monospace', fontSize: 11.5, color: T2 }}>
-                  {`${window.location.origin}/p/votre-slug`}<span style={{ color: RED }}>?utm_source=instagram&utm_medium=bio&utm_campaign=noel2025</span>
+                  {`${window.location.origin}/p/${t('aff.ana.exampleSlug')}`}<span style={{ color: RED }}>?utm_source=instagram&utm_medium=bio&utm_campaign=noel2025</span>
                 </div>
               </AffCard>
 
               <AffCard padding={0}>
                 <div className="px-5 py-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
-                  <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>Campagnes UTM</h2>
-                  <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>Vues · Clics depuis des liens trackés</p>
+                  <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('aff.ana.utmTableTitle')}</h2>
+                  <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>{t('aff.ana.utmTableSubtitle')}</p>
                 </div>
                 {campaigns.length === 0 ? (
                   <div className="px-5 py-8 text-center">
                     <Zap className="h-8 w-8 mx-auto mb-2" style={{ color: 'rgba(255,255,255,0.14)' }} />
-                    <p style={{ color: T3, fontSize: 13 }}>Aucune campagne UTM détectée.</p>
+                    <p style={{ color: T3, fontSize: 13 }}>{t('aff.ana.noUtm')}</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
                         <tr style={{ borderBottom: `1px solid ${F_BORDER}` }}>
-                          <th className="text-left px-5 py-3 font-medium" style={{ color: T3 }}>Source</th>
-                          <th className="text-left px-3 py-3 font-medium" style={{ color: T3 }}>Medium</th>
-                          <th className="text-left px-3 py-3 font-medium hidden sm:table-cell" style={{ color: T3 }}>Campagne</th>
-                          <th className="text-right px-3 py-3 font-medium" style={{ color: T3 }}>Vues</th>
-                          <th className="text-right px-5 py-3 font-medium" style={{ color: T3 }}>Clics</th>
+                          <th className="text-left px-5 py-3 font-medium" style={{ color: T3 }}>{t('aff.ana.thSource')}</th>
+                          <th className="text-left px-3 py-3 font-medium" style={{ color: T3 }}>{t('aff.ana.thMedium')}</th>
+                          <th className="text-left px-3 py-3 font-medium hidden sm:table-cell" style={{ color: T3 }}>{t('aff.ana.thCampaign')}</th>
+                          <th className="text-right px-3 py-3 font-medium" style={{ color: T3 }}>{t('aff.ana.views')}</th>
+                          <th className="text-right px-5 py-3 font-medium" style={{ color: T3 }}>{t('aff.ana.clicks')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -900,9 +948,9 @@ export default function AffiliateAnalytics() {
               </AffCard>
 
               <AffCard padding={16}>
-                <div className="mb-2">{sectionLabel('Tracker vos QR codes')}</div>
+                <div className="mb-2">{sectionLabel(t('aff.ana.trackQr'))}</div>
                 <p style={{ color: T3, fontSize: 11.5, lineHeight: 1.5 }}>
-                  Générez votre QR code depuis un lien avec <code style={{ color: RED }}>?utm_medium=qr&utm_source=flyer</code> pour mesurer les scans en face-à-face.
+                  {t('aff.ana.qrTipBefore')} <code style={{ color: RED }}>?utm_medium=qr&utm_source=flyer</code> {t('aff.ana.qrTipAfter')}
                 </p>
               </AffCard>
             </div>
@@ -911,8 +959,8 @@ export default function AffiliateAnalytics() {
           {/* ── Rapport ── */}
           {pillar === 'rapport' && (() => {
             const now = new Date();
-            const thisMonthLabel = format(now, 'MMMM yyyy', { locale: fr });
-            const prevMonthLabel = format(new Date(now.getFullYear(), now.getMonth() - 1, 1), 'MMMM yyyy', { locale: fr });
+            const thisMonthLabel = format(now, 'MMMM yyyy', { locale: dateLocale });
+            const prevMonthLabel = format(new Date(now.getFullYear(), now.getMonth() - 1, 1), 'MMMM yyyy', { locale: dateLocale });
 
             const thisCTR = thisMonth.views > 0 ? ((thisMonth.clicks / thisMonth.views) * 100).toFixed(1) : '0';
             const prevCTR = prevMonth.views > 0 ? ((prevMonth.clicks / prevMonth.views) * 100).toFixed(1) : '0';
@@ -924,9 +972,9 @@ export default function AffiliateAnalytics() {
             };
 
             const rows = [
-              { label: 'Vues totales', curr: thisMonth.views, prev: prevMonth.views },
-              { label: 'Visiteurs uniques', curr: thisMonth.unique, prev: prevMonth.unique },
-              { label: 'Clics totaux', curr: thisMonth.clicks, prev: prevMonth.clicks },
+              { label: t('aff.ana.totalViews'), curr: thisMonth.views, prev: prevMonth.views },
+              { label: t('aff.ana.uniqueVisitors'), curr: thisMonth.unique, prev: prevMonth.unique },
+              { label: t('aff.ana.clicksTotal'), curr: thisMonth.clicks, prev: prevMonth.clicks },
             ];
 
             if (rapportLoading) return <AffSpinner />;
@@ -951,15 +999,15 @@ export default function AffiliateAnalytics() {
                   <h2 className="capitalize" style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{thisMonthLabel}</h2>
                   <p style={{ color: T3, fontSize: 11.5 }}>vs {prevMonthLabel}</p>
                   <div className="mt-4 divide-y" style={{ borderColor: F_BORDER }}>
-                    {rows.map(r => deltaRow(r.label, r.curr, r.prev, String(r.curr), `${r.prev} prec.`, r.curr >= r.prev))}
-                    {deltaRow('CTR', Math.round(parseFloat(thisCTR) * 10), Math.round(parseFloat(prevCTR) * 10), `${thisCTR}%`, `${prevCTR}% prec.`, parseFloat(thisCTR) >= parseFloat(prevCTR))}
+                    {rows.map(r => deltaRow(r.label, r.curr, r.prev, String(r.curr), `${r.prev} ${t('aff.ana.prevAbbrev')}`, r.curr >= r.prev))}
+                    {deltaRow('CTR', Math.round(parseFloat(thisCTR) * 10), Math.round(parseFloat(prevCTR) * 10), `${thisCTR}%`, `${prevCTR}% ${t('aff.ana.prevAbbrev')}`, parseFloat(thisCTR) >= parseFloat(prevCTR))}
                   </div>
                 </AffCard>
 
                 {topEvents.length > 0 && (
                   <AffCard padding={0}>
                     <div className="px-5 py-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
-                      <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>Top soirées (période sélectionnée)</h2>
+                      <h2 style={{ color: T1, fontSize: 15, fontWeight: 600 }}>{t('aff.ana.topEvents')}</h2>
                     </div>
                     <div className="divide-y" style={{ borderColor: F_BORDER }}>
                       {topEvents.slice(0, 3).map((ev, i) => (
@@ -977,7 +1025,7 @@ export default function AffiliateAnalytics() {
                 )}
 
                 {thisMonth.views === 0 && (
-                  <AffEmpty icon={FileBarChart} title="Pas encore de données ce mois-ci." />
+                  <AffEmpty icon={FileBarChart} title={t('aff.ana.noDataMonth')} />
                 )}
               </div>
             );

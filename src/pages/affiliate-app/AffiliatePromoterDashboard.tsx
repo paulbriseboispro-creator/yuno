@@ -6,7 +6,8 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ExternalLink, Users, BarChart2, Link2, Eye, MousePointerClick, FileText, Send } from 'lucide-react';
 import { format, parseISO, startOfWeek, endOfWeek } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, enUS, es } from 'date-fns/locale';
+import { useLanguage } from '@/contexts/LanguageContext';
 import {
   AffPage, AffHeading, AffCard, AffCardHeader, StatTile, SectionLabel, DarkInput,
   AffButton, AffSpinner, RED, T1, T2, T3, BORDER, C_FAINT,
@@ -44,11 +45,15 @@ type BriefEvent = {
 export default function AffiliatePromoterDashboard() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const [profile, setProfile] = useState<MemberProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [weekStats, setWeekStats] = useState<WeekStats>({ views: 0, clicks: 0 });
+  // Bi-mode : cette personne vend aussi dans des clubs Yuno (lignes promoters).
+  const [hasYunoSide, setHasYunoSide] = useState(false);
   const [briefEvents, setBriefEvents] = useState<BriefEvent[]>([]);
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [urlInputs, setUrlInputs] = useState<Record<string, string>>({});
@@ -76,6 +81,14 @@ export default function AffiliatePromoterDashboard() {
         fetchAssignments(p.id),
         fetchWeekStats(p.id),
         fetchBriefEvents(p.affiliate_id),
+        (async () => {
+          const { count } = await supabase
+            .from('promoters')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user!.id)
+            .eq('is_active', true);
+          setHasYunoSide((count ?? 0) > 0);
+        })(),
       ]);
     }
     setLoading(false);
@@ -117,17 +130,19 @@ export default function AffiliatePromoterDashboard() {
     const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 }).toISOString();
 
     const [r1, r2] = await Promise.all([
-      (supabase.from('affiliate_visitor_sessions') as any)
+      supabase.from('affiliate_visitor_sessions')
         .select('id', { count: 'exact', head: true })
-        .eq('member_id', memberId)
-        .gte('created_at', weekStart)
-        .lte('created_at', weekEnd),
-      (supabase.from('affiliate_clicks') as any)
+        .eq('affiliate_member_id', memberId)
+        .eq('is_internal', false)
+        .gte('visited_at', weekStart)
+        .lte('visited_at', weekEnd),
+      supabase.from('affiliate_clicks')
         .select('id', { count: 'exact', head: true })
-        .eq('member_id', memberId)
+        .eq('affiliate_member_id', memberId)
+        .eq('is_internal', false)
         .gte('clicked_at', weekStart)
         .lte('clicked_at', weekEnd),
-    ]) as [{ count: number | null }, { count: number | null }];
+    ]);
     const views = r1.count;
     const clicks = r2.count;
 
@@ -163,7 +178,7 @@ export default function AffiliatePromoterDashboard() {
 
   const submitUrl = async (assignmentId: string, eventId: string) => {
     const url = urlInputs[assignmentId]?.trim();
-    if (!url) { toast({ title: 'Saisis l\'URL promotionnelle', variant: 'destructive' }); return; }
+    if (!url) { toast({ title: t('aff.pdash.enterPromoUrl'), variant: 'destructive' }); return; }
     setSubmitting(assignmentId);
 
     const { error: assignErr } = await supabase
@@ -172,20 +187,35 @@ export default function AffiliatePromoterDashboard() {
       .eq('id', assignmentId);
 
     if (!assignErr && profile) {
-      // auto-add to promoter linktree if not already present
-      await supabase.from('promoter_linktree_events').upsert({
-        member_id: profile.id,
-        affiliate_event_id: eventId,
-        promo_link: url,
-        sort_order: 999,
-      }, { onConflict: 'member_id,affiliate_event_id', ignoreDuplicates: true });
+      // Ajout au linktree du promoteur. Si la soirée y figure déjà, on met à
+      // jour SON lien promo (une re-soumission remplaçait l'ancien lien dans
+      // l'assignation mais était silencieusement jetée côté linktree) — sans
+      // toucher au sort_order qu'il a choisi.
+      const { data: existing } = await supabase
+        .from('promoter_linktree_events')
+        .select('id')
+        .eq('member_id', profile.id)
+        .eq('affiliate_event_id', eventId)
+        .maybeSingle();
+      if (existing) {
+        await supabase.from('promoter_linktree_events')
+          .update({ promo_link: url })
+          .eq('id', existing.id);
+      } else {
+        await supabase.from('promoter_linktree_events').insert({
+          member_id: profile.id,
+          affiliate_event_id: eventId,
+          promo_link: url,
+          sort_order: 999,
+        });
+      }
     }
 
     setSubmitting(null);
     if (assignErr) {
-      toast({ title: 'Erreur', description: assignErr.message, variant: 'destructive' });
+      toast({ title: t('aff.pdash.errorTitle'), description: assignErr.message, variant: 'destructive' });
     } else {
-      toast({ title: 'URL soumise et ajoutée à ton linktree' });
+      toast({ title: t('aff.pdash.urlSubmitted') });
       setAssignments(prev => prev.filter(a => a.id !== assignmentId));
     }
   };
@@ -194,7 +224,7 @@ export default function AffiliatePromoterDashboard() {
 
   const displayName = profile?.first_name && profile?.last_name
     ? `${profile.first_name} ${profile.last_name}`
-    : 'Promoteur';
+    : t('aff.pdash.promoterFallback');
 
   const linktreeUrl = profile?.linktree_slug
     ? `${window.location.origin}/promo/${profile.linktree_slug}`
@@ -203,27 +233,31 @@ export default function AffiliatePromoterDashboard() {
   const ctr = weekStats.views > 0 ? ((weekStats.clicks / weekStats.views) * 100).toFixed(1) : '0';
 
   const subtitle = profile?.affiliate
-    ? `Équipe ${profile.affiliate.name}${profile.affiliate.city ? ` · ${profile.affiliate.city}` : ''}`
+    ? `${t('aff.pdash.teamPrefix')} ${profile.affiliate.name}${profile.affiliate.city ? ` · ${profile.affiliate.city}` : ''}`
     : undefined;
 
   const QUICK_LINKS = [
-    { to: '/affiliate/promoteur/linktree', icon: Link2, title: 'Mon Linktree', desc: 'Gérer mes soirées', accent: true },
-    { to: '/affiliate/analytics', icon: BarChart2, title: 'Analytics', desc: 'Clics & vues' },
-    { to: '/affiliate/promoteur/settings', icon: Users, title: 'Mon profil', desc: 'Avatar, réseaux & lien public' },
+    { to: '/affiliate/promoteur/linktree', icon: Link2, title: t('aff.pdash.quickLinktree'), desc: t('aff.pdash.quickLinktreeDesc'), accent: true },
+    { to: '/affiliate/analytics', icon: BarChart2, title: t('aff.pdash.quickAnalytics'), desc: t('aff.pdash.quickAnalyticsDesc') },
+    { to: '/affiliate/promoteur/settings', icon: Users, title: t('aff.pdash.quickProfile'), desc: t('aff.pdash.quickProfileDesc') },
+    // Bi-mode : passerelle vers l'espace de vente in-app.
+    ...(hasYunoSide
+      ? [{ to: '/promoter', icon: ExternalLink, title: t('aff.pdash.quickYunoSide'), desc: t('aff.pdash.quickYunoSideDesc') }]
+      : []),
   ];
 
   return (
     <AffPage maxWidth={760}>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-        <AffHeading title={`Bonjour, ${displayName}`} subtitle={subtitle} />
+        <AffHeading title={`${t('aff.pdash.greeting')} ${displayName}`} subtitle={subtitle} />
       </motion.div>
 
       {/* Week stats */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Vues cette semaine', value: weekStats.views, icon: Eye },
-          { label: 'Clics cette semaine', value: weekStats.clicks, icon: MousePointerClick, tone: 'pos' as const },
-          { label: 'Taux de clic', value: `${ctr}%`, icon: BarChart2, tone: 'warn' as const },
+          { label: t('aff.pdash.viewsThisWeek'), value: weekStats.views, icon: Eye },
+          { label: t('aff.pdash.clicksThisWeek'), value: weekStats.clicks, icon: MousePointerClick, tone: 'pos' as const },
+          { label: t('aff.pdash.ctr'), value: `${ctr}%`, icon: BarChart2, tone: 'warn' as const },
         ].map((s, i) => (
           <motion.div key={s.label}
             initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 + i * 0.04 }}>
@@ -235,7 +269,7 @@ export default function AffiliatePromoterDashboard() {
       {/* Pending assignments */}
       {assignments.length > 0 && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }} className="space-y-3">
-          <SectionLabel>Soirées en attente d'URL ({assignments.length})</SectionLabel>
+          <SectionLabel>{t('aff.pdash.pendingUrl')} ({assignments.length})</SectionLabel>
           <div className="space-y-3">
             {assignments.map(a => (
               <AffCard key={a.id} padding={16}
@@ -247,13 +281,13 @@ export default function AffiliatePromoterDashboard() {
                   <div className="flex-1 min-w-0">
                     <p className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{a.event_name}</p>
                     <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>
-                      {a.event_date ? format(parseISO(a.event_date), 'd MMM yyyy', { locale: fr }) : '—'}
-                      {a.has_brief && <span style={{ color: RED, marginLeft: 8 }}>· Brief disponible</span>}
+                      {a.event_date ? format(parseISO(a.event_date), 'd MMM yyyy', { locale: dateLocale }) : '—'}
+                      {a.has_brief && <span style={{ color: RED, marginLeft: 8 }}>· {t('aff.pdash.briefAvailable')}</span>}
                     </p>
                   </div>
                   {a.has_brief && (
                     <Link to={`/affiliate/events/${a.affiliate_event_id}/brief`}
-                      className="p-1.5 transition-colors flex-none" title="Voir le brief"
+                      className="p-1.5 transition-colors flex-none" title={t('aff.pdash.viewBrief')}
                       style={{ color: T3 }}
                       onMouseEnter={(e) => (e.currentTarget.style.color = RED)}
                       onMouseLeave={(e) => (e.currentTarget.style.color = T3)}
@@ -275,7 +309,7 @@ export default function AffiliatePromoterDashboard() {
                     disabled={submitting === a.id}
                   >
                     <Send className="h-3.5 w-3.5" />
-                    {submitting === a.id ? '…' : 'Soumettre'}
+                    {submitting === a.id ? '…' : t('aff.pdash.submit')}
                   </AffButton>
                 </div>
               </AffCard>
@@ -290,7 +324,7 @@ export default function AffiliatePromoterDashboard() {
           <AffCard padding={18}>
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>Ta page promoteur</p>
+                <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('aff.pdash.yourPromoterPage')}</p>
                 <p className="truncate" style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{linktreeUrl}</p>
               </div>
               <a href={linktreeUrl} target="_blank" rel="noopener noreferrer"
@@ -299,7 +333,7 @@ export default function AffiliatePromoterDashboard() {
                 onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
                 onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
               >
-                Voir ma page
+                {t('aff.pdash.viewMyPage')}
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
             </div>
@@ -311,7 +345,7 @@ export default function AffiliatePromoterDashboard() {
       {briefEvents.length > 0 && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }}>
           <AffCard padding={18}>
-            <AffCardHeader icon={FileText} title="Briefs disponibles" subtitle="Consignes de promo par soirée" accent />
+            <AffCardHeader icon={FileText} title={t('aff.pdash.briefsTitle')} subtitle={t('aff.pdash.briefsSubtitle')} accent />
             <div className="divide-y" style={{ borderColor: BORDER }}>
               {briefEvents.map(ev => (
                 <Link key={ev.id} to={`/affiliate/events/${ev.id}/brief`}
@@ -322,7 +356,7 @@ export default function AffiliatePromoterDashboard() {
                     : <div className="w-9 h-9 rounded-lg flex-none" style={{ background: C_FAINT, border: `1px solid ${BORDER}` }} />}
                   <div className="flex-1 min-w-0">
                     <p className="truncate" style={{ color: T1, fontSize: 13, fontWeight: 500 }}>{ev.name}</p>
-                    <p style={{ color: T3, fontSize: 11.5 }}>{format(parseISO(ev.event_date), 'd MMM', { locale: fr })}</p>
+                    <p style={{ color: T3, fontSize: 11.5 }}>{format(parseISO(ev.event_date), 'd MMM', { locale: dateLocale })}</p>
                   </div>
                   <FileText className="h-4 w-4 flex-none" style={{ color: RED }} />
                 </Link>

@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { useToast } from '@/hooks/use-toast';
 import { Bell, Send, History, Settings2 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, es, enUS } from 'date-fns/locale';
 import {
   AffPage, AffHeading, AffCard, AffButton, AffSpinner, AffEmpty, TabBar, Toggle,
   FieldLabel, DarkInput, DarkSelect, DarkTextarea, SegToggle,
@@ -28,22 +29,24 @@ type NotifHistory = {
   read_count: number;
 };
 
-const AUTOMATION_META: Record<string, { label: string; description: string }> = {
-  new_event_published:  { label: 'Nouvel événement publié',       description: 'Notifie tous les promoteurs quand un événement passe à Publié/Featured' },
-  event_sold_out:       { label: 'Événement sold-out',            description: 'Notifie tous les promoteurs quand un événement est marqué Complet' },
-  assignment_reminder:  { label: 'Rappel assignment',             description: "24h après création d'un assignment sans URL soumise" },
-  event_in_48h:         { label: 'Événement dans 48h',            description: "Rappel 48h avant la date d'un événement sur le linktree du promoteur" },
-  linktree_stale:       { label: 'Linktree inactif',              description: 'Linktree non mis à jour depuis 7 jours' },
-  weekly_top_promoter:  { label: 'Top promoteur hebdo',           description: 'Chaque lundi : notifie le top promoteur de la semaine' },
-  missing_ticket_url:   { label: 'URL billeterie manquante',      description: 'Événement publié depuis plus de 6h sans lien billeterie (admin)' },
-  weekly_recap:         { label: 'Récap hebdomadaire',            description: 'Chaque lundi : résumé clics/vues/top événements (admin)' },
+const AUTOMATION_KEYS: Record<string, { label: string; description: string }> = {
+  new_event_published:  { label: 'aff.comms.auto.new_event_published', description: 'aff.comms.auto.new_event_published.desc' },
+  event_sold_out:       { label: 'aff.comms.auto.event_sold_out', description: 'aff.comms.auto.event_sold_out.desc' },
+  assignment_reminder:  { label: 'aff.comms.auto.assignment_reminder', description: 'aff.comms.auto.assignment_reminder.desc' },
+  event_in_48h:         { label: 'aff.comms.auto.event_in_48h', description: 'aff.comms.auto.event_in_48h.desc' },
+  linktree_stale:       { label: 'aff.comms.auto.linktree_stale', description: 'aff.comms.auto.linktree_stale.desc' },
+  weekly_top_promoter:  { label: 'aff.comms.auto.weekly_top_promoter', description: 'aff.comms.auto.weekly_top_promoter.desc' },
+  missing_ticket_url:   { label: 'aff.comms.auto.missing_ticket_url', description: 'aff.comms.auto.missing_ticket_url.desc' },
+  weekly_recap:         { label: 'aff.comms.auto.weekly_recap', description: 'aff.comms.auto.weekly_recap.desc' },
 };
 
 type Tab = 'manual' | 'automations' | 'history';
 
 export default function AffiliateNotifications() {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
+  const dfLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const [affiliateId, setAffiliateId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('manual');
 
@@ -76,7 +79,7 @@ export default function AffiliateNotifications() {
       .eq('affiliate_id', aff.id)
       .eq('is_active', true)
       .order('first_name');
-    setMembers((memData ?? []).map((m: any) => ({
+    setMembers((memData ?? []).map((m: { id: string; first_name: string | null; last_name: string | null }) => ({
       id: m.id,
       display_name: [m.first_name, m.last_name].filter(Boolean).join(' ') || m.id.slice(0, 8),
     })));
@@ -117,13 +120,13 @@ export default function AffiliateNotifications() {
       .from('affiliate_notification_automations')
       .update({ is_enabled: !current })
       .eq('id', id);
-    if (error) { toast({ title: 'Erreur', description: error.message, variant: 'destructive' }); return; }
+    if (error) { toast({ title: t('aff.comms.toast.error'), description: error.message, variant: 'destructive' }); return; }
     setAutomations(prev => prev.map(a => a.id === id ? { ...a, is_enabled: !current } : a));
   };
 
   const sendManual = async () => {
     if (!affiliateId || !title.trim() || !body.trim()) {
-      toast({ title: 'Titre et message requis', variant: 'destructive' }); return;
+      toast({ title: t('aff.comms.toast.titleBodyRequired'), variant: 'destructive' }); return;
     }
     setSending(true);
 
@@ -141,9 +144,9 @@ export default function AffiliateNotifications() {
 
     setSending(false);
     if (error) {
-      toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+      toast({ title: t('aff.comms.toast.error'), description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Notification enregistrée', description: 'Le push sera envoyé via la fonction edge.' });
+      toast({ title: t('aff.comms.toast.saved'), description: t('aff.comms.toast.savedDesc') });
       setTitle(''); setBody(''); setActionUrl('');
     }
   };
@@ -151,15 +154,15 @@ export default function AffiliateNotifications() {
   return (
     <AffPage>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-        <AffHeading title="Notifications" subtitle="Messages manuels, automatisations et historique" />
+        <AffHeading title={t('aff.comms.title')} subtitle={t('aff.comms.subtitle')} />
       </motion.div>
 
       <TabBar<Tab>
         active={tab} onChange={setTab}
         tabs={[
-          { id: 'manual', label: 'Message manuel', icon: Send },
-          { id: 'automations', label: 'Automatisations', icon: Settings2 },
-          { id: 'history', label: 'Historique', icon: History },
+          { id: 'manual', label: t('aff.comms.tabManual'), icon: Send },
+          { id: 'automations', label: t('aff.comms.tabAutomations'), icon: Settings2 },
+          { id: 'history', label: t('aff.comms.tabHistory'), icon: History },
         ]}
       />
 
@@ -168,16 +171,16 @@ export default function AffiliateNotifications() {
         <AffCard padding={22} style={{ maxWidth: 540 }}>
           <div className="space-y-4">
             <div>
-              <FieldLabel>Destinataire</FieldLabel>
+              <FieldLabel>{t('aff.comms.recipient')}</FieldLabel>
               <SegToggle<'all' | 'one'>
                 value={targetAll ? 'all' : 'one'}
                 onChange={(v) => setTargetAll(v === 'all')}
-                options={[{ key: 'all', label: 'Tous les promoteurs' }, { key: 'one', label: 'Un promoteur' }]}
+                options={[{ key: 'all', label: t('aff.comms.allPromoters') }, { key: 'one', label: t('aff.comms.onePromoter') }]}
               />
               {!targetAll && (
                 <div className="mt-2">
                   <DarkSelect value={targetMember} onChange={setTargetMember}>
-                    <option value="">Sélectionner…</option>
+                    <option value="">{t('aff.comms.selectPh')}</option>
                     {members.map(m => <option key={m.id} value={m.id}>{m.display_name}</option>)}
                   </DarkSelect>
                 </div>
@@ -185,22 +188,22 @@ export default function AffiliateNotifications() {
             </div>
 
             <div>
-              <FieldLabel>Titre</FieldLabel>
-              <DarkInput value={title} onChange={setTitle} placeholder="Nouvelle soirée ce weekend !" />
+              <FieldLabel>{t('aff.comms.titleLabel')}</FieldLabel>
+              <DarkInput value={title} onChange={setTitle} placeholder={t('aff.comms.titlePh')} />
             </div>
 
             <div>
-              <FieldLabel>Message</FieldLabel>
-              <DarkTextarea value={body} onChange={setBody} placeholder="Détails du message…" rows={3} />
+              <FieldLabel>{t('aff.comms.messageLabel')}</FieldLabel>
+              <DarkTextarea value={body} onChange={setBody} placeholder={t('aff.comms.messagePh')} rows={3} />
             </div>
 
             <div>
-              <FieldLabel hint="(optionnel)">Lien action</FieldLabel>
+              <FieldLabel hint={t('aff.comms.optional')}>{t('aff.comms.actionLink')}</FieldLabel>
               <DarkInput type="url" value={actionUrl} onChange={setActionUrl} placeholder="https://…" />
             </div>
 
             <AffButton onClick={sendManual} disabled={sending} full>
-              <Send className="h-4 w-4" /> {sending ? 'Envoi…' : 'Envoyer la notification'}
+              <Send className="h-4 w-4" /> {sending ? t('aff.comms.sending') : t('aff.comms.sendBtn')}
             </AffButton>
           </div>
         </AffCard>
@@ -210,17 +213,17 @@ export default function AffiliateNotifications() {
       {tab === 'automations' && (
         loadingAutos ? <AffSpinner /> : (
           automations.length === 0 ? (
-            <AffEmpty icon={Settings2} title="Aucune automatisation configurée" />
+            <AffEmpty icon={Settings2} title={t('aff.comms.emptyAutomations')} />
           ) : (
             <AffCard padding={0}>
               <div className="divide-y" style={{ borderColor: BORDER }}>
                 {automations.map(a => {
-                  const meta = AUTOMATION_META[a.automation_type];
+                  const meta = AUTOMATION_KEYS[a.automation_type];
                   return (
                     <div key={a.id} className="flex items-start gap-4 px-5 py-4">
                       <div className="flex-1 min-w-0">
-                        <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{meta?.label ?? a.automation_type}</p>
-                        <p style={{ color: T3, fontSize: 11.5, marginTop: 2, lineHeight: 1.5 }}>{meta?.description}</p>
+                        <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{meta ? t(meta.label) : a.automation_type}</p>
+                        <p style={{ color: T3, fontSize: 11.5, marginTop: 2, lineHeight: 1.5 }}>{meta && t(meta.description)}</p>
                       </div>
                       <div className="mt-0.5">
                         <Toggle checked={a.is_enabled} onChange={() => toggleAutomation(a.id, a.is_enabled)} />
@@ -238,7 +241,7 @@ export default function AffiliateNotifications() {
       {tab === 'history' && (
         loadingHistory ? <AffSpinner /> : (
           history.length === 0 ? (
-            <AffEmpty icon={Bell} title="Aucune notification envoyée" />
+            <AffEmpty icon={Bell} title={t('aff.comms.emptyHistory')} />
           ) : (
             <AffCard padding={0}>
               <div className="divide-y" style={{ borderColor: BORDER }}>
@@ -252,9 +255,9 @@ export default function AffiliateNotifications() {
                         <p className="line-clamp-1" style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{n.body}</p>
                       </div>
                       <div className="text-right flex-none">
-                        <p style={{ color: T3, fontSize: 11 }}>{format(parseISO(n.sent_at), 'd MMM', { locale: fr })}</p>
+                        <p style={{ color: T3, fontSize: 11 }}>{format(parseISO(n.sent_at), 'd MMM', { locale: dfLocale })}</p>
                         {n.read_count > 0 && (
-                          <p style={{ color: POS, fontSize: 11, marginTop: 1 }}>{n.read_count} lu{n.read_count > 1 ? 's' : ''}</p>
+                          <p style={{ color: POS, fontSize: 11, marginTop: 1 }}>{n.read_count === 1 ? t('aff.comms.readOne') : t('aff.comms.readOther').replace('{n}', String(n.read_count))}</p>
                         )}
                       </div>
                     </div>

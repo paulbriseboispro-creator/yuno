@@ -11,7 +11,8 @@ import {
   CalendarOff, Eye, MousePointerClick, Store, Sparkles, ExternalLink, CalendarPlus, BarChart2, Link2,
 } from 'lucide-react';
 import { format, subDays, parseISO } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, es, enUS } from 'date-fns/locale';
+import { useLanguage } from '@/contexts/LanguageContext';
 import {
   AffPage, AffCard, AffCardHeader, Pill, AffLinkButton, AffSpinner, AffEmpty,
   RED, POS, NEG, T1, T2, T3, C_HI, BORDER, F_BORDER, C_FAINT, INNER_BG, TILE_BG, CARD_BG, CARD_SHADOW,
@@ -31,7 +32,7 @@ type NextEvent = {
 type DailyPoint = { date: string; clicks: number; views: number };
 
 const STATUS_TONE: Record<string, 'muted' | 'success' | 'warn'> = { draft: 'muted', published: 'success', featured: 'warn' };
-const STATUS_LABEL: Record<string, string> = { draft: 'Brouillon', published: 'Publiée', featured: 'À la une' };
+const STATUS_LABEL: Record<string, string> = { draft: 'aff.dash.statusDraft', published: 'aff.dash.statusPublished', featured: 'aff.dash.statusFeatured' };
 
 function InlineDelta({ value }: { value: number }) {
   const isPos = value > 0.05;
@@ -47,6 +48,8 @@ function InlineDelta({ value }: { value: number }) {
 
 export default function AffiliateDashboard() {
   const { user } = useAuth();
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const [aff, setAff] = useState<{ id: string; name: string; city: string | null; avatar_url: string | null } | null>(null);
   const [venueCount, setVenueCount] = useState(0);
   const [eventCount, setEventCount] = useState(0);
@@ -160,10 +163,10 @@ export default function AffiliateDashboard() {
             )}
             <div className="min-w-0">
               <h1 className="truncate" style={{ color: T1, fontSize: 'clamp(20px,2.6vw,26px)', fontWeight: 720, letterSpacing: '-0.02em', margin: 0 }}>
-                {aff?.name ?? 'Espace affilié'}
+                {aff?.name ?? t('aff.dash.fallbackTitle')}
               </h1>
               <p style={{ color: T3, fontSize: 13, marginTop: 3 }}>
-                {aff?.city ? `${aff.city} · ` : ''}Tableau de bord affilié
+                {aff?.city ? `${aff.city} · ` : ''}{t('aff.dash.subtitle')}
               </p>
             </div>
           </div>
@@ -178,11 +181,11 @@ export default function AffiliateDashboard() {
                 <div className="flex items-center gap-1.5 mb-1.5">
                   {isToday && <span className="h-1.5 w-1.5 rounded-full animate-pulse" style={{ background: RED }} />}
                   <span style={{ color: isToday ? RED : T3, fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                    {isToday ? "Ce soir" : 'Prochaine'}
+                    {isToday ? t('aff.dash.tonight') : t('aff.dash.next')}
                   </span>
                 </div>
                 <div className="tabular-nums" style={{ color: T1, fontSize: 20, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1 }}>
-                  {format(evDate, 'd MMM', { locale: fr })}
+                  {format(evDate, 'd MMM', { locale: dateLocale })}
                 </div>
                 <div className="truncate" style={{ color: T3, fontSize: 10.5, marginTop: 4, maxWidth: 140 }}>{nextEvent.name}</div>
               </div>
@@ -199,20 +202,20 @@ export default function AffiliateDashboard() {
             <div className="flex items-center gap-3 min-w-0">
               <AlertTriangle className="h-4 w-4 flex-none" style={{ color: '#FBBF24' }} />
               <span style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>
-                {missingTicketUrl} soirée{missingTicketUrl > 1 ? 's' : ''} sans lien billetterie
+                {missingTicketUrl} {missingTicketUrl > 1 ? t('aff.dash.missingTicketMany') : t('aff.dash.missingTicketOne')}
               </span>
             </div>
-            <span style={{ color: T3, fontSize: 11.5 }}>Corriger →</span>
+            <span style={{ color: T3, fontSize: 11.5 }}>{t('aff.dash.fix')} →</span>
           </div>
         </Link>
       )}
 
       {/* ─── Dashboard grid ───────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard icon={MapPin} label="Clubs actifs" value={venueCount} hint="partenaires" to="/affiliate/venues" />
-        <StatCard icon={CalendarDays} label="Soirées à venir" value={eventCount} hint="à l'affiche" to="/affiliate/events" />
-        <StatCard icon={MousePointerClick} label="Clics (30 j)" value={clicks30.toLocaleString()} delta={calcChange(clicks30, clicksPrev30)} tone="red" to="/affiliate/analytics" />
-        <StatCard icon={Eye} label="Vues (30 j)" value={views30.toLocaleString()} delta={calcChange(views30, viewsPrev30)} to="/affiliate/analytics" />
+        <StatCard icon={MapPin} label={t('aff.dash.activeClubs')} value={venueCount} hint={t('aff.dash.partners')} to="/affiliate/venues" />
+        <StatCard icon={CalendarDays} label={t('aff.dash.upcomingEvents')} value={eventCount} hint={t('aff.dash.onBill')} to="/affiliate/events" />
+        <StatCard icon={MousePointerClick} label={t('aff.dash.clicks30')} value={clicks30.toLocaleString()} delta={calcChange(clicks30, clicksPrev30)} tone="red" to="/affiliate/analytics" />
+        <StatCard icon={Eye} label={t('aff.dash.views30')} value={views30.toLocaleString()} delta={calcChange(views30, viewsPrev30)} to="/affiliate/analytics" />
       </div>
 
       {/* Trend chart */}
@@ -235,19 +238,19 @@ export default function AffiliateDashboard() {
         <AffCard padding={20}>
           <AffCardHeader
             icon={CalendarDays}
-            title="Prochaines soirées"
-            subtitle="Les 6 dates à venir"
+            title={t('aff.dash.nextEvents')}
+            subtitle={t('aff.dash.next6Dates')}
             right={
               <Link to="/affiliate/events" className="inline-flex items-center gap-1 text-[12.5px] font-medium transition-colors" style={{ color: T2 }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = T1)} onMouseLeave={(e) => (e.currentTarget.style.color = T2)}>
-                Voir tout <ArrowRight className="h-3.5 w-3.5" />
+                {t('aff.dash.seeAll')} <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             }
           />
           {upcoming.length === 0 ? (
-            <AffEmpty icon={CalendarOff} title="Aucune soirée à venir"
-              description="Créez votre première soirée pour la voir apparaître ici."
-              action={<AffLinkButton to="/affiliate/events/new" size="sm"><Plus className="h-4 w-4" /> Nouvelle soirée</AffLinkButton>} />
+            <AffEmpty icon={CalendarOff} title={t('aff.dash.noUpcoming')}
+              description={t('aff.dash.noUpcomingDesc')}
+              action={<AffLinkButton to="/affiliate/events/new" size="sm"><Plus className="h-4 w-4" /> {t('aff.dash.newEvent')}</AffLinkButton>} />
           ) : (
             <div className="divide-y" style={{ borderColor: BORDER }}>
               {upcoming.map((event, i) => (
@@ -255,18 +258,18 @@ export default function AffiliateDashboard() {
                   initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 + i * 0.04 }}
                   className="flex items-center gap-4 py-3">
                   <div className="w-12 flex-none text-center rounded-xl py-1.5" style={{ background: C_FAINT, border: `1px solid ${BORDER}` }}>
-                    <p style={{ color: T3, fontSize: 9.5, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{format(parseISO(event.event_date), 'MMM', { locale: fr })}</p>
+                    <p style={{ color: T3, fontSize: 9.5, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>{format(parseISO(event.event_date), 'MMM', { locale: dateLocale })}</p>
                     <p className="tabular-nums" style={{ color: T1, fontSize: 18, fontWeight: 700, lineHeight: 1 }}>{format(parseISO(event.event_date), 'd')}</p>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{event.name}</p>
-                    <p className="truncate" style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>{event.affiliate_venues?.name ?? 'Sans club'}</p>
+                    <p className="truncate" style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>{event.affiliate_venues?.name ?? t('aff.dash.noClub')}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-none">
-                    {!event.external_ticket_url && <AlertTriangle className="h-3.5 w-3.5" style={{ color: '#FBBF24' }} aria-label="Lien ticket manquant" />}
-                    <Pill tone={STATUS_TONE[event.status] ?? 'muted'}>{STATUS_LABEL[event.status] ?? event.status}</Pill>
+                    {!event.external_ticket_url && <AlertTriangle className="h-3.5 w-3.5" style={{ color: '#FBBF24' }} aria-label={t('aff.dash.missingTicketLink')} />}
+                    <Pill tone={STATUS_TONE[event.status] ?? 'muted'}>{STATUS_LABEL[event.status] ? t(STATUS_LABEL[event.status]) : event.status}</Pill>
                     <Link to={`/affiliate/events/${event.id}/edit`} className="text-[12px] font-medium transition-colors hidden sm:inline" style={{ color: T3 }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = RED)} onMouseLeave={(e) => (e.currentTarget.style.color = T3)}>Éditer</Link>
+                      onMouseEnter={(e) => (e.currentTarget.style.color = RED)} onMouseLeave={(e) => (e.currentTarget.style.color = T3)}>{t('aff.dash.edit')}</Link>
                   </div>
                 </motion.div>
               ))}
@@ -302,13 +305,15 @@ function StatCard({ icon: Icon, label, value, hint, delta, tone, to }: {
 
 // ─── Trend chart (clics + vues, 30 days) ──────────────────────────────────────
 function TrendTooltip({ active, payload, label }: any) {
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   if (!active || !payload?.length) return null;
   return (
     <div style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 10, padding: '10px 14px' }}>
-      <p style={{ color: T3, fontSize: 11, marginBottom: 4 }}>{format(parseISO(String(label)), 'd MMM', { locale: fr })}</p>
+      <p style={{ color: T3, fontSize: 11, marginBottom: 4 }}>{format(parseISO(String(label)), 'd MMM', { locale: dateLocale })}</p>
       {payload.map((p: any) => (
         <p key={p.dataKey} className="tabular-nums" style={{ color: p.dataKey === 'clicks' ? RED : C_HI, fontSize: 13, fontWeight: 620 }}>
-          {p.dataKey === 'clicks' ? 'Clics' : 'Vues'} : {p.value}
+          {p.dataKey === 'clicks' ? t('aff.dash.clicks') : t('aff.dash.views')} : {p.value}
         </p>
       ))}
     </div>
@@ -316,6 +321,7 @@ function TrendTooltip({ active, payload, label }: any) {
 }
 
 function TrendChart({ data }: { data: DailyPoint[] }) {
+  const { t } = useLanguage();
   const uid = useId().replace(/:/g, '');
   const totalClicks = useMemo(() => data.reduce((s, d) => s + d.clicks, 0), [data]);
   const totalViews = useMemo(() => data.reduce((s, d) => s + d.views, 0), [data]);
@@ -324,19 +330,19 @@ function TrendChart({ data }: { data: DailyPoint[] }) {
   return (
     <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '20px 22px', overflow: 'hidden' }}>
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h3 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em', margin: 0 }}>Vues & clics — 30 jours</h3>
+        <h3 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em', margin: 0 }}>{t('aff.dash.trendTitle')}</h3>
         <div className="flex items-center gap-4">
           <span className="inline-flex items-center gap-1.5" style={{ color: T3, fontSize: 11.5 }}>
-            <span className="w-2 h-2 rounded-sm" style={{ background: RED }} /> {totalViews.toLocaleString()} vues
+            <span className="w-2 h-2 rounded-sm" style={{ background: RED }} /> {totalViews.toLocaleString()} {t('aff.dash.viewsUnit')}
           </span>
           <span className="inline-flex items-center gap-1.5" style={{ color: T3, fontSize: 11.5 }}>
-            <span className="w-2 h-2 rounded-sm" style={{ background: C_HI }} /> {totalClicks.toLocaleString()} clics
+            <span className="w-2 h-2 rounded-sm" style={{ background: C_HI }} /> {totalClicks.toLocaleString()} {t('aff.dash.clicksUnit')}
           </span>
         </div>
       </div>
 
       {!hasData ? (
-        <div className="text-center py-10" style={{ color: T3, fontSize: 13 }}>Pas encore de données sur cette période.</div>
+        <div className="text-center py-10" style={{ color: T3, fontSize: 13 }}>{t('aff.dash.noData')}</div>
       ) : (
         <div style={{ width: '100%', height: 220 }}>
           <ResponsiveContainer width="100%" height="100%">
@@ -361,7 +367,7 @@ function TrendChart({ data }: { data: DailyPoint[] }) {
 
       <div className="flex justify-end mt-3">
         <Link to="/affiliate/analytics" className="inline-flex items-center gap-1 text-[11.5px] font-medium" style={{ color: T3 }}>
-          Voir les analytics <ArrowRight className="h-3.5 w-3.5" />
+          {t('aff.dash.seeAnalytics')} <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
     </div>
@@ -370,15 +376,17 @@ function TrendChart({ data }: { data: DailyPoint[] }) {
 
 // ─── Next event hero ──────────────────────────────────────────────────────────
 function NextEventHero({ nextEvent }: { nextEvent: NextEvent | null }) {
+  const { t, language } = useLanguage();
+  const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   if (!nextEvent) {
     return (
       <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '40px 22px', textAlign: 'center', height: '100%' }}>
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl" style={{ background: C_FAINT, border: `1px solid ${BORDER}` }}>
           <CalendarDays className="h-6 w-6" style={{ color: T3 }} />
         </div>
-        <h3 style={{ color: T1, fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Aucune soirée à venir</h3>
-        <p style={{ color: T3, fontSize: 13, marginBottom: 20 }}>Créez votre première soirée pour démarrer.</p>
-        <AffLinkButton to="/affiliate/events/new" size="sm"><Plus className="h-4 w-4" /> Nouvelle soirée</AffLinkButton>
+        <h3 style={{ color: T1, fontSize: 16, fontWeight: 600, marginBottom: 8 }}>{t('aff.dash.noUpcoming')}</h3>
+        <p style={{ color: T3, fontSize: 13, marginBottom: 20 }}>{t('aff.dash.noUpcomingStart')}</p>
+        <AffLinkButton to="/affiliate/events/new" size="sm"><Plus className="h-4 w-4" /> {t('aff.dash.newEvent')}</AffLinkButton>
       </div>
     );
   }
@@ -394,7 +402,7 @@ function NextEventHero({ nextEvent }: { nextEvent: NextEvent | null }) {
           )}
           <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 60%)' }} />
           <span className="absolute top-3 left-3 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider"
-            style={{ background: 'rgba(0,0,0,0.75)', border: `1px solid ${BORDER}`, color: T2 }}>Prochaine soirée</span>
+            style={{ background: 'rgba(0,0,0,0.75)', border: `1px solid ${BORDER}`, color: T2 }}>{t('aff.dash.nextEvent')}</span>
         </div>
 
         <div style={{ padding: '18px 20px' }} className="flex flex-col justify-between gap-4">
@@ -402,18 +410,18 @@ function NextEventHero({ nextEvent }: { nextEvent: NextEvent | null }) {
             <h2 style={{ color: T1, fontSize: 17, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.2 }}>{nextEvent.name}</h2>
             <div className="flex flex-wrap items-center gap-2 mt-2">
               <span className="flex items-center gap-1" style={{ color: T3, fontSize: 12 }}>
-                <CalendarDays className="h-3 w-3" />{format(parseISO(nextEvent.event_date), 'PPP', { locale: fr })}
+                <CalendarDays className="h-3 w-3" />{format(parseISO(nextEvent.event_date), 'PPP', { locale: dateLocale })}
               </span>
               {nextEvent.affiliate_venues?.name && <span style={{ color: T3, fontSize: 12 }}>· {nextEvent.affiliate_venues.name}</span>}
             </div>
-            <div className="mt-3"><Pill tone={STATUS_TONE[nextEvent.status] ?? 'muted'}>{STATUS_LABEL[nextEvent.status] ?? nextEvent.status}</Pill></div>
+            <div className="mt-3"><Pill tone={STATUS_TONE[nextEvent.status] ?? 'muted'}>{STATUS_LABEL[nextEvent.status] ? t(STATUS_LABEL[nextEvent.status]) : nextEvent.status}</Pill></div>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <AffLinkButton to={`/affiliate/events/${nextEvent.id}/edit`} size="sm">Gérer</AffLinkButton>
+            <AffLinkButton to={`/affiliate/events/${nextEvent.id}/edit`} size="sm">{t('aff.dash.manage')}</AffLinkButton>
             {nextEvent.external_ticket_url
-              ? <AffLinkButton href={nextEvent.external_ticket_url} external variant="secondary" size="sm"><ExternalLink className="h-3.5 w-3.5" /> Billetterie</AffLinkButton>
-              : <AffLinkButton to={`/affiliate/events/${nextEvent.id}/edit`} variant="danger" size="sm"><AlertTriangle className="h-3.5 w-3.5" /> Ajouter le lien</AffLinkButton>}
+              ? <AffLinkButton href={nextEvent.external_ticket_url} external variant="secondary" size="sm"><ExternalLink className="h-3.5 w-3.5" /> {t('aff.dash.ticketing')}</AffLinkButton>
+              : <AffLinkButton to={`/affiliate/events/${nextEvent.id}/edit`} variant="danger" size="sm"><AlertTriangle className="h-3.5 w-3.5" /> {t('aff.dash.addLink')}</AffLinkButton>}
           </div>
         </div>
       </div>
@@ -423,15 +431,16 @@ function NextEventHero({ nextEvent }: { nextEvent: NextEvent | null }) {
 
 // ─── Quick actions ────────────────────────────────────────────────────────────
 function QuickActions() {
+  const { t } = useLanguage();
   const actions = [
-    { title: 'Nouvelle soirée', desc: 'Créer une soirée', to: '/affiliate/events/new', Icon: CalendarPlus },
-    { title: 'Nouveau club', desc: 'Ajouter un club partenaire', to: '/affiliate/venues/new', Icon: Store },
-    { title: 'Analytics', desc: 'Clics, vues & sources', to: '/affiliate/analytics', Icon: BarChart2 },
-    { title: 'Mon Linktree agence', desc: 'Page publique', to: '/affiliate/settings', Icon: Link2 },
+    { title: t('aff.dash.newEvent'), desc: t('aff.dash.createEvent'), to: '/affiliate/events/new', Icon: CalendarPlus },
+    { title: t('aff.dash.newClub'), desc: t('aff.dash.addPartnerClub'), to: '/affiliate/venues/new', Icon: Store },
+    { title: t('aff.nav.analytics'), desc: t('aff.dash.clicksViewsSources'), to: '/affiliate/analytics', Icon: BarChart2 },
+    { title: t('aff.dash.myAgencyLinktree'), desc: t('aff.dash.publicPage'), to: '/affiliate/settings', Icon: Link2 },
   ];
   return (
     <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '20px 22px', height: '100%' }}>
-      <h3 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em', marginBottom: 14 }}>Actions rapides</h3>
+      <h3 style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em', marginBottom: 14 }}>{t('aff.dash.quickActions')}</h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {actions.map(a => (
           <Link key={a.to} to={a.to} className="flex items-center gap-3 rounded-xl transition-all"
