@@ -803,39 +803,39 @@ export default function PromoterLinktree() {
 
       if (memError) throw memError;
       if (!mem) { setNotFound(true); setLoading(false); return; }
-      setLinktreeStatus((mem as any).linktree_status ?? 'approved');
+      setLinktreeStatus(mem.linktree_status ?? 'approved');
 
       const { data: org } = await supabase
         .from('affiliates')
         .select('id, name, city, type, avatar_url, instagram, tiktok, website, whatsapp, trust_stats, promoter_social_mode, allow_promoter_sort, linktree_sort_mode')
-        .eq('id', (mem as any).affiliate_id)
+        .eq('id', mem.affiliate_id)
         .maybeSingle();
 
       const memberData: MemberProfile = {
-        id: (mem as any).id,
-        user_id: (mem as any).user_id ?? null,
-        first_name: (mem as any).first_name ?? null,
-        last_name: (mem as any).last_name ?? null,
-        linktree_slug: (mem as any).linktree_slug ?? null,
-        avatar_url: (mem as any).avatar_url ?? null,
-        instagram: (mem as any).instagram ?? null,
-        tiktok: (mem as any).tiktok ?? null,
-        affiliate_id: (mem as any).affiliate_id,
-        linktree_sort_mode: (mem as any).linktree_sort_mode ?? null,
+        id: mem.id,
+        user_id: mem.user_id ?? null,
+        first_name: mem.first_name ?? null,
+        last_name: mem.last_name ?? null,
+        linktree_slug: mem.linktree_slug ?? null,
+        avatar_url: mem.avatar_url ?? null,
+        instagram: mem.instagram ?? null,
+        tiktok: mem.tiktok ?? null,
+        affiliate_id: mem.affiliate_id,
+        linktree_sort_mode: (mem.linktree_sort_mode as SortMode | null) ?? null,
         org: org ? {
-          id: (org as any).id,
-          name: (org as any).name,
-          city: (org as any).city ?? null,
-          type: (org as any).type ?? 'independent',
-          avatar_url: (org as any).avatar_url ?? null,
-          instagram: (org as any).instagram ?? null,
-          tiktok: (org as any).tiktok ?? null,
-          website: (org as any).website ?? null,
-          whatsapp: (org as any).whatsapp ?? null,
-          trust_stats: Array.isArray((org as any).trust_stats) ? (org as any).trust_stats : [],
-          promoter_social_mode: (org as any).promoter_social_mode ?? 'promoter',
-          allow_promoter_sort: (org as any).allow_promoter_sort ?? false,
-          linktree_sort_mode: (org as any).linktree_sort_mode ?? 'by_day',
+          id: org.id,
+          name: org.name,
+          city: org.city ?? null,
+          type: org.type ?? 'independent',
+          avatar_url: org.avatar_url ?? null,
+          instagram: org.instagram ?? null,
+          tiktok: org.tiktok ?? null,
+          website: org.website ?? null,
+          whatsapp: org.whatsapp ?? null,
+          trust_stats: Array.isArray(org.trust_stats) ? (org.trust_stats as TrustStat[]) : [],
+          promoter_social_mode: (org.promoter_social_mode ?? 'promoter') as OrgProfile['promoter_social_mode'],
+          allow_promoter_sort: org.allow_promoter_sort ?? false,
+          linktree_sort_mode: (org.linktree_sort_mode ?? 'by_day') as SortMode,
         } : null,
       };
 
@@ -851,11 +851,11 @@ export default function PromoterLinktree() {
       if (linktreeError) throw linktreeError;
 
       const mapped: LinktreeEvent[] = (linktreeRows ?? [])
-        .filter((row: any) => {
+        .filter((row) => {
           const ev = row.affiliate_events;
           return ev && ev.event_date >= today;
         })
-        .map((row: any) => {
+        .map((row) => {
           const ev = row.affiliate_events;
           const venueRaw = ev.affiliate_venues;
           const venue = Array.isArray(venueRaw) ? venueRaw[0] ?? null : venueRaw ?? null;
@@ -880,9 +880,9 @@ export default function PromoterLinktree() {
 
       setEvents(mapped);
       setLoading(false);
-    } catch (err: any) {
+    } catch (err) {
       console.error('[PromoterLinktree] fetchPage error:', err);
-      setFetchError(err?.message ?? String(err));
+      setFetchError(err instanceof Error ? err.message : String(err));
       setLoading(false);
     }
   };
@@ -1426,6 +1426,13 @@ export default function PromoterLinktree() {
             </button>
           </div>
 
+          {/* Divulgation : les billets se prennent sur la billetterie du club. */}
+          <p style={{
+            textAlign: 'center', fontSize: '11px', color: 'rgba(255,255,255,0.35)',
+            padding: '4px 20px 0', fontFamily: "'Inter', system-ui, sans-serif", letterSpacing: '0.01em',
+          }}>
+            {t('affiliate.redirectNotice')}
+          </p>
         </main>
 
         {/* ══ STICKY POWERED BY YUNO ══════════════════════════════ */}

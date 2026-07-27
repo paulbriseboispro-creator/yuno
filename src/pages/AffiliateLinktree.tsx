@@ -105,7 +105,7 @@ function IconArrow() {
 // Badge Partenaire Yuno
 // ─────────────────────────────────────────────────────────────────────────────
 
-function PartnerBadge() {
+function PartnerBadge({ city }: { city?: string | null }) {
   const { t } = useLanguage();
   return (
     <div
@@ -133,7 +133,7 @@ function PartnerBadge() {
           textTransform: 'uppercase' as const,
         }}
       >
-        {t('promoterLinktree.officialPartner')}
+        {t('promoterLinktree.officialPartner')}{city ? ` · ${city}` : ''}
       </span>
     </div>
   );
@@ -764,19 +764,20 @@ export default function AffiliateLinktree() {
       if (!aff) { setNotFound(true); setLoading(false); return; }
 
       setAffiliate({
-        id: (aff as any).id,
-        user_id: (aff as any).user_id ?? null,
-        name: (aff as any).name,
-        city: (aff as any).city ?? null,
-        bio: (aff as any).bio ?? null,
-        avatar_url: (aff as any).avatar_url ?? null,
-        type: (aff as any).type ?? 'independent',
-        instagram: (aff as any).instagram ?? null,
-        tiktok: (aff as any).tiktok ?? null,
-        website: (aff as any).website ?? null,
-        whatsapp: (aff as any).whatsapp ?? null,
-        trust_stats: Array.isArray((aff as any).trust_stats) ? (aff as any).trust_stats : [],
-        linktree_sort_mode: (aff as any).linktree_sort_mode ?? 'by_day',
+        id: aff.id,
+        user_id: aff.user_id ?? null,
+        name: aff.name,
+        city: aff.city ?? null,
+        bio: aff.bio ?? null,
+        avatar_url: aff.avatar_url ?? null,
+        type: aff.type ?? 'independent',
+        instagram: aff.instagram ?? null,
+        tiktok: aff.tiktok ?? null,
+        website: aff.website ?? null,
+        whatsapp: aff.whatsapp ?? null,
+        // trust_stats est un Json en base ; la forme réelle est TrustStat[].
+        trust_stats: Array.isArray(aff.trust_stats) ? (aff.trust_stats as unknown as TrustStat[]) : [],
+        linktree_sort_mode: (aff.linktree_sort_mode ?? 'by_day') as SortMode,
       });
 
       const today = new Date().toISOString().split('T')[0];
@@ -784,7 +785,7 @@ export default function AffiliateLinktree() {
       const { data: linktreeItems, error: linktreeError } = await supabase
         .from('affiliate_linktree_events')
         .select('sort_order, affiliate_events(id, name, slug, event_date, start_time, flyer_url, price_from, is_free, is_sold_out, external_ticket_url, genres, affiliate_venues(name, city))')
-        .eq('affiliate_id', (aff as any).id)
+        .eq('affiliate_id', aff.id)
         .order('sort_order', { ascending: true });
 
       if (linktreeError) console.warn('[AffiliateLinktree] linktree error:', linktreeError.message);
@@ -792,8 +793,8 @@ export default function AffiliateLinktree() {
       let eventsToShow: LinktreeEvent[] = [];
 
       if (linktreeItems && linktreeItems.length > 0) {
-        eventsToShow = (linktreeItems as any[])
-          .map((item: any) => {
+        eventsToShow = linktreeItems
+          .map((item) => {
             const ev = item.affiliate_events;
             if (!ev || ev.event_date < today) return null;
             return {
@@ -808,12 +809,12 @@ export default function AffiliateLinktree() {
         const { data: upcoming } = await supabase
           .from('affiliate_events')
           .select('id, name, slug, event_date, start_time, flyer_url, price_from, is_free, is_sold_out, external_ticket_url, genres, affiliate_venues(name, city)')
-          .eq('affiliate_id', (aff as any).id)
+          .eq('affiliate_id', aff.id)
           .in('status', ['published', 'featured'])
           .gte('event_date', today)
           .order('event_date', { ascending: true })
           .limit(8);
-        eventsToShow = (upcoming ?? []).map((e: any) => ({
+        eventsToShow = (upcoming ?? []).map((e) => ({
           ...e,
           affiliate_venues: Array.isArray(e.affiliate_venues) ? e.affiliate_venues[0] ?? null : e.affiliate_venues,
         })) as LinktreeEvent[];
@@ -821,9 +822,9 @@ export default function AffiliateLinktree() {
 
       setEvents(eventsToShow);
       setLoading(false);
-    } catch (err: any) {
+    } catch (err) {
       console.error('[AffiliateLinktree] fetchPage error:', err);
-      setFetchError(err?.message ?? String(err));
+      setFetchError(err instanceof Error ? err.message : String(err));
       setLoading(false);
     }
   };
@@ -982,7 +983,8 @@ export default function AffiliateLinktree() {
               </div>
             )}
 
-            <PartnerBadge />
+            {/* L'exclusivité ville fait partie du deal : elle s'affiche. */}
+            <PartnerBadge city={affiliate.city} />
 
             {/* Liens sociaux */}
             {(affiliate.instagram || affiliate.tiktok || affiliate.website || affiliate.whatsapp) && (
@@ -1183,6 +1185,13 @@ export default function AffiliateLinktree() {
             </button>
           </div>
 
+          {/* Divulgation : les billets se prennent sur la billetterie du club. */}
+          <p style={{
+            textAlign: 'center', fontSize: '11px', color: 'rgba(255,255,255,0.35)',
+            padding: '4px 20px 0', fontFamily: "'Inter', system-ui, sans-serif", letterSpacing: '0.01em',
+          }}>
+            {t('affiliate.redirectNotice')}
+          </p>
         </main>
 
         {/* ══ STICKY POWERED BY YUNO ══════════════════════════════ */}

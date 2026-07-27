@@ -13,7 +13,7 @@ import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { shareContent } from '@/lib/share';
-import { useAffiliateVisitorTracking } from '@/hooks/useAffiliateVisitorTracking';
+import { useAffiliateVisitorTracking, trackAffiliateClick } from '@/hooks/useAffiliateVisitorTracking';
 import { useFavorites } from '@/hooks/useFavorites';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -135,8 +135,34 @@ export default function AffiliateVenuePage() {
   const isOwner = !!(user?.id && affiliate?.user_id && user.id === affiliate.user_id);
   const { isFavorite, toggleFavorite } = useFavorites();
 
+  // Attribution promoteur : ?via=<linktree_slug> crédite la visite au membre.
+  // On attend la résolution avant de démarrer le tracking (sinon double session).
+  const [viaSlug] = useState(() => new URLSearchParams(window.location.search).get('via'));
+  const [viaMemberId, setViaMemberId] = useState<string | null>(null);
+  const [viaResolved, setViaResolved] = useState(!viaSlug);
+
+  useEffect(() => {
+    if (!viaSlug || !venue?.affiliate_id) return;
+    let active = true;
+    (async () => {
+      const { data } = await supabase
+        .from('affiliate_members')
+        .select('id')
+        .eq('affiliate_id', venue.affiliate_id)
+        .eq('linktree_slug', viaSlug)
+        .eq('is_active', true)
+        .maybeSingle();
+      if (active) {
+        setViaMemberId(data?.id ?? null);
+        setViaResolved(true);
+      }
+    })();
+    return () => { active = false; };
+  }, [viaSlug, venue?.affiliate_id]);
+
   useAffiliateVisitorTracking({
-    affiliateId: venue?.affiliate_id ?? '',
+    affiliateId: viaResolved ? (venue?.affiliate_id ?? '') : '',
+    affiliateMemberId: viaMemberId ?? undefined,
     affiliateVenueId: venue?.id,
     isOwner,
   });
@@ -206,7 +232,7 @@ export default function AffiliateVenuePage() {
   ].filter(Boolean) as { label: string; value: string }[];
 
   // Info card rows
-  const infoRows: { label: string; href: string; value: string; color?: string }[] = [
+  const infoRows: { label: string; href: string; value: string; color?: string; onClick?: () => void }[] = [
     venue.address
       ? { label: t('event.address'), href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue.address)}`, value: venue.address }
       : null,
@@ -217,9 +243,22 @@ export default function AffiliateVenuePage() {
       ? { label: t('affiliate.website'), href: venue.website, value: venue.website.replace(/^https?:\/\//, '').replace(/\/$/, '') }
       : null,
     venue.external_booking_url
-      ? { label: t('affiliate.booking'), href: venue.external_booking_url, value: `${t('affiliate.bookTable')} →` }
+      ? {
+          label: t('affiliate.booking'),
+          href: venue.external_booking_url,
+          value: `${t('affiliate.bookTable')} →`,
+          // Le clic « réserver » sortant est enfin compté (click_type booking).
+          onClick: () => trackAffiliateClick({
+            affiliateId: venue.affiliate_id,
+            affiliateVenueId: venue.id,
+            affiliateMemberId: viaMemberId,
+            userId: user?.id ?? null,
+            isInternal: isOwner,
+            clickType: 'booking',
+          }),
+        }
       : null,
-  ].filter(Boolean) as { label: string; href: string; value: string; color?: string }[];
+  ].filter(Boolean) as { label: string; href: string; value: string; color?: string; onClick?: () => void }[];
 
   return (
     <div className="relative min-h-[100dvh] flex flex-col" style={{ background: '#0A0A0A' }}>
@@ -615,7 +654,7 @@ export default function AffiliateVenuePage() {
         {infoRows.length > 0 && (
           <div className="px-5 pt-10">
             <div style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '0 16px' }}>
-              {infoRows.map(({ label, href, value, color }, i) => (
+              {infoRows.map(({ label, href, value, color, onClick }, i) => (
                 <div
                   key={label}
                   className="flex items-start justify-between gap-3"
@@ -628,6 +667,7 @@ export default function AffiliateVenuePage() {
                     href={href}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={onClick}
                     className="font-mono text-right truncate transition-opacity hover:opacity-70"
                     style={{ fontSize: '12px', color: color || '#FFFFFF', letterSpacing: '0.02em', maxWidth: '65%' }}
                   >

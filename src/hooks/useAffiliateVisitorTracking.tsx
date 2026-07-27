@@ -110,6 +110,10 @@ export function useAffiliateVisitorTracking({
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
 
+    // Les écritures de suivi passent par des RPC SECURITY DEFINER : les
+    // UPDATE/UPSERT anonymes directs sont bloqués par RLS en prod (les
+    // policies publiques d'UPDATE ont été retirées au hardening), ce qui
+    // laissait durée, scroll et « en ligne » à zéro pour toujours.
     const flushDuration = async (useKeepalive = false) => {
       const sid = sessionStorage.getItem(SESSION_KEY);
       if (!sid) return;
@@ -117,15 +121,16 @@ export function useAffiliateVisitorTracking({
       if (durationSeconds < 1) return;
 
       const payload = {
-        duration_seconds: durationSeconds,
-        last_activity_at: new Date().toISOString(),
-        scroll_depth_max: maxScrollRef.current,
+        p_session_id: sid,
+        p_affiliate_id: affiliateId,
+        p_duration_seconds: durationSeconds,
+        p_scroll_depth: maxScrollRef.current,
       };
 
       if (useKeepalive) {
-        const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/affiliate_visitor_sessions?session_id=eq.${sid}&affiliate_id=eq.${encodeURIComponent(affiliateId)}`;
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/flush_affiliate_session`;
         fetch(url, {
-          method: 'PATCH',
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
@@ -136,26 +141,21 @@ export function useAffiliateVisitorTracking({
           keepalive: true,
         }).catch(() => {});
       } else {
-        supabase.from('affiliate_visitor_sessions')
-          .update(payload)
-          .eq('session_id', sid)
-          .eq('affiliate_id', affiliateId)
-          .then(() => {});
+        supabase.rpc('flush_affiliate_session', payload).then(() => {});
       }
     };
 
     const sendHeartbeat = () => {
       const sid = sessionStorage.getItem(SESSION_KEY);
       if (!sid) return;
-      supabase.from('affiliate_live_pings').upsert({
-        session_id: sid,
-        affiliate_id: affiliateId,
-        affiliate_member_id: affiliateMemberId || null,
-        affiliate_event_id: affiliateEventId || null,
-        affiliate_venue_id: affiliateVenueId || null,
-        last_seen: new Date().toISOString(),
-        page_path: window.location.pathname,
-      }, { onConflict: 'session_id' }).then(() => {});
+      supabase.rpc('ping_affiliate_live', {
+        p_session_id: sid,
+        p_affiliate_id: affiliateId,
+        p_member_id: affiliateMemberId || null,
+        p_event_id: affiliateEventId || null,
+        p_venue_id: affiliateVenueId || null,
+        p_page_path: window.location.pathname,
+      }).then(() => {});
       flushDuration(false);
     };
     sendHeartbeat();
@@ -218,7 +218,7 @@ async function trackPageView(
       entry_page_type: detectEntryType(window.location.pathname),
       is_internal: isInternal,
     });
-  } catch {}
+  } catch { /* tracking best-effort : ne bloque jamais la navigation */ }
 }
 
 /**
@@ -251,11 +251,13 @@ export function getClickAttribution(): {
 
 interface TrackClickParams {
   affiliateId: string;
-  affiliateEventId: string;
+  /** Requis pour un clic billetterie ; null pour un clic « réserver » depuis une page club. */
+  affiliateEventId?: string | null;
   affiliateVenueId?: string | null;
   affiliateMemberId?: string | null;
   userId?: string | null;
   isInternal?: boolean;
+  clickType?: 'ticket' | 'booking';
 }
 
 /**
@@ -271,11 +273,12 @@ export function trackAffiliateClick({
   affiliateMemberId,
   userId,
   isInternal = false,
+  clickType = 'ticket',
 }: TrackClickParams) {
-  if (!affiliateId || !affiliateEventId) return;
+  if (!affiliateId || (!affiliateEventId && !affiliateVenueId)) return;
   const attribution = getClickAttribution();
   supabase.from('affiliate_clicks').insert({
-    affiliate_event_id: affiliateEventId,
+    affiliate_event_id: affiliateEventId ?? null,
     affiliate_id: affiliateId,
     affiliate_venue_id: affiliateVenueId ?? null,
     affiliate_member_id: affiliateMemberId ?? null,
@@ -283,6 +286,7 @@ export function trackAffiliateClick({
     browser_id: getBrowserId(),
     referrer: document.referrer || null,
     is_internal: isInternal,
+    click_type: clickType,
     ...attribution,
   }).then(({ error }) => {
     if (error) console.error('[AffiliateClick] insert failed:', error.message);

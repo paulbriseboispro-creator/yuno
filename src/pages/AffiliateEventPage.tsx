@@ -91,8 +91,36 @@ export default function AffiliateEventPage() {
 
   const isOwner = !!(user?.id && affiliate?.user_id && user.id === affiliate.user_id);
 
+  // Attribution promoteur : /affiliate-event/slug?via=<linktree_slug> crédite
+  // les vues et les clics au membre, sans passer par sa page /promo. Le
+  // tracking ne démarre qu'une fois la résolution faite, sinon la session
+  // serait créée deux fois (une sans membre, une avec).
+  const [viaSlug] = useState(() => new URLSearchParams(window.location.search).get('via'));
+  const [viaMemberId, setViaMemberId] = useState<string | null>(null);
+  const [viaResolved, setViaResolved] = useState(!viaSlug);
+
+  useEffect(() => {
+    if (!viaSlug || !event?.affiliate_id) return;
+    let active = true;
+    (async () => {
+      const { data } = await supabase
+        .from('affiliate_members')
+        .select('id')
+        .eq('affiliate_id', event.affiliate_id)
+        .eq('linktree_slug', viaSlug)
+        .eq('is_active', true)
+        .maybeSingle();
+      if (active) {
+        setViaMemberId(data?.id ?? null);
+        setViaResolved(true);
+      }
+    })();
+    return () => { active = false; };
+  }, [viaSlug, event?.affiliate_id]);
+
   useAffiliateVisitorTracking({
-    affiliateId: event?.affiliate_id ?? '',
+    affiliateId: viaResolved ? (event?.affiliate_id ?? '') : '',
+    affiliateMemberId: viaMemberId ?? undefined,
     affiliateEventId: event?.id,
     affiliateVenueId: event?.affiliate_venues?.id,
     isOwner,
@@ -132,6 +160,7 @@ export default function AffiliateEventPage() {
       affiliateId: event.affiliate_id,
       affiliateEventId: event.id,
       affiliateVenueId: event.affiliate_venues?.id ?? null,
+      affiliateMemberId: viaMemberId,
       userId: user?.id ?? null,
       isInternal: isOwner,
     });
@@ -440,6 +469,9 @@ export default function AffiliateEventPage() {
                   {t('affiliate.getTickets')} <ExternalLink className="h-3.5 w-3.5" />
                 </a>
               </div>
+              <p className="font-mono" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.04em', marginTop: 10 }}>
+                {t('affiliate.redirectNotice')}
+              </p>
             </div>
           </section>
         )}
