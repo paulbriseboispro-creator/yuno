@@ -182,6 +182,11 @@ const CLIENT_KNOWLEDGE_BASE = `
 - ${APP_BASE_URL}/my-orders : tout l'historique (boissons, tables) avec les QR codes et codes de référence.
 - ${APP_BASE_URL}/my-tickets : tes billets à venir et passés.
 
+🌆 SOIRÉES PARTENAIRES
+- Certaines soirées de la marketplace sont dans des clubs partenaires : la page est sur Yuno, mais le billet s'achète sur la billetterie officielle du club (Fourvenues, Shotgun…) — le bouton billets redirige.
+- Pour ces soirées : pas de billets in-app, pas de Mode Live, pas de commande de boissons ni de fidélité Yuno. Le billet, l'entrée et le remboursement se gèrent avec le club et sa billetterie.
+- Elles restent d'excellentes recommandations : donne le lien de la page Yuno, l'utilisateur clique sur le bouton billets depuis là.
+
 ⛔ CE QUE TU NE PEUX PAS FAIRE (toi, l'assistant)
 - Tu ne peux PAS acheter, annuler, rembourser ou réserver À LA PLACE de l'utilisateur.
 - À la place : explique la démarche et donne le LIEN de la page où le faire.
@@ -520,6 +525,7 @@ serve(async (req) => {
       djSetsRes,
       userStatsRes,
       loyaltyRes,
+      affEventsRes,
     ] = await Promise.all([
       supabase.from("venues").select("id, name, city, address, instagram_url, logo_url, cover_url")
         .eq("is_hidden", false)
@@ -563,6 +569,14 @@ serve(async (req) => {
       supabase.from("customer_loyalty")
         .select("venue_id, tier, current_balance, total_points_earned")
         .eq("user_id", user.id),
+      // Soirées partenaires (agences affiliées) : visibles sur la marketplace,
+      // billets vendus sur la billetterie du club via redirection trackée.
+      supabase.from("affiliate_events")
+        .select("id, name, slug, event_date, start_time, price_from, is_free, is_sold_out, genres, dj_names, external_ticket_url, affiliate_venues(name, city, neighborhood)")
+        .in("status", ["published", "featured"])
+        .gte("event_date", now.split("T")[0])
+        .order("event_date")
+        .limit(20),
     ]);
 
     const realDataContext = buildRealDataContext(
@@ -581,7 +595,28 @@ serve(async (req) => {
 
     const currentDateTime = `\n\n⏰ DATE ET HEURE ACTUELLES (fuseau ${tz}) : ${getNowTz(tz)}\nUtilise cette info pour déterminer ce qui se passe "ce soir", "demain", "ce week-end". Un événement qui commence CE SOIR est bien un événement de ce soir, même si son start_at est dans quelques heures.\n`;
 
-    const systemPrompt = BASE_SYSTEM_PROMPT + CLIENT_KNOWLEDGE_BASE + currentDateTime + realDataContext;
+    // Soirées partenaires : elles font partie du catalogue au même titre que
+    // les soirées natives, mais le billet s'achète sur la billetterie du club
+    // (redirection depuis la page Yuno).
+    let affiliateContext = "";
+    const affEvents = affEventsRes?.data || [];
+    if (affEvents.length > 0) {
+      affiliateContext = "\n🌆 SOIRÉES PARTENAIRES (billets via la billetterie officielle du club, redirection depuis Yuno) :\n";
+      for (const e of affEvents) {
+        const v = Array.isArray(e.affiliate_venues) ? e.affiliate_venues[0] : e.affiliate_venues;
+        affiliateContext += `- **${e.name}**${v ? ` @ ${v.name} (${v.city}${v.neighborhood ? ', ' + v.neighborhood : ''})` : ''} — ${e.event_date}${e.start_time ? ' ' + e.start_time : ''}`;
+        if (e.is_sold_out) affiliateContext += ` [COMPLET]`;
+        else if (e.is_free) affiliateContext += ` [Gratuit]`;
+        else if (e.price_from != null) affiliateContext += ` [dès ${e.price_from}€]`;
+        if (Array.isArray(e.genres) && e.genres.length) affiliateContext += ` · ${e.genres.join('/')}`;
+        affiliateContext += `\n  Page Yuno : ${APP_BASE_URL}/affiliate-event/${e.slug}`;
+        if (!e.external_ticket_url) affiliateContext += ` (pas de billetterie en ligne — entrée sur place)`;
+        affiliateContext += `\n`;
+      }
+      affiliateContext += "Pour ces soirées : donne le lien de la page Yuno. L'utilisateur y verra le bouton billets qui redirige vers la billetterie officielle du club (Fourvenues, Shotgun…). Pas de Mode Live ni de commande de boissons Yuno dans ces clubs.\n";
+    }
+
+    const systemPrompt = BASE_SYSTEM_PROMPT + CLIENT_KNOWLEDGE_BASE + currentDateTime + realDataContext + affiliateContext;
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
