@@ -27,6 +27,7 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
   const notif = data?.notifications ?? null;
   const rev = data?.revenue ?? null;
   const att = data?.attribution ?? null;
+  const bm = data?.benchmarks ?? null;
 
   // ── Courbe : série nette (snapshots) sinon brut mensuel (analytics.growth) ──
   const growthSeries = useMemo(() => {
@@ -275,6 +276,40 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
               </PCard>
             );
           })()}
+
+          {/* ── BENCHMARK VILLE (percentiles seulement) ── */}
+          {bm?.supported && (bm.sample ?? 0) >= 3 && (
+            <PCard style={{ marginTop: 12 }} icon={<BarChart3 className="w-4 h-4" />}
+              title={t(`Face à ${bm.city}`, `Vs ${bm.city}`, `Frente a ${bm.city}`)}
+              sub={t(`Ta place parmi ${bm.sample} clubs de ta ville (anonyme)`, `Your standing among ${bm.sample} clubs in your city (anonymous)`, `Tu lugar entre ${bm.sample} clubes de tu ciudad (anónimo)`)}>
+              <div className="space-y-4">
+                {[
+                  { key: 'reach', label: t('Portée push', 'Push reach', 'Alcance push'), stat: bm.reach, unit: '%' },
+                  { key: 'followers', label: t('Abonnés', 'Subscribers', 'Suscriptores'), stat: bm.followers, unit: '' },
+                ].map(({ key, label, stat, unit }) => {
+                  if (!stat || stat.you == null || stat.median == null) return null;
+                  const above = stat.you >= stat.median;
+                  return (
+                    <div key={key} className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-[12px]" style={{ color: T3 }}>{label}</div>
+                        <div className="text-[18px] font-[680] tabular-nums" style={{ color: T1 }}>
+                          {stat.you}{unit}
+                          <span className="text-[12px] font-[400] ml-1.5" style={{ color: T3 }}>· {t('médiane', 'median', 'mediana')} {stat.median}{unit}</span>
+                        </div>
+                      </div>
+                      {stat.percentile != null && (
+                        <span className="text-[11px] font-[640] px-2.5 py-1 rounded-full flex-none"
+                          style={{ color: above ? POS : T2, background: above ? 'rgba(52,211,153,0.10)' : 'rgba(255,255,255,0.05)' }}>
+                          {t(`mieux que ${stat.percentile}%`, `better than ${stat.percentile}%`, `mejor que ${stat.percentile}%`)}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </PCard>
+          )}
 
           {/* ── DÉMOGRAPHIE ── */}
           <ZoneHeading icon={<Users className="w-4 h-4" />} label={t('Démographie', 'Demographics', 'Demografía')} />

@@ -55,6 +55,13 @@ export interface AudienceAttribution {
   campaigns?: { id: string; revenue: number; buyers: number }[];
   total_90d?: number;
 }
+export interface BenchStat { you: number | null; median: number | null; percentile: number | null }
+export interface AudienceBenchmarks {
+  ok: boolean; supported: boolean;
+  city?: string; sample?: number;
+  followers?: BenchStat;
+  reach?: BenchStat;
+}
 
 export interface AudienceData {
   analytics: AudienceAnalytics | null;
@@ -63,6 +70,7 @@ export interface AudienceData {
   notifications: AudienceNotifications | null;
   revenue: AudienceRevenue | null;
   attribution: AudienceAttribution | null;
+  benchmarks: AudienceBenchmarks | null;
 }
 
 function ok<T extends { ok?: boolean }>(v: unknown): T | null {
@@ -79,13 +87,14 @@ export function useAudienceData(subject: AudienceSubject | null) {
     setLoading(true);
     const p = { p_subject_type: subject.type, p_subject_id: subject.id };
     try {
-      const [a, g, s, n, r, at] = await Promise.all([
+      const [a, g, s, n, r, at, bm] = await Promise.all([
         rpc('get_audience_analytics', p),
         rpc('get_audience_growth', p),
         rpc('get_audience_segments', p),
         rpc('get_audience_notifications', p),
         rpc('get_audience_revenue', p),
         rpc('get_audience_push_attribution', p),
+        rpc('get_audience_benchmarks', p),
       ]);
       setData({
         analytics: ok<AudienceAnalytics>(a.data),
@@ -94,6 +103,7 @@ export function useAudienceData(subject: AudienceSubject | null) {
         notifications: ok<AudienceNotifications>(n.data),
         revenue: ok<AudienceRevenue>(r.data),
         attribution: ok<AudienceAttribution>(at.data),
+        benchmarks: ok<AudienceBenchmarks>(bm.data),
       });
     } catch (err) {
       console.error('useAudienceData error:', err);
