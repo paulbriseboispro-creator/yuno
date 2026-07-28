@@ -62,6 +62,11 @@ export interface AudienceBenchmarks {
   followers?: BenchStat;
   reach?: BenchStat;
 }
+export interface AudienceCohorts {
+  ok: boolean;
+  ledger_start: string | null;
+  cohorts: { week: string; size: number; retained: number; retention: number }[];
+}
 
 export interface AudienceData {
   analytics: AudienceAnalytics | null;
@@ -71,6 +76,7 @@ export interface AudienceData {
   revenue: AudienceRevenue | null;
   attribution: AudienceAttribution | null;
   benchmarks: AudienceBenchmarks | null;
+  cohorts: AudienceCohorts | null;
 }
 
 function ok<T extends { ok?: boolean }>(v: unknown): T | null {
@@ -87,7 +93,7 @@ export function useAudienceData(subject: AudienceSubject | null) {
     setLoading(true);
     const p = { p_subject_type: subject.type, p_subject_id: subject.id };
     try {
-      const [a, g, s, n, r, at, bm] = await Promise.all([
+      const [a, g, s, n, r, at, bm, co] = await Promise.all([
         rpc('get_audience_analytics', p),
         rpc('get_audience_growth', p),
         rpc('get_audience_segments', p),
@@ -95,6 +101,7 @@ export function useAudienceData(subject: AudienceSubject | null) {
         rpc('get_audience_revenue', p),
         rpc('get_audience_push_attribution', p),
         rpc('get_audience_benchmarks', p),
+        rpc('get_audience_cohorts', p),
       ]);
       setData({
         analytics: ok<AudienceAnalytics>(a.data),
@@ -104,6 +111,7 @@ export function useAudienceData(subject: AudienceSubject | null) {
         revenue: ok<AudienceRevenue>(r.data),
         attribution: ok<AudienceAttribution>(at.data),
         benchmarks: ok<AudienceBenchmarks>(bm.data),
+        cohorts: ok<AudienceCohorts>(co.data),
       });
     } catch (err) {
       console.error('useAudienceData error:', err);

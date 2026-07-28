@@ -28,6 +28,7 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
   const rev = data?.revenue ?? null;
   const att = data?.attribution ?? null;
   const bm = data?.benchmarks ?? null;
+  const co = data?.cohorts ?? null;
 
   // ── Courbe : série nette (snapshots) sinon brut mensuel (analytics.growth) ──
   const growthSeries = useMemo(() => {
@@ -195,6 +196,27 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
               </>
             ) : <p className="text-sm" style={{ color: T3 }}>{t('Pas encore assez de données.', 'Not enough data yet.', 'Aún no hay datos suficientes.')}</p>}
           </PCard>
+
+          {/* ── RÉTENTION PAR COHORTE (depuis le journal net) ── */}
+          {co && co.cohorts.length > 0 && (
+            <PCard style={{ marginTop: 12 }} icon={<Sparkles className="w-4 h-4" />}
+              title={t('Rétention par cohorte', 'Retention by cohort', 'Retención por cohorte')}
+              sub={t("Part de chaque vague de nouveaux abonnés encore présente aujourd'hui", 'Share of each new-subscriber wave still here today', 'Parte de cada oleada de nuevos suscriptores que sigue hoy')}>
+              <div className="space-y-3.5">
+                {co.cohorts.map(c => (
+                  <BarRow key={c.week}
+                    label={`${t('sem.', 'wk', 'sem.')} ${c.week.slice(8, 10)}/${c.week.slice(5, 7)}`}
+                    value={c.retention} sub={`${c.retention}% · ${c.retained}/${c.size}`}
+                    max={100} accent={c.retention >= 80} />
+                ))}
+              </div>
+              {co.cohorts.length < 3 && (
+                <p className="text-[11px] mt-3" style={{ color: T3 }}>
+                  {t("Les cohortes se construisent chaque semaine depuis l'activation du suivi net.", 'Cohorts build each week since net tracking started.', 'Las cohortes se construyen cada semana desde la activación del seguimiento neto.')}
+                </p>
+              )}
+            </PCard>
+          )}
 
           {/* ── PORTÉE & NOTIFICATIONS ── */}
           <ZoneHeading icon={<Bell className="w-4 h-4" />} label={t('Portée & notifications', 'Reach & notifications', 'Alcance y notificaciones')} />
