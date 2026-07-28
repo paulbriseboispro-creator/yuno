@@ -11,7 +11,7 @@ import { haptics } from '@/lib/haptics';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import {
-  Crown, Map as MapIcon, List, Bell, BarChart3, RefreshCw, Image, DoorOpen, CalendarOff,
+  Crown, Home, Map as MapIcon, List, Bell, BarChart3, RefreshCw, Image, DoorOpen, CalendarOff,
 } from 'lucide-react';
 import { ServiceFloorPlan } from '@/components/vip-service/ServiceFloorPlan';
 import { ServiceTablesTab } from '@/components/vip-service/ServiceTablesTab';
@@ -21,6 +21,7 @@ import { TableServiceSheet } from '@/components/vip-service/TableServiceSheet';
 import { SeatPickerSheet } from '@/components/vip-service/SeatPickerSheet';
 import { OrderComposerSheet } from '@/components/vip-service/OrderComposerSheet';
 import { VipEventBar } from '@/components/vip-service/VipEventBar';
+import { VipHomeTab } from '@/components/vip-service/VipHomeTab';
 import {
   ServiceOrder, ServiceReservation, CartLine, fmtAge,
 } from '@/components/vip-service/serviceTypes';
@@ -34,7 +35,7 @@ const C_FAINT = 'rgba(255,255,255,0.06)';
 const BORDER = 'rgba(255,255,255,0.085)';
 const GOLD = '#E7C15A';
 
-type Tab = 'room' | 'tables' | 'service' | 'night';
+type Tab = 'home' | 'room' | 'tables' | 'service' | 'night';
 
 /**
  * Outil serveur VIP — reconstruit autour de quatre onglets :
@@ -56,7 +57,7 @@ export default function VipHostDashboard() {
 
   const { notifications, markAsRead } = useStaffNotifications({ venueId, targetRole: 'vip_host' });
 
-  const [tab, setTab] = useState<Tab>('room');
+  const [tab, setTab] = useState<Tab>('home');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [seatPicker, setSeatPicker] = useState<{ reservation: ServiceReservation; moveMode: boolean } | null>(null);
   const [composerId, setComposerId] = useState<string | null>(null);
@@ -110,6 +111,19 @@ export default function VipHostDashboard() {
     preorders: orders.filter(o => o.status === 'preorder').length,
     guests: reservations.reduce((s, r) => s + (r.guestCount || 0), 0),
   }), [reservations, orders]);
+
+  // Pastille de l'onglet Accueil : ce qui réclame une action MAINTENANT. En
+  // préparation = résas pas encore placées ; en direct = à installer + commandes
+  // en attente. Le détail vit dans la liste « À faire » de l'onglet Accueil.
+  const homeBadge = useMemo(() => {
+    const open = reservations.filter(r => !['finished', 'no_show', 'denied'].includes(r.vipStatus));
+    if (isPlanning) return open.filter(r => !r.assignedTableId).length;
+    return open.reduce((n, r) => {
+      const info = serviceInfo.get(r.id);
+      if (!info) return n;
+      return n + (info.toSeat ? 1 : 0) + (info.pendingOrders > 0 ? 1 : 0);
+    }, 0);
+  }, [reservations, serviceInfo, isPlanning]);
 
   // ─── Actions ────────────────────────────────────────────────────────────────
 
@@ -306,8 +320,9 @@ export default function VipHostDashboard() {
   }
 
   const tabs: { key: Tab; label: string; icon: typeof MapIcon; badge?: number }[] = [
-    { key: 'room', label: t('vipnight.tabRoom'), icon: MapIcon },
-    { key: 'tables', label: t('vipnight.tabTables'), icon: List, badge: doorQueue.length || undefined },
+    { key: 'home', label: t('vipnight.tabHome'), icon: Home, badge: homeBadge || undefined },
+    { key: 'room', label: t('vipnight.tabRoom'), icon: MapIcon, badge: doorQueue.length || undefined },
+    { key: 'tables', label: t('vipnight.tabTables'), icon: List },
     { key: 'service', label: t('vipnight.tabService'), icon: Bell, badge: serviceBadge || undefined },
     { key: 'night', label: t('vipnight.tabNight'), icon: BarChart3 },
   ];
@@ -362,32 +377,55 @@ export default function VipHostDashboard() {
           leur positionnement). */}
       <PublicPage variant="flow">
         <main className="relative z-10 space-y-3 p-3">
-          {/* Ce soir : consigne, tables, équipe, appels */}
-          <StaffNightPanel role="vip_host" />
+          {/* ── Accueil : le poste de commande stratégique. Ce qui se passe, ce
+              qu'il faut faire — pas le service lui-même (c'est la Salle). ── */}
+          {tab === 'home' && (
+            <>
+              {/* Ce soir : consigne, chiffres du poste, équipe, appels */}
+              <StaffNightPanel role="vip_host" />
 
-          {/* Sélecteur des soirées (en cours + à venir) + bandeau de préparation
-              quand la soirée choisie n'a pas encore commencé. */}
-          {activeEvent && (
-            <VipEventBar
-              events={events}
-              selectedEventId={selectedEventId}
-              isPlanning={isPlanning}
-              prep={prep}
-              onSelect={id => {
-                haptics.selection();
-                selectEvent(id);
-              }}
-            />
-          )}
+              {/* Sélecteur des soirées (en cours + à venir) + bandeau de
+                  préparation quand la soirée choisie n'a pas encore commencé. */}
+              {activeEvent && (
+                <VipEventBar
+                  events={events}
+                  selectedEventId={selectedEventId}
+                  isPlanning={isPlanning}
+                  prep={prep}
+                  onSelect={id => {
+                    haptics.selection();
+                    selectEvent(id);
+                  }}
+                />
+              )}
 
-          {events.length === 0 && (
-            <div className="flex items-center gap-3 rounded-2xl px-4 py-3.5" style={{ background: C_FAINT, border: `1px solid ${BORDER}` }}>
-              <CalendarOff className="h-5 w-5 shrink-0" style={{ color: T3 }} />
-              <div className="min-w-0">
-                <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('vipnight.noEvent')}</p>
-                <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>{t('vipnight.noEventHint')}</p>
-              </div>
-            </div>
+              {events.length === 0 && (
+                <div className="flex items-center gap-3 rounded-2xl px-4 py-3.5" style={{ background: C_FAINT, border: `1px solid ${BORDER}` }}>
+                  <CalendarOff className="h-5 w-5 shrink-0" style={{ color: T3 }} />
+                  <div className="min-w-0">
+                    <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('vipnight.noEvent')}</p>
+                    <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>{t('vipnight.noEventHint')}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* La liste « À faire » : à installer, demandes à honorer, commandes
+                  et pré-commandes à valider, tables sous le minimum. */}
+              {activeEvent && (
+                <VipHomeTab
+                  reservations={reservations}
+                  serviceInfo={serviceInfo}
+                  orders={orders}
+                  isPlanning={isPlanning}
+                  onSeat={r => setSeatPicker({ reservation: r, moveMode: false })}
+                  onSelect={r => setSelectedId(r.id)}
+                  onGoToTables={() => {
+                    haptics.selection();
+                    setTab('tables');
+                  }}
+                />
+              )}
+            </>
           )}
 
           {tab === 'room' && (
