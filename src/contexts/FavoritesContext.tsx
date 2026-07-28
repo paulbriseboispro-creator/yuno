@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { TablesInsert } from '@/integrations/supabase/types';
-import { insertOwnerNotif } from '@/utils/ownerNotifications';
 
 export type FavoriteType = 'club' | 'event' | 'drink' | 'dj' | 'affiliate_event' | 'affiliate_venue';
 
@@ -87,9 +86,9 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         venueId: f.venue_id || undefined,
         eventId: f.event_id || undefined,
         drinkId: f.drink_id || undefined,
-        djId: (f as any).dj_id || undefined,
-        affiliateEventId: (f as any).affiliate_event_id || undefined,
-        affiliateVenueId: (f as any).affiliate_venue_id || undefined,
+        djId: f.dj_id || undefined,
+        affiliateEventId: f.affiliate_event_id || undefined,
+        affiliateVenueId: f.affiliate_venue_id || undefined,
         createdAt: f.created_at,
       }));
 
@@ -244,47 +243,16 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
           venueId: data.venue_id || undefined,
           eventId: data.event_id || undefined,
           drinkId: data.drink_id || undefined,
-          djId: (data as any).dj_id || undefined,
-          affiliateEventId: (data as any).affiliate_event_id || undefined,
-          affiliateVenueId: (data as any).affiliate_venue_id || undefined,
+          djId: data.dj_id || undefined,
+          affiliateEventId: data.affiliate_event_id || undefined,
+          affiliateVenueId: data.affiliate_venue_id || undefined,
           createdAt: data.created_at,
         }]);
 
-        // Owner notification: new subscriber (club) or new favorite (event)
-        if (type === 'club' && data.venue_id) {
-          insertOwnerNotif({
-            venueId: data.venue_id,
-            type: 'favorite_added',
-            title: 'Nouvel abonné — Club',
-            message: 'Un utilisateur s\'est abonné à votre club',
-            priority: 'low',
-            referenceType: 'venue',
-            referenceId: data.venue_id,
-            metadata: { favorite_type: 'club' },
-          });
-        } else if (type === 'event' && data.event_id) {
-          // Resolve venue_id for event favorites
-          supabase
-            .from('events')
-            .select('venue_id, title')
-            .eq('id', data.event_id)
-            .single()
-            .then(({ data: ev }) => {
-              if (ev?.venue_id) {
-                insertOwnerNotif({
-                  venueId: ev.venue_id,
-                  type: 'favorite_added',
-                  title: 'Nouveau favori — Soirée',
-                  message: `Un utilisateur a ajouté "${ev.title}" à ses favoris`,
-                  priority: 'low',
-                  referenceType: 'event',
-                  referenceId: data.event_id!,
-                  eventId: data.event_id!,
-                  metadata: { favorite_type: 'event', event_title: ev.title },
-                });
-              }
-            });
-        }
+        // La notif owner « nouvel abonné / nouveau favori » est émise côté SERVEUR
+        // par le trigger trg_notify_owner_new_favorite (SECURITY DEFINER) : l'INSERT
+        // client dans staff_notifications était de toute façon rejeté par la RLS (un
+        // fan n'est pas staff) et avalé. Le trigger dédup + résout le venue de l'event.
 
         return 'added';
       }
