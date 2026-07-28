@@ -17,10 +17,10 @@ const eur = (n: number) => `${Number(n || 0).toFixed(2)} €`;
 const pct = (n: number, total: number) => total > 0 ? Math.round((n / total) * 100) : 0;
 
 const RANGES = [
-  { fr: '7j',  en: '7d',       days: 7   },
-  { fr: '30j', en: '30d',      days: 30  },
-  { fr: '90j', en: '90d',      days: 90  },
-  { fr: 'Tout', en: 'All',     days: 0   },
+  { fr: '7j',  en: '7d',   es: '7d',   days: 7   },
+  { fr: '30j', en: '30d',  es: '30d',  days: 30  },
+  { fr: '90j', en: '90d',  es: '90d',  days: 90  },
+  { fr: 'Tout', en: 'All', es: 'Todo', days: 0   },
 ];
 
 function fmtDate(iso: string, lang: string) {
@@ -377,7 +377,7 @@ export default function AgencyStats() {
               key={r.days}
               days={r.days}
               active={rangeDays === r.days}
-              label={language === 'fr' ? r.fr : r.en}
+              label={language === 'fr' ? r.fr : language === 'es' ? r.es : r.en}
               onClick={() => setRangeDays(r.days)}
             />
           ))}

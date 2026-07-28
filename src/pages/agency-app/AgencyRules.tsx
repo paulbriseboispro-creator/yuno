@@ -291,7 +291,7 @@ function TemplateCard({
   groups: ReturnType<typeof useAgencyData>['groups'];
   onEdit: (t: RuleTemplate) => void;
   onDelete: (id: string) => void;
-  tt: (fr: string, en: string) => string;
+  tt: (fr: string, en: string, es?: string) => string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
@@ -313,7 +313,7 @@ function TemplateCard({
     setAssigning(false);
     if (error) { toast.error(error.message); return; }
     const count = (data as any)?.applied_to ?? 0;
-    toast.success(`${tt('Appliqué à', 'Applied to')} ${count} ${tt('promoteur(s)', 'promoter(s)')}`);
+    toast.success(`${tt('Appliqué à', 'Applied to', 'Aplicado a')} ${count} ${tt('promoteur(s)', 'promoter(s)', 'promotor(es)')}`);
     setAssignTarget('');
   };
 
@@ -388,7 +388,11 @@ function TemplateCard({
       {confirmDel && (
         <div style={{ padding: '10px 14px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(232,25,44,0.06)' }}>
           <p style={{ color: T1, fontSize: 13, marginBottom: 8 }}>
-            {tt(`Supprimer "${tpl.name}" ? Les promoteurs garderont leurs droits actuels.`, `Delete "${tpl.name}"? Promoters will keep their current permissions.`)}
+            {tt(
+              `Supprimer "${tpl.name}" ? Les promoteurs garderont leurs droits actuels.`,
+              `Delete "${tpl.name}"? Promoters will keep their current permissions.`,
+              `¿Eliminar "${tpl.name}"? Los promotores conservarán sus permisos actuales.`,
+            )}
           </p>
           <div className="flex gap-2">
             <PromoButton size="sm" variant="danger" onClick={() => onDelete(tpl.id)}>
@@ -496,7 +500,7 @@ export default function AgencyRules() {
   const { agency } = useAgency();
   const { promoters, groups } = useAgencyData(agency?.id ?? null);
   const { language } = useLanguage();
-  const tt = (fr: string, en: string) => translate(language, fr, en);
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const db = supabase as any;
 
   const [templates, setTemplates] = useState<RuleTemplate[]>([]);

@@ -16,13 +16,17 @@ import {
 const eur = (n: number) => `${(Number(n) || 0).toFixed(2)} €`;
 
 const RANGES = [
-  { fr: '7 jours', en: '7 days', days: 7 },
-  { fr: '30 jours', en: '30 days', days: 30 },
-  { fr: '90 jours', en: '90 days', days: 90 },
-  { fr: 'Tout', en: 'All time', days: 0 },
+  { fr: '7 jours', en: '7 days', es: '7 días', days: 7 },
+  { fr: '30 jours', en: '30 days', es: '30 días', days: 30 },
+  { fr: '90 jours', en: '90 days', es: '90 días', days: 90 },
+  { fr: 'Tout', en: 'All time', es: 'Todo', days: 0 },
 ];
 
-const DAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+const DAYS = {
+  fr: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+  en: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+  es: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+};
 
 function startOfWeek(date: Date): Date {
   const d = new Date(date);
@@ -37,6 +41,7 @@ export default function AgencyAnalytics() {
   const { promoters, contracts, conversions, loading } = useAgencyData(agency?.id ?? null);
   const { language } = useLanguage();
   const tt = (fr: string, en: string) => translate(language, fr, en);
+  const dayLabels = language === 'fr' ? DAYS.fr : language === 'es' ? DAYS.es : DAYS.en;
   const [range, setRange] = useState(30);
   const [expandedPromo, setExpandedPromo] = useState<string | null>(null);
 
@@ -124,7 +129,7 @@ export default function AgencyAnalytics() {
                 color: range === r.days ? '#fff' : T3,
               }}
             >
-              {language === 'fr' ? r.fr : r.en}
+              {language === 'fr' ? r.fr : language === 'es' ? r.es : r.en}
             </button>
           ))}
         </div>
@@ -183,7 +188,7 @@ export default function AgencyAnalytics() {
                 </div>
               ))}
               {/* Rows */}
-              {DAYS.map((day, di) => (
+              {dayLabels.map((day, di) => (
                 <>
                   <div key={`label-${di}`} style={{ color: T3, fontSize: 9, paddingRight: 4, display: 'flex', alignItems: 'center' }}>
                     {day}

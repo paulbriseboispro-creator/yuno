@@ -32,7 +32,7 @@ type Contract = {
 export default function OwnerAgencies() {
   const scope = usePromoterScope();
   const { language } = useLanguage();
-  const tt = (fr: string, en: string) => translate(language, fr, en);
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [owedByAgency, setOwedByAgency] = useState<Record<string, number>>({});
@@ -61,7 +61,11 @@ export default function OwnerAgencies() {
 
   const marginLabel = (c: Contract) => {
     if (!c.override_type || !Number(c.override_value)) return tt('Aucune marge agence', 'No agency margin');
-    return c.override_type === 'percentage' ? `+${c.override_value}%` : `+${Number(c.override_value).toFixed(2)}€/vente`;
+    return c.override_type === 'percentage' ? `+${c.override_value}%` : tt(
+      `+${Number(c.override_value).toFixed(2)}€/vente`,
+      `+${Number(c.override_value).toFixed(2)}€/sale`,
+      `+${Number(c.override_value).toFixed(2)}€/venta`,
+    );
   };
 
   const sign = async (id: string) => {
@@ -134,7 +138,7 @@ export default function OwnerAgencies() {
                   )}
                   {c.status === 'active' && owed > 0 && (
                     <PromoButton size="sm" variant="secondary" onClick={() => settle(c.agency_id)} disabled={acting === c.agency_id}>
-                      <Wallet className="h-3.5 w-3.5" /> {tt(`Régler ${eur(owed)}`, `Settle ${eur(owed)}`)}
+                      <Wallet className="h-3.5 w-3.5" /> {tt(`Régler ${eur(owed)}`, `Settle ${eur(owed)}`, `Liquidar ${eur(owed)}`)}
                     </PromoButton>
                   )}
                 </div>

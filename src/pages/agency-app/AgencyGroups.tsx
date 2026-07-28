@@ -38,7 +38,7 @@ export default function AgencyGroups() {
   const { agency } = useAgency();
   const { promoters, groups, loading, refetch } = useAgencyData(agency?.id ?? null);
   const { language } = useLanguage();
-  const tt = (fr: string, en: string) => translate(language, fr, en);
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -219,7 +219,11 @@ export default function AgencyGroups() {
                 {confirmDelete === g.id && (
                   <div style={{ padding: '12px 14px', borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(232,25,44,0.06)' }}>
                     <p style={{ color: T1, fontSize: 13, marginBottom: 8 }}>
-                      {tt(`Supprimer "${g.name}" ? Les promoteurs resteront dans l'agence, juste sans groupe.`, `Delete "${g.name}"? Promoters will remain in the agency, just ungrouped.`)}
+                      {tt(
+                        `Supprimer "${g.name}" ? Les promoteurs resteront dans l'agence, juste sans groupe.`,
+                        `Delete "${g.name}"? Promoters will remain in the agency, just ungrouped.`,
+                        `¿Eliminar "${g.name}"? Los promotores seguirán en la agencia, solo sin grupo.`,
+                      )}
                     </p>
                     <div className="flex gap-2">
                       <PromoButton size="sm" variant="danger" onClick={() => handleDelete(g.id)}>

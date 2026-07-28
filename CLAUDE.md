@@ -64,6 +64,18 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   `BarmanRoute`, `BouncerRoute`, `CloakroomRoute`, `DJRoute`, `ManagerRoute`, `BrowserRoute`.
 - **App organisateur** (`/organizer-app`) : autonome mais réutilise des pages Owner ;
   conventions `org-ui`, gating Stripe via `canSell`.
+- **Agence de promoteurs = entité FUSIONNÉE** (2026-07-27) : `agencies` est
+  l'identité maître, `affiliates.agency_id` relie le bras externe (clubs
+  non-Yuno, redirection billetterie). Triggers de provisionnement bidirectionnels
+  + synchro d'identité agencies→affiliates (le linktree public suit le profil
+  agence). Un chef d'agence = rôles `agency` + `affiliate`. Cockpit unique
+  `/agency-app` avec sidebar unifiée couvrant `/agency-app/*` (contrats, ventes
+  in-app, finance) ET `/affiliate/*` (clubs externes, linktree, trafic).
+  Ne JAMAIS recréer un profil affilié autonome ; ne JAMAIS toucher au code
+  argent (conversions/règlements/gardes) pour des besoins du bras externe.
+  Tracking visiteur externe : uniquement via les RPC SECURITY DEFINER
+  (`flush_affiliate_session`, `ping_affiliate_live`) — les UPDATE anonymes
+  directs sont morts en prod. Voir `docs/AFFILIATE_SYSTEM.md`.
 - **Revenu club** : « CA Club / Net », fee Stripe 1.5 %, helpers dans `utils/fees.ts`. Refund côté club.
 - **Supabase client** : anon key côté front (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`).
   Les secrets purs (Stripe `sk_`, Resend, Gemini, service_role) vivent **uniquement** dans les

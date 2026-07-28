@@ -13,9 +13,9 @@ import {
 } from '@/components/promoter/promoter-ui';
 
 const RANGE_OPTIONS = [
-  { label: '7j', labelEn: '7d', days: 7 },
-  { label: '30j', labelEn: '30d', days: 30 },
-  { label: '90j', labelEn: '90d', days: 90 },
+  { label: '7j', labelEn: '7d', labelEs: '7d', days: 7 },
+  { label: '30j', labelEn: '30d', labelEs: '30d', days: 30 },
+  { label: '90j', labelEn: '90d', labelEs: '90d', days: 90 },
 ];
 
 function formatDate(iso: string, lang: string) {
@@ -74,7 +74,7 @@ export default function AgencyEvents() {
                 color: daysAhead === o.days ? T1 : T3,
               }}
             >
-              {language === 'fr' ? o.label : o.labelEn}
+              {language === 'fr' ? o.label : language === 'es' ? o.labelEs : o.labelEn}
             </button>
           ))}
         </div>
