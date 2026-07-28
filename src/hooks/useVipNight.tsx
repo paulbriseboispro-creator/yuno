@@ -68,6 +68,8 @@ export function useVipNight() {
   const [data, setData] = useState<NightData>(EMPTY);
   const [menuItems, setMenuItems] = useState<ServiceMenuItem[]>([]);
   const [quickItems, setQuickItems] = useState<ServiceQuickItem[]>([]);
+  // Zones du club (pour créer un walk-in dans une zone précise).
+  const [zones, setZones] = useState<{ id: string; name: string; color: string }[]>([]);
 
   // Soirée choisie par l'hôte. Un ref double l'état pour que les refetch
   // realtime (sans argument) conservent la sélection au lieu de retomber sur
@@ -320,7 +322,7 @@ export function useVipNight() {
     if (!venueId) return;
     let cancelled = false;
     (async () => {
-      const [menuQ, quickQ] = await Promise.all([
+      const [menuQ, quickQ, zonesQ] = await Promise.all([
         supabase
           .from('vip_menu_items')
           .select('id, name, category, brand, volume_cl, price, image_url, needs_mixer, max_mixers, position')
@@ -333,8 +335,14 @@ export function useVipNight() {
           .eq('venue_id', venueId)
           .eq('is_active', true)
           .order('position', { ascending: true }),
+        supabase
+          .from('table_zones')
+          .select('id, name, color')
+          .eq('venue_id', venueId)
+          .order('name', { ascending: true }),
       ]);
       if (cancelled) return;
+      setZones((zonesQ.data || []).map((z: { id: string; name: string; color: string | null }) => ({ id: z.id, name: z.name, color: z.color || '#666' })));
       setMenuItems(
         (menuQ.data || []).map((m: any) => ({
           id: m.id,
@@ -840,6 +848,38 @@ export function useVipNight() {
     [fetchData]
   );
 
+  // Crée une réservation « à la main » (walk-in) via la RPC gardée, puis
+  // rafraîchit. Enregistrement seul (payé au club) : frais Yuno à 0, la ligne
+  // entre dans le CA/analytics comme une réservation payée. Retourne l'id.
+  const createWalkin = useCallback(
+    async (input: {
+      zoneId: string;
+      fullName: string | null;
+      guestCount: number;
+      totalPrice: number;
+      assignedTableId?: string | null;
+    }): Promise<string> => {
+      const ev = dataRef.current.activeEvent;
+      if (!ev) throw new Error('no_event');
+      const { data: newId, error } = await (supabase as any).rpc('create_manual_table_reservation', {
+        p_event_id: ev.id,
+        p_zone_id: input.zoneId,
+        p_full_name: input.fullName,
+        p_phone: null,
+        p_email: null,
+        p_guest_count: Math.max(1, input.guestCount || 1),
+        p_total_price: Math.max(0, input.totalPrice || 0),
+        p_minimum_spend: 0,
+        p_assigned_table_id: input.assignedTableId ?? null,
+        p_remarks: null,
+      });
+      if (error) throw error;
+      await fetchData();
+      return newId as string;
+    },
+    [fetchData]
+  );
+
   // Bascule vers une autre soirée listée (chips du sélecteur). Le ref est mis à
   // jour tout de suite pour que le fetch qui suit vise la bonne soirée.
   const selectEvent = useCallback(
@@ -871,9 +911,11 @@ export function useVipNight() {
     floorPlan: data.floorPlan,
     menuItems,
     quickItems,
+    zones,
     serviceInfo,
     doorQueue,
     refresh: fetchData,
+    createWalkin,
     seatGuest,
     moveGuest,
     markArrived,

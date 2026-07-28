@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useVipNight } from '@/hooks/useVipNight';
 import { useStaffNotifications } from '@/hooks/useStaffNotifications';
+import { useStaffIdentity } from '@/hooks/useStaffIdentity';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { PublicPage } from '@/components/PublicPage';
 import { StaffHeader } from '@/components/staff/StaffHeader';
@@ -20,12 +21,12 @@ import { ServiceNightTab } from '@/components/vip-service/ServiceNightTab';
 import { TableServiceSheet } from '@/components/vip-service/TableServiceSheet';
 import { SeatPickerSheet } from '@/components/vip-service/SeatPickerSheet';
 import { OrderComposerSheet } from '@/components/vip-service/OrderComposerSheet';
-import { OrderTargetPickerSheet } from '@/components/vip-service/OrderTargetPickerSheet';
 import { VipEventBar } from '@/components/vip-service/VipEventBar';
 import { VipHomeTab } from '@/components/vip-service/VipHomeTab';
 import { VipLivePanel } from '@/components/vip-service/VipLivePanel';
+import { WalkinPosSheet, WalkinTarget } from '@/components/vip-service/WalkinPosSheet';
 import {
-  ServiceOrder, ServiceReservation, CartLine, fmtAge,
+  ServiceOrder, ServiceReservation, CartLine, cartTotal, fmtAge,
 } from '@/components/vip-service/serviceTypes';
 
 // ─── Yuno Design Tokens (pro) ────────────────────────────────────────────────
@@ -54,8 +55,9 @@ export default function VipHostDashboard() {
   const {
     venueId, loading, noVenue, connectionStale, activeEvent, events, selectedEventId, selectEvent,
     isPlanning, reservations, consumptions, orders, ordersByReservation, moments, floorPlan,
-    menuItems, quickItems, serviceInfo, doorQueue, refresh,
+    menuItems, quickItems, zones, serviceInfo, doorQueue, refresh, createWalkin,
   } = night;
+  const { venueName } = useStaffIdentity();
 
   const { notifications, markAsRead } = useStaffNotifications({ venueId, targetRole: 'vip_host' });
 
@@ -63,10 +65,9 @@ export default function VipHostDashboard() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [seatPicker, setSeatPicker] = useState<{ reservation: ServiceReservation; moveMode: boolean } | null>(null);
   const [composerId, setComposerId] = useState<string | null>(null);
-  // Commande démarrée depuis la carte du plan live : on choisit d'abord la table
-  // (orderPicker), puis le composeur s'ouvre pré-rempli avec l'article touché.
-  const [orderPicker, setOrderPicker] = useState<{ seedItemId: string | null } | null>(null);
-  const [composerSeedItemId, setComposerSeedItemId] = useState<string | null>(null);
+  // Point de vente en table (panier → relier/walk-in → addition → paiement).
+  // Démarré depuis la carte du plan live ; un article touché amorce le panier.
+  const [pos, setPos] = useState<{ open: boolean; seedItemId: string | null }>({ open: false, seedItemId: null });
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [showFloorBackground, setShowFloorBackground] = useState(true);
@@ -87,15 +88,9 @@ export default function VipHostDashboard() {
 
   const selected = selectedId ? reservationById.get(selectedId) || null : null;
   const composerFor = composerId ? reservationById.get(composerId) || null : null;
-  const orderSeedItem = orderPicker?.seedItemId ? menuItems.find(m => m.id === orderPicker.seedItemId) : undefined;
 
-  // Depuis la carte du plan live → choisir la table → ouvrir le composeur.
-  const handleStartOrder = (seedItemId?: string | null) => setOrderPicker({ seedItemId: seedItemId ?? null });
-  const handlePickOrderTarget = (r: ServiceReservation) => {
-    setComposerSeedItemId(orderPicker?.seedItemId ?? null);
-    setComposerId(r.id);
-    setOrderPicker(null);
-  };
+  // Carte du plan live → ouvre le point de vente en table (panier d'abord).
+  const handleStartOrder = (seedItemId?: string | null) => setPos({ open: true, seedItemId: seedItemId ?? null });
 
   // Tables demandées par des clients pas encore installés (tap plan → placement).
   const requestedByTable = useMemo(() => {
@@ -296,6 +291,30 @@ export default function VipHostDashboard() {
       toast.success(t('vipnight.undoDone'));
     } catch {
       toast.error(t('vipnight.error'));
+    }
+  };
+
+  // Point de vente en table : « Paiement validé » écrit le grand livre. Walk-in
+  // → on crée d'abord la résa (enregistrée payée, frais 0), puis on sert le
+  // panier ; table existante → on sert directement sur sa résa.
+  const handlePosCommit = async (target: WalkinTarget, lines: CartLine[]) => {
+    try {
+      const reservationId =
+        target.kind === 'walkin'
+          ? await createWalkin({
+              zoneId: target.zoneId,
+              fullName: target.fullName,
+              guestCount: target.guestCount,
+              totalPrice: cartTotal(lines),
+            })
+          : target.reservation.id;
+      await night.submitCart(reservationId, lines, { directServe: true });
+      haptics.success();
+      toast.success(t('vippos.done'));
+      setPos({ open: false, seedItemId: null });
+    } catch (error) {
+      haptics.error();
+      toast.error(placementErrorMessage(error));
     }
   };
 
@@ -637,28 +656,32 @@ export default function VipHostDashboard() {
         onClose={() => setSeatPicker(null)}
       />
 
-      {/* Choix de la table pour une commande démarrée depuis la carte */}
-      <OrderTargetPickerSheet
-        open={!!orderPicker}
+      {/* Point de vente en table : panier → relier/walk-in → addition → paiement */}
+      <WalkinPosSheet
+        open={pos.open}
+        seedItemId={pos.seedItemId}
+        venueName={venueName}
+        eventTitle={activeEvent?.title}
+        menuItems={menuItems}
         reservations={reservations}
         serviceInfo={serviceInfo}
-        seedLabel={orderSeedItem?.name || null}
-        onPick={handlePickOrderTarget}
-        onClose={() => setOrderPicker(null)}
+        zones={zones}
+        disabled={connectionStale}
+        onCommit={handlePosCommit}
+        onClose={() => setPos({ open: false, seedItemId: null })}
       />
 
-      {/* Prise de commande */}
+      {/* Prise de commande sur une table (crédit prépayé) — ouverte depuis le détail */}
       <OrderComposerSheet
         open={!!composerFor}
         reservation={composerFor}
         info={composerFor ? serviceInfo.get(composerFor.id) || null : null}
         menuItems={menuItems}
         quickItems={quickItems}
-        seedItemId={composerSeedItemId}
         busy={actionBusy}
         disabled={connectionStale}
         onSubmit={handleSubmitCart}
-        onClose={() => { setComposerId(null); setComposerSeedItemId(null); }}
+        onClose={() => setComposerId(null)}
       />
     </div>
   );
