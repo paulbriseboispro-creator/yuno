@@ -19,7 +19,7 @@ export function useFavorites() {
   } = useFavoritesContext();
 
   const toggleFavorite = useCallback(
-    async (type: FavoriteType, id: string) => {
+    async (type: FavoriteType, id: string, source?: string) => {
       const sub = isSubscriptionType(type);
 
       // Haptique ICI (et pas dans FavoriteButton) : les cœurs des cartes Explore,
@@ -32,7 +32,7 @@ export function useFavorites() {
       else haptics.selection();
 
       try {
-        const result = await toggleFavoriteInContext(type, id);
+        const result = await toggleFavoriteInContext(type, id, source);
 
         if (result === 'login_required') {
           haptics.error();

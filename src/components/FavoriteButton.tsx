@@ -20,6 +20,8 @@ interface FavoriteButtonProps {
   onToggle?: () => void;
   iconClassName?: string;
   style?: React.CSSProperties;
+  /** Surface d'acquisition (club/dj) : journalisée comme source du follow. */
+  source?: string;
 }
 
 /**
@@ -40,6 +42,7 @@ export function FavoriteButton({
   onToggle,
   iconClassName,
   style,
+  source,
 }: FavoriteButtonProps) {
   const { isFavorite, toggleFavorite } = useFavorites();
   const { t } = useLanguage();
@@ -56,7 +59,7 @@ export function FavoriteButton({
     const willActivate = !isActive;
     // L'haptique vit dans useFavorites().toggleFavorite — commun à TOUTES les
     // surfaces (cartes Explore, pages affiliées…), pas seulement à ce bouton.
-    await toggleFavorite(type, id);
+    await toggleFavorite(type, id, source);
     if (willActivate && !reduceMotion) setPopKey((k) => k + 1);
     onToggle?.();
   };

@@ -365,6 +365,7 @@ export default function DJPublicPage() {
               // AUTRE fiche, on passe CETTE fiche au bouton pour que isFavorite/toggle
               // visent la bonne ligne. Sinon la fiche canonique (nouveau suivi).
               id={dj.followed_dj_id ?? dj.id}
+              source="dj_page"
               size="sm"
               variant="default"
               showLabel

@@ -29,6 +29,17 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
   const att = data?.attribution ?? null;
   const bm = data?.benchmarks ?? null;
   const co = data?.cohorts ?? null;
+  const acq = data?.sources ?? null;
+
+  const sourceLabel = (s: string) => (({
+    dj_page: t('Page DJ', 'DJ page', 'Página DJ'),
+    venue_page: t('Page club', 'Club page', 'Página club'),
+    event_page: t('Page soirée', 'Event page', 'Página evento'),
+    organizer_page: t('Page organisateur', 'Organizer page', 'Página organizador'),
+    explore: t('Explore', 'Explore', 'Explorar'),
+    post_purchase: t('Après achat', 'After purchase', 'Tras la compra'),
+    trigger: t('Direct / autre', 'Direct / other', 'Directo / otro'),
+  } as Record<string, string>)[s] || s);
 
   // ── Courbe : série nette (snapshots) sinon brut mensuel (analytics.growth) ──
   const growthSeries = useMemo(() => {
@@ -215,6 +226,20 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
                   {t("Les cohortes se construisent chaque semaine depuis l'activation du suivi net.", 'Cohorts build each week since net tracking started.', 'Las cohortes se construyen cada semana desde la activación del seguimiento neto.')}
                 </p>
               )}
+            </PCard>
+          )}
+
+          {/* ── SOURCE D'ACQUISITION (d'où viennent les abonnés) ── */}
+          {acq && acq.sources.length > 0 && acq.sources.some(s => s.source !== 'trigger') && (
+            <PCard style={{ marginTop: 12 }} icon={<TrendingUp className="w-4 h-4" />}
+              title={t("D'où viennent tes abonnés", 'Where your subscribers come from', 'De dónde vienen tus suscriptores')}
+              sub={t('La surface qui déclenche chaque abonnement', 'The surface that drives each follow', 'La superficie que genera cada suscripción')}>
+              <div className="space-y-3.5">
+                {acq.sources.map((s, i) => (
+                  <BarRow key={s.source} label={sourceLabel(s.source)} value={s.count}
+                    max={acq.sources[0].count} accent={i === 0} />
+                ))}
+              </div>
             </PCard>
           )}
 

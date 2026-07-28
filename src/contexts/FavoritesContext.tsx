@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { TablesInsert } from '@/integrations/supabase/types';
+import type { Tables, TablesInsert } from '@/integrations/supabase/types';
 
 export type FavoriteType = 'club' | 'event' | 'drink' | 'dj' | 'affiliate_event' | 'affiliate_venue';
 
@@ -35,7 +35,7 @@ interface FavoritesContextValue {
   loading: boolean;
   refetch: () => Promise<void>;
   isFavorite: (type: FavoriteType, id: string) => boolean;
-  toggleFavorite: (type: FavoriteType, id: string) => Promise<'added' | 'removed' | 'login_required'>;
+  toggleFavorite: (type: FavoriteType, id: string, source?: string) => Promise<'added' | 'removed' | 'login_required'>;
   getFavoritesByType: (type: FavoriteType) => Favorite[];
 }
 
@@ -160,7 +160,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     });
   }, [favorites]);
 
-  const toggleFavorite = useCallback(async (type: FavoriteType, id: string): Promise<'added' | 'removed' | 'login_required'> => {
+  const toggleFavorite = useCallback(async (type: FavoriteType, id: string, source?: string): Promise<'added' | 'removed' | 'login_required'> => {
     if (!userId) return 'login_required';
 
     // Prevent adding past events to favorites (check end_at, not start_at)
@@ -227,13 +227,25 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         else if (type === 'affiliate_event') insertData.affiliate_event_id = id;
         else if (type === 'affiliate_venue') insertData.affiliate_venue_id = id;
 
-        const { data, error } = await supabase
-          .from('favorites')
-          .insert([insertData])
-          .select()
-          .single();
+        // Capture de la source d'acquisition (club/dj) : la RPC follow_subject pose
+        // le GUC yuno.follow_source DANS la même transaction que l'INSERT, que le
+        // trigger de journal lit. Sans source, on garde l'insert direct (inchangé).
+        let data: Tables<'favorites'> | null;
+        let error: unknown;
+        if (source && (type === 'club' || type === 'dj')) {
+          const res = await (supabase.rpc as unknown as (n: string, p: Record<string, unknown>) => Promise<{ data: Tables<'favorites'>[] | null; error: unknown }>)(
+            'follow_subject', { p_favorite_type: type, p_target_id: id, p_source: source },
+          );
+          data = res.data?.[0] ?? null;
+          error = res.error;
+        } else {
+          const res = await supabase.from('favorites').insert([insertData]).select().single();
+          data = res.data;
+          error = res.error;
+        }
 
         if (error) throw error;
+        if (!data) throw new Error('favorite insert returned no row');
 
         setFavorites(prev => [...prev, {
           id: data.id,

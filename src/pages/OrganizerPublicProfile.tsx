@@ -266,11 +266,13 @@ export default function OrganizerPublicProfile() {
     setIsFollowing(!wasFollowing);
     setFollowersCount(c => wasFollowing ? Math.max(0, c - 1) : c + 1);
 
+    // Follow via la RPC follow_organizer (pose la source d'acquisition dans la même
+    // transaction que l'insert) ; unfollow reste un delete direct.
     const { error } = wasFollowing
       ? await supabase.from('organizer_profile_followers')
           .delete().eq('organizer_user_id', profile.user_id).eq('user_id', user.id)
-      : await supabase.from('organizer_profile_followers')
-          .insert({ organizer_user_id: profile.user_id, user_id: user.id });
+      : await (supabase.rpc as unknown as (n: string, p: Record<string, unknown>) => Promise<{ error: unknown }>)(
+          'follow_organizer', { p_organizer_user_id: profile.user_id, p_source: 'organizer_page' });
 
     if (error) {
       setIsFollowing(wasFollowing);

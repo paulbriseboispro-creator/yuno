@@ -1134,7 +1134,7 @@ export default function EventDetails() {
                   <span className="text-[#3A3A3E] text-xs shrink-0 ml-2">→</span>
                 </button>
                 <button
-                  onClick={() => toggleFavorite('club', venue.id)}
+                  onClick={() => toggleFavorite('club', venue.id, 'event_page')}
                   className="shrink-0 inline-flex items-center gap-1.5 font-mono font-semibold tracking-[0.08em] uppercase transition-colors ml-3"
                   style={{ fontSize: '10px', height: '28px', padding: '0 12px', borderRadius: '2px', border: '1px solid', borderColor: isFavorite('club', venue.id) ? 'rgba(232,25,44,0.4)' : '#2A2A2A', background: isFavorite('club', venue.id) ? 'rgba(232,25,44,0.08)' : 'transparent', color: isFavorite('club', venue.id) ? '#E8192C' : '#9A9A9A', cursor: 'pointer' }}
                 >
