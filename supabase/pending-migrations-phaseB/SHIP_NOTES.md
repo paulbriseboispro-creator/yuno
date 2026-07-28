@@ -13,7 +13,7 @@ dans l'ordre.
 |---|---|---|---|
 | `…111000_audience_segments_repeat_buyers.sql` | `get_audience_segments` + `repeat_buyers` (5e étape entonnoir, venue) | B1 | Non (champ additif ; le front dégrade en 4 étapes sans lui) |
 | `…111100_audience_push_attribution.sql` | nouveau RPC `get_audience_push_attribution` (revenu net attribué clic→achat 72h, venue) | B3 | Non (nouveau RPC ; le front dégrade sans revenu attribué) |
-| _(à venir)_ | DROP `dj_audience_analytics` | B4 | ⚠️ seulement APRÈS déploiement du front DJAnalytics migré |
+| `…111200_drop_dj_audience_analytics.sql` | DROP `dj_audience_analytics` (doublon) | B4 | ⚠️ seulement APRÈS déploiement du front DJAnalytics migré |
 
 ## Procédure de ship
 
