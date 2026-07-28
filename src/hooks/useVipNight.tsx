@@ -858,6 +858,8 @@ export function useVipNight() {
       guestCount: number;
       totalPrice: number;
       assignedTableId?: string | null;
+      /** true = addition ouverte (placé à l'entrée) : le CA suit les consos. */
+      openTab?: boolean;
     }): Promise<string> => {
       const ev = dataRef.current.activeEvent;
       if (!ev) throw new Error('no_event');
@@ -872,6 +874,7 @@ export function useVipNight() {
         p_minimum_spend: 0,
         p_assigned_table_id: input.assignedTableId ?? null,
         p_remarks: null,
+        p_open_tab: input.openTab ?? false,
       });
       if (error) throw error;
       await fetchData();

@@ -12,7 +12,7 @@ import { haptics } from '@/lib/haptics';
 import { toast } from 'sonner';
 import { Switch } from '@/components/ui/switch';
 import {
-  Crown, Home, Map as MapIcon, List, Bell, BarChart3, RefreshCw, Image, DoorOpen, CalendarOff,
+  Crown, Home, Map as MapIcon, List, Bell, BarChart3, RefreshCw, Image, DoorOpen, CalendarOff, UserPlus,
 } from 'lucide-react';
 import { ServiceFloorPlan } from '@/components/vip-service/ServiceFloorPlan';
 import { ServiceTablesTab } from '@/components/vip-service/ServiceTablesTab';
@@ -25,6 +25,7 @@ import { VipEventBar } from '@/components/vip-service/VipEventBar';
 import { VipHomeTab } from '@/components/vip-service/VipHomeTab';
 import { VipLivePanel } from '@/components/vip-service/VipLivePanel';
 import { WalkinPosSheet, WalkinTarget } from '@/components/vip-service/WalkinPosSheet';
+import { WalkinSeatSheet } from '@/components/vip-service/WalkinSeatSheet';
 import {
   ServiceOrder, ServiceReservation, CartLine, cartTotal, fmtAge,
 } from '@/components/vip-service/serviceTypes';
@@ -68,6 +69,7 @@ export default function VipHostDashboard() {
   // Point de vente en table (panier → relier/walk-in → addition → paiement).
   // Démarré depuis la carte du plan live ; un article touché amorce le panier.
   const [pos, setPos] = useState<{ open: boolean; seedItemId: string | null }>({ open: false, seedItemId: null });
+  const [walkinSeatOpen, setWalkinSeatOpen] = useState(false);
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [showFloorBackground, setShowFloorBackground] = useState(true);
@@ -318,6 +320,30 @@ export default function VipHostDashboard() {
     }
   };
 
+  // Walk-in placé sur le plan dès l'entrée (addition ouverte : le CA suivra les
+  // consommations). On crée la résa directement assignée à la table touchée.
+  const handleWalkinSeat = async (input: { tableId: string; zoneId: string; fullName: string | null; guestCount: number }) => {
+    setActionBusy(true);
+    try {
+      await createWalkin({
+        zoneId: input.zoneId,
+        fullName: input.fullName,
+        guestCount: input.guestCount,
+        totalPrice: 0,
+        assignedTableId: input.tableId,
+        openTab: true,
+      });
+      haptics.success();
+      toast.success(t('vipnight.walkinPlaced'));
+      setWalkinSeatOpen(false);
+    } catch (error) {
+      haptics.error();
+      toast.error(placementErrorMessage(error));
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   const handleScheduleMoment = async (kind: string, label: string | null, inMinutes: number) => {
     if (!selected) return;
     try {
@@ -464,6 +490,20 @@ export default function VipHostDashboard() {
 
           {tab === 'room' && (
             <>
+              {/* Nouveau walk-in : créer + placer sur le plan dès l'entrée */}
+              {activeEvent && (
+                <button
+                  type="button"
+                  disabled={connectionStale}
+                  onClick={() => { haptics.selection(); setWalkinSeatOpen(true); }}
+                  className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl py-3 font-semibold transition-transform active:scale-[0.99] disabled:opacity-40"
+                  style={{ background: 'rgba(231,193,90,0.12)', border: '1px solid rgba(231,193,90,0.4)', color: GOLD, fontSize: 13.5 }}
+                >
+                  <UserPlus className="h-4 w-4" />
+                  {t('vipnight.walkinNew')}
+                </button>
+              )}
+
               {/* File de la porte : arrivés, pas encore installés */}
               {doorQueue.length > 0 && (
                 <div>
@@ -669,6 +709,18 @@ export default function VipHostDashboard() {
         disabled={connectionStale}
         onCommit={handlePosCommit}
         onClose={() => setPos({ open: false, seedItemId: null })}
+      />
+
+      {/* Walk-in créé + placé sur le plan dès l'entrée */}
+      <WalkinSeatSheet
+        open={walkinSeatOpen}
+        floorPlan={floorPlan}
+        reservations={reservations}
+        serviceInfo={serviceInfo}
+        busy={actionBusy}
+        disabled={connectionStale}
+        onCreate={handleWalkinSeat}
+        onClose={() => setWalkinSeatOpen(false)}
       />
 
       {/* Prise de commande sur une table (crédit prépayé) — ouverte depuis le détail */}
