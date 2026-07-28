@@ -24,7 +24,10 @@ dans l'ordre.
 5. `supabase db push`.
 6. `supabase gen types typescript --linked > src/integrations/supabase/types.ts` (rediriger stderr) :
    les nouveaux champs (`repeat_buyers`) et le drop de `dj_audience_analytics` retirent les casts `as any`.
-7. Merge + `wrangler deploy` du front.
+7. **DoD IA** : `supabase functions deploy owner-assistant` — le HELP_ARTICLES `audience-tracking`
+   décrit désormais la couche argent (LTV/entonnoir/attribution). Sans ce deploy, l'IA owner
+   ignore les nouvelles métriques. (yuno-assistant client inchangé.)
+8. Merge + `wrangler deploy` du front (le mode d'emploi owner `ohelp.pg.audience.s4*` part avec).
 
 ## Notes
 - Les nouveaux champs RPC ne sont pas dans types.ts → appels castés (useAudienceData caste déjà tout).
