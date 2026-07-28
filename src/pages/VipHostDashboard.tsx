@@ -22,6 +22,7 @@ import { SeatPickerSheet } from '@/components/vip-service/SeatPickerSheet';
 import { OrderComposerSheet } from '@/components/vip-service/OrderComposerSheet';
 import { VipEventBar } from '@/components/vip-service/VipEventBar';
 import { VipHomeTab } from '@/components/vip-service/VipHomeTab';
+import { VipLivePanel } from '@/components/vip-service/VipLivePanel';
 import {
   ServiceOrder, ServiceReservation, CartLine, fmtAge,
 } from '@/components/vip-service/serviceTypes';
@@ -490,6 +491,16 @@ export default function VipHostDashboard() {
                   }
                 }}
               />
+
+              {/* Sous le plan : le pouls du service + la carte VIP en référence. */}
+              {activeEvent && (
+                <VipLivePanel
+                  reservations={reservations}
+                  serviceInfo={serviceInfo}
+                  menuItems={menuItems}
+                  isPlanning={isPlanning}
+                />
+              )}
             </>
           )}
 
