@@ -15,6 +15,40 @@ import { preparePayout, payoutErrorKey } from '@/lib/promoterPayout';
 
 const eur = (n: number) => `${(Number(n) || 0).toFixed(2)} €`;
 
+/** Ligne cochable du sélecteur de clubs (Yuno et externes partagent le style). */
+function CheckRow({ checked, onClick, icon: Icon, label, bold }: {
+  checked: boolean;
+  onClick: () => void;
+  icon: typeof Building2;
+  label: string;
+  bold?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-3 w-full text-left"
+      style={{
+        padding: '8px 12px', borderRadius: 10, cursor: 'pointer',
+        background: checked ? 'rgba(232,25,44,0.08)' : INNER_BG,
+        border: `1px solid ${checked ? 'rgba(232,25,44,0.25)' : BORDER}`,
+      }}
+    >
+      <span
+        className="flex-none flex items-center justify-center"
+        style={{
+          width: 16, height: 16, borderRadius: 4,
+          background: checked ? RED : 'transparent',
+          border: `1px solid ${checked ? RED : 'rgba(255,255,255,0.25)'}`,
+        }}
+      >
+        {checked && <Check className="h-3 w-3" style={{ color: '#fff' }} />}
+      </span>
+      <Icon className="h-3.5 w-3.5 flex-none" style={{ color: checked ? T1 : T3 }} />
+      <span style={{ color: checked ? T1 : T2, fontSize: 13, fontWeight: bold ? 640 : 400 }}>{label}</span>
+    </button>
+  );
+}
+
 type PersonGroup = {
   userId: string;
   name: string;
@@ -30,7 +64,7 @@ type PersonGroup = {
 
 export default function AgencyRoster() {
   const { agency } = useAgency();
-  const { promoters, contracts, groups, externalMembers, loading, refetch } = useAgencyData(agency?.id ?? null);
+  const { promoters, contracts, groups, externalMembers, externalVenues, loading, refetch } = useAgencyData(agency?.id ?? null);
   const { t, language } = useLanguage();
   const tt = (fr: string, en: string) => translate(language, fr, en);
   const navigate = useNavigate();
@@ -38,10 +72,13 @@ export default function AgencyRoster() {
   const filterClub = searchParams.get('club');
 
   const [inviteOpen, setInviteOpen] = useState(false);
-  // Un promoteur peut bosser plusieurs clubs Yuno ET le bras externe : on coche,
-  // on n'arbitre pas. Une invitation part par club coché (+ une externe).
+  // Un promoteur peut bosser plusieurs clubs Yuno ET des clubs externes : on
+  // coche, on n'arbitre pas. Un seul email récapitulatif part, quel que soit
+  // le nombre de clubs cochés.
   const [selectedContracts, setSelectedContracts] = useState<Set<string>>(new Set());
-  const [inviteExternal, setInviteExternal] = useState(false);
+  // Bras externe : « tous les clubs » ou un périmètre précis de clubs externes.
+  const [extAll, setExtAll] = useState(false);
+  const [extVenues, setExtVenues] = useState<Set<string>>(new Set());
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -121,79 +158,111 @@ export default function AgencyRoster() {
     });
   };
 
+  const allYunoSelected = activeContracts.length > 0 && selectedContracts.size === activeContracts.length;
+  const toggleAllYuno = () => {
+    setSelectedContracts(allYunoSelected ? new Set() : new Set(activeContracts.map(c => c.id)));
+  };
+
+  const toggleExtVenue = (id: string) => {
+    setExtAll(false);
+    setExtVenues(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const toggleExtAll = () => {
+    setExtVenues(new Set());
+    setExtAll(v => !v);
+  };
+
+  const externalSelected = extAll || extVenues.size > 0;
+
   const handleInvite = async () => {
     const targets = activeContracts.filter(c => selectedContracts.has(c.id));
-    if (!email.trim() || (targets.length === 0 && !inviteExternal)) {
+    if (!email.trim() || (targets.length === 0 && !externalSelected)) {
       toast.error(tt('Email et au moins un club (Yuno ou externe) requis', 'Email and at least one club (Yuno or external) required'));
       return;
     }
     // Le bras externe crée un compte membre : il lui faut une identité complète.
-    if (inviteExternal && (!firstName.trim() || !lastName.trim())) {
+    if (externalSelected && (!firstName.trim() || !lastName.trim())) {
       toast.error(tt('Prénom et nom requis pour les clubs externes', 'First and last name required for external clubs'));
       return;
     }
 
     setSending(true);
-    const failures: string[] = [];
-    let sent = 0;
+    let recapSent = false;
 
-    // Une invitation par club Yuno coché — le même humain devient un
-    // enregistrement promoteur par club (modèle multi-club existant).
-    for (const contract of targets) {
+    // UN SEUL appel pour tous les clubs Yuno cochés → une ligne d'invitation
+    // par club, mais UN email récapitulatif (clubs + rémunération + externe).
+    // Le lien de l'email accepte tout le lot d'un geste.
+    if (targets.length > 0) {
       const { data, error } = await supabase.functions.invoke('invite-promoter', {
         body: {
           email: email.trim(),
           first_name: firstName.trim() || undefined,
+          last_name: lastName.trim() || undefined,
           agency_id: agency!.id,
-          venue_id: contract.venue_id ?? undefined,
-          organizer_user_id: contract.organizer_user_id ?? undefined,
+          targets: targets.map(c => ({
+            venue_id: c.venue_id ?? undefined,
+            organizer_user_id: c.organizer_user_id ?? undefined,
+          })),
           commission_config: {
             ticket_commission_type: ticketType,
             ticket_commission_value: Number(ticketValue) || 0,
             table_commission_type: tableType,
             table_commission_value: Number(tableValue) || 0,
           },
+          external_recap: externalSelected
+            ? {
+              all: extAll,
+              venue_names: extAll ? [] : externalVenues.filter(v => extVenues.has(v.id)).map(v => v.name),
+            }
+            : null,
         },
       });
-      const res = data as { error?: string } | null;
+      const res = data as { error?: string; email_sent?: boolean; all_already_linked?: boolean } | null;
       if (error || res?.error) {
-        failures.push(`${contractScopeLabel(contract)} : ${res?.error || error?.message || tt('échec', 'failed')}`);
-      } else {
-        sent++;
+        setSending(false);
+        toast.error(res?.error || error?.message || tt("Échec de l'invitation", 'Invite failed'));
+        return;
+      }
+      recapSent = !!res?.email_sent;
+      if (res?.all_already_linked && !externalSelected) {
+        setSending(false);
+        toast.info(tt('Déjà promoteur sur tous ces clubs', 'Already a promoter on all these clubs'));
+        return;
       }
     }
 
-    // Bras externe : le promoteur rejoint le linktree + liens tracés vers les
-    // billetteries des clubs non-Yuno — cumulable avec les clubs Yuno.
-    if (inviteExternal) {
+    // Bras externe : membre du linktree, limité aux clubs cochés (ou tous).
+    // Son email est supprimé quand le récap l'a déjà annoncé — un seul email.
+    if (externalSelected) {
       const { data, error } = await supabase.functions.invoke('invite-affiliate-member', {
         body: {
           email: email.trim().toLowerCase(),
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           role: 'promoter',
+          venue_ids: extAll ? null : [...extVenues],
+          suppress_email: recapSent,
         },
       });
       const res = data as { error?: string } | null;
       if (error || res?.error) {
-        failures.push(`${tt('Clubs externes', 'External clubs')} : ${res?.error || error?.message || tt('échec', 'failed')}`);
-      } else {
-        sent++;
+        setSending(false);
+        toast.error(`${tt('Clubs externes', 'External clubs')} : ${res?.error || error?.message || tt('échec', 'failed')}`);
+        return;
       }
     }
 
     setSending(false);
-    if (failures.length > 0) {
-      toast.error(failures.join(' — '));
-    }
-    if (sent > 0) {
-      toast.success(sent > 1
-        ? tt(`${sent} invitations envoyées`, `${sent} invitations sent`)
-        : tt('Invitation envoyée', 'Invitation sent'));
-      setEmail(''); setFirstName(''); setLastName(''); setTicketValue(''); setTableValue('');
-      setSelectedContracts(new Set()); setInviteExternal(false); setInviteOpen(false);
-      refetch();
-    }
+    toast.success(recapSent
+      ? tt('Invitation envoyée — un seul email récapitulatif', 'Invitation sent — one recap email')
+      : tt('Invitation envoyée', 'Invitation sent'));
+    setEmail(''); setFirstName(''); setLastName(''); setTicketValue(''); setTableValue('');
+    setSelectedContracts(new Set()); setExtAll(false); setExtVenues(new Set()); setInviteOpen(false);
+    refetch();
   };
 
   // Règlement en trois temps (comme les clubs) : ici on PRÉPARE le lot — IBAN,
@@ -293,20 +362,21 @@ export default function AgencyRoster() {
               <DarkInput value={email} onChange={setEmail} placeholder="promoteur@email.com" type="email" icon={Mail} />
             </div>
             <div>
-              <FieldLabel>{inviteExternal ? tt('Prénom', 'First name') : tt('Prénom (optionnel)', 'First name (optional)')}</FieldLabel>
+              <FieldLabel>{externalSelected ? tt('Prénom', 'First name') : tt('Prénom (optionnel)', 'First name (optional)')}</FieldLabel>
               <DarkInput value={firstName} onChange={setFirstName} placeholder={tt('Prénom', 'First name')} />
             </div>
-            {inviteExternal && (
+            {externalSelected && (
               <div>
                 <FieldLabel>{tt('Nom de famille', 'Last name')}</FieldLabel>
                 <DarkInput value={lastName} onChange={setLastName} placeholder={tt('Nom de famille', 'Last name')} />
               </div>
             )}
 
-            {/* Où va-t-il vendre ? Plusieurs clubs Yuno ET les clubs externes,
-                cumulables — un promoteur n'est pas en monopole. */}
+            {/* Où va-t-il vendre ? Plusieurs clubs Yuno ET des clubs externes,
+                cumulables — un promoteur n'est pas en monopole. Quel que soit
+                le nombre de clubs cochés : UN email récapitulatif, un lien. */}
             <div>
-              <FieldLabel>{tt('Clubs (plusieurs choix possibles)', 'Clubs (multiple choices allowed)')}</FieldLabel>
+              <FieldLabel>{tt('Clubs Yuno (contrats)', 'Yuno clubs (contracts)')}</FieldLabel>
               <div className="space-y-1.5">
                 {activeContracts.length === 0 && (
                   <p style={{ color: T3, fontSize: 12 }}>
@@ -316,59 +386,53 @@ export default function AgencyRoster() {
                     )}
                   </p>
                 )}
-                {activeContracts.map(c => {
-                  const checked = selectedContracts.has(c.id);
-                  return (
-                    <button
-                      key={c.id}
-                      onClick={() => toggleContract(c.id)}
-                      className="flex items-center gap-3 w-full text-left"
-                      style={{
-                        padding: '8px 12px', borderRadius: 10, cursor: 'pointer',
-                        background: checked ? 'rgba(232,25,44,0.08)' : INNER_BG,
-                        border: `1px solid ${checked ? 'rgba(232,25,44,0.25)' : BORDER}`,
-                      }}
-                    >
-                      <span
-                        className="flex-none flex items-center justify-center"
-                        style={{
-                          width: 16, height: 16, borderRadius: 4,
-                          background: checked ? RED : 'transparent',
-                          border: `1px solid ${checked ? RED : 'rgba(255,255,255,0.25)'}`,
-                        }}
-                      >
-                        {checked && <Check className="h-3 w-3" style={{ color: '#fff' }} />}
-                      </span>
-                      <Building2 className="h-3.5 w-3.5 flex-none" style={{ color: checked ? T1 : T3 }} />
-                      <span style={{ color: checked ? T1 : T2, fontSize: 13 }}>{contractScopeLabel(c)}</span>
-                    </button>
-                  );
-                })}
-                <button
-                  onClick={() => setInviteExternal(v => !v)}
-                  className="flex items-center gap-3 w-full text-left"
-                  style={{
-                    padding: '8px 12px', borderRadius: 10, cursor: 'pointer',
-                    background: inviteExternal ? 'rgba(232,25,44,0.08)' : INNER_BG,
-                    border: `1px solid ${inviteExternal ? 'rgba(232,25,44,0.25)' : BORDER}`,
-                  }}
-                >
-                  <span
-                    className="flex-none flex items-center justify-center"
-                    style={{
-                      width: 16, height: 16, borderRadius: 4,
-                      background: inviteExternal ? RED : 'transparent',
-                      border: `1px solid ${inviteExternal ? RED : 'rgba(255,255,255,0.25)'}`,
-                    }}
-                  >
-                    {inviteExternal && <Check className="h-3 w-3" style={{ color: '#fff' }} />}
-                  </span>
-                  <Globe className="h-3.5 w-3.5 flex-none" style={{ color: inviteExternal ? T1 : T3 }} />
-                  <span style={{ color: inviteExternal ? T1 : T2, fontSize: 13 }}>
-                    {tt('Clubs externes (linktree + liens tracés)', 'External clubs (linktree + tracked links)')}
-                  </span>
-                </button>
+                {activeContracts.length > 1 && (
+                  <CheckRow
+                    checked={allYunoSelected}
+                    onClick={toggleAllYuno}
+                    icon={Building2}
+                    label={tt('Tous les clubs Yuno', 'All Yuno clubs')}
+                    bold
+                  />
+                )}
+                {activeContracts.map(c => (
+                  <CheckRow
+                    key={c.id}
+                    checked={selectedContracts.has(c.id)}
+                    onClick={() => toggleContract(c.id)}
+                    icon={Building2}
+                    label={contractScopeLabel(c)}
+                  />
+                ))}
               </div>
+            </div>
+
+            <div>
+              <FieldLabel>{tt('Clubs externes', 'External clubs')}</FieldLabel>
+              <div className="space-y-1.5">
+                <CheckRow
+                  checked={extAll}
+                  onClick={toggleExtAll}
+                  icon={Globe}
+                  label={tt('Tous les clubs externes', 'All external clubs')}
+                  bold
+                />
+                {externalVenues.map(v => (
+                  <CheckRow
+                    key={v.id}
+                    checked={extAll || extVenues.has(v.id)}
+                    onClick={() => toggleExtVenue(v.id)}
+                    icon={Globe}
+                    label={v.name}
+                  />
+                ))}
+              </div>
+              <p style={{ color: T3, fontSize: 11, marginTop: 6 }}>
+                {tt(
+                  'Un seul linktree par promoteur : ses soirées Yuno et externes y vivent ensemble.',
+                  'One linktree per promoter: their Yuno and external events live on it together.'
+                )}
+              </p>
             </div>
 
             {selectedContracts.size > 0 && (<>
@@ -408,11 +472,7 @@ export default function AgencyRoster() {
             </div>
             </>)}
             <PromoButton onClick={handleInvite} disabled={sending} full>
-              {sending
-                ? tt('Envoi…', 'Sending…')
-                : (selectedContracts.size + (inviteExternal ? 1 : 0)) > 1
-                  ? tt('Envoyer les invitations', 'Send invitations')
-                  : tt("Envoyer l'invitation", 'Send invitation')}
+              {sending ? tt('Envoi…', 'Sending…') : tt("Envoyer l'invitation", 'Send invitation')}
             </PromoButton>
           </div>
         </PromoCard>

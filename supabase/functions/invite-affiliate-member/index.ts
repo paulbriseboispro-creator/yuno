@@ -98,7 +98,15 @@ serve(async (req) => {
     }
 
     // ── Parse body ───────────────────────────────────────────────────────────
-    const { email, first_name, last_name, role = "promoter" } = await req.json();
+    // venue_ids : périmètre clubs externes du membre (null/[] = tous les clubs).
+    // suppress_email : l'appelant a déjà envoyé un récap (invitation d'agence
+    // multi-clubs via invite-promoter) — ne pas doubler l'email.
+    const { email, first_name, last_name, role = "promoter", venue_ids, suppress_email } = await req.json();
+
+    const venueScope: string[] | null =
+      Array.isArray(venue_ids) && venue_ids.length > 0
+        ? venue_ids.filter((v: unknown) => typeof v === "string")
+        : null;
 
     if (!email || typeof email !== "string") {
       return new Response(JSON.stringify({ error: "Email requis" }), {
@@ -185,7 +193,7 @@ serve(async (req) => {
         }
         await supabaseAdmin
           .from("affiliate_members")
-          .update({ is_active: true, role, first_name: firstName, last_name: lastName })
+          .update({ is_active: true, role, first_name: firstName, last_name: lastName, venue_scope: venueScope })
           .eq("id", existingMember.id);
       } else {
         await supabaseAdmin.from("affiliate_members").insert({
@@ -195,6 +203,7 @@ serve(async (req) => {
           first_name: firstName,
           last_name: lastName,
           linktree_slug: linktreeSlug,
+          venue_scope: venueScope,
           invited_by: caller.id,
           is_active: true,
         });
@@ -205,7 +214,7 @@ serve(async (req) => {
         .from("user_roles")
         .upsert({ user_id: existingUser.id, role: "affiliate_member" }, { onConflict: "user_id,role" });
 
-      if (resendApiKey) {
+      if (resendApiKey && !suppress_email) {
         try {
           const mail = buildInvitation({
             lang: "fr",
@@ -275,13 +284,14 @@ serve(async (req) => {
         first_name: firstName,
         last_name: lastName,
         linktree_slug: linktreeSlug,
+        venue_scope: venueScope,
         created_by: caller.id,
       }, { onConflict: "invitation_token" });
 
     const inviteLink = `${appOrigin}/auth?invite_affiliate_member=${invitationToken}&email=${encodeURIComponent(normalizedEmail)}`;
 
     let emailSent = false;
-    if (resendApiKey) {
+    if (resendApiKey && !suppress_email) {
       try {
         const mail = buildInvitation({
           lang: "fr",

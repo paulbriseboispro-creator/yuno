@@ -20,6 +20,8 @@ type MemberProfile = {
   linktree_slug: string | null;
   role: string;
   affiliate_id: string;
+  /** Périmètre clubs externes (affiliate_venues.id) — null = tous les clubs. */
+  venue_scope: string[] | null;
   affiliate: { name: string; city: string | null } | null;
 };
 
@@ -64,9 +66,12 @@ export default function AffiliatePromoterDashboard() {
   }, [user]);
 
   const init = async () => {
-    const { data } = await supabase
+    // venue_scope est trop récent pour le fichier de types généré (1,5 Mo à
+    // régénérer pour une colonne) : cast local, comme promoterPayout.ts.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (supabase as any)
       .from('affiliate_members')
-      .select('id, first_name, last_name, linktree_slug, role, affiliate_id, affiliates(name, city)')
+      .select('id, first_name, last_name, linktree_slug, role, affiliate_id, venue_scope, affiliates(name, city)')
       .eq('user_id', user!.id)
       .eq('is_active', true)
       .maybeSingle();
@@ -74,11 +79,12 @@ export default function AffiliatePromoterDashboard() {
     if (data) {
       const p: MemberProfile = {
         ...data,
+        venue_scope: (data as { venue_scope?: string[] | null }).venue_scope ?? null,
         affiliate: Array.isArray(data.affiliates) ? data.affiliates[0] ?? null : (data.affiliates as any),
       };
       setProfile(p);
       await Promise.all([
-        fetchAssignments(p.id),
+        fetchAssignments(p.id, p.venue_scope),
         fetchWeekStats(p.id),
         fetchBriefEvents(p.affiliate_id),
         (async () => {
@@ -94,18 +100,29 @@ export default function AffiliatePromoterDashboard() {
     setLoading(false);
   };
 
-  const fetchAssignments = async (memberId: string) => {
-    const { data } = await supabase
+  const fetchAssignments = async (memberId: string, venueScope: string[] | null = null) => {
+    const { data: raw } = await supabase
       .from('affiliate_event_assignments')
       .select(`
-        id, affiliate_event_id, submitted_url,
-        affiliate_events(name, event_date, flyer_url)
+        id, affiliate_event_id, submitted_url, member_id,
+        affiliate_events(name, event_date, flyer_url, affiliate_venue_id)
       `)
       .or(`member_id.eq.${memberId},member_id.is.null`)
       .eq('status', 'pending_url')
       .order('assigned_at', { ascending: false });
 
-    if (!data) return;
+    // Périmètre clubs : une assignation « tous les promoteurs » ne concerne ce
+    // membre que si la soirée a lieu dans un de SES clubs. Une assignation
+    // nominative, elle, passe toujours (choix explicite de l'agence).
+    const data = (raw ?? []).filter((r: any) =>
+      r.member_id !== null
+      || !venueScope
+      || venueScope.length === 0
+      || !r.affiliate_events?.affiliate_venue_id
+      || venueScope.includes(r.affiliate_events.affiliate_venue_id)
+    );
+
+    if (data.length === 0) { setAssignments([]); return; }
 
     // check which events have briefs
     const eventIds = (data as any[]).map((r: any) => r.affiliate_event_id).filter(Boolean);

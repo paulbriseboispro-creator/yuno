@@ -13,8 +13,8 @@ import {
   RED, POS, T1, T2, T3, BORDER, TILE_BG, F_BORDER,
 } from '@/components/affiliate/affiliate-ui';
 
-type EventOption = { id: string; name: string; event_date: string };
-type MemberOption = { id: string; display_name: string };
+type EventOption = { id: string; name: string; event_date: string; affiliate_venue_id: string | null };
+type MemberOption = { id: string; display_name: string; venue_scope: string[] | null };
 // Soirées Yuno des clubs sous contrat actif de l'agence fusionnée : elles se
 // mêlent au sélecteur, l'assignation passe alors par les enregistrements
 // promoteurs (assign_agency_promoter_to_event), pas par la collecte d'URL.
@@ -75,13 +75,13 @@ export default function AffiliateAssignments() {
 
     const [{ data: evData }, { data: memData }] = await Promise.all([
       supabase.from('affiliate_events')
-        .select('id, name, event_date')
+        .select('id, name, event_date, affiliate_venue_id')
         .eq('affiliate_id', aff.id)
         .in('status', ['published', 'featured'])
         .gte('event_date', new Date().toISOString().split('T')[0])
         .order('event_date'),
       supabase.from('affiliate_members')
-        .select('id, first_name, last_name')
+        .select('id, first_name, last_name, venue_scope')
         .eq('affiliate_id', aff.id)
         .eq('is_active', true)
         .order('first_name'),
@@ -91,6 +91,7 @@ export default function AffiliateAssignments() {
     setMembers((memData ?? []).map((m: any) => ({
       id: m.id,
       display_name: [m.first_name, m.last_name].filter(Boolean).join(' ') || m.id.slice(0, 8),
+      venue_scope: m.venue_scope ?? null,
     })));
 
     // Entité fusionnée : les soirées Yuno des clubs sous contrat entrent dans
@@ -130,6 +131,17 @@ export default function AffiliateAssignments() {
   const selectedYunoEvent = isYunoEvent
     ? yunoEvents.find(e => e.event_id === selectedEvent.slice(5)) ?? null
     : null;
+  const selectedExternalEvent = !isYunoEvent && selectedEvent
+    ? events.find(e => e.id === selectedEvent) ?? null
+    : null;
+
+  // Périmètre clubs externes : pour une soirée externe, on ne propose que les
+  // membres dont le périmètre couvre le club de la soirée (null = tous).
+  const scopedMembers = selectedExternalEvent?.affiliate_venue_id
+    ? members.filter(m =>
+        !m.venue_scope || m.venue_scope.length === 0
+        || m.venue_scope.includes(selectedExternalEvent.affiliate_venue_id!))
+    : members;
 
   const handleAssign = async () => {
     if (!selectedEvent) { toast({ title: t('aff.assign.toast.selectEvent'), variant: 'destructive' }); return; }
@@ -311,10 +323,11 @@ export default function AffiliateAssignments() {
             {!targetAll && (
               <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                 {/* Soirée Yuno → cibles = promoteurs de l'agence ; soirée
-                    externe → membres du bras affilié. */}
+                    externe → membres du bras affilié dont le périmètre couvre
+                    le club de la soirée. */}
                 {(isYunoEvent
                   ? yunoPersons.map(p => ({ id: p.userId, display_name: p.display_name }))
-                  : members
+                  : scopedMembers
                 ).map(m => {
                   const checked = selectedMembers.has(m.id);
                   return (
@@ -329,7 +342,7 @@ export default function AffiliateAssignments() {
                     </button>
                   );
                 })}
-                {(isYunoEvent ? yunoPersons.length === 0 : members.length === 0) && (
+                {(isYunoEvent ? yunoPersons.length === 0 : scopedMembers.length === 0) && (
                   <p style={{ color: T3, fontSize: 11.5, fontStyle: 'italic' }}>{t('aff.assign.noActivePromoters')}</p>
                 )}
               </div>

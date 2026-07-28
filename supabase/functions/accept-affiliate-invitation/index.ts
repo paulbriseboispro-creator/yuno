@@ -112,6 +112,7 @@ serve(async (req) => {
             first_name: meta?.first_name ?? null,
             last_name: meta?.last_name ?? null,
             linktree_slug: meta?.linktree_slug ?? null,
+            venue_scope: meta?.venue_scope ?? null,
             invited_by: meta?.created_by ?? null,
             is_active: true,
           }, { onConflict: "affiliate_id,user_id" });

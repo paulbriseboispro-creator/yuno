@@ -1,10 +1,17 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { buildInvitation } from '../_shared/email-templates.ts';
+import { buildInvitation, buildAgencyPromoterRecap } from '../_shared/email-templates.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+interface CommissionConfig {
+  ticket_commission_type?: string;
+  ticket_commission_value?: number;
+  table_commission_type?: string;
+  table_commission_value?: number;
+}
 
 interface InviteRequest {
   email: string;
@@ -19,12 +26,23 @@ interface InviteRequest {
   first_name?: string;
   last_name?: string;
   resend?: boolean;
-  commission_config?: {
-    ticket_commission_type?: string;
-    ticket_commission_value?: number;
-    table_commission_type?: string;
-    table_commission_value?: number;
-  };
+  commission_config?: CommissionConfig;
+  // ── Mode agence multi-clubs ──
+  // Plusieurs clubs Yuno dans UNE invitation : une ligne promoter_invitations
+  // par club, mais UN SEUL email récapitulatif (clubs + rémunération + bras
+  // externe). L'acceptation du lien consomme tout le lot.
+  targets?: Array<{ venue_id?: string; organizer_user_id?: string }>;
+  // Affichage du bras externe dans le récap (le membre est créé séparément
+  // par invite-affiliate-member, email supprimé côté appelant).
+  external_recap?: { all: boolean; venue_names: string[] } | null;
+}
+
+/** « Billets 10 € · Tables 5 % » — la rémunération telle que le promoteur la lira. */
+function commissionLabel(cfg: CommissionConfig | undefined): string {
+  const fmt = (type: string | undefined, value: number | undefined) =>
+    `${Number(value) || 0}${type === 'percentage' ? ' %' : ' €'}`;
+  return `Billets ${fmt(cfg?.ticket_commission_type, cfg?.ticket_commission_value)}`
+    + ` · Tables ${fmt(cfg?.table_commission_type, cfg?.table_commission_value)}`;
 }
 
 function generatePromoCode(email: string, firstName?: string, lastName?: string): string {
@@ -57,6 +75,169 @@ Deno.serve(async (req) => {
 
     const body: InviteRequest = await req.json();
     const { email, venue_id, organizer_user_id, agency_id, venue_name, promo_code, first_name, last_name, resend, commission_config } = body;
+
+    // ── Mode agence multi-clubs : N clubs, UN email récapitulatif ────────────
+    if (Array.isArray(body.targets) && body.targets.length > 0) {
+      if (!email || !agency_id) {
+        return new Response(JSON.stringify({ error: 'Email and agency_id required for multi-club invites' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const { data: agency } = await supabase
+        .from('agencies').select('id, name').eq('id', agency_id).eq('owner_user_id', user.id).maybeSingle();
+      if (!agency) {
+        return new Response(JSON.stringify({ error: 'Only the agency owner can invite agency promoters' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const normalizedEmailB = email.toLowerCase().trim();
+      const { data: existingProfilesB } = await supabase
+        .from('profiles').select('id').eq('email', normalizedEmailB).limit(1);
+      const bundleUserId = existingProfilesB?.[0]?.id ?? null;
+
+      type TargetResult = { label: string; status: 'invited' | 'already_linked' | 'already_pending'; token?: string };
+      const results: TargetResult[] = [];
+      const recapClubs: Array<{ name: string; commission: string }> = [];
+      let ctaToken: string | null = null;
+
+      for (const target of body.targets) {
+        const isOrgTarget = !!target.organizer_user_id && !target.venue_id;
+        if (!target.venue_id && !target.organizer_user_id) continue;
+
+        // Contrat actif obligatoire entre l'agence et ce club/orga.
+        let contractQuery = supabase
+          .from('agency_venue_contracts').select('id').eq('agency_id', agency_id).eq('status', 'active');
+        contractQuery = isOrgTarget
+          ? contractQuery.eq('organizer_user_id', target.organizer_user_id!)
+          : contractQuery.eq('venue_id', target.venue_id!);
+        const { data: contract } = await contractQuery.limit(1);
+        if (!contract || contract.length === 0) {
+          return new Response(JSON.stringify({
+            error: `No active contract between this agency and ${target.venue_id || target.organizer_user_id}`,
+            code: 'no_active_contract',
+          }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+
+        // Nom lisible du club/orga — c'est ce que le promoteur lira dans l'email.
+        let label = target.venue_id || 'Organisation';
+        if (isOrgTarget) {
+          const { data: orgProfile } = await supabase
+            .from('organizer_profiles').select('display_name').eq('user_id', target.organizer_user_id!).maybeSingle();
+          label = orgProfile?.display_name || 'Organisation';
+        } else {
+          const { data: venue } = await supabase
+            .from('venues').select('name').eq('id', target.venue_id!).maybeSingle();
+          label = venue?.name || target.venue_id!;
+        }
+
+        const scopeCol = isOrgTarget ? 'organizer_user_id' as const : 'venue_id' as const;
+        const scopeVal = isOrgTarget ? target.organizer_user_id! : target.venue_id!;
+
+        // Déjà promoteur sur ce club → rien à envoyer pour cette cible.
+        if (bundleUserId) {
+          const { data: existingPromoter } = await supabase
+            .from('promoters').select('id')
+            .eq('user_id', bundleUserId).eq(scopeCol, scopeVal).limit(1);
+          if (existingPromoter && existingPromoter.length > 0) {
+            results.push({ label, status: 'already_linked' });
+            continue;
+          }
+        }
+
+        // Invitation déjà en attente sur ce club → on la réutilise (le lien du
+        // récap acceptera tout le lot, elle comprise).
+        const { data: pendingInv } = await supabase
+          .from('promoter_invitations')
+          .select('id, token')
+          .eq('email', normalizedEmailB).eq('status', 'pending').eq(scopeCol, scopeVal)
+          .limit(1);
+        if (pendingInv && pendingInv.length > 0) {
+          results.push({ label, status: 'already_pending', token: pendingInv[0].token });
+          recapClubs.push({ name: label, commission: commissionLabel(commission_config) });
+          ctaToken = ctaToken ?? pendingInv[0].token;
+          continue;
+        }
+
+        // Code promo propre à ce club.
+        let targetPromoCode = '';
+        for (let attempts = 0; attempts < 5; attempts++) {
+          const candidate = generatePromoCode(normalizedEmailB, first_name, last_name);
+          const { data: existing } = await supabase
+            .from('promoters').select('id')
+            .eq(scopeCol, scopeVal).eq('promo_code', candidate).limit(1);
+          if (!existing || existing.length === 0) { targetPromoCode = candidate; break; }
+        }
+        if (!targetPromoCode) targetPromoCode = `PROMO${Date.now().toString().slice(-6)}`;
+
+        const insertPayload: Record<string, unknown> = {
+          email: normalizedEmailB,
+          invited_by: user.id,
+          promo_code: targetPromoCode,
+          agency_id,
+          commission_config: { ...commission_config, has_yuno_account: !!bundleUserId },
+        };
+        insertPayload[scopeCol] = scopeVal;
+
+        const { data: invitation, error: inviteError } = await supabase
+          .from('promoter_invitations').insert(insertPayload).select('token').single();
+        if (inviteError) {
+          return new Response(JSON.stringify({ error: inviteError.message }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        results.push({ label, status: 'invited', token: invitation.token });
+        recapClubs.push({ name: label, commission: commissionLabel(commission_config) });
+        ctaToken = ctaToken ?? invitation.token;
+      }
+
+      // UN email récapitulatif — clubs Yuno + rémunération + bras externe.
+      const externalLabel = body.external_recap
+        ? (body.external_recap.all
+          ? 'Tous les clubs'
+          : body.external_recap.venue_names.join(', ') || undefined)
+        : undefined;
+
+      let emailSent = false;
+      const resendApiKeyB = Deno.env.get('RESEND_API_KEY');
+      if (resendApiKeyB && ctaToken && (recapClubs.length > 0 || externalLabel)) {
+        const acceptUrl = `https://yunoapp.eu/accept-promoter-invitation?token=${ctaToken}`;
+        const mail = buildAgencyPromoterRecap({
+          lang: 'fr',
+          agencyName: agency.name,
+          yunoClubs: recapClubs,
+          externalLabel,
+          acceptUrl,
+        });
+        const res = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${resendApiKeyB}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: 'Yuno <contact@yunoapp.eu>',
+            to: [normalizedEmailB],
+            subject: mail.subject,
+            html: mail.html,
+          }),
+        });
+        if (res.ok) {
+          emailSent = true;
+        } else {
+          const resBody = await res.text().catch(() => '');
+          console.error('invite-promoter recap email send failed:', res.status, resBody);
+          return new Response(JSON.stringify({ error: "Échec de l'envoi de l'invitation par email" }), {
+            status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        email_sent: emailSent,
+        results,
+        all_already_linked: results.length > 0 && results.every(r => r.status === 'already_linked'),
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
 
     if (!email || (!venue_id && !organizer_user_id)) {
       return new Response(JSON.stringify({ error: 'Email and venue_id or organizer_user_id required' }), {

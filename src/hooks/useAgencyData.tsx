@@ -92,18 +92,25 @@ export type ExternalMember = {
   linktree_slug: string | null;
 };
 
+/** Club externe référencé par le bras affilié — sert au périmètre par promoteur. */
+export type ExternalVenue = {
+  id: string;
+  name: string;
+};
+
 export function useAgencyData(agencyId: string | null) {
   const [promoters, setPromoters] = useState<AgencyPromoter[]>([]);
   const [contracts, setContracts] = useState<AgencyContract[]>([]);
   const [conversions, setConversions] = useState<AgencyConversion[]>([]);
   const [groups, setGroups] = useState<AgencyPromoterGroup[]>([]);
   const [externalMembers, setExternalMembers] = useState<ExternalMember[]>([]);
+  const [externalVenues, setExternalVenues] = useState<ExternalVenue[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refetch = useCallback(async () => {
     if (!agencyId) {
       setPromoters([]); setContracts([]); setConversions([]); setGroups([]);
-      setExternalMembers([]);
+      setExternalMembers([]); setExternalVenues([]);
       setLoading(false);
       return;
     }
@@ -125,9 +132,9 @@ export function useAgencyData(agencyId: string | null) {
         .select('*')
         .eq('agency_id', agencyId)
         .order('created_at', { ascending: true }),
-      // Bras externe (fusion) : les membres affiliés de l'agence.
+      // Bras externe (fusion) : membres affiliés + catalogue de clubs externes.
       db.from('affiliates')
-        .select('id, affiliate_members(id, user_id, first_name, last_name, role, is_active, linktree_slug)')
+        .select('id, affiliate_members(id, user_id, first_name, last_name, role, is_active, linktree_slug), affiliate_venues(id, name)')
         .eq('agency_id', agencyId)
         .maybeSingle(),
     ]);
@@ -136,6 +143,7 @@ export function useAgencyData(agencyId: string | null) {
     setConversions((convRes.data as AgencyConversion[]) ?? []);
     setGroups((gRes.data as AgencyPromoterGroup[]) ?? []);
     setExternalMembers(((armRes.data?.affiliate_members as ExternalMember[]) ?? []).filter(m => m.is_active));
+    setExternalVenues((armRes.data?.affiliate_venues as ExternalVenue[]) ?? []);
     setLoading(false);
   }, [agencyId]);
 
@@ -155,7 +163,7 @@ export function useAgencyData(agencyId: string | null) {
     activeClubs: contracts.filter(c => c.status === 'active').length,
   };
 
-  return { promoters, contracts, conversions, groups, externalMembers, totals, loading, refetch };
+  return { promoters, contracts, conversions, groups, externalMembers, externalVenues, totals, loading, refetch };
 }
 
 export function promoterName(

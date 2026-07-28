@@ -463,6 +463,59 @@ export function buildInvitation(d: {
   return { subject, preheader: `${lbl(lang, 'role')}: ${d.roleLabel}`, html };
 }
 
+// ── 12b. Invitation promoteur d'agence — récap multi-clubs ────────────────────
+// UNE invitation, UN email, UN lien : le promoteur voit d'un coup d'œil tous
+// les clubs sur lesquels l'agence le connecte (Yuno + externes) et ce qu'il
+// touche par vente. Le lien accepte tout le lot d'un geste.
+export function buildAgencyPromoterRecap(d: {
+  lang?: Lang;
+  agencyName: string;
+  /** Clubs Yuno sous contrat : nom + rémunération lisible (ex. « Billets 10 € · Tables 5 % »). */
+  yunoClubs: Array<{ name: string; commission: string }>;
+  /** Périmètre externe lisible (ex. « Tous les clubs » ou « Le Bonsaï, Silencio ») — absent si non concerné. */
+  externalLabel?: string;
+  acceptUrl: string;
+}): BuiltEmail {
+  const lang = L(d.lang || 'en');
+  const subject = p(lang, {
+    en: `${d.agencyName} brings you on board`,
+    fr: `${d.agencyName} te connecte à ses clubs`,
+    es: `${d.agencyName} te conecta a sus clubs`,
+  });
+  const rows = [
+    ...d.yunoClubs.map(c => ({ k: c.name, v: c.commission })),
+    ...(d.externalLabel
+      ? [{ k: p(lang, { en: 'External clubs', fr: 'Clubs externes', es: 'Clubs externos' }), v: d.externalLabel }]
+      : []),
+  ];
+  const html = shell({
+    title: subject,
+    preheader: p(lang, {
+      en: `${rows.length} club${rows.length > 1 ? 's' : ''} — one link to activate everything`,
+      fr: `${rows.length} club${rows.length > 1 ? 's' : ''} — un seul lien pour tout activer`,
+      es: `${rows.length} club${rows.length > 1 ? 's' : ''} — un solo enlace para activarlo todo`,
+    }),
+    body: [
+      brandBar(),
+      section(ruleLabel(p(lang, { en: 'Invitation', fr: 'Invitation', es: 'Invitación' })) + `<div style="height:16px"></div>` +
+        title(p(lang, { en: `Join ${d.agencyName}`, fr: `Rejoins ${d.agencyName}`, es: `Únete a ${d.agencyName}` }), 30) + `<div style="height:16px"></div>` +
+        body(p(lang, {
+          en: `<strong style="color:${C.white}">${d.agencyName}</strong> invites you as <strong style="color:${C.white}">promoter</strong>. Here is everything the agency connects you to — one link activates it all.`,
+          fr: `<strong style="color:${C.white}">${d.agencyName}</strong> t'invite comme <strong style="color:${C.white}">promoteur</strong>. Voici tout ce que l'agence te connecte — un seul lien active l'ensemble.`,
+          es: `<strong style="color:${C.white}">${d.agencyName}</strong> te invita como <strong style="color:${C.white}">promotor</strong>. Esto es todo lo que la agencia te conecta — un solo enlace lo activa todo.`,
+        })), { border: false }),
+      ...(rows.length > 0 ? [section(infoRows(rows))] : []),
+      section(ctaPill(p(lang, { en: 'Activate my access', fr: 'Activer mon accès', es: 'Activar mi acceso' }), d.acceptUrl), { border: false }),
+      footer({ lang, reason: p(lang, {
+        en: `${d.agencyName} invited you on Yuno`,
+        fr: `${d.agencyName} t'a invité sur Yuno`,
+        es: `${d.agencyName} te invitó en Yuno`,
+      }) }),
+    ].join(''),
+  });
+  return { subject, preheader: '', html };
+}
+
 // ── 13. Création de mot de passe (accept-*) ───────────────────────────────────
 export function buildPasswordSetup(d: {
   lang?: Lang; orgName?: string; roleLabel?: string; setupUrl: string;
