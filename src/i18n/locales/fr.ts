@@ -5127,6 +5127,7 @@ const fr: Record<string, string> = {
   'vipHost.noHosts': 'Aucun VIP Host assigné',
   'vipHost.addHostHint': 'Ajoutez un VIP Host depuis la section Personnel',
   'vipHost.floorPlan': 'Plan de Salle',
+  'vipHost.manualReservation': 'Réservation à la main',
   'vipHost.floorPlanConfigured': 'Plan configuré',
   'vipHost.editFloorPlan': 'Modifier le Plan',
   'vipHost.noFloorPlan': 'Aucun plan configuré',

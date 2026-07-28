@@ -5389,6 +5389,7 @@ const es: Record<string, string> = {
   'vipHost.noHosts': 'Sin VIP Hosts asignados',
   'vipHost.addHostHint': 'Añade un VIP Host desde la sección Personal',
   'vipHost.floorPlan': 'Plano del Local',
+  'vipHost.manualReservation': 'Reserva manual',
   'vipHost.floorPlanConfigured': 'Plano configurado',
   'vipHost.editFloorPlan': 'Editar Plano',
   'vipHost.noFloorPlan': 'Sin plano configurado',

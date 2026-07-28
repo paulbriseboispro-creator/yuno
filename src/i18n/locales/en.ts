@@ -5201,6 +5201,7 @@ const en: Record<string, string> = {
   'vipHost.noHosts': 'No VIP Hosts assigned',
   'vipHost.addHostHint': 'Add a VIP Host from the Staff section',
   'vipHost.floorPlan': 'Floor Plan',
+  'vipHost.manualReservation': 'Manual reservation',
   'vipHost.floorPlanConfigured': 'Floor plan configured',
   'vipHost.editFloorPlan': 'Edit Floor Plan',
   'vipHost.noFloorPlan': 'No floor plan configured',

@@ -7,12 +7,15 @@ import { VipQRCodeSection } from '@/components/owner/VipQRCodeSection';
 import { VipEventSelector } from '@/components/owner/vip/VipEventSelector';
 import { VipOverviewTab } from '@/components/owner/vip/VipOverviewTab';
 import { VipReservationsTab } from '@/components/owner/vip/VipReservationsTab';
+import { ManualReservationDialog } from '@/components/owner/vip/ManualReservationDialog';
 import { VipPlacementRequests } from '@/components/owner/vip/VipPlacementRequests';
 import { VipFloorPlan } from '@/components/vip-host/VipFloorPlan';
 import { OwnerTableDetailSheet } from '@/components/owner/vip/OwnerTableDetailSheet';
 import { PlacementFloorPlanSheet } from '@/components/owner/vip/PlacementFloorPlanSheet';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useOwnerVipData } from '@/hooks/useOwnerVipData';
+import { useOwnerVipData, type OwnerVipReservation, type OwnerVipConsumption } from '@/hooks/useOwnerVipData';
+import type { VenueFloorPlan, VipReservation, VipConsumption } from '@/types';
+import type { Tables } from '@/integrations/supabase/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -39,6 +42,9 @@ interface TableZone {
   color: string;
 }
 
+// Colonnes profiles sélectionnées pour la liste des hôtes VIP.
+type VipHostRow = Pick<Tables<'profiles'>, 'id' | 'first_name' | 'last_name' | 'email'>;
+
 type VipTab = 'overview' | 'reservations' | 'placement' | 'menu' | 'staff' | 'settings';
 
 export default function OwnerVipService() {
@@ -48,17 +54,18 @@ export default function OwnerVipService() {
 
   const [activeTab, setActiveTab] = useState<VipTab>('overview');
   const [selectedEventId, setSelectedEventId] = useState<string>('all');
-  const [vipHosts, setVipHosts] = useState<any[]>([]);
+  const [showManualRes, setShowManualRes] = useState(false);
+  const [vipHosts, setVipHosts] = useState<VipHostRow[]>([]);
   const [quickItems, setQuickItems] = useState<QuickItem[]>([]);
   const [zones, setZones] = useState<TableZone[]>([]);
   const [editingItem, setEditingItem] = useState<QuickItem | null>(null);
-  const [newItem, setNewItem] = useState({ name: '', item_type: 'bottle' as const, default_price: 0 });
+  const [newItem, setNewItem] = useState<{ name: string; item_type: QuickItem['item_type']; default_price: number }>({ name: '', item_type: 'bottle', default_price: 0 });
   const [showAddItem, setShowAddItem] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [vipPlacementEnabled, setVipPlacementEnabled] = useState(false);
-  const [floorPlan, setFloorPlan] = useState<any>(null);
-  const [selectedTableReservation, setSelectedTableReservation] = useState<any>(null);
-  const [modifyingReservation, setModifyingReservation] = useState<any>(null);
+  const [floorPlan, setFloorPlan] = useState<VenueFloorPlan | null>(null);
+  const [selectedTableReservation, setSelectedTableReservation] = useState<OwnerVipReservation | null>(null);
+  const [modifyingReservation, setModifyingReservation] = useState<OwnerVipReservation | null>(null);
 
   // Auto-select the most recent/active event
   useEffect(() => {
@@ -90,8 +97,8 @@ export default function OwnerVipService() {
 
         setVipHosts(hostsRes);
         setZones(zonesRes.data || []);
-        setQuickItems((itemsRes.data || []).map((item: any) => ({
-          id: item.id, name: item.name, item_type: item.item_type,
+        setQuickItems((itemsRes.data || []).map(item => ({
+          id: item.id, name: item.name, item_type: item.item_type as QuickItem['item_type'],
           default_price: item.default_price, position: item.position, is_active: item.is_active,
         })));
         setVipPlacementEnabled(venueRes.data?.vip_placement_enabled || false);
@@ -111,7 +118,7 @@ export default function OwnerVipService() {
     if (!venueId) return;
     let cancelled = false;
     (async () => {
-      let fp: any = null;
+      let fp: Tables<'venue_floor_plans'> | null = null;
       if (selectedEventId && selectedEventId !== 'all') {
         const { data } = await supabase.from('venue_floor_plans').select('*').eq('event_id', selectedEventId).maybeSingle();
         fp = data;
@@ -125,7 +132,8 @@ export default function OwnerVipService() {
         id: fp.id,
         venueId: fp.venue_id,
         backgroundImageUrl: fp.background_image_url,
-        layout: fp.layout,
+        // layout est stocké en Json ; sa forme réelle est celle de VenueFloorPlan['layout'].
+        layout: fp.layout as unknown as VenueFloorPlan['layout'],
         createdAt: fp.created_at,
         updatedAt: fp.updated_at,
       } : null);
@@ -152,7 +160,7 @@ export default function OwnerVipService() {
         zoneName: r.zoneName,
         zoneColor: r.zoneColor,
         requestedTableId: r.requestedTableId,
-        requestedTableName: floorPlan?.layout?.tables?.find((t: any) => t.id === r.requestedTableId)?.name,
+        requestedTableName: floorPlan?.layout?.tables?.find(tb => tb.id === r.requestedTableId)?.name,
         placementStatus: r.placementStatus || 'requested',
         totalPrice: r.totalPrice,
         deposit: r.deposit,
@@ -169,7 +177,7 @@ export default function OwnerVipService() {
 
   // Build consumptions map for floor plan
   const consumptionsMap = useMemo(() => {
-    const map = new Map<string, any[]>();
+    const map = new Map<string, OwnerVipConsumption[]>();
     filteredConsumptions.forEach(c => {
       const existing = map.get(c.reservationId) || [];
       map.set(c.reservationId, [...existing, c]);
@@ -298,13 +306,21 @@ export default function OwnerVipService() {
 
           {/* Reservations */}
           {activeTab === 'reservations' && (
-            <VipReservationsTab
-              reservations={filteredReservations}
-              consumptions={filteredConsumptions}
-              orders={filteredOrders}
-              events={events}
-              selectedEventId={selectedEventId}
-            />
+            <div className="space-y-3">
+              <div className="flex justify-end">
+                <VipButton size="sm" variant="primary" disabled={events.length === 0} onClick={() => setShowManualRes(true)}>
+                  <Plus className="h-3.5 w-3.5" />
+                  {t('vipHost.manualReservation')}
+                </VipButton>
+              </div>
+              <VipReservationsTab
+                reservations={filteredReservations}
+                consumptions={filteredConsumptions}
+                orders={filteredOrders}
+                events={events}
+                selectedEventId={selectedEventId}
+              />
+            </div>
           )}
 
           {/* Placement & Live Floor Plan */}
@@ -318,8 +334,9 @@ export default function OwnerVipService() {
                 >
                   <VipFloorPlan
                     floorPlan={floorPlan}
-                    reservations={filteredReservations as any}
-                    consumptions={consumptionsMap}
+                    // OwnerVipReservation couvre les champs que le plan lit réellement (id, vipStatus, assignedTableId…).
+                    reservations={filteredReservations as unknown as VipReservation[]}
+                    consumptions={consumptionsMap as unknown as Map<string, VipConsumption[]>}
                     mode="view"
                     preorderReservationIds={preorderReservationIds}
                     selectedTableId={selectedTableReservation?.assignedTableId}
@@ -335,7 +352,8 @@ export default function OwnerVipService() {
                 requests={placementRequests}
                 onRefresh={refresh}
                 floorPlan={floorPlan}
-                reservations={filteredReservations as any}
+                // Même lecture partielle que VipFloorPlan : champs communs aux deux formes de réservation.
+                reservations={filteredReservations as unknown as VipReservation[]}
               />
             </div>
           )}
@@ -358,7 +376,7 @@ export default function OwnerVipService() {
                 />
               ) : (
                 <div className="space-y-2">
-                  {vipHosts.map((host: any) => (
+                  {vipHosts.map(host => (
                     <div
                       key={host.id}
                       className="flex items-center justify-between py-2.5 px-3 rounded-xl"
@@ -459,7 +477,7 @@ export default function OwnerVipService() {
                     </div>
                     <div>
                       <VipFieldLabel>{t('vipHost.itemType')}</VipFieldLabel>
-                      <VipSelect value={newItem.item_type} onChange={v => setNewItem(p => ({ ...p, item_type: v as any }))} className="w-full h-auto py-2.5">
+                      <VipSelect value={newItem.item_type} onChange={v => setNewItem(p => ({ ...p, item_type: v as QuickItem['item_type'] }))} className="w-full h-auto py-2.5">
                         <option value="bottle" style={{ background: '#0a0a0c' }}>{t('vipHost.typeBottle')}</option>
                         <option value="extra" style={{ background: '#0a0a0c' }}>{t('vipHost.typeExtra')}</option>
                         <option value="service" style={{ background: '#0a0a0c' }}>{t('vipHost.typeService')}</option>
@@ -554,7 +572,7 @@ export default function OwnerVipService() {
           onChanged={() => { refresh(); setSelectedTableReservation(null); }}
           tableName={
             selectedTableReservation?.assignedTableId
-              ? floorPlan?.layout?.tables?.find((t: any) => t.id === selectedTableReservation.assignedTableId)?.name
+              ? floorPlan?.layout?.tables?.find(tb => tb.id === selectedTableReservation.assignedTableId)?.name
               : undefined
           }
         />
@@ -569,11 +587,21 @@ export default function OwnerVipService() {
             guestCount: modifyingReservation.guestCount,
             zoneName: modifyingReservation.zoneName,
             requestedTableId: modifyingReservation.requestedTableId || modifyingReservation.assignedTableId,
-            requestedTableName: floorPlan?.layout?.tables?.find((t: any) => t.id === (modifyingReservation.requestedTableId || modifyingReservation.assignedTableId))?.name,
+            requestedTableName: floorPlan?.layout?.tables?.find(tb => tb.id === (modifyingReservation.requestedTableId || modifyingReservation.assignedTableId))?.name,
           } : null}
           floorPlan={floorPlan}
-          reservations={filteredReservations as any}
+          // Même lecture partielle que VipFloorPlan : champs communs aux deux formes de réservation.
+          reservations={filteredReservations as unknown as VipReservation[]}
           onRefresh={refresh}
+        />
+
+        <ManualReservationDialog
+          open={showManualRes}
+          events={events}
+          zones={zones}
+          defaultEventId={selectedEventId}
+          onCreated={refresh}
+          onClose={() => setShowManualRes(false)}
         />
       </VipPage>
     </div>
