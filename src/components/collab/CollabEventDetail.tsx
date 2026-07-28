@@ -30,6 +30,7 @@ import { OrgEventDrinksMenu } from '@/components/organizer-app/OrgEventDrinksMen
 import { OrgBilletterieDialog } from '@/components/organizer-app/OrgBilletterieDialog';
 import { PurchaseSourceBreakdown } from '@/components/analytics/PurchaseSourceBreakdown';
 import { EventAudienceDemographics } from '@/components/analytics/EventAudienceDemographics';
+import { CollabAudienceOverlap } from '@/components/collab/CollabAudienceOverlap';
 import { EventLiveModule } from '@/components/owner/co-event/EventLiveModule';
 import { EventPostAnalysisView } from '@/components/owner/co-event/EventPostAnalysisView';
 import { EventGuestListModule } from '@/components/owner/co-event/EventGuestListModule';
@@ -568,6 +569,13 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
               <Section icon={UsersRound} title={t('Qui est venu', 'Who showed up', 'Quién vino')}
                 sub={t('Âge, sexe et villes du public — agrégé et anonyme.', "The crowd's age, gender and cities — aggregated and anonymous.", 'Edad, sexo y ciudades del público, agregado y anónimo.')}>
                 <EventAudienceDemographics scope={{ kind: viewerRole === 'venue' ? 'venue' : 'organizer', id: scopeId }} eventId={event.id} />
+              </Section>
+            )}
+
+            {isCollab && (
+              <Section icon={Users} title={t('Audience partagée', 'Shared audience', 'Audiencia compartida')}
+                sub={t('Les abonnés communs aux deux parties et l\'audience net-new que la collab débloque.', 'Subscribers shared by both sides and the net-new audience this collab unlocks.', 'Suscriptores comunes y la audiencia nueva que desbloquea la colaboración.')}>
+                <CollabAudienceOverlap eventId={event.id} />
               </Section>
             )}
 
