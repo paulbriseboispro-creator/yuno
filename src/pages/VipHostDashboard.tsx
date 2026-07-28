@@ -20,6 +20,7 @@ import { ServiceNightTab } from '@/components/vip-service/ServiceNightTab';
 import { TableServiceSheet } from '@/components/vip-service/TableServiceSheet';
 import { SeatPickerSheet } from '@/components/vip-service/SeatPickerSheet';
 import { OrderComposerSheet } from '@/components/vip-service/OrderComposerSheet';
+import { OrderTargetPickerSheet } from '@/components/vip-service/OrderTargetPickerSheet';
 import { VipEventBar } from '@/components/vip-service/VipEventBar';
 import { VipHomeTab } from '@/components/vip-service/VipHomeTab';
 import { VipLivePanel } from '@/components/vip-service/VipLivePanel';
@@ -62,6 +63,10 @@ export default function VipHostDashboard() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [seatPicker, setSeatPicker] = useState<{ reservation: ServiceReservation; moveMode: boolean } | null>(null);
   const [composerId, setComposerId] = useState<string | null>(null);
+  // Commande démarrée depuis la carte du plan live : on choisit d'abord la table
+  // (orderPicker), puis le composeur s'ouvre pré-rempli avec l'article touché.
+  const [orderPicker, setOrderPicker] = useState<{ seedItemId: string | null } | null>(null);
+  const [composerSeedItemId, setComposerSeedItemId] = useState<string | null>(null);
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [showFloorBackground, setShowFloorBackground] = useState(true);
@@ -82,6 +87,15 @@ export default function VipHostDashboard() {
 
   const selected = selectedId ? reservationById.get(selectedId) || null : null;
   const composerFor = composerId ? reservationById.get(composerId) || null : null;
+  const orderSeedItem = orderPicker?.seedItemId ? menuItems.find(m => m.id === orderPicker.seedItemId) : undefined;
+
+  // Depuis la carte du plan live → choisir la table → ouvrir le composeur.
+  const handleStartOrder = (seedItemId?: string | null) => setOrderPicker({ seedItemId: seedItemId ?? null });
+  const handlePickOrderTarget = (r: ServiceReservation) => {
+    setComposerSeedItemId(orderPicker?.seedItemId ?? null);
+    setComposerId(r.id);
+    setOrderPicker(null);
+  };
 
   // Tables demandées par des clients pas encore installés (tap plan → placement).
   const requestedByTable = useMemo(() => {
@@ -499,6 +513,8 @@ export default function VipHostDashboard() {
                   serviceInfo={serviceInfo}
                   menuItems={menuItems}
                   isPlanning={isPlanning}
+                  disabled={connectionStale}
+                  onStartOrder={handleStartOrder}
                 />
               )}
             </>
@@ -621,6 +637,16 @@ export default function VipHostDashboard() {
         onClose={() => setSeatPicker(null)}
       />
 
+      {/* Choix de la table pour une commande démarrée depuis la carte */}
+      <OrderTargetPickerSheet
+        open={!!orderPicker}
+        reservations={reservations}
+        serviceInfo={serviceInfo}
+        seedLabel={orderSeedItem?.name || null}
+        onPick={handlePickOrderTarget}
+        onClose={() => setOrderPicker(null)}
+      />
+
       {/* Prise de commande */}
       <OrderComposerSheet
         open={!!composerFor}
@@ -628,10 +654,11 @@ export default function VipHostDashboard() {
         info={composerFor ? serviceInfo.get(composerFor.id) || null : null}
         menuItems={menuItems}
         quickItems={quickItems}
+        seedItemId={composerSeedItemId}
         busy={actionBusy}
         disabled={connectionStale}
         onSubmit={handleSubmitCart}
-        onClose={() => setComposerId(null)}
+        onClose={() => { setComposerId(null); setComposerSeedItemId(null); }}
       />
     </div>
   );

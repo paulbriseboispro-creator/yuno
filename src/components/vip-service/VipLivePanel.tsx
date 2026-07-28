@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { Crown, Users, TrendingDown, Wallet } from 'lucide-react';
+import { Crown, Users, TrendingDown, Wallet, Plus } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { haptics } from '@/lib/haptics';
 import {
   ServiceReservation, ServiceMenuItem, TableServiceInfo, ComposerSection,
   menuSection, fmtEuro,
@@ -26,6 +27,10 @@ interface VipLivePanelProps {
   serviceInfo: Map<string, TableServiceInfo>;
   menuItems: ServiceMenuItem[];
   isPlanning: boolean;
+  disabled: boolean;
+  /** Démarre une commande : ouvre le choix de table, puis le composeur
+      (pré-rempli avec l'article si un id est passé). */
+  onStartOrder: (seedItemId?: string | null) => void;
 }
 
 /**
@@ -34,7 +39,7 @@ interface VipLivePanelProps {
  * référence rapide (« combien la Grey Goose ? » sans ouvrir de commande). En
  * préparation, seule la carte s'affiche : le pouls n'a de sens qu'en service.
  */
-export function VipLivePanel({ reservations, serviceInfo, menuItems, isPlanning }: VipLivePanelProps) {
+export function VipLivePanel({ reservations, serviceInfo, menuItems, isPlanning, disabled, onStartOrder }: VipLivePanelProps) {
   const { t } = useLanguage();
 
   const pulse = useMemo(() => {
@@ -80,9 +85,22 @@ export function VipLivePanel({ reservations, serviceInfo, menuItems, isPlanning 
 
       {menuItems.length > 0 && (
         <div className="rounded-2xl p-3.5" style={{ background: CARD_BG, border: `1px solid ${BORDER}` }}>
-          <p className="mb-2.5" style={{ color: T2, fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            {t('vipnight.menuTitle')}
-          </p>
+          <div className="mb-2.5 flex items-center justify-between gap-2">
+            <p style={{ color: T2, fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              {t('vipnight.menuTitle')}
+            </p>
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => { haptics.selection(); onStartOrder(null); }}
+              className="flex min-h-[32px] cursor-pointer items-center gap-1.5 rounded-full px-3 transition-transform active:scale-95 disabled:opacity-40"
+              style={{ background: RED, color: '#fff', fontSize: 12, fontWeight: 700 }}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              {t('vipnight.newOrder')}
+            </button>
+          </div>
+          <p className="mb-2" style={{ color: T3, fontSize: 11 }}>{t('vipnight.menuTapHint')}</p>
           <div className="space-y-3">
             {SECTION_ORDER.map(section => {
               const items = grouped[section];
@@ -94,9 +112,12 @@ export function VipLivePanel({ reservations, serviceInfo, menuItems, isPlanning 
                   </p>
                   <div className="space-y-1">
                     {items.map(m => (
-                      <div
+                      <button
                         key={m.id}
-                        className="flex items-center gap-2 rounded-lg px-2.5 py-1.5"
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => { haptics.selection(); onStartOrder(m.id); }}
+                        className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-all duration-150 active:scale-[0.99] disabled:opacity-40"
                         style={{ background: C_FAINT, border: `1px solid ${BORDER}` }}
                       >
                         <span className="min-w-0 flex-1 truncate" style={{ color: T1, fontSize: 12.5, fontWeight: 500 }}>
@@ -106,7 +127,10 @@ export function VipLivePanel({ reservations, serviceInfo, menuItems, isPlanning 
                         <span className="shrink-0 tabular-nums" style={{ color: m.price === 0 ? T3 : T1, fontSize: 12.5, fontWeight: 700 }}>
                           {m.price === 0 ? t('vipnight.included') : fmtEuro(m.price)}
                         </span>
-                      </div>
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md" style={{ background: 'rgba(232,25,44,0.14)', border: '1px solid rgba(232,25,44,0.35)' }}>
+                          <Plus className="h-3.5 w-3.5" style={{ color: '#FCA5A5' }} />
+                        </span>
+                      </button>
                     ))}
                   </div>
                 </div>

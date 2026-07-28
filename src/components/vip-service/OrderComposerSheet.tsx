@@ -24,6 +24,8 @@ interface OrderComposerSheetProps {
   info: TableServiceInfo | null;
   menuItems: ServiceMenuItem[];
   quickItems: ServiceQuickItem[];
+  /** Article pré-ajouté au panier à l'ouverture (venu d'un tap sur la carte). */
+  seedItemId?: string | null;
   busy: boolean;
   disabled: boolean;
   onSubmit: (lines: CartLine[], opts: { directServe: boolean; note?: string }) => void;
@@ -42,6 +44,7 @@ export function OrderComposerSheet({
   info,
   menuItems,
   quickItems,
+  seedItemId,
   busy,
   disabled,
   onSubmit,
@@ -59,7 +62,18 @@ export function OrderComposerSheet({
       setNote('');
       setSearch('');
       setSection('bottles');
+      return;
     }
+    // Ouvert depuis la carte du plan live : le panier démarre avec l'article
+    // touché (quantité 1), sur sa section, pour n'avoir qu'à ajuster puis valider.
+    if (seedItemId) {
+      const seed = menuItems.find(m => m.id === seedItemId);
+      if (seed) {
+        setLines([{ menuItem: seed, quantity: 1, mixers: [] }]);
+        setSection(menuSection(seed.category));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const mixers = useMemo(() => menuItems.filter(m => m.category === 'mixer'), [menuItems]);
