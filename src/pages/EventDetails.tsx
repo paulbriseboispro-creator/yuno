@@ -196,7 +196,11 @@ export default function EventDetails() {
         : Promise.resolve([0, 0] as [number, number]),
       Promise.all(organizerIds.map(async (orgUserId) => {
         const [followers, events, following] = await Promise.all([
-          headCount(supabase.from('organizer_profile_followers').select('*', { count: 'exact', head: true }).eq('organizer_user_id', orgUserId)),
+          // Count public via RPC DEFINER : la RLS d'organizer_profile_followers est
+          // verrouillée à sa propre ligne (anti-fuite du graphe), un count direct
+          // renverrait 0. RPC pas encore dans types.ts (regen en follow-up).
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          rpcCount((supabase.rpc as any)('get_organizer_follower_count', { p_organizer_user_id: orgUserId })),
           headCount(supabase.from('events').select('*', { count: 'exact', head: true }).eq('organizer_user_id', orgUserId)),
           user
             ? supabase.from('organizer_profile_followers').select('id').eq('organizer_user_id', orgUserId).eq('user_id', user.id).maybeSingle().then(r => !!r.data)

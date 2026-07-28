@@ -146,12 +146,12 @@ export default function OrganizerPublicProfile() {
       setUpcoming(enriched.filter(e => e.end_at >= now));
       setPast(enriched.filter(e => e.end_at < now).reverse().slice(0, 12));
 
-      // Followers count + status
-      const { count } = await supabase
-        .from('organizer_profile_followers')
-        .select('*', { count: 'exact', head: true })
-        .eq('organizer_user_id', prof.user_id);
-      setFollowersCount(count ?? 0);
+      // Followers count + status. Le compteur PUBLIC passe par le RPC DEFINER : la RLS
+      // d'organizer_profile_followers est verrouillée à sa propre ligne (anti-fuite du
+      // graphe social), donc un count direct ne verrait que la ligne du viewer.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: followerCount } = await (supabase.rpc as any)('get_organizer_follower_count', { p_organizer_user_id: prof.user_id });
+      setFollowersCount(Number(followerCount) || 0);
 
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
