@@ -12,6 +12,7 @@ import {
   PromoCard, StatTile, SectionLabel, PromoEmpty, PromoAvatar, PromoPill, PromoButton, DarkInput, FieldLabel,
   T1, T2, T3, RED, POS, WARN, INNER_BG, BORDER,
 } from '@/components/promoter/promoter-ui';
+import { preparePayout, payoutErrorKey } from '@/lib/promoterPayout';
 
 const eur = (n: number) => `${(Number(n) || 0).toFixed(2)} €`;
 
@@ -167,7 +168,7 @@ export default function AgencyPromoterDetail() {
   const navigate = useNavigate();
   const { agency } = useAgency();
   const { promoters, contracts, conversions, groups, externalMembers, loading, refetch } = useAgencyData(agency?.id ?? null);
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const tt = (fr: string, en: string) => translate(language, fr, en);
   const [settling, setSettling] = useState<string | null>(null);
   const [savingGroup, setSavingGroup] = useState(false);
@@ -224,15 +225,23 @@ export default function AgencyPromoterDetail() {
       .slice(0, 20),
     [conversions, records]);
 
+  // Règlement en trois temps : on PRÉPARE ici, IBAN + référence + déclaration
+  // de virement vivent sur l'écran Finance.
   const handleSettle = async (promoterId: string) => {
     setSettling(promoterId);
-    const { data: rpcData, error } = await supabase.rpc('settle_agency_promoter_payout', { p_promoter_id: promoterId });
-    // Json return narrowed to the shape actually produced by the RPC.
-    const data = rpcData as { settled?: boolean; amount?: number } | null;
-    setSettling(null);
-    if (error) { toast.error(error.message); return; }
-    if (data?.settled) toast.success(tt('Réglé', 'Settled') + ` — ${eur(data.amount)}`);
-    else toast.info(tt('Rien à régler', 'Nothing to settle'));
+    try {
+      const res = await preparePayout(promoterId);
+      setSettling(null);
+      if (res?.prepared) {
+        toast.success(tt('Règlement préparé — IBAN et référence dans Finance', 'Settlement prepared — IBAN and reference in Finance'));
+        navigate('/agency-app/finance');
+      } else {
+        toast.info(tt('Rien à régler', 'Nothing to settle'));
+      }
+    } catch (err) {
+      setSettling(null);
+      toast.error(t(payoutErrorKey(err)));
+    }
     refetch();
   };
 

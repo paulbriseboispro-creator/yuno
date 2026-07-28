@@ -15,6 +15,14 @@ import {
 
 type EventOption = { id: string; name: string; event_date: string };
 type MemberOption = { id: string; display_name: string };
+// Soirées Yuno des clubs sous contrat actif de l'agence fusionnée : elles se
+// mêlent au sélecteur, l'assignation passe alors par les enregistrements
+// promoteurs (assign_agency_promoter_to_event), pas par la collecte d'URL.
+type YunoEventOption = { event_id: string; title: string; start_at: string; venue_id: string | null; venue_name: string | null; organizer_user_id: string | null };
+type YunoPromoterRecord = {
+  id: string; user_id: string; first_name: string | null; last_name: string | null;
+  promo_code: string | null; venue_id: string | null; organizer_user_id: string | null;
+};
 type AssignmentRow = {
   id: string;
   event_name: string;
@@ -44,6 +52,8 @@ export default function AffiliateAssignments() {
 
   const [events, setEvents] = useState<EventOption[]>([]);
   const [members, setMembers] = useState<MemberOption[]>([]);
+  const [yunoEvents, setYunoEvents] = useState<YunoEventOption[]>([]);
+  const [yunoPromoters, setYunoPromoters] = useState<YunoPromoterRecord[]>([]);
   const [selectedEvent, setSelectedEvent] = useState('');
   const [targetAll, setTargetAll] = useState(true);
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
@@ -59,7 +69,7 @@ export default function AffiliateAssignments() {
   }, [user]);
 
   const init = async () => {
-    const { data: aff } = await supabase.from('affiliates').select('id').eq('user_id', user!.id).single();
+    const { data: aff } = await supabase.from('affiliates').select('id, agency_id').eq('user_id', user!.id).single();
     if (!aff) return;
     setAffiliateId(aff.id);
 
@@ -82,10 +92,86 @@ export default function AffiliateAssignments() {
       id: m.id,
       display_name: [m.first_name, m.last_name].filter(Boolean).join(' ') || m.id.slice(0, 8),
     })));
+
+    // Entité fusionnée : les soirées Yuno des clubs sous contrat entrent dans
+    // le sélecteur, aux côtés des soirées externes.
+    if (aff.agency_id) {
+      const [{ data: yEv }, { data: yProm }] = await Promise.all([
+        (supabase as any).rpc('get_agency_upcoming_events', {
+          p_agency_id: aff.agency_id,
+          p_days_ahead: 60,
+        }),
+        supabase.from('promoters')
+          .select('id, user_id, first_name, last_name, promo_code, venue_id, organizer_user_id')
+          .eq('agency_id', aff.agency_id)
+          .eq('is_active', true),
+      ]);
+      setYunoEvents((yEv ?? []) as YunoEventOption[]);
+      setYunoPromoters((yProm ?? []) as YunoPromoterRecord[]);
+    }
   };
+
+  // Une personne = une carte, même si elle a un enregistrement par club.
+  const yunoPersons = (() => {
+    const byUser = new Map<string, YunoPromoterRecord[]>();
+    for (const p of yunoPromoters) {
+      if (!byUser.has(p.user_id)) byUser.set(p.user_id, []);
+      byUser.get(p.user_id)!.push(p);
+    }
+    return [...byUser.entries()].map(([userId, records]) => ({
+      userId,
+      records,
+      display_name: [records[0].first_name, records[0].last_name].filter(Boolean).join(' ')
+        || records[0].promo_code || userId.slice(0, 8),
+    }));
+  })();
+
+  const isYunoEvent = selectedEvent.startsWith('yuno:');
+  const selectedYunoEvent = isYunoEvent
+    ? yunoEvents.find(e => e.event_id === selectedEvent.slice(5)) ?? null
+    : null;
 
   const handleAssign = async () => {
     if (!selectedEvent) { toast({ title: t('aff.assign.toast.selectEvent'), variant: 'destructive' }); return; }
+
+    // Soirée Yuno : l'assignation relie les enregistrements promoteurs à
+    // l'événement in-app (linktree, « Mes Événements », scan suivent).
+    if (isYunoEvent && selectedYunoEvent) {
+      const persons = targetAll ? yunoPersons : yunoPersons.filter(p => selectedMembers.has(p.userId));
+      if (persons.length === 0) {
+        toast({ title: t('aff.assign.toast.selectOnePromoter'), variant: 'destructive' });
+        return;
+      }
+      setAssigning(true);
+      let ok = 0;
+      let firstError: string | null = null;
+      for (const person of persons) {
+        // L'enregistrement du club de la soirée si la personne en a un,
+        // sinon n'importe lequel — un promoteur n'est pas en monopole.
+        const record = person.records.find(r =>
+          (selectedYunoEvent.venue_id && r.venue_id === selectedYunoEvent.venue_id) ||
+          (selectedYunoEvent.organizer_user_id && r.organizer_user_id === selectedYunoEvent.organizer_user_id)
+        ) ?? person.records[0];
+        const { error } = await (supabase as any).rpc('assign_agency_promoter_to_event', {
+          p_promoter_id: record.id,
+          p_event_id: selectedYunoEvent.event_id,
+          p_assign: true,
+        });
+        if (error) { firstError = firstError ?? error.message; } else { ok++; }
+      }
+      setAssigning(false);
+      if (firstError) {
+        toast({ title: t('aff.assign.toast.error'), description: firstError, variant: 'destructive' });
+      }
+      if (ok > 0) {
+        toast({ title: t('aff.assign.toast.created').replace('{target}', targetAll ? t('aff.assign.toast.allPromoters') : t('aff.assign.toast.nPromoters').replace('{n}', String(ok))) });
+        setSelectedEvent('');
+        setSelectedMembers(new Set());
+        setTargetAll(true);
+      }
+      return;
+    }
+
     setAssigning(true);
 
     const targets = targetAll ? [null] : Array.from(selectedMembers);
@@ -183,9 +269,29 @@ export default function AffiliateAssignments() {
           <div className="space-y-5">
             <div>
               <FieldLabel>{t('aff.assign.eventLabel')}</FieldLabel>
-              <DarkSelect value={selectedEvent} onChange={setSelectedEvent}>
+              <DarkSelect
+                value={selectedEvent}
+                onChange={(v: string) => { setSelectedEvent(v); setSelectedMembers(new Set()); }}
+              >
                 <option value="">{t('aff.assign.selectEventPh')}</option>
-                {events.map(ev => (
+                {yunoEvents.length > 0 && (
+                  <optgroup label={t('aff.assign.groupYuno')}>
+                    {yunoEvents.map(ev => (
+                      <option key={`yuno:${ev.event_id}`} value={`yuno:${ev.event_id}`}>
+                        {ev.title}{ev.venue_name ? ` @ ${ev.venue_name}` : ''} — {format(new Date(ev.start_at), 'd MMM yyyy', { locale: dfLocale })}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {(yunoEvents.length > 0 && events.length > 0) ? (
+                  <optgroup label={t('aff.assign.groupExternal')}>
+                    {events.map(ev => (
+                      <option key={ev.id} value={ev.id}>
+                        {ev.name} — {format(parseISO(ev.event_date), 'd MMM yyyy', { locale: dfLocale })}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : events.map(ev => (
                   <option key={ev.id} value={ev.id}>
                     {ev.name} — {format(parseISO(ev.event_date), 'd MMM yyyy', { locale: dfLocale })}
                   </option>
@@ -204,7 +310,12 @@ export default function AffiliateAssignments() {
 
             {!targetAll && (
               <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                {members.map(m => {
+                {/* Soirée Yuno → cibles = promoteurs de l'agence ; soirée
+                    externe → membres du bras affilié. */}
+                {(isYunoEvent
+                  ? yunoPersons.map(p => ({ id: p.userId, display_name: p.display_name }))
+                  : members
+                ).map(m => {
                   const checked = selectedMembers.has(m.id);
                   return (
                     <button key={m.id} onClick={() => toggleMember(m.id)}
@@ -218,7 +329,9 @@ export default function AffiliateAssignments() {
                     </button>
                   );
                 })}
-                {members.length === 0 && <p style={{ color: T3, fontSize: 11.5, fontStyle: 'italic' }}>{t('aff.assign.noActivePromoters')}</p>}
+                {(isYunoEvent ? yunoPersons.length === 0 : members.length === 0) && (
+                  <p style={{ color: T3, fontSize: 11.5, fontStyle: 'italic' }}>{t('aff.assign.noActivePromoters')}</p>
+                )}
               </div>
             )}
 

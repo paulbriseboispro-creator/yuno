@@ -2,15 +2,17 @@ import { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAgency } from '@/hooks/useAgency';
-import { useAgencyData, contractScopeLabel, AgencyContract } from '@/hooks/useAgencyData';
+import { useAgencyData, contractScopeLabel, promoterName, AgencyContract } from '@/hooks/useAgencyData';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
-import { Building2, Plus, PenLine, Pause, Play, X, Clock, Search, Users, Check } from 'lucide-react';
+import { Building2, Plus, PenLine, Pause, Play, X, Clock, Search, Users, Check, ChevronDown, ChevronRight, Hash } from 'lucide-react';
 import {
-  PromoCard, PromoButton, PromoEmpty, PromoPill, DarkInput, FieldLabel, SectionLabel,
-  T1, T2, T3, RED, INNER_BG, BORDER,
+  PromoCard, PromoButton, PromoEmpty, PromoPill, PromoAvatar, DarkInput, FieldLabel, SectionLabel,
+  T1, T2, T3, RED, POS, INNER_BG, BORDER,
 } from '@/components/promoter/promoter-ui';
+
+const eur = (n: number) => `${(Number(n) || 0).toFixed(2)} €`;
 
 type VenueResult = { id: string; name: string; city: string | null };
 
@@ -30,6 +32,8 @@ export default function AgencyClubs() {
   const [marginValue, setMarginValue] = useState('');
   const [busy, setBusy] = useState(false);
   const [acting, setActing] = useState<string | null>(null);
+  // Aperçu inline des promoteurs rattachés à un contrat (id du contrat déplié).
+  const [previewContract, setPreviewContract] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSearch = useCallback((v: string) => {
@@ -110,11 +114,11 @@ export default function AgencyClubs() {
       : `+${Number(c.override_value).toFixed(2)} €/vente`;
   };
 
-  const promoterCountForContract = (c: AgencyContract) =>
+  const promotersForContract = (c: AgencyContract) =>
     promoters.filter(p =>
       (c.venue_id && p.venue_id === c.venue_id) ||
       (c.organizer_user_id && p.organizer_user_id === c.organizer_user_id)
-    ).length;
+    );
 
   return (
     <div className="space-y-4">
@@ -217,7 +221,9 @@ export default function AgencyClubs() {
           {contracts.map((c) => {
             const awaitingAgency = c.status === 'pending_signatures' && !c.agency_signed_at;
             const awaitingClub = c.status === 'pending_signatures' && c.agency_signed_at && !c.club_signed_at;
-            const promoCount = promoterCountForContract(c);
+            const clubPromoters = promotersForContract(c);
+            const promoCount = clubPromoters.length;
+            const previewOpen = previewContract === c.id;
             return (
               <PromoCard key={c.id} style={{ padding: 12 }}>
                 <div className="flex items-center gap-3">
@@ -239,9 +245,13 @@ export default function AgencyClubs() {
                     <PromoButton
                       size="sm"
                       variant="ghost"
-                      onClick={() => navigate(`/agency-app/promoters?club=${c.venue_id || ''}`)}
+                      onClick={() => setPreviewContract(previewOpen ? null : c.id)}
                     >
                       <Users className="h-3.5 w-3.5" /> {tt('Voir les promoteurs', 'View promoters')}
+                      <ChevronDown
+                        className="h-3.5 w-3.5"
+                        style={{ transform: previewOpen ? 'rotate(180deg)' : undefined, transition: 'transform 150ms ease' }}
+                      />
                     </PromoButton>
                   )}
                   <div className="flex gap-2 flex-wrap ml-auto">
@@ -272,6 +282,48 @@ export default function AgencyClubs() {
                     )}
                   </div>
                 </div>
+
+                {/* Aperçu inline : QUI travaille ce club, sans quitter la page. */}
+                {previewOpen && (
+                  <div className="mt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 8 }}>
+                    {clubPromoters.map((p, i) => (
+                      <button
+                        key={p.id}
+                        onClick={() => navigate(`/agency-app/promoters/${p.user_id}`)}
+                        className="w-full flex items-center gap-3 text-left"
+                        style={{
+                          padding: '8px 4px', cursor: 'pointer', background: 'none', border: 'none', outline: 'none',
+                          borderBottom: i < clubPromoters.length - 1 ? '1px solid rgba(255,255,255,0.04)' : undefined,
+                        }}
+                      >
+                        <PromoAvatar src={p.profile_image_url} fallback={promoterName(p).slice(0, 1)} size={32} />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate" style={{ color: T1, fontSize: 13, fontWeight: 620 }}>{promoterName(p)}</p>
+                          <p className="truncate" style={{ color: T3, fontSize: 10.5 }}>
+                            {p.promo_code && <><Hash className="h-2.5 w-2.5 inline" style={{ marginTop: -2 }} />{p.promo_code}</>}
+                            {!p.is_active && ` · ${tt('inactif', 'inactive')}`}
+                          </p>
+                        </div>
+                        <div className="text-right flex-none">
+                          <p style={{ color: Number(p.pending_amount) > 0 ? POS : T3, fontSize: 12.5, fontWeight: 660 }}>
+                            {eur(p.pending_amount)}
+                          </p>
+                          <p style={{ color: T3, fontSize: 9.5 }}>{tt('à reverser', 'to pay')}</p>
+                        </div>
+                        <ChevronRight className="h-3.5 w-3.5 flex-none" style={{ color: T3 }} />
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => navigate(`/agency-app/promoters?club=${c.venue_id || ''}`)}
+                      style={{
+                        color: T2, fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
+                        background: 'none', border: 'none', padding: '8px 4px 2px',
+                      }}
+                    >
+                      {tt('Ouvrir la page promoteurs →', 'Open promoters page →')}
+                    </button>
+                  </div>
+                )}
               </PromoCard>
             );
           })}

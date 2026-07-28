@@ -45,7 +45,44 @@ type LinktreeEvent = {
   external_ticket_url: string | null;
   genres: string[];
   affiliate_venues: { name: string; city: string | null } | null;
+  /** Soirée Yuno in-app (clubs sous contrat de l'agence) : navigation interne, pas de redirection billetterie. */
+  yuno_event_id?: string | null;
 };
+
+/** Ligne renvoyée par la RPC get_agency_linktree_yuno_events. */
+type YunoLinktreeRow = {
+  event_id: string;
+  title: string;
+  start_at: string;
+  venue_id: string | null;
+  venue_name: string | null;
+  venue_city: string | null;
+  poster_url: string | null;
+  music_genres: string[] | null;
+  price_from: number | null;
+  is_free: boolean;
+};
+
+/** Les soirées Yuno arrivent en timestamptz : on les plie au format du linktree. */
+function mapYunoRow(row: YunoLinktreeRow): LinktreeEvent {
+  const when = new Date(row.start_at);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return {
+    id: row.event_id,
+    name: row.title,
+    slug: '',
+    event_date: `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}`,
+    start_time: `${pad(when.getHours())}:${pad(when.getMinutes())}`,
+    flyer_url: row.poster_url,
+    price_from: row.price_from,
+    is_free: row.is_free,
+    is_sold_out: false,
+    external_ticket_url: null,
+    genres: (row.music_genres ?? []).filter(Boolean),
+    affiliate_venues: row.venue_name ? { name: row.venue_name, city: row.venue_city } : null,
+    yuno_event_id: row.event_id,
+  };
+}
 
 type GroupedDate = {
   date: string;
@@ -414,11 +451,15 @@ function EventCard({
 
   const handleClick = () => {
     if (isSoldOut) return;
-    trackAffiliateClick({
-      affiliateId,
-      affiliateEventId: event.id,
-      isInternal: isOwner,
-    });
+    // Les soirées Yuno n'ont pas de ligne affiliate_events : le tracking de
+    // clic (FK affiliate_event_id) ne s'applique qu'aux soirées externes.
+    if (!event.yuno_event_id) {
+      trackAffiliateClick({
+        affiliateId,
+        affiliateEventId: event.id,
+        isInternal: isOwner,
+      });
+    }
     if (event.external_ticket_url) {
       window.open(event.external_ticket_url, '_blank', 'noopener,noreferrer');
     } else {
@@ -782,13 +823,22 @@ export default function AffiliateLinktree() {
 
       const today = new Date().toISOString().split('T')[0];
 
-      const { data: linktreeItems, error: linktreeError } = await supabase
-        .from('affiliate_linktree_events')
-        .select('sort_order, affiliate_events(id, name, slug, event_date, start_time, flyer_url, price_from, is_free, is_sold_out, external_ticket_url, genres, affiliate_venues(name, city))')
-        .eq('affiliate_id', aff.id)
-        .order('sort_order', { ascending: true });
+      const [{ data: linktreeItems, error: linktreeError }, yunoRes] = await Promise.all([
+        supabase
+          .from('affiliate_linktree_events')
+          .select('sort_order, affiliate_events(id, name, slug, event_date, start_time, flyer_url, price_from, is_free, is_sold_out, external_ticket_url, genres, affiliate_venues(name, city))')
+          .eq('affiliate_id', aff.id)
+          .order('sort_order', { ascending: true }),
+        // Agence fusionnée : les soirées Yuno des clubs sous contrat actif
+        // s'affichent aussi — un linktree d'agence qui ne travaille que des
+        // clubs Yuno n'est pas vide pour autant.
+        (supabase as any).rpc('get_agency_linktree_yuno_events', { p_affiliate_id: aff.id }),
+      ]);
 
       if (linktreeError) console.warn('[AffiliateLinktree] linktree error:', linktreeError.message);
+      if (yunoRes?.error) console.warn('[AffiliateLinktree] yuno events error:', yunoRes.error.message);
+
+      const yunoEvents: LinktreeEvent[] = ((yunoRes?.data ?? []) as YunoLinktreeRow[]).map(mapYunoRow);
 
       let eventsToShow: LinktreeEvent[] = [];
 
@@ -818,6 +868,12 @@ export default function AffiliateLinktree() {
           ...e,
           affiliate_venues: Array.isArray(e.affiliate_venues) ? e.affiliate_venues[0] ?? null : e.affiliate_venues,
         })) as LinktreeEvent[];
+      }
+
+      if (yunoEvents.length > 0) {
+        const seen = new Set(eventsToShow.map(e => e.id));
+        eventsToShow = [...eventsToShow, ...yunoEvents.filter(e => !seen.has(e.id))]
+          .sort((a, b) => a.event_date.localeCompare(b.event_date));
       }
 
       setEvents(eventsToShow);
@@ -1134,7 +1190,7 @@ export default function AffiliateLinktree() {
                         event={ev}
                         affiliateId={affiliate?.id ?? ''}
                         isOwner={isOwner}
-                        onNavigate={() => navigate(`/affiliate-event/${ev.slug}`)}
+                        onNavigate={() => navigate(ev.yuno_event_id ? `/event/${ev.yuno_event_id}` : `/affiliate-event/${ev.slug}`)}
                       />
                     </FadeInView>
                   ))}

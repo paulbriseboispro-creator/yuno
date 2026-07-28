@@ -23,6 +23,8 @@ export type AgencyPromoter = {
   name: string | null;
   promo_code: string | null;
   is_active: boolean;
+  /** IBAN de reversement — affiché masqué et copié lors de la préparation du règlement. */
+  iban: string | null;
   pending_amount: number;
   total_paid: number;
   ticket_commission_type: string;

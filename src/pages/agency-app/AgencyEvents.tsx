@@ -158,6 +158,10 @@ export default function AgencyEvents() {
                 </p>
               ) : (
                 promoters.map(p => {
+                  // Un promoteur n'est pas en monopole sur son club de
+                  // rattachement : on peut l'assigner sur toute soirée des
+                  // clubs partenaires — la mention « club différent » reste à
+                  // titre d'information.
                   const isVenueMatch =
                     (assignSheet.venue_id && p.venue_id === assignSheet.venue_id) ||
                     (assignSheet.organizer_user_id && p.organizer_user_id === assignSheet.organizer_user_id);
@@ -167,7 +171,6 @@ export default function AgencyEvents() {
                       className="flex items-center gap-3"
                       style={{
                         padding: '10px 16px',
-                        opacity: isVenueMatch ? 1 : 0.5,
                         borderBottom: '1px solid rgba(255,255,255,0.04)',
                       }}
                     >
@@ -183,7 +186,7 @@ export default function AgencyEvents() {
                         size="sm"
                         variant={isVenueMatch ? 'secondary' : 'ghost'}
                         onClick={() => handleAssign(p.id, assignSheet.event_id, true)}
-                        disabled={assigning === p.id || !isVenueMatch}
+                        disabled={assigning === p.id}
                       >
                         {assigning === p.id ? '…' : <Check className="h-3.5 w-3.5" />}
                       </PromoButton>

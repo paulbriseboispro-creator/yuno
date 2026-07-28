@@ -30,7 +30,6 @@ export default function AgencyDashboard() {
   const tt = (fr: string, en: string) => translate(language, fr, en);
   const dateLocale = language === 'fr' ? frLoc : language === 'es' ? esLoc : enUS;
   const navigate = useNavigate();
-  const [settlingAll, setSettlingAll] = useState(false);
 
   // Bras externe (clubs non-Yuno) : trafic 30 jours + taille du catalogue.
   const shell = useAffiliateShell();
@@ -127,18 +126,11 @@ export default function AgencyDashboard() {
       .slice(0, 6);
   }, [promoters, conversions]);
 
-  const handleBulkSettle = async () => {
-    const pending = promoters.filter(p => Number(p.pending_amount) > 0);
-    if (pending.length === 0) { toast.info(tt('Rien à régler', 'Nothing to settle')); return; }
-    setSettlingAll(true);
-    let settled = 0;
-    for (const p of pending) {
-      const { data } = await (supabase as any).rpc('settle_agency_promoter_payout', { p_promoter_id: p.id });
-      if (data?.settled) settled++;
-    }
-    setSettlingAll(false);
-    toast.success(`${settled} promoteur${settled > 1 ? 's' : ''} ${tt('réglé(s)', 'settled')}`);
-    refetch();
+  // Le règlement suit désormais le cycle en trois temps (IBAN, référence,
+  // accusé de réception) : tout se passe sur l'écran Finance.
+  const handleBulkSettle = () => {
+    if (totals.payableToPromoters === 0) { toast.info(tt('Rien à régler', 'Nothing to settle')); return; }
+    navigate('/agency-app/finance');
   };
 
   if (loading) {
@@ -185,10 +177,10 @@ export default function AgencyDashboard() {
           size="sm"
           variant="secondary"
           onClick={handleBulkSettle}
-          disabled={settlingAll || totals.payableToPromoters === 0}
+          disabled={totals.payableToPromoters === 0}
         >
           <Wallet className="h-4 w-4" />
-          {settlingAll ? tt('Règlement…', 'Settling…') : tt('Tout régler', 'Settle all')}
+          {tt('Régler les promoteurs', 'Settle promoters')}
         </PromoButton>
         {events.length > 0 && (
           <PromoButton size="sm" variant="secondary" onClick={() => navigate('/agency-app/events')}>

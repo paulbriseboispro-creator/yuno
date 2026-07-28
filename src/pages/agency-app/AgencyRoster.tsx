@@ -6,11 +6,12 @@ import { useAgencyData, promoterName, contractScopeLabel, AgencyPromoter, Extern
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
-import { UserPlus, Users, Mail, Wallet, ChevronRight, Building2, Globe } from 'lucide-react';
+import { UserPlus, Users, Mail, Wallet, ChevronRight, Building2, Globe, Check } from 'lucide-react';
 import {
   PromoCard, PromoButton, PromoEmpty, PromoAvatar, PromoPill, DarkInput, FieldLabel, SectionLabel,
   T1, T2, T3, RED, POS, INNER_BG, BORDER,
 } from '@/components/promoter/promoter-ui';
+import { preparePayout, payoutErrorKey } from '@/lib/promoterPayout';
 
 const eur = (n: number) => `${(Number(n) || 0).toFixed(2)} €`;
 
@@ -30,18 +31,20 @@ type PersonGroup = {
 export default function AgencyRoster() {
   const { agency } = useAgency();
   const { promoters, contracts, groups, externalMembers, loading, refetch } = useAgencyData(agency?.id ?? null);
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const tt = (fr: string, en: string) => translate(language, fr, en);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const filterClub = searchParams.get('club');
 
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteMode, setInviteMode] = useState<'yuno' | 'external'>('yuno');
+  // Un promoteur peut bosser plusieurs clubs Yuno ET le bras externe : on coche,
+  // on n'arbitre pas. Une invitation part par club coché (+ une externe).
+  const [selectedContracts, setSelectedContracts] = useState<Set<string>>(new Set());
+  const [inviteExternal, setInviteExternal] = useState(false);
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [contractId, setContractId] = useState('');
   const [ticketValue, setTicketValue] = useState('');
   const [ticketType, setTicketType] = useState<'fixed' | 'percentage'>('fixed');
   const [tableValue, setTableValue] = useState('');
@@ -110,15 +113,59 @@ export default function AgencyRoster() {
     return list;
   }, [grouped, filterClub, selectedGroup]);
 
+  const toggleContract = (id: string) => {
+    setSelectedContracts(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
   const handleInvite = async () => {
-    // Mode externe : le promoteur rejoint le bras affilié (linktree + liens
-    // tracés vers les billetteries des clubs externes) — aucun contrat requis.
-    if (inviteMode === 'external') {
-      if (!email.trim() || !firstName.trim() || !lastName.trim()) {
-        toast.error(tt('Email, prénom et nom requis', 'Email, first and last name required'));
-        return;
+    const targets = activeContracts.filter(c => selectedContracts.has(c.id));
+    if (!email.trim() || (targets.length === 0 && !inviteExternal)) {
+      toast.error(tt('Email et au moins un club (Yuno ou externe) requis', 'Email and at least one club (Yuno or external) required'));
+      return;
+    }
+    // Le bras externe crée un compte membre : il lui faut une identité complète.
+    if (inviteExternal && (!firstName.trim() || !lastName.trim())) {
+      toast.error(tt('Prénom et nom requis pour les clubs externes', 'First and last name required for external clubs'));
+      return;
+    }
+
+    setSending(true);
+    const failures: string[] = [];
+    let sent = 0;
+
+    // Une invitation par club Yuno coché — le même humain devient un
+    // enregistrement promoteur par club (modèle multi-club existant).
+    for (const contract of targets) {
+      const { data, error } = await supabase.functions.invoke('invite-promoter', {
+        body: {
+          email: email.trim(),
+          first_name: firstName.trim() || undefined,
+          agency_id: agency!.id,
+          venue_id: contract.venue_id ?? undefined,
+          organizer_user_id: contract.organizer_user_id ?? undefined,
+          commission_config: {
+            ticket_commission_type: ticketType,
+            ticket_commission_value: Number(ticketValue) || 0,
+            table_commission_type: tableType,
+            table_commission_value: Number(tableValue) || 0,
+          },
+        },
+      });
+      const res = data as { error?: string } | null;
+      if (error || res?.error) {
+        failures.push(`${contractScopeLabel(contract)} : ${res?.error || error?.message || tt('échec', 'failed')}`);
+      } else {
+        sent++;
       }
-      setSending(true);
+    }
+
+    // Bras externe : le promoteur rejoint le linktree + liens tracés vers les
+    // billetteries des clubs non-Yuno — cumulable avec les clubs Yuno.
+    if (inviteExternal) {
       const { data, error } = await supabase.functions.invoke('invite-affiliate-member', {
         body: {
           email: email.trim().toLowerCase(),
@@ -127,70 +174,50 @@ export default function AgencyRoster() {
           role: 'promoter',
         },
       });
-      setSending(false);
       const res = data as { error?: string } | null;
       if (error || res?.error) {
-        toast.error(res?.error || error?.message || tt("Échec de l'invitation", 'Invite failed'));
-        return;
+        failures.push(`${tt('Clubs externes', 'External clubs')} : ${res?.error || error?.message || tt('échec', 'failed')}`);
+      } else {
+        sent++;
       }
-      toast.success(tt('Invitation envoyée', 'Invitation sent'));
-      setEmail(''); setFirstName(''); setLastName(''); setInviteOpen(false);
-      refetch();
-      return;
     }
 
-    const contract = activeContracts.find(c => c.id === contractId);
-    if (!email.trim() || !contract) {
-      toast.error(tt('Email et club requis', 'Email and club required'));
-      return;
-    }
-    setSending(true);
-    const { data, error } = await supabase.functions.invoke('invite-promoter', {
-      body: {
-        email: email.trim(),
-        first_name: firstName.trim() || undefined,
-        agency_id: agency!.id,
-        venue_id: contract.venue_id ?? undefined,
-        organizer_user_id: contract.organizer_user_id ?? undefined,
-        commission_config: {
-          ticket_commission_type: ticketType,
-          ticket_commission_value: Number(ticketValue) || 0,
-          table_commission_type: tableType,
-          table_commission_value: Number(tableValue) || 0,
-        },
-      },
-    });
     setSending(false);
-    // Edge function payload narrowed to the error shape actually consumed.
-    const res = data as { error?: string } | null;
-    if (error || res?.error) {
-      toast.error(res?.error || error?.message || tt("Échec de l'invitation", 'Invite failed'));
+    if (failures.length > 0) {
+      toast.error(failures.join(' — '));
+    }
+    if (sent > 0) {
+      toast.success(sent > 1
+        ? tt(`${sent} invitations envoyées`, `${sent} invitations sent`)
+        : tt('Invitation envoyée', 'Invitation sent'));
+      setEmail(''); setFirstName(''); setLastName(''); setTicketValue(''); setTableValue('');
+      setSelectedContracts(new Set()); setInviteExternal(false); setInviteOpen(false);
+      refetch();
+    }
+  };
+
+  // Règlement en trois temps (comme les clubs) : ici on PRÉPARE le lot — IBAN,
+  // référence et déclaration de virement vivent sur l'écran Finance.
+  const handlePrepare = async (pg: PersonGroup) => {
+    setSettling(pg.userId);
+    let prepared = 0;
+    try {
+      for (const r of pg.records.filter(r => Number(r.pending_amount) > 0)) {
+        const res = await preparePayout(r.id);
+        if (res?.prepared) prepared++;
+      }
+    } catch (err) {
+      setSettling(null);
+      toast.error(t(payoutErrorKey(err)));
       return;
     }
-    toast.success(tt('Invitation envoyée', 'Invitation sent'));
-    setEmail(''); setFirstName(''); setTicketValue(''); setTableValue(''); setInviteOpen(false);
-    refetch();
-  };
-
-  const handleSettle = async (promoterId: string) => {
-    setSettling(promoterId);
-    const { data: rpcData, error } = await supabase.rpc('settle_agency_promoter_payout', {
-      p_promoter_id: promoterId,
-    });
-    // Json return narrowed to the shape actually produced by the RPC.
-    const data = rpcData as { settled?: boolean; amount?: number } | null;
     setSettling(null);
-    if (error) { toast.error(error.message); return; }
-    if (data?.settled) toast.success(tt('Réglé', 'Settled') + ` — ${eur(data.amount)}`);
-    else toast.info(tt('Rien à régler', 'Nothing to settle'));
-    refetch();
-  };
-
-  const handleSettleGroup = async (pg: PersonGroup) => {
-    for (const r of pg.records.filter(r => Number(r.pending_amount) > 0)) {
-      await supabase.rpc('settle_agency_promoter_payout', { p_promoter_id: r.id });
+    if (prepared > 0) {
+      toast.success(tt('Règlement préparé — IBAN et référence dans Finance', 'Settlement prepared — IBAN and reference in Finance'));
+      navigate('/agency-app/finance');
+    } else {
+      toast.info(tt('Rien à régler', 'Nothing to settle'));
     }
-    toast.success(tt('Réglé', 'Settled'));
     refetch();
   };
 
@@ -260,73 +287,91 @@ export default function AgencyRoster() {
         <PromoCard>
           <SectionLabel>{tt('Nouveau promoteur', 'New promoter')}</SectionLabel>
 
-          {/* Où ce promoteur va-t-il vendre ? Club Yuno sous contrat (ventes
-              in-app + commissions) ou clubs externes (linktree + liens tracés). */}
-          <div className="mt-3 flex gap-2">
-            {([
-              { key: 'yuno' as const, icon: Building2, label: tt('Club Yuno (contrat)', 'Yuno club (contract)') },
-              { key: 'external' as const, icon: Globe, label: tt('Clubs externes', 'External clubs') },
-            ]).map(m => (
-              <button
-                key={m.key}
-                onClick={() => setInviteMode(m.key)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '7px 13px', borderRadius: 10, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-                  background: inviteMode === m.key ? INNER_BG : 'transparent',
-                  border: `1px solid ${inviteMode === m.key ? BORDER : 'rgba(255,255,255,0.08)'}`,
-                  color: inviteMode === m.key ? T1 : T3,
-                }}
-              >
-                <m.icon className="h-3.5 w-3.5" />
-                {m.label}
-              </button>
-            ))}
-          </div>
-
-          {inviteMode === 'yuno' && activeContracts.length === 0 ? (
-            <p className="mt-3" style={{ color: T3, fontSize: 12 }}>
-              {tt(
-                "Signez d'abord un contrat actif avec un club pour recruter des promoteurs Yuno — ou invitez-le sur les clubs externes.",
-                'Sign an active contract with a club first to recruit Yuno promoters — or invite them on external clubs.'
-              )}
-            </p>
-          ) : (
           <div className="mt-3 space-y-3">
             <div>
               <FieldLabel>{tt('Email', 'Email')}</FieldLabel>
               <DarkInput value={email} onChange={setEmail} placeholder="promoteur@email.com" type="email" icon={Mail} />
             </div>
             <div>
-              <FieldLabel>{inviteMode === 'external' ? tt('Prénom', 'First name') : tt('Prénom (optionnel)', 'First name (optional)')}</FieldLabel>
+              <FieldLabel>{inviteExternal ? tt('Prénom', 'First name') : tt('Prénom (optionnel)', 'First name (optional)')}</FieldLabel>
               <DarkInput value={firstName} onChange={setFirstName} placeholder={tt('Prénom', 'First name')} />
             </div>
-            {inviteMode === 'external' && (
+            {inviteExternal && (
               <div>
                 <FieldLabel>{tt('Nom de famille', 'Last name')}</FieldLabel>
                 <DarkInput value={lastName} onChange={setLastName} placeholder={tt('Nom de famille', 'Last name')} />
               </div>
             )}
-            {inviteMode === 'yuno' && (<>
+
+            {/* Où va-t-il vendre ? Plusieurs clubs Yuno ET les clubs externes,
+                cumulables — un promoteur n'est pas en monopole. */}
             <div>
-              <FieldLabel>{tt('Club de rattachement', 'Assigned club')}</FieldLabel>
-              <select
-                value={contractId}
-                onChange={e => setContractId(e.target.value)}
-                className="w-full outline-none"
-                style={{
-                  background: INNER_BG, border: `1px solid ${BORDER}`,
-                  borderRadius: 10, padding: '9px 12px', color: T1, fontSize: 13.5,
-                }}
-              >
-                <option value="" style={{ background: '#111' }}>{tt('Choisir un club…', 'Choose a club…')}</option>
-                {activeContracts.map(c => (
-                  <option key={c.id} value={c.id} style={{ background: '#111' }}>
-                    {contractScopeLabel(c)}
-                  </option>
-                ))}
-              </select>
+              <FieldLabel>{tt('Clubs (plusieurs choix possibles)', 'Clubs (multiple choices allowed)')}</FieldLabel>
+              <div className="space-y-1.5">
+                {activeContracts.length === 0 && (
+                  <p style={{ color: T3, fontSize: 12 }}>
+                    {tt(
+                      "Aucun contrat club actif — signez un contrat pour recruter sur un club Yuno, ou invitez-le sur les clubs externes.",
+                      'No active club contract — sign one to recruit on a Yuno club, or invite them on external clubs.'
+                    )}
+                  </p>
+                )}
+                {activeContracts.map(c => {
+                  const checked = selectedContracts.has(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => toggleContract(c.id)}
+                      className="flex items-center gap-3 w-full text-left"
+                      style={{
+                        padding: '8px 12px', borderRadius: 10, cursor: 'pointer',
+                        background: checked ? 'rgba(232,25,44,0.08)' : INNER_BG,
+                        border: `1px solid ${checked ? 'rgba(232,25,44,0.25)' : BORDER}`,
+                      }}
+                    >
+                      <span
+                        className="flex-none flex items-center justify-center"
+                        style={{
+                          width: 16, height: 16, borderRadius: 4,
+                          background: checked ? RED : 'transparent',
+                          border: `1px solid ${checked ? RED : 'rgba(255,255,255,0.25)'}`,
+                        }}
+                      >
+                        {checked && <Check className="h-3 w-3" style={{ color: '#fff' }} />}
+                      </span>
+                      <Building2 className="h-3.5 w-3.5 flex-none" style={{ color: checked ? T1 : T3 }} />
+                      <span style={{ color: checked ? T1 : T2, fontSize: 13 }}>{contractScopeLabel(c)}</span>
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => setInviteExternal(v => !v)}
+                  className="flex items-center gap-3 w-full text-left"
+                  style={{
+                    padding: '8px 12px', borderRadius: 10, cursor: 'pointer',
+                    background: inviteExternal ? 'rgba(232,25,44,0.08)' : INNER_BG,
+                    border: `1px solid ${inviteExternal ? 'rgba(232,25,44,0.25)' : BORDER}`,
+                  }}
+                >
+                  <span
+                    className="flex-none flex items-center justify-center"
+                    style={{
+                      width: 16, height: 16, borderRadius: 4,
+                      background: inviteExternal ? RED : 'transparent',
+                      border: `1px solid ${inviteExternal ? RED : 'rgba(255,255,255,0.25)'}`,
+                    }}
+                  >
+                    {inviteExternal && <Check className="h-3 w-3" style={{ color: '#fff' }} />}
+                  </span>
+                  <Globe className="h-3.5 w-3.5 flex-none" style={{ color: inviteExternal ? T1 : T3 }} />
+                  <span style={{ color: inviteExternal ? T1 : T2, fontSize: 13 }}>
+                    {tt('Clubs externes (linktree + liens tracés)', 'External clubs (linktree + tracked links)')}
+                  </span>
+                </button>
+              </div>
             </div>
+
+            {selectedContracts.size > 0 && (<>
             <div>
               <FieldLabel>{tt('Commission billets (net)', 'Ticket commission (net)')}</FieldLabel>
               <div className="flex gap-2">
@@ -363,10 +408,13 @@ export default function AgencyRoster() {
             </div>
             </>)}
             <PromoButton onClick={handleInvite} disabled={sending} full>
-              {sending ? tt('Envoi…', 'Sending…') : tt("Envoyer l'invitation", 'Send invitation')}
+              {sending
+                ? tt('Envoi…', 'Sending…')
+                : (selectedContracts.size + (inviteExternal ? 1 : 0)) > 1
+                  ? tt('Envoyer les invitations', 'Send invitations')
+                  : tt("Envoyer l'invitation", 'Send invitation')}
             </PromoButton>
           </div>
-          )}
         </PromoCard>
       )}
 
@@ -449,13 +497,7 @@ export default function AgencyRoster() {
                     <PromoButton
                       size="sm"
                       variant="secondary"
-                      onClick={() => {
-                        if (pg.records.length === 1) {
-                          handleSettle(pg.records[0].id);
-                        } else {
-                          handleSettleGroup(pg);
-                        }
-                      }}
+                      onClick={() => handlePrepare(pg)}
                       disabled={!!settling}
                     >
                       <Wallet className="h-3.5 w-3.5" />
