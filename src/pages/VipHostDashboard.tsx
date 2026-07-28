@@ -20,6 +20,7 @@ import { ServiceNightTab } from '@/components/vip-service/ServiceNightTab';
 import { TableServiceSheet } from '@/components/vip-service/TableServiceSheet';
 import { SeatPickerSheet } from '@/components/vip-service/SeatPickerSheet';
 import { OrderComposerSheet } from '@/components/vip-service/OrderComposerSheet';
+import { VipEventBar } from '@/components/vip-service/VipEventBar';
 import {
   ServiceOrder, ServiceReservation, CartLine, fmtAge,
 } from '@/components/vip-service/serviceTypes';
@@ -48,9 +49,9 @@ export default function VipHostDashboard() {
   const { t } = useLanguage();
   const night = useVipNight();
   const {
-    venueId, loading, noVenue, connectionStale, activeEvent, reservations, consumptions,
-    orders, ordersByReservation, moments, floorPlan, menuItems, quickItems, serviceInfo,
-    doorQueue, refresh,
+    venueId, loading, noVenue, connectionStale, activeEvent, events, selectedEventId, selectEvent,
+    isPlanning, reservations, consumptions, orders, ordersByReservation, moments, floorPlan,
+    menuItems, quickItems, serviceInfo, doorQueue, refresh,
   } = night;
 
   const { notifications, markAsRead } = useStaffNotifications({ venueId, targetRole: 'vip_host' });
@@ -98,6 +99,17 @@ export default function VipHostDashboard() {
     ).length;
     return pending + preordersArrived;
   }, [orders, reservationById]);
+
+  // État de préparation de la soirée sélectionnée : combien de résas, combien
+  // déjà placées, combien de demandes de table à honorer, combien de
+  // pré-commandes à prévoir. C'est le tableau de bord d'organisation en amont.
+  const prep = useMemo(() => ({
+    total: reservations.length,
+    placed: reservations.filter(r => !!r.assignedTableId).length,
+    requests: reservations.filter(r => r.placementStatus === 'requested' && !r.assignedTableId).length,
+    preorders: orders.filter(o => o.status === 'preorder').length,
+    guests: reservations.reduce((s, r) => s + (r.guestCount || 0), 0),
+  }), [reservations, orders]);
 
   // ─── Actions ────────────────────────────────────────────────────────────────
 
@@ -353,7 +365,22 @@ export default function VipHostDashboard() {
           {/* Ce soir : consigne, tables, équipe, appels */}
           <StaffNightPanel role="vip_host" />
 
-          {!activeEvent && (
+          {/* Sélecteur des soirées (en cours + à venir) + bandeau de préparation
+              quand la soirée choisie n'a pas encore commencé. */}
+          {activeEvent && (
+            <VipEventBar
+              events={events}
+              selectedEventId={selectedEventId}
+              isPlanning={isPlanning}
+              prep={prep}
+              onSelect={id => {
+                haptics.selection();
+                selectEvent(id);
+              }}
+            />
+          )}
+
+          {events.length === 0 && (
             <div className="flex items-center gap-3 rounded-2xl px-4 py-3.5" style={{ background: C_FAINT, border: `1px solid ${BORDER}` }}>
               <CalendarOff className="h-5 w-5 shrink-0" style={{ color: T3 }} />
               <div className="min-w-0">

@@ -6,7 +6,7 @@ import { VipConsumption, VenueFloorPlan } from '@/types';
 import { useStaffVenue } from './useStaffVenue';
 import {
   ServiceReservation, ServiceOrder, ServiceMenuItem, ServiceQuickItem, ServiceMoment,
-  CartLine, TableServiceInfo, buildServiceInfo, cartTotal, cartLinePrice,
+  CartLine, TableServiceInfo, VipEventOption, buildServiceInfo, cartTotal, cartLinePrice,
   consumptionItemType, reservationPriority,
 } from '@/components/vip-service/serviceTypes';
 
@@ -30,7 +30,10 @@ interface NightData {
   orders: ServiceOrder[];
   moments: ServiceMoment[];
   floorPlan: VenueFloorPlan | null;
-  activeEvent: { id: string; title: string; startAt: string; endAt: string } | null;
+  /** La soirée affichée : sélection de l'hôte, sinon celle en cours, sinon la prochaine. */
+  activeEvent: VipEventOption | null;
+  /** Toutes les soirées préparables (en cours + à venir), chronologiques. */
+  events: VipEventOption[];
   loading: boolean;
 }
 
@@ -41,6 +44,7 @@ const EMPTY: NightData = {
   moments: [],
   floorPlan: null,
   activeEvent: null,
+  events: [],
   loading: true,
 };
 
@@ -64,6 +68,13 @@ export function useVipNight() {
   const [data, setData] = useState<NightData>(EMPTY);
   const [menuItems, setMenuItems] = useState<ServiceMenuItem[]>([]);
   const [quickItems, setQuickItems] = useState<ServiceQuickItem[]>([]);
+
+  // Soirée choisie par l'hôte. Un ref double l'état pour que les refetch
+  // realtime (sans argument) conservent la sélection au lieu de retomber sur
+  // le défaut « en cours / prochaine ».
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const selectedEventIdRef = useRef<string | null>(null);
+  selectedEventIdRef.current = selectedEventId;
 
   // Santé temps réel : socket down ou device offline → données potentiellement
   // périmées, écritures bloquées par l'UI.
@@ -89,38 +100,57 @@ export function useVipNight() {
 
   // ─── Lecture ────────────────────────────────────────────────────────────────
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (preferEventId?: string) => {
     if (!venueId) return;
     try {
       const now = new Date();
-      // Soirée active : démarre dans les 6 h ou en cours. Co-soirée menée par un
-      // organisateur : le club est partner_venue_id (venue_id peut être NULL).
-      const { data: events } = await supabase
+      // Toutes les soirées que l'hôte peut préparer : en cours OU à venir (pas
+      // encore terminées), que le club soit lead ou hôte d'une co-soirée
+      // (partner_venue_id ; venue_id peut être NULL). On ne borne plus à 6 h —
+      // l'hôte VIP place ses tables et lit les pré-commandes des jours à
+      // l'avance. Tri chronologique, la plus proche d'abord.
+      const { data: eventRows } = await supabase
         .from('events')
         .select('id, title, start_at, end_at, venue_id')
         .or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`)
         .eq('is_active', true)
-        .lte('start_at', new Date(now.getTime() + 6 * 60 * 60 * 1000).toISOString())
         .gte('end_at', now.toISOString())
         .order('start_at', { ascending: true })
-        .limit(1);
+        .limit(30);
 
-      const ev = events?.[0];
-      if (!ev) {
-        // Pas de soirée : on charge quand même le plan venue-level (filtre
-        // event_id IS NULL — un club avec co-events possède aussi des plans
-        // event-scoped et maybeSingle() 406 sinon).
+      const events: VipEventOption[] = (eventRows || []).map(e => ({
+        id: e.id,
+        title: e.title,
+        startAt: e.start_at,
+        endAt: e.end_at,
+      }));
+
+      if (events.length === 0) {
+        // Vraiment aucune soirée à venir : on charge quand même le plan
+        // venue-level (filtre event_id IS NULL — un club avec co-events possède
+        // aussi des plans event-scoped et maybeSingle() 406 sinon).
         const { data: planRow } = await supabase
           .from('venue_floor_plans')
           .select('*')
           .eq('venue_id', venueId)
           .is('event_id', null)
           .maybeSingle();
-        setData({ ...EMPTY, floorPlan: mapFloorPlan(planRow), loading: false });
+        setData({ ...EMPTY, events: [], floorPlan: mapFloorPlan(planRow), loading: false });
         return;
       }
 
-      const activeEvent = { id: ev.id, title: ev.title, startAt: ev.start_at, endAt: ev.end_at };
+      // Sélection : le choix explicite de l'hôte prime tant qu'il pointe une
+      // soirée encore listée ; sinon la soirée en cours ; sinon la prochaine.
+      const wanted = preferEventId ?? selectedEventIdRef.current;
+      const live = events.find(e => new Date(e.startAt) <= now && new Date(e.endAt) >= now);
+      const selectedId =
+        wanted && events.some(e => e.id === wanted) ? wanted : live?.id ?? events[0].id;
+      if (selectedId !== selectedEventIdRef.current) {
+        selectedEventIdRef.current = selectedId;
+        setSelectedEventId(selectedId);
+      }
+      const ev = events.find(e => e.id === selectedId)!;
+      const activeEvent: VipEventOption = ev;
 
       const [resQ, planEventQ, ordersQ, momentsQ] = await Promise.all([
         supabase
@@ -272,7 +302,7 @@ export function useVipNight() {
         status: m.status,
       }));
 
-      setData({ reservations, consumptions: consumptionsMap, orders, moments, floorPlan, activeEvent, loading: false });
+      setData({ reservations, consumptions: consumptionsMap, orders, moments, floorPlan, activeEvent, events, loading: false });
     } catch (error) {
       console.error('Error fetching VIP night data:', error);
       setData(prev => ({ ...prev, loading: false }));
@@ -391,13 +421,14 @@ export function useVipNight() {
     };
   }, [venueId, fetchData, scheduleRefetch]);
 
-  // Sans soirée active, aucun changement de résa ne nous concerne : on sonde
-  // toutes les 60 s pour attraper le début de la fenêtre d'un event.
+  // Poll doux : attrape les transitions (planning → en cours), l'arrivée d'une
+  // nouvelle soirée et l'expiration de la sélection (soirée terminée). Le
+  // realtime couvre déjà les changements de résa pendant la nuit.
   useEffect(() => {
-    if (!venueId || data.activeEvent || data.loading) return;
+    if (!venueId) return;
     const id = setInterval(() => fetchData(), 60_000);
     return () => clearInterval(id);
-  }, [venueId, data.activeEvent, data.loading, fetchData]);
+  }, [venueId, fetchData]);
 
   // ─── Dérivés ────────────────────────────────────────────────────────────────
 
@@ -809,12 +840,29 @@ export function useVipNight() {
     [fetchData]
   );
 
+  // Bascule vers une autre soirée listée (chips du sélecteur). Le ref est mis à
+  // jour tout de suite pour que le fetch qui suit vise la bonne soirée.
+  const selectEvent = useCallback(
+    (eventId: string) => {
+      selectedEventIdRef.current = eventId;
+      setSelectedEventId(eventId);
+      fetchData(eventId);
+    },
+    [fetchData]
+  );
+
   return {
     venueId,
     loading: data.loading || venueLoading,
     noVenue: !venueLoading && !venueId,
     connectionStale: !realtimeConnected || !isOnline,
     activeEvent: data.activeEvent,
+    events: data.events,
+    selectedEventId: data.activeEvent?.id ?? null,
+    selectEvent,
+    // Planning : la soirée affichée n'a pas encore commencé (préparation en
+    // amont). En cours ou passée dans la nuit → service en direct.
+    isPlanning: !!data.activeEvent && new Date(data.activeEvent.startAt).getTime() > Date.now(),
     reservations: sortedReservations,
     consumptions: data.consumptions,
     orders: data.orders,

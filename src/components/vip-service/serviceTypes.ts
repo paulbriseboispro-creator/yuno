@@ -7,6 +7,18 @@ import type { VipConsumption, VipReservation } from '@/types';
 // Une commande n'impacte le crédit du client QUE lorsqu'elle est servie
 // (copie dans vip_consumptions), jamais avant.
 
+/**
+ * Une soirée que l'hôte VIP peut préparer : en cours OU à venir (pas encore
+ * terminée). L'outil n'est plus borné à « ce soir » — l'hôte organise ses
+ * placements et lit les pré-commandes des jours à l'avance.
+ */
+export interface VipEventOption {
+  id: string;
+  title: string;
+  startAt: string;
+  endAt: string;
+}
+
 export type OrderStatus = 'preorder' | 'pending' | 'confirmed' | 'preparing' | 'served' | 'cancelled';
 
 export interface ServiceOrderItem {
