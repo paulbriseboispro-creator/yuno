@@ -111,6 +111,36 @@ export function SplitBar({ segments }: { segments: { label: string; count: numbe
   );
 }
 
+// Entonnoir follower→client : chaque étape en % de la BASE (1ère étape). Barres
+// décroissantes, rouge qui s'estompe vers le bas — la descente de la valeur.
+export function Funnel({ stages }: { stages: { label: string; value: number; hint?: string }[] }) {
+  const base = stages[0]?.value || 1;
+  return (
+    <div className="space-y-3">
+      {stages.map((s, i) => {
+        const share = Math.round((s.value / base) * 100);
+        const width = s.value > 0 ? Math.max(6, share) : 0;
+        return (
+          <div key={s.label}>
+            <div className="flex items-baseline justify-between gap-3 mb-1">
+              <span className="text-[13px] font-[560]" style={{ color: T1 }}>{s.label}</span>
+              <span className="text-[13px] tabular-nums flex-none">
+                <span className="font-[680]" style={{ color: T1 }}>{s.value.toLocaleString('fr-FR')}</span>
+                <span className="ml-1.5" style={{ color: T3 }}>{share}%</span>
+              </span>
+            </div>
+            <div className="h-2.5 rounded-full overflow-hidden" style={{ background: C_FAINT }}>
+              <div className="h-full rounded-full transition-all"
+                style={{ width: `${width}%`, background: `rgba(232,25,44,${Math.max(0.28, 0.92 - i * 0.16)})` }} />
+            </div>
+            {s.hint && <p className="text-[10.5px] mt-1" style={{ color: T3 }}>{s.hint}</p>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function Coverage({ known, total, label }: { known: number; total: number; label: string }) {
   if (total === 0) return null;
   const pct = Math.round((known / total) * 100);

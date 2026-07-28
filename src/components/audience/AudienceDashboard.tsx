@@ -1,12 +1,12 @@
 import { useMemo, type ReactNode } from 'react';
 import {
   Users, TrendingUp, Bell, BellOff, Cake, MapPin, Music, Heart, Star,
-  Languages as LangIcon, Loader2, BarChart3, Euro, Clock, Zap, Sparkles,
+  Languages as LangIcon, Loader2, BarChart3, Euro, Clock, Zap, Sparkles, Filter,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAudienceData, type AudienceSubject } from './useAudienceData';
 import {
-  PCard, ZoneHeading, Kpi, BarRow, SplitBar, Coverage, MiniLine,
+  PCard, ZoneHeading, Kpi, BarRow, SplitBar, Coverage, MiniLine, Funnel,
   RED, POS, T1, T2, T3,
 } from './audience-ui';
 
@@ -122,6 +122,56 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
                 sub={t('notifs cross-ville', 'cross-city alerts', 'alertas multi-ciudad')} delay={0.12} />
             )}
           </div>
+
+          {/* ── VALEUR DE L'AUDIENCE (la couche argent : LTV + entonnoir) ── */}
+          {subject.type === 'venue' && rev?.supported && rev.followers && seg && (() => {
+            const totalFollowers = seg.total || 0;
+            const followersNet = rev.followers.net || 0;
+            const followersOrders = rev.followers.orders || 0;
+            const converted = seg.converted ?? 0;
+            const ltv = totalFollowers > 0 ? followersNet / totalFollowers : 0;
+            const convRate = totalFollowers > 0 ? Math.round((converted / totalFollowers) * 100) : 0;
+            const avgBasket = followersOrders > 0 ? followersNet / followersOrders : 0;
+            const repeat = seg.repeat_buyers;
+            const ltvLabel = ltv >= 10 ? eur(ltv) : `${ltv.toFixed(1).replace('.', ',')} €`;
+            const stages = [
+              { label: t('Abonnés', 'Subscribers', 'Suscriptores'), value: totalFollowers },
+              { label: t('Joignables', 'Reachable', 'Localizables'), value: a.reachable },
+              { label: t('Engagés', 'Engaged', 'Comprometidos'), value: seg.engagement.engaged },
+              {
+                label: t('Acheteurs', 'Buyers', 'Compradores'), value: converted,
+                hint: t(`${convRate}% de tes abonnés ont acheté`, `${convRate}% of subscribers bought`, `${convRate}% de suscriptores compraron`),
+              },
+              ...(repeat != null ? [{
+                label: t('Ré-acheteurs', 'Repeat buyers', 'Recurrentes'), value: repeat,
+                hint: converted > 0
+                  ? t(`${Math.round((repeat / converted) * 100)}% des acheteurs reviennent`, `${Math.round((repeat / converted) * 100)}% of buyers return`, `${Math.round((repeat / converted) * 100)}% de compradores vuelven`)
+                  : undefined,
+              }] : []),
+            ];
+            return (
+              <>
+                <ZoneHeading icon={<Euro className="w-4 h-4" />} label={t("Valeur de l'audience", 'Audience value', 'Valor de la audiencia')} />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  <PCard icon={<Euro className="w-4 h-4" />}
+                    title={t('Valeur par abonné', 'Value per subscriber', 'Valor por suscriptor')}
+                    sub={t('Revenu net généré ÷ abonnés (90j)', 'Net revenue ÷ subscribers (90d)', 'Ingreso neto ÷ suscriptores (90d)')}>
+                    <div className="text-[34px] font-[700] tabular-nums leading-none" style={{ color: ltv > 0 ? POS : T2 }}>{ltvLabel}</div>
+                    <p className="text-[12px] mt-2" style={{ color: T3 }}>
+                      {ltv > 0
+                        ? t(`${convRate}% convertissent · panier moyen ${eur(avgBasket)}`, `${convRate}% convert · avg basket ${eur(avgBasket)}`, `${convRate}% convierten · cesta media ${eur(avgBasket)}`)
+                        : t('Aucun abonné n\'a encore acheté — active ton audience.', 'No subscriber has bought yet — activate your audience.', 'Ningún suscriptor ha comprado aún — activa tu audiencia.')}
+                    </p>
+                  </PCard>
+                  <PCard icon={<Filter className="w-4 h-4" />}
+                    title={t('De l\'abonné au client', 'From subscriber to customer', 'Del suscriptor al cliente')}
+                    sub={t('Où ton audience descend l\'échelle de valeur', 'How far your audience goes down the value ladder', 'Hasta dónde llega tu audiencia')}>
+                    <Funnel stages={stages} />
+                  </PCard>
+                </div>
+              </>
+            );
+          })()}
 
           {/* ── CROISSANCE ── */}
           <ZoneHeading icon={<TrendingUp className="w-4 h-4" />} label={t('Croissance', 'Growth', 'Crecimiento')} />

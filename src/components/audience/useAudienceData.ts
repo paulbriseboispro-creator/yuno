@@ -32,6 +32,7 @@ export interface AudienceSegments {
   superfans: number;
   cohort: { new_30d: number; established: number };
   converted: number | null;
+  repeat_buyers: number | null;
   spend_tiers: { tier: string; count: number; revenue: number }[] | null;
   recency: { active: number; at_risk: number; lapsed: number } | null;
 }
