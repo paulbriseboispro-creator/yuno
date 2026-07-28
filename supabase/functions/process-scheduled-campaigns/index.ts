@@ -3,8 +3,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 import { dispatchPushAutomations, dispatchNewEventPushes } from "../_shared/push-automations.ts";
 import { refreshEventEmbeddings, refreshDjEmbeddings } from "../_shared/event-embeddings.ts";
+import { refreshTasteEmbeddings } from "../_shared/taste-embeddings.ts";
 import { dispatchLiveOpsAlerts } from "../_shared/live-ops-alerts.ts";
 import { dispatchPromoterPushes } from "../_shared/promoter-push.ts";
+import { dispatchAudienceWeeklyRecaps } from "../_shared/audience-weekly-recap.ts";
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type' };
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -113,6 +115,8 @@ Deno.serve(async (req) => {
       if (OPENAI_API_KEY) {
         embeddings = await refreshEventEmbeddings(admin, OPENAI_API_KEY);
         djEmbeddings = await refreshDjEmbeddings(admin, OPENAI_API_KEY);
+        // Quiz de goût embeddé dans le même espace (cold-start du « cerveau unique »).
+        await refreshTasteEmbeddings(admin, OPENAI_API_KEY);
       }
     } catch (e) {
       console.error('[EMBEDDINGS] refresh failed:', String(e));
@@ -138,7 +142,15 @@ Deno.serve(async (req) => {
       console.error('[PROMOTER-PUSH] dispatch failed:', String(e));
     }
 
-    return new Response(JSON.stringify({ processed, pushProcessed, autoPush, newEventPush, embeddings, djEmbeddings, liveOps, promoterPush }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    // Recap hebdo aux owners (audience 'pro') : auto-gate au lundi matin + dedup semaine.
+    let weeklyRecap = { processed: 0, sent: 0 };
+    try {
+      weeklyRecap = await dispatchAudienceWeeklyRecaps(admin);
+    } catch (e) {
+      console.error('[WEEKLY-RECAP] dispatch failed:', String(e));
+    }
+
+    return new Response(JSON.stringify({ processed, pushProcessed, autoPush, newEventPush, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }

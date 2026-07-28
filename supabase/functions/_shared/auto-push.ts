@@ -18,6 +18,8 @@
 // pas par ici : ils utilisent la mécanique campagnes (push-automations.ts) dont
 // le tracking est déjà complet. La RPC get_auto_push_stats() agrège les deux.
 
+import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+
 export type AutoPushLang = "fr" | "en" | "es";
 type Tpl = { title: string; body: string };
 type TplByLang = Record<AutoPushLang, Tpl>;
@@ -67,6 +69,18 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
         fr: { title: "Avenant signé ✅", body: "{partner} a signé l'avenant sur {subject}. Les nouvelles conditions s'appliquent." },
         en: { title: "Amendment signed ✅", body: "{partner} signed the amendment on {subject}. The new terms now apply." },
         es: { title: "Adenda firmada ✅", body: "{partner} firmó la adenda en {subject}. Las nuevas condiciones ya se aplican." },
+      },
+    },
+  },
+  // Récap hebdo poussé au pro : l'habitude qui donne une raison de faire plus d'events.
+  audience_weekly_recap: {
+    logType: "reminder",
+    audience: "pro",
+    variants: {
+      default: {
+        fr: { title: "Ta semaine sur Yuno 📊", body: "+{followers} abonnés, {pushes} push, {revenue} de ventes cette semaine." },
+        en: { title: "Your week on Yuno 📊", body: "+{followers} subscribers, {pushes} pushes, {revenue} in sales this week." },
+        es: { title: "Tu semana en Yuno 📊", body: "+{followers} suscriptores, {pushes} push, {revenue} en ventas esta semana." },
       },
     },
   },
@@ -198,6 +212,83 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
         fr: { title: "Ton week-end commence ici 🎉", body: "{events} ce week-end. Découvre la programmation." },
         en: { title: "Your weekend starts here 🎉", body: "{events} this weekend. Check out the lineup." },
         es: { title: "Tu finde empieza aquí 🎉", body: "{events} este fin de semana. Descubre la programación." },
+      },
+    },
+  },
+  // ── Découverte (relance de TOUS les membres, par goûts + ville) ───────────
+  // Personnalisé : nomme UNE soirée qui colle aux goûts (TasteQuiz) et à la
+  // ville, et laisse entendre qu'il y en a d'autres. Envoyé par le cron
+  // weekly-digest (lundi → week, jeudi → weekend). Vars: {city}, {event}.
+  discovery_weekend: {
+    logType: "marketing",
+    audience: "client",
+    variants: {
+      default: {
+        fr: { title: "🎉 Ce week-end à {city}", body: "{event} et d'autres soirées pour toi. Découvre." },
+        en: { title: "🎉 This weekend in {city}", body: "{event} and more nights for you. Take a look." },
+        es: { title: "🎉 Este finde en {city}", body: "{event} y más noches para ti. Échale un ojo." },
+      },
+    },
+  },
+  discovery_week: {
+    logType: "marketing",
+    audience: "client",
+    variants: {
+      default: {
+        fr: { title: "🎶 Cette semaine à {city}", body: "{event} pourrait te plaire. Découvre les soirées près de toi." },
+        en: { title: "🎶 This week in {city}", body: "{event} might be your vibe. Discover nights near you." },
+        es: { title: "🎶 Esta semana en {city}", body: "{event} puede que te guste. Descubre noches cerca de ti." },
+      },
+    },
+  },
+  // ── Découverte « cerveau unique » (Taste Engine) ─────────────────────────
+  // Reco par vecteur de goût fusionné (quiz + comportement), envoi ADAPTATIF.
+  // Le cron weekly-digest fait tourner les variantes ci-dessous. Vars :
+  // {count} (nb de soirées), {genres} (ex. « House, Open Format »), {event}
+  // (titre de la meilleure), {city}. Le sender fournit toujours les quatre.
+  taste_discovery: {
+    logType: "marketing",
+    audience: "client",
+    variants: {
+      genres_led: {
+        fr: { title: "{count} soirées faites pour toi 🎯", body: "{genres} près de toi. On a trié les meilleures." },
+        en: { title: "{count} nights made for you 🎯", body: "{genres} near you. We picked the best ones." },
+        es: { title: "{count} fiestas hechas para ti 🎯", body: "{genres} cerca de ti. Elegimos las mejores." },
+      },
+      event_led: {
+        fr: { title: "{event} pourrait te plaire 🔥", body: "Et {count} autres soirées taillées pour tes goûts." },
+        en: { title: "{event} might be your thing 🔥", body: "Plus {count} more nights cut for your taste." },
+        es: { title: "{event} puede ser lo tuyo 🔥", body: "Y {count} fiestas más a tu medida." },
+      },
+      city_led: {
+        fr: { title: "Ta semaine à {city} 🌃", body: "{count} soirées {genres} qu'on a choisies pour toi." },
+        en: { title: "Your week in {city} 🌃", body: "{count} {genres} nights we picked for you." },
+        es: { title: "Tu semana en {city} 🌃", body: "{count} fiestas {genres} elegidas para ti." },
+      },
+      curated: {
+        fr: { title: "Sélection maison pour toi ✨", body: "{count} soirées {genres}. Rien au hasard." },
+        en: { title: "Hand-picked for you ✨", body: "{count} {genres} nights. Nothing random." },
+        es: { title: "Selección para ti ✨", body: "{count} fiestas {genres}. Nada al azar." },
+      },
+      fomo: {
+        fr: { title: "Tu vas vouloir être là 👀", body: "{event} et {count} soirées faites pour tes goûts." },
+        en: { title: "You'll want to be there 👀", body: "{event} and {count} nights made for your taste." },
+        es: { title: "Vas a querer estar ahí 👀", body: "{event} y {count} fiestas para tus gustos." },
+      },
+      direct: {
+        fr: { title: "{genres}, ça te parle ? 🎧", body: "{count} soirées pour toi, près de chez toi." },
+        en: { title: "{genres} — your sound? 🎧", body: "{count} nights for you, close to home." },
+        es: { title: "{genres}, ¿te suena? 🎧", body: "{count} fiestas para ti, cerca de ti." },
+      },
+      agenda: {
+        fr: { title: "De quoi remplir ton agenda 📅", body: "{count} soirées {genres} triées pour toi." },
+        en: { title: "Fill up your calendar 📅", body: "{count} {genres} nights sorted for you." },
+        es: { title: "Llena tu agenda 📅", body: "{count} fiestas {genres} para ti." },
+      },
+      profile: {
+        fr: { title: "On commence à te connaître 😏", body: "{count} soirées {genres} qui collent à ton profil." },
+        en: { title: "We're getting to know you 😏", body: "{count} {genres} nights that fit your profile." },
+        es: { title: "Ya te vamos conociendo 😏", body: "{count} fiestas {genres} que encajan contigo." },
       },
     },
   },
@@ -390,8 +481,7 @@ export function autoTrackUrl(url: string, key: string): string {
 const settingsCache = new Map<string, { enabled: boolean; at: number }>();
 const SETTINGS_TTL_MS = 60_000;
 
-// deno-lint-ignore no-explicit-any
-export async function isAutoPushEnabled(admin: any, key: string): Promise<boolean> {
+export async function isAutoPushEnabled(admin: SupabaseClient, key: string): Promise<boolean> {
   const cached = settingsCache.get(key);
   if (cached && Date.now() - cached.at < SETTINGS_TTL_MS) return cached.enabled;
   try {
@@ -408,8 +498,7 @@ export async function isAutoPushEnabled(admin: any, key: string): Promise<boolea
   }
 }
 
-// deno-lint-ignore no-explicit-any
-export async function resolveUserLang(admin: any, userId: string): Promise<AutoPushLang> {
+export async function resolveUserLang(admin: SupabaseClient, userId: string): Promise<AutoPushLang> {
   try {
     const { data } = await admin
       .from("profiles").select("preferred_language").eq("id", userId).maybeSingle();
@@ -423,9 +512,8 @@ export async function resolveUserLang(admin: any, userId: string): Promise<AutoP
 // ── Tracking ────────────────────────────────────────────────────────────────
 
 /** Journalise l'issue d'un envoi unitaire (auto_push_events + notification_log). */
-// deno-lint-ignore no-explicit-any
 export async function logAutoPushOutcome(
-  admin: any,
+  admin: SupabaseClient,
   key: string,
   userId: string,
   outcome: "sent" | "failed",
@@ -455,8 +543,7 @@ export async function logAutoPushOutcome(
 
 // ── Envoi unitaire complet (gate → texte localisé → relay → tracking) ───────
 
-// deno-lint-ignore no-explicit-any
-export async function sendAutoPush(admin: any, opts: {
+export async function sendAutoPush(admin: SupabaseClient, opts: {
   key: string;
   userId: string;
   url: string;
