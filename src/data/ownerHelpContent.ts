@@ -216,11 +216,12 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Users',
         actionLink: { labelKey: 'ohelp.action.goToAudience', path: '/audience' },
         relatedArticleIds: ['understand-analytics', 'crm-setup'],
-        keywords: ['audience', 'abonnés', 'subscribers', 'followers', 'fans', 'démographie', 'portée', 'reachable', 'joignables', 'croissance', 'segmentation', 'notifications', 'revenu abonnés', 'valeur par abonné', 'ltv', 'entonnoir', 'funnel', 'conversion', 'ré-acheteurs', 'attribution', 'push vente', 'combien rapporte un abonné'],
+        keywords: ['audience', 'abonnés', 'subscribers', 'followers', 'fans', 'démographie', 'portée', 'reachable', 'joignables', 'croissance', 'segmentation', 'notifications', 'revenu abonnés', 'valeur par abonné', 'ltv', 'entonnoir', 'funnel', 'conversion', 'ré-acheteurs', 'attribution', 'push vente', 'combien rapporte un abonné', 'benchmark', 'médiane', 'ville', 'comparaison', 'percentile', 'source', 'acquisition', 'd\'où viennent', 'cohorte', 'rétention', 'récap hebdo', 'audience partagée', 'chevauchement', 'collab', 'net-new'],
         sections: [
           { headingKey: 'ohelp.pg.audience.s1h', bodyKey: 'ohelp.pg.audience.s1b' },
           { headingKey: 'ohelp.pg.audience.s2h', bodyKey: 'ohelp.pg.audience.s2b' },
           { headingKey: 'ohelp.pg.audience.s4h', bodyKey: 'ohelp.pg.audience.s4b' },
+          { headingKey: 'ohelp.pg.audience.s5h', bodyKey: 'ohelp.pg.audience.s5b' },
           { headingKey: 'ohelp.pg.audience.s3h', bodyKey: 'ohelp.pg.audience.s3b', type: 'tip' },
         ],
       },
