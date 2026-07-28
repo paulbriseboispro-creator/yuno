@@ -17,7 +17,7 @@ import {
 // mapbox-gl is heavy — only load it when the analytics page actually renders.
 const DJAudienceMap = lazy(() => import('@/components/dj/DJAudienceMap'));
 
-// ─── Types (RPC dj_audience_analytics → jsonb) ────────────────────────────────
+// ─── Types (RPC get_audience_analytics, subject dj → jsonb) ───────────────────
 interface AudienceData {
   ok: boolean;
   total: number;
@@ -131,12 +131,14 @@ export default function DJAnalytics() {
   const fetchAudience = useCallback(async () => {
     if (!dj?.user_id) return;
     setLoadingAud(true);
-    const { data } = await supabase.rpc('dj_audience_analytics', { p_dj_user_id: dj.user_id });
-    const res = data as unknown as AudienceData | null;
-    setAud(res && res.ok ? res : null);
-    // Portée + notifs (nouveau backbone audience — pas encore dans les types générés)
+    // Backbone audience polymorphe (subject dj) — pas encore dans les types générés.
+    // get_audience_analytics remplace l'ancien doublon dj_audience_analytics (même forme).
     const rpc = supabase.rpc as unknown as (n: string, p: Record<string, unknown>) => Promise<{ data: unknown }>;
-    const { data: nd } = await rpc('get_audience_notifications', { p_subject_type: 'dj', p_subject_id: dj.user_id });
+    const p = { p_subject_type: 'dj', p_subject_id: dj.user_id };
+    const { data } = await rpc('get_audience_analytics', p);
+    const res = data as AudienceData | null;
+    setAud(res && res.ok ? res : null);
+    const { data: nd } = await rpc('get_audience_notifications', p);
     const nres = nd as NotifData | null;
     setNotif(nres && nres.ok ? nres : null);
     setLoadingAud(false);
