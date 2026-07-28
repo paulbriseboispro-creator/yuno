@@ -13,6 +13,9 @@ import {
 
 const eur = (n: number) => `${(Number(n) || 0).toFixed(2)} €`;
 
+/** JSON payload returned by the settle_agency_promoter_payout RPC (Returns: Json) */
+interface SettleResult { settled?: boolean; amount: number }
+
 export default function AgencyFinance() {
   const { agency } = useAgency();
   const { promoters, contracts, conversions, totals, loading, refetch } = useAgencyData(agency?.id ?? null);
@@ -55,12 +58,13 @@ export default function AgencyFinance() {
 
   const handleSettle = async (promoterId: string) => {
     setSettling(promoterId);
-    const { data, error } = await (supabase as any).rpc('settle_agency_promoter_payout', {
+    const { data, error } = await supabase.rpc('settle_agency_promoter_payout', {
       p_promoter_id: promoterId,
     });
     setSettling(null);
     if (error) { toast.error(error.message); return; }
-    if (data?.settled) toast.success(tt('Réglé', 'Settled') + ` — ${eur(data.amount)}`);
+    const res = data as unknown as SettleResult | null; // Json → shape known from the SQL function
+    if (res?.settled) toast.success(tt('Réglé', 'Settled') + ` — ${eur(res.amount)}`);
     else toast.info(tt('Rien à régler', 'Nothing to settle'));
     refetch();
   };
@@ -70,8 +74,8 @@ export default function AgencyFinance() {
     setSettlingAll(true);
     let count = 0;
     for (const p of payables) {
-      const { data } = await (supabase as any).rpc('settle_agency_promoter_payout', { p_promoter_id: p.id });
-      if (data?.settled) count++;
+      const { data } = await supabase.rpc('settle_agency_promoter_payout', { p_promoter_id: p.id });
+      if ((data as unknown as SettleResult | null)?.settled) count++;
     }
     setSettlingAll(false);
     toast.success(`${count} promoteur${count > 1 ? 's' : ''} ${tt('réglé(s)', 'settled')}`);
@@ -133,7 +137,7 @@ export default function AgencyFinance() {
                       </p>
                     )}
                   </div>
-                  {r.contact?.contact_email || agency?.contact_email ? (
+                  {agency?.contact_email ? (
                     <button
                       onClick={() => {
                         const email = agency!.contact_email || '';

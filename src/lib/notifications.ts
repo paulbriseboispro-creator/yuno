@@ -87,6 +87,17 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   liveops_revenue_goal:   { icon: Target,        category: 'liveops', label: 'notif.type.liveops_revenue_goal' },
   liveops_incident:       { icon: ShieldAlert,   category: 'liveops', label: 'notif.type.liveops_incident' },
 
+  // ── 🤝 Espace affilié (agences ville + promoteurs) ─────────────────────────
+  aff_new_assignment:     { icon: Calendar,      category: 'people', label: 'notif.type.aff_new_assignment' },
+  aff_url_submitted:      { icon: UserCheck,     category: 'people', label: 'notif.type.aff_url_submitted' },
+  aff_linktree_pending:   { icon: ListChecks,    category: 'people', label: 'notif.type.aff_linktree_pending' },
+  aff_linktree_approved:  { icon: Rocket,        category: 'people', label: 'notif.type.aff_linktree_approved' },
+  aff_linktree_rejected:  { icon: AlertTriangle, category: 'people', label: 'notif.type.aff_linktree_rejected' },
+  aff_team_message:       { icon: MessageSquare, category: 'people', label: 'notif.type.aff_team_message' },
+  aff_contract_signed:    { icon: Handshake,     category: 'people', label: 'notif.type.aff_contract_signed' },
+  aff_contract_status:    { icon: AlertCircle,   category: 'people', label: 'notif.type.aff_contract_status' },
+  aff_missing_ticket_url: { icon: AlertTriangle, category: 'events', label: 'notif.type.aff_missing_ticket_url' },
+
   // ── 🛡️ Super admin (flux plateforme) ───────────────────────────────────────
   // Échéances : les credentials et revues qui expirent tout seuls.
   admin_credential_due:      { icon: CalendarClock, category: 'deadlines', label: 'notif.type.admin_credential_due' },
@@ -97,6 +108,7 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_new_venue:           { icon: Building2,     category: 'growth',    label: 'notif.type.admin_new_venue' },
   admin_new_organizer:       { icon: UserPlus,      category: 'growth',    label: 'notif.type.admin_new_organizer' },
   admin_new_agency:          { icon: Briefcase,     category: 'growth',    label: 'notif.type.admin_new_agency' },
+  admin_agency_club_lead:    { icon: Rocket,        category: 'growth',    label: 'notif.type.admin_agency_club_lead' },
   admin_waitlist_signup:     { icon: Users,         category: 'growth',    label: 'notif.type.admin_waitlist_signup' },
   admin_venue_first_sale:    { icon: Rocket,        category: 'growth',    label: 'notif.type.admin_venue_first_sale' },
   // Encaissement : ce qui empêche l'argent d'entrer, ou le fait ressortir.
@@ -173,8 +185,8 @@ export const PRIORITY_CONFIG = {
 // (page + bell) queries the right place.
 
 export interface FeedConfig {
-  table: 'staff_notifications' | 'organizer_notifications' | 'admin_notifications';
-  filterColumn: 'venue_id' | 'organizer_user_id' | 'scope';
+  table: 'staff_notifications' | 'organizer_notifications' | 'admin_notifications' | 'affiliate_app_notifications';
+  filterColumn: 'venue_id' | 'organizer_user_id' | 'scope' | 'feed_key';
   filterValue: string;
   /** Dashboard root this feed belongs to (`/owner`, `/organizer-app`, `/admin`…). */
   basePath: string;
@@ -201,6 +213,27 @@ export const ADMIN_FEED_CONFIG: FeedConfig = {
   realtimeFilter: 'scope=eq.platform',
   channelKey: 'admin_platform',
 };
+
+/**
+ * Le flux affilié suit le même modèle que les trois autres inboxes, avec une
+ * clé de filtre unique `feed_key` : `admin:<affiliate_id>` pour le chef
+ * d'agence (lu aussi par les managers), `member:<member_id>` pour le flux
+ * personnel d'un promoteur. Une seule colonne = compatible telle quelle avec
+ * la cloche partagée (un eq + un filtre realtime).
+ */
+export function getAffiliateFeedConfig(feedKey: string, pagePath = '/affiliate/inbox'): FeedConfig {
+  return {
+    table: 'affiliate_app_notifications',
+    filterColumn: 'feed_key',
+    filterValue: feedKey,
+    basePath: '/affiliate',
+    // Le cockpit agence passe '/agency-app/inbox' (miroir sans mur MFA) ; les
+    // membres/managers gardent l'inbox affiliée par défaut.
+    pagePath,
+    realtimeFilter: `feed_key=eq.${feedKey}`,
+    channelKey: `aff_${feedKey.replace(':', '_')}`,
+  };
+}
 
 export function getFeedConfig(params: {
   scope: 'venue' | 'organizer' | 'admin';
@@ -251,6 +284,8 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
   // The platform feed shares nothing with the two dashboard feeds — different
   // types, different routes — so it branches out before the shared switch.
   if (config.table === 'admin_notifications') return adminNotifLink(n);
+  // Même logique pour le flux affilié : types et routes qui lui sont propres.
+  if (config.table === 'affiliate_app_notifications') return affiliateNotifLink(n);
   const metaEventId = typeof n.metadata?.event_id === 'string' ? n.metadata.event_id : null;
   const eventId = n.event_id ?? metaEventId;
   // Sale notifications carry the order/ticket/reservation id in reference_id, so
@@ -377,6 +412,35 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
 }
 
 /**
+ * Affiliate-feed routing. Admin-feed types point at the agency surface where
+ * the decision gets made; member-feed types point at the promoter's own space.
+ */
+function affiliateNotifLink(n: AppNotif): string | null {
+  switch (n.notification_type) {
+    case 'aff_new_assignment':
+      return '/affiliate/promoteur';
+    case 'aff_url_submitted':
+      return '/affiliate/assignments';
+    case 'aff_linktree_pending':
+      return '/affiliate/members';
+    case 'aff_linktree_approved':
+    case 'aff_linktree_rejected':
+      return '/affiliate/promoteur/linktree';
+    case 'aff_contract_signed':
+    case 'aff_contract_status':
+      return '/agency-app/clubs';
+    case 'aff_missing_ticket_url':
+      return '/affiliate/events';
+    case 'aff_team_message': {
+      const actionUrl = typeof n.metadata?.action_url === 'string' ? n.metadata.action_url : null;
+      return actionUrl && actionUrl.startsWith('/') ? actionUrl : '/affiliate/inbox';
+    }
+    default:
+      return null;
+  }
+}
+
+/**
  * Platform-feed routing. Every alert points at the admin surface where the
  * matching decision gets made, so a click is one step from the fix rather than
  * from a search. Deadline alerts land back on the alerts page itself, where the
@@ -402,6 +466,9 @@ function adminNotifLink(n: AppNotif): string | null {
 
     case 'admin_new_agency':
       return '/admin/directory';
+
+    case 'admin_agency_club_lead':
+      return '/admin/affiliates';
 
     case 'admin_waitlist_signup':
       return '/admin/waitlist';

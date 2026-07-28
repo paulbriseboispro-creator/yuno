@@ -1,15 +1,19 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
+import { fr as frLoc, es as esLoc, enUS } from 'date-fns/locale';
 import { supabase } from '@/integrations/supabase/client';
 import { useAgency } from '@/hooks/useAgency';
 import { useAgencyData, promoterName } from '@/hooks/useAgencyData';
 import { useAgencyEvents } from '@/hooks/useAgencyEvents';
+import { useAffiliateShell } from '@/contexts/AffiliateShellContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
 import {
   Wallet, TrendingUp, Users, Building2,
   ArrowDownLeft, ArrowUpRight, Trophy, UserPlus, Calendar,
+  Eye, MousePointerClick, MapPin, BarChart2,
 } from 'lucide-react';
 import {
   PromoCard, StatTile, SectionLabel, PromoEmpty, PromoAvatar, PromoPill, PromoButton,
@@ -24,8 +28,92 @@ export default function AgencyDashboard() {
   const { events } = useAgencyEvents(agency?.id ?? null, 30);
   const { language } = useLanguage();
   const tt = (fr: string, en: string) => translate(language, fr, en);
+  const dateLocale = language === 'fr' ? frLoc : language === 'es' ? esLoc : enUS;
   const navigate = useNavigate();
   const [settlingAll, setSettlingAll] = useState(false);
+
+  // Bras externe (clubs non-Yuno) : trafic 30 jours + taille du catalogue.
+  const shell = useAffiliateShell();
+  const [ext, setExt] = useState<{ views: number; clicks: number; venues: number; events: number } | null>(null);
+  const [extWeek, setExtWeek] = useState<{ id: string; name: string; event_date: string; start_time: string | null; venue_name: string | null }[]>([]);
+
+  useEffect(() => {
+    const affiliateId = shell?.affiliateId;
+    if (!affiliateId) return;
+    let active = true;
+    (async () => {
+      const since = new Date();
+      since.setDate(since.getDate() - 30);
+      const today = new Date().toISOString().split('T')[0];
+      const [v, c, ven, ev] = await Promise.all([
+        supabase.from('affiliate_visitor_sessions')
+          .select('id', { count: 'exact', head: true })
+          .eq('affiliate_id', affiliateId).eq('is_internal', false)
+          .gte('visited_at', since.toISOString()),
+        supabase.from('affiliate_clicks')
+          .select('id', { count: 'exact', head: true })
+          .eq('affiliate_id', affiliateId).eq('is_internal', false)
+          .gte('clicked_at', since.toISOString()),
+        supabase.from('affiliate_venues')
+          .select('id', { count: 'exact', head: true })
+          .eq('affiliate_id', affiliateId).eq('is_active', true),
+        supabase.from('affiliate_events')
+          .select('id', { count: 'exact', head: true })
+          .eq('affiliate_id', affiliateId).in('status', ['published', 'featured'])
+          .gte('event_date', today),
+      ]);
+      if (active) {
+        setExt({ views: v.count ?? 0, clicks: c.count ?? 0, venues: ven.count ?? 0, events: ev.count ?? 0 });
+      }
+      // Les 7 prochains jours côté externe, pour le strip unifié.
+      const in7 = new Date();
+      in7.setDate(in7.getDate() + 7);
+      const { data: week } = await supabase
+        .from('affiliate_events')
+        .select('id, name, event_date, start_time, affiliate_venues(name)')
+        .eq('affiliate_id', affiliateId)
+        .in('status', ['published', 'featured'])
+        .gte('event_date', today)
+        .lte('event_date', in7.toISOString().split('T')[0])
+        .order('event_date')
+        .limit(10);
+      if (active) {
+        setExtWeek((week ?? []).map((e) => ({
+          id: e.id,
+          name: e.name,
+          event_date: e.event_date,
+          start_time: e.start_time,
+          venue_name: (Array.isArray(e.affiliate_venues) ? e.affiliate_venues[0] : e.affiliate_venues)?.name ?? null,
+        })));
+      }
+    })();
+    return () => { active = false; };
+  }, [shell?.affiliateId]);
+
+  // Strip « 7 prochains jours » : les deux modes de distribution, une seule liste.
+  const weekAhead = useMemo(() => {
+    const limit = new Date();
+    limit.setDate(limit.getDate() + 7);
+    const yuno = events
+      .filter(e => new Date(e.start_at) <= limit)
+      .map(e => ({
+        key: `y-${e.event_id}`,
+        name: e.title,
+        when: new Date(e.start_at),
+        venue: e.venue_name,
+        mode: 'yuno' as const,
+        extra: e.assigned_promoter_count,
+      }));
+    const external = extWeek.map(e => ({
+      key: `x-${e.id}`,
+      name: e.name,
+      when: new Date(`${e.event_date}T${e.start_time ?? '23:00'}:00`),
+      venue: e.venue_name,
+      mode: 'external' as const,
+      extra: null as number | null,
+    }));
+    return [...yuno, ...external].sort((a, b) => a.when.getTime() - b.when.getTime()).slice(0, 8);
+  }, [events, extWeek]);
 
   const leaderboard = useMemo(() => {
     const byPromoter = new Map<string, number>();
@@ -109,6 +197,67 @@ export default function AgencyDashboard() {
           </PromoButton>
         )}
       </div>
+
+      {/* Les 7 prochains jours, tous modes confondus : la semaine en un regard */}
+      {weekAhead.length > 0 && (
+        <>
+          <SectionLabel>{tt('7 prochains jours', 'Next 7 days')}</SectionLabel>
+          <PromoCard style={{ padding: 8 }}>
+            {weekAhead.map((ev, i) => (
+              <button
+                key={ev.key}
+                onClick={() => navigate(ev.mode === 'yuno' ? '/agency-app/events' : '/affiliate/events')}
+                className="flex w-full items-center gap-3 text-left cursor-pointer"
+                style={{
+                  padding: '9px 8px', background: 'none', border: 'none',
+                  borderBottom: i < weekAhead.length - 1 ? '1px solid rgba(255,255,255,0.05)' : undefined,
+                }}
+              >
+                <div className="flex-none text-center" style={{ width: 44 }}>
+                  <p style={{ color: T1, fontSize: 13, fontWeight: 700, lineHeight: 1 }}>
+                    {format(ev.when, 'd', { locale: dateLocale })}
+                  </p>
+                  <p style={{ color: T3, fontSize: 9.5, textTransform: 'uppercase' }}>
+                    {format(ev.when, 'EEE', { locale: dateLocale })}
+                  </p>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{ev.name}</p>
+                  <p className="truncate" style={{ color: T3, fontSize: 11 }}>
+                    {ev.venue ?? '—'}
+                    {ev.mode === 'yuno' && ev.extra != null && ev.extra > 0
+                      ? ` · ${ev.extra} ${tt('promoteur(s)', 'promoter(s)')}` : ''}
+                  </p>
+                </div>
+                <PromoPill tone={ev.mode === 'yuno' ? 'red' : 'muted'}>
+                  {ev.mode === 'yuno' ? 'Yuno' : tt('Externe', 'External')}
+                </PromoPill>
+              </button>
+            ))}
+          </PromoCard>
+        </>
+      )}
+
+      {/* Bras externe : les clubs hors Yuno, trafic redirigé vers leur billetterie */}
+      {ext && (ext.venues > 0 || ext.views > 0 || ext.events > 0) && (
+        <>
+          <SectionLabel>{tt('Clubs externes · 30 derniers jours', 'External clubs · last 30 days')}</SectionLabel>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <StatTile icon={Eye} value={ext.views.toLocaleString()} label={tt('Vues', 'Views')} tone="pos" />
+            <StatTile icon={MousePointerClick} value={ext.clicks.toLocaleString()} label={tt('Clics billetterie', 'Ticket clicks')} />
+            <StatTile icon={MapPin} value={ext.venues} label={tt('Clubs partenaires', 'Partner clubs')} />
+            <StatTile icon={Calendar} value={ext.events} label={tt('Soirées à venir', 'Upcoming events')} />
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <PromoButton size="sm" variant="secondary" onClick={() => navigate('/affiliate/analytics')}>
+              <BarChart2 className="h-4 w-4" /> {tt('Analytics trafic', 'Traffic analytics')}
+            </PromoButton>
+            <PromoButton size="sm" variant="secondary" onClick={() => navigate('/affiliate/venues')}>
+              <MapPin className="h-4 w-4" /> {tt('Gérer les clubs externes', 'Manage external clubs')}
+            </PromoButton>
+          </div>
+        </>
+      )}
 
       {/* Leaderboard */}
       <SectionLabel>{tt('Classement promoteurs', 'Promoter leaderboard')}</SectionLabel>

@@ -34,6 +34,8 @@ const AgencyAnalytics = lazyWithRetry(() => import("./pages/agency-app/AgencyAna
 const AgencyPromoterDetail = lazyWithRetry(() => import("./pages/agency-app/AgencyPromoterDetail"));
 const AgencyStats = lazyWithRetry(() => import("./pages/agency-app/AgencyStats"));
 const AgencyRules = lazyWithRetry(() => import("./pages/agency-app/AgencyRules"));
+const AgencyProfile = lazyWithRetry(() => import("./pages/agency-app/AgencyProfile"));
+const ClubReport = lazyWithRetry(() => import("./pages/ClubReport"));
 const OwnerAgencies = lazyWithRetry(() => import("./pages/OwnerAgencies"));
 const AffiliateRoute = lazyWithRetry(() => import("./components/AffiliateRoute").then(m => ({ default: m.AffiliateRoute })));
 const ManagerRoute = lazyWithRetry(() => import("./components/ManagerRoute").then(m => ({ default: m.ManagerRoute })));
@@ -626,6 +628,10 @@ const App = () => (
                   </AgencyRoute>
                 }>
                   <Route index element={<AgencyDashboard />} />
+                  <Route path="profile" element={<AgencyProfile />} />
+                  {/* Miroirs sans mur MFA des surfaces transverses de l'entité fusionnée */}
+                  <Route path="inbox" element={<AffiliateInbox />} />
+                  <Route path="help" element={<AffiliateHelp />} />
                   <Route path="promoters" element={<AgencyRoster />} />
                   <Route path="promoters/:userId" element={<AgencyPromoterDetail />} />
                   <Route path="clubs" element={<AgencyClubs />} />
@@ -1060,6 +1066,8 @@ const App = () => (
                 <Route path="/affiliate-venue/:slug" element={<AffiliateVenuePage />} />
                 <Route path="/p/:slug" element={<AffiliateLinktree />} />
                 <Route path="/promo/:slug" element={<PromoterLinktree />} />
+                {/* Rapport Club public (lecture seule, par token) */}
+                <Route path="/r/:token" element={<ClubReport />} />
 
                 <Route path="*" element={<NotFound />} />
               </Routes>

@@ -1,12 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesUpdate } from '@/integrations/supabase/types';
 import { useAgency } from '@/hooks/useAgency';
 import { useAgencyData, promoterName, AgencyPromoter } from '@/hooks/useAgencyData';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
-import { ArrowLeft, Wallet, ToggleLeft, ToggleRight, Hash } from 'lucide-react';
+import { ArrowLeft, Wallet, ToggleLeft, ToggleRight, Hash, Globe, Eye, MousePointerClick, ExternalLink } from 'lucide-react';
 import {
   PromoCard, StatTile, SectionLabel, PromoEmpty, PromoAvatar, PromoPill, PromoButton, DarkInput, FieldLabel,
   T1, T2, T3, RED, POS, WARN, INNER_BG, BORDER,
@@ -47,7 +48,6 @@ function ClubRecord({
     table: record.agency_table_cap?.toString() ?? '',
   });
   const [saving, setSaving] = useState(false);
-  const db = supabase as any;
 
   const clubName = contracts.find(c => c.venue_id === record.venue_id || c.organizer_user_id === record.organizer_user_id)?.venues?.name
     || record.venues?.name
@@ -58,7 +58,7 @@ function ClubRecord({
   const grossClub = recordConvs.reduce((s, c) => s + Number(c.gross_amount || 0), 0);
 
   const handleToggle = async (field: 'agency_can_sell_tickets' | 'agency_can_sell_tables', val: boolean) => {
-    const { error } = await db.from('promoters').update({ [field]: val }).eq('id', record.id);
+    const { error } = await supabase.from('promoters').update({ [field]: val } as Pick<TablesUpdate<'promoters'>, typeof field>).eq('id', record.id);
     if (error) { toast.error(error.message); return; }
     await onSave({ [field]: val } as Partial<AgencyPromoter>, record.id);
   };
@@ -69,7 +69,7 @@ function ClubRecord({
       agency_ticket_cap: caps.ticket !== '' ? parseInt(caps.ticket) : null,
       agency_table_cap: caps.table !== '' ? parseInt(caps.table) : null,
     };
-    const { error } = await db.from('promoters').update(patch).eq('id', record.id);
+    const { error } = await supabase.from('promoters').update(patch).eq('id', record.id);
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success(tt('Caps enregistrés', 'Caps saved'));
@@ -166,15 +166,39 @@ export default function AgencyPromoterDetail() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const { agency } = useAgency();
-  const { promoters, contracts, conversions, groups, loading, refetch } = useAgencyData(agency?.id ?? null);
+  const { promoters, contracts, conversions, groups, externalMembers, loading, refetch } = useAgencyData(agency?.id ?? null);
   const { language } = useLanguage();
   const tt = (fr: string, en: string) => translate(language, fr, en);
   const [settling, setSettling] = useState<string | null>(null);
   const [savingGroup, setSavingGroup] = useState(false);
-  const db = supabase as any;
 
   const records = promoters.filter(p => p.user_id === userId);
   const person = records[0];
+
+  // Bras externe : la même personne promeut aussi les clubs non-Yuno.
+  const external = externalMembers.find(m => m.user_id === userId) ?? null;
+  const [extStats, setExtStats] = useState<{ views: number; clicks: number } | null>(null);
+
+  useEffect(() => {
+    if (!external) { setExtStats(null); return; }
+    let active = true;
+    (async () => {
+      const since = new Date();
+      since.setDate(since.getDate() - 30);
+      const [v, c] = await Promise.all([
+        supabase.from('affiliate_visitor_sessions')
+          .select('id', { count: 'exact', head: true })
+          .eq('affiliate_member_id', external.id).eq('is_internal', false)
+          .gte('visited_at', since.toISOString()),
+        supabase.from('affiliate_clicks')
+          .select('id', { count: 'exact', head: true })
+          .eq('affiliate_member_id', external.id).eq('is_internal', false)
+          .gte('clicked_at', since.toISOString()),
+      ]);
+      if (active) setExtStats({ views: v.count ?? 0, clicks: c.count ?? 0 });
+    })();
+    return () => { active = false; };
+  }, [external?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalGross = useMemo(() =>
     conversions.filter(c => records.some(r => r.id === c.promoter_id))
@@ -202,7 +226,9 @@ export default function AgencyPromoterDetail() {
 
   const handleSettle = async (promoterId: string) => {
     setSettling(promoterId);
-    const { data, error } = await db.rpc('settle_agency_promoter_payout', { p_promoter_id: promoterId });
+    const { data: rpcData, error } = await supabase.rpc('settle_agency_promoter_payout', { p_promoter_id: promoterId });
+    // Json return narrowed to the shape actually produced by the RPC.
+    const data = rpcData as { settled?: boolean; amount?: number } | null;
     setSettling(null);
     if (error) { toast.error(error.message); return; }
     if (data?.settled) toast.success(tt('Réglé', 'Settled') + ` — ${eur(data.amount)}`);
@@ -217,7 +243,7 @@ export default function AgencyPromoterDetail() {
   const handleGroupChange = async (groupId: string) => {
     setSavingGroup(true);
     for (const r of records) {
-      await db.from('promoters')
+      await supabase.from('promoters')
         .update({ agency_group_id: groupId || null })
         .eq('id', r.id);
     }
@@ -279,6 +305,41 @@ export default function AgencyPromoterDetail() {
         <StatTile icon={Wallet} value={eur(totalPending)} label={tt('En attente', 'Pending')} tone="warn" />
         <StatTile icon={Hash} value={totalConversions} label={tt('Conversions', 'Conversions')} />
       </div>
+
+      {/* Bras externe : linktree + trafic 30 jours */}
+      {external && (
+        <>
+          <SectionLabel>{tt('Clubs externes', 'External clubs')}</SectionLabel>
+          <PromoCard style={{ padding: 14 }}>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <Globe className="h-4 w-4 flex-none" style={{ color: T2 }} />
+                <p className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>
+                  {external.linktree_slug ? `/promo/${external.linktree_slug}` : tt('Linktree non configuré', 'Linktree not set up')}
+                </p>
+              </div>
+              <div className="flex items-center gap-4 flex-none tabular-nums">
+                <span style={{ color: T2, fontSize: 12.5 }}>
+                  <Eye className="h-3.5 w-3.5 inline mr-1" style={{ color: T3 }} />
+                  {extStats?.views ?? '…'} {tt('vues 30 j', 'views 30d')}
+                </span>
+                <span style={{ color: T2, fontSize: 12.5 }}>
+                  <MousePointerClick className="h-3.5 w-3.5 inline mr-1" style={{ color: T3 }} />
+                  {extStats?.clicks ?? '…'} {tt('clics', 'clicks')}
+                </span>
+              </div>
+              {external.linktree_slug && (
+                <a href={`/promo/${external.linktree_slug}`} target="_blank" rel="noopener noreferrer"
+                  className="p-1.5 flex-none transition-colors" style={{ color: T3 }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = T1)}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = T3)}>
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              )}
+            </div>
+          </PromoCard>
+        </>
+      )}
 
       {/* Per-club records */}
       <SectionLabel>{tt('Clubs', 'Clubs')} ({records.length})</SectionLabel>

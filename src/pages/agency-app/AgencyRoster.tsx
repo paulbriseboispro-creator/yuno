@@ -2,11 +2,11 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAgency } from '@/hooks/useAgency';
-import { useAgencyData, promoterName, contractScopeLabel, AgencyContract, AgencyPromoter } from '@/hooks/useAgencyData';
+import { useAgencyData, promoterName, contractScopeLabel, AgencyPromoter, ExternalMember } from '@/hooks/useAgencyData';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
-import { UserPlus, Users, Mail, Wallet, ChevronRight, Building2 } from 'lucide-react';
+import { UserPlus, Users, Mail, Wallet, ChevronRight, Building2, Globe } from 'lucide-react';
 import {
   PromoCard, PromoButton, PromoEmpty, PromoAvatar, PromoPill, DarkInput, FieldLabel, SectionLabel,
   T1, T2, T3, RED, POS, INNER_BG, BORDER,
@@ -23,11 +23,13 @@ type PersonGroup = {
   totalPaid: number;
   groupId: string | null;
   isMultiClub: boolean;
+  /** Bras externe : le même humain promeut aussi les clubs non-Yuno. */
+  external: ExternalMember | null;
 };
 
 export default function AgencyRoster() {
   const { agency } = useAgency();
-  const { promoters, contracts, groups, loading, refetch } = useAgencyData(agency?.id ?? null);
+  const { promoters, contracts, groups, externalMembers, loading, refetch } = useAgencyData(agency?.id ?? null);
   const { language } = useLanguage();
   const tt = (fr: string, en: string) => translate(language, fr, en);
   const navigate = useNavigate();
@@ -35,8 +37,10 @@ export default function AgencyRoster() {
   const filterClub = searchParams.get('club');
 
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteMode, setInviteMode] = useState<'yuno' | 'external'>('yuno');
   const [email, setEmail] = useState('');
   const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [contractId, setContractId] = useState('');
   const [ticketValue, setTicketValue] = useState('');
   const [ticketType, setTicketType] = useState<'fixed' | 'percentage'>('fixed');
@@ -48,14 +52,21 @@ export default function AgencyRoster() {
 
   const activeContracts = contracts.filter(c => c.status === 'active');
 
-  // Group promoters by user_id to show multi-club people as one card
+  // Group promoters by user_id to show multi-club people as one card. Le bras
+  // externe (affiliate_members) se rattache à la même carte par user_id ; les
+  // personnes externes-uniquement ont leur propre carte.
   const grouped: PersonGroup[] = useMemo(() => {
     const byUser = new Map<string, AgencyPromoter[]>();
     for (const p of promoters) {
       if (!byUser.has(p.user_id)) byUser.set(p.user_id, []);
       byUser.get(p.user_id)!.push(p);
     }
-    return [...byUser.values()].map((records): PersonGroup => ({
+    const externalByUser = new Map<string, ExternalMember>();
+    for (const m of externalMembers) {
+      if (m.user_id) externalByUser.set(m.user_id, m);
+    }
+
+    const cards = [...byUser.values()].map((records): PersonGroup => ({
       userId: records[0].user_id,
       name: promoterName(records[0]),
       profileImageUrl: records[0].profile_image_url,
@@ -64,8 +75,26 @@ export default function AgencyRoster() {
       totalPaid: records.reduce((s, r) => s + Number(r.total_paid || 0), 0),
       groupId: records[0].agency_group_id ?? null,
       isMultiClub: records.length > 1,
+      external: externalByUser.get(records[0].user_id) ?? null,
     }));
-  }, [promoters]);
+
+    const yunoUserIds = new Set(cards.map(c => c.userId));
+    const externalOnly = externalMembers
+      .filter(m => m.user_id && !yunoUserIds.has(m.user_id))
+      .map((m): PersonGroup => ({
+        userId: m.user_id!,
+        name: [m.first_name, m.last_name].filter(Boolean).join(' ').trim() || m.linktree_slug || 'Promoteur',
+        profileImageUrl: null,
+        records: [],
+        totalPending: 0,
+        totalPaid: 0,
+        groupId: null,
+        isMultiClub: false,
+        external: m,
+      }));
+
+    return [...cards, ...externalOnly];
+  }, [promoters, externalMembers]);
 
   // Apply filters
   const filtered = useMemo(() => {
@@ -82,6 +111,34 @@ export default function AgencyRoster() {
   }, [grouped, filterClub, selectedGroup]);
 
   const handleInvite = async () => {
+    // Mode externe : le promoteur rejoint le bras affilié (linktree + liens
+    // tracés vers les billetteries des clubs externes) — aucun contrat requis.
+    if (inviteMode === 'external') {
+      if (!email.trim() || !firstName.trim() || !lastName.trim()) {
+        toast.error(tt('Email, prénom et nom requis', 'Email, first and last name required'));
+        return;
+      }
+      setSending(true);
+      const { data, error } = await supabase.functions.invoke('invite-affiliate-member', {
+        body: {
+          email: email.trim().toLowerCase(),
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          role: 'promoter',
+        },
+      });
+      setSending(false);
+      const res = data as { error?: string } | null;
+      if (error || res?.error) {
+        toast.error(res?.error || error?.message || tt("Échec de l'invitation", 'Invite failed'));
+        return;
+      }
+      toast.success(tt('Invitation envoyée', 'Invitation sent'));
+      setEmail(''); setFirstName(''); setLastName(''); setInviteOpen(false);
+      refetch();
+      return;
+    }
+
     const contract = activeContracts.find(c => c.id === contractId);
     if (!email.trim() || !contract) {
       toast.error(tt('Email et club requis', 'Email and club required'));
@@ -104,8 +161,10 @@ export default function AgencyRoster() {
       },
     });
     setSending(false);
-    if (error || (data as any)?.error) {
-      toast.error((data as any)?.error || error?.message || tt("Échec de l'invitation", 'Invite failed'));
+    // Edge function payload narrowed to the error shape actually consumed.
+    const res = data as { error?: string } | null;
+    if (error || res?.error) {
+      toast.error(res?.error || error?.message || tt("Échec de l'invitation", 'Invite failed'));
       return;
     }
     toast.success(tt('Invitation envoyée', 'Invitation sent'));
@@ -115,9 +174,11 @@ export default function AgencyRoster() {
 
   const handleSettle = async (promoterId: string) => {
     setSettling(promoterId);
-    const { data, error } = await (supabase as any).rpc('settle_agency_promoter_payout', {
+    const { data: rpcData, error } = await supabase.rpc('settle_agency_promoter_payout', {
       p_promoter_id: promoterId,
     });
+    // Json return narrowed to the shape actually produced by the RPC.
+    const data = rpcData as { settled?: boolean; amount?: number } | null;
     setSettling(null);
     if (error) { toast.error(error.message); return; }
     if (data?.settled) toast.success(tt('Réglé', 'Settled') + ` — ${eur(data.amount)}`);
@@ -127,7 +188,7 @@ export default function AgencyRoster() {
 
   const handleSettleGroup = async (pg: PersonGroup) => {
     for (const r of pg.records.filter(r => Number(r.pending_amount) > 0)) {
-      await (supabase as any).rpc('settle_agency_promoter_payout', { p_promoter_id: r.id });
+      await supabase.rpc('settle_agency_promoter_payout', { p_promoter_id: r.id });
     }
     toast.success(tt('Réglé', 'Settled'));
     refetch();
@@ -143,7 +204,7 @@ export default function AgencyRoster() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <SectionLabel>{tt('Mes promoteurs', 'My promoters')}</SectionLabel>
-        <PromoButton size="sm" onClick={() => setInviteOpen(v => !v)} disabled={activeContracts.length === 0}>
+        <PromoButton size="sm" onClick={() => setInviteOpen(v => !v)}>
           <UserPlus className="h-4 w-4" /> {tt('Inviter', 'Invite')}
         </PromoButton>
       </div>
@@ -195,27 +256,58 @@ export default function AgencyRoster() {
         </div>
       )}
 
-      {activeContracts.length === 0 && (
-        <p style={{ color: T3, fontSize: 12 }}>
-          {tt(
-            "Signez d'abord un contrat actif avec un club pour recruter des promoteurs.",
-            'Sign an active contract with a club first to recruit promoters.'
-          )}
-        </p>
-      )}
-
-      {inviteOpen && activeContracts.length > 0 && (
+      {inviteOpen && (
         <PromoCard>
           <SectionLabel>{tt('Nouveau promoteur', 'New promoter')}</SectionLabel>
+
+          {/* Où ce promoteur va-t-il vendre ? Club Yuno sous contrat (ventes
+              in-app + commissions) ou clubs externes (linktree + liens tracés). */}
+          <div className="mt-3 flex gap-2">
+            {([
+              { key: 'yuno' as const, icon: Building2, label: tt('Club Yuno (contrat)', 'Yuno club (contract)') },
+              { key: 'external' as const, icon: Globe, label: tt('Clubs externes', 'External clubs') },
+            ]).map(m => (
+              <button
+                key={m.key}
+                onClick={() => setInviteMode(m.key)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '7px 13px', borderRadius: 10, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                  background: inviteMode === m.key ? INNER_BG : 'transparent',
+                  border: `1px solid ${inviteMode === m.key ? BORDER : 'rgba(255,255,255,0.08)'}`,
+                  color: inviteMode === m.key ? T1 : T3,
+                }}
+              >
+                <m.icon className="h-3.5 w-3.5" />
+                {m.label}
+              </button>
+            ))}
+          </div>
+
+          {inviteMode === 'yuno' && activeContracts.length === 0 ? (
+            <p className="mt-3" style={{ color: T3, fontSize: 12 }}>
+              {tt(
+                "Signez d'abord un contrat actif avec un club pour recruter des promoteurs Yuno — ou invitez-le sur les clubs externes.",
+                'Sign an active contract with a club first to recruit Yuno promoters — or invite them on external clubs.'
+              )}
+            </p>
+          ) : (
           <div className="mt-3 space-y-3">
             <div>
               <FieldLabel>{tt('Email', 'Email')}</FieldLabel>
               <DarkInput value={email} onChange={setEmail} placeholder="promoteur@email.com" type="email" icon={Mail} />
             </div>
             <div>
-              <FieldLabel>{tt('Prénom (optionnel)', 'First name (optional)')}</FieldLabel>
+              <FieldLabel>{inviteMode === 'external' ? tt('Prénom', 'First name') : tt('Prénom (optionnel)', 'First name (optional)')}</FieldLabel>
               <DarkInput value={firstName} onChange={setFirstName} placeholder={tt('Prénom', 'First name')} />
             </div>
+            {inviteMode === 'external' && (
+              <div>
+                <FieldLabel>{tt('Nom de famille', 'Last name')}</FieldLabel>
+                <DarkInput value={lastName} onChange={setLastName} placeholder={tt('Nom de famille', 'Last name')} />
+              </div>
+            )}
+            {inviteMode === 'yuno' && (<>
             <div>
               <FieldLabel>{tt('Club de rattachement', 'Assigned club')}</FieldLabel>
               <select
@@ -269,10 +361,12 @@ export default function AgencyRoster() {
                 </select>
               </div>
             </div>
+            </>)}
             <PromoButton onClick={handleInvite} disabled={sending} full>
               {sending ? tt('Envoi…', 'Sending…') : tt("Envoyer l'invitation", 'Send invitation')}
             </PromoButton>
           </div>
+          )}
         </PromoCard>
       )}
 
@@ -301,6 +395,12 @@ export default function AgencyRoster() {
                           {pg.records.length} clubs
                         </PromoPill>
                       )}
+                      {pg.external && (
+                        <PromoPill tone="muted">
+                          <Globe className="h-3 w-3 inline mr-0.5" />
+                          {tt('Externe', 'External')}
+                        </PromoPill>
+                      )}
                       {group && (
                         <span style={{
                           display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -321,6 +421,11 @@ export default function AgencyRoster() {
                           {pg.records.indexOf(r) < pg.records.length - 1 ? ' / ' : ''}
                         </span>
                       ))}
+                      {pg.external?.linktree_slug && (
+                        <span style={{ color: T3, fontSize: 10.5 }}>
+                          {pg.records.length > 0 ? ' / ' : ''}/promo/{pg.external.linktree_slug}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="text-right flex-none">
@@ -330,7 +435,9 @@ export default function AgencyRoster() {
                     <p style={{ color: T3, fontSize: 10 }}>{tt('à reverser', 'to pay')}</p>
                   </div>
                   <button
-                    onClick={() => navigate(`/agency-app/promoters/${pg.userId}`)}
+                    onClick={() => navigate(pg.records.length > 0
+                      ? `/agency-app/promoters/${pg.userId}`
+                      : '/affiliate/suivi')}
                     style={{ color: T3, cursor: 'pointer', background: 'none', border: 'none', padding: 4 }}
                   >
                     <ChevronRight className="h-4 w-4" />
