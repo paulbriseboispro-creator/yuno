@@ -14,7 +14,13 @@ et re-timestamper dans l'ordre.
 | `…111400_collab_audience_overlap.sql` | RPC `get_collab_audience_overlap` (Jaccard co-organisateurs, gardé is_event_collab_participant) | C1 | Non (nouveau RPC ; carte masquée sans lui) |
 | `…111500_audience_cohorts.sql` | RPC `get_audience_cohorts` (rétention hebdo depuis ledger_start) | C4 | Non (nouveau RPC ; carte masquée sans lui) |
 | `…111600_audience_follow_source.sql` | triggers follow lisant `yuno.follow_source` + RPC `follow_subject`/`follow_organizer` + reporting `get_audience_sources` | C3 | ⚠️ voir note C3 |
-| _(à venir)_ | file récap hebdo + clé AUTO_PUSH `pro` + cron | C5 | Non (nouveau flux) |
+| `…111700_audience_weekly_recap.sql` | `audience_weekly_recap_data` (service_role) + table dedup `audience_recap_log` + seed clé AUTO_PUSH | C5 | Non (nouveau flux) |
+
+### Edge à déployer (C5) — cap 402 OK (fonction existante)
+- `supabase functions deploy process-scheduled-campaigns` — tire le nouveau dispatcher
+  `_shared/audience-weekly-recap.ts` (récap hebdo owner, audience 'pro') + la clé AUTO_PUSH
+  `audience_weekly_recap` d'`auto-push.ts`. Auto-gate lundi 9h–12h UTC + dedup semaine, envoi
+  via `sendAutoPush` (platforms ios_pro). Sans ce deploy, le récap ne part pas.
 
 ## Procédure de ship
 
