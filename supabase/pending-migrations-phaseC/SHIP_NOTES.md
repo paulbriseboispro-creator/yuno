@@ -12,8 +12,8 @@ et re-timestamper dans l'ordre.
 |---|---|---|---|
 | `…111300_audience_benchmarks.sql` | RPC `get_audience_benchmarks` (percentiles médiane-ville, venue) | C2 | Non (nouveau RPC ; front dégrade sans benchmark) |
 | `…111400_collab_audience_overlap.sql` | RPC `get_collab_audience_overlap` (Jaccard co-organisateurs, gardé is_event_collab_participant) | C1 | Non (nouveau RPC ; carte masquée sans lui) |
+| `…111500_audience_cohorts.sql` | RPC `get_audience_cohorts` (rétention hebdo depuis ledger_start) | C4 | Non (nouveau RPC ; carte masquée sans lui) |
 | _(à venir)_ | `follow_subject` RPC + triggers ledger lisant `yuno.follow_source` + reporting | C3 | Voir notes C3 (routage des surfaces) |
-| _(à venir)_ | RPC cohortes de rétention | C4 | Non (nouveau RPC) |
 | _(à venir)_ | file récap hebdo + clé AUTO_PUSH `pro` + cron | C5 | Non (nouveau flux) |
 
 ## Procédure de ship
