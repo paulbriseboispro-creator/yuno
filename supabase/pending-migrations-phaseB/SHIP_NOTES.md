@@ -12,7 +12,7 @@ dans l'ordre.
 | Fichier (staging) | Objet | Item | Régression front live si poussé seul ? |
 |---|---|---|---|
 | `…111000_audience_segments_repeat_buyers.sql` | `get_audience_segments` + `repeat_buyers` (5e étape entonnoir, venue) | B1 | Non (champ additif ; le front dégrade en 4 étapes sans lui) |
-| _(à venir)_ | `get_audience_notifications` + revenu attribué par campagne (72h) | B3 | Non (additif) |
+| `…111100_audience_push_attribution.sql` | nouveau RPC `get_audience_push_attribution` (revenu net attribué clic→achat 72h, venue) | B3 | Non (nouveau RPC ; le front dégrade sans revenu attribué) |
 | _(à venir)_ | DROP `dj_audience_analytics` | B4 | ⚠️ seulement APRÈS déploiement du front DJAnalytics migré |
 
 ## Procédure de ship
