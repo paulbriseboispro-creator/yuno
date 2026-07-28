@@ -26,6 +26,7 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
   const seg = data?.segments ?? null;
   const notif = data?.notifications ?? null;
   const rev = data?.revenue ?? null;
+  const att = data?.attribution ?? null;
 
   // ── Courbe : série nette (snapshots) sinon brut mensuel (analytics.growth) ──
   const growthSeries = useMemo(() => {
@@ -239,23 +240,41 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
             </PCard>
           </div>
 
-          {notif?.campaigns && notif.campaigns.length > 0 && (
-            <PCard style={{ marginTop: 12 }} icon={<Bell className="w-4 h-4" />}
-              title={t('Campagnes récentes', 'Recent campaigns', 'Campañas recientes')}
-              sub={t('Taux de clic par campagne', 'Click rate per campaign', 'Tasa de clic por campaña')}>
-              <div className="space-y-3">
-                {notif.campaigns.map(c => (
-                  <div key={c.id} className="flex items-center justify-between gap-3">
-                    <span className="text-[13px] truncate" style={{ color: T1 }}>{c.title || '—'}</span>
-                    <div className="flex items-center gap-4 flex-none text-[12px] tabular-nums" style={{ color: T3 }}>
-                      <span>{c.sent} {t('envois', 'sent', 'envíos')}</span>
-                      <span style={{ color: c.ctr >= 10 ? POS : T2 }}>{c.ctr}% CTR</span>
-                    </div>
+          {notif?.campaigns && notif.campaigns.length > 0 && (() => {
+            const revMap = new Map((att?.campaigns ?? []).map(c => [c.id, c.revenue] as const));
+            const total90d = att?.total_90d ?? 0;
+            const last = notif.campaigns[0];
+            const lastRev = revMap.get(last.id) ?? 0;
+            return (
+              <PCard style={{ marginTop: 12 }} icon={<Bell className="w-4 h-4" />}
+                title={t('Campagnes récentes', 'Recent campaigns', 'Campañas recientes')}
+                sub={total90d > 0
+                  ? t(`${eur(total90d)} de ventes attribuées (90j · clic→achat 72h)`, `${eur(total90d)} attributed sales (90d · click→buy 72h)`, `${eur(total90d)} en ventas atribuidas (90d · clic→compra 72h)`)
+                  : t('Taux de clic par campagne', 'Click rate per campaign', 'Tasa de clic por campaña')}>
+                {lastRev > 0 && (
+                  <div className="mb-3 rounded-xl px-3.5 py-3" style={{ background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.18)' }}>
+                    <p className="text-[11.5px]" style={{ color: T2 }}>{t('Ton dernier push a rapporté', 'Your last push earned', 'Tu último push generó')}</p>
+                    <p className="text-[24px] font-[700] tabular-nums leading-tight" style={{ color: POS }}>{eur(lastRev)}</p>
                   </div>
-                ))}
-              </div>
-            </PCard>
-          )}
+                )}
+                <div className="space-y-3">
+                  {notif.campaigns.map(c => {
+                    const cr = revMap.get(c.id) ?? 0;
+                    return (
+                      <div key={c.id} className="flex items-center justify-between gap-3">
+                        <span className="text-[13px] truncate" style={{ color: T1 }}>{c.title || '—'}</span>
+                        <div className="flex items-center gap-3.5 flex-none text-[12px] tabular-nums" style={{ color: T3 }}>
+                          {cr > 0 && <span className="font-[640]" style={{ color: POS }}>{eur(cr)}</span>}
+                          <span>{c.sent} {t('envois', 'sent', 'envíos')}</span>
+                          <span style={{ color: c.ctr >= 10 ? POS : T2 }}>{c.ctr}% CTR</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </PCard>
+            );
+          })()}
 
           {/* ── DÉMOGRAPHIE ── */}
           <ZoneHeading icon={<Users className="w-4 h-4" />} label={t('Démographie', 'Demographics', 'Demografía')} />
