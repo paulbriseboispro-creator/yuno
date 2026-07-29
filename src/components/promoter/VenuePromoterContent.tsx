@@ -21,6 +21,7 @@ import {
   Copy, TrendingUp, Euro, Ticket, Calendar, ExternalLink,
   Megaphone, QrCode, Share2, Zap, Target, ChevronDown, ChevronUp,
   ScanLine, UserPlus, Gift, Users, Crown, Ban, Wine, Beer, Coins,
+  CalendarRange,
 } from 'lucide-react';
 import { Instagram } from '@/components/icons/Instagram';
 import QRCode from 'qrcode';
@@ -99,6 +100,7 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
   const [eventsLoading, setEventsLoading] = useState(true);
   const [eventStatsLoading, setEventStatsLoading] = useState(true);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [agendaQrDataUrl, setAgendaQrDataUrl] = useState<string | null>(null);
   const [sourceTag, setSourceTag] = useState('');
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
   const [templateRules, setTemplateRules] = useState<TemplateRules | null>(null);
@@ -143,6 +145,12 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
   // General promo link uses the /promoteur/ route
   const promoLink = promoter.promo_code
     ? `${getBaseUrl()}/promoteur/${promoter.promo_code}${sourceTag ? `?src=${sourceTag}` : ''}`
+    : null;
+
+  // Agenda complet — page web-only (exclue des universal links) qui liste TOUTES
+  // les soirées rattachées ; le linktree, lui, met en avant les prochaines.
+  const agendaLink = promoter.promo_code
+    ? `${getBaseUrl()}/promoteur/${promoter.promo_code}/agenda${sourceTag ? `?src=${sourceTag}` : ''}`
     : null;
 
   // Event-specific link
@@ -426,6 +434,11 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
     if (!promoLink) return;
     QRCode.toDataURL(promoLink, { width: 256, margin: 2 }).then(setQrDataUrl).catch(() => {});
   }, [promoLink]);
+
+  useEffect(() => {
+    if (!agendaLink) return;
+    QRCode.toDataURL(agendaLink, { width: 256, margin: 2 }).then(setAgendaQrDataUrl).catch(() => {});
+  }, [agendaLink]);
 
   const copyLink = () => {
     if (!promoLink) return;
@@ -861,6 +874,44 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
               </CardHeader>
               <CardContent className="flex justify-center">
                 <img src={qrDataUrl} alt="QR Code" className="w-48 h-48 rounded-lg" />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Page Agenda — toutes les soirées, web-only */}
+          {agendaLink && (
+            <Card className="border-primary/30 bg-primary/5">
+              <CardHeader className="px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CalendarRange className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 truncate">{t('promoter.agendaPage')}</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 px-4 pb-4 sm:px-6 sm:pb-6">
+                <p className="text-xs text-muted-foreground">{t('promoter.agendaPageDesc')}</p>
+                <div className="flex gap-2">
+                  <Input value={agendaLink} readOnly className="min-w-0 flex-1 text-xs font-mono bg-background/50" />
+                  <Button size="icon" variant="outline" className="shrink-0" onClick={() => {
+                    navigator.clipboard.writeText(agendaLink);
+                    toast.success(t('promoter.linkCopied'));
+                  }}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={async () => {
+                    const outcome = await shareContent({ title: `${scopeName} — ${promoter.promo_code}`, url: agendaLink });
+                    if (outcome === 'copied') toast.success(t('promoter.linkCopied'));
+                  }}>
+                    <Share2 className="h-4 w-4 mr-2" />
+                    {t('promoter.shareLink')}
+                  </Button>
+                </div>
+                {agendaQrDataUrl && (
+                  <div className="flex justify-center pt-1">
+                    <img src={agendaQrDataUrl} alt="QR Code Agenda" className="w-48 h-48 rounded-lg" />
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

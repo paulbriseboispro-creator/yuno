@@ -7,7 +7,7 @@ import { useAgencyData, promoterName, AgencyPromoter } from '@/hooks/useAgencyDa
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
-import { ArrowLeft, Wallet, ToggleLeft, ToggleRight, Hash, Globe, Eye, MousePointerClick, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Wallet, ToggleLeft, ToggleRight, Hash, Globe, Eye, MousePointerClick, ExternalLink, Copy, CalendarRange, Link2 } from 'lucide-react';
 import {
   PromoCard, StatTile, SectionLabel, PromoEmpty, PromoAvatar, PromoPill, PromoButton, DarkInput, FieldLabel,
   T1, T2, T3, RED, POS, WARN, INNER_BG, BORDER,
@@ -314,6 +314,60 @@ export default function AgencyPromoterDetail() {
         <StatTile icon={Wallet} value={eur(totalPending)} label={tt('En attente', 'Pending')} tone="warn" />
         <StatTile icon={Hash} value={totalConversions} label={tt('Conversions', 'Conversions')} />
       </div>
+
+      {/* Pages publiques Yuno : linktree (meilleures soirées) + agenda complet.
+          Le lien agenda est pensé pour le QR / la bio : il s'ouvre toujours sur
+          le web, et chaque soirée bascule vers l'app Yuno si elle est installée. */}
+      {[...new Set(records.map(r => r.promo_code).filter(Boolean))].length > 0 && (
+        <>
+          <SectionLabel>{tt('Pages publiques', 'Public pages')}</SectionLabel>
+          <PromoCard style={{ padding: 14 }}>
+            <div className="space-y-3">
+              {[...new Set(records.map(r => r.promo_code).filter(Boolean))].map(code => (
+                <div key={code} className="space-y-2">
+                  {[
+                    { icon: Link2, path: `/promoteur/${code}`, label: tt('Linktree — meilleures soirées', 'Linktree — top nights') },
+                    { icon: CalendarRange, path: `/promoteur/${code}/agenda`, label: tt('Agenda — toutes les soirées', 'Agenda — all nights') },
+                  ].map(({ icon: Icon, path, label }) => (
+                    <div key={path} className="flex items-center gap-3">
+                      <Icon className="h-4 w-4 flex-none" style={{ color: T2 }} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{path}</p>
+                        <p style={{ color: T3, fontSize: 10.5 }}>{label}</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(`https://yunoapp.eu${path}`);
+                          toast.success(tt('Lien copié', 'Link copied'));
+                        }}
+                        className="p-1.5 flex-none transition-colors"
+                        style={{ color: T3, background: 'none', border: 'none', cursor: 'pointer' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = T1)}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = T3)}
+                        aria-label={tt('Copier le lien', 'Copy link')}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </button>
+                      <a
+                        href={path}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 flex-none transition-colors"
+                        style={{ color: T3 }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = T1)}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = T3)}
+                        aria-label={tt('Ouvrir la page', 'Open page')}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </PromoCard>
+        </>
+      )}
 
       {/* Bras externe : linktree + trafic 30 jours */}
       {external && (

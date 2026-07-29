@@ -457,8 +457,15 @@ export default function PromoterHub() {
     return true;
   });
 
+  // Le linktree met en avant les prochaines soirées ; l'agenda complet
+  // (/promoteur/:code/agenda) prend le relais pour tout montrer. Sans ce
+  // plafond, un promoteur très actif transformait sa vitrine en annuaire.
+  const LINKTREE_MAX_EVENTS = 8;
+  const hiddenCount = Math.max(0, dedupedEvents.length - LINKTREE_MAX_EVENTS);
+  const featuredEvents = dedupedEvents.slice(0, LINKTREE_MAX_EVENTS);
+
   const groupedByDate: Record<string, EventWithOwner[]> = {};
-  dedupedEvents.forEach(ev => {
+  featuredEvents.forEach(ev => {
     const key = formatInTimeZone(new Date(ev.start_at), PARIS_TIMEZONE, 'yyyy-MM-dd');
     if (!groupedByDate[key]) groupedByDate[key] = [];
     groupedByDate[key].push(ev);
@@ -736,10 +743,84 @@ export default function PromoterHub() {
             )}
           </section>
 
-          {/* Pas de CTA « Voir plus de soirées » : il renvoyait vers l'Explore
-              général de yunoapp.eu, donc vers des soirées pour lesquelles le
-              promoteur ne travaille pas (et sans son ?ref= de tracking). Le hub
-              ne montre QUE les soirées du promoteur. */}
+          {/* ══ CTA AGENDA COMPLET ═══════════════════════════════════
+              Uniquement vers l'agenda DU promoteur (/promoteur/:code/agenda),
+              jamais vers l'Explore général : le hub et l'agenda ne montrent
+              QUE ses soirées, avec son tracking. */}
+          {hiddenCount > 0 && (
+            <section style={{ padding: '18px 20px 0' }}>
+              <button
+                onClick={() => {
+                  const params = new URLSearchParams();
+                  if (source) params.set('src', source);
+                  const suffix = params.toString() ? `?${params.toString()}` : '';
+                  navigate(`/promoteur/${promoter.promoCode}/agenda${suffix}`);
+                }}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  padding: '18px 18px',
+                  borderRadius: '10px',
+                  border: '1px solid rgba(232,25,44,0.45)',
+                  background: 'linear-gradient(135deg, rgba(232,25,44,0.12) 0%, rgba(232,25,44,0.04) 100%)',
+                  cursor: 'pointer',
+                  textAlign: 'left' as const,
+                }}
+              >
+                <span style={{ display: 'flex', flexDirection: 'column', gap: '5px', minWidth: 0 }}>
+                  <span
+                    style={{
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      letterSpacing: '0.18em',
+                      color: '#E8192C',
+                      textTransform: 'uppercase' as const,
+                    }}
+                  >
+                    {t('promoterAgenda.fullAgenda')}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "'Space Grotesk', 'Helvetica Neue', Arial, sans-serif",
+                      fontSize: 'clamp(16px, 4.2vw, 18px)',
+                      fontWeight: 700,
+                      color: '#FFFFFF',
+                      textTransform: 'uppercase' as const,
+                      letterSpacing: '-0.005em',
+                      lineHeight: 1.1,
+                    }}
+                  >
+                    +{hiddenCount} {t('promoterHub.moreNights')}
+                  </span>
+                </span>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '9px 15px',
+                    borderRadius: '999px',
+                    background: '#E8192C',
+                    color: '#FFFFFF',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    letterSpacing: '0.14em',
+                    textTransform: 'uppercase' as const,
+                    whiteSpace: 'nowrap' as const,
+                    flexShrink: 0,
+                  }}
+                >
+                  {t('promoterHub.viewAll')}
+                  <IconArrow />
+                </span>
+              </button>
+            </section>
+          )}
 
         </main>
         </PublicPage>

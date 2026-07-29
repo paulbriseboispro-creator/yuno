@@ -130,6 +130,7 @@ const GuestListSignup = lazyWithRetry(() => import("./pages/GuestListSignup"));
 const GuestListCheckout = lazyWithRetry(() => import("./pages/GuestListCheckout"));
 const PromoterDashboard = lazyWithRetry(() => import("./pages/PromoterDashboard"));
 const PromoterHub = lazyWithRetry(() => import("./pages/PromoterHub"));
+const PromoterAgenda = lazyWithRetry(() => import("./pages/PromoterAgenda"));
 const PromoterPublicRedirect = lazyWithRetry(() => import("./pages/PromoterPublicRedirect"));
 const TrackedLinkRedirect = lazyWithRetry(() => import("./pages/TrackedLinkRedirect"));
 const PromoterEventAnalysis = lazyWithRetry(() => import("./pages/PromoterEventAnalysis"));
@@ -497,6 +498,9 @@ const App = () => (
                 
                 {/* Promoter public hub — direct render, no redirect */}
                 <Route path="/promoteur/:promoCode" element={<PromoterHub />} />
+                {/* Agenda complet du promoteur — page web-only (exclue de l'AASA),
+                    les soirées s'ouvrent dans l'app via yuno:// quand elle est là */}
+                <Route path="/promoteur/:promoCode/agenda" element={<PromoterAgenda />} />
                 <Route path="/l/:code" element={<TrackedLinkRedirect />} />
                 
                 {/* Legacy /club/:slug/promo route — also renders PromoterHub */}

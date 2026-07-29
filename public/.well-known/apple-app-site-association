@@ -4,7 +4,11 @@
     "details": [
       {
         "appID": "A2WV4J86F9.eu.yunoapp.app",
-        "paths": ["*"]
+        "components": [
+          { "/": "/promoteur/*/agenda", "exclude": true, "comment": "Agenda public promoteur — toujours ouvert dans le navigateur, jamais dans l'app" },
+          { "/": "*" }
+        ],
+        "paths": ["NOT /promoteur/*/agenda", "*"]
       }
     ]
   },

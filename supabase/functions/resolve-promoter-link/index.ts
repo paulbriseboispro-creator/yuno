@@ -12,7 +12,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { promoCode } = await req.json();
+    // `all: true` → page Agenda publique (/promoteur/:code/agenda) : on remonte
+    // TOUTES les soirées assignées à venir, pas seulement la sélection linktree.
+    const { promoCode, all } = await req.json();
     if (!promoCode) {
       return new Response(JSON.stringify({ error: "Missing promoCode" }), {
         status: 400,
@@ -81,6 +83,7 @@ Deno.serve(async (req) => {
     const organizerMap = new Map((organizers || []).map(o => [o.user_id, o]));
 
     const now = new Date().toISOString();
+    const eventLimit = all === true ? 200 : 30;
 
     // Linkage authoritative : le linktree ne liste QUE les soirées auxquelles le
     // promoteur est rattaché (promoter_event_assignments, status active). Sans ce
@@ -126,7 +129,7 @@ Deno.serve(async (req) => {
         .eq("is_active", true)
         .gte("end_at", now)
         .order("start_at", { ascending: true })
-        .limit(30);
+        .limit(eventLimit);
       venueEvents = (data || []).filter((e) => assignedEventIds.has(e.id));
     }
 
@@ -144,7 +147,7 @@ Deno.serve(async (req) => {
         .eq("is_active", true)
         .gte("end_at", now)
         .order("start_at", { ascending: true })
-        .limit(30);
+        .limit(eventLimit);
       organizerEvents = (data || []).filter((e) => assignedEventIds.has(e.id));
     }
 
