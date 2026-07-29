@@ -308,12 +308,24 @@ export default function VipHostDashboard() {
               fullName: target.fullName,
               guestCount: target.guestCount,
               totalPrice: cartTotal(lines),
+              email: target.email,
+              phone: target.phone,
             })
           : target.reservation.id;
       await night.submitCart(reservationId, lines, { directServe: true });
       haptics.success();
       toast.success(t('vippos.done'));
       setPos({ open: false, seedItemId: null });
+
+      // Récap de commande + accès rapide pour créer le compte, si on a l'email
+      // du client (walk-in, ou résa à la main déjà enregistrée). Non bloquant.
+      const email = target.kind === 'walkin' ? target.email : target.reservation.userEmail;
+      const isManual = target.kind === 'walkin' || ['manual', 'manual_open'].includes(target.reservation.purchaseSource || '');
+      if (email && isManual) {
+        supabase.functions
+          .invoke('send-vip-confirmation', { body: { reservationId, type: 'walkin_summary' } })
+          .catch(err => console.error('walkin summary email failed:', err));
+      }
     } catch (error) {
       haptics.error();
       toast.error(placementErrorMessage(error));
@@ -322,7 +334,7 @@ export default function VipHostDashboard() {
 
   // Walk-in placé sur le plan dès l'entrée (addition ouverte : le CA suivra les
   // consommations). On crée la résa directement assignée à la table touchée.
-  const handleWalkinSeat = async (input: { tableId: string; zoneId: string; fullName: string | null; guestCount: number }) => {
+  const handleWalkinSeat = async (input: { tableId: string; zoneId: string; fullName: string | null; guestCount: number; email: string | null; phone: string | null }) => {
     setActionBusy(true);
     try {
       await createWalkin({
@@ -332,6 +344,8 @@ export default function VipHostDashboard() {
         totalPrice: 0,
         assignedTableId: input.tableId,
         openTab: true,
+        email: input.email,
+        phone: input.phone,
       });
       haptics.success();
       toast.success(t('vipnight.walkinPlaced'));

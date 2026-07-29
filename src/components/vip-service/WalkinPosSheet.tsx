@@ -31,7 +31,7 @@ type Zone = { id: string; name: string; color: string };
 type Step = 'cart' | 'link' | 'bill';
 export type WalkinTarget =
   | { kind: 'existing'; reservation: ServiceReservation }
-  | { kind: 'walkin'; zoneId: string; fullName: string | null; guestCount: number };
+  | { kind: 'walkin'; zoneId: string; fullName: string | null; guestCount: number; email: string | null; phone: string | null };
 
 interface WalkinPosSheetProps {
   open: boolean;
@@ -65,6 +65,8 @@ export function WalkinPosSheet({
   const [target, setTarget] = useState<WalkinTarget | null>(null);
   // Champs walk-in
   const [walkinName, setWalkinName] = useState('');
+  const [walkinEmail, setWalkinEmail] = useState('');
+  const [walkinPhone, setWalkinPhone] = useState('');
   const [walkinGuests, setWalkinGuests] = useState(2);
   const [walkinZoneId, setWalkinZoneId] = useState<string | null>(null);
   const [mode, setMode] = useState<'existing' | 'walkin' | null>(null);
@@ -73,7 +75,7 @@ export function WalkinPosSheet({
   useEffect(() => {
     if (!open) {
       setStep('cart'); setQty({}); setSearch(''); setTarget(null);
-      setWalkinName(''); setWalkinGuests(2); setWalkinZoneId(null); setMode(null); setBusy(false);
+      setWalkinName(''); setWalkinEmail(''); setWalkinPhone(''); setWalkinGuests(2); setWalkinZoneId(null); setMode(null); setBusy(false);
     } else if (seedItemId) {
       setQty({ [seedItemId]: 1 });
     }
@@ -131,7 +133,14 @@ export function WalkinPosSheet({
 
   const goToBill = () => {
     if (mode === 'walkin' && walkinZoneId) {
-      setTarget({ kind: 'walkin', zoneId: walkinZoneId, fullName: walkinName.trim() || null, guestCount: walkinGuests });
+      setTarget({
+        kind: 'walkin',
+        zoneId: walkinZoneId,
+        fullName: walkinName.trim() || null,
+        guestCount: walkinGuests,
+        email: walkinEmail.trim() || null,
+        phone: walkinPhone.trim() || null,
+      });
     }
     setStep('bill');
   };
@@ -279,6 +288,16 @@ export function WalkinPosSheet({
                   <div>
                     <label className="mb-1 block" style={{ color: T3, fontSize: 11 }}>{t('vippos.walkinName')}</label>
                     <Input value={walkinName} onChange={e => setWalkinName(e.target.value)} placeholder={t('vippos.walkinFallbackName')} className="h-10" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="mb-1 block" style={{ color: T3, fontSize: 11 }}>{t('vipnight.walkinEmail')}</label>
+                      <Input value={walkinEmail} onChange={e => setWalkinEmail(e.target.value)} type="email" inputMode="email" placeholder="client@email.com" className="h-10" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block" style={{ color: T3, fontSize: 11 }}>{t('vipnight.walkinPhone')}</label>
+                      <Input value={walkinPhone} onChange={e => setWalkinPhone(e.target.value)} type="tel" inputMode="tel" placeholder="+33…" className="h-10" />
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <span style={{ color: T2, fontSize: 13 }}>{t('vippos.walkinGuests')}</span>

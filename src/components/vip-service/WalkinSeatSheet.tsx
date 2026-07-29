@@ -20,7 +20,7 @@ interface WalkinSeatSheetProps {
   serviceInfo: Map<string, TableServiceInfo>;
   busy: boolean;
   disabled: boolean;
-  onCreate: (input: { tableId: string; zoneId: string; fullName: string | null; guestCount: number }) => void;
+  onCreate: (input: { tableId: string; zoneId: string; fullName: string | null; guestCount: number; email: string | null; phone: string | null }) => void;
   onClose: () => void;
 }
 
@@ -32,11 +32,13 @@ interface WalkinSeatSheetProps {
 export function WalkinSeatSheet({ open, floorPlan, reservations, serviceInfo, busy, disabled, onCreate, onClose }: WalkinSeatSheetProps) {
   const { t } = useLanguage();
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [guests, setGuests] = useState(2);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) { setName(''); setGuests(2); setSelectedTableId(null); }
+    if (!open) { setName(''); setEmail(''); setPhone(''); setGuests(2); setSelectedTableId(null); }
   }, [open]);
 
   const tables = useMemo(() => (floorPlan?.layout?.tables || []), [floorPlan]);
@@ -53,6 +55,8 @@ export function WalkinSeatSheet({ open, floorPlan, reservations, serviceInfo, bu
       zoneId: selectedTable.zoneId,
       fullName: name.trim() || null,
       guestCount: guests,
+      email: email.trim() || null,
+      phone: phone.trim() || null,
     });
   };
 
@@ -69,9 +73,13 @@ export function WalkinSeatSheet({ open, floorPlan, reservations, serviceInfo, bu
           <p className="text-left text-sm text-muted-foreground">{t('vipnight.walkinSeatHint')}</p>
         </SheetHeader>
 
-        {/* Nom + personnes */}
+        {/* Nom + contact (email/tél = CRM marketing) + personnes */}
         <div className="shrink-0 space-y-2.5 px-4 pb-2 sm:px-6">
           <Input value={name} onChange={e => setName(e.target.value)} placeholder={t('vippos.walkinFallbackName')} className="h-10" />
+          <div className="grid grid-cols-2 gap-2">
+            <Input value={email} onChange={e => setEmail(e.target.value)} type="email" inputMode="email" placeholder={t('vipnight.walkinEmail')} className="h-10" />
+            <Input value={phone} onChange={e => setPhone(e.target.value)} type="tel" inputMode="tel" placeholder={t('vipnight.walkinPhone')} className="h-10" />
+          </div>
           <div className="flex items-center justify-between rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid ${BORDER}` }}>
             <span style={{ color: T2, fontSize: 13 }}>{t('vippos.walkinGuests')}</span>
             <div className="flex items-center gap-2">

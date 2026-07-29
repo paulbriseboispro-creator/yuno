@@ -162,6 +162,7 @@ export function useVipNight() {
              guest_count, deposit, total_price, minimum_spend, status, vip_status,
              paid_at, placed_at, placed_by, assigned_table_id, finished_at,
              qr_code, created_at, checked_in_at, requested_table_id, placement_status,
+             purchase_source,
              table_zones!inner(name, color, venue_id)`
           )
           .eq('status', 'paid')
@@ -217,6 +218,7 @@ export function useVipNight() {
         eventId: r.event_id,
         userId: r.user_id,
         userEmail: r.user_email,
+        purchaseSource: r.purchase_source,
         fullName: r.full_name || r.user_email?.split('@')[0] || 'Guest',
         phone: r.phone,
         guestCount: r.guest_count || 1,
@@ -860,6 +862,9 @@ export function useVipNight() {
       assignedTableId?: string | null;
       /** true = addition ouverte (placé à l'entrée) : le CA suit les consos. */
       openTab?: boolean;
+      /** CRM/marketing : email (déclenche l'abonnement newsletter du club) + tél. */
+      email?: string | null;
+      phone?: string | null;
     }): Promise<string> => {
       const ev = dataRef.current.activeEvent;
       if (!ev) throw new Error('no_event');
@@ -867,8 +872,8 @@ export function useVipNight() {
         p_event_id: ev.id,
         p_zone_id: input.zoneId,
         p_full_name: input.fullName,
-        p_phone: null,
-        p_email: null,
+        p_phone: input.phone ?? null,
+        p_email: input.email ?? null,
         p_guest_count: Math.max(1, input.guestCount || 1),
         p_total_price: Math.max(0, input.totalPrice || 0),
         p_minimum_spend: 0,

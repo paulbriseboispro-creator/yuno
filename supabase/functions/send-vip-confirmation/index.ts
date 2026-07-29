@@ -14,12 +14,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const logStep = (step: string, details?: any) => {
+const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[SEND-VIP-CONFIRMATION] ${step}${detailsStr}`);
 };
 
-type VipEmailType = 'request_received' | 'confirmed' | 'modified' | 'refused';
+type VipEmailType = 'request_received' | 'confirmed' | 'modified' | 'refused' | 'walkin_summary';
 
 interface VipEmailRequest {
   reservationId: string;
@@ -50,8 +50,8 @@ serve(async (req) => {
       throw new Error("reservationId and type are required");
     }
 
-    if (!['request_received', 'confirmed', 'modified', 'refused'].includes(type)) {
-      throw new Error("Invalid type. Must be: request_received, confirmed, modified, refused");
+    if (!['request_received', 'confirmed', 'modified', 'refused', 'walkin_summary'].includes(type)) {
+      throw new Error("Invalid type. Must be: request_received, confirmed, modified, refused, walkin_summary");
     }
 
     const { data: reservation, error: resError } = await supabaseAdmin
@@ -67,8 +67,21 @@ serve(async (req) => {
 
     if (resError || !reservation) throw new Error("Reservation not found");
 
-    const event = reservation.events as any;
-    const zone = reservation.table_zones as any;
+    // Colonnes des embeds du select ci-dessus (utilisées dans ce fichier)
+    interface VipEmailEvent {
+      id: string;
+      title: string | null;
+      start_at: string;
+      venue_id: string | null;
+      poster_url: string | null;
+      location_name: string | null;
+      location_address: string | null;
+      location_is_secret: boolean | null;
+      reveal_address_in_email: boolean | null;
+      venues: { name: string | null; address: string | null } | null;
+    }
+    const event = reservation.events as VipEmailEvent;
+    const zone = reservation.table_zones as { name: string | null; venue_id: string | null } | null;
     const venue = event?.venues;
     const venueName = venue?.name || event?.location_name || '';
     const eventTitle = event?.title || '';
@@ -125,6 +138,71 @@ serve(async (req) => {
         </a>
       </div>
     ` : '';
+
+    // ── Récap walk-in : commande servie + accès rapide « créer mon compte » ──
+    // (nom/prénom/email déjà connus du club, pré-remplis → le client n'a qu'à
+    // choisir un mot de passe). Envoyé quand un walk-in avec email est encaissé.
+    if (type === 'walkin_summary') {
+      const { data: cons } = await supabaseAdmin
+        .from('vip_consumptions')
+        .select('item_name, quantity, total_price')
+        .eq('table_reservation_id', reservationId)
+        .order('served_at', { ascending: true });
+      const items = (cons || []) as Array<{ item_name: string | null; quantity: number | null; total_price: number | null }>;
+      const total = items.reduce((s, c) => s + (Number(c.total_price) || 0), 0);
+      const prefillName = reservation.full_name || firstName || '';
+      const signupUrl = `${appBaseUrl}/auth?signup=true&email=${encodeURIComponent(customerEmail)}${prefillName ? `&name=${encodeURIComponent(prefillName)}` : ''}`;
+
+      const L = ({
+        fr: { subject: `Votre table chez ${venueName}`, hi: 'Bonjour', intro: 'Voici le récapitulatif de votre table.', order: 'Votre commande', total: 'Total', acctTitle: 'Créez votre compte Yuno', acctDesc: 'Retrouvez vos tables et commandez plus vite la prochaine fois. Vos infos sont déjà pré-remplies, il ne reste qu’à choisir un mot de passe.', acctCta: 'Créer mon compte', thanks: 'Merci et à très vite.' },
+        en: { subject: `Your table at ${venueName}`, hi: 'Hi', intro: 'Here is the summary of your table.', order: 'Your order', total: 'Total', acctTitle: 'Create your Yuno account', acctDesc: 'Find your tables and order faster next time. Your details are pre-filled, just pick a password.', acctCta: 'Create my account', thanks: 'Thanks, see you soon.' },
+        es: { subject: `Tu mesa en ${venueName}`, hi: 'Hola', intro: 'Aquí tienes el resumen de tu mesa.', order: 'Tu pedido', total: 'Total', acctTitle: 'Crea tu cuenta Yuno', acctDesc: 'Encuentra tus mesas y pide más rápido la próxima vez. Tus datos ya están rellenados, solo falta elegir una contraseña.', acctCta: 'Crear mi cuenta', thanks: 'Gracias, hasta pronto.' },
+      } as const)[lang];
+
+      const rows = items.map(c => `
+        <tr>
+          <td style="padding:8px 0;color:#E7C15A;font-weight:700;width:36px;">${(c.quantity ?? 1)}×</td>
+          <td style="padding:8px 0;color:#fff;font-size:14px;">${escapeHtml(c.item_name || '')}</td>
+          <td style="padding:8px 0;color:#ccc;text-align:right;font-size:14px;">€${(Number(c.total_price) || 0).toFixed(2)}</td>
+        </tr>`).join('');
+
+      const content = `
+        <div style="background:linear-gradient(135deg,#dc2626 0%,#b91c1c 100%);padding:24px 28px;text-align:center;">
+          <div style="font-size:20px;font-weight:bold;color:#fff;">${safeVenueName}</div>
+        </div>
+        <div style="padding:28px;">
+          <p style="color:#fff;font-size:16px;margin:0 0 8px;">${L.hi}${firstName ? ` ${escapeHtml(firstName)}` : ''} 👋</p>
+          <p style="color:#a0a0a0;font-size:14px;margin:0 0 20px;">${L.intro}</p>
+          ${items.length ? `
+          <p style="color:#888;font-size:12px;text-transform:uppercase;letter-spacing:.06em;margin:0 0 6px;">${L.order}</p>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid rgba(255,255,255,.1);margin-bottom:8px;">${rows}</table>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid rgba(255,255,255,.1);">
+            <tr><td style="padding:12px 0;color:#fff;font-weight:700;">${L.total}</td>
+            <td style="padding:12px 0;text-align:right;color:#E7C15A;font-size:22px;font-weight:800;">€${total.toFixed(2)}</td></tr>
+          </table>` : ''}
+          <div style="background:rgba(231,193,90,.08);border:1px solid rgba(231,193,90,.3);border-radius:12px;padding:20px;text-align:center;margin-top:24px;">
+            <p style="color:#fff;font-size:16px;font-weight:700;margin:0 0 6px;">${L.acctTitle}</p>
+            <p style="color:#999;font-size:13px;margin:0 0 16px;">${L.acctDesc}</p>
+            <a href="${signupUrl}" style="display:inline-block;background:#E7C15A;color:#1a1206;text-decoration:none;padding:12px 28px;border-radius:10px;font-weight:700;font-size:14px;">${L.acctCta} →</a>
+          </div>
+          <p style="text-align:center;color:#666;font-size:13px;margin-top:24px;">${L.thanks}</p>
+        </div>`;
+
+      const html = wrapEmailWithBranding(content, lang, venueName);
+      const rawFrom = Deno.env.get('RESEND_FROM_EMAIL');
+      const from = rawFrom ? (rawFrom.includes('<') ? rawFrom : `Yuno <${rawFrom}>`) : 'Yuno <noreply@yunoapp.eu>';
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
+        body: JSON.stringify({ from, to: [customerEmail], subject: L.subject, html }),
+      });
+      if (!res.ok) throw new Error(`Resend error: ${await res.text()}`);
+      logStep("Walkin summary sent", { to: customerEmail });
+      return new Response(
+        JSON.stringify({ success: true, type, email: customerEmail }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const dateLocales: Record<EmailLanguage, string> = { en: 'en-GB', es: 'es-ES', fr: 'fr-FR' };
     let formattedDate = '';

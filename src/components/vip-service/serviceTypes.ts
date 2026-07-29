@@ -50,6 +50,8 @@ export interface ServiceReservation extends VipReservation {
   placementStatus: 'none' | 'requested' | 'approved' | 'modified' | 'rejected' | 'assign_on_arrival' | string;
   requestedTableId: string | null;
   requestedTableName?: string;
+  /** 'manual' / 'manual_open' = walk-in créé à la main ; sinon checkout client. */
+  purchaseSource?: string | null;
 }
 
 export interface ServiceMoment {

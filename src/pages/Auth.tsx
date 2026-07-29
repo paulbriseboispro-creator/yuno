@@ -33,13 +33,15 @@ export default function Auth() {
   const affiliateInviteToken = searchParams.get('invite_affiliate');
   const affiliateMemberInviteToken = searchParams.get('invite_affiliate_member');
   const inviteEmailParam = searchParams.get('email');
+  // Pré-remplissage nom (ex. lien « créer mon compte » du récap walk-in club).
+  const inviteNameParam = searchParams.get('name');
   const { user, loading } = useAuth();
   const { primaryRole, loading: rolesLoading } = useUserRoles();
   const { toast } = useToast();
   const { t, language } = useLanguage();
   const [email, setEmail] = useState(inviteEmailParam ?? '');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [fullName, setFullName] = useState('');
+  const [fullName, setFullName] = useState(inviteNameParam ?? '');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(!!inviteToken || !!platformInviteToken || !!affiliateInviteToken || !!affiliateMemberInviteToken || searchParams.get('signup') === 'true');
   const [isForgotPassword, setIsForgotPassword] = useState(false);

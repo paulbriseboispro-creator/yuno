@@ -11488,6 +11488,8 @@ const en: Record<string, string> = {
   'vipnight.menuTitle': 'VIP menu',
   'vipnight.newOrder': 'New order',
   'vipnight.walkinNew': 'New walk-in',
+  'vipnight.walkinEmail': 'Email',
+  'vipnight.walkinPhone': 'Phone',
   'vipnight.walkinSeatHint': 'Name and guests, then tap a free table to seat them.',
   'vipnight.walkinPlaceAt': 'Seat at {table}',
   'vipnight.walkinPlaced': 'Walk-in seated',

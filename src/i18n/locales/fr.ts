@@ -11559,6 +11559,8 @@ const fr: Record<string, string> = {
   'vipnight.menuTitle': 'La carte VIP',
   'vipnight.newOrder': 'Commander',
   'vipnight.walkinNew': 'Nouveau walk-in',
+  'vipnight.walkinEmail': 'Email',
+  'vipnight.walkinPhone': 'Téléphone',
   'vipnight.walkinSeatHint': 'Nom et personnes, puis touche une table libre pour l’installer.',
   'vipnight.walkinPlaceAt': 'Placer à {table}',
   'vipnight.walkinPlaced': 'Walk-in placé',
