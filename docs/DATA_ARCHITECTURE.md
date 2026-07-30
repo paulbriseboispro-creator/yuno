@@ -144,6 +144,15 @@ convertit `assigned_table_id`/`requested_table_id` TEXT→UUID, ajoute les 2 FK 
 `vip_tables` (SET NULL), et supprime la colonne morte `event_collab_invitations.organizer_id`
 (0 ligne, référençait l'ancienne table `organizers`). Dry-run ROLLBACK OK avant application.
 
+> ⚠️ **Les 2 FK vers `vip_tables` ont été RETIRÉES** (`20260730140000_drop_dead_vip_tables_fk.sql`).
+> Migration C partait d'une prémisse fausse : `vip_tables` n'est PAS le registre des tables.
+> Rien ne l'écrit ; le registre réel est `venue_floor_plans.layout.tables` et
+> `assigned_table_id`/`requested_table_id` portent l'id d'une table du plan. La FK
+> rejetait donc tout id de plan valide (23503) et bloquait TOUT placement (invité,
+> walk-in, checkout sur table précise) — 0 résa placée en prod du 04-07 au 30-07.
+> Ne pas la remettre ; si un registre de tables réel est voulu, synchroniser
+> `vip_tables` DEPUIS le layout, pas l'inverse.
+
 ### Migration B — `20260704120000_fk_integrity_and_guest_list_scope.sql`
 Vérifiée en dry-run (`BEGIN … ROLLBACK`) : applique proprement, 0 orphelin bloquant.
 1. **22 FK ajoutées** (pattern `NOT VALID` + `VALIDATE` → pas de lock long) :
