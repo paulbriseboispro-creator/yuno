@@ -937,11 +937,6 @@ export default function AffiliateSettings() {
                   description: t('aff.settings.qrAgendaDesc'),
                   url: `${window.location.origin}/p/${form.linktree_slug}/agenda?utm_medium=qr&utm_source=print`,
                 },
-                {
-                  label: `${t('aff.settings.qrAllEvents')} · ${form.city || t('aff.settings.cityFallback')}`,
-                  description: t('aff.settings.qrExploreDesc'),
-                  url: `${window.location.origin}/explore?city=${encodeURIComponent(form.city ?? '')}&utm_medium=qr&utm_source=print`,
-                },
               ]}
             />
           </SectionCard>
