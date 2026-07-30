@@ -464,7 +464,6 @@ export default function PromoterHub() {
   const LINKTREE_MAX_EVENTS = 8;
   const pinnedEvents = dedupedEvents.filter(e => e.featured);
   const featuredEvents = pinnedEvents.length > 0 ? pinnedEvents : dedupedEvents.slice(0, LINKTREE_MAX_EVENTS);
-  const hiddenCount = dedupedEvents.length - featuredEvents.length;
 
   const groupedByDate: Record<string, EventWithOwner[]> = {};
   featuredEvents.forEach(ev => {
@@ -721,12 +720,12 @@ export default function PromoterHub() {
             )}
           </section>
 
-          {/* ══ CTA AGENDA COMPLET ═══════════════════════════════════
+          {/* ══ CTA UNIQUE — toutes les soirées (agenda complet) ═════
               Uniquement vers l'agenda DU promoteur (/promoteur/:code/agenda),
               jamais vers l'Explore général : le hub et l'agenda ne montrent
               QUE ses soirées, avec son tracking. */}
-          {hiddenCount > 0 && (
-            <section style={{ padding: '18px 20px 0' }}>
+          {dedupedEvents.length > 0 && (
+            <div style={{ padding: '32px 20px 0', display: 'flex', justifyContent: 'center' }}>
               <button
                 onClick={() => {
                   const params = new URLSearchParams();
@@ -735,69 +734,33 @@ export default function PromoterHub() {
                   navigate(`/promoteur/${promoter.promoCode}/agenda${suffix}`);
                 }}
                 style={{
-                  width: '100%',
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '12px',
-                  padding: '18px 18px',
-                  borderRadius: '10px',
-                  border: '1px solid rgba(232,25,44,0.45)',
-                  background: 'linear-gradient(135deg, rgba(232,25,44,0.12) 0%, rgba(232,25,44,0.04) 100%)',
+                  gap: '10px',
+                  padding: 'clamp(13px, 3.5vw, 16px) clamp(24px, 6vw, 32px)',
+                  borderRadius: '999px',
+                  background: 'linear-gradient(135deg, #E8192C 0%, #c0121f 100%)',
+                  color: '#FFFFFF',
+                  fontFamily: "'Space Grotesk', 'Helvetica Neue', Arial, sans-serif",
+                  fontSize: 'clamp(14px, 3.5vw, 15px)',
+                  fontWeight: 700,
+                  letterSpacing: '0.04em',
+                  textTransform: 'uppercase' as const,
+                  border: 'none',
+                  boxShadow: '0 4px 20px rgba(232,25,44,0.35)',
                   cursor: 'pointer',
-                  textAlign: 'left' as const,
                 }}
               >
-                <span style={{ display: 'flex', flexDirection: 'column', gap: '5px', minWidth: 0 }}>
-                  <span
-                    style={{
-                      fontFamily: "'JetBrains Mono', monospace",
-                      fontSize: '10px',
-                      fontWeight: 700,
-                      letterSpacing: '0.18em',
-                      color: '#E8192C',
-                      textTransform: 'uppercase' as const,
-                    }}
-                  >
-                    {t('promoterAgenda.fullAgenda')}
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: "'Space Grotesk', 'Helvetica Neue', Arial, sans-serif",
-                      fontSize: 'clamp(16px, 4.2vw, 18px)',
-                      fontWeight: 700,
-                      color: '#FFFFFF',
-                      textTransform: 'uppercase' as const,
-                      letterSpacing: '-0.005em',
-                      lineHeight: 1.1,
-                    }}
-                  >
-                    +{hiddenCount} {t('promoterHub.moreNights')}
-                  </span>
-                </span>
-                <span
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '9px 15px',
-                    borderRadius: '999px',
-                    background: '#E8192C',
-                    color: '#FFFFFF',
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    letterSpacing: '0.14em',
-                    textTransform: 'uppercase' as const,
-                    whiteSpace: 'nowrap' as const,
-                    flexShrink: 0,
-                  }}
-                >
-                  {t('promoterHub.viewAll')}
-                  <IconArrow />
-                </span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="3" y="4" width="18" height="18" rx="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8" y1="2" x2="8" y2="6"/>
+                  <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                {t('promoterAgenda.viewAllCta')}
+                <IconArrow />
               </button>
-            </section>
+            </div>
           )}
 
         </main>

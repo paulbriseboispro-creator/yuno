@@ -1575,6 +1575,7 @@ const en: Record<string, string> = {
   'promoterAgenda.heroLine1': "All the",
   'promoterAgenda.heroLine2': "nights",
   'promoterAgenda.fullAgenda': "Full agenda",
+  'promoterAgenda.viewAllCta': "All the nights",
   'promoterAgenda.stageSingular': "stage",
   'promoterAgenda.stagePlural': "stages",
   'promoterAgenda.until': "until",

@@ -1612,6 +1612,7 @@ const fr: Record<string, string> = {
   'promoterAgenda.heroLine1': "Toutes les",
   'promoterAgenda.heroLine2': "soirées",
   'promoterAgenda.fullAgenda': "Agenda complet",
+  'promoterAgenda.viewAllCta': "Toutes les soirées",
   'promoterAgenda.stageSingular': "scène",
   'promoterAgenda.stagePlural': "scènes",
   'promoterAgenda.until': "jusqu'au",

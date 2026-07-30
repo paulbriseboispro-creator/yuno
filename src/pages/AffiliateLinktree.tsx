@@ -1213,36 +1213,10 @@ export default function AffiliateLinktree() {
             )}
           </section>
 
-          {/* ══ AGENDA COMPLET — toutes les soirées de l'agence ══════ */}
-          <div style={{ padding: '28px 20px 0', display: 'flex', justifyContent: 'center' }}>
-            <button
-              onClick={() => navigate(`/p/${slug}/agenda`)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: 'clamp(12px, 3.2vw, 14px) clamp(22px, 5.5vw, 28px)',
-                borderRadius: '999px',
-                background: 'transparent',
-                border: '1px solid rgba(232,25,44,0.55)',
-                color: '#FFFFFF',
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: 'clamp(11px, 3vw, 12px)',
-                fontWeight: 700,
-                letterSpacing: '0.14em',
-                textTransform: 'uppercase' as const,
-                cursor: 'pointer',
-              }}
-            >
-              {t('promoterAgenda.fullAgenda')}
-              <span aria-hidden="true" style={{ color: '#E8192C' }}>→</span>
-            </button>
-          </div>
-
-          {/* ══ CTA ══════════════════════════════════════════════════ */}
+          {/* ══ CTA UNIQUE — toutes les soirées (agenda complet) ═════ */}
           <div style={{ padding: '32px 20px 0', display: 'flex', justifyContent: 'center' }}>
             <button
-              onClick={() => navigate('/')}
+              onClick={() => navigate(`/p/${slug}/agenda`)}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -1276,75 +1250,25 @@ export default function AffiliateLinktree() {
                 <line x1="8" y1="2" x2="8" y2="6"/>
                 <line x1="3" y1="10" x2="21" y2="10"/>
               </svg>
-              {t('promoterLinktree.seeMoreEvents')}
+              {t('promoterAgenda.viewAllCta')}
               <IconArrow />
             </button>
           </div>
 
-          {/* Divulgation : les billets se prennent sur la billetterie du club. */}
-          <p style={{
-            textAlign: 'center', fontSize: '11px', color: 'rgba(255,255,255,0.35)',
-            padding: '4px 20px 0', fontFamily: "'Inter', system-ui, sans-serif", letterSpacing: '0.01em',
-          }}>
-            {t('affiliate.redirectNotice')}
+          {/* Powered by — texte discret, plus de bulle flottante */}
+          <p
+            style={{
+              textAlign: 'center', padding: '36px 20px 0', margin: 0,
+              fontFamily: "'Inter', system-ui, sans-serif", fontSize: '12px',
+              color: 'rgba(255,255,255,0.40)', letterSpacing: '0.02em',
+            }}
+          >
+            Powered by{' '}
+            <span style={{ fontFamily: "'Space Grotesk', 'Helvetica Neue', Arial, sans-serif", fontWeight: 700, color: 'rgba(255,255,255,0.75)', letterSpacing: '0.06em' }}>
+              YUNO
+            </span>
           </p>
         </main>
-
-        {/* ══ STICKY POWERED BY YUNO ══════════════════════════════ */}
-        <a
-          href="https://yunoapp.eu"
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={t('promoterLinktree.poweredBy')}
-          style={{
-            position: 'fixed',
-            bottom: '20px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 100,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '14px',
-            padding: '12px 20px',
-            borderRadius: '999px',
-            background: 'rgba(14,14,14,0.88)',
-            backdropFilter: 'blur(18px)',
-            WebkitBackdropFilter: 'blur(18px)',
-            border: '1px solid rgba(255,255,255,0.10)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.55)',
-            textDecoration: 'none',
-            cursor: 'pointer',
-            whiteSpace: 'nowrap' as const,
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "'Inter', system-ui, sans-serif",
-              fontSize: '13px',
-              fontWeight: 400,
-              color: 'rgba(255,255,255,0.55)',
-              letterSpacing: '0.01em',
-            }}
-          >
-            Powered by
-          </span>
-          <span
-            style={{
-              fontFamily: "'Space Grotesk', 'Helvetica Neue', Arial, sans-serif",
-              fontSize: '13px',
-              fontWeight: 800,
-              color: '#FFFFFF',
-              letterSpacing: '0.06em',
-              textTransform: 'uppercase' as const,
-              background: '#E8192C',
-              padding: '5px 10px',
-              borderRadius: '8px',
-              lineHeight: 1,
-            }}
-          >
-            YUNO
-          </span>
-        </a>
 
       </div>
 

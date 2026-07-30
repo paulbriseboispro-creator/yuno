@@ -111,12 +111,12 @@ export function AgendaPosterCard({
         )}
       </div>
 
-      {/* Panneau d'infos */}
-      <div style={{ padding: '14px 14px 12px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+      {/* Panneau d'infos — compact : la carte vit dans une grille 2-3 colonnes */}
+      <div style={{ padding: '10px 11px 9px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
         {topLine && (
           <p
             style={{
-              fontFamily: MONO, fontSize: '11px', fontWeight: 600, color: '#9A9A9A',
+              fontFamily: MONO, fontSize: '9px', fontWeight: 600, color: '#9A9A9A',
               letterSpacing: '0.08em', textTransform: 'uppercase' as const, lineHeight: 1, margin: 0,
               whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis',
             }}
@@ -126,36 +126,32 @@ export function AgendaPosterCard({
         )}
         <h3
           style={{
-            fontFamily: GROTESK, fontSize: 'clamp(17px, 5vw, 20px)', fontWeight: 700, color: '#FFFFFF',
-            textTransform: 'uppercase' as const, letterSpacing: '-0.01em', lineHeight: 1.1,
+            fontFamily: GROTESK, fontSize: 'clamp(13px, 3.4vw, 15px)', fontWeight: 700, color: '#FFFFFF',
+            textTransform: 'uppercase' as const, letterSpacing: '-0.005em', lineHeight: 1.1,
             whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis', margin: 0,
           }}
         >
           {title}
         </h3>
-        {(timeLabel || priceLabel) && (
-          <p style={{ fontFamily: MONO, fontSize: '11px', color: '#5A5A5E', letterSpacing: '0.04em', lineHeight: 1, margin: '2px 0 0' }}>
-            {[timeLabel, priceLabel].filter(Boolean).join('  ·  ')}
-          </p>
-        )}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '10px', marginTop: '4px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-          <span
+        {(timeLabel || priceLabel || genreLine) && (
+          <p
             style={{
-              fontFamily: MONO, fontSize: '11px', fontWeight: 600, color: '#9A9A9A',
-              letterSpacing: '0.10em', textTransform: 'uppercase' as const,
-              whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis',
+              fontFamily: MONO, fontSize: '9.5px', color: '#5A5A5E', letterSpacing: '0.04em', lineHeight: 1.3,
+              margin: 0, whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis',
             }}
           >
-            {genreLine ?? ''}
-          </span>
+            {[timeLabel, priceLabel, genreLine].filter(Boolean).join(' · ')}
+          </p>
+        )}
+        <div style={{ display: 'flex', paddingTop: '7px', marginTop: '2px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
           <span
             style={{
-              display: 'inline-flex', alignItems: 'center', gap: '6px',
-              padding: '8px 15px', borderRadius: '999px',
+              flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              padding: '7px 10px', borderRadius: '999px',
               background: soldOut ? '#2A2A2E' : '#E8192C',
               color: soldOut ? '#9A9A9A' : '#FFFFFF',
-              fontFamily: MONO, fontSize: '11px', fontWeight: 700, letterSpacing: '0.14em',
-              textTransform: 'uppercase' as const, whiteSpace: 'nowrap' as const, flexShrink: 0,
+              fontFamily: MONO, fontSize: '10px', fontWeight: 700, letterSpacing: '0.12em',
+              textTransform: 'uppercase' as const, whiteSpace: 'nowrap' as const,
             }}
           >
             {ctaLabel}

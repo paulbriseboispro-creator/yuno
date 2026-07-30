@@ -227,7 +227,7 @@ export default function PromoterAgenda() {
           animation: 'agendaFade 400ms ease-out both',
         }}
       >
-        <main style={{ position: 'relative', zIndex: 1, maxWidth: '520px', margin: '0 auto', paddingBottom: '96px' }}>
+        <main style={{ position: 'relative', zIndex: 1, maxWidth: '680px', margin: '0 auto', paddingBottom: '96px' }}>
 
           {/* ══ IDENTITÉ ══ */}
           <section
@@ -288,7 +288,7 @@ export default function PromoterAgenda() {
                   <MonthLabel>
                     {formatInTimeZone(new Date(day.events[0].start_at), PARIS_TIMEZONE, 'EEEE d MMMM', { locale: dateLocale }).toUpperCase()}
                   </MonthLabel>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div className="agenda-grid">
                     {day.events.map(ev => (
                       <AgendaPosterCard
                         key={ev.id}
@@ -314,20 +314,10 @@ export default function PromoterAgenda() {
             <p style={{ fontFamily: MONO, fontSize: '11px', color: '#5A5A5E', letterSpacing: '0.10em', textTransform: 'uppercase' as const, margin: '0 0 14px' }}>
               {t('promoterAgenda.promotedBy')} {promoterName}
             </p>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: '12px', color: 'rgba(255,255,255,0.45)' }}>
-                Powered by
-              </span>
-              <span
-                style={{
-                  fontFamily: GROTESK, fontSize: '12px', fontWeight: 800, color: '#FFFFFF',
-                  letterSpacing: '0.06em', textTransform: 'uppercase' as const,
-                  background: '#E8192C', padding: '4px 9px', borderRadius: '6px', lineHeight: 1,
-                }}
-              >
-                YUNO
-              </span>
-            </div>
+            <p style={{ margin: 0, fontFamily: "'Inter', system-ui, sans-serif", fontSize: '12px', color: 'rgba(255,255,255,0.40)', letterSpacing: '0.02em' }}>
+              Powered by{' '}
+              <span style={{ fontFamily: GROTESK, fontWeight: 700, color: 'rgba(255,255,255,0.75)', letterSpacing: '0.06em' }}>YUNO</span>
+            </p>
           </footer>
         </main>
       </div>
@@ -339,6 +329,14 @@ export default function PromoterAgenda() {
         @keyframes agendaFade {
           from { opacity: 0; }
           to { opacity: 1; }
+        }
+        .agenda-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+        }
+        @media (min-width: 560px) {
+          .agenda-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
       `}</style>
     </>
