@@ -1,75 +1,128 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { formatInTimeZone } from 'date-fns-tz';
+import { useAuth } from '@/hooks/useAuth';
+import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
-import { PARIS_TIMEZONE } from '@/lib/timezone';
+import { useAffiliateVisitorTracking, trackAffiliateClick } from '@/hooks/useAffiliateVisitorTracking';
 import { smartOpenEvent } from '@/lib/appDeepLink';
 
 /* ============================================================
-   PromoterAgenda — /promoteur/:promoCode/agenda
+   AffiliateAgenda — l'agenda complet du bras affilié/agence.
 
-   La page publique « agenda complet » d'un promoteur : TOUTES les
-   soirées auxquelles il est rattaché (assignations actives), là où
-   le linktree (/promoteur/:code) n'en met en avant que les
-   meilleures. Pensée pour le QR imprimé / bio Instagram :
+     • mode="org"    → /p/:slug/agenda      (page agence)
+     • mode="member" → /promo/:slug/agenda  (promoteur d'agence)
 
-   • Le lien s'ouvre TOUJOURS dans le navigateur (chemin exclu de
-     l'AASA — voir public/.well-known/apple-app-site-association).
-   • Au clic sur une soirée : tentative d'ouverture dans l'app Yuno
-     via le scheme yuno:// ; si l'app n'est pas installée, on reste
-     sur le web (fallback SPA après temporisation).
-   • Chaque lien de soirée porte ?ref=&event=&src= : le clic est
-     compté (track-promoter-click) et la vente attribuée au
-     promoteur (record_promoter_conversion) par la page d'arrivée,
-     web comme app — même chaîne que le linktree.
+   Le linktree (/p, /promo) reste la vitrine curée ; l'agenda liste
+   TOUT : toutes les soirées externes publiées à venir de l'agence,
+   plus (mode agence) les soirées Yuno des clubs sous contrat.
+
+   • Chemins exclus de l'AASA : le QR/lien s'ouvre toujours dans le
+     navigateur.
+   • Soirées Yuno : tentative d'ouverture dans l'app (yuno://) avec
+     fallback web. Soirées externes : billetterie externe ou page
+     /affiliate-event, comme sur le linktree.
+   • Tracking identique au linktree : vues via
+     useAffiliateVisitorTracking, clics via trackAffiliateClick
+     (avec le member_id en mode promoteur — l'attribution ?via= des
+     pages d'arrivée reste inchangée).
    ============================================================ */
 
-interface PromoterInfo {
-  firstName: string | null;
-  lastName: string | null;
-  profileImageUrl: string | null;
-  promoCode: string;
-}
-
-interface VenueWithEvents {
-  venue_id: string;
-  venue_name: string | null;
-  venue_logo_url: string | null;
-  venue_slug?: string | null;
-  events: AgendaEvent[];
-}
-
-interface OrganizerWithEvents {
-  organizer_id: string;
-  organizer_name: string | null;
-  organizer_logo_url: string | null;
-  organizer_slug?: string | null;
-  events: AgendaEvent[];
-}
-
-interface AgendaEvent {
-  id: string;
-  title: string;
-  start_at: string;
-  end_at: string;
-  poster_url: string | null;
-  music_genre: string;
-  ticketing_enabled: boolean;
-  venue_id: string | null;
-}
-
-type EventWithOwner = AgendaEvent & {
-  ownerName: string | null;
-  ownerLogoUrl: string | null;
-  ownerSlug: string | null;
-  ownerKind: 'venue' | 'organizer';
-  ownerKey: string;
-};
+type Mode = 'org' | 'member';
 
 const MONO = "'JetBrains Mono', monospace";
 const GROTESK = "'Space Grotesk', 'Helvetica Neue', Arial, sans-serif";
+
+interface AgendaIdentity {
+  name: string;
+  handle: string;
+  avatarUrl: string | null;
+  /** Mode membre : nom de l'agence parente (confiance). */
+  orgName: string | null;
+  affiliateId: string;
+  memberId: string | null;
+}
+
+interface AgendaItem {
+  id: string;
+  name: string;
+  slug: string;
+  event_date: string;         // yyyy-MM-dd
+  start_time: string | null;  // HH:MM[:SS]
+  flyer_url: string | null;
+  price_from: number | null;
+  is_free: boolean;
+  is_sold_out: boolean;
+  external_ticket_url: string | null;
+  genres: string[];
+  venueName: string | null;
+  venueCity: string | null;
+  yuno_event_id: string | null;
+  /** Lien billetterie personnel du promoteur (promoter_linktree_events.promo_link). */
+  promo_link: string | null;
+}
+
+/** Ligne renvoyée par la RPC get_agency_linktree_yuno_events. */
+interface YunoAgendaRow {
+  event_id: string;
+  title: string;
+  start_at: string;
+  venue_id: string | null;
+  venue_name: string | null;
+  venue_city: string | null;
+  poster_url: string | null;
+  music_genres: string[] | null;
+  price_from: number | null;
+  is_free: boolean;
+}
+
+function mapYunoRow(row: YunoAgendaRow): AgendaItem {
+  const when = new Date(row.start_at);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return {
+    id: row.event_id,
+    name: row.title,
+    slug: '',
+    event_date: `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}`,
+    start_time: `${pad(when.getHours())}:${pad(when.getMinutes())}`,
+    flyer_url: row.poster_url,
+    price_from: row.price_from,
+    is_free: row.is_free,
+    is_sold_out: false,
+    external_ticket_url: null,
+    genres: (row.music_genres ?? []).filter(Boolean),
+    venueName: row.venue_name,
+    venueCity: row.venue_city,
+    yuno_event_id: row.event_id,
+    promo_link: null,
+  };
+}
+
+const EXTERNAL_EVENT_COLUMNS =
+  'id, name, slug, event_date, start_time, flyer_url, price_from, is_free, is_sold_out, external_ticket_url, genres, affiliate_venues(name, city)';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapExternalRow(e: any): AgendaItem {
+  const venue = Array.isArray(e.affiliate_venues) ? e.affiliate_venues[0] ?? null : e.affiliate_venues;
+  return {
+    id: e.id,
+    name: e.name,
+    slug: e.slug,
+    event_date: e.event_date,
+    start_time: e.start_time ?? null,
+    flyer_url: e.flyer_url ?? null,
+    price_from: e.price_from ?? null,
+    is_free: !!e.is_free,
+    is_sold_out: !!e.is_sold_out,
+    external_ticket_url: e.external_ticket_url ?? null,
+    genres: (e.genres ?? []).filter(Boolean),
+    venueName: venue?.name ?? null,
+    venueCity: venue?.city ?? null,
+    yuno_event_id: null,
+    promo_link: null,
+  };
+}
 
 function IconArrow() {
   return (
@@ -89,101 +142,79 @@ function IconVerified({ label }: { label: string }) {
 }
 
 /* ── Carte soirée ── */
-function AgendaEventCard({
+function AgendaCard({
   event,
-  timeLabel,
-  onNavigate,
-  ctaLabel,
+  onOpen,
+  labels,
 }: {
-  event: EventWithOwner;
-  timeLabel: string;
-  onNavigate: () => void;
-  ctaLabel: string;
+  event: AgendaItem;
+  onOpen: () => void;
+  labels: { tickets: string; join: string; soldOut: string; free: string };
 }) {
-  const live = (() => {
-    const now = new Date();
-    return new Date(event.start_at) <= now && new Date(event.end_at) >= now;
-  })();
   const canHover = typeof window !== 'undefined' && !!window.matchMedia?.('(hover: hover) and (pointer: fine)').matches;
+  const priceLabel = event.is_sold_out
+    ? labels.soldOut
+    : event.is_free
+    ? labels.free
+    : event.price_from != null
+    ? `${event.price_from}€`
+    : null;
+  const ctaLabel = event.is_sold_out ? labels.soldOut : event.is_free ? labels.join : labels.tickets;
 
   return (
     <div
-      onClick={onNavigate}
+      onClick={() => { if (!event.is_sold_out) onOpen(); }}
       role="link"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavigate(); } }}
+      tabIndex={event.is_sold_out ? -1 : 0}
+      onKeyDown={(e) => { if (!event.is_sold_out && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onOpen(); } }}
       style={{
         display: 'flex',
         alignItems: 'stretch',
         borderRadius: '10px',
-        border: live ? '1px solid rgba(232,25,44,0.45)' : '1px solid rgba(255,255,255,0.08)',
+        border: '1px solid rgba(255,255,255,0.08)',
         background: '#141414',
         overflow: 'hidden',
-        cursor: 'pointer',
-        boxShadow: live ? '0 0 0 1px rgba(232,25,44,0.20)' : 'none',
+        cursor: event.is_sold_out ? 'default' : 'pointer',
+        opacity: event.is_sold_out ? 0.55 : 1,
         transition: 'border-color 250ms ease, transform 250ms cubic-bezier(0.16,1,0.3,1)',
       }}
       onMouseEnter={(e) => {
-        if (!canHover) return;
-        (e.currentTarget as HTMLElement).style.borderColor = live ? 'rgba(232,25,44,0.6)' : 'rgba(255,255,255,0.14)';
+        if (!canHover || event.is_sold_out) return;
+        (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.14)';
         (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)';
       }}
       onMouseLeave={(e) => {
         if (!canHover) return;
-        (e.currentTarget as HTMLElement).style.borderColor = live ? 'rgba(232,25,44,0.45)' : 'rgba(255,255,255,0.08)';
+        (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)';
         (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
       }}
     >
       {/* Affiche */}
-      <div style={{ width: 'clamp(88px, 24vw, 104px)', minWidth: 'clamp(88px, 24vw, 104px)', position: 'relative', overflow: 'hidden', background: '#111111' }}>
-        {event.poster_url ? (
+      <div style={{ width: 'clamp(88px, 24vw, 104px)', minWidth: 'clamp(88px, 24vw, 104px)', overflow: 'hidden', background: '#111111' }}>
+        {event.flyer_url ? (
           <img
-            src={event.poster_url}
-            alt={event.title}
+            src={event.flyer_url}
+            alt={event.name}
             loading="lazy"
             style={{ width: '100%', height: '100%', minHeight: '104px', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
           />
         ) : (
           <div style={{ width: '100%', height: '100%', minHeight: '104px', background: 'linear-gradient(160deg, #1a0f12 0%, #3a1020 100%)' }} />
         )}
-        {live && (
-          <div
-            style={{
-              position: 'absolute', top: '6px', left: '6px',
-              display: 'inline-flex', alignItems: 'center', gap: '5px',
-              padding: '3px 7px', borderRadius: '999px',
-              background: 'rgba(232,25,44,0.90)',
-              backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
-            }}
-          >
-            <span style={{ position: 'relative', display: 'inline-flex', width: '6px', height: '6px' }}>
-              <span style={{ position: 'absolute', inset: 0, borderRadius: '999px', background: '#fff', opacity: 0.75, animation: 'agendaLivePing 1.4s cubic-bezier(0,0,0.2,1) infinite' }} />
-              <span style={{ position: 'relative', display: 'inline-flex', width: '6px', height: '6px', borderRadius: '999px', background: '#fff' }} />
-            </span>
-            <span style={{ fontFamily: MONO, fontSize: '8px', fontWeight: 800, letterSpacing: '0.14em', color: '#FFFFFF', textTransform: 'uppercase' as const }}>
-              Live
-            </span>
-          </div>
-        )}
       </div>
 
       {/* Corps */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '12px 12px 10px', gap: '4px', minWidth: 0 }}>
-        {event.ownerName && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-            {event.ownerLogoUrl && (
-              <img src={event.ownerLogoUrl} alt="" style={{ width: '13px', height: '13px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
-            )}
-            <p
-              style={{
-                fontFamily: MONO, fontSize: '11px', fontWeight: 600, color: '#9A9A9A',
-                letterSpacing: '0.08em', textTransform: 'uppercase' as const, lineHeight: 1, margin: 0,
-                whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis',
-              }}
-            >
-              {event.ownerName}
-            </p>
-          </div>
+        {event.venueName && (
+          <p
+            style={{
+              fontFamily: MONO, fontSize: '11px', fontWeight: 600, color: '#9A9A9A',
+              letterSpacing: '0.08em', textTransform: 'uppercase' as const, lineHeight: 1, margin: 0,
+              whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis',
+            }}
+          >
+            {event.venueName}{event.venueCity ? ` · ${event.venueCity}` : ''}
+          </p>
         )}
 
         <h3
@@ -193,11 +224,12 @@ function AgendaEventCard({
             whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis', margin: 0,
           }}
         >
-          {event.title}
+          {event.name}
         </h3>
 
         <p style={{ fontFamily: MONO, fontSize: '11px', color: '#5A5A5E', letterSpacing: '0.04em', lineHeight: 1, margin: '2px 0 0' }}>
-          {timeLabel}
+          {event.start_time ? event.start_time.slice(0, 5) : ''}
+          {priceLabel ? `${event.start_time ? '  ·  ' : ''}${priceLabel}` : ''}
         </p>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '9px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
@@ -208,18 +240,20 @@ function AgendaEventCard({
               whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis',
             }}
           >
-            {event.music_genre}
+            {event.genres.slice(0, 2).join(' · ')}
           </span>
           <span
             style={{
               display: 'inline-flex', alignItems: 'center', gap: '6px',
-              padding: '7px 13px', borderRadius: '999px', background: '#E8192C', color: '#FFFFFF',
+              padding: '7px 13px', borderRadius: '999px',
+              background: event.is_sold_out ? '#2A2A2E' : '#E8192C',
+              color: event.is_sold_out ? '#9A9A9A' : '#FFFFFF',
               fontFamily: MONO, fontSize: '11px', fontWeight: 700, letterSpacing: '0.14em',
               textTransform: 'uppercase' as const, whiteSpace: 'nowrap' as const, flexShrink: 0,
             }}
           >
             {ctaLabel}
-            <IconArrow />
+            {!event.is_sold_out && <IconArrow />}
           </span>
         </div>
       </div>
@@ -228,148 +262,214 @@ function AgendaEventCard({
 }
 
 /* ── Page ── */
-export default function PromoterAgenda() {
-  const { promoCode } = useParams();
+export default function AffiliateAgenda({ mode }: { mode: Mode }) {
+  const { slug } = useParams();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { language, t } = useLanguage();
-  const source = (searchParams.get('src') || '').trim();
-  const refCode = (promoCode || '').trim();
+  const { user } = useAuth();
 
-  const [venues, setVenues] = useState<VenueWithEvents[]>([]);
-  const [organizers, setOrganizers] = useState<OrganizerWithEvents[]>([]);
-  const [promoter, setPromoter] = useState<PromoterInfo | null>(null);
+  const [identity, setIdentity] = useState<AgendaIdentity | null>(null);
+  const [ownerUserId, setOwnerUserId] = useState<string | null>(null);
+  const [events, setEvents] = useState<AgendaItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [ownerFilter, setOwnerFilter] = useState<string>('all');
+  const [venueFilter, setVenueFilter] = useState<string>('all');
+
+  const isOwner = !!(user?.id && ownerUserId && user.id === ownerUserId);
+  useAffiliateVisitorTracking({
+    affiliateId: identity?.affiliateId ?? '',
+    affiliateMemberId: mode === 'member' ? identity?.memberId ?? undefined : undefined,
+    isOwner,
+  });
 
   useEffect(() => {
     setLoading(true);
-    setOwnerFilter('all');
-  }, [refCode]);
+    setVenueFilter('all');
+  }, [slug, mode]);
 
   useEffect(() => {
-    if (!refCode) return;
+    if (!slug) return;
     (async () => {
-      const { data, error } = await supabase.functions.invoke('resolve-promoter-link', {
-        body: { promoCode: refCode, all: true },
-      });
-      if (error || !data || data.error) {
+      try {
+        const today = new Date().toISOString().split('T')[0];
+
+        let affiliateId: string | null = null;
+        let ident: AgendaIdentity | null = null;
+
+        if (mode === 'org') {
+          const { data: aff, error } = await supabase
+            .from('affiliates')
+            .select('id, user_id, name, linktree_slug, avatar_url')
+            .eq('linktree_slug', slug)
+            .eq('is_active', true)
+            .maybeSingle();
+          if (error || !aff) { setLoading(false); return; }
+          affiliateId = aff.id;
+          setOwnerUserId(aff.user_id ?? null);
+          ident = {
+            name: aff.name,
+            handle: aff.linktree_slug ?? slug,
+            avatarUrl: aff.avatar_url ?? null,
+            orgName: null,
+            affiliateId: aff.id,
+            memberId: null,
+          };
+        } else {
+          const { data: mem, error } = await supabase
+            .from('affiliate_members')
+            .select('id, user_id, first_name, last_name, linktree_slug, avatar_url, affiliate_id')
+            .eq('linktree_slug', slug.toLowerCase())
+            .eq('is_active', true)
+            .maybeSingle();
+          if (error || !mem) { setLoading(false); return; }
+          affiliateId = mem.affiliate_id;
+          setOwnerUserId(mem.user_id ?? null);
+          const { data: org } = await supabase
+            .from('affiliates')
+            .select('name')
+            .eq('id', mem.affiliate_id)
+            .maybeSingle();
+          ident = {
+            name: `${mem.first_name ?? ''} ${mem.last_name ?? ''}`.trim() || mem.linktree_slug || slug,
+            handle: mem.linktree_slug ?? slug,
+            avatarUrl: mem.avatar_url ?? null,
+            orgName: org?.name ?? null,
+            affiliateId: mem.affiliate_id,
+            memberId: mem.id,
+          };
+        }
+
+        // TOUTES les soirées externes publiées à venir de l'agence (le linktree
+        // reste la vitrine curée ; l'agenda ne filtre rien).
+        const externalReq = supabase
+          .from('affiliate_events')
+          .select(EXTERNAL_EVENT_COLUMNS)
+          .eq('affiliate_id', affiliateId!)
+          .in('status', ['published', 'featured'])
+          .gte('event_date', today)
+          .order('event_date', { ascending: true })
+          .limit(200);
+
+        // Mode agence : + les soirées Yuno des clubs sous contrat actif.
+        // Mode promoteur : le bras externe ne vend que l'externe — les soirées
+        // Yuno d'un promoteur natif vivent sur /promoteur/CODE/agenda.
+        const yunoReq = mode === 'org'
+          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (supabase as any).rpc('get_agency_linktree_yuno_events', { p_affiliate_id: affiliateId })
+          : Promise.resolve({ data: [] });
+
+        // Mode promoteur : ses liens billetterie personnels (promo_link) priment.
+        const entriesReq = mode === 'member' && ident.memberId
+          ? supabase
+              .from('promoter_linktree_events')
+              .select('affiliate_event_id, promo_link')
+              .eq('member_id', ident.memberId)
+          : Promise.resolve({ data: [] });
+
+        const [externalRes, yunoRes, entriesRes] = await Promise.all([externalReq, yunoReq, entriesReq]);
+
+        const promoLinkByEvent = new Map<string, string>(
+          ((entriesRes?.data ?? []) as Array<{ affiliate_event_id: string; promo_link: string | null }>)
+            .filter(r => r.promo_link)
+            .map(r => [r.affiliate_event_id, r.promo_link as string]),
+        );
+
+        const external = ((externalRes?.data ?? []) as unknown[]).map(mapExternalRow).map(e => ({
+          ...e,
+          promo_link: promoLinkByEvent.get(e.id) ?? null,
+        }));
+        const yuno: AgendaItem[] = ((yunoRes?.data ?? []) as YunoAgendaRow[]).map(mapYunoRow);
+
+        const seen = new Set(external.map(e => e.id));
+        const merged = [...external, ...yuno.filter(e => !seen.has(e.id))].sort((a, b) => {
+          const d = a.event_date.localeCompare(b.event_date);
+          return d !== 0 ? d : (a.start_time ?? '').localeCompare(b.start_time ?? '');
+        });
+
+        setIdentity(ident);
+        setEvents(merged);
         setLoading(false);
-        return;
+      } catch (err) {
+        console.error('[AffiliateAgenda] fetch error:', err);
+        setLoading(false);
       }
-      setPromoter({
-        firstName: data.first_name,
-        lastName: data.last_name,
-        profileImageUrl: data.profile_image_url,
-        promoCode: data.promo_code,
-      });
-      if (Array.isArray(data.venues)) setVenues(data.venues);
-      if (Array.isArray(data.organizers)) setOrganizers(data.organizers);
-      setLoading(false);
     })();
-  }, [refCode]);
+  }, [slug, mode]);
 
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
-  const formatTime = (dateStr: string) => formatInTimeZone(new Date(dateStr), PARIS_TIMEZONE, 'HH:mm');
+  const midday = (d: string) => new Date(`${d}T12:00:00`);
 
-  const goToEvent = (event: EventWithOwner) => {
-    const trackingCode = (promoter?.promoCode || refCode || '').trim().toUpperCase();
-    const params = new URLSearchParams();
-    if (trackingCode) params.set('ref', trackingCode);
-    params.set('event', event.id);
-    params.set('src', source || 'agenda');
-
-    // Même résolution que le linktree : soirée de club → page du club HÔTE
-    // (venue_id de l'event = slug public) ; soirée d'orga → profil public.
-    let webPath = `/?${params.toString()}`;
-    if (event.venue_id && event.ownerKind === 'venue') {
-      webPath = `/club/${event.venue_id}/event/${event.id}?${params.toString()}`;
-    } else if (event.ownerKind === 'organizer' && event.ownerSlug) {
-      webPath = `/o/${event.ownerSlug}?${params.toString()}`;
+  const openEvent = (event: AgendaItem) => {
+    // Même règle que le linktree : le tracking de clic (FK affiliate_event_id)
+    // ne s'applique qu'aux soirées externes.
+    if (!event.yuno_event_id) {
+      trackAffiliateClick({
+        affiliateId: identity?.affiliateId ?? '',
+        affiliateEventId: event.id,
+        affiliateMemberId: mode === 'member' ? identity?.memberId ?? undefined : undefined,
+        isInternal: isOwner,
+      });
     }
-    smartOpenEvent(webPath, navigate);
+    if (event.yuno_event_id) {
+      // Soirée Yuno in-app : app d'abord, web sinon.
+      smartOpenEvent(`/event/${event.yuno_event_id}`, navigate);
+      return;
+    }
+    const directUrl = event.promo_link || event.external_ticket_url;
+    if (directUrl) {
+      window.open(directUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    const viaSuffix = mode === 'member' && identity?.handle ? `?via=${identity.handle}` : '';
+    navigate(`/affiliate-event/${event.slug}${viaSuffix}`);
   };
 
-  const promoterName = promoter?.firstName
-    ? `${promoter.firstName} ${promoter.lastName || ''}`.trim()
-    : promoter?.promoCode || refCode;
-
-  // Timeline unifiée clubs + orgas
-  const allEvents: EventWithOwner[] = useMemo(() => [
-    ...venues.flatMap(v =>
-      v.events.map(e => ({
-        ...e,
-        ownerName: v.venue_name,
-        ownerLogoUrl: v.venue_logo_url,
-        ownerSlug: v.venue_slug || null,
-        ownerKind: 'venue' as const,
-        ownerKey: `v:${v.venue_id}`,
-      }))
-    ),
-    ...organizers.flatMap(o =>
-      o.events.map(e => ({
-        ...e,
-        ownerName: o.organizer_name,
-        ownerLogoUrl: o.organizer_logo_url,
-        ownerSlug: o.organizer_slug || null,
-        ownerKind: 'organizer' as const,
-        ownerKey: `o:${o.organizer_id}`,
-      }))
-    ),
-  ].sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime()), [venues, organizers]);
-
-  const dedupe = (list: EventWithOwner[]) => {
-    const seen = new Set<string>();
-    return list.filter(e => {
-      if (seen.has(e.id)) return false;
-      seen.add(e.id);
-      return true;
-    });
-  };
-
-  const dedupedEvents = useMemo(() => dedupe(allEvents), [allEvents]);
   const visibleEvents = useMemo(
-    () => (ownerFilter === 'all' ? dedupedEvents : dedupe(allEvents.filter(e => e.ownerKey === ownerFilter))),
-    [ownerFilter, dedupedEvents, allEvents],
+    () => (venueFilter === 'all' ? events : events.filter(e => (e.venueName ?? '') === venueFilter)),
+    [events, venueFilter],
   );
 
-  // Filtres par scène (club / orga) — uniquement celles qui ont des soirées
-  const owners = useMemo(() => {
-    const list = [
-      ...venues.map(v => ({ key: `v:${v.venue_id}`, name: v.venue_name, logo: v.venue_logo_url, count: v.events.length })),
-      ...organizers.map(o => ({ key: `o:${o.organizer_id}`, name: o.organizer_name, logo: o.organizer_logo_url, count: o.events.length })),
-    ];
-    return list.filter(o => o.count > 0);
-  }, [venues, organizers]);
+  const venues = useMemo(() => {
+    const counts = new Map<string, number>();
+    events.forEach(e => {
+      if (!e.venueName) return;
+      counts.set(e.venueName, (counts.get(e.venueName) ?? 0) + 1);
+    });
+    return [...counts.entries()].map(([name, count]) => ({ name, count }));
+  }, [events]);
 
-  // Mois → jours → soirées
   const months = useMemo(() => {
-    const monthMap = new Map<string, { label: string; days: Map<string, EventWithOwner[]> }>();
+    const monthMap = new Map<string, { label: string; days: Map<string, AgendaItem[]> }>();
     visibleEvents.forEach(ev => {
-      const mKey = formatInTimeZone(new Date(ev.start_at), PARIS_TIMEZONE, 'yyyy-MM');
-      const dKey = formatInTimeZone(new Date(ev.start_at), PARIS_TIMEZONE, 'yyyy-MM-dd');
+      const mKey = ev.event_date.slice(0, 7);
       if (!monthMap.has(mKey)) {
         monthMap.set(mKey, {
-          label: formatInTimeZone(new Date(ev.start_at), PARIS_TIMEZONE, 'MMMM yyyy', { locale: dateLocale }).toUpperCase(),
+          label: format(midday(ev.event_date), 'MMMM yyyy', { locale: dateLocale }).toUpperCase(),
           days: new Map(),
         });
       }
       const month = monthMap.get(mKey)!;
-      if (!month.days.has(dKey)) month.days.set(dKey, []);
-      month.days.get(dKey)!.push(ev);
+      if (!month.days.has(ev.event_date)) month.days.set(ev.event_date, []);
+      month.days.get(ev.event_date)!.push(ev);
     });
     return [...monthMap.entries()].map(([key, m]) => ({
       key,
       label: m.label,
-      days: [...m.days.entries()].map(([dKey, events]) => ({ key: dKey, events })),
+      days: [...m.days.entries()].map(([dKey, items]) => ({ key: dKey, items })),
     }));
   }, [visibleEvents, dateLocale]);
 
-  const nightsCount = dedupedEvents.length;
-  const stagesCount = owners.length;
-  const lastNight = dedupedEvents.length > 0
-    ? formatInTimeZone(new Date(dedupedEvents[dedupedEvents.length - 1].start_at), PARIS_TIMEZONE, 'd MMM', { locale: dateLocale }).toUpperCase().replace('.', '')
+  const nightsCount = events.length;
+  const stagesCount = venues.length;
+  const lastNight = events.length > 0
+    ? format(midday(events[events.length - 1].event_date), 'd MMM', { locale: dateLocale }).toUpperCase().replace('.', '')
     : null;
+
+  const cardLabels = {
+    tickets: t('promoterLinktree.tickets'),
+    join: t('promoterLinktree.join'),
+    soldOut: t('promoterLinktree.soldOut'),
+    free: t('promoterLinktree.free'),
+  };
 
   // ── Chargement ──
   if (loading) {
@@ -390,7 +490,7 @@ export default function PromoterAgenda() {
   }
 
   // ── Introuvable ──
-  if (!promoter) {
+  if (!identity) {
     return (
       <div style={{ minHeight: '100vh', background: '#0A0A0A', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', textAlign: 'center' }}>
         <span style={{ fontFamily: MONO, fontWeight: 800, color: '#E8192C', letterSpacing: '0.16em', fontSize: '18px', marginBottom: '16px' }}>YUNO</span>
@@ -433,10 +533,10 @@ export default function PromoterAgenda() {
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '44px 24px 8px' }}
             aria-label={t('promoterLinktree.profileAria')}
           >
-            {promoter.profileImageUrl ? (
+            {identity.avatarUrl ? (
               <img
-                src={promoter.profileImageUrl}
-                alt={promoterName}
+                src={identity.avatarUrl}
+                alt={identity.name}
                 style={{
                   width: '76px', height: '76px', borderRadius: '50%', objectFit: 'cover',
                   border: '2px solid rgba(255,255,255,0.14)', boxShadow: '0 0 0 4px rgba(232,25,44,0.10)',
@@ -453,7 +553,7 @@ export default function PromoterAgenda() {
                 }}
                 aria-hidden="true"
               >
-                {(promoter.firstName?.[0] || promoter.promoCode[0] || '?').toUpperCase()}
+                {(identity.name[0] || '?').toUpperCase()}
               </div>
             )}
 
@@ -465,16 +565,21 @@ export default function PromoterAgenda() {
                     letterSpacing: '-0.01em', textTransform: 'uppercase' as const, textAlign: 'center' as const, margin: 0,
                   }}
                 >
-                  {promoterName}
+                  {identity.name}
                 </h1>
                 <IconVerified label={t('promoterLinktree.verified')} />
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#E8192C' }} />
                 <span style={{ fontFamily: MONO, fontSize: '11px', fontWeight: 500, letterSpacing: '0.16em', color: '#5A5A5E', textTransform: 'uppercase' as const }}>
-                  @{promoter.promoCode}
+                  @{identity.handle}
                 </span>
               </div>
+              {identity.orgName && (
+                <span style={{ fontFamily: MONO, fontSize: '10px', fontWeight: 500, letterSpacing: '0.14em', color: '#9A9A9A', textTransform: 'uppercase' as const }}>
+                  {identity.orgName}
+                </span>
+              )}
             </div>
           </section>
 
@@ -497,7 +602,6 @@ export default function PromoterAgenda() {
               <span style={{ color: '#E8192C' }}>{t('promoterAgenda.heroLine2')}</span>
             </p>
 
-            {/* Bandeau stats mono */}
             {nightsCount > 0 && (
               <div
                 style={{
@@ -508,8 +612,12 @@ export default function PromoterAgenda() {
                 }}
               >
                 <span>{nightsCount} {nightsCount !== 1 ? t('promoterLinktree.eventPlural') : t('promoterLinktree.eventSingular')}</span>
-                <span aria-hidden="true" style={{ color: '#E8192C' }}>/</span>
-                <span>{stagesCount} {stagesCount !== 1 ? t('promoterAgenda.stagePlural') : t('promoterAgenda.stageSingular')}</span>
+                {stagesCount > 0 && (
+                  <>
+                    <span aria-hidden="true" style={{ color: '#E8192C' }}>/</span>
+                    <span>{stagesCount} {stagesCount !== 1 ? t('promoterAgenda.stagePlural') : t('promoterAgenda.stageSingular')}</span>
+                  </>
+                )}
                 {lastNight && (
                   <>
                     <span aria-hidden="true" style={{ color: '#E8192C' }}>/</span>
@@ -521,7 +629,7 @@ export default function PromoterAgenda() {
           </section>
 
           {/* ══ BARRE DE FILTRES COLLANTE ══ */}
-          {owners.length > 1 && (
+          {venues.length > 1 && (
             <div
               style={{
                 position: 'sticky', top: 0, zIndex: 40,
@@ -534,27 +642,24 @@ export default function PromoterAgenda() {
             >
               <div
                 className="agenda-chip-row"
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                  overflowX: 'auto', padding: '0 24px',
-                }}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', padding: '0 24px' }}
               >
-                {promoter.profileImageUrl && (
+                {identity.avatarUrl && (
                   <img
-                    src={promoter.profileImageUrl}
+                    src={identity.avatarUrl}
                     alt=""
                     aria-hidden="true"
                     style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(232,25,44,0.5)' }}
                   />
                 )}
                 <button
-                  onClick={() => setOwnerFilter('all')}
+                  onClick={() => setVenueFilter('all')}
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: '6px', flexShrink: 0,
                     padding: '7px 13px', borderRadius: '999px', cursor: 'pointer',
-                    border: ownerFilter === 'all' ? '1px solid #E8192C' : '1px solid rgba(255,255,255,0.14)',
-                    background: ownerFilter === 'all' ? '#E8192C' : 'transparent',
-                    color: ownerFilter === 'all' ? '#FFFFFF' : '#9A9A9A',
+                    border: venueFilter === 'all' ? '1px solid #E8192C' : '1px solid rgba(255,255,255,0.14)',
+                    background: venueFilter === 'all' ? '#E8192C' : 'transparent',
+                    color: venueFilter === 'all' ? '#FFFFFF' : '#9A9A9A',
                     fontFamily: MONO, fontSize: '11px', fontWeight: 700,
                     letterSpacing: '0.10em', textTransform: 'uppercase' as const,
                     transition: 'background 200ms ease, color 200ms ease, border-color 200ms ease',
@@ -562,28 +667,23 @@ export default function PromoterAgenda() {
                 >
                   {t('promoterAgenda.all')} ({nightsCount})
                 </button>
-                {owners.map(o => (
+                {venues.map(v => (
                   <button
-                    key={o.key}
-                    onClick={() => setOwnerFilter(ownerFilter === o.key ? 'all' : o.key)}
+                    key={v.name}
+                    onClick={() => setVenueFilter(venueFilter === v.name ? 'all' : v.name)}
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: '7px', flexShrink: 0,
-                      padding: '6px 13px 6px 7px', borderRadius: '999px', cursor: 'pointer',
-                      border: ownerFilter === o.key ? '1px solid #E8192C' : '1px solid rgba(255,255,255,0.14)',
-                      background: ownerFilter === o.key ? '#E8192C' : 'transparent',
-                      color: ownerFilter === o.key ? '#FFFFFF' : '#E5E5E5',
+                      padding: '7px 13px', borderRadius: '999px', cursor: 'pointer',
+                      border: venueFilter === v.name ? '1px solid #E8192C' : '1px solid rgba(255,255,255,0.14)',
+                      background: venueFilter === v.name ? '#E8192C' : 'transparent',
+                      color: venueFilter === v.name ? '#FFFFFF' : '#E5E5E5',
                       fontFamily: MONO, fontSize: '11px', fontWeight: 600,
                       letterSpacing: '0.06em', textTransform: 'uppercase' as const,
                       whiteSpace: 'nowrap' as const,
                       transition: 'background 200ms ease, color 200ms ease, border-color 200ms ease',
                     }}
                   >
-                    {o.logo ? (
-                      <img src={o.logo} alt="" style={{ width: '16px', height: '16px', borderRadius: '50%', objectFit: 'cover' }} />
-                    ) : (
-                      <span style={{ width: '16px', height: '16px', borderRadius: '50%', background: '#222226', display: 'inline-block' }} />
-                    )}
-                    {o.name}
+                    {v.name}
                   </button>
                 ))}
               </div>
@@ -599,7 +699,6 @@ export default function PromoterAgenda() {
             ) : (
               months.map(month => (
                 <div key={month.key}>
-                  {/* Mois — libellé ruled rouge */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '30px 4px 16px' }}>
                     <span style={{ width: '22px', height: '2px', background: '#E8192C', flexShrink: 0 }} aria-hidden="true" />
                     <h2
@@ -615,27 +714,19 @@ export default function PromoterAgenda() {
 
                   {month.days.map(day => (
                     <div key={day.key} style={{ display: 'flex', gap: '12px', marginBottom: '14px' }}>
-                      {/* Rail jour */}
                       <div style={{ width: '46px', minWidth: '46px', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '8px' }}>
                         <span style={{ fontFamily: MONO, fontSize: '10px', fontWeight: 600, color: '#5A5A5E', letterSpacing: '0.14em', textTransform: 'uppercase' as const }}>
-                          {formatInTimeZone(new Date(day.events[0].start_at), PARIS_TIMEZONE, 'EEE', { locale: dateLocale }).replace('.', '')}
+                          {format(midday(day.key), 'EEE', { locale: dateLocale }).replace('.', '')}
                         </span>
                         <span style={{ fontFamily: GROTESK, fontSize: '26px', fontWeight: 700, color: '#FFFFFF', lineHeight: 1.05, letterSpacing: '-0.02em' }}>
-                          {formatInTimeZone(new Date(day.events[0].start_at), PARIS_TIMEZONE, 'd')}
+                          {format(midday(day.key), 'd')}
                         </span>
                         <span style={{ width: '1px', flex: 1, background: 'rgba(255,255,255,0.08)', marginTop: '6px' }} aria-hidden="true" />
                       </div>
 
-                      {/* Soirées du jour */}
                       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {day.events.map(ev => (
-                          <AgendaEventCard
-                            key={ev.id}
-                            event={ev}
-                            timeLabel={`${formatTime(ev.start_at)} - ${formatTime(ev.end_at)}`}
-                            onNavigate={() => goToEvent(ev)}
-                            ctaLabel={ev.ticketing_enabled ? t('promoterLinktree.tickets') : t('promoterAgenda.view')}
-                          />
+                        {day.items.map(ev => (
+                          <AgendaCard key={ev.id} event={ev} onOpen={() => openEvent(ev)} labels={cardLabels} />
                         ))}
                       </div>
                     </div>
@@ -649,7 +740,7 @@ export default function PromoterAgenda() {
           <footer style={{ padding: '40px 24px 0', textAlign: 'center' as const }}>
             <div style={{ height: '1px', background: 'rgba(255,255,255,0.08)', marginBottom: '22px' }} />
             <p style={{ fontFamily: MONO, fontSize: '11px', color: '#5A5A5E', letterSpacing: '0.10em', textTransform: 'uppercase' as const, margin: '0 0 14px' }}>
-              {t('promoterAgenda.promotedBy')} {promoterName}
+              {t('promoterAgenda.promotedBy')} {identity.name}
             </p>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px' }}>
               <span style={{ fontFamily: "'Inter', system-ui, sans-serif", fontSize: '12px', color: 'rgba(255,255,255,0.45)' }}>
@@ -670,18 +761,12 @@ export default function PromoterAgenda() {
       </div>
 
       <style>{`
-        @keyframes agendaLivePing {
-          75%, 100% { transform: scale(2); opacity: 0; }
-        }
         @keyframes agendaFade {
           from { opacity: 0; }
           to { opacity: 1; }
         }
         .agenda-chip-row { scrollbar-width: none; -ms-overflow-style: none; }
         .agenda-chip-row::-webkit-scrollbar { display: none; }
-        @media (prefers-reduced-motion: reduce) {
-          [style*="agendaFade"] { animation: none !important; }
-        }
       `}</style>
     </>
   );

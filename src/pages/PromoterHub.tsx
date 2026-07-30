@@ -42,6 +42,8 @@ interface EventCard {
   venue_id: string | null;
   organizer_user_id?: string | null;
   partner_organizer_id?: string | null;
+  /** Épinglée par le promoteur : le linktree ne montre que les épinglées dès qu'il y en a. */
+  featured?: boolean;
 }
 
 type EventWithOwner = EventCard & {
@@ -457,12 +459,15 @@ export default function PromoterHub() {
     return true;
   });
 
-  // Le linktree met en avant les prochaines soirées ; l'agenda complet
-  // (/promoteur/:code/agenda) prend le relais pour tout montrer. Sans ce
-  // plafond, un promoteur très actif transformait sa vitrine en annuaire.
+  // Le linktree est une vitrine, l'agenda complet (/promoteur/:code/agenda)
+  // montre tout. Vitrine = les soirées ÉPINGLÉES par le promoteur (onglet
+  // Linktree de son app) ; s'il n'a rien épinglé, fallback sur les 8
+  // prochaines — sans plafond, un promoteur très actif transformait sa
+  // vitrine en annuaire.
   const LINKTREE_MAX_EVENTS = 8;
-  const hiddenCount = Math.max(0, dedupedEvents.length - LINKTREE_MAX_EVENTS);
-  const featuredEvents = dedupedEvents.slice(0, LINKTREE_MAX_EVENTS);
+  const pinnedEvents = dedupedEvents.filter(e => e.featured);
+  const featuredEvents = pinnedEvents.length > 0 ? pinnedEvents : dedupedEvents.slice(0, LINKTREE_MAX_EVENTS);
+  const hiddenCount = dedupedEvents.length - featuredEvents.length;
 
   const groupedByDate: Record<string, EventWithOwner[]> = {};
   featuredEvents.forEach(ev => {

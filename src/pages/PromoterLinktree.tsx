@@ -1384,6 +1384,32 @@ export default function PromoterLinktree() {
             )}
           </section>
 
+          {/* ══ AGENDA COMPLET — toutes les soirées du promoteur ═════ */}
+          <div style={{ padding: '28px 20px 0', display: 'flex', justifyContent: 'center' }}>
+            <button
+              onClick={() => navigate(`/promo/${slug}/agenda`)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: 'clamp(12px, 3.2vw, 14px) clamp(22px, 5.5vw, 28px)',
+                borderRadius: '999px',
+                background: 'transparent',
+                border: '1px solid rgba(232,25,44,0.55)',
+                color: '#FFFFFF',
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 'clamp(11px, 3vw, 12px)',
+                fontWeight: 700,
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase' as const,
+                cursor: 'pointer',
+              }}
+            >
+              {t('promoterAgenda.fullAgenda')}
+              <span aria-hidden="true" style={{ color: '#E8192C' }}>→</span>
+            </button>
+          </div>
+
           {/* ══ CTA ══════════════════════════════════════════════════ */}
           <div style={{ padding: '32px 20px 0', display: 'flex', justifyContent: 'center' }}>
             <button

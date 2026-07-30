@@ -6,9 +6,11 @@
         "appID": "A2WV4J86F9.eu.yunoapp.app",
         "components": [
           { "/": "/promoteur/*/agenda", "exclude": true, "comment": "Agenda public promoteur — toujours ouvert dans le navigateur, jamais dans l'app" },
+          { "/": "/p/*/agenda", "exclude": true, "comment": "Agenda public agence — toujours web" },
+          { "/": "/promo/*/agenda", "exclude": true, "comment": "Agenda public promoteur d'agence — toujours web" },
           { "/": "*" }
         ],
-        "paths": ["NOT /promoteur/*/agenda", "*"]
+        "paths": ["NOT /promoteur/*/agenda", "NOT /p/*/agenda", "NOT /promo/*/agenda", "*"]
       }
     ]
   },

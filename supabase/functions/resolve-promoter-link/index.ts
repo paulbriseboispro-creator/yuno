@@ -94,10 +94,15 @@ Deno.serve(async (req) => {
     const promoterIds = promoters.map((p) => p.id);
     const { data: assignedRows } = await supabase
       .from("promoter_event_assignments")
-      .select("event_id")
+      .select("event_id, featured_on_linktree")
       .in("promoter_id", promoterIds)
       .eq("status", "active");
     const assignedEventIds = new Set((assignedRows || []).map((r) => r.event_id));
+    // Soirées épinglées par le promoteur : le linktree ne montre qu'elles dès
+    // qu'il y en a au moins une (sinon fallback « prochaines soirées » côté front).
+    const featuredEventIds = new Set(
+      (assignedRows || []).filter((r) => r.featured_on_linktree).map((r) => r.event_id)
+    );
 
     // Colonnes du select sur events (utilisées pour le filtrage + sérialisées telles quelles)
     interface PromoterEventRow {
@@ -151,6 +156,8 @@ Deno.serve(async (req) => {
       organizerEvents = (data || []).filter((e) => assignedEventIds.has(e.id));
     }
 
+    const withFeatured = (e: PromoterEventRow) => ({ ...e, featured: featuredEventIds.has(e.id) });
+
     // Build venues payload (clubs) — l'id texte du club est son slug public.
     const venuesPayload = venueIds.map(vid => {
       const v = venueMap.get(vid);
@@ -159,14 +166,14 @@ Deno.serve(async (req) => {
         venue_name: v?.name || null,
         venue_logo_url: v?.logo_url || null,
         venue_slug: vid,
-        events: (venueEvents || []).filter(e => e.venue_id === vid || e.partner_venue_id === vid),
+        events: (venueEvents || []).filter(e => e.venue_id === vid || e.partner_venue_id === vid).map(withFeatured),
       };
     });
 
     // Build organizers payload (BDE/orgs)
     const organizersPayload = organizerIds.map(oid => {
       const o = organizerMap.get(oid);
-      const evts = organizerEvents.filter(e => e.organizer_user_id === oid || e.partner_organizer_id === oid);
+      const evts = organizerEvents.filter(e => e.organizer_user_id === oid || e.partner_organizer_id === oid).map(withFeatured);
       return {
         organizer_id: oid,
         organizer_name: o?.display_name || null,

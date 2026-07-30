@@ -21,7 +21,7 @@ import {
   Copy, TrendingUp, Euro, Ticket, Calendar, ExternalLink,
   Megaphone, QrCode, Share2, Zap, Target, ChevronDown, ChevronUp,
   ScanLine, UserPlus, Gift, Users, Crown, Ban, Wine, Beer, Coins,
-  CalendarRange,
+  CalendarRange, Star,
 } from 'lucide-react';
 import { Instagram } from '@/components/icons/Instagram';
 import QRCode from 'qrcode';
@@ -74,6 +74,8 @@ interface EventAssignment {
   eventEndAt: string;
   canAccessGuestlist: boolean;
   canAccessTables: boolean;
+  /** Épinglée sur le linktree : dès qu'une soirée est épinglée, la vitrine ne montre qu'elles. */
+  featuredOnLinktree: boolean;
 }
 
 interface VenuePromoterContentProps {
@@ -195,10 +197,11 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
   useEffect(() => {
     if (!promoter.id) return;
     (async () => {
-      const { data } = await supabase.from('promoter_event_assignments')
-        .select('event_id, can_access_guestlist, can_access_tables')
+      // featured_on_linktree n'est pas encore dans les types générés → cast.
+      const { data } = await (supabase as any).from('promoter_event_assignments')
+        .select('event_id, can_access_guestlist, can_access_tables, featured_on_linktree')
         .eq('promoter_id', promoter.id)
-        .eq('status', 'active');
+        .eq('status', 'active') as { data: Array<{ event_id: string; can_access_guestlist: boolean | null; can_access_tables: boolean | null; featured_on_linktree: boolean | null }> | null };
       if (!data || data.length === 0) { setAssignments([]); return; }
       const eventIds = data.map(a => a.event_id);
       const { data: evts } = await supabase.from('events')
@@ -213,6 +216,7 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
           eventEndAt: evt?.end_at || '',
           canAccessGuestlist: a.can_access_guestlist ?? false,
           canAccessTables: a.can_access_tables ?? true,
+          featuredOnLinktree: a.featured_on_linktree ?? false,
         };
       }));
     })();
@@ -446,6 +450,21 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
     toast.success(t('promoter.linkCopied'));
   };
 
+  // Épingler/dépingler une soirée sur le linktree — RPC SECURITY DEFINER (le
+  // promoteur n'a pas d'UPDATE direct sur promoter_event_assignments).
+  const toggleFeatured = async (eventId: string, next: boolean) => {
+    const prev = assignments;
+    setAssignments(list => list.map(a => a.eventId === eventId ? { ...a, featuredOnLinktree: next } : a));
+    const { error } = await (supabase as any).rpc('set_promoter_linktree_featured', {
+      p_event_id: eventId,
+      p_featured: next,
+    });
+    if (error) {
+      setAssignments(prev);
+      toast.error(t('common.error'));
+    }
+  };
+
   const shareLink = async () => {
     if (!promoLink) { copyLink(); return; }
     const outcome = await shareContent({ title: `${scopeName} — ${promoter.promo_code}`, url: promoLink });
@@ -468,6 +487,7 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
     { value: 'overview', label: t('promoter.overview') },
     { value: 'events', label: t('promoter.myEvents') },
     { value: 'links', label: t('promoter.linkTools') },
+    { value: 'linktree', label: t('promoter.linktreeTab') },
   ];
   if (canScan) tabItems.push({ value: 'scan', label: t('promoterScan.title') });
   if (hasGuestListAccess) tabItems.push({ value: 'guestlist', label: t('promoterGuestlist.title') });
@@ -932,6 +952,71 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
                 >
                   <Instagram className="h-4 w-4 mr-1" />
                   Instagram
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── LINKTREE — soirées mises en avant ── */}
+        <TabsContent value="linktree" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader className="px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Star className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 truncate">{t('promoter.linktreeCuration')}</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 px-4 pb-4 sm:px-6 sm:pb-6">
+              <p className="text-xs text-muted-foreground">{t('promoter.linktreeCurationDesc')}</p>
+              {(() => {
+                const now = Date.now();
+                const upcoming = assignments
+                  .filter(a => a.eventEndAt && new Date(a.eventEndAt).getTime() >= now)
+                  .sort((a, b) => new Date(a.eventStartAt).getTime() - new Date(b.eventStartAt).getTime());
+                if (upcoming.length === 0) {
+                  return <p className="text-sm text-muted-foreground py-4 text-center">{t('promoterAgenda.empty')}</p>;
+                }
+                const pinnedCount = upcoming.filter(a => a.featuredOnLinktree).length;
+                const locale = language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB';
+                return (
+                  <>
+                    <p className="text-xs font-mono text-muted-foreground">
+                      {pinnedCount > 0
+                        ? `${pinnedCount} ${t('promoter.linktreePinnedCount')}`
+                        : t('promoter.linktreeAutoMode')}
+                    </p>
+                    <div className="space-y-2">
+                      {upcoming.map(a => (
+                        <div
+                          key={a.eventId}
+                          className={`flex items-center gap-3 rounded-lg border p-3 ${a.featuredOnLinktree ? 'border-primary/50 bg-primary/5' : 'border-border'}`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">{a.eventTitle}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {a.eventStartAt ? new Date(a.eventStartAt).toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' }) : ''}
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant={a.featuredOnLinktree ? 'default' : 'outline'}
+                            className="shrink-0"
+                            onClick={() => toggleFeatured(a.eventId, !a.featuredOnLinktree)}
+                          >
+                            <Star className={`h-4 w-4 mr-1 ${a.featuredOnLinktree ? 'fill-current' : ''}`} />
+                            {a.featuredOnLinktree ? t('promoter.linktreePinned') : t('promoter.linktreePin')}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
+              {promoLink && (
+                <Button variant="outline" className="w-full" onClick={() => window.open(promoLink, '_blank', 'noopener,noreferrer')}>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  {t('promoter.viewLinktree')}
                 </Button>
               )}
             </CardContent>

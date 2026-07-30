@@ -155,6 +155,7 @@ export default function AffiliateSettings() {
   const [loading, setLoading] = useState(true);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [agendaCopied, setAgendaCopied] = useState(false);
   const [saveStates, setSaveStates] = useState<Record<string, SaveState>>({});
   const profileIdRef = useRef<string | null>(null);
 
@@ -368,6 +369,14 @@ export default function AffiliateSettings() {
     navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyAgendaUrl = () => {
+    if (!form.linktree_slug) return;
+    const url = `${window.location.origin}/p/${form.linktree_slug}/agenda`;
+    navigator.clipboard.writeText(url);
+    setAgendaCopied(true);
+    setTimeout(() => setAgendaCopied(false), 2000);
   };
 
   const [previewActive, setPreviewActive] = useState(0);
@@ -804,6 +813,35 @@ export default function AffiliateSettings() {
             </div>
           )}
 
+          {/* Agenda complet : /p/:slug/agenda — toutes les soirées, page web-only
+              (le linktree reste la vitrine). */}
+          {form.linktree_slug && (
+            <div className="mt-4 p-3 rounded-xl" style={{ background: TILE_BG, border: `1px solid ${BORDER}` }}>
+              <p style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{t('aff.settings.agendaTitle')}</p>
+              <p style={{ color: T3, fontSize: 12, marginTop: 2 }}>{t('aff.settings.agendaDesc')}</p>
+              <div className="flex items-center gap-2 flex-wrap mt-3">
+                <button
+                  onClick={copyAgendaUrl}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors hover:text-white"
+                  style={{ background: 'transparent', border: `1px solid ${BORDER}`, color: T2 }}
+                >
+                  {agendaCopied ? <Check className="h-3.5 w-3.5" style={{ color: POS }} /> : <Copy className="h-3.5 w-3.5" />}
+                  {agendaCopied ? t('aff.settings.copied') : t('aff.settings.copyLink')}
+                </button>
+                <a
+                  href={`/p/${form.linktree_slug}/agenda`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm cursor-pointer transition-colors hover:text-white"
+                  style={{ background: 'transparent', border: `1px solid ${BORDER}`, color: T2 }}
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  {t('aff.settings.viewAgendaPage')}
+                </a>
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-end mt-4">
             <SaveButton state={saveStates.slug} onClick={saveSlug} />
           </div>
@@ -893,6 +931,11 @@ export default function AffiliateSettings() {
                   label: t('aff.settings.qrAgencyLabel'),
                   description: t('aff.settings.qrAgencyDesc'),
                   url: `${window.location.origin}/p/${form.linktree_slug}?utm_medium=qr&utm_source=print`,
+                },
+                {
+                  label: t('aff.settings.agendaTitle'),
+                  description: t('aff.settings.qrAgendaDesc'),
+                  url: `${window.location.origin}/p/${form.linktree_slug}/agenda?utm_medium=qr&utm_source=print`,
                 },
                 {
                   label: `${t('aff.settings.qrAllEvents')} · ${form.city || t('aff.settings.cityFallback')}`,

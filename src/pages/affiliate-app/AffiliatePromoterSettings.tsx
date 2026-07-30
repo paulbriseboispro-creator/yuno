@@ -329,7 +329,7 @@ export default function AffiliatePromoterSettings() {
             </div>
 
             {form.linktree_slug && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <AffButton variant="secondary" size="sm" onClick={copyLinktreeUrl}>
                   {copied ? <Check className="h-3.5 w-3.5" style={{ color: POS }} /> : <Copy className="h-3.5 w-3.5" />}
                   {copied ? t('aff.pset.copied') : t('aff.pset.copyLink')}
@@ -339,6 +339,12 @@ export default function AffiliatePromoterSettings() {
                   style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, fontSize: 12.5, fontWeight: 600 }}
                   onMouseEnter={(e) => (e.currentTarget.style.color = T1)} onMouseLeave={(e) => (e.currentTarget.style.color = T2)}>
                   <ExternalLink className="h-3.5 w-3.5" /> {t('aff.pset.viewPage')}
+                </a>
+                <a href={`/promo/${form.linktree_slug}/agenda`} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors"
+                  style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, fontSize: 12.5, fontWeight: 600 }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = T1)} onMouseLeave={(e) => (e.currentTarget.style.color = T2)}>
+                  <ExternalLink className="h-3.5 w-3.5" /> {t('aff.pset.viewAgenda')}
                 </a>
               </div>
             )}
@@ -354,6 +360,10 @@ export default function AffiliatePromoterSettings() {
                 label: t('aff.pset.qrItemLabel'),
                 description: t('aff.pset.qrItemDesc'),
                 url: `${window.location.origin}/promo/${form.linktree_slug}?utm_medium=qr&utm_source=print`,
+              }, {
+                label: t('aff.pset.viewAgendaShort'),
+                description: t('aff.pset.qrAgendaDesc'),
+                url: `${window.location.origin}/promo/${form.linktree_slug}/agenda?utm_medium=qr&utm_source=print`,
               }]}
             />
           </AffCard>

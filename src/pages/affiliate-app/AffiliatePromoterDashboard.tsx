@@ -344,15 +344,26 @@ export default function AffiliatePromoterDashboard() {
                 <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('aff.pdash.yourPromoterPage')}</p>
                 <p className="truncate" style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{linktreeUrl}</p>
               </div>
-              <a href={linktreeUrl} target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 flex-none transition-colors"
-                style={{ color: RED, fontSize: 12.5, fontWeight: 600 }}
-                onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
-                onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-              >
-                {t('aff.pdash.viewMyPage')}
-                <ExternalLink className="h-3.5 w-3.5" />
-              </a>
+              <div className="flex flex-col items-end gap-1.5 flex-none">
+                <a href={linktreeUrl} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 transition-colors"
+                  style={{ color: RED, fontSize: 12.5, fontWeight: 600 }}
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+                >
+                  {t('aff.pdash.viewMyPage')}
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+                <a href={`${linktreeUrl}/agenda`} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 transition-colors"
+                  style={{ color: T3, fontSize: 12, fontWeight: 600 }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = T1)}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = T3)}
+                >
+                  {t('aff.pdash.viewAgenda')}
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              </div>
             </div>
           </AffCard>
         </motion.div>
