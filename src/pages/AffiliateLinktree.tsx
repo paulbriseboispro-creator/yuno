@@ -7,6 +7,7 @@ import { format, type Locale } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useAffiliateVisitorTracking, trackAffiliateClick } from '@/hooks/useAffiliateVisitorTracking';
 import { FadeInView } from '@/components/motion';
+import { MonthLabel, DayRow, groupDaysIntoMonths } from '@/components/agenda/timeline';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -913,6 +914,23 @@ export default function AffiliateLinktree() {
   });
 
   const grouped = sortAndGroupEvents(filteredEvents, affiliate.linktree_sort_mode, dateLocale, t);
+  // Tri « par jour » → timeline éditoriale (mois ruled + rail de jour, design
+  // des pages Agenda). Les autres tris gardent leurs groupes (genre, prix…).
+  const isByDay = affiliate.linktree_sort_mode === 'by_day' || !affiliate.linktree_sort_mode;
+  const monthsGrouped = isByDay
+    ? groupDaysIntoMonths(grouped, (dateKey) => {
+        const [y, m] = dateKey.split('-').map(Number);
+        return format(new Date(y, m - 1, 1), 'MMMM yyyy', { locale: dateLocale }).toUpperCase();
+      })
+    : [];
+  const dayParts = (dateKey: string) => {
+    const [y, m, d] = dateKey.split('-').map(Number);
+    const when = new Date(y, m - 1, d);
+    return {
+      weekday: format(when, 'EEE', { locale: dateLocale }).replace('.', ''),
+      day: format(when, 'd'),
+    };
+  };
 
   return (
     <>
@@ -1144,46 +1162,42 @@ export default function AffiliateLinktree() {
                   ? t('promoterLinktree.noEventsFilters')
                   : t('promoterLinktree.noEventsYet')}
               </p>
+            ) : isByDay ? (
+              /* Timeline éditoriale : mois « ruled » + rail de jour */
+              monthsGrouped.map((month) => (
+                <div key={month.key}>
+                  <MonthLabel>{month.label}</MonthLabel>
+                  {month.days.map((group) => {
+                    const dp = dayParts(group.date);
+                    return (
+                      <DayRow key={group.date} weekday={dp.weekday} day={dp.day}>
+                        {group.items.map((ev, i) => (
+                          <FadeInView key={ev.id} index={i < 6 ? i : 0}>
+                            <EventCard
+                              event={ev}
+                              affiliateId={affiliate?.id ?? ''}
+                              isOwner={isOwner}
+                              onNavigate={() => navigate(ev.yuno_event_id ? `/event/${ev.yuno_event_id}` : `/affiliate-event/${ev.slug}`)}
+                            />
+                          </FadeInView>
+                        ))}
+                      </DayRow>
+                    );
+                  })}
+                </div>
+              ))
             ) : (
+              /* Tris genre / prix / custom : groupes existants, label ruled */
               grouped.map((group) => (
                 <div key={group.date}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'baseline',
-                      gap: '10px',
-                      paddingBottom: '10px',
-                      borderBottom: '1px solid rgba(255,255,255,0.07)',
-                      margin: '28px 0 14px',
-                    }}
-                  >
-                    <h2
-                      style={{
-                        fontFamily: "'Space Grotesk', 'Helvetica Neue', Arial, sans-serif",
-                        fontSize: 'clamp(17px, 4.5vw, 20px)',
-                        fontWeight: 700,
-                        color: '#FFFFFF',
-                        textTransform: 'uppercase' as const,
-                        letterSpacing: '-0.01em',
-                        lineHeight: 1,
-                        margin: 0,
-                      }}
+                  {group.label && (
+                    <MonthLabel
+                      count={group.items.length}
+                      countLabel={group.items.length !== 1 ? t('promoterLinktree.eventPlural') : t('promoterLinktree.eventSingular')}
                     >
                       {group.label}
-                    </h2>
-                    <span
-                      style={{
-                        fontFamily: "'JetBrains Mono', monospace",
-                        fontSize: '10px',
-                        color: '#3A3A3E',
-                        letterSpacing: '0.14em',
-                        textTransform: 'uppercase' as const,
-                      }}
-                    >
-                      {group.items.length} {group.items.length !== 1 ? t('promoterLinktree.eventPlural') : t('promoterLinktree.eventSingular')}
-                    </span>
-                  </div>
-
+                    </MonthLabel>
+                  )}
                   {group.items.map((ev, i) => (
                     <FadeInView key={ev.id} index={i < 6 ? i : 0}>
                       <EventCard

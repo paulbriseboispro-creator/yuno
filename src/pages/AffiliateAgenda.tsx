@@ -7,6 +7,8 @@ import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useAffiliateVisitorTracking, trackAffiliateClick } from '@/hooks/useAffiliateVisitorTracking';
 import { smartOpenEvent } from '@/lib/appDeepLink';
+import { MonthLabel } from '@/components/agenda/timeline';
+import { AgendaPosterCard } from '@/components/agenda/AgendaPosterCard';
 
 /* ============================================================
    AffiliateAgenda — l'agenda complet du bras affilié/agence.
@@ -14,19 +16,17 @@ import { smartOpenEvent } from '@/lib/appDeepLink';
      • mode="org"    → /p/:slug/agenda      (page agence)
      • mode="member" → /promo/:slug/agenda  (promoteur d'agence)
 
-   Le linktree (/p, /promo) reste la vitrine curée ; l'agenda liste
-   TOUT : toutes les soirées externes publiées à venir de l'agence,
-   plus (mode agence) les soirées Yuno des clubs sous contrat.
+   Un scroll simple de grandes affiches 1:1 : TOUTES les soirées
+   externes publiées à venir de l'agence, plus (mode agence) les
+   soirées Yuno des clubs sous contrat. Le linktree garde le
+   design éditorial travaillé — ici c'est volontairement direct.
 
-   • Chemins exclus de l'AASA : le QR/lien s'ouvre toujours dans le
-     navigateur.
-   • Soirées Yuno : tentative d'ouverture dans l'app (yuno://) avec
-     fallback web. Soirées externes : billetterie externe ou page
-     /affiliate-event, comme sur le linktree.
-   • Tracking identique au linktree : vues via
-     useAffiliateVisitorTracking, clics via trackAffiliateClick
-     (avec le member_id en mode promoteur — l'attribution ?via= des
-     pages d'arrivée reste inchangée).
+   • Chemins exclus de l'AASA : le QR/lien s'ouvre toujours dans
+     le navigateur.
+   • Soirées Yuno : app d'abord (yuno://), web sinon. Externes :
+     billetterie externe ou /affiliate-event, comme le linktree.
+   • Tracking identique au linktree (vues + clics, member_id en
+     mode promoteur ; ?via= inchangé sur les pages d'arrivée).
    ============================================================ */
 
 type Mode = 'org' | 'member';
@@ -38,7 +38,6 @@ interface AgendaIdentity {
   name: string;
   handle: string;
   avatarUrl: string | null;
-  /** Mode membre : nom de l'agence parente (confiance). */
   orgName: string | null;
   affiliateId: string;
   memberId: string | null;
@@ -59,7 +58,6 @@ interface AgendaItem {
   venueName: string | null;
   venueCity: string | null;
   yuno_event_id: string | null;
-  /** Lien billetterie personnel du promoteur (promoter_linktree_events.promo_link). */
   promo_link: string | null;
 }
 
@@ -124,14 +122,6 @@ function mapExternalRow(e: any): AgendaItem {
   };
 }
 
-function IconArrow() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M2 5h6M5 2l3 3-3 3"/>
-    </svg>
-  );
-}
-
 function IconVerified({ label }: { label: string }) {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-label={label} role="img">
@@ -141,127 +131,6 @@ function IconVerified({ label }: { label: string }) {
   );
 }
 
-/* ── Carte soirée ── */
-function AgendaCard({
-  event,
-  onOpen,
-  labels,
-}: {
-  event: AgendaItem;
-  onOpen: () => void;
-  labels: { tickets: string; join: string; soldOut: string; free: string };
-}) {
-  const canHover = typeof window !== 'undefined' && !!window.matchMedia?.('(hover: hover) and (pointer: fine)').matches;
-  const priceLabel = event.is_sold_out
-    ? labels.soldOut
-    : event.is_free
-    ? labels.free
-    : event.price_from != null
-    ? `${event.price_from}€`
-    : null;
-  const ctaLabel = event.is_sold_out ? labels.soldOut : event.is_free ? labels.join : labels.tickets;
-
-  return (
-    <div
-      onClick={() => { if (!event.is_sold_out) onOpen(); }}
-      role="link"
-      tabIndex={event.is_sold_out ? -1 : 0}
-      onKeyDown={(e) => { if (!event.is_sold_out && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onOpen(); } }}
-      style={{
-        display: 'flex',
-        alignItems: 'stretch',
-        borderRadius: '10px',
-        border: '1px solid rgba(255,255,255,0.08)',
-        background: '#141414',
-        overflow: 'hidden',
-        cursor: event.is_sold_out ? 'default' : 'pointer',
-        opacity: event.is_sold_out ? 0.55 : 1,
-        transition: 'border-color 250ms ease, transform 250ms cubic-bezier(0.16,1,0.3,1)',
-      }}
-      onMouseEnter={(e) => {
-        if (!canHover || event.is_sold_out) return;
-        (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.14)';
-        (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)';
-      }}
-      onMouseLeave={(e) => {
-        if (!canHover) return;
-        (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)';
-        (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
-      }}
-    >
-      {/* Affiche */}
-      <div style={{ width: 'clamp(88px, 24vw, 104px)', minWidth: 'clamp(88px, 24vw, 104px)', overflow: 'hidden', background: '#111111' }}>
-        {event.flyer_url ? (
-          <img
-            src={event.flyer_url}
-            alt={event.name}
-            loading="lazy"
-            style={{ width: '100%', height: '100%', minHeight: '104px', objectFit: 'cover', objectPosition: 'center', display: 'block' }}
-          />
-        ) : (
-          <div style={{ width: '100%', height: '100%', minHeight: '104px', background: 'linear-gradient(160deg, #1a0f12 0%, #3a1020 100%)' }} />
-        )}
-      </div>
-
-      {/* Corps */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '12px 12px 10px', gap: '4px', minWidth: 0 }}>
-        {event.venueName && (
-          <p
-            style={{
-              fontFamily: MONO, fontSize: '11px', fontWeight: 600, color: '#9A9A9A',
-              letterSpacing: '0.08em', textTransform: 'uppercase' as const, lineHeight: 1, margin: 0,
-              whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis',
-            }}
-          >
-            {event.venueName}{event.venueCity ? ` · ${event.venueCity}` : ''}
-          </p>
-        )}
-
-        <h3
-          style={{
-            fontFamily: GROTESK, fontSize: 'clamp(15px, 4vw, 17px)', fontWeight: 700, color: '#FFFFFF',
-            textTransform: 'uppercase' as const, letterSpacing: '-0.005em', lineHeight: 1.1,
-            whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis', margin: 0,
-          }}
-        >
-          {event.name}
-        </h3>
-
-        <p style={{ fontFamily: MONO, fontSize: '11px', color: '#5A5A5E', letterSpacing: '0.04em', lineHeight: 1, margin: '2px 0 0' }}>
-          {event.start_time ? event.start_time.slice(0, 5) : ''}
-          {priceLabel ? `${event.start_time ? '  ·  ' : ''}${priceLabel}` : ''}
-        </p>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '9px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
-          <span
-            style={{
-              fontFamily: MONO, fontSize: '11px', fontWeight: 600, color: '#9A9A9A',
-              letterSpacing: '0.10em', textTransform: 'uppercase' as const,
-              whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis',
-            }}
-          >
-            {event.genres.slice(0, 2).join(' · ')}
-          </span>
-          <span
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: '6px',
-              padding: '7px 13px', borderRadius: '999px',
-              background: event.is_sold_out ? '#2A2A2E' : '#E8192C',
-              color: event.is_sold_out ? '#9A9A9A' : '#FFFFFF',
-              fontFamily: MONO, fontSize: '11px', fontWeight: 700, letterSpacing: '0.14em',
-              textTransform: 'uppercase' as const, whiteSpace: 'nowrap' as const, flexShrink: 0,
-            }}
-          >
-            {ctaLabel}
-            {!event.is_sold_out && <IconArrow />}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ── Page ── */
 export default function AffiliateAgenda({ mode }: { mode: Mode }) {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -272,7 +141,6 @@ export default function AffiliateAgenda({ mode }: { mode: Mode }) {
   const [ownerUserId, setOwnerUserId] = useState<string | null>(null);
   const [events, setEvents] = useState<AgendaItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [venueFilter, setVenueFilter] = useState<string>('all');
 
   const isOwner = !!(user?.id && ownerUserId && user.id === ownerUserId);
   useAffiliateVisitorTracking({
@@ -283,7 +151,6 @@ export default function AffiliateAgenda({ mode }: { mode: Mode }) {
 
   useEffect(() => {
     setLoading(true);
-    setVenueFilter('all');
   }, [slug, mode]);
 
   useEffect(() => {
@@ -410,7 +277,6 @@ export default function AffiliateAgenda({ mode }: { mode: Mode }) {
       });
     }
     if (event.yuno_event_id) {
-      // Soirée Yuno in-app : app d'abord, web sinon.
       smartOpenEvent(`/event/${event.yuno_event_id}`, navigate);
       return;
     }
@@ -423,46 +289,15 @@ export default function AffiliateAgenda({ mode }: { mode: Mode }) {
     navigate(`/affiliate-event/${event.slug}${viaSuffix}`);
   };
 
-  const visibleEvents = useMemo(
-    () => (venueFilter === 'all' ? events : events.filter(e => (e.venueName ?? '') === venueFilter)),
-    [events, venueFilter],
-  );
-
-  const venues = useMemo(() => {
-    const counts = new Map<string, number>();
-    events.forEach(e => {
-      if (!e.venueName) return;
-      counts.set(e.venueName, (counts.get(e.venueName) ?? 0) + 1);
+  // Groupes par jour — un label « ruled » par date, cartes 1:1 dessous
+  const days = useMemo(() => {
+    const map = new Map<string, AgendaItem[]>();
+    events.forEach(ev => {
+      if (!map.has(ev.event_date)) map.set(ev.event_date, []);
+      map.get(ev.event_date)!.push(ev);
     });
-    return [...counts.entries()].map(([name, count]) => ({ name, count }));
+    return [...map.entries()].map(([key, items]) => ({ key, items }));
   }, [events]);
-
-  const months = useMemo(() => {
-    const monthMap = new Map<string, { label: string; days: Map<string, AgendaItem[]> }>();
-    visibleEvents.forEach(ev => {
-      const mKey = ev.event_date.slice(0, 7);
-      if (!monthMap.has(mKey)) {
-        monthMap.set(mKey, {
-          label: format(midday(ev.event_date), 'MMMM yyyy', { locale: dateLocale }).toUpperCase(),
-          days: new Map(),
-        });
-      }
-      const month = monthMap.get(mKey)!;
-      if (!month.days.has(ev.event_date)) month.days.set(ev.event_date, []);
-      month.days.get(ev.event_date)!.push(ev);
-    });
-    return [...monthMap.entries()].map(([key, m]) => ({
-      key,
-      label: m.label,
-      days: [...m.days.entries()].map(([dKey, items]) => ({ key: dKey, items })),
-    }));
-  }, [visibleEvents, dateLocale]);
-
-  const nightsCount = events.length;
-  const stagesCount = venues.length;
-  const lastNight = events.length > 0
-    ? format(midday(events[events.length - 1].event_date), 'd MMM', { locale: dateLocale }).toUpperCase().replace('.', '')
-    : null;
 
   const cardLabels = {
     tickets: t('promoterLinktree.tickets'),
@@ -471,17 +306,19 @@ export default function AffiliateAgenda({ mode }: { mode: Mode }) {
     free: t('promoterLinktree.free'),
   };
 
+  const priceLabel = (ev: AgendaItem) =>
+    ev.is_free ? cardLabels.free : ev.price_from != null ? `${ev.price_from}€` : null;
+
   // ── Chargement ──
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', background: '#0A0A0A' }}>
-        <div style={{ maxWidth: '560px', margin: '0 auto', padding: '40px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+        <div style={{ maxWidth: '520px', margin: '0 auto', padding: '40px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
           <div className="skeleton" style={{ width: '80px', height: '80px', borderRadius: '50%' }} />
           <div className="skeleton" style={{ width: '180px', height: '24px', borderRadius: '6px' }} />
-          <div className="skeleton" style={{ width: '240px', height: '48px', borderRadius: '6px', marginTop: '12px' }} />
-          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px' }}>
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="skeleton" style={{ width: '100%', height: '104px', borderRadius: '10px' }} />
+          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '20px' }}>
+            {[1, 2].map(i => (
+              <div key={i} className="skeleton" style={{ width: '100%', aspectRatio: '1 / 1', borderRadius: '12px' }} />
             ))}
           </div>
         </div>
@@ -515,22 +352,11 @@ export default function AffiliateAgenda({ mode }: { mode: Mode }) {
           animation: 'agendaFade 400ms ease-out both',
         }}
       >
-        {/* Halo rouge */}
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'fixed', top: '-120px', left: '50%', transform: 'translateX(-50%)',
-            width: '600px', height: '400px',
-            background: 'radial-gradient(ellipse at center, rgba(232,25,44,0.11) 0%, transparent 70%)',
-            pointerEvents: 'none', zIndex: 0,
-          }}
-        />
-
-        <main style={{ position: 'relative', zIndex: 1, maxWidth: '560px', margin: '0 auto', paddingBottom: '96px' }}>
+        <main style={{ position: 'relative', zIndex: 1, maxWidth: '520px', margin: '0 auto', paddingBottom: '96px' }}>
 
           {/* ══ IDENTITÉ ══ */}
           <section
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '44px 24px 8px' }}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '44px 24px 6px' }}
             aria-label={t('promoterLinktree.profileAria')}
           >
             {identity.avatarUrl ? (
@@ -569,168 +395,46 @@ export default function AffiliateAgenda({ mode }: { mode: Mode }) {
                 </h1>
                 <IconVerified label={t('promoterLinktree.verified')} />
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#E8192C' }} />
-                <span style={{ fontFamily: MONO, fontSize: '11px', fontWeight: 500, letterSpacing: '0.16em', color: '#5A5A5E', textTransform: 'uppercase' as const }}>
-                  @{identity.handle}
-                </span>
-              </div>
               {identity.orgName && (
                 <span style={{ fontFamily: MONO, fontSize: '10px', fontWeight: 500, letterSpacing: '0.14em', color: '#9A9A9A', textTransform: 'uppercase' as const }}>
                   {identity.orgName}
                 </span>
               )}
+              <span style={{ fontFamily: MONO, fontSize: '11px', fontWeight: 500, letterSpacing: '0.16em', color: '#5A5A5E', textTransform: 'uppercase' as const }}>
+                {t('promoterAgenda.fullAgenda')} — {events.length} {events.length !== 1 ? t('promoterLinktree.eventPlural') : t('promoterLinktree.eventSingular')}
+              </span>
             </div>
           </section>
 
-          {/* ══ HERO ÉDITORIAL ══ */}
-          <section style={{ padding: '20px 24px 24px', textAlign: 'center' as const }}>
-            <p
-              style={{
-                fontFamily: GROTESK,
-                fontSize: 'clamp(34px, 10vw, 54px)',
-                fontWeight: 700,
-                lineHeight: 0.95,
-                letterSpacing: '-0.025em',
-                textTransform: 'uppercase' as const,
-                margin: 0,
-                color: '#FFFFFF',
-              }}
-            >
-              {t('promoterAgenda.heroLine1')}
-              <br />
-              <span style={{ color: '#E8192C' }}>{t('promoterAgenda.heroLine2')}</span>
-            </p>
-
-            {nightsCount > 0 && (
-              <div
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' as const,
-                  justifyContent: 'center', marginTop: '18px',
-                  fontFamily: MONO, fontSize: '11px', fontWeight: 600,
-                  letterSpacing: '0.14em', textTransform: 'uppercase' as const, color: '#9A9A9A',
-                }}
-              >
-                <span>{nightsCount} {nightsCount !== 1 ? t('promoterLinktree.eventPlural') : t('promoterLinktree.eventSingular')}</span>
-                {stagesCount > 0 && (
-                  <>
-                    <span aria-hidden="true" style={{ color: '#E8192C' }}>/</span>
-                    <span>{stagesCount} {stagesCount !== 1 ? t('promoterAgenda.stagePlural') : t('promoterAgenda.stageSingular')}</span>
-                  </>
-                )}
-                {lastNight && (
-                  <>
-                    <span aria-hidden="true" style={{ color: '#E8192C' }}>/</span>
-                    <span>{t('promoterAgenda.until')} {lastNight}</span>
-                  </>
-                )}
-              </div>
-            )}
-          </section>
-
-          {/* ══ BARRE DE FILTRES COLLANTE ══ */}
-          {venues.length > 1 && (
-            <div
-              style={{
-                position: 'sticky', top: 0, zIndex: 40,
-                background: 'rgba(10,10,10,0.86)',
-                backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
-                borderTop: '1px solid rgba(255,255,255,0.07)',
-                borderBottom: '1px solid rgba(255,255,255,0.07)',
-                padding: '10px 0',
-              }}
-            >
-              <div
-                className="agenda-chip-row"
-                style={{ display: 'flex', alignItems: 'center', gap: '8px', overflowX: 'auto', padding: '0 24px' }}
-              >
-                {identity.avatarUrl && (
-                  <img
-                    src={identity.avatarUrl}
-                    alt=""
-                    aria-hidden="true"
-                    style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '1px solid rgba(232,25,44,0.5)' }}
-                  />
-                )}
-                <button
-                  onClick={() => setVenueFilter('all')}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '6px', flexShrink: 0,
-                    padding: '7px 13px', borderRadius: '999px', cursor: 'pointer',
-                    border: venueFilter === 'all' ? '1px solid #E8192C' : '1px solid rgba(255,255,255,0.14)',
-                    background: venueFilter === 'all' ? '#E8192C' : 'transparent',
-                    color: venueFilter === 'all' ? '#FFFFFF' : '#9A9A9A',
-                    fontFamily: MONO, fontSize: '11px', fontWeight: 700,
-                    letterSpacing: '0.10em', textTransform: 'uppercase' as const,
-                    transition: 'background 200ms ease, color 200ms ease, border-color 200ms ease',
-                  }}
-                >
-                  {t('promoterAgenda.all')} ({nightsCount})
-                </button>
-                {venues.map(v => (
-                  <button
-                    key={v.name}
-                    onClick={() => setVenueFilter(venueFilter === v.name ? 'all' : v.name)}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: '7px', flexShrink: 0,
-                      padding: '7px 13px', borderRadius: '999px', cursor: 'pointer',
-                      border: venueFilter === v.name ? '1px solid #E8192C' : '1px solid rgba(255,255,255,0.14)',
-                      background: venueFilter === v.name ? '#E8192C' : 'transparent',
-                      color: venueFilter === v.name ? '#FFFFFF' : '#E5E5E5',
-                      fontFamily: MONO, fontSize: '11px', fontWeight: 600,
-                      letterSpacing: '0.06em', textTransform: 'uppercase' as const,
-                      whiteSpace: 'nowrap' as const,
-                      transition: 'background 200ms ease, color 200ms ease, border-color 200ms ease',
-                    }}
-                  >
-                    {v.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ══ TIMELINE ══ */}
+          {/* ══ SOIRÉES — scroll simple de cartes 1:1 ══ */}
           <section style={{ padding: '4px 20px 0' }} aria-label={t('promoterLinktree.events')}>
-            {visibleEvents.length === 0 ? (
+            {events.length === 0 ? (
               <p style={{ textAlign: 'center', color: '#5A5A5E', fontFamily: MONO, fontSize: '12px', letterSpacing: '0.06em', padding: '48px 0' }}>
                 {t('promoterAgenda.empty')}
               </p>
             ) : (
-              months.map(month => (
-                <div key={month.key}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '30px 4px 16px' }}>
-                    <span style={{ width: '22px', height: '2px', background: '#E8192C', flexShrink: 0 }} aria-hidden="true" />
-                    <h2
-                      style={{
-                        fontFamily: MONO, fontSize: '12px', fontWeight: 700, color: '#E5E5E5',
-                        letterSpacing: '0.22em', textTransform: 'uppercase' as const, margin: 0, whiteSpace: 'nowrap' as const,
-                      }}
-                    >
-                      {month.label}
-                    </h2>
-                    <span style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.08)' }} aria-hidden="true" />
+              days.map(day => (
+                <div key={day.key}>
+                  <MonthLabel>
+                    {format(midday(day.key), 'EEEE d MMMM', { locale: dateLocale }).toUpperCase()}
+                  </MonthLabel>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {day.items.map(ev => (
+                      <AgendaPosterCard
+                        key={ev.id}
+                        image={ev.flyer_url}
+                        title={ev.name}
+                        topLine={ev.venueName ? `${ev.venueName}${ev.venueCity ? ` · ${ev.venueCity}` : ''}` : null}
+                        timeLabel={ev.start_time ? ev.start_time.slice(0, 5) : null}
+                        priceLabel={priceLabel(ev)}
+                        genreLine={ev.genres.slice(0, 2).join(' · ')}
+                        ctaLabel={ev.is_sold_out ? cardLabels.soldOut : ev.is_free ? cardLabels.join : cardLabels.tickets}
+                        soldOut={ev.is_sold_out}
+                        soldOutLabel={cardLabels.soldOut}
+                        onOpen={() => openEvent(ev)}
+                      />
+                    ))}
                   </div>
-
-                  {month.days.map(day => (
-                    <div key={day.key} style={{ display: 'flex', gap: '12px', marginBottom: '14px' }}>
-                      <div style={{ width: '46px', minWidth: '46px', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '8px' }}>
-                        <span style={{ fontFamily: MONO, fontSize: '10px', fontWeight: 600, color: '#5A5A5E', letterSpacing: '0.14em', textTransform: 'uppercase' as const }}>
-                          {format(midday(day.key), 'EEE', { locale: dateLocale }).replace('.', '')}
-                        </span>
-                        <span style={{ fontFamily: GROTESK, fontSize: '26px', fontWeight: 700, color: '#FFFFFF', lineHeight: 1.05, letterSpacing: '-0.02em' }}>
-                          {format(midday(day.key), 'd')}
-                        </span>
-                        <span style={{ width: '1px', flex: 1, background: 'rgba(255,255,255,0.08)', marginTop: '6px' }} aria-hidden="true" />
-                      </div>
-
-                      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                        {day.items.map(ev => (
-                          <AgendaCard key={ev.id} event={ev} onOpen={() => openEvent(ev)} labels={cardLabels} />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
                 </div>
               ))
             )}
@@ -761,12 +465,13 @@ export default function AffiliateAgenda({ mode }: { mode: Mode }) {
       </div>
 
       <style>{`
+        @keyframes agendaLivePing {
+          75%, 100% { transform: scale(2); opacity: 0; }
+        }
         @keyframes agendaFade {
           from { opacity: 0; }
           to { opacity: 1; }
         }
-        .agenda-chip-row { scrollbar-width: none; -ms-overflow-style: none; }
-        .agenda-chip-row::-webkit-scrollbar { display: none; }
       `}</style>
     </>
   );

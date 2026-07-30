@@ -7,6 +7,7 @@ import { fr, es, enUS } from 'date-fns/locale';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
 import { PublicPage } from '@/components/PublicPage';
+import { MonthLabel, DayRow, groupDaysIntoMonths } from '@/components/agenda/timeline';
 
 interface PromoterInfo {
   firstName: string | null;
@@ -392,10 +393,6 @@ export default function PromoterHub() {
 
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
 
-  const formatDateLabel = (dateStr: string) => {
-    return formatInTimeZone(new Date(dateStr), PARIS_TIMEZONE, 'EEEE d MMMM', { locale: dateLocale }).toUpperCase();
-  };
-
   const formatTime = (dateStr: string) => {
     return formatInTimeZone(new Date(dateStr), PARIS_TIMEZONE, 'HH:mm');
   };
@@ -475,6 +472,12 @@ export default function PromoterHub() {
     if (!groupedByDate[key]) groupedByDate[key] = [];
     groupedByDate[key].push(ev);
   });
+
+  // Timeline éditoriale (design des pages Agenda) : mois « ruled » + rail de jour.
+  const monthsGrouped = groupDaysIntoMonths(
+    Object.entries(groupedByDate).map(([date, events]) => ({ date, events })),
+    (dateKey) => formatInTimeZone(new Date(`${dateKey}T12:00:00`), PARIS_TIMEZONE, 'MMMM yyyy', { locale: dateLocale }).toUpperCase(),
+  );
 
   // ── Loading ──────────────────────────────────────────────────────────────
   if (loading) {
@@ -691,57 +694,27 @@ export default function PromoterHub() {
                   : 'No upcoming events.'}
               </p>
             ) : (
-              Object.entries(groupedByDate).map(([dateKey, events]) => (
-                <div key={dateKey}>
-                  {/* Séparateur date */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'baseline',
-                      gap: '10px',
-                      paddingBottom: '10px',
-                      borderBottom: '1px solid rgba(255,255,255,0.07)',
-                      margin: '28px 0 14px',
-                    }}
-                  >
-                    <h2
-                      style={{
-                        fontFamily: "'Space Grotesk', 'Helvetica Neue', Arial, sans-serif",
-                        fontSize: 'clamp(17px, 4.5vw, 20px)',
-                        fontWeight: 700,
-                        color: '#FFFFFF',
-                        textTransform: 'uppercase' as const,
-                        letterSpacing: '-0.01em',
-                        lineHeight: 1,
-                        margin: 0,
-                      }}
+              monthsGrouped.map(month => (
+                <div key={month.key}>
+                  <MonthLabel>{month.label}</MonthLabel>
+                  {month.days.map(({ date, events }) => (
+                    <DayRow
+                      key={date}
+                      weekday={formatInTimeZone(new Date(events[0].start_at), PARIS_TIMEZONE, 'EEE', { locale: dateLocale }).replace('.', '')}
+                      day={formatInTimeZone(new Date(events[0].start_at), PARIS_TIMEZONE, 'd')}
                     >
-                      {formatDateLabel(events[0].start_at)}
-                    </h2>
-                    <span
-                      style={{
-                        fontFamily: "'JetBrains Mono', monospace",
-                        fontSize: '10px',
-                        color: '#3A3A3E',
-                        letterSpacing: '0.14em',
-                        textTransform: 'uppercase' as const,
-                      }}
-                    >
-                      {events.length} {events.length !== 1 ? t('promoterLinktree.eventPlural') : t('promoterLinktree.eventSingular')}
-                    </span>
-                  </div>
-
-                  {/* Event cards */}
-                  {events.map((ev) => (
-                    <EventCard
-                      key={ev.id}
-                      event={ev}
-                      timeLabel={`${formatTime(ev.start_at)} - ${formatTime(ev.end_at)}`}
-                      onNavigate={() => goToEvent(ev)}
-                      ctaLabel={ev.ticketing_enabled
-                        ? t('promoterLinktree.tickets')
-                        : language === 'fr' ? 'Voir' : language === 'es' ? 'Ver' : 'View'}
-                    />
+                      {events.map((ev) => (
+                        <EventCard
+                          key={ev.id}
+                          event={ev}
+                          timeLabel={`${formatTime(ev.start_at)} - ${formatTime(ev.end_at)}`}
+                          onNavigate={() => goToEvent(ev)}
+                          ctaLabel={ev.ticketing_enabled
+                            ? t('promoterLinktree.tickets')
+                            : language === 'fr' ? 'Voir' : language === 'es' ? 'Ver' : 'View'}
+                        />
+                      ))}
+                    </DayRow>
                   ))}
                 </div>
               ))
