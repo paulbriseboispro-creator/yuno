@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { restrictedCorsHeaders } from "../_shared/cors.ts";
 
 /**
  * Accept a club-collab invitation.
@@ -28,6 +24,7 @@ function slugify(s: string): string {
 }
 
 const handler = async (req: Request): Promise<Response> => {
+  const corsHeaders = restrictedCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -173,92 +170,118 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Generate a unique venue slug
-    const baseSlug = slugify(inv.club_name) || `club-${inv.id.slice(0, 6)}`;
-    let slug = baseSlug;
-    let suffix = 0;
-    // Try until unique
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      const { data: clash } = await admin
-        .from("venues")
-        .select("id")
-        .eq("id", slug)
-        .maybeSingle();
-      if (!clash) break;
-      suffix += 1;
-      slug = `${baseSlug}-${suffix}`;
-      if (suffix > 50) {
-        slug = `${baseSlug}-${Date.now()}`;
-        break;
-      }
-    }
-
-    // Create venue
-    const { error: venueErr } = await admin.from("venues").insert({
-      id: slug,
-      name: inv.club_name,
-      city: inv.club_city,
-      address: inv.club_address,
-      owner_id: user.id,
-      menu_enabled: false,
-      vip_placement_enabled: false,
-      is_hidden: false,
-    });
-    if (venueErr) {
-      console.error("venue insert error:", venueErr);
-      throw venueErr;
-    }
-
-    // Ensure profile_type is owner so they can use the owner dashboard
-    await admin
-      .from("profiles")
-      .update({ profile_type: "owner", venue_id: slug })
-      .eq("id", user.id);
-
-    // Grant the 'owner' role so the dashboard card appears on /profile
-    await admin
-      .from("user_roles")
-      .insert({ user_id: user.id, role: "owner", email: user.email })
-      .select()
-      .maybeSingle();
-
-    // Create active partnership
-    const { error: partErr } = await admin
-      .from("venue_organizer_partnerships")
-      .insert({
-        venue_id: slug,
-        organizer_user_id: inv.organizer_user_id,
-        status: "active",
-        initiated_by: "organizer",
-        invitation_message: inv.invitation_message,
-        default_split_rules: inv.default_split_rules,
-        accepted_at: new Date().toISOString(),
-      });
-    if (partErr) {
-      console.error("partnership insert error:", partErr);
-      // Non-fatal — the trigger activate_collab_plan_on_partnership will still set up subscription if active
-    }
-
-    // If invitation referenced an event, link partner_venue_id
-    if (inv.event_id) {
-      await admin
-        .from("events")
-        .update({ partner_venue_id: slug, event_mode: "co_event" })
-        .eq("id", inv.event_id)
-        .eq("organizer_user_id", inv.organizer_user_id);
-    }
-
-    // Mark invitation accepted
-    await admin
+    // Atomically CLAIM the invitation before provisioning anything. Two
+    // near-simultaneous accepts both pass the earlier pending check; without
+    // this claim the loser would create a second venue + duplicate owner role.
+    const { data: claimed, error: claimErr } = await admin
       .from("venue_claim_invitations")
       .update({
         status: "accepted",
         accepted_at: new Date().toISOString(),
-        created_venue_id: slug,
         created_owner_user_id: user.id,
       })
-      .eq("id", inv.id);
+      .eq("id", inv.id)
+      .eq("status", "pending")
+      .select("id")
+      .maybeSingle();
+    if (claimErr) throw claimErr;
+    if (!claimed) {
+      return new Response(JSON.stringify({ error: "Invitation déjà traitée" }), {
+        status: 409,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    let slug = "";
+    try {
+      // Generate a unique venue slug
+      const baseSlug = slugify(inv.club_name) || `club-${inv.id.slice(0, 6)}`;
+      slug = baseSlug;
+      let suffix = 0;
+      // Try until unique
+      while (true) {
+        const { data: clash } = await admin
+          .from("venues")
+          .select("id")
+          .eq("id", slug)
+          .maybeSingle();
+        if (!clash) break;
+        suffix += 1;
+        slug = `${baseSlug}-${suffix}`;
+        if (suffix > 50) {
+          slug = `${baseSlug}-${Date.now()}`;
+          break;
+        }
+      }
+
+      // Create venue
+      const { error: venueErr } = await admin.from("venues").insert({
+        id: slug,
+        name: inv.club_name,
+        city: inv.club_city,
+        address: inv.club_address,
+        owner_id: user.id,
+        menu_enabled: false,
+        vip_placement_enabled: false,
+        is_hidden: false,
+      });
+      if (venueErr) {
+        console.error("venue insert error:", venueErr);
+        throw venueErr;
+      }
+
+      // Ensure profile_type is owner so they can use the owner dashboard
+      await admin
+        .from("profiles")
+        .update({ profile_type: "owner", venue_id: slug })
+        .eq("id", user.id);
+
+      // Grant the 'owner' role so the dashboard card appears on /profile
+      await admin
+        .from("user_roles")
+        .insert({ user_id: user.id, role: "owner", email: user.email })
+        .select()
+        .maybeSingle();
+
+      // Create active partnership
+      const { error: partErr } = await admin
+        .from("venue_organizer_partnerships")
+        .insert({
+          venue_id: slug,
+          organizer_user_id: inv.organizer_user_id,
+          status: "active",
+          initiated_by: "organizer",
+          invitation_message: inv.invitation_message,
+          default_split_rules: inv.default_split_rules,
+          accepted_at: new Date().toISOString(),
+        });
+      if (partErr) {
+        console.error("partnership insert error:", partErr);
+        // Non-fatal — the trigger activate_collab_plan_on_partnership will still set up subscription if active
+      }
+
+      // If invitation referenced an event, link partner_venue_id
+      if (inv.event_id) {
+        await admin
+          .from("events")
+          .update({ partner_venue_id: slug, event_mode: "co_event" })
+          .eq("id", inv.event_id)
+          .eq("organizer_user_id", inv.organizer_user_id);
+      }
+
+      // Record the venue created by this acceptance
+      await admin
+        .from("venue_claim_invitations")
+        .update({ created_venue_id: slug })
+        .eq("id", inv.id);
+    } catch (provisionErr) {
+      // Compensation: release the claim so the invitee can retry.
+      await admin
+        .from("venue_claim_invitations")
+        .update({ status: "pending", accepted_at: null, created_owner_user_id: null })
+        .eq("id", inv.id);
+      throw provisionErr;
+    }
 
     return new Response(
       JSON.stringify({ success: true, venue_id: slug }),

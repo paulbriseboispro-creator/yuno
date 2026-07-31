@@ -1,13 +1,15 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { buildInvitation } from "../_shared/email-templates.ts";
+import { restrictedCorsHeaders } from "../_shared/cors.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const DEFAULT_APP_ORIGIN = "https://yunoapp.eu";
+// The accept link goes into an email holding a live token — never build it from
+// an arbitrary caller-supplied origin.
+const isAllowedOrigin = (o: string) =>
+  o === "https://yuno.club" || o === DEFAULT_APP_ORIGIN || o.startsWith("http://localhost");
 
 interface Payload {
   club_name: string;
@@ -23,6 +25,7 @@ interface Payload {
 }
 
 const handler = async (req: Request): Promise<Response> => {
+  const corsHeaders = restrictedCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
@@ -143,7 +146,7 @@ const handler = async (req: Request): Promise<Response> => {
       .single();
     if (insErr) throw insErr;
 
-    const baseUrl = origin || "https://yunoapp.eu";
+    const baseUrl = origin && isAllowedOrigin(origin) ? origin : DEFAULT_APP_ORIGIN;
     const acceptUrl = `${baseUrl}/club-invitation?token=${invitation.token}`;
 
     const mail = buildInvitation({

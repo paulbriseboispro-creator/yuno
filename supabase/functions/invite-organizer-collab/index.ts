@@ -1,11 +1,13 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { buildInvitation } from "../_shared/email-templates.ts";
+import { restrictedCorsHeaders } from "../_shared/cors.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+const DEFAULT_APP_ORIGIN = "https://yunoapp.eu";
+// The accept link goes into an email holding a live token — never build it from
+// an arbitrary caller-supplied origin.
+const isAllowedOrigin = (o: string) =>
+  o === "https://yuno.club" || o === DEFAULT_APP_ORIGIN || o.startsWith("http://localhost");
 
 /**
  * A venue owner invites an external organizer (not yet on Yuno) by email.
@@ -20,6 +22,7 @@ const corsHeaders = {
  *  - origin (window.location.origin)
  */
 const handler = async (req: Request): Promise<Response> => {
+  const corsHeaders = restrictedCorsHeaders(req);
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -76,11 +79,29 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
+    const normalizedEmail = String(organizer_email).toLowerCase().trim();
+
+    // Don't stack pending invitations for the same organizer — repeated clicks
+    // would spam the invitee and pile up claimable rows.
+    const { data: existingInv } = await admin
+      .from("organizer_claim_invitations")
+      .select("id")
+      .eq("inviting_venue_id", venue.id)
+      .eq("organizer_email", normalizedEmail)
+      .eq("status", "pending")
+      .maybeSingle();
+    if (existingInv) {
+      return new Response(
+        JSON.stringify({ error: "Une invitation est déjà en attente pour cet organisateur." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Insert invitation
     const { data: inv, error: insErr } = await admin
       .from("organizer_claim_invitations")
       .insert({
-        organizer_email: String(organizer_email).toLowerCase().trim(),
+        organizer_email: normalizedEmail,
         organizer_name: organizer_name ?? null,
         contact_first_name: contact_first_name ?? null,
         contact_last_name: contact_last_name ?? null,
@@ -96,7 +117,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send email via Resend if configured
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-    const baseOrigin = origin || "https://yunoapp.eu";
+    const baseOrigin = origin && isAllowedOrigin(origin) ? origin : DEFAULT_APP_ORIGIN;
     const acceptUrl = `${baseOrigin}/accept-organizer-invitation?token=${inv.token}`;
 
     if (RESEND_API_KEY) {
