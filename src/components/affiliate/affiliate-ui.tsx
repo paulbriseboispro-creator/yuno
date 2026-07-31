@@ -302,19 +302,22 @@ export function AffAvatar({ src, fallback, size = 40 }: { src?: string | null; f
 
 // ─── Dark input ──────────────────────────────────────────────────────────────
 export function DarkInput({
-  value, onChange, placeholder, type = 'text', icon: Icon, onKeyDown,
-}: { value: string; onChange?: (v: string) => void; placeholder?: string; type?: string; icon?: any; onKeyDown?: (e: any) => void }) {
+  value, onChange, placeholder, type = 'text', icon: Icon, onKeyDown, disabled,
+}: { value: string; onChange?: (v: string) => void; placeholder?: string; type?: string; icon?: any; onKeyDown?: (e: any) => void; disabled?: boolean }) {
   return (
     <div className="relative" style={{ flex: 1 }}>
       {Icon && <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: T3 }} />}
       <input
         type={type} value={value} onKeyDown={onKeyDown}
         onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+        readOnly={!onChange || disabled}
+        disabled={disabled}
         placeholder={placeholder}
         className="w-full outline-none"
         style={{
           background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10,
           padding: Icon ? '9px 12px 9px 36px' : '9px 12px', color: T1, fontSize: 13.5, fontFamily: 'inherit',
+          opacity: disabled ? 0.6 : 1, cursor: disabled ? 'not-allowed' : undefined,
         }}
         onFocus={(e) => (e.target.style.borderColor = 'rgba(232,25,44,0.55)')}
         onBlur={(e) => (e.target.style.borderColor = BORDER)}
@@ -358,16 +361,19 @@ export function DarkSelect({
 
 // ─── Dark textarea ────────────────────────────────────────────────────────────
 export function DarkTextarea({
-  value, onChange, placeholder, rows = 3,
-}: { value: string; onChange: (v: string) => void; placeholder?: string; rows?: number }) {
+  value, onChange, placeholder, rows = 3, disabled,
+}: { value: string; onChange: (v: string) => void; placeholder?: string; rows?: number; disabled?: boolean }) {
   return (
     <textarea
       value={value} rows={rows} placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
+      readOnly={disabled}
+      disabled={disabled}
       className="w-full outline-none resize-none"
       style={{
         background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10,
         padding: '9px 12px', color: T1, fontSize: 13.5, fontFamily: 'inherit', lineHeight: 1.5,
+        opacity: disabled ? 0.6 : 1, cursor: disabled ? 'not-allowed' : undefined,
       }}
       onFocus={(e) => (e.target.style.borderColor = 'rgba(232,25,44,0.55)')}
       onBlur={(e) => (e.target.style.borderColor = BORDER)}

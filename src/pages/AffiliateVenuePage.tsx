@@ -178,7 +178,7 @@ export default function AffiliateVenuePage() {
       .select('*')
       .eq('slug', slug!)
       .eq('is_active', true)
-      .single();
+      .maybeSingle();
 
     if (!v) { navigate('/'); return; }
     setVenue({

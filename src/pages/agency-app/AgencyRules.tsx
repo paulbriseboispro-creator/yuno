@@ -284,13 +284,14 @@ function RuleForm({
 
 // ─── Template card ────────────────────────────────────────────────────────────
 function TemplateCard({
-  tpl, promoters, groups, onEdit, onDelete, tt,
+  tpl, promoters, groups, onEdit, onDelete, onAssigned, tt,
 }: {
   tpl: RuleTemplate;
   promoters: ReturnType<typeof useAgencyData>['promoters'];
   groups: ReturnType<typeof useAgencyData>['groups'];
   onEdit: (t: RuleTemplate) => void;
   onDelete: (id: string) => void;
+  onAssigned: () => void;
   tt: (fr: string, en: string, es?: string) => string;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -315,6 +316,9 @@ function TemplateCard({
     const count = (data as any)?.applied_to ?? 0;
     toast.success(`${tt('Appliqué à', 'Applied to', 'Aplicado a')} ${count} ${tt('promoteur(s)', 'promoter(s)', 'promotor(es)')}`);
     setAssignTarget('');
+    // Sans refetch, la liste « Actuellement assigné » et les compteurs
+    // restaient figés jusqu'à un rechargement manuel de la page.
+    onAssigned();
   };
 
   return (
@@ -498,7 +502,7 @@ const iconBtn: React.CSSProperties = {
 // ─── Main page ────────────────────────────────────────────────────────────────
 export default function AgencyRules() {
   const { agency } = useAgency();
-  const { promoters, groups } = useAgencyData(agency?.id ?? null);
+  const { promoters, groups, refetch: refetchAgencyData } = useAgencyData(agency?.id ?? null);
   const { language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const db = supabase as any;
@@ -511,11 +515,15 @@ export default function AgencyRules() {
   const loadTemplates = useCallback(async () => {
     if (!agency?.id) return;
     setLoading(true);
-    const { data } = await db
+    const { data, error } = await db
       .from('agency_rule_templates')
       .select('*')
       .eq('agency_id', agency.id)
       .order('created_at', { ascending: true });
+    if (error) {
+      console.error('rule templates load error:', error);
+      toast.error(tt('Impossible de charger les modèles. Réessaie.', "Couldn't load templates. Try again.", 'No se pudieron cargar las plantillas. Reintenta.'));
+    }
     setTemplates((data ?? []) as RuleTemplate[]);
     setLoading(false);
   }, [agency?.id]);
@@ -652,6 +660,7 @@ export default function AgencyRules() {
               groups={groups}
               onEdit={openEdit}
               onDelete={handleDelete}
+              onAssigned={refetchAgencyData}
               tt={tt}
             />
           ))}

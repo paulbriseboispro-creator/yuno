@@ -177,14 +177,18 @@ export default function OwnerCollaborations() {
 
   const [venueId, setVenueId]   = useState<string | undefined>(undefined);
   const [venueName, setVenueName] = useState('');
+  const [venueLookupError, setVenueLookupError] = useState(false);
+  const [venueLookupNonce, setVenueLookupNonce] = useState(0);
 
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data } = await supabase.from('venues').select('id, name').eq('owner_id', user.id).limit(1).maybeSingle();
+      const { data, error } = await supabase.from('venues').select('id, name').eq('owner_id', user.id).limit(1).maybeSingle();
+      if (error) { console.error('venue lookup error:', error); setVenueLookupError(true); return; }
+      setVenueLookupError(false);
       if (data) { setVenueId(data.id); setVenueName(data.name); }
     })();
-  }, [user]);
+  }, [user, venueLookupNonce]);
 
   if (!venueId) {
     return (
@@ -192,7 +196,17 @@ export default function OwnerCollaborations() {
         <OwnerHeader title="Collaborations" />
         <div className="container mx-auto p-6">
           <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, padding: '32px', textAlign: 'center' }}>
-            <p style={{ color: T3, fontSize: 13 }}>{t('collab.loading')}</p>
+            <p style={{ color: T3, fontSize: 13 }}>
+              {venueLookupError ? t('collab.loadError') : t('collab.loading')}
+            </p>
+            {venueLookupError && (
+              <button
+                onClick={() => setVenueLookupNonce((n) => n + 1)}
+                style={{ marginTop: 14, color: T1, fontSize: 13, background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '8px 18px', cursor: 'pointer' }}
+              >
+                {t('collab.retry')}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -448,9 +462,13 @@ function CollabEventCard({ event, venueId }: { event: CollabEvent; venueId: stri
     ? { label: t('collab.event.statusActive'), color: POS, bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.25)' }
     : awaiting
       ? { label: isLead ? t('collab.event.awaitingPartner') : t('collab.event.toAccept'), color: AMBER, bg: 'rgba(245,166,35,0.12)', border: 'rgba(245,166,35,0.30)' }
-      : event.is_active
-        ? { label: t('collab.event.statusActive'), color: POS, bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.25)' }
-        : { label: isLead ? t('collab.event.pendingOrga') : t('collab.event.pendingActivation'), color: T3, bg: INNER_BG, border: BORDER };
+      : cs === 'cancelled'
+        // Un contrat annulé sur un event encore publié n'est PAS « Actif » :
+        // sans cette branche il retombait sur le chip vert is_active.
+        ? { label: t('collab.event.contractCancelled'), color: T3, bg: INNER_BG, border: BORDER }
+        : event.is_active
+          ? { label: t('collab.event.statusActive'), color: POS, bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.25)' }
+          : { label: isLead ? t('collab.event.pendingOrga') : t('collab.event.pendingActivation'), color: T3, bg: INNER_BG, border: BORDER };
 
   return (
     <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, overflow: 'hidden' }}>
@@ -900,7 +918,9 @@ function PartnershipTrackRecord({ venueId, organizerUserId }: { venueId: string;
 
       const [tk, tr, gl] = await Promise.all([
         supabase.from('tickets').select('total_price, quantity, service_fee, insurance_fee').eq('status', 'paid').in('event_id', ids),
-        supabase.from('table_reservations').select('total_price, guests_count, service_fee, management_fee').eq('status', 'confirmed').in('event_id', ids),
+        // guest_count (sans s) + status 'paid' : guests_count n'existe pas (la
+        // requête entière échouait en 400) et 'confirmed' n'est jamais écrit.
+        supabase.from('table_reservations').select('total_price, guest_count, service_fee, management_fee').eq('status', 'paid').in('event_id', ids),
         supabase.from('guest_list_entries').select('id, guest_lists!inner(event_id)').in('guest_lists.event_id', ids),
       ]);
       if (cancelled) return;
@@ -909,7 +929,7 @@ function PartnershipTrackRecord({ venueId, organizerUserId }: { venueId: string;
       const tables = tr.data || [];
       const entries = gl.data || [];
       const ticketsSold = tickets.reduce((a, x: any) => a + (x.quantity || 1), 0);
-      const tableGuests = tables.reduce((a, x: any) => a + (x.guests_count || 0), 0);
+      const tableGuests = tables.reduce((a, x: any) => a + (x.guest_count || 0), 0);
       // CA = montant client − frais Yuno (jamais le TTC : les frais Yuno ne sont pas du revenu).
       const gross = tickets.reduce((a, x: any) => a + ticketRevenue(x).gross, 0)
         + tables.reduce((a, x: any) => a + tableRevenue(x).gross, 0);

@@ -169,7 +169,7 @@ export default function AgencyPromoterDetail() {
   const { agency } = useAgency();
   const { promoters, contracts, conversions, groups, externalMembers, loading, refetch } = useAgencyData(agency?.id ?? null);
   const { t, language } = useLanguage();
-  const tt = (fr: string, en: string) => translate(language, fr, en);
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [settling, setSettling] = useState<string | null>(null);
   const [savingGroup, setSavingGroup] = useState(false);
 
@@ -251,13 +251,19 @@ export default function AgencyPromoterDetail() {
 
   const handleGroupChange = async (groupId: string) => {
     setSavingGroup(true);
+    let failed = false;
     for (const r of records) {
-      await supabase.from('promoters')
+      const { error } = await supabase.from('promoters')
         .update({ agency_group_id: groupId || null })
         .eq('id', r.id);
+      if (error) { console.error('group update error:', error); failed = true; }
     }
     setSavingGroup(false);
-    toast.success(tt('Groupe mis à jour', 'Group updated'));
+    if (failed) {
+      toast.error(tt('Certaines lignes n’ont pas été mises à jour. Réessaie.', 'Some rows were not updated. Try again.', 'Algunas filas no se actualizaron. Reintenta.'));
+    } else {
+      toast.success(tt('Groupe mis à jour', 'Group updated'));
+    }
     refetch();
   };
 
@@ -458,7 +464,7 @@ export default function AgencyPromoterDetail() {
               >
                 <div>
                   <p style={{ color: T2, fontSize: 12 }}>
-                    {new Date(c.created_at).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB', {
+                    {new Date(c.created_at).toLocaleDateString(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB', {
                       day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
                     })}
                   </p>

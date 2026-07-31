@@ -496,7 +496,7 @@ export default function AffiliatePromotersTracking() {
                             </div>
 
                             {member.linktree_slug && (
-                              <a href={`https://yunoapp.eu/promo/${member.linktree_slug}`} target="_blank" rel="noopener noreferrer"
+                              <a href={`${window.location.origin}/promo/${member.linktree_slug}`} target="_blank" rel="noopener noreferrer"
                                 className="mt-3 inline-flex items-center gap-1.5 transition-colors" style={{ color: RED, fontSize: 12, fontWeight: 600 }}
                                 onClick={e => e.stopPropagation()}>
                                 <ExternalLink className="h-3 w-3" /> {t('aff.suivi.viewPublicPage')}

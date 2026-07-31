@@ -1360,7 +1360,7 @@ export default function PromoterLinktree() {
                               affiliateId={member?.affiliate_id ?? ''}
                               memberId={member?.id ?? ''}
                               isOwner={isOwner}
-                              onNavigate={() => navigate(`/affiliate-event/${ev.slug}`)}
+                              onNavigate={() => navigate(`/affiliate-event/${ev.slug}${slug ? `?via=${slug}` : ''}`)}
                             />
                           </FadeInView>
                         ))}
@@ -1389,7 +1389,7 @@ export default function PromoterLinktree() {
                         affiliateId={member?.affiliate_id ?? ''}
                         memberId={member?.id ?? ''}
                         isOwner={isOwner}
-                        onNavigate={() => navigate(`/affiliate-event/${ev.slug}`)}
+                        onNavigate={() => navigate(`/affiliate-event/${ev.slug}${slug ? `?via=${slug}` : ''}`)}
                       />
                     </FadeInView>
                   ))}

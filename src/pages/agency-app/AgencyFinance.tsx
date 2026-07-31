@@ -231,7 +231,7 @@ export default function AgencyFinance() {
                     {r.convs.slice(0, 10).map(c => (
                       <div key={c.id} className="flex justify-between" style={{ fontSize: 12 }}>
                         <span style={{ color: T3 }}>
-                          {new Date(c.created_at).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB', { day: '2-digit', month: 'short' })}
+                          {new Date(c.created_at).toLocaleDateString(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB', { day: '2-digit', month: 'short' })}
                         </span>
                         <span style={{ color: T2 }}>{eur(c.gross_amount)}</span>
                       </div>
@@ -441,7 +441,7 @@ export default function AgencyFinance() {
                   {payout.paid_at && (
                     <>
                       <CheckCircle2 className="h-3 w-3 inline mr-0.5" style={{ color: POS, marginTop: -2 }} />
-                      {t('promoterSettlement.confirmedOn')} {new Date(payout.paid_at).toLocaleDateString('fr-FR')}
+                      {t('promoterSettlement.confirmedOn')} {new Date(payout.paid_at).toLocaleDateString(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB')}
                     </>
                   )}
                 </p>

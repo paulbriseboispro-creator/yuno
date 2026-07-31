@@ -1,7 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json, TablesUpdate } from '@/integrations/supabase/types';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translate } from '@/i18n/orgTranslate';
 
 export type PartnershipStatus = 'pending' | 'active' | 'revoked' | 'declined';
 export type PartnershipInitiator = 'venue' | 'organizer';
@@ -70,6 +73,8 @@ export function useOrganizerPartnerships() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { language } = useLanguage();
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
   const query = useQuery({
     queryKey: ['organizer-partnerships', user?.id],
@@ -99,22 +104,23 @@ export function useOrganizerPartnerships() {
           organizer_user_id: user.id,
           initiated_by: 'organizer' as const,
           invitation_message: params.message ?? null,
-          default_split_rules: DEFAULT_SPLIT as any,
+          // PartnershipSplitRules est structurellement du JSON ; l'interface n'a pas l'index signature qu'exige le type Json généré.
+          default_split_rules: DEFAULT_SPLIT as unknown as Json,
         });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organizer-partnerships'] });
-      toast({ title: 'Demande envoyée', description: 'Le club recevra ta demande.' });
+      toast({ title: tt('Demande envoyée', 'Request sent', 'Solicitud enviada'), description: tt('Le club recevra ta demande.', 'The club will receive your request.', 'El club recibirá tu solicitud.') });
     },
-    onError: (err: any) => {
-      toast({ title: 'Erreur', description: err.message ?? 'Impossible d’envoyer la demande', variant: 'destructive' });
+    onError: (err) => {
+      toast({ title: tt('Erreur', 'Error', 'Error'), description: err.message ?? tt('Impossible d’envoyer la demande', 'Could not send the request', 'No se pudo enviar la solicitud'), variant: 'destructive' });
     },
   });
 
   const respond = useMutation({
     mutationFn: async (params: { id: string; accept: boolean }) => {
-      const update: any = params.accept
+      const update: TablesUpdate<'venue_organizer_partnerships'> = params.accept
         ? { status: 'active', accepted_at: new Date().toISOString() }
         : { status: 'declined' };
       const { error } = await supabase
@@ -125,10 +131,10 @@ export function useOrganizerPartnerships() {
     },
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ['organizer-partnerships'] });
-      toast({ title: vars.accept ? 'Partenariat accepté' : 'Demande refusée' });
+      toast({ title: vars.accept ? tt('Partenariat accepté', 'Partnership accepted', 'Colaboración aceptada') : tt('Demande refusée', 'Request declined', 'Solicitud rechazada') });
     },
-    onError: (err: any) => {
-      toast({ title: 'Erreur', description: err.message, variant: 'destructive' });
+    onError: (err) => {
+      toast({ title: tt('Erreur', 'Error', 'Error'), description: err.message, variant: 'destructive' });
     },
   });
 
@@ -142,7 +148,7 @@ export function useOrganizerPartnerships() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organizer-partnerships'] });
-      toast({ title: 'Partenariat révoqué' });
+      toast({ title: tt('Partenariat révoqué', 'Partnership revoked', 'Colaboración revocada') });
     },
   });
 
@@ -152,7 +158,8 @@ export function useOrganizerPartnerships() {
       const { error } = await supabase
         .from('venue_organizer_partnerships')
         .update({
-          split_proposal: params.rules as any,
+          // Même contrainte Json que default_split_rules : assertion structurelle, pas de perte de forme.
+          split_proposal: params.rules as unknown as Json,
           split_proposed_by: user.id,
           split_proposed_at: new Date().toISOString(),
           split_approved_by_organizer: true, // proposer auto-approves
@@ -168,9 +175,9 @@ export function useOrganizerPartnerships() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organizer-partnerships'] });
-      toast({ title: 'Proposition envoyée', description: 'Le club a été notifié et doit accepter la nouvelle répartition.' });
+      toast({ title: tt('Proposition envoyée', 'Proposal sent', 'Propuesta enviada'), description: tt('Le club a été notifié et doit accepter la nouvelle répartition.', 'The club has been notified and must accept the new split.', 'El club ha sido notificado y debe aceptar el nuevo reparto.') });
     },
-    onError: (err: any) => toast({ title: 'Erreur', description: err.message, variant: 'destructive' }),
+    onError: (err) => toast({ title: tt('Erreur', 'Error', 'Error'), description: err.message, variant: 'destructive' }),
   });
 
   const respondToSplitProposal = useMutation({
@@ -182,9 +189,9 @@ export function useOrganizerPartnerships() {
         const venueOk = p.split_approved_by_venue;
         const organizerOk = true; // organizer accepting
         const both = venueOk && organizerOk;
-        const update: any = both
+        const update: TablesUpdate<'venue_organizer_partnerships'> = both
           ? {
-              default_split_rules: p.split_proposal as any,
+              default_split_rules: p.split_proposal as unknown as Json,
               split_proposal: null,
               split_proposed_by: null,
               split_proposed_at: null,
@@ -218,9 +225,9 @@ export function useOrganizerPartnerships() {
     },
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ['organizer-partnerships'] });
-      toast({ title: vars.accept ? 'Proposition acceptée' : 'Proposition refusée' });
+      toast({ title: vars.accept ? tt('Proposition acceptée', 'Proposal accepted', 'Propuesta aceptada') : tt('Proposition refusée', 'Proposal declined', 'Propuesta rechazada') });
     },
-    onError: (err: any) => toast({ title: 'Erreur', description: err.message, variant: 'destructive' }),
+    onError: (err) => toast({ title: tt('Erreur', 'Error', 'Error'), description: err.message, variant: 'destructive' }),
   });
 
   return {
@@ -242,6 +249,8 @@ export function useVenuePartnerships(venueId: string | undefined) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { language } = useLanguage();
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
   const query = useQuery({
     queryKey: ['venue-partnerships', venueId],
@@ -265,16 +274,16 @@ export function useVenuePartnerships(venueId: string | undefined) {
       // a `profiles` read silently returns 0 rows and the card shows a generic
       // "Organizer" with no photo. CollabEventsTab uses this same table.
       const { data: orgProfiles } = await supabase
-        .from('organizer_profiles' as any)
+        .from('organizer_profiles')
         .select('user_id, display_name, avatar_url, slug')
         .in('user_id', orgIds);
 
       type OrgProfileRow = { user_id: string; display_name: string | null; avatar_url: string | null; slug: string | null };
       const profileMap = new Map(
-        // `.from(... as any)` prive PostgREST de toute inférence : le retour est
-        // un SelectQueryError, pas une ligne. Le double cast dit explicitement
-        // qu'on assume la forme, au lieu de laisser TS échouer sur un chevauchement.
-        ((orgProfiles || []) as unknown as OrgProfileRow[]).map((p) => [p.user_id, {
+        // `organizer_profiles` figure désormais dans les types générés : la requête
+        // est typée nativement. Le cast explicite garde la forme documentée ici
+        // (display_name élargi à nullable), sans plus passer par `as any`.
+        ((orgProfiles || []) as OrgProfileRow[]).map((p) => [p.user_id, {
           id: p.user_id,
           first_name: null,
           last_name: null,
@@ -283,7 +292,7 @@ export function useVenuePartnerships(venueId: string | undefined) {
           slug: p.slug,
         }]),
       );
-      return rows.map((r) => ({ ...r, organizer: profileMap.get(r.organizer_user_id) as any }));
+      return rows.map((r) => ({ ...r, organizer: profileMap.get(r.organizer_user_id) }));
     },
   });
 
@@ -297,22 +306,23 @@ export function useVenuePartnerships(venueId: string | undefined) {
           organizer_user_id: params.organizerUserId,
           initiated_by: 'venue' as const,
           invitation_message: params.message ?? null,
-          default_split_rules: (params.splitRules ?? DEFAULT_SPLIT) as any,
+          // Même contrainte Json que plus haut : assertion structurelle sur l'interface de split.
+          default_split_rules: (params.splitRules ?? DEFAULT_SPLIT) as unknown as Json,
         });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['venue-partnerships', venueId] });
-      toast({ title: 'Invitation envoyée', description: 'L’organisateur recevra ton invitation.' });
+      toast({ title: tt('Invitation envoyée', 'Invitation sent', 'Invitación enviada'), description: tt('L’organisateur recevra ton invitation.', 'The organizer will receive your invitation.', 'El organizador recibirá tu invitación.') });
     },
-    onError: (err: any) => {
-      toast({ title: 'Erreur', description: err.message, variant: 'destructive' });
+    onError: (err) => {
+      toast({ title: tt('Erreur', 'Error', 'Error'), description: err.message, variant: 'destructive' });
     },
   });
 
   const respond = useMutation({
     mutationFn: async (params: { id: string; accept: boolean }) => {
-      const update: any = params.accept
+      const update: TablesUpdate<'venue_organizer_partnerships'> = params.accept
         ? { status: 'active', accepted_at: new Date().toISOString() }
         : { status: 'declined' };
       const { error } = await supabase
@@ -323,7 +333,7 @@ export function useVenuePartnerships(venueId: string | undefined) {
     },
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ['venue-partnerships', venueId] });
-      toast({ title: vars.accept ? 'Partenariat accepté' : 'Demande refusée' });
+      toast({ title: vars.accept ? tt('Partenariat accepté', 'Partnership accepted', 'Colaboración aceptada') : tt('Demande refusée', 'Request declined', 'Solicitud rechazada') });
     },
   });
 
@@ -337,22 +347,22 @@ export function useVenuePartnerships(venueId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['venue-partnerships', venueId] });
-      toast({ title: 'Répartition par défaut mise à jour' });
+      toast({ title: tt('Répartition par défaut mise à jour', 'Default split updated', 'Reparto por defecto actualizado') });
     },
-    onError: (err: any) => toast({ title: 'Erreur', description: err.message, variant: 'destructive' }),
+    onError: (err) => toast({ title: tt('Erreur', 'Error', 'Error'), description: err.message, variant: 'destructive' }),
   });
 
   const updateSplit = useMutation({
     mutationFn: async (params: { id: string; splitRules: PartnershipSplitRules }) => {
       const { error } = await supabase
         .from('venue_organizer_partnerships')
-        .update({ default_split_rules: params.splitRules as any })
+        .update({ default_split_rules: params.splitRules as unknown as Json })
         .eq('id', params.id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['venue-partnerships', venueId] });
-      toast({ title: 'Règles de partage mises à jour' });
+      toast({ title: tt('Règles de partage mises à jour', 'Split rules updated', 'Reglas de reparto actualizadas') });
     },
   });
 
@@ -362,7 +372,8 @@ export function useVenuePartnerships(venueId: string | undefined) {
       const { error } = await supabase
         .from('venue_organizer_partnerships')
         .update({
-          split_proposal: params.rules as any,
+          // Même contrainte Json que default_split_rules : assertion structurelle, pas de perte de forme.
+          split_proposal: params.rules as unknown as Json,
           split_proposed_by: user.id,
           split_proposed_at: new Date().toISOString(),
           split_approved_by_venue: true, // proposer auto-approves
@@ -378,9 +389,9 @@ export function useVenuePartnerships(venueId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['venue-partnerships', venueId] });
-      toast({ title: 'Proposition envoyée', description: 'L’organisateur a été notifié et doit accepter la nouvelle répartition.' });
+      toast({ title: tt('Proposition envoyée', 'Proposal sent', 'Propuesta enviada'), description: tt('L’organisateur a été notifié et doit accepter la nouvelle répartition.', 'The organizer has been notified and must accept the new split.', 'El organizador ha sido notificado y debe aceptar el nuevo reparto.') });
     },
-    onError: (err: any) => toast({ title: 'Erreur', description: err.message, variant: 'destructive' }),
+    onError: (err) => toast({ title: tt('Erreur', 'Error', 'Error'), description: err.message, variant: 'destructive' }),
   });
 
   const respondToSplitProposal = useMutation({
@@ -392,9 +403,9 @@ export function useVenuePartnerships(venueId: string | undefined) {
         const venueOk = true;
         const organizerOk = p.split_approved_by_organizer;
         const both = venueOk && organizerOk;
-        const update: any = both
+        const update: TablesUpdate<'venue_organizer_partnerships'> = both
           ? {
-              default_split_rules: p.split_proposal as any,
+              default_split_rules: p.split_proposal as unknown as Json,
               split_proposal: null,
               split_proposed_by: null,
               split_proposed_at: null,
@@ -428,9 +439,9 @@ export function useVenuePartnerships(venueId: string | undefined) {
     },
     onSuccess: (_, vars) => {
       queryClient.invalidateQueries({ queryKey: ['venue-partnerships', venueId] });
-      toast({ title: vars.accept ? 'Proposition acceptée' : 'Proposition refusée' });
+      toast({ title: vars.accept ? tt('Proposition acceptée', 'Proposal accepted', 'Propuesta aceptada') : tt('Proposition refusée', 'Proposal declined', 'Propuesta rechazada') });
     },
-    onError: (err: any) => toast({ title: 'Erreur', description: err.message, variant: 'destructive' }),
+    onError: (err) => toast({ title: tt('Erreur', 'Error', 'Error'), description: err.message, variant: 'destructive' }),
   });
 
   const revoke = useMutation({
@@ -443,7 +454,7 @@ export function useVenuePartnerships(venueId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['venue-partnerships', venueId] });
-      toast({ title: 'Partenariat révoqué' });
+      toast({ title: tt('Partenariat révoqué', 'Partnership revoked', 'Colaboración revocada') });
     },
   });
 

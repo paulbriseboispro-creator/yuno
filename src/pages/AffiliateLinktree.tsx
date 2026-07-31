@@ -541,7 +541,7 @@ function EventCard({
                 textTransform: 'uppercase' as const,
               }}
             >
-              COMPLET
+              {t('promoterLinktree.soldOut')}
             </span>
           </div>
         )}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAgency } from '@/hooks/useAgency';
 import { useAgencyData, promoterName } from '@/hooks/useAgencyData';
@@ -6,11 +6,13 @@ import { useAgencyEvents, AgencyUpcomingEvent } from '@/hooks/useAgencyEvents';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
-import { Calendar, Users, X, Check } from 'lucide-react';
+import { Calendar, Users, X, Check, Target, Ticket, Sliders } from 'lucide-react';
 import {
   PromoCard, PromoButton, PromoEmpty, PromoAvatar, PromoPill, SectionLabel,
-  T1, T2, T3, RED, INNER_BG, BORDER,
+  T1, T2, T3, RED, POS, INNER_BG, BORDER,
 } from '@/components/promoter/promoter-ui';
+
+type AssignInfo = { assigned: boolean; goal: string; maxTickets: string; gl: boolean; tables: boolean };
 
 const RANGE_OPTIONS = [
   { label: '7j', labelEn: '7d', labelEs: '7d', days: 7 },
@@ -19,7 +21,7 @@ const RANGE_OPTIONS = [
 ];
 
 function formatDate(iso: string, lang: string) {
-  return new Date(iso).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB', {
+  return new Date(iso).toLocaleDateString(lang === 'fr' ? 'fr-FR' : lang === 'es' ? 'es-ES' : 'en-GB', {
     weekday: 'short', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
   });
 }
@@ -33,6 +35,53 @@ export default function AgencyEvents() {
   const { events, loading, refetch } = useAgencyEvents(agency?.id ?? null, daysAhead);
   const [assignSheet, setAssignSheet] = useState<AgencyUpcomingEvent | null>(null);
   const [assigning, setAssigning] = useState<string | null>(null);
+  // Réglages par soirée (objectif, plafond billets, accès GL/tables) par promoteur.
+  const [info, setInfo] = useState<Record<string, AssignInfo>>({});
+  const [tuning, setTuning] = useState<string | null>(null);
+
+  const loadAssignments = useCallback(async (eventId: string, ids: string[]) => {
+    if (!ids.length) { setInfo({}); return; }
+    const { data, error } = await (supabase as any).from('promoter_event_assignments')
+      .select('promoter_id, goal_target, max_tickets, can_access_guestlist, can_access_tables')
+      .eq('event_id', eventId).in('promoter_id', ids);
+    if (error) console.error('event assignments load error:', error);
+    const map: Record<string, AssignInfo> = {};
+    for (const a of (data ?? []) as any[]) {
+      map[a.promoter_id] = {
+        assigned: true,
+        goal: a.goal_target != null ? String(a.goal_target) : '',
+        maxTickets: a.max_tickets != null ? String(a.max_tickets) : '',
+        gl: !!a.can_access_guestlist,
+        tables: a.can_access_tables !== false,
+      };
+    }
+    setInfo(map);
+  }, []);
+
+  useEffect(() => {
+    if (assignSheet) loadAssignments(assignSheet.event_id, promoters.map(p => p.id));
+    else { setInfo({}); setTuning(null); }
+  }, [assignSheet, promoters, loadAssignments]);
+
+  const setField = (pid: string, patch: Partial<AssignInfo>) =>
+    setInfo(prev => ({ ...prev, [pid]: { ...(prev[pid] ?? { assigned: true, goal: '', maxTickets: '', gl: false, tables: true }), ...patch } }));
+
+  const saveTuning = async (promoterId: string, eventId: string) => {
+    const it = info[promoterId];
+    if (!it) return;
+    const { error } = await (supabase as any).rpc('set_agency_promoter_event_assignment', {
+      p_promoter_id: promoterId,
+      p_event_id: eventId,
+      p_goal_target: it.goal.trim() === '' ? null : Math.max(0, parseInt(it.goal) || 0),
+      p_max_tickets: it.maxTickets.trim() === '' ? null : Math.max(0, parseInt(it.maxTickets) || 0),
+      p_can_access_guestlist: it.gl,
+      p_can_access_tables: it.tables,
+    });
+    if (error) { toast.error(error.message); return; }
+    toast.success(tt('Réglages enregistrés', 'Settings saved'));
+    setField(promoterId, { assigned: true });
+    refetch();
+  };
 
   // Group events by venue
   const byVenue = useMemo(() => {
@@ -55,6 +104,8 @@ export default function AgencyEvents() {
     setAssigning(null);
     if (error) { toast.error(error.message); return; }
     toast.success(assign ? tt('Assigné', 'Assigned') : tt('Retiré', 'Removed'));
+    await loadAssignments(eventId, promoters.map(p => p.id));
+    if (!assign) setTuning(t => t === promoterId ? null : t);
     refetch();
   };
 
@@ -165,31 +216,59 @@ export default function AgencyEvents() {
                   const isVenueMatch =
                     (assignSheet.venue_id && p.venue_id === assignSheet.venue_id) ||
                     (assignSheet.organizer_user_id && p.organizer_user_id === assignSheet.organizer_user_id);
+                  const it = info[p.id];
+                  const isAssigned = !!it?.assigned;
+                  const isTuning = tuning === p.id;
                   return (
-                    <div
-                      key={p.id}
-                      className="flex items-center gap-3"
-                      style={{
-                        padding: '10px 16px',
-                        borderBottom: '1px solid rgba(255,255,255,0.04)',
-                      }}
-                    >
-                      <PromoAvatar src={p.profile_image_url} fallback={promoterName(p).slice(0, 1)} size={34} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate" style={{ color: T1, fontSize: 13.5 }}>{promoterName(p)}</p>
-                        <p className="truncate" style={{ color: T3, fontSize: 11 }}>
-                          {p.venues?.name || p.venue_id || ''}
-                          {!isVenueMatch && ` · ${tt('club différent', 'different club')}`}
-                        </p>
+                    <div key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <div className="flex items-center gap-3" style={{ padding: '10px 16px' }}>
+                        <PromoAvatar src={p.profile_image_url} fallback={promoterName(p).slice(0, 1)} size={34} />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate" style={{ color: T1, fontSize: 13.5 }}>{promoterName(p)}</p>
+                          <p className="truncate" style={{ color: T3, fontSize: 11 }}>
+                            {p.venues?.name || p.venue_id || ''}
+                            {!isVenueMatch && ` · ${tt('club différent', 'different club')}`}
+                          </p>
+                        </div>
+                        {isAssigned && (
+                          <button onClick={() => setTuning(isTuning ? null : p.id)} title={tt('Réglages soirée', 'Event settings')}
+                            style={{ color: isTuning ? RED : T3, background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
+                            <Sliders className="h-4 w-4" />
+                          </button>
+                        )}
+                        <PromoButton
+                          size="sm"
+                          variant={isAssigned ? 'secondary' : (isVenueMatch ? 'secondary' : 'ghost')}
+                          onClick={() => handleAssign(p.id, assignSheet.event_id, !isAssigned)}
+                          disabled={assigning === p.id}
+                        >
+                          {assigning === p.id ? '…' : isAssigned ? <X className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
+                        </PromoButton>
                       </div>
-                      <PromoButton
-                        size="sm"
-                        variant={isVenueMatch ? 'secondary' : 'ghost'}
-                        onClick={() => handleAssign(p.id, assignSheet.event_id, true)}
-                        disabled={assigning === p.id}
-                      >
-                        {assigning === p.id ? '…' : <Check className="h-3.5 w-3.5" />}
-                      </PromoButton>
+
+                      {isAssigned && isTuning && (
+                        <div style={{ padding: '4px 16px 12px 62px' }} className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Target className="h-3.5 w-3.5" style={{ color: T3 }} />
+                            <input type="number" min={0} value={it.goal} onChange={e => setField(p.id, { goal: e.target.value })}
+                              placeholder={tt('Objectif ventes', 'Sales goal')} className="outline-none"
+                              style={{ width: 120, background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '6px 9px', color: T1, fontSize: 12.5 }} />
+                            <Ticket className="h-3.5 w-3.5" style={{ color: T3 }} />
+                            <input type="number" min={0} value={it.maxTickets} onChange={e => setField(p.id, { maxTickets: e.target.value })}
+                              placeholder={tt('Plafond billets', 'Ticket cap')} className="outline-none"
+                              style={{ width: 120, background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '6px 9px', color: T1, fontSize: 12.5 }} />
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button onClick={() => setField(p.id, { gl: !it.gl })} style={{ padding: '5px 10px', borderRadius: 8, fontSize: 11.5, cursor: 'pointer', background: it.gl ? 'rgba(52,211,153,0.12)' : INNER_BG, color: it.gl ? POS : T2, border: `1px solid ${it.gl ? 'rgba(52,211,153,0.3)' : BORDER}` }}>
+                              {tt('Accès guest list', 'Guest list access')} {it.gl ? '✓' : '✗'}
+                            </button>
+                            <button onClick={() => setField(p.id, { tables: !it.tables })} style={{ padding: '5px 10px', borderRadius: 8, fontSize: 11.5, cursor: 'pointer', background: it.tables ? 'rgba(52,211,153,0.12)' : INNER_BG, color: it.tables ? POS : T2, border: `1px solid ${it.tables ? 'rgba(52,211,153,0.3)' : BORDER}` }}>
+                              {tt('Accès tables', 'Tables access')} {it.tables ? '✓' : '✗'}
+                            </button>
+                            <PromoButton size="sm" onClick={() => saveTuning(p.id, assignSheet.event_id)}>{tt('Enregistrer', 'Save')}</PromoButton>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   );
                 })

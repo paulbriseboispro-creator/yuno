@@ -24,7 +24,7 @@ const RANGES = [
 ];
 
 function fmtDate(iso: string, lang: string) {
-  return new Date(iso).toLocaleDateString(lang === 'fr' ? 'fr-FR' : 'en-GB', {
+  return new Date(iso).toLocaleDateString(lang === 'fr' ? 'fr-FR' : lang === 'es' ? 'es-ES' : 'en-GB', {
     day: '2-digit', month: 'short', year: '2-digit',
   });
 }

@@ -139,7 +139,7 @@ export default function AffiliateEventPage() {
       .eq('slug', slug!)
       .in('status', ['published', 'featured'])
       .gte('event_date', today)
-      .single();
+      .maybeSingle();
 
     if (!data) { navigate('/'); return; }
     setEvent(data as unknown as AffiliateEvent);

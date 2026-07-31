@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useAgency } from '@/hooks/useAgency';
 import { useAgencyData, promoterName } from '@/hooks/useAgencyData';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -61,7 +61,7 @@ export default function AgencyAnalytics() {
     return [...map.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([week, amount]) => ({
-        week: new Date(week).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB', { day: '2-digit', month: 'short' }),
+        week: new Date(week).toLocaleDateString(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB', { day: '2-digit', month: 'short' }),
         amount,
       }));
   }, [filtered, language]);
@@ -189,8 +189,8 @@ export default function AgencyAnalytics() {
               ))}
               {/* Rows */}
               {dayLabels.map((day, di) => (
-                <>
-                  <div key={`label-${di}`} style={{ color: T3, fontSize: 9, paddingRight: 4, display: 'flex', alignItems: 'center' }}>
+                <Fragment key={`row-${di}`}>
+                  <div style={{ color: T3, fontSize: 9, paddingRight: 4, display: 'flex', alignItems: 'center' }}>
                     {day}
                   </div>
                   {heatmap.grid[di].map((val, h) => {
@@ -208,7 +208,7 @@ export default function AgencyAnalytics() {
                       />
                     );
                   })}
-                </>
+                </Fragment>
               ))}
             </div>
           </div>
@@ -269,7 +269,7 @@ export default function AgencyAnalytics() {
                       {convs.slice(0, 15).map(c => (
                         <div key={c.id} className="flex justify-between" style={{ fontSize: 12, padding: '3px 0' }}>
                           <span style={{ color: T3 }}>
-                            {new Date(c.created_at).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                            {new Date(c.created_at).toLocaleDateString(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                           </span>
                           <span style={{ color: T2 }}>{eur(c.gross_amount)}</span>
                         </div>

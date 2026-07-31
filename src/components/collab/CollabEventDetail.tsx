@@ -4,7 +4,7 @@ import { CollabPreviewDialog } from './CollabPreviewDialog';
 import { GuestListRequestAlert } from '@/components/owner/guest-list/GuestListRequestAlert';
 import { OrgEventFormDialog } from '@/components/organizer-app/OrgEventFormDialog';
 import { useEffect, useState, useMemo } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -89,6 +89,11 @@ interface Stats {
  */
 export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRole }) {
   const { eventId } = useParams<{ eventId: string }>();
+  // Les cartes de OwnerCollaborations pointent ici avec ?tab=tickets|tables|
+  // guestlist|invoices : ces tables vivent dans le tiroir replié — on l'ouvre
+  // et on défile jusqu'à la bonne carte, sinon le lien est un cul-de-sac.
+  const [searchParams] = useSearchParams();
+  const focusTab = searchParams.get('tab');
   const { user } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -621,6 +626,7 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                 eventId={event.id}
                 isVenue={isVenue}
                 guestReadOnly={!holdsOperations}
+                focus={focusTab}
                 t={t}
               />
             )}
@@ -936,8 +942,18 @@ function SplitContractView({ rules, t }: { rules: unknown; t: (fr: string, en: s
 }
 
 /* ── Details drawer — every operational table behind one toggle ─────────────── */
-function DetailsDrawer({ eventId, isVenue, guestReadOnly, t }: { eventId: string; isVenue: boolean; guestReadOnly: boolean; t: (fr: string, en: string, es?: string) => string }) {
-  const [open, setOpen] = useState(false);
+function DetailsDrawer({ eventId, isVenue, guestReadOnly, focus, t }: { eventId: string; isVenue: boolean; guestReadOnly: boolean; focus?: string | null; t: (fr: string, en: string, es?: string) => string }) {
+  const focused = focus && ['guestlist', 'tickets', 'tables', 'invoices'].includes(focus) ? focus : null;
+  const [open, setOpen] = useState(!!focused);
+  useEffect(() => {
+    if (!focused) return;
+    // Le contenu du tiroir monte après le fetch des modules : laisser un tick
+    // avant de défiler vers la carte demandée.
+    const timer = setTimeout(() => {
+      document.getElementById(`collab-drawer-${focused}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [focused]);
   return (
     <div className="space-y-3">
       <button type="button" onClick={() => setOpen((v) => !v)}
@@ -951,19 +967,27 @@ function DetailsDrawer({ eventId, isVenue, guestReadOnly, t }: { eventId: string
       </button>
       {open && (
         <div className="space-y-4">
-          <DrawerCard icon={UserPlus} title={t('Guest list', 'Guest list', 'Guest list')}>
-            <EventGuestListModule eventId={eventId} readOnly={guestReadOnly} />
-          </DrawerCard>
-          <DrawerCard icon={Ticket} title={t('Commandes billets', 'Ticket orders', 'Pedidos de entradas')}>
-            {isVenue ? <OwnerTicketOrders eventId={eventId} /> : <OwnerTicketOrders eventIds={[eventId]} />}
-          </DrawerCard>
-          <DrawerCard icon={Wine} title={t('Réservations VIP', 'VIP reservations', 'Reservas VIP')}>
-            {isVenue ? <OwnerVipOrders eventId={eventId} /> : <OwnerVipOrders eventIds={[eventId]} />}
-          </DrawerCard>
+          <div id="collab-drawer-guestlist">
+            <DrawerCard icon={UserPlus} title={t('Guest list', 'Guest list', 'Guest list')}>
+              <EventGuestListModule eventId={eventId} readOnly={guestReadOnly} />
+            </DrawerCard>
+          </div>
+          <div id="collab-drawer-tickets">
+            <DrawerCard icon={Ticket} title={t('Commandes billets', 'Ticket orders', 'Pedidos de entradas')}>
+              {isVenue ? <OwnerTicketOrders eventId={eventId} /> : <OwnerTicketOrders eventIds={[eventId]} />}
+            </DrawerCard>
+          </div>
+          <div id="collab-drawer-tables">
+            <DrawerCard icon={Wine} title={t('Réservations VIP', 'VIP reservations', 'Reservas VIP')}>
+              {isVenue ? <OwnerVipOrders eventId={eventId} /> : <OwnerVipOrders eventIds={[eventId]} />}
+            </DrawerCard>
+          </div>
           <DrawerCard icon={ScanLine} title={t('Boissons vendues', 'Drinks sold', 'Bebidas vendidas')}>
             <OwnerDrinkOrders eventId={eventId} />
           </DrawerCard>
-          <EventInvoicesModule eventId={eventId} />
+          <div id="collab-drawer-invoices">
+            <EventInvoicesModule eventId={eventId} />
+          </div>
         </div>
       )}
 

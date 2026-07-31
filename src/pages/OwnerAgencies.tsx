@@ -5,10 +5,10 @@ import { getScopeFilter, scopeReady } from '@/lib/promoterScopeHelpers';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
-import { Building2, PenLine, Wallet, Clock } from 'lucide-react';
+import { Building2, PenLine, Wallet, Clock, ClipboardList, Layers, Waves, Check } from 'lucide-react';
 import {
   PromoPage, PromoHeader, PromoCard, PromoButton, PromoEmpty, PromoPill, SectionLabel,
-  T1, T2, T3, POS,
+  T1, T2, T3, POS, RED, INNER_BG, BORDER,
 } from '@/components/promoter/promoter-ui';
 
 const eur = (n: number) => `${(Number(n) || 0).toFixed(2)} €`;
@@ -21,8 +21,79 @@ type Contract = {
   override_value: number;
   agency_signed_at: string | null;
   club_signed_at: string | null;
+  /** Enveloppe guest list standing accordée à l'agence (par soirée). NULL = aucune ; 0 = illimité ; N = places. */
+  gl_default_quota: number | null;
+  gl_default_mode: 'partition' | 'pool';
   agencies?: { name: string } | null;
 };
+
+/** Éditeur d'enveloppe guest list STANDING accordée à l'agence (côté club). */
+function StandingGlEditor({
+  contract, onSaved, tt,
+}: { contract: Contract; onSaved: () => void; tt: (fr: string, en: string, es?: string) => string }) {
+  const [open, setOpen] = useState(false);
+  const [quota, setQuota] = useState(contract.gl_default_quota == null ? '' : String(contract.gl_default_quota));
+  const [mode, setMode] = useState<'partition' | 'pool'>(contract.gl_default_mode || 'partition');
+  const [busy, setBusy] = useState(false);
+
+  const save = async () => {
+    setBusy(true);
+    const q = quota.trim() === '' ? null : Math.max(0, parseInt(quota) || 0);
+    const { error } = await (supabase as any).rpc('set_agency_contract_gl_default', {
+      p_contract_id: contract.id,
+      p_quota: q,
+      p_mode: mode,
+    });
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(tt('Enveloppe enregistrée', 'Envelope saved'));
+    setOpen(false);
+    onSaved();
+  };
+
+  const summary = contract.gl_default_quota == null
+    ? tt('aucune', 'none')
+    : contract.gl_default_quota === 0
+      ? tt('illimitée', 'unlimited')
+      : `${contract.gl_default_quota}/${tt('soirée', 'event')}`;
+
+  return (
+    <div style={{ marginTop: 8, borderTop: `1px solid ${BORDER}`, paddingTop: 8 }}>
+      <button onClick={() => setOpen(o => !o)} className="flex items-center gap-1.5" style={{ color: T2, fontSize: 12, cursor: 'pointer', background: 'none', border: 'none' }}>
+        <ClipboardList className="h-3.5 w-3.5" />
+        {tt('Enveloppe guest list', 'Guest list envelope')} : <span style={{ color: T1 }}>{summary}</span>
+        {contract.gl_default_quota != null && contract.gl_default_quota !== 0 && (
+          <span style={{ color: T3 }}>· {contract.gl_default_mode === 'pool' ? tt('pool', 'pool') : tt('partition', 'partition')}</span>
+        )}
+      </button>
+
+      {open && (
+        <div style={{ marginTop: 8 }} className="space-y-2">
+          <p style={{ color: T3, fontSize: 11 }}>
+            {tt('Places accordées à l\'agence par soirée (vide = aucune, 0 = illimité). L\'agence les répartit entre ses promoteurs.',
+              'Spots granted to the agency per event (empty = none, 0 = unlimited). The agency distributes them among its promoters.')}
+          </p>
+          <div className="flex items-center gap-2">
+            <input
+              type="number" min={0} value={quota} onChange={e => setQuota(e.target.value)}
+              placeholder={tt('places / soirée', 'spots / event')}
+              className="outline-none" style={{ width: 130, background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 9, padding: '8px 10px', color: T1, fontSize: 13 }}
+            />
+            <button onClick={() => setMode('partition')} className="flex items-center gap-1" style={{ padding: '7px 10px', borderRadius: 8, fontSize: 12, cursor: 'pointer', background: mode === 'partition' ? RED : INNER_BG, color: mode === 'partition' ? '#fff' : T2, border: `1px solid ${mode === 'partition' ? RED : BORDER}` }}>
+              <Layers className="h-3.5 w-3.5" /> {tt('Partition', 'Partition')}
+            </button>
+            <button onClick={() => setMode('pool')} className="flex items-center gap-1" style={{ padding: '7px 10px', borderRadius: 8, fontSize: 12, cursor: 'pointer', background: mode === 'pool' ? RED : INNER_BG, color: mode === 'pool' ? '#fff' : T2, border: `1px solid ${mode === 'pool' ? RED : BORDER}` }}>
+              <Waves className="h-3.5 w-3.5" /> {tt('Pool', 'Pool')}
+            </button>
+          </div>
+          <PromoButton size="sm" onClick={save} disabled={busy}>
+            <Check className="h-3.5 w-3.5" /> {tt('Enregistrer l\'enveloppe', 'Save envelope')}
+          </PromoButton>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /**
  * Club/organizer view of partner promoter agencies: accept & sign incoming
@@ -48,6 +119,14 @@ export default function OwnerAgencies() {
       db.from('agency_venue_contracts').select('*, agencies(name)').eq(f.column, f.value).order('created_at', { ascending: false }),
       db.from('agency_conversions').select('agency_id, gross_amount, club_status').eq(f.column, f.value).eq('club_status', 'pending'),
     ]);
+    // Ne jamais rendre « aucune agence / 0 € dû » sur un échec de lecture :
+    // un pépin réseau/RLS afficherait un grand livre à zéro au club.
+    if (cRes.error || convRes.error) {
+      console.error('agencies refetch error:', cRes.error ?? convRes.error);
+      toast.error(tt('Impossible de charger les agences. Réessaie.', "Couldn't load agencies. Try again.", 'No se pudieron cargar las agencias. Reintenta.'));
+      setLoading(false);
+      return;
+    }
     setContracts((cRes.data as Contract[]) ?? []);
     const owed: Record<string, number> = {};
     for (const c of (convRes.data ?? []) as any[]) {
@@ -55,7 +134,7 @@ export default function OwnerAgencies() {
     }
     setOwedByAgency(owed);
     setLoading(false);
-  }, [scope]);
+  }, [scope, language]);
 
   useEffect(() => { refetch(); }, [refetch]);
 
@@ -142,6 +221,9 @@ export default function OwnerAgencies() {
                     </PromoButton>
                   )}
                 </div>
+                {c.status === 'active' && (
+                  <StandingGlEditor contract={c} onSaved={refetch} tt={tt} />
+                )}
               </PromoCard>
             );
           })}

@@ -20,7 +20,7 @@ export default function AgencyClubs() {
   const { agency } = useAgency();
   const { contracts, promoters, loading, refetch } = useAgencyData(agency?.id ?? null);
   const { language } = useLanguage();
-  const tt = (fr: string, en: string) => translate(language, fr, en);
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const navigate = useNavigate();
 
   const [open, setOpen] = useState(false);
@@ -43,10 +43,11 @@ export default function AgencyClubs() {
     if (!v.trim()) { setResults([]); return; }
     debounceRef.current = setTimeout(async () => {
       setSearching(true);
-      const { data } = await (supabase as any).rpc('search_venues_for_agency', {
+      const { data, error } = await (supabase as any).rpc('search_venues_for_agency', {
         p_query: v.trim(),
         p_limit: 8,
       });
+      if (error) console.error('venue search error:', error);
       setResults((data as VenueResult[]) ?? []);
       setSearching(false);
     }, 300);
@@ -236,7 +237,9 @@ export default function AgencyClubs() {
                     </div>
                     <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>
                       {marginLabel(c)}
-                      {promoCount > 0 && ` · ${promoCount} promoteur${promoCount > 1 ? 's' : ''}`}
+                      {promoCount > 0 && ` · ${promoCount} ${promoCount > 1
+                        ? tt('promoteurs', 'promoters', 'promotores')
+                        : tt('promoteur', 'promoter', 'promotor')}`}
                     </p>
                   </div>
                 </div>

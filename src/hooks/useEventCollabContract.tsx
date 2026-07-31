@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translate } from '@/i18n/orgTranslate';
 import type { PartnershipSplitRules } from './useOrganizerPartnerships';
 import { COLLAB_TERMS_VERSION } from '@/lib/collabContractTerms';
 
@@ -51,6 +53,8 @@ export function useEventCollabContract(eventId: string | undefined, side?: 'venu
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { language } = useLanguage();
+  const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
   const query = useQuery({
     queryKey: ['event-collab-contract', eventId],
@@ -96,8 +100,8 @@ export function useEventCollabContract(eventId: string | undefined, side?: 'venu
         });
       } catch (e) { console.warn('[collab-contract] notify failed', e); }
     },
-    onSuccess: () => { invalidate(); toast({ title: 'Contrat proposé', description: 'Le partenaire doit signer pour ouvrir les ventes.' }); },
-    onError: (e: any) => toast({ title: 'Erreur', description: e.message, variant: 'destructive' }),
+    onSuccess: () => { invalidate(); toast({ title: tt('Contrat proposé', 'Contract proposed', 'Contrato propuesto'), description: tt('Le partenaire doit signer pour ouvrir les ventes.', 'Your partner must sign to open sales.', 'El socio debe firmar para abrir las ventas.') }); },
+    onError: (e: Error) => toast({ title: tt('Erreur', 'Error', 'Error'), description: e.message, variant: 'destructive' }),
   });
 
   const sign = useMutation({
@@ -117,8 +121,8 @@ export function useEventCollabContract(eventId: string | undefined, side?: 'venu
         });
       } catch (e) { console.warn('[collab-contract] notify failed', e); }
     },
-    onSuccess: () => { invalidate(); toast({ title: 'Contrat signé' }); },
-    onError: (e: any) => toast({ title: 'Erreur', description: e.message, variant: 'destructive' }),
+    onSuccess: () => { invalidate(); toast({ title: tt('Contrat signé', 'Contract signed', 'Contrato firmado') }); },
+    onError: (e: Error) => toast({ title: tt('Erreur', 'Error', 'Error'), description: e.message, variant: 'destructive' }),
   });
 
   const cancel = useMutation({
@@ -127,8 +131,8 @@ export function useEventCollabContract(eventId: string | undefined, side?: 'venu
       const { error } = await rpc('cancel_event_collab_contract', { p_contract_id: c.id });
       if (error) throw error;
     },
-    onSuccess: () => { invalidate(); toast({ title: 'Contrat annulé' }); },
-    onError: (e: any) => toast({ title: 'Erreur', description: e.message, variant: 'destructive' }),
+    onSuccess: () => { invalidate(); toast({ title: tt('Contrat annulé', 'Contract cancelled', 'Contrato cancelado') }); },
+    onError: (e: Error) => toast({ title: tt('Erreur', 'Error', 'Error'), description: e.message, variant: 'destructive' }),
   });
 
   // Amend the split before any sale locks it → contract drops back to
@@ -149,8 +153,8 @@ export function useEventCollabContract(eventId: string | undefined, side?: 'venu
         });
       } catch (e) { console.warn('[collab-contract] notify failed', e); }
     },
-    onSuccess: () => { invalidate(); toast({ title: 'Contrat modifié', description: 'Le partenaire doit re-signer pour ouvrir les ventes.' }); },
-    onError: (e: any) => toast({ title: 'Erreur', description: e.message, variant: 'destructive' }),
+    onSuccess: () => { invalidate(); toast({ title: tt('Contrat modifié', 'Contract amended', 'Contrato modificado'), description: tt('Le partenaire doit re-signer pour ouvrir les ventes.', 'Your partner must sign again to open sales.', 'El socio debe volver a firmar para abrir las ventas.') }); },
+    onError: (e: Error) => toast({ title: tt('Erreur', 'Error', 'Error'), description: e.message, variant: 'destructive' }),
   });
 
   return {

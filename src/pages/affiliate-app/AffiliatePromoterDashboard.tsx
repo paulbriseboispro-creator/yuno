@@ -203,6 +203,7 @@ export default function AffiliatePromoterDashboard() {
       .update({ status: 'url_submitted', submitted_url: url, submitted_at: new Date().toISOString() })
       .eq('id', assignmentId);
 
+    let linktreeErr: { message: string } | null = null;
     if (!assignErr && profile) {
       // Ajout au linktree du promoteur. Si la soirée y figure déjà, on met à
       // jour SON lien promo (une re-soumission remplaçait l'ancien lien dans
@@ -215,22 +216,27 @@ export default function AffiliatePromoterDashboard() {
         .eq('affiliate_event_id', eventId)
         .maybeSingle();
       if (existing) {
-        await supabase.from('promoter_linktree_events')
+        ({ error: linktreeErr } = await supabase.from('promoter_linktree_events')
           .update({ promo_link: url })
-          .eq('id', existing.id);
+          .eq('id', existing.id));
       } else {
-        await supabase.from('promoter_linktree_events').insert({
+        ({ error: linktreeErr } = await supabase.from('promoter_linktree_events').insert({
           member_id: profile.id,
           affiliate_event_id: eventId,
           promo_link: url,
           sort_order: 999,
-        });
+        }));
       }
     }
 
     setSubmitting(null);
     if (assignErr) {
       toast({ title: t('aff.pdash.errorTitle'), description: assignErr.message, variant: 'destructive' });
+    } else if (linktreeErr) {
+      // L'assignation est soumise mais la soirée n'a PAS atteint le linktree :
+      // le dire, sinon le promoteur croit son lien en ligne alors qu'il n'y est pas.
+      console.error('linktree sync error:', linktreeErr);
+      toast({ title: t('aff.pdash.errorTitle'), description: linktreeErr.message, variant: 'destructive' });
     } else {
       toast({ title: t('aff.pdash.urlSubmitted') });
       setAssignments(prev => prev.filter(a => a.id !== assignmentId));

@@ -178,7 +178,7 @@ export default function AffiliateMembers() {
                   <div className="flex-1 min-w-0">
                     <p className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{name}</p>
                     {member.linktree_slug && (
-                      <p className="truncate" style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>yunoapp.eu/promo/{member.linktree_slug}</p>
+                      <p className="truncate" style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>{window.location.host}/promo/{member.linktree_slug}</p>
                     )}
                     <p style={{ color: T3, fontSize: 11, marginTop: 1 }}>
                       {t('aff.members.addedOn').replace('{date}', format(new Date(member.created_at), 'd MMM yyyy', { locale: dfLocale }))}
