@@ -335,39 +335,61 @@ export default function AffiliatePromoterDashboard() {
         </motion.div>
       )}
 
-      {/* Linktree card */}
-      {linktreeUrl && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
-          <AffCard padding={18}>
+      {/* Linktree card — toujours visible : c'est LA vitrine du promoteur */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
+        <AffCard padding={18}>
+          {linktreeUrl ? (
+            <>
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('aff.pdash.yourPromoterPage')}</p>
+                  <p className="truncate" style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{linktreeUrl}</p>
+                </div>
+                <div className="flex flex-col items-end gap-1.5 flex-none">
+                  <a href={linktreeUrl} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 transition-colors"
+                    style={{ color: RED, fontSize: 12.5, fontWeight: 600 }}
+                    onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
+                    onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
+                  >
+                    {t('aff.pdash.viewMyPage')}
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                  <a href={`${linktreeUrl}/agenda`} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 transition-colors"
+                    style={{ color: T3, fontSize: 12, fontWeight: 600 }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = T1)}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = T3)}
+                  >
+                    {t('aff.pdash.viewAgenda')}
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                </div>
+              </div>
+              <Link to="/affiliate/promoteur/linktree"
+                className="mt-3 flex items-center justify-center gap-2 py-2 rounded-lg transition-colors"
+                style={{ background: 'rgba(232,25,44,0.09)', border: '1px solid rgba(232,25,44,0.22)', color: T1, fontSize: 12.5, fontWeight: 600 }}
+              >
+                <Link2 className="h-3.5 w-3.5" style={{ color: RED }} />
+                {t('aff.pdash.manageLinktree')}
+              </Link>
+            </>
+          ) : (
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p style={{ color: T1, fontSize: 13.5, fontWeight: 600 }}>{t('aff.pdash.yourPromoterPage')}</p>
-                <p className="truncate" style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{linktreeUrl}</p>
+                <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>{t('aff.pdash.linktreeSetup')}</p>
               </div>
-              <div className="flex flex-col items-end gap-1.5 flex-none">
-                <a href={linktreeUrl} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 transition-colors"
-                  style={{ color: RED, fontSize: 12.5, fontWeight: 600 }}
-                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.8')}
-                  onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-                >
-                  {t('aff.pdash.viewMyPage')}
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-                <a href={`${linktreeUrl}/agenda`} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 transition-colors"
-                  style={{ color: T3, fontSize: 12, fontWeight: 600 }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = T1)}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = T3)}
-                >
-                  {t('aff.pdash.viewAgenda')}
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-              </div>
+              <Link to="/affiliate/promoteur/settings"
+                className="inline-flex items-center gap-1.5 flex-none px-3 py-1.5 rounded-lg transition-colors"
+                style={{ background: 'rgba(232,25,44,0.09)', border: '1px solid rgba(232,25,44,0.22)', color: T1, fontSize: 12.5, fontWeight: 600 }}
+              >
+                {t('aff.pdash.linktreeSetupCta')}
+              </Link>
             </div>
-          </AffCard>
-        </motion.div>
-      )}
+          )}
+        </AffCard>
+      </motion.div>
 
       {/* Briefs disponibles */}
       {briefEvents.length > 0 && (

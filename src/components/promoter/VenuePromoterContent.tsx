@@ -485,9 +485,11 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
   // Build tabs list
   const tabItems: Array<{ value: string; label: string }> = [
     { value: 'overview', label: t('promoter.overview') },
+    // Linktree en 2e position : c'est la vitrine du promoteur, elle ne doit
+    // jamais sortir de l'écran quand la barre d'onglets défile sur mobile.
+    { value: 'linktree', label: t('promoter.linktreeTab') },
     { value: 'events', label: t('promoter.myEvents') },
     { value: 'links', label: t('promoter.linkTools') },
-    { value: 'linktree', label: t('promoter.linktreeTab') },
   ];
   if (canScan) tabItems.push({ value: 'scan', label: t('promoterScan.title') });
   if (hasGuestListAccess) tabItems.push({ value: 'guestlist', label: t('promoterGuestlist.title') });
@@ -898,44 +900,6 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
             </Card>
           )}
 
-          {/* Page Agenda — toutes les soirées, web-only */}
-          {agendaLink && (
-            <Card className="border-primary/30 bg-primary/5">
-              <CardHeader className="px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <CalendarRange className="h-4 w-4 shrink-0" />
-                  <span className="min-w-0 truncate">{t('promoter.agendaPage')}</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 px-4 pb-4 sm:px-6 sm:pb-6">
-                <p className="text-xs text-muted-foreground">{t('promoter.agendaPageDesc')}</p>
-                <div className="flex gap-2">
-                  <Input value={agendaLink} readOnly className="min-w-0 flex-1 text-xs font-mono bg-background/50" />
-                  <Button size="icon" variant="outline" className="shrink-0" onClick={() => {
-                    navigator.clipboard.writeText(agendaLink);
-                    toast.success(t('promoter.linkCopied'));
-                  }}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1" onClick={async () => {
-                    const outcome = await shareContent({ title: `${scopeName} — ${promoter.promo_code}`, url: agendaLink });
-                    if (outcome === 'copied') toast.success(t('promoter.linkCopied'));
-                  }}>
-                    <Share2 className="h-4 w-4 mr-2" />
-                    {t('promoter.shareLink')}
-                  </Button>
-                </div>
-                {agendaQrDataUrl && (
-                  <div className="flex justify-center pt-1">
-                    <img src={agendaQrDataUrl} alt="QR Code Agenda" className="w-48 h-48 rounded-lg" />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
           {/* Promo Code Badge */}
           <Card>
             <CardContent className="p-4 flex items-center justify-between gap-3">
@@ -958,8 +922,45 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
           </Card>
         </TabsContent>
 
-        {/* ── LINKTREE — soirées mises en avant ── */}
+        {/* ── LINKTREE — le système complet : vitrine, curation, agenda ── */}
         <TabsContent value="linktree" className="space-y-4 mt-4">
+          {/* Mon linktree — lien public + QR */}
+          {promoLink && (
+            <Card className="border-primary/30 bg-primary/5">
+              <CardHeader className="px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ExternalLink className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 truncate">{t('promoter.myLinktree')}</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 px-4 pb-4 sm:px-6 sm:pb-6">
+                <p className="text-xs text-muted-foreground">{t('promoter.myLinktreeDesc')}</p>
+                <div className="flex gap-2">
+                  <Input value={promoLink} readOnly className="min-w-0 flex-1 text-xs font-mono bg-background/50" />
+                  <Button size="icon" variant="outline" className="shrink-0" onClick={copyLink}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={shareLink}>
+                    <Share2 className="h-4 w-4 mr-2" />
+                    {t('promoter.shareLink')}
+                  </Button>
+                  <Button variant="outline" className="flex-1" onClick={() => window.open(promoLink!, '_blank', 'noopener,noreferrer')}>
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    {t('promoter.viewPage')}
+                  </Button>
+                </div>
+                {qrDataUrl && (
+                  <div className="flex justify-center pt-1">
+                    <img src={qrDataUrl} alt="QR Code Linktree" className="w-40 h-40 rounded-lg" />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Soirées mises en avant — le promoteur choisit ce qui s'affiche */}
           <Card>
             <CardHeader className="px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
               <CardTitle className="text-base flex items-center gap-2">
@@ -1013,14 +1014,50 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
                   </>
                 );
               })()}
-              {promoLink && (
-                <Button variant="outline" className="w-full" onClick={() => window.open(promoLink, '_blank', 'noopener,noreferrer')}>
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  {t('promoter.viewLinktree')}
-                </Button>
-              )}
             </CardContent>
           </Card>
+
+          {/* Page Agenda — toutes les soirées, web-only */}
+          {agendaLink && (
+            <Card>
+              <CardHeader className="px-4 pb-2 pt-4 sm:px-6 sm:pt-6">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CalendarRange className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 truncate">{t('promoter.agendaPage')}</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 px-4 pb-4 sm:px-6 sm:pb-6">
+                <p className="text-xs text-muted-foreground">{t('promoter.agendaPageDesc')}</p>
+                <div className="flex gap-2">
+                  <Input value={agendaLink} readOnly className="min-w-0 flex-1 text-xs font-mono bg-background/50" />
+                  <Button size="icon" variant="outline" className="shrink-0" onClick={() => {
+                    navigator.clipboard.writeText(agendaLink);
+                    toast.success(t('promoter.linkCopied'));
+                  }}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={async () => {
+                    const outcome = await shareContent({ title: `${scopeName} — ${promoter.promo_code}`, url: agendaLink });
+                    if (outcome === 'copied') toast.success(t('promoter.linkCopied'));
+                  }}>
+                    <Share2 className="h-4 w-4 mr-2" />
+                    {t('promoter.shareLink')}
+                  </Button>
+                  <Button variant="outline" className="flex-1" onClick={() => window.open(agendaLink, '_blank', 'noopener,noreferrer')}>
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    {t('promoter.viewPage')}
+                  </Button>
+                </div>
+                {agendaQrDataUrl && (
+                  <div className="flex justify-center pt-1">
+                    <img src={agendaQrDataUrl} alt="QR Code Agenda" className="w-40 h-40 rounded-lg" />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         {/* ── SCAN ── */}

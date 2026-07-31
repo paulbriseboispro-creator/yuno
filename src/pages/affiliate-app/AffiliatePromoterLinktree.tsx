@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { CalendarDays, Plus, Trash2, ExternalLink, Link2, Save, ArrowUpDown, Send, Copy } from 'lucide-react';
-import { format, addDays } from 'date-fns';
+import { format } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import {
@@ -110,8 +110,9 @@ export default function AffiliatePromoterLinktree() {
     }));
     setEntries(mapped);
 
+    // Toutes les soirées publiées à venir (plus de fenêtre 7 jours) : le
+    // promoteur choisit librement ce qu'il met en avant sur son linktree.
     const today = new Date().toISOString().split('T')[0];
-    const in7days = addDays(new Date(), 7).toISOString().split('T')[0];
 
     const { data: upcoming } = await supabase
       .from('affiliate_events')
@@ -119,8 +120,8 @@ export default function AffiliatePromoterLinktree() {
       .eq('affiliate_id', (member as any).affiliate_id)
       .in('status', ['published', 'featured'])
       .gte('event_date', today)
-      .lte('event_date', in7days)
-      .order('event_date', { ascending: true });
+      .order('event_date', { ascending: true })
+      .limit(100);
 
     const normalised: AffiliateEvent[] = (upcoming ?? []).map((e: any) => ({
       ...e,
