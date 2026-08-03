@@ -5,6 +5,7 @@ import { useAgencyData, promoterName } from '@/hooks/useAgencyData';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
+import { errorToast } from '@/lib/errorToast';
 import {
   Plus, Pencil, Trash2, X, ChevronDown, ChevronUp,
   Ticket, Layers, Users, CheckCircle2, ShieldCheck, Tag,
@@ -312,7 +313,7 @@ function TemplateCard({
       p_target_id: id,
     });
     setAssigning(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { errorToast(error); return; }
     const count = (data as any)?.applied_to ?? 0;
     toast.success(`${tt('Appliqué à', 'Applied to', 'Aplicado a')} ${count} ${tt('promoteur(s)', 'promoter(s)', 'promotor(es)')}`);
     setAssignTarget('');
@@ -552,13 +553,13 @@ export default function AgencyRules() {
   const handleSave = async (f: FormState) => {
     if (editingTpl) {
       const { error } = await db.from('agency_rule_templates').update(formToDb(f)).eq('id', editingTpl.id);
-      if (error) { toast.error(error.message); return; }
+      if (error) { errorToast(error); return; }
       toast.success(tt('Modèle mis à jour', 'Template updated'));
     } else {
       const { error } = await db.from('agency_rule_templates').insert({
         ...formToDb(f), agency_id: agency!.id,
       });
-      if (error) { toast.error(error.message); return; }
+      if (error) { errorToast(error); return; }
       toast.success(tt('Modèle créé', 'Template created'));
     }
     setFormOpen(false);
@@ -568,7 +569,7 @@ export default function AgencyRules() {
 
   const handleDelete = async (id: string) => {
     const { error } = await db.from('agency_rule_templates').delete().eq('id', id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { errorToast(error); return; }
     toast.success(tt('Modèle supprimé', 'Template deleted'));
     loadTemplates();
   };

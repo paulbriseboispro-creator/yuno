@@ -7,6 +7,7 @@ import { useAgencyData, promoterName, AgencyPromoter } from '@/hooks/useAgencyDa
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
+import { errorToast } from '@/lib/errorToast';
 import { ArrowLeft, Wallet, ToggleLeft, ToggleRight, Hash, Globe, Eye, MousePointerClick, ExternalLink, Copy, CalendarRange, Link2 } from 'lucide-react';
 import {
   PromoCard, StatTile, SectionLabel, PromoEmpty, PromoAvatar, PromoPill, PromoButton, DarkInput, FieldLabel,
@@ -60,7 +61,7 @@ function ClubRecord({
 
   const handleToggle = async (field: 'agency_can_sell_tickets' | 'agency_can_sell_tables', val: boolean) => {
     const { error } = await supabase.from('promoters').update({ [field]: val } as Pick<TablesUpdate<'promoters'>, typeof field>).eq('id', record.id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { errorToast(error); return; }
     await onSave({ [field]: val } as Partial<AgencyPromoter>, record.id);
   };
 
@@ -72,7 +73,7 @@ function ClubRecord({
     };
     const { error } = await supabase.from('promoters').update(patch).eq('id', record.id);
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { errorToast(error); return; }
     toast.success(tt('Caps enregistrés', 'Caps saved'));
     await onSave(patch as Partial<AgencyPromoter>, record.id);
   };

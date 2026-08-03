@@ -5,6 +5,7 @@ import { useAgencyData, promoterName, AgencyPromoterGroup } from '@/hooks/useAge
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
+import { errorToast } from '@/lib/errorToast';
 import { Layers, Plus, Pencil, Trash2, X, ChevronDown, ChevronUp, UserMinus } from 'lucide-react';
 import {
   PromoCard, PromoButton, PromoEmpty, PromoAvatar, PromoPill, DarkInput, FieldLabel, SectionLabel,
@@ -33,6 +34,69 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (c: string)
 
 type EditState = { name: string; color: string; description: string };
 const DEFAULT_EDIT: EditState = { name: '', color: COLORS[0], description: '' };
+
+// Éditeur d'override de chef de groupe (matérialise une équipe-ombre promoter_teams).
+function GroupOverrideEditor({ group, members, tt, onSaved }: {
+  group: AgencyPromoterGroup;
+  members: { id: string; first_name: string | null; last_name: string | null; name: string | null; promo_code: string | null }[];
+  tt: (fr: string, en: string, es?: string) => string;
+  onSaved: () => void;
+}) {
+  const db = supabase as any;
+  const [leader, setLeader] = useState(group.leader_promoter_id ?? '');
+  const [type, setType] = useState<'percentage' | 'fixed'>(group.override_type ?? 'percentage');
+  const [value, setValue] = useState(group.override_value ? String(group.override_value) : '');
+  const [busy, setBusy] = useState(false);
+
+  const call = async (clear: boolean) => {
+    setBusy(true);
+    const { error } = await db.rpc('set_agency_group_override', {
+      p_group_id: group.id,
+      p_leader_promoter_id: clear ? null : (leader || null),
+      p_override_type: clear ? null : type,
+      p_override_value: clear ? 0 : (value.trim() === '' ? 0 : parseFloat(value) || 0),
+    });
+    setBusy(false);
+    if (error) { errorToast(error); return; }
+    toast.success(clear ? tt('Override retiré', 'Override removed') : tt('Override enregistré', 'Override saved'));
+    onSaved();
+  };
+
+  return (
+    <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+      <p style={{ color: T3, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+        {tt('Chef de groupe (commission override)', 'Group leader (override commission)')}
+      </p>
+      <p style={{ color: T3, fontSize: 10.5, marginBottom: 8 }}>
+        {tt('Le chef touche une part de chaque vente des membres du groupe (prélevée sur leur commission).',
+          'The leader earns a cut of every member sale in the group (taken from their commission).')}
+      </p>
+      {members.length === 0 ? (
+        <p style={{ color: T3, fontSize: 12 }}>{tt('Ajoutez des membres pour désigner un chef.', 'Add members to pick a leader.')}</p>
+      ) : (
+        <div className="flex items-center gap-2 flex-wrap">
+          <select value={leader} onChange={e => setLeader(e.target.value)}
+            style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '7px 9px', color: T1, fontSize: 12.5, cursor: 'pointer' }}>
+            <option value="" style={{ background: '#111' }}>{tt('Aucun chef', 'No leader')}</option>
+            {members.map(m => <option key={m.id} value={m.id} style={{ background: '#111' }}>{promoterName(m)}</option>)}
+          </select>
+          <select value={type} onChange={e => setType(e.target.value as 'percentage' | 'fixed')}
+            style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '7px 9px', color: T1, fontSize: 12.5, cursor: 'pointer' }}>
+            <option value="percentage" style={{ background: '#111' }}>%</option>
+            <option value="fixed" style={{ background: '#111' }}>€</option>
+          </select>
+          <input type="number" min={0} value={value} onChange={e => setValue(e.target.value)}
+            placeholder={type === 'percentage' ? '% ' + tt('de la commission', 'of commission') : '€/' + tt('vente', 'sale')}
+            className="outline-none" style={{ width: 120, background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '7px 9px', color: T1, fontSize: 12.5 }} />
+          <PromoButton size="sm" onClick={() => call(false)} disabled={busy || !leader || value.trim() === ''}>{tt('Enregistrer', 'Save')}</PromoButton>
+          {group.leader_promoter_id && (
+            <PromoButton size="sm" variant="ghost" onClick={() => call(true)} disabled={busy}>{tt('Retirer', 'Clear')}</PromoButton>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AgencyGroups() {
   const { agency } = useAgency();
@@ -81,11 +145,11 @@ export default function AgencyGroups() {
       const { error } = await db.from('agency_promoter_groups')
         .update({ name: form.name.trim(), color: form.color, description: form.description.trim() || null, updated_at: new Date().toISOString() })
         .eq('id', editId);
-      if (error) { toast.error(error.message); setSaving(false); return; }
+      if (error) { errorToast(error); setSaving(false); return; }
     } else {
       const { error } = await db.from('agency_promoter_groups')
         .insert({ agency_id: agency!.id, name: form.name.trim(), color: form.color, description: form.description.trim() || null });
-      if (error) { toast.error(error.message); setSaving(false); return; }
+      if (error) { errorToast(error); setSaving(false); return; }
     }
     setSaving(false);
     toast.success(editId ? tt('Groupe mis à jour', 'Group updated') : tt('Groupe créé', 'Group created'));
@@ -95,7 +159,7 @@ export default function AgencyGroups() {
 
   const handleDelete = async (id: string) => {
     const { error } = await db.from('agency_promoter_groups').delete().eq('id', id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { errorToast(error); return; }
     toast.success(tt('Groupe supprimé', 'Group deleted'));
     setConfirmDelete(null);
     refetch();
@@ -107,7 +171,7 @@ export default function AgencyGroups() {
       .update({ agency_group_id: null })
       .eq('id', promoterId);
     setRemoving(null);
-    if (error) { toast.error(error.message); return; }
+    if (error) { errorToast(error); return; }
     refetch();
   };
 
@@ -115,7 +179,7 @@ export default function AgencyGroups() {
     const { error } = await db.from('promoters')
       .update({ agency_group_id: groupId })
       .eq('id', promoterId);
-    if (error) { toast.error(error.message); return; }
+    if (error) { errorToast(error); return; }
     refetch();
   };
 
@@ -262,6 +326,7 @@ export default function AgencyGroups() {
                         ))}
                       </div>
                     )}
+                    <GroupOverrideEditor group={g} members={members} tt={tt} onSaved={refetch} />
                   </div>
                 )}
               </PromoCard>

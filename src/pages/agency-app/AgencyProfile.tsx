@@ -4,6 +4,7 @@ import { useAgency } from '@/hooks/useAgency';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
+import { errorToast } from '@/lib/errorToast';
 import { Building2 } from 'lucide-react';
 import {
   T1, T3, RED, F_BORDER,
@@ -55,7 +56,7 @@ export default function AgencyProfile() {
       p_contact_email:    email.trim() || null,
     });
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { errorToast(error); return; }
     toast.success(tt('Profil enregistré', 'Profile saved'));
     refetch();
   };

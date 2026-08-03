@@ -6,6 +6,7 @@ import { useAgencyEvents, AgencyUpcomingEvent } from '@/hooks/useAgencyEvents';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
+import { errorToast } from '@/lib/errorToast';
 import { Calendar, Users, X, Check, Target, Ticket, Sliders } from 'lucide-react';
 import {
   PromoCard, PromoButton, PromoEmpty, PromoAvatar, PromoPill, SectionLabel,
@@ -77,7 +78,7 @@ export default function AgencyEvents() {
       p_can_access_guestlist: it.gl,
       p_can_access_tables: it.tables,
     });
-    if (error) { toast.error(error.message); return; }
+    if (error) { errorToast(error); return; }
     toast.success(tt('Réglages enregistrés', 'Settings saved'));
     setField(promoterId, { assigned: true });
     refetch();
@@ -102,7 +103,7 @@ export default function AgencyEvents() {
       p_assign: assign,
     });
     setAssigning(null);
-    if (error) { toast.error(error.message); return; }
+    if (error) { errorToast(error); return; }
     toast.success(assign ? tt('Assigné', 'Assigned') : tt('Retiré', 'Removed'));
     await loadAssignments(eventId, promoters.map(p => p.id));
     if (!assign) setTuning(t => t === promoterId ? null : t);

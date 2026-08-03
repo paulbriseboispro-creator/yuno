@@ -27,7 +27,7 @@ import { Link } from 'react-router-dom';
 import { fr } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
-import { ticketRevenue, tableRevenue } from '@/utils/fees';
+import { ticketRevenue, tableRevenue, orderRevenue } from '@/utils/fees';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED       = '#E8192C';
@@ -916,23 +916,28 @@ function PartnershipTrackRecord({ venueId, organizerUserId }: { venueId: string;
       const ids = events.map((e) => e.id);
       if (ids.length === 0) { setStats({ events: 0, participants: 0, gross: 0, sinceYear: null }); return; }
 
-      const [tk, tr, gl] = await Promise.all([
+      const [tk, tr, gl, dr] = await Promise.all([
         supabase.from('tickets').select('total_price, quantity, service_fee, insurance_fee').eq('status', 'paid').in('event_id', ids),
         // guest_count (sans s) + status 'paid' : guests_count n'existe pas (la
         // requête entière échouait en 400) et 'confirmed' n'est jamais écrit.
         supabase.from('table_reservations').select('total_price, guest_count, service_fee, management_fee').eq('status', 'paid').in('event_id', ids),
         supabase.from('guest_list_entries').select('id, guest_lists!inner(event_id)').in('guest_lists.event_id', ids),
+        supabase.from('orders').select('total, service_fee, refund_amount').eq('status', 'paid').in('event_id', ids),
       ]);
       if (cancelled) return;
 
       const tickets = tk.data || [];
       const tables = tr.data || [];
       const entries = gl.data || [];
+      const drinks = dr.data || [];
       const ticketsSold = tickets.reduce((a, x: any) => a + (x.quantity || 1), 0);
       const tableGuests = tables.reduce((a, x: any) => a + (x.guest_count || 0), 0);
       // CA = montant client − frais Yuno (jamais le TTC : les frais Yuno ne sont pas du revenu).
+      // Boissons incluses, comme le caSoiree du dashboard co-event — sinon le
+      // même partenariat affiche deux CA différents selon la surface.
       const gross = tickets.reduce((a, x: any) => a + ticketRevenue(x).gross, 0)
-        + tables.reduce((a, x: any) => a + tableRevenue(x).gross, 0);
+        + tables.reduce((a, x: any) => a + tableRevenue(x).gross, 0)
+        + drinks.reduce((a, x: any) => a + orderRevenue(x).gross, 0);
       const participants = ticketsSold + tableGuests + entries.length;
       const sinceYear = events.reduce<number | null>((min, e) => {
         const y = new Date(e.start_at).getFullYear();

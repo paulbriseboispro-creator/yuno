@@ -5,6 +5,7 @@ import { useAgencyData, promoterName } from '@/hooks/useAgencyData';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
+import { errorToast } from '@/lib/errorToast';
 import type { CommissionRules, CommissionRuleTier, CommissionTimeWindow } from '@/types/promoter';
 import {
   Plus, Pencil, Trash2, X, ChevronDown, ChevronUp, CheckCircle2, Users, Coins, TrendingUp, Gift, Clock, Wine,
@@ -309,7 +310,7 @@ function TemplateCard({ tpl, promoters, groups, agencyId, onEdit, onDelete, onCh
     setBusy(true);
     const { data, error } = await db.rpc('assign_agency_commission_template', { p_template_id: tpl.id, p_target_type: type, p_target_id: id });
     setBusy(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { errorToast(error); return; }
     toast.success(`${tt('Appliqué à', 'Applied to')} ${(data as any)?.applied_to ?? 0} ${tt('promoteur(s)', 'promoter(s)')}`);
     setAssignTarget(''); onChanged();
   };
@@ -318,7 +319,7 @@ function TemplateCard({ tpl, promoters, groups, agencyId, onEdit, onDelete, onCh
     setBusy(true);
     const { error } = await db.rpc('clear_agency_commission_template', { p_agency_id: agencyId, p_target_type: 'promoter', p_target_id: promoterId });
     setBusy(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { errorToast(error); return; }
     onChanged();
   };
 
@@ -427,11 +428,11 @@ export default function AgencyCommissionTemplates() {
     const payload = { name: f.name.trim(), rules: buildRules(f), updated_at: new Date().toISOString() };
     if (editing) {
       const { error } = await db.from('commission_templates').update(payload).eq('id', editing.id);
-      if (error) { toast.error(error.message); return; }
+      if (error) { errorToast(error); return; }
       toast.success(tt('Modèle mis à jour', 'Template updated'));
     } else {
       const { error } = await db.from('commission_templates').insert({ ...payload, agency_id: agency!.id });
-      if (error) { toast.error(error.message); return; }
+      if (error) { errorToast(error); return; }
       toast.success(tt('Modèle créé', 'Template created'));
     }
     setFormOpen(false); setEditing(null); load();
@@ -439,7 +440,7 @@ export default function AgencyCommissionTemplates() {
 
   const handleDelete = async (id: string) => {
     const { error } = await db.from('commission_templates').delete().eq('id', id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { errorToast(error); return; }
     toast.success(tt('Modèle supprimé', 'Template deleted'));
     load(); refetch();
   };

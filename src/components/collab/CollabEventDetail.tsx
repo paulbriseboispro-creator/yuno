@@ -193,7 +193,9 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
         supabase.from('tickets').select('total_price, service_fee, insurance_fee, quantity, entry_scanned').eq('event_id', eventId).eq('status', 'paid'),
         // `guest_count` (sans s) : l'ancien `guests_count` n'existait pas → la requête
         // échouait en 400 et le compteur d'invités tables restait silencieusement à 0.
-        supabase.from('table_reservations').select('total_price, service_fee, management_fee, guest_count').eq('event_id', eventId).eq('status', 'confirmed'),
+        // status 'paid' : c'est la seule valeur écrite par le checkout —
+        // 'confirmed' ne matche jamais et laissait le CA tables à zéro.
+        supabase.from('table_reservations').select('total_price, service_fee, management_fee, guest_count').eq('event_id', eventId).eq('status', 'paid'),
         supabase.from('guest_list_entries').select('id, guest_lists!inner(event_id)').eq('guest_lists.event_id', eventId),
         isVenue
           ? supabase.from('orders').select('total, service_fee, refund_amount').eq('event_id', eventId).eq('status', 'paid')

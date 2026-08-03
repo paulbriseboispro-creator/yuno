@@ -6,6 +6,7 @@ import { useAgencyData, contractScopeLabel, promoterName, AgencyContract } from 
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
+import { errorToast } from '@/lib/errorToast';
 import { Building2, Plus, PenLine, Pause, Play, X, Clock, Search, Users, Check, ChevronDown, ChevronRight, Hash } from 'lucide-react';
 import {
   PromoCard, PromoButton, PromoEmpty, PromoPill, PromoAvatar, DarkInput, FieldLabel, SectionLabel,
@@ -73,7 +74,7 @@ export default function AgencyClubs() {
       p_override_value:     Number(marginValue) || 0,
     });
     setBusy(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { errorToast(error); return; }
     toast.success(tt('Proposition envoyée au club', 'Proposal sent to the club'));
     setQuery(''); setSelectedVenue(null); setMarginValue(''); setOpen(false);
     refetch();
@@ -83,7 +84,7 @@ export default function AgencyClubs() {
     setActing(id);
     const { data, error } = await (supabase as any).rpc('sign_agency_venue_contract', { p_contract_id: id });
     setActing(null);
-    if (error) { toast.error(error.message); return; }
+    if (error) { errorToast(error); return; }
     toast.success(
       data === 'active'
         ? tt('Contrat actif', 'Contract active')
@@ -96,7 +97,7 @@ export default function AgencyClubs() {
     setActing(id);
     const { error } = await (supabase as any).rpc('set_agency_contract_status', { p_contract_id: id, p_status: status });
     setActing(null);
-    if (error) { toast.error(error.message); return; }
+    if (error) { errorToast(error); return; }
     refetch();
   };
 

@@ -4,6 +4,7 @@ import { useAgency } from '@/hooks/useAgency';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
+import { errorToast } from '@/lib/errorToast';
 import { Megaphone, Plus, Trash2, X, Send } from 'lucide-react';
 import {
   PromoCard, PromoButton, PromoEmpty, SectionLabel, FieldLabel,
@@ -49,7 +50,7 @@ export default function AgencyAnnouncements() {
     const { error } = await db.from('promoter_announcements')
       .insert({ agency_id: agency!.id, title: title.trim(), content: content.trim() });
     setBusy(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { errorToast(error); return; }
     toast.success(tt('Annonce envoyée à vos promoteurs', 'Announcement sent to your promoters'));
     setTitle(''); setContent(''); setOpen(false);
     load();
@@ -57,7 +58,7 @@ export default function AgencyAnnouncements() {
 
   const del = async (id: string) => {
     const { error } = await db.from('promoter_announcements').delete().eq('id', id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { errorToast(error); return; }
     setConfirmDel(null);
     load();
   };
