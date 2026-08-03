@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { shareContent } from '@/lib/share';
 import { useAffiliateVisitorTracking, trackAffiliateClick } from '@/hooks/useAffiliateVisitorTracking';
 import { useFavorites } from '@/hooks/useFavorites';
+import { OutboundLink } from '@/components/OutboundLink';
 
 type AffiliateEvent = {
   id: string;
@@ -441,10 +442,8 @@ export default function AffiliateEventPage() {
                     {priceDisplay}
                   </p>
                 </div>
-                <a
+                <OutboundLink
                   href={event.external_ticket_url!}
-                  target="_blank"
-                  rel="noopener noreferrer"
                   onClick={trackTicketClick}
                   className="shrink-0 font-mono font-bold uppercase inline-flex items-center gap-2"
                   style={{
@@ -467,7 +466,7 @@ export default function AffiliateEventPage() {
                   onTouchEnd={e => (e.currentTarget.style.transform = '')}
                 >
                   {t('affiliate.getTickets')} <ExternalLink className="h-3.5 w-3.5" />
-                </a>
+                </OutboundLink>
               </div>
               <p className="font-mono" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.04em', marginTop: 10 }}>
                 {t('affiliate.redirectNotice')}
@@ -825,10 +824,8 @@ export default function AffiliateEventPage() {
                   {priceDisplay}
                 </p>
               </div>
-              <a
+              <OutboundLink
                 href={event.external_ticket_url!}
-                target="_blank"
-                rel="noopener noreferrer"
                 onClick={trackTicketClick}
                 className="inline-flex items-center gap-2 font-mono font-bold uppercase"
                 style={{
@@ -852,7 +849,7 @@ export default function AffiliateEventPage() {
                 onTouchEnd={e => (e.currentTarget.style.transform = '')}
               >
                 {t('affiliate.getTickets')} <ExternalLink className="h-3.5 w-3.5" />
-              </a>
+              </OutboundLink>
             </div>
             <p className="text-center font-mono" style={{ fontSize: '10px', color: '#3A3A3E', letterSpacing: '0.04em' }}>
               {t('affiliate.redirectNotice')}

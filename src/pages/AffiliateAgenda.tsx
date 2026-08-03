@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useAffiliateVisitorTracking, trackAffiliateClick } from '@/hooks/useAffiliateVisitorTracking';
 import { smartOpenEvent } from '@/lib/appDeepLink';
+import { openExternal } from '@/lib/native';
 import { MonthLabel } from '@/components/agenda/timeline';
 import { AgendaPosterCard } from '@/components/agenda/AgendaPosterCard';
 
@@ -282,7 +283,8 @@ export default function AffiliateAgenda({ mode }: { mode: Mode }) {
     }
     const directUrl = event.promo_link || event.external_ticket_url;
     if (directUrl) {
-      window.open(directUrl, '_blank', 'noopener,noreferrer');
+      // Navigateur in-app en natif (pas d'éjection vers Safari).
+      openExternal(directUrl);
       return;
     }
     const viaSuffix = mode === 'member' && identity?.handle ? `?via=${identity.handle}` : '';

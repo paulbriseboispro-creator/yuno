@@ -8,6 +8,8 @@ import { fr, es, enUS } from 'date-fns/locale';
 import { useAffiliateVisitorTracking, trackAffiliateClick } from '@/hooks/useAffiliateVisitorTracking';
 import { FadeInView } from '@/components/motion';
 import { MonthLabel, DayRow, groupDaysIntoMonths } from '@/components/agenda/timeline';
+import { openExternal } from '@/lib/native';
+import { OutboundLink } from '@/components/OutboundLink';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -392,10 +394,8 @@ function SocialButton({
   isWhatsApp?: boolean;
 }) {
   return (
-    <a
+    <OutboundLink
       href={href}
-      target="_blank"
-      rel="noopener noreferrer"
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -419,7 +419,7 @@ function SocialButton({
     >
       {icon}
       {label}
-    </a>
+    </OutboundLink>
   );
 }
 
@@ -462,7 +462,8 @@ function EventCard({
       });
     }
     if (event.external_ticket_url) {
-      window.open(event.external_ticket_url, '_blank', 'noopener,noreferrer');
+      // Navigateur in-app en natif (pas d'éjection vers Safari).
+      openExternal(event.external_ticket_url);
     } else {
       onNavigate();
     }

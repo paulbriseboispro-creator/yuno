@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { shareContent } from '@/lib/share';
 import { useAffiliateVisitorTracking, trackAffiliateClick } from '@/hooks/useAffiliateVisitorTracking';
 import { useFavorites } from '@/hooks/useFavorites';
+import { OutboundLink } from '@/components/OutboundLink';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type AffiliateVenue = {
@@ -663,16 +664,14 @@ export default function AffiliateVenuePage() {
                   <span className="font-mono flex-shrink-0" style={{ fontSize: '11px', color: '#5A5A5E', letterSpacing: '0.08em' }}>
                     {label}
                   </span>
-                  <a
+                  <OutboundLink
                     href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
                     onClick={onClick}
                     className="font-mono text-right truncate transition-opacity hover:opacity-70"
                     style={{ fontSize: '12px', color: color || '#FFFFFF', letterSpacing: '0.02em', maxWidth: '65%' }}
                   >
                     {value}
-                  </a>
+                  </OutboundLink>
                 </div>
               ))}
               {venue.address && (

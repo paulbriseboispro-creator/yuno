@@ -8,6 +8,7 @@ import { format, type Locale } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { FadeInView } from '@/components/motion';
 import { MonthLabel, DayRow, groupDaysIntoMonths } from '@/components/agenda/timeline';
+import { openExternal } from '@/lib/native';
 
 type DayFilter = 'today' | 'tomorrow' | 'weekend' | null;
 type PriceFilter = 'free' | 'paid' | null;
@@ -414,7 +415,8 @@ function EventCard({
       isInternal: isOwner,
     });
     if (ctaHref) {
-      window.open(ctaHref, '_blank', 'noopener,noreferrer');
+      // Navigateur in-app en natif (pas d'éjection vers Safari).
+      openExternal(ctaHref);
     } else {
       onNavigate();
     }
