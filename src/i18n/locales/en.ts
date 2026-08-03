@@ -2247,7 +2247,12 @@ const en: Record<string, string> = {
   'pin.mustBe6Digits': 'PIN must be 6 digits',
   'pin.invalid': 'Invalid PIN code',
   'pin.error': 'Verification error',
-  
+  'pin.tooManyAttempts': 'Too many attempts? Reset your PIN code by email.',
+  'pin.forgot': 'Reset my PIN by email',
+  'pin.forgotSending': 'Sending…',
+  'pin.resetEmailSent': 'A reset email has been sent.',
+  'pin.resetEmailError': 'Failed to send the email. Please try again.',
+
   // Profile Hub
   'profile.title': 'Profile',
   'profile.photoTooLarge': 'Photo must be less than 5MB',

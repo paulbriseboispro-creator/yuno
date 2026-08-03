@@ -4,6 +4,12 @@ import { KeyRound, Delete, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
+
+// Après ce nombre d'échecs, on propose la réinitialisation du PIN par email
+// (comme le « mot de passe oublié » du compte). On ne bloque PAS la saisie :
+// c'est un dépannage, pas un verrou.
+const MAX_ATTEMPTS_BEFORE_RESET = 5;
 
 interface StaffPinDialogProps {
   open: boolean;
@@ -20,6 +26,8 @@ export function StaffPinDialog({ open, onVerified, onCancel, venueId, allowedRol
   const [error, setError] = useState('');
   const [showPin, setShowPin] = useState(false);
   const [shake, setShake] = useState(false);
+  const [attempts, setAttempts] = useState(0);
+  const [forgotLoading, setForgotLoading] = useState(false);
   const pinLength = 6;
 
   // Chaque poste a son libellé traduit. 'cloakroom' manquait (il retombait sur
@@ -53,6 +61,10 @@ export function StaffPinDialog({ open, onVerified, onCancel, venueId, allowedRol
       if (verifyError || !data?.success) {
         setError(data?.message || t('pin.invalid') || 'Code PIN invalide');
         setPin('');
+        // Ne compter que les vrais rejets de PIN, pas une panne réseau.
+        if (!verifyError && data && data.success === false) {
+          setAttempts((a) => a + 1);
+        }
         return;
       }
       setPin('');
@@ -81,7 +93,27 @@ export function StaffPinDialog({ open, onVerified, onCancel, venueId, allowedRol
     setPin(prev => prev.slice(0, -1));
   };
 
-  const handleClose = () => { setPin(''); setError(''); onCancel(); };
+  const handleForgotPin = useCallback(async () => {
+    if (forgotLoading) return;
+    setForgotLoading(true);
+    try {
+      const { data, error: reqError } = await supabase.functions.invoke('request-pin-reset', {
+        body: {},
+      });
+      if (reqError || !data?.success) {
+        toast.error(t('pin.resetEmailError') || 'Échec de l’envoi de l’email. Réessaie.');
+      } else {
+        toast.success(t('pin.resetEmailSent') || 'Un email de réinitialisation a été envoyé.');
+      }
+    } catch (err) {
+      console.error('Forgot PIN error:', err);
+      toast.error(t('pin.resetEmailError') || 'Échec de l’envoi de l’email. Réessaie.');
+    } finally {
+      setForgotLoading(false);
+    }
+  }, [forgotLoading, t]);
+
+  const handleClose = () => { setPin(''); setError(''); setAttempts(0); onCancel(); };
 
   const digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
@@ -178,6 +210,31 @@ export function StaffPinDialog({ open, onVerified, onCancel, venueId, allowedRol
               <Delete className="h-4 w-4" />
             </motion.button>
           </div>
+
+          {/* Réinitialisation par email après trop d'échecs (pas de blocage) */}
+          <AnimatePresence>
+            {attempts >= MAX_ATTEMPTS_BEFORE_RESET && (
+              <motion.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="mt-5 flex flex-col items-center gap-2 relative z-10"
+              >
+                <p className="text-[11px] text-muted-foreground text-center leading-snug">
+                  {t('pin.tooManyAttempts') || 'Trop de tentatives ? Réinitialise ton code PIN par email.'}
+                </p>
+                <button
+                  onClick={handleForgotPin}
+                  disabled={forgotLoading}
+                  className="text-sm font-medium text-primary hover:text-primary/80 transition-colors underline underline-offset-4 disabled:opacity-50"
+                >
+                  {forgotLoading
+                    ? (t('pin.forgotSending') || 'Envoi en cours…')
+                    : (t('pin.forgot') || 'Réinitialiser mon PIN par email')}
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </DialogContent>
     </Dialog>

@@ -2564,7 +2564,12 @@ const fr: Record<string, string> = {
   'pin.mustBe6Digits': 'Le code PIN doit contenir 6 chiffres',
   'pin.invalid': 'Code PIN invalide',
   'pin.error': 'Erreur de vérification',
-  
+  'pin.tooManyAttempts': 'Trop de tentatives ? Réinitialise ton code PIN par email.',
+  'pin.forgot': 'Réinitialiser mon PIN par email',
+  'pin.forgotSending': 'Envoi en cours…',
+  'pin.resetEmailSent': 'Un email de réinitialisation a été envoyé.',
+  'pin.resetEmailError': 'Échec de l’envoi de l’email. Réessaie.',
+
   // Language Selection
   'language.select': 'Sélectionner la Langue',
   'language.selectDesc': 'Choisissez votre langue préférée',

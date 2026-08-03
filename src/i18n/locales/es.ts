@@ -2793,7 +2793,12 @@ const es: Record<string, string> = {
   'pin.mustBe6Digits': 'El PIN debe tener 6 dígitos',
   'pin.invalid': 'Código PIN inválido',
   'pin.error': 'Error de verificación',
-  
+  'pin.tooManyAttempts': '¿Demasiados intentos? Restablece tu código PIN por email.',
+  'pin.forgot': 'Restablecer mi PIN por email',
+  'pin.forgotSending': 'Enviando…',
+  'pin.resetEmailSent': 'Se ha enviado un email de restablecimiento.',
+  'pin.resetEmailError': 'No se pudo enviar el email. Inténtalo de nuevo.',
+
   // Language Selection
   'language.select': 'Seleccionar Idioma',
   'language.selectDesc': 'Elige tu idioma preferido',
