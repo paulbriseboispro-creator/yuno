@@ -16,6 +16,10 @@ export interface MapVenue {
   longitude: number | null;
   logo_url: string | null;
   todayEvent?: { title: string } | null;
+  // Club externe (affilié) : sa page vit sur /affiliate-venue/:slug, PAS /club/:id
+  // (l'id vient de affiliate_venues et n'existe pas dans venues → 404).
+  isAffiliate?: boolean;
+  slug?: string | null;
 }
 
 interface VenueMapProps {

@@ -61,7 +61,7 @@ export default function ClubMap() {
           .lte('start_at', windowEnd),
         supabase
           .from('affiliate_venues')
-          .select('id, name, city, lat, lng, logo_url')
+          .select('id, name, city, lat, lng, logo_url, slug')
           .eq('is_active', true)
           .not('lat', 'is', null)
           .not('lng', 'is', null),
@@ -101,6 +101,8 @@ export default function ClubMap() {
         longitude: v.lng ? Number(v.lng) : null,
         logo_url: v.logo_url ?? null,
         todayEvent: affiliateEventsMap.get(v.id) || null,
+        isAffiliate: true,
+        slug: v.slug ?? null,
       }));
 
       const all = [...enriched, ...affiliateEnriched];
@@ -132,9 +134,22 @@ export default function ClubMap() {
     }
   }, [venues]);
 
-  const handleNavigateToVenue = useCallback((venueId: string) => {
+  const handleNavigateToVenue = useCallback((venue: MapVenue) => {
     sessionStorage.setItem('yuno_club_origin', 'map');
-    navigate(`/club/${venueId}`);
+    // Un club affilié n'existe pas dans `venues` : router vers sa page dédiée,
+    // sinon /club/:id ne trouve rien et affiche « 404 Lieu introuvable ».
+    if (venue.isAffiliate && venue.slug) {
+      navigate(`/affiliate-venue/${venue.slug}`);
+    } else {
+      navigate(`/club/${venue.id}`);
+    }
+  }, [navigate]);
+
+  // Soirée Yuno depuis la carte de prévisualisation (les clubs affiliés
+  // n'exposent pas de soirées Yuno ici — cette route reste donc /club/:id/event).
+  const handleNavigateToEvent = useCallback((venueId: string, eventId: string) => {
+    sessionStorage.setItem('yuno_club_origin', 'map');
+    navigate(`/club/${venueId}/event/${eventId}`);
   }, [navigate]);
 
   const handleMapMove = useCallback((bounds: mapboxgl.LngLatBounds) => {
@@ -238,6 +253,7 @@ export default function ClubMap() {
           venue={selectedVenue}
           onClose={() => setSelectedVenue(null)}
           onNavigate={handleNavigateToVenue}
+          onNavigateEvent={handleNavigateToEvent}
         />
       )}
 

@@ -17,10 +17,11 @@ interface UpcomingEvent {
 interface VenuePreviewCardProps {
   venue: MapVenue;
   onClose: () => void;
-  onNavigate: (venueId: string) => void;
+  onNavigate: (venue: MapVenue) => void;
+  onNavigateEvent: (venueId: string, eventId: string) => void;
 }
 
-export default function VenuePreviewCard({ venue, onClose, onNavigate }: VenuePreviewCardProps) {
+export default function VenuePreviewCard({ venue, onClose, onNavigate, onNavigateEvent }: VenuePreviewCardProps) {
   const { t, language } = useLanguage();
   const reduceMotion = useReducedMotion();
   const [events, setEvents] = useState<UpcomingEvent[]>([]);
@@ -89,7 +90,7 @@ export default function VenuePreviewCard({ venue, onClose, onNavigate }: VenuePr
                   key={event.id}
                   onClick={(e) => {
                     e.stopPropagation();
-                    onNavigate(`${venue.id}/event/${event.id}`);
+                    onNavigateEvent(venue.id, event.id);
                   }}
                   className="w-full flex items-center gap-2 py-1.5 px-2 rounded-lg bg-muted/50 hover:bg-muted/80 transition-colors text-left"
                 >
@@ -115,7 +116,7 @@ export default function VenuePreviewCard({ venue, onClose, onNavigate }: VenuePr
 
           {/* CTA */}
           <button
-            onClick={() => onNavigate(venue.id)}
+            onClick={() => onNavigate(venue)}
             className="w-full flex items-center justify-center gap-2 py-3 bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors"
           >
             {t('map.seeClub')}

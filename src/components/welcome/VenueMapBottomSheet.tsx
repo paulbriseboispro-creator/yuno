@@ -8,7 +8,7 @@ import { calculateDistance } from './VenueMap';
 interface VenueMapBottomSheetProps {
   venues: MapVenue[];
   userLocation: { lat: number; lng: number } | null;
-  onVenueSelect: (venueId: string) => void;
+  onVenueSelect: (venue: MapVenue) => void;
 }
 
 const COLLAPSED_H = 80;
@@ -189,7 +189,7 @@ export default function VenueMapBottomSheet({ venues, userLocation, onVenueSelec
                 <button
                   key={venue.id}
                   className="w-full flex items-center gap-3 p-3 rounded-xl transition-all hover:bg-muted/15 active:bg-muted/25 active:scale-[0.98] text-left group"
-                  onClick={() => onVenueSelect(venue.id)}
+                  onClick={() => onVenueSelect(venue)}
                 >
                   {venue.logo_url ? (
                     <img
