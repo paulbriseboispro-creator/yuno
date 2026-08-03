@@ -43,12 +43,17 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    // Verify user has an eligible role
+    // Verify user has an eligible role. Tous les comptes pro qui protègent leur
+    // espace par un PIN (talent + staff opérationnel) doivent pouvoir se
+    // réinitialiser par email — sinon un videur qui oublie son PIN est bloqué.
     const { data: roles } = await supabaseAdmin
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
-      .in("role", ["dj", "promoter", "organizer"]);
+      .in("role", [
+        "dj", "promoter", "organizer", "affiliate", "affiliate_member",
+        "barman", "bouncer", "cloakroom", "vip_host", "manager",
+      ]);
 
     if (!roles || roles.length === 0) {
       return new Response(
