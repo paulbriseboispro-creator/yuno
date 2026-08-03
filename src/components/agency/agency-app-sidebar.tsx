@@ -16,7 +16,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import {
   LayoutDashboard, Inbox, Users, Layers, UserPlus, Activity, Megaphone, ShieldCheck,
   Building2, CalendarDays, TrendingUp, BarChart2, Wallet, MapPin, RefreshCw,
-  Settings, Link2, LifeBuoy, UserRound, LogOut, CalendarRange,
+  Settings, Link2, LifeBuoy, UserRound, LogOut, CalendarRange, ClipboardList, Coins, Send,
 } from 'lucide-react';
 
 export interface AgencyIdentity {
@@ -48,10 +48,13 @@ function buildGroups(t: T): SidebarNavGroup[] {
       items: [
         { title: t('agc.nav.promoters'), path: '/agency-app/promoters', icon: <Users /> },
         { title: t('agc.nav.groups'), path: '/agency-app/groups', icon: <Layers /> },
+        { title: t('agc.nav.guestlists'), path: '/agency-app/guest-lists', icon: <ClipboardList /> },
         { title: t('aff.nav.assignments'), path: '/affiliate/assignments', icon: <UserPlus /> },
         { title: t('aff.nav.promoterTracking'), path: '/affiliate/suivi', icon: <Activity /> },
         { title: t('aff.nav.teamComms'), path: '/affiliate/notifications', icon: <Megaphone /> },
+        { title: t('agc.nav.announcements'), path: '/agency-app/announcements', icon: <Send /> },
         { title: t('agc.nav.rules'), path: '/agency-app/rules', icon: <ShieldCheck /> },
+        { title: t('agc.nav.payTemplates'), path: '/agency-app/pay', icon: <Coins /> },
       ],
     },
     {
@@ -72,6 +75,7 @@ function buildGroups(t: T): SidebarNavGroup[] {
         { title: t('aff.nav.week'), path: '/affiliate/semaine', icon: <CalendarRange /> },
         { title: t('aff.nav.recurring'), path: '/affiliate/recurring', icon: <RefreshCw /> },
         { title: t('agc.nav.trafficAnalytics'), path: '/affiliate/analytics', icon: <BarChart2 /> },
+        { title: t('aff.nav.commissions'), path: '/affiliate/commissions', icon: <Coins /> },
       ],
     },
     {

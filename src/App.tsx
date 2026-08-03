@@ -30,6 +30,9 @@ const AgencyClubs = lazyWithRetry(() => import("./pages/agency-app/AgencyClubs")
 const AgencyFinance = lazyWithRetry(() => import("./pages/agency-app/AgencyFinance"));
 const AgencyGroups = lazyWithRetry(() => import("./pages/agency-app/AgencyGroups"));
 const AgencyEvents = lazyWithRetry(() => import("./pages/agency-app/AgencyEvents"));
+const AgencyGuestList = lazyWithRetry(() => import("./pages/agency-app/AgencyGuestList"));
+const AgencyCommissionTemplates = lazyWithRetry(() => import("./pages/agency-app/AgencyCommissionTemplates"));
+const AgencyAnnouncements = lazyWithRetry(() => import("./pages/agency-app/AgencyAnnouncements"));
 const AgencyAnalytics = lazyWithRetry(() => import("./pages/agency-app/AgencyAnalytics"));
 const AgencyPromoterDetail = lazyWithRetry(() => import("./pages/agency-app/AgencyPromoterDetail"));
 const AgencyStats = lazyWithRetry(() => import("./pages/agency-app/AgencyStats"));
@@ -257,6 +260,7 @@ const AccountSuspended = lazyWithRetry(() => import("./pages/AccountSuspended"))
 const AffiliateLayout = lazyWithRetry(() => import("./pages/affiliate-app/AffiliateLayout"));
 const AffiliateDashboard = lazyWithRetry(() => import("./pages/affiliate-app/AffiliateDashboard"));
 const AffiliateVenues = lazyWithRetry(() => import("./pages/affiliate-app/AffiliateVenues"));
+const AffiliateCommissions = lazyWithRetry(() => import("./pages/affiliate-app/AffiliateCommissions"));
 const AffiliateVenueForm = lazyWithRetry(() => import("./pages/affiliate-app/AffiliateVenueForm"));
 const AffiliateEvents = lazyWithRetry(() => import("./pages/affiliate-app/AffiliateEvents"));
 const AffiliateEventForm = lazyWithRetry(() => import("./pages/affiliate-app/AffiliateEventForm"));
@@ -642,10 +646,13 @@ const App = () => (
                   <Route path="clubs" element={<AgencyClubs />} />
                   <Route path="finance" element={<AgencyFinance />} />
                   <Route path="groups" element={<AgencyGroups />} />
+                  <Route path="guest-lists" element={<AgencyGuestList />} />
                   <Route path="events" element={<AgencyEvents />} />
                   <Route path="analytics" element={<AgencyAnalytics />} />
                   <Route path="stats" element={<AgencyStats />} />
                   <Route path="rules" element={<AgencyRules />} />
+                  <Route path="pay" element={<AgencyCommissionTemplates />} />
+                  <Route path="announcements" element={<AgencyAnnouncements />} />
                 </Route>
 
                 {/* Public organizer profile (slug-based) */}
@@ -665,8 +672,11 @@ const App = () => (
                 <Route path="/my-orders" element={<MyOrders />} />
                 {/* Redirect /my-tickets to /my-orders?tab=tickets */}
                 <Route path="/my-tickets" element={<Navigate to="/my-orders?tab=tickets" replace />} />
+                {/* agency/affiliate : le « Retour profil » du cockpit agence
+                    pointe ici — un chef d'agence sans rôle client était
+                    renvoyé à l'accueil. */}
                 <Route path="/profile" element={
-                  <RequireRole allowedRoles={['client', 'barman', 'owner']}>
+                  <RequireRole allowedRoles={['client', 'barman', 'owner', 'agency', 'affiliate']}>
                     <Profile />
                   </RequireRole>
                 } />
@@ -1050,6 +1060,7 @@ const App = () => (
                   <Route path="recurring/new" element={<AffiliateRecurringForm />} />
                   <Route path="recurring/:id/edit" element={<AffiliateRecurringForm />} />
                   <Route path="analytics" element={<AffiliateAnalytics />} />
+                  <Route path="commissions" element={<AffiliateCommissions />} />
                   <Route path="settings" element={<AffiliateSettings />} />
                   <Route path="members" element={<AffiliateMembers />} />
                   <Route path="suivi" element={<AffiliatePromotersTracking />} />

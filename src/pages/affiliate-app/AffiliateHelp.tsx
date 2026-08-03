@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
   Rocket, Globe, Link2, Users, BarChart2, Send, ListChecks, Wallet,
   Building2, Settings, ChevronDown, Search, CalendarDays, MessageSquare,
-  Landmark, FileSignature, UserPlus, Shield, type LucideIcon,
+  Landmark, FileSignature, UserPlus, Shield, Coins, ImageDown, type LucideIcon,
 } from 'lucide-react';
 
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -61,6 +61,7 @@ const CHAPTERS: ManualChapter[] = [
       { id: 'extCatalog', icon: Building2, titleKey: 'aff.manual.extCatalog.title', bodyKey: 'aff.manual.extCatalog.body' },
       { id: 'linktree', icon: Link2, titleKey: 'aff.manual.linktree.title', bodyKey: 'aff.manual.linktree.body' },
       { id: 'traffic', icon: BarChart2, titleKey: 'aff.manual.traffic.title', bodyKey: 'aff.manual.traffic.body' },
+      { id: 'commissions', icon: Coins, titleKey: 'aff.manual.commissions.title', bodyKey: 'aff.manual.commissions.body' },
     ],
   },
   {
@@ -75,6 +76,7 @@ const CHAPTERS: ManualChapter[] = [
 
 const MEMBER_SECTIONS: ManualArticle[] = [
   { id: 'mySpace', icon: Send, titleKey: 'aff.help.mySpace.title', bodyKey: 'aff.help.mySpace.body' },
+  { id: 'myStory', icon: ImageDown, titleKey: 'aff.manual.myStory.title', bodyKey: 'aff.manual.myStory.body' },
   { id: 'myLinktree', icon: ListChecks, titleKey: 'aff.help.myLinktree.title', bodyKey: 'aff.help.myLinktree.body' },
   { id: 'myStats', icon: BarChart2, titleKey: 'aff.help.myStats.title', bodyKey: 'aff.help.myStats.body' },
   { id: 'myPayout', icon: Wallet, titleKey: 'aff.manual.myPayout.title', bodyKey: 'aff.manual.myPayout.body' },

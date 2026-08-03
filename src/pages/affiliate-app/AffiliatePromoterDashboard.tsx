@@ -4,7 +4,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ExternalLink, Users, BarChart2, Link2, Eye, MousePointerClick, FileText, Send } from 'lucide-react';
+import { ExternalLink, Users, BarChart2, Link2, Eye, MousePointerClick, FileText, Send, Trophy, ImageDown } from 'lucide-react';
+import { downloadStory } from '@/lib/storyKit';
 import { format, parseISO, startOfWeek, endOfWeek } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -30,12 +31,25 @@ type Assignment = {
   affiliate_event_id: string;
   event_name: string;
   event_date: string;
+  event_slug: string | null;
+  venue_name: string | null;
   flyer_url: string | null;
   submitted_url: string;
   has_brief: boolean;
 };
 
 type WeekStats = { views: number; clicks: number };
+
+type LeaderRow = {
+  member_id: string;
+  first_name: string | null;
+  last_name: string | null;
+  linktree_slug: string | null;
+  views_30d: number;
+  clicks_30d: number;
+  rank: number;
+  is_you: boolean;
+};
 
 type BriefEvent = {
   id: string;
@@ -59,6 +73,11 @@ export default function AffiliatePromoterDashboard() {
   const [briefEvents, setBriefEvents] = useState<BriefEvent[]>([]);
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [urlInputs, setUrlInputs] = useState<Record<string, string>>({});
+  // Classement d'équipe 30 j (agrégats via RPC definer — la RLS interdit de
+  // lire les stats brutes des autres membres, et c'est très bien ainsi).
+  const [leaderboard, setLeaderboard] = useState<LeaderRow[]>([]);
+  // Kit story 9:16 : génération canvas côté client, un id à la fois.
+  const [storyBusy, setStoryBusy] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -88,6 +107,12 @@ export default function AffiliatePromoterDashboard() {
         fetchWeekStats(p.id),
         fetchBriefEvents(p.affiliate_id),
         (async () => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: lb, error: lbErr } = await (supabase as any).rpc('get_agency_team_leaderboard');
+          if (lbErr) console.warn('leaderboard error:', lbErr);
+          setLeaderboard((lb ?? []) as LeaderRow[]);
+        })(),
+        (async () => {
           const { count } = await supabase
             .from('promoters')
             .select('id', { count: 'exact', head: true })
@@ -105,7 +130,7 @@ export default function AffiliatePromoterDashboard() {
       .from('affiliate_event_assignments')
       .select(`
         id, affiliate_event_id, submitted_url, member_id,
-        affiliate_events(name, event_date, flyer_url, affiliate_venue_id)
+        affiliate_events(name, event_date, flyer_url, affiliate_venue_id, slug, affiliate_venues(name))
       `)
       .or(`member_id.eq.${memberId},member_id.is.null`)
       .eq('status', 'pending_url')
@@ -136,6 +161,8 @@ export default function AffiliatePromoterDashboard() {
       affiliate_event_id: r.affiliate_event_id,
       event_name: r.affiliate_events?.name ?? '—',
       event_date: r.affiliate_events?.event_date ?? '',
+      event_slug: r.affiliate_events?.slug ?? null,
+      venue_name: r.affiliate_events?.affiliate_venues?.name ?? null,
       flyer_url: r.affiliate_events?.flyer_url ?? null,
       submitted_url: r.submitted_url ?? '',
       has_brief: briefSet.has(r.affiliate_event_id),
@@ -191,6 +218,30 @@ export default function AffiliatePromoterDashboard() {
         .filter((e: any) => briefSet.has(e.id))
         .map((e: any) => ({ id: e.id, name: e.name, event_date: e.event_date, flyer_url: e.flyer_url }))
     );
+  };
+
+  // « Soirée assignée → story postée » en 30 secondes : flyer + QR du lien
+  // tracé du promoteur + signature agence, en PNG 1080×1920 prêt à poster.
+  const makeStory = async (a: Assignment) => {
+    if (!a.event_slug) { toast({ title: t('aff.pdash.storyNoSlug'), variant: 'destructive' }); return; }
+    setStoryBusy(a.id);
+    try {
+      const via = profile?.linktree_slug ? `?via=${profile.linktree_slug}` : '';
+      await downloadStory({
+        eventName: a.event_name,
+        dateLabel: a.event_date ? format(parseISO(a.event_date), 'EEE d MMM', { locale: dateLocale }).toUpperCase() : '',
+        venueName: a.venue_name,
+        flyerUrl: a.flyer_url,
+        link: `${window.location.origin}/affiliate-event/${a.event_slug}${via}`,
+        agencyName: profile?.affiliate?.name ?? null,
+      }, a.event_name);
+      toast({ title: t('aff.pdash.storyReady') });
+    } catch (e) {
+      console.error('story generation failed:', e);
+      toast({ title: t('aff.pdash.storyError'), variant: 'destructive' });
+    } finally {
+      setStoryBusy(null);
+    }
   };
 
   const submitUrl = async (assignmentId: string, eventId: string) => {
@@ -318,6 +369,14 @@ export default function AffiliatePromoterDashboard() {
                       <FileText className="h-4 w-4" />
                     </Link>
                   )}
+                  <button onClick={() => makeStory(a)} disabled={storyBusy === a.id}
+                    className="p-1.5 transition-colors flex-none" title={t('aff.pdash.storyBtn')}
+                    style={{ color: T3, background: 'none', border: 'none', cursor: storyBusy === a.id ? 'wait' : 'pointer' }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = RED)}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = T3)}
+                  >
+                    <ImageDown className="h-4 w-4" />
+                  </button>
                 </div>
                 <div className="flex gap-2">
                   <DarkInput
@@ -417,6 +476,45 @@ export default function AffiliatePromoterDashboard() {
                   <FileText className="h-4 w-4 flex-none" style={{ color: RED }} />
                 </Link>
               ))}
+            </div>
+          </AffCard>
+        </motion.div>
+      )}
+
+      {/* Classement d'équipe — visible seulement s'il y a une vraie compétition (≥ 2 promoteurs) */}
+      {leaderboard.length >= 2 && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }}>
+          <AffCard padding={18}>
+            <AffCardHeader icon={Trophy} title={t('aff.pdash.leaderboardTitle')} subtitle={t('aff.pdash.leaderboardSub')} accent />
+            <div className="space-y-1.5">
+              {(() => {
+                const top = leaderboard.slice(0, 5);
+                const me = leaderboard.find(r => r.is_you);
+                const rows = me && !top.some(r => r.is_you) ? [...top, me] : top;
+                return rows.map((r) => {
+                  const name = `${r.first_name ?? ''} ${r.last_name ? `${r.last_name.charAt(0)}.` : ''}`.trim() || '—';
+                  const medal = r.rank === 1 ? '🥇' : r.rank === 2 ? '🥈' : r.rank === 3 ? '🥉' : null;
+                  return (
+                    <div key={r.member_id} className="flex items-center gap-3 rounded-lg px-3 py-2"
+                      style={r.is_you
+                        ? { background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.25)' }
+                        : { background: C_FAINT, border: `1px solid ${BORDER}` }}>
+                      <span className="flex-none text-center" style={{ width: 26, color: medal ? undefined : T3, fontSize: medal ? 15 : 12, fontWeight: 700 }}>
+                        {medal ?? `#${r.rank}`}
+                      </span>
+                      <span className="flex-1 truncate" style={{ color: r.is_you ? T1 : T2, fontSize: 13, fontWeight: r.is_you ? 680 : 560 }}>
+                        {name}{r.is_you && <span style={{ color: RED, fontWeight: 600 }}> · {t('aff.pdash.leaderboardYou')}</span>}
+                      </span>
+                      <span className="flex-none" style={{ color: T3, fontSize: 11.5 }}>
+                        {r.views_30d} {t('aff.pdash.leaderboardViews')}
+                      </span>
+                      <span className="flex-none text-right" style={{ width: 64, color: r.is_you ? RED : T1, fontSize: 12.5, fontWeight: 680 }}>
+                        {r.clicks_30d} {t('aff.pdash.leaderboardClicks')}
+                      </span>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </AffCard>
         </motion.div>
