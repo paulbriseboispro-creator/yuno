@@ -1,24 +1,27 @@
 import QRCode from 'qrcode';
 
 /**
- * Kit de partage 30 secondes — génère une story 9:16 (1080×1920) prête à
- * poster : flyer en fond, dégradé lisible, nom/date/club, QR du lien tracé du
- * promoteur, signature agence « Powered by Yuno » discrète.
+ * Story QR du linktree — UNE image 9:16 (1080×1920) prête à poster qui envoie
+ * vers la page du promoteur (= toutes ses soirées), pas vers une soirée
+ * précise. Avatar, nom, « Toutes mes soirées », QR du lien /promo/<slug>,
+ * l'URL courte en toutes lettres, signature agence « Powered by Yuno ».
  *
- * 100 % client (canvas) : aucun coût serveur, marche hors app native. Le flyer
- * Supabase Storage est servi avec CORS * → crossOrigin='anonymous' garde le
- * canvas exportable ; si l'image échoue (URL externe sans CORS), on retombe
- * sur un fond dégradé de marque plutôt que d'échouer.
+ * 100 % client (canvas) : aucun coût serveur, marche dans l'app native.
+ * L'avatar Supabase Storage est servi avec CORS * → crossOrigin='anonymous'
+ * garde le canvas exportable ; s'il échoue, la story sort simplement sans
+ * avatar plutôt que d'échouer.
  */
 
-export type StoryInput = {
-  eventName: string;
-  /** ex. « SAM. 14 SEPT · 23:00 » — déjà localisé par l'appelant. */
-  dateLabel: string;
-  venueName?: string | null;
-  flyerUrl?: string | null;
-  /** URL encodée dans le QR (lien tracé ?via= du promoteur). */
+export type LinktreeStoryInput = {
+  /** Nom affiché en grand (prénom du promoteur, ou son @slug). */
+  name: string;
+  /** Accroche localisée dessinée sous le nom — ex. « Toutes mes soirées ». */
+  subtitle: string;
+  /** URL encodée dans le QR (la page /promo/<slug>). */
   link: string;
+  /** URL courte lisible affichée sous le QR — ex. yunoapp.eu/promo/leo. */
+  linkLabel: string;
+  avatarUrl?: string | null;
   agencyName?: string | null;
 };
 
@@ -30,39 +33,9 @@ function loadImage(url: string): Promise<HTMLImageElement> {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error('flyer load failed'));
+    img.onerror = () => reject(new Error('image load failed'));
     img.src = url;
   });
-}
-
-/** Dessine l'image en cover (remplit le cadre, rogne le surplus). */
-function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement) {
-  const scale = Math.max(W / img.width, H / img.height);
-  const dw = img.width * scale;
-  const dh = img.height * scale;
-  ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
-}
-
-function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number): string[] {
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let current = '';
-  for (const word of words) {
-    const candidate = current ? `${current} ${word}` : word;
-    if (ctx.measureText(candidate).width <= maxWidth || !current) {
-      current = candidate;
-    } else {
-      lines.push(current);
-      current = word;
-      if (lines.length === maxLines - 1) break;
-    }
-  }
-  if (current && lines.length < maxLines) lines.push(current);
-  if (lines.length === maxLines && words.join(' ') !== lines.join(' ')) {
-    const last = lines[maxLines - 1];
-    lines[maxLines - 1] = last.length > 3 ? `${last.slice(0, -1)}…` : `${last}…`;
-  }
-  return lines;
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -75,63 +48,78 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
-export async function generateStoryBlob(input: StoryInput): Promise<Blob> {
+export async function generateLinktreeStoryBlob(input: LinktreeStoryInput): Promise<Blob> {
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('canvas 2d unavailable');
 
-  // ── Fond : flyer en cover, sinon dégradé de marque ──
-  let hasFlyer = false;
-  if (input.flyerUrl) {
+  // ── Fond de marque : nuit + halos rouges discrets ──
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, '#16050a');
+  bg.addColorStop(0.5, '#0a0a0c');
+  bg.addColorStop(1, '#20060b');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const halo = (x: number, y: number, r: number, alpha: number) => {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(232,25,44,${alpha})`);
+    g.addColorStop(1, 'rgba(232,25,44,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x - r, y - r, r * 2, r * 2);
+  };
+  halo(W * 0.15, H * 0.12, 420, 0.16);
+  halo(W * 0.9, H * 0.85, 520, 0.13);
+
+  // ── Avatar en médaillon (optionnel), anneau rouge ──
+  let y = 430;
+  if (input.avatarUrl) {
     try {
-      drawCover(ctx, await loadImage(input.flyerUrl));
-      hasFlyer = true;
+      const img = await loadImage(input.avatarUrl);
+      const r = 120;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(W / 2, y, r, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+      // cover dans le cercle
+      const scale = Math.max((r * 2) / img.width, (r * 2) / img.height);
+      ctx.drawImage(img, W / 2 - (img.width * scale) / 2, y - (img.height * scale) / 2, img.width * scale, img.height * scale);
+      ctx.restore();
+      ctx.beginPath();
+      ctx.arc(W / 2, y, r + 6, 0, Math.PI * 2);
+      ctx.strokeStyle = '#E8192C';
+      ctx.lineWidth = 8;
+      ctx.stroke();
+      y += r + 130;
     } catch {
-      // fallback ci-dessous
+      // sans avatar — la composition remonte naturellement
     }
   }
-  if (!hasFlyer) {
-    const bg = ctx.createLinearGradient(0, 0, W, H);
-    bg.addColorStop(0, '#1a0507');
-    bg.addColorStop(0.5, '#0a0a0c');
-    bg.addColorStop(1, '#2a070c');
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, W, H);
-  }
 
-  // ── Dégradé de lisibilité sur le tiers bas ──
-  const grad = ctx.createLinearGradient(0, H * 0.45, 0, H);
-  grad.addColorStop(0, 'rgba(0,0,0,0)');
-  grad.addColorStop(0.45, 'rgba(0,0,0,0.72)');
-  grad.addColorStop(1, 'rgba(0,0,0,0.95)');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, H * 0.45, W, H * 0.55);
-
-  // ── Textes ──
+  // ── Nom + accroche ──
   ctx.textAlign = 'center';
   ctx.fillStyle = '#ffffff';
-  ctx.font = '800 76px system-ui, -apple-system, "Helvetica Neue", sans-serif';
-  const nameLines = wrapText(ctx, input.eventName.toUpperCase(), W - 140, 2);
-  let y = H * 0.665 - (nameLines.length - 1) * 88;
-  for (const line of nameLines) {
-    ctx.fillText(line, W / 2, y);
-    y += 88;
+  ctx.font = '800 84px system-ui, -apple-system, "Helvetica Neue", sans-serif';
+  let name = input.name.toUpperCase();
+  while (ctx.measureText(name).width > W - 140 && name.length > 4) {
+    name = `${name.slice(0, -2)}…`;
   }
+  ctx.fillText(name, W / 2, y);
 
-  ctx.font = '600 42px system-ui, -apple-system, "Helvetica Neue", sans-serif';
+  ctx.font = '600 44px system-ui, -apple-system, "Helvetica Neue", sans-serif';
   ctx.fillStyle = '#E8192C';
-  const sub = [input.dateLabel, input.venueName ?? ''].filter(Boolean).join('  ·  ');
-  ctx.fillText(sub, W / 2, y + 14);
+  ctx.fillText(input.subtitle, W / 2, y + 78);
 
-  // ── QR dans une carte blanche arrondie ──
-  const qrSize = 300;
-  const pad = 26;
+  // ── QR dans une carte blanche arrondie, centré ──
+  const qrSize = 340;
+  const pad = 30;
   const cardW = qrSize + pad * 2;
   const cardX = (W - cardW) / 2;
-  const cardY = H * 0.72;
-  roundRect(ctx, cardX, cardY, cardW, cardW, 36);
+  const cardY = y + 160;
+  roundRect(ctx, cardX, cardY, cardW, cardW, 40);
   ctx.fillStyle = '#ffffff';
   ctx.fill();
 
@@ -144,11 +132,16 @@ export async function generateStoryBlob(input: StoryInput): Promise<Blob> {
   });
   ctx.drawImage(qrCanvas, cardX + pad, cardY + pad, qrSize, qrSize);
 
+  // ── URL courte lisible (pour ceux qui ne scannent pas) ──
+  ctx.font = '600 36px ui-monospace, "JetBrains Mono", monospace';
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.fillText(input.linkLabel, W / 2, cardY + cardW + 84);
+
   // ── Signature ──
-  ctx.font = '600 34px system-ui, -apple-system, "Helvetica Neue", sans-serif';
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.font = '600 32px system-ui, -apple-system, "Helvetica Neue", sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.65)';
   const signature = [input.agencyName, 'Powered by Yuno'].filter(Boolean).join('  ·  ');
-  ctx.fillText(signature, W / 2, cardY + cardW + 76);
+  ctx.fillText(signature, W / 2, H - 110);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('toBlob failed'))), 'image/png');
@@ -156,12 +149,12 @@ export async function generateStoryBlob(input: StoryInput): Promise<Blob> {
 }
 
 /** Génère puis télécharge la story (nom de fichier sûr). */
-export async function downloadStory(input: StoryInput, filenameBase: string): Promise<void> {
-  const blob = await generateStoryBlob(input);
+export async function downloadLinktreeStory(input: LinktreeStoryInput, filenameBase: string): Promise<void> {
+  const blob = await generateLinktreeStoryBlob(input);
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${filenameBase.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'story'}-story.png`;
+  a.download = `${filenameBase.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'linktree'}-story.png`;
   document.body.appendChild(a);
   a.click();
   a.remove();

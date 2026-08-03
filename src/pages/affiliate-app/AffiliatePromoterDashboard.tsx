@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ExternalLink, Users, BarChart2, Link2, Eye, MousePointerClick, FileText, Send, Trophy, ImageDown } from 'lucide-react';
-import { downloadStory } from '@/lib/storyKit';
+import { downloadLinktreeStory } from '@/lib/storyKit';
 import { format, parseISO, startOfWeek, endOfWeek } from 'date-fns';
 import { fr, enUS, es } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -19,6 +19,7 @@ type MemberProfile = {
   first_name: string | null;
   last_name: string | null;
   linktree_slug: string | null;
+  avatar_url: string | null;
   role: string;
   affiliate_id: string;
   /** Périmètre clubs externes (affiliate_venues.id) — null = tous les clubs. */
@@ -31,8 +32,6 @@ type Assignment = {
   affiliate_event_id: string;
   event_name: string;
   event_date: string;
-  event_slug: string | null;
-  venue_name: string | null;
   flyer_url: string | null;
   submitted_url: string;
   has_brief: boolean;
@@ -76,8 +75,8 @@ export default function AffiliatePromoterDashboard() {
   // Classement d'équipe 30 j (agrégats via RPC definer — la RLS interdit de
   // lire les stats brutes des autres membres, et c'est très bien ainsi).
   const [leaderboard, setLeaderboard] = useState<LeaderRow[]>([]);
-  // Kit story 9:16 : génération canvas côté client, un id à la fois.
-  const [storyBusy, setStoryBusy] = useState<string | null>(null);
+  // Story QR de la page : génération canvas côté client.
+  const [storyBusy, setStoryBusy] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -90,7 +89,7 @@ export default function AffiliatePromoterDashboard() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data } = await (supabase as any)
       .from('affiliate_members')
-      .select('id, first_name, last_name, linktree_slug, role, affiliate_id, venue_scope, affiliates(name, city)')
+      .select('id, first_name, last_name, linktree_slug, avatar_url, role, affiliate_id, venue_scope, affiliates(name, city)')
       .eq('user_id', user!.id)
       .eq('is_active', true)
       .maybeSingle();
@@ -130,7 +129,7 @@ export default function AffiliatePromoterDashboard() {
       .from('affiliate_event_assignments')
       .select(`
         id, affiliate_event_id, submitted_url, member_id,
-        affiliate_events(name, event_date, flyer_url, affiliate_venue_id, slug, affiliate_venues(name))
+        affiliate_events(name, event_date, flyer_url, affiliate_venue_id)
       `)
       .or(`member_id.eq.${memberId},member_id.is.null`)
       .eq('status', 'pending_url')
@@ -161,8 +160,6 @@ export default function AffiliatePromoterDashboard() {
       affiliate_event_id: r.affiliate_event_id,
       event_name: r.affiliate_events?.name ?? '—',
       event_date: r.affiliate_events?.event_date ?? '',
-      event_slug: r.affiliate_events?.slug ?? null,
-      venue_name: r.affiliate_events?.affiliate_venues?.name ?? null,
       flyer_url: r.affiliate_events?.flyer_url ?? null,
       submitted_url: r.submitted_url ?? '',
       has_brief: briefSet.has(r.affiliate_event_id),
@@ -220,27 +217,27 @@ export default function AffiliatePromoterDashboard() {
     );
   };
 
-  // « Soirée assignée → story postée » en 30 secondes : flyer + QR du lien
-  // tracé du promoteur + signature agence, en PNG 1080×1920 prêt à poster.
-  const makeStory = async (a: Assignment) => {
-    if (!a.event_slug) { toast({ title: t('aff.pdash.storyNoSlug'), variant: 'destructive' }); return; }
-    setStoryBusy(a.id);
+  // UNE story QR pour sa page /promo/<slug> — le linktree, donc TOUTES ses
+  // soirées, chaque scan attribué au promoteur. PNG 1080×1920 prêt à poster.
+  const makeStory = async () => {
+    if (!profile?.linktree_slug) return;
+    setStoryBusy(true);
     try {
-      const via = profile?.linktree_slug ? `?via=${profile.linktree_slug}` : '';
-      await downloadStory({
-        eventName: a.event_name,
-        dateLabel: a.event_date ? format(parseISO(a.event_date), 'EEE d MMM', { locale: dateLocale }).toUpperCase() : '',
-        venueName: a.venue_name,
-        flyerUrl: a.flyer_url,
-        link: `${window.location.origin}/affiliate-event/${a.event_slug}${via}`,
-        agencyName: profile?.affiliate?.name ?? null,
-      }, a.event_name);
+      const displayName = profile.first_name || profile.linktree_slug;
+      await downloadLinktreeStory({
+        name: displayName,
+        subtitle: t('aff.pdash.storyAllEvents'),
+        link: `${window.location.origin}/promo/${profile.linktree_slug}`,
+        linkLabel: `${window.location.host}/promo/${profile.linktree_slug}`,
+        avatarUrl: profile.avatar_url,
+        agencyName: profile.affiliate?.name ?? null,
+      }, profile.linktree_slug);
       toast({ title: t('aff.pdash.storyReady') });
     } catch (e) {
       console.error('story generation failed:', e);
       toast({ title: t('aff.pdash.storyError'), variant: 'destructive' });
     } finally {
-      setStoryBusy(null);
+      setStoryBusy(false);
     }
   };
 
@@ -369,14 +366,6 @@ export default function AffiliatePromoterDashboard() {
                       <FileText className="h-4 w-4" />
                     </Link>
                   )}
-                  <button onClick={() => makeStory(a)} disabled={storyBusy === a.id}
-                    className="p-1.5 transition-colors flex-none" title={t('aff.pdash.storyBtn')}
-                    style={{ color: T3, background: 'none', border: 'none', cursor: storyBusy === a.id ? 'wait' : 'pointer' }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = RED)}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = T3)}
-                  >
-                    <ImageDown className="h-4 w-4" />
-                  </button>
                 </div>
                 <div className="flex gap-2">
                   <DarkInput
@@ -431,13 +420,22 @@ export default function AffiliatePromoterDashboard() {
                   </a>
                 </div>
               </div>
-              <Link to="/affiliate/promoteur/linktree"
-                className="mt-3 flex items-center justify-center gap-2 py-2 rounded-lg transition-colors"
-                style={{ background: 'rgba(232,25,44,0.09)', border: '1px solid rgba(232,25,44,0.22)', color: T1, fontSize: 12.5, fontWeight: 600 }}
-              >
-                <Link2 className="h-3.5 w-3.5" style={{ color: RED }} />
-                {t('aff.pdash.manageLinktree')}
-              </Link>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Link to="/affiliate/promoteur/linktree"
+                  className="flex items-center justify-center gap-2 py-2 rounded-lg transition-colors"
+                  style={{ background: 'rgba(232,25,44,0.09)', border: '1px solid rgba(232,25,44,0.22)', color: T1, fontSize: 12.5, fontWeight: 600 }}
+                >
+                  <Link2 className="h-3.5 w-3.5" style={{ color: RED }} />
+                  {t('aff.pdash.manageLinktree')}
+                </Link>
+                <button onClick={makeStory} disabled={storyBusy}
+                  className="flex items-center justify-center gap-2 py-2 rounded-lg transition-colors"
+                  style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1, fontSize: 12.5, fontWeight: 600, cursor: storyBusy ? 'wait' : 'pointer' }}
+                >
+                  <ImageDown className="h-3.5 w-3.5" style={{ color: RED }} />
+                  {storyBusy ? '…' : t('aff.pdash.storyBtn')}
+                </button>
+              </div>
             </>
           ) : (
             <div className="flex items-center justify-between gap-3">
