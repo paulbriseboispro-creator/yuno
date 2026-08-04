@@ -14,11 +14,8 @@ import { getAbsorbYunoFees } from "../_shared/merchant-fees.ts";
 import { recordSmsConsent } from "../_shared/sms-consent.ts";
 import { resolveAgeDeclaration, AgeDeclarationError, AGE_DECLARATION_REQUIRED_CODE } from "../_shared/age-declaration.ts";
 import { t, resolveLang } from "../_shared/i18n.ts";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { resolveTrackedLinkId } from "../_shared/tracked-link.ts";
+import { restrictedCorsHeaders } from "../_shared/cors.ts";
 
 // Production mode - payments go through Stripe Connect
 const TEST_MODE = false;
@@ -37,7 +34,16 @@ const generateQRCode = () => {
   return `VP-${crypto.randomUUID()}`;
 };
 
+// Bouteille pré-commandée telle qu'envoyée par le client dans le body JSON
+// (valeurs non fiables : chaque champ repasse par Number()/truthiness ci-dessous).
+interface PreOrderBottlePayload {
+  menuItemId?: string;
+  quantity?: number | string;
+  unitPrice?: number | string;
+}
+
 serve(async (req) => {
+  const corsHeaders = restrictedCorsHeaders(req);
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -93,8 +99,11 @@ serve(async (req) => {
     const ALLOWED_SOURCES = ['venue_profile','organizer_profile','dj_profile','explore','promoter','direct'];
     // Default to 'direct' so analytics never show "unknown" — every reservation has a source.
     const safePurchaseSource = ALLOWED_SOURCES.includes(purchaseSource) ? purchaseSource : 'direct';
-    // Tracked-link attribution: a UUID or null. Stamped onto the reservation post-create.
-    const safeTrackedLinkId = (typeof trackedLinkId === 'string' && /^[0-9a-f-]{36}$/i.test(trackedLinkId)) ? trackedLinkId : null;
+    // Tracked-link attribution: stamped onto the reservation post-create. On revalide
+    // l'EXISTENCE (pas juste le format) : un id périmé côté client — lien promoteur
+    // supprimé, reset démo, campagne finie — heurterait la FK et ferait échouer la
+    // réservation. L'attribution dégrade en « non attribué », jamais en échec de vente.
+    const safeTrackedLinkId = await resolveTrackedLinkId(supabaseAdmin, trackedLinkId);
 
     // ── Déclaration sur l'honneur de majorité (bouteilles / bottle service) ───
     // Obligatoire et enregistrée côté serveur, comme pour la commande de boissons.
@@ -518,7 +527,7 @@ serve(async (req) => {
       // (préparée pour l'arrivée, réglée à la table). Non bloquant.
       if (Array.isArray(preOrderBottles) && preOrderBottles.length > 0) {
         try {
-          const poTotal = preOrderBottles.reduce((s: number, b: any) => s + (Number(b.unitPrice) || 0) * (Number(b.quantity) || 0), 0);
+          const poTotal = preOrderBottles.reduce((s: number, b: PreOrderBottlePayload) => s + (Number(b.unitPrice) || 0) * (Number(b.quantity) || 0), 0);
           const { data: poOrder, error: poErr } = await supabaseAdmin
             .from("vip_table_orders")
             .insert({
@@ -533,8 +542,8 @@ serve(async (req) => {
             .single();
           if (!poErr && poOrder) {
             const poItems = preOrderBottles
-              .filter((b: any) => b.menuItemId && (Number(b.quantity) || 0) > 0)
-              .map((b: any) => ({
+              .filter((b: PreOrderBottlePayload) => b.menuItemId && (Number(b.quantity) || 0) > 0)
+              .map((b: PreOrderBottlePayload) => ({
                 order_id: poOrder.id,
                 menu_item_id: b.menuItemId,
                 quantity: Number(b.quantity),
@@ -576,9 +585,13 @@ serve(async (req) => {
         const { data: convResult, error: conversionError } = await supabaseAdmin.rpc('record_promoter_conversion', {
           p_promoter_id: promoterId,
           p_conversion_type: 'table',
-          p_amount: finalTotalPrice,
+          // Base BRUT (valeur faciale avant remise) : on aligne les tables sur
+          // les billets. finalTotalPrice est le NET (après remise), on rajoute la
+          // remise. La remise est reportée à part via p_discount.
+          p_amount: finalTotalPrice + validatedDiscount,
           p_event_id: eventId,
           p_table_reservation_id: reservation.id,
+          p_discount: validatedDiscount,
         });
         if (conversionError) {
           logStep("Error creating promoter conversion", { error: conversionError.message });
@@ -739,7 +752,7 @@ serve(async (req) => {
     // (préparée pour l'arrivée, réglée à la table). Non bloquant ; survit au pending->paid.
     if (Array.isArray(preOrderBottles) && preOrderBottles.length > 0) {
       try {
-        const poTotal = preOrderBottles.reduce((s: number, b: any) => s + (Number(b.unitPrice) || 0) * (Number(b.quantity) || 0), 0);
+        const poTotal = preOrderBottles.reduce((s: number, b: PreOrderBottlePayload) => s + (Number(b.unitPrice) || 0) * (Number(b.quantity) || 0), 0);
         const { data: poOrder, error: poErr } = await supabaseAdmin
           .from("vip_table_orders")
           .insert({
@@ -754,8 +767,8 @@ serve(async (req) => {
           .single();
         if (!poErr && poOrder) {
           const poItems = preOrderBottles
-            .filter((b: any) => b.menuItemId && (Number(b.quantity) || 0) > 0)
-            .map((b: any) => ({
+            .filter((b: PreOrderBottlePayload) => b.menuItemId && (Number(b.quantity) || 0) > 0)
+            .map((b: PreOrderBottlePayload) => ({
               order_id: poOrder.id,
               menu_item_id: b.menuItemId,
               quantity: Number(b.quantity),
@@ -832,7 +845,7 @@ serve(async (req) => {
       cancel_url: cancelUrl ? `${origin}${cancelUrl}` : `${origin}/`,
       customer_email: user?.email || guestEmail,
       payment_method_types: ['card', 'link'],
-      metadata: { reservationId: reservation.id, eventId, packId, userId: user?.id || '', venueId: effectiveVenueId, promoterId: promoterId || '', promoCode: promoCode || '', trackedLinkId: safeTrackedLinkId || '', isGuest: isGuestCheckout ? 'true' : 'false' },
+      metadata: { reservationId: reservation.id, eventId, packId, userId: user?.id || '', venueId: effectiveVenueId, promoterId: promoterId || '', promoCode: promoCode || '', promoDiscount: String(validatedDiscount || 0), trackedLinkId: safeTrackedLinkId || '', isGuest: isGuestCheckout ? 'true' : 'false' },
       payment_intent_data: (() => {
         const stripeFee = Math.round(split.grossAmountCents * STRIPE_PERCENT) + STRIPE_FIXED_CENTS;
         const transferGroup = `EVENT_${event.id}_TBL_${reservation.id}`;

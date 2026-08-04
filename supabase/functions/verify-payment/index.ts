@@ -3,10 +3,16 @@ import Stripe from 'https://esm.sh/stripe@18.5.0';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { restrictedCorsHeaders } from '../_shared/cors.ts';
 
-const logStep = (step: string, details?: any) => {
+const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[VERIFY-PAYMENT] ${step}${detailsStr}`);
 };
+
+/** Élément de order.items (colonne JSON) — champs utilisés pour les résumés. */
+interface OrderItemSummary {
+  quantity: number;
+  name: string;
+}
 
 serve(async (req) => {
   const corsHeaders = restrictedCorsHeaders(req);
@@ -90,13 +96,19 @@ serve(async (req) => {
     }
 
     if (session.payment_status === 'paid') {
-      // Generate token for QR code
+      // Generate token for QR code (only applied if THIS call transitions the order)
       const token = crypto.randomUUID().replace(/-/g, '').substring(0, 16).toUpperCase();
       const tokenExpiresAt = new Date();
       tokenExpiresAt.setHours(tokenExpiresAt.getHours() + 12);
 
-      // Update order status to paid using service role
-      const { error } = await supabaseAdmin
+      // ATOMIC IDEMPOTENCY LOCK. Only the caller that actually flips the order
+      // from 'pending' to 'paid' mints the QR token and runs the side effects
+      // below (invoice, venue customer, loyalty, email, owner notification, push).
+      // A page reload, or the Stripe webhook fallback racing the client, finds the
+      // order already 'paid', the conditional UPDATE returns no row, and we skip
+      // them. Without this guard, reloading the success page double-counted loyalty
+      // points, stats and invoices. Mirrors verify-ticket-payment / verify-table-payment.
+      const { data: transitioned, error } = await supabaseAdmin
         .from('orders')
         .update({
           status: 'paid',
@@ -107,14 +119,29 @@ serve(async (req) => {
           token_expires_at: tokenExpiresAt.toISOString(),
           token_used: false,
         })
-        .eq('id', orderId);
+        .eq('id', orderId)
+        .eq('status', 'pending')
+        .select('id');
 
       if (error) {
         console.error('Error updating order:', error);
         throw error;
       }
 
-      logStep("Order marked as paid", { orderId, orderNumber: order.order_number });
+      const didTransition = Array.isArray(transitioned) && transitioned.length > 0;
+
+      logStep(
+        didTransition
+          ? "Order marked as paid"
+          : "Order already processed — skipping side effects (idempotent)",
+        { orderId, orderNumber: order.order_number, didTransition },
+      );
+
+      let pointsEarned = 0;
+      let pushSent = false;
+
+      // ── Side effects: run EXACTLY ONCE, gated by the atomic transition above ──
+      if (didTransition) {
 
       // Create invoice — resolve ownership for co-events (venue OR organizer)
       try {
@@ -157,8 +184,6 @@ serve(async (req) => {
       }
 
       // Create or update venue customer + award loyalty points
-      let pointsEarned = 0;
-      
       if (order.venue_id && order.user_id) {
         try {
           const { data: profile } = await supabaseAdmin
@@ -262,29 +287,28 @@ serve(async (req) => {
       if (order.venue_id) {
         try {
           const itemsSummaryNotif = Array.isArray(order.items)
-            ? (order.items as any[]).slice(0, 3).map((i: any) => `${i.quantity}x ${i.name}`).join(', ')
+            ? (order.items as OrderItemSummary[]).slice(0, 3).map((i) => `${i.quantity}x ${i.name}`).join(', ')
             : 'Commande boissons';
           await supabaseAdmin.from('staff_notifications').insert({
             venue_id: order.venue_id,
             target_role: 'owner',
             notification_type: 'new_order',
             title: 'Nouvelle commande boissons',
-            message: `${itemsSummaryNotif}${(order.items as any[])?.length > 3 ? ` +${(order.items as any[]).length - 3}` : ''} — ${Number(order.total).toFixed(2)} €`,
+            message: `${itemsSummaryNotif}${(order.items as OrderItemSummary[])?.length > 3 ? ` +${(order.items as OrderItemSummary[]).length - 3}` : ''} — ${Number(order.total).toFixed(2)} €`,
             priority: 'normal',
             reference_type: 'order',
             reference_id: orderId,
             event_id: order.event_id ?? null,
-            metadata: { total: order.total, items_count: Array.isArray(order.items) ? (order.items as any[]).length : 0 },
+            metadata: { total: order.total, items_count: Array.isArray(order.items) ? (order.items as OrderItemSummary[]).length : 0 },
           });
           logStep("Owner notification: new_order");
         } catch (notifErr) { console.error('Owner notif error (new_order):', notifErr); }
       }
 
       // Send push notification for order confirmation
-      let pushSent = false;
       try {
         const itemsSummary = Array.isArray(order.items)
-          ? (order.items as any[]).map((i: any) => `${i.quantity}x ${i.name}`).join(', ')
+          ? (order.items as OrderItemSummary[]).map((i) => `${i.quantity}x ${i.name}`).join(', ')
           : 'Commande';
         const pushResp = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-push-notification`, {
           method: 'POST',
@@ -302,12 +326,15 @@ serve(async (req) => {
         }
       } catch (pushErr) { console.error('Push error:', pushErr); }
 
+      } // ── end side effects (didTransition) ──
+
       return new Response(
-        JSON.stringify({ 
-          success: true, 
-          paid: true, 
-          pointsEarned, 
-          pushSent, 
+        JSON.stringify({
+          success: true,
+          paid: true,
+          alreadyProcessed: !didTransition,
+          pointsEarned,
+          pushSent,
           orderNumber: order.order_number,
           isGuest: order.is_guest || false,
           guestEmail: order.is_guest ? order.user_email : undefined,
