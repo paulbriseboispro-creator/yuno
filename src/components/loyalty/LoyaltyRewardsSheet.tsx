@@ -28,7 +28,7 @@ export function LoyaltyRewardsSheet({
   venueName
 }: LoyaltyRewardsSheetProps) {
   const { t, language } = useLanguage();
-  const { loyalty, rewards, transactions, redemptions, redeemReward, getNextReward, loading } = useLoyalty(venueId);
+  const { loyalty, rewards, transactions, redemptions, redeemReward, getNextReward, loading, loadError, refetch } = useLoyalty(venueId);
   const [redeemingId, setRedeemingId] = useState<string | null>(null);
   const [qrDialog, setQrDialog] = useState<{ open: boolean; code: string; rewardName: string }>({
     open: false,
@@ -221,6 +221,30 @@ export function LoyaltyRewardsSheet({
       default: return 'bg-muted text-muted-foreground';
     }
   };
+
+  // Échec réseau/RLS : ne pas laisser le sheet muet (l'utilisateur a ouvert
+  // ses récompenses). On propose un réessai au lieu d'un solde absent.
+  if (loadError && !loading) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="bottom" className="rounded-t-3xl p-6 flex flex-col items-center gap-4 text-center">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2 justify-center">
+              <Gift className="h-5 w-5 text-primary" />
+              {t('loyaltySheet.title')}
+            </SheetTitle>
+          </SheetHeader>
+          <p className="text-sm text-muted-foreground">{t('loyaltySheet.loadError')}</p>
+          <button
+            onClick={() => refetch()}
+            className="rounded-full bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground touch-manipulation"
+          >
+            {t('common.retry')}
+          </button>
+        </SheetContent>
+      </Sheet>
+    );
+  }
 
   if (loading || !loyalty) {
     return null;

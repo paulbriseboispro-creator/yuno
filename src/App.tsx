@@ -663,7 +663,7 @@ const App = () => (
 
                 {/* Public routes accessible to all authenticated users */}
                 <Route path="/favorites" element={
-                  <RequireRole allowedRoles={['client', 'barman', 'owner']}>
+                  <RequireRole allowAnyAuthenticated>
                     <Favorites />
                   </RequireRole>
                 } />
@@ -676,12 +676,12 @@ const App = () => (
                     pointe ici — un chef d'agence sans rôle client était
                     renvoyé à l'accueil. */}
                 <Route path="/profile" element={
-                  <RequireRole allowedRoles={['client', 'barman', 'owner', 'agency', 'affiliate']}>
+                  <RequireRole allowAnyAuthenticated>
                     <Profile />
                   </RequireRole>
                 } />
                 <Route path="/settings" element={
-                  <RequireRole allowedRoles={['client', 'barman', 'owner']}>
+                  <RequireRole allowAnyAuthenticated>
                     <Settings />
                   </RequireRole>
                 } />

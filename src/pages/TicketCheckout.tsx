@@ -931,7 +931,7 @@ export default function TicketCheckout() {
             <SectionLabel label={t('guest.authChoiceTitle')} />
             <div className="p-3 border border-amber-500/20" style={{ backgroundColor: 'rgba(245,158,11,0.06)', borderRadius: 4 }}>
               <p className="text-[11px] text-amber-400">
-                {t('tickets.presaleLoginRequired') || 'Cet événement nécessite un compte Yuno. Connectez-vous pour continuer.'}
+                {t('tickets.presaleLoginRequired')}
               </p>
             </div>
             <button

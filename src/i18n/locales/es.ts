@@ -13293,6 +13293,23 @@ const es: Record<string, string> = {
 
   'aff.pdash.quickYunoSide': "Mis clubs Yuno",
   'aff.pdash.quickYunoSideDesc': "Ventas in-app y comisiones",
+
+  // Clés manquantes corrigées (affichaient la clé brute à l'écran) + états d'erreur
+  'auth.forgotPassword': "Contraseña olvidada",
+  'auth.back': "Atrás",
+  'auth.showPassword': "Mostrar contraseña",
+  'auth.hidePassword': "Ocultar contraseña",
+  'auth.acceptTermsAria': "Aceptar los términos y la política de privacidad",
+  'explore.week': "Esta semana",
+  'tickets.discount': "Descuento",
+  'tickets.presaleLoginRequired': "Este evento requiere una cuenta Yuno. Inicia sesión para continuar.",
+  'upsell.creditsLoadError': "No se pudieron cargar tus créditos de bebida.",
+  'loyaltySheet.loadError': "No se pudieron cargar tus recompensas.",
+  'myOrders.updated': "Pedido actualizado",
+  'myOrders.updateError': "No se pudo actualizar el pedido",
+  'myOrders.paymentConfigMissing': "Falta la configuración de pago",
+  'myOrders.stripeLoadError': "No se pudo cargar Stripe",
+  'myOrders.paymentError': "Error en el pago",
 };
 
 export default es;

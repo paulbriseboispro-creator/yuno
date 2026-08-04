@@ -13022,6 +13022,23 @@ const fr: Record<string, string> = {
 
   'aff.pdash.quickYunoSide': "Mes clubs Yuno",
   'aff.pdash.quickYunoSideDesc': "Ventes in-app & commissions",
+
+  // Clés manquantes corrigées (affichaient la clé brute à l'écran) + états d'erreur
+  'auth.forgotPassword': "Mot de passe oublié",
+  'auth.back': "Retour",
+  'auth.showPassword': "Afficher le mot de passe",
+  'auth.hidePassword': "Masquer le mot de passe",
+  'auth.acceptTermsAria': "Accepter les CGU et la politique de confidentialité",
+  'explore.week': "Cette semaine",
+  'tickets.discount': "Réduction",
+  'tickets.presaleLoginRequired': "Cet événement nécessite un compte Yuno. Connectez-vous pour continuer.",
+  'upsell.creditsLoadError': "Impossible de charger vos crédits boissons.",
+  'loyaltySheet.loadError': "Impossible de charger vos récompenses.",
+  'myOrders.updated': "Commande mise à jour",
+  'myOrders.updateError': "Erreur lors de la mise à jour",
+  'myOrders.paymentConfigMissing': "Configuration de paiement manquante",
+  'myOrders.stripeLoadError': "Erreur de chargement Stripe",
+  'myOrders.paymentError': "Erreur lors du paiement",
 };
 
 export default fr;
