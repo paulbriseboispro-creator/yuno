@@ -15,7 +15,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, KeyRound, Trash2, Copy, Ban, Eye, Check } from 'lucide-react';
+import { Plus, KeyRound, Trash2, Copy, Ban, Eye, Check, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ALL_TARGET_ACCOUNTS, DEMO_ACCOUNTS, type TargetAccount } from '@/lib/demoSession';
@@ -82,6 +82,39 @@ const LANGUAGES: { code: string; label: string }[] = [
   { code: 'es', label: 'Espagnol (ES)' },
 ];
 
+// Grille de sélection des dashboards accessibles — partagée entre la création
+// d'un lien et l'édition des rôles d'un lien existant (une seule source de vérité).
+function AccountPicker({ selected, onToggle }: { selected: TargetAccount[]; onToggle: (a: TargetAccount) => void }) {
+  return (
+    <div className="grid grid-cols-2 gap-1.5">
+      {ALL_TARGET_ACCOUNTS.map((a) => {
+        const checked = selected.includes(a);
+        return (
+          <button
+            key={a}
+            type="button"
+            onClick={() => onToggle(a)}
+            className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[12.5px] transition"
+            style={{
+              background: checked ? 'rgba(232,25,44,0.12)' : INNER_BG,
+              border: `1px solid ${checked ? 'rgba(232,25,44,0.4)' : BORDER}`,
+              color: checked ? T1 : T2,
+            }}
+          >
+            <span
+              className="flex h-4 w-4 shrink-0 items-center justify-center rounded"
+              style={{ background: checked ? RED : 'transparent', border: `1px solid ${checked ? RED : BORDER}` }}
+            >
+              {checked && <Check className="h-3 w-3 text-white" />}
+            </span>
+            {DEMO_ACCOUNTS[a].label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function AdminDemoAccess() {
   const [links, setLinks] = useState<PreviewLink[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,6 +130,14 @@ export default function AdminDemoAccess() {
 
   const toggleAccount = (a: TargetAccount) =>
     setAccounts((prev) => (prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a]));
+
+  // Edit accessible dashboards (roles) of an existing link
+  const [editTarget, setEditTarget] = useState<PreviewLink | null>(null);
+  const [editAccounts, setEditAccounts] = useState<TargetAccount[]>([]);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const toggleEditAccount = (a: TargetAccount) =>
+    setEditAccounts((prev) => (prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a]));
+  const openEdit = (l: PreviewLink) => { setEditTarget(l); setEditAccounts(l.target_accounts ?? []); };
 
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState<PreviewLink | null>(null);
@@ -160,6 +201,29 @@ export default function AdminDemoAccess() {
       .eq('id', link.id);
     if (error) toast.error(error.message);
     else { toast.success('Lien désactivé'); load(); }
+  };
+
+  // Met à jour les rôles accessibles d'un lien existant. On garde target_account
+  // (colonne mono, "rôle principal") en phase avec le 1er de la liste — c'est lui
+  // que l'edge function de redeem prend comme compte primaire. La RLS super admin
+  // (FOR ALL) autorise cet UPDATE direct, comme pour revoke/delete.
+  const saveEdit = async () => {
+    if (!editTarget || editAccounts.length === 0) return;
+    setSavingEdit(true);
+    try {
+      const { error } = await supabase
+        .from('demo_preview_links' as any)
+        .update({ target_accounts: editAccounts, target_account: editAccounts[0] })
+        .eq('id', editTarget.id);
+      if (error) throw error;
+      toast.success('Accès mis à jour');
+      setEditTarget(null);
+      load();
+    } catch (e: any) {
+      toast.error(e.message ?? 'Erreur');
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   const confirmDelete = async () => {
@@ -232,32 +296,7 @@ export default function AdminDemoAccess() {
                   <p style={{ color: T3, fontSize: 11.5, margin: '4px 0 8px', lineHeight: 1.5 }}>
                     Coche un ou plusieurs rôles. La personne pourra basculer entre eux depuis l'aperçu.
                   </p>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {ALL_TARGET_ACCOUNTS.map((a) => {
-                      const checked = accounts.includes(a);
-                      return (
-                        <button
-                          key={a}
-                          type="button"
-                          onClick={() => toggleAccount(a)}
-                          className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[12.5px] transition"
-                          style={{
-                            background: checked ? 'rgba(232,25,44,0.12)' : INNER_BG,
-                            border: `1px solid ${checked ? 'rgba(232,25,44,0.4)' : BORDER}`,
-                            color: checked ? T1 : T2,
-                          }}
-                        >
-                          <span
-                            className="flex h-4 w-4 shrink-0 items-center justify-center rounded"
-                            style={{ background: checked ? RED : 'transparent', border: `1px solid ${checked ? RED : BORDER}` }}
-                          >
-                            {checked && <Check className="h-3 w-3 text-white" />}
-                          </span>
-                          {DEMO_ACCOUNTS[a].label}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <AccountPicker selected={accounts} onToggle={toggleAccount} />
                 </div>
                 <div>
                   <Label style={{ color: T2 }}>Langue par défaut</Label>
@@ -315,6 +354,9 @@ export default function AdminDemoAccess() {
                     </div>
                   </div>
                   {statusPill(l)}
+                  <button onClick={() => openEdit(l)} title="Modifier les accès" style={iconBtn('neutral')}>
+                    <Pencil className="h-4 w-4" />
+                  </button>
                   <button onClick={() => copyLink(l.token)} title="Copier le lien" style={iconBtn('neutral')}>
                     <Copy className="h-4 w-4" />
                   </button>
@@ -331,6 +373,35 @@ export default function AdminDemoAccess() {
             </div>
           )}
         </div>
+
+        <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
+          <DialogContent style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, color: T1 }}>
+            <DialogHeader>
+              <DialogTitle style={{ color: T1 }}>
+                Modifier les accès{editTarget ? ` — ${editTarget.label}` : ''}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-2">
+              <div>
+                <Label style={{ color: T2 }}>Dashboards accessibles ({editAccounts.length})</Label>
+                <p style={{ color: T3, fontSize: 11.5, margin: '4px 0 8px', lineHeight: 1.5 }}>
+                  Coche un ou plusieurs rôles. La personne pourra basculer entre eux depuis l'aperçu.
+                  Elle devra rouvrir son lien pour voir le changement.
+                </p>
+                <AccountPicker selected={editAccounts} onToggle={toggleEditAccount} />
+              </div>
+              <button
+                onClick={saveEdit}
+                disabled={savingEdit || editAccounts.length === 0}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-all duration-150"
+                style={{ background: RED, color: '#fff', padding: '11px 16px', boxShadow: `0 0 18px -6px ${RED}88`, cursor: (savingEdit || editAccounts.length === 0) ? 'not-allowed' : 'pointer', opacity: (savingEdit || editAccounts.length === 0) ? 0.5 : 1 }}
+              >
+                {savingEdit && <div className="h-4 w-4 animate-spin rounded-full border-2" style={{ borderColor: `rgba(255,255,255,0.35) rgba(255,255,255,0.35) rgba(255,255,255,0.35) #fff` }} />}
+                Enregistrer
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
           <AlertDialogContent style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, color: T1 }}>
