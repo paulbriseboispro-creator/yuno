@@ -77,6 +77,11 @@ export default defineConfig({
         // precache + auto-reload as soon as a user enabled push. One SW, both jobs.
         importScripts: ['/sw-push-handlers.js'],
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,ttf}'],
+        // Ne PAS précacher les captures du centre d'aide owner (public/help/**,
+        // ~14 Mo) ni l'icône 1024 (install only) : ce sont des ressources pro /
+        // hors-parcours qu'un visiteur B2C en 4G téléchargeait pour rien au
+        // premier chargement. Servies au réseau à la demande à la place.
+        globIgnores: ['help/**', 'icon-1024.png'],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/~oauth/],
