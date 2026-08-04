@@ -42,11 +42,11 @@
 	<array>
 		<string>armv7</string>
 	</array>
+	<!-- Yuno est une app portrait : le paysage exposerait des écrans non conçus,
+	     cibles faciles pour un reviewer Apple. iPhone verrouillé en portrait. -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
@@ -84,6 +84,8 @@
 	<string>Yuno adds your event tickets to your calendar so you never miss a night out.</string>
 	<key>NSCalendarsUsageDescription</key>
 	<string>Yuno adds your event tickets to your calendar so you never miss a night out.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Yuno saves your ticket QR codes and event images to your photo library when you tap Save.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSSupportsLiveActivities</key>

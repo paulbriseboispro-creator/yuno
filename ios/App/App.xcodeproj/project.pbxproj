@@ -25,6 +25,8 @@
 		9140297CAFB6F3CAF812A052 /* OrderAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95CC8BEE96252FA5789F6015 /* OrderAttributes.swift */; };
 		A87742904D55C663AE69311C /* YunoWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F637B8BFEB2A43E9F32FE230 /* YunoWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BF90FD3CB780F8C4B567F47B /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A58A309E043B167FA667A7B5 /* Foundation.framework */; };
+		AA01000000000000000000A2 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA01000000000000000000A1 /* PrivacyInfo.xcprivacy */; };
+		AA01000000000000000000B2 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA01000000000000000000B1 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -74,6 +76,8 @@
 		CF92211749CC869C0E70C66C /* WalletSheetPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WalletSheetPlugin.swift; sourceTree = "<group>"; };
 		DA4A641F3001504A0057937B /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		F637B8BFEB2A43E9F32FE230 /* YunoWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; name = YunoWidgets.appex; path = YunoWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA01000000000000000000A1 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		AA01000000000000000000B1 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -134,6 +138,7 @@
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
 				504EC3131FED79650016851F /* Info.plist */,
+				AA01000000000000000000A1 /* PrivacyInfo.xcprivacy */,
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
 				5B4D18BB5FDBA836699AEC07 /* Plugins */,
@@ -169,6 +174,7 @@
 				95A81FD20D65BC67498830AC /* NextEventWidget.swift */,
 				1DC971E284B4EFC798A02E1E /* Info.plist */,
 				B88FACFA464BEB18EFE067A7 /* YunoWidgets.entitlements */,
+				AA01000000000000000000B1 /* PrivacyInfo.xcprivacy */,
 			);
 			name = YunoWidgets;
 			path = YunoWidgets;
@@ -260,6 +266,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA01000000000000000000B2 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -273,6 +280,7 @@
 				50379B232058CBB4000EE86E /* capacitor.config.json in Resources */,
 				504EC30D1FED79650016851F /* Main.storyboard in Resources */,
 				2FAD9763203C412B000D30F8 /* config.xml in Resources */,
+				AA01000000000000000000A2 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
