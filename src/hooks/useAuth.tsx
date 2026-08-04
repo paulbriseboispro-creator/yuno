@@ -118,7 +118,16 @@ function start() {
       // par événement, contre une par composant monté auparavant.
       // Différé : appeler Supabase depuis le callback tient le verrou de session.
       setTimeout(() => { void loadRoles(nextUser.id); }, 0);
-      emit({ session: newSession, user: nextUser, loading: false });
+      // Changement de COMPTE (switch démo / bannière d'aperçu) : les rôles du
+      // compte précédent ne valent rien pour le nouveau. Les garder le temps de
+      // la relecture fait croire aux gardes (RequireRole) que les rôles sont
+      // chargés → redirection accueil au lieu du dashboard visé. On les vide
+      // dans la MÊME émission que le nouveau user : les gardes attendent.
+      if (snapshot.user && snapshot.user.id !== nextUser.id) {
+        emit({ session: newSession, user: nextUser, roles: EMPTY_ROLES, loading: false });
+      } else {
+        emit({ session: newSession, user: nextUser, loading: false });
+      }
     } else {
       emit({ session: null, user: null, roles: EMPTY_ROLES, loading: false });
     }
