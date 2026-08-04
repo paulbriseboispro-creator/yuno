@@ -13039,6 +13039,9 @@ const fr: Record<string, string> = {
   'myOrders.paymentConfigMissing': "Configuration de paiement manquante",
   'myOrders.stripeLoadError': "Erreur de chargement Stripe",
   'myOrders.paymentError': "Erreur lors du paiement",
+  'guestList.loadError': "Connexion impossible. Vérifiez votre réseau et réessayez.",
+  'assistant.send': "Envoyer",
+  'myOrders.confirmDeleteOrder': "Supprimer cette commande ? Action irréversible.",
 };
 
 export default fr;

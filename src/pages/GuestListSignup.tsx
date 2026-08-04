@@ -128,6 +128,9 @@ export default function GuestListSignup() {
   /** Remplissage ventilé par type — sert à ne compter que ce que CE lien propose. */
   const [typeCounts, setTypeCounts] = useState<Record<GLEntryType, number>>({ normal: 0, drink: 0, table: 0 });
   const [loading, setLoading] = useState(true);
+  // Échec réseau/RLS distinct de « introuvable » : un hoquet réseau ne doit pas
+  // afficher « invitation introuvable » (l'invité croirait l'invitation annulée).
+  const [loadError, setLoadError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
@@ -238,6 +241,7 @@ export default function GuestListSignup() {
   }, [guestList?.id]);
 
   const fetchGuestList = async () => {
+    setLoadError(false);
     try {
       let data: GuestListWithEvent | null = null;
       if (inviteParam) {
@@ -302,11 +306,12 @@ export default function GuestListSignup() {
         // maybeSingle() used to throw PGRST116 as soon as ≥2 parts were readable
         // (e.g. an owner who sees all their own parts) → the page showed "not
         // found" for a list that exists. Prefer the club part, else the first.
-        const { data: glRows } = await supabase
+        const { data: glRows, error: glErr } = await supabase
           .from('guest_lists')
           .select('*, events!inner(id, title, start_at, end_at, venue_id, partner_venue_id, poster_url)')
           .eq('is_active', true)
           .eq('event_id', eventId);
+        if (glErr) throw glErr;
         data = (glRows || []).find((r: { holder_type?: string }) => r.holder_type === 'club')
           ?? (glRows || [])[0] ?? null;
       } else {
@@ -399,6 +404,7 @@ export default function GuestListSignup() {
       // leaking a channel on every token/eventId change.
     } catch (err) {
       console.error('Error fetching guest list:', err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -509,6 +515,17 @@ export default function GuestListSignup() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+        <p className="text-muted-foreground mb-4">{t('guestList.loadError')}</p>
+        <Button variant="outline" onClick={() => { setLoading(true); fetchGuestList(); }}>
+          {t('common.retry')}
+        </Button>
       </div>
     );
   }

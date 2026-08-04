@@ -1041,7 +1041,7 @@ export default function MyOrders() {
   };
 
   const handleDeleteOrder = async (orderId: string) => {
-    if (!confirm(t('owner.confirmDelete'))) return;
+    if (!confirm(t('myOrders.confirmDeleteOrder'))) return;
 
     try {
       const { error } = await supabase

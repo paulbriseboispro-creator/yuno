@@ -212,7 +212,7 @@ export default function Settings() {
   };
 
   const handleDisableMFA = async () => {
-    if (!confirm(t('profile.confirmDisable2FA') || 'Un email de vérification sera envoyé pour confirmer la désactivation. Continuer ?')) return;
+    if (!confirm(t('profile.confirmDisable2FA'))) return;
     try {
       const { data, error } = await supabase.functions.invoke('mfa', { body: { action: 'disable-request' } });
       if (error) throw error;

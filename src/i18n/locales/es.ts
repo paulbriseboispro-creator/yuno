@@ -13310,6 +13310,9 @@ const es: Record<string, string> = {
   'myOrders.paymentConfigMissing': "Falta la configuración de pago",
   'myOrders.stripeLoadError': "No se pudo cargar Stripe",
   'myOrders.paymentError': "Error en el pago",
+  'guestList.loadError': "No se pudo conectar. Revisa tu conexión e inténtalo de nuevo.",
+  'assistant.send': "Enviar",
+  'myOrders.confirmDeleteOrder': "¿Eliminar este pedido? Esta acción es irreversible.",
 };
 
 export default es;

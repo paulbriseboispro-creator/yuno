@@ -12968,6 +12968,9 @@ const en: Record<string, string> = {
   'myOrders.paymentConfigMissing': "Payment configuration missing",
   'myOrders.stripeLoadError': "Couldn't load Stripe",
   'myOrders.paymentError': "Payment failed",
+  'guestList.loadError': "Couldn't connect. Check your connection and try again.",
+  'assistant.send': "Send",
+  'myOrders.confirmDeleteOrder': "Delete this order? This can't be undone.",
 };
 
 export default en;
