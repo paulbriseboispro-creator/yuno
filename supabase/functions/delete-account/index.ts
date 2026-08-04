@@ -49,8 +49,9 @@ serve(async (req) => {
       );
     }
 
-    // 1. Delete Vault MFA secret if present.
-    await supabaseAdmin.rpc("delete_mfa_totp_secret", { p_user_id: user.id }).catch(() => {});
+    // 1. Delete Vault MFA secret if present (best-effort : le builder supabase-js
+    // ne rejette jamais — l'erreur revient dans { error }, ignorée ici).
+    await supabaseAdmin.rpc("delete_mfa_totp_secret", { p_user_id: user.id });
 
     // 2. Delete personal data rows (cascade handles child tables where FK exists).
     await supabaseAdmin.from("mfa_recovery_codes").delete().eq("user_id", user.id);
@@ -87,7 +88,7 @@ serve(async (req) => {
       ip_address: req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip"),
       user_agent: req.headers.get("user-agent"),
       success: true,
-    }).catch(() => {});
+    });
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
