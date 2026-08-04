@@ -50,6 +50,16 @@ export function TicketQRCarousel({
     fetchAttendees();
   }, [ticketId]);
 
+  // Fermeture au clavier (Escape) — uniquement en mode overlay plein écran.
+  useEffect(() => {
+    if (embedded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [embedded, onClose]);
+
   const fetchAttendees = async () => {
     try {
       const { data, error } = await supabase
@@ -92,7 +102,7 @@ export function TicketQRCarousel({
           color: { dark: '#000000', light: '#ffffff' },
         });
         setQrImages({ fallback: qrDataUrl });
-      } catch {}
+      } catch { /* best-effort : sans QR de secours, l’état d’erreur du carrousel suffit */ }
     } finally {
       setLoading(false);
     }
@@ -158,7 +168,7 @@ export function TicketQRCarousel({
             >
               {attendees.length > 0 && currentAttendee ? (
                 qrImages[currentAttendee.id] ? (
-                  <img src={qrImages[currentAttendee.id]} alt="QR Code" className="w-44 h-44 mx-auto" />
+                  <img src={qrImages[currentAttendee.id]} alt={`QR - ${currentAttendee.full_name}`} className="w-44 h-44 mx-auto" />
                 ) : (
                   <div className="w-44 h-44 flex items-center justify-center">
                     <div className="h-6 w-6 animate-spin rounded-full border-3 border-primary border-t-transparent" />
@@ -166,11 +176,21 @@ export function TicketQRCarousel({
                 )
               ) : (
                 qrImages.fallback && (
-                  <img src={qrImages.fallback} alt="QR Code" className="w-44 h-44 mx-auto" />
+                  <img src={qrImages.fallback} alt={`QR - ${eventTitle}`} className="w-44 h-44 mx-auto" />
                 )
               )}
             </motion.div>
           </AnimatePresence>
+
+          {/* Code lisible de secours — utile si le scan échoue ou pour VoiceOver */}
+          {(() => {
+            const activeCode = attendees.length > 0 && currentAttendee ? currentAttendee.qr_code : ticketQrCode;
+            return activeCode ? (
+              <p className="font-mono text-xs text-muted-foreground mb-3 tracking-[0.18em]">
+                {activeCode.slice(-8)}
+              </p>
+            ) : null;
+          })()}
 
           {/* Navigation dots & arrows */}
           {totalSlides > 1 && (
@@ -178,6 +198,7 @@ export function TicketQRCarousel({
               <button
                 onClick={goPrev}
                 disabled={currentIndex === 0}
+                aria-label={t('common.previous')}
                 className="p-1.5 rounded-full hover:bg-muted disabled:opacity-30 transition-opacity"
               >
                 <ChevronLeft className="h-5 w-5 text-muted-foreground" />
@@ -200,6 +221,7 @@ export function TicketQRCarousel({
               <button
                 onClick={goNext}
                 disabled={currentIndex === totalSlides - 1}
+                aria-label={t('common.next')}
                 className="p-1.5 rounded-full hover:bg-muted disabled:opacity-30 transition-opacity"
               >
                 <ChevronRight className="h-5 w-5 text-muted-foreground" />
@@ -238,6 +260,9 @@ export function TicketQRCarousel({
     <div
       className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
       onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={eventTitle}
     >
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}

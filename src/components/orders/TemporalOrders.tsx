@@ -446,6 +446,15 @@ export function OrderQROverlay({
     }
   }, [activeQr, instant]);
 
+  // Fermeture au clavier (Escape) — l'overlay est toujours plein écran.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
   const goNext = () => setIndex(i => Math.min(i + 1, total - 1));
   const goPrev = () => setIndex(i => Math.max(i - 1, 0));
   const handleTouchEnd = () => {
@@ -459,6 +468,9 @@ export function OrderQROverlay({
       initial={instant ? false : { opacity: 0 }} animate={{ opacity: 1 }}
       className="fixed inset-0 z-[100] flex flex-col"
       style={{ background: '#0A0A0A' }}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
     >
       {/* Fond : affiche de la soirée floutée plein écran → dégradé des couleurs
           de l'affiche. Voile sombre par-dessus pour garder le QR + textes lisibles. */}
@@ -494,6 +506,7 @@ export function OrderQROverlay({
       >
         <button
           onClick={onClose}
+          aria-label="Close"
           className="grid place-items-center cursor-pointer"
           style={{ width: 36, height: 36, borderRadius: 2, background: CARD, border: `1px solid ${BORDER_STRONG}`, color: '#fff' }}
         >
@@ -545,7 +558,7 @@ export function OrderQROverlay({
             style={{ background: '#fff', borderRadius: 6, padding: 16, position: 'relative', boxShadow: '0 32px 70px -20px rgba(0,0,0,.95), 0 0 0 1px rgba(255,255,255,.05)' }}
           >
             {activeQr
-              ? <img src={activeQr} alt="QR" style={{ display: 'block', width: 216, height: 216 }} />
+              ? <img src={activeQr} alt={`QR - ${caption || title}`} style={{ display: 'block', width: 216, height: 216 }} />
               : <div style={{ width: 216, height: 216, display: 'grid', placeItems: 'center' }}><QrCode style={{ width: 72, height: 72, color: '#bbb' }} /></div>}
           </motion.div>
           <ScanCorner pos="tl" /><ScanCorner pos="tr" /><ScanCorner pos="bl" /><ScanCorner pos="br" />
@@ -564,6 +577,7 @@ export function OrderQROverlay({
             <button
               onClick={goPrev}
               disabled={index === 0}
+              aria-label="Previous"
               className="grid place-items-center cursor-pointer"
               style={{ width: 30, height: 30, borderRadius: 999, background: CARD, border: `1px solid ${BORDER_STRONG}`, color: index === 0 ? G3 : G1, opacity: index === 0 ? 0.4 : 1 }}
             >
@@ -582,6 +596,7 @@ export function OrderQROverlay({
             <button
               onClick={goNext}
               disabled={index === total - 1}
+              aria-label="Next"
               className="grid place-items-center cursor-pointer"
               style={{ width: 30, height: 30, borderRadius: 999, background: CARD, border: `1px solid ${BORDER_STRONG}`, color: index === total - 1 ? G3 : G1, opacity: index === total - 1 ? 0.4 : 1 }}
             >

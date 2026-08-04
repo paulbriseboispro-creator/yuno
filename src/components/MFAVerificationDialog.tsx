@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
@@ -121,6 +121,7 @@ export function MFAVerificationDialog({ open, onVerified, onCancel }: MFAVerific
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onCancel()}>
       <DialogContent className="sm:max-w-sm p-0 bg-background border-white/[0.06] overflow-hidden">
+        <DialogTitle className="sr-only">{t('mfa.title')}</DialogTitle>
         <div className="relative px-6 pt-8 pb-6 flex flex-col items-center">
           {/* Ambient glow */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[150px] bg-primary/[0.06] rounded-full blur-[80px] pointer-events-none" />
@@ -199,6 +200,7 @@ export function MFAVerificationDialog({ open, onVerified, onCancel }: MFAVerific
                   </motion.button>
                 ))}
                 <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowPin(!showPin)}
+                  aria-label={showPin ? 'Hide code' : 'Show code'}
                   className="h-14 w-full rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-all">
                   {showPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </motion.button>
@@ -207,6 +209,7 @@ export function MFAVerificationDialog({ open, onVerified, onCancel }: MFAVerific
                   0
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.9 }} onClick={handleDelete} disabled={loading}
+                  aria-label={t('common.delete')}
                   className="h-14 w-full rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-all disabled:opacity-40">
                   <Delete className="h-4 w-4" />
                 </motion.button>

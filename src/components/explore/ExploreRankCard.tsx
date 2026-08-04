@@ -16,10 +16,22 @@ export function ExploreRankCard({ event, rank }: { event: EventCardData; rank: n
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const dateLabel = format(new Date(event.startAt), 'd MMM', { locale: dateLocale }).toUpperCase();
 
+  const handleOpen = () => navigateToEvent(event, navigate);
+
   return (
     <div
-      onClick={() => navigateToEvent(event, navigate)}
-      className="shrink-0 cursor-pointer overflow-hidden"
+      onClick={handleOpen}
+      role="button"
+      tabIndex={0}
+      aria-label={event.title}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleOpen();
+        }
+      }}
+      className="shrink-0 cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       style={{
         width: 165,
         borderRadius: '14px',

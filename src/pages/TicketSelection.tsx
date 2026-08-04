@@ -60,6 +60,7 @@ export default function TicketSelection() {
     ticketSellingMode: TicketSellingMode; presaleStartAt?: string; publicSaleStartAt?: string;
     waitlistEnabled?: boolean; maxTickets?: number | null; roundsVisibility?: 'sequential' | 'preview_upcoming' | 'all_open';
     alcoholFree?: boolean; maxTicketsPerPerson?: number | null; salePasswordEnabled?: boolean;
+    isBde?: boolean;
   } | null>(null);
   const [hasPresaleAccess, setHasPresaleAccess] = useState(false);
   // Password-gated sale: unlocked state is per-event, persisted for the session.
@@ -78,7 +79,7 @@ export default function TicketSelection() {
   const [floorPlan, setFloorPlan] = useState<VenueFloorPlan | null>(null);
 
   const [selection, setSelection] = useState<Selection | null>(() => {
-    const restored = (location.state as any)?.restoredSelection;
+    const restored = (location.state as { restoredSelection?: Selection } | null)?.restoredSelection;
     return restored || null;
   });
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
@@ -127,22 +128,22 @@ export default function TicketSelection() {
         .single();
       if (error) throw error;
 
-      const effectiveVenueId = ev.venue_id || (ev as any).partner_venue_id || null;
-      const isBasicTables = (ev as any).tables_mode === 'basic' || !ev.venue_id;
+      const effectiveVenueId = ev.venue_id || ev.partner_venue_id || null;
+      const isBasicTables = ev.tables_mode === 'basic' || !ev.venue_id;
 
       const evData = {
         title: ev.title, posterUrl: ev.poster_url || undefined,
-        startAt: ev.start_at, endAt: (ev as any).end_at as string | undefined,
+        startAt: ev.start_at, endAt: ev.end_at as string | undefined,
         ticketingEnabled: ev.ticketing_enabled, tablesEnabled: ev.tables_enabled,
         venueId: effectiveVenueId,
-        ticketSellingMode: ((ev as any).ticket_selling_mode as TicketSellingMode) || 'rounds',
+        ticketSellingMode: (ev.ticket_selling_mode as TicketSellingMode) || 'rounds',
         presaleStartAt: ev.presale_start_at || undefined, publicSaleStartAt: ev.public_sale_start_at || undefined,
         waitlistEnabled: ev.waitlist_enabled || false, maxTickets: ev.max_tickets ?? null,
-        roundsVisibility: ((ev as any).rounds_visibility as 'sequential' | 'preview_upcoming' | 'all_open') ?? 'sequential',
-        alcoholFree: (ev as any).alcohol_free ?? false,
-        isBde: (ev as any).is_bde ?? false,
-        maxTicketsPerPerson: (ev as any).max_tickets_per_person ?? null,
-        salePasswordEnabled: (ev as any).sale_password_enabled ?? false,
+        roundsVisibility: (ev.rounds_visibility as 'sequential' | 'preview_upcoming' | 'all_open') ?? 'sequential',
+        alcoholFree: ev.alcohol_free ?? false,
+        isBde: ev.is_bde ?? false,
+        maxTicketsPerPerson: ev.max_tickets_per_person ?? null,
+        salePasswordEnabled: ev.sale_password_enabled ?? false,
       };
       setEventData(evData);
 
@@ -158,12 +159,12 @@ export default function TicketSelection() {
             id: r.id, eventId: r.event_id, name: r.name, description: r.description,
             price: Number(r.price), maxTickets: r.max_tickets, ticketsSold: r.tickets_sold,
             position: r.position, isActive: r.is_active, autoActivate: r.auto_activate,
-            manuallySoldOut: (r as any).manually_sold_out ?? false,
+            manuallySoldOut: r.manually_sold_out ?? false,
             lastTicketsThreshold: r.last_tickets_threshold ?? 20, includesDrink: r.includes_drink ?? false,
             drinkDeadlineType: (r.drink_deadline_type as 'hours_after_start' | 'fixed_time') ?? 'hours_after_start',
             drinkDeadlineHours: r.drink_deadline_hours, drinkCutoffTime: r.drink_cutoff_time,
-            entryDeadline: (r as any).entry_deadline ? (r as any).entry_deadline.substring(0, 5) : undefined,
-            ticketType: ((r as any).ticket_type as 'standard' | 'vip') ?? 'standard',
+            entryDeadline: r.entry_deadline ? r.entry_deadline.substring(0, 5) : undefined,
+            ticketType: (r.ticket_type as 'standard' | 'vip') ?? 'standard',
             createdAt: r.created_at, updatedAt: r.updated_at,
           })));
         }
@@ -188,7 +189,7 @@ export default function TicketSelection() {
         const { data: packsData } = await packQuery;
 
         const { data: eventSettingsData } = await supabase.from('event_table_settings').select('*').eq('event_id', eventId).single();
-        let priceOverrides: Record<string, number> = {};
+        const priceOverrides: Record<string, number> = {};
         if (eventSettingsData?.preset_id) {
           const { data: presetData } = await supabase.from('table_pack_presets').select('*').eq('id', eventSettingsData.preset_id).single();
           if (presetData?.packs) {
@@ -208,9 +209,9 @@ export default function TicketSelection() {
             basePrice: priceOverrides[p.id] ?? Number(p.base_price), baseCapacity: p.base_capacity,
             extraPersonPrice: p.extra_person_price ? Number(p.extra_person_price) : 0,
             maxExtraPersons: p.max_extra_persons ?? 0, deposit: p.deposit ? Number(p.deposit) : 0,
-            depositType: ((p as any).deposit_type as 'fixed' | 'percentage') || 'fixed',
-            includedItems: p.included_items, includedBottlesQuota: (p as any).included_bottles_quota || 0,
-            minimumSpend: Number((p as any).minimum_spend) || 0, tablesCount: p.tables_count || 1,
+            depositType: (p.deposit_type as 'fixed' | 'percentage') || 'fixed',
+            includedItems: p.included_items, includedBottlesQuota: p.included_bottles_quota || 0,
+            minimumSpend: Number(p.minimum_spend) || 0, arrivalDeadline: p.arrival_deadline || undefined, tablesCount: p.tables_count || 1,
             position: p.position, isActive: p.is_active, createdAt: p.created_at, updatedAt: p.updated_at,
           })));
         }
@@ -377,7 +378,7 @@ export default function TicketSelection() {
     if (!pw || !eventId) return;
     setPwSubmitting(true);
     try {
-      const { data, error } = await supabase.rpc('unlock_event_sale' as any, { p_event_id: eventId, p_password: pw });
+      const { data, error } = await supabase.rpc('unlock_event_sale', { p_event_id: eventId, p_password: pw });
       if (error) throw error;
       if (data === true) {
         setSaleUnlocked(true);
@@ -635,7 +636,7 @@ export default function TicketSelection() {
                 isSimple={isSimple}
                 globalMaxTickets={eventData?.maxTickets}
                 totalSold={totalSoldAllRounds}
-                previewOnly={(round as any)._previewOnly === true}
+                previewOnly={round._previewOnly === true}
                 maxQuantity={ticketMax}
               />
             ))}
@@ -661,7 +662,7 @@ export default function TicketSelection() {
                   isSimple={isSimple}
                   globalMaxTickets={eventData?.maxTickets}
                   totalSold={totalSoldAllRounds}
-                  previewOnly={(round as any)._previewOnly === true}
+                  previewOnly={round._previewOnly === true}
                   maxQuantity={ticketMax}
                 />
               ))}
@@ -950,6 +951,16 @@ function TicketCard({
       )}
       style={isSelected ? { backgroundColor: 'rgba(232,25,44,0.05)' } : undefined}
       onClick={() => { if (!isDisabled && !isSelected) onSelect(); }}
+      role={!isDisabled ? 'button' : undefined}
+      tabIndex={!isDisabled ? 0 : undefined}
+      aria-label={`${round.name} ${round.price.toFixed(2)} €`}
+      onKeyDown={(e) => {
+        if (isDisabled || isSelected || e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
     >
       {/* Left accent stripe */}
       {isSelected && (
@@ -986,9 +997,9 @@ function TicketCard({
                 <Wine className="h-2.5 w-2.5" />{t('ticketSel.drink')}
               </span>
             )}
-            {(round as any).entryDeadline && (
+            {round.entryDeadline && (
               <span className="text-[10px] text-white/40 flex items-center gap-1">
-                <Clock className="h-2.5 w-2.5" />{t('ticketSel.before')} {(round as any).entryDeadline}
+                <Clock className="h-2.5 w-2.5" />{t('ticketSel.before')} {round.entryDeadline}
               </span>
             )}
           </div>
@@ -1084,6 +1095,16 @@ function PackCard({
       )}
       style={isSelected ? { backgroundColor: 'rgba(232,25,44,0.05)' } : undefined}
       onClick={() => { if (!isSoldOut && !isSelected) onSelectPack(); }}
+      role={!isSoldOut ? 'button' : undefined}
+      tabIndex={!isSoldOut ? 0 : undefined}
+      aria-label={`${pack.name} ${pack.basePrice} €`}
+      onKeyDown={(e) => {
+        if (isSoldOut || isSelected || e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelectPack();
+        }
+      }}
     >
       {isSelected && (
         <motion.div initial={{ scaleY: 0 }} animate={{ scaleY: 1 }} className="h-[3px] w-full bg-primary origin-left" />
@@ -1109,6 +1130,9 @@ function PackCard({
             )}
             {pack.minimumSpend > 0 && (
               <p className="text-[11px] text-amber-400/60 font-medium">{t('ticketSel.minSpend')} {pack.minimumSpend} €</p>
+            )}
+            {pack.arrivalDeadline && (
+              <p className="text-[11px] text-amber-400 font-semibold">{t('ticketSel.arrivalBefore')} {pack.arrivalDeadline}</p>
             )}
             {depositAmount > 0 && remainingAtVenue > 0 && (
               <p className="text-[11px] text-white/45">
@@ -1166,6 +1190,7 @@ function QuantitySelector({
         )}
         onClick={() => quantity > min && onQuantityChange(-1)}
         disabled={quantity <= min}
+        aria-label="Decrease quantity"
       >
         <Minus className="h-3.5 w-3.5" />
       </button>
@@ -1193,6 +1218,7 @@ function QuantitySelector({
         style={quantity < max ? { backgroundColor: 'rgba(232,25,44,0.80)' } : { backgroundColor: 'rgba(255,255,255,0.04)' }}
         onClick={() => quantity < max && onQuantityChange(1)}
         disabled={quantity >= max}
+        aria-label="Increase quantity"
       >
         <Plus className="h-3.5 w-3.5" />
       </button>
