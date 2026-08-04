@@ -13313,6 +13313,23 @@ const es: Record<string, string> = {
   'guestList.loadError': "No se pudo conectar. Revisa tu conexión e inténtalo de nuevo.",
   'assistant.send': "Enviar",
   'myOrders.confirmDeleteOrder': "¿Eliminar este pedido? Esta acción es irreversible.",
+  'unsubscribe.invalidLink': "Enlace no válido",
+  'unsubscribe.invalidOrExpired': "Enlace no válido o caducado",
+  'unsubscribe.error': "Error al cancelar la suscripción",
+  'unsubscribe.doneTitle': "Suscripción cancelada",
+  'unsubscribe.doneBody': "Ya no recibirás newsletters de {name}.",
+  'unsubscribe.confirmTitle': "Confirmar la baja",
+  'unsubscribe.confirmBody': "Vas a cancelar la suscripción a la newsletter de {name} para la dirección {email}.",
+  'unsubscribe.cta': "Cancelar suscripción",
+  'mfaDisable.invalidLink': "Enlace no válido — no se encontró ningún token.",
+  'mfaDisable.loadingTitle': "Desactivando…",
+  'mfaDisable.loadingBody': "Estamos verificando tu enlace y desactivando la 2FA.",
+  'mfaDisable.successTitle': "2FA desactivada ✅",
+  'mfaDisable.successBody': "La autenticación de dos factores se ha desactivado correctamente. Ahora puedes volver a configurarla.",
+  'mfaDisable.setupCta': "Configurar la 2FA →",
+  'mfaDisable.backToSettings': "Volver a los ajustes",
+  'mfaDisable.errorTitle': "Error",
+  'mfaDisable.genericError': "Se ha producido un error.",
 };
 
 export default es;

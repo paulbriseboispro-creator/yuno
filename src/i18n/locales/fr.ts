@@ -13042,6 +13042,23 @@ const fr: Record<string, string> = {
   'guestList.loadError': "Connexion impossible. Vérifiez votre réseau et réessayez.",
   'assistant.send': "Envoyer",
   'myOrders.confirmDeleteOrder': "Supprimer cette commande ? Action irréversible.",
+  'unsubscribe.invalidLink': "Lien invalide",
+  'unsubscribe.invalidOrExpired': "Lien invalide ou expiré",
+  'unsubscribe.error': "Erreur lors du désabonnement",
+  'unsubscribe.doneTitle': "Vous êtes désabonné",
+  'unsubscribe.doneBody': "Vous ne recevrez plus de newsletters de {name}.",
+  'unsubscribe.confirmTitle': "Confirmer le désabonnement",
+  'unsubscribe.confirmBody': "Vous vous désabonnez de la newsletter de {name} pour l'adresse {email}.",
+  'unsubscribe.cta': "Me désabonner",
+  'mfaDisable.invalidLink': "Lien invalide — aucun token trouvé.",
+  'mfaDisable.loadingTitle': "Désactivation en cours…",
+  'mfaDisable.loadingBody': "Nous vérifions ton lien et désactivons la 2FA.",
+  'mfaDisable.successTitle': "2FA désactivée ✅",
+  'mfaDisable.successBody': "L'authentification à deux facteurs a été désactivée avec succès. Tu vas maintenant pouvoir reconfigurer ta 2FA.",
+  'mfaDisable.setupCta': "Configurer la 2FA →",
+  'mfaDisable.backToSettings': "Retour aux paramètres",
+  'mfaDisable.errorTitle': "Erreur",
+  'mfaDisable.genericError': "Une erreur est survenue.",
 };
 
 export default fr;

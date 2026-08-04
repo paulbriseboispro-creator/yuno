@@ -12971,6 +12971,23 @@ const en: Record<string, string> = {
   'guestList.loadError': "Couldn't connect. Check your connection and try again.",
   'assistant.send': "Send",
   'myOrders.confirmDeleteOrder': "Delete this order? This can't be undone.",
+  'unsubscribe.invalidLink': "Invalid link",
+  'unsubscribe.invalidOrExpired': "Invalid or expired link",
+  'unsubscribe.error': "Unsubscribe failed",
+  'unsubscribe.doneTitle': "You're unsubscribed",
+  'unsubscribe.doneBody': "You'll no longer receive newsletters from {name}.",
+  'unsubscribe.confirmTitle': "Confirm unsubscribe",
+  'unsubscribe.confirmBody': "You're unsubscribing from {name}'s newsletter for {email}.",
+  'unsubscribe.cta': "Unsubscribe",
+  'mfaDisable.invalidLink': "Invalid link — no token found.",
+  'mfaDisable.loadingTitle': "Disabling…",
+  'mfaDisable.loadingBody': "We're verifying your link and disabling 2FA.",
+  'mfaDisable.successTitle': "2FA disabled ✅",
+  'mfaDisable.successBody': "Two-factor authentication has been disabled. You can now set it up again.",
+  'mfaDisable.setupCta': "Set up 2FA →",
+  'mfaDisable.backToSettings': "Back to settings",
+  'mfaDisable.errorTitle': "Error",
+  'mfaDisable.genericError': "Something went wrong.",
 };
 
 export default en;
