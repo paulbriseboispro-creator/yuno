@@ -12987,6 +12987,8 @@ const en: Record<string, string> = {
   'mfaDisable.backToSettings': "Back to settings",
   'mfaDisable.errorTitle': "Error",
   'mfaDisable.genericError': "Something went wrong.",
+  'common.pageNotFound': "Oops! Page not found",
+  'common.returnHome': "Return to Home",
 };
 
 export default en;

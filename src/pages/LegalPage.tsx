@@ -9,7 +9,7 @@ import { useProBack } from '@/hooks/useProBack';
 export default function LegalPage() {
   const { section } = useParams<{ section: string }>();
   const goBack = useProBack();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
 
   const validSections: LegalSection[] = ['mentions-legales', 'cgu', 'cgv-utilisateurs', 'cgv-clubs', 'confidentialite', 'dpa', 'privacy', 'cookies'];
   const sectionKey = section as LegalSection;
@@ -17,7 +17,7 @@ export default function LegalPage() {
   if (!validSections.includes(sectionKey)) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Page not found</p>
+        <p className="text-muted-foreground">{t('common.pageNotFound')}</p>
       </div>
     );
   }

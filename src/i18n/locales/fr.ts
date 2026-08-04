@@ -13058,6 +13058,8 @@ const fr: Record<string, string> = {
   'mfaDisable.backToSettings': "Retour aux paramètres",
   'mfaDisable.errorTitle': "Erreur",
   'mfaDisable.genericError': "Une erreur est survenue.",
+  'common.pageNotFound': "Oups ! Page introuvable",
+  'common.returnHome': "Retour à l'accueil",
 };
 
 export default fr;
