@@ -103,7 +103,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.send-test-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.owner-assistant]
 verify_jwt = true

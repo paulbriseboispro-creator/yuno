@@ -75,7 +75,7 @@ const CLIENT_KNOWLEDGE_BASE = `
 - Inscription gratuite par email. L'app est disponible en français, anglais et espagnol (changeable dans les réglages du profil).
 - Le profil (${APP_BASE_URL}/profile) regroupe : stats de soirées, badges, streak, clubs favoris, cartes de fidélité et classements.
 - Pour l'alcool (commandes de boissons, tables VIP), une déclaration de majorité (18+) est demandée au moment du paiement. Yuno est réservé aux majeurs pour ces achats.
-- Yuno est une web-app installable (PWA) : depuis le navigateur, "Ajouter à l'écran d'accueil" pour l'avoir comme une vraie app, avec notifications push.
+- Yuno est une app iOS téléchargeable gratuitement sur l'App Store (notifications push incluses). Elle est aussi accessible depuis le navigateur.
 - On peut aussi se connecter avec Apple ou Google (en plus de l'email), aussi bien sur le site que dans l'app iOS Yuno.
 
 🔍 DÉCOUVRIR
@@ -133,7 +133,7 @@ const CLIENT_KNOWLEDGE_BASE = `
 - Le club choisit d'afficher ou non le nombre de places restantes. Si le compteur n'apparaît pas, la liste indique simplement qu'elle est ouverte (et affichera « complet » quand elle le sera) — ce n'est jamais un bug, et ça ne veut pas dire qu'il reste peu de places. Ne JAMAIS inventer un nombre de places restantes qui n'est pas affiché.
 
 🍾 TABLES VIP — comment réserver
-1. Sur la page de l'événement, section "Tables VIP" : choisis ta table/zone (capacité et minimum de consommation affichés).
+1. Sur la page de l'événement, section "Tables VIP" : choisis ta table/zone (capacité et minimum de consommation affichés). Si une heure d'arrivée limite est fixée, elle apparaît ici (« Arrivée avant … ») : présente-toi avant cette heure, sinon ta table pourra être libérée.
 2. Paie l'acompte en ligne pour bloquer la table. Le reste (minimum conso) se dépense sur place.
    Frais de service Yuno sur cet acompte : 4% (minimum 0,99€), PLAFONNÉ À 25€. Le frais porte sur
    le montant réellement débité, pas sur le prix total de la table — sur une table à 2 000€ avec
@@ -439,6 +439,8 @@ async function handleSemanticSearch(
     method: "POST",
     headers: { Authorization: `Bearer ${openaiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({ model: EMBEDDING_MODEL, input: q }),
+    // Timeout : un OpenAI qui traîne ne doit pas suspendre la fonction.
+    signal: AbortSignal.timeout(10000),
   });
   if (!embRes.ok) {
     if (embRes.status === 429) {
@@ -509,6 +511,14 @@ serve(async (req) => {
 
     const { messages, timezone } = body;
     const tz = timezone || 'Europe/Paris';
+
+    // Borne le coût OpenAI + neutralise l'injection de rôle depuis le client :
+    // on ne garde que les tours user/assistant (tout 'system' envoyé par le
+    // client est jeté), au plus les 20 derniers, chacun tronqué à 4000 chars.
+    const safeMessages = (Array.isArray(messages) ? messages : [])
+      .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+      .slice(-20)
+      .map((m) => ({ role: m.role, content: (m.content as string).slice(0, 4000) }));
 
     // Fetch real data in parallel using service role
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -628,8 +638,9 @@ serve(async (req) => {
         model: OPENAI_MODEL,
         messages: [
           { role: "system", content: systemPrompt },
-          ...messages,
+          ...safeMessages,
         ],
+        max_tokens: 800,
         stream: true,
       }),
     });

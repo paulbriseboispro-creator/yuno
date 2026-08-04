@@ -35,6 +35,32 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
+    // SECURITY : cette fonction n'est plus déclenchable par un simple
+    // reservationId anonyme. Elle envoie toujours l'email au titulaire de la
+    // réservation (jamais à une adresse fournie par l'appelant → pas de relais
+    // ouvert), mais on exige un appelant authentifié : soit la service-role
+    // (checkout / verify serveur), soit un JWT utilisateur valide (owner / hôte
+    // VIP qui confirme, refuse ou encaisse). Un anonyme est refusé (403).
+    const authHeader = req.headers.get("Authorization") || "";
+    const bearer = authHeader.replace("Bearer ", "");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    let authorized = bearer !== "" && bearer === serviceKey;
+    if (!authorized && authHeader) {
+      const authClient = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+        { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } }
+      );
+      const { data: { user: caller } } = await authClient.auth.getUser();
+      if (caller) authorized = true;
+    }
+    if (!authorized) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -96,7 +122,7 @@ serve(async (req) => {
 
     if (!customerEmail) throw new Error("No customer email");
 
-    let lang: EmailLanguage = 'fr';
+    let lang: EmailLanguage = 'en';
     let firstName = '';
     if (reservation.user_id) {
       const { data: profile } = await supabaseAdmin
@@ -195,6 +221,7 @@ serve(async (req) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
         body: JSON.stringify({ from, to: [customerEmail], subject: L.subject, html }),
+        signal: AbortSignal.timeout(10000),
       });
       if (!res.ok) throw new Error(`Resend error: ${await res.text()}`);
       logStep("Walkin summary sent", { to: customerEmail });
@@ -445,6 +472,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${resendApiKey}`,
       },
       body: JSON.stringify({ from, to: [customerEmail], subject: finalSubject, html }),
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!res.ok) {

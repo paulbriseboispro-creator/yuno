@@ -5,6 +5,7 @@ import {
   EmailLanguage
 } from "../_shared/email-branding.ts";
 import { buildPostVisitLoyalty } from "../_shared/email-templates.ts";
+import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -38,6 +39,16 @@ interface VisitSummary {
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // SECURITY : fonction planifiée (cron) — exiger le secret cron partagé ou un
+  // JWT super-admin, sinon n'importe qui sur internet pourrait la déclencher.
+  const cronAuth = await authorizeCronRequest(req);
+  if (!cronAuth.ok) {
+    return new Response(
+      JSON.stringify({ error: cronAuth.message }),
+      { status: cronAuth.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 
   try {

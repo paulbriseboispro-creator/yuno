@@ -109,6 +109,7 @@ serve(async (req) => {
     // holder_type='promoter', created and capped by the club on the Guest List page. The
     // commission template no longer carries any guest-list config — it is purely money.
     // No allocation = the promoter can't add (they ask the club to set one up).
+    type Part = { id: string; quota: number | null; includes_drink: boolean; is_active: boolean; entry_deadline: string | null; quota_normal: number; quota_drink: number; quota_table: number };
     const { data: promoterParts } = await supabaseAdmin
       .from("guest_lists")
       .select("id, quota, includes_drink, is_active, entry_deadline, quota_normal, quota_drink, quota_table")
@@ -116,10 +117,36 @@ serve(async (req) => {
       .eq("holder_type", "promoter")
       .eq("promoter_id", promoterId)
       .limit(1);
-    // quota NULL = allocation illimitée (accordée par le club).
-    const guestList = promoterParts?.[0] as { id: string; quota: number | null; includes_drink: boolean; is_active: boolean; entry_deadline: string | null; quota_normal: number; quota_drink: number; quota_table: number } | undefined;
+    // quota NULL = allocation illimitée (accordée par le club, ou sous-part de
+    // partition distribuée par l'agence).
+    let guestList = promoterParts?.[0] as Part | undefined;
+
+    // POOL agence : pas de sous-part propre → le promoteur puise dans l'ENVELOPPE
+    // partagée 'agency' (mode pool). Chaque entrée reste attribuée au promoteur
+    // (promoter_id) pour la commission au scan ; le quota de la part agence EST la
+    // limite du pool, gardée par le trigger de capacité.
+    let poolPart = false;
+    if ((!guestList || !guestList.is_active) && promoter.agency_id) {
+      const { data: agencyParts } = await supabaseAdmin
+        .from("guest_lists")
+        .select("id, quota, includes_drink, is_active, entry_deadline, quota_normal, quota_drink, quota_table")
+        .eq("event_id", eventId)
+        .eq("holder_type", "agency")
+        .eq("agency_id", promoter.agency_id)
+        .eq("agency_distribution_mode", "pool")
+        .eq("is_active", true)
+        .limit(1);
+      const pool = agencyParts?.[0] as Part | undefined;
+      if (pool) {
+        guestList = pool;
+        poolPart = true;
+      }
+    }
+
     if (!guestList || !guestList.is_active) {
-      throw new Error("No guest list allocation for this event. Ask your club to set it up.");
+      throw new Error(promoter.agency_id
+        ? "No guest list allocation for this event. Ask your agency to allocate you a share."
+        : "No guest list allocation for this event. Ask your club to set it up.");
     }
     const normalizedName = fullName.trim();
     const normalizedEmail = (email || "").trim().toLowerCase();
@@ -186,15 +213,14 @@ serve(async (req) => {
       }
     }
 
-    // Agency-managed promoters: the agency's own guest-list rule applies ON TOP
-    // of the club's allocation (rule templates: NULL = guest list not allowed,
-    // 0 = unlimited, N = max entries per event for this promoter).
-    if (!isUpdate && promoter.agency_id) {
+    // POOL agence : plafond d'ÉQUITÉ par promoteur (agency_guestlist_quota = N max
+    // par promoteur dans le pool). NULL/0 = pas de sous-limite — le total du pool,
+    // gardé par le trigger, prime, et « libre accès jusqu'à la limite ». Être un
+    // promoteur de l'agence assigné à la soirée suffit à autoriser l'ajout ; en
+    // PARTITION la sous-part du promoteur fixe déjà sa limite (pas ce plafond).
+    if (!isUpdate && poolPart) {
       const agencyQuota = promoter.agency_guestlist_quota as number | null;
-      if (agencyQuota === null || agencyQuota === undefined) {
-        throw new Error("Your agency hasn't enabled guest list access for you");
-      }
-      if (agencyQuota > 0) {
+      if (agencyQuota != null && agencyQuota > 0) {
         const { count: agencyCount } = await supabaseAdmin
           .from("guest_list_entries")
           .select("*", { count: "exact", head: true })
@@ -357,6 +383,7 @@ serve(async (req) => {
             reservationCode,
             ctaUrl,
             hasAccount: !!linkedUserId,
+            lang: 'fr',
           });
 
           const html = wrapEmailWithBranding(emailContent, 'fr', venueName);

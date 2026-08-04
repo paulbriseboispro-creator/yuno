@@ -25,6 +25,12 @@ serve(async (req) => {
     const body = await req.json();
     const { action, orderNumber, lastName, otpCode, purchaseType, purchaseId, userId } = body;
 
+    // Langue de l'email OTP : respecter body.lang si fourni (l'app envoie la
+    // langue de l'appareil), sinon anglais par défaut — l'app est anglaise par
+    // défaut, on ne force plus le français pour un invité sans compte.
+    const otpLang: "en" | "fr" | "es" =
+      body?.lang === "fr" || body?.lang === "es" || body?.lang === "en" ? body.lang : "en";
+
     // purchaseType: 'order' (default), 'ticket', 'table'
     const type = purchaseType || 'order';
 
@@ -374,11 +380,17 @@ serve(async (req) => {
         ? purchase.email.replace(/(.{2})(.*)(@.*)/, "$1***$3")
         : "***";
 
+      const OTP_COPY = {
+        en: { purpose: "Find your order", context: `Here's your code to find your order ${purchase.reference}.` },
+        fr: { purpose: "Retrouve ta commande", context: `Voici ton code pour retrouver ta commande ${purchase.reference}.` },
+        es: { purpose: "Encuentra tu pedido", context: `Aquí tienes tu código para encontrar tu pedido ${purchase.reference}.` },
+      }[otpLang];
+
       const mail = buildOtp({
-        lang: "fr",
+        lang: otpLang,
         code: otp,
-        purposeLabel: "Retrouve ta commande",
-        context: `Voici ton code pour retrouver ta commande ${purchase.reference}.`,
+        purposeLabel: OTP_COPY.purpose,
+        context: OTP_COPY.context,
         expiresMin: 10,
       });
 
@@ -394,6 +406,8 @@ serve(async (req) => {
           subject: mail.subject,
           html: mail.html,
         }),
+        // Timeout : un Resend qui traîne ne doit pas suspendre l'envoi du code.
+        signal: AbortSignal.timeout(10000),
       });
 
       if (!otpRes.ok) {

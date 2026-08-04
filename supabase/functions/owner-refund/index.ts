@@ -300,8 +300,9 @@ serve(async (req) => {
         // Send refund email with accurate amount and context
         if (customerEmail) {
           try {
-            // Get user language preference
-            let lang: EmailLanguage = "fr";
+            // Get user language preference (défaut anglais : l'app est anglaise
+            // par défaut — on ne force plus le français pour un invité).
+            let lang: EmailLanguage = "en";
             if (customerUserId) {
               const { data: profile } = await supabaseAdmin
                 .from("profiles")
@@ -337,6 +338,8 @@ serve(async (req) => {
                   subject: mail.subject,
                   html: mail.html,
                 }),
+                // Timeout : un Resend qui traîne ne doit pas suspendre le refund.
+                signal: AbortSignal.timeout(10000),
               });
               logStep("Refund email sent", { to: customerEmail, refundAmount, lang });
             }

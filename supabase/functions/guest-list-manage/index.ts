@@ -9,11 +9,11 @@
 // partagée avec les policies RLS des invitations).
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { wrapEmailWithBranding } from "../_shared/email-branding.ts";
+import { wrapEmailWithBranding, type EmailLanguage } from "../_shared/email-branding.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { sendAutoPush } from "../_shared/auto-push.ts";
 import {
-  entryTypeLabelFr,
+  entryTypeLabel,
   guestListEntryEmailContent,
   guestListInviteEmailContent,
 } from "../_shared/guest-list-email.ts";
@@ -62,6 +62,7 @@ interface PartRow {
   organizer_user_id: string | null;
   dj_id: string | null;
   promoter_id: string | null;
+  agency_id: string | null;
   holder_type: string;
   holder_label: string | null;
   quota: number | null;
@@ -70,6 +71,7 @@ interface PartRow {
   quota_table: number;
   entry_kind: string | null;
   entry_deadline: string | null;
+  agency_distribution_mode: string | null;
   is_active: boolean;
 }
 
@@ -116,6 +118,14 @@ async function resolveHolderName(admin: SupabaseClient, part: PartRow, venueName
     const name = profile ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() : "";
     if (name) return name;
   }
+  if (part.holder_type === "agency") {
+    // Ajout par le chef d'agence sur l'enveloppe : au nom de l'agence.
+    if (part.holder_label) return part.holder_label;
+    if (part.agency_id) {
+      const { data: agency } = await admin.from("agencies").select("name").eq("id", part.agency_id).maybeSingle();
+      if (agency?.name) return agency.name;
+    }
+  }
   if (part.holder_type === "custom" && part.holder_label) return part.holder_label;
   return venueName || "Yuno";
 }
@@ -123,7 +133,7 @@ async function resolveHolderName(admin: SupabaseClient, part: PartRow, venueName
 async function loadPartAndEvent(admin: SupabaseClient, guestListId: string): Promise<{ part: PartRow; event: EventRow; venueName: string }> {
   const { data: part } = await admin
     .from("guest_lists")
-    .select("id, event_id, venue_id, organizer_user_id, dj_id, promoter_id, holder_type, holder_label, quota, quota_normal, quota_drink, quota_table, entry_kind, entry_deadline, is_active")
+    .select("id, event_id, venue_id, organizer_user_id, dj_id, promoter_id, agency_id, holder_type, holder_label, quota, quota_normal, quota_drink, quota_table, entry_kind, entry_deadline, agency_distribution_mode, is_active")
     .eq("id", guestListId)
     .maybeSingle();
   if (!part) throw new Error("Guest list not found");
@@ -157,14 +167,23 @@ async function sendResendEmail(to: string, subject: string, html: string): Promi
     logStep("RESEND_API_KEY not set, skipping email");
     return false;
   }
-  await fetch("https://api.resend.com/emails", {
+  // Timeout : un tiers (Resend) qui ne répond pas ne doit pas suspendre la fonction.
+  const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${RESEND_API_KEY}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ from: RESEND_FROM, to: [to], subject, html }),
+    signal: AbortSignal.timeout(10000),
   });
+  // Ne plus avaler un échec Resend en silence : on trace et on retourne false
+  // (l'appelant ne marquera email_sent_at que si l'envoi a réussi).
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    logStep("Resend send failed", { to, status: res.status, body });
+    return false;
+  }
   return true;
 }
 
@@ -274,14 +293,22 @@ serve(async (req) => {
       }
 
       // Auto-lien vers un compte Yuno existant (l'invité retrouve son QR dans l'app).
+      // Langue de l'email = préférence du compte lié si connu, sinon anglais
+      // (l'app est anglaise par défaut — on ne force plus le français).
       let linkedUserId: string | null = null;
+      let recipientLang: EmailLanguage = "en";
       if (normalizedEmail) {
         const { data: existingProfile } = await admin
           .from("profiles")
-          .select("id")
+          .select("id, preferred_language")
           .eq("email", normalizedEmail)
           .maybeSingle();
-        if (existingProfile) linkedUserId = existingProfile.id;
+        if (existingProfile) {
+          linkedUserId = existingProfile.id;
+          if (existingProfile.preferred_language && ["en", "es", "fr"].includes(existingProfile.preferred_language)) {
+            recipientLang = existingProfile.preferred_language as EmailLanguage;
+          }
+        }
       }
 
       let entryId = "";
@@ -377,14 +404,15 @@ serve(async (req) => {
             eventDate: formatEventDateFr(event.start_at),
             venueName,
             posterUrl: event.poster_url,
-            entryLabel: entryTypeLabelFr(resolvedEntryType),
+            entryLabel: entryTypeLabel(resolvedEntryType, recipientLang),
             invitedBy,
             qrCode,
             reservationCode,
             ctaUrl,
             hasAccount: !!linkedUserId,
+            lang: recipientLang,
           });
-          const html = wrapEmailWithBranding(content, "fr", venueName);
+          const html = wrapEmailWithBranding(content, recipientLang, venueName);
           await sendResendEmail(normalizedEmail, `Guest List - ${event.title || "Événement"}`, html);
           logStep("Invitation email sent", { to: normalizedEmail, hasAccount: !!linkedUserId });
         } catch (emailErr) {
@@ -445,18 +473,33 @@ serve(async (req) => {
         : (part.organizer_user_id || "organizer");
       const inviteUrl = `${APP_URL}/club/${slug}/event/${event.id}/guestlist?invite=${invite.token}`;
 
+      // Langue du destinataire : préférence de son compte Yuno si l'email en a un,
+      // sinon anglais par défaut (l'app est anglaise par défaut).
+      let inviteLang: EmailLanguage = "en";
+      {
+        const { data: inviteeProfile } = await admin
+          .from("profiles")
+          .select("preferred_language")
+          .eq("email", invite.guest_email.trim().toLowerCase())
+          .maybeSingle();
+        if (inviteeProfile?.preferred_language && ["en", "es", "fr"].includes(inviteeProfile.preferred_language)) {
+          inviteLang = inviteeProfile.preferred_language as EmailLanguage;
+        }
+      }
+
       const invitedBy = await resolveHolderName(admin, part, venueName);
       const content = guestListInviteEmailContent({
         eventTitle: event.title || "Événement",
         eventDate: formatEventDateFr(event.start_at),
         venueName,
         posterUrl: event.poster_url,
-        entryLabel: entryTypeLabelFr(invite.entry_type),
+        entryLabel: entryTypeLabel(invite.entry_type, inviteLang),
         invitedBy,
         inviteUrl,
         maxUses: invite.max_uses,
+        lang: inviteLang,
       });
-      const html = wrapEmailWithBranding(content, "fr", venueName);
+      const html = wrapEmailWithBranding(content, inviteLang, venueName);
       const sent = await sendResendEmail(
         invite.guest_email,
         `Invitation Guest List - ${event.title || "Événement"}`,
