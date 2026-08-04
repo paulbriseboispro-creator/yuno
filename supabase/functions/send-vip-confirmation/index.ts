@@ -22,7 +22,13 @@ const logStep = (step: string, details?: unknown) => {
 type VipEmailType = 'request_received' | 'confirmed' | 'modified' | 'refused' | 'walkin_summary';
 
 interface VipEmailRequest {
-  reservationId: string;
+  // Les appelants ne sont pas homogènes : les checkouts serveur
+  // (create-table-checkout, verify-table-payment) et les composants owner/hôte
+  // envoient `reservation_id` (snake), tandis que useVipNight / VipHostDashboard
+  // envoient `reservationId` (camel). On accepte les DEUX pour ne perdre aucun
+  // email de confirmation (sinon 4 appelants sur 6 échouaient en silence).
+  reservationId?: string;
+  reservation_id?: string;
   type: VipEmailType;
   changes?: string;
 }
@@ -70,10 +76,12 @@ serve(async (req) => {
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) throw new Error("RESEND_API_KEY not configured");
 
-    const { reservationId, type, changes } = await req.json() as VipEmailRequest;
+    const body = await req.json() as VipEmailRequest;
+    const reservationId = body.reservationId ?? body.reservation_id;
+    const { type, changes } = body;
 
     if (!reservationId || !type) {
-      throw new Error("reservationId and type are required");
+      throw new Error("reservationId (or reservation_id) and type are required");
     }
 
     if (!['request_received', 'confirmed', 'modified', 'refused', 'walkin_summary'].includes(type)) {
