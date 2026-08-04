@@ -12954,7 +12954,6 @@ const en: Record<string, string> = {
 
   // Clés manquantes corrigées (affichaient la clé brute à l'écran) + états d'erreur
   'auth.forgotPassword': "Forgot password",
-  'auth.back': "Back",
   'auth.showPassword': "Show password",
   'auth.hidePassword': "Hide password",
   'auth.acceptTermsAria': "Accept the terms and privacy policy",
