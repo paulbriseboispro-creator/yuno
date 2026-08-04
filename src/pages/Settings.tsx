@@ -660,9 +660,10 @@ export default function Settings() {
         </Button>
       </div>
 
-      {/* Delete Account Dialog */}
+      {/* Delete Account Dialog — ancré en haut sur mobile : centré, le clavier iOS
+          fait défiler la page et le dialogue part sous le clavier pendant la saisie. */}
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
+        <DialogContent className="top-6 translate-y-0 sm:top-[50%] sm:translate-y-[-50%]">
           <DialogHeader>
             <DialogTitle>{t('settings.deleteConfirmTitle')}</DialogTitle>
             <DialogDescription>{t('settings.deleteConfirmBody')}</DialogDescription>
