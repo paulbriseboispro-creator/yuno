@@ -222,7 +222,7 @@ function ReservationDetailDialog({ reservation, consumptions, orders, onClose, l
   consumptions: OwnerVipConsumption[];
   orders: OwnerVipOrder[];
   onClose: () => void;
-  locale: any;
+  locale: typeof fr;
 }) {
   const { t, language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);

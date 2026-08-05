@@ -162,8 +162,9 @@ export function useVipNight() {
              guest_count, deposit, total_price, minimum_spend, status, vip_status,
              paid_at, placed_at, placed_by, assigned_table_id, finished_at,
              qr_code, created_at, checked_in_at, requested_table_id, placement_status,
-             purchase_source,
-             table_zones!inner(name, color, venue_id)`
+             purchase_source, pack_id,
+             table_zones!inner(name, color, venue_id),
+             table_packs(arrival_deadline)`
           )
           .eq('status', 'paid')
           .eq('event_id', ev.id)
@@ -225,6 +226,7 @@ export function useVipNight() {
         deposit: r.deposit || 0,
         totalPrice: r.total_price || 0,
         minimumSpend: r.minimum_spend || 0,
+        arrivalDeadline: r.table_packs?.arrival_deadline || null,
         status: r.status,
         vipStatus: r.vip_status || 'waiting',
         paidAt: r.paid_at,

@@ -165,6 +165,11 @@ export function TableServiceSheet(props: TableServiceSheetProps) {
                 <span className="inline-flex items-center gap-1 tabular-nums" style={{ color: T2, fontSize: 12 }}>
                   <Users className="h-3 w-3" /> {r.guestCount}
                 </span>
+                {r.arrivalDeadline && (
+                  <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 tabular-nums" style={{ color: GOLD, background: 'rgba(234,179,8,0.12)', fontSize: 11, fontWeight: 700 }}>
+                    <Clock className="h-3 w-3" /> {t('vipnight.arrivalBefore')} {r.arrivalDeadline}
+                  </span>
+                )}
                 {seated && r.placedAt && (
                   <span className="inline-flex items-center gap-1 tabular-nums" style={{ color: minutesSince(r.placedAt) > 90 ? GOLD : T3, fontSize: 12 }}>
                     <Clock className="h-3 w-3" /> {fmtAge(r.placedAt)}

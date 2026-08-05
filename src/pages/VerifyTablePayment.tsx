@@ -66,10 +66,10 @@ export default function VerifyTablePayment() {
         setStatus('error');
         setErrorMessage(t('verify.paymentNotConfirmed'));
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Payment verification error:', error);
       setStatus('error');
-      setErrorMessage(error.message || t('verify.verificationFailed'));
+      setErrorMessage((error as Error).message || t('verify.verificationFailed'));
     }
   };
 
