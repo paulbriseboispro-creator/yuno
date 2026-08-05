@@ -10557,6 +10557,7 @@ export type Database = {
       }
       table_packs: {
         Row: {
+          arrival_deadline: string | null
           base_capacity: number
           base_price: number
           created_at: string
@@ -10580,6 +10581,7 @@ export type Database = {
           zone_id: string
         }
         Insert: {
+          arrival_deadline?: string | null
           base_capacity?: number
           base_price: number
           created_at?: string
@@ -10603,6 +10605,7 @@ export type Database = {
           zone_id: string
         }
         Update: {
+          arrival_deadline?: string | null
           base_capacity?: number
           base_price?: number
           created_at?: string
