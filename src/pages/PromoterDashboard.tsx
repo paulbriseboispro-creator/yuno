@@ -165,7 +165,7 @@ export default function PromoterDashboard() {
       setAllPromoterProfiles(enriched);
       await Promise.all(enriched.map(async (p) => {
         await fetchStats(p.id, p.venue_id);
-        if (p.venue_id) await fetchAnnouncements(p.venue_id);
+        await fetchAnnouncements(p);
       }));
     } catch (error) {
       console.error('Error fetching promoter data:', error);
@@ -206,10 +206,18 @@ export default function PromoterDashboard() {
     } catch (error) { console.error('Error fetching stats:', error); }
   }
 
-  async function fetchAnnouncements(venueId: string) {
+  // Annonces de TOUTES les portées du promoteur : son club (venue), son
+  // organisateur, ET son agence (feed natif agence). Clé = id du promoteur.
+  async function fetchAnnouncements(p: { id: string; venue_id: string | null; organizer_user_id: string | null; agency_id?: string | null }) {
     try {
-      const { data } = await supabase.from('promoter_announcements').select('*').eq('venue_id', venueId).order('created_at', { ascending: false }).limit(5);
-      setAnnouncementsMap(prev => ({ ...prev, [venueId]: data || [] }));
+      const ors: string[] = [];
+      if (p.venue_id) ors.push(`venue_id.eq.${p.venue_id}`);
+      if (p.organizer_user_id) ors.push(`organizer_user_id.eq.${p.organizer_user_id}`);
+      if (p.agency_id) ors.push(`agency_id.eq.${p.agency_id}`);
+      if (ors.length === 0) return;
+      const { data } = await supabase.from('promoter_announcements').select('*')
+        .or(ors.join(',')).order('created_at', { ascending: false }).limit(5);
+      setAnnouncementsMap(prev => ({ ...prev, [p.id]: data || [] }));
     } catch (error) { console.error('Error fetching announcements:', error); }
   }
 
@@ -309,7 +317,7 @@ export default function PromoterDashboard() {
               <VenuePromoterContent
                 promoter={promoterProfile}
                 stats={statsMap[promoterProfile.id] || defaultStats}
-                announcements={promoterProfile.venue_id ? (announcementsMap[promoterProfile.venue_id] || []) : []}
+                announcements={announcementsMap[promoterProfile.id] || []}
                 onProfileSaved={() => fetchAllPromoterProfiles()}
                 allPromoterProfiles={allPromoterProfiles}
               />

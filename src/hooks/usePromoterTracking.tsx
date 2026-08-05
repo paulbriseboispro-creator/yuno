@@ -236,7 +236,7 @@ export function getStoredPromoCodeForScope(venueId?: string | null, organizerUse
  * Get the venue ID associated with the stored promo code
  */
 export function getStoredPromoVenueId(): string | null {
-  let venueId = sessionStorage.getItem(PROMO_VENUE_KEY);
+  const venueId = sessionStorage.getItem(PROMO_VENUE_KEY);
   if (venueId) return venueId;
   
   clearExpiredLocalStorage();
@@ -253,7 +253,7 @@ export function getStoredPromoVenueId(): string | null {
  * Get the event ID associated with the stored promo code
  */
 export function getStoredPromoEventId(): string | null {
-  let eventId = sessionStorage.getItem(PROMO_EVENT_KEY);
+  const eventId = sessionStorage.getItem(PROMO_EVENT_KEY);
   if (eventId) return eventId;
   
   clearExpiredLocalStorage();
@@ -270,7 +270,7 @@ export function getStoredPromoEventId(): string | null {
  * Get the source tag associated with the stored promo code
  */
 export function getStoredPromoSource(): string | null {
-  let source = sessionStorage.getItem(PROMO_SOURCE_KEY);
+  const source = sessionStorage.getItem(PROMO_SOURCE_KEY);
   if (source) return source;
   
   clearExpiredLocalStorage();

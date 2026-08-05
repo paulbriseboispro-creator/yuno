@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import TrackedLinksManager from '@/components/tracking/TrackedLinksManager';
 import { shareContent } from '@/lib/share';
+import { promoterConversionRate } from '@/lib/promoterMetrics';
 import { toast } from 'sonner';
 import {
   ArrowLeft, TrendingUp, Ticket, Calendar, Euro, Copy, Share2,
@@ -237,7 +238,7 @@ export default function PromoterEventAnalysis() {
       
       // Fetch ticket details for base price and type name
       const ticketIds = (convsRes.data || []).filter(c => c.ticket_id).map(c => c.ticket_id!);
-      let ticketMap: Record<string, { unitPrice: number; quantity: number; roundName: string }> = {};
+      const ticketMap: Record<string, { unitPrice: number; quantity: number; roundName: string }> = {};
       if (ticketIds.length > 0) {
         const { data: ticketDetails } = await supabase
           .from('tickets')
@@ -318,12 +319,19 @@ export default function PromoterEventAnalysis() {
     );
   }
 
-  const tickets = conversions.filter(c => c.conversion_type === 'ticket' && (c.amount || 0) > 0);
-  const tables = conversions.filter(c => c.conversion_type === 'table' && (c.amount || 0) > 0);
-  const totalRevenue = conversions.reduce((s, c) => s + (c.basePrice ?? c.amount), 0);
-  const totalCommission = conversions.reduce((s, c) => s + c.commission, 0);
-  const pendingCommission = conversions.filter(c => c.status === 'pending').reduce((s, c) => s + c.commission, 0);
-  const conversionRate = clicks > 0 ? ((conversions.length / clicks) * 100) : 0;
+  // Exclure les conversions annulées (remboursées) : le trigger de refund passe
+  // le statut à 'cancelled' SANS remettre commission/amount à zéro. Sans ce
+  // filtre, une vente remboursée gonflait revenu + commission ici, en désaccord
+  // avec le pending_amount qui fait foi côté règlement.
+  const active = conversions.filter(c => c.status !== 'cancelled');
+  const tickets = active.filter(c => c.conversion_type === 'ticket' && (c.amount || 0) > 0);
+  const tables = active.filter(c => c.conversion_type === 'table' && (c.amount || 0) > 0);
+  const totalRevenue = active.reduce((s, c) => s + (c.basePrice ?? c.amount), 0);
+  const totalCommission = active.reduce((s, c) => s + c.commission, 0);
+  const pendingCommission = active.filter(c => c.status === 'pending').reduce((s, c) => s + c.commission, 0);
+  // Taux unifié (billets + tables payantes / clics, plafonné 100 %) — même
+  // définition que l'owner, cf. src/lib/promoterMetrics.ts.
+  const conversionRate = promoterConversionRate(tickets.length + tables.length, clicks);
   const eventLink = `https://yunoapp.eu/club/${event.venue_id}?ref=${promoCode}&event=${event.id}`;
 
   const now = new Date();

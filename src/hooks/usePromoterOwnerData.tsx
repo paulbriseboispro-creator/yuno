@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { PromoterScope } from '@/hooks/usePromoterScope';
+import { promoterConversionRate } from '@/lib/promoterMetrics';
 import { getScopeFilter, scopeId, scopeReady, scopeEventsOr } from '@/lib/promoterScopeHelpers';
 import type { DateRange } from '@/components/promoter/DateRangeFilter';
 
@@ -98,18 +99,20 @@ export function usePromoterOwnerData(scope: PromoterScope) {
       const clickCounts: Record<string, number> = {};
       (clicksData || []).forEach(c => { clickCounts[c.promoter_id] = (clickCounts[c.promoter_id] || 0) + 1; });
 
-      const convStats: Record<string, { conversions: number; revenue: number; commission: number }> = {};
-      let totalTickets = 0, totalRevenue = 0, pendingComm = 0, approvedComm = 0, paidComm = 0;
+      const convStats: Record<string, { conversions: number; revenue: number; commission: number; tickets: number; tables: number }> = {};
+      let totalTickets = 0, totalTables = 0, totalRevenue = 0, pendingComm = 0, approvedComm = 0, paidComm = 0;
 
       (convsData || []).forEach(c => {
-        if (!convStats[c.promoter_id]) convStats[c.promoter_id] = { conversions: 0, revenue: 0, commission: 0 };
+        if (!convStats[c.promoter_id]) convStats[c.promoter_id] = { conversions: 0, revenue: 0, commission: 0, tickets: 0, tables: 0 };
         // Les lignes 'override' (part du chef d'équipe) portent de la commission
         // mais ne sont PAS des ventes : on les compte dans l'argent, pas dans
         // les compteurs de conversions (sinon taux de conversion gonflé).
         if (c.conversion_type !== 'override') convStats[c.promoter_id].conversions++;
         convStats[c.promoter_id].revenue += Number(c.amount || 0);
         convStats[c.promoter_id].commission += Number(c.commission || 0);
-        if (c.conversion_type === 'ticket' && Number(c.amount || 0) > 0) totalTickets++;
+        // Ventes payantes pour le taux de conversion (billets + tables).
+        if (c.conversion_type === 'ticket' && Number(c.amount || 0) > 0) { convStats[c.promoter_id].tickets++; totalTickets++; }
+        else if (c.conversion_type === 'table' && Number(c.amount || 0) > 0) { convStats[c.promoter_id].tables++; totalTables++; }
         totalRevenue += Number(c.amount || 0);
         if (c.status === 'pending') pendingComm += Number(c.commission || 0);
         else if (c.status === 'approved') approvedComm += Number(c.commission || 0);
@@ -117,12 +120,11 @@ export function usePromoterOwnerData(scope: PromoterScope) {
       });
 
       const totalClicks = Object.values(clickCounts).reduce((a, b) => a + b, 0);
-      const totalConversions = (convsData || []).filter(c => c.conversion_type !== 'override').length;
 
       const mapped: PromoterSummary[] = (promotersData || []).map(p => {
         const profile = profileMap.get(p.user_id);
         const clicks = clickCounts[p.id] || 0;
-        const conv = convStats[p.id] || { conversions: 0, revenue: 0, commission: 0 };
+        const conv = convStats[p.id] || { conversions: 0, revenue: 0, commission: 0, tickets: 0, tables: 0 };
         return {
           id: p.id, userId: p.user_id, promoCode: p.promo_code,
           firstName: profile?.first_name || null, lastName: profile?.last_name || null,
@@ -130,7 +132,7 @@ export function usePromoterOwnerData(scope: PromoterScope) {
           instagramUrl: p.instagram_url, whatsappNumber: p.whatsapp_number,
           clicks, conversions: conv.conversions, revenue: conv.revenue, commission: conv.commission,
           pendingAmount: Number(p.pending_amount || 0),
-          conversionRate: clicks > 0 ? (conv.conversions / clicks) * 100 : 0,
+          conversionRate: promoterConversionRate(conv.tickets + conv.tables, clicks),
         };
       });
 
@@ -138,7 +140,7 @@ export function usePromoterOwnerData(scope: PromoterScope) {
       setKpis({
         totalPromoters: mapped.length, ticketsSold: totalTickets, revenue: totalRevenue,
         pendingCommission: pendingComm, approvedCommission: approvedComm, paidCommission: paidComm,
-        conversionRate: totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0,
+        conversionRate: promoterConversionRate(totalTickets + totalTables, totalClicks),
       });
     } catch (err) {
       console.error('Error fetching promoter data:', err);

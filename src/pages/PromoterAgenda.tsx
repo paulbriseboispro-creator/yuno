@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { trackPromoterClickExternal } from '@/hooks/usePromoterTracking';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -91,6 +92,13 @@ export default function PromoterAgenda() {
 
   useEffect(() => {
     setLoading(true);
+  }, [refCode]);
+
+  // Vue d'agenda promoteur : même métrique que le linktree (event_id NULL,
+  // source 'linktree_view'), dédupliquée par IP côté serveur.
+  useEffect(() => {
+    if (!refCode) return;
+    void trackPromoterClickExternal(refCode, '', undefined, 'linktree_view');
   }, [refCode]);
 
   useEffect(() => {

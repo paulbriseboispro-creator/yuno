@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { trackPromoterClickExternal } from '@/hooks/usePromoterTracking';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -332,6 +333,14 @@ export default function PromoterHub() {
   useEffect(() => {
     // Reset loading state when promo code changes
     setLoading(true);
+  }, [refCode]);
+  // Vue de linktree : l'arme native ne comptait AUCUNE vue de page promoteur
+  // (contrairement à l'arme affiliée). On enregistre une vue (event_id NULL,
+  // source 'linktree_view'), résolue par le code seul et dédupliquée par IP
+  // 6 h côté serveur. Le tracking par soirée (clic au tap-through) est inchangé.
+  useEffect(() => {
+    if (!refCode) return;
+    void trackPromoterClickExternal(refCode, '', undefined, 'linktree_view');
   }, [refCode]);
   useEffect(() => {
     if (!isLegacyPromoRoute) return;
