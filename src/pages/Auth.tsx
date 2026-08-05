@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRoles } from '@/hooks/useUserRoles';
 import { Button } from '@/components/ui/button';
@@ -25,8 +25,13 @@ const getAuthSchema = (t: (key: string) => string) => z.object({
 
 export default function Auth() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
-  const redirect = searchParams.get('redirect');
+  // Priorité : ?redirect=… explicite, sinon la page protégée que l'utilisateur
+  // visait (RequireRole passe state={{ from: location }}) → il y revient après login.
+  const redirect = searchParams.get('redirect')
+    ?? (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
+    ?? null;
   const isReset = searchParams.get('reset') === 'true';
   const inviteToken = searchParams.get('invite');
   const platformInviteToken = searchParams.get('invite_platform');
@@ -477,7 +482,7 @@ export default function Auth() {
           style={{ color: '#5A5A5E', fontSize: '13px' }}
         >
           <ArrowLeft className="h-4 w-4" />
-          <span className="font-mono" style={{ letterSpacing: '0.04em' }}>Back</span>
+          <span className="font-mono" style={{ letterSpacing: '0.04em' }}>{t('auth.back')}</span>
         </button>
 
         {/* Card */}
@@ -531,13 +536,13 @@ export default function Auth() {
             )}
 
             {!isReset && (
-              <input type="email" placeholder={t('auth.placeholders.email')} value={email} onChange={(e) => setEmail(e.target.value)} required disabled={isLoading} style={{ ...inputStyle, borderColor: email ? 'rgba(232,25,44,0.4)' : 'rgba(255,255,255,0.08)' }} />
+              <input type="email" inputMode="email" autoComplete="email" aria-label={t('auth.placeholders.email')} placeholder={t('auth.placeholders.email')} value={email} onChange={(e) => setEmail(e.target.value)} required disabled={isLoading} style={{ ...inputStyle, borderColor: email ? 'rgba(232,25,44,0.4)' : 'rgba(255,255,255,0.08)' }} />
             )}
 
             {!isForgotPassword && (
               <div className="relative">
-                <input type={showPassword ? 'text' : 'password'} placeholder={isReset ? t('auth.placeholders.newPassword') : t('auth.placeholders.password')} value={password} onChange={(e) => setPassword(e.target.value)} required disabled={isLoading} minLength={6} style={{ ...inputStyle, paddingRight: '44px', borderColor: password ? 'rgba(232,25,44,0.4)' : 'rgba(255,255,255,0.08)' }} />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} disabled={isLoading} className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors" style={{ color: '#5A5A5E' }}>
+                <input type={showPassword ? 'text' : 'password'} autoComplete={isSignUp || isReset ? 'new-password' : 'current-password'} aria-label={isReset ? t('auth.placeholders.newPassword') : t('auth.placeholders.password')} placeholder={isReset ? t('auth.placeholders.newPassword') : t('auth.placeholders.password')} value={password} onChange={(e) => setPassword(e.target.value)} required disabled={isLoading} minLength={6} style={{ ...inputStyle, paddingRight: '44px', borderColor: password ? 'rgba(232,25,44,0.4)' : 'rgba(255,255,255,0.08)' }} />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} disabled={isLoading} aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')} aria-pressed={showPassword} className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors" style={{ color: '#5A5A5E' }}>
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
@@ -547,6 +552,9 @@ export default function Auth() {
             {isSignUp && !isReset && !isForgotPassword && (
               <button
                 type="button"
+                role="checkbox"
+                aria-checked={acceptedTerms}
+                aria-label={t('auth.acceptTermsAria')}
                 onClick={() => setAcceptedTerms(!acceptedTerms)}
                 disabled={isLoading}
                 className="flex items-start gap-2.5 w-full text-left"

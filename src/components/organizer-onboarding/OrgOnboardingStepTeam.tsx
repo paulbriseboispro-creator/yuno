@@ -38,8 +38,8 @@ export function OrgOnboardingStepTeam({ onComplete, onSkip }: Props) {
       toast.success(tt('Invitation envoyée', 'Invitation sent', 'Invitación enviada'));
       setInvited(true);
       setDialogOpen(false);
-    } catch (e: any) {
-      toast.error(e.message ?? tt('Erreur', 'Error', 'Error'));
+    } catch (e) {
+      toast.error((e as Error).message ?? tt('Erreur', 'Error', 'Error'));
     } finally {
       setSubmitting(false);
     }

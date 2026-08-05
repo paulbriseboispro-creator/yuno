@@ -104,7 +104,24 @@ async function releaseHeldTransfers(stripe: Stripe, admin: ReturnType<typeof cre
   const RETRYABLE = new Set(["scheduled", "failed"]);
   let released = 0;
   let skipped = 0;
-  for (const row of (due ?? []) as Array<Record<string, any>>) {
+  // Colonnes du select ci-dessus — le client Supabase n'est pas typé ici.
+  interface HeldDistributionRow {
+    id: string;
+    payment_intent_id: string;
+    transfer_group_id: string | null;
+    event_id: string | null;
+    item_type: string | null;
+    ticket_id: string | null;
+    table_reservation_id: string | null;
+    order_id: string | null;
+    primary_account_id: string | null;
+    primary_amount_cents: number | null;
+    primary_transfer_status: string;
+    secondary_account_id: string | null;
+    secondary_amount_cents: number | null;
+    secondary_transfer_status: string;
+  }
+  for (const row of (due ?? []) as Array<HeldDistributionRow>) {
     // Refunded before release → cancel any still-pending legs, never pay out.
     if (await saleIsRefunded(admin, row)) {
       await admin.from("revenue_distributions").update({
@@ -367,12 +384,41 @@ serve(async (req) => {
         logStep("Checkout session completed", { sessionId: session.id, metadata });
 
         if (metadata.orderId) {
-          await supabaseClient
-            .from("orders")
-            .update({ status: "paid", stripe_session_id: session.id, stripe_payment_intent_id: session.payment_intent as string })
-            .eq("id", metadata.orderId)
-            .eq("status", "pending");
-          logStep("Order marked as paid (backup)", { orderId: metadata.orderId });
+          // RELIABILITY FALLBACK — même logique que les billets/tables ci-dessous.
+          // Si l'acheteur ferme l'onglet avant d'être redirigé vers /verify-payment
+          // (typique Apple Pay / mobile), cette fonction ne tournait jamais : la
+          // commande passait 'paid' MAIS le token de retrait (QR scanné par le
+          // barman) n'était jamais minté, donc la boisson payée devenait
+          // impossible à servir — sans email, sans crédit, sans point fidélité.
+          // Le webhook est le chemin que Stripe garantit et rejoue, donc on délègue
+          // au même traitement. verify-payment bascule pending→paid de façon
+          // atomique : si le client a déjà traité, cet appel est un no-op
+          // (alreadyProcessed=true).
+          try {
+            const verifyResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/verify-payment`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              },
+              body: JSON.stringify({ sessionId: session.id, orderId: metadata.orderId }),
+            });
+            let body: Record<string, unknown> | null = null;
+            try { body = await verifyResp.json(); } catch { /* non-JSON body */ }
+            logStep("Delegated order processing to verify-payment", {
+              orderId: metadata.orderId,
+              ok: verifyResp.ok,
+              alreadyProcessed: body?.alreadyProcessed ?? null,
+            });
+          } catch (verifyErr) {
+            // Best-effort : ne jamais faire échouer le webhook là-dessus. Stripe
+            // rejoue l'événement et l'appel est idempotent, donc un échec
+            // transitoire s'auto-répare.
+            logStep("verify-payment delegation failed (Stripe will retry)", {
+              orderId: metadata.orderId,
+              error: (verifyErr as Error).message,
+            });
+          }
         }
 
         if (metadata.ticketId) {
@@ -411,12 +457,42 @@ serve(async (req) => {
         }
 
         if (metadata.reservationId) {
-          await supabaseClient
-            .from("table_reservations")
-            .update({ status: "confirmed", stripe_session_id: session.id, stripe_payment_intent_id: session.payment_intent as string })
-            .eq("id", metadata.reservationId)
-            .eq("status", "pending");
-          logStep("Reservation confirmed (backup)", { reservationId: metadata.reservationId });
+          // RELIABILITY FALLBACK — même logique que les billets ci-dessus. Si
+          // l'acheteur ferme l'onglet avant d'être redirigé vers
+          // /verify-table-payment (typique Apple Pay / mobile), cette fonction
+          // ne tournait jamais : AUCUN effet de bord ne se produisait — pas de
+          // conversion promoteur (commission perdue), pas de facture, pas de
+          // stats club, et la résa restait en 'confirmed', un statut mort que le
+          // remboursement (qui filtre 'paid') ne pouvait plus toucher. Le webhook
+          // est le chemin que Stripe garantit et rejoue, donc on délègue au même
+          // traitement. verify-table-payment bascule pending/confirmed→paid de
+          // façon atomique : si le client a déjà traité, cet appel est un no-op
+          // (alreadyProcessed=true).
+          try {
+            const verifyResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/verify-table-payment`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+              },
+              body: JSON.stringify({ sessionId: session.id, reservationId: metadata.reservationId }),
+            });
+            let body: Record<string, unknown> | null = null;
+            try { body = await verifyResp.json(); } catch { /* non-JSON body */ }
+            logStep("Delegated table processing to verify-table-payment", {
+              reservationId: metadata.reservationId,
+              ok: verifyResp.ok,
+              alreadyProcessed: body?.alreadyProcessed ?? null,
+            });
+          } catch (verifyErr) {
+            // Best-effort : ne jamais faire échouer le webhook là-dessus. Stripe
+            // rejoue l'événement et l'appel est idempotent, donc un échec
+            // transitoire s'auto-répare.
+            logStep("verify-table-payment delegation failed (Stripe will retry)", {
+              reservationId: metadata.reservationId,
+              error: (verifyErr as Error).message,
+            });
+          }
         }
         break;
       }

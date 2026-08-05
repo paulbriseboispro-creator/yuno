@@ -20,12 +20,18 @@ const DEFAULT_SWATCHES = [
   '#0ea5e9', '#6366f1', '#a855f7', '#ec4899',
 ];
 
+/** EyeDropper API (not yet in the TS DOM lib) */
+interface EyeDropperConstructor {
+  new (): { open: () => Promise<{ sRGBHex?: string } | undefined> };
+}
+type WindowWithEyeDropper = Window & { EyeDropper?: EyeDropperConstructor };
+
 export default function ColorField({ label, value, onChange, defaultValue, swatches = DEFAULT_SWATCHES }: Props) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
 
   const tryEyedropper = async () => {
-    const w: any = window;
+    const w = window as WindowWithEyeDropper;
     if (typeof w.EyeDropper === 'undefined') return;
     try {
       const ed = new w.EyeDropper();
@@ -34,7 +40,7 @@ export default function ColorField({ label, value, onChange, defaultValue, swatc
     } catch { /* user cancelled */ }
   };
 
-  const hasEyedropper = typeof (window as any).EyeDropper !== 'undefined';
+  const hasEyedropper = typeof (window as WindowWithEyeDropper).EyeDropper !== 'undefined';
   const isValidHex = /^#[0-9a-fA-F]{6}$/.test(value);
 
   return (

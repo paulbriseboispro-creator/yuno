@@ -169,7 +169,7 @@ export default function OwnerBilling() {
   const isPastDue = status === 'past_due';
 
   const getFeaturesForPlan = (code: PlanCode) => {
-    const groups: { title: string; features: { key: FeatureKey; labelKey: string }[] }[] = [
+    const groups: { title: string; features: DisplayFeature[] }[] = [
       { title: t('plan.coreFeatures'), features: CORE_FEATURES_LIST },
     ];
     if (code === 'essential' || code === 'pro' || code === 'elite') groups.push({ title: t('plan.essentialFeatures'), features: ESSENTIAL_FEATURES });

@@ -221,7 +221,7 @@ export default function OwnerPush() {
     if (!prefill) return;
     const tpl = PUSH_TEMPLATES.find((candidate) => candidate.key === prefill);
     if (tpl) pickTemplate(tpl);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [searchParams]);
 
   // URL par défaut : la soirée sélectionnée, sinon la page du club.

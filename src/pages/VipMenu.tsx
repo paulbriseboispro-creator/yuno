@@ -475,7 +475,8 @@ export default function VipMenu() {
       try {
         const byMenuItem = new Map<string, string>();
         (insertedItems ?? []).forEach(row => byMenuItem.set(row.menu_item_id, row.id));
-        const updates: Promise<unknown>[] = [];
+        // PromiseLike, pas Promise : un builder supabase est thenable sans être une Promise.
+        const updates: PromiseLike<unknown>[] = [];
         mixerPairingsRef.current.forEach((mixerIds, spiritId) => {
           const parentId = byMenuItem.get(spiritId);
           if (!parentId) return;

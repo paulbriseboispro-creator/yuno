@@ -8,8 +8,19 @@
 // (ticket / VIP / order confirmations) intentionally keep Yuno branding — that is
 // desirable brand exposure to fans and a revenue-critical path we leave untouched.
 
-// deno-lint-ignore no-explicit-any
-type AnySupabase = any;
+/** Minimal shape of the Supabase client used by this module. */
+type AnySupabase = {
+  from(table: string): {
+    select(columns: string): {
+      eq(
+        column: string,
+        value: string,
+      ): {
+        maybeSingle(): PromiseLike<{ data: { subscription_plan?: string | null } | null }>;
+      };
+    };
+  };
+};
 
 /**
  * Interrupteur global de l'abonnement clubs — période de lancement.

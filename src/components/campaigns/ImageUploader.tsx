@@ -41,8 +41,8 @@ export default function ImageUploader({
       const { data } = supabase.storage.from('email-assets').getPublicUrl(path);
       onChange(data.publicUrl);
       toast.success(t('em.iu.uploaded'));
-    } catch (e: any) {
-      toast.error(e.message || t('em.iu.uploadFailed'));
+    } catch (e) {
+      toast.error((e as Error).message || t('em.iu.uploadFailed'));
     } finally {
       setUploading(false);
     }

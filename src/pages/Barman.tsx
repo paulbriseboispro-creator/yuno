@@ -16,7 +16,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Order } from '@/types';
+import { CartItem, Order } from '@/types';
+import type { Json, Tables, TablesUpdate } from '@/integrations/supabase/types';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -62,9 +63,42 @@ const mainCard: React.CSSProperties = {
 
 const BARMAN_BAR_KEY = 'barman_selected_bar';
 
+/** Forme réelle des items dans la colonne Json `orders.items` (ancien format quantity/price ou nouveau qty/unitPrice). */
+type RawOrderItem = {
+  drinkId?: string;
+  id?: string;
+  name?: string;
+  qty?: number;
+  quantity?: number;
+  unitPrice?: number;
+  price?: number;
+  served?: boolean;
+  servedUnits?: boolean[];
+  prepUnits?: boolean[];
+};
+
+type NormalizedOrderItem = RawOrderItem & {
+  qty: number;
+  unitPrice: number;
+  drinkId: string;
+  name: string;
+};
+
+/** CartItem enrichi des unités à préparer, stockées dans le Json de commande. */
+type PrepCartItem = CartItem & { prepUnits?: boolean[] };
+
+type MultiOrderSegment = { orderId: string; indices: number[] };
+
+/** Ordre affiché portant les données multi-commandes attachées lors du scan QR. */
+type MultiServeOrder = Order & {
+  _multiOrderSegments?: MultiOrderSegment[];
+  _allOrdersData?: { id: string; items: unknown }[];
+};
+
 /** Normalize DB items (quantity/price) to app format (qty/unitPrice) */
-const normalizeOrderItems = (items: any[]): any[] =>
-  (items || []).map((item: any) => ({
+const normalizeOrderItems = (items: unknown): NormalizedOrderItem[] =>
+  // orders.items est une colonne Json : on la lit sous sa forme réelle RawOrderItem[]
+  ((items as RawOrderItem[] | null) || []).map((item) => ({
     ...item,
     qty: item.qty ?? item.quantity ?? 1,
     unitPrice: item.unitPrice ?? item.price ?? 0,
@@ -106,7 +140,7 @@ export default function Barman() {
   // B2: Enhanced notification sound for new orders — louder, longer, distinct vibration
   const playNewOrderSound = useCallback(() => {
     try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const ctx = new (window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)();
       const gain = ctx.createGain();
       gain.connect(ctx.destination);
       gain.gain.value = 0.7; // Louder
@@ -159,7 +193,7 @@ export default function Barman() {
           filter: `venue_id=eq.${staffVenueId}`,
         },
         (payload) => {
-          const newOrder = payload.new as any;
+          const newOrder = payload.new as Tables<'orders'>;
           if (newOrder.prep_requested && newOrder.status === 'paid') {
             playNewOrderSound();
             setNewOrderCount(prev => prev + 1);
@@ -176,8 +210,8 @@ export default function Barman() {
           filter: `venue_id=eq.${staffVenueId}`,
         },
         (payload) => {
-          const updated = payload.new as any;
-          const old = payload.old as any;
+          const updated = payload.new as Tables<'orders'>;
+          const old = payload.old as Partial<Tables<'orders'>>;
           // Sound when an order is newly prep_requested
           if (updated.prep_requested && !old.prep_requested && updated.status === 'paid') {
             playNewOrderSound();
@@ -313,7 +347,7 @@ export default function Barman() {
       if (error) throw error;
 
       const now = new Date();
-      let filteredData = (data || []).filter((order) => {
+      const filteredData = (data || []).filter((order) => {
         // Exclude orders from ended events
         const isEventActive = !order.events || (new Date(order.events.end_at) > now);
         
@@ -331,7 +365,7 @@ export default function Barman() {
         id: order.id,
         userEmail: order.user_email || undefined,
         venueId: order.venue_id,
-        items: normalizeOrderItems(order.items as any[]),
+        items: normalizeOrderItems(order.items),
         total: Number(order.total),
         status: order.status as 'pending' | 'paid' | 'served',
         createdAt: order.created_at,
@@ -363,7 +397,7 @@ export default function Barman() {
       });
       stream.getTracks().forEach((track) => track.stop());
       return true;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Camera permission denied:', error);
       return false;
     }
@@ -472,12 +506,12 @@ export default function Barman() {
         orderSegments.forEach(seg => {
           const order = ordersData.find(o => o.id === seg.orderId);
           if (!order) return;
-          const items = normalizeOrderItems(order.items as any[]);
+          const items = normalizeOrderItems(order.items);
           
           // Build expanded items for this order
           const expandedItems: { name: string; unitPrice: number; expandedIdx: number; served: boolean }[] = [];
           let expandedIdx = 0;
-          items.forEach((item: any) => {
+          items.forEach((item) => {
             const qty = Math.max(0, Number(item.qty) || 0);
             const servedUnits = Array.isArray(item.servedUnits) ? item.servedUnits : [];
             for (let i = 0; i < qty; i++) {
@@ -548,7 +582,8 @@ export default function Barman() {
           id: orderSegments[0].orderId,
           userEmail: firstOrder.user_email || undefined,
           venueId: firstOrder.venue_id,
-          items: allSelectedItems as any,
+          // Items d'affichage sans drinkId : suffisant pour le dialog de service
+          items: allSelectedItems as CartItem[],
           total: allSelectedItems.reduce((sum, it) => sum + it.unitPrice * it.qty, 0),
           status: firstOrder.status as 'pending' | 'paid' | 'served',
           createdAt: firstOrder.created_at,
@@ -562,8 +597,8 @@ export default function Barman() {
         };
 
         // Store multi-order serving info
-        (mappedOrder as any)._multiOrderSegments = orderSegments;
-        (mappedOrder as any)._allOrdersData = ordersData;
+        (mappedOrder as MultiServeOrder)._multiOrderSegments = orderSegments;
+        (mappedOrder as MultiServeOrder)._allOrdersData = ordersData;
 
         setSelectedOrder(mappedOrder);
         return;
@@ -639,7 +674,7 @@ export default function Barman() {
           id: order.id,
           userEmail: order.user_email || undefined,
           venueId: order.venue_id,
-          items: normalizeOrderItems(order.items as any[]),
+          items: normalizeOrderItems(order.items),
           total: Number(order.total),
           status: order.status as 'pending' | 'paid' | 'served',
           createdAt: order.created_at,
@@ -710,7 +745,7 @@ export default function Barman() {
         id: order.id,
         userEmail: order.user_email || undefined,
         venueId: order.venue_id,
-        items: normalizeOrderItems(order.items as any[]),
+        items: normalizeOrderItems(order.items),
         total: Number(order.total),
         status: order.status as 'pending' | 'paid' | 'served',
         createdAt: order.created_at,
@@ -761,9 +796,9 @@ export default function Barman() {
       toast.success(t('barman.cancelSuccess'));
       setOrderToCancel(null);
       fetchClickCollectOrders();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error cancelling order:', error);
-      toast.error(error.message || t('barman.cancelError'));
+      toast.error((error as Error).message || t('barman.cancelError'));
     } finally {
       setCancelling(false);
     }
@@ -784,7 +819,7 @@ export default function Barman() {
 
   const handleMoveToPrep = async (orderId: string) => {
     try {
-      const updateData: any = {
+      const updateData: TablesUpdate<'orders'> = {
         prep_status: 'preparing',
         prep_claimed_at: new Date().toISOString(),
         prep_claimed_by: user?.id,
@@ -839,34 +874,10 @@ export default function Barman() {
 
       if (error) throw error;
 
-      // Send push notification to the order owner.
-      // send-push-notification requires { user_id, payload } — the previous
-      // { orderId, userEmail, type } shape returned 400 and the client was
-      // never notified that the order was ready (the error was swallowed below).
-      try {
-        const { data: orderData } = await supabase
-          .from('orders')
-          .select('user_id')
-          .eq('id', preparingOrder.id)
-          .single();
-
-        if (orderData?.user_id) {
-          const itemsSummary = ((preparingOrder as any).items as any[])
-            ?.map((i: any) => `${i.qty}x ${i.name}`).join(', ') || 'Commande';
-          await supabase.functions.invoke('send-push-notification', {
-            body: {
-              user_id: orderData.user_id,
-              payload: {
-                title: 'Commande prête 🎉',
-                body: `${itemsSummary} – Viens récupérer ta commande !`,
-                url: '/my-orders',
-              },
-            },
-          });
-        }
-      } catch (notifError) {
-        console.error('Error sending notification:', notifError);
-      }
+      // Le push « commande prête » part côté serveur : le trigger DB
+      // notify_order_live_activity détecte ready_at NULL→non-NULL et envoie
+      // l'action 'order_ready' (relay trilingue, gated par le registre). Pas de
+      // push direct ici — c'était un doublon en français seul pour tous.
 
       // Close preparation view
       setPreparingOrder(null);
@@ -883,17 +894,17 @@ export default function Barman() {
     if (!selectedOrder) return;
 
     try {
-      const multiSegments = (selectedOrder as any)._multiOrderSegments as { orderId: string; indices: number[] }[] | undefined;
-      const allOrdersData = (selectedOrder as any)._allOrdersData as any[] | undefined;
+      const multiSegments = (selectedOrder as MultiServeOrder)._multiOrderSegments;
+      const allOrdersData = (selectedOrder as MultiServeOrder)._allOrdersData;
 
       if (multiSegments && allOrdersData) {
         // Multi-order serving: update each order separately
         for (const seg of multiSegments) {
-          const orderData = allOrdersData.find((o: any) => o.id === seg.orderId);
+          const orderData = allOrdersData.find((o) => o.id === seg.orderId);
           if (!orderData) continue;
 
-          const items = normalizeOrderItems(orderData.items as any[]);
-          const updatedItems = items.map((item: any) => {
+          const items = normalizeOrderItems(orderData.items);
+          const updatedItems = items.map((item) => {
             const qty = Math.max(0, Number(item.qty) || 0);
             const existingServedUnits = Array.isArray(item.servedUnits) ? item.servedUnits : [];
             return {
@@ -903,7 +914,7 @@ export default function Barman() {
           });
 
           let expandedIdx = 0;
-          updatedItems.forEach((item: any) => {
+          updatedItems.forEach((item) => {
             for (let i = 0; i < item.qty; i++) {
               if (seg.indices.includes(expandedIdx)) {
                 item.servedUnits[i] = true;
@@ -912,8 +923,8 @@ export default function Barman() {
             }
           });
 
-          const allServed = updatedItems.every((item: any) => 
-            item.servedUnits.every((s: boolean) => s)
+          const allServed = updatedItems.every((item) =>
+            item.servedUnits.every((s) => s)
           );
 
           if (allServed) {
@@ -1132,13 +1143,15 @@ export default function Barman() {
                   onScan={(result) => {
                     if (!result) return;
 
+                    // La lib peut renvoyer string, tableau de codes ou objet { rawValue } selon la version
+                    const raw = result as unknown;
                     let value: string | undefined;
-                    if (typeof result === 'string') {
-                      value = result;
-                    } else if (Array.isArray(result) && result[0]) {
-                      value = (result[0] as any).rawValue ?? String(result[0]);
-                    } else if (typeof (result as any).rawValue === 'string') {
-                      value = (result as any).rawValue;
+                    if (typeof raw === 'string') {
+                      value = raw;
+                    } else if (Array.isArray(raw) && raw[0]) {
+                      value = (raw[0] as { rawValue?: string }).rawValue ?? String(raw[0]);
+                    } else if (typeof (raw as { rawValue?: unknown }).rawValue === 'string') {
+                      value = (raw as { rawValue: string }).rawValue;
                     }
 
                     if (value) {
@@ -1289,8 +1302,9 @@ export default function Barman() {
                       {(() => {
                         const grouped: { name: string; qty: number }[] = [];
                         order.items.forEach((item) => {
-                          const prepCount = Array.isArray((item as any).prepUnits)
-                            ? (item as any).prepUnits.filter((p: boolean) => p).length
+                          const prepUnits = (item as PrepCartItem).prepUnits;
+                          const prepCount = Array.isArray(prepUnits)
+                            ? prepUnits.filter((p) => p).length
                             : item.qty;
                           if (prepCount <= 0) return;
                           const existing = grouped.find(g => g.name === item.name);

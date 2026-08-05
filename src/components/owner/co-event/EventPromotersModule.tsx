@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { promoterConversionRate } from '@/lib/promoterMetrics';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -87,25 +88,28 @@ export function EventPromotersModule({ eventId }: Props) {
         const clickCounts: Record<string, number> = {};
         (clicks || []).forEach(c => { clickCounts[c.promoter_id] = (clickCounts[c.promoter_id] || 0) + 1; });
 
-        const convStats: Record<string, { conversions: number; revenue: number; commission: number; tickets: number }> = {};
+        const convStats: Record<string, { conversions: number; revenue: number; commission: number; tickets: number; tables: number }> = {};
         let totRevenue = 0, totCommission = 0, totTickets = 0;
         (conversions || []).forEach(c => {
-          if (!convStats[c.promoter_id]) convStats[c.promoter_id] = { conversions: 0, revenue: 0, commission: 0, tickets: 0 };
+          if (!convStats[c.promoter_id]) convStats[c.promoter_id] = { conversions: 0, revenue: 0, commission: 0, tickets: 0, tables: 0 };
           const amt = Number(c.amount || 0);
           const com = Number(c.commission || 0);
+          const live = c.status !== 'cancelled';
           convStats[c.promoter_id].conversions++;
           convStats[c.promoter_id].revenue += amt;
           convStats[c.promoter_id].commission += com;
-          if (c.conversion_type === 'ticket' && amt > 0) convStats[c.promoter_id].tickets++;
+          // Ventes payantes pour le taux de conversion (billets + tables, hors remboursées).
+          if (live && c.conversion_type === 'ticket' && amt > 0) convStats[c.promoter_id].tickets++;
+          if (live && c.conversion_type === 'table' && amt > 0) convStats[c.promoter_id].tables++;
           totRevenue += amt;
           totCommission += com;
-          if (c.conversion_type === 'ticket' && amt > 0) totTickets++;
+          if (live && c.conversion_type === 'ticket' && amt > 0) totTickets++;
         });
 
         const mapped: PromoterEventStats[] = (promoterRows || []).map(p => {
           const prof = profileMap.get(p.user_id);
           const clk = clickCounts[p.id] || 0;
-          const conv = convStats[p.id] || { conversions: 0, revenue: 0, commission: 0, tickets: 0 };
+          const conv = convStats[p.id] || { conversions: 0, revenue: 0, commission: 0, tickets: 0, tables: 0 };
           return {
             promoterId: p.id,
             userId: p.user_id,
@@ -118,7 +122,7 @@ export function EventPromotersModule({ eventId }: Props) {
             conversions: conv.conversions,
             revenue: conv.revenue,
             commission: conv.commission,
-            conversionRate: clk > 0 ? (conv.conversions / clk) * 100 : 0,
+            conversionRate: promoterConversionRate(conv.tickets + conv.tables, clk),
           };
         }).sort((a, b) => b.revenue - a.revenue);
 

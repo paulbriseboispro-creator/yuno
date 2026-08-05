@@ -203,7 +203,9 @@ export function LiveModeProvider({ children }: { children: ReactNode }) {
         demoForced ? 'demo_live_session' : 'get_live_session'
       );
       if (error) throw error;
-      const row = (Array.isArray(data) ? data[0] : data) as LiveSessionRow | undefined;
+      // Double cast : le RPC est appelé via un wrapper type-erased (nom dynamique),
+      // le retour est l'union de tous les RPC — on assume la forme explicitement.
+      const row = (Array.isArray(data) ? data[0] : data) as unknown as LiveSessionRow | undefined;
       const next = row ? mapRow(row) : null;
       setSession(next);
       setExited(readExitFlag(next?.state === 'live' ? next.eventId : undefined));

@@ -24,8 +24,30 @@ export type OptInMap = Map<
   Array<{ venueId: string | null; organizerUserId: string | null; token: string | null }>
 >;
 
+/** Row shape for the newsletter_subscriptions select below. */
+interface NewsletterSubscriptionRow {
+  email: string;
+  venue_id: string | null;
+  organizer_user_id: string | null;
+  unsubscribe_token: string | null;
+}
+
+/** Minimal shape of the Supabase admin client used by this module. */
+interface OptInClient {
+  from(table: string): {
+    select(columns: string): {
+      eq(column: string, value: boolean): {
+        in(
+          column: string,
+          values: string[],
+        ): PromiseLike<{ data: NewsletterSubscriptionRow[] | null; error: unknown }>;
+      };
+    };
+  };
+}
+
 export async function loadOptIns(
-  admin: any,
+  admin: OptInClient,
   emails: (string | null | undefined)[],
 ): Promise<OptInMap> {
   const map: OptInMap = new Map();

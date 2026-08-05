@@ -25,6 +25,29 @@ function emailFrom(): string {
     : "Yuno <noreply@yunoapp.eu>";
 }
 
+// Un lien de confirmation dans un email DOIT toujours pointer vers une URL https
+// PUBLIQUE. L'app native envoie son origin `capacitor://localhost` (ou
+// `https://localhost`) dans le body/header : construire un lien avec ça = lien
+// mort. On clampe donc côté serveur sur une allowlist https publique, et on
+// retombe sur https://yunoapp.eu pour tout le reste (localhost/capacitor inclus,
+// même si ces origines sont acceptées côté CORS).
+function safeEmailOrigin(raw: unknown): string {
+  const FALLBACK = "https://yunoapp.eu";
+  if (typeof raw !== "string" || !raw) return FALLBACK;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return FALLBACK;
+  }
+  if (url.protocol !== "https:") return FALLBACK;
+  const host = url.hostname.toLowerCase();
+  if (host === "yunoapp.eu") return `https://${host}`;
+  if (/^([a-z0-9-]+\.)?paul-brisebois-pro\.workers\.dev$/.test(host)) return `https://${host}`;
+  // https://localhost et tout autre hôte non allowlisté → domaine public.
+  return FALLBACK;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -154,7 +177,7 @@ serve(async (req) => {
         lang = profile.preferred_language as EmailLanguage;
       }
 
-      const verifyUrl = `${origin}/settings?email_change_token=${request.token}`;
+      const verifyUrl = `${safeEmailOrigin(origin)}/settings?email_change_token=${request.token}`;
 
       const subjects: Record<EmailLanguage, string> = {
         fr: "Vérification du changement d'email",
@@ -235,11 +258,16 @@ serve(async (req) => {
         return new Response(JSON.stringify({ error: "Invalid request" }), { status: 400, headers: jsonHeaders });
       }
 
-      const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-      const emailInUse = existingUsers?.users?.some(
-        (u) => u.email?.toLowerCase() === new_email.toLowerCase() && u.id !== user.id,
-      );
-      if (emailInUse) {
+      // Unicité de l'email : requête indexée sur profiles (l'ancien listUsers()
+      // ne lisait que la 1re page ~50 comptes → doublons possibles au-delà).
+      // L'unicité réelle reste garantie par auth.updateUserById à l'étape verify.
+      const { data: existingProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("id")
+        .eq("email", new_email.toLowerCase())
+        .neq("id", user.id)
+        .maybeSingle();
+      if (existingProfile) {
         return new Response(JSON.stringify({ error: "Email already in use" }), { status: 400, headers: jsonHeaders });
       }
 
@@ -265,7 +293,7 @@ serve(async (req) => {
         lang = profile.preferred_language as EmailLanguage;
       }
 
-      const verifyUrl = `${origin}/settings?email_change_token=${newToken}`;
+      const verifyUrl = `${safeEmailOrigin(origin)}/settings?email_change_token=${newToken}`;
 
       const subjects: Record<EmailLanguage, string> = {
         fr: "Confirme ta nouvelle adresse email",

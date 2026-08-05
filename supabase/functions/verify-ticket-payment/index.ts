@@ -5,10 +5,22 @@ import { restrictedCorsHeaders } from '../_shared/cors.ts';
 import { recordSmsConsent } from '../_shared/sms-consent.ts';
 import { sendAutoPush, localizedDate } from '../_shared/auto-push.ts';
 
-const logStep = (step: string, details?: any) => {
+const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[VERIFY-TICKET-PAYMENT] ${step}${detailsStr}`);
 };
+
+// Embeds du select tickets (guest confirmation) — champs réellement consommés.
+interface TicketEventEmbed {
+  title: string;
+  start_at: string;
+  venue_id: string | null;
+  poster_url: string | null;
+}
+interface TicketRoundEmbed {
+  name: string;
+  price: number;
+}
 
 serve(async (req) => {
   const corsHeaders = restrictedCorsHeaders(req);
@@ -458,9 +470,12 @@ serve(async (req) => {
             const { data: convResult, error: convError } = await supabaseAdmin.rpc('record_promoter_conversion', {
               p_promoter_id: resolvedPromoterId,
               p_conversion_type: 'ticket',
+              // Base BRUT (unit_price × qty, hors remise) — cohérent avec le
+              // chemin démo ; la remise est reportée à part via p_discount.
               p_amount: (ticket.unit_price || 0) * (ticket.quantity || 1),
               p_event_id: ticket.event_id,
               p_ticket_id: ticket.id,
+              p_discount: Number(session.metadata?.promoDiscount || 0),
             });
             if (convError) logStep("Promoter conversion FAILED", { error: convError.message });
             else logStep("Promoter conversion recorded", convResult);
@@ -723,7 +738,7 @@ serve(async (req) => {
       // Fetch full ticket details for the guest confirmation page. This is a
       // read-only lookup and stays OUTSIDE the idempotency guard so the page
       // still renders correctly on reloads / when the webhook did the processing.
-      let ticketDetails: any = undefined;
+      let ticketDetails: Record<string, unknown> | undefined = undefined;
       if (isGuestTicket) {
         try {
           const { data: fullTicket } = await supabaseAdmin
@@ -740,7 +755,7 @@ serve(async (req) => {
             // Standalone organizer events have no venue_id — skip the venue lookup
             // entirely instead of querying `.eq('id', null)` (which errors and would
             // leave the guest confirmation page without an issuer name).
-            const ticketVenueId = (fullTicket.events as any).venue_id as string | null;
+            const ticketVenueId = (fullTicket.events as TicketEventEmbed).venue_id;
             const { data: venue } = ticketVenueId
               ? await supabaseAdmin
                   .from('venues')
@@ -758,11 +773,11 @@ serve(async (req) => {
             ticketDetails = {
               id: fullTicket.id,
               qrCode: fullTicket.qr_code,
-              eventTitle: (fullTicket.events as any).title,
-              eventDate: (fullTicket.events as any).start_at,
-              eventPosterUrl: (fullTicket.events as any).poster_url,
-              roundName: (fullTicket.ticket_rounds as any).name,
-              roundPrice: (fullTicket.ticket_rounds as any).price,
+              eventTitle: (fullTicket.events as TicketEventEmbed).title,
+              eventDate: (fullTicket.events as TicketEventEmbed).start_at,
+              eventPosterUrl: (fullTicket.events as TicketEventEmbed).poster_url,
+              roundName: (fullTicket.ticket_rounds as TicketRoundEmbed).name,
+              roundPrice: (fullTicket.ticket_rounds as TicketRoundEmbed).price,
               quantity: fullTicket.quantity,
               totalPrice: fullTicket.total_price,
               serviceFee: fullTicket.service_fee,

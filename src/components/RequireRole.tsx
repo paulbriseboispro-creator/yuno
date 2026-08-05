@@ -7,7 +7,11 @@ import { Shimmer, SkeletonLine } from '@/components/skeletons/Shimmer';
 
 interface RequireRoleProps {
   children: React.ReactNode;
-  allowedRoles: Role[];
+  allowedRoles?: Role[];
+  // Pages perso (favoris, réglages, profil) : tout utilisateur CONNECTÉ y a
+  // droit, quel que soit son rôle. Évite qu'un compte organisateur/promoteur pur
+  // soit renvoyé à l'accueil sans explication depuis sa propre page perso.
+  allowAnyAuthenticated?: boolean;
 }
 
 /* Le garde de rôle affichait un spinner plein écran, donc CHAQUE ouverture de
@@ -40,7 +44,7 @@ function RoleGateSkeleton() {
   );
 }
 
-export function RequireRole({ children, allowedRoles }: RequireRoleProps) {
+export function RequireRole({ children, allowedRoles = [], allowAnyAuthenticated = false }: RequireRoleProps) {
   const { user, loading, roles } = useAuth();
   const location = useLocation();
   const [authChecked, setAuthChecked] = useState(false);
@@ -95,6 +99,11 @@ export function RequireRole({ children, allowedRoles }: RequireRoleProps) {
   // Compte suspendu par un admin → page dédiée (coupe l'accès pro).
   if (suspended) {
     return <Navigate to="/account-suspended" replace />;
+  }
+
+  // Un utilisateur connecté et non suspendu accède à ses pages perso sans rôle.
+  if (allowAnyAuthenticated) {
+    return <>{children}</>;
   }
 
   const hasAllowedRole = allowedRoles.some(role => roles.includes(role));

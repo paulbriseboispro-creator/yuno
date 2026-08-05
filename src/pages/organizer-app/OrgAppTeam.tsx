@@ -115,7 +115,7 @@ export default function OrgAppTeam() {
       if (data?.error) throw new Error(data.error);
       toast.success(t('Invitation envoyée', 'Invitation sent'));
       setMemberEmail(''); setMemberRole('editor'); setTeamOpen(false); loadMembers();
-    } catch (e: any) { toast.error(e.message ?? 'Erreur'); }
+    } catch (e) { toast.error((e as Error).message ?? 'Erreur'); }
     finally { setSubmittingTeam(false); }
   };
 
@@ -146,7 +146,7 @@ export default function OrgAppTeam() {
       if (data?.error) throw new Error(data.error);
       toast.success(t('PIN configuré', 'PIN set'));
       setScannerPinTarget(null); setScannerPinValue(''); loadMembers();
-    } catch (e: any) { toast.error(e.message ?? 'Erreur'); }
+    } catch (e) { toast.error((e as Error).message ?? 'Erreur'); }
     finally { setSettingScannerPin(false); }
   };
 
@@ -167,7 +167,7 @@ export default function OrgAppTeam() {
       toast.success(t("Invitation envoyée · l'employé définira son propre PIN", 'Invitation sent · the employee will set their own PIN'));
       setStaffEmail(''); setStaffName(''); setStaffRole('barman'); setStaffOpen(false);
       loadStaff();
-    } catch (e: any) { toast.error(e.message ?? 'Erreur'); }
+    } catch (e) { toast.error((e as Error).message ?? 'Erreur'); }
     finally { setSubmittingStaff(false); }
   };
 
@@ -187,7 +187,7 @@ export default function OrgAppTeam() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       toast.success(t('Invitation renvoyée', 'Invitation resent'));
-    } catch (e: any) { toast.error(e.message ?? 'Erreur'); }
+    } catch (e) { toast.error((e as Error).message ?? 'Erreur'); }
   };
 
   const cancelStaffInvite = async (id: string) => {

@@ -28,7 +28,17 @@ export function ExploreVenueCard({ venue }: { venue: ExploreVenueItem }) {
   return (
     <div
       onClick={handleClick}
-      className="shrink-0 cursor-pointer"
+      role="button"
+      tabIndex={0}
+      aria-label={venue.name}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleClick();
+        }
+      }}
+      className="shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       style={{ width: 148 }}
     >
       <div

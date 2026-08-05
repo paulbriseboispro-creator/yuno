@@ -5,7 +5,20 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist"] },
+  {
+    ignores: [
+      "dist",
+      "dev-dist",
+      // Bundles générés / code vendored (design-sync) — jamais lintés :
+      // ds-bundle/_vendor/react.js est le source de React, pas notre code.
+      "ds-bundle",
+      ".design-sync",
+      ".ds-sync",
+      // Projet natif iOS (généré par Capacitor) et sorties wrangler.
+      "ios",
+      ".wrangler",
+    ],
+  },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

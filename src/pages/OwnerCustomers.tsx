@@ -252,7 +252,7 @@ export default function OwnerCustomers() {
           preferred_dow: null, preferred_event_title: null, emailOnly: true,
         }));
       setWarnedCustomers([...accountRows, ...emailOnly]);
-    } catch {}
+    } catch { /* best-effort : la liste des signalements reste vide */ }
   };
 
   const fetchCustomerIncidents = async (customerId: string) => {
@@ -261,7 +261,7 @@ export default function OwnerCustomers() {
       const { data, error } = await supabase.from('customer_incidents').select('*').eq('venue_customer_id', customerId).order('created_at', { ascending: false }).limit(20);
       if (error) throw error;
       setIncidents(data || []);
-    } catch {}
+    } catch { /* best-effort : les incidents restent vides */ }
   };
 
   const handleBanCustomer = async () => {

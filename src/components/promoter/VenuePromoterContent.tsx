@@ -26,6 +26,7 @@ import {
 import { Instagram } from '@/components/icons/Instagram';
 import QRCode from 'qrcode';
 import { shareContent } from '@/lib/share';
+import { promoterConversionRate } from '@/lib/promoterMetrics';
 import type { PromoterStats, PromoterEventStats } from '@/types/promoter';
 
 
@@ -393,7 +394,7 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
     if (!shownIds.length) { setEventStats([]); setEventStatsLoading(false); return; }
 
     const { data: clicks } = await supabase.from('promoter_clicks').select('event_id').eq('promoter_id', promoter.id).in('event_id', shownIds);
-    const { data: convs } = await supabase.from('promoter_conversions').select('event_id, amount, commission, conversion_type').eq('promoter_id', promoter.id).in('event_id', shownIds);
+    const { data: convs } = await supabase.from('promoter_conversions').select('event_id, amount, commission, conversion_type, status').eq('promoter_id', promoter.id).in('event_id', shownIds);
 
     const clickMap: Record<string, number> = {};
     (clicks || []).forEach(c => { if (c.event_id) clickMap[c.event_id] = (clickMap[c.event_id] || 0) + 1; });
@@ -402,8 +403,9 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
     (convs || []).forEach(c => {
       if (!c.event_id) return;
       if (!convMap[c.event_id]) convMap[c.event_id] = { tickets: 0, tables: 0, revenue: 0, commission: 0 };
-      if (c.conversion_type === 'ticket' && (c.amount || 0) > 0) convMap[c.event_id].tickets++;
-      else if (c.conversion_type === 'table' && (c.amount || 0) > 0) convMap[c.event_id].tables++;
+      const live = c.status !== 'cancelled';
+      if (live && c.conversion_type === 'ticket' && (c.amount || 0) > 0) convMap[c.event_id].tickets++;
+      else if (live && c.conversion_type === 'table' && (c.amount || 0) > 0) convMap[c.event_id].tables++;
       convMap[c.event_id].revenue += c.amount || 0;
       convMap[c.event_id].commission += c.commission || 0;
     });
@@ -423,7 +425,7 @@ export function VenuePromoterContent({ promoter, stats, announcements, onProfile
         tablesReserved: cv.tables,
         revenue: cv.revenue,
         commission: cv.commission,
-        conversionRate: cl > 0 ? (cv.tickets / cl) * 100 : 0,
+        conversionRate: promoterConversionRate(cv.tickets + cv.tables, cl),
         goalTarget: gt,
         goalProgress: gt ? Math.min(100, (cv.tickets / gt) * 100) : undefined,
       };

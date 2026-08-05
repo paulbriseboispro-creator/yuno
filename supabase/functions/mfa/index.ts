@@ -40,6 +40,26 @@ function generateRecoveryCode(): string {
   return new TextDecoder().decode(hexBytes).toUpperCase();
 }
 
+// Un lien de confirmation dans un email DOIT toujours pointer vers une URL https
+// PUBLIQUE. Le header Origin de l'app native vaut `capacitor://localhost` (ou
+// `https://localhost`) → un lien construit avec ça est mort. On clampe donc sur
+// une allowlist https publique, fallback https://yunoapp.eu pour tout le reste.
+function safeEmailOrigin(raw: unknown): string {
+  const FALLBACK = "https://yunoapp.eu";
+  if (typeof raw !== "string" || !raw) return FALLBACK;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return FALLBACK;
+  }
+  if (url.protocol !== "https:") return FALLBACK;
+  const host = url.hostname.toLowerCase();
+  if (host === "yunoapp.eu") return `https://${host}`;
+  if (/^([a-z0-9-]+\.)?paul-brisebois-pro\.workers\.dev$/.test(host)) return `https://${host}`;
+  return FALLBACK;
+}
+
 // Simple in-memory rate limit for verify-login (keyed by user id)
 const rateLimitMap = new Map<string, { attempts: number; resetAt: number }>();
 function checkRateLimit(userId: string): boolean {
@@ -191,7 +211,7 @@ serve(async (req) => {
       if (!resendApiKey) throw new Error("Configuration email manquante");
 
       const resend = new Resend(resendApiKey);
-      const origin = req.headers.get("origin") || "https://yunoapp.eu";
+      const origin = safeEmailOrigin(req.headers.get("origin"));
       const confirmUrl = `${origin}/mfa-disable-confirm?token=${token}`;
 
       const mail = buildSecureLink({

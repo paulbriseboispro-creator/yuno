@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesUpdate } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -55,7 +56,8 @@ export function OrgBilletterieDialog({ eventId, open, onOpenChange, onCreate, on
     setLoading(true);
     (async () => {
       const { data, error } = await supabase.rpc('get_partner_venue_ticket_presets', { p_event_id: eventId });
-      if (error) { setPresets([]); } else { setPresets(((data as any[]) ?? []) as ClubPreset[]); }
+      // Le RPC type `rounds` en Json ; ClubPreset précise la forme réelle des rounds.
+      if (error) { setPresets([]); } else { setPresets(((data ?? []) as unknown as ClubPreset[])); }
       setLoading(false);
     })();
   }, [open, eventId]);
@@ -75,7 +77,7 @@ export function OrgBilletterieDialog({ eventId, open, onOpenChange, onCreate, on
       // Replace existing rounds of the same ticket type, then insert the template's.
       const { data: existing } = await supabase
         .from('ticket_rounds').select('id, ticket_type').eq('event_id', eventId);
-      const sameType = (existing ?? []).filter((r: any) => (r.ticket_type ?? 'standard') === type).map((r: any) => r.id);
+      const sameType = (existing ?? []).filter((r) => (r.ticket_type ?? 'standard') === type).map((r) => r.id);
       if (sameType.length > 0) await supabase.from('ticket_rounds').delete().in('id', sameType);
 
       const rows = (preset.rounds ?? []).map((r, i) => ({
@@ -97,7 +99,7 @@ export function OrgBilletterieDialog({ eventId, open, onOpenChange, onCreate, on
       const { error: insErr } = await supabase.from('ticket_rounds').insert(rows);
       if (insErr) throw insErr;
 
-      const update: Record<string, unknown> = { ticketing_enabled: true };
+      const update: TablesUpdate<'events'> = { ticketing_enabled: true };
       if (mode === 'timed_entry') update.ticket_selling_mode = 'timed_entry';
       const { error: evErr } = await supabase.from('events').update(update).eq('id', eventId);
       if (evErr) throw evErr;
@@ -105,8 +107,8 @@ export function OrgBilletterieDialog({ eventId, open, onOpenChange, onCreate, on
       toast.success(tt('Billetterie en ligne', 'Ticketing is live'));
       onActivated?.();
       onOpenChange(false);
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (e) {
+      toast.error((e as Error).message);
     } finally {
       setApplyingId(null);
     }

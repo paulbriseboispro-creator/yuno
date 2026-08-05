@@ -66,6 +66,10 @@ export default function GuestListCheckout() {
   const [entriesCount, setEntriesCount] = useState(0);
   const [genderCount, setGenderCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  // Distingue « invitation introuvable » (data vide) d'un échec réseau/RLS :
+  // un hoquet réseau ne doit pas afficher « introuvable » (symptôme identique
+  // au cache PWA périmé, rend les vrais bugs indiscernables).
+  const [loadError, setLoadError] = useState(false);
   const [venuePlan, setVenuePlan] = useState<string>('core');
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -111,14 +115,16 @@ export default function GuestListCheckout() {
 
   const fetchGuestList = async () => {
     if (!eventId) { setLoading(false); return; }
+    setLoadError(false);
     try {
       // Public-only gate: a direct URL must point at a list the club chose to show.
-      const { data: glRows } = await supabase
+      const { data: glRows, error: glError } = await supabase
         .from('guest_lists')
         .select('id, quota, quota_female, quota_male, free_before_time, includes_drink, show_remaining, share_token, holder_type, events!inner(id, title, start_at, end_at, venue_id, poster_url)')
         .eq('event_id', eventId)
         .eq('is_active', true)
         .eq('visible_on_club_page', true);
+      if (glError) throw glError;
       // Liste club prioritaire ; sinon la première part marquée « publique » (visibilité
       // choisie dans son preset). Les parts non visibles restent accessibles par lien.
       const gl = (glRows || []).find((r: { holder_type?: string }) => r.holder_type === 'club') ?? (glRows || [])[0] ?? null;
@@ -174,6 +180,7 @@ export default function GuestListCheckout() {
       }
     } catch (err) {
       console.error('Error fetching guest list:', err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -255,6 +262,18 @@ export default function GuestListCheckout() {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: '#0A0A0A' }}>
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  // ── Échec réseau/RLS : « connexion impossible » + réessai, pas « introuvable » ──
+  if (loadError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 gap-4" style={{ background: '#0A0A0A' }}>
+        <p className="font-mono uppercase text-[11px] tracking-[0.06em] text-[#9A9A9A]">{t('guestList.loadError')}</p>
+        <Button variant="outline" onClick={() => { setLoading(true); fetchGuestList(); }}>
+          {t('common.retry')}
+        </Button>
       </div>
     );
   }

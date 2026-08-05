@@ -32,6 +32,9 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
   }, [promoterId, eventId]);
 
   async function fetchScannedCount() {
+    // 1. Billets du promoteur, comptés seulement s'ils sont scannés à la porte
+    //    (la conversion billet est créée à l'ACHAT, pas au scan → on croise
+    //    tickets.entry_scanned).
     const { data: convs } = await supabase.from('promoter_conversions')
       .select('ticket_id')
       .eq('promoter_id', promoterId)
@@ -39,15 +42,30 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
       .eq('conversion_type', 'ticket')
       .not('ticket_id', 'is', null);
 
-    if (!convs || convs.length === 0) { setScannedCount(0); return; }
+    let ticketScanned = 0;
+    const ticketIds = (convs ?? []).map(c => c.ticket_id).filter(Boolean) as string[];
+    if (ticketIds.length > 0) {
+      const { count } = await supabase.from('tickets')
+        .select('*', { count: 'exact', head: true })
+        .in('id', ticketIds)
+        .eq('entry_scanned', true);
+      ticketScanned = count || 0;
+    }
 
-    const ticketIds = convs.map(c => c.ticket_id).filter(Boolean) as string[];
-    const { count } = await supabase.from('tickets')
+    // 2. Entrées guest list scannées. Une conversion 'guestlist' n'est créée
+    //    QU'AU scan (contrairement aux billets), donc chaque ligne EST un scan.
+    //    Sans ce second comptage, les scans guest list disparaissaient au
+    //    rechargement (le compteur ne lisait que les billets) : 40 invités
+    //    scannés dans la soirée, "0" après un refresh. Keyé sur promoter_id →
+    //    compte aussi les invités scannés par le bouncer du club ou l'orga.
+    const { count: glScanned } = await supabase.from('promoter_conversions')
       .select('*', { count: 'exact', head: true })
-      .in('id', ticketIds)
-      .eq('entry_scanned', true);
+      .eq('promoter_id', promoterId)
+      .eq('event_id', eventId)
+      .eq('conversion_type', 'guestlist')
+      .neq('status', 'cancelled');
 
-    setScannedCount(count || 0);
+    setScannedCount(ticketScanned + (glScanned || 0));
   }
 
   async function processQRCode(code: string) {

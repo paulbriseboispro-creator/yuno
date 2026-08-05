@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { subDays, subHours, startOfDay } from 'date-fns';
 import type { AnalyticsMode, DateRange } from '@/hooks/useAnalyticsData';
+import { promoterConversionRate } from '@/lib/promoterMetrics';
 
 /**
  * Promoter ROI — which promoters actually drive revenue, not just clicks.
@@ -69,7 +70,7 @@ export function usePromoterAnalytics({ venueId, dateRange, mode, selectedEventId
       const startDate = mode === 'event' ? null : getStartDate(dateRange);
       const eventFilter = mode === 'event' && selectedEventId ? selectedEventId : null;
 
-      let cq = supabase.from('promoter_conversions').select('promoter_id, amount, commission, event_id, created_at').in('promoter_id', ids);
+      let cq = supabase.from('promoter_conversions').select('promoter_id, amount, commission, event_id, created_at, conversion_type, status').in('promoter_id', ids);
       if (eventFilter) cq = cq.eq('event_id', eventFilter);
       else if (startDate) cq = cq.gte('created_at', startDate.toISOString());
       const { data: conversions } = await cq;
@@ -79,25 +80,27 @@ export function usePromoterAnalytics({ venueId, dateRange, mode, selectedEventId
       else if (startDate) kq = kq.gte('clicked_at', startDate.toISOString());
       const { data: clicks } = await kq;
 
-      const convByPromoter = new Map<string, { revenue: number; commission: number; count: number }>();
+      const convByPromoter = new Map<string, { revenue: number; commission: number; count: number; paid: number }>();
       (conversions || []).forEach((c: any) => {
-        const e = convByPromoter.get(c.promoter_id) || { revenue: 0, commission: 0, count: 0 };
+        const e = convByPromoter.get(c.promoter_id) || { revenue: 0, commission: 0, count: 0, paid: 0 };
         e.revenue += Number(c.amount) || 0;
         e.commission += Number(c.commission) || 0;
         e.count += 1;
+        // Ventes payantes (billets + tables, hors remboursées) pour le taux de conversion.
+        if (c.status !== 'cancelled' && (c.conversion_type === 'ticket' || c.conversion_type === 'table') && Number(c.amount) > 0) e.paid += 1;
         convByPromoter.set(c.promoter_id, e);
       });
       const clicksByPromoter = new Map<string, number>();
       (clicks || []).forEach((c: any) => clicksByPromoter.set(c.promoter_id, (clicksByPromoter.get(c.promoter_id) || 0) + 1));
 
       const rows: PromoterRow[] = (promoters || []).map(p => {
-        const conv = convByPromoter.get(p.id) || { revenue: 0, commission: 0, count: 0 };
+        const conv = convByPromoter.get(p.id) || { revenue: 0, commission: 0, count: 0, paid: 0 };
         const clk = clicksByPromoter.get(p.id) || 0;
         const name = [p.first_name, p.last_name].filter(Boolean).join(' ') || p.promo_code || '—';
         return {
           id: p.id, name, promoCode: p.promo_code, avatarUrl: p.profile_image_url,
           revenue: conv.revenue, commission: conv.commission, conversions: conv.count, clicks: clk,
-          convRate: clk > 0 ? Math.min((conv.count / clk) * 100, 100) : 0,
+          convRate: promoterConversionRate(conv.paid, clk),
         };
       })
       .filter(r => r.revenue > 0 || r.clicks > 0)
@@ -107,11 +110,12 @@ export function usePromoterAnalytics({ venueId, dateRange, mode, selectedEventId
       const totalCommission = rows.reduce((s, r) => s + r.commission, 0);
       const totalConversions = rows.reduce((s, r) => s + r.conversions, 0);
       const totalClicks = rows.reduce((s, r) => s + r.clicks, 0);
+      const totalPaid = rows.reduce((s, r) => s + (convByPromoter.get(r.id)?.paid || 0), 0);
 
       setData({
         promoters: rows,
         totalAttributed, totalCommission, totalConversions, totalClicks,
-        convRate: totalClicks > 0 ? Math.min((totalConversions / totalClicks) * 100, 100) : 0,
+        convRate: promoterConversionRate(totalPaid, totalClicks),
         roi: totalCommission > 0 ? totalAttributed / totalCommission : 0,
       });
     } catch (err) {

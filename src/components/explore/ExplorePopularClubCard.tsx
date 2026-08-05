@@ -31,17 +31,29 @@ export function ExplorePopularClubCard({ id, name, coverUrl, logoUrl, city, prim
   const imgSrc = coverUrl || logoUrl;
   const subtitle = [primaryGenre, city].filter(Boolean).join(' · ');
 
+  const handleOpen = () => {
+    sessionStorage.setItem('yuno_club_origin', 'explore');
+    if (isAffiliate && slug) {
+      navigate(`/affiliate-venue/${slug}`);
+    } else {
+      navigate(`/club/${id}`);
+    }
+  };
+
   return (
     <div
-      onClick={() => {
-        sessionStorage.setItem('yuno_club_origin', 'explore');
-        if (isAffiliate && slug) {
-          navigate(`/affiliate-venue/${slug}`);
-        } else {
-          navigate(`/club/${id}`);
+      onClick={handleOpen}
+      role="button"
+      tabIndex={0}
+      aria-label={name}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleOpen();
         }
       }}
-      className="shrink-0 cursor-pointer"
+      className="shrink-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       style={{ width: 282 }}
     >
       <div

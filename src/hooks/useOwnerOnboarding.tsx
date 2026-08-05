@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json, TablesUpdate } from '@/integrations/supabase/types';
 
 export type StepStatus = 'not_started' | 'in_progress' | 'completed' | 'skipped';
 export type Pillar = 'tickets' | 'tables' | 'drinks';
@@ -151,8 +152,9 @@ export function useOwnerOnboarding(venueId: string | null) {
             venue_id: venueId,
             owner_id: user.id,
             current_step: 1,
-            steps: DEFAULT_STEPS,
-          } as any)
+            // StepState records are plain JSON but TS can't prove Record<string, unknown> ⊆ Json.
+            steps: DEFAULT_STEPS as unknown as Json,
+          })
           .select()
           .single();
 
@@ -203,8 +205,9 @@ export function useOwnerOnboarding(venueId: string | null) {
           .find(n => steps[String(n)]?.status !== 'completed' && steps[String(n)]?.status !== 'skipped');
         currentStep = firstIncomplete ?? TOTAL_STEPS;
 
-        const update: any = {
-          steps,
+        const update: TablesUpdate<'venue_onboarding'> = {
+          // StepState records are plain JSON but TS can't prove Record<string, unknown> ⊆ Json.
+          steps: steps as unknown as Json,
           current_step: currentStep,
           updated_at: new Date().toISOString(),
         };
@@ -254,8 +257,9 @@ export function useOwnerOnboarding(venueId: string | null) {
       k => newSteps[k]?.status === 'completed' || newSteps[k]?.status === 'skipped',
     );
 
-    const update: any = {
-      steps: newSteps,
+    const update: TablesUpdate<'venue_onboarding'> = {
+      // StepState records are plain JSON but TS can't prove Record<string, unknown> ⊆ Json.
+      steps: newSteps as unknown as Json,
       current_step: newCurrentStep,
       updated_at: new Date().toISOString(),
     };
@@ -287,7 +291,7 @@ export function useOwnerOnboarding(venueId: string | null) {
     if (!state) return;
     const { error } = await supabase
       .from('venue_onboarding')
-      .update({ current_step: step, updated_at: new Date().toISOString() } as any)
+      .update({ current_step: step, updated_at: new Date().toISOString() })
       .eq('id', state.id);
     if (!error) {
       setState(prev => prev ? { ...prev, current_step: step } : null);

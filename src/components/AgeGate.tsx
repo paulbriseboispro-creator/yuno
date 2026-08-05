@@ -138,6 +138,8 @@ export function AgeGate({ userId, onVerified }: AgeGateProps) {
       </div>
       <button
         type="button"
+        role="checkbox"
+        aria-checked={attestation}
         onClick={() => setAttestation((v) => !v)}
         className="flex items-start gap-3 w-full text-left"
       >

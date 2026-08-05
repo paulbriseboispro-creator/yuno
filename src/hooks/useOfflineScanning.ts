@@ -182,7 +182,7 @@ export function useOfflineScanning(eventId: string | null, venueId: string | nul
     const map = indexRef.current;
     const hit = map?.get(qr.trim());
     if (!hit || !eventId || !venueId) {
-      return { verdict: { status: 'not_found' } as ScanVerdict, kind: 'not_found', name: null, entry: null, offline: true };
+      return { verdict: { status: 'not_found' }, kind: 'not_found', name: null, entry: null, offline: true };
     }
 
     // Le set local prime sur le manifeste (scans offline précédents non synchronisés).

@@ -55,8 +55,8 @@ export default function GuestFinalizeAccount() {
       if (fnError) throw fnError;
       if (data?.error) throw new Error(data.error);
       setContext(data);
-    } catch (err: any) {
-      setContextError(err.message || t('finalize.createError'));
+    } catch (err) {
+      setContextError((err as Error).message || t('finalize.createError'));
     } finally {
       setLoading(false);
     }

@@ -33,7 +33,7 @@ export function useCustomerAnalytics({ venueId }: { venueId?: string | null }) {
       const { data: rows, error } = await supabase.rpc('get_venue_customer_segments', { p_venue_id: venueId });
       if (error) throw error;
 
-      const customers = (rows || []) as any[];
+      const customers = rows || [];
       const total = customers.length;
       if (total === 0) {
         setData({ totalCustomers: 0, repeatRate: 0, avgClv: 0, revenue90: 0, revenuePrev90: 0, growth90: null, segments: [], topCustomers: [] });

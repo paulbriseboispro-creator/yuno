@@ -119,7 +119,7 @@ export function StatTile({
 }
 
 // ─── Pill / badge ────────────────────────────────────────────────────────────
-export function PromoPill({ children, tone = 'muted' }: { children: ReactNode; tone?: 'success' | 'muted' | 'danger' | 'red' | 'warn' }) {
+export function PromoPill({ children, tone = 'muted', style }: { children: ReactNode; tone?: 'success' | 'muted' | 'danger' | 'red' | 'warn'; style?: CSSProperties }) {
   const map = {
     success: { c: POS, bg: 'rgba(52,211,153,0.10)', b: 'rgba(52,211,153,0.25)' },
     danger:  { c: RED_SOFT, bg: 'rgba(255,92,99,0.10)', b: 'rgba(255,92,99,0.25)' },
@@ -128,7 +128,7 @@ export function PromoPill({ children, tone = 'muted' }: { children: ReactNode; t
     muted:   { c: T3, bg: TILE_BG, b: F_BORDER },
   }[tone];
   return (
-    <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 10.5, fontWeight: 600, color: map.c, background: map.bg, border: `1px solid ${map.b}`, whiteSpace: 'nowrap' }}>
+    <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 10.5, fontWeight: 600, color: map.c, background: map.bg, border: `1px solid ${map.b}`, whiteSpace: 'nowrap', ...style }}>
       {children}
     </span>
   );

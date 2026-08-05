@@ -42,6 +42,9 @@ export function DrinkCreditsCard({ venueId, ticketId, compact = false }: DrinkCr
   const [credits, setCredits] = useState<PackCredit[]>([]);
   const [events, setEvents] = useState<Record<string, EventInfo>>({});
   const [loading, setLoading] = useState(true);
+  // Distingue « aucun crédit » d'un échec réseau/RLS : ne jamais masquer en
+  // silence une carte de crédits déjà payés sur un simple hoquet réseau.
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
@@ -50,6 +53,8 @@ export function DrinkCreditsCard({ venueId, ticketId, compact = false }: DrinkCr
 
   const fetchCredits = async () => {
     if (!user) return;
+    setLoadError(false);
+    setLoading(true);
 
     let query = supabase
       .from('order_pack_credits')
@@ -60,7 +65,14 @@ export function DrinkCreditsCard({ venueId, ticketId, compact = false }: DrinkCr
     if (venueId) query = query.eq('venue_id', venueId);
     if (ticketId) query = query.eq('ticket_order_id', ticketId);
 
-    const { data } = await query;
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching drink credits:', error);
+      setLoadError(true);
+      setLoading(false);
+      return;
+    }
 
     if (data) {
       const now = new Date().toISOString();
@@ -86,6 +98,28 @@ export function DrinkCreditsCard({ venueId, ticketId, compact = false }: DrinkCr
   };
 
   const getLocale = () => (language === 'fr' ? fr : language === 'es' ? es : enUS);
+
+  // Échec de chargement : afficher un état « réessayer », jamais un vide muet
+  // (un client peut avoir des crédits payés que le réseau n'a pas su rapporter).
+  if (loadError && !loading) {
+    if (compact) return null;
+    return (
+      <Card className="p-4 bg-amber-500/5 border-amber-500/20">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Wine className="h-4 w-4 text-amber-400 shrink-0" />
+            <span>{t('upsell.creditsLoadError')}</span>
+          </div>
+          <button
+            onClick={() => fetchCredits()}
+            className="text-sm font-medium text-amber-400 underline underline-offset-2 shrink-0 touch-manipulation"
+          >
+            {t('common.retry')}
+          </button>
+        </div>
+      </Card>
+    );
+  }
 
   if (loading || credits.length === 0) return null;
 
@@ -124,15 +158,21 @@ export function DrinkCreditsCard({ venueId, ticketId, compact = false }: DrinkCr
       const remaining = list.reduce((s, c) => s + (c.total_credits - c.used_credits), 0);
       const total = list.reduce((s, c) => s + c.total_credits, 0);
       const used = list.reduce((s, c) => s + c.used_credits, 0);
-      let status: 'live' | 'upcoming' | 'venue' = 'venue';
+      let status: 'live' | 'upcoming' | 'past' | 'venue' = 'venue';
       if (ev) {
         const start = new Date(ev.start_at).getTime() - WINDOW_MS;
         const end = new Date(ev.end_at || ev.start_at).getTime() + WINDOW_MS;
-        status = now >= start && now <= end ? 'live' : 'upcoming';
+        // A credit lives and dies with its soirée. Once we're past the event's
+        // night (end + grace) the credit is dead — the server redeem gate in
+        // use-drink-credit refuses it too. Gate on the LIVE event end date, not
+        // the credit's expires_at (a stale snapshot taken at purchase that a
+        // later correction of the event date never touches).
+        status = now > end ? 'past' : now >= start ? 'live' : 'upcoming';
       }
       return { key, ev, list, remaining, total, used, status };
     })
-    .filter(g => g.remaining > 0);
+    // Never surface a credit whose soirée is already over.
+    .filter(g => g.remaining > 0 && g.status !== 'past');
 
   // Live first, then upcoming by date, venue-wide last.
   const order: Record<string, number> = { live: 0, upcoming: 1, venue: 2 };

@@ -106,15 +106,15 @@ export default function AdminVenues() {
         const venueIds = venuesData.map((v) => v.id);
         const ownerIds = venuesData.filter((v) => v.owner_id).map((v) => v.owner_id);
 
-        const profilesPromise = (ownerIds.length > 0
+        const profilesPromise = ownerIds.length > 0
           ? supabase.from('profiles').select('id, email').in('id', ownerIds)
-          : Promise.resolve({ data: [] } as any)) as any;
+          : Promise.resolve({ data: [] as Array<{ id: string; email: string }> });
 
-        const invitesPromise = (venueIds.length > 0
+        const invitesPromise = venueIds.length > 0
           ? supabase.from('owner_invitations').select('venue_id, email, token, expires_at, created_at')
               .in('venue_id', venueIds).is('accepted_at', null).gt('expires_at', new Date().toISOString())
               .order('created_at', { ascending: false })
-          : Promise.resolve({ data: [] } as any)) as any;
+          : Promise.resolve({ data: [] as Array<{ venue_id: string; email: string; token: string; expires_at: string; created_at: string }> });
 
         const [profilesRes, invitesRes] = await Promise.all([profilesPromise, invitesPromise]);
         const profiles = (profilesRes?.data ?? []) as Array<{ id: string; email: string }>;
@@ -208,9 +208,9 @@ export default function AdminVenues() {
       if (formData.owner_email) await inviteOwnerToEmail(venueId, formData.name, formData.owner_email);
       setDialogOpen(false);
       fetchData();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error saving venue:', error);
-      toast.error(error.message || t('adminVenues.saveError'));
+      toast.error((error as Error).message || t('adminVenues.saveError'));
     }
   };
 
@@ -226,8 +226,8 @@ export default function AdminVenues() {
       } else {
         toast.success(t('adminVenues.inviteSent').replace('{email}', email));
       }
-    } catch (error: any) {
-      const msg = String(error?.message || '');
+    } catch (error) {
+      const msg = String((error as Error | undefined)?.message || '');
       if (msg.toLowerCase().includes('verify a domain') || msg.toLowerCase().includes('testing emails')) {
         toast.error(t('adminVenues.emailRejected'));
       } else {
@@ -260,9 +260,9 @@ export default function AdminVenues() {
       setDeleteTarget(null);
       setDeleteConfirmName('');
       fetchData();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Delete venue error:', error);
-      toast.error(error.message || t('adminVenues.deleteError'));
+      toast.error((error as Error).message || t('adminVenues.deleteError'));
     } finally {
       setDeleting(false);
     }
@@ -274,8 +274,8 @@ export default function AdminVenues() {
       if (error) throw error;
       toast.success(currentlyHidden ? t('adminVenues.visibleAll') : t('adminVenues.hiddenPublic'));
       fetchData();
-    } catch (error: any) {
-      toast.error(error.message || t('adminVenues.visibilityError'));
+    } catch (error) {
+      toast.error((error as Error).message || t('adminVenues.visibilityError'));
     }
   };
 

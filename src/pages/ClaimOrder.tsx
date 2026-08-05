@@ -15,11 +15,21 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { saveGuestTicket } from '@/lib/guestTickets';
 import QRCode from 'qrcode';
 
+// Ligne d'article d'une commande boissons renvoyée par claim-guest-order
+// (les deux paires de clés existent selon la génération de la commande).
+interface ClaimedOrderItem {
+  name: string;
+  quantity?: number;
+  qty?: number;
+  price?: number;
+  unitPrice?: number;
+}
+
 interface ClaimedPurchase {
   id: string;
   type: 'order' | 'ticket' | 'table';
   orderNumber?: string;
-  items?: any[];
+  items?: ClaimedOrderItem[];
   total?: number;
   token?: string;
   qrCode?: string;
@@ -74,7 +84,7 @@ export default function ClaimOrder() {
 
   const [step, setStep] = useState<'lookup' | 'otp' | 'result'>('lookup');
   const [purchaseType, setPurchaseType] = useState<'order' | 'ticket' | 'table'>(
-    (searchParams.get('type') as any) || 'ticket'
+    (searchParams.get('type') as 'order' | 'ticket' | 'table' | null) || 'ticket'
   );
   // `orderNumber` holds only the suffix (everything after the prefix).
   const [orderNumber, setOrderNumber] = useState(stripPrefix(searchParams.get('order') || searchParams.get('ref') || ''));
@@ -106,8 +116,8 @@ export default function ClaimOrder() {
       if (data?.error) throw new Error(data.error);
       setMaskedEmail(data.maskedEmail);
       setStep('otp');
-    } catch (err: any) {
-      toast({ title: t('claim.error'), description: err.message, variant: 'destructive' });
+    } catch (err) {
+      toast({ title: t('claim.error'), description: (err as Error).message, variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
@@ -134,8 +144,8 @@ export default function ClaimOrder() {
         const url = await QRCode.toDataURL(qrUrl, { width: 280, margin: 2 });
         setQrDataUrl(url);
       }
-    } catch (err: any) {
-      toast({ title: t('claim.error'), description: err.message, variant: 'destructive' });
+    } catch (err) {
+      toast({ title: t('claim.error'), description: (err as Error).message, variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
@@ -153,8 +163,8 @@ export default function ClaimOrder() {
       toast({ title: t('claim.linked'), description: t('claim.linkedDesc') });
       const tab = purchaseType === 'ticket' ? 'tickets' : purchaseType === 'table' ? 'vip' : 'drinks';
       navigate(`/my-orders?tab=${tab}`);
-    } catch (err: any) {
-      toast({ title: t('claim.error'), description: err.message, variant: 'destructive' });
+    } catch (err) {
+      toast({ title: t('claim.error'), description: (err as Error).message, variant: 'destructive' });
     } finally {
       setIsLinking(false);
     }
@@ -266,7 +276,7 @@ export default function ClaimOrder() {
         {purchase.venueName && <p className="text-sm text-muted-foreground mb-1">{purchase.venueName}</p>}
         {purchase.eventTitle && <p className="text-sm text-muted-foreground mb-3">{purchase.eventTitle}</p>}
         <div className="space-y-2">
-          {Array.isArray(purchase.items) && purchase.items.map((item: any, i: number) => (
+          {Array.isArray(purchase.items) && purchase.items.map((item, i) => (
             <div key={i} className="flex justify-between text-sm">
               <span>{item.quantity || item.qty}x {item.name}</span>
               <span className="text-muted-foreground">{((item.price || item.unitPrice) * (item.quantity || item.qty)).toFixed(2)}€</span>
@@ -305,7 +315,7 @@ export default function ClaimOrder() {
               </p>
             </div>
 
-            <Tabs value={purchaseType} onValueChange={(v) => { setPurchaseType(v as any); setOrderNumber(''); }}>
+            <Tabs value={purchaseType} onValueChange={(v) => { setPurchaseType(v as 'order' | 'ticket' | 'table'); setOrderNumber(''); }}>
               <TabsList className="w-full grid grid-cols-3">
                 <TabsTrigger value="ticket">{t('claim.tabTickets')}</TabsTrigger>
                 <TabsTrigger value="table">{t('claim.tabTables')}</TabsTrigger>

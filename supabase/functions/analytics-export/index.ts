@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
       : { col: 'organizer_user_id', val: scope.id };
 
     let csv = '';
-    let filename = `analytics-${pillar}-${scope.id}-${Date.now()}.csv`;
+    const filename = `analytics-${pillar}-${scope.id}-${Date.now()}.csv`;
 
     if (pillar === 'acquisition') {
       const { data } = await supabase

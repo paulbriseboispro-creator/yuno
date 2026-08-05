@@ -8,6 +8,7 @@ import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-g
 import { YUNO_DRINK_RATE as YUNO_COMMISSION_RATE } from "../_shared/commission.ts";
 import { getAbsorbYunoFees } from "../_shared/merchant-fees.ts";
 import { resolveAgeDeclaration, AgeDeclarationError, AGE_DECLARATION_REQUIRED_CODE } from "../_shared/age-declaration.ts";
+import { resolveTrackedLinkId } from "../_shared/tracked-link.ts";
 
 // Production mode - payments are processed via Stripe
 const TEST_MODE = false;
@@ -136,8 +137,11 @@ serve(async (req) => {
 
     // Parse request body
     const { items, venueId, eventId, cancelUrl, guestEmail, guestFullName, guestPhone, trackedLinkId, ageDeclaration, purchaseSource } = await req.json();
-    // Tracked-link attribution: a UUID or null. Persisted on the order for revenue attribution.
-    const safeTrackedLinkId = (typeof trackedLinkId === 'string' && /^[0-9a-f-]{36}$/i.test(trackedLinkId)) ? trackedLinkId : null;
+    // Tracked-link attribution persisted on the order. On revalide l'EXISTENCE (pas
+    // juste le format) : un id périmé côté client — lien promoteur supprimé, reset démo,
+    // campagne finie — heurterait la FK et ferait échouer la commande. L'attribution
+    // dégrade en « non attribué », jamais en échec de vente. Voir _shared/tracked-link.ts.
+    const safeTrackedLinkId = await resolveTrackedLinkId(supabaseAdmin, trackedLinkId);
     // Canal d'achat (ex. 'post_checkout_upsell', 'live') — attribution du taux
     // d'attache boissons/billet. Slug court contrôlé, jamais de texte libre client.
     const safePurchaseSource = (typeof purchaseSource === 'string' && /^[a-z0-9_]{1,40}$/.test(purchaseSource)) ? purchaseSource : null;

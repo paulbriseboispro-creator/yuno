@@ -73,10 +73,22 @@ function ForYouCard({ item }: { item: ForYouItem }) {
   const reason = reasonText(t, item.reasonCode, item.reasonValue);
   const ReasonIcon = REASON_ICON[item.reasonCode];
 
+  const handleOpen = () => navigate(eventTargetPath(event));
+
   return (
     <div
-      onClick={() => navigate(eventTargetPath(event))}
-      className="shrink-0 cursor-pointer overflow-hidden"
+      onClick={handleOpen}
+      role="button"
+      tabIndex={0}
+      aria-label={event.title}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleOpen();
+        }
+      }}
+      className="shrink-0 cursor-pointer overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       style={{
         width: 240,
         borderRadius: '18px',

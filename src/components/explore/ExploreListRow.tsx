@@ -31,10 +31,22 @@ export function ExploreListRow({ event }: { event: EventCardData }) {
     toggleFavorite(favType, event.id);
   };
 
+  const handleOpen = () => navigateToEvent(event, navigate);
+
   return (
     <div
-      onClick={() => navigateToEvent(event, navigate)}
-      className="flex items-center gap-3 cursor-pointer"
+      onClick={handleOpen}
+      role="button"
+      tabIndex={0}
+      aria-label={event.title}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleOpen();
+        }
+      }}
+      className="flex items-center gap-3 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       style={{ padding: '10px 0' }}
     >
       {/* Thumbnail */}

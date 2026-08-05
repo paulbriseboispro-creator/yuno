@@ -117,8 +117,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Termes réellement enregistrés côté contrat — priment sur le payload client.
     let storedRules: SplitRules | null = null;
     // Avenant : la ligne brute + sa portee, pour le corps du push et de l'e-mail.
-    // deno-lint-ignore no-explicit-any
-    let amendment: any = null;
+    let amendment: { proposed_by: string | null; organizer_user_id: string | null } | null = null;
     let amendmentRecurring = false;
     let storedPolicy: string | null = null;
 

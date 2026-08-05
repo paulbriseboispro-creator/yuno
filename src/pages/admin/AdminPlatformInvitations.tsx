@@ -127,8 +127,8 @@ export default function AdminPlatformInvitations() {
       setEmail(''); setOrgName('');
       setInviteOpen(false);
       load();
-    } catch (e: any) {
-      toast.error(e.message ?? 'Erreur');
+    } catch (e) {
+      toast.error((e as Error).message ?? 'Erreur');
     } finally {
       setSubmitting(false);
     }
@@ -144,8 +144,8 @@ export default function AdminPlatformInvitations() {
       if (data?.error) throw new Error(data.error);
       toast.success('Email d\'invitation renvoyé');
       load();
-    } catch (e: any) {
-      toast.error(e.message ?? 'Erreur');
+    } catch (e) {
+      toast.error((e as Error).message ?? 'Erreur');
     }
   };
 
@@ -191,8 +191,8 @@ export default function AdminPlatformInvitations() {
       setEditOpen(false);
       setEditTarget(null);
       load();
-    } catch (e: any) {
-      toast.error(e.message ?? 'Erreur');
+    } catch (e) {
+      toast.error((e as Error).message ?? 'Erreur');
     } finally {
       setEditSaving(false);
     }
@@ -215,8 +215,8 @@ export default function AdminPlatformInvitations() {
       toast.success('Compte organisateur retiré');
       setDeleteTarget(null);
       load();
-    } catch (e: any) {
-      toast.error(e.message ?? 'Erreur');
+    } catch (e) {
+      toast.error((e as Error).message ?? 'Erreur');
     } finally {
       setDeleting(false);
     }

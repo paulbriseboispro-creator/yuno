@@ -22,7 +22,13 @@ const logStep = (step: string, details?: unknown) => {
 type VipEmailType = 'request_received' | 'confirmed' | 'modified' | 'refused' | 'walkin_summary';
 
 interface VipEmailRequest {
-  reservationId: string;
+  // Les appelants ne sont pas homogènes : les checkouts serveur
+  // (create-table-checkout, verify-table-payment) et les composants owner/hôte
+  // envoient `reservation_id` (snake), tandis que useVipNight / VipHostDashboard
+  // envoient `reservationId` (camel). On accepte les DEUX pour ne perdre aucun
+  // email de confirmation (sinon 4 appelants sur 6 échouaient en silence).
+  reservationId?: string;
+  reservation_id?: string;
   type: VipEmailType;
   changes?: string;
 }
@@ -35,6 +41,32 @@ serve(async (req) => {
   try {
     logStep("Function started");
 
+    // SECURITY : cette fonction n'est plus déclenchable par un simple
+    // reservationId anonyme. Elle envoie toujours l'email au titulaire de la
+    // réservation (jamais à une adresse fournie par l'appelant → pas de relais
+    // ouvert), mais on exige un appelant authentifié : soit la service-role
+    // (checkout / verify serveur), soit un JWT utilisateur valide (owner / hôte
+    // VIP qui confirme, refuse ou encaisse). Un anonyme est refusé (403).
+    const authHeader = req.headers.get("Authorization") || "";
+    const bearer = authHeader.replace("Bearer ", "");
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    let authorized = bearer !== "" && bearer === serviceKey;
+    if (!authorized && authHeader) {
+      const authClient = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+        { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } }
+      );
+      const { data: { user: caller } } = await authClient.auth.getUser();
+      if (caller) authorized = true;
+    }
+    if (!authorized) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -44,10 +76,12 @@ serve(async (req) => {
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) throw new Error("RESEND_API_KEY not configured");
 
-    const { reservationId, type, changes } = await req.json() as VipEmailRequest;
+    const body = await req.json() as VipEmailRequest;
+    const reservationId = body.reservationId ?? body.reservation_id;
+    const { type, changes } = body;
 
     if (!reservationId || !type) {
-      throw new Error("reservationId and type are required");
+      throw new Error("reservationId (or reservation_id) and type are required");
     }
 
     if (!['request_received', 'confirmed', 'modified', 'refused', 'walkin_summary'].includes(type)) {
@@ -96,7 +130,7 @@ serve(async (req) => {
 
     if (!customerEmail) throw new Error("No customer email");
 
-    let lang: EmailLanguage = 'fr';
+    let lang: EmailLanguage = 'en';
     let firstName = '';
     if (reservation.user_id) {
       const { data: profile } = await supabaseAdmin
@@ -195,6 +229,7 @@ serve(async (req) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
         body: JSON.stringify({ from, to: [customerEmail], subject: L.subject, html }),
+        signal: AbortSignal.timeout(10000),
       });
       if (!res.ok) throw new Error(`Resend error: ${await res.text()}`);
       logStep("Walkin summary sent", { to: customerEmail });
@@ -445,6 +480,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${resendApiKey}`,
       },
       body: JSON.stringify({ from, to: [customerEmail], subject: finalSubject, html }),
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!res.ok) {

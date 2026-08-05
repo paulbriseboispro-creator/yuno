@@ -201,7 +201,7 @@ export default function Maintenance() {
         setSuccess(true);
         toast.success(t('welcomeVip'));
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error joining waitlist:', error);
       toast.error(t('errorOccurred'));
     } finally {
@@ -232,10 +232,11 @@ export default function Maintenance() {
       } else {
         toast.error(data?.error || t('wrongPassword'));
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error checking password:', error);
       // Handle rate limiting
-      if (error?.message?.includes('429') || error?.status === 429) {
+      const err = error as { message?: string; status?: number } | null;
+      if (err?.message?.includes('429') || err?.status === 429) {
         toast.error('Too many attempts. Please try again later.');
       } else {
         toast.error(t('verificationError'));

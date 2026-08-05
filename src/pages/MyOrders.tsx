@@ -1041,7 +1041,7 @@ export default function MyOrders() {
   };
 
   const handleDeleteOrder = async (orderId: string) => {
-    if (!confirm(t('owner.confirmDelete'))) return;
+    if (!confirm(t('myOrders.confirmDeleteOrder'))) return;
 
     try {
       const { error } = await supabase
@@ -1098,12 +1098,12 @@ export default function MyOrders() {
 
       if (error) throw error;
 
-      toast.success('Commande mise à jour');
+      toast.success(t('myOrders.updated'));
       setEditingOrder(null);
       fetchOrders();
     } catch (error) {
       console.error('Error updating order:', error);
-      toast.error('Erreur lors de la mise à jour');
+      toast.error(t('myOrders.updateError'));
     }
   };
 
@@ -1111,13 +1111,13 @@ export default function MyOrders() {
     try {
       const stripeKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
       if (!stripeKey) {
-        toast.error('Configuration de paiement manquante');
+        toast.error(t('myOrders.paymentConfigMissing'));
         return;
       }
 
       const stripe = await loadStripe(stripeKey);
       if (!stripe) {
-        toast.error('Erreur de chargement Stripe');
+        toast.error(t('myOrders.stripeLoadError'));
         return;
       }
 
@@ -1136,7 +1136,7 @@ export default function MyOrders() {
       window.location.href = `/verify-payment?session_id=${sessionId}`;
     } catch (error) {
       console.error('Error initiating payment:', error);
-      toast.error('Erreur lors du paiement');
+      toast.error(t('myOrders.paymentError'));
     }
   };
 
@@ -1465,6 +1465,16 @@ export default function MyOrders() {
   tonightCutoff.setHours(6, 0, 0, 0);
   if (now.getHours() >= 6) tonightCutoff.setDate(tonightCutoff.getDate() + 1);
   const startsTonight = (iso?: string) => (!iso ? true : new Date(iso) <= tonightCutoff);
+  // Bucket an item by its soirée. `startsTonight` only has an upper bound, so on
+  // its own it would tag a past event as "ce soir". Anchor on the LIVE event end
+  // date (+2h grace, matching isEndedEvent + the server redeem gate): once the
+  // soirée is over the item is "passé", never "ce soir"/"à venir".
+  const NIGHT_GRACE_MS = 2 * 60 * 60 * 1000;
+  const bucketFor = (startIso?: string, endIso?: string): OrderBucket => {
+    const endMs = endIso ? new Date(endIso).getTime() : (startIso ? new Date(startIso).getTime() : NaN);
+    if (!Number.isNaN(endMs) && now.getTime() > endMs + NIGHT_GRACE_MS) return 'past';
+    return startsTonight(startIso) ? 'pending' : 'upcoming';
+  };
   const fmtDate = (iso?: string) => (iso ? format(new Date(iso), 'dd MMM', { locale: getLocale() }).toUpperCase() : undefined);
   const fmtTime = (iso?: string) => (iso ? format(new Date(iso), 'HH:mm') : undefined);
 
@@ -1472,9 +1482,8 @@ export default function MyOrders() {
 
   // Active tickets
   activeTickets.forEach(tk => {
-    const tonight = startsTonight(tk.eventStartAt);
     entries.push({
-      id: `tk-${tk.id}`, kind: 'ticket', bucket: tonight ? 'pending' : 'upcoming',
+      id: `tk-${tk.id}`, kind: 'ticket', bucket: bucketFor(tk.eventStartAt, tk.eventEndAt),
       title: tk.eventTitle, venueName: tk.venueName, sortAt: new Date(tk.eventStartAt).getTime(),
       dateLabel: fmtDate(tk.eventStartAt), time: fmtTime(tk.eventStartAt),
       subtitle: `${tk.quantity}× ${tk.roundName}`,
@@ -1485,9 +1494,8 @@ export default function MyOrders() {
   });
   // Active VIP reservations
   activeVipReservations.forEach(r => {
-    const tonight = startsTonight(r.eventStartAt);
     entries.push({
-      id: `vip-${r.id}`, kind: 'vip', bucket: tonight ? 'pending' : 'upcoming',
+      id: `vip-${r.id}`, kind: 'vip', bucket: bucketFor(r.eventStartAt, r.eventEndAt),
       title: r.eventTitle, venueName: r.venueName, sortAt: new Date(r.eventStartAt).getTime(),
       dateLabel: fmtDate(r.eventStartAt), time: fmtTime(r.eventStartAt),
       subtitle: `${r.zoneName || r.packName} · ${r.guestCount} ${t('vipTable.guests') || 'pers.'}`,
@@ -1498,9 +1506,8 @@ export default function MyOrders() {
   });
   // Active guest list entries
   activeGuestListEntries.forEach(g => {
-    const tonight = startsTonight(g.eventStartAt);
     entries.push({
-      id: `gl-${g.id}`, kind: 'guestlist', bucket: tonight ? 'pending' : 'upcoming',
+      id: `gl-${g.id}`, kind: 'guestlist', bucket: bucketFor(g.eventStartAt, g.eventEndAt),
       title: g.eventTitle, venueName: g.venueName, sortAt: new Date(g.eventStartAt).getTime(),
       dateLabel: fmtDate(g.eventStartAt), time: fmtTime(g.eventStartAt),
       subtitle: `Guest List${g.includesDrink ? ' + boisson' : ''} · ${t('guestList.freeBefore') || ''} ${g.freeBeforeTime}`.trim(),
@@ -1512,9 +1519,8 @@ export default function MyOrders() {
   // Pending free-ticket rewards (loyalty)
   pendingTicketRewards.forEach(rw => {
     const startAt = rw.eventDetails?.startAt;
-    const tonight = startsTonight(startAt);
     entries.push({
-      id: `rw-${rw.id}`, kind: 'reward', bucket: tonight ? 'pending' : 'upcoming',
+      id: `rw-${rw.id}`, kind: 'reward', bucket: bucketFor(startAt, rw.eventDetails?.endAt),
       title: rw.eventDetails?.title || rw.metadata?.eventTitle || rw.rewardName, venueName: rw.venueName,
       sortAt: startAt ? new Date(startAt).getTime() : now.getTime(),
       dateLabel: fmtDate(startAt), time: fmtTime(startAt),
@@ -1527,11 +1533,10 @@ export default function MyOrders() {
   // Drinks — paid (collect) + reward drinks
   [...rewardOrders, ...regularPaidOrders].forEach(o => {
     const startAt = o.events?.start_at;
-    const tonight = startsTonight(startAt);
     const items = Array.isArray(o.items) ? (o.items as any[]) : [];
     const itemNames = items.map(i => `${i.qty > 1 ? `${i.qty}× ` : ''}${i.name}`);
     entries.push({
-      id: `dr-${o.id}`, kind: 'drink', bucket: tonight ? 'pending' : 'upcoming',
+      id: `dr-${o.id}`, kind: 'drink', bucket: bucketFor(startAt, o.events?.end_at),
       title: o.events?.title || o.venueName || t('orders.drinkOrder'), venueName: o.venueName || '',
       sortAt: startAt ? new Date(startAt).getTime() : new Date(o.created_at).getTime(),
       dateLabel: fmtDate(startAt), time: fmtTime(startAt),

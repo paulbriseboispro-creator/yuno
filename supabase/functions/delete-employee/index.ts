@@ -193,10 +193,10 @@ serve(async (req) => {
       }
     );
 
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in delete-employee:", error);
     return new Response(
-      JSON.stringify({ error: error.message || "Erreur serveur" }),
+      JSON.stringify({ error: (error as Error).message || "Erreur serveur" }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500 

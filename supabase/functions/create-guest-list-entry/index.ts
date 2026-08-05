@@ -158,7 +158,7 @@ serve(async (req) => {
 
     const glQuery = supabaseAdmin
       .from("guest_lists")
-      .select("*, events!inner(id, title, start_at, end_at, venue_id)")
+      .select("*, events!inner(id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id)")
       .eq("is_active", true);
     const { data: guestList, error: glError } = await (guestListId
       ? glQuery.eq("id", guestListId)
@@ -355,13 +355,33 @@ serve(async (req) => {
     //      door scan fires the commission (read from guest_list_entries.promoter_id).
     let promoterId: string | null = null;
     if (promoterCode) {
-      const { data: promoter } = await supabaseAdmin
-        .from("promoters")
-        .select("id")
-        .eq("promo_code", promoterCode)
-        .eq("venue_id", guestList.venue_id)
-        .maybeSingle();
-      if (promoter) promoterId = promoter.id;
+      // Résolution sur le périmètre COMPLET de l'événement (club hôte, club
+      // partenaire, organisateur, organisateur partenaire) + comparaison
+      // insensible à la casse — même contrat que les checkouts (cf.
+      // verify-ticket-payment). Avant : .eq('venue_id', guestList.venue_id) +
+      // .eq('promo_code', …) → une soirée d'organisateur (venue_id NULL) ne
+      // résolvait jamais le promoteur, et un code saisi dans une autre casse ne
+      // matchait pas. Résultat : signup stocké avec promoter_id NULL, aucune
+      // commission au scan, en silence.
+      const ev = guestList.events as {
+        venue_id: string | null; partner_venue_id: string | null;
+        organizer_user_id: string | null; partner_organizer_id: string | null;
+      };
+      const scopeOr: string[] = [];
+      if (ev?.venue_id) scopeOr.push(`venue_id.eq.${ev.venue_id}`);
+      if (ev?.partner_venue_id) scopeOr.push(`venue_id.eq.${ev.partner_venue_id}`);
+      if (ev?.organizer_user_id) scopeOr.push(`organizer_user_id.eq.${ev.organizer_user_id}`);
+      if (ev?.partner_organizer_id) scopeOr.push(`organizer_user_id.eq.${ev.partner_organizer_id}`);
+      if (scopeOr.length > 0) {
+        const { data: pByCode } = await supabaseAdmin
+          .from("promoters")
+          .select("id")
+          .or(scopeOr.join(","))
+          .ilike("promo_code", promoterCode)
+          .eq("is_active", true)
+          .limit(1);
+        if (pByCode?.[0]) promoterId = pByCode[0].id;
+      }
     }
     if (!promoterId && guestList.holder_type === "promoter" && guestList.promoter_id) {
       promoterId = guestList.promoter_id;

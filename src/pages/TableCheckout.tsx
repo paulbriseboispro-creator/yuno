@@ -34,7 +34,8 @@ import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { TablePack, TableZone, estimateStripeFee } from '@/types/ticketing';
-import { VenueFloorPlan } from '@/types';
+import { FloorPlanTable, VenueFloorPlan } from '@/types';
+import type { Tables } from '@/integrations/supabase/types';
 import { getStoredPromoCodeForVenue, getStoredPromoCodeForScope } from '@/hooks/usePromoterTracking';
 import { PublicPage } from '@/components/PublicPage';
 
@@ -49,6 +50,10 @@ interface PromoterDiscount {
 const MANAGEMENT_FEE_RATE = 0.04;
 const MANAGEMENT_FEE_MIN = 0.99;
 const MANAGEMENT_FEE_MAX = 25;
+
+// Sous-ensemble des colonnes PUBLIC_VENUE_COLUMNS réellement utilisées par cette page.
+type PublicVenueRow = Pick<Tables<'venues'>,
+  'id' | 'name' | 'address' | 'absorb_yuno_fees' | 'vip_menu_visibility' | 'vip_menu_display_mode' | 'vip_preorder_enabled' | 'vip_placement_enabled'>;
 
 const tableInputClass =
   'h-11 rounded-lg bg-[#1F1F22] border-white/[0.08] text-white placeholder:text-[#5A5A5E] focus-visible:ring-0 focus-visible:border-primary/50';
@@ -68,8 +73,8 @@ export default function TableCheckout() {
   
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [event, setEvent] = useState<any>(null);
-  const [venue, setVenue] = useState<any>(null);
+  const [event, setEvent] = useState<Tables<'events'> | null>(null);
+  const [venue, setVenue] = useState<PublicVenueRow | null>(null);
   const [pack, setPack] = useState<TablePack | null>(null);
   const [zone, setZone] = useState<TableZone | null>(null);
   const [promoterDiscount, setPromoterDiscount] = useState<PromoterDiscount | null>(null);
@@ -83,7 +88,7 @@ export default function TableCheckout() {
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   const [selectedTableId, setSelectedTableId] = useState<string | null>(null);
   const [placementStatus, setPlacementStatus] = useState<'none' | 'requested' | 'assign_on_arrival'>('none');
-  const [upsellTable, setUpsellTable] = useState<any>(null);
+  const [upsellTable, setUpsellTable] = useState<(FloorPlanTable & { zoneName?: string; zoneColor?: string }) | null>(null);
   
   // Form state
   const [fullName, setFullName] = useState('');
@@ -120,8 +125,8 @@ export default function TableCheckout() {
   // Auto-deselect table if guest count exceeds table capacity
   useEffect(() => {
     if (!selectedTableId || !floorPlan) return;
-    const tables = (floorPlan.layout?.tables || []) as any[];
-    const table = tables.find((t: any) => t.id === selectedTableId);
+    const tables = floorPlan.layout?.tables || [];
+    const table = tables.find((t) => t.id === selectedTableId);
     if (!table) return;
     const tableMax = (table.capacity || 99) + (table.maxExtraPersons || 0);
     if (guestCount > tableMax) {
@@ -196,14 +201,14 @@ export default function TableCheckout() {
       setEvent(eventData);
 
       // Resolve venue (event.venue_id OR partner_venue_id for orga-led co-events)
-      const effectiveVenueId = (eventData as any).venue_id ?? (eventData as any).partner_venue_id;
+      const effectiveVenueId = eventData.venue_id ?? eventData.partner_venue_id;
       const { data: venueData, error: venueError } = await supabase
         .from('venues').select(PUBLIC_VENUE_COLUMNS).eq('id', effectiveVenueId).single();
       if (venueError) throw venueError;
       setVenue(venueData);
 
       // Detect basic mode → no interactive placement, scope by event_id
-      const isBasicMode = (eventData as any).tables_mode === 'basic';
+      const isBasicMode = eventData.tables_mode === 'basic';
       const placementOn = !isBasicMode && (venueData.vip_placement_enabled || false);
       setPlacementEnabled(placementOn);
 
@@ -258,8 +263,9 @@ export default function TableCheckout() {
         deposit: packData.deposit ? Number(packData.deposit) : 0,
         depositType: (packData.deposit_type as 'fixed' | 'percentage') || 'fixed',
         includedItems: packData.included_items,
-        includedBottlesQuota: (packData as any).included_bottles_quota || 0,
-        minimumSpend: Number((packData as any).minimum_spend) || 0,
+        includedBottlesQuota: packData.included_bottles_quota || 0,
+        minimumSpend: Number(packData.minimum_spend) || 0,
+        arrivalDeadline: packData.arrival_deadline,
         tablesCount: packData.tables_count || 1,
         position: packData.position, isActive: packData.is_active,
         createdAt: packData.created_at, updatedAt: packData.updated_at,
@@ -307,8 +313,9 @@ export default function TableCheckout() {
               deposit: p.deposit ? Number(p.deposit) : 0,
               depositType: (p.deposit_type as 'fixed' | 'percentage') || 'fixed',
               includedItems: p.included_items,
-              includedBottlesQuota: (p as any).included_bottles_quota || 0,
-              minimumSpend: Number((p as any).minimum_spend) || 0,
+              includedBottlesQuota: p.included_bottles_quota || 0,
+              minimumSpend: Number(p.minimum_spend) || 0,
+              arrivalDeadline: p.arrival_deadline,
               tablesCount: p.tables_count || 1,
               position: p.position, isActive: p.is_active,
               createdAt: p.created_at, updatedAt: p.updated_at,
@@ -584,10 +591,10 @@ export default function TableCheckout() {
       }
       if (data?.url) { haptics.medium(); launchCheckout(data.url); }
       else if (data?.redirectUrl) { navigate(data.redirectUrl); }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Checkout error:', error);
       haptics.error();
-      toast.error(error.message || t('tickets.checkoutError'));
+      toast.error((error as Error).message || t('tickets.checkoutError'));
       // Échec de réservation (le plus souvent : zone complète) -> proposer la liste d'attente.
       setWaitlistOpen(true);
     } finally {
@@ -689,6 +696,19 @@ export default function TableCheckout() {
                     </div>
                   )}
                 </div>
+
+                {/* Arrival cutoff — shown only when the owner set one on the pack */}
+                {pack.arrivalDeadline && (
+                  <div className="mt-3 flex items-start gap-2 rounded-lg border px-3 py-2.5" style={{ borderColor: 'rgba(232,25,44,0.25)', background: 'rgba(232,25,44,0.06)' }}>
+                    <Clock className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
+                    <div className="min-w-0">
+                      <p className="font-mono uppercase" style={{ fontSize: '11px', letterSpacing: '0.04em', color: '#F5F5F5' }}>
+                        {(t('tableCheckout.arrivalBefore') || 'Arrivée avant {time}').replace('{time}', pack.arrivalDeadline)}
+                      </p>
+                      <p style={{ fontSize: '11px', color: '#9A9A9A', marginTop: 2 }}>{t('tableCheckout.arrivalBeforeNote')}</p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Price breakdown */}
                 <div className="mt-5 border border-white/[0.08] bg-[#141414] p-4 space-y-2.5" style={{ borderRadius: 10 }}>

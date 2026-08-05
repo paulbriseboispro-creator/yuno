@@ -13,6 +13,7 @@ import {
 } from "../_shared/commission.ts";
 import { getAbsorbYunoFees } from "../_shared/merchant-fees.ts";
 import { recordSmsConsent } from "../_shared/sms-consent.ts";
+import { resolveTrackedLinkId } from "../_shared/tracked-link.ts";
 
 // Production mode - payments go through Stripe Connect
 const TEST_MODE = false;
@@ -72,8 +73,12 @@ serve(async (req) => {
     const ALLOWED_SOURCES = ['venue_profile','organizer_profile','dj_profile','explore','promoter','direct'];
     // Default to 'direct' so analytics never show "unknown" — every ticket has a source.
     const safePurchaseSource = ALLOWED_SOURCES.includes(purchaseSource) ? purchaseSource : 'direct';
-    // Tracked-link attribution: a UUID or null. Stored on the ticket + carried in Stripe metadata.
-    const safeTrackedLinkId = (typeof trackedLinkId === 'string' && /^[0-9a-f-]{36}$/i.test(trackedLinkId)) ? trackedLinkId : null;
+    // Tracked-link attribution: written on the ticket + carried in Stripe metadata.
+    // On revalide l'EXISTENCE (pas juste le format) : un id périmé côté client — lien
+    // promoteur supprimé, reset démo, campagne finie — heurterait la FK et ferait
+    // échouer TOUT le checkout. L'attribution dégrade en « non attribué », jamais en
+    // échec de vente. Voir _shared/tracked-link.ts.
+    const safeTrackedLinkId = await resolveTrackedLinkId(supabaseAdmin, trackedLinkId);
 
     if (!eventId || !ticketRoundId || !quantity) {
       throw new Error("Missing required fields");
@@ -727,9 +732,12 @@ serve(async (req) => {
         const { data: convResult, error: conversionError } = await supabaseAdmin.rpc('record_promoter_conversion', {
           p_promoter_id: finalPromoterId,
           p_conversion_type: 'ticket',
+          // Base BRUT (valeur faciale, hors remise promoteur) — la remise est
+          // reportée à part via p_discount pour le rapport « remises données ».
           p_amount: unitPrice * quantity,
           p_event_id: eventId,
           p_ticket_id: ticket.id,
+          p_discount: validatedDiscount,
         });
         if (conversionError) {
           logStep("Error creating promoter conversion", { error: conversionError.message });
@@ -1038,6 +1046,9 @@ serve(async (req) => {
         // deuxième résolution plus fragile que celle-ci. La remise pouvait être
         // accordée à l'achat sans qu'aucune commission ne soit enregistrée.
         promoterId: finalPromoterId || '',
+        // Remise promoteur, relue par verify-ticket-payment pour reporter la
+        // conversion avec sa remise (base commission = BRUT, remise à part).
+        promoDiscount: String(validatedDiscount || 0),
         trackedLinkId: safeTrackedLinkId || '',
         isGuest: isGuestCheckout ? 'true' : 'false',
         upsells: upsellMeta,

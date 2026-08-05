@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
         .select('id, user_roles!inner(role)')
         .eq('venue_id', venue_id)
         .in('user_roles.role', ['manager', 'vip_host']);
-      staff?.forEach((s: any) => recipients.add(s.id));
+      staff?.forEach((s: { id: string }) => recipients.add(s.id));
     }
     if (organizer_user_id) recipients.add(organizer_user_id);
 

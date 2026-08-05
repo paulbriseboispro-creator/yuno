@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { v4 as uuidv4 } from 'uuid';
 
 const SESSION_STORAGE_KEY = 'yuno_session_id';
@@ -72,7 +73,7 @@ function getOrCreateVisitorId(): { id: string; visitNumber: number; isReturning:
 }
 
 function getConnectionType(): string | null {
-  const conn = (navigator as any).connection;
+  const conn = (navigator as Navigator & { connection?: { effectiveType?: string } }).connection;
   return conn?.effectiveType || null;
 }
 
@@ -247,7 +248,7 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
           campaign: urlParams.get('utm_campaign'),
           referrer_domain: referrerDomain,
         });
-      } catch {}
+      } catch { /* tracking best-effort : ne bloque jamais la navigation */ }
     } catch (error) {
       console.error('Error tracking visitor:', error);
     }
@@ -268,7 +269,7 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
     }, { onConflict: 'session_id' });
   };
 
-  const trackEvent = async (eventType: string, target?: string, payload: Record<string, any> = {}) => {
+  const trackEvent = async (eventType: string, target?: string, payload: Record<string, Json> = {}) => {
     const sid = sessionStorage.getItem(SESSION_STORAGE_KEY);
     if (!sid) return;
     try {
@@ -284,7 +285,7 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
         payload,
         page_path: window.location.pathname,
       });
-    } catch {}
+    } catch { /* tracking best-effort : ne bloque jamais la navigation */ }
   };
 
   const trackAddToCart = async (cartValueCents = 0) => {

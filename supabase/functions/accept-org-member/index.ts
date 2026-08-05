@@ -58,7 +58,7 @@ serve(async (req) => {
           invitation: {
             email: invitation.member_email,
             role: invitation.role,
-            organization_name: (invitation as any).profiles?.organization_name ?? "Yuno",
+            organization_name: (invitation as { profiles?: { organization_name?: string | null } | null }).profiles?.organization_name ?? "Yuno",
           },
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }

@@ -35,7 +35,7 @@ export function OnboardingStepWelcome({ venueId, initialPillars, onComplete }: P
         .update({
           menu_enabled: selected.includes('drinks'),
           vip_placement_enabled: selected.includes('tables'),
-        } as any)
+        })
         .eq('id', venueId);
       onComplete(selected);
     } catch {

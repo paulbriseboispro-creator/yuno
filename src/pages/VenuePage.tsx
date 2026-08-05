@@ -259,7 +259,7 @@ export default function VenuePage() {
     return () => {
       supabase.removeChannel(venueChannel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [slug, retryTick]);
 
   // Fetch venue subscription plan

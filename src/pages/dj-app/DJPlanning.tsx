@@ -20,16 +20,18 @@ export default function DJPlanning() {
     [allSets],
   );
 
-  if (!dj) return null;
-
-  const venueLabel = (s: typeof allSets[number]) =>
-    s.venue?.name || s.event?.title || t('dj.planning.booking');
-
+  // Hook déclaré AVANT l'early-return `!dj` : un hook conditionnel fait crasher
+  // React quand `dj` passe de null à chargé (« Rendered more hooks... »).
   const toggleVisibility = useCallback(async (setId: string, current: boolean) => {
     // Optimistic update via refetch; the column may default to true on old rows.
     await supabase.from('dj_sets').update({ show_on_profile: !current }).eq('id', setId);
     refetchAllSets();
   }, [refetchAllSets]);
+
+  if (!dj) return null;
+
+  const venueLabel = (s: typeof allSets[number]) =>
+    s.venue?.name || s.event?.title || t('dj.planning.booking');
 
   return (
     <DJPage>

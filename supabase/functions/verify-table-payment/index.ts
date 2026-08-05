@@ -3,11 +3,7 @@ import Stripe from 'https://esm.sh/stripe@18.5.0';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { recordSmsConsent } from '../_shared/sms-consent.ts';
 import { sendAutoPush } from '../_shared/auto-push.ts';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { restrictedCorsHeaders } from '../_shared/cors.ts';
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -15,6 +11,7 @@ const logStep = (step: string, details?: any) => {
 };
 
 serve(async (req) => {
+  const corsHeaders = restrictedCorsHeaders(req);
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -85,7 +82,16 @@ serve(async (req) => {
     }
 
     if (session.payment_status === 'paid') {
-      const { error: updateError } = await supabaseAdmin
+      // IDEMPOTENCE. On bascule pending/confirmed → paid de façon ATOMIQUE et un
+      // seul appelant gagne la transition ; lui seul exécute les effets de bord
+      // (facture, stats club, fidélité, conversion promoteur, notifs, email,
+      // push). Sans ça, un rechargement de la page de succès OU la délégation du
+      // webhook Stripe (qui appelle désormais cette fonction, comme pour les
+      // billets) doublait facture + CA + points. La conversion promoteur était
+      // déjà protégée par l'index unique sur table_reservation_id, mais pas le
+      // reste. Le filtre in('pending','confirmed') empêche aussi de ressusciter
+      // une résa 'refunded'/'cancelled'.
+      const { data: transitioned, error: updateError } = await supabaseAdmin
         .from('table_reservations')
         .update({
           status: 'paid',
@@ -93,11 +99,31 @@ serve(async (req) => {
           stripe_session_id: sessionId,
           stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id || null,
         })
-        .eq('id', reservationId);
+        .eq('id', reservationId)
+        .in('status', ['pending', 'confirmed'])
+        .select('id');
 
       if (updateError) {
         console.error('Error updating reservation:', updateError);
         throw updateError;
+      }
+
+      if (!transitioned || transitioned.length === 0) {
+        // Déjà traité par un précédent appel (page de succès rechargée, ou webhook
+        // + client en course) : on ne rejoue AUCUN effet de bord, mais on répond
+        // paid:true pour que la page de confirmation s'affiche normalement.
+        logStep("Already processed — skipping side effects (idempotent)", { reservationId });
+        const isGuestReservation = session.metadata?.isGuest === 'true' || reservation.is_guest === true;
+        return new Response(
+          JSON.stringify({
+            success: true,
+            paid: true,
+            alreadyProcessed: true,
+            isGuest: isGuestReservation,
+            guestEmail: isGuestReservation ? reservation.user_email : undefined,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
+        );
       }
 
       logStep("Reservation marked as paid", { reservationId });
@@ -224,12 +250,19 @@ serve(async (req) => {
             if (!resolvedPromoterId) logStep("Promoter not resolved from code", { metaPromoCode });
           }
           if (resolvedPromoterId) {
+            const metaDiscount = Number(session.metadata?.promoDiscount || 0);
             const { data: convResult, error: convError } = await supabaseAdmin.rpc('record_promoter_conversion', {
               p_promoter_id: resolvedPromoterId,
               p_conversion_type: 'table',
-              p_amount: (reservation.total_price || 0) - (reservation.service_fee || 0),
+              // Base BRUT (valeur faciale avant remise), cohérent avec les
+              // billets. total_price est le NET (la remise a déjà été retirée au
+              // checkout) → on rajoute la remise. service_fee vaut toujours 0 sur
+              // une résa (le vrai frais est management_fee), donc on ne le
+              // soustrait plus. La remise est reportée à part via p_discount.
+              p_amount: (reservation.total_price || 0) + metaDiscount,
               p_event_id: reservation.event_id,
               p_table_reservation_id: reservation.id,
+              p_discount: metaDiscount,
             });
             if (convError) logStep("Promoter conversion FAILED", { error: convError.message });
             else logStep("Promoter conversion recorded", convResult);

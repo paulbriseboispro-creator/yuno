@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Music, Megaphone, UserPlus, Link2, Copy, Clock, Wine, Eye, Trash2, CheckCircle, ChevronDown, Ticket, Crown, Hash, Infinity as InfinityIcon } from 'lucide-react';
+import { Users, Music, Megaphone, UserPlus, Link2, Copy, Clock, Wine, Eye, Trash2, CheckCircle, ChevronDown, Ticket, Crown, Hash, Building2, Infinity as InfinityIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Part, PartEntry, HolderType } from '@/hooks/useGuestListParts';
 import { buildShareLink } from '@/lib/guestListShare';
@@ -12,7 +12,9 @@ import {
 } from './ui';
 
 const HOLDER_ICON: Record<HolderType, typeof Users> = {
-  club: Users, dj: Music, promoter: Megaphone, custom: UserPlus, organizer: Crown,
+  // 'agency' (enveloppe) n'est jamais rendue par PartCard — la page l'exclut —
+  // mais le Record doit couvrir tous les HolderType.
+  club: Users, dj: Music, promoter: Megaphone, custom: UserPlus, organizer: Crown, agency: Building2,
 };
 
 interface PartCardProps {

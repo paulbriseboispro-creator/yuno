@@ -39,7 +39,7 @@ export function OrgOnboardingStepWelcome({ userId, onComplete }: Props) {
     setSaving(true);
     const { error } = await supabase
       .from('profiles')
-      .update({ organization_name: orgName.trim(), city: city.trim() } as any)
+      .update({ organization_name: orgName.trim(), city: city.trim() })
       .eq('id', userId);
     setSaving(false);
     if (error) {

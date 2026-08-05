@@ -53,7 +53,7 @@ export default function OrgAppOnboarding() {
   // The floating widget will remind the user of remaining steps.
   const handleDismiss = useCallback(async () => {
     if (userId) {
-      await supabase.from('profiles').update({ onboarding_completed: true } as any).eq('id', userId);
+      await supabase.from('profiles').update({ onboarding_completed: true }).eq('id', userId);
     }
     window.location.assign('/organizer-app');
   }, [userId]);

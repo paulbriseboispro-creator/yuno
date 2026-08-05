@@ -71,6 +71,9 @@ interface CrmNotification {
 export function useLoyalty(venueId?: string) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  // Distingue « pas de crédit » (data null, cas normal) d'un échec réseau/RLS.
+  // Sans ça, un hoquet réseau affichait un solde à 0 à un client qui a payé.
+  const [loadError, setLoadError] = useState(false);
   const [settings, setSettings] = useState<LoyaltySettings | null>(null);
   const [loyalty, setLoyalty] = useState<CustomerLoyalty | null>(null);
   const [rewards, setRewards] = useState<LoyaltyReward[]>([]);
@@ -85,34 +88,40 @@ export function useLoyalty(venueId?: string) {
     }
 
     try {
-      // Fetch loyalty settings
-      const { data: settingsData } = await supabase
+      setLoadError(false);
+      // Fetch loyalty settings — 0 ligne = club sans programme (cas normal),
+      // donc maybeSingle(). Une vraie erreur (réseau/RLS) doit remonter.
+      const { data: settingsData, error: settingsError } = await supabase
         .from('loyalty_settings')
         .select('*')
         .eq('venue_id', venueId)
-        .single();
+        .maybeSingle();
+      if (settingsError) throw settingsError;
 
       setSettings(settingsData as LoyaltySettings | null);
 
       // Fetch available rewards
-      const { data: rewardsData } = await supabase
+      const { data: rewardsData, error: rewardsError } = await supabase
         .from('loyalty_rewards')
         .select('*')
         .eq('venue_id', venueId)
         .eq('is_active', true)
         .order('position');
+      if (rewardsError) throw rewardsError;
 
       setRewards((rewardsData || []) as LoyaltyReward[]);
 
       // Fetch user-specific data if logged in
       if (user) {
-        // Fetch customer loyalty
-        const { data: loyaltyData } = await supabase
+        // Fetch customer loyalty — 0 ligne = jamais venu dans ce club (normal),
+        // donc maybeSingle(). Une erreur ici ne doit JAMAIS se déguiser en solde 0.
+        const { data: loyaltyData, error: loyaltyError } = await supabase
           .from('customer_loyalty')
           .select('*')
           .eq('venue_id', venueId)
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
+        if (loyaltyError) throw loyaltyError;
 
         setLoyalty(loyaltyData as CustomerLoyalty | null);
 
@@ -135,39 +144,45 @@ export function useLoyalty(venueId?: string) {
         }
 
         if (loyaltyData) {
-          // Fetch transactions
-          const { data: transactionsData } = await supabase
+          // Fetch transactions (secondaire — l'historique, pas le solde)
+          const { data: transactionsData, error: transactionsError } = await supabase
             .from('loyalty_transactions')
             .select('*')
             .eq('customer_loyalty_id', loyaltyData.id)
             .order('created_at', { ascending: false })
             .limit(50);
+          if (transactionsError) console.error('Error fetching loyalty transactions:', transactionsError);
 
           setTransactions((transactionsData || []) as LoyaltyTransaction[]);
 
-          // Fetch redemptions
-          const { data: redemptionsData } = await supabase
+          // Fetch redemptions (secondaire)
+          const { data: redemptionsData, error: redemptionsError } = await supabase
             .from('reward_redemptions')
             .select('*, reward:loyalty_rewards(*)')
             .eq('customer_loyalty_id', loyaltyData.id)
             .order('created_at', { ascending: false });
+          if (redemptionsError) console.error('Error fetching redemptions:', redemptionsError);
 
           setRedemptions((redemptionsData || []) as unknown as RewardRedemption[]);
         }
 
-        // Fetch notifications
-        const { data: notificationsData } = await supabase
+        // Fetch notifications (secondaire)
+        const { data: notificationsData, error: notificationsError } = await supabase
           .from('crm_notifications')
           .select('*')
           .eq('venue_id', venueId)
           .eq('user_id', user.id)
           .order('sent_at', { ascending: false })
           .limit(20);
+        if (notificationsError) console.error('Error fetching CRM notifications:', notificationsError);
 
         setNotifications((notificationsData || []) as CrmNotification[]);
       }
     } catch (error) {
+      // Échec du chargement critique (settings / solde) : on signale une erreur,
+      // jamais un solde à 0 silencieux. Le consommateur affiche un état « réessayer ».
       console.error('Error fetching loyalty data:', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -268,6 +283,7 @@ export function useLoyalty(venueId?: string) {
 
   return {
     loading,
+    loadError,
     settings,
     loyalty,
     rewards,

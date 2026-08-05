@@ -23,22 +23,22 @@
 // over the wire. Adding a new anon-searchable column means granting it in a migration,
 // not adding it here.
 
-export const PUBLIC_VENUE_COLUMNS = [
-  'id', 'name', 'address', 'city', 'description', 'short_description', 'music_genre',
-  'cover_url', 'cover_position', 'logo_url', 'gallery_images', 'floor_plan_url',
-  'latitude', 'longitude', 'min_age', 'minors_allowed',
-  'minor_auth_doc_url', 'minor_auth_doc_name',
-  'menu_enabled', 'free_drink_mode', 'click_collect_mode', 'cloakroom_price',
-  'bar_count', 'bar_names', 'absorb_yuno_fees', 'cancellation_insurance_enabled',
-  'custom_domain', 'is_hidden', 'hidden_from_map', 'owner_id', 'created_at',
-  'instagram_url', 'facebook_url', 'twitter_url', 'tiktok_url', 'whatsapp_number',
-  'vip_menu_display_mode', 'vip_menu_visibility', 'vip_placement_enabled', 'vip_preorder_enabled',
-].join(',');
+// Littéraux template (et non array.join) : un type littéral laisse le parseur de
+// supabase-js typer les lignes colonne par colonne — une faute de frappe ou une
+// colonne retirée devient une erreur de compilation au lieu d'un `any` silencieux.
 
-export const PUBLIC_ORGANIZER_COLUMNS = [
-  'user_id', 'slug', 'display_name', 'bio', 'avatar_url', 'cover_url', 'city',
-  'is_public', 'website_url', 'instagram_url', 'minors_allowed',
-  'minor_auth_doc_url', 'minor_auth_doc_name',
-  'can_sell_alcohol', 'can_sell_alcohol_confirmed_at', 'bde_verified', 'bde_verified_at',
-  'absorb_yuno_fees', 'created_at', 'updated_at',
-].join(',');
+export const PUBLIC_VENUE_COLUMNS = `id, name, address, city, description, short_description, music_genre,
+cover_url, cover_position, logo_url, gallery_images, floor_plan_url,
+latitude, longitude, min_age, minors_allowed,
+minor_auth_doc_url, minor_auth_doc_name,
+menu_enabled, free_drink_mode, click_collect_mode, cloakroom_price,
+bar_count, bar_names, absorb_yuno_fees, cancellation_insurance_enabled,
+custom_domain, is_hidden, hidden_from_map, owner_id, created_at,
+instagram_url, facebook_url, twitter_url, tiktok_url, whatsapp_number,
+vip_menu_display_mode, vip_menu_visibility, vip_placement_enabled, vip_preorder_enabled`;
+
+export const PUBLIC_ORGANIZER_COLUMNS = `user_id, slug, display_name, bio, avatar_url, cover_url, city,
+is_public, website_url, instagram_url, minors_allowed,
+minor_auth_doc_url, minor_auth_doc_name,
+can_sell_alcohol, can_sell_alcohol_confirmed_at, bde_verified, bde_verified_at,
+absorb_yuno_fees, created_at, updated_at`;

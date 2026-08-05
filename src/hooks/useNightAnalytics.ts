@@ -89,20 +89,20 @@ export function useNightAnalytics({ venueId, dateRange, mode, selectedEventId }:
       const { data: guestlist } = await gq;
 
       const tk = tickets || [];
-      const ticketsSold = tk.reduce((s, t: any) => s + (t.quantity || 0), 0);
-      const ticketsScanned = tk.filter((t: any) => t.entry_scanned).reduce((s, t: any) => s + (t.quantity || 0), 0);
+      const ticketsSold = tk.reduce((s, t) => s + (t.quantity || 0), 0);
+      const ticketsScanned = tk.filter((t) => t.entry_scanned).reduce((s, t) => s + (t.quantity || 0), 0);
       const ticketNoShowRate = ticketsSold > 0 ? Math.max(0, (1 - ticketsScanned / ticketsSold) * 100) : 0;
 
       const tb = tables || [];
       const tablesBooked = tb.length;
-      const arrivedTables = tb.filter((r: any) => r.checked_in_at || r.entry_scanned);
+      const arrivedTables = tb.filter((r) => r.checked_in_at || r.entry_scanned);
       const tablesArrived = arrivedTables.length;
       const tableNoShowRate = tablesBooked > 0 ? Math.max(0, (1 - tablesArrived / tablesBooked) * 100) : 0;
-      const tableGuestsArrived = arrivedTables.reduce((s, r: any) => s + (r.guest_count || 1), 0);
+      const tableGuestsArrived = arrivedTables.reduce((s, r) => s + (r.guest_count || 1), 0);
 
       const gl = guestlist || [];
       const guestlistSize = gl.length;
-      const guestlistArrived = gl.filter((g: any) => g.entry_scanned).length;
+      const guestlistArrived = gl.filter((g) => g.entry_scanned).length;
       const guestlistFillRate = guestlistSize > 0 ? (guestlistArrived / guestlistSize) * 100 : 0;
 
       const attendance = ticketsScanned + tableGuestsArrived + guestlistArrived;
@@ -113,9 +113,9 @@ export function useNightAnalytics({ venueId, dateRange, mode, selectedEventId }:
         if (!ts) return;
         hourBuckets[parisHour(ts)] += weight;
       };
-      tk.forEach((t: any) => { if (t.entry_scanned) addArrival(t.entry_scanned_at, t.quantity || 1); });
-      tb.forEach((r: any) => { if (r.checked_in_at || r.entry_scanned) addArrival(r.checked_in_at || r.entry_scanned_at, r.guest_count || 1); });
-      gl.forEach((g: any) => { if (g.entry_scanned) addArrival(g.entry_scanned_at, 1); });
+      tk.forEach((t) => { if (t.entry_scanned) addArrival(t.entry_scanned_at, t.quantity || 1); });
+      tb.forEach((r) => { if (r.checked_in_at || r.entry_scanned) addArrival(r.checked_in_at || r.entry_scanned_at, r.guest_count || 1); });
+      gl.forEach((g) => { if (g.entry_scanned) addArrival(g.entry_scanned_at, 1); });
       const arrivalsByHour = hourBuckets
         .map((arrivals, hour) => ({ hour: `${hour}h`, arrivals }))
         .filter(d => d.arrivals > 0);

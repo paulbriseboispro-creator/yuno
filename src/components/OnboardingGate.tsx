@@ -7,11 +7,15 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { isNative } from '@/lib/native';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '@/integrations/supabase/client';
+import { OnboardingTasteQuiz } from '@/components/onboarding/OnboardingTasteQuiz';
+import { LAUNCH_TASTE_QUIZ_EVENT } from '@/lib/demoQuiz';
 
 const PUSH_ANSWERED_KEY = 'onboarding_push_answered';
 const LANG_ANSWERED_KEY = 'onboarding_language_answered';
+const TASTE_ANSWERED_KEY = 'onboarding_taste_answered';
 
-type Step = 'push' | 'ios_install' | 'language' | 'done';
+type Step = 'push' | 'ios_install' | 'language' | 'taste' | 'done';
 
 const languages = [
   { code: 'en' as const, name: 'English', flag: '🇬🇧' },
@@ -23,6 +27,14 @@ export function OnboardingGate() {
   const { language, setLanguage, t } = useLanguage();
   const { isSupported, isSubscribed, permission, subscribe, isiOS, isPWA, ready: pushReady } = usePushNotifications();
   const [step, setStep] = useState<Step>('done');
+  const [tasteUserId, setTasteUserId] = useState<string | null>(null);
+
+  // Utilisateur connecté (le quiz de goût écrit user_taste_profiles).
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getUser().then(({ data }) => { if (active) setTasteUserId(data.user?.id ?? null); });
+    return () => { active = false; };
+  }, []);
 
   // Determine initial step on mount
   useEffect(() => {
@@ -90,6 +102,30 @@ export function OnboardingGate() {
     }
   }, [step]);
 
+  // Une fois push + langue réglés et l'user connecté, on propose le quiz de goût
+  // (optionnel, une seule fois). Rendu à part, en plein écran éditorial.
+  useEffect(() => {
+    if (step !== 'done' || !tasteUserId) return;
+    const pushAnswered = localStorage.getItem(PUSH_ANSWERED_KEY) === 'true';
+    const langAnswered =
+      localStorage.getItem(LANG_ANSWERED_KEY) === 'true' || deviceLanguage() !== null;
+    const tasteAnswered = localStorage.getItem(TASTE_ANSWERED_KEY) === 'true';
+    if (pushAnswered && langAnswered && !tasteAnswered) setStep('taste');
+  }, [step, tasteUserId]);
+
+  // Lancement à la demande depuis le bouton démo (DemoSwitcher). Re-fetch le user
+  // courant : après une bascule de compte démo, l'id de mount serait périmé.
+  useEffect(() => {
+    const onLaunch = async () => {
+      const { data } = await supabase.auth.getUser();
+      const uid = data.user?.id ?? null;
+      setTasteUserId(uid);
+      if (uid) setStep('taste');
+    };
+    window.addEventListener(LAUNCH_TASTE_QUIZ_EVENT, onLaunch);
+    return () => window.removeEventListener(LAUNCH_TASTE_QUIZ_EVENT, onLaunch);
+  }, []);
+
   const handleEnablePush = useCallback(async () => {
     localStorage.setItem(PUSH_ANSWERED_KEY, 'true');
     try {
@@ -123,6 +159,20 @@ export function OnboardingGate() {
   }, [setLanguage]);
 
   if (step === 'done') return null;
+
+  if (step === 'taste' && tasteUserId) {
+    return (
+      <AnimatePresence>
+        <OnboardingTasteQuiz
+          userId={tasteUserId}
+          onDone={() => {
+            localStorage.setItem(TASTE_ANSWERED_KEY, 'true');
+            setStep('done');
+          }}
+        />
+      </AnimatePresence>
+    );
+  }
 
   return (
     <AnimatePresence>

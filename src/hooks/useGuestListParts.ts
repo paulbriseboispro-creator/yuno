@@ -3,8 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import type { TablesUpdate } from '@/integrations/supabase/types';
 
 /** 'organizer' = la part d'ALLOCATION de l'organisateur, accordée par le club
- *  (modèle demande/validation) — distincte de la part MAISON 'club'. */
-export type HolderType = 'club' | 'dj' | 'promoter' | 'custom' | 'organizer';
+ *  (modèle demande/validation) — distincte de la part MAISON 'club'.
+ *  'agency' = l'ENVELOPPE accordée à une agence de promoteurs, répartie ensuite
+ *  entre ses promoteurs (partition/pool — voir agency_distribution_mode). */
+export type HolderType = 'club' | 'dj' | 'promoter' | 'custom' | 'organizer' | 'agency';
 
 export interface Part {
   id: string;
@@ -13,8 +15,11 @@ export interface Part {
   holder_label: string | null;
   dj_id: string | null;
   promoter_id: string | null;
+  agency_id: string | null;
   venue_id: string | null;
   organizer_user_id: string | null;
+  /** partition | pool — propre aux parts 'agency' (NULL ailleurs). */
+  agency_distribution_mode: string | null;
   /** NULL = allocation illimitée (parts déléguées uniquement). */
   quota: number | null;
   quota_female: number | null;
@@ -59,7 +64,7 @@ export interface PartScopeCtx {
   organizerUserId: string | null;
 }
 
-const PART_COLS = 'id, event_id, holder_type, holder_label, dj_id, promoter_id, venue_id, organizer_user_id, quota, quota_female, quota_male, quota_normal, quota_drink, quota_table, entry_kind, public_entry_types, free_before_time, entry_deadline, includes_drink, visible_on_club_page, show_remaining, is_active, share_token, created_at';
+const PART_COLS = 'id, event_id, holder_type, holder_label, dj_id, promoter_id, agency_id, venue_id, organizer_user_id, agency_distribution_mode, quota, quota_female, quota_male, quota_normal, quota_drink, quota_table, entry_kind, public_entry_types, free_before_time, entry_deadline, includes_drink, visible_on_club_page, show_remaining, is_active, share_token, created_at';
 
 // Club part first, then by creation order — the host list always leads the stack.
 function orderParts(a: Part, b: Part) {
@@ -83,7 +88,9 @@ export function useGuestListParts(eventId: string, ctx: PartScopeCtx) {
     if (!eventId) { setParts([]); setEntriesByPart({}); setLoading(false); return; }
     setLoading(true);
 
-    const { data: rows } = await supabase.from('guest_lists').select(PART_COLS).eq('event_id', eventId);
+    // Cast client : agency_id / agency_distribution_mode ne sont pas encore dans
+    // les types générés (gen types après migration). Comme partout dans le repo.
+    const { data: rows } = await (supabase as any).from('guest_lists').select(PART_COLS).eq('event_id', eventId);
     const list = ((rows || []) as Part[]).slice().sort(orderParts);
 
     // Resolve holder display names for dj/promoter parts in two batched queries.

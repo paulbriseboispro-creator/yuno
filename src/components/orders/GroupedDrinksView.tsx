@@ -22,7 +22,8 @@ type Order = Tables<'orders'> & {
   venueName?: string;
 };
 
-interface OrderItem {
+// Type alias (pas interface) : la signature d'index implicite le rend assignable à Json.
+type OrderItem = {
   id: string;
   name: string;
   qty: number;
@@ -30,7 +31,26 @@ interface OrderItem {
   imgUrl?: string;
   drinkId?: string;
   isLoyaltyReward?: boolean;
-}
+  served?: boolean;
+  servedUnits?: boolean[];
+  prepUnits?: boolean[];
+};
+
+// Sous-commande source d'une commande fusionnée par événement.
+type MergedSourceOrder = {
+  id: string;
+  items: OrderItem[];
+  token?: string;
+  prep_requested?: boolean;
+  prep_status?: string;
+};
+
+// Commande virtuelle issue de mergeOrdersByEvent (champs internes _*).
+type MergedOrder = Order & {
+  _sourceOrders?: MergedSourceOrder[];
+  _mergedOrderIds?: string[];
+  _hasUnrequestedOrders?: boolean;
+};
 
 interface GroupedDrinksViewProps {
   orders: Order[];
@@ -78,12 +98,12 @@ function groupByDate(items: Order[]): Record<string, Order[]> {
 }
 
 // Sort venues alphabetically
-function getSortedVenues(grouped: Record<string, any[]>): string[] {
+function getSortedVenues(grouped: Record<string, Order[]>): string[] {
   return Object.keys(grouped).sort((a, b) => a.localeCompare(b));
 }
 
 // Sort dates chronologically (closest first)
-function getSortedDates(grouped: Record<string, any[]>): string[] {
+function getSortedDates(grouped: Record<string, Order[]>): string[] {
   return Object.keys(grouped).sort((a, b) => {
     if (a === 'no-date') return 1;
     if (b === 'no-date') return -1;
@@ -113,12 +133,12 @@ function mergeOrdersByEvent(orders: Order[]): Order[] {
       return;
     }
     // Merge items from all orders
-    const allItems: any[] = [];
-    const sourceOrders: { id: string; items: any[]; token?: string; prep_requested?: boolean; prep_status?: string }[] = [];
+    const allItems: OrderItem[] = [];
+    const sourceOrders: MergedSourceOrder[] = [];
     let totalAmount = 0;
 
     groupOrders.forEach(order => {
-      const items = Array.isArray(order.items) ? (order.items as any[]) : [];
+      const items = Array.isArray(order.items) ? (order.items as unknown as OrderItem[]) : [];
       sourceOrders.push({
         id: order.id,
         items,
@@ -131,18 +151,18 @@ function mergeOrdersByEvent(orders: Order[]): Order[] {
     });
 
     // Use the first order as base, override items and total
-    const baseOrder = { ...groupOrders[0] };
-    (baseOrder as any).items = allItems;
-    (baseOrder as any).total = totalAmount;
-    (baseOrder as any)._sourceOrders = sourceOrders;
-    (baseOrder as any)._mergedOrderIds = groupOrders.map(o => o.id);
+    const baseOrder: MergedOrder = { ...groupOrders[0] };
+    baseOrder.items = allItems;
+    baseOrder.total = totalAmount;
+    baseOrder._sourceOrders = sourceOrders;
+    baseOrder._mergedOrderIds = groupOrders.map(o => o.id);
     // Prep: consider requested if ANY order has prep_requested
-    (baseOrder as any).prep_requested = groupOrders.some(o => o.prep_requested);
-    (baseOrder as any).prep_status = groupOrders.some(o => o.prep_status === 'ready') ? 'ready'
+    baseOrder.prep_requested = groupOrders.some(o => o.prep_requested);
+    baseOrder.prep_status = groupOrders.some(o => o.prep_status === 'ready') ? 'ready'
       : groupOrders.some(o => o.prep_status === 'preparing') ? 'preparing'
       : groupOrders.some(o => o.prep_status === 'queue') ? 'queue' : null;
     // Not all prep requested
-    (baseOrder as any)._hasUnrequestedOrders = groupOrders.some(o => !o.prep_requested);
+    baseOrder._hasUnrequestedOrders = groupOrders.some(o => !o.prep_requested);
     merged.push(baseOrder);
   });
 
@@ -190,11 +210,11 @@ export function GroupedDrinksView({
 
   // Handle request prep for merged orders (request for all unrequested sub-orders)
   const handleMergedPrepRequest = (order: Order) => {
-    const mergedIds = (order as any)._mergedOrderIds as string[] | undefined;
+    const mergedIds = (order as MergedOrder)._mergedOrderIds;
     if (mergedIds) {
       // Request prep for each unrequested sub-order
-      const sourceOrders = (order as any)._sourceOrders as any[];
-      sourceOrders.forEach((so: any) => {
+      const sourceOrders = (order as MergedOrder)._sourceOrders!;
+      sourceOrders.forEach((so) => {
         if (!so.prep_requested) {
           onRequestPreparation(so.id);
         }
@@ -237,11 +257,11 @@ export function GroupedDrinksView({
     items.forEach(item => {
       for (let i = 0; i < item.qty; i++) {
         totalUnits++;
-        const isServed = Array.isArray((item as any).servedUnits) 
-          ? (item as any).servedUnits[i] === true 
-          : (item as any).served === true;
-        const isInPrep = Array.isArray((item as any).prepUnits)
-          ? (item as any).prepUnits[i] === true
+        const isServed = Array.isArray(item.servedUnits)
+          ? item.servedUnits[i] === true
+          : item.served === true;
+        const isInPrep = Array.isArray(item.prepUnits)
+          ? item.prepUnits[i] === true
           : false;
         if (isServed) servedUnits++;
         else if (isInPrep) prepUnitsCount++;
@@ -251,13 +271,14 @@ export function GroupedDrinksView({
     const isFullyServed = totalUnits > 0 && servedUnits === totalUnits;
     const availableForQR = totalUnits - servedUnits - prepUnitsCount;
     const hasPrepItems = prepUnitsCount > 0;
-    const isPrepReady = order.prep_status === 'ready' || 
-      ((order as any)._sourceOrders && (order as any)._sourceOrders.some((so: any) => so.prep_status === 'ready'));
+    const mergedSourceOrders = (order as MergedOrder)._sourceOrders;
+    const isPrepReady = order.prep_status === 'ready' ||
+      (mergedSourceOrders && mergedSourceOrders.some((so) => so.prep_status === 'ready'));
 
     // Archived layout: horizontal like ticket archives
     if (isArchived) {
       const groupedItems: { name: string; totalQty: number; unitPrice: number }[] = [];
-      items.forEach((item: any) => {
+      items.forEach((item) => {
         const existing = groupedItems.find(g => g.name === item.name);
         if (existing) { existing.totalQty += item.qty; }
         else { groupedItems.push({ name: item.name, totalQty: item.qty, unitPrice: item.unitPrice }); }
@@ -367,8 +388,8 @@ export function GroupedDrinksView({
               {/* Items list */}
               <div className="space-y-0.5 mb-1">
                 {(() => {
-                  const grouped: { name: string; totalQty: number; servedQty: number; prepQty: number; unitPrice: number; isRewardItem: boolean }[] = [];
-                  items.forEach((item: any) => {
+                  const grouped: { name: string; totalQty: number; servedQty: number; prepQty: number; unitPrice: number; isRewardItem: boolean | undefined }[] = [];
+                  items.forEach((item) => {
                     const existing = grouped.find(g => g.name === item.name);
                     const itemServedCount = Array.isArray(item.servedUnits) 
                       ? item.servedUnits.filter((s: boolean) => s).length 
@@ -566,7 +587,7 @@ export function GroupedDrinksView({
       {/* Prep Selection Overlay */}
       {prepSelectionOrder && (
         <DrinkSelectionStep
-          items={Array.isArray(prepSelectionOrder.items) ? (prepSelectionOrder.items as any[]) : []}
+          items={Array.isArray(prepSelectionOrder.items) ? (prepSelectionOrder.items as unknown as OrderItem[]) : []}
           onConfirm={handlePrepSelectionConfirm}
           onClose={() => setPrepSelectionOrder(null)}
           mode="prep"

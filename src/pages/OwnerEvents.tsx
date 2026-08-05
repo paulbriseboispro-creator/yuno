@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Plus, Pencil, Trash2, Clock, Upload, X, Archive, ChevronDown, ChevronUp, Info, Tag, Lock, Users, Ticket, Crown, RefreshCw, Sparkles, ExternalLink, Eye, Building2, Check, Settings2, Link2 } from 'lucide-react';
+import { Calendar, Plus, Pencil, Trash2, Clock, Upload, X, Archive, ChevronDown, ChevronUp, Info, Tag, Lock, Users, Ticket, Crown, RefreshCw, Sparkles, ExternalLink, Eye, Building2, Check, Settings2, Link2, type LucideIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
-import type { TablesUpdate } from '@/integrations/supabase/types';
+import type { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { Event } from '@/types';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -40,6 +40,16 @@ import {
 } from '@/components/owner/events/events-ui';
 import { cropToSquare } from '@/components/owner/events/events-utils';
 import { EventGenrePicker } from '@/components/owner/events/EventGenrePicker';
+
+// Shape of one round stored in a ticket preset's JSON `rounds` column.
+type PresetRound = {
+  name: string;
+  price: number;
+  maxTickets?: number;
+  lastTicketsThreshold?: number;
+  includesDrink?: boolean;
+  entryDeadline?: string | null;
+};
 
 // A saved club guest-list template, used by the inline picker on each event card.
 type GuestPreset = {
@@ -159,10 +169,10 @@ export default function OwnerEvents() {
     (async () => {
       if (isOrganizerScope) {
         const { data } = await supabase.from('organizer_profiles').select('minors_allowed').eq('user_id', organizerUserId!).maybeSingle();
-        setGlobalMinorsAllowed((data as any)?.minors_allowed ?? false);
+        setGlobalMinorsAllowed(data?.minors_allowed ?? false);
       } else {
         const { data } = await supabase.from('venues').select('minors_allowed').eq('id', venueId!).maybeSingle();
-        setGlobalMinorsAllowed((data as any)?.minors_allowed ?? false);
+        setGlobalMinorsAllowed(data?.minors_allowed ?? false);
       }
     })();
   }, [venueId, organizerUserId, isOrganizerScope, scopeReady]);
@@ -188,15 +198,15 @@ export default function OwnerEvents() {
         posterPosition: event.poster_position as unknown as PosterPosition | undefined,
         startAt: event.start_at, endAt: event.end_at, isActive: event.is_active,
         createdAt: event.created_at, updatedAt: event.updated_at,
-        musicGenres: (event as any).music_genres || [(event as any).music_genre || 'Open Format'],
-        eventType: (event as any).event_type || 'club',
+        musicGenres: event.music_genres || [event.music_genre || 'Open Format'],
+        eventType: event.event_type || 'club',
         isPartnerHosted: isOrganizerScope ? false : (event.partner_venue_id === venueId && event.venue_id !== venueId && !!event.organizer_user_id),
-        isPrivate: isOrganizerScope && ((event as any).event_kind === 'private_event' || (event as any).visibility === 'private'),
-        organizerUserId: (event as any).organizer_user_id ?? null,
-        ticketingEnabled: (event as any).ticketing_enabled ?? false,
-        tablesEnabled: (event as any).tables_enabled ?? false,
+        isPrivate: isOrganizerScope && (event.event_kind === 'private_event' || event.visibility === 'private'),
+        organizerUserId: event.organizer_user_id ?? null,
+        ticketingEnabled: event.ticketing_enabled ?? false,
+        tablesEnabled: event.tables_enabled ?? false,
         guestListEnabled: false,
-        ticketSellingMode: (event as any).ticket_selling_mode || 'rounds',
+        ticketSellingMode: event.ticket_selling_mode || 'rounds',
         roundsCount: 0,
       }));
 
@@ -277,7 +287,7 @@ export default function OwnerEvents() {
     if (posterFile) { const u = await uploadOrgImage(posterFile); if (u) posterUrl = u; else throw new Error('poster upload failed'); }
 
     const visibility = eventKind === 'private_event' ? 'private' : 'public';
-    const payload: Record<string, any> = {
+    const payload: TablesInsert<'events'> = {
       organizer_user_id: organizerUserId,
       title: formData.title.trim(),
       description: formData.description.trim() || null,
@@ -311,7 +321,7 @@ export default function OwnerEvents() {
       const { error } = await supabase.from('events').update(payload as TablesUpdate<'events'>).eq('id', editingEvent.id);
       if (error) throw error;
     } else {
-      const { data, error } = await supabase.from('events').insert(payload as any).select('id').single();
+      const { data, error } = await supabase.from('events').insert(payload).select('id').single();
       if (error) throw error;
       savedId = data.id;
     }
@@ -604,7 +614,7 @@ export default function OwnerEvents() {
     }
     try {
       const sellingMode = preset.selling_mode || 'rounds';
-      const rounds = (preset.rounds as any[]) || [];
+      const rounds = (preset.rounds as PresetRound[] | null) || [];
       if (rounds.length === 0) { toast.error(t('owner.ev.presetNoRounds')); return; }
 
       // Fresh start: remove any existing rounds of this ticket type.
@@ -612,7 +622,7 @@ export default function OwnerEvents() {
       const toDelete = (existing || []).filter(r => (r.ticket_type || 'standard') === preset.ticket_type).map(r => r.id);
       if (toDelete.length > 0) await supabase.from('ticket_rounds').delete().in('id', toDelete);
 
-      const toInsert = rounds.map((r: any, index: number) => ({
+      const toInsert = rounds.map((r, index) => ({
         event_id: event.id,
         name: r.name,
         price: r.price,
@@ -666,13 +676,13 @@ export default function OwnerEvents() {
       startAt: formatInTimeZone(new Date(event.startAt), PARIS_TIMEZONE, "yyyy-MM-dd'T'HH:mm"),
       endAt: formatInTimeZone(new Date(event.endAt), PARIS_TIMEZONE, "yyyy-MM-dd'T'HH:mm"),
       isActive: event.isActive,
-      musicGenres: (event as any).musicGenres || ['Open Format'],
-      eventType: (event as any).eventType || 'club',
+      musicGenres: (event as Event & { musicGenres?: string[] }).musicGenres || ['Open Format'],
+      eventType: (event as Event & { eventType?: string }).eventType || 'club',
     });
     const { data: eventDjs } = await supabase.from('event_djs').select('dj_id').eq('event_id', event.id);
     setLineupDJIds((eventDjs || []).map(ed => ed.dj_id));
     const { data: mdRow } = await supabase.from('events').select('minors_disabled').eq('id', event.id).maybeSingle();
-    setMinorsDisabled((mdRow as any)?.minors_disabled ?? false);
+    setMinorsDisabled(mdRow?.minors_disabled ?? false);
     // Contrat vivant + rattachement courant : c'est ce qui permet de proposer une
     // collab APRÈS coup (rouvrir la soirée et choisir un partenaire) tout en
     // verrouillant l'édition dès qu'un contrat est engagé.
@@ -708,8 +718,9 @@ export default function OwnerEvents() {
         setLocationName(ev.location_name || '');
         setLocationCity(ev.location_city || '');
         setLocationAddress(ev.location_address || '');
-        setLocationIsSecret(!!(ev as any).location_is_secret);
-        setRevealAddressInEmail((ev as any).reveal_address_in_email !== false);
+        setLocationIsSecret(!!ev.location_is_secret);
+        // reveal_address_in_email n'est pas dans le select : undefined → true (comportement historique conservé).
+        setRevealAddressInEmail((ev as Partial<Tables<'events'>>).reveal_address_in_email !== false);
       }
     }
     setIsDialogOpen(true);
@@ -1758,7 +1769,7 @@ function EventCard({ event, onEdit, onDelete, onToggle, onToggleTicketing, onTog
 
 // Radio-style selector card used by the organizer event form (visibility / collab mode).
 function EventSelectCard({ selected, onClick, icon: Icon, title, description }: {
-  selected: boolean; onClick: () => void; icon: any; title: string; description: string;
+  selected: boolean; onClick: () => void; icon: LucideIcon; title: string; description: string;
 }) {
   return (
     <button

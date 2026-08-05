@@ -230,6 +230,7 @@ export default function YunoAssistantPage() {
           variant="ghost"
           size="icon"
           onClick={goBack}
+          aria-label={t('common.back')}
           className="h-10 w-10 rounded-full text-white/60 hover:text-white hover:bg-white/10"
         >
           <ArrowLeft className="h-5 w-5" />
@@ -333,6 +334,9 @@ export default function YunoAssistantPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="px-4 py-4 space-y-4 pb-4"
+              role="log"
+              aria-live="polite"
+              aria-atomic="false"
             >
               {messages.map((msg, i) => (
                 <motion.div
@@ -456,6 +460,7 @@ export default function YunoAssistantPage() {
               }
             }}
             placeholder={t('assistant.placeholder')}
+            aria-label={t('assistant.placeholder')}
             disabled={isLoading}
             className="flex-1 bg-transparent text-sm text-white placeholder:text-white/30 outline-none py-3 resize-none max-h-[130px] leading-relaxed"
           />
@@ -464,6 +469,7 @@ export default function YunoAssistantPage() {
             size="icon"
             disabled={!inputText.trim() || isLoading}
             variant="ghost"
+            aria-label={t('assistant.send')}
             className="h-9 w-9 rounded-full shrink-0 text-primary hover:bg-primary/10 disabled:opacity-30"
           >
             <Send className="h-4 w-4" />

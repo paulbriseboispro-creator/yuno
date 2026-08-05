@@ -23,6 +23,7 @@ import { canSideEdit } from '@/utils/collabResponsibilities';
 import { CollabGuestListPreview } from '@/components/collab/CollabGuestListPreview';
 import { GuestListAllocation } from '@/components/owner/guest-list/GuestListAllocation';
 import { GuestListRequestsInbox } from '@/components/owner/guest-list/GuestListRequestsInbox';
+import { AgencyEnvelopeGrant } from '@/components/owner/guest-list/AgencyEnvelopeGrant';
 import { RED, T1, T2, T3, BORDER, F_BORDER, C_FAINT, INNER_BG, CARD_BG, CARD_SHADOW } from '@/components/owner/guest-list/ui';
 
 interface EventOption { id: string; title: string; startAt: string; endAt: string }
@@ -146,7 +147,10 @@ export default function OwnerGuestList() {
 
   const slug = partSlug({ isOrganizerScope, organizerUserId, venueName: venue?.name ?? null });
   const clubPart = parts.find(p => p.holder_type === 'club') ?? null;
-  const otherParts = parts.filter(p => p.holder_type !== 'club');
+  // L'ENVELOPPE agence ('agency') est pilotée dans le cockpit de l'agence
+  // (répartition partition/pool) et accordée depuis la page Agences côté club —
+  // on ne l'affiche pas ici pour éviter tout double-comptage avec ses sous-parts.
+  const otherParts = parts.filter(p => p.holder_type !== 'club' && p.holder_type !== 'agency');
   const viewerSide: 'venue' | 'organizer' = isOrganizerScope ? 'organizer' : 'venue';
   // Part maison en lecture seule quand on est sur une co-soirée dont on ne tient
   // pas l'opérationnel.
@@ -159,7 +163,10 @@ export default function OwnerGuestList() {
   const existingPromoterIds = parts.filter(p => p.holder_type === 'promoter' && p.promoter_id).map(p => p.promoter_id!) as string[];
 
   // Les parts illimitées (quota NULL) ne comptent pas dans le total chiffré.
-  const totalAllocated = parts.reduce((s, p) => s + (p.is_active ? (p.quota ?? 0) : 0), 0);
+  // L'enveloppe agence est exclue (ses sous-parts promoteur comptent déjà).
+  const totalAllocated = parts
+    .filter(p => p.holder_type !== 'agency')
+    .reduce((s, p) => s + (p.is_active ? (p.quota ?? 0) : 0), 0);
   const totalSignups = Object.values(entriesByPart).flat().filter(e => e.status !== 'cancelled').length;
 
   const displayName = (p: Part) =>
@@ -198,9 +205,9 @@ export default function OwnerGuestList() {
   };
   // "Save as preset" from a part's config opens the full editor, pre-filled.
   const openPresetFromConfig = (config: Record<string, unknown>, holderType: HolderType) => {
-    // Les presets ne connaissent que club/dj/promoter : custom et organizer
-    // (part d'allocation) retombent sur 'club'.
-    const ht: TemplateHolderType = (holderType === 'custom' || holderType === 'organizer') ? 'club' : holderType;
+    // Les presets ne connaissent que club/dj/promoter : custom, organizer
+    // (part d'allocation) et agency (enveloppe, gérée en cockpit agence) retombent sur 'club'.
+    const ht: TemplateHolderType = (holderType === 'custom' || holderType === 'organizer' || holderType === 'agency') ? 'club' : holderType;
     setPresetDialog({ editing: null, initial: { ...(config as Partial<TemplateInput>), holder_type: ht } });
   };
   const savePreset = (input: TemplateInput, id: string | null) =>
@@ -358,6 +365,14 @@ export default function OwnerGuestList() {
               style={{ padding: '14px', borderRadius: 14, background: 'rgba(232,25,44,0.08)', border: `1px dashed rgba(232,25,44,0.35)`, color: '#ff5d68', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
               <Plus className="h-4 w-4" />{t('guestList.parts.addPart')}
             </button>
+
+            {/* Enveloppe guest list accordée à une agence partenaire (par soirée) */}
+            <AgencyEnvelopeGrant
+              eventId={selectedEventId}
+              venueId={venueId ?? null}
+              organizerUserId={organizerUserId ?? null}
+              isOrganizerScope={isOrganizerScope}
+            />
             </>
             )}
 

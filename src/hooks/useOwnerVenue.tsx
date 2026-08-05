@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 
 interface OwnerVenue {
   id: string;
@@ -44,7 +45,8 @@ export function useOwnerVenue() {
 
       // Find venue where this user is the owner
       const { data: venueData, error: venueError } = await withTimeout(
-        supabase.from('venues').select('*').eq('owner_id', user.id).maybeSingle() as unknown as Promise<any>,
+        // Cast needed: the Supabase builder is a thenable, not a Promise, so withTimeout can't accept it as-is.
+        supabase.from('venues').select('*').eq('owner_id', user.id).maybeSingle() as unknown as Promise<{ data: Tables<'venues'> | null; error: Error | null }>,
         8000,
       );
 
@@ -67,13 +69,15 @@ export function useOwnerVenue() {
       } else {
         // Fallback: check profile's venue_id
         const { data: profile } = await withTimeout(
-          supabase.from('profiles').select('venue_id').eq('id', user.id).single() as unknown as Promise<any>,
+          // Cast needed: thenable → Promise for withTimeout.
+          supabase.from('profiles').select('venue_id').eq('id', user.id).single() as unknown as Promise<{ data: Pick<Tables<'profiles'>, 'venue_id'> | null; error: Error | null }>,
           8000,
         );
 
         if (profile?.venue_id) {
           const { data: fallbackVenue } = await withTimeout(
-            supabase.from('venues').select('*').eq('id', profile.venue_id).single() as unknown as Promise<any>,
+            // Cast needed: thenable → Promise for withTimeout.
+            supabase.from('venues').select('*').eq('id', profile.venue_id).single() as unknown as Promise<{ data: Tables<'venues'> | null; error: Error | null }>,
             8000,
           );
 

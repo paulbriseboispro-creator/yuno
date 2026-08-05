@@ -17,6 +17,33 @@ serve(async (req) => {
   }
 
   try {
+    // SECURITY : ce relais d'email n'est ouvert qu'au super admin. On dérive
+    // l'identité du JWT appelant et on refuse tout le reste (403) — y compris le
+    // mode "preview" (dont le destinataire est pourtant codé en dur), pour ne
+    // jamais laisser un anonyme faire envoyer un email par notre compte Resend.
+    const callerAuthHeader = req.headers.get("Authorization");
+    if (!callerAuthHeader?.startsWith("Bearer ")) {
+      return new Response(
+        JSON.stringify({ error: "Authentication required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    const authClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: callerAuthHeader } }, auth: { persistSession: false } }
+    );
+    const { data: { user: caller } } = await authClient.auth.getUser();
+    const { data: isSuperAdmin } = caller
+      ? await authClient.rpc("is_super_admin")
+      : { data: false };
+    if (!caller || isSuperAdmin !== true) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: super admin only" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) {
       throw new Error("RESEND_API_KEY not configured");
@@ -116,7 +143,7 @@ serve(async (req) => {
     }
 
     // Replace placeholders with test data
-    let htmlContent = template.html_content
+    const htmlContent = template.html_content
       .replace(/\{\{venue_name\}\}/g, 'Casanova Club')
       .replace(/\{\{venue_slug\}\}/g, 'casanova')
       .replace(/\{\{event_name\}\}/g, 'Saturday Night Fever')

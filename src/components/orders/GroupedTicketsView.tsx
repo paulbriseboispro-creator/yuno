@@ -108,12 +108,12 @@ function groupByDate<T extends { eventStartAt: string }>(items: T[]): Record<str
 }
 
 // Sort venues alphabetically
-function getSortedVenues(grouped: Record<string, any[]>): string[] {
+function getSortedVenues(grouped: Record<string, unknown[]>): string[] {
   return Object.keys(grouped).sort((a, b) => a.localeCompare(b));
 }
 
 // Sort dates chronologically (closest first)
-function getSortedDates(grouped: Record<string, any[]>): string[] {
+function getSortedDates(grouped: Record<string, unknown[]>): string[] {
   return Object.keys(grouped).sort((a, b) => {
     if (a === 'no-date') return 1;
     if (b === 'no-date') return -1;

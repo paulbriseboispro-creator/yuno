@@ -110,9 +110,9 @@ export default function OwnerSmsCredits() {
       } else {
         setTransactions([]);
       }
-    } catch (e: any) {
+    } catch (e) {
       console.error('[sms credits] load', e);
-      toast.error(e.message ?? t('sms.toastLoadError'));
+      toast.error((e as Error).message ?? t('sms.toastLoadError'));
     } finally {
       setLoading(false);
     }
@@ -159,9 +159,9 @@ export default function OwnerSmsCredits() {
       } else {
         toast.warning(t('sms.toastPending'));
       }
-    } catch (e: any) {
+    } catch (e) {
       console.error('[sms credits] verify', e);
-      toast.error(e.message ?? t('sms.toastVerifyImpossible'));
+      toast.error((e as Error).message ?? t('sms.toastVerifyImpossible'));
     } finally {
       setVerifying(false);
       searchParams.delete('session_id');
@@ -202,9 +202,9 @@ export default function OwnerSmsCredits() {
       } else {
         throw new Error(t('sms.noPaymentUrl'));
       }
-    } catch (e: any) {
+    } catch (e) {
       console.error('[sms credits] checkout', e);
-      toast.error(e.message ?? t('sms.toastPayError'));
+      toast.error((e as Error).message ?? t('sms.toastPayError'));
       setPurchasing(null);
     }
   };

@@ -31,10 +31,24 @@ export function ExploreDJCard({ dj, rank }: { dj: ExploreDJItem; rank?: number }
 
   const djPath = dj.handle || dj.slug;
 
+  const handleOpen = () => {
+    if (djPath) navigate(`/dj/${djPath}`);
+  };
+
   return (
     <div
-      onClick={() => djPath && navigate(`/dj/${djPath}`)}
-      className="shrink-0 overflow-hidden"
+      onClick={handleOpen}
+      role={djPath ? 'button' : undefined}
+      tabIndex={djPath ? 0 : undefined}
+      aria-label={dj.stageName}
+      onKeyDown={(e) => {
+        if (!djPath || e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleOpen();
+        }
+      }}
+      className="shrink-0 overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       style={{
         width: 140,
         borderRadius: '14px',

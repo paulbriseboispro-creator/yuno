@@ -206,7 +206,7 @@ serve(async (req) => {
     { status: 410, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
   );
 
-  // eslint-disable-next-line no-unreachable
+   
   try {
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) {
@@ -318,11 +318,12 @@ serve(async (req) => {
       case 'loyal':
         query = query.gte('total_points_earned', 100);
         break;
-      case 'inactive':
+      case 'inactive': {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         query = query.lt('last_points_earned_at', thirtyDaysAgo.toISOString());
         break;
+      }
       case 'new':
         query = query.lt('total_points_earned', 50);
         break;
@@ -356,7 +357,7 @@ serve(async (req) => {
 
     // Send emails to all customers
     for (const customer of customers) {
-      const venueCustomer = customer.venue_customers as any;
+      const venueCustomer = customer.venue_customers as { email?: string | null; first_name?: string | null } | null;
       const email = venueCustomer?.email;
       
       if (!email) continue;

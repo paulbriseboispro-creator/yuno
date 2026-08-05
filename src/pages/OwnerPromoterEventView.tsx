@@ -3,6 +3,7 @@ import { translate } from '@/i18n/orgTranslate';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { usePromoterScope } from '@/hooks/usePromoterScope';
+import { promoterConversionRate } from '@/lib/promoterMetrics';
 import { getScopeFilter, scopeReady, scopeId } from '@/lib/promoterScopeHelpers';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -110,6 +111,10 @@ export default function OwnerPromoterEventView() {
 
       const convMap: Record<string, { tickets: number; tables: number; revenue: number; commission: number; pending: number; paid: number }> = {};
       (convsRes.data || []).forEach(c => {
+        // Ignorer les conversions annulées (remboursées) : le trigger de refund
+        // met le statut à 'cancelled' sans remettre amount/commission à zéro, donc
+        // sans ce garde une vente remboursée gonflait encore revenu + commission.
+        if (c.status === 'cancelled') return;
         if (!convMap[c.promoter_id]) convMap[c.promoter_id] = { tickets: 0, tables: 0, revenue: 0, commission: 0, pending: 0, paid: 0 };
         if (c.conversion_type === 'ticket' && Number(c.amount || 0) > 0) convMap[c.promoter_id].tickets++;
         if (c.conversion_type === 'table' && Number(c.amount || 0) > 0) convMap[c.promoter_id].tables++;
@@ -133,7 +138,9 @@ export default function OwnerPromoterEventView() {
           profileImage: promo?.profile_image_url || null,
           tickets: cv.tickets, tables: cv.tables, revenue: cv.revenue, clicks: clk,
           commission: cv.commission, pendingCommission: cv.pending, paidCommission: cv.paid,
-          conversionRate: clk > 0 ? (cv.tickets / clk) * 100 : 0,
+          // Taux unifié (billets + tables / clics, plafonné 100 %) — même
+          // définition que la vue promoteur, cf. src/lib/promoterMetrics.ts.
+          conversionRate: promoterConversionRate(cv.tickets + cv.tables, clk),
           goalTarget: assignment?.goal_target || null,
           maxTickets: assignment?.max_tickets || null,
           canAccessGuestlist: assignment?.can_access_guestlist ?? false,

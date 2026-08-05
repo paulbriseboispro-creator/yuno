@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
     if (action === 'preview') {
       const { data, error } = await admin.rpc('preview_unsubscribe', { p_token: token });
       if (error) throw error;
-      const row = (data as any[])?.[0];
+      const row = (data as Record<string, unknown>[])?.[0];
       if (!row) return new Response(JSON.stringify({ found: false }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       return new Response(JSON.stringify({ found: true, ...row }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
 
     const { data, error } = await admin.rpc('unsubscribe_by_token', { p_token: token });
     if (error) throw error;
-    const row = (data as any[])?.[0];
+    const row = (data as { success?: boolean }[])?.[0];
 
     // Attribute the unsubscribe to a campaign and bump its counter.
     if (row?.success && wasOptedIn) {

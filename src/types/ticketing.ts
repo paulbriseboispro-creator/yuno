@@ -86,6 +86,8 @@ export type TablePack = {
   includedItems?: string;
   includedBottlesQuota: number;
   minimumSpend: number;
+  /** Heure d'arrivée limite optionnelle (HH:MM, 24 h). undefined/null = pas de limite. */
+  arrivalDeadline?: string | null;
   tablesCount: number;
   position: number;
   isActive: boolean;

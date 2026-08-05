@@ -59,7 +59,17 @@ export function EventCard({ event }: { event: EventCardData }) {
   return (
     <article
       onClick={handleClick}
-      className="event-card group flex flex-col"
+      role="button"
+      tabIndex={0}
+      aria-label={event.title}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleClick();
+        }
+      }}
+      className="event-card group flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
       {/* Image — carré 1:1 */}
       <div className="relative w-full overflow-hidden" style={{ aspectRatio: '1/1' }}>

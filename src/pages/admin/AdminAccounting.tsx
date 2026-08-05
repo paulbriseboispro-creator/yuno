@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesUpdate } from '@/integrations/supabase/types';
 import { orderRevenue as orderClub, ticketRevenue as ticketClub, tableRevenue as tableClub } from '@/utils/fees';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Download, Calculator } from 'lucide-react';
@@ -112,18 +113,18 @@ export default function AdminAccounting() {
       if (error) throw error;
       toast.success(t('adminAccounting.generated'));
       fetchData();
-    } catch (error: any) { toast.error(error.message || t('adminAccounting.generateError')); }
+    } catch (error) { toast.error((error as Error).message || t('adminAccounting.generateError')); }
   };
 
   const updateCommissionStatus = async (id: string, status: string) => {
     try {
-      const updates: any = { status };
+      const updates: TablesUpdate<'venue_commissions'> = { status };
       if (status === 'paid') updates.paid_at = new Date().toISOString();
       const { error } = await supabase.from('venue_commissions').update(updates).eq('id', id);
       if (error) throw error;
       toast.success(t('adminAccounting.statusUpdated'));
       fetchData();
-    } catch (error: any) { toast.error(error.message || 'Error'); }
+    } catch (error) { toast.error((error as Error).message || 'Error'); }
   };
 
   const exportCSV = () => {

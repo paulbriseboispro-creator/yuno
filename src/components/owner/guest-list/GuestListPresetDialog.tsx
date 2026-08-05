@@ -16,7 +16,7 @@ interface Props {
   initial?: Partial<TemplateInput>;
   t: (key: string) => string;
   onClose: () => void;
-  onSave: (input: TemplateInput, id: string | null) => Promise<void>;
+  onSave: (input: TemplateInput, id: string | null) => Promise<unknown>;
 }
 
 const inputStyle = { background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '9px 12px', color: T1, fontSize: 14, fontFamily: 'inherit' } as const;
@@ -117,14 +117,14 @@ export function GuestListPresetDialog({ editing, initial, t, onClose, onSave }: 
             {/* Holder type */}
             <div>
               <label style={labelStyle}>{t('guestList.presets.forType')}</label>
-              <Segmented value={holderType} onChange={setHolderType} options={TYPES.map(ty => ({ value: ty.value, icon: ty.icon, label: t(ty.key) }))} />
+              <Segmented value={holderType} onChange={v => setHolderType(v)} options={TYPES.map(ty => ({ value: ty.value, icon: ty.icon, label: t(ty.key) }))} />
             </div>
 
             {/* Targeting — DJ & promoter only */}
             {!isClub && (
               <div>
                 <label style={labelStyle}>{t('guestList.presets.targetLabel')}</label>
-                <Segmented value={targetMode} onChange={setTargetMode} options={targetOptions} />
+                <Segmented value={targetMode} onChange={v => setTargetMode(v)} options={targetOptions} />
               </div>
             )}
 

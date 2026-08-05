@@ -91,6 +91,7 @@ export function FavoriteButton({
       className={resolvedClassName}
       style={style}
       aria-pressed={isActive}
+      aria-label={showLabel ? undefined : (isActive ? activeLabel : inactiveLabel)}
     >
       <motion.span
         key={popKey}

@@ -107,10 +107,10 @@ export function ClientFloorPlanPicker({
   const suppressClickRef = useRef(false);
 
   const tables = (floorPlan.layout?.tables || []) as (FloorPlanTable & { zoneName?: string; shape?: FloorPlanTableShape; color?: string; borderRadius?: number; fillOpacity?: number })[];
-  const zoneAreas = ((floorPlan.layout as any)?.zoneAreas || []) as ZoneArea[];
-  const backgroundUrl = (floorPlan as any).backgroundImageUrl || null;
-  const bgOffset = (floorPlan.layout as any)?.bgOffset || { x: 0, y: 0 };
-  const bgScale = (floorPlan.layout as any)?.bgScale || 1;
+  const zoneAreas = (floorPlan.layout?.zoneAreas || []) as ZoneArea[];
+  const backgroundUrl = floorPlan.backgroundImageUrl || null;
+  const bgOffset = floorPlan.layout?.bgOffset || { x: 0, y: 0 };
+  const bgScale = floorPlan.layout?.bgScale || 1;
 
   useEffect(() => {
     if (!backgroundUrl) {
@@ -143,7 +143,7 @@ export function ClientFloorPlanPicker({
     const map = new Map<string, { name: string; color: string }>();
     tables.forEach(t => {
       if (t.zoneId && t.zoneColor) {
-        map.set(t.zoneId, { name: (t as any).zoneName || '', color: t.zoneColor });
+        map.set(t.zoneId, { name: t.zoneName || '', color: t.zoneColor });
       }
     });
     return map;
@@ -178,7 +178,7 @@ export function ClientFloorPlanPicker({
 
   const isTableTooSmall = (table: typeof filteredTables[0]) => {
     if (!guestCount) return false;
-    const tableMax = (table.capacity || 99) + ((table as any).maxExtraPersons || 0);
+    const tableMax = (table.capacity || 99) + (table.maxExtraPersons || 0);
     return guestCount > tableMax;
   };
 
@@ -187,7 +187,7 @@ export function ClientFloorPlanPicker({
     if (suppressClickRef.current) return;
     if (unavailableTableIds.has(table.id)) return;
     if (isTableTooSmall(table)) {
-      const tableMax = (table.capacity || 0) + ((table as any).maxExtraPersons || 0);
+      const tableMax = (table.capacity || 0) + (table.maxExtraPersons || 0);
       toast.info(t('vipCheckout.tooSmallMessage').replace('{name}', table.name).replace('{max}', tableMax.toString()));
       return;
     }
@@ -503,7 +503,7 @@ export function ClientFloorPlanPicker({
         const cx = table.x + table.width / 2;
         const cy = table.y + table.height / 2;
         const shortLabel = table.name.replace(/^table\s*/i, '').trim() || table.name;
-        const tableMax = (table.capacity || 0) + ((table as any).maxExtraPersons || 0);
+        const tableMax = (table.capacity || 0) + (table.maxExtraPersons || 0);
         const isOutsidePrimaryZone = primaryZoneId && table.zoneId && table.zoneId !== primaryZoneId;
         const dimmed = (isOutsidePrimaryZone && !isSelected);
 
@@ -511,6 +511,15 @@ export function ClientFloorPlanPicker({
           <g
             key={table.id}
             onClick={() => handleTableClick(table)}
+            role={readOnly ? undefined : 'button'}
+            tabIndex={readOnly ? undefined : 0}
+            aria-label={table.name}
+            onKeyDown={readOnly ? undefined : (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleTableClick(table);
+              }
+            }}
             className={readOnly ? 'pointer-events-none' : (isUnavailable ? 'cursor-not-allowed' : 'cursor-pointer')}
             style={{ transition: 'opacity 0.3s ease, filter 0.3s ease' }}
             opacity={isUnavailable ? 0.3 : tooSmall ? 0.55 : dimmed ? 0.45 : 1}
@@ -745,7 +754,7 @@ export function ClientFloorPlanPicker({
                     <div className="font-display font-bold uppercase truncate text-white" style={{ fontSize: '13px' }}>{selectedTable.name}</div>
                     {selectedTable.capacity && (
                       <div className="font-mono uppercase" style={{ fontSize: '9px', letterSpacing: '0.06em', color: '#9A9A9A' }}>
-                        {selectedTable.capacity} pers.{(selectedTable as any).maxExtraPersons ? ` · +${(selectedTable as any).maxExtraPersons} max` : ''}
+                        {selectedTable.capacity} pers.{selectedTable.maxExtraPersons ? ` · +${selectedTable.maxExtraPersons} max` : ''}
                       </div>
                     )}
                   </div>

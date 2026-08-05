@@ -302,30 +302,10 @@ export default function ClickCollect() {
           .eq('prep_claimed_by', currentUserId);
       }
 
-      // Send push notification to the order owner
-      try {
-        const { data: orderData } = await supabase
-          .from('orders')
-          .select('user_id')
-          .eq('id', ids[0])
-          .single();
-
-        if (orderData?.user_id) {
-          const itemsSummary = (merged?.items as any[])?.map((i: any) => `${i.qty}x ${i.name}`).join(', ') || 'Commande';
-          await supabase.functions.invoke('send-push-notification', {
-            body: {
-              user_id: orderData.user_id,
-              payload: {
-                title: 'Commande prête 🎉',
-                body: `${itemsSummary} – Viens récupérer ta commande !`,
-                url: '/my-orders'
-              }
-            },
-          });
-        }
-      } catch (notifError) {
-        console.error('Error sending notification:', notifError);
-      }
+      // Le push « commande prête » part côté serveur : le trigger DB
+      // notify_order_live_activity détecte ready_at NULL→non-NULL et envoie
+      // l'action 'order_ready' (relay trilingue). Pas de push direct ici —
+      // c'était un doublon en français seul pour tous les clients.
 
       setPreparingOrder(null);
       toast.success(t('clickCollect.readySuccess'));

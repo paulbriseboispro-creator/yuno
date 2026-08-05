@@ -10,6 +10,55 @@
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const BATCH_LIMIT = 50;
 
+// ----- Typage minimal du client Supabase admin (colonnes des selects ci-dessous) -----
+
+interface EmbeddableEventRow {
+  id: string;
+  title: string;
+  description: string | null;
+  music_genres: string[] | null;
+  music_genre: string | null;
+  location_city: string | null;
+  location_name: string | null;
+  venue_id: string | null;
+}
+
+interface EmbeddableDjRow {
+  id: string;
+  user_id: string;
+  stage_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  bio: string | null;
+  music_genres: string[] | null;
+  city: string | null;
+  country: string | null;
+}
+
+interface EmbeddingQuery<Row>
+  extends PromiseLike<{ data: Row[] | null; error: { message: string } | null }> {
+  select(columns: string): EmbeddingQuery<Row>;
+  eq(column: string, value: unknown): EmbeddingQuery<Row>;
+  is(column: string, value: unknown): EmbeddingQuery<Row>;
+  not(column: string, operator: string, value: unknown): EmbeddingQuery<Row>;
+  gte(column: string, value: unknown): EmbeddingQuery<Row>;
+  in(column: string, values: unknown[]): EmbeddingQuery<Row>;
+  limit(count: number): EmbeddingQuery<Row>;
+  upsert(
+    rows: unknown[],
+    options: { onConflict: string },
+  ): PromiseLike<{ error: { message: string } | null }>;
+}
+
+interface EmbeddingAdminClient {
+  from(table: "events"): EmbeddingQuery<EmbeddableEventRow>;
+  from(table: "venues"): EmbeddingQuery<{ id: string; name: string }>;
+  from(table: "event_embeddings"): EmbeddingQuery<{ event_id: string; content_hash: string }>;
+  from(table: "djs"): EmbeddingQuery<EmbeddableDjRow>;
+  from(table: "dj_embeddings"): EmbeddingQuery<{ dj_id: string; content_hash: string }>;
+  from(table: "event_djs"): EmbeddingQuery<{ event_id: string; dj_id: string }>;
+}
+
 async function sha256Hex(input: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -22,11 +71,15 @@ function buildContent(evt: {
   music_genre: string | null;
   location_city: string | null;
   location_name: string | null;
-}, venueName: string | null): string {
+}, venueName: string | null, lineup: string[]): string {
   const genres = (evt.music_genres && evt.music_genres.length ? evt.music_genres : [evt.music_genre]).filter(Boolean).join(", ");
   return [
     evt.title,
     genres,
+    // Le line-up : sans lui, deux soirées techno du même club sont quasi
+    // identiques pour le moteur, alors que c'est exactement ce qui les
+    // distingue pour un clubbeur.
+    lineup.join(", "),
     venueName || evt.location_name || "",
     evt.location_city || "",
     (evt.description || "").substring(0, 500),
@@ -34,8 +87,7 @@ function buildContent(evt: {
 }
 
 export async function refreshEventEmbeddings(
-  // deno-lint-ignore no-explicit-any
-  admin: any,
+  admin: EmbeddingAdminClient,
   openaiKey: string,
 ): Promise<{ scanned: number; updated: number }> {
   // Events publics à venir — mêmes filtres que la RPC get_for_you_events.
@@ -53,7 +105,7 @@ export async function refreshEventEmbeddings(
 
   // Noms de venues en une requête séparée (l'embed events→venues est ambigu :
   // deux FK, venue_id et partner_venue_id).
-  const venueIds = [...new Set(events.map((e: any) => e.venue_id).filter(Boolean))];
+  const venueIds = [...new Set(events.map((e) => e.venue_id).filter(Boolean))];
   const venueNames = new Map<string, string>();
   if (venueIds.length) {
     const { data: venues } = await admin.from("venues").select("id, name").in("id", venueIds);
@@ -63,13 +115,46 @@ export async function refreshEventEmbeddings(
   const { data: existing } = await admin
     .from("event_embeddings")
     .select("event_id, content_hash")
-    .in("event_id", events.map((e: any) => e.id));
-  const existingHashes = new Map<string, string>((existing || []).map((r: any) => [r.event_id, r.content_hash]));
+    .in("event_id", events.map((e) => e.id));
+  const existingHashes = new Map<string, string>(
+    (existing || []).map((r): [string, string] => [r.event_id, r.content_hash]),
+  );
+
+  // Line-ups : event_djs → noms de scène. Deux requêtes plates (pas d'embed :
+  // event_djs a deux FK vers djs/djs_public, la jointure implicite est ambiguë).
+  const lineups = new Map<string, string[]>();
+  const { data: eventDjs } = await admin
+    .from("event_djs")
+    .select("event_id, dj_id")
+    .in("event_id", events.map((e) => e.id));
+  const djIds = [...new Set((eventDjs || []).map((r) => r.dj_id))];
+  if (djIds.length) {
+    const { data: djRows } = await admin
+      .from("djs")
+      .select("id, user_id, stage_name, first_name, last_name, bio, music_genres, city, country")
+      .in("id", djIds);
+    const djNames = new Map<string, string>();
+    for (const d of djRows || []) {
+      const name = (d.stage_name || `${d.first_name || ""} ${d.last_name || ""}`).trim();
+      if (name) djNames.set(d.id, name);
+    }
+    for (const row of eventDjs || []) {
+      const name = djNames.get(row.dj_id);
+      if (!name) continue;
+      const list = lineups.get(row.event_id);
+      if (list) list.push(name);
+      else lineups.set(row.event_id, [name]);
+    }
+  }
 
   // Candidats : embedding manquant ou contenu modifié.
   const candidates: { id: string; content: string; hash: string }[] = [];
   for (const evt of events) {
-    const content = buildContent(evt, evt.venue_id ? venueNames.get(evt.venue_id) || null : null);
+    const content = buildContent(
+      evt,
+      evt.venue_id ? venueNames.get(evt.venue_id) || null : null,
+      lineups.get(evt.id) || [],
+    );
     const hash = await sha256Hex(content);
     if (existingHashes.get(evt.id) !== hash) candidates.push({ id: evt.id, content, hash });
     if (candidates.length >= BATCH_LIMIT) break;
@@ -105,9 +190,8 @@ async function embed(inputs: string[], openaiKey: string): Promise<(number[] | u
   if (!response.ok) {
     throw new Error(`Embeddings API error: ${response.status}`);
   }
-  const result = await response.json();
-  // deno-lint-ignore no-explicit-any
-  return inputs.map((_, i) => (result.data?.[i] as any)?.embedding);
+  const result = (await response.json()) as { data?: { embedding?: number[] }[] };
+  return inputs.map((_, i) => result.data?.[i]?.embedding);
 }
 
 /**
@@ -116,8 +200,7 @@ async function embed(inputs: string[], openaiKey: string): Promise<(number[] | u
  * remplis). Même invalidation par content_hash, même batch de 50.
  */
 export async function refreshDjEmbeddings(
-  // deno-lint-ignore no-explicit-any
-  admin: any,
+  admin: EmbeddingAdminClient,
   openaiKey: string,
 ): Promise<{ scanned: number; updated: number }> {
   const { data: djs } = await admin
@@ -132,10 +215,10 @@ export async function refreshDjEmbeddings(
   const { data: existing } = await admin
     .from("dj_embeddings")
     .select("dj_id, content_hash")
-    // deno-lint-ignore no-explicit-any
-    .in("dj_id", djs.map((d: any) => d.id));
-  // deno-lint-ignore no-explicit-any
-  const existingHashes = new Map<string, string>((existing || []).map((r: any) => [r.dj_id, r.content_hash]));
+    .in("dj_id", djs.map((d) => d.id));
+  const existingHashes = new Map<string, string>(
+    (existing || []).map((r): [string, string] => [r.dj_id, r.content_hash]),
+  );
 
   const candidates: { id: string; userId: string; content: string; hash: string }[] = [];
   for (const dj of djs) {

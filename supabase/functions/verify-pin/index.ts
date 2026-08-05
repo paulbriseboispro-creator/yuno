@@ -126,10 +126,10 @@ serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in verify-pin:", error);
     return new Response(
-      JSON.stringify({ error: error.message || "Server error", success: false }),
+      JSON.stringify({ error: (error as Error).message || "Server error", success: false }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

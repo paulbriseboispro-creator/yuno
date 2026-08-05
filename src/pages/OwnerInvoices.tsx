@@ -376,10 +376,10 @@ export default function OwnerInvoices() {
       .maybeSingle();
 
     let items: InvoiceItem[] = [];
-    let serviceFee = Number(storedInvoice?.service_fee) || 0;
-    let managementFee = Number(storedInvoice?.management_fee) || 0;
-    let insuranceFee = Number(storedInvoice?.insurance_fee) || 0;
-    let qrCode = storedInvoice?.qr_code || invoice.invoice_number;
+    const serviceFee = Number(storedInvoice?.service_fee) || 0;
+    const managementFee = Number(storedInvoice?.management_fee) || 0;
+    const insuranceFee = Number(storedInvoice?.insurance_fee) || 0;
+    const qrCode = storedInvoice?.qr_code || invoice.invoice_number;
 
     // Short claim reference (TK-/VP-XXXXXX), shown as the ticket number on the bill.
     let referenceCode: string | undefined;
