@@ -42,6 +42,8 @@ export interface ManifestEntry {
   guests?: number | null;
   zone?: string | null;
   pack?: string | null;
+  /** Heure d'arrivée limite du pack (HH:MM). NULL = pas de limite. */
+  arrival?: string | null;
   deposit?: number | null;
   total?: number | null;
 }

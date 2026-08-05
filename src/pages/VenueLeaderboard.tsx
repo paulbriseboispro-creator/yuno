@@ -5,7 +5,7 @@ import { ArrowLeft, Trophy, Crown, Calendar, CalendarDays, Search, ChevronDown, 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useLeaderboard, getStatusBadge, anonymizeName } from '@/hooks/useLeaderboard';
+import { useLeaderboard, getStatusBadge, anonymizeName, type ClientScore } from '@/hooks/useLeaderboard';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -30,7 +30,7 @@ export default function VenueLeaderboard() {
       if (!slug) return null;
       // `venues` n'a pas de colonne `slug` : l'id texte EST le slug de l'URL
       // (/club/:slug), comme dans VenuePage. Filtrer sur `slug` échouait (42703).
-      const { data } = await (supabase as any)
+      const { data } = await supabase
         .from('venues')
         .select('id, name, logo_url')
         .eq('id', slug)
@@ -44,13 +44,13 @@ export default function VenueLeaderboard() {
   const { settings, scores, myRank, loading } = useLeaderboard(venueId || undefined);
 
   // Determine which score/rank to use based on mode
-  const getScore = (s: any): number => {
+  const getScore = (s: ClientScore): number => {
     if (mode === 'monthly') return s.monthly_score || 0;
     if (mode === 'yearly') return s.yearly_score || 0;
     return s.total_score || 0; // event uses total_score for now
   };
 
-  const getRank = (s: any): number | null => {
+  const getRank = (s: ClientScore): number | null => {
     if (mode === 'monthly') return s.monthly_rank;
     if (mode === 'yearly') return s.yearly_rank;
     return s.rank;

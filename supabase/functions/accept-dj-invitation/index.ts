@@ -136,7 +136,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const mediaScore = (d: Record<string, any>) => (d.cover_image_url ? 2 : 0) + (d.profile_image_url ? 1 : 0);
+    const mediaScore = (d: Record<string, unknown>) => (d.cover_image_url ? 2 : 0) + (d.profile_image_url ? 1 : 0);
     const existingDJProfile = [...allDJProfiles].sort((a, b) => {
       const byMedia = mediaScore(b) - mediaScore(a);
       if (byMedia !== 0) return byMedia;
@@ -222,9 +222,9 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error:', error);
-    return new Response(JSON.stringify({ error: error.message || 'Erreur inconnue' }), {
+    return new Response(JSON.stringify({ error: (error as Error).message || 'Erreur inconnue' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

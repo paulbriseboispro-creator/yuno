@@ -82,7 +82,7 @@ export function EventSelectionDialog({
         const hostVenueIds = [
           ...new Set(
             rows
-              .map((e: any) => e.venue_id || e.partner_venue_id)
+              .map((e) => e.venue_id || e.partner_venue_id)
               .filter(Boolean) as string[],
           ),
         ];
@@ -92,9 +92,9 @@ export function EventSelectionDialog({
             .select('id, menu_enabled')
             .in('id', hostVenueIds);
           const enabled = new Set(
-            (venues ?? []).filter((v: any) => v.menu_enabled === true).map((v: any) => v.id),
+            (venues ?? []).filter((v) => v.menu_enabled === true).map((v) => v.id),
           );
-          rows = rows.filter((e: any) => {
+          rows = rows.filter((e) => {
             const host = e.venue_id || e.partner_venue_id;
             return host && enabled.has(host);
           });
@@ -103,7 +103,7 @@ export function EventSelectionDialog({
         }
       }
 
-      const mappedEvents: (Event & { posterUrl?: string })[] = rows.map((event: any) => ({
+      const mappedEvents: (Event & { posterUrl?: string })[] = rows.map((event) => ({
         id: event.id,
         venueId: event.venue_id,
         title: event.title,

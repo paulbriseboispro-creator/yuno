@@ -9,10 +9,19 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const logStep = (step: string, details?: any) => {
+const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[NOTIFY-EVENT-WAITLIST] ${step}${detailsStr}`);
 };
+
+// Colonnes du select sur events utilisées via cast (embed venues + colonnes plates
+// que l'inférence supabase-js ne porte pas ici).
+interface WaitlistEventRow {
+  organizer_user_id: string | null;
+  poster_url: string | null;
+  description: string | null;
+  venues: { name: string | null } | null;
+}
 
 function buildWaitlistConfirmationEmail(
   entry: { full_name?: string | null },
@@ -137,7 +146,7 @@ serve(async (req) => {
         });
         const { data: { user } } = await userClient.auth.getUser();
         if (user) {
-          if ((event as any).organizer_user_id && (event as any).organizer_user_id === user.id) {
+          if ((event as WaitlistEventRow).organizer_user_id && (event as WaitlistEventRow).organizer_user_id === user.id) {
             authorized = true;
           } else {
             const { data: ownedVenue } = await supabaseClient
@@ -185,16 +194,16 @@ serve(async (req) => {
 
     let notifiedCount = 0;
     if (resendApiKey) {
-      const venueName = (event as any).venues?.name || 'Yuno';
+      const venueName = (event as WaitlistEventRow).venues?.name || 'Yuno';
       const eventUrl = `https://yunoapp.eu/club/${event.venue_id}`;
-      const eventImageUrl = (event as any).poster_url || null;
+      const eventImageUrl = (event as WaitlistEventRow).poster_url || null;
       const lang: EmailLanguage = 'fr';
 
       for (const entry of entries) {
         try {
           const emailData = type === 'confirmation'
             ? buildWaitlistConfirmationEmail(entry, event.title, venueName, lang)
-            : buildWaitlistOpeningEmail(entry, event.title, venueName, eventUrl, eventImageUrl, event.start_at, (event as any).description, lang);
+            : buildWaitlistOpeningEmail(entry, event.title, venueName, eventUrl, eventImageUrl, event.start_at, (event as WaitlistEventRow).description, lang);
 
           const res = await fetch('https://api.resend.com/emails', {
             method: 'POST',

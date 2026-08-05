@@ -155,7 +155,7 @@ export const PUSH_AUTOMATIONS: PushAutomation[] = [
   },
   {
     key: 'thank_you',
-    emoji: '🖤',
+    emoji: '❤️',
     titleKey: 'pushTpl.thankYou.title',
     bodyKey: 'pushTpl.thankYou.body',
     variables: ['venue'],

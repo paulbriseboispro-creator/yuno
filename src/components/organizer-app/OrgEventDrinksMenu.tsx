@@ -31,6 +31,11 @@ interface Props {
   eventId: string;
 }
 
+/** Shape of the `drinks` entry inside revenue_split_rules / default_split_rules JSON */
+interface DrinksSplitRules {
+  drinks?: { organizer_pct?: number | string | null; venue_pct?: number | string | null } | null;
+}
+
 /**
  * Shows the drinks menu of the partner venue on the organizer's event page.
  * Visible only when the event is hosted at a partner club with an active partnership
@@ -66,7 +71,7 @@ export function OrgEventDrinksMenu({ eventId }: Props) {
 
       // Resolve partnership default rules to know if drinks revenue is shared
       const orgId = ev.organizer_user_id || ev.partner_organizer_id;
-      let rules = ev.revenue_split_rules as any;
+      let rules = ev.revenue_split_rules as DrinksSplitRules | null;
       if (!rules && orgId) {
         const { data: partnership } = await supabase
           .from('venue_organizer_partnerships')
@@ -75,7 +80,7 @@ export function OrgEventDrinksMenu({ eventId }: Props) {
           .eq('organizer_user_id', orgId)
           .eq('status', 'active')
           .maybeSingle();
-        rules = partnership?.default_split_rules ?? null;
+        rules = (partnership?.default_split_rules ?? null) as DrinksSplitRules | null;
       }
       if (rules?.drinks) {
         setSplitPct({

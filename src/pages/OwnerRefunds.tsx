@@ -31,6 +31,40 @@ interface RefundedItem {
   refunded_at: string;
 }
 
+/** Colonnes communes aux lignes remboursées (orders / tickets / table_reservations). */
+interface RefundedOrderRow {
+  id: string;
+  total: number;
+  refund_amount: number | null;
+  refund_reason: string | null;
+  refunded_at: string | null;
+  created_at: string;
+}
+
+interface RefundedSaleRow {
+  id: string;
+  total_price: number;
+  refund_amount: number | null;
+  refund_reason: string | null;
+  refunded_at: string | null;
+  event_id: string;
+}
+
+/** Ligne d'item d'une commande (JSON `orders.items`), champs réellement lus. */
+interface OrderItemLine {
+  qty?: number;
+  name?: string;
+  drinkName?: string;
+}
+
+/** Résultat unitaire renvoyé par l'edge function owner-refund. */
+interface RefundResult {
+  success: boolean;
+  type: string;
+  id: string;
+  error?: string;
+}
+
 const STRIPE_PERCENT = 0.015;
 const STRIPE_FIXED_CENTS = 25;
 
@@ -86,9 +120,9 @@ export default function OwnerRefunds() {
     if (!scopeReady) return;
     setFetchingAnalytics(true);
     try {
-      let refOrders: any[] | null = [];
-      let refTickets: any[] | null = [];
-      let refTables: any[] | null = [];
+      let refOrders: RefundedOrderRow[] | null = [];
+      let refTickets: RefundedSaleRow[] | null = [];
+      let refTables: RefundedSaleRow[] | null = [];
       let paidOrdersCount = 0, paidTicketsCount = 0, paidTablesCount = 0;
 
       if (isOrganizerScope) {
@@ -111,9 +145,9 @@ export default function OwnerRefunds() {
 
       interface RI { type: string; amount: number; reason: string; date: string; }
       const all: RI[] = [];
-      (refOrders || []).forEach((o: any) => all.push({ type: 'order', amount: Number(o.refund_amount) || Number(o.total), reason: o.refund_reason || '', date: o.refunded_at ? format(new Date(o.refunded_at), 'yyyy-MM-dd') : format(new Date(o.created_at), 'yyyy-MM-dd') }));
-      (refTickets || []).forEach((t: any) => all.push({ type: 'ticket', amount: Number(t.refund_amount) || Number(t.total_price), reason: t.refund_reason || '', date: t.refunded_at ? format(new Date(t.refunded_at), 'yyyy-MM-dd') : '' }));
-      (refTables || []).forEach((t: any) => all.push({ type: 'table_reservation', amount: Number(t.refund_amount) || Number(t.total_price), reason: t.refund_reason || '', date: t.refunded_at ? format(new Date(t.refunded_at), 'yyyy-MM-dd') : '' }));
+      (refOrders || []).forEach((o) => all.push({ type: 'order', amount: Number(o.refund_amount) || Number(o.total), reason: o.refund_reason || '', date: o.refunded_at ? format(new Date(o.refunded_at), 'yyyy-MM-dd') : format(new Date(o.created_at), 'yyyy-MM-dd') }));
+      (refTickets || []).forEach((t) => all.push({ type: 'ticket', amount: Number(t.refund_amount) || Number(t.total_price), reason: t.refund_reason || '', date: t.refunded_at ? format(new Date(t.refunded_at), 'yyyy-MM-dd') : '' }));
+      (refTables || []).forEach((t) => all.push({ type: 'table_reservation', amount: Number(t.refund_amount) || Number(t.total_price), reason: t.refund_reason || '', date: t.refunded_at ? format(new Date(t.refunded_at), 'yyyy-MM-dd') : '' }));
 
       const totalRefunded = all.reduce((s, r) => s + r.amount, 0);
       const totalRefundCount = all.length;
@@ -158,7 +192,7 @@ export default function OwnerRefunds() {
 
       // Orders (drinks) only exist for venues — organizers have no venue, so skip.
       const { data: orders } = isOrganizerScope
-        ? { data: [] as any[] }
+        ? { data: [] as never[] }
         : await supabase
             .from('orders')
             .select('id, user_email, total, service_fee, created_at, stripe_payment_intent_id, items, status, refund_reason, refunded_at, refund_amount')
@@ -167,15 +201,15 @@ export default function OwnerRefunds() {
 
       for (const o of orders || []) {
         if (o.status === 'refunded') {
-          const refundedAmt = Number((o as any).refund_amount) || Number(o.total);
+          const refundedAmt = Number(o.refund_amount) || Number(o.total);
           refunded.push({ id: o.id, type: 'order', email: o.user_email || '', amount: refundedAmt, reason: o.refund_reason || '', refunded_at: o.refunded_at || '' });
         } else if (o.status === 'paid') {
           const total = Number(o.total);
           const sf = Number(o.service_fee || 0);
           const stripeFee = calcStripeFee(total);
           const clubReceived = total - sf;
-          const itemsList = Array.isArray(o.items) ? o.items as any[] : [];
-          const details = itemsList.map((i: any) => `${i.qty || 1}x ${i.name || i.drinkName || ''}`).join(', ');
+          const itemsList = Array.isArray(o.items) ? o.items as OrderItemLine[] : [];
+          const details = itemsList.map((i) => `${i.qty || 1}x ${i.name || i.drinkName || ''}`).join(', ');
           refundable.push({
             id: o.id, type: 'order', email: o.user_email || '', amount: total,
             serviceFee: sf, stripeFee, clubReceived,
@@ -243,7 +277,7 @@ export default function OwnerRefunds() {
   const toggleItem = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   };
@@ -296,9 +330,9 @@ export default function OwnerRefunds() {
 
       if (error) throw error;
 
-      const results = data?.results || [];
-      const successes = results.filter((r: any) => r.success).length;
-      const failures = results.filter((r: any) => !r.success);
+      const results: RefundResult[] = data?.results || [];
+      const successes = results.filter((r) => r.success).length;
+      const failures = results.filter((r) => !r.success);
 
       if (successes > 0) {
         toast.success(`${successes} ${t('refund.refundedSuccess')}`);
@@ -309,8 +343,8 @@ export default function OwnerRefunds() {
 
       setDialogOpen(false);
       fetchItems();
-    } catch (err: any) {
-      toast.error(err.message || 'Error');
+    } catch (err) {
+      toast.error((err as Error).message || 'Error');
     } finally {
       setLoading(false);
     }

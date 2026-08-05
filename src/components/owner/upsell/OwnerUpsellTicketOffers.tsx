@@ -4,6 +4,7 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Trash2, Info, Package, Tag, Percent, ArrowRight, Check, Shirt, Pencil } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import type { TablesInsert } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
 import {
@@ -83,7 +84,7 @@ export function OwnerUpsellTicketOffers({ venueId }: { venueId: string }) {
       .select('*')
       .eq('venue_id', venueId)
       .order('priority', { ascending: true });
-    if (data) setOffers(data as any);
+    if (data) setOffers(data);
     setLoading(false);
   };
 
@@ -140,9 +141,9 @@ export function OwnerUpsellTicketOffers({ venueId }: { venueId: string }) {
   const handleSave = async () => {
     const autoName = getAutoName(selectedTemplate);
 
-    const payload: any = {
+    const payload: TablesInsert<'ticket_upsell_offers'> = {
       venue_id: venueId,
-      offer_type: selectedTemplate,
+      offer_type: selectedTemplate as string, // handleSave n'est atteignable qu'avec un template choisi
       name: name || autoName,
       description: description || null,
       drink_count: selectedTemplate === 'drink_pack' ? drinkCount : selectedTemplate === 'drink_combo' ? comboQty : null,

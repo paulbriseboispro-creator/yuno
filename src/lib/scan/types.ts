@@ -58,7 +58,9 @@ export type ScanVerdictStatus =
   | 'deadline_passed'
   | 'wrong_venue'
   | 'cancel_ready'
-  | 'cannot_cancel_scanned';
+  | 'cannot_cancel_scanned'
+  /** Chemin offline uniquement : QR absent du manifeste (billet acheté après la dernière synchro ?). */
+  | 'not_found';
 
 export interface ScanVerdict {
   status: ScanVerdictStatus;

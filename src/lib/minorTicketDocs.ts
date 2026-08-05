@@ -30,14 +30,14 @@ export async function fetchMinorEmailSet(eventIds: string[]): Promise<Set<string
   const set = new Set<string>();
   if (!eventIds.length) return set;
   const { data, error } = await supabase
-    .from('minor_ticket_docs' as any)
+    .from('minor_ticket_docs')
     .select('buyer_email')
     .in('event_id', eventIds);
   if (error) {
     console.error('fetchMinorEmailSet failed:', error);
     return set;
   }
-  for (const r of (data as any[]) ?? []) {
+  for (const r of data ?? []) {
     if (r.buyer_email) set.add(String(r.buyer_email).trim().toLowerCase());
   }
   return set;
@@ -49,7 +49,7 @@ export async function fetchMinorDocsByEmail(eventIds: string[]): Promise<Map<str
   const map = new Map<string, MinorDoc>();
   if (!eventIds.length) return map;
   const { data, error } = await supabase
-    .from('minor_ticket_docs' as any)
+    .from('minor_ticket_docs')
     .select('buyer_email, birth_date, doc_url, doc_name, created_at')
     .in('event_id', eventIds)
     .order('created_at', { ascending: false });
@@ -57,7 +57,7 @@ export async function fetchMinorDocsByEmail(eventIds: string[]): Promise<Map<str
     console.error('fetchMinorDocsByEmail failed:', error);
     return map;
   }
-  for (const r of (data as any[]) ?? []) {
+  for (const r of data ?? []) {
     const email = String(r.buyer_email ?? '').trim().toLowerCase();
     if (email && !map.has(email)) {
       map.set(email, { birthDate: r.birth_date ?? null, docUrl: r.doc_url ?? null, docName: r.doc_name ?? null });
@@ -72,7 +72,7 @@ export async function fetchMinorDocsByEvents(eventIds: string[]): Promise<Map<st
   const map = new Map<string, MinorDoc>();
   if (!eventIds.length) return map;
   const { data, error } = await supabase
-    .from('minor_ticket_docs' as any)
+    .from('minor_ticket_docs')
     .select('event_id, buyer_email, birth_date, doc_url, doc_name, created_at')
     .in('event_id', eventIds)
     .order('created_at', { ascending: false });
@@ -80,7 +80,7 @@ export async function fetchMinorDocsByEvents(eventIds: string[]): Promise<Map<st
     console.error('fetchMinorDocsByEvents failed:', error);
     return map;
   }
-  for (const r of (data as any[]) ?? []) {
+  for (const r of data ?? []) {
     const key = minorDocKey(r.event_id, r.buyer_email);
     // Ordered newest-first, so only keep the first (latest) per key.
     if (!map.has(key)) {

@@ -44,7 +44,7 @@ export function useCartRules(venueId: string | null, cart: CartItem[]) {
         .eq('rule_type', 'percentage_discount')
         .order('priority', { ascending: true });
       if (data) {
-        setRules(data.map((r: any) => ({
+        setRules(data.map((r) => ({
           ...r,
           discount_percent: r.discount_percent ? Number(r.discount_percent) : null,
           free_qty: r.free_qty ?? 1,

@@ -55,13 +55,13 @@ export default function BlockInspector({
         <div className="space-y-3">
           <div>
             <Label className="text-xs">{t('em.insp.displayName')}</Label>
-            <Input placeholder={t('em.insp.displayName')} value={(b as any).venue_name || ''} className="mt-1"
+            <Input placeholder={t('em.insp.displayName')} value={b.venue_name || ''} className="mt-1"
               onChange={e => onUpdate({ venue_name: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <Label className="text-xs">{t('em.insp.logoSize')}</Label>
-              <Select value={(b as any).logo_size || 'md'} onValueChange={(v) => onUpdate({ logo_size: v })}>
+              <Select value={b.logo_size || 'md'} onValueChange={(v) => onUpdate({ logo_size: v })}>
                 <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="sm">{t('em.insp.sizeSm')}</SelectItem>
@@ -72,7 +72,7 @@ export default function BlockInspector({
             </div>
             <div>
               <Label className="text-xs">{t('em.insp.logoShape')}</Label>
-              <Select value={(b as any).logo_shape || 'free'} onValueChange={(v) => onUpdate({ logo_shape: v })}>
+              <Select value={b.logo_shape || 'free'} onValueChange={(v) => onUpdate({ logo_shape: v })}>
                 <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="free">{t('em.insp.shapeFree')}</SelectItem>
@@ -84,31 +84,31 @@ export default function BlockInspector({
           </div>
           <div className="flex items-center justify-between text-sm">
             <span>{t('em.insp.showName')}</span>
-            <Switch checked={(b as any).show_name !== false} onCheckedChange={(v) => onUpdate({ show_name: v })} />
+            <Switch checked={b.show_name !== false} onCheckedChange={(v) => onUpdate({ show_name: v })} />
           </div>
           <p className="text-xs text-muted-foreground">{t('em.insp.headerHelp')}</p>
         </div>
       )}
 
       {b.type === 'text' && (
-        <RichTextField value={(b as any).html} variables={variables} onChange={(html) => onUpdate({ html })} />
+        <RichTextField value={b.html} variables={variables} onChange={(html) => onUpdate({ html })} />
       )}
 
       {b.type === 'image' && (
         <div className="space-y-3">
           <ImageUploader
-            value={(b as any).url || null}
+            value={b.url || null}
             onChange={(url) => onUpdate({ url: url || '' })}
             bucketFolder={`${bucketFolder}/images`}
           />
           <div>
             <Label className="text-xs">{t('em.insp.linkOptional')}</Label>
-            <Input placeholder="https://…" value={(b as any).link_url || ''} className="mt-1"
+            <Input placeholder="https://…" value={b.link_url || ''} className="mt-1"
               onChange={e => onUpdate({ link_url: e.target.value })} />
           </div>
           <div>
             <Label className="text-xs">{t('em.insp.align')}</Label>
-            <Select value={(b as any).align || 'center'} onValueChange={(v) => onUpdate({ align: v })}>
+            <Select value={b.align || 'center'} onValueChange={(v) => onUpdate({ align: v })}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="left">{t('em.insp.alignLeft')}</SelectItem>
@@ -124,17 +124,17 @@ export default function BlockInspector({
         <div className="space-y-3">
           <div>
             <Label className="text-xs">{t('em.insp.btnText')}</Label>
-            <Input placeholder={t('em.insp.btnText')} value={(b as any).label} className="mt-1"
+            <Input placeholder={t('em.insp.btnText')} value={b.label} className="mt-1"
               onChange={e => onUpdate({ label: e.target.value })} />
           </div>
           <div>
             <Label className="text-xs">{t('em.insp.linkUrl')}</Label>
-            <Input placeholder="https://…" value={(b as any).url} className="mt-1"
+            <Input placeholder="https://…" value={b.url} className="mt-1"
               onChange={e => onUpdate({ url: e.target.value })} />
           </div>
           <div>
             <Label className="text-xs">{t('em.insp.align')}</Label>
-            <Select value={(b as any).align || 'center'} onValueChange={(v) => onUpdate({ align: v })}>
+            <Select value={b.align || 'center'} onValueChange={(v) => onUpdate({ align: v })}>
               <SelectTrigger className="mt-1"><SelectValue placeholder={t('em.insp.align')} /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="left">{t('em.insp.alignLeft')}</SelectItem>
@@ -144,9 +144,9 @@ export default function BlockInspector({
             </Select>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <ColorField label={t('em.insp.btnColor')} value={(b as any).bg_color || theme.accent || DEFAULT_THEME.accent}
+            <ColorField label={t('em.insp.btnColor')} value={b.bg_color || theme.accent || DEFAULT_THEME.accent}
               onChange={(v) => onUpdate({ bg_color: v })} />
-            <ColorField label={t('em.insp.textColor')} value={(b as any).text_color || theme.button_text || DEFAULT_THEME.button_text}
+            <ColorField label={t('em.insp.textColor')} value={b.text_color || theme.button_text || DEFAULT_THEME.button_text}
               onChange={(v) => onUpdate({ text_color: v })} />
           </div>
         </div>
@@ -155,7 +155,7 @@ export default function BlockInspector({
       {b.type === 'event' && (
         <div>
           <Label className="text-xs">{t('em.block.event')}</Label>
-          <Select value={(b as any).event_id || ''} onValueChange={(v) => {
+          <Select value={b.event_id || ''} onValueChange={(v) => {
             const ev = events.find(e => e.id === v);
             onUpdate({
               event_id: v, title: ev?.title,
@@ -176,7 +176,7 @@ export default function BlockInspector({
       {b.type === 'spacer' && (
         <div>
           <Label className="text-xs">{t('em.insp.spacerHeight')}</Label>
-          <Select value={(b as any).size || 'md'} onValueChange={(v) => onUpdate({ size: v })}>
+          <Select value={b.size || 'md'} onValueChange={(v) => onUpdate({ size: v })}>
             <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="sm">{t('em.insp.spSm')}</SelectItem>

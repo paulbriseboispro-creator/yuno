@@ -64,7 +64,7 @@ export function OwnerCollaborationsSection({ venueId }: Props) {
         new Set((data || []).map((e) => e.organizer_user_id).filter(Boolean) as string[])
       );
 
-      let organizerMap = new Map<
+      const organizerMap = new Map<
         string,
         { display_name: string | null; avatar_url: string | null; slug: string | null }
       >();

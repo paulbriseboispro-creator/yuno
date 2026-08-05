@@ -243,19 +243,21 @@ export function useNightlifeProfile() {
       let mostOrderedDrink: string | null = null;
       if (ordersData && ordersData.length > 0) {
         const drinkCounts: Record<string, number> = {};
-        
+        // Shape actually read from the order items jsonb (both legacy and current key names).
+        type OrderItemJson = { name?: string | null; drink_name?: string | null; qty?: number | string | null; quantity?: number | string | null };
+
         ordersData.forEach(order => {
           try {
             // Handle items as JSON - could be array or string
-            let items: any[] = [];
+            let items: OrderItemJson[] = [];
             if (typeof order.items === 'string') {
               items = JSON.parse(order.items);
             } else if (Array.isArray(order.items)) {
-              items = order.items;
+              items = order.items as unknown as OrderItemJson[]; // jsonb array — shape validated by the optional-chained reads below
             }
-            
+
             if (Array.isArray(items)) {
-              items.forEach((item: any) => {
+              items.forEach((item) => {
                 // Support both 'name' and 'drink_name' keys
                 const drinkName = item?.name || item?.drink_name;
                 if (!drinkName) return;

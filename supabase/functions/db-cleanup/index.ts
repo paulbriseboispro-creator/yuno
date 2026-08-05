@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 
 const corsHeaders = {
@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-async function cleanupExpiredOrders(supabase: any): Promise<{ deletedCount: number }> {
+async function cleanupExpiredOrders(supabase: SupabaseClient): Promise<{ deletedCount: number }> {
   const { data: orders } = await supabase
     .from("orders")
     .select("id, events!inner(end_at)")
@@ -29,7 +29,7 @@ async function cleanupExpiredOrders(supabase: any): Promise<{ deletedCount: numb
   return { deletedCount: toDelete.length };
 }
 
-async function cleanupExpiredInvoices(supabase: any): Promise<{ deletedCount: number }> {
+async function cleanupExpiredInvoices(supabase: SupabaseClient): Promise<{ deletedCount: number }> {
   const { data } = await supabase
     .from("invoices")
     .delete()
@@ -41,7 +41,7 @@ async function cleanupExpiredInvoices(supabase: any): Promise<{ deletedCount: nu
   return { deletedCount };
 }
 
-async function archiveExpiredOrders(supabase: any): Promise<void> {
+async function archiveExpiredOrders(supabase: SupabaseClient): Promise<void> {
   const { error } = await supabase.rpc("archive_expired_event_orders");
   if (error) throw error;
   console.log("Successfully archived expired orders");

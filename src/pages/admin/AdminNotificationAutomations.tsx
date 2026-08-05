@@ -56,7 +56,7 @@ const CATALOG: { key: string; category: Category }[] = [
   { key: 'promoter_event_assigned', category: 'engagement' },
   { key: 'cart_abandonment', category: 'marketing' },
   { key: 'inactivity_reminder', category: 'marketing' },
-  { key: 'weekly_digest', category: 'marketing' },
+  { key: 'taste_discovery', category: 'marketing' },
   { key: 'reminder_day_of', category: 'club_automation' },
   { key: 'event_live', category: 'club_automation' },
   { key: 'thank_you', category: 'club_automation' },

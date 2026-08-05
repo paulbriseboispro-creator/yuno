@@ -123,11 +123,12 @@ export default function OwnerEmailCampaign() {
           case 'loyal':
             query = query.gte('total_points_earned', 100);
             break;
-          case 'inactive':
+          case 'inactive': {
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
             query = query.lt('last_points_earned_at', thirtyDaysAgo.toISOString());
             break;
+          }
           case 'new':
             query = query.lt('total_points_earned', 50);
             break;

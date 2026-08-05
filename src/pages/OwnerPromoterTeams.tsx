@@ -69,7 +69,7 @@ export default function OwnerPromoterTeams() {
     if (!promoData || promoData.length === 0) { setPromoters([]); return; }
 
     const userIds = promoData.map(p => p.user_id).filter(Boolean);
-    let profileMap: Record<string, { first_name: string | null; last_name: string | null }> = {};
+    const profileMap: Record<string, { first_name: string | null; last_name: string | null }> = {};
     if (userIds.length > 0) {
       const { data: profiles } = await supabase.from('profiles').select('id, first_name, last_name').in('id', userIds);
       (profiles || []).forEach(p => { profileMap[p.id] = p; });
@@ -94,14 +94,14 @@ export default function OwnerPromoterTeams() {
       : { data: [] };
 
     const memberUserIds = (membersData || []).map(m => m.user_id).filter(Boolean);
-    let memberProfileMap: Record<string, { first_name: string | null; last_name: string | null }> = {};
+    const memberProfileMap: Record<string, { first_name: string | null; last_name: string | null }> = {};
     if (memberUserIds.length > 0) {
       const { data: profiles } = await supabase.from('profiles').select('id, first_name, last_name').in('id', memberUserIds);
       (profiles || []).forEach(p => { memberProfileMap[p.id] = p; });
     }
 
     const leaderIds = teamsData.filter(t => t.leader_promoter_id).map(t => t.leader_promoter_id!);
-    let leaderMap: Record<string, string> = {};
+    const leaderMap: Record<string, string> = {};
     if (leaderIds.length > 0) {
       const { data: leaderData } = await supabase.from('promoters').select('id, promo_code, first_name, last_name, user_id').in('id', leaderIds);
       (leaderData || []).forEach((p: any) => {
@@ -112,7 +112,7 @@ export default function OwnerPromoterTeams() {
     }
 
     const promoterIds = (membersData || []).map(m => m.id);
-    let convMap: Record<string, { revenue: number; count: number; commission: number }> = {};
+    const convMap: Record<string, { revenue: number; count: number; commission: number }> = {};
     if (promoterIds.length > 0) {
       const { data: convs } = await supabase.from('promoter_conversions').select('promoter_id, amount, commission').in('promoter_id', promoterIds);
       (convs || []).forEach((c: any) => {
@@ -123,7 +123,7 @@ export default function OwnerPromoterTeams() {
       });
     }
 
-    let clickMap: Record<string, number> = {};
+    const clickMap: Record<string, number> = {};
     if (promoterIds.length > 0) {
       const { data: clicks } = await supabase.from('promoter_clicks').select('promoter_id').in('promoter_id', promoterIds);
       (clicks || []).forEach(c => { clickMap[c.promoter_id] = (clickMap[c.promoter_id] || 0) + 1; });

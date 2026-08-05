@@ -91,6 +91,7 @@ interface ScannedVipReservation {
   eventTitle: string;
   zoneName: string;
   packName: string;
+  arrivalDeadline: string | null;
   status: string;
   deposit: number;
   totalPrice: number;
@@ -433,7 +434,29 @@ export default function Bouncer() {
     }
 
     const result = await offline.scanOffline(qrCode);
-    const { verdict, kind, name } = result;
+    const { verdict, kind, name, entry } = result;
+
+    // VIP hors-ligne : reconstruire la même carte de détail qu'en online depuis
+    // le manifeste local — le videur voit zone, pack, personnes, reste à payer et
+    // surtout l'heure d'arrivée limite sans réseau. L'email et le titre de soirée
+    // ne sont pas mis en cache offline (PII / redondant) → leurs lignes sont masquées.
+    if (kind === 'table' && entry && (verdict.status === 'success' || verdict.status === 'already')) {
+      setScannedVipReservation({
+        id: entry.id,
+        userEmail: '',
+        fullName: entry.name || '',
+        guestCount: entry.guests || 1,
+        eventTitle: '',
+        zoneName: entry.zone || '',
+        packName: entry.pack || '',
+        arrivalDeadline: entry.arrival || null,
+        status: entry.status,
+        deposit: Number(entry.deposit || 0),
+        totalPrice: Number(entry.total || 0),
+        entryScanned: true,
+        entryScannedAt: entry.scanned_at,
+      });
+    }
 
     switch (verdict.status) {
       case 'success': {
@@ -862,7 +885,7 @@ export default function Bouncer() {
           *,
           events!inner(title, venue_id, partner_venue_id),
           table_zones(name),
-          table_packs(name)
+          table_packs(name, arrival_deadline)
         `)
         .eq('qr_code', qrCode)
         .maybeSingle();
@@ -908,6 +931,7 @@ export default function Bouncer() {
             eventTitle: reservation.events.title,
             zoneName: (reservation.table_zones as any)?.name || '',
             packName: (reservation.table_packs as any)?.name || '',
+            arrivalDeadline: (reservation.table_packs as any)?.arrival_deadline || null,
             status: reservation.status,
             deposit: Number(reservation.deposit || 0),
             totalPrice: Number(reservation.total_price),
@@ -976,6 +1000,7 @@ export default function Bouncer() {
           eventTitle: reservation.events.title,
           zoneName: (reservation.table_zones as any)?.name || '',
           packName: (reservation.table_packs as any)?.name || '',
+          arrivalDeadline: (reservation.table_packs as any)?.arrival_deadline || null,
           status: reservation.status,
           deposit: Number(reservation.deposit || 0),
           totalPrice: Number(reservation.total_price),
@@ -1702,7 +1727,7 @@ export default function Bouncer() {
                           const now = nowInParis();
                           const [dH, dM] = scannedTicket.entryDeadline!.split(':').map(Number);
                           const currentMinutes = now.getHours() * 60 + now.getMinutes();
-                          let deadlineMinutes = dH * 60 + dM;
+                          const deadlineMinutes = dH * 60 + dM;
                           // Handle after-midnight deadlines (e.g., 02:00 means next day if event starts evening)
                           const isPastDeadline = deadlineMinutes < 6 * 60
                             ? (currentMinutes >= 6 * 60 ? false : currentMinutes > deadlineMinutes)
@@ -1918,14 +1943,18 @@ export default function Bouncer() {
                           <span className="min-w-0 truncate" style={{ color: T1, fontSize: 14, fontWeight: 500 }}>{scannedVipReservation.fullName}</span>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <span className="min-w-0 truncate" style={{ color: T3, fontSize: 12 }}>{scannedVipReservation.userEmail}</span>
-                        </div>
+                        {scannedVipReservation.userEmail && (
+                          <div className="flex items-center gap-2">
+                            <span className="min-w-0 truncate" style={{ color: T3, fontSize: 12 }}>{scannedVipReservation.userEmail}</span>
+                          </div>
+                        )}
 
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="flex-none" style={{ color: T3, fontSize: 13 }}>{t('bouncer.event')}</span>
-                          <span className="min-w-0 truncate text-right" style={{ color: T1, fontSize: 14, fontWeight: 500 }}>{scannedVipReservation.eventTitle}</span>
-                        </div>
+                        {scannedVipReservation.eventTitle && (
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="flex-none" style={{ color: T3, fontSize: 13 }}>{t('bouncer.event')}</span>
+                            <span className="min-w-0 truncate text-right" style={{ color: T1, fontSize: 14, fontWeight: 500 }}>{scannedVipReservation.eventTitle}</span>
+                          </div>
+                        )}
 
                         <div className="flex items-center justify-between gap-3">
                           <span className="flex-none" style={{ color: T3, fontSize: 13 }}>Zone</span>
@@ -1936,6 +1965,13 @@ export default function Bouncer() {
                           <span className="flex-none" style={{ color: T3, fontSize: 13 }}>Pack</span>
                           <span className="min-w-0 truncate" style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T1, fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 999 }}>{scannedVipReservation.packName}</span>
                         </div>
+
+                        {scannedVipReservation.arrivalDeadline && (
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="flex-none flex items-center gap-1.5" style={{ color: T3, fontSize: 13 }}><Clock className="h-3.5 w-3.5" />{t('bouncer.arrivalDeadline')}</span>
+                            <span className="flex-none tabular-nums" style={{ background: 'rgba(234,179,8,0.15)', border: '1px solid rgba(234,179,8,0.35)', color: '#FCD34D', fontSize: 13, fontWeight: 700, padding: '3px 10px', borderRadius: 999 }}>{scannedVipReservation.arrivalDeadline}</span>
+                          </div>
+                        )}
 
                         <div className="flex items-center justify-between gap-3">
                           <span className="min-w-0 truncate" style={{ color: T3, fontSize: 13 }}>{t('vipTable.guests')}</span>

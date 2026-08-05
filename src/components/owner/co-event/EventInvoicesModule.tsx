@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { downloadInvoicePDF, type InvoiceData, type InvoiceItem } from '@/lib/generateInvoicePDF';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { resolveYunoFee, getEffectiveSplit, computeShare as computeShareUtil, type InvoiceType } from '@/utils/coEventSplit';
+import type { Json } from '@/integrations/supabase/types';
 
 const dfLocale = (lng: string) => (lng === 'fr' ? fr : lng === 'es' ? es : enUS);
 
@@ -48,9 +49,11 @@ interface EventCoData {
   organizer_user_id: string | null;
   partner_organizer_id: string | null;
   event_mode: string | null;
-  revenue_split_rules: any;
+  revenue_split_rules: Json;
   venueName: string;
   organizerName: string;
+  /** Jamais renseigné par fetchAll aujourd'hui — lu défensivement (undefined → false). */
+  is_bde?: boolean;
 }
 
 interface Props {
@@ -98,10 +101,10 @@ export function EventInvoicesModule({ eventId }: Props) {
       const oid = ev.organizer_user_id ?? ev.partner_organizer_id;
       const [{ data: v }, { data: o }] = await Promise.all([
         vid ? supabase.from('venues').select('name').eq('id', vid).maybeSingle() : Promise.resolve({ data: null }),
-        oid ? supabase.from('organizer_profiles' as any).select('display_name').eq('user_id', oid).maybeSingle() : Promise.resolve({ data: null }),
+        oid ? supabase.from('organizer_profiles').select('display_name').eq('user_id', oid).maybeSingle() : Promise.resolve({ data: null }),
       ]);
-      venueName = (v as any)?.name ?? '';
-      organizerName = (o as any)?.display_name ?? t('owner.coev.organizer');
+      venueName = v?.name ?? '';
+      organizerName = o?.display_name ?? t('owner.coev.organizer');
 
       setEventCo({
         venue_id: ev.venue_id,
@@ -142,7 +145,7 @@ export function EventInvoicesModule({ eventId }: Props) {
     // Pull the commission actually billed on each table reservation. Without this the
     // fee gets re-derived from the current rate card, which misreports any booking
     // made under a previous one.
-    const rows = (data || []) as any[];
+    const rows = data || [];
     const resIds = [...new Set(rows.map(r => r.table_reservation_id).filter(Boolean))] as string[];
     const storedFees = new Map<string, number>();
     if (resIds.length) {
@@ -199,7 +202,7 @@ export function EventInvoicesModule({ eventId }: Props) {
 
   /** Compute the viewer's share for an invoice given current viewMode. */
   function computeShare(inv: Invoice, side: 'venue' | 'organizer'): { share: number; pct: number; net: number; yuno: number } {
-    return computeShareUtil(inv.amount, inv.type, side, eventCo?.revenue_split_rules, eventCo?.event_mode ?? null, (eventCo as any)?.is_bde ?? false, inv.stored_yuno_fee);
+    return computeShareUtil(inv.amount, inv.type, side, eventCo?.revenue_split_rules, eventCo?.event_mode ?? null, eventCo?.is_bde ?? false, inv.stored_yuno_fee);
   }
 
   /** Adaptive totals depending on the active viewMode. */
@@ -255,7 +258,7 @@ export function EventInvoicesModule({ eventId }: Props) {
 
     let items: InvoiceItem[] = [];
     if (stored?.items && Array.isArray(stored.items)) {
-      items = (stored.items as any[]).map(it => ({
+      items = (stored.items as { description?: string; quantity?: number; unitPrice?: number; total?: number }[]).map(it => ({
         description: it.description || 'Item',
         quantity: it.quantity || 1,
         unitPrice: it.unitPrice || 0,
@@ -276,7 +279,7 @@ export function EventInvoicesModule({ eventId }: Props) {
     let coEvent: InvoiceData['coEvent'] = undefined;
     if (isCoEvent && eventCo && (viewMode === 'venue' || viewMode === 'organizer')) {
       const split = getEffectiveSplit(eventCo.revenue_split_rules, invoice.type, eventCo.event_mode);
-      const yuno = resolveYunoFee(invoice.type, invoice.amount, invoice.stored_yuno_fee, (eventCo as any)?.is_bde ?? false);
+      const yuno = resolveYunoFee(invoice.type, invoice.amount, invoice.stored_yuno_fee, eventCo?.is_bde ?? false);
       const net = invoice.amount - yuno;
       const venueShare = Math.round((net * split.venue_pct) / 100 * 100) / 100;
       const organizerShare = Math.round((net * split.organizer_pct) / 100 * 100) / 100;
@@ -299,11 +302,11 @@ export function EventInvoicesModule({ eventId }: Props) {
       invoiceDate: new Date(invoice.created_at),
       paymentDate: new Date(invoice.created_at),
       venueName: venue?.name || eventCo?.venueName || 'Venue',
-      venueLegalName: (venue as any)?.legal_name || venue?.name,
+      venueLegalName: venue?.legal_name || venue?.name,
       venueAddress: venue?.address,
       venueSiret: venue?.siret,
-      venueVatNumber: (venue as any)?.vat_number,
-      venueLogoUrl: (venue as any)?.logo_url,
+      venueVatNumber: venue?.vat_number,
+      venueLogoUrl: venue?.logo_url,
       customerName: invoice.customer_name || invoice.customer_email,
       customerEmail: invoice.customer_email,
       customerPhone: invoice.customer_phone || undefined,
@@ -312,13 +315,13 @@ export function EventInvoicesModule({ eventId }: Props) {
       eventPosterUrl: invoice.event_poster || undefined,
       type: invoice.type,
       items,
-      serviceFee: Number((stored as any)?.service_fee) || 0,
-      managementFee: Number((stored as any)?.management_fee) || 0,
-      insuranceFee: Number((stored as any)?.insurance_fee) || 0,
+      serviceFee: Number(stored?.service_fee) || 0,
+      managementFee: Number(stored?.management_fee) || 0,
+      insuranceFee: Number(stored?.insurance_fee) || 0,
       totalHT,
       tva: invoice.amount - totalHT,
       totalTTC: invoice.amount,
-      qrCode: (stored as any)?.qr_code || invoice.invoice_number,
+      qrCode: stored?.qr_code || invoice.invoice_number,
       referenceCode,
       coEvent,
     };
@@ -473,7 +476,7 @@ export function EventInvoicesModule({ eventId }: Props) {
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('coInv.searchPlaceholder')} className="pl-8" />
           </div>
-          <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
+          <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as 'all' | InvoiceType)}>
             <SelectTrigger className="w-full sm:w-44"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('coInv.allTypes')}</SelectItem>

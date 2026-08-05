@@ -30,7 +30,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { useLeaderboard, useContestWinners, useContestScores, getStatusBadge, anonymizeName } from '@/hooks/useLeaderboard';
-import type { LeaderboardContest } from '@/hooks/useLeaderboard';
+import type { LeaderboardContest, LeaderboardReward } from '@/hooks/useLeaderboard';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -127,8 +127,8 @@ export function OwnerLeaderboardSection({ venueId }: OwnerLeaderboardSectionProp
     recency_enabled: settings?.recency_enabled ?? true,
     recency_days: settings?.recency_days ?? 30,
     show_top_count: settings?.show_top_count ?? 10,
-    auto_reward: (settings as any)?.auto_reward ?? true,
-    contest_event_id: (settings as any)?.contest_event_id ?? '',
+    auto_reward: settings?.auto_reward ?? true,
+    contest_event_id: settings?.contest_event_id ?? '',
   });
 
   useEffect(() => {
@@ -143,8 +143,8 @@ export function OwnerLeaderboardSection({ venueId }: OwnerLeaderboardSectionProp
         recency_enabled: settings.recency_enabled,
         recency_days: settings.recency_days,
         show_top_count: settings.show_top_count,
-        auto_reward: (settings as any)?.auto_reward ?? true,
-        contest_event_id: (settings as any)?.contest_event_id ?? '',
+        auto_reward: settings?.auto_reward ?? true,
+        contest_event_id: settings?.contest_event_id ?? '',
       });
     }
   }, [settings]);
@@ -187,7 +187,7 @@ export function OwnerLeaderboardSection({ venueId }: OwnerLeaderboardSectionProp
   const handleSaveSettings = async () => {
     setSaving(true);
     try {
-      const payload: any = { ...localSettings };
+      const payload: Omit<typeof localSettings, 'contest_event_id'> & { contest_event_id: string | null } = { ...localSettings };
       if (payload.contest_event_id === '') payload.contest_event_id = null;
       await updateSettings.mutateAsync(payload);
       toast.success(t('owner.lb.settingsSaved'));
@@ -206,7 +206,7 @@ export function OwnerLeaderboardSection({ venueId }: OwnerLeaderboardSectionProp
   const handleOpenRewardDialog = (reward?: typeof rewards[0]) => {
     if (reward) {
       setEditingReward(reward);
-      const config = reward.reward_config as any || {};
+      const config = reward.reward_config || {};
       setRewardForm({
         rank_min: reward.rank_min, rank_max: reward.rank_max,
         reward_type: reward.reward_type, reward_description: reward.reward_description || '',
@@ -222,7 +222,7 @@ export function OwnerLeaderboardSection({ venueId }: OwnerLeaderboardSectionProp
 
   const handleSaveReward = async () => {
     try {
-      const reward_config: Record<string, any> = { quantity: rewardForm.quantity };
+      const reward_config: NonNullable<LeaderboardReward['reward_config']> = { quantity: rewardForm.quantity };
       if (rewardForm.reward_type === 'free_drink' && rewardForm.drink_category) reward_config.drink_category = rewardForm.drink_category;
       if (rewardForm.reward_type === 'free_table') {
         if (rewardForm.zone_id) reward_config.zone_id = rewardForm.zone_id;
@@ -233,7 +233,7 @@ export function OwnerLeaderboardSection({ venueId }: OwnerLeaderboardSectionProp
         venue_id: venueId, rank_min: rewardForm.rank_min, rank_max: rewardForm.rank_max,
         reward_type: rewardForm.reward_type, reward_description: rewardForm.reward_description || null,
         reward_config,
-      } as any);
+      });
       toast.success(t('owner.lb.presetSaved'));
       setShowRewardDialog(false);
     } catch { toast.error(t('owner.lb.error')); }
@@ -293,7 +293,7 @@ export function OwnerLeaderboardSection({ venueId }: OwnerLeaderboardSectionProp
         auto_reward: contestForm.auto_reward,
         reward_preset_ids: contestForm.selectedRewardIds,
         status: editingContest?.status || 'draft',
-      } as any);
+      });
       toast.success(t('owner.lb.contestSaved'));
       setShowContestDialog(false);
     } catch { toast.error(t('owner.lb.saveError')); }
@@ -302,7 +302,7 @@ export function OwnerLeaderboardSection({ venueId }: OwnerLeaderboardSectionProp
 
   const handleLaunchContest = async (contest: LeaderboardContest) => {
     try {
-      await saveContest.mutateAsync({ id: contest.id, venue_id: venueId, status: 'live' } as any);
+      await saveContest.mutateAsync({ id: contest.id, venue_id: venueId, status: 'live' });
       toast.success(t('owner.lb.contestLaunched'));
     } catch { toast.error(t('owner.lb.error')); }
   };
@@ -500,7 +500,7 @@ export function OwnerLeaderboardSection({ venueId }: OwnerLeaderboardSectionProp
                   rewards.map((reward) => {
                     const typeInfo = REWARD_TYPES.find(t => t.value === reward.reward_type);
                     const Icon = typeInfo?.icon || Crown;
-                    const config = reward.reward_config as any || {};
+                    const config = reward.reward_config || {};
                     const zone = zones.find(z => z.id === config.zone_id);
                     const pack = packs.find(p => p.id === config.pack_id);
 
@@ -773,7 +773,7 @@ export function OwnerLeaderboardSection({ venueId }: OwnerLeaderboardSectionProp
                           <div className="flex items-center gap-2">
                             <Badge variant="outline" className="text-[10px]">#{r.rank_min}{r.rank_min !== r.rank_max ? `-${r.rank_max}` : ''}</Badge>
                             <span className="text-sm">{getRewardLabel(r.reward_type, language)}</span>
-                            {(r.reward_config as any)?.quantity > 1 && <Badge variant="secondary" className="text-[10px] h-4">×{(r.reward_config as any).quantity}</Badge>}
+                            {(r.reward_config?.quantity as number) > 1 && <Badge variant="secondary" className="text-[10px] h-4">×{r.reward_config?.quantity}</Badge>}
                           </div>
                         </div>
                       </label>
@@ -923,7 +923,7 @@ function ContestCard({ contest, language, t, rewards, onView, onEdit, onDelete, 
   contest: LeaderboardContest;
   language: string;
   t: (k: string) => string;
-  rewards: any[];
+  rewards: LeaderboardReward[];
   onView?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -1010,7 +1010,7 @@ function ContestDashboard({ contest, language, t, rewards, onBack, onFinalize, f
   contest: LeaderboardContest;
   language: string;
   t: (k: string) => string;
-  rewards: any[];
+  rewards: LeaderboardReward[];
   onBack: () => void;
   onFinalize: () => void;
   finalizing: boolean;

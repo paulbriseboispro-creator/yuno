@@ -80,7 +80,7 @@ export function defaultSplit(type: InvoiceType, mode: string | null): EffectiveS
 }
 
 /** Normalize the stored revenue_split_rules jsonb into effective percentages. */
-export function getEffectiveSplit(rules: any, type: InvoiceType, mode: string | null): EffectiveSplit {
+export function getEffectiveSplit(rules: unknown, type: InvoiceType, mode: string | null): EffectiveSplit {
   // Drinks ('order') default to 100% venue, but a stored drinks split is honored: an
   // organizer who attested their alcohol licence can negotiate a drinks share. The
   // attestation gate lives at write time (contract RPC + split editors), so we just
@@ -113,7 +113,7 @@ export function computeShare(
   amount: number,
   type: InvoiceType,
   side: 'venue' | 'organizer',
-  rules: any,
+  rules: unknown,
   mode: string | null,
   isBde = false,
   storedFee?: number | null,

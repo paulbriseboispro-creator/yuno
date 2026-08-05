@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import {
   Building2, CalendarDays, Megaphone, Share2, ShieldCheck, Wine, Shirt,
   Disc3, ChevronRight, Loader2, FlaskConical, LogIn, Globe, Rocket, Crown, GraduationCap, Users,
-  Compass, Radio, EyeOff,
+  Compass, Radio, EyeOff, Sparkles,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,6 +18,7 @@ import { setMfaBypass, setRoleSessionBypass, MFA_GATED, DEMO_PASSWORD } from '@/
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
 import { isDemoButtonHidden, setDemoButtonHidden, DEMO_HIDDEN_EVENT } from '@/lib/demoVisibility';
 import { haptics } from '@/lib/haptics';
+import { launchTasteQuiz } from '@/lib/demoQuiz';
 
 /**
  * DemoSwitcher — bascule 1-clic entre les comptes démo (club, orga, promoteur,
@@ -505,6 +506,16 @@ export function DemoSwitcher() {
               <Rocket className="h-3.5 w-3.5 text-primary" />Onboarding orga
             </button>
           </div>
+
+          {/* Quiz de goûts (Taste Engine) — relance le quiz client à la demande,
+              sur le compte connecté (utile pour owner@womber.fr qui ne l'a pas eu). */}
+          <button
+            type="button"
+            onClick={() => { launchTasteQuiz(); setOpen(false); }}
+            className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-2 py-2.5 text-[12px] font-medium text-white transition hover:bg-primary/15"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-primary" />Quiz de goûts (client)
+          </button>
 
           {/* Intros first-run des autres rôles (?intro=1 force l'affichage) */}
           <p className="mb-2 mt-4 text-[10px] font-semibold uppercase tracking-wider text-white/35">Intros rôles</p>

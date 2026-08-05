@@ -18,6 +18,7 @@ import { shareContent } from '@/lib/share';
 import { hasFeature, type PlanCode } from '@/lib/planFeatures';
 import { useTagEventsSource } from '@/hooks/usePurchaseSourceTracking';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
+import { usePromoterTracking } from '@/hooks/usePromoterTracking';
 import { DrinkCard } from '@/components/DrinkCard';
 import type { Drink, Event } from '@/types';
 import { useStore } from '@/store/useStore';
@@ -77,6 +78,13 @@ export default function OrganizerPublicProfile() {
   useTagEventsSource(upcoming.map((e) => e.id), 'organizer_profile');
   // Live visitor tracking on the organizer profile
   useVisitorTracking(undefined, undefined, profile?.user_id || undefined);
+  // Capture d'un lien promoteur qui atterrit ici. Une soirée d'organisateur
+  // partagée par un promoteur route vers /o/:slug?ref=CODE&event=ID
+  // (PromoterHub / PromoterAgenda) : sans cette capture, le code était jeté et
+  // TOUTE la classe des soirées d'organisateur perdait son attribution (ni clic,
+  // ni commission). Le hook lit ?ref= et ?event= dans l'URL, résout la portée
+  // organisateur depuis l'event et enregistre le clic.
+  usePromoterTracking();
 
   useEffect(() => {
     if (!slug) return;

@@ -30,7 +30,7 @@ serve(async (req) => {
       try {
         const res = await fetch(`https://ipapi.co/${ip}/json/`, { headers: { "User-Agent": "Yuno-Analytics/1.0" } });
         if (res.ok) geo = await res.json();
-      } catch (_) {}
+      } catch { /* lookup best-effort : le garde-fou geo.error juste dessous répond skipped */ }
       if (!geo || geo.error) {
         return new Response(JSON.stringify({ skipped: true, reason: "lookup_failed" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }

@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, Layers, Package, Image as ImageIcon, Upload, Sparkles, Lock, Map as MapIcon } from 'lucide-react';
+import { Plus, Pencil, Trash2, Layers, Package, Image as ImageIcon, Upload, Sparkles, Lock, Map as MapIcon, Clock } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   OrgCard, OrgButton, OrgPill, OrgTabs, FieldLabel, DarkInput, DarkTextarea,
@@ -39,6 +39,7 @@ interface BasicPack {
   base_capacity: number;
   deposit: number;
   included_items: string | null;
+  arrival_deadline: string | null;
   is_active: boolean;
 }
 
@@ -90,6 +91,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
     base_capacity: '6',
     deposit: '0',
     included_items: '',
+    arrival_deadline: '',
   });
 
   const isOwner = tablesOwnerId === organizerUserId;
@@ -105,7 +107,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
       const [{ data: ev }, { data: zs }, { data: ps }, { data: fp }] = await Promise.all([
         supabase.from('events').select('tables_enabled, tables_mode, tables_owner_user_id, event_mode, tables_locked_to_venue, collab_responsibilities').eq('id', eventId).maybeSingle(),
         supabase.from('table_zones').select('id, name, color, tables_count, position').eq('event_id', eventId).order('position', { ascending: true, nullsFirst: false }),
-        supabase.from('table_packs').select('id, zone_id, name, description, base_price, base_capacity, deposit, included_items, is_active').eq('event_id', eventId),
+        supabase.from('table_packs').select('id, zone_id, name, description, base_price, base_capacity, deposit, included_items, arrival_deadline, is_active').eq('event_id', eventId),
         supabase.from('venue_floor_plans').select('id, venue_id, layout, background_image_url').eq('event_id', eventId).maybeSingle(),
       ]);
       setTablesEnabled(!!ev?.tables_enabled);
@@ -219,6 +221,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
             base_capacity: String(p.base_capacity),
             deposit: String(p.deposit ?? 0),
             included_items: p.included_items ?? '',
+            arrival_deadline: p.arrival_deadline ?? '',
           }
         : {
             zone_id: zoneId ?? zones[0]?.id ?? '',
@@ -228,6 +231,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
             base_capacity: '6',
             deposit: '0',
             included_items: '',
+            arrival_deadline: '',
           },
     );
     setPackOpen(true);
@@ -248,6 +252,7 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
       deposit: parseFloat(packForm.deposit) || 0,
       deposit_type: 'fixed' as const,
       included_items: packForm.included_items.trim() || null,
+      arrival_deadline: packForm.arrival_deadline || null,
       is_active: true,
       event_id: eventId,
       created_by_user_id: organizerUserId,
@@ -678,6 +683,19 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
               <div><FieldLabel>{tt('Acompte €', 'Deposit €')}</FieldLabel><input type="number" min="0" value={packForm.deposit} onChange={(e) => setPackForm({ ...packForm, deposit: e.target.value })} style={daInputStyle} /></div>
             </div>
             <div><FieldLabel>{tt('Inclus (texte libre)', 'Includes (free text)')}</FieldLabel><DarkTextarea rows={2} placeholder={tt('Ex: 1 bouteille de vodka, 6 mixers', 'e.g. 1 vodka bottle, 6 mixers')} value={packForm.included_items} onChange={(v) => setPackForm({ ...packForm, included_items: v })} /></div>
+            {/* Heure d'arrivée limite (optionnelle) — affichée au client à la résa */}
+            <div>
+              <label className="flex items-center gap-2.5 cursor-pointer" style={{ color: packForm.arrival_deadline ? T1 : T2, fontSize: 13 }}>
+                <input type="checkbox" checked={!!packForm.arrival_deadline} onChange={(e) => setPackForm({ ...packForm, arrival_deadline: e.target.checked ? '01:00' : '' })} style={{ accentColor: RED, width: 15, height: 15 }} />
+                <span className="flex items-center gap-1.5"><Clock size={13} />{tt('Heure d’arrivée limite', 'Arrival cutoff time', 'Hora límite de llegada')}</span>
+              </label>
+              {packForm.arrival_deadline && (
+                <div className="mt-2">
+                  <input type="time" value={packForm.arrival_deadline} onChange={(e) => setPackForm({ ...packForm, arrival_deadline: e.target.value })} style={{ ...daInputStyle, colorScheme: 'dark' }} />
+                  <p style={{ color: T3, fontSize: 11, marginTop: 4 }}>{tt('Le client devra arriver avant cette heure, sinon sa table pourra être libérée.', 'Guests must arrive before this time, or their table may be released.', 'El cliente deberá llegar antes de esta hora, o su mesa podrá liberarse.')}</p>
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter><OrgButton variant="primary" onClick={savePack}>{tt('Enregistrer', 'Save')}</OrgButton></DialogFooter>
         </DialogContent>

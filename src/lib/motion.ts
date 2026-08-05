@@ -11,7 +11,7 @@
 // Supersède src/lib/animations.ts dont tous les noms sont re-exportés
 // ci-dessous pour compat (ne pas casser SearchOverlay/FilterPage/Welcome).
 // ════════════════════════════════════════════════════════════════════
-import { type Variants, type Transition, useReducedMotion } from 'framer-motion';
+import { type Variants, type Transition, type TargetAndTransition, useReducedMotion } from 'framer-motion';
 
 // Re-export des presets existants (compat) ----------------------------
 export {
@@ -110,7 +110,7 @@ export function reduceVariants(variants: Variants, reduced: boolean | null): Var
   const stripped: Variants = {};
   for (const [key, value] of Object.entries(variants)) {
     if (value && typeof value === 'object' && !Array.isArray(value)) {
-      const v = value as Record<string, unknown>;
+      const v = value as TargetAndTransition;
       const opacity = v.opacity;
       // ne garder que l'opacité + une transition rapide sans delay
       stripped[key] = {

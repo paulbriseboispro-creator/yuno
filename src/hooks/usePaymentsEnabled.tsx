@@ -56,9 +56,9 @@ export function usePaymentsEnabled() {
       if (error) throw error;
       setState((prev) => ({ ...prev, paymentsDisabled: disabled }));
       return { success: true };
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error toggling payments:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: (error as Error).message };
     }
   };
 

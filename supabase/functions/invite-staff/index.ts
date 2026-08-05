@@ -259,9 +259,9 @@ Deno.serve(async (req) => {
       message: hasYunoAccount ? 'Invitation envoyée par email.' : 'Invitation envoyée. Un compte sera créé à l\'acceptation.',
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('invite-staff error:', error);
-    return new Response(JSON.stringify({ error: error.message || 'Unknown error' }), {
+    return new Response(JSON.stringify({ error: (error as Error).message || 'Unknown error' }), {
       status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

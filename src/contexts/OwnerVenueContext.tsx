@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 
 interface OwnerVenue {
   id: string;
@@ -48,7 +49,8 @@ export function OwnerVenueProvider({ children }: { children: ReactNode }) {
 
       // Find venue where this user is the owner (via owner_id)
       const { data: venueData, error: venueError } = await withTimeout(
-        supabase.from('venues').select('*').eq('owner_id', user.id).maybeSingle() as unknown as Promise<any>,
+        // Cast needed: the Supabase builder is a thenable, not a Promise, so withTimeout can't accept it as-is.
+        supabase.from('venues').select('*').eq('owner_id', user.id).maybeSingle() as unknown as Promise<{ data: Tables<'venues'> | null; error: Error | null }>,
         8000,
       );
 

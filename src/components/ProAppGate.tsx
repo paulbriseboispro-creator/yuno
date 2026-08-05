@@ -25,6 +25,7 @@ const PRO_ALLOWED_PREFIXES = [
   '/cloakroom',
   '/vip-host',
   '/promoter',
+  '/staff',
   '/auth',
   '/setup-pin',
   '/reset-pin',

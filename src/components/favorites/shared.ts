@@ -72,6 +72,8 @@ export interface FavItem {
   key: string;
   kind: FavKind;
   id: string;
+  /** Nom affiché : club, soirée, DJ, boisson ou organisateur. */
+  title: string;
   /** Cadre toujours 1:1, fond noir uni sous l'image. Le glow ne sert plus que de
       repli quand il n'y a AUCUNE image — jamais derrière une image, sinon il
       bave autour des visuels détourés. */

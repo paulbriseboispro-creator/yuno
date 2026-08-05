@@ -108,7 +108,7 @@ export default function RichTextField({ value, onChange, variables = DEFAULT_VAR
     exec('formatBlock', tag.toUpperCase());
   };
 
-  const Btn = ({ onClick, title, children, active }: any) => (
+  const Btn = ({ onClick, title, children, active }: { onClick: () => void; title: string; children: React.ReactNode; active?: boolean }) => (
     <Button type="button" size="sm" variant={active ? 'secondary' : 'ghost'} className="h-7 w-7 p-0" onClick={onClick} title={title}>
       {children}
     </Button>

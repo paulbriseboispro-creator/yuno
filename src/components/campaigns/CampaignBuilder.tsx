@@ -87,6 +87,8 @@ export default function CampaignBuilder({ scope, basePath }: Props) {
     setTestEmails(prev => prev.filter((_, idx) => idx !== i));
 
   const folder = scope.kind === 'venue' ? `venue/${scope.venueId}` : `org/${scope.organizerId}`;
+  const scopeVenueId = scope.kind === 'venue' ? scope.venueId : null;
+  const scopeOrganizerId = scope.kind === 'organizer' ? scope.organizerId : null;
 
   // Load events — only upcoming ones (campaigns target nights still to come)
   useEffect(() => {
@@ -102,7 +104,7 @@ export default function CampaignBuilder({ scope, basePath }: Props) {
     }
     q.then(({ data }) => setEvents(data || []));
     // Deps primitives : le parent recrée l'objet `scope` à chaque render.
-  }, [scope.kind, scope.venueId, scope.organizerId]);
+  }, [scope.kind, scopeVenueId, scopeOrganizerId]);
 
   // Load existing campaign
   useEffect(() => {

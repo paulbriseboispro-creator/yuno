@@ -15,7 +15,7 @@ function calcStripeFee(totalPriceCents: number): number {
   return (Math.round(totalPriceCents * STRIPE_PERCENT) + STRIPE_FIXED_CENTS) / 100;
 }
 
-const logStep = (step: string, details?: any) => {
+const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
   console.log(`[CANCEL-TICKET] ${step}${detailsStr}`);
 };
@@ -123,8 +123,8 @@ serve(async (req) => {
             refund_application_fee: false,
           }, connectedAccount ? { stripeAccount: connectedAccount } : undefined);
           logStep("Stripe refund processed", { paymentIntentId, refundAmountCents, direct: !!connectedAccount });
-        } catch (stripeError: any) {
-          logStep("Stripe refund error", { error: stripeError.message });
+        } catch (stripeError) {
+          logStep("Stripe refund error", { error: (stripeError as Error).message });
         }
       }
     } else {

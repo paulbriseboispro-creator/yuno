@@ -12,7 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 import { supabase } from '@/integrations/supabase/client';
-import type { TablesUpdate } from '@/integrations/supabase/types';
+import type { TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
 import { Event } from '@/types';
 import { TicketRound, TicketType, TicketSellingMode, PresetSellingMode } from '@/types/ticketing';
 import { toast } from 'sonner';
@@ -156,7 +156,7 @@ export default function OwnerTicketing() {
       fetchPresets();
       // Free drink mode (venue-scoped only)
       supabase.from('venues').select('free_drink_mode').eq('id', venueId).maybeSingle().then(({ data }) => {
-        if (data) setFreeDrinkMode((data as any).free_drink_mode || 'credits');
+        if (data) setFreeDrinkMode((data.free_drink_mode as 'credits' | 'bouncer_notify' | null) || 'credits');
       });
     }
   }, [venueId, organizerUserId, isOrganizerScope]);
@@ -226,17 +226,17 @@ export default function OwnerTicketing() {
         isActive: event.is_active,
         ticketingEnabled: event.ticketing_enabled,
         tablesEnabled: event.tables_enabled,
-        ticketSellingMode: ((event as any).ticket_selling_mode as TicketSellingMode) || 'rounds',
-        roundsVisibility: ((event as any).rounds_visibility as 'sequential' | 'preview_upcoming' | 'all_open') || 'sequential',
+        ticketSellingMode: (event.ticket_selling_mode as TicketSellingMode | null) || 'rounds',
+        roundsVisibility: (event.rounds_visibility as 'sequential' | 'preview_upcoming' | 'all_open' | null) || 'sequential',
         presaleStartAt: event.presale_start_at || undefined,
         publicSaleStartAt: event.public_sale_start_at || undefined,
         waitlistEnabled: event.waitlist_enabled || false,
         maxTickets: event.max_tickets ?? null,
-        maxTicketsPerPerson: (event as any).max_tickets_per_person ?? null,
-        salePasswordEnabled: (event as any).sale_password_enabled || false,
+        maxTicketsPerPerson: event.max_tickets_per_person ?? null,
+        salePasswordEnabled: event.sale_password_enabled || false,
         // Co-event metadata for read-only badges
         isCoEventPartner: !isOrganizerScope && venueId && event.venue_id !== venueId && event.partner_venue_id === venueId,
-        partnerOrganizerId: (event as any).organizer_user_id || (event as any).partner_organizer_id || null,
+        partnerOrganizerId: event.organizer_user_id || event.partner_organizer_id || null,
         createdAt: event.created_at,
         updatedAt: event.updated_at,
       }));
@@ -295,12 +295,12 @@ export default function OwnerTicketing() {
         name: p.name,
         totalCapacity: p.total_capacity,
         rounds: (p.rounds as unknown as PresetRound[]) || [],
-        ticketType: ((p as any).ticket_type as TicketType) || 'standard',
-        sellingMode: ((p as any).selling_mode as PresetSellingMode) || 'rounds',
-        includesDrink: (p as any).includes_drink ?? false,
-        drinkDeadlineType: ((p as any).drink_deadline_type as 'hours_after_start' | 'fixed_time') ?? 'fixed_time',
-        drinkDeadlineHours: (p as any).drink_deadline_hours ?? 2,
-        drinkCutoffTime: (p as any).drink_cutoff_time ?? '02:00',
+        ticketType: (p.ticket_type as TicketType) || 'standard',
+        sellingMode: (p.selling_mode as PresetSellingMode | null) || 'rounds',
+        includesDrink: p.includes_drink ?? false,
+        drinkDeadlineType: (p.drink_deadline_type as 'hours_after_start' | 'fixed_time' | null) ?? 'fixed_time',
+        drinkDeadlineHours: p.drink_deadline_hours ?? 2,
+        drinkCutoffTime: p.drink_cutoff_time ?? '02:00',
         createdAt: p.created_at,
         updatedAt: p.updated_at,
       }));
@@ -364,14 +364,14 @@ export default function OwnerTicketing() {
       position: r.position,
       isActive: r.is_active,
       autoActivate: r.auto_activate,
-      manuallySoldOut: (r as any).manually_sold_out ?? false,
+      manuallySoldOut: r.manually_sold_out ?? false,
       lastTicketsThreshold: r.last_tickets_threshold ?? 20,
       includesDrink: r.includes_drink ?? false,
       drinkDeadlineHours: r.drink_deadline_hours ?? 2,
       drinkDeadlineType: (r.drink_deadline_type as 'hours_after_start' | 'fixed_time') ?? 'hours_after_start',
       drinkCutoffTime: r.drink_cutoff_time ?? undefined,
-      entryDeadline: (r as any).entry_deadline ? (r as any).entry_deadline.substring(0, 5) : undefined,
-      ticketType: ((r as any).ticket_type as 'standard' | 'vip') ?? 'standard',
+      entryDeadline: r.entry_deadline ? r.entry_deadline.substring(0, 5) : undefined,
+      ticketType: (r.ticket_type as 'standard' | 'vip') ?? 'standard',
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     }));
@@ -783,10 +783,10 @@ export default function OwnerTicketing() {
       const next = !round.manuallySoldOut;
       // Marquer épuisé : le trigger SQL désactive le round (et ouvre le suivant si auto-activate).
       // Rouvrir : on réactive explicitement le round pour qu'il revende.
-      const patch = next ? { manually_sold_out: true } : { manually_sold_out: false, is_active: true };
+      const patch: TablesUpdate<'ticket_rounds'> = next ? { manually_sold_out: true } : { manually_sold_out: false, is_active: true };
       const { error } = await supabase
         .from('ticket_rounds')
-        .update(patch as any)
+        .update(patch)
         .eq('id', round.id);
       if (error) throw error;
       toast.success(round.manuallySoldOut ? t('tickets.soldOutCleared') : t('tickets.soldOutMarked'));
@@ -827,7 +827,7 @@ export default function OwnerTicketing() {
     }
 
     try {
-      const roundData = {
+      const roundData: TablesInsert<'ticket_rounds'> = {
         event_id: selectedEvent.id,
         name: roundFormData.name,
         price: parseFloat(roundFormData.price),
@@ -853,7 +853,7 @@ export default function OwnerTicketing() {
       if (editingRound) {
         const { error } = await supabase
           .from('ticket_rounds')
-          .update(roundData as any)
+          .update(roundData)
           .eq('id', editingRound.id);
 
         if (error) throw error;
@@ -861,7 +861,7 @@ export default function OwnerTicketing() {
       } else {
         const { error } = await supabase
           .from('ticket_rounds')
-          .insert(roundData as any);
+          .insert(roundData);
 
         if (error) throw error;
         toast.success(t('tickets.roundCreated'));
@@ -897,7 +897,7 @@ export default function OwnerTicketing() {
     try {
       const { error } = await supabase
         .from('events')
-        .update({ max_tickets_per_person: value && value > 0 ? value : null } as any)
+        .update({ max_tickets_per_person: value && value > 0 ? value : null })
         .eq('id', eventId);
       if (error) throw error;
       setEvents(prev => prev.map(ev => ev.id === eventId ? { ...ev, maxTicketsPerPerson: value && value > 0 ? value : null } : ev));
@@ -916,17 +916,18 @@ export default function OwnerTicketing() {
   const handleSetSalePassword = async (eventId: string, password: string | null) => {
     setSalePasswordSaving(eventId);
     try {
-      const { error } = await supabase.rpc('set_event_sale_password' as any, {
+      const { error } = await supabase.rpc('set_event_sale_password', {
         p_event_id: eventId,
-        p_password: password,
+        // La signature générée exige string, mais le serveur accepte null pour retirer le mot de passe.
+        p_password: password as string,
       });
       if (error) throw error;
       setEvents(prev => prev.map(ev => ev.id === eventId ? { ...ev, salePasswordEnabled: !!password } : ev));
       setSalePasswordDraft(prev => ({ ...prev, [eventId]: '' }));
       toast.success(password ? t('tickets.salePasswordSaved') : t('tickets.salePasswordRemoved'));
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error setting sale password:', error);
-      toast.error(error?.message || t('tickets.errorSaving'));
+      toast.error((error as Error)?.message || t('tickets.errorSaving'));
     } finally {
       setSalePasswordSaving(null);
     }
@@ -989,8 +990,8 @@ export default function OwnerTicketing() {
       } else {
         // Create new preset, scoped to organizer or venue
         const insertPayload = isOrganizerScope
-          ? { organizer_user_id: organizerUserId!, venue_id: null as any, ...presetData }
-          : { venue_id: venueId!, organizer_user_id: null as any, ...presetData };
+          ? { organizer_user_id: organizerUserId!, venue_id: null, ...presetData }
+          : { venue_id: venueId!, organizer_user_id: null, ...presetData };
         const { error } = await supabase
           .from('ticket_presets')
           .insert([insertPayload]);
@@ -1398,7 +1399,7 @@ export default function OwnerTicketing() {
                             <EventSellingModeToggle
                               sellingMode={event.ticketSellingMode}
                               locked={soldTickets > 0}
-                              onChangeMode={(mode) => handleChangeSellingMode(event as any, mode)}
+                              onChangeMode={(mode) => handleChangeSellingMode(event, mode)}
                             />
 
                             {/* Rounds visibility (only for rounds mode) */}
@@ -1408,13 +1409,13 @@ export default function OwnerTicketing() {
                                 onChange={async (value) => {
                                   const { error } = await supabase
                                     .from('events')
-                                    .update({ rounds_visibility: value } as any)
+                                    .update({ rounds_visibility: value })
                                     .eq('id', event.id);
                                   if (error) {
                                     toast.error(error.message);
                                     return;
                                   }
-                                  setEvents(prev => prev.map(ev => ev.id === event.id ? { ...ev, roundsVisibility: value as any } : ev));
+                                  setEvents(prev => prev.map(ev => ev.id === event.id ? { ...ev, roundsVisibility: value } : ev));
                                   toast.success(t('common.saved') || 'Enregistré');
                                 }}
                               />

@@ -7,8 +7,19 @@
 // governs, so its flag wins. Only when there is NO venue (organizer-only sale) does
 // the ORGANIZER's flag apply.
 
-// deno-lint-ignore no-explicit-any
-type AnySupabase = any;
+/** Minimal shape of the Supabase client used by this module. */
+type AnySupabase = {
+  from(table: string): {
+    select(columns: string): {
+      eq(
+        column: string,
+        value: string,
+      ): {
+        maybeSingle(): PromiseLike<{ data: { absorb_yuno_fees?: boolean | null } | null }>;
+      };
+    };
+  };
+};
 
 export async function getAbsorbYunoFees(
   supabase: AnySupabase,

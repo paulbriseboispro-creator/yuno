@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useVenueContext } from '@/hooks/useVenueContext';
 
 interface BookerHomeCity {
-  scope: 'owner' | 'manager' | 'organizer';
+  scope: 'venue' | 'organizer';
   /** The club's city (venue scope) or the organizer's public city (organizer scope). */
   city: string | null;
   /** False until the city is known, so the marketplace can hold its first query. */

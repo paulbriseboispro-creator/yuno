@@ -73,7 +73,6 @@ export type Order = {
   archived?: boolean;
   selectedBar?: string;
   assignedBar?: string;
-  serviceFee?: number;
 };
 
 export type Event = {
@@ -201,6 +200,8 @@ export type VipReservation = {
   deposit: number;
   totalPrice: number;
   minimumSpend?: number;
+  /** Heure d'arrivée limite du pack (HH:MM), affichée au staff. NULL = pas de limite. */
+  arrivalDeadline?: string | null;
   status: string;
   vipStatus: VipStatus;
   paidAt?: string;
@@ -259,7 +260,7 @@ export type VenueFloorPlan = {
   backgroundImageUrl?: string | null;
   layout: {
     tables: FloorPlanTable[];
-    zoneAreas?: any[];
+    zoneAreas?: unknown[];
     width?: number;
     height?: number;
     bgOffset?: { x: number; y: number };

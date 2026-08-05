@@ -7,6 +7,11 @@ export type AgencyPromoterGroup = {
   name: string;
   color: string;
   description: string | null;
+  /** Override de chef de groupe (matérialisé en équipe-ombre promoter_teams). */
+  leader_promoter_id: string | null;
+  override_type: 'fixed' | 'percentage' | null;
+  override_value: number;
+  team_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -55,6 +60,15 @@ export type AgencyContract = {
   agency_signed_at: string | null;
   club_signed_at: string | null;
   created_at: string;
+  /** Enveloppe guest list STANDING accordée par le club (par soirée). NULL = aucune ; 0 = illimité ; N = places. Fixée par le club. */
+  gl_default_quota: number | null;
+  gl_default_normal: number;
+  gl_default_drink: number;
+  gl_default_table: number;
+  gl_default_female: number | null;
+  gl_default_male: number | null;
+  gl_default_free_before: string | null;
+  gl_default_mode: 'partition' | 'pool';
   venues?: { name: string } | null;
 };
 
