@@ -13,6 +13,13 @@
 //   - demo account            → simulate (no Stripe, no charge)
 //   - real account + disabled  → refuse with PAYMENTS_DISABLED
 //   - real account + enabled   → normal Stripe flow
+//
+// Exception sandbox : quand la plateforme tourne sur une clé Stripe TEST
+// (sk_test_…), les comptes démo suivent le flux Stripe normal. La simulation
+// n'existe que pour empêcher une vraie charge en live — en sandbox il n'y a
+// pas de vraie charge, et court-circuiter Stripe empêcherait de tester le
+// parcours de paiement de bout en bout. Auto-réversible : remettre sk_live
+// réactive la simulation démo sans toucher au code.
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
@@ -24,6 +31,11 @@ const DEMO_EMAIL_SUFFIX = "@womber.fr";
 /** True for sales-demo accounts that must never trigger a real Stripe charge. */
 export function isDemoEmail(email: string | null | undefined): boolean {
   return !!email && email.toLowerCase().endsWith(DEMO_EMAIL_SUFFIX);
+}
+
+/** True quand la plateforme tourne sur une clé Stripe TEST (sandbox). */
+export function isStripeTestMode(): boolean {
+  return (Deno.env.get("STRIPE_SECRET_KEY") ?? "").startsWith("sk_test_");
 }
 
 /**
@@ -56,7 +68,9 @@ export async function resolvePaymentMode(
   supabaseAdmin: SupabaseClient,
   email: string | null | undefined,
 ): Promise<{ mode: "simulate" | "blocked" | "live" }> {
-  if (isDemoEmail(email)) return { mode: "simulate" };
+  // En sandbox (sk_test_…) les démos paient via Stripe comme tout le monde :
+  // c'est le seul moyen de tester le parcours complet avec les cartes de test.
+  if (isDemoEmail(email) && !isStripeTestMode()) return { mode: "simulate" };
   if (await arePaymentsDisabled(supabaseAdmin)) return { mode: "blocked" };
   return { mode: "live" };
 }
