@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { translate } from '@/i18n/orgTranslate';
-import { Globe, ArrowUpRight, Search as SearchIcon, Share2, Mail, QrCode, Link2, MousePointer2, ExternalLink } from 'lucide-react';
+import { Globe, ArrowUpRight, Search as SearchIcon, Share2, Mail, QrCode, Link2, MousePointer2, ExternalLink, type LucideIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { motion } from 'framer-motion';
@@ -64,7 +64,7 @@ interface UtmRow {
   revenueCents: number;
 }
 
-const CATEGORY_META: Record<string, { label: string; icon: any; color: string }> = {
+const CATEGORY_META: Record<string, { label: string; icon: LucideIcon; color: string }> = {
   direct:      { label: 'Direct',      icon: Link2,         color: '#94a3b8' },
   search:      { label: 'Search',      icon: SearchIcon,    color: '#3b82f6' },
   paid_search: { label: 'Paid Search', icon: SearchIcon,    color: '#0ea5e9' },
@@ -110,7 +110,11 @@ export function AcquisitionDashboard({ scope, from, to, deviceFilter, sourceFilt
       const ctyMap = new Map<string, number>();
       const utmMap = new Map<string, UtmRow>();
 
-      (data ?? []).forEach((r: any) => {
+      (data ?? []).forEach((r: {
+        referrer_category: string | null; referrer_domain: string | null; country: string | null;
+        utm_source: string | null; utm_medium: string | null; utm_campaign: string | null;
+        completed_order: boolean | null; cart_value_cents: number | null; device_type: string | null;
+      }) => {
         const cat = r.referrer_category || 'direct';
         if (!srcMap.has(cat)) srcMap.set(cat, { category: cat, visits: 0, conversions: 0 });
         const sb = srcMap.get(cat)!;

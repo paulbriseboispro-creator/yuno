@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { uniqueChannel } from '@/lib/realtime';
 import { getNightWindow, bucketHourParis, nightKeyParis } from '@/lib/liveops/nightWindow';
 import {
@@ -28,6 +29,50 @@ export interface LiveAlert {
   descriptionKey: string;
   timestamp: string;
 }
+
+/** Colonnes de `orders` chargées par le live : la version étendue ajoute `items`. */
+type LiveOrderRow = Pick<Tables<'orders'>,
+  'id' | 'total' | 'status' | 'prep_status' | 'created_at' | 'served_at' | 'ready_at'
+  | 'prep_claimed_by' | 'served_by' | 'user_email' | 'service_fee' | 'refunded_at'
+  | 'order_number' | 'refund_amount'> & {
+  /** JSON `orders.items` réduit à la forme que computeBarStats lit réellement. */
+  items?: { name?: string; qty?: number; quantity?: number }[] | null;
+};
+
+/** Colonnes de `tickets` chargées par le live (le join `events!inner` n'est pas lu). */
+type LiveTicketRow = Pick<Tables<'tickets'>,
+  'id' | 'total_price' | 'service_fee' | 'insurance_fee' | 'entry_scanned'
+  | 'entry_scanned_at' | 'entry_scanned_by' | 'full_name' | 'created_at' | 'event_id'>;
+
+type LiveTableRow = Pick<Tables<'table_reservations'>,
+  'id' | 'deposit' | 'status' | 'entry_scanned' | 'entry_scanned_at' | 'entry_scanned_by'
+  | 'full_name' | 'created_at' | 'zone_id' | 'event_id' | 'checked_in_at'
+  | 'minimum_spend' | 'guest_count' | 'finished_at'>;
+
+type LiveCloakroomRow = Pick<Tables<'cloakroom_transactions'>,
+  'id' | 'created_at' | 'cloakroom_number' | 'staff_id' | 'retrieved' | 'retrieved_at' | 'price'>;
+
+/** `quota` coercé non-null : computeDoorStats fait `Number(quota) || 0` (NULL = illimité → 0). */
+type LiveGlRow = Pick<Tables<'guest_list_entries'>,
+  'id' | 'status' | 'entry_scanned' | 'entry_scanned_at' | 'entry_scanned_by'
+  | 'full_name' | 'guest_list_id'> & {
+  guest_lists: { event_id: string; quota: number } | null;
+};
+
+type LiveVipConsumptionRow = Pick<Tables<'vip_consumptions'>,
+  'id' | 'table_reservation_id' | 'item_type' | 'item_name' | 'quantity'
+  | 'total_price' | 'served_at' | 'served_by' | 'staff_id'>;
+
+type LiveVipMomentRow = Pick<Tables<'vip_service_moments'>,
+  'id' | 'kind' | 'label' | 'status' | 'scheduled_at' | 'table_reservation_id'>;
+
+/** `created_at` coercé non-null (default now() en DB) : IncidentLive.createdAt est string. */
+type LiveIncidentRow = Pick<Tables<'customer_incidents'>, 'id' | 'incident_type' | 'reason'> & {
+  created_at: string;
+};
+
+type LiveNightOpsRow = Pick<Tables<'night_ops_events'>,
+  'id' | 'kind' | 'note' | 'reported_by' | 'created_at'>;
 
 export interface StaffMember {
   /** Unique row key: `${userId}:${role}` — one person can hold several roles in one night. */
@@ -256,7 +301,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
   }, [venueId, scopedEventId]);
 
   // Build feed from historical data + realtime items
-  const buildFeedFromData = useCallback((orders: any[], tickets: any[], tables: any[], cloakroom: any[], glEntries: any[] = []) => {
+  const buildFeedFromData = useCallback((orders: LiveOrderRow[], tickets: LiveTicketRow[], tables: LiveTableRow[], cloakroom: LiveCloakroomRow[], glEntries: LiveGlRow[] = []) => {
     const items: FeedItem[] = [];
 
     orders.slice(0, 30).forEach(o => {
@@ -288,7 +333,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
     });
 
     cloakroom.slice(0, 10).forEach(c => {
-      items.push({ id: feedId('clk', c.id), type: 'cloakroom', description: `#${(c as any).cloakroom_number || ''}`, timestamp: c.created_at });
+      items.push({ id: feedId('clk', c.id), type: 'cloakroom', description: `#${c.cloakroom_number || ''}`, timestamp: c.created_at });
     });
 
     // Merge realtime items — same entity-stable ids on both sides, so this is
@@ -308,6 +353,9 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
 
     try {
       const orderColumns = 'id, total, status, prep_status, created_at, served_at, ready_at, prep_claimed_by, served_by, user_email, service_fee, refunded_at, order_number, refund_amount';
+      // Le ternaire dans select() donne une union de littéraux que le parseur de
+      // types supabase ne sait pas traiter (ParserError) → .returns<>() ci-dessous
+      // fixe le vrai type de ligne.
       let ordersQuery = supabase
         .from('orders')
         .select(extendedOpt ? `${orderColumns}, items` : orderColumns)
@@ -316,8 +364,9 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
         .lte('created_at', end)
         .order('created_at', { ascending: false });
       if (eventId) ordersQuery = ordersQuery.eq('event_id', eventId);
+      const typedOrdersQuery = ordersQuery.returns<LiveOrderRow[]>();
 
-      let ticketsQuery: any;
+      let ticketsQuery: PromiseLike<{ data: LiveTicketRow[] | null }>;
       if (eventId) {
         ticketsQuery = supabase
           .from('tickets')
@@ -325,7 +374,8 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
           .eq('event_id', eventId)
           .eq('status', 'paid')
           .gte('created_at', start)
-          .lte('created_at', end);
+          .lte('created_at', end)
+          .returns<LiveTicketRow[]>();
       } else {
         ticketsQuery = supabase
           .from('tickets')
@@ -333,7 +383,8 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
           .eq('events.venue_id', venueId)
           .eq('status', 'paid')
           .gte('created_at', start)
-          .lte('created_at', end);
+          .lte('created_at', end)
+          .returns<LiveTicketRow[]>();
       }
 
       let tablesQuery = supabase
@@ -343,6 +394,9 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
         .gte('created_at', start)
         .lte('created_at', end);
       if (eventId) tablesQuery = tablesQuery.eq('event_id', eventId);
+      // Même raison que les orders : le join `table_zones!inner(...)` fait
+      // dérailler le parseur de types supabase → .returns<>() fixe la ligne.
+      const typedTablesQuery = tablesQuery.returns<LiveTableRow[]>();
 
       let cloakroomQuery = supabase
         .from('cloakroom_transactions')
@@ -353,7 +407,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       if (eventId) cloakroomQuery = cloakroomQuery.eq('event_id', eventId);
 
       const [ordersRes, ticketsRes, tablesRes, cloakroomRes] = await Promise.all([
-        ordersQuery, ticketsQuery, tablesQuery, cloakroomQuery,
+        typedOrdersQuery, ticketsQuery, typedTablesQuery, cloakroomQuery,
       ]);
 
       const orders = ordersRes.data || [];
@@ -364,20 +418,21 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       // ── Extended (command-center) queries ─────────────────────────────────
       // allSettled: a manager without permission on one of these tables must
       // not blank the whole dashboard — the affected station degrades alone.
-      let glEntries: any[] = [];
-      let vipConsumptions: any[] = [];
-      let vipMoments: any[] = [];
+      let glEntries: LiveGlRow[] = [];
+      let vipConsumptions: LiveVipConsumptionRow[] = [];
+      let vipMoments: LiveVipMomentRow[] = [];
       let nightIncidents: IncidentLive[] = [];
-      let nightOps: any[] = [];
+      let nightOps: LiveNightOpsRow[] = [];
       let outOfStockNames: string[] = [];
       if (extendedOpt) {
-        const extraQueries: PromiseLike<any>[] = [
+        const extraQueries = [
           eventId
             ? supabase
                 .from('guest_list_entries')
                 .select('id, status, entry_scanned, entry_scanned_at, entry_scanned_by, full_name, guest_list_id, guest_lists!inner(event_id, quota)')
                 .eq('guest_lists.event_id', eventId)
-            : Promise.resolve({ data: [] }),
+                .returns<LiveGlRow[]>()
+            : Promise.resolve({ data: [] as LiveGlRow[] }),
           supabase
             .from('vip_consumptions')
             .select('id, table_reservation_id, item_type, item_name, quantity, total_price, served_at, served_by, staff_id')
@@ -399,39 +454,40 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
             .eq('venue_id', venueId)
             .gte('created_at', start)
             .lte('created_at', end)
-            .order('created_at', { ascending: false }),
+            .order('created_at', { ascending: false })
+            .returns<LiveIncidentRow[]>(),
           // Journal opérationnel staff (incidents 1-tap + prises de poste).
           // La table arrive avec la migration night_ops_events : allSettled
           // fait dégrader proprement tant qu'elle n'est pas poussée.
-          (supabase as any)
+          supabase
             .from('night_ops_events')
             .select('id, kind, note, reported_by, created_at')
             .eq('venue_id', venueId)
             .gte('created_at', start)
             .lte('created_at', end)
             .order('created_at', { ascending: false }),
-          (supabase as any)
+          supabase
             .from('drinks')
             .select('id, name, out_of_stock')
             .eq('venue_id', venueId)
             .eq('out_of_stock', true),
-        ];
+        ] as const;
         const [glRes, consRes, momentsRes, incidentsRes, nightOpsRes, stockRes] = await Promise.allSettled(extraQueries);
         glEntries = (glRes.status === 'fulfilled' ? glRes.value.data || [] : [])
-          .filter((e: any) => e.status !== 'cancelled' && e.status !== 'denied');
+          .filter((e) => e.status !== 'cancelled' && e.status !== 'denied');
         vipConsumptions = consRes.status === 'fulfilled' ? consRes.value.data || [] : [];
         vipMoments = momentsRes.status === 'fulfilled' ? momentsRes.value.data || [] : [];
         nightOps = nightOpsRes.status === 'fulfilled' ? nightOpsRes.value.data || [] : [];
         outOfStockNames = (stockRes.status === 'fulfilled' ? stockRes.value.data || [] : [])
-          .map((d: any) => d.name as string);
+          .map((d) => d.name);
         nightIncidents = [
           ...(incidentsRes.status === 'fulfilled' ? incidentsRes.value.data || [] : [])
-            .map((i: any) => ({ id: i.id, kind: i.incident_type, reason: i.reason, createdAt: i.created_at })),
+            .map((i) => ({ id: i.id, kind: i.incident_type, reason: i.reason, createdAt: i.created_at })),
           ...nightOps
-            .filter((e: any) => e.kind !== 'shift_start')
-            .map((e: any) => ({ id: e.id, kind: e.kind, reason: e.note, createdAt: e.created_at })),
+            .filter((e) => e.kind !== 'shift_start')
+            .map((e) => ({ id: e.id, kind: e.kind, reason: e.note, createdAt: e.created_at })),
         ].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-        glListIds.current = new Set(glEntries.map((e: any) => e.guest_list_id));
+        glListIds.current = new Set(glEntries.map((e) => e.guest_list_id));
       }
 
       // KPIs
@@ -443,7 +499,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
 
       const scannedTickets = tickets.filter(t => t.entry_scanned);
       const scannedTables = tables.filter(t => t.entry_scanned);
-      const scannedGl = glEntries.filter((e: any) => e.entry_scanned);
+      const scannedGl = glEntries.filter((e) => e.entry_scanned);
       const totalEntries = scannedTickets.length + scannedTables.length + scannedGl.length;
 
       const refundedOrders = orders.filter(o => o.status === 'refunded' || o.refunded_at);
@@ -523,7 +579,7 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       // histogram for owners abroad)
       const hourMap = new Map<number, number>();
       [...scannedTickets, ...scannedTables, ...scannedGl].forEach(item => {
-        const scannedAt = (item as any).entry_scanned_at;
+        const scannedAt = item.entry_scanned_at;
         if (scannedAt) {
           const h = bucketHourParis(scannedAt);
           hourMap.set(h, (hourMap.get(h) || 0) + 1);
@@ -548,18 +604,18 @@ export function useLiveNightData(venueId: string | null, scopedEventId?: string 
       // `served_by` d'abord : `prep_claimed_by` ne couvre que le Click&Collect,
       // un barman qui scanne et sert directement n'y apparaît jamais.
       orders.forEach(o => {
-        const by = (o as any).served_by || o.prep_claimed_by;
+        const by = o.served_by || o.prep_claimed_by;
         if (by) bumpStaff(by, 'barman', o.served_at || o.ready_at || o.created_at);
       });
       [...scannedTickets, ...scannedTables, ...scannedGl].forEach(item => {
-        const scannedBy = (item as any).entry_scanned_by;
-        if (scannedBy) bumpStaff(scannedBy, 'bouncer', (item as any).entry_scanned_at);
+        const scannedBy = item.entry_scanned_by;
+        if (scannedBy) bumpStaff(scannedBy, 'bouncer', item.entry_scanned_at);
       });
       cloakroom.forEach(c => {
-        const staffId = (c as any).staff_id;
-        if (staffId) bumpStaff(staffId, 'cloakroom', (c as any).retrieved_at || c.created_at);
+        const staffId = c.staff_id;
+        if (staffId) bumpStaff(staffId, 'cloakroom', c.retrieved_at || c.created_at);
       });
-      vipConsumptions.forEach((c: any) => {
+      vipConsumptions.forEach((c) => {
         const servedBy = c.served_by || c.staff_id;
         if (servedBy) bumpStaff(servedBy, 'vip_host', c.served_at);
       });

@@ -202,7 +202,7 @@ export default function OrgAppCustomers() {
       ]);
       setIncidentEmails(new Set((incs || []).map((i: any) => (i.email || '').toLowerCase())));
       setEmailBans((bans || []) as any);
-    } catch {}
+    } catch { /* best-effort : signalements/bans restent vides */ }
   };
 
   const warnedCustomers = useMemo<OrgCustomer[]>(() => {
