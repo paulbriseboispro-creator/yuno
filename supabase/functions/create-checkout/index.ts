@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { resolvePaymentSplit, estimateStripeFeeEur } from "../_shared/payment-split.ts";
+import { resolvePaymentSplit, estimateStripeFeeEur, isPillarDisabled } from "../_shared/payment-split.ts";
+import { t, resolveLang } from "../_shared/i18n.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
 // Yuno commission rate — single source of truth (3% drinks).
@@ -136,7 +137,8 @@ serve(async (req) => {
     );
 
     // Parse request body
-    const { items, venueId, eventId, cancelUrl, guestEmail, guestFullName, guestPhone, trackedLinkId, ageDeclaration, purchaseSource } = await req.json();
+    const { items, venueId, eventId, cancelUrl, guestEmail, guestFullName, guestPhone, trackedLinkId, ageDeclaration, purchaseSource, language } = await req.json();
+    const lang = resolveLang(language);
     // Tracked-link attribution persisted on the order. On revalide l'EXISTENCE (pas
     // juste le format) : un id périmé côté client — lien promoteur supprimé, reset démo,
     // campagne finie — heurterait la FK et ferait échouer la commande. L'attribution
@@ -265,6 +267,18 @@ serve(async (req) => {
         event_mode: event.event_mode,
         revenue_split_rules: (event.revenue_split_rules as Record<string, unknown> | null) ?? null,
       };
+
+      // CONTRACT GUARD (pillar scope): the signed collab contract can carve
+      // drinks OUT of the deal ({ drinks: { enabled: false } }). Ticket and
+      // table checkouts have the same guard; drinks had none at all.
+      const isCoEventForGuard =
+        ["co_event", "venue_rental", "org_hosted"].includes(event.event_mode ?? "") ||
+        (event.venue_id && event.partner_organizer_id) ||
+        (event.organizer_user_id && event.partner_venue_id);
+      if (isCoEventForGuard && isPillarDisabled(eventForSplit.revenue_split_rules, "drink")) {
+        logStep("Checkout refused — drinks pillar excluded by collab contract", { eventId: event.id });
+        throw new Error(t("checkout.pillarDrinksOff", lang));
+      }
     }
 
     // Get venue details including Stripe Connect account

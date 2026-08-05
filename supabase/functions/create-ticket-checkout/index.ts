@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { resolvePaymentSplit, estimateStripeFeeEur } from "../_shared/payment-split.ts";
+import { resolvePaymentSplit, estimateStripeFeeEur, isPillarDisabled } from "../_shared/payment-split.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { t, resolveLang } from "../_shared/i18n.ts";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
@@ -365,6 +365,13 @@ serve(async (req) => {
     if (isCoEventForGuard && !event.revenue_split_rules && !event.revenue_split_proposal) {
       logStep("Checkout refused — co-event without signed split contract", { eventId: event.id, eventMode: event.event_mode });
       throw new Error(t("checkout.collabContractMissing", lang));
+    }
+    // CONTRACT GUARD (3/3): the signed contract can carve a pillar OUT of the deal
+    // ({ tickets: { enabled: false } }). A pillar out of scope must not sell until
+    // an amendment brings it back in.
+    if (isCoEventForGuard && isPillarDisabled(event.revenue_split_rules as Record<string, unknown> | null, "ticket")) {
+      logStep("Checkout refused — tickets pillar excluded by collab contract", { eventId: event.id });
+      throw new Error(t("checkout.pillarTicketsOff", lang));
     }
 
     logStep("Payment targets resolved", {

@@ -139,6 +139,25 @@ function computeYunoFeeCents(itemType: ItemType, grossAmount: number, isBde = fa
   return computeCommissionCents(itemType, grossAmount, isBde);
 }
 
+/**
+ * Périmètre du contrat collab : un pilier peut être SORTI du deal
+ * (`{ tickets: { ..., enabled: false } }`). Absent = actif — seuls les contrats
+ * qui désactivent explicitement un pilier bloquent sa vente. Les checkouts
+ * appellent ce helper AVANT de résoudre le split : un pilier hors périmètre ne
+ * vend pas, quel que soit le pourcentage stocké à côté.
+ */
+export function isPillarDisabled(
+  rules: Record<string, unknown> | null | undefined,
+  itemType: ItemType,
+): boolean {
+  if (!rules) return false;
+  const key = itemType === "ticket" ? "tickets" : itemType === "table" ? "tables" : "drinks";
+  const block = (rules as Record<string, { enabled?: unknown }>)[key];
+  if (!block || typeof block !== "object") return false;
+  const raw = block.enabled;
+  return raw === false || raw === "false" || raw === 0;
+}
+
 function getSplitForItem(
   rules: Record<string, unknown> | null | undefined,
   itemType: ItemType,
