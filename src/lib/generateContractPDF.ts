@@ -18,7 +18,14 @@ import { getCollabTerms, pickL, clauseBody, type Lang, type L } from './collabCo
  * (supabase/functions/_shared/payment-split.ts + src/utils/fees.ts) — keep them in sync.
  */
 
-interface SplitPct { organizer_pct: number; venue_pct: number }
+interface SplitPct {
+  organizer_pct: number;
+  venue_pct: number;
+  /** false = pilier HORS périmètre du contrat : la vente est bloquée. Absent = actif. */
+  enabled?: boolean;
+  /** Tables : base du partage — acompte en ligne seul ou total dépensé de la soirée. */
+  basis?: 'deposit' | 'total_spend';
+}
 
 /** Legal identity of a contracting party, as stored on venues / organizer_profiles. */
 export interface PartyLegal {
@@ -204,8 +211,23 @@ export function generateContractPDF(data: CollabContractPDFData): Blob {
     y += 3.5;
   };
 
-  const splitRow = (label: L, s: SplitPct) =>
-    infoRow(label, `${pick(labels.orgShort)} ${s.organizer_pct}%  ·  Club ${s.venue_pct}%`);
+  // Un pilier hors périmètre est dit tel quel dans le document signé : les
+  // pourcentages stockés à côté ne s'appliquent à rien tant qu'un avenant ne
+  // réintègre pas le pilier.
+  const splitRow = (label: L, s: SplitPct) => {
+    if (s.enabled === false) {
+      infoRow(label, pick({
+        fr: 'Hors périmètre du contrat — vente bloquée',
+        en: 'Out of contract scope — sales blocked',
+        es: 'Fuera del alcance del contrato — venta bloqueada',
+      }));
+      return;
+    }
+    const basisSuffix = s.basis === 'total_spend'
+      ? `  —  ${pick({ fr: 'sur le total dépensé de la soirée', en: "on the night's total spend", es: 'sobre el gasto total de la noche' })}`
+      : '';
+    infoRow(label, `${pick(labels.orgShort)} ${s.organizer_pct}%  ·  Club ${s.venue_pct}%${basisSuffix}`);
+  };
 
   // Une répartition absente ou partielle retombe sur « Les deux » — c'est le
   // préréglage serveur (collab_domain_holder), donc le PDF dit la même chose que

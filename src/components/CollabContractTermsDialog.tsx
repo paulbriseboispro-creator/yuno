@@ -146,9 +146,34 @@ function ContractTermsView({ data, language }: { data: CollabContractPDFData; la
           {article.kind === 'split' && (
             <div className="space-y-1.5">
               <ul className="text-xs text-muted-foreground space-y-0.5">
-                <li>{t(labels.ticketsRow)} : {t(labels.orgShort)} {data.splitRules.tickets.organizer_pct}% · Club {data.splitRules.tickets.venue_pct}%</li>
-                <li>{t(labels.tablesRow)} : {t(labels.orgShort)} {data.splitRules.tables.organizer_pct}% · Club {data.splitRules.tables.venue_pct}%</li>
-                <li>{t(labels.drinksRow)} : {t(labels.orgShort)} {data.splitRules.drinks.organizer_pct}% · Club {data.splitRules.drinks.venue_pct}%</li>
+                {/* Même rendu que le PDF : un pilier hors périmètre est dit tel
+                    quel — on signe l'exclusion, pas des pourcentages morts. */}
+                {([
+                  ['tickets', labels.ticketsRow],
+                  ['tables', labels.tablesRow],
+                  ['drinks', labels.drinksRow],
+                ] as const).map(([key, rowLabel]) => {
+                  const block = data.splitRules[key];
+                  if (block.enabled === false) {
+                    return (
+                      <li key={key}>
+                        {t(rowLabel)} : <span className="text-foreground">{t({
+                          fr: 'hors périmètre du contrat — vente bloquée',
+                          en: 'out of contract scope — sales blocked',
+                          es: 'fuera del alcance del contrato — venta bloqueada',
+                        })}</span>
+                      </li>
+                    );
+                  }
+                  return (
+                    <li key={key}>
+                      {t(rowLabel)} : {t(labels.orgShort)} {block.organizer_pct}% · Club {block.venue_pct}%
+                      {key === 'tables' && block.basis === 'total_spend' && (
+                        <> — {t({ fr: 'sur le total dépensé de la soirée', en: "on the night's total spend", es: 'sobre el gasto total de la noche' })}</>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
               <p className="text-xs text-muted-foreground">{t(article.note)}</p>
             </div>

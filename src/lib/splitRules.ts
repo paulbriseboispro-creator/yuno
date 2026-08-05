@@ -24,18 +24,27 @@ import type { PartnershipSplitRules } from '@/hooks/useOrganizerPartnerships';
  * so readers simply honor whatever drinks split is stored.
  */
 
-type SplitBlock = { organizer_pct: number; venue_pct: number };
+type SplitBlock = { organizer_pct: number; venue_pct: number; enabled?: boolean; basis?: 'deposit' | 'total_spend' };
 
 const DRINKS_VENUE_DEFAULT: SplitBlock = { organizer_pct: 0, venue_pct: 100 };
 
-/** Read a per-category block ({ organizer_pct, venue_pct }) if present and valid. */
+/**
+ * Read a per-category block ({ organizer_pct, venue_pct }) if present and valid.
+ * Les clés de PÉRIMÈTRE sont préservées : `enabled: false` (pilier sorti du deal,
+ * vente refusée au checkout) et `basis` (tables : partage sur acompte ou sur le
+ * total dépensé de la soirée). Les perdre ici les ferait disparaître de chaque
+ * affichage ET de chaque proposition re-soumise depuis un état normalisé.
+ */
 function readBlock(raw: unknown): SplitBlock | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
   if (r.organizer_pct == null && r.venue_pct == null) return null;
   const o = Number(r.organizer_pct ?? (r.venue_pct != null ? 100 - Number(r.venue_pct) : 0));
   const v = Number(r.venue_pct ?? (100 - o));
-  return { organizer_pct: o, venue_pct: v };
+  const block: SplitBlock = { organizer_pct: o, venue_pct: v };
+  if (r.enabled === false || r.enabled === 'false' || r.enabled === 0) block.enabled = false;
+  if (r.basis === 'total_spend' || r.basis === 'deposit') block.basis = r.basis;
+  return block;
 }
 
 /** Read the legacy flat global split ({ organizer, venue }) if present. */

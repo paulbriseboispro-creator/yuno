@@ -9,10 +9,26 @@ import { translate } from '@/i18n/orgTranslate';
 export type PartnershipStatus = 'pending' | 'active' | 'revoked' | 'declined';
 export type PartnershipInitiator = 'venue' | 'organizer';
 
+/**
+ * Bloc de split par pilier. `enabled: false` sort le pilier du périmètre du
+ * deal (la vente est refusée au checkout tant qu'un avenant ne le réintègre
+ * pas) ; absent = actif. `basis` (tables uniquement) : 'deposit' = partage
+ * Stripe de l'acompte seul (historique) ; 'total_spend' = partage du total
+ * dépensé de la soirée, avec complément club → organisateur réglé en fin de
+ * soirée via le cycle de double vérification (collab_table_settlements).
+ */
+export interface SplitPillarBlock {
+  organizer_pct: number;
+  venue_pct: number;
+  enabled?: boolean;
+}
+
+export type TableSplitBasis = 'deposit' | 'total_spend';
+
 export interface PartnershipSplitRules {
-  tickets: { organizer_pct: number; venue_pct: number };
-  tables: { organizer_pct: number; venue_pct: number };
-  drinks: { organizer_pct: number; venue_pct: number };
+  tickets: SplitPillarBlock;
+  tables: SplitPillarBlock & { basis?: TableSplitBasis };
+  drinks: SplitPillarBlock;
 }
 
 export interface VenueOrganizerPartnership {

@@ -67,6 +67,16 @@ export function CollabAmendmentDialog({
   const [changeSplit, setChangeSplit] = useState(false);
   const [ticketsVenuePct, setTicketsVenuePct] = useState(currentSplit?.tickets.venue_pct ?? 50);
   const [tablesVenuePct, setTablesVenuePct] = useState(currentSplit?.tables.venue_pct ?? 100);
+  // Périmètre du deal : un pilier désactivé ne vend pas (garde au checkout).
+  // L'avenant est LE chemin pour sortir un pilier du deal ou l'y réintégrer.
+  const [ticketsOn, setTicketsOn] = useState(currentSplit?.tickets.enabled !== false);
+  const [tablesOn, setTablesOn] = useState(currentSplit?.tables.enabled !== false);
+  const [drinksOn, setDrinksOn] = useState(currentSplit?.drinks.enabled !== false);
+  // Base du partage tables : acompte en ligne seul, ou total dépensé de la
+  // soirée (complément réglé par virement en fin de soirée, double vérif).
+  const [tablesBasis, setTablesBasis] = useState<'deposit' | 'total_spend'>(
+    currentSplit?.tables.basis === 'total_spend' ? 'total_spend' : 'deposit',
+  );
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
   const [seeded, setSeeded] = useState<string | null>(null);
@@ -79,6 +89,10 @@ export function CollabAmendmentDialog({
     setChangeSplit(false);
     setTicketsVenuePct(currentSplit?.tickets.venue_pct ?? 50);
     setTablesVenuePct(currentSplit?.tables.venue_pct ?? 100);
+    setTicketsOn(currentSplit?.tickets.enabled !== false);
+    setTablesOn(currentSplit?.tables.enabled !== false);
+    setDrinksOn(currentSplit?.drinks.enabled !== false);
+    setTablesBasis(currentSplit?.tables.basis === 'total_spend' ? 'total_spend' : 'deposit');
     setReason('');
   }
 
@@ -88,6 +102,10 @@ export function CollabAmendmentDialog({
   const splitChanged = changeSplit && (
     ticketsVenuePct !== (currentSplit?.tickets.venue_pct ?? 50)
     || tablesVenuePct !== (currentSplit?.tables.venue_pct ?? 100)
+    || ticketsOn !== (currentSplit?.tickets.enabled !== false)
+    || tablesOn !== (currentSplit?.tables.enabled !== false)
+    || drinksOn !== (currentSplit?.drinks.enabled !== false)
+    || tablesBasis !== (currentSplit?.tables.basis === 'total_spend' ? 'total_spend' : 'deposit')
   );
   const nothingToDo = !respChanged && !splitChanged;
 
@@ -104,13 +122,24 @@ export function CollabAmendmentDialog({
         p_contract_id: target.contractId ?? null,
         p_series_contract_id: target.seriesContractId ?? null,
         p_responsibilities: respChanged ? resp : null,
-        // Les boissons ne sont jamais proposées ici : elles restent 100 % club
+        // Les % boissons ne sont jamais proposés ici : ils restent 100 % club
         // tant que l'organisateur n'a pas attesté sa licence, et le serveur
-        // réapplique cette règle de toute façon (enforce_drinks_alcohol_gate).
+        // réapplique cette règle de toute façon (enforce_drinks_alcohol_gate,
+        // qui PRÉSERVE le flag de périmètre). Le périmètre (enabled) et la base
+        // tables (basis), eux, se négocient dans l'avenant.
         p_split_rules: splitChanged ? {
-          tickets: { organizer_pct: 100 - ticketsVenuePct, venue_pct: ticketsVenuePct },
-          tables: { organizer_pct: 100 - tablesVenuePct, venue_pct: tablesVenuePct },
-          drinks: currentSplit?.drinks ?? { organizer_pct: 0, venue_pct: 100 },
+          tickets: { organizer_pct: 100 - ticketsVenuePct, venue_pct: ticketsVenuePct, ...(ticketsOn ? {} : { enabled: false }) },
+          tables: {
+            organizer_pct: 100 - tablesVenuePct,
+            venue_pct: tablesVenuePct,
+            ...(tablesOn ? {} : { enabled: false }),
+            ...(tablesBasis === 'total_spend' ? { basis: 'total_spend' } : {}),
+          },
+          drinks: {
+            organizer_pct: currentSplit?.drinks.organizer_pct ?? 0,
+            venue_pct: currentSplit?.drinks.venue_pct ?? 100,
+            ...(drinksOn ? {} : { enabled: false }),
+          },
         } as PartnershipSplitRules : null,
         p_reason: reason.trim() || null,
         p_user_agent: navigator.userAgent,
@@ -221,28 +250,89 @@ export function CollabAmendmentDialog({
                 {tt('Modifier aussi le partage des revenus', 'Also change the revenue split', 'Cambiar también el reparto de ingresos')}
               </label>
               {changeSplit && (
-                <div className="space-y-2 rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+                <div className="space-y-3 rounded-xl p-3" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
                   {([
-                    { label: tt('Billets', 'Tickets', 'Entradas'), v: ticketsVenuePct, set: setTicketsVenuePct },
-                    { label: tt('Tables VIP', 'VIP tables', 'Mesas VIP'), v: tablesVenuePct, set: setTablesVenuePct },
+                    { label: tt('Billets', 'Tickets', 'Entradas'), v: ticketsVenuePct, set: setTicketsVenuePct, on: ticketsOn, setOn: setTicketsOn },
+                    { label: tt('Tables VIP', 'VIP tables', 'Mesas VIP'), v: tablesVenuePct, set: setTablesVenuePct, on: tablesOn, setOn: setTablesOn },
                   ]).map(row => (
-                    <div key={row.label} className="flex items-center gap-3">
-                      <span className="flex-1" style={{ color: T3, fontSize: 11.5 }}>{row.label}</span>
-                      <input
-                        type="number" min={0} max={100} value={row.v}
-                        onChange={e => row.set(Math.max(0, Math.min(100, Number(e.target.value))))}
-                        style={{ width: 64, padding: '6px 8px', borderRadius: 8, background: 'transparent', border: `1px solid ${BORDER}`, color: T1, fontSize: 12 }}
-                      />
-                      <span style={{ color: T3, fontSize: 11 }}>
-                        {tt('% club', '% club', '% club')} · {100 - row.v}% {target.partnerName}
-                      </span>
+                    <div key={row.label} className="space-y-1.5">
+                      <div className="flex items-center gap-3">
+                        <label className="flex flex-1 items-center gap-2" style={{ color: row.on ? T1 : T3, fontSize: 11.5, cursor: 'pointer' }}>
+                          <input type="checkbox" checked={row.on} onChange={e => row.setOn(e.target.checked)} />
+                          {row.label}
+                        </label>
+                        {row.on ? (
+                          <>
+                            <input
+                              type="number" min={0} max={100} value={row.v}
+                              onChange={e => row.set(Math.max(0, Math.min(100, Number(e.target.value))))}
+                              style={{ width: 64, padding: '6px 8px', borderRadius: 8, background: 'transparent', border: `1px solid ${BORDER}`, color: T1, fontSize: 12 }}
+                            />
+                            <span style={{ color: T3, fontSize: 11 }}>
+                              {tt('% club', '% club', '% club')} · {100 - row.v}% {target.partnerName}
+                            </span>
+                          </>
+                        ) : (
+                          <span style={{ color: T3, fontSize: 11 }}>
+                            {tt('Hors du deal — vente bloquée', 'Out of the deal — sales blocked', 'Fuera del acuerdo — venta bloqueada')}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))}
+                  {/* Base du partage tables : sur quoi porte le % ? */}
+                  {tablesOn && (
+                    <div className="space-y-1.5">
+                      <p style={{ color: T3, fontSize: 11, fontWeight: 600 }}>
+                        {tt('Base du partage des tables', 'Tables split basis', 'Base del reparto de mesas')}
+                      </p>
+                      <div className="flex gap-2">
+                        {([
+                          { key: 'deposit' as const, label: tt('Acompte en ligne', 'Online deposit', 'Anticipo en línea') },
+                          { key: 'total_spend' as const, label: tt('Total dépensé', 'Total spend', 'Gasto total') },
+                        ]).map(o => (
+                          <button
+                            key={o.key} type="button" onClick={() => setTablesBasis(o.key)}
+                            className="flex-1 rounded-lg px-2 py-1.5"
+                            style={{
+                              fontSize: 11.5,
+                              color: tablesBasis === o.key ? T1 : T3,
+                              background: tablesBasis === o.key ? 'rgba(232,25,44,0.12)' : 'transparent',
+                              border: `1px solid ${tablesBasis === o.key ? 'rgba(232,25,44,0.4)' : BORDER}`,
+                            }}
+                          >
+                            {o.label}
+                          </button>
+                        ))}
+                      </div>
+                      {tablesBasis === 'total_spend' && (
+                        <p style={{ color: T3, fontSize: 10.5, lineHeight: 1.4 }}>
+                          {tt(
+                            "Le % s'applique au total dépensé de la soirée. Le complément dû à l'organisateur est calculé en fin de soirée et réglé par virement, avec double vérification.",
+                            'The % applies to the night\'s total spend. The top-up owed to the organizer is computed after the night and settled by bank transfer, with two-step verification.',
+                            'El % se aplica al gasto total de la noche. El complemento se calcula al final de la noche y se liquida por transferencia, con doble verificación.',
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {/* Boissons : % verrouillé par la licence, périmètre négociable. */}
+                  <div className="flex items-center gap-3">
+                    <label className="flex flex-1 items-center gap-2" style={{ color: drinksOn ? T1 : T3, fontSize: 11.5, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={drinksOn} onChange={e => setDrinksOn(e.target.checked)} />
+                      {tt('Boissons', 'Drinks', 'Bebidas')}
+                    </label>
+                    <span style={{ color: T3, fontSize: 11 }}>
+                      {drinksOn
+                        ? tt('Dans le deal', 'In the deal', 'En el acuerdo')
+                        : tt('Hors du deal — commande bloquée', 'Out of the deal — orders blocked', 'Fuera del acuerdo — pedidos bloqueados')}
+                    </span>
+                  </div>
                   <p style={{ color: T3, fontSize: 10.5, lineHeight: 1.4 }}>
                     {tt(
-                      "Les boissons restent 100 % club tant que l'organisateur n'a pas attesté sa licence d'alcool.",
-                      'Drinks stay 100% club until the organizer has attested their alcohol licence.',
-                      'Las bebidas siguen 100 % club hasta que el organizador acredite su licencia de alcohol.',
+                      "Le % boissons reste 100 % club tant que l'organisateur n'a pas attesté sa licence d'alcool.",
+                      'The drinks % stays 100% club until the organizer has attested their alcohol licence.',
+                      'El % de bebidas sigue 100 % club hasta que el organizador acredite su licencia de alcohol.',
                     )}
                   </p>
                 </div>
