@@ -151,6 +151,7 @@ const CLIENT_KNOWLEDGE_BASE = `
 3. Codes promo applicables au panier quand le club en propose.
 - Commande à l'avance : achète tes boissons dès l'achat de ton billet (page après le paiement, bouton dans l'email de confirmation, ou rappel push le jour J) — elles sont liées à ta soirée, tu les récupères au bar le soir même sans faire la file.
 - Produit grisé « Épuisé » : le bar l'a marqué en rupture pour ce soir — il n'est pas commandable tant que le staff ne le remet pas en stock. Choisis autre chose, ça revient souvent dans la soirée.
+- Sur certaines soirées co-organisées, l'accord entre le club et l'organisateur peut limiter ce qui se vend dans l'app (par ex. uniquement les tables VIP) : si l'achat de billets ou la commande de boissons est refusé avec un message d'accord de collaboration, c'est voulu par les organisateurs — ces ventes se font alors sur place ou pas du tout, réessayer ne changera rien.
 
 🔴 MODE LIVE (pendant la soirée)
 - Dès que ton billet / ta guest list / ta réservation VIP est scanné(e) à l'entrée, l'app bascule en Mode Live : le menu du club en plein écran pour toute la soirée (jusqu'à 2 h après la fin).

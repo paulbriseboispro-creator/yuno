@@ -412,12 +412,16 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Handshake',
         actionLink: { labelKey: 'ohelp.action.goToCollaborations', path: '/collaborations' },
         relatedArticleIds: ['events-setup', 'dj-management', 'invoices-management'],
-        keywords: ['collaboration', 'organizer', 'organisateur', 'co-event', 'partenaire', 'partner', 'split', 'partage', 'invite', 'inviter', 'propose', 'colaboración', 'paiement', 'versement', 'payout', 'argent', 'retenu', 'reversement', 'quand suis-je payé', 'récurrente', 'recurring', 'résidence', 'residency', 'contrat-cadre', 'framework', 'contrato marco', 'signer une fois', 'sign once', 'qui fait quoi', 'who does what', 'quien hace que', 'responsabilites', 'responsibilities', 'responsabilidades', 'design', 'logistique', 'operations', 'operaciones', 'chacun son metier', 'location de salle', 'venue rental', 'heberge', 'org hosted'],
+        keywords: ['collaboration', 'organizer', 'organisateur', 'co-event', 'partenaire', 'partner', 'split', 'partage', 'invite', 'inviter', 'propose', 'colaboración', 'paiement', 'versement', 'payout', 'argent', 'retenu', 'reversement', 'quand suis-je payé', 'récurrente', 'recurring', 'résidence', 'residency', 'contrat-cadre', 'framework', 'contrato marco', 'signer une fois', 'sign once', 'qui fait quoi', 'who does what', 'quien hace que', 'responsabilites', 'responsibilities', 'responsabilidades', 'design', 'logistique', 'operations', 'operaciones', 'chacun son metier', 'location de salle', 'venue rental', 'heberge', 'org hosted', 'pilier', 'pillar', 'hors du deal', 'que les tables', 'tables only', 'bloquer billets', 'bloquer boissons', 'périmètre', 'scope', 'total dépensé', 'total spend', 'gasto total', 'acompte', 'deposit', 'complément', 'top-up', 'virement fin de soirée', 'règlement tables', 'double vérification', 'iban organisateur'],
         sections: [
           { headingKey: 'ohelp.ev.collab.s1h', bodyKey: 'ohelp.ev.collab.s1b' },
           { headingKey: 'ohelp.ev.collab.s2h', bodyKey: 'ohelp.ev.collab.s2b', screenshotUrl: '/help/owner-collaborations.png' },
           { headingKey: 'ohelp.ev.collab.s3h', bodyKey: 'ohelp.ev.collab.s3b', type: 'steps' },
           { headingKey: 'ohelp.ev.collab.s4h', bodyKey: 'ohelp.ev.collab.s4b' },
+          // Périmètre par pilier + base tables : ces deux réglages vivent dans le
+          // même contrat que les %, on les documente au même endroit.
+          { headingKey: 'ohelp.ev.collab.s12h', bodyKey: 'ohelp.ev.collab.s12b' },
+          { headingKey: 'ohelp.ev.collab.s13h', bodyKey: 'ohelp.ev.collab.s13b' },
           // L'axe RESPONSABILITES se lit juste apres le partage des recettes : c'est
           // son pendant. Les % disent qui touche l'argent, celui-ci dit qui decide.
           { headingKey: 'ohelp.ev.collab.s10h', bodyKey: 'ohelp.ev.collab.s10b' },
