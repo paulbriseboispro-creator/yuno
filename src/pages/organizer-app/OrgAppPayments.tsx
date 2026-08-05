@@ -1,11 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { toast } from 'sonner';
-import { Banknote, Clock, Receipt } from 'lucide-react';
+import { Banknote, Clock, Landmark, Receipt } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { OrgStripeConnectCard } from '@/components/organizer-app/OrgStripeConnectCard';
-import { OrgPage, OrgPageHeader, OrgCard, T1, T2, T3, RED, BORDER, INNER_BG } from '@/components/org-ui';
+import { OrgPage, OrgPageHeader, OrgCard, OrgButton, T1, T2, T3, RED, BORDER, INNER_BG } from '@/components/org-ui';
 
 /**
  * Dedicated payments page for organizers — manages the Stripe Connect account in isolation
@@ -90,7 +91,110 @@ export default function OrgAppPayments() {
             )}
           </p>
         </OrgCard>
+
+        <CollabIbanCard userId={user?.id} />
       </div>
     </OrgPage>
+  );
+}
+
+/**
+ * IBAN pour les règlements collab HORS Stripe : quand un contrat de
+ * collaboration partage les tables sur le TOTAL dépensé de la soirée, le club
+ * règle le complément de fin de soirée par virement SEPA direct. Cet IBAN vit
+ * dans organizer_payout_details (table dédiée, jamais lisible publiquement —
+ * le club ne le voit qu'au moment de régler, via le lot de règlement).
+ * Changer d'IBAN gèle les règlements 24 h (anti-fraude, comme les promoteurs).
+ */
+function CollabIbanCard({ userId }: { userId?: string }) {
+  const { language } = useLanguage();
+  const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
+  const [iban, setIban] = useState('');
+  const [bic, setBic] = useState('');
+  const [loaded, setLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!userId) return;
+    let active = true;
+    (async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any)
+        .from('organizer_payout_details')
+        .select('iban, bic')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (!active) return;
+      setIban((data?.iban as string | null) ?? '');
+      setBic((data?.bic as string | null) ?? '');
+      setLoaded(true);
+    })();
+    return () => { active = false; };
+  }, [userId]);
+
+  const save = async () => {
+    if (!userId || saving) return;
+    const cleaned = iban.replace(/\s+/g, '').toUpperCase();
+    if (cleaned && cleaned.length < 8) {
+      toast.error(t('IBAN trop court', 'IBAN too short', 'IBAN demasiado corto'));
+      return;
+    }
+    setSaving(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .from('organizer_payout_details')
+        .upsert({ user_id: userId, iban: cleaned || null, bic: bic.trim().toUpperCase() || null }, { onConflict: 'user_id' });
+      if (error) throw error;
+      toast.success(t('Coordonnées enregistrées', 'Bank details saved', 'Datos bancarios guardados'));
+    } catch {
+      toast.error(t('Erreur d\'enregistrement', 'Save failed', 'Error al guardar'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <OrgCard style={{ padding: 24 }}>
+      <div className="mb-2 flex items-center gap-2">
+        <Landmark className="h-4 w-4" style={{ color: RED }} />
+        <h3 style={{ color: T1, fontSize: 14, fontWeight: 600 }}>
+          {t('IBAN pour les règlements collab', 'IBAN for collab settlements', 'IBAN para liquidaciones de colaboración')}
+        </h3>
+      </div>
+      <p className="mb-3" style={{ color: T2, fontSize: 12, lineHeight: 1.5 }}>
+        {t(
+          "Utilisé uniquement quand un contrat de collaboration partage les tables sur le total dépensé : le club vous règle le complément de fin de soirée par virement direct. Le club ne voit cet IBAN qu'au moment de régler.",
+          'Used only when a collaboration contract splits tables on total spend: the club settles the end-of-night top-up by direct bank transfer. The club only sees this IBAN when settling.',
+          'Se usa solo cuando un contrato de colaboración reparte las mesas sobre el gasto total: el club le liquida el complemento de fin de noche por transferencia directa. El club solo ve este IBAN al liquidar.',
+        )}
+      </p>
+      <div className="space-y-2">
+        <input
+          value={iban}
+          onChange={(e) => setIban(e.target.value)}
+          placeholder="FR76 3000 4000 0312 3456 7890 143"
+          autoComplete="off"
+          className="w-full font-mono"
+          style={{ padding: '10px 12px', borderRadius: 12, fontSize: 13, background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
+        />
+        <input
+          value={bic}
+          onChange={(e) => setBic(e.target.value)}
+          placeholder={t('BIC (facultatif)', 'BIC (optional)', 'BIC (opcional)')}
+          autoComplete="off"
+          className="w-full font-mono"
+          style={{ padding: '10px 12px', borderRadius: 12, fontSize: 13, background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
+        />
+        <div className="flex items-center justify-between gap-3">
+          <p style={{ color: T3, fontSize: 10.5 }}>
+            {t('Tout changement d\'IBAN gèle les règlements 24 h (anti-fraude).', 'Any IBAN change freezes settlements for 24h (anti-fraud).', 'Cualquier cambio de IBAN congela las liquidaciones 24 h (antifraude).')}
+          </p>
+          <OrgButton variant="primary" size="sm" onClick={save} disabled={!loaded || saving}>
+            {saving ? t('Enregistrement…', 'Saving…', 'Guardando…') : t('Enregistrer', 'Save', 'Guardar')}
+          </OrgButton>
+        </div>
+      </div>
+    </OrgCard>
   );
 }

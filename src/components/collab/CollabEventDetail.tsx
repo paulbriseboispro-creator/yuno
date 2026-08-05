@@ -24,6 +24,7 @@ import { SplitContractBanner } from '@/components/SplitContractBanner';
 import { CollabMessageThread } from '@/components/collab/CollabMessageThread';
 import { CollabSignFooter } from '@/components/collab/CollabSignFooter';
 import { PayoutStatusNote } from '@/components/collab/PayoutStatusNote';
+import { CollabTableSettlementCard } from '@/components/collab/CollabTableSettlementCard';
 import { CollabConversionClose } from '@/components/collab/CollabConversionClose';
 import { OrgEventTablesPanel } from '@/components/organizer-app/OrgEventTablesPanel';
 import { OrgEventDrinksMenu } from '@/components/organizer-app/OrgEventDrinksMenu';
@@ -592,6 +593,12 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                 <EventLiveModule eventId={event.id} venueId={clubVenueIdForLive} />
               </Section>
             )}
+            {/* Complément tables (base « total dépensé ») : la carte se tait
+                d'elle-même si le contrat partage sur l'acompte seul. */}
+            {isCollab && (phase === 'live' || phase === 'after') && (
+              <CollabTableSettlementCard eventId={event.id} viewerRole={viewerSide} />
+            )}
+
             {isCollab && phase === 'after' && (
               <Section icon={Trophy} title={t('Le verdict', 'The verdict', 'El veredicto')}
                 sub={t(
@@ -930,13 +937,22 @@ function SplitContractView({ rules, t }: { rules: unknown; t: (fr: string, en: s
   const catLabel = (k: string) => k === 'tickets' ? t('Billets', 'Tickets', 'Entradas') : k === 'tables' ? t('Tables', 'Tables', 'Mesas') : k === 'drinks' ? t('Boissons', 'Drinks', 'Bebidas') : k.replace(/_/g, ' ');
   return (
     <div className="space-y-2" style={{ fontSize: 13 }}>
-      {entries.map(([key, val]: [string, { venue_pct?: number; organizer_pct?: number; venue?: number; organizer?: number }]) => (
+      {entries.map(([key, val]: [string, { venue_pct?: number; organizer_pct?: number; venue?: number; organizer?: number; enabled?: boolean; basis?: string }]) => (
         <div key={key} className="flex items-center justify-between rounded-lg p-2.5" style={{ background: INNER_BG }}>
-          <span style={{ color: T2 }}>{catLabel(key)}</span>
-          <div className="flex gap-3" style={{ fontSize: 12 }}>
-            <span style={{ color: T3 }}>{t('Club', 'Club', 'Club')} <strong style={{ color: T1 }}>{val.venue_pct ?? val.venue ?? 0}%</strong></span>
-            <span style={{ color: T3 }}>{t('Orga', 'Org', 'Org')} <strong style={{ color: T1 }}>{val.organizer_pct ?? val.organizer ?? 0}%</strong></span>
-          </div>
+          <span style={{ color: T2 }}>
+            {catLabel(key)}
+            {key === 'tables' && val.enabled !== false && val.basis === 'total_spend' && (
+              <span style={{ color: T3, fontSize: 11 }}> · {t('sur total dépensé', 'on total spend', 'sobre gasto total')}</span>
+            )}
+          </span>
+          {val.enabled === false ? (
+            <span style={{ color: T3, fontSize: 12 }}>{t('Hors du deal — vente bloquée', 'Out of the deal — sales blocked', 'Fuera del acuerdo — venta bloqueada')}</span>
+          ) : (
+            <div className="flex gap-3" style={{ fontSize: 12 }}>
+              <span style={{ color: T3 }}>{t('Club', 'Club', 'Club')} <strong style={{ color: T1 }}>{val.venue_pct ?? val.venue ?? 0}%</strong></span>
+              <span style={{ color: T3 }}>{t('Orga', 'Org', 'Org')} <strong style={{ color: T1 }}>{val.organizer_pct ?? val.organizer ?? 0}%</strong></span>
+            </div>
+          )}
         </div>
       ))}
     </div>
