@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowLeft, Share2, MapPin, AtSign, Globe, MessageCircle, Heart } from 'lucide-react';
+import { ArrowLeft, Share2, MapPin, AtSign, Globe, MessageCircle, Heart, BadgeCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -160,7 +160,7 @@ function RpEventCard({
             </span>
           )}
           {ev.genres.slice(0, 1).map(g => (
-            <span key={g} className="genre-tag">{g}</span>
+            <span key={g} className="genre-tag" style={{ whiteSpace: 'nowrap' }}>{g}</span>
           ))}
         </div>
 
@@ -452,43 +452,45 @@ export default function AgencyPublicPage() {
             <Share2 className="h-4 w-4" />
           </button>
         </div>
-
-        {/* Kicker bas de hero */}
-        <div className="absolute bottom-0 left-0 right-0 z-10" style={{ padding: '0 20px 20px' }}>
-          <div style={{ maxWidth: 768, margin: '0 auto' }}>
-            <span
-              className="font-mono font-bold animate-hero-label inline-flex items-center"
-              style={{ fontSize: '10px', color: '#E8192C', background: 'rgba(232,25,44,0.14)', border: '1px solid rgba(232,25,44,0.30)', borderRadius: '2px', padding: '4px 10px', letterSpacing: '0.16em' }}
-            >
-              {t('affiliate.rp').toUpperCase()} · {t('affiliate.yunoPartner').toUpperCase()}
-            </span>
-          </div>
-        </div>
       </section>
 
       {/* ══ BLOC IDENTITÉ ═════════════════════════════════════ */}
       <div style={{ maxWidth: 768, margin: '0 auto' }} className="px-5">
-        <div className="relative flex items-end gap-4" style={{ marginTop: -46 }}>
-          <div
-            className="shrink-0 overflow-hidden animate-hero-label"
-            style={{ width: 92, height: 92, borderRadius: '50%', border: '3px solid #0A0A0A', boxShadow: '0 0 0 1px rgba(255,255,255,0.12), 0 8px 30px rgba(0,0,0,0.5)', background: '#191919' }}
-          >
-            {profile.avatar_url
-              ? <img src={getOptimizedImageUrl(profile.avatar_url, { width: 200, height: 200, resize: 'cover' })} alt={profile.name} className="w-full h-full object-cover" />
-              : <div className="w-full h-full flex items-center justify-center font-display font-bold" style={{ fontSize: '34px', color: '#E5E5E5' }}>{(profile.name[0] || '?').toUpperCase()}</div>
-            }
-          </div>
+        {/* Photo carrée à angles ronds (comme le profil DJ), chevauche le hero.
+            Plus aucun élément rouge dessus. */}
+        <div
+          className="overflow-hidden animate-hero-label"
+          style={{ width: 92, height: 92, borderRadius: 14, border: '3px solid #0A0A0A', boxShadow: '0 0 0 1px rgba(255,255,255,0.12)', background: '#191919', marginTop: -62, marginBottom: 14, position: 'relative', zIndex: 10 }}
+        >
+          {profile.avatar_url
+            ? <img src={getOptimizedImageUrl(profile.avatar_url, { width: 200, height: 200, resize: 'cover' })} alt={profile.name} className="w-full h-full object-cover object-top" />
+            : <div className="w-full h-full flex items-center justify-center font-display font-bold" style={{ fontSize: '34px', color: '#E5E5E5' }}>{(profile.name[0] || '?').toUpperCase()}</div>
+          }
         </div>
 
-        <p className="font-mono uppercase animate-hero-body" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.16em', marginTop: 16 }}>
-          {t('affiliate.rp')}{profile.city ? ` · ${profile.city.toUpperCase()}` : ''}
-        </p>
+        {/* Badge partenaire — sur le fond sombre, jamais sur la photo */}
+        <div className="animate-hero-body" style={{ marginBottom: 12 }}>
+          <span
+            className="font-mono font-bold inline-flex items-center"
+            style={{ fontSize: '10px', color: '#E8192C', background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.28)', borderRadius: '2px', padding: '4px 10px', letterSpacing: '0.16em' }}
+          >
+            {t('affiliate.rp').toUpperCase()} · {t('affiliate.yunoPartner').toUpperCase()}
+          </span>
+        </div>
+
         <h1
           className="font-display font-bold text-white uppercase animate-hero-h1"
-          style={{ fontSize: 'clamp(38px, 11vw, 84px)', letterSpacing: '-0.03em', lineHeight: 0.88, margin: '6px 0 0' }}
+          style={{ fontSize: 'clamp(38px, 11vw, 84px)', letterSpacing: '-0.03em', lineHeight: 0.88, margin: 0 }}
         >
           {profile.name}
         </h1>
+
+        {profile.city && (
+          <p className="font-mono uppercase flex items-center gap-1.5 animate-hero-body" style={{ fontSize: '11px', color: '#9A9A9A', letterSpacing: '0.06em', marginTop: 12 }}>
+            <MapPin className="h-3.5 w-3.5" />
+            {profile.city}
+          </p>
+        )}
 
         {profile.bio && (
           <p className="font-serif italic animate-hero-body" style={{ fontSize: '15px', color: '#9A9A9A', lineHeight: 1.6, maxWidth: 480, marginTop: 16 }}>
@@ -579,7 +581,7 @@ export default function AgencyPublicPage() {
             <div className="px-5">
               <p className="section-label-ruled mb-6">{t('affiliate.clubs')}</p>
             </div>
-            <div className="flex gap-3 overflow-x-auto scrollbar-hide" style={{ padding: '0 20px', scrollSnapType: 'x mandatory' }}>
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide px-5 pb-1" style={{ scrollSnapType: 'x mandatory', scrollPaddingLeft: '20px' }}>
               {clubs.map(club => (
                 <button
                   key={club.key}
@@ -615,6 +617,29 @@ export default function AgencyPublicPage() {
             </div>
           </section>
         )}
+
+        {/* ── PIED — tampon partenaire vérifié + marque Yuno ── */}
+        <footer style={{ padding: '48px 20px 16px', textAlign: 'center', borderTop: clubs.length > 0 ? 'none' : '1px solid rgba(255,255,255,0.07)' }}>
+          <div className="flex items-center justify-center mx-auto" style={{ width: 42, height: 42, borderRadius: '50%', background: 'rgba(232,25,44,0.10)', border: '1px solid rgba(232,25,44,0.28)', marginBottom: 16 }}>
+            <BadgeCheck className="h-5 w-5" style={{ color: '#E8192C' }} />
+          </div>
+          <p className="font-mono uppercase" style={{ fontSize: '10px', color: '#9A9A9A', letterSpacing: '0.16em', marginBottom: 6 }}>
+            {t('affiliate.rpVerifiedPartner')}
+          </p>
+          <p className="font-display font-bold text-white uppercase" style={{ fontSize: '16px', letterSpacing: '-0.01em', marginBottom: 22 }}>
+            {profile.name}
+          </p>
+          <button
+            onClick={() => navigate('/')}
+            className="inline-flex items-center gap-2 font-mono font-semibold uppercase hover:opacity-80 transition-opacity"
+            style={{ fontSize: '11px', letterSpacing: '0.08em', color: '#E8192C', background: 'transparent', border: '1px solid rgba(232,25,44,0.35)', borderRadius: 999, padding: '11px 22px', cursor: 'pointer' }}
+          >
+            {t('affiliate.rpDiscoverMore')} →
+          </button>
+          <p className="font-mono" style={{ fontSize: '10px', color: '#3A3A3E', letterSpacing: '0.12em', marginTop: 30 }}>
+            POWERED BY <span style={{ color: '#5A5A5E', fontWeight: 700 }}>YUNO</span>
+          </p>
+        </footer>
 
       </div>
     </div>

@@ -313,6 +313,8 @@ const es: Record<string, string> = {
   'affiliate.rpNotFoundTitle': 'Página no encontrada',
   'affiliate.rpNotFoundBody': 'Esta página de RRPP no existe o ya no está activa.',
   'affiliate.rpUpcomingEmpty': 'No hay fiestas próximas por ahora',
+  'affiliate.rpVerifiedPartner': 'RRPP asociada verificada',
+  'affiliate.rpDiscoverMore': 'Descubrir todas las fiestas',
   'affiliate.yunoPartner': 'Socio YUNO',
   'affiliate.lineup': 'Cartel',
   'affiliate.photos': 'Fotos',

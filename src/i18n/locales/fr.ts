@@ -97,6 +97,8 @@ const fr: Record<string, string> = {
   'affiliate.rpNotFoundTitle': 'Page introuvable',
   'affiliate.rpNotFoundBody': "Cette page RP n'existe pas ou n'est plus active.",
   'affiliate.rpUpcomingEmpty': 'Aucune soirée à venir pour le moment',
+  'affiliate.rpVerifiedPartner': 'Agence partenaire vérifiée',
+  'affiliate.rpDiscoverMore': 'Découvrir toutes les soirées',
   'affiliate.yunoPartner': 'Partenaire YUNO',
   'affiliate.lineup': 'Line-up',
   'affiliate.photos': 'Photos',

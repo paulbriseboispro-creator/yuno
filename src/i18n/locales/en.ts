@@ -60,6 +60,8 @@ const en: Record<string, string> = {
   'affiliate.rpNotFoundTitle': 'Page not found',
   'affiliate.rpNotFoundBody': "This promoter page doesn't exist or is no longer active.",
   'affiliate.rpUpcomingEmpty': 'No upcoming events right now',
+  'affiliate.rpVerifiedPartner': 'Verified partner promoter',
+  'affiliate.rpDiscoverMore': 'Discover all events',
   'affiliate.yunoPartner': 'YUNO Partner',
   'affiliate.lineup': 'Line-up',
   'affiliate.photos': 'Photos',
