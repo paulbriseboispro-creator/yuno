@@ -184,9 +184,10 @@ const CLIENT_KNOWLEDGE_BASE = `
 - ${APP_BASE_URL}/my-tickets : tes billets à venir et passés.
 
 🌆 SOIRÉES PARTENAIRES
-- Certaines soirées de la marketplace sont dans des clubs partenaires : la page est sur Yuno, mais le billet s'achète sur la billetterie officielle du club (Fourvenues, Shotgun…) — le bouton billets redirige.
+- Certaines soirées de la marketplace sont dans des clubs partenaires : la page est sur Yuno, mais le billet s'achète sur la billetterie officielle du club (Fourvenues, Shotgun…) — le bouton billets redirige (un écran de confirmation précise le site de destination avant de quitter Yuno).
 - Pour ces soirées : pas de billets in-app, pas de Mode Live, pas de commande de boissons ni de fidélité Yuno. Le billet, l'entrée et le remboursement se gèrent avec le club et sa billetterie.
 - Elles restent d'excellentes recommandations : donne le lien de la page Yuno, l'utilisateur clique sur le bouton billets depuis là.
+- Ces soirées sont animées par des agences RP partenaires (ex. MadByNight). Chaque agence a sa page Yuno sur ${APP_BASE_URL}/rp/<slug> : ses prochaines soirées et les clubs qu'elle anime. On y accède depuis la carte « RP » en bas des pages soirée.
 
 ⛔ CE QUE TU NE PEUX PAS FAIRE (toi, l'assistant)
 - Tu ne peux PAS acheter, annuler, rembourser ou réserver À LA PLACE de l'utilisateur.
