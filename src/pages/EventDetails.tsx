@@ -93,6 +93,23 @@ export default function EventDetails() {
   const [orgFollowing, setOrgFollowing] = useState<Record<string, boolean>>({});
   const [interestedCount, setInterestedCount] = useState(0);
 
+  // Agences RP sous contrat actif avec le club/orga de la soirée — carte « RP »
+  // en bas de page, symétrique de la soirée affiliée qui affiche son agence.
+  const [rpAgencies, setRpAgencies] = useState<{ id: string; name: string; avatar_url: string | null; slug: string | null }[]>([]);
+  useEffect(() => {
+    if (!eventId) { setRpAgencies([]); return; }
+    let active = true;
+    (async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any).rpc('get_event_rp_agencies', { p_event_id: eventId });
+      if (active) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        setRpAgencies(Array.isArray(data) ? data.map((r: any) => ({ id: r.affiliate_id, name: r.name, avatar_url: r.avatar_url ?? null, slug: r.slug ?? null })) : []);
+      }
+    })();
+    return () => { active = false; };
+  }, [eventId]);
+
   // (Partner venue drinks intentionally not loaded on event page — surfaced only on venue + organizer pages)
   const addToCart = useStore((state) => state.addToCart);
   // Live visitor tracking — scope to venue (drinks bar), event, and organizer when present
@@ -1143,6 +1160,40 @@ export default function EventDetails() {
                 </button>
               </div>
               )}
+            </div>
+          </FadeInView>
+        )}
+
+        {/* ── RP (agences sous contrat avec le club/orga) ── */}
+        {rpAgencies.length > 0 && (
+          <FadeInView as="section" style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <p className="section-label-ruled mb-6">{t('affiliate.rp')}</p>
+            <div className="space-y-2">
+              {rpAgencies.map((rp) => (
+                <div
+                  key={rp.id}
+                  className="flex items-center"
+                  style={{ border: '1px solid rgba(255,255,255,0.06)', borderRadius: '4px', padding: '12px 16px' }}
+                >
+                  <button
+                    onClick={() => rp.slug && navigate(`/rp/${rp.slug}`)}
+                    className="flex items-center gap-3 min-w-0 flex-1 hover:opacity-80 transition-opacity text-left"
+                    style={{ cursor: rp.slug ? 'pointer' : 'default' }}
+                  >
+                    <div className="shrink-0 overflow-hidden" style={{ width: 48, height: 48, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.08)', background: '#191919' }}>
+                      {rp.avatar_url
+                        ? <img src={getOptimizedImageUrl(rp.avatar_url, { width: 128, height: 128, resize: 'cover' })} alt={rp.name} loading="lazy" className="w-full h-full object-cover" />
+                        : <div className="w-full h-full flex items-center justify-center font-mono font-bold" style={{ fontSize: '12px', color: '#5A5A5E' }}>{rp.name.slice(0, 2).toUpperCase()}</div>
+                      }
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-mono truncate" style={{ fontSize: '13px', color: '#E5E5E5', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600 }}>{rp.name}</p>
+                      <p className="font-mono mt-1" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.04em' }}>{t('affiliate.yunoPartner')}</p>
+                    </div>
+                    {rp.slug && <span className="text-[#3A3A3E] text-xs shrink-0 ml-2">→</span>}
+                  </button>
+                </div>
+              ))}
             </div>
           </FadeInView>
         )}

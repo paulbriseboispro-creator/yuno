@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, MapPin, Clock, ExternalLink, ChevronDown, ChevronUp,
+  ArrowLeft, MapPin, ExternalLink, ChevronDown, ChevronUp,
   Share2, Music, Heart,
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -15,7 +16,8 @@ import { toast } from 'sonner';
 import { shareContent } from '@/lib/share';
 import { useAffiliateVisitorTracking, trackAffiliateClick } from '@/hooks/useAffiliateVisitorTracking';
 import { useFavorites } from '@/hooks/useFavorites';
-import { OutboundLink } from '@/components/OutboundLink';
+import { StickyCheckoutFooter } from '@/components/StickyCheckoutFooter';
+import { openExternal } from '@/lib/native';
 
 type AffiliateEvent = {
   id: string;
@@ -45,6 +47,7 @@ type AffiliateEvent = {
     instagram: string | null;
     website: string | null;
     cover_image_url: string | null;
+    logo_url: string | null;
   } | null;
 };
 
@@ -86,6 +89,7 @@ export default function AffiliateEventPage() {
   const [affiliate, setAffiliate] = useState<AffiliateProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showFullDescription, setShowFullDescription] = useState(false);
+  const [showLeaveNotice, setShowLeaveNotice] = useState(false);
   const { isFavorite, toggleFavorite } = useFavorites();
 
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
@@ -136,7 +140,7 @@ export default function AffiliateEventPage() {
     const today = new Date().toISOString().split('T')[0];
     const { data } = await supabase
       .from('affiliate_events')
-      .select('*, affiliate_venues(id, name, city, neighborhood, slug, address, instagram, website, cover_image_url)')
+      .select('*, affiliate_venues(id, name, city, neighborhood, slug, address, instagram, website, cover_image_url, logo_url)')
       .eq('slug', slug!)
       .in('status', ['published', 'featured'])
       .gte('event_date', today)
@@ -167,6 +171,22 @@ export default function AffiliateEventPage() {
     });
   };
 
+  // Un événement partenaire se règle sur la billetterie du club, HORS Yuno. On
+  // confirme la sortie AVANT d'ouvrir le navigateur externe : impossible d'injecter
+  // une bannière dans SafariVC, donc le contexte (« vous quittez Yuno, vers quel
+  // site ») se donne ici, en interstitiel, juste avant la redirection.
+  const requestTickets = () => {
+    if (!event?.external_ticket_url) return;
+    setShowLeaveNotice(true);
+  };
+
+  const confirmLeave = () => {
+    if (!event?.external_ticket_url) return;
+    trackTicketClick();
+    openExternal(event.external_ticket_url);
+    setShowLeaveNotice(false);
+  };
+
   const handleShare = async () => {
     const url = window.location.href;
     const shareData = { title: event?.name || '', url };
@@ -190,7 +210,8 @@ export default function AffiliateEventPage() {
   const dayNum = format(dateObj, 'd');
   const monthYear = format(dateObj, 'MMMM yyyy', { locale: dateLocale });
   const dayName = format(dateObj, 'EEEE', { locale: dateLocale });
-  const dateShort = format(dateObj, 'EEE d MMM yyyy', { locale: dateLocale });
+  // Jour en toutes lettres UNE fois (« jeudi 6 août 2026 »), pas « jeudi jeu. 6… ».
+  const dateShort = format(dateObj, 'd MMM yyyy', { locale: dateLocale });
   const timeOpen = event.start_time ? event.start_time.slice(0, 5) : '22:00';
   const timeClose = event.end_time ? event.end_time.slice(0, 5) : null;
 
@@ -200,15 +221,22 @@ export default function AffiliateEventPage() {
   const priceFrom = event.price_from;
   const hasTicketLink = !!event.external_ticket_url;
 
+  // Domaine de la billetterie externe, montré dans l'interstitiel de sortie.
+  let ticketHost = '';
+  if (event.external_ticket_url) {
+    try { ticketHost = new URL(event.external_ticket_url).hostname.replace(/^www\./, ''); }
+    catch { /* URL invalide : pas de domaine à afficher */ }
+  }
+
   const priceDisplay = isFree
     ? t('affiliate.freeEntry')
     : priceFrom != null
     ? `${t('event.startingFrom')} ${priceFrom.toFixed(2)}€`
     : t('affiliate.seePrices');
 
-  // Hero meta line
+  // Hero meta line — le club est déjà affiché au-dessus (ligne d'identité), on ne
+  // le répète donc pas ici. Reste : date · ouverture · fermeture.
   const metaParts = [
-    venue ? venue.name.toUpperCase() : null,
     `${dayName.toUpperCase()} ${dateShort.toUpperCase()}`,
     `${t('event.doorsOpen').toUpperCase()} ${timeOpen}`,
     timeClose ? `${t('event.doorsClose').toUpperCase()} ${timeClose}` : null,
@@ -334,7 +362,7 @@ export default function AffiliateEventPage() {
           <h1
             className="font-display text-white uppercase animate-hero-h1"
             style={{
-              fontSize: 'clamp(36px, 9vw, 96px)',
+              fontSize: 'clamp(38px, 9vw, 100px)',
               fontWeight: 700,
               letterSpacing: '-0.025em',
               lineHeight: 0.9,
@@ -344,28 +372,32 @@ export default function AffiliateEventPage() {
             {event.name}
           </h1>
 
-          {/* Meta line */}
+          {/* Meta line — identité = le CLUB d'abord (logo + nom, blanc), puis
+              × l'agence RP en second (gris). Même hiérarchie que l'in-Yuno
+              (entité principale × partenaire). */}
           <div className="animate-hero-body">
-            {affiliate && (
+            {(venue || affiliate) && (
               <div className="flex items-center gap-2 mb-1">
-                {affiliate.avatar_url && (
+                {venue && (venue.logo_url || venue.cover_image_url) && (
                   <img
-                    src={affiliate.avatar_url}
-                    alt={affiliate.name}
+                    src={venue.logo_url || venue.cover_image_url!}
+                    alt={venue.name}
                     className="rounded-full object-cover shrink-0"
                     style={{ width: 18, height: 18 }}
                   />
                 )}
-                <span className="font-mono text-white font-semibold tracking-[0.08em]" style={{ fontSize: '12px' }}>
-                  {affiliate.name.toUpperCase()}
-                </span>
                 {venue && (
-                  <>
-                    <span className="text-[#3A3A3E]" style={{ fontSize: '11px' }}>×</span>
-                    <span className="font-mono text-[#9A9A9A] tracking-[0.08em]" style={{ fontSize: '11px' }}>
-                      {venue.name.toUpperCase()}
-                    </span>
-                  </>
+                  <span className="font-mono text-white font-semibold tracking-[0.08em]" style={{ fontSize: '12px' }}>
+                    {venue.name.toUpperCase()}
+                  </span>
+                )}
+                {venue && affiliate && (
+                  <span className="text-[#3A3A3E]" style={{ fontSize: '11px' }}>×</span>
+                )}
+                {affiliate && (
+                  <span className="font-mono text-[#9A9A9A] tracking-[0.08em]" style={{ fontSize: '11px' }}>
+                    {affiliate.name.toUpperCase()}
+                  </span>
                 )}
               </div>
             )}
@@ -442,20 +474,19 @@ export default function AffiliateEventPage() {
                     {priceDisplay}
                   </p>
                 </div>
-                <OutboundLink
-                  href={event.external_ticket_url!}
-                  onClick={trackTicketClick}
+                <button
+                  onClick={requestTickets}
                   className="shrink-0 font-mono font-bold uppercase inline-flex items-center gap-2"
                   style={{
                     height: 44,
                     padding: '0 22px',
                     background: '#E8192C',
                     color: '#fff',
+                    border: 'none',
                     borderRadius: 3,
                     fontSize: '11px',
                     cursor: 'pointer',
                     letterSpacing: '0.10em',
-                    textDecoration: 'none',
                     transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1)',
                     WebkitTapHighlightColor: 'transparent',
                   } as React.CSSProperties}
@@ -466,7 +497,7 @@ export default function AffiliateEventPage() {
                   onTouchEnd={e => (e.currentTarget.style.transform = '')}
                 >
                   {t('affiliate.getTickets')} <ExternalLink className="h-3.5 w-3.5" />
-                </OutboundLink>
+                </button>
               </div>
               <p className="font-mono" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.04em', marginTop: 10 }}>
                 {t('affiliate.redirectNotice')}
@@ -671,17 +702,17 @@ export default function AffiliateEventPage() {
           </section>
         )}
 
-        {/* ── AFFILIATE (organisateur partenaire) ── */}
+        {/* ── RP (agence partenaire qui anime la soirée) ── */}
         {affiliate && (
           <section
             style={{ padding: 'clamp(32px, 5vw, 44px) 20px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}
           >
-            <p className="section-label-ruled mb-6">{t('affiliate.organizer')}</p>
+            <p className="section-label-ruled mb-6">{t('affiliate.rp')}</p>
             <div
               style={{ border: '1px solid rgba(255,255,255,0.06)', borderRadius: '4px', padding: '12px 16px' }}
             >
               <button
-                onClick={() => affiliate.linktree_slug && navigate(`/p/${affiliate.linktree_slug}`)}
+                onClick={() => affiliate.linktree_slug && navigate(`/rp/${affiliate.linktree_slug}`)}
                 className="flex items-center gap-3 min-w-0 w-full hover:opacity-80 transition-opacity text-left"
                 style={{ cursor: affiliate.linktree_slug ? 'pointer' : 'default' }}
               >
@@ -802,61 +833,109 @@ export default function AffiliateEventPage() {
 
       </div>
 
-      {/* ── STICKY FOOTER CTA ───────────────────────────────────── */}
+      {/* ── STICKY CHECKOUT FOOTER (même composant que les soirées in-Yuno) ── */}
       {!isSoldOut && hasTicketLink && (
-        <div
-          className="fixed bottom-0 left-0 right-0 z-40"
-          style={{
-            background: 'linear-gradient(to top, rgba(10,10,10,1) 60%, transparent)',
-            paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)',
-            paddingTop: '32px',
-            paddingLeft: '20px',
-            paddingRight: '20px',
-          }}
-        >
-          <div style={{ maxWidth: '768px', margin: '0 auto' }}>
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <p className="font-mono uppercase" style={{ fontSize: '9px', color: '#5A5A5E', letterSpacing: '0.14em' }}>
-                  {isFree ? t('affiliate.free') : t('affiliate.price')}
-                </p>
-                <p className="font-display font-bold text-white" style={{ fontSize: 'clamp(18px, 4vw, 24px)', letterSpacing: '-0.02em', lineHeight: 1 }}>
-                  {priceDisplay}
-                </p>
-              </div>
-              <OutboundLink
-                href={event.external_ticket_url!}
-                onClick={trackTicketClick}
-                className="inline-flex items-center gap-2 font-mono font-bold uppercase"
-                style={{
-                  height: 52,
-                  padding: '0 28px',
-                  background: '#E8192C',
-                  color: '#fff',
-                  borderRadius: 4,
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                  letterSpacing: '0.10em',
-                  textDecoration: 'none',
-                  boxShadow: '0 8px 24px rgba(232,25,44,0.35)',
-                  transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1)',
-                  WebkitTapHighlightColor: 'transparent',
-                } as React.CSSProperties}
-                onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.97)')}
-                onMouseUp={e => (e.currentTarget.style.transform = '')}
-                onMouseLeave={e => (e.currentTarget.style.transform = '')}
-                onTouchStart={e => (e.currentTarget.style.transform = 'scale(0.97)')}
-                onTouchEnd={e => (e.currentTarget.style.transform = '')}
-              >
-                {t('affiliate.getTickets')} <ExternalLink className="h-3.5 w-3.5" />
-              </OutboundLink>
-            </div>
-            <p className="text-center font-mono" style={{ fontSize: '10px', color: '#3A3A3E', letterSpacing: '0.04em' }}>
-              {t('affiliate.redirectNotice')}
-            </p>
-          </div>
-        </div>
+        <StickyCheckoutFooter
+          amount={!isFree && priceFrom != null ? priceFrom : 0}
+          label={isFree ? t('affiliate.freeEntry') : priceFrom != null ? t('event.startingFrom') : t('affiliate.seePrices')}
+          subtitleText={t('affiliate.redirectNotice')}
+          buttonText={t('affiliate.getTickets')}
+          icon={<ExternalLink className="h-4 w-4" />}
+          onClick={requestTickets}
+        />
       )}
+
+      {/* ── INTERSTITIEL « SORTIE HORS YUNO » ─────────────────────
+          On ne peut pas injecter de bannière dans le navigateur in-app du club :
+          on donne donc le contexte ici, en feuille du bas, juste avant la sortie. */}
+      <AnimatePresence>
+        {showLeaveNotice && (
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="affiliate-leave-title"
+            className="fixed inset-0 z-[100] flex items-end justify-center"
+            style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowLeaveNotice(false)}
+          >
+            <motion.div
+              onClick={e => e.stopPropagation()}
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 320, damping: 34 }}
+              style={{
+                width: '100%',
+                maxWidth: 480,
+                background: '#141414',
+                borderTop: '1px solid rgba(255,255,255,0.10)',
+                borderTopLeftRadius: 16,
+                borderTopRightRadius: 16,
+                padding: '10px 22px calc(env(safe-area-inset-bottom, 0px) + 22px)',
+                boxShadow: '0 -20px 60px rgba(0,0,0,0.6)',
+              }}
+            >
+              {/* grabber */}
+              <div style={{ width: 40, height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.18)', margin: '4px auto 20px' }} />
+
+              <div className="flex items-center justify-center mb-4" style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(232,25,44,0.12)' }}>
+                <ExternalLink className="h-5 w-5" style={{ color: '#E8192C' }} />
+              </div>
+
+              <p className="font-mono font-bold" style={{ fontSize: '10px', color: '#E8192C', letterSpacing: '0.14em', marginBottom: '8px' }}>
+                {t('affiliate.partner').toUpperCase()} · YUNO
+              </p>
+              <h2
+                id="affiliate-leave-title"
+                className="font-display text-white uppercase"
+                style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.1, marginBottom: '10px' }}
+              >
+                {t('affiliate.leaveNotice.title')}
+              </h2>
+              <p style={{ fontSize: '14px', lineHeight: 1.55, color: 'rgba(255,255,255,0.65)', marginBottom: ticketHost ? '16px' : '22px' }}>
+                {t('affiliate.leaveNotice.body')}
+              </p>
+
+              {ticketHost && (
+                <div
+                  className="flex items-center gap-2.5 mb-5"
+                  style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '11px 14px', background: 'rgba(255,255,255,0.02)' }}
+                >
+                  <ExternalLink className="h-4 w-4 shrink-0" style={{ color: '#5A5A5E' }} />
+                  <div className="min-w-0">
+                    <p className="font-mono uppercase" style={{ fontSize: '9px', color: '#5A5A5E', letterSpacing: '0.14em' }}>
+                      {t('affiliate.leaveNotice.destination')}
+                    </p>
+                    <p className="font-mono truncate" style={{ fontSize: '13px', color: '#FFFFFF', letterSpacing: '0.02em' }}>
+                      {ticketHost}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={confirmLeave}
+                  className="inline-flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                  style={{ width: '100%', height: 48, borderRadius: '4px', background: '#E8192C', color: '#fff', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 600, boxShadow: '0 8px 24px rgba(232,25,44,0.35)' }}
+                >
+                  {t('affiliate.leaveNotice.continue')} <ExternalLink className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setShowLeaveNotice(false)}
+                  className="hover:opacity-80 transition-opacity"
+                  style={{ width: '100%', height: 46, borderRadius: '4px', background: 'transparent', color: '#fff', border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer', fontSize: '14px', fontWeight: 600 }}
+                >
+                  {t('affiliate.leaveNotice.cancel')}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
