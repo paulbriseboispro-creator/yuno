@@ -286,6 +286,7 @@ const AffiliateVenuePage = lazyWithRetry(() => import("./pages/AffiliateVenuePag
 const AffiliateLinktree = lazyWithRetry(() => import("./pages/AffiliateLinktree"));
 const PromoterLinktree = lazyWithRetry(() => import("./pages/PromoterLinktree"));
 const AffiliateAgenda = lazyWithRetry(() => import("./pages/AffiliateAgenda"));
+const AgencyPublicPage = lazyWithRetry(() => import("./pages/AgencyPublicPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -1082,6 +1083,9 @@ const App = () => (
                 <Route path="/affiliate-venue/:slug" element={<AffiliateVenuePage />} />
                 <Route path="/p/:slug" element={<AffiliateLinktree />} />
                 <Route path="/promo/:slug" element={<PromoterLinktree />} />
+                {/* Vraie page in-Yuno d'une agence RP (design marketplace,
+                    BottomNav) — distincte du linktree /p/:slug hors-app */}
+                <Route path="/rp/:slug" element={<AgencyPublicPage />} />
                 {/* Agendas complets (web-only, exclus de l'AASA) : toutes les
                     soirées — le linktree reste la vitrine curée */}
                 <Route path="/p/:slug/agenda" element={<AffiliateAgenda mode="org" />} />
