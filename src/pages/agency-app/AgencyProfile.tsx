@@ -5,7 +5,6 @@ import { useAgency } from '@/hooks/useAgency';
 import { useAffiliateShell } from '@/contexts/AffiliateShellContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
-import { compressImage } from '@/lib/compressImage';
 import { toast } from 'sonner';
 import { errorToast } from '@/lib/errorToast';
 import { Building2, Camera, ExternalLink, Globe, Store, Image as ImageIcon, Trash2 } from 'lucide-react';
@@ -14,6 +13,7 @@ import {
   PromoButton, PromoCard, DarkInput, FieldLabel, CopyField,
 } from '@/components/promoter/promoter-ui';
 import RenameConfirmDialog from '@/components/RenameConfirmDialog';
+import { ImageCropperDialog } from '@/components/ImageCropperDialog';
 import { nextRenameAt, parseRenameCooldownError, slugifyName } from '@/lib/renameGuard';
 
 /**
@@ -43,6 +43,10 @@ export default function AgencyProfile() {
   const [bannerUrl, setBannerUrl] = useState<string | null>(null);
   const [bannerBusy, setBannerBusy] = useState(false);
   const bannerInputRef = useRef<HTMLInputElement>(null);
+  // Recadrage : le fichier choisi passe par l'ImageCropperDialog (glisser +
+  // zoom, cadre carré = rendu final) avant l'upload.
+  const [cropTarget, setCropTarget] = useState<'logo' | 'banner' | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (!agency) return;
@@ -127,19 +131,24 @@ export default function AgencyProfile() {
     refetch();
   };
 
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Sélection → recadrage → upload. Le cropper sort déjà un JPEG carré à la
+  // bonne taille : pas de recompression derrière.
+  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (file) { setPendingFile(file); setCropTarget('logo'); }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const uploadLogo = async (cropped: File) => {
     const affiliateId = shell?.affiliateId;
-    if (!file || !agency || !affiliateId) return;
+    if (!agency || !affiliateId) return;
     setUploadingLogo(true);
     try {
-      const compressed = await compressImage(file, 800, 0.85);
-      const ext = compressed.name.split('.').pop() || 'jpg';
       // Le bucket exige un chemin préfixé par l'id du bras externe possédé.
-      const path = `${affiliateId}/agency-logo/${Date.now()}.${ext}`;
+      const path = `${affiliateId}/agency-logo/${Date.now()}.jpg`;
       const { error: uploadError } = await supabase.storage
         .from('affiliate-media')
-        .upload(path, compressed, { upsert: true });
+        .upload(path, cropped, { upsert: true });
       if (uploadError) throw uploadError;
       const { data: urlData } = supabase.storage.from('affiliate-media').getPublicUrl(path);
       const { error: rpcError } = await (supabase as any).rpc('update_agency_profile', {
@@ -153,24 +162,26 @@ export default function AgencyProfile() {
       errorToast(err);
     } finally {
       setUploadingLogo(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
   // Bannière 1:1 de la page RP — écrite directement sur le bras externe
   // (policy UPDATE user_id = chef d'agence), jamais écrasée par la synchro.
-  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBannerSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (file) { setPendingFile(file); setCropTarget('banner'); }
+    if (bannerInputRef.current) bannerInputRef.current.value = '';
+  };
+
+  const uploadBanner = async (cropped: File) => {
     const affiliateId = shell?.affiliateId;
-    if (!file || !affiliateId) return;
+    if (!affiliateId) return;
     setBannerBusy(true);
     try {
-      const compressed = await compressImage(file, 1600, 0.85);
-      const ext = compressed.name.split('.').pop() || 'jpg';
-      const path = `${affiliateId}/agency-banner/${Date.now()}.${ext}`;
+      const path = `${affiliateId}/agency-banner/${Date.now()}.jpg`;
       const { error: uploadError } = await supabase.storage
         .from('affiliate-media')
-        .upload(path, compressed, { upsert: true });
+        .upload(path, cropped, { upsert: true });
       if (uploadError) throw uploadError;
       const { data: urlData } = supabase.storage.from('affiliate-media').getPublicUrl(path);
       const { error: updateError } = await (supabase as any)
@@ -184,7 +195,6 @@ export default function AgencyProfile() {
       errorToast(err);
     } finally {
       setBannerBusy(false);
-      if (bannerInputRef.current) bannerInputRef.current.value = '';
     }
   };
 
@@ -249,7 +259,7 @@ export default function AgencyProfile() {
                 ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
                 : <Camera className="h-3.5 w-3.5 text-white" />}
             </button>
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoSelect} />
           </div>
           <div className="min-w-0">
             <p style={{ color: T1, fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em' }}>{agency.name}</p>
@@ -297,7 +307,7 @@ export default function AgencyProfile() {
                 ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
                 : <Camera className="h-3.5 w-3.5 text-white" />}
             </button>
-            <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerUpload} />
+            <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerSelect} />
           </div>
           <div className="min-w-0 flex-1" style={{ minWidth: 180 }}>
             <div className="flex flex-wrap gap-2">
@@ -431,6 +441,30 @@ export default function AgencyProfile() {
           </Link>
         </div>
       </PromoCard>
+
+      {/* Recadrage logo/bannière — cadre carré (rect) pour que l'aperçu
+          corresponde au rendu final (les deux s'affichent en carré arrondi). */}
+      <ImageCropperDialog
+        open={cropTarget !== null}
+        onOpenChange={(o) => { if (!o) { setCropTarget(null); setPendingFile(null); } }}
+        imageFile={pendingFile}
+        aspectRatio={1}
+        shape="rect"
+        outputSize={cropTarget === 'logo' ? 512 : 1600}
+        title={cropTarget === 'logo'
+          ? tt('Cadrer le logo', 'Crop the logo', 'Encuadrar el logo')
+          : tt('Cadrer la bannière', 'Crop the banner', 'Encuadrar el banner')}
+        helperText={tt('Glissez pour déplacer · utilisez le curseur pour zoomer',
+                       'Drag to move · use the slider to zoom',
+                       'Arrastra para mover · usa el control para hacer zoom')}
+        onCrop={(cropped) => {
+          const target = cropTarget;
+          setCropTarget(null);
+          setPendingFile(null);
+          if (target === 'logo') uploadLogo(cropped);
+          else if (target === 'banner') uploadBanner(cropped);
+        }}
+      />
 
       <RenameConfirmDialog
         open={renameOpen}
