@@ -12934,6 +12934,7 @@ const fr: Record<string, string> = {
   'aff.pset.profileUpdated': "Profil mis à jour",
   'aff.pset.profileUpdatedDesc': "Vos informations ont été sauvegardées.",
   'aff.pset.unknownError': "Erreur inconnue",
+  'rename.cooldownToast': "Nom déjà changé récemment — prochain changement possible le {date}",
   'aff.pset.errorTitle': "Erreur",
   'aff.pset.photoUpdated': "Photo mise à jour",
   'aff.pset.uploadError': "Erreur upload",
@@ -13076,6 +13077,8 @@ const fr: Record<string, string> = {
   'ohelp.agc.identity.s2b': "Ajoutez un logo carré (il est affiché arrondi). C'est votre visage sur toutes les surfaces publiques et dans la barre latérale du cockpit. Une agence sans logo paraît inachevée — c'est le premier réflexe de crédibilité.",
   'ohelp.agc.identity.s3h': "N'éditez pas l'identité ailleurs",
   'ohelp.agc.identity.s3b': "La page Linktree & externe affichait autrefois ses propres champs nom/bio/réseaux. Ils sont désormais gérés depuis le profil maître : si vous les cherchez là-bas, suivez simplement le renvoi. Toute valeur saisie ailleurs serait écrasée à la prochaine synchronisation.",
+  'ohelp.agc.identity.s4h': "Renommer l'agence",
+  'ohelp.agc.identity.s4b': "Changer le nom regénère automatiquement vos adresses publiques (/p/… et /rp/…) pour suivre le nouveau nom — et les anciens liens continuent de fonctionner : ils redirigent vers la nouvelle adresse (QR imprimés et bios Instagram inclus). Le changement demande une double confirmation et n'est possible qu'une fois tous les 30 jours : choisissez un nom que vous garderez.",
 
   'ohelp.agc.rpPage.title': 'La page RP (/rp/votre-adresse)',
   'ohelp.agc.rpPage.desc': 'Votre vitrine marketplace dans Yuno, alimentée toute seule.',

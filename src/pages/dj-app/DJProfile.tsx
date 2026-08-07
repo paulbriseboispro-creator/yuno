@@ -18,6 +18,8 @@ import {
 } from '@/components/dj/dj-ui';
 
 import { MUSIC_GENRES as YUNO_MUSIC_GENRES } from '@/lib/musicGenres';
+import RenameConfirmDialog from '@/components/RenameConfirmDialog';
+import { nextRenameAt, parseRenameCooldownError, slugifyName } from '@/lib/renameGuard';
 
 export default function DJProfile() {
   const { t, language } = useLanguage();
@@ -31,6 +33,10 @@ export default function DJProfile() {
   const [rateForm, setRateForm] = useState({ minFee: '', maxFee: '', currency: 'EUR', note: '', isPublic: true });
   const [rateBusy, setRateBusy] = useState(false);
   const [showChangePinFlow, setShowChangePinFlow] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  // Passe à true quand le dialogue de double vérification a été confirmé —
+  // consommé par le handleSave suivant (y compris via la garde d'anti-perte).
+  const renameConfirmedRef = useRef(false);
   const [editForm, setEditForm] = useState({
     firstName: '', lastName: '', stageName: '', genres: '', whatsapp: '',
     instagram: '', tiktok: '', bio: '', soundcloud: '', spotify: '', youtube: '',
@@ -139,6 +145,26 @@ export default function DJProfile() {
       toast.error(t('dj.firstLastRequired'));
       return false;
     }
+    // Renommage (nom de scène ou prénom/nom) : le handle public /dj/… suit
+    // automatiquement (trigger SQL) — double vérification + verrou 30 jours.
+    const renaming =
+      editForm.firstName !== (dj.first_name ?? '') ||
+      editForm.lastName !== (dj.last_name ?? '') ||
+      (editForm.stageName || '') !== (dj.stage_name ?? '');
+    if (renaming && !renameConfirmedRef.current) {
+      const lockedUntil = nextRenameAt((dj as { name_changed_at?: string | null }).name_changed_at);
+      if (lockedUntil) {
+        toast.error(tt(
+          `Nom déjà changé récemment — prochain changement possible le ${lockedUntil.toLocaleDateString(language)}`,
+          `Name changed recently — next change possible on ${lockedUntil.toLocaleDateString(language)}`,
+          `Nombre cambiado hace poco — próximo cambio posible el ${lockedUntil.toLocaleDateString(language)}`,
+        ));
+        return false;
+      }
+      setRenameOpen(true);
+      return false;
+    }
+    renameConfirmedRef.current = false;
     setSaving(true);
     try {
       // Geocode the city so the DJ is placed on the marketplace radius map. Keep
@@ -172,10 +198,20 @@ export default function DJProfile() {
       return true;
     } catch (error) {
       console.error('Error saving:', error);
-      toast.error(t('dj.saveError'));
+      const lockedUntil = parseRenameCooldownError(error);
+      if (lockedUntil) {
+        toast.error(tt(
+          `Nom déjà changé récemment — prochain changement possible le ${lockedUntil.toLocaleDateString(language)}`,
+          `Name changed recently — next change possible on ${lockedUntil.toLocaleDateString(language)}`,
+          `Nombre cambiado hace poco — próximo cambio posible el ${lockedUntil.toLocaleDateString(language)}`,
+        ));
+      } else {
+        toast.error(t('dj.saveError'));
+      }
       return false;
     } finally {
       setSaving(false);
+      setRenameOpen(false);
     }
   };
   saveRef.current = handleSave;
@@ -715,6 +751,22 @@ export default function DJProfile() {
           </PCard>
         </>
       )}
+
+      <RenameConfirmDialog
+        open={renameOpen}
+        onOpenChange={setRenameOpen}
+        currentName={displayName}
+        newName={editForm.stageName || `${editForm.firstName} ${editForm.lastName}`.trim()}
+        links={publicSlug ? [{
+          from: `${BASE_URL}/dj/${publicSlug}`,
+          to: `${BASE_URL}/dj/${slugifyName(editForm.stageName || `${editForm.firstName} ${editForm.lastName}`)}`,
+        }] : undefined}
+        onConfirm={async () => {
+          renameConfirmedRef.current = true;
+          await handleSave();
+        }}
+        confirming={saving}
+      />
     </DJPage>
   );
 }

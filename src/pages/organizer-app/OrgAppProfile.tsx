@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import RenameConfirmDialog from '@/components/RenameConfirmDialog';
+import { nextRenameAt, parseRenameCooldownError, slugifyName } from '@/lib/renameGuard';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
@@ -51,6 +53,12 @@ export default function OrgAppProfile() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [cropperType, setCropperType] = useState<'avatar' | 'cover' | null>(null);
 
+  // Renommage : nom de référence en base + verrou 30 jours + double vérification.
+  const [savedName, setSavedName] = useState('');
+  const [nameChangedAt, setNameChangedAt] = useState<string | null>(null);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const renameConfirmedRef = useRef(false);
+
   const [profile, setProfile] = useState<OrgProfile>({
     user_id: '', display_name: '', slug: null, bio: '', city: '', avatar_url: '', cover_url: '',
     instagram_url: '', website_url: '', is_public: true,
@@ -92,6 +100,8 @@ export default function OrgAppProfile() {
           can_sell_alcohol: (data as any).can_sell_alcohol ?? false,
           can_sell_alcohol_confirmed_at: (data as any).can_sell_alcohol_confirmed_at ?? null,
         });
+        setSavedName(data.display_name || '');
+        setNameChangedAt((data as { name_changed_at?: string | null }).name_changed_at ?? null);
       } else {
         const { data: prof } = await supabase
           .from('profiles')
@@ -173,6 +183,23 @@ export default function OrgAppProfile() {
       toast.error(t('Nom requis', 'Name required'));
       return false;
     }
+    // Renommage : le slug public /o/… suit automatiquement (trigger SQL) —
+    // double vérification + verrou 30 jours.
+    const renaming = savedName !== '' && profile.display_name.trim() !== savedName;
+    if (renaming && !renameConfirmedRef.current) {
+      const lockedUntil = nextRenameAt(nameChangedAt);
+      if (lockedUntil) {
+        toast.error(t(
+          `Nom déjà changé récemment — prochain changement possible le ${lockedUntil.toLocaleDateString(language)}`,
+          `Name changed recently — next change possible on ${lockedUntil.toLocaleDateString(language)}`,
+          `Nombre cambiado hace poco — próximo cambio posible el ${lockedUntil.toLocaleDateString(language)}`,
+        ));
+        return false;
+      }
+      setRenameOpen(true);
+      return false;
+    }
+    renameConfirmedRef.current = false;
     setSaving(true);
     try {
       const payload = {
@@ -239,12 +266,24 @@ export default function OrgAppProfile() {
       };
       setProfile(saved);
       markSaved(saved);
+      setSavedName(payload.display_name);
+      if (renaming) setNameChangedAt(new Date().toISOString());
       return true;
     } catch (e: any) {
+      const lockedUntil = parseRenameCooldownError(e);
+      if (lockedUntil) {
+        toast.error(t(
+          `Nom déjà changé récemment — prochain changement possible le ${lockedUntil.toLocaleDateString(language)}`,
+          `Name changed recently — next change possible on ${lockedUntil.toLocaleDateString(language)}`,
+          `Nombre cambiado hace poco — próximo cambio posible el ${lockedUntil.toLocaleDateString(language)}`,
+        ));
+        return false;
+      }
       toast.error(e.message || t('Erreur', 'Error'));
       return false;
     } finally {
       setSaving(false);
+      setRenameOpen(false);
     }
   };
 
@@ -501,6 +540,22 @@ export default function OrgAppProfile() {
           const url = await uploadImage(cropped, type);
           if (url) setProfile((p) => (type === 'avatar' ? { ...p, avatar_url: url } : { ...p, cover_url: url }));
         }}
+      />
+
+      <RenameConfirmDialog
+        open={renameOpen}
+        onOpenChange={setRenameOpen}
+        currentName={savedName}
+        newName={profile.display_name.trim()}
+        links={profile.slug ? [{
+          from: `${window.location.origin}/o/${profile.slug}`,
+          to: `${window.location.origin}/o/${slugifyName(profile.display_name)}`,
+        }] : undefined}
+        onConfirm={async () => {
+          renameConfirmedRef.current = true;
+          await save();
+        }}
+        confirming={saving}
       />
     </OrgPage>
   );

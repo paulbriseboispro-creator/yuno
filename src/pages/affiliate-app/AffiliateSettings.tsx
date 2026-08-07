@@ -15,6 +15,8 @@ import {
   User, Share2, ShieldCheck, Globe, ListOrdered,
 } from 'lucide-react';
 import AffiliateQRSection from '@/components/affiliate/AffiliateQRSection';
+import RenameConfirmDialog from '@/components/RenameConfirmDialog';
+import { nextRenameAt, parseRenameCooldownError, slugifyName } from '@/lib/renameGuard';
 import {
   AffPage, AffSpinner,
   RED, POS, T1, T2, T3, C_FAINT, BORDER, CARD_BG, INNER_BG, TILE_BG, CARD_SHADOW,
@@ -174,10 +176,12 @@ type AffiliateProfile = {
 export default function AffiliateSettings() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [profile, setProfile] = useState<AffiliateProfile | null>(null);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const renameConfirmedRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -209,7 +213,7 @@ export default function AffiliateSettings() {
     setLoading(true);
     const { data } = await supabase
       .from('affiliates')
-      .select('id, agency_id, name, city, type, linktree_slug, bio, avatar_url, instagram, tiktok, website, whatsapp, trust_stats, promoter_social_mode, linktree_sort_mode, allow_promoter_sort')
+      .select('id, agency_id, name, city, type, linktree_slug, bio, avatar_url, instagram, tiktok, website, whatsapp, trust_stats, promoter_social_mode, linktree_sort_mode, allow_promoter_sort, name_changed_at')
       .eq('user_id', user!.id)
       .single();
 
@@ -252,7 +256,10 @@ export default function AffiliateSettings() {
       return true;
     } catch (err) {
       setSaveState(key, 'idle');
-      const msg = err instanceof Error ? err.message : t('aff.settings.unknownError');
+      const lockedUntil = parseRenameCooldownError(err);
+      const msg = lockedUntil
+        ? t('rename.cooldownToast').replace('{date}', lockedUntil.toLocaleDateString(language))
+        : err instanceof Error ? err.message : t('aff.settings.unknownError');
       toast({ title: t('aff.settings.errorTitle'), description: msg, variant: 'destructive' });
       return false;
     }
@@ -283,13 +290,36 @@ export default function AffiliateSettings() {
       toast({ title: t('aff.settings.nameRequiredTitle'), description: t('aff.settings.nameRequiredDesc'), variant: 'destructive' });
       return false;
     }
+    // Renommage : le slug public /p/… est regénéré par trigger SQL (l'ancien
+    // redirige) — double vérification + verrou 30 jours.
+    const renaming = !!profile?.name && form.name.trim() !== profile.name.trim();
+    if (renaming && !renameConfirmedRef.current) {
+      const lockedUntil = nextRenameAt((profile as { name_changed_at?: string | null } | null)?.name_changed_at);
+      if (lockedUntil) {
+        toast({
+          title: t('aff.settings.errorTitle'),
+          description: t('rename.cooldownToast').replace('{date}', lockedUntil.toLocaleDateString(language)),
+          variant: 'destructive',
+        });
+        return false;
+      }
+      setRenameOpen(true);
+      return false;
+    }
+    renameConfirmedRef.current = false;
+    setRenameOpen(false);
     const next = { name: form.name.trim(), city: form.city.trim(), bio: form.bio.trim() };
     const ok = await runSave('identity', {
       name: next.name,
       city: next.city || null,
       bio: next.bio || null,
     });
-    if (ok) { setForm(f => ({ ...f, ...next })); identityGuard.markSaved(next); }
+    if (ok) {
+      setForm(f => ({ ...f, ...next }));
+      identityGuard.markSaved(next);
+      // Le trigger a pu regénérer le slug : recharger pour afficher la vérité serveur.
+      if (renaming) await fetchProfile();
+    }
     return ok;
   };
 
@@ -986,6 +1016,22 @@ export default function AffiliateSettings() {
           </SectionCard>
         )}
       </div>
+
+      <RenameConfirmDialog
+        open={renameOpen}
+        onOpenChange={setRenameOpen}
+        currentName={profile?.name ?? ''}
+        newName={form.name.trim()}
+        links={profile?.linktree_slug ? [{
+          from: `${window.location.origin}/p/${profile.linktree_slug}`,
+          to: `${window.location.origin}/p/${slugifyName(form.name)}`,
+        }] : undefined}
+        onConfirm={async () => {
+          renameConfirmedRef.current = true;
+          await saveIdentity();
+        }}
+        confirming={saveStates['identity'] === 'saving'}
+      />
     </AffPage>
   );
 }

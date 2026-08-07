@@ -12863,6 +12863,7 @@ const en: Record<string, string> = {
   'aff.pset.profileUpdated': "Profile updated",
   'aff.pset.profileUpdatedDesc': "Your information has been saved.",
   'aff.pset.unknownError': "Unknown error",
+  'rename.cooldownToast': "Name changed recently — next change possible on {date}",
   'aff.pset.errorTitle': "Error",
   'aff.pset.photoUpdated': "Photo updated",
   'aff.pset.uploadError': "Upload error",
@@ -13005,6 +13006,8 @@ const en: Record<string, string> = {
   'ohelp.agc.identity.s2b': "Add a square logo (it's displayed rounded). It's your face on every public surface and in the cockpit sidebar. An agency without a logo looks unfinished — it's the first credibility reflex.",
   'ohelp.agc.identity.s3h': "Don't edit identity anywhere else",
   'ohelp.agc.identity.s3b': "The Linktree & external page used to have its own name/bio/socials fields. They are now managed from the master profile: if you look for them there, just follow the redirect. Any value typed elsewhere would be overwritten at the next sync.",
+  'ohelp.agc.identity.s4h': "Renaming the agency",
+  'ohelp.agc.identity.s4b': "Changing the name automatically regenerates your public addresses (/p/… and /rp/…) to match the new name — and old links keep working: they redirect to the new address (printed QR codes and Instagram bios included). The change requires a double confirmation and is only possible once every 30 days: pick a name you'll keep.",
 
   'ohelp.agc.rpPage.title': 'The RP page (/rp/your-address)',
   'ohelp.agc.rpPage.desc': 'Your marketplace showcase inside Yuno, fed automatically.',

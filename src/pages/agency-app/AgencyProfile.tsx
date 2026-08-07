@@ -13,6 +13,8 @@ import {
   T1, T2, T3, RED, F_BORDER, BORDER, INNER_BG, C_FAINT,
   PromoButton, PromoCard, DarkInput, FieldLabel, CopyField,
 } from '@/components/promoter/promoter-ui';
+import RenameConfirmDialog from '@/components/RenameConfirmDialog';
+import { nextRenameAt, parseRenameCooldownError, slugifyName } from '@/lib/renameGuard';
 
 /**
  * Profil de l'agence — l'identité maître, et le SEUL endroit où elle s'édite.
@@ -68,9 +70,25 @@ export default function AgencyProfile() {
     return () => { active = false; };
   }, [shell?.affiliateId]);
 
+  // Renommage = les liens publics suivent (trigger SQL) + verrou de 30 jours.
+  const isRenaming = !!agency && name.trim() !== '' && name.trim() !== (agency.name ?? '').trim();
+  const renameLockedUntil = nextRenameAt((agency as { name_changed_at?: string | null } | null)?.name_changed_at);
+  const [renameOpen, setRenameOpen] = useState(false);
+
   const handleSave = async () => {
     if (!agency) return;
     if (!name.trim()) { toast.error(tt('Le nom est requis', 'Name is required', 'El nombre es obligatorio')); return; }
+    if (isRenaming && renameLockedUntil) {
+      toast.error(tt(
+        `Nom déjà changé récemment — prochain changement possible le ${renameLockedUntil.toLocaleDateString(language)}`,
+        `Name changed recently — next change possible on ${renameLockedUntil.toLocaleDateString(language)}`,
+        `Nombre cambiado hace poco — próximo cambio posible el ${renameLockedUntil.toLocaleDateString(language)}`,
+      ));
+      return;
+    }
+    // Double vérification avant tout renommage : le dialogue rappelle que les
+    // liens publics changent et que le nom est ensuite verrouillé 30 jours.
+    if (isRenaming && !renameOpen) { setRenameOpen(true); return; }
     setSaving(true);
     const { error } = await (supabase as any).rpc('update_agency_profile', {
       p_agency_id:        agency.id,
@@ -84,7 +102,20 @@ export default function AgencyProfile() {
       p_contact_email:    email.trim() || null,
     });
     setSaving(false);
-    if (error) { errorToast(error); return; }
+    setRenameOpen(false);
+    if (error) {
+      const lockedUntil = parseRenameCooldownError(error);
+      if (lockedUntil) {
+        toast.error(tt(
+          `Nom déjà changé récemment — prochain changement possible le ${lockedUntil.toLocaleDateString(language)}`,
+          `Name changed recently — next change possible on ${lockedUntil.toLocaleDateString(language)}`,
+          `Nombre cambiado hace poco — próximo cambio posible el ${lockedUntil.toLocaleDateString(language)}`,
+        ));
+        return;
+      }
+      errorToast(error);
+      return;
+    }
     toast.success(tt('Profil enregistré — vos pages publiques sont à jour', 'Profile saved — your public pages are up to date', 'Perfil guardado: tus páginas públicas están al día'));
     refetch();
   };
@@ -185,6 +216,21 @@ export default function AgencyProfile() {
           <div>
             <FieldLabel>{tt('Nom', 'Name', 'Nombre')} *</FieldLabel>
             <DarkInput value={name} onChange={setName} placeholder={tt("Nom de l'agence", 'Agency name', 'Nombre de la agencia')} />
+            {isRenaming && (
+              <p style={{ color: T3, fontSize: 11, marginTop: 4 }}>
+                {renameLockedUntil
+                  ? tt(
+                      `Prochain changement de nom possible le ${renameLockedUntil.toLocaleDateString(language)}.`,
+                      `Next name change possible on ${renameLockedUntil.toLocaleDateString(language)}.`,
+                      `Próximo cambio de nombre posible el ${renameLockedUntil.toLocaleDateString(language)}.`,
+                    )
+                  : tt(
+                      'Renommer met à jour vos liens publics (les anciens redirigent) — 1 changement max tous les 30 jours.',
+                      'Renaming updates your public links (old ones redirect) — max 1 change every 30 days.',
+                      'Renombrar actualiza tus enlaces públicos (los antiguos redirigen): máx. 1 cambio cada 30 días.',
+                    )}
+              </p>
+            )}
           </div>
           <div>
             <FieldLabel>{tt('Ville', 'City', 'Ciudad')}</FieldLabel>
@@ -272,6 +318,19 @@ export default function AgencyProfile() {
           </Link>
         </div>
       </PromoCard>
+
+      <RenameConfirmDialog
+        open={renameOpen}
+        onOpenChange={setRenameOpen}
+        currentName={agency.name ?? ''}
+        newName={name.trim()}
+        links={slug ? [
+          { from: `${origin}/p/${slug}`, to: `${origin}/p/${slugifyName(name)}` },
+          { from: `${origin}/rp/${slug}`, to: `${origin}/rp/${slugifyName(name)}` },
+        ] : undefined}
+        onConfirm={handleSave}
+        confirming={saving}
+      />
     </div>
   );
 }

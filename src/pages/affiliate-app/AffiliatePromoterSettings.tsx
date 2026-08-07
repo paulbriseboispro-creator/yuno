@@ -8,6 +8,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Camera, Copy, Check, ExternalLink, QrCode, User, Link2, Share2 } from 'lucide-react';
 import AffiliateQRSection from '@/components/affiliate/AffiliateQRSection';
 import AvatarCropModal from '@/components/AvatarCropModal';
+import RenameConfirmDialog from '@/components/RenameConfirmDialog';
+import { nextRenameAt, parseRenameCooldownError, slugifyName } from '@/lib/renameGuard';
 import {
   AffPage, AffHeading, AffCard, AffCardHeader, AffButton, AffSpinner,
   FieldLabel, DarkInput,
@@ -49,7 +51,7 @@ function toSlug(first: string, last: string): string {
 export default function AffiliatePromoterSettings() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [profile, setProfile] = useState<MemberProfile | null>(null);
@@ -59,6 +61,9 @@ export default function AffiliatePromoterSettings() {
   const [copied, setCopied] = useState(false);
   const [slugAutoSynced, setSlugAutoSynced] = useState(false);
   const [cropFile, setCropFile] = useState<File | null>(null);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const renameConfirmedRef = useRef(false);
+  const [nameChangedAt, setNameChangedAt] = useState<string | null>(null);
 
   const [form, setForm] = useState<FormState>({
     first_name: '', last_name: '', linktree_slug: '', instagram: '', tiktok: '', whatsapp: '', website: '',
@@ -72,7 +77,7 @@ export default function AffiliatePromoterSettings() {
     setLoading(true);
     const { data } = await supabase
       .from('affiliate_members')
-      .select('id, first_name, last_name, linktree_slug, avatar_url, instagram, tiktok, whatsapp, website, affiliates(name, city)')
+      .select('id, first_name, last_name, linktree_slug, avatar_url, instagram, tiktok, whatsapp, website, name_changed_at, affiliates(name, city)')
       .eq('user_id', user!.id)
       .eq('is_active', true)
       .maybeSingle();
@@ -94,6 +99,7 @@ export default function AffiliatePromoterSettings() {
         website: (data as any).website ?? null,
         affiliate,
       };
+      setNameChangedAt((data as { name_changed_at?: string | null }).name_changed_at ?? null);
       setProfile(p);
       setForm({
         first_name: p.first_name ?? '',
@@ -131,6 +137,27 @@ export default function AffiliatePromoterSettings() {
       toast({ title: t('aff.pset.requiredTitle'), description: t('aff.pset.requiredDesc'), variant: 'destructive' });
       return false;
     }
+    // Renommage avec page /promo publiée : le slug public suit (trigger SQL) —
+    // double vérification + verrou 30 jours. Sans page publiée, renommage libre.
+    const renaming = !!profile.linktree_slug && (
+      form.first_name.trim() !== (profile.first_name ?? '') ||
+      form.last_name.trim() !== (profile.last_name ?? '')
+    );
+    if (renaming && !renameConfirmedRef.current) {
+      const lockedUntil = nextRenameAt(nameChangedAt);
+      if (lockedUntil) {
+        toast({
+          title: t('aff.pset.errorTitle'),
+          description: t('rename.cooldownToast').replace('{date}', lockedUntil.toLocaleDateString(language)),
+          variant: 'destructive',
+        });
+        return false;
+      }
+      setRenameOpen(true);
+      return false;
+    }
+    renameConfirmedRef.current = false;
+    setRenameOpen(false);
     setSaving(true);
     try {
       // Les valeurs enregistrées sont les valeurs nettoyées : c'est celles-là
@@ -165,7 +192,10 @@ export default function AffiliatePromoterSettings() {
       fetchProfile();
       return true;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : t('aff.pset.unknownError');
+      const lockedUntil = parseRenameCooldownError(err);
+      const msg = lockedUntil
+        ? t('rename.cooldownToast').replace('{date}', lockedUntil.toLocaleDateString(language))
+        : err instanceof Error ? err.message : t('aff.pset.unknownError');
       toast({ title: t('aff.pset.errorTitle'), description: msg, variant: 'destructive' });
       return false;
     } finally {
@@ -405,6 +435,22 @@ export default function AffiliatePromoterSettings() {
         <AffButton onClick={handleSave} disabled={saving}>
           {saving ? t('aff.pset.savingBtn') : t('aff.pset.saveBtn')}
         </AffButton>
+
+        <RenameConfirmDialog
+          open={renameOpen}
+          onOpenChange={setRenameOpen}
+          currentName={`${profile?.first_name ?? ''} ${profile?.last_name ?? ''}`.trim()}
+          newName={`${form.first_name.trim()} ${form.last_name.trim()}`.trim()}
+          links={profile?.linktree_slug ? [{
+            from: `${window.location.origin}/promo/${profile.linktree_slug}`,
+            to: `${window.location.origin}/promo/${slugifyName(`${form.first_name} ${form.last_name}`)}`,
+          }] : undefined}
+          onConfirm={async () => {
+            renameConfirmedRef.current = true;
+            await handleSave();
+          }}
+          confirming={saving}
+        />
       </AffPage>
     </>
   );

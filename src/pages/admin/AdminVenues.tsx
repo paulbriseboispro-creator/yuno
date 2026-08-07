@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -6,6 +6,8 @@ import { Plus, Edit2, Trash2, User, Building2, ExternalLink, Mail, Loader2, Eye,
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { GenerateOnboardingLinkButton } from '@/components/onboarding/GenerateOnboardingLinkButton';
+import RenameConfirmDialog from '@/components/RenameConfirmDialog';
+import { nextRenameAt, parseRenameCooldownError, slugifyName } from '@/lib/renameGuard';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED        = '#E8192C';
@@ -67,7 +69,9 @@ interface Venue {
 }
 
 export default function AdminVenues() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const [renameOpen, setRenameOpen] = useState(false);
+  const renameConfirmedRef = useRef(false);
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -169,6 +173,21 @@ export default function AdminVenues() {
     if (!formData.name || !formData.city) { toast.error(t('adminVenues.nameAndCityRequired')); return; }
     if (!editingVenue && !formData.id) { toast.error(t('adminVenues.idRequired')); return; }
 
+    // Renommage d'un club : le slug public /club/… suit (trigger SQL, l'ancien
+    // lien redirige) — double vérification + verrou 30 jours (clubs en ligne).
+    const renaming = !!editingVenue && formData.name.trim() !== editingVenue.name;
+    if (renaming && !renameConfirmedRef.current) {
+      const lockedUntil = nextRenameAt((editingVenue as { name_changed_at?: string | null }).name_changed_at);
+      if (lockedUntil) {
+        toast.error(t('rename.cooldownToast').replace('{date}', lockedUntil.toLocaleDateString(language)));
+        return;
+      }
+      setRenameOpen(true);
+      return;
+    }
+    renameConfirmedRef.current = false;
+    setRenameOpen(false);
+
     try {
       const venueId = editingVenue ? editingVenue.id : formData.id.toLowerCase().replace(/\s+/g, '-');
       let lat = formData.latitude ? parseFloat(formData.latitude) : null;
@@ -210,6 +229,11 @@ export default function AdminVenues() {
       fetchData();
     } catch (error) {
       console.error('Error saving venue:', error);
+      const lockedUntil = parseRenameCooldownError(error);
+      if (lockedUntil) {
+        toast.error(t('rename.cooldownToast').replace('{date}', lockedUntil.toLocaleDateString(language)));
+        return;
+      }
       toast.error((error as Error).message || t('adminVenues.saveError'));
     }
   };
@@ -496,6 +520,22 @@ export default function AdminVenues() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <RenameConfirmDialog
+          open={renameOpen}
+          onOpenChange={setRenameOpen}
+          currentName={editingVenue?.name ?? ''}
+          newName={formData.name.trim()}
+          links={editingVenue ? [{
+            from: `${window.location.origin}/club/${(editingVenue as { slug?: string | null }).slug ?? editingVenue.id}`,
+            to: `${window.location.origin}/club/${slugifyName(formData.name)}`,
+          }] : undefined}
+          onConfirm={async () => {
+            renameConfirmedRef.current = true;
+            await handleSave();
+          }}
+          confirming={false}
+        />
       </div>
     </div>
   );
