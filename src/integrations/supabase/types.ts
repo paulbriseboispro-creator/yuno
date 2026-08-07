@@ -698,6 +698,32 @@ export type Database = {
           },
         ]
       }
+      affiliate_member_slug_aliases: {
+        Row: {
+          created_at: string
+          member_id: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          member_id: string
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          member_id?: string
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_member_slug_aliases_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "affiliate_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       affiliate_members: {
         Row: {
           affiliate_id: string
@@ -712,6 +738,7 @@ export type Database = {
           linktree_slug: string | null
           linktree_sort_mode: string | null
           linktree_status: string
+          name_changed_at: string | null
           role: string
           tiktok: string | null
           user_id: string
@@ -732,6 +759,7 @@ export type Database = {
           linktree_slug?: string | null
           linktree_sort_mode?: string | null
           linktree_status?: string
+          name_changed_at?: string | null
           role?: string
           tiktok?: string | null
           user_id: string
@@ -752,6 +780,7 @@ export type Database = {
           linktree_slug?: string | null
           linktree_sort_mode?: string | null
           linktree_status?: string
+          name_changed_at?: string | null
           role?: string
           tiktok?: string | null
           user_id?: string
@@ -1035,6 +1064,32 @@ export type Database = {
           },
         ]
       }
+      affiliate_slug_aliases: {
+        Row: {
+          affiliate_id: string
+          created_at: string
+          slug: string
+        }
+        Insert: {
+          affiliate_id: string
+          created_at?: string
+          slug: string
+        }
+        Update: {
+          affiliate_id?: string
+          created_at?: string
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_slug_aliases_affiliate_id_fkey"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "affiliates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       affiliate_venues: {
         Row: {
           address: string | null
@@ -1286,6 +1341,7 @@ export type Database = {
           linktree_slug: string | null
           linktree_sort_mode: string
           name: string
+          name_changed_at: string | null
           promoter_social_mode: string
           tiktok: string | null
           tracking_prefix: string | null
@@ -1311,6 +1367,7 @@ export type Database = {
           linktree_slug?: string | null
           linktree_sort_mode?: string
           name: string
+          name_changed_at?: string | null
           promoter_social_mode?: string
           tiktok?: string | null
           tracking_prefix?: string | null
@@ -1336,6 +1393,7 @@ export type Database = {
           linktree_slug?: string | null
           linktree_sort_mode?: string
           name?: string
+          name_changed_at?: string | null
           promoter_social_mode?: string
           tiktok?: string | null
           tracking_prefix?: string | null
@@ -1367,8 +1425,10 @@ export type Database = {
           is_active: boolean
           logo_url: string | null
           name: string
+          name_changed_at: string | null
           owner_user_id: string
           slug: string | null
+          tiktok_url: string | null
           updated_at: string
           website_url: string | null
           whatsapp_number: string | null
@@ -1383,8 +1443,10 @@ export type Database = {
           is_active?: boolean
           logo_url?: string | null
           name: string
+          name_changed_at?: string | null
           owner_user_id: string
           slug?: string | null
+          tiktok_url?: string | null
           updated_at?: string
           website_url?: string | null
           whatsapp_number?: string | null
@@ -1399,11 +1461,43 @@ export type Database = {
           is_active?: boolean
           logo_url?: string | null
           name?: string
+          name_changed_at?: string | null
           owner_user_id?: string
           slug?: string | null
+          tiktok_url?: string | null
           updated_at?: string
           website_url?: string | null
           whatsapp_number?: string | null
+        }
+        Relationships: []
+      }
+      agency_ai_audit_log: {
+        Row: {
+          agency_id: string
+          created_at: string | null
+          id: string
+          result: string | null
+          tool_args: Json | null
+          tool_name: string
+          user_id: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string | null
+          id?: string
+          result?: string | null
+          tool_args?: Json | null
+          tool_name: string
+          user_id: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string | null
+          id?: string
+          result?: string | null
+          tool_args?: Json | null
+          tool_name?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -4013,6 +4107,7 @@ export type Database = {
           latitude: number | null
           longitude: number | null
           music_genres: string[] | null
+          name_changed_at: string | null
           organizer_user_id: string | null
           pending_amount: number | null
           profile_image_url: string | null
@@ -4049,6 +4144,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           music_genres?: string[] | null
+          name_changed_at?: string | null
           organizer_user_id?: string | null
           pending_amount?: number | null
           profile_image_url?: string | null
@@ -4085,6 +4181,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           music_genres?: string[] | null
+          name_changed_at?: string | null
           organizer_user_id?: string | null
           pending_amount?: number | null
           profile_image_url?: string | null
@@ -8491,6 +8588,7 @@ export type Database = {
           minor_auth_doc_name: string | null
           minor_auth_doc_url: string | null
           minors_allowed: boolean
+          name_changed_at: string | null
           search_display_name: string | null
           siret: string | null
           slug: string | null
@@ -8519,6 +8617,7 @@ export type Database = {
           minor_auth_doc_name?: string | null
           minor_auth_doc_url?: string | null
           minors_allowed?: boolean
+          name_changed_at?: string | null
           search_display_name?: string | null
           siret?: string | null
           slug?: string | null
@@ -8547,6 +8646,7 @@ export type Database = {
           minor_auth_doc_name?: string | null
           minor_auth_doc_url?: string | null
           minors_allowed?: boolean
+          name_changed_at?: string | null
           search_display_name?: string | null
           siret?: string | null
           slug?: string | null
@@ -13142,6 +13242,32 @@ export type Database = {
           },
         ]
       }
+      venue_slug_aliases: {
+        Row: {
+          created_at: string
+          slug: string
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          slug: string
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          slug?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_slug_aliases_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venue_sms_contacts: {
         Row: {
           consent_source: string
@@ -13301,12 +13427,14 @@ export type Database = {
           minors_allowed: boolean
           music_genre: string | null
           name: string
+          name_changed_at: string | null
           owner_id: string | null
           post_checkout_upsell_enabled: boolean
           search_city: string | null
           search_name: string | null
           short_description: string | null
           siret: string | null
+          slug: string | null
           solo_bottle_sale_enabled: boolean
           stripe_account_id: string | null
           stripe_charges_enabled: boolean | null
@@ -13357,12 +13485,14 @@ export type Database = {
           minors_allowed?: boolean
           music_genre?: string | null
           name: string
+          name_changed_at?: string | null
           owner_id?: string | null
           post_checkout_upsell_enabled?: boolean
           search_city?: string | null
           search_name?: string | null
           short_description?: string | null
           siret?: string | null
+          slug?: string | null
           solo_bottle_sale_enabled?: boolean
           stripe_account_id?: string | null
           stripe_charges_enabled?: boolean | null
@@ -13413,12 +13543,14 @@ export type Database = {
           minors_allowed?: boolean
           music_genre?: string | null
           name?: string
+          name_changed_at?: string | null
           owner_id?: string | null
           post_checkout_upsell_enabled?: boolean
           search_city?: string | null
           search_name?: string | null
           short_description?: string | null
           siret?: string | null
+          slug?: string | null
           solo_bottle_sale_enabled?: boolean
           stripe_account_id?: string | null
           stripe_charges_enabled?: boolean | null
@@ -15566,6 +15698,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      gen_affiliate_linktree_slug: {
+        Args: { p_exclude?: string; p_name: string }
+        Returns: string
+      }
       gen_dj_handle: {
         Args: { p_exclude?: string; p_name: string }
         Returns: string
@@ -15579,11 +15715,19 @@ export type Database = {
         }
         Returns: string
       }
+      gen_member_linktree_slug: {
+        Args: { p_exclude?: string; p_name: string }
+        Returns: string
+      }
       gen_organizer_slug: {
         Args: { p_exclude?: string; p_name: string }
         Returns: string
       }
       gen_tracked_link_code: { Args: never; Returns: string }
+      gen_venue_slug: {
+        Args: { p_exclude?: string; p_name: string }
+        Returns: string
+      }
       generate_invoice_number:
         | { Args: { p_venue_id: string }; Returns: string }
         | {
@@ -15658,6 +15802,16 @@ export type Database = {
           total_paid: number
           venue_id: string
           venue_name: string
+        }[]
+      }
+      get_agency_public_venues: {
+        Args: { p_affiliate_id: string }
+        Returns: {
+          city: string
+          cover_url: string
+          logo_url: string
+          name: string
+          venue_id: string
         }[]
       }
       get_agency_team_leaderboard: {
@@ -15881,6 +16035,16 @@ export type Database = {
       get_event_managing_organizer: {
         Args: { _event_id: string }
         Returns: string
+      }
+      get_event_rp_agencies: {
+        Args: { p_event_id: string }
+        Returns: {
+          affiliate_id: string
+          avatar_url: string
+          city: string
+          name: string
+          slug: string
+        }[]
       }
       get_event_scan_manifest: { Args: { p_event_id: string }; Returns: Json }
       get_events_pnl: {
@@ -16734,6 +16898,7 @@ export type Database = {
           reservation_id: string
         }[]
       }
+      resolve_affiliate_slug: { Args: { p_slug: string }; Returns: string }
       resolve_campaign_audience: {
         Args: { p_campaign_id: string }
         Returns: {
@@ -16756,6 +16921,7 @@ export type Database = {
           slug: string
         }[]
       }
+      resolve_member_slug: { Args: { p_slug: string }; Returns: string }
       resolve_organizer_slug: { Args: { p_slug: string }; Returns: string }
       resolve_promoter_payout_dispute: {
         Args: { p_action: string; p_payout_id: string }
@@ -16777,6 +16943,13 @@ export type Database = {
       resolve_venue_customer: {
         Args: { p_email: string; p_user_id: string; p_venue_id: string }
         Returns: string
+      }
+      resolve_venue_slug: {
+        Args: { p_slug: string }
+        Returns: {
+          slug: string
+          venue_id: string
+        }[]
       }
       respond_event_collab_action: {
         Args: { p_approve: boolean; p_request_id: string }
@@ -17038,6 +17211,7 @@ export type Database = {
         Args: { p_contract_id: string }
         Returns: undefined
       }
+      tiktok_handle_from_url: { Args: { p_url: string }; Returns: string }
       unaccent_music_genre: { Args: { p_raw: string }; Returns: string }
       unlock_event_sale: {
         Args: { p_event_id: string; p_guest_email?: string; p_password: string }
@@ -17060,6 +17234,7 @@ export type Database = {
           p_instagram_url?: string
           p_logo_url?: string
           p_name?: string
+          p_tiktok_url?: string
           p_website_url?: string
           p_whatsapp_number?: string
         }
