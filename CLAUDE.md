@@ -87,9 +87,11 @@ docs/               # PRD.md, DESIGN_SYSTEM.md, DESIGN_SYSTEM_PUBLIC.md
   d'historique hérités de la migration Lovable→Supabase (réconciliation déjà faite une fois).
 - **Gen types** : `supabase gen types ...` — **rediriger stderr** sinon le bruit pollue
   `src/integrations/supabase/types.ts`.
-- **Cap fonctions edge atteint** : `supabase functions deploy` renvoie **402** tant que le
-  spend cap Supabase n'est pas relevé. Plusieurs fonctions sont codées mais **pas encore
-  déployées** pour cette raison (auth mineurs, staff PIN, `promoter-payout-notify`).
+- **Cap fonctions edge** : historiquement, `supabase functions deploy` renvoyait **402**
+  pour toute NOUVELLE fonction tant que le spend cap Supabase n'était pas relevé.
+  **2026-08-06 : `agency-assistant` (fonction neuve) s'est déployée sans 402** — le cap
+  ne bloque plus ; les fonctions codées-mais-jamais-déployées (auth mineurs, staff PIN,
+  `promoter-payout-notify`) sont probablement déployables, à retenter.
   Pour `promoter-payout-notify` : le cycle de règlement fonctionne sans elle (les
   demandes d'accusé de réception s'affichent dans l'app et la bascule en litige est
   un cron SQL), mais le promoteur n'est pas poussé sur son téléphone tant qu'elle
@@ -222,7 +224,7 @@ liste dans `.design-sync/build-ds-package.sh` **et** recevoir sa doc via
 
 ## Assistants IA — connaissance à tenir à jour
 
-Deux assistants IA embarqués (modèle `gpt-4o-mini`, constante `OPENAI_MODEL`,
+Trois assistants IA embarqués (modèle `gpt-4o-mini`, constante `OPENAI_MODEL`,
 secret `OPENAI_API_KEY` dans Supabase) :
 
 - **Client** : page `/assistant` → `supabase/functions/yuno-assistant/index.ts`.
@@ -232,6 +234,14 @@ secret `OPENAI_API_KEY` dans Supabase) :
 - **Owner** : bouton flottant du dashboard → `supabase/functions/owner-assistant/index.ts`.
   Sa connaissance vit dans `HELP_ARTICLES` (~32 articles keyword→snippet) et le
   `OWNER_SYSTEM_PROMPT`. Les données opérationnelles passent par ses ~25 tools (live).
+- **Agence** : bouton flottant du cockpit `/agency-app` →
+  `supabase/functions/agency-assistant/index.ts` (même architecture qu'owner :
+  double client, boucle 3 tours, SSE). Connaissance dans `HELP_ARTICLES` (~17
+  articles) + `AGENCY_SYSTEM_PROMPT` ; 12 tools read + 3 tools write
+  (annonce équipe, bio, tri linktree) journalisés dans `agency_ai_audit_log`.
+  Interdit d'y ajouter un tool qui touche au cycle de règlement.
+  Front : `src/components/agency/AgencyAssistant.tsx` + `useAgencyAssistantChat.ts`
+  (i18n via `translate()` inline, pas de clés locales).
 
 **Règle de synchronisation — à chaque changement de fonctionnalité :**
 1. Feature côté client (billets, guest list, VIP, boissons, fidélité…) →
@@ -240,12 +250,13 @@ secret `OPENAI_API_KEY` dans Supabase) :
    mettre à jour ou ajouter l'article `HELP_ARTICLES` correspondant (keywords FR+EN,
    `path` = vraie route `/owner/...`, snippet 3-6 phrases, JAMAIS de référence de plan
    tant que `SUBSCRIPTIONS_ENABLED=false`).
-3. Nouveau tool owner pertinent ? L'ajouter à `TOOLS` + `executeTool` (write → aussi
+3. Nouveau tool owner/agence pertinent ? L'ajouter à `TOOLS` + `executeTool` (write → aussi
    `WRITE_TOOLS` + confirmation) — c'est ce qui rend l'IA capable d'AGIR, pas juste parler.
-4. Redéployer : `supabase functions deploy yuno-assistant owner-assistant`
-   (fonctions existantes → pas de blocage 402).
-5. Mettre à jour le mode d'emploi owner en même temps (règle ci-dessus, `ohelp.*`
-   3 langues + `ownerHelpContent.ts`) : l'IA et le centre d'aide racontent la même
+4. Redéployer : `supabase functions deploy yuno-assistant owner-assistant agency-assistant`.
+5. Mettre à jour le mode d'emploi en même temps : owner → `ohelp.*` 3 langues +
+   `ownerHelpContent.ts` ; **agence → `ohelp.agc.*` 3 langues (locales) +
+   `src/data/agencyHelpContent.ts`** (moteur partagé `OwnerHelpCenter`, visuels SVG
+   dans `public/help/agency-*.svg`) : l'IA et le centre d'aide racontent la même
    vérité, en même temps.
 
 L'ancienne table `chatbot_training` (FAQ injectée dans le prompt) est abandonnée —
