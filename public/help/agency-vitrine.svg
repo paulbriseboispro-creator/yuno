@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 440" font-family="ui-monospace,Menlo,monospace">
+  <rect width="800" height="440" fill="#0b0b0e"/>
+  <!-- carte page RP -->
+  <rect x="52" y="36" width="336" height="180" rx="16" fill="#131318" stroke="rgba(255,255,255,0.09)"/>
+  <rect x="74" y="56" width="76" height="20" rx="10" fill="rgba(232,25,44,0.18)" stroke="rgba(232,25,44,0.5)"/>
+  <text x="112" y="70" fill="#ff6b76" font-size="11" font-weight="700" text-anchor="middle">/rp/…</text>
+  <rect x="74" y="92" width="292" height="30" rx="9" fill="rgba(255,255,255,0.05)"/>
+  <text x="88" y="111" fill="rgba(255,255,255,0.6)" font-size="12">yunoapp.eu/rp/mon-agence</text>
+  <rect x="316" y="98" width="40" height="18" rx="7" fill="rgba(232,25,44,0.2)"/>
+  <rect x="74" y="136" width="140" height="30" rx="9" fill="rgba(255,255,255,0.06)"/>
+  <rect x="86" y="147" width="70" height="8" rx="4" fill="rgba(255,255,255,0.4)"/>
+  <rect x="226" y="136" width="140" height="30" rx="9" fill="rgba(255,255,255,0.06)"/>
+  <rect x="238" y="147" width="70" height="8" rx="4" fill="rgba(255,255,255,0.4)"/>
+  <rect x="74" y="180" width="184" height="9" rx="4.5" fill="rgba(255,255,255,0.22)"/>
+  <!-- carte linktree -->
+  <rect x="412" y="36" width="336" height="180" rx="16" fill="#131318" stroke="rgba(255,255,255,0.09)"/>
+  <rect x="434" y="56" width="70" height="20" rx="10" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.18)"/>
+  <text x="469" y="70" fill="rgba(255,255,255,0.7)" font-size="11" font-weight="700" text-anchor="middle">/p/…</text>
+  <rect x="434" y="92" width="292" height="30" rx="9" fill="rgba(255,255,255,0.05)"/>
+  <text x="448" y="111" fill="rgba(255,255,255,0.6)" font-size="12">yunoapp.eu/p/mon-agence</text>
+  <rect x="676" y="98" width="40" height="18" rx="7" fill="rgba(232,25,44,0.2)"/>
+  <rect x="434" y="136" width="140" height="30" rx="9" fill="rgba(255,255,255,0.06)"/>
+  <rect x="446" y="147" width="70" height="8" rx="4" fill="rgba(255,255,255,0.4)"/>
+  <rect x="586" y="136" width="140" height="30" rx="9" fill="rgba(255,255,255,0.06)"/>
+  <rect x="598" y="147" width="70" height="8" rx="4" fill="rgba(255,255,255,0.4)"/>
+  <rect x="434" y="180" width="184" height="9" rx="4.5" fill="rgba(255,255,255,0.22)"/>
+  <!-- check-list de complétude -->
+  <rect x="52" y="244" width="696" height="164" rx="16" fill="#131318" stroke="rgba(255,255,255,0.09)"/>
+  <rect x="74" y="262" width="200" height="11" rx="5.5" fill="rgba(255,255,255,0.5)"/>
+  <text x="726" y="274" fill="#34D399" font-size="13" font-weight="700" text-anchor="end">6/8</text>
+  <g>
+    <circle cx="88" cy="302" r="8" fill="rgba(52,211,153,0.2)" stroke="#34D399" stroke-width="1.6"/>
+    <path d="M84 302 l3 3 l5 -6" stroke="#34D399" stroke-width="1.8" fill="none"/>
+    <rect x="108" y="297" width="180" height="9" rx="4.5" fill="rgba(255,255,255,0.35)"/>
+    <circle cx="88" cy="330" r="8" fill="rgba(52,211,153,0.2)" stroke="#34D399" stroke-width="1.6"/>
+    <path d="M84 330 l3 3 l5 -6" stroke="#34D399" stroke-width="1.8" fill="none"/>
+    <rect x="108" y="325" width="140" height="9" rx="4.5" fill="rgba(255,255,255,0.35)"/>
+    <circle cx="88" cy="358" r="8" fill="rgba(52,211,153,0.2)" stroke="#34D399" stroke-width="1.6"/>
+    <path d="M84 358 l3 3 l5 -6" stroke="#34D399" stroke-width="1.8" fill="none"/>
+    <rect x="108" y="353" width="164" height="9" rx="4.5" fill="rgba(255,255,255,0.35)"/>
+    <circle cx="428" cy="302" r="8" fill="rgba(52,211,153,0.2)" stroke="#34D399" stroke-width="1.6"/>
+    <path d="M424 302 l3 3 l5 -6" stroke="#34D399" stroke-width="1.8" fill="none"/>
+    <rect x="448" y="297" width="150" height="9" rx="4.5" fill="rgba(255,255,255,0.35)"/>
+    <circle cx="428" cy="330" r="8" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.6"/>
+    <rect x="448" y="325" width="188" height="9" rx="4.5" fill="rgba(255,255,255,0.7)"/>
+    <path d="M700 322 l8 8 l-8 8" stroke="#E8192C" stroke-width="2" fill="none"/>
+    <circle cx="428" cy="358" r="8" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1.6"/>
+    <rect x="448" y="353" width="160" height="9" rx="4.5" fill="rgba(255,255,255,0.7)"/>
+    <path d="M700 350 l8 8 l-8 8" stroke="#E8192C" stroke-width="2" fill="none"/>
+  </g>
+</svg>

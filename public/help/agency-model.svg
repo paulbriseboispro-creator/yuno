@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 440" font-family="ui-sans-serif,system-ui">
+  <rect width="800" height="440" fill="#0b0b0e"/>
+  <!-- agence (identité maître) -->
+  <rect x="300" y="28" width="200" height="86" rx="16" fill="#15151b" stroke="rgba(255,255,255,0.10)"/>
+  <rect x="322" y="48" width="46" height="46" rx="12" fill="rgba(232,25,44,0.16)" stroke="rgba(232,25,44,0.45)"/>
+  <circle cx="345" cy="71" r="12" fill="#E8192C"/>
+  <rect x="382" y="52" width="96" height="12" rx="6" fill="rgba(255,255,255,0.85)"/>
+  <rect x="382" y="72" width="64" height="9" rx="4.5" fill="rgba(255,255,255,0.28)"/>
+  <!-- flèches vers les deux bras -->
+  <path d="M330 118 C 260 150, 220 160, 196 176" stroke="rgba(232,25,44,0.55)" stroke-width="2.5" fill="none"/>
+  <path d="M470 118 C 540 150, 580 160, 604 176" stroke="rgba(232,25,44,0.55)" stroke-width="2.5" fill="none"/>
+  <!-- bras Yuno -->
+  <rect x="60" y="180" width="290" height="170" rx="16" fill="#131318" stroke="rgba(255,255,255,0.09)"/>
+  <rect x="82" y="200" width="64" height="20" rx="10" fill="rgba(232,25,44,0.18)" stroke="rgba(232,25,44,0.5)"/>
+  <text x="114" y="214" fill="#ff6b76" font-size="11" font-weight="700" text-anchor="middle">YUNO</text>
+  <rect x="82" y="236" width="246" height="26" rx="8" fill="rgba(255,255,255,0.05)"/>
+  <rect x="92" y="244" width="120" height="9" rx="4.5" fill="rgba(255,255,255,0.5)"/>
+  <rect x="268" y="242" width="50" height="13" rx="6.5" fill="rgba(52,211,153,0.25)"/>
+  <rect x="82" y="270" width="246" height="26" rx="8" fill="rgba(255,255,255,0.05)"/>
+  <rect x="92" y="278" width="98" height="9" rx="4.5" fill="rgba(255,255,255,0.5)"/>
+  <rect x="268" y="276" width="50" height="13" rx="6.5" fill="rgba(52,211,153,0.25)"/>
+  <rect x="82" y="304" width="246" height="26" rx="8" fill="rgba(255,255,255,0.05)"/>
+  <rect x="92" y="312" width="132" height="9" rx="4.5" fill="rgba(255,255,255,0.5)"/>
+  <rect x="268" y="310" width="50" height="13" rx="6.5" fill="rgba(52,211,153,0.25)"/>
+  <!-- bras externe -->
+  <rect x="450" y="180" width="290" height="170" rx="16" fill="#131318" stroke="rgba(255,255,255,0.09)"/>
+  <circle cx="492" cy="212" r="13" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="2"/>
+  <ellipse cx="492" cy="212" rx="6" ry="13" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="1.6"/>
+  <line x1="479" y1="212" x2="505" y2="212" stroke="rgba(255,255,255,0.55)" stroke-width="1.6"/>
+  <rect x="472" y="236" width="246" height="26" rx="8" fill="rgba(255,255,255,0.05)"/>
+  <rect x="482" y="244" width="110" height="9" rx="4.5" fill="rgba(255,255,255,0.5)"/>
+  <path d="M672 242 l 26 7 l -26 7 z" fill="rgba(251,191,36,0.7)"/>
+  <rect x="472" y="270" width="246" height="26" rx="8" fill="rgba(255,255,255,0.05)"/>
+  <rect x="482" y="278" width="126" height="9" rx="4.5" fill="rgba(255,255,255,0.5)"/>
+  <path d="M672 276 l 26 7 l -26 7 z" fill="rgba(251,191,36,0.7)"/>
+  <rect x="472" y="304" width="246" height="26" rx="8" fill="rgba(255,255,255,0.05)"/>
+  <rect x="482" y="312" width="88" height="9" rx="4.5" fill="rgba(255,255,255,0.5)"/>
+  <path d="M672 310 l 26 7 l -26 7 z" fill="rgba(251,191,36,0.7)"/>
+  <!-- cockpit unique -->
+  <rect x="60" y="376" width="680" height="40" rx="12" fill="rgba(232,25,44,0.10)" stroke="rgba(232,25,44,0.35)"/>
+  <circle cx="96" cy="396" r="6" fill="#E8192C"/>
+  <rect x="116" y="391" width="150" height="10" rx="5" fill="rgba(255,255,255,0.55)"/>
+  <rect x="300" y="391" width="90" height="10" rx="5" fill="rgba(255,255,255,0.28)"/>
+  <rect x="420" y="391" width="90" height="10" rx="5" fill="rgba(255,255,255,0.28)"/>
+  <rect x="540" y="391" width="90" height="10" rx="5" fill="rgba(255,255,255,0.28)"/>
+</svg>

@@ -29,7 +29,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Building2, CreditCard, UserPlus, Wine, CalendarDays, Ticket,
   GlassWater, ClipboardList, Star, BarChart3, ClipboardCheck, Music,
   Sun, Wrench, TrendingUp, UserCog, Lock, DoorOpen, Shirt,
-  RefreshCw, Megaphone, Headphones, Search, Hash, ShieldCheck,
+  RefreshCw, Megaphone, Headphones, Search, Hash, ShieldCheck, ListOrdered,
   Undo2, AlertTriangle, QrCode, Zap, Wallet, Package, Globe, Bell,
   Receipt, Settings2, Sparkles, MessageCircle,
   Calendar, Crown, Gift, Handshake, Heart, LayoutGrid, Mail, Martini,
@@ -63,6 +63,11 @@ const CATEGORY_COLORS: Record<string, { bg: string; border: string; text: string
   'staff-guides': { bg: 'bg-cyan-500/8', border: 'border-cyan-500/20', text: 'text-cyan-400', iconBg: 'bg-cyan-500/15' },
   'client-guide': { bg: 'bg-pink-500/8', border: 'border-pink-500/20', text: 'text-pink-400', iconBg: 'bg-pink-500/15' },
   'security': { bg: 'bg-red-500/8', border: 'border-red-500/20', text: 'text-red-400', iconBg: 'bg-red-500/15' },
+  // Agency guide groups (mirror the agency cockpit sidebar)
+  'showcase': { bg: 'bg-pink-500/8', border: 'border-pink-500/20', text: 'text-pink-400', iconBg: 'bg-pink-500/15' },
+  'team': { bg: 'bg-orange-500/8', border: 'border-orange-500/20', text: 'text-orange-400', iconBg: 'bg-orange-500/15' },
+  'yuno-clubs': { bg: 'bg-red-500/8', border: 'border-red-500/20', text: 'text-red-400', iconBg: 'bg-red-500/15' },
+  'external': { bg: 'bg-violet-500/8', border: 'border-violet-500/20', text: 'text-violet-400', iconBg: 'bg-violet-500/15' },
 };
 
 const DEFAULT_COLOR = { bg: 'bg-muted/30', border: 'border-border', text: 'text-muted-foreground', iconBg: 'bg-muted/50' };
@@ -276,10 +281,15 @@ export default function OwnerHelpCenter({ categories = ownerHelpCategories }: { 
             </div>
           ))}
 
-          {/* Action link */}
+          {/* Action link — préfixe '~' = chemin absolu de l'app (hors basePath),
+              utile quand un guide pointe vers une autre famille de routes
+              (ex. le guide agence vers /affiliate/settings). */}
           {selectedArticle.actionLink && (
             <button
-              onClick={() => navigate(`${basePath}${selectedArticle.actionLink!.path}`)}
+              onClick={() => {
+                const p = selectedArticle.actionLink!.path;
+                navigate(p.startsWith('~') ? p.slice(1) : `${basePath}${p}`);
+              }}
               className="w-full flex items-center justify-center gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20 text-primary text-sm font-medium hover:bg-primary/20 transition-colors"
             >
               <ExternalLink className="w-4 h-4" />

@@ -1,6 +1,6 @@
 import React, { createContext, useContext } from 'react';
 
-type DashboardMode = 'owner' | 'manager' | 'organizer';
+type DashboardMode = 'owner' | 'manager' | 'organizer' | 'agency';
 
 interface DashboardModeContextType {
   mode: DashboardMode;
@@ -17,7 +17,10 @@ export function DashboardModeProvider({
   mode: DashboardMode;
 }) {
   const basePath =
-    mode === 'manager' ? '/manager' : mode === 'organizer' ? '/organizer-app' : '/owner';
+    mode === 'manager' ? '/manager'
+    : mode === 'organizer' ? '/organizer-app'
+    : mode === 'agency' ? '/agency-app'
+    : '/owner';
 
   return (
     <DashboardModeContext.Provider value={{ mode, basePath }}>

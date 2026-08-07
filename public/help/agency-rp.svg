@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 440" font-family="ui-monospace,Menlo,monospace">
+  <rect width="800" height="440" fill="#0b0b0e"/>
+  <!-- page RP publique -->
+  <rect x="120" y="28" width="420" height="388" rx="18" fill="#101014" stroke="rgba(255,255,255,0.09)"/>
+  <rect x="148" y="52" width="56" height="56" rx="14" fill="rgba(232,25,44,0.25)" stroke="rgba(232,25,44,0.5)"/>
+  <circle cx="176" cy="80" r="14" fill="#E8192C"/>
+  <rect x="220" y="58" width="160" height="14" rx="7" fill="rgba(255,255,255,0.85)"/>
+  <rect x="220" y="82" width="220" height="9" rx="4.5" fill="rgba(255,255,255,0.3)"/>
+  <circle cx="230" cy="112" r="7" fill="rgba(255,255,255,0.16)"/>
+  <circle cx="252" cy="112" r="7" fill="rgba(255,255,255,0.16)"/>
+  <circle cx="274" cy="112" r="7" fill="rgba(255,255,255,0.16)"/>
+  <!-- clubs partenaires -->
+  <rect x="148" y="140" width="130" height="10" rx="5" fill="rgba(255,255,255,0.4)"/>
+  <g>
+    <rect x="148" y="162" width="86" height="64" rx="12" fill="rgba(255,255,255,0.05)"/>
+    <circle cx="170" cy="184" r="11" fill="rgba(255,255,255,0.18)"/>
+    <rect x="158" y="204" width="60" height="7" rx="3.5" fill="rgba(255,255,255,0.35)"/>
+    <rect x="244" y="162" width="86" height="64" rx="12" fill="rgba(255,255,255,0.05)"/>
+    <circle cx="266" cy="184" r="11" fill="rgba(255,255,255,0.18)"/>
+    <rect x="254" y="204" width="60" height="7" rx="3.5" fill="rgba(255,255,255,0.35)"/>
+    <rect x="340" y="162" width="86" height="64" rx="12" fill="rgba(255,255,255,0.05)"/>
+    <circle cx="362" cy="184" r="11" fill="rgba(255,255,255,0.18)"/>
+    <rect x="350" y="204" width="60" height="7" rx="3.5" fill="rgba(255,255,255,0.35)"/>
+  </g>
+  <!-- soirées -->
+  <rect x="148" y="248" width="110" height="10" rx="5" fill="rgba(255,255,255,0.4)"/>
+  <g>
+    <rect x="148" y="270" width="364" height="38" rx="10" fill="rgba(255,255,255,0.05)"/>
+    <rect x="160" y="278" width="30" height="22" rx="6" fill="rgba(232,25,44,0.22)"/>
+    <rect x="202" y="280" width="150" height="9" rx="4.5" fill="rgba(255,255,255,0.6)"/>
+    <rect x="202" y="294" width="90" height="7" rx="3.5" fill="rgba(255,255,255,0.25)"/>
+    <rect x="448" y="280" width="50" height="16" rx="8" fill="rgba(232,25,44,0.2)"/>
+    <rect x="148" y="316" width="364" height="38" rx="10" fill="rgba(255,255,255,0.05)"/>
+    <rect x="160" y="324" width="30" height="22" rx="6" fill="rgba(232,25,44,0.22)"/>
+    <rect x="202" y="326" width="120" height="9" rx="4.5" fill="rgba(255,255,255,0.6)"/>
+    <rect x="202" y="340" width="104" height="7" rx="3.5" fill="rgba(255,255,255,0.25)"/>
+    <rect x="448" y="326" width="50" height="16" rx="8" fill="rgba(251,191,36,0.22)"/>
+    <rect x="148" y="362" width="364" height="38" rx="10" fill="rgba(255,255,255,0.05)"/>
+    <rect x="160" y="370" width="30" height="22" rx="6" fill="rgba(232,25,44,0.22)"/>
+    <rect x="202" y="372" width="140" height="9" rx="4.5" fill="rgba(255,255,255,0.6)"/>
+    <rect x="202" y="386" width="80" height="7" rx="3.5" fill="rgba(255,255,255,0.25)"/>
+    <rect x="448" y="372" width="50" height="16" rx="8" fill="rgba(232,25,44,0.2)"/>
+  </g>
+  <!-- carte « RP » d'une fiche soirée, qui mène ici -->
+  <rect x="580" y="120" width="170" height="94" rx="14" fill="#131318" stroke="rgba(255,255,255,0.09)"/>
+  <rect x="598" y="136" width="34" height="18" rx="9" fill="rgba(232,25,44,0.2)" stroke="rgba(232,25,44,0.5)"/>
+  <text x="615" y="149" fill="#ff6b76" font-size="10" font-weight="700" text-anchor="middle">RP</text>
+  <circle cx="612" cy="180" r="12" fill="rgba(232,25,44,0.3)"/>
+  <rect x="634" y="170" width="96" height="9" rx="4.5" fill="rgba(255,255,255,0.6)"/>
+  <rect x="634" y="186" width="60" height="7" rx="3.5" fill="rgba(255,255,255,0.25)"/>
+  <path d="M580 190 C 556 200, 552 210, 544 226" stroke="rgba(232,25,44,0.55)" stroke-width="2.5" fill="none"/>
+  <path d="M552 218 l-8 10 l-6 -13" fill="none" stroke="rgba(232,25,44,0.55)" stroke-width="2.5"/>
+</svg>

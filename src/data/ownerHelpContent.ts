@@ -23,6 +23,8 @@ export interface OwnerHelpArticle {
   quickStart?: boolean;
   sections: OwnerHelpSection[];
   relatedArticleIds?: string[];
+  // path relatif au basePath du mode courant ; préfixe '~' = chemin absolu de
+  // l'app (ex. '~/affiliate/settings' depuis le guide agence).
   actionLink?: { labelKey: string; path: string };
   keywords?: string[];
 }

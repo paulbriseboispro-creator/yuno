@@ -70,13 +70,14 @@ export function useVenueContext(): VenueContextResult {
     };
   }
 
-  // Default to owner
+  // Default to owner. Le mode 'agency' n'a pas de venue-context (le cockpit
+  // agence ne monte pas ce hook) — s'il arrivait ici, il se rabat sur owner.
   return {
     venueId: ownerVenue.venueId,
     venue: ownerVenue.venue,
     loading: ownerVenue.loading,
     error: ownerVenue.error,
-    mode,
+    mode: mode === 'manager' ? 'manager' : 'owner',
     scope: 'venue',
     organizerUserId: null,
     refetch: ownerVenue.refetch,
