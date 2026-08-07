@@ -90,11 +90,12 @@ export const agencyHelpCategories: OwnerHelpCategory[] = [
         icon: 'Building2',
         actionLink: { labelKey: 'ohelp.agc.action.openProfile', path: '/profile' },
         relatedArticleIds: ['showcase-hub', 'linktree-page'],
-        keywords: ['profil', 'profile', 'identité', 'identity', 'logo', 'bio', 'instagram', 'tiktok', 'réseaux', 'socials', 'synchronisation', 'sync', 'maître', 'master'],
+        keywords: ['profil', 'profile', 'identité', 'identity', 'logo', 'bio', 'instagram', 'tiktok', 'réseaux', 'socials', 'synchronisation', 'sync', 'maître', 'master', 'renommer', 'rename', 'nom', 'name', 'slug', 'url', 'lien', 'link', '30 jours'],
         sections: [
           { headingKey: 'ohelp.agc.identity.s1h', bodyKey: 'ohelp.agc.identity.s1b', screenshotUrl: '/help/agency-identity.svg' },
           { headingKey: 'ohelp.agc.identity.s2h', bodyKey: 'ohelp.agc.identity.s2b' },
           { headingKey: 'ohelp.agc.identity.s3h', bodyKey: 'ohelp.agc.identity.s3b', type: 'warning' },
+          { headingKey: 'ohelp.agc.identity.s4h', bodyKey: 'ohelp.agc.identity.s4b' },
         ],
       },
       {

@@ -71,9 +71,9 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "master-identity": {
     title: "L'identité maître (profil)",
-    keywords: ["profil", "profile", "identité", "identity", "logo", "bio", "instagram", "tiktok", "whatsapp", "site web", "réseaux", "socials", "synchronisation", "sync"],
+    keywords: ["profil", "profile", "identité", "identity", "logo", "bio", "instagram", "tiktok", "whatsapp", "site web", "réseaux", "socials", "synchronisation", "sync", "renommer", "rename", "nom", "name", "slug", "url", "lien", "30 jours"],
     path: "/agency-app/profile",
-    snippet: "Nom, ville, bio, logo, Instagram, TikTok, WhatsApp et site web s'éditent UNIQUEMENT sur le profil de l'agence — chaque enregistrement se synchronise automatiquement vers la page RP, le linktree et les cartes RP des fiches soirée. L'email de contact reste privé (relances Finance). Les anciens champs identité de Linktree & externe sont des renvois vers le profil maître.",
+    snippet: "Nom, ville, bio, logo, Instagram, TikTok, WhatsApp et site web s'éditent UNIQUEMENT sur le profil de l'agence — chaque enregistrement se synchronise automatiquement vers la page RP, le linktree et les cartes RP des fiches soirée. Renommer l'agence regénère automatiquement les adresses publiques (/p/… et /rp/…) et les anciens liens redirigent vers la nouvelle adresse (QR imprimés inclus) ; le changement de nom demande une double confirmation et n'est possible qu'une fois tous les 30 jours. L'email de contact reste privé (relances Finance). Les anciens champs identité de Linktree & externe sont des renvois vers le profil maître.",
   },
   "rp-page": {
     title: "La page RP (/rp/slug)",
