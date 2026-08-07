@@ -8,7 +8,7 @@ import { translate } from '@/i18n/orgTranslate';
 import { compressImage } from '@/lib/compressImage';
 import { toast } from 'sonner';
 import { errorToast } from '@/lib/errorToast';
-import { Building2, Camera, ExternalLink, Globe, Store } from 'lucide-react';
+import { Building2, Camera, ExternalLink, Globe, Store, Image as ImageIcon, Trash2 } from 'lucide-react';
 import {
   T1, T2, T3, RED, F_BORDER, BORDER, INNER_BG, C_FAINT,
   PromoButton, PromoCard, DarkInput, FieldLabel, CopyField,
@@ -40,6 +40,9 @@ export default function AgencyProfile() {
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [slug, setSlug] = useState<string | null>(null);
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+  const [bannerBusy, setBannerBusy] = useState(false);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!agency) return;
@@ -54,18 +57,22 @@ export default function AgencyProfile() {
   }, [agency?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Le slug public vit sur le bras externe (affiliates.linktree_slug) : c'est
-  // lui qui sert /rp/:slug ET /p/:slug.
+  // lui qui sert /rp/:slug ET /p/:slug. La bannière de la page RP vit là aussi
+  // (hors synchro maître — cast any : pas encore dans les types générés).
   useEffect(() => {
     const affiliateId = shell?.affiliateId;
     if (!affiliateId) return;
     let active = true;
     (async () => {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from('affiliates')
-        .select('linktree_slug')
+        .select('linktree_slug, banner_url')
         .eq('id', affiliateId)
         .maybeSingle();
-      if (active) setSlug(data?.linktree_slug ?? null);
+      if (active) {
+        setSlug(data?.linktree_slug ?? null);
+        setBannerUrl(data?.banner_url ?? null);
+      }
     })();
     return () => { active = false; };
   }, [shell?.affiliateId]);
@@ -150,6 +157,51 @@ export default function AgencyProfile() {
     }
   };
 
+  // Bannière 1:1 de la page RP — écrite directement sur le bras externe
+  // (policy UPDATE user_id = chef d'agence), jamais écrasée par la synchro.
+  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const affiliateId = shell?.affiliateId;
+    if (!file || !affiliateId) return;
+    setBannerBusy(true);
+    try {
+      const compressed = await compressImage(file, 1600, 0.85);
+      const ext = compressed.name.split('.').pop() || 'jpg';
+      const path = `${affiliateId}/agency-banner/${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('affiliate-media')
+        .upload(path, compressed, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from('affiliate-media').getPublicUrl(path);
+      const { error: updateError } = await (supabase as any)
+        .from('affiliates')
+        .update({ banner_url: urlData.publicUrl })
+        .eq('id', affiliateId);
+      if (updateError) throw updateError;
+      setBannerUrl(urlData.publicUrl);
+      toast.success(tt('Bannière mise à jour', 'Banner updated', 'Banner actualizado'));
+    } catch (err) {
+      errorToast(err);
+    } finally {
+      setBannerBusy(false);
+      if (bannerInputRef.current) bannerInputRef.current.value = '';
+    }
+  };
+
+  const handleBannerRemove = async () => {
+    const affiliateId = shell?.affiliateId;
+    if (!affiliateId) return;
+    setBannerBusy(true);
+    const { error } = await (supabase as any)
+      .from('affiliates')
+      .update({ banner_url: null })
+      .eq('id', affiliateId);
+    setBannerBusy(false);
+    if (error) { errorToast(error); return; }
+    setBannerUrl(null);
+    toast.success(tt('Bannière retirée — retour à l\'affiche automatique', 'Banner removed — back to the automatic flyer', 'Banner quitado: vuelta al cartel automático'));
+  };
+
   if (loading || !agency) return null;
 
   const origin = window.location.origin;
@@ -205,6 +257,67 @@ export default function AgencyProfile() {
               {tt('Ce logo est votre visage public : page RP, linktree, cartes « RP » sur les fiches soirée.',
                   'This logo is your public face: RP page, linktree, “RP” cards on event pages.',
                   'Este logo es tu cara pública: página RP, linktree y tarjetas «RP» en las fichas de fiesta.')}
+            </p>
+          </div>
+        </div>
+      </PromoCard>
+
+      {/* Bannière 1:1 de la page RP */}
+      <PromoCard>
+        <div className="flex items-center gap-2 mb-1.5">
+          <ImageIcon className="h-4 w-4" style={{ color: RED }} />
+          <p style={{ color: T1, fontSize: 14, fontWeight: 650 }}>
+            {tt('Bannière de la page RP', 'RP page banner', 'Banner de la página RP')}
+          </p>
+        </div>
+        <p style={{ color: T3, fontSize: 12, marginBottom: 12 }}>
+          {tt('Votre photo, en format carré 1:1, affichée en tête de votre page RP. Sans bannière, l\'affiche de votre prochaine soirée est utilisée automatiquement.',
+              'Your photo, in square 1:1 format, shown at the top of your RP page. Without a banner, your next event\'s flyer is used automatically.',
+              'Tu foto, en formato cuadrado 1:1, mostrada en la cabecera de tu página RP. Sin banner, se usa automáticamente el cartel de tu próxima fiesta.')}
+        </p>
+        <div className="flex items-start gap-4 flex-wrap">
+          <div className="relative flex-none" style={{ width: 180 }}>
+            <div className="overflow-hidden" style={{ aspectRatio: '1 / 1', borderRadius: 14, border: `1px solid ${BORDER}`, background: INNER_BG }}>
+              {bannerUrl ? (
+                <img src={bannerUrl} alt={tt('Bannière', 'Banner', 'Banner')} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                  <ImageIcon className="h-6 w-6" style={{ color: T3 }} />
+                  <span style={{ color: T3, fontSize: 11 }}>1:1</span>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={() => bannerInputRef.current?.click()}
+              disabled={bannerBusy}
+              className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full flex items-center justify-center cursor-pointer"
+              style={{ background: RED, boxShadow: `0 0 14px -4px ${RED}88` }}
+            >
+              {bannerBusy
+                ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                : <Camera className="h-3.5 w-3.5 text-white" />}
+            </button>
+            <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerUpload} />
+          </div>
+          <div className="min-w-0 flex-1" style={{ minWidth: 180 }}>
+            <div className="flex flex-wrap gap-2">
+              <PromoButton size="sm" variant="secondary" onClick={() => bannerInputRef.current?.click()} disabled={bannerBusy}>
+                <Camera className="h-4 w-4" />
+                {bannerUrl
+                  ? tt('Changer la bannière', 'Change banner', 'Cambiar el banner')
+                  : tt('Ajouter ma bannière', 'Upload my banner', 'Subir mi banner')}
+              </PromoButton>
+              {bannerUrl && (
+                <PromoButton size="sm" variant="secondary" onClick={handleBannerRemove} disabled={bannerBusy}>
+                  <Trash2 className="h-4 w-4" />
+                  {tt('Retirer', 'Remove', 'Quitar')}
+                </PromoButton>
+              )}
+            </div>
+            <p style={{ color: T3, fontSize: 11.5, marginTop: 10 }}>
+              {tt('Conseil : une photo d\'ambiance de vos soirées (foule, lumières) fonctionne mieux qu\'un logo.',
+                  'Tip: an atmosphere shot from your events (crowd, lights) works better than a logo.',
+                  'Consejo: una foto de ambiente de tus fiestas (público, luces) funciona mejor que un logo.')}
             </p>
           </div>
         </div>

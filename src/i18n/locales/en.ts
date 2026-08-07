@@ -13012,7 +13012,7 @@ const en: Record<string, string> = {
   'ohelp.agc.rpPage.title': 'The RP page (/rp/your-address)',
   'ohelp.agc.rpPage.desc': 'Your marketplace showcase inside Yuno, fed automatically.',
   'ohelp.agc.rpPage.s1h': 'What the public sees there',
-  'ohelp.agc.rpPage.s1b': "Your logo, bio and socials, your partner clubs (contracted Yuno clubs AND external ones) and your upcoming events from both worlds. The page builds itself from your contracts and catalog: there is nothing to maintain.",
+  'ohelp.agc.rpPage.s1b': "A banner up top, your logo, bio and socials, your partner clubs (contracted Yuno clubs AND external ones) and your upcoming events from both worlds. The banner is YOUR photo, in square 1:1 format — upload it from the agency profile (“RP page banner” card, removable); without a banner, your next event's flyer is used automatically. The rest builds itself from your contracts and catalog: there is nothing to maintain.",
   'ohelp.agc.rpPage.s2h': 'How people get there',
   'ohelp.agc.rpPage.s2b': "On every event page where your agency is active, an \"RP\" card introduces you to the public with a link to your page. It's your organic discovery channel: clubbers who love an event discover who makes it happen.",
   'ohelp.agc.rpPage.s3h': 'External-ticketing events',

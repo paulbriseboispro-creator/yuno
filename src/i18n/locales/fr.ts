@@ -13083,7 +13083,7 @@ const fr: Record<string, string> = {
   'ohelp.agc.rpPage.title': 'La page RP (/rp/votre-adresse)',
   'ohelp.agc.rpPage.desc': 'Votre vitrine marketplace dans Yuno, alimentée toute seule.',
   'ohelp.agc.rpPage.s1h': 'Ce que le public y voit',
-  'ohelp.agc.rpPage.s1b': "Votre logo, votre bio et vos réseaux, vos clubs partenaires (Yuno sous contrat actif ET externes) et vos soirées à venir des deux mondes. La page se construit toute seule à partir de vos contrats et de votre catalogue : il n'y a rien à maintenir.",
+  'ohelp.agc.rpPage.s1b': "Une bannière en tête, votre logo, votre bio et vos réseaux, vos clubs partenaires (Yuno sous contrat actif ET externes) et vos soirées à venir des deux mondes. La bannière est VOTRE photo, au format carré 1:1 — elle s'uploade depuis le profil de l'agence (carte « Bannière de la page RP », retrait possible) ; sans bannière, l'affiche de votre prochaine soirée est utilisée automatiquement. Le reste se construit tout seul à partir de vos contrats et de votre catalogue : il n'y a rien à maintenir.",
   'ohelp.agc.rpPage.s2h': 'Comment on y arrive',
   'ohelp.agc.rpPage.s2b': "Sur chaque fiche soirée où votre agence est active, une carte « RP » vous présente au public avec un lien vers votre page. C'est votre canal de découverte organique : les clubbers qui aiment une soirée découvrent qui la fait tourner.",
   'ohelp.agc.rpPage.s3h': 'Les soirées à billetterie externe',

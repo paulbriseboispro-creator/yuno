@@ -28,7 +28,7 @@ export default function AgencyShowcase() {
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const navigate = useNavigate();
 
-  const [arm, setArm] = useState<{ linktree_slug: string | null; trust_stats: unknown[] } | null>(null);
+  const [arm, setArm] = useState<{ linktree_slug: string | null; trust_stats: unknown[]; banner_url: string | null } | null>(null);
   const [counts, setCounts] = useState<{ venues: number; extEvents: number; contracts: number } | null>(null);
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export default function AgencyShowcase() {
     (async () => {
       const today = new Date().toISOString().split('T')[0];
       const [aff, ven, ev, ctr] = await Promise.all([
-        supabase.from('affiliates').select('linktree_slug, trust_stats').eq('id', affiliateId).maybeSingle(),
+        (supabase as any).from('affiliates').select('linktree_slug, trust_stats, banner_url').eq('id', affiliateId).maybeSingle(),
         supabase.from('affiliate_venues').select('id', { count: 'exact', head: true })
           .eq('affiliate_id', affiliateId).eq('is_active', true),
         supabase.from('affiliate_events').select('id', { count: 'exact', head: true })
@@ -50,6 +50,7 @@ export default function AgencyShowcase() {
       setArm({
         linktree_slug: aff.data?.linktree_slug ?? null,
         trust_stats: Array.isArray(aff.data?.trust_stats) ? (aff.data!.trust_stats as unknown[]) : [],
+        banner_url: aff.data?.banner_url ?? null,
       });
       setCounts({ venues: ven.count ?? 0, extEvents: ev.count ?? 0, contracts: ctr.count ?? 0 });
     })();
@@ -71,6 +72,11 @@ export default function AgencyShowcase() {
       {
         done: !!agency.logo_url,
         label: tt('Ajouter votre logo', 'Add your logo', 'Añadir tu logo'),
+        to: '/agency-app/profile',
+      },
+      {
+        done: !!arm.banner_url,
+        label: tt('Ajouter une bannière 1:1 (page RP)', 'Add a 1:1 banner (RP page)', 'Añadir un banner 1:1 (página RP)'),
         to: '/agency-app/profile',
       },
       {

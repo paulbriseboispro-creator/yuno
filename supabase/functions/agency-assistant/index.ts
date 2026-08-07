@@ -77,9 +77,9 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "rp-page": {
     title: "La page RP (/rp/slug)",
-    keywords: ["page rp", "rp", "marketplace", "fiche soirée", "event page", "interstitiel", "interstitial", "découverte", "carte rp"],
+    keywords: ["page rp", "rp", "marketplace", "fiche soirée", "event page", "interstitiel", "interstitial", "découverte", "carte rp", "bannière", "banner", "photo de couverture", "cover"],
     path: "/agency-app/vitrine",
-    snippet: "La page RP est la vitrine marketplace de l'agence dans Yuno : logo, bio, réseaux, clubs partenaires (contrats Yuno actifs + clubs externes) et soirées à venir des deux bras. Elle s'alimente toute seule. Le public y arrive par les cartes « RP » des fiches soirée. Un clic sur une soirée externe passe par un interstitiel avant la billetterie du club et compte dans le trafic.",
+    snippet: "La page RP est la vitrine marketplace de l'agence dans Yuno : bannière en tête, logo, bio, réseaux, clubs partenaires (contrats Yuno actifs + clubs externes) et soirées à venir des deux bras. La bannière est une photo carrée 1:1 que l'agence uploade depuis son profil (/agency-app/profile, carte « Bannière de la page RP », retrait possible) ; sans bannière, l'affiche de la prochaine soirée est utilisée automatiquement. Le reste s'alimente tout seul. Le public y arrive par les cartes « RP » des fiches soirée. Un clic sur une soirée externe passe par un interstitiel avant la billetterie du club et compte dans le trafic.",
   },
   "linktree": {
     title: "Le linktree (/p/slug)",
@@ -604,7 +604,7 @@ async function executeTool(
         if (affiliateId) {
           const today = new Date().toISOString().split("T")[0];
           const [a, v, e] = await Promise.all([
-            supabase.from("affiliates").select("linktree_slug, trust_stats").eq("id", affiliateId).maybeSingle(),
+            supabase.from("affiliates").select("linktree_slug, trust_stats, banner_url").eq("id", affiliateId).maybeSingle(),
             supabase.from("affiliate_venues").select("id", { count: "exact", head: true }).eq("affiliate_id", affiliateId).eq("is_active", true),
             supabase.from("affiliate_events").select("id", { count: "exact", head: true })
               .eq("affiliate_id", affiliateId).in("status", ["published", "featured"]).gte("event_date", today),
@@ -621,6 +621,7 @@ async function executeTool(
           checklist: {
             has_slug: !!slug,
             has_logo: !!agency?.logo_url,
+            has_banner: !!arm?.banner_url,
             has_bio: !!agency?.bio?.trim(),
             has_city: !!agency?.city?.trim(),
             has_social: !!(agency?.instagram_url || agency?.tiktok_url || agency?.website_url),

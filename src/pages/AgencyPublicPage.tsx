@@ -47,6 +47,8 @@ type RpProfile = {
   city: string | null;
   bio: string | null;
   avatar_url: string | null;
+  /** Bannière 1:1 choisie par l'agence (profil agence) — sinon fallback auto. */
+  banner_url: string | null;
   instagram: string | null;
   tiktok: string | null;
   website: string | null;
@@ -243,9 +245,10 @@ export default function AgencyPublicPage() {
     (async () => {
       setLoading(true);
       try {
-        const { data: aff } = await supabase
+        // Cast any : banner_url n'est pas encore dans les types générés.
+        const { data: aff } = await (supabase as any)
           .from('affiliates')
-          .select('id, user_id, name, city, bio, avatar_url, instagram, tiktok, website, whatsapp, linktree_slug')
+          .select('id, user_id, name, city, bio, avatar_url, banner_url, instagram, tiktok, website, whatsapp, linktree_slug')
           .eq('linktree_slug', slug)
           .eq('is_active', true)
           .maybeSingle();
@@ -413,9 +416,12 @@ export default function AgencyPublicPage() {
     textDecoration: 'none', textTransform: 'uppercase',
   };
 
-  // Backdrop cinématique : l'affiche de la prochaine soirée donne l'énergie
-  // nightlife ; sinon l'avatar de l'agence ; sinon un dégradé nuit.
-  const heroBackdrop = events.find(e => e.flyer_url)?.flyer_url || profile.avatar_url;
+  // Backdrop : la bannière 1:1 choisie par l'agence prime ; sinon l'affiche de
+  // la prochaine soirée donne l'énergie nightlife ; sinon l'avatar ; sinon un
+  // dégradé nuit. Avec une bannière personnalisée, le hero passe au carré
+  // (plein écran mobile, hauteur plafonnée sur desktop → recadrage centré).
+  const customBanner = profile.banner_url;
+  const heroBackdrop = customBanner || events.find(e => e.flyer_url)?.flyer_url || profile.avatar_url;
   const stats = [
     { value: events.length, label: t('promoterLinktree.eventPlural') },
     clubs.length > 0 ? { value: clubs.length, label: t('affiliate.clubs') } : null,
@@ -428,7 +434,7 @@ export default function AgencyPublicPage() {
     <div className="min-h-screen pb-28" style={{ background: '#0A0A0A' }}>
 
       {/* ══ HERO CINÉMATIQUE ══════════════════════════════════ */}
-      <section className="relative overflow-hidden" style={{ aspectRatio: '16 / 11', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+      <section className="relative overflow-hidden" style={{ aspectRatio: customBanner ? '1 / 1' : '16 / 11', maxHeight: customBanner ? 640 : undefined, borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
         {heroBackdrop ? (
           <motion.img
             initial={reduceMotion ? false : { scale: 1.08, opacity: 0 }}

@@ -13126,7 +13126,7 @@ const es: Record<string, string> = {
   'ohelp.agc.rpPage.title': 'La página RP (/rp/tu-dirección)',
   'ohelp.agc.rpPage.desc': 'Tu vitrina marketplace dentro de Yuno, alimentada sola.',
   'ohelp.agc.rpPage.s1h': 'Lo que el público ve allí',
-  'ohelp.agc.rpPage.s1b': "Tu logo, tu bio y tus redes, tus clubs socios (Yuno con contrato activo Y externos) y tus próximas fiestas de ambos mundos. La página se construye sola a partir de tus contratos y tu catálogo: no hay nada que mantener.",
+  'ohelp.agc.rpPage.s1b': "Un banner en la cabecera, tu logo, tu bio y tus redes, tus clubs socios (Yuno con contrato activo Y externos) y tus próximas fiestas de ambos mundos. El banner es TU foto, en formato cuadrado 1:1: se sube desde el perfil de la agencia (tarjeta «Banner de la página RP», se puede quitar); sin banner, se usa automáticamente el cartel de tu próxima fiesta. El resto se construye solo a partir de tus contratos y tu catálogo: no hay nada que mantener.",
   'ohelp.agc.rpPage.s2h': 'Cómo se llega',
   'ohelp.agc.rpPage.s2b': "En cada ficha de fiesta donde tu agencia está activa, una tarjeta «RP» te presenta al público con un enlace a tu página. Es tu canal de descubrimiento orgánico: los clubbers que aman una fiesta descubren quién la mueve.",
   'ohelp.agc.rpPage.s3h': 'Las fiestas con venta externa',
