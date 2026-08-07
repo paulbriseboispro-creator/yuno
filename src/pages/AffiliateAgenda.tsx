@@ -170,7 +170,15 @@ export default function AffiliateAgenda({ mode }: { mode: Mode }) {
             .eq('linktree_slug', slug)
             .eq('is_active', true)
             .maybeSingle();
-          if (error || !aff) { setLoading(false); return; }
+          if (error || !aff) {
+            // Ancien slug (agence renommée) → redirection canonique.
+            const { data: canonical } = await supabase.rpc('resolve_affiliate_slug', { p_slug: slug });
+            if (canonical && canonical !== slug) {
+              navigate(`/p/${canonical}/agenda`, { replace: true });
+              return;
+            }
+            setLoading(false); return;
+          }
           affiliateId = aff.id;
           setOwnerUserId(aff.user_id ?? null);
           ident = {
@@ -188,7 +196,15 @@ export default function AffiliateAgenda({ mode }: { mode: Mode }) {
             .eq('linktree_slug', slug.toLowerCase())
             .eq('is_active', true)
             .maybeSingle();
-          if (error || !mem) { setLoading(false); return; }
+          if (error || !mem) {
+            // Ancien slug (promoteur renommé) → redirection canonique.
+            const { data: canonical } = await supabase.rpc('resolve_member_slug', { p_slug: slug });
+            if (canonical && canonical !== slug.toLowerCase()) {
+              navigate(`/promo/${canonical}/agenda`, { replace: true });
+              return;
+            }
+            setLoading(false); return;
+          }
           affiliateId = mem.affiliate_id;
           setOwnerUserId(mem.user_id ?? null);
           const { data: org } = await supabase

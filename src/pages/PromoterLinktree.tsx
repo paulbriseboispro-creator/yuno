@@ -805,7 +805,15 @@ export default function PromoterLinktree() {
         .maybeSingle();
 
       if (memError) throw memError;
-      if (!mem) { setNotFound(true); setLoading(false); return; }
+      if (!mem) {
+        // Ancien slug (promoteur renommé) → redirection vers l'URL canonique.
+        const { data: canonical } = await supabase.rpc('resolve_member_slug', { p_slug: slug! });
+        if (canonical && canonical !== slug!.toLowerCase()) {
+          navigate(`/promo/${canonical}`, { replace: true });
+          return;
+        }
+        setNotFound(true); setLoading(false); return;
+      }
       setLinktreeStatus(mem.linktree_status ?? 'approved');
 
       const { data: org } = await supabase

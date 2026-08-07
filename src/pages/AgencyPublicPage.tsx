@@ -249,7 +249,16 @@ export default function AgencyPublicPage() {
           .eq('linktree_slug', slug)
           .eq('is_active', true)
           .maybeSingle();
-        if (!aff) { if (active) { setProfile(null); setLoading(false); } return; }
+        if (!aff) {
+          // Ancien slug (agence renommée) → redirection vers l'URL canonique.
+          const { data: canonical } = await supabase.rpc('resolve_affiliate_slug', { p_slug: slug });
+          if (canonical && canonical !== slug) {
+            navigate(`/rp/${canonical}`, { replace: true });
+            return;
+          }
+          if (active) { setProfile(null); setLoading(false); }
+          return;
+        }
 
         const today = new Date().toISOString().split('T')[0];
         const [externalRes, yunoRes, yunoVenuesRes, externalVenuesRes] = await Promise.all([

@@ -81,10 +81,38 @@ function VenueDescription({ description }: { description: string }) {
 }
 
 export default function VenuePage() {
-  const { slug } = useParams<{ slug: string }>();
+  // /club/:slug accepte le slug courant, l'id historique ou un ancien slug
+  // (club renommé). On résout d'abord vers l'id interne ; si le param n'est
+  // pas l'URL canonique, on redirige (replace) en préservant la query
+  // (?ref promoteur, etc.). Tout le reste de la page travaille sur l'id résolu.
+  const { slug: routeSlug } = useParams<{ slug: string }>();
+  const [resolvedVenueId, setResolvedVenueId] = useState<string | null>(null);
+  const slug = resolvedVenueId ?? undefined;
   const { trackAddToCart } = useVisitorTracking(slug); // Track visitors for this venue
   usePromoterTracking(slug); // Capture promoter code from URL
   const navigate = usePreviewNavigate();
+
+  useEffect(() => {
+    if (!routeSlug) return;
+    let active = true;
+    (async () => {
+      const { data } = await supabase.rpc('resolve_venue_slug', { p_slug: routeSlug });
+      if (!active) return;
+      const row = Array.isArray(data) ? data[0] : null;
+      if (!row) {
+        // Introuvable ou RPC en échec : on laisse le flux existant trancher
+        // (vrai 404 ou retry réseau) en requêtant tel quel.
+        setResolvedVenueId(routeSlug);
+        return;
+      }
+      if (row.slug && row.slug !== routeSlug) {
+        navigate(`/club/${row.slug}${window.location.search}`, { replace: true });
+        return;
+      }
+      setResolvedVenueId(row.venue_id);
+    })();
+    return () => { active = false; };
+  }, [routeSlug, navigate]);
 
   // Promoter link redirect: ?ref=CODE without event → hub page, ?ref=CODE&event=ID → event page
   useEffect(() => {

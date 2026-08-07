@@ -804,7 +804,16 @@ export default function AffiliateLinktree() {
         .maybeSingle();
 
       if (affError) throw affError;
-      if (!aff) { setNotFound(true); setLoading(false); return; }
+      if (!aff) {
+        // Slug introuvable : peut-être un ancien slug (agence renommée) — résoudre
+        // l'alias et rediriger vers l'URL canonique au lieu d'un « introuvable ».
+        const { data: canonical } = await supabase.rpc('resolve_affiliate_slug', { p_slug: slug! });
+        if (canonical && canonical !== slug) {
+          navigate(`/p/${canonical}`, { replace: true });
+          return;
+        }
+        setNotFound(true); setLoading(false); return;
+      }
 
       setAffiliate({
         id: aff.id,
