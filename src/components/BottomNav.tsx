@@ -39,11 +39,18 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
 
   const path = location.pathname;
   const isClubActive =
-    path.startsWith('/club/') || path === '/map' || (isLive && path === '/live');
+    path.startsWith('/club/') || path.startsWith('/affiliate-venue/') || path === '/map' || (isLive && path === '/live');
 
   const handleClubClick = () => {
     if (isLive) {
       navigate('/live');
+      return;
+    }
+    // Sur une page club affiliée (route dédiée /affiliate-venue/…, pas /club/…),
+    // l'onglet Club EST la surface courante → simple remontée en haut, pas de
+    // saut vers /club/<slug natif> qui n'existe pas pour un club affilié.
+    if (path.startsWith('/affiliate-venue/')) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
     if (currentVenueSlug) {

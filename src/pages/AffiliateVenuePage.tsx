@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import {
-  ArrowLeft, Share2, MapPin, Globe, ExternalLink,
+  ArrowLeft, Share2, MapPin, Calendar,
   ChevronDown, ChevronUp, Bell,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +16,7 @@ import { toast } from 'sonner';
 import { shareContent } from '@/lib/share';
 import { useAffiliateVisitorTracking, trackAffiliateClick } from '@/hooks/useAffiliateVisitorTracking';
 import { useFavorites } from '@/hooks/useFavorites';
+import { FavoriteButton } from '@/components/FavoriteButton';
 import { OutboundLink } from '@/components/OutboundLink';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -224,12 +226,11 @@ export default function AffiliateVenuePage() {
   const todayStr = new Date().toISOString().split('T')[0];
   const isOpenTonight = events.some(e => e.event_date === todayStr);
 
-  // Stats bar items (non-null)
+  // Stats bar items (non-null) — musique / ville / âge (pas de tenue)
   const statItems: { label: string; value: string }[] = [
     venue.genres.length > 0 ? { label: t('affiliate.statMusic').toUpperCase(), value: venue.genres[0].toUpperCase() } : null,
-    venue.city ? { label: t('affiliate.statArea').toUpperCase(), value: venue.city.toUpperCase() } : null,
+    venue.city ? { label: t('affiliate.statCity').toUpperCase(), value: venue.city.toUpperCase() } : null,
     venue.min_age ? { label: t('affiliate.statAge').toUpperCase(), value: `${venue.min_age}+` } : null,
-    venue.dress_code ? { label: t('affiliate.statDress').toUpperCase(), value: venue.dress_code.toUpperCase() } : null,
   ].filter(Boolean) as { label: string; value: string }[];
 
   // Info card rows
@@ -273,8 +274,8 @@ export default function AffiliateVenuePage() {
             <button
               onClick={() => navigate(-1)}
               aria-label={t('affiliate.back')}
-              className="flex items-center justify-center h-9 w-9 rounded-full cursor-pointer"
-              style={{ background: 'rgba(10,10,10,0.65)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.12)' }}
+              className="flex items-center justify-center h-9 w-9 hover:opacity-80 transition-opacity cursor-pointer"
+              style={{ borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: 'none' }}
             >
               <ArrowLeft className="h-4 w-4 text-white" />
             </button>
@@ -285,8 +286,8 @@ export default function AffiliateVenuePage() {
             <button
               onClick={() => venue && toggleFavorite('affiliate_venue', venue.id)}
               aria-label={t('subscribe.action')}
-              className="flex items-center justify-center h-9 w-9 rounded-full cursor-pointer"
-              style={{ background: 'rgba(10,10,10,0.65)', backdropFilter: 'blur(10px)', border: `1px solid ${venue && isFavorite('affiliate_venue', venue.id) ? 'rgba(232,25,44,0.50)' : 'rgba(255,255,255,0.12)'}` }}
+              className="flex items-center justify-center h-9 w-9 hover:opacity-80 transition-opacity cursor-pointer"
+              style={{ borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: 'none' }}
             >
               <Bell
                 className="h-4 w-4"
@@ -296,8 +297,8 @@ export default function AffiliateVenuePage() {
             <button
               onClick={handleShare}
               aria-label={t('affiliate.share')}
-              className="flex items-center justify-center h-9 w-9 rounded-full cursor-pointer"
-              style={{ background: 'rgba(10,10,10,0.65)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.12)' }}
+              className="flex items-center justify-center h-9 w-9 hover:opacity-80 transition-opacity cursor-pointer"
+              style={{ borderRadius: '2px', background: 'rgba(0,0,0,0.40)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', border: 'none' }}
             >
               <Share2 className="h-4 w-4 text-white" />
             </button>
@@ -394,20 +395,16 @@ export default function AffiliateVenuePage() {
           {/* Follow button */}
           <button
             onClick={() => toggleFavorite('affiliate_venue', venue.id)}
-            className="inline-flex items-center gap-2 font-mono font-semibold tracking-[0.08em] uppercase transition-colors mb-2"
+            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-[10px] text-xs font-medium transition-colors mb-2"
             style={{
-              fontSize: '10px',
-              height: '28px',
-              padding: '0 12px',
-              background: isFavorite('affiliate_venue', venue.id) ? 'rgba(232,25,44,0.08)' : 'transparent',
-              border: `1px solid ${isFavorite('affiliate_venue', venue.id) ? 'rgba(232,25,44,0.40)' : 'rgba(255,255,255,0.18)'}`,
-              color: isFavorite('affiliate_venue', venue.id) ? '#E8192C' : '#9A9A9A',
-              borderRadius: '2px',
+              background: isFavorite('affiliate_venue', venue.id) ? 'rgba(232,25,44,0.10)' : 'transparent',
+              border: `1px solid ${isFavorite('affiliate_venue', venue.id) ? 'rgba(232,25,44,0.40)' : 'rgba(255,255,255,0.14)'}`,
+              color: isFavorite('affiliate_venue', venue.id) ? '#E8192C' : '#E5E5E5',
               cursor: 'pointer',
             }}
           >
             <Bell
-              className="h-3 w-3"
+              className="h-3.5 w-3.5"
               style={{ fill: isFavorite('affiliate_venue', venue.id) ? '#E8192C' : 'transparent' }}
             />
             {isFavorite('affiliate_venue', venue.id) ? t('subscribe.active') : t('subscribe.action')}
@@ -460,122 +457,70 @@ export default function AffiliateVenuePage() {
               </span>
             </div>
 
-            {/* Event cards — 16:9 poster style, identique au native */}
-            <div className="px-5 pt-4 pb-2 space-y-3">
+            {/* Cards — vertical single-column list (1:1 poster + text below), identique aux pages club Yuno */}
+            <div className="flex flex-col gap-6 px-5 pt-4 pb-2">
               {events.map((event, index) => {
                 const timeStr = event.start_time ? event.start_time.slice(0, 5) : '22:00';
                 const dateObj = new Date(`${event.event_date}T${timeStr}:00`);
-                const isToday = event.event_date === todayStr;
-                const dateLabel = isToday
-                  ? t('affiliate.tonight').toUpperCase()
-                  : format(dateObj, 'EEE dd MMM', { locale: dateLocale }).toUpperCase();
-                const timeLabel = timeStr;
-
-                const priceLabel = event.is_free
-                  ? t('affiliate.free')
-                  : event.is_sold_out
-                  ? t('event.soldOut')
-                  : event.price_from != null
-                  ? `${event.price_from.toFixed(2)}€`
-                  : null;
 
                 return (
-                  <article
+                  <motion.article
                     key={event.id}
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.06 }}
                     onClick={() => navigate(`/affiliate-event/${event.slug}`)}
-                    className="cursor-pointer overflow-hidden"
-                    style={{
-                      borderRadius: 4,
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      animationDelay: `${index * 60}ms`,
-                    }}
+                    className="cursor-pointer group"
                   >
-                    {/* Poster 16:9 */}
-                    <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', background: '#111', overflow: 'hidden' }}>
+                    {/* Poster — 1:1 */}
+                    <div className="relative aspect-square rounded-xl overflow-hidden bg-muted">
                       {event.flyer_url ? (
                         <img
                           src={event.flyer_url}
                           alt={event.name}
-                          className="absolute inset-0 w-full h-full object-cover"
+                          className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           loading="lazy"
                         />
                       ) : (
-                        <div
-                          className="absolute inset-0"
-                          style={{ background: 'linear-gradient(160deg, #1a0808 0%, #3d0f18 100%)' }}
-                        />
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center">
+                          <Calendar className="h-12 w-12 text-muted-foreground" />
+                        </div>
                       )}
-                      {/* Bottom gradient */}
+
+                      {/* Favorite (heart) — top-right of poster */}
                       <div
-                        className="absolute inset-0"
-                        style={{ background: 'linear-gradient(to top, rgba(10,10,10,0.94) 0%, rgba(10,10,10,0) 55%)' }}
-                      />
-
-                      {/* Genre badge */}
-                      {event.genres.length > 0 && (
-                        <div className="absolute top-3 left-3 z-10">
-                          <span className="genre-tag">{event.genres[0]}</span>
-                        </div>
-                      )}
-
-                      {/* SOLD OUT badge */}
-                      {event.is_sold_out && (
-                        <div className="absolute top-3 right-3 z-10">
-                          <span
-                            className="font-mono font-bold tracking-[0.14em] text-white px-2 py-1"
-                            style={{ fontSize: '9px', background: 'rgba(232,25,44,0.85)', borderRadius: '2px' }}
-                          >
-                            {t('event.soldOut').toUpperCase()}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Date + title overlay */}
-                      <div className="absolute bottom-0 left-0 right-0 z-10 px-4 pb-3.5">
-                        <p
-                          className="font-mono uppercase mb-1.5"
-                          style={{ fontSize: '10px', color: 'rgba(255,255,255,0.50)', letterSpacing: '0.14em' }}
-                        >
-                          {dateLabel}{!isToday && ` · ${timeLabel}`}
-                        </p>
-                        <h3
-                          className="font-display font-bold text-white uppercase"
-                          style={{ fontSize: 'clamp(20px, 5.5vw, 30px)', letterSpacing: '-0.02em', lineHeight: 0.93 }}
-                        >
-                          {event.name}
-                        </h3>
-                      </div>
-                    </div>
-
-                    {/* Bottom strip */}
-                    <div
-                      className="flex items-center justify-between px-4 py-3"
-                      style={{ background: '#0e0e0e', borderTop: '1px solid rgba(255,255,255,0.06)' }}
-                    >
-                      <p
-                        className="font-mono truncate"
-                        style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.08em', textTransform: 'uppercase' }}
+                        className="absolute top-3 right-3 z-10 flex items-center justify-center rounded-full w-8 h-8"
+                        style={{ background: 'rgba(10,10,10,0.55)', border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)' }}
+                        onClick={(e) => e.stopPropagation()}
                       >
-                        {venue.name}
-                        {!isToday && <span style={{ color: '#3A3A3E' }}> · {timeLabel}</span>}
-                      </p>
-                      <div className="flex items-center gap-2.5 shrink-0 ml-3">
-                        {priceLabel && (
-                          <span
-                            className="font-mono font-bold"
-                            style={{
-                              fontSize: '13px',
-                              color: event.is_sold_out ? '#5A5A5E' : event.is_free ? '#9A9A9A' : '#E8192C',
-                              letterSpacing: '0.02em',
-                            }}
-                          >
-                            {priceLabel}
-                          </span>
-                        )}
-                        <span className="font-mono" style={{ fontSize: '12px', color: '#3A3A3E' }}>→</span>
+                        <FavoriteButton
+                          type="affiliate_event"
+                          id={event.id}
+                          className="h-8 w-8 rounded-full border-0 bg-transparent shadow-none ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 p-0"
+                          size="icon"
+                          iconClassName="h-3.5 w-3.5"
+                        />
                       </div>
                     </div>
-                  </article>
+
+                    {/* Text — separated below the image */}
+                    <div className="pt-2.5">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                        {format(dateObj, 'EEE d MMM', { locale: dateLocale })}
+                      </p>
+                      <p className="text-sm font-bold text-foreground mt-0.5 line-clamp-2 leading-tight">
+                        {event.name}
+                      </p>
+                      {venue.city && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                          <span className="text-[11px] text-muted-foreground truncate">
+                            {venue.city}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </motion.article>
                 );
               })}
             </div>
@@ -685,48 +630,6 @@ export default function AffiliateVenuePage() {
                   {t('affiliate.openInMaps')} →
                 </a>
               )}
-            </div>
-          </div>
-        )}
-
-        {/* ===== ORGANISATEUR PARTENAIRE ===== */}
-        {affiliate && (
-          <div className="px-5 pt-10">
-            <div style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px', marginBottom: '12px' }}>
-              <p className="yuno-rule">{t('affiliate.organizer')}</p>
-            </div>
-            <div
-              style={{ border: '1px solid rgba(255,255,255,0.06)', borderRadius: '4px', padding: '12px 16px' }}
-            >
-              <button
-                onClick={() => affiliate.linktree_slug && navigate(`/p/${affiliate.linktree_slug}`)}
-                className="flex items-center gap-3 min-w-0 w-full hover:opacity-80 transition-opacity text-left"
-                style={{ cursor: affiliate.linktree_slug ? 'pointer' : 'default', background: 'transparent', border: 'none' }}
-              >
-                <div
-                  className="shrink-0 overflow-hidden"
-                  style={{ width: 48, height: 48, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.08)', background: '#191919' }}
-                >
-                  {affiliate.avatar_url
-                    ? <img src={affiliate.avatar_url} alt={affiliate.name} className="w-full h-full object-cover" />
-                    : <div className="w-full h-full flex items-center justify-center font-mono font-bold" style={{ fontSize: '12px', color: '#5A5A5E' }}>{affiliate.name.slice(0, 2).toUpperCase()}</div>
-                  }
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p
-                    className="font-mono truncate"
-                    style={{ fontSize: '13px', color: '#E5E5E5', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600 }}
-                  >
-                    {affiliate.name}
-                  </p>
-                  <p className="font-mono mt-1" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.04em' }}>
-                    {t('affiliate.yunoPartner')}
-                  </p>
-                </div>
-                {affiliate.linktree_slug && (
-                  <span className="text-[#3A3A3E] text-xs shrink-0 ml-2">→</span>
-                )}
-              </button>
             </div>
           </div>
         )}

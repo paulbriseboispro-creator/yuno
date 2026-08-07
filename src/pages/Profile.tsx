@@ -218,6 +218,7 @@ export default function Profile() {
          isVipHost={userRoles.includes('vip_host')}
           isCloakroom={userRoles.includes('cloakroom')}
           isOrganizer={isOrganizerProfile || userRoles.includes('organizer')}
+          isAgency={userRoles.includes('agency')}
           isAffiliate={isAffiliate}
           isAffiliatePromoter={isAffiliatePromoter}
         />

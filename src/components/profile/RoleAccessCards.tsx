@@ -20,6 +20,7 @@ interface RoleAccessCardsProps {
   isVipHost: boolean;
   isCloakroom: boolean;
   isOrganizer: boolean;
+  isAgency: boolean;
   isAffiliate: boolean;
   isAffiliatePromoter: boolean;
 }
@@ -38,6 +39,7 @@ export function RoleAccessCards({
   isVipHost,
   isCloakroom,
   isOrganizer,
+  isAgency,
   isAffiliate,
   isAffiliatePromoter,
 }: RoleAccessCardsProps) {
@@ -164,7 +166,12 @@ export function RoleAccessCards({
     { show: isVipHost, icon: Crown, label: t('profile.vipHostDashboard'), path: '/vip-host', role: 'vip_host', color: RARE, bg: RARE_BG, security: 'pin' as const },
     { show: isCloakroom, icon: Shirt, label: t('profile.cloakroomDashboard'), path: '/cloakroom', role: 'cloakroom', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
     { show: isOrganizer, icon: Building2, label: t('profile.organizerDashboard'), path: '/organizer-app', role: 'organizer', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
-    { show: isAffiliate, icon: Link2, label: t('profile.affiliateDashboard'), path: '/affiliate', role: 'affiliate', color: NEUTRAL, bg: NEUTRAL_BG, security: undefined },
+    // Fusion agence↔affilié : le chef d'agence a UN cockpit unifié (/agency-app,
+    // sa sidebar couvre déjà les clubs externes/soirées). On expose l'entrée
+    // « Agence » et on masque l'ancienne carte « Affilié » redondante — /affiliate
+    // redirige de toute façon un admin vers /agency-app.
+    { show: isAgency, icon: Building2, label: t('profile.agencyDashboard'), path: '/agency-app', role: 'agency', color: NEUTRAL, bg: NEUTRAL_BG, security: undefined },
+    { show: isAffiliate && !isAgency, icon: Link2, label: t('profile.affiliateDashboard'), path: '/affiliate', role: 'affiliate', color: NEUTRAL, bg: NEUTRAL_BG, security: undefined },
     { show: isAffiliatePromoter, icon: Megaphone, label: t('profile.affiliatePromoterDashboard') || 'Espace Promoteur', path: '/affiliate/promoteur', role: 'affiliate_member', color: NEUTRAL, bg: NEUTRAL_BG, security: 'pin' as const },
   ];
 
