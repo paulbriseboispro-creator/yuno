@@ -72,6 +72,20 @@ export const AUTO_PUSH: Record<string, AutoPushDef> = {
       },
     },
   },
+  // ── Booking DJ ──────────────────────────────────────────────────────────
+  // Une demande de booking est une proposition de DATE : sans push, le DJ ne
+  // la découvre qu'en ouvrant son app (inbox pull) et le club attend pour rien.
+  dj_booking_request: {
+    logType: "transactional",
+    audience: "pro",
+    variants: {
+      default: {
+        fr: { title: "Demande de booking 🎧", body: "{booker} te propose un set le {date}. Réponds depuis ton app." },
+        en: { title: "Booking request 🎧", body: "{booker} wants to book you for a set on {date}. Reply from your app." },
+        es: { title: "Solicitud de booking 🎧", body: "{booker} te propone un set el {date}. Responde desde tu app." },
+      },
+    },
+  },
   // Récap hebdo poussé au pro : l'habitude qui donne une raison de faire plus d'events.
   audience_weekly_recap: {
     logType: "reminder",

@@ -276,6 +276,9 @@ verify_jwt = false
 [functions.notify-split-proposal]
 verify_jwt = false
 
+[functions.notify-dj-booking-request]
+verify_jwt = false
+
 [functions.notify-top-customer-scan]
 verify_jwt = false
 
