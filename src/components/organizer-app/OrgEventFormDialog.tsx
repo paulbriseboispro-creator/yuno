@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { notifyDjLineup } from '@/lib/djNotify';
+import { loadLineupEntries, saveLineup, type LineupEntry } from '@/lib/djLineup';
 import type { TablesUpdate } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
@@ -172,7 +173,8 @@ export function OrgEventFormDialog({
   // Metadata (Yuno standard)
   const [musicGenres, setMusicGenres] = useState<string[]>(['Open Format']);
   const [eventType, setEventType] = useState<string>('club');
-  const [lineupDJIds, setLineupDJIds] = useState<string[]>([]);
+  const [lineupEntries, setLineupEntries] = useState<LineupEntry[]>([]);
+  const [initialLineupEntries, setInitialLineupEntries] = useState<LineupEntry[]>([]);
 
   // Org-specific
   const [eventKind, setEventKind] = useState<EventKind>('public_event');
@@ -227,7 +229,8 @@ export function OrgEventFormDialog({
       setIsActive(true);
       setMusicGenres(['Open Format']);
       setEventType('club');
-      setLineupDJIds([]);
+      setLineupEntries([]);
+      setInitialLineupEntries([]);
       setEventKind('public_event');
       setCollabMode('solo');
       setPartnerVenueId('');
@@ -276,12 +279,10 @@ export function OrgEventFormDialog({
         setPosterPreview(ev.poster_url || '');
         setPosterPosition((ev.poster_position as any) || null);
 
-        // DJ lineup
-        const { data: djs } = await supabase
-          .from('event_djs')
-          .select('dj_id')
-          .eq('event_id', eventId);
-        setLineupDJIds((djs || []).map((d) => d.dj_id));
+        // DJ lineup — confirmés (event_djs) + demandes de booking en attente
+        const entries = await loadLineupEntries(eventId);
+        setLineupEntries(entries);
+        setInitialLineupEntries(entries);
       }
       setLoading(false);
     })();
@@ -423,14 +424,30 @@ export function OrgEventFormDialog({
         savedId = data.id;
       }
 
-      // Sync DJ lineup
+      // Sync DJ lineup — handshake booking : ajouts directs écrits dans
+      // event_djs, DJs avec compte notifiés par une demande qu'ils valident.
       if (savedId) {
-        await supabase.from('event_djs').delete().eq('event_id', savedId);
-        if (lineupDJIds.length > 0) {
-          await supabase
-            .from('event_djs')
-            .insert(lineupDJIds.map((djId) => ({ event_id: savedId!, dj_id: djId })));
-          notifyDjLineup(savedId, lineupDJIds);
+        const res = await saveLineup({
+          eventId: savedId,
+          eventLocalDate: startAt.slice(0, 10),
+          scope: { organizerUserId },
+          entries: lineupEntries,
+          initialEntries: initialLineupEntries,
+          eventGenres: musicGenres,
+        });
+        if (res.addedDirectIds.length > 0) notifyDjLineup(savedId, res.addedDirectIds);
+        if (res.requestsSent > 0) {
+          toast.success(t('Demande de booking envoyée', 'Booking request sent'), {
+            description: t(
+              `${res.requestsSent} DJ rejoindront l'affiche dès qu'ils auront accepté.`,
+              `${res.requestsSent} DJ(s) will join the line-up once they accept.`,
+            ),
+          });
+        }
+        for (const err of res.errors) {
+          toast.error(t(`Demande impossible pour ${err.name}`, `Could not send the request for ${err.name}`), {
+            description: err.message,
+          });
         }
       }
 
@@ -562,8 +579,11 @@ export function OrgEventFormDialog({
             {/* DJ lineup */}
             <DJLineupSelector
               eventId={eventId || undefined}
-              selectedDJIds={lineupDJIds}
-              onChange={setLineupDJIds}
+              entries={lineupEntries}
+              onChange={setLineupEntries}
+              defaultStart={startAt ? startAt.slice(11, 16) : undefined}
+              defaultEnd={endAt ? endAt.slice(11, 16) : undefined}
+              eventLocalDate={startAt ? startAt.slice(0, 10) : undefined}
             />
 
             {/* Dates */}

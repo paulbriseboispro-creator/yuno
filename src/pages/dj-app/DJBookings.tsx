@@ -14,6 +14,7 @@ import { useDJStripeConnect } from '@/hooks/useDJStripeConnect';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { makeDjT } from '@/i18n/djTranslate';
 import { downloadDJContractPDF } from '@/lib/generateDJContractPDF';
+import { notifyDjLineup } from '@/lib/djNotify';
 import { DJPage, DJHeading, PCard, Pill, ZoneHeading, DJSpinner, RED, POS, NEG, WARN, T1, T2, T3, BORDER, INNER_BG } from '@/components/dj/dj-ui';
 
 const eur = (cents: number) => (cents / 100).toFixed(cents % 100 === 0 ? 0 : 2);
@@ -99,13 +100,29 @@ export default function DJBookings() {
   const respond = async (id: string, accept: boolean) => {
     setBusyId(id);
     try {
-      const { error } = await supabase.rpc(
+      const { data: setId, error } = await supabase.rpc(
         accept ? 'accept_dj_booking_request' : 'decline_dj_booking_request',
         { p_id: id },
       );
       if (error) throw error;
+      // Demande liée à une soirée : l'acceptation vient de t'inscrire au
+      // line-up public (RPC) — on annonce ta présence à tes followers.
+      let onLineup = false;
+      if (accept && typeof setId === 'string') {
+        const { data: set } = await supabase
+          .from('dj_sets')
+          .select('dj_id, event_id')
+          .eq('id', setId)
+          .maybeSingle();
+        if (set?.event_id && set?.dj_id) {
+          onLineup = true;
+          notifyDjLineup(set.event_id, [set.dj_id]);
+        }
+      }
       toast.success(accept
-        ? tt('Booking accepté — ajouté à ton planning', 'Booking accepted — added to your schedule', 'Reserva aceptada — añadida a tu agenda')
+        ? (onLineup
+          ? tt('Booking accepté — tu es à l\'affiche de la soirée', 'Booking accepted — you\'re on the event line-up', 'Reserva aceptada — estás en el cartel')
+          : tt('Booking accepté — ajouté à ton planning', 'Booking accepted — added to your schedule', 'Reserva aceptada — añadida a tu agenda'))
         : tt('Demande refusée', 'Request declined', 'Solicitud rechazada'));
       await Promise.all([refetchBookingRequests(), refetchAllSets(), loadAvail()]);
     } catch (e) {

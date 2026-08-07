@@ -12,6 +12,7 @@ import { fr, es, enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { PARIS_TIMEZONE, toParisTime, fromParisTime, nowInParis } from '@/lib/timezone';
 import { notifyDjLineup } from '@/lib/djNotify';
+import { loadLineupEntries, saveLineup, type LineupEntry } from '@/lib/djLineup';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
@@ -109,7 +110,8 @@ export default function OwnerEvents() {
   const [posterPosition, setPosterPosition] = useState<PosterPosition | null>(null);
   const [showArchivedEvents, setShowArchivedEvents] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [lineupDJIds, setLineupDJIds] = useState<string[]>([]);
+  const [lineupEntries, setLineupEntries] = useState<LineupEntry[]>([]);
+  const [initialLineupEntries, setInitialLineupEntries] = useState<LineupEntry[]>([]);
   const [formData, setFormData] = useState({
     title: '', description: '', posterUrl: '', startAt: '', endAt: '',
     isActive: true, musicGenres: ['Open Format'] as string[], eventType: 'club',
@@ -280,6 +282,42 @@ export default function OwnerEvents() {
     return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
   };
 
+  /**
+   * Persiste le line-up via le handshake booking : ajouts directs (profils sans
+   * compte) écrits dans event_djs, DJs avec compte notifiés par une demande de
+   * booking qu'ils valident depuis leur app — l'acceptation les inscrit à
+   * l'affiche. Retourne le résultat pour le diff send-event-update.
+   */
+  const persistLineup = async (eventId: string) => {
+    const res = await saveLineup({
+      eventId,
+      eventLocalDate: formData.startAt.slice(0, 10),
+      scope: isOrganizerScope ? { organizerUserId } : { venueId },
+      entries: lineupEntries,
+      initialEntries: initialLineupEntries,
+      eventGenres: formData.musicGenres,
+    });
+    if (res.addedDirectIds.length > 0) notifyDjLineup(eventId, res.addedDirectIds);
+    if (res.requestsSent > 0) {
+      toast.success(
+        tl('Demande de booking envoyée', 'Booking request sent', 'Solicitud de booking enviada'),
+        { description: tl(
+          `${res.requestsSent} DJ rejoindront l'affiche dès qu'ils auront accepté.`,
+          `${res.requestsSent} DJ(s) will join the line-up once they accept.`,
+          `${res.requestsSent} DJ(s) se unirán al cartel cuando acepten.`,
+        ) },
+      );
+    }
+    for (const err of res.errors) {
+      toast.error(tl(
+        `Demande impossible pour ${err.name}`,
+        `Could not send the request for ${err.name}`,
+        `No se pudo enviar la solicitud para ${err.name}`,
+      ), { description: err.message });
+    }
+    return res;
+  };
+
   // Organizer event save — visibility (public/private), collab mode, partner club, secret venue, 1:1 poster.
   const saveOrganizerEvent = async ({ startAtUTC, endAtUTC }: { startAtUTC: string; endAtUTC: string }) => {
     const sanitize = (url: string) => (url && (url.startsWith('blob:') || url.startsWith('data:')) ? '' : url);
@@ -326,11 +364,7 @@ export default function OwnerEvents() {
       savedId = data.id;
     }
     if (savedId) {
-      await supabase.from('event_djs').delete().eq('event_id', savedId);
-      if (lineupDJIds.length > 0) {
-        await supabase.from('event_djs').insert(lineupDJIds.map((djId) => ({ event_id: savedId!, dj_id: djId })));
-        notifyDjLineup(savedId, lineupDJIds);
-      }
+      await persistLineup(savedId);
     }
     toast.success(editingEvent ? t('owner.toastEventUpdated') : t('owner.toastEventCreated'));
     return savedId;
@@ -418,14 +452,9 @@ export default function OwnerEvents() {
           venue_id: venueId, minors_disabled: minorsDisabled, music_genres: formData.musicGenres, event_type: formData.eventType,
         }).eq('id', editingEvent.id);
         if (error) throw error;
-        const { data: oldDjs } = await supabase.from('event_djs').select('dj_id').eq('event_id', editingEvent.id);
-        const oldDjIds = (oldDjs || []).map(d => d.dj_id).sort();
-        await supabase.from('event_djs').delete().eq('event_id', editingEvent.id);
-        if (lineupDJIds.length > 0) await supabase.from('event_djs').insert(lineupDJIds.map(djId => ({ event_id: editingEvent.id, dj_id: djId })));
-        // Notify followers only for DJs newly added to this line-up (not on every edit).
-        const addedDjIds = lineupDJIds.filter(id => !oldDjIds.includes(id));
-        if (addedDjIds.length > 0) notifyDjLineup(editingEvent.id, addedDjIds);
-        const newDjIdsSorted = [...lineupDJIds].sort();
+        const oldDjIds = initialLineupEntries.filter(e => e.status === 'confirmed').map(e => e.djId).sort();
+        const lineupRes = await persistLineup(editingEvent.id);
+        const newDjIdsSorted = [...lineupRes.directIds].sort();
         const djsChanged = JSON.stringify(oldDjIds) !== JSON.stringify(newDjIdsSorted);
         const timeChanged = new Date(editingEvent.startAt).toISOString() !== startAtUTC || new Date(editingEvent.endAt).toISOString() !== endAtUTC;
         const descChanged = (editingEvent.description || '') !== (formData.description || '');
@@ -448,9 +477,8 @@ export default function OwnerEvents() {
           venue_id: venueId, minors_disabled: minorsDisabled, music_genres: formData.musicGenres, event_type: formData.eventType,
         }).select('id').single();
         if (error) throw error;
-        if (newEvent && lineupDJIds.length > 0) {
-          await supabase.from('event_djs').insert(lineupDJIds.map(djId => ({ event_id: newEvent.id, dj_id: djId })));
-          notifyDjLineup(newEvent.id, lineupDJIds);
+        if (newEvent && lineupEntries.length > 0) {
+          await persistLineup(newEvent.id);
         }
         toast.success(t('owner.toastEventCreated'));
         await proposeIfNeeded(newEvent?.id);
@@ -679,8 +707,9 @@ export default function OwnerEvents() {
       musicGenres: (event as Event & { musicGenres?: string[] }).musicGenres || ['Open Format'],
       eventType: (event as Event & { eventType?: string }).eventType || 'club',
     });
-    const { data: eventDjs } = await supabase.from('event_djs').select('dj_id').eq('event_id', event.id);
-    setLineupDJIds((eventDjs || []).map(ed => ed.dj_id));
+    const entries = await loadLineupEntries(event.id);
+    setLineupEntries(entries);
+    setInitialLineupEntries(entries);
     const { data: mdRow } = await supabase.from('events').select('minors_disabled').eq('id', event.id).maybeSingle();
     setMinorsDisabled(mdRow?.minors_disabled ?? false);
     // Contrat vivant + rattachement courant : c'est ce qui permet de proposer une
@@ -727,7 +756,7 @@ export default function OwnerEvents() {
   };
 
   const resetForm = () => {
-    setEditingEvent(null); setPosterFile(null); setPosterPreview(''); setPosterPosition(null); setLineupDJIds([]);
+    setEditingEvent(null); setPosterFile(null); setPosterPreview(''); setPosterPosition(null); setLineupEntries([]); setInitialLineupEntries([]);
     setFormData({ title: '', description: '', posterUrl: '', startAt: '', endAt: '', isActive: true, musicGenres: ['Open Format'], eventType: 'club' });
     setEventKind('public_event'); setCollabMode('solo'); setPartnerVenueId(''); setPartnerOrganizerId('');
     setCollabResponsibilities(defaultResponsibilities('co_event')); setLiveContract(null);
@@ -1078,7 +1107,14 @@ export default function OwnerEvents() {
             </div>
 
             {/* DJ Lineup */}
-            <DJLineupSelector eventId={editingEvent?.id} selectedDJIds={lineupDJIds} onChange={setLineupDJIds} />
+            <DJLineupSelector
+              eventId={editingEvent?.id}
+              entries={lineupEntries}
+              onChange={setLineupEntries}
+              defaultStart={formData.startAt ? formData.startAt.slice(11, 16) : undefined}
+              defaultEnd={formData.endAt ? formData.endAt.slice(11, 16) : undefined}
+              eventLocalDate={formData.startAt ? formData.startAt.slice(0, 10) : undefined}
+            />
 
             {/* Dates */}
             <div className="grid grid-cols-2 gap-3">
