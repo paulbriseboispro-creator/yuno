@@ -11958,6 +11958,8 @@ const fr: Record<string, string> = {
   'collabResp.readOnly': "Confié à l'autre partie",
   'collabResp.lockedByContract': "Réparti par le contrat signé. Pour changer, proposez un avenant.",
   'collabResp.seriesNote': "Cette répartition s'applique à toutes les soirées de la série.",
+  'adminAutoPush.k.dj_booking_request.name': "Demande de booking DJ",
+  'adminAutoPush.k.dj_booking_request.desc': "Pousse le DJ (app Yuno Pro) quand un club ou un organisateur lui envoie une demande de booking — depuis le formulaire de soirée ou la marketplace Book DJ.",
   'adminAutoPush.k.collab_amendment_proposed.name': "Avenant de collaboration proposé",
   'adminAutoPush.k.collab_amendment_proposed.desc': "Prévient la partie qui doit contresigner qu'un avenant modifiant la répartition des responsabilités (et éventuellement le partage des revenus) attend sa signature.",
   'adminAutoPush.k.collab_amendment_signed.name': "Avenant de collaboration signé",

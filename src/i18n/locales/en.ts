@@ -11887,6 +11887,8 @@ const en: Record<string, string> = {
   'collabResp.readOnly': "Held by the other side",
   'collabResp.lockedByContract': "Set by the signed contract. To change it, propose an amendment.",
   'collabResp.seriesNote': "This split applies to every night in the series.",
+  'adminAutoPush.k.dj_booking_request.name': "DJ booking request",
+  'adminAutoPush.k.dj_booking_request.desc': "Pushes the DJ (Yuno Pro app) when a club or organizer sends them a booking request — from the event form or the Book DJ marketplace.",
   'adminAutoPush.k.collab_amendment_proposed.name': "Collaboration amendment proposed",
   'adminAutoPush.k.collab_amendment_proposed.desc': "Tells the counter-signing party that an amendment changing the allocation of responsibilities (and possibly the revenue split) is awaiting their signature.",
   'adminAutoPush.k.collab_amendment_signed.name': "Collaboration amendment signed",

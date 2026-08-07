@@ -44,6 +44,7 @@ const CATALOG: { key: string; category: Category }[] = [
   { key: 'promoter_payout_disputed', category: 'transactional' },
   { key: 'collab_amendment_proposed', category: 'transactional' },
   { key: 'collab_amendment_signed', category: 'transactional' },
+  { key: 'dj_booking_request', category: 'transactional' },
   { key: 'event_reminder_4h', category: 'reminder' },
   { key: 'event_reminder_30m', category: 'reminder' },
   { key: 'promoter_payout_reminder', category: 'reminder' },

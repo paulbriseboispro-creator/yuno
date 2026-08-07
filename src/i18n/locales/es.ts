@@ -12001,6 +12001,8 @@ const es: Record<string, string> = {
   'collabResp.readOnly': "A cargo de la otra parte",
   'collabResp.lockedByContract': "Definido por el contrato firmado. Para cambiarlo, propone una adenda.",
   'collabResp.seriesNote': "Este reparto se aplica a todas las noches de la serie.",
+  'adminAutoPush.k.dj_booking_request.name': "Solicitud de booking DJ",
+  'adminAutoPush.k.dj_booking_request.desc': "Envía push al DJ (app Yuno Pro) cuando un club u organizador le manda una solicitud de booking — desde el formulario del evento o el marketplace Book DJ.",
   'adminAutoPush.k.collab_amendment_proposed.name': "Adenda de colaboración propuesta",
   'adminAutoPush.k.collab_amendment_proposed.desc': "Avisa a la parte que debe refrendar que una adenda que cambia el reparto de responsabilidades (y quizá el de ingresos) espera su firma.",
   'adminAutoPush.k.collab_amendment_signed.name': "Adenda de colaboración firmada",
