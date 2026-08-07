@@ -115,9 +115,13 @@ function RpEventCard({
   const favType = ev.yuno_event_id ? 'event' : 'affiliate_event';
   const liked = isFavorite(favType, ev.id);
 
-  const when = new Date(`${ev.event_date}T${(ev.start_time || '22:00')}:00`);
-  const dateLabel = format(when, 'dd MMM', { locale }).toUpperCase();
-  const timeLabel = ev.start_time || format(when, 'HH:mm');
+  // start_time arrive en "HH:MM:SS" (colonne Postgres `time`) : normaliser en
+  // "HH:MM" avant de rebâtir l'ISO, sinon "…T22:30:00:00" = Invalid Date et le
+  // format() ci-dessous throw → toute la page RP publique tombe en erreur.
+  const startHm = (ev.start_time || '22:00').slice(0, 5);
+  const when = new Date(`${ev.event_date}T${startHm}:00`);
+  const dateLabel = Number.isNaN(when.getTime()) ? '' : format(when, 'dd MMM', { locale }).toUpperCase();
+  const timeLabel = startHm;
 
   const priceNode = ev.is_free
     ? <span className="font-mono font-bold shrink-0" style={{ fontSize: '12px', color: '#E8192C', letterSpacing: '0.02em' }}>{t('promoterLinktree.free').toUpperCase()}</span>

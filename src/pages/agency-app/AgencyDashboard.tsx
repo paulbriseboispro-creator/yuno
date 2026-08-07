@@ -106,12 +106,20 @@ export default function AgencyDashboard() {
     const external = extWeek.map(e => ({
       key: `x-${e.id}`,
       name: e.name,
-      when: new Date(`${e.event_date}T${e.start_time ?? '23:00'}:00`),
+      // start_time arrive en "HH:MM:SS" (colonne Postgres `time`) : normaliser
+      // en "HH:MM" avant de rebâtir l'ISO, sinon "…T23:59:00:00" = Invalid Date
+      // et le format() de date-fns throw → tout le cockpit tombe en erreur.
+      when: new Date(`${e.event_date}T${(e.start_time ?? '23:00').slice(0, 5)}:00`),
       venue: e.venue_name,
       mode: 'external' as const,
       extra: null as number | null,
     }));
-    return [...yuno, ...external].sort((a, b) => a.when.getTime() - b.when.getTime()).slice(0, 8);
+    // Garde-fou : aucune Invalid Date ne doit atteindre format() (un seul throw
+    // ferait tomber tout le cockpit agence).
+    return [...yuno, ...external]
+      .filter(x => !Number.isNaN(x.when.getTime()))
+      .sort((a, b) => a.when.getTime() - b.when.getTime())
+      .slice(0, 8);
   }, [events, extWeek]);
 
   const leaderboard = useMemo(() => {
