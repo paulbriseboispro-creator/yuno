@@ -123,25 +123,30 @@ serve(async (req) => {
           // Check if an event for this template+date already exists
           const { data: existing } = await supabaseAdmin
             .from("affiliate_events")
-            .select("id, external_ticket_url, flyer_url, status")
+            .select("id, external_ticket_url, flyer_url, status, ticket_url_overridden")
             .eq("recurring_template_id", tpl.id)
             .eq("event_date", eventDate)
             .maybeSingle();
 
           if (existing) {
-            // Sync publication_url, flyer, and status from template — template is source of truth
+            // Sync publication_url, flyer, and status from template — template is
+            // source of truth, SAUF si un humain a posé le lien sur cette
+            // occurrence (ticket_url_overridden, posé par trigger côté DB) :
+            // son lien et le statut qui en découle ne sont alors plus touchés.
             const tplTicketUrl = (tpl as { publication_url?: string | null }).publication_url ?? null;
             const tplFlyerUrl = (tpl as { flyer_url?: string | null }).flyer_url ?? null;
-            const correctStatus = tplTicketUrl ? existing.status === "featured" ? "featured" : "published" : "draft";
+            const overridden = (existing as { ticket_url_overridden?: boolean }).ticket_url_overridden === true;
+            const targetUrl = overridden ? existing.external_ticket_url : tplTicketUrl;
+            const correctStatus = targetUrl ? existing.status === "featured" ? "featured" : "published" : "draft";
             const needsUpdate =
-              existing.external_ticket_url !== tplTicketUrl ||
+              existing.external_ticket_url !== targetUrl ||
               existing.flyer_url !== tplFlyerUrl ||
               existing.status !== correctStatus;
 
             if (needsUpdate) {
               await supabaseAdmin
                 .from("affiliate_events")
-                .update({ external_ticket_url: tplTicketUrl, flyer_url: tplFlyerUrl, status: correctStatus })
+                .update({ external_ticket_url: targetUrl, flyer_url: tplFlyerUrl, status: correctStatus })
                 .eq("id", existing.id);
               updated++;
             }
