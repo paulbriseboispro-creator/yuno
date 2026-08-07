@@ -74,7 +74,7 @@ export function RequireMFA({ children, requiredRole }: RequireMFAProps) {
       // Vérifier le profil
       const { data: profile } = await supabase
         .from('profiles')
-        .select('mfa_enabled, mfa_enforced, mfa_verified_at')
+        .select('mfa_enabled, mfa_enforced, mfa_verified_at, mfa_exempt')
         .eq('id', user.id)
         .single();
 
@@ -83,8 +83,11 @@ export function RequireMFA({ children, requiredRole }: RequireMFAProps) {
         return;
       }
 
-      // For owners and affiliates: MFA is MANDATORY - redirect to setup if not enabled
-      if ((requiredRole === 'owner' || requiredRole === 'affiliate') && !profile.mfa_enabled) {
+      // For owners and affiliates: MFA is MANDATORY - redirect to setup if not enabled.
+      // mfa_exempt est une exception par compte posée par le super admin (comptes
+      // partagés du lancement) : pas d'enrôlement forcé, mais si la 2FA est activée
+      // volontairement, la vérification du code reste demandée plus bas.
+      if ((requiredRole === 'owner' || requiredRole === 'affiliate') && !profile.mfa_enabled && !profile.mfa_exempt) {
         navigate('/mfa-setup');
         return;
       }

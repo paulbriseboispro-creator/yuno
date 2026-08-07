@@ -9022,6 +9022,7 @@ export type Database = {
           leaderboard_visibility: string
           mfa_enabled: boolean | null
           mfa_enforced: boolean | null
+          mfa_exempt: boolean
           mfa_recovery_codes: string[] | null
           mfa_verified_at: string | null
           onboarding_completed: boolean
@@ -9072,6 +9073,7 @@ export type Database = {
           leaderboard_visibility?: string
           mfa_enabled?: boolean | null
           mfa_enforced?: boolean | null
+          mfa_exempt?: boolean
           mfa_recovery_codes?: string[] | null
           mfa_verified_at?: string | null
           onboarding_completed?: boolean
@@ -9122,6 +9124,7 @@ export type Database = {
           leaderboard_visibility?: string
           mfa_enabled?: boolean | null
           mfa_enforced?: boolean | null
+          mfa_exempt?: boolean
           mfa_recovery_codes?: string[] | null
           mfa_verified_at?: string | null
           onboarding_completed?: boolean
