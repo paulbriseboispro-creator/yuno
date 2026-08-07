@@ -16,7 +16,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import {
   LayoutDashboard, Inbox, Users, Layers, UserPlus, Activity, Megaphone, ShieldCheck,
   Building2, CalendarDays, TrendingUp, BarChart2, Wallet, MapPin, RefreshCw,
-  Settings, Link2, LifeBuoy, UserRound, LogOut, CalendarRange, ClipboardList, Coins, Send,
+  Settings, Link2, LifeBuoy, UserRound, LogOut, CalendarRange, ClipboardList, Coins, Send, Store,
 } from 'lucide-react';
 
 export interface AgencyIdentity {
@@ -81,6 +81,7 @@ function buildGroups(t: T): SidebarNavGroup[] {
     {
       label: t('aff.nav.settingsGroup'),
       items: [
+        { title: t('agc.nav.showcase'), path: '/agency-app/vitrine', icon: <Store /> },
         { title: t('agc.nav.agencyProfile'), path: '/agency-app/profile', icon: <Settings /> },
         { title: t('agc.nav.externalSettings'), path: '/affiliate/settings', icon: <Link2 /> },
       ],

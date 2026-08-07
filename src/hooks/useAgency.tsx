@@ -11,6 +11,7 @@ export type Agency = {
   logo_url: string | null;
   bio: string | null;
   instagram_url: string | null;
+  tiktok_url: string | null;
   whatsapp_number: string | null;
   website_url: string | null;
   contact_email: string | null;

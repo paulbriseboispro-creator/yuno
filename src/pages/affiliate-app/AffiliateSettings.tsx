@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import type { TablesUpdate } from '@/integrations/supabase/types';
@@ -125,10 +126,35 @@ function SaveButton({ state, onClick, label }: {
   );
 }
 
+// Renvoi vers l'identité maître : affiché à la place des champs qui seraient
+// écrasés par la synchro agencies→affiliates.
+function ManagedByAgencyNotice() {
+  const { t } = useLanguage();
+  return (
+    <div className="rounded-xl p-4" style={{ background: TILE_BG, border: `1px solid ${BORDER}` }}>
+      <p style={{ color: T1, fontSize: 13.5, fontWeight: 600, margin: 0 }}>
+        {t('aff.settings.managedTitle')}
+      </p>
+      <p style={{ color: T3, fontSize: 12, marginTop: 4, lineHeight: 1.55 }}>
+        {t('aff.settings.managedDesc')}
+      </p>
+      <Link
+        to="/agency-app/profile"
+        className="inline-flex items-center gap-1.5 mt-3 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors"
+        style={{ background: 'rgba(232,25,44,0.10)', border: '1px solid rgba(232,25,44,0.25)', color: RED }}
+      >
+        {t('aff.settings.managedCta')}
+        <ExternalLink className="h-3.5 w-3.5" />
+      </Link>
+    </div>
+  );
+}
+
 type TrustStat = { value: string; label: string };
 
 type AffiliateProfile = {
   id: string;
+  agency_id: string | null;
   name: string;
   city: string | null;
   type: string;
@@ -183,7 +209,7 @@ export default function AffiliateSettings() {
     setLoading(true);
     const { data } = await supabase
       .from('affiliates')
-      .select('id, name, city, type, linktree_slug, bio, avatar_url, instagram, tiktok, website, whatsapp, trust_stats, promoter_social_mode, linktree_sort_mode, allow_promoter_sort')
+      .select('id, agency_id, name, city, type, linktree_slug, bio, avatar_url, instagram, tiktok, website, whatsapp, trust_stats, promoter_social_mode, linktree_sort_mode, allow_promoter_sort')
       .eq('user_id', user!.id)
       .single();
 
@@ -298,10 +324,17 @@ export default function AffiliateSettings() {
 
   const guardReady = !loading && Boolean(profile);
 
+  // Identité gérée par l'agence : depuis la fusion, nom/ville/bio/avatar/réseaux
+  // s'éditent sur le profil MAÎTRE (/agency-app/profile) et se synchronisent ici
+  // par trigger. Toute édition locale serait écrasée au prochain enregistrement
+  // du profil agence — ces sections deviennent donc des renvois. Trust stats,
+  // slug, tri et QR restent propres au linktree et éditables ici.
+  const agencyManaged = Boolean(profile?.agency_id);
+
   const identityGuard = useUnsavedGuard({
     scope: 'affiliate-settings:identity',
     label: t('aff.settings.identity'),
-    ready: guardReady,
+    ready: guardReady && !agencyManaged,
     value: { name: form.name, city: form.city, bio: form.bio },
     onRestore: (v) => setForm(f => ({ ...f, ...v })),
     onSave: saveIdentity,
@@ -310,7 +343,7 @@ export default function AffiliateSettings() {
   const linksGuard = useUnsavedGuard({
     scope: 'affiliate-settings:links',
     label: t('aff.settings.guardLinks'),
-    ready: guardReady,
+    ready: guardReady && !agencyManaged,
     value: { instagram: form.instagram, tiktok: form.tiktok, website: form.website, whatsapp: form.whatsapp },
     onRestore: (v) => setForm(f => ({ ...f, ...v })),
     onSave: saveSocialLinks,
@@ -445,24 +478,28 @@ export default function AffiliateSettings() {
                   <span style={{ color: T2, fontSize: 26, fontWeight: 700 }}>{form.name[0]?.toUpperCase()}</span>
                 </div>
               )}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingAvatar}
-                className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full flex items-center justify-center cursor-pointer transition-colors"
-                style={{ background: RED, boxShadow: `0 0 14px -4px ${RED}88` }}
-              >
-                {uploadingAvatar
-                  ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  : <Camera className="h-3.5 w-3.5 text-white" />
-                }
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleAvatarUpload}
-              />
+              {!agencyManaged && (
+                <>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingAvatar}
+                    className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full flex items-center justify-center cursor-pointer transition-colors"
+                    style={{ background: RED, boxShadow: `0 0 14px -4px ${RED}88` }}
+                  >
+                    {uploadingAvatar
+                      ? <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      : <Camera className="h-3.5 w-3.5 text-white" />
+                    }
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarUpload}
+                  />
+                </>
+              )}
             </div>
             <div>
               <p style={{ color: T1, fontSize: 16, fontWeight: 600, letterSpacing: '-0.01em' }}>{form.name || '—'}</p>
@@ -475,6 +512,9 @@ export default function AffiliateSettings() {
                 </span>
               </div>
               {profile?.city && <p style={{ color: T3, fontSize: 12.5, marginTop: 6 }}>{profile.city}</p>}
+              {agencyManaged && (
+                <p style={{ color: T3, fontSize: 11.5, marginTop: 6 }}>{t('aff.settings.managedLogoHint')}</p>
+              )}
             </div>
           </div>
         </SectionCard>
@@ -483,6 +523,7 @@ export default function AffiliateSettings() {
         <SectionCard delay={0.08}>
           <SectionHead icon={User} title={t('aff.settings.identity')} />
 
+          {agencyManaged ? <ManagedByAgencyNotice /> : (<>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label style={fieldLabel}>{t('aff.settings.entityName')}</Label>
@@ -521,6 +562,7 @@ export default function AffiliateSettings() {
           <div className="flex justify-end mt-4">
             <SaveButton state={saveStates.identity} onClick={saveIdentity} />
           </div>
+          </>)}
         </SectionCard>
 
         {/* Liens sociaux */}
@@ -586,6 +628,7 @@ export default function AffiliateSettings() {
             </div>
           </div>
 
+          {agencyManaged ? <div className="mt-4"><ManagedByAgencyNotice /></div> : (<>
           <div className="grid grid-cols-2 gap-4 mt-4">
             <div className="space-y-1.5">
               <Label style={fieldLabel}>Instagram</Label>
@@ -645,6 +688,7 @@ export default function AffiliateSettings() {
           <div className="flex justify-end mt-4">
             <SaveButton state={saveStates.links} onClick={saveSocialLinks} />
           </div>
+          </>)}
         </SectionCard>
 
         {/* Trust stats */}

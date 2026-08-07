@@ -38,6 +38,8 @@ const AgencyPromoterDetail = lazyWithRetry(() => import("./pages/agency-app/Agen
 const AgencyStats = lazyWithRetry(() => import("./pages/agency-app/AgencyStats"));
 const AgencyRules = lazyWithRetry(() => import("./pages/agency-app/AgencyRules"));
 const AgencyProfile = lazyWithRetry(() => import("./pages/agency-app/AgencyProfile"));
+const AgencyShowcase = lazyWithRetry(() => import("./pages/agency-app/AgencyShowcase"));
+const AgencyHelpCenter = lazyWithRetry(() => import("./pages/AgencyHelpCenter"));
 const ClubReport = lazyWithRetry(() => import("./pages/ClubReport"));
 const OwnerAgencies = lazyWithRetry(() => import("./pages/OwnerAgencies"));
 const AffiliateRoute = lazyWithRetry(() => import("./components/AffiliateRoute").then(m => ({ default: m.AffiliateRoute })));
@@ -638,10 +640,18 @@ const App = () => (
                   </AgencyRoute>
                 }>
                   <Route index element={<AgencyDashboard />} />
+                  {/* Le moteur du centre d'aide renvoie vers `${basePath}/dashboard` */}
+                  <Route path="dashboard" element={<Navigate to="/agency-app" replace />} />
                   <Route path="profile" element={<AgencyProfile />} />
+                  <Route path="vitrine" element={<AgencyShowcase />} />
                   {/* Miroirs sans mur MFA des surfaces transverses de l'entité fusionnée */}
                   <Route path="inbox" element={<AffiliateInbox />} />
-                  <Route path="help" element={<AffiliateHelp />} />
+                  <Route path="help" element={<AgencyHelpCenter />} />
+                  <Route path="support" element={
+                    <DashboardModeProvider mode="agency">
+                      <OwnerSupportRequest />
+                    </DashboardModeProvider>
+                  } />
                   <Route path="promoters" element={<AgencyRoster />} />
                   <Route path="promoters/:userId" element={<AgencyPromoterDetail />} />
                   <Route path="clubs" element={<AgencyClubs />} />
