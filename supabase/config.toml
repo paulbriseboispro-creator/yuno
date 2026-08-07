@@ -322,3 +322,8 @@ verify_jwt = true
 # promoteur, jamais le client.
 [functions.promoter-payout-notify]
 verify_jwt = true
+
+# Assistant IA de l'espace agence (bras droit du chef d'agence) — même
+# architecture qu'owner-assistant : double client, tools, audit des écritures.
+[functions.agency-assistant]
+verify_jwt = true

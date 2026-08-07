@@ -7,6 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AgencyAppSidebar } from '@/components/agency/agency-app-sidebar';
+import { AgencyAssistant } from '@/components/agency/AgencyAssistant';
 import { AffiliateAppHeader } from '@/components/affiliate/affiliate-app-header';
 import { AffiliateShellProvider, type AffiliateShell } from '@/contexts/AffiliateShellContext';
 import { getAffiliateFeedConfig } from '@/lib/notifications';
@@ -112,6 +113,7 @@ export default function AgencyAppLayout() {
             <Outlet />
           </main>
         </SidebarInset>
+        <AgencyAssistant />
       </SidebarProvider>
     </AffiliateShellProvider>
   );
