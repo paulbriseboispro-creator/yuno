@@ -53,9 +53,17 @@ export default function MFASetup() {
     // Si la 2FA est déjà configurée, ne pas redemander l'activation
     const { data: profile } = await supabase
       .from('profiles')
-      .select('mfa_enabled')
+      .select('mfa_enabled, mfa_exempt')
       .eq('id', user.id)
       .single();
+
+    // Exception par compte (comptes partagés du lancement) : ces comptes ne sont
+    // jamais forcés d'enrôler la 2FA. On les sort de la page d'activation même
+    // s'ils y atterrissent par un lien ou une redirection résiduelle.
+    if (profile?.mfa_exempt && !profile?.mfa_enabled) {
+      navigate(detectedRole === 'affiliate' ? '/affiliate' : '/owner');
+      return;
+    }
 
     if (profile?.mfa_enabled) {
       toast.success(t('mfa.alreadyEnabled'));
