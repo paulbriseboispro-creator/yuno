@@ -155,7 +155,8 @@ export default function AffiliateEventForm() {
         price_from: form.price_from ? parseFloat(form.price_from) : null,
         is_free: form.is_free,
         is_sold_out: form.is_sold_out,
-        status: form.status,
+        // Sans lien : brouillon d'office (le trigger DB l'impose de toute façon).
+        status: form.external_ticket_url ? form.status : 'draft',
       };
 
       const saved: FormData = { ...form, slug };
@@ -226,10 +227,12 @@ export default function AffiliateEventForm() {
             </div>
             <div>
               <FieldLabel>{t('aff.eventForm.statusLabel')}</FieldLabel>
-              <DarkSelect value={form.status} onChange={(v) => set('status', v as FormData['status'])}>
+              {/* Règle plateforme (verrouillée en base) : sans lien billetterie la
+                  soirée reste en brouillon ; le sélecteur reflète cette vérité. */}
+              <DarkSelect value={form.external_ticket_url ? form.status : 'draft'} onChange={(v) => set('status', v as FormData['status'])}>
                 <option value="draft">{t('aff.eventForm.statusDraft')}</option>
-                <option value="published">{t('aff.eventForm.statusPublished')}</option>
-                <option value="featured">{t('aff.eventForm.statusFeatured')}</option>
+                <option value="published" disabled={!form.external_ticket_url}>{t('aff.eventForm.statusPublished')}</option>
+                <option value="featured" disabled={!form.external_ticket_url}>{t('aff.eventForm.statusFeatured')}</option>
               </DarkSelect>
             </div>
           </div>
@@ -257,7 +260,7 @@ export default function AffiliateEventForm() {
         <div className="space-y-4">
           <div>
             <FieldLabel><span className="inline-flex items-center gap-1.5"><ExternalLink className="h-3.5 w-3.5" style={{ color: RED }} /> {t('aff.eventForm.ticketUrlLabel')}</span></FieldLabel>
-            <DarkInput value={form.external_ticket_url} onChange={(v) => set('external_ticket_url', v)} placeholder={t('aff.eventForm.ticketUrlPlaceholder')} />
+            <DarkInput value={form.external_ticket_url} onChange={(v) => { set('external_ticket_url', v); if (v && form.status === 'draft') set('status', 'published'); if (!v && form.status !== 'draft') set('status', 'draft'); }} placeholder={t('aff.eventForm.ticketUrlPlaceholder')} />
             <p style={{ color: T3, fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>
               {t('aff.eventForm.ticketUrlHelp')}
             </p>

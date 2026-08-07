@@ -12417,7 +12417,7 @@ const en: Record<string, string> = {
   'aff.eventForm.ticketing': "Ticketing",
   'aff.eventForm.ticketUrlLabel': "Ticketing link (Shotgun, RA, club site…)",
   'aff.eventForm.ticketUrlPlaceholder': "https://shotgun.live/…  or  https://ra.co/events/…",
-  'aff.eventForm.ticketUrlHelp': "Yuno tracks the click before redirecting to the external ticketing site. Without this link, the event stays visible but has no booking button.",
+  'aff.eventForm.ticketUrlHelp': "Yuno tracks the click before redirecting to the external ticketing site. Without this link, the event stays in draft (hidden on Yuno); it is published automatically as soon as a link is added.",
   'aff.eventForm.priceFromLabel': "Price from (€)",
   'aff.eventForm.freeEntry': "Free entry",
   'aff.eventForm.soldOut': "Sold out",

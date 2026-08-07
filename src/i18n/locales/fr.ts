@@ -12488,7 +12488,7 @@ const fr: Record<string, string> = {
   'aff.eventForm.ticketing': "Billetterie",
   'aff.eventForm.ticketUrlLabel': "Lien billetterie (Shotgun, RA, site club…)",
   'aff.eventForm.ticketUrlPlaceholder': "https://shotgun.live/…  ou  https://ra.co/events/…",
-  'aff.eventForm.ticketUrlHelp': "Yuno tracke le clic avant de rediriger vers la billetterie externe. Sans ce lien, la soirée reste visible mais sans bouton de réservation.",
+  'aff.eventForm.ticketUrlHelp': "Yuno tracke le clic avant de rediriger vers la billetterie externe. Sans ce lien, la soirée reste en brouillon (invisible sur Yuno) ; elle se publie automatiquement dès qu'un lien est ajouté.",
   'aff.eventForm.priceFromLabel': "Prix à partir de (€)",
   'aff.eventForm.freeEntry': "Entrée gratuite",
   'aff.eventForm.soldOut': "Complet",

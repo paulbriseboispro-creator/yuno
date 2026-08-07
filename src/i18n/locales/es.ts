@@ -12531,7 +12531,7 @@ const es: Record<string, string> = {
   'aff.eventForm.ticketing': "Entradas",
   'aff.eventForm.ticketUrlLabel': "Enlace de entradas (Shotgun, RA, sitio del club…)",
   'aff.eventForm.ticketUrlPlaceholder': "https://shotgun.live/…  o  https://ra.co/events/…",
-  'aff.eventForm.ticketUrlHelp': "Yuno registra el clic antes de redirigir a la plataforma de entradas externa. Sin este enlace, el evento sigue visible pero sin botón de reserva.",
+  'aff.eventForm.ticketUrlHelp': "Yuno registra el clic antes de redirigir a la plataforma de entradas externa. Sin este enlace, el evento queda en borrador (invisible en Yuno); se publica automáticamente en cuanto se añade un enlace.",
   'aff.eventForm.priceFromLabel': "Precio desde (€)",
   'aff.eventForm.freeEntry': "Entrada gratuita",
   'aff.eventForm.soldOut': "Agotado",
