@@ -54,6 +54,18 @@ export function djDisplayName(d: Pick<DjRow, 'stage_name' | 'first_name' | 'last
   return d.stage_name || `${d.first_name} ${d.last_name}`.trim();
 }
 
+/**
+ * Pousse le DJ sur son téléphone (app Yuno Pro) après création d'une demande
+ * de booking. Fire-and-forget : l'inbox in-app reste la source de vérité, un
+ * échec du push ne doit jamais casser l'envoi de la demande.
+ */
+export function notifyDjBookingRequest(requestId: unknown): void {
+  if (typeof requestId !== 'string' || !requestId) return;
+  void supabase.functions
+    .invoke('notify-dj-booking-request', { body: { request_id: requestId } })
+    .catch(() => { /* best-effort */ });
+}
+
 /** Date + deux HH:MM → créneau ISO, l'heure de fin roulant après minuit. */
 export function buildLineupSlot(day: Date, hhmmStart: string, hhmmEnd: string): { start: string; end: string } {
   const [sh, sm] = hhmmStart.split(':').map(Number);
@@ -195,7 +207,7 @@ export async function saveLineup(args: SaveLineupArgs): Promise<SaveLineupResult
       e.startTime || '22:00',
       e.endTime || '04:00',
     );
-    const { error } = await supabase.rpc('create_dj_booking_request', {
+    const { data: requestId, error } = await supabase.rpc('create_dj_booking_request', {
       p_dj_user_id: e.djUserId,
       p_requested_date: eventLocalDate,
       p_start: slot.start,
@@ -207,8 +219,12 @@ export async function saveLineup(args: SaveLineupArgs): Promise<SaveLineupResult
       p_venue_id: scope.venueId ?? undefined,
       p_organizer_user_id: scope.organizerUserId ?? undefined,
     });
-    if (error) result.errors.push({ name: e.name, message: error.message });
-    else result.requestsSent += 1;
+    if (error) {
+      result.errors.push({ name: e.name, message: error.message });
+    } else {
+      result.requestsSent += 1;
+      notifyDjBookingRequest(requestId);
+    }
   }
 
   return result;

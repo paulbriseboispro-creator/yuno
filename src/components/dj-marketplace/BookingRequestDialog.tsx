@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { makeDjT } from '@/i18n/djTranslate';
+import { notifyDjBookingRequest } from '@/lib/djLineup';
 import { DJ_GENRES, type MarketplaceDJ } from './types';
 
 /** A scheduled club/organizer night, keyed by local date, surfaced on the calendar. */
@@ -149,7 +150,7 @@ export function BookingRequestDialog({
     setSubmitting(true);
     try {
       const slot = buildSlot(date, startTime, endTime);
-      const { error } = await supabase.rpc('create_dj_booking_request', {
+      const { data: requestId, error } = await supabase.rpc('create_dj_booking_request', {
         p_dj_user_id: dj.user_id,
         p_requested_date: format(date, 'yyyy-MM-dd'),
         p_start: slot.start,
@@ -162,6 +163,7 @@ export function BookingRequestDialog({
         p_organizer_user_id: scope === 'organizer' ? organizerUserId ?? undefined : undefined,
       });
       if (error) throw error;
+      notifyDjBookingRequest(requestId);
       toast.success(tt('Demande envoyée', 'Request sent', 'Solicitud enviada'));
       onOpenChange(false);
       onSubmitted?.();
