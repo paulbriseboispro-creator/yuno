@@ -334,6 +334,19 @@ async function handleDjLineup(
     owns = event.organizer_user_id === callerId;
   }
   if (!owns) {
+    // Un DJ peut annoncer SA propre présence à l'affiche (cas : il vient
+    // d'accepter une demande de booking liée à la soirée — le RPC d'acceptation
+    // l'a inscrit dans event_djs). Chaque dj_id doit lui appartenir ET être
+    // réellement au line-up de la soirée ; la dédup serveur empêche tout spam.
+    const { data: ownRows } = await supabase
+      .from('djs').select('id').eq('user_id', callerId).in('id', djIds);
+    const ownIds = new Set((ownRows || []).map((d: { id: string }) => d.id));
+    const { data: lineupRows } = await supabase
+      .from('event_djs').select('dj_id').eq('event_id', eventId).in('dj_id', djIds);
+    const lineupIds = new Set((lineupRows || []).map((r: { dj_id: string }) => r.dj_id));
+    owns = djIds.every((id) => ownIds.has(id) && lineupIds.has(id));
+  }
+  if (!owns) {
     return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
 
