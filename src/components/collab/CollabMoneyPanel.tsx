@@ -199,11 +199,14 @@ export function CollabMoneyPanel({ event, tickets, tables, tableGuests, drinks, 
 
         {/* ── 2. Où est l'argent ───────────────────────────────────────────── */}
         <div className={`mt-4 grid gap-2 ${hasFailed ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`}>
+          {/* Montants NET (frais Stripe déduits au prorata), contrairement à
+              « Ma part » des piliers qui est avant frais — le dire, sinon
+              l'écart 4,80 € vs 4,62 € ressemble à de l'argent disparu. */}
           <MoneyTile
             color={POS}
             label={t('Déjà sur votre Stripe', 'Already on your Stripe', 'Ya en tu Stripe')}
             value={gain.loading ? '…' : eur(gain.paidEuros)}
-            sub={t('Versé, rien à faire', 'Paid out, nothing to do', 'Pagado, nada que hacer')}
+            sub={t('Net, frais Stripe déduits — versé', 'Net, Stripe fees deducted — paid out', 'Neto, comisiones Stripe deducidas — pagado')}
             icon={Check}
           />
           <MoneyTile
@@ -211,7 +214,7 @@ export function CollabMoneyPanel({ event, tickets, tables, tableGuests, drinks, 
             label={t('Sécurisé par Yuno', 'Secured by Yuno', 'Asegurado por Yuno')}
             value={gain.loading ? '…' : eur(gain.pendingEuros)}
             sub={hasPending
-              ? `${t('Virement le', 'Payout on', 'Pago el')} ${fmtDay(releaseIso)}`
+              ? `${t('Net, frais Stripe déduits', 'Net, Stripe fees deducted', 'Neto, comisiones Stripe deducidas')} · ${t('Virement le', 'Payout on', 'Pago el')} ${fmtDay(releaseIso)}`
               : t('Rien en attente', 'Nothing pending', 'Nada pendiente')}
             icon={Clock}
           />
