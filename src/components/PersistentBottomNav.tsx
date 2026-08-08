@@ -46,6 +46,7 @@ const NAV_ROUTES = [
   '/o/:slug',
   '/affiliate-venue/:slug',
   '/affiliate-event/:slug',
+  '/rp/:slug',
 ] as const;
 
 type SuppressionApi = {

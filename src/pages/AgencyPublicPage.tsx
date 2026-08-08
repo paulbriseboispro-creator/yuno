@@ -645,17 +645,10 @@ export default function AgencyPublicPage() {
           <p className="font-mono uppercase" style={{ fontSize: '10px', color: '#9A9A9A', letterSpacing: '0.16em', marginBottom: 6 }}>
             {t('affiliate.rpVerifiedPartner')}
           </p>
-          <p className="font-display font-bold text-white uppercase" style={{ fontSize: '16px', letterSpacing: '-0.01em', marginBottom: 22 }}>
+          <p className="font-display font-bold text-white uppercase" style={{ fontSize: '16px', letterSpacing: '-0.01em', marginBottom: 24 }}>
             {profile.name}
           </p>
-          <button
-            onClick={() => navigate('/')}
-            className="inline-flex items-center gap-2 font-mono font-semibold uppercase hover:opacity-80 transition-opacity"
-            style={{ fontSize: '11px', letterSpacing: '0.08em', color: '#E8192C', background: 'transparent', border: '1px solid rgba(232,25,44,0.35)', borderRadius: 999, padding: '11px 22px', cursor: 'pointer' }}
-          >
-            {t('affiliate.rpDiscoverMore')} →
-          </button>
-          <p className="font-mono" style={{ fontSize: '10px', color: '#3A3A3E', letterSpacing: '0.12em', marginTop: 30 }}>
+          <p className="font-mono" style={{ fontSize: '10px', color: '#3A3A3E', letterSpacing: '0.12em' }}>
             POWERED BY <span style={{ color: '#5A5A5E', fontWeight: 700 }}>YUNO</span>
           </p>
         </footer>

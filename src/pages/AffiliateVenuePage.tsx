@@ -634,6 +634,41 @@ export default function AffiliateVenuePage() {
           </div>
         )}
 
+        {/* ===== PROMOTER / RP (l'agence qui gère ce club partenaire) ===== */}
+        {affiliate && (
+          <div className="px-5 pt-10">
+            <div style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px', marginBottom: '16px' }}>
+              <p className="yuno-rule">{t('affiliate.rp')}</p>
+            </div>
+            <button
+              onClick={() => affiliate.linktree_slug && navigate(`/rp/${affiliate.linktree_slug}`)}
+              className="flex items-center gap-3 w-full text-left hover:opacity-80 transition-opacity"
+              style={{ border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '14px 16px', background: 'rgba(255,255,255,0.02)', cursor: affiliate.linktree_slug ? 'pointer' : 'default' }}
+            >
+              <div
+                className="shrink-0 overflow-hidden"
+                style={{ width: 52, height: 52, borderRadius: '4px', border: '1px solid rgba(255,255,255,0.08)', background: '#191919' }}
+              >
+                {affiliate.avatar_url
+                  ? <img src={affiliate.avatar_url} alt={affiliate.name} className="w-full h-full object-cover" />
+                  : <div className="w-full h-full flex items-center justify-center font-mono font-bold" style={{ fontSize: '13px', color: '#5A5A5E' }}>{affiliate.name.slice(0, 2).toUpperCase()}</div>
+                }
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-mono truncate" style={{ fontSize: '13px', color: '#E5E5E5', letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600 }}>
+                  {affiliate.name}
+                </p>
+                <p className="font-mono mt-1" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.04em' }}>
+                  {t('affiliate.yunoPartner')}
+                </p>
+              </div>
+              {affiliate.linktree_slug && (
+                <span className="text-[#3A3A3E] text-xs shrink-0 ml-2">→</span>
+              )}
+            </button>
+          </div>
+        )}
+
         {/* ===== COPYRIGHT ===== */}
         <div className="px-5 pt-10 pb-4 text-center">
           <p className="font-mono" style={{ fontSize: '10px', color: '#3A3A3E', letterSpacing: '0.08em' }}>

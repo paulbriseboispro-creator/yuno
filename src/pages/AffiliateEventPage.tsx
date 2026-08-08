@@ -718,11 +718,11 @@ export default function AffiliateEventPage() {
               >
                 <div
                   className="shrink-0 overflow-hidden"
-                  style={{ width: 48, height: 48, borderRadius: '50%', border: '1px solid rgba(255,255,255,0.08)', background: '#191919' }}
+                  style={{ width: 52, height: 52, borderRadius: '4px', border: '1px solid rgba(255,255,255,0.08)', background: '#191919' }}
                 >
                   {affiliate.avatar_url
                     ? <img src={affiliate.avatar_url} alt={affiliate.name} className="w-full h-full object-cover" />
-                    : <div className="w-full h-full flex items-center justify-center font-mono font-bold" style={{ fontSize: '12px', color: '#5A5A5E' }}>{affiliate.name.slice(0, 2).toUpperCase()}</div>
+                    : <div className="w-full h-full flex items-center justify-center font-mono font-bold" style={{ fontSize: '13px', color: '#5A5A5E' }}>{affiliate.name.slice(0, 2).toUpperCase()}</div>
                   }
                 </div>
                 <div className="min-w-0 flex-1">
