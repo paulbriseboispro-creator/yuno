@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface ScanOverlayProps {
@@ -18,6 +18,8 @@ interface ScanOverlayProps {
 
 export function ScanOverlay({ result, onDismiss, holderName, reason, offlineBadge }: ScanOverlayProps) {
   const { t } = useLanguage();
+  // Préférence « réduire les animations » : tout devient fondu simple (ni scale ni y).
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (!result) return;
@@ -45,21 +47,25 @@ export function ScanOverlay({ result, onDismiss, holderName, reason, offlineBadg
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.15 }}
+          transition={{ duration: 0.12 }}
           className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center px-6 text-center ${
             isSuccess ? 'bg-green-600/90' : 'bg-red-600/90'
           }`}
           style={{
             paddingTop: 'env(safe-area-inset-top, 0px)',
             paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+            willChange: 'opacity',
+            /* Tappable (le tap ferme) : pas de délai double-tap iOS */
+            touchAction: 'manipulation',
           }}
           onClick={onDismiss}
         >
           <motion.div
-            initial={{ scale: 0.5 }}
-            animate={{ scale: 1 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            initial={reducedMotion ? { opacity: 0 } : { scale: 0.6, opacity: 0 }}
+            animate={reducedMotion ? { opacity: 1 } : { scale: 1, opacity: 1 }}
+            transition={reducedMotion ? { duration: 0.12 } : { type: 'spring', stiffness: 420, damping: 26 }}
             className="flex-none"
+            style={{ willChange: 'transform, opacity' }}
           >
             {isSuccess ? (
               <CheckCircle className="h-28 w-28 text-white sm:h-32 sm:w-32" strokeWidth={2.5} />
@@ -68,8 +74,8 @@ export function ScanOverlay({ result, onDismiss, holderName, reason, offlineBadg
             )}
           </motion.div>
           <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 20 }}
+            animate={reducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
             className="text-white text-3xl font-black mt-4 uppercase tracking-wider"
           >
@@ -101,8 +107,8 @@ export function ScanOverlay({ result, onDismiss, holderName, reason, offlineBadg
           )}
           {offlineBadge && isSuccess && (
             <motion.span
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={reducedMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
+              animate={reducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
               transition={{ delay: 0.25 }}
               className="mt-3 inline-flex items-center rounded-full bg-white/15 border border-white/30 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white"
             >

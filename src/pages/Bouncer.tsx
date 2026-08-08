@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { retrySupabaseAction } from '@/utils/retryAction';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useStaffIdentity } from '@/hooks/useStaffIdentity';
@@ -21,7 +20,7 @@ import { PublicPage } from '@/components/PublicPage';
 import { StaffHeader } from '@/components/staff/StaffHeader';
 
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { Scanner } from '@yudiel/react-qr-scanner';
@@ -206,6 +205,22 @@ export default function Bouncer() {
   const [clientSearched, setClientSearched] = useState(false);
 
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
+
+  // Préférence système « réduire les animations » : pilule et défilement s'y plient.
+  const reducedMotion = useReducedMotion();
+
+  /**
+   * À l'arrivée d'un résultat, le bloc caméra se démonte et le contenu se
+   * replie : le videur, resté scrollé au niveau de l'ancien viseur, verrait la
+   * carte résultat sous la ligne de flottaison (critique pour le flux Annuler,
+   * dont les actions vivent dans cette carte). On ramène la carte dans le
+   * viewport dès que `scanResult` passe non-null.
+   */
+  const resultCardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!scanResult) return;
+    resultCardRef.current?.scrollIntoView({ block: 'nearest', behavior: reducedMotion ? 'auto' : 'smooth' });
+  }, [scanResult, reducedMotion]);
 
   useEffect(() => {
     if (venueId) {
@@ -1452,24 +1467,64 @@ export default function Bouncer() {
             <QrCode className="h-4 w-4" style={{ color: RED }} />
             Scanner
           </h3>
-            {/* Mode Tabs */}
-            <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v as 'entry' | 'cancel' | 'client'); resetScan(); setScanning(false); }} className="mb-4">
-              {/* min-w-0 sur les triggers : sans ça un libellé long (ES) déborde de la TabsList */}
-              <TabsList className="owner-tabs grid w-full grid-cols-3">
-                <TabsTrigger value="entry" className="min-h-[44px] min-w-0 gap-1.5 px-2 text-xs md:min-h-0">
-                  <CheckCircle className="h-3.5 w-3.5 flex-none" />
-                  <span className="truncate">{t('bouncer.entry')}</span>
-                </TabsTrigger>
-                <TabsTrigger value="cancel" className="min-h-[44px] min-w-0 gap-1.5 px-2 text-xs text-destructive data-[state=active]:text-destructive md:min-h-0">
-                  <Ban className="h-3.5 w-3.5 flex-none" />
-                  <span className="truncate">{t('bouncer.cancelTab')}</span>
-                </TabsTrigger>
-                <TabsTrigger value="client" className="min-h-[44px] min-w-0 gap-1.5 px-2 text-xs md:min-h-0">
-                  <Search className="h-3.5 w-3.5 flex-none" />
-                  <span className="truncate">{t('bouncer.clientTab')}</span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            {/* Sélecteur de mode : segmented control custom avec pilule glissante
+                (layoutId partagé → la pilule glisse d'un segment à l'autre).
+                min-w-0 + truncate sur les libellés : sans ça un libellé long (ES)
+                déborde du segment. */}
+            <div
+              className="mb-4 grid grid-cols-3 gap-1"
+              style={{ padding: 4, borderRadius: 14, background: INNER_BG, border: `1px solid ${BORDER}` }}
+            >
+              {([
+                { key: 'entry', icon: CheckCircle, label: t('bouncer.entry') },
+                { key: 'cancel', icon: Ban, label: t('bouncer.cancelTab') },
+                { key: 'client', icon: Search, label: t('bouncer.clientTab') },
+              ] as const).map(({ key, icon: Icon, label }) => {
+                const isActive = activeTab === key;
+                const isDestructive = key === 'cancel';
+                const segColor = isActive ? (isDestructive ? RED : T1) : T3;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    aria-pressed={isActive}
+                    onClick={() => {
+                      if (activeTab === key) return;
+                      setActiveTab(key);
+                      resetScan();
+                      setScanning(false);
+                    }}
+                    className="relative flex min-h-[44px] min-w-0 items-center justify-center gap-1.5 rounded-[10px] px-2"
+                    style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
+                  >
+                    {isActive && (
+                      <motion.div
+                        layoutId="bouncer-mode-pill"
+                        transition={reducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 500, damping: 38 }}
+                        className="absolute inset-0 rounded-[10px]"
+                        style={
+                          isDestructive
+                            ? {
+                                background: 'rgba(232,25,44,0.14)',
+                                border: '1px solid rgba(232,25,44,0.38)',
+                                boxShadow: '0 1px 0 rgba(255,255,255,.05) inset',
+                              }
+                            : {
+                                background: 'rgba(255,255,255,0.09)',
+                                border: '1px solid rgba(255,255,255,0.13)',
+                                boxShadow: '0 1px 0 rgba(255,255,255,.07) inset',
+                              }
+                        }
+                      />
+                    )}
+                    <Icon className="relative h-4 w-4 flex-none" style={{ color: segColor }} />
+                    <span className="relative min-w-0 truncate" style={{ color: segColor, fontSize: 12.5, fontWeight: 600 }}>
+                      {label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
 
             {activeTab === 'client' && (
               <div className="space-y-4">
@@ -1655,6 +1710,7 @@ export default function Bouncer() {
             <AnimatePresence mode="wait">
               {scanResult && (
                 <motion.div
+                  ref={resultCardRef}
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.9 }}
