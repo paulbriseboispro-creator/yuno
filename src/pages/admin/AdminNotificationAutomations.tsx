@@ -49,6 +49,7 @@ const CATALOG: { key: string; category: Category }[] = [
   { key: 'event_reminder_30m', category: 'reminder' },
   { key: 'promoter_payout_reminder', category: 'reminder' },
   { key: 'new_event', category: 'engagement' },
+  { key: 'agency_new_event', category: 'engagement' },
   { key: 'dj_lineup', category: 'engagement' },
   { key: 'waitlist_presale', category: 'engagement' },
   { key: 'promoter_sale_first', category: 'engagement' },

@@ -39,6 +39,8 @@ const AgencyStats = lazyWithRetry(() => import("./pages/agency-app/AgencyStats")
 const AgencyRules = lazyWithRetry(() => import("./pages/agency-app/AgencyRules"));
 const AgencyProfile = lazyWithRetry(() => import("./pages/agency-app/AgencyProfile"));
 const AgencyShowcase = lazyWithRetry(() => import("./pages/agency-app/AgencyShowcase"));
+const AgencyAudience = lazyWithRetry(() => import("./pages/agency-app/AgencyAudience"));
+const AgencyPush = lazyWithRetry(() => import("./pages/agency-app/AgencyPush"));
 const AgencyHelpCenter = lazyWithRetry(() => import("./pages/AgencyHelpCenter"));
 const ClubReport = lazyWithRetry(() => import("./pages/ClubReport"));
 const OwnerAgencies = lazyWithRetry(() => import("./pages/OwnerAgencies"));
@@ -661,6 +663,8 @@ const App = () => (
                   <Route path="events" element={<AgencyEvents />} />
                   <Route path="analytics" element={<AgencyAnalytics />} />
                   <Route path="stats" element={<AgencyStats />} />
+                  <Route path="audience" element={<AgencyAudience />} />
+                  <Route path="push" element={<AgencyPush />} />
                   <Route path="rules" element={<AgencyRules />} />
                   <Route path="pay" element={<AgencyCommissionTemplates />} />
                   <Route path="announcements" element={<AgencyAnnouncements />} />

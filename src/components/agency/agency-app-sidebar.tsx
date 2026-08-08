@@ -17,6 +17,7 @@ import {
   LayoutDashboard, Inbox, Users, Layers, UserPlus, Activity, Megaphone, ShieldCheck,
   Building2, CalendarDays, TrendingUp, BarChart2, Wallet, MapPin, RefreshCw,
   Settings, Link2, LifeBuoy, UserRound, LogOut, CalendarRange, ClipboardList, Coins, Send, Store,
+  Radio, BellRing,
 } from 'lucide-react';
 
 export interface AgencyIdentity {
@@ -64,6 +65,8 @@ function buildGroups(t: T): SidebarNavGroup[] {
         { title: t('agc.nav.events'), path: '/agency-app/events', icon: <CalendarDays /> },
         { title: t('agc.nav.salesStats'), path: '/agency-app/stats', icon: <TrendingUp /> },
         { title: t('agc.nav.charts'), path: '/agency-app/analytics', icon: <BarChart2 /> },
+        { title: t('agc.nav.audience'), path: '/agency-app/audience', icon: <Radio /> },
+        { title: t('agc.nav.push'), path: '/agency-app/push', icon: <BellRing /> },
         { title: t('agc.nav.finance'), path: '/agency-app/finance', icon: <Wallet /> },
       ],
     },

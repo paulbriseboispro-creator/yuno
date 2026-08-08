@@ -7,7 +7,7 @@ type RpcResult = { data: unknown; error: unknown };
 const rpc = (name: string, params: Record<string, unknown>): Promise<RpcResult> =>
   (supabase.rpc as unknown as (n: string, p: Record<string, unknown>) => Promise<RpcResult>)(name, params);
 
-export type AudienceSubject = { type: 'venue' | 'dj' | 'organizer'; id: string };
+export type AudienceSubject = { type: 'venue' | 'dj' | 'organizer' | 'agency'; id: string };
 
 export interface AudienceAnalytics {
   ok: boolean;
