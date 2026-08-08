@@ -137,9 +137,9 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "external-events": {
     title: "Soirées externes et récurrences",
-    keywords: ["soirée externe", "external event", "billetterie externe", "récurrence", "recurring", "semaine", "week", "publier", "publish", "genres", "prix"],
+    keywords: ["soirée externe", "external event", "billetterie externe", "récurrence", "recurring", "semaine", "week", "publier", "publish", "genres", "prix", "tables", "guest list", "lien permanent"],
     path: "/affiliate/events",
-    snippet: "Une soirée externe (club, date, genres, prix, lien billetterie) publiée apparaît sur le linktree, la page RP et l'agenda public ; le clic vers la billetterie passe par l'interstitiel et compte dans le trafic. Les soirées hebdomadaires se créent une fois en modèle récurrent, la vue Semaine montre le planning.",
+    snippet: "Une soirée externe (club, date, genres, prix, lien billetterie) publiée apparaît sur le linktree, la page RP et l'agenda public ; le clic vers la billetterie passe par l'interstitiel et compte dans le trafic. Les soirées hebdomadaires se créent une fois en modèle récurrent, la vue Semaine montre le planning. Sans lien billetterie une soirée reste en brouillon (invisible) et se publie dès que le lien est posé ; un lien de modèle ne vaut que pour l'édition de sa semaine sauf s'il est marqué permanent. La soirée peut afficher son offre en badges publics : tables VIP, uniquement des tables (clubs qui ne donnent que la vente de tables), et guest list mixte ou femmes.",
   },
   "traffic": {
     title: "Trafic et commissions externes",
