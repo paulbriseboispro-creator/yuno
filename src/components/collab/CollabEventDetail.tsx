@@ -24,6 +24,7 @@ import { SplitContractBanner } from '@/components/SplitContractBanner';
 import { CollabMessageThread } from '@/components/collab/CollabMessageThread';
 import { CollabSignFooter } from '@/components/collab/CollabSignFooter';
 import { PayoutStatusNote } from '@/components/collab/PayoutStatusNote';
+import { CollabMoneyPanel, type PillarStat } from '@/components/collab/CollabMoneyPanel';
 import { CollabTableSettlementCard } from '@/components/collab/CollabTableSettlementCard';
 import { CollabConversionClose } from '@/components/collab/CollabConversionClose';
 import { OrgEventTablesPanel } from '@/components/organizer-app/OrgEventTablesPanel';
@@ -78,6 +79,10 @@ interface Stats {
   checkins: number;
   tableGuests: number;
   glEntries: number;
+  /** Détail par pilier pour le panneau argent (drinks null = non chargé, côté orga). */
+  ticketPillar: PillarStat;
+  tablePillar: PillarStat;
+  drinkPillar: PillarStat | null;
 }
 
 /**
@@ -116,7 +121,10 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
   // versée (transfer failed). On l'avertit AVANT la première vente — le prompt
   // d'activation n'existait que côté organisateur.
   const [venueStripeReady, setVenueStripeReady] = useState<boolean | null>(null);
-  const [stats, setStats] = useState<Stats>({ sold: 0, ticketsSold: 0, caSoiree: 0, myShare: 0, checkins: 0, tableGuests: 0, glEntries: 0 });
+  const [stats, setStats] = useState<Stats>({
+    sold: 0, ticketsSold: 0, caSoiree: 0, myShare: 0, checkins: 0, tableGuests: 0, glEntries: 0,
+    ticketPillar: { count: 0, ca: 0 }, tablePillar: { count: 0, ca: 0 }, drinkPillar: null,
+  });
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [billetterieOpen, setBilletterieOpen] = useState(false);
@@ -217,14 +225,18 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
       const tablePct = getEffectiveSplit(ev.revenue_split_rules, 'table', ev.event_mode)[shareKey] / 100;
       const drinksPct = getEffectiveSplit(ev.revenue_split_rules, 'order', ev.event_mode)[shareKey] / 100;
 
+      const ticketsSoldQty = tk.reduce((s, x) => s + (x.quantity || 1), 0);
       setStats({
         sold: tk.length,
-        ticketsSold: tk.reduce((s, x) => s + (x.quantity || 1), 0),
+        ticketsSold: ticketsSoldQty,
         caSoiree: ticketCA + tableCA + drinksCA,
         myShare: ticketCA * ticketPct + tableCA * tablePct + drinksCA * drinksPct,
         checkins: tk.filter((x) => x.entry_scanned).length,
         tableGuests: tr.reduce((s, x) => s + (x.guest_count || 0), 0),
         glEntries: entries.length,
+        ticketPillar: { count: ticketsSoldQty, ca: ticketCA },
+        tablePillar: { count: tr.length, ca: tableCA },
+        drinkPillar: isVenue ? { count: dr.length, ca: drinksCA } : null,
       });
       setLoading(false);
     })();
@@ -449,7 +461,23 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
                 sub={t('Après frais Stripe & Yuno + part partenaire', 'After Stripe & Yuno fees + partner share', 'Tras comisiones Stripe y Yuno + parte del socio')} accent />
             </div>
 
-            <PayoutStatusNote gain={netGain} className="-mt-1" />
+            {/* L'argent de la soirée — ventes par pilier + où est l'argent + cycle
+                de paiement. Le panneau de confiance des co-soirées : le hold 48 h
+                (revenue_distributions) n'existe que sur les splits partagés, donc
+                les soirées solo gardent la note discrète. */}
+            {isCollab ? (
+              <CollabMoneyPanel
+                event={event}
+                tickets={stats.ticketPillar}
+                tables={stats.tablePillar}
+                tableGuests={stats.tableGuests}
+                drinks={stats.drinkPillar}
+                gain={netGain}
+                isVenue={isVenue}
+              />
+            ) : (
+              <PayoutStatusNote gain={netGain} className="-mt-1" />
+            )}
 
             {/* Quick access to every tool for this night */}
             {isCollab && (
