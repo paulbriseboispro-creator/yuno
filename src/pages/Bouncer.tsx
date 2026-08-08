@@ -321,21 +321,20 @@ export default function Bouncer() {
     }
   }, [rapidMode, scanResult]);
 
-  // Auto-avance 1400 ms sur un succès simple (aucun drapeau d'attention) :
-  // le videur enchaîne sans toucher l'écran. VIP, déjà scanné, refus et
-  // succès à drapeaux (mineur, boisson à remettre, hors créneau) attendent
-  // un tap. Un tap sur le feedback avance immédiatement (cleanup = timer coupé).
+  // Auto-avance 10 s : TOUT verdict non touché finit par s'effacer (un videur
+  // occupé ne doit jamais retrouver un écran figé qui bloque la file). Un tap
+  // n'importe où avance immédiatement (cleanup = timer coupé). Seule
+  // exception : le hors créneau — « Gérer le retard » est une décision
+  // d'argent (refus + remboursement 90 %), elle attend un humain.
   useEffect(() => {
-    if (!rapidMode || scanResult !== 'success') return;
-    const attention = !!scannedTicket && (
-      scannedTicket.alcoholFree ||
-      (scannedTicket.includesDrink && freeDrinkMode === 'bouncer_notify') ||
-      (!!scannedTicket.entryDeadline && computeLateness(scannedTicket.entryDeadline, nowInParis()).isPast)
-    );
-    if (attention) return;
-    const timer = setTimeout(advanceRapid, 1400);
+    if (!rapidMode || !scanResult) return;
+    const isLateCase = scanResult === 'success' &&
+      !!scannedTicket?.entryDeadline &&
+      computeLateness(scannedTicket.entryDeadline, nowInParis()).isPast;
+    if (isLateCase) return;
+    const timer = setTimeout(advanceRapid, 10000);
     return () => clearTimeout(timer);
-  }, [rapidMode, scanResult, scannedTicket, freeDrinkMode, advanceRapid]);
+  }, [rapidMode, scanResult, scannedTicket, advanceRapid]);
 
   useEffect(() => {
     if (venueId) {
@@ -1549,6 +1548,9 @@ export default function Bouncer() {
         video: { width: '100%', height: '100%', objectFit: 'cover' },
       }}
       components={{
+        // finder: false — le viseur rouge pointillé de la lib doublonne (et
+        // jure) avec notre cadre blanc ; on ne garde que le nôtre.
+        finder: false,
         tracker: undefined,
       }}
       constraints={{
@@ -2346,25 +2348,28 @@ export default function Bouncer() {
             </div>
           )}
 
-          {/* Feedback plein écran : lavis de couleur + icône + infos, par-dessus la caméra.
-              Un tap n'importe où avance ; les boutons internes stoppent la propagation. */}
+          {/* Feedback : carte centrée OPAQUE par-dessus la caméra assombrie.
+              Le lavis translucide plein écran était illisible sur le flux
+              caméra (retour terrain) — le verdict vit sur un aplat solide.
+              Un tap n'importe où avance ; les boutons internes stoppent la
+              propagation. */}
           <AnimatePresence>
             {scanResult && scanResult !== 'cancel_ready' && (() => {
               const late = scanResult === 'success' && scannedTicket?.entryDeadline
                 ? computeLateness(scannedTicket.entryDeadline, nowInParis())
                 : null;
               const isLate = !!late?.isPast;
-              const needsAttention = scanResult !== 'success' || !!(scannedTicket && (
-                scannedTicket.alcoholFree ||
-                (scannedTicket.includesDrink && freeDrinkMode === 'bouncer_notify') ||
-                isLate
-              ));
-              const bg = scanResult === 'success' ? 'bg-green-600/95'
-                : scanResult === 'vip_success' ? 'bg-amber-500/95'
-                : scanResult === 'already' ? 'bg-yellow-500/95'
-                : 'bg-red-600/95';
-              /* Jaune vif : texte sombre, sinon le verdict est illisible */
-              const fg = scanResult === 'already' ? '#1a1a1a' : '#fff';
+              /* Ambre/jaune : texte sombre, sinon le verdict est illisible */
+              const dark = scanResult === 'vip_success' || scanResult === 'already';
+              const cardBg = scanResult === 'success' ? '#16A34A'
+                : scanResult === 'vip_success' ? '#F59E0B'
+                : scanResult === 'already' ? '#EAB308'
+                : '#DC2626';
+              const fg = dark ? '#1a1a1a' : '#ffffff';
+              const fgSoft = dark ? 'rgba(0,0,0,0.65)' : 'rgba(255,255,255,0.78)';
+              const innerBg = dark ? 'rgba(0,0,0,0.08)' : 'rgba(0,0,0,0.15)';
+              const pillBg = dark ? 'rgba(0,0,0,0.10)' : 'rgba(255,255,255,0.16)';
+              const pillBorder = dark ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.28)';
               /* Repli overlayName : le chemin offline ne peuple pas scannedTicket
                  pour un billet simple, seul le nom du manifeste est connu. */
               const holder = scannedTicket
@@ -2376,188 +2381,155 @@ export default function Bouncer() {
                   key={scanResult}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
+                  exit={{ opacity: 0, transition: { duration: 0.1 } }}
                   transition={{ duration: 0.12 }}
-                  className={`absolute inset-0 flex flex-col ${bg}`}
+                  className="absolute inset-0 flex items-center justify-center bg-black/60"
                   style={{ willChange: 'opacity', touchAction: 'manipulation' }}
                   onClick={advanceRapid}
                 >
-                  {/* Zone centrale : icône + verdict */}
-                  <div
-                    className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center"
-                    style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
+                  <motion.div
+                    initial={reducedMotion ? { opacity: 0 } : { scale: 0.92, opacity: 0 }}
+                    animate={reducedMotion ? { opacity: 1 } : { scale: 1, opacity: 1 }}
+                    transition={reducedMotion ? { duration: 0.12 } : { type: 'spring', stiffness: 420, damping: 26 }}
+                    className="mx-6 w-full max-w-[340px] rounded-[28px] p-6 text-center"
+                    style={{ background: cardBg, boxShadow: '0 24px 60px -12px rgba(0,0,0,0.7)', willChange: 'transform, opacity' }}
                   >
-                    <motion.div
-                      initial={reducedMotion ? { opacity: 0 } : { scale: 0.6, opacity: 0 }}
-                      animate={reducedMotion ? { opacity: 1 } : { scale: 1, opacity: 1 }}
-                      transition={reducedMotion ? { duration: 0.12 } : { type: 'spring', stiffness: 420, damping: 26 }}
-                      className="flex-none"
-                      style={{ willChange: 'transform, opacity' }}
-                    >
-                      {(scanResult === 'success' || scanResult === 'vip_success') ? (
-                        <CheckCircle className="h-24 w-24" style={{ color: fg }} strokeWidth={2.5} />
-                      ) : (
-                        <XCircle className="h-24 w-24" style={{ color: fg }} strokeWidth={2.5} />
-                      )}
-                    </motion.div>
-                    <motion.p
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.08 }}
-                      className="mt-3 max-w-full truncate text-3xl font-black uppercase tracking-wider"
-                      style={{ color: fg }}
-                    >
+                    {(scanResult === 'success' || scanResult === 'vip_success') ? (
+                      <CheckCircle className="mx-auto h-14 w-14" style={{ color: fg }} strokeWidth={2.5} />
+                    ) : (
+                      <XCircle className="mx-auto h-14 w-14" style={{ color: fg }} strokeWidth={2.5} />
+                    )}
+                    <p className="mt-2 max-w-full truncate text-2xl font-black uppercase tracking-wider" style={{ color: fg }}>
                       {scanResult === 'success' && t('bouncer.entryApproved')}
                       {scanResult === 'vip_success' && 'VIP'}
                       {scanResult === 'already' && t('bouncer.alreadyScanned')}
                       {scanResult === 'error' && t('bouncer.entryDenied')}
-                    </motion.p>
-                    {scanResult === 'error' && errorMessage && (
-                      /* Motif du refus : libre de passer à la ligne, c'est ce que le videur doit lire */
-                      <p className="mt-2 max-w-xs text-balance text-base leading-snug" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                        {errorMessage}
-                      </p>
+                    </p>
+                    {holder && scanResult !== 'error' && (
+                      <p className="mt-1 truncate text-lg font-semibold" style={{ color: fg }}>{holder}</p>
                     )}
-                    {overlayOffline && (scanResult === 'success' || scanResult === 'vip_success') && (
-                      /* Badge « validé hors ligne » : même signal que le ScanOverlay classique */
-                      <span
-                        className="mt-3 inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide"
-                        style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', color: fg }}
-                      >
-                        {t('offline.validatedOffline')}
-                      </span>
-                    )}
-                  </div>
 
-                  {/* Zone infos : carte basse */}
-                  <div
-                    className="flex-none space-y-2.5 rounded-t-3xl bg-black/35 px-5 pt-4 backdrop-blur"
-                    style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
-                  >
-                    {/* Succès offline : pas de scannedTicket (manifeste local), on montre au moins le nom */}
-                    {scanResult === 'success' && !scannedTicket && holder && (
-                      <p className="truncate text-lg font-semibold text-white">{holder}</p>
-                    )}
                     {scanResult === 'success' && scannedTicket && (
-                      <>
-                        <p className="truncate text-lg font-semibold text-white">{scannedTicket.fullName || scannedTicket.userEmail}</p>
+                      <div className="mt-4 space-y-2 rounded-xl p-3 text-left" style={{ background: innerBg }}>
                         <div className="flex flex-wrap items-center gap-2">
                           <span
-                            className="min-w-0 truncate rounded-full px-2.5 py-0.5 text-xs font-semibold text-white"
-                            style={{ background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.2)' }}
+                            className="min-w-0 truncate rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                            style={{ background: pillBg, border: `1px solid ${pillBorder}`, color: fg }}
                           >
                             {scannedTicket.roundName}
                           </span>
-                          <span className="flex-none tabular-nums text-base font-bold text-white">{scannedTicket.quantity}x</span>
+                          <span className="flex-none tabular-nums text-base font-bold" style={{ color: fg }}>{scannedTicket.quantity}x</span>
                         </div>
                         {scannedTicket.includesDrink && (
                           freeDrinkMode === 'bouncer_notify' ? (
-                            <div className="flex items-center gap-2.5 rounded-xl border-2 border-green-400/60 bg-green-500/25 px-3 py-2.5">
-                              <Wine className="h-5 w-5 flex-none text-green-300" />
-                              <p className="min-w-0 truncate text-sm font-bold text-green-200">{t('bouncer.giveDrink')}</p>
+                            <div className="flex items-center gap-2">
+                              <Wine className="h-5 w-5 flex-none" style={{ color: fg }} />
+                              <p className="min-w-0 truncate text-sm font-bold" style={{ color: fg }}>{t('bouncer.giveDrink')}</p>
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
-                              <Wine className="h-4 w-4 flex-none text-white/80" />
-                              <span className="min-w-0 truncate text-sm text-white/90">{t('bouncer.freeDrinkIncluded')}</span>
+                              <Wine className="h-4 w-4 flex-none" style={{ color: fgSoft }} />
+                              <span className="min-w-0 truncate text-sm" style={{ color: fgSoft }}>{t('bouncer.freeDrinkIncluded')}</span>
                             </div>
                           )
                         )}
                         {scannedTicket.alcoholFree && (
-                          <div className="flex items-center gap-2.5 rounded-xl px-3 py-2.5" style={{ background: 'rgba(245,158,11,0.2)', border: '2px solid rgba(245,158,11,0.55)' }}>
-                            <AlertTriangle className="h-5 w-5 flex-none" style={{ color: '#F59E0B' }} />
-                            <p className="min-w-0 truncate text-sm font-bold" style={{ color: '#FBBF24' }}>{t('bouncer.minorNoAlcohol')}</p>
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 flex-none" style={{ color: fg }} />
+                            <p className="min-w-0 truncate text-sm font-bold" style={{ color: fg }}>{t('bouncer.minorNoAlcohol')}</p>
                           </div>
                         )}
-                        {isLate && late && (
-                          <div className="space-y-2.5">
-                            <div className="rounded-xl px-3 py-2.5" style={{ background: 'rgba(249,115,22,0.2)', border: '2px solid rgba(249,115,22,0.55)' }}>
-                              <div className="flex items-center gap-2.5">
-                                <AlertTriangle className="h-5 w-5 flex-none text-orange-400" />
-                                <div className="min-w-0 flex-1">
-                                  <p className="truncate text-sm font-bold text-orange-300">{t('bouncer.outOfSlot')}</p>
-                                  <p className="tabular-nums text-xs text-orange-200/90">+{late.lateLabel} {t('bouncer.late')}</p>
-                                </div>
-                              </div>
+                      </div>
+                    )}
+
+                    {scanResult === 'success' && isLate && late && (
+                      <div className="mt-2.5 space-y-2.5">
+                        {/* Aplat orange solide : doit rester lisible sur la carte verte */}
+                        <div className="rounded-xl px-3 py-2.5 text-left" style={{ background: '#C2410C' }}>
+                          <div className="flex items-center gap-2.5">
+                            <AlertTriangle className="h-5 w-5 flex-none text-white" />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-bold text-white">{t('bouncer.outOfSlot')}</p>
+                              <p className="tabular-nums text-xs text-orange-100">+{late.lateLabel} {t('bouncer.late')}</p>
                             </div>
-                            <Button
-                              variant="secondary"
-                              className="min-h-[48px] w-full"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                // Bascule vers le flux classique EN GARDANT le
-                                // résultat : la carte complète (refuser +
-                                // rembourser 90 % / accepter) s'y affiche et le
-                                // scrollIntoView l'amène en vue. Ne surtout pas
-                                // effacer scanResult ni scannedTicket ici.
-                                rapidModeRef.current = false;
-                                setRapidMode(false);
-                                setScanning(false);
-                                // Sinon le ScanOverlay classique rejouerait le flash vert
-                                setOverlayResult(null);
-                              }}
-                            >
-                              {t('bouncer.handleLate')}
-                            </Button>
                           </div>
-                        )}
-                      </>
+                        </div>
+                        <Button
+                          variant="secondary"
+                          className="min-h-[48px] w-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Bascule vers le flux classique EN GARDANT le
+                            // résultat : la carte complète (refuser +
+                            // rembourser 90 % / accepter) s'y affiche et le
+                            // scrollIntoView l'amène en vue. Ne surtout pas
+                            // effacer scanResult ni scannedTicket ici.
+                            rapidModeRef.current = false;
+                            setRapidMode(false);
+                            setScanning(false);
+                            // Sinon le ScanOverlay classique rejouerait le flash vert
+                            setOverlayResult(null);
+                          }}
+                        >
+                          {t('bouncer.handleLate')}
+                        </Button>
+                      </div>
                     )}
 
                     {scanResult === 'vip_success' && scannedVipReservation && (
-                      <>
-                        <p className="truncate text-lg font-semibold text-white">{scannedVipReservation.fullName}</p>
+                      <div className="mt-4 space-y-2 rounded-xl p-3 text-left" style={{ background: innerBg }}>
                         <div className="flex flex-wrap items-center gap-2">
                           <span
                             className="min-w-0 truncate rounded-full px-2.5 py-0.5 text-xs font-semibold"
-                            style={{ background: 'rgba(234,179,8,0.18)', border: '1px solid rgba(234,179,8,0.4)', color: '#FCD34D' }}
+                            style={{ background: pillBg, border: `1px solid ${pillBorder}`, color: fg }}
                           >
                             {scannedVipReservation.zoneName}
                           </span>
                           <span
-                            className="min-w-0 truncate rounded-full px-2.5 py-0.5 text-xs font-semibold text-white"
-                            style={{ background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.2)' }}
+                            className="min-w-0 truncate rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                            style={{ background: pillBg, border: `1px solid ${pillBorder}`, color: fg }}
                           >
                             {scannedVipReservation.packName}
                           </span>
-                          <span className="flex flex-none items-center gap-1 tabular-nums text-base font-bold text-white">
+                          <span className="flex flex-none items-center gap-1 tabular-nums text-base font-bold" style={{ color: fg }}>
                             <Users className="h-4 w-4" />
                             {scannedVipReservation.guestCount}
                           </span>
                         </div>
                         <div className="flex items-center justify-between gap-3">
-                          <span className="min-w-0 truncate text-sm text-white/70">{t('tickets.remainingOnSite')}</span>
-                          <span className="flex-none tabular-nums text-lg font-bold" style={{ color: '#FCD34D' }}>
+                          <span className="min-w-0 truncate text-sm" style={{ color: fgSoft }}>{t('tickets.remainingOnSite')}</span>
+                          <span className="flex-none tabular-nums text-lg font-bold" style={{ color: fg }}>
                             {(scannedVipReservation.totalPrice - scannedVipReservation.deposit).toFixed(2)}€
                           </span>
                         </div>
                         {scannedVipReservation.arrivalDeadline && (
                           <div className="flex items-center justify-between gap-3">
-                            <span className="flex min-w-0 items-center gap-1.5 truncate text-sm text-white/70">
+                            <span className="flex min-w-0 items-center gap-1.5 truncate text-sm" style={{ color: fgSoft }}>
                               <Clock className="h-3.5 w-3.5 flex-none" />
                               {t('bouncer.arrivalDeadline')}
                             </span>
-                            <span className="flex-none tabular-nums text-sm font-semibold text-white">{scannedVipReservation.arrivalDeadline}</span>
+                            <span className="flex-none tabular-nums text-sm font-semibold" style={{ color: fg }}>{scannedVipReservation.arrivalDeadline}</span>
                           </div>
                         )}
-                      </>
+                      </div>
                     )}
 
                     {scanResult === 'already' && (
                       <>
-                        {holder && <p className="truncate text-lg font-semibold text-white">{holder}</p>}
                         {scannedAtRaw && (
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="min-w-0 truncate text-sm text-white/70">{t('bouncer.scannedAt')}</span>
-                            <span className="flex-none tabular-nums text-sm font-semibold" style={{ color: '#FCD34D' }}>
-                              {format(new Date(scannedAtRaw), 'HH:mm', { locale: dateLocale })}
-                            </span>
+                          <div className="mt-4 rounded-xl p-3 text-left" style={{ background: innerBg }}>
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="min-w-0 truncate text-sm" style={{ color: fgSoft }}>{t('bouncer.scannedAt')}</span>
+                              <span className="flex-none tabular-nums text-sm font-bold" style={{ color: fg }}>
+                                {format(new Date(scannedAtRaw), 'HH:mm', { locale: dateLocale })}
+                              </span>
+                            </div>
                           </div>
                         )}
                         {scannedTicket && (
                           <Button
                             variant="outline"
-                            className="min-h-[44px] w-full"
+                            className="mt-2.5 min-h-[44px] w-full"
                             onClick={(e) => {
                               e.stopPropagation();
                               openWarn({ userId: scannedTicket.userId, email: scannedTicket.userEmail, name: scannedTicket.fullName });
@@ -2572,16 +2544,24 @@ export default function Bouncer() {
 
                     {scanResult === 'error' && (
                       <>
-                        {(deniedContext?.name || deniedContext?.eventTitle) && (
-                          <div className="min-w-0">
-                            {deniedContext.name && <p className="truncate text-lg font-semibold text-white">{deniedContext.name}</p>}
-                            {deniedContext.eventTitle && <p className="truncate text-xs text-white/60">{deniedContext.eventTitle}</p>}
+                        {(errorMessage || deniedContext?.name || deniedContext?.eventTitle) && (
+                          <div className="mt-4 space-y-1.5 rounded-xl p-3 text-left" style={{ background: innerBg }}>
+                            {errorMessage && (
+                              /* Motif du refus : libre de passer à la ligne, c'est ce que le videur doit lire */
+                              <p className="text-balance text-sm leading-snug" style={{ color: fg }}>{errorMessage}</p>
+                            )}
+                            {deniedContext?.name && (
+                              <p className="truncate text-sm font-semibold" style={{ color: fg }}>{deniedContext.name}</p>
+                            )}
+                            {deniedContext?.eventTitle && (
+                              <p className="truncate text-xs" style={{ color: fgSoft }}>{deniedContext.eventTitle}</p>
+                            )}
                           </div>
                         )}
                         {scannedTicket && (
                           <Button
                             variant="outline"
-                            className="min-h-[44px] w-full"
+                            className="mt-2.5 min-h-[44px] w-full"
                             onClick={(e) => {
                               e.stopPropagation();
                               openWarn({ userId: scannedTicket.userId, email: scannedTicket.userEmail, name: scannedTicket.fullName });
@@ -2594,10 +2574,20 @@ export default function Bouncer() {
                       </>
                     )}
 
-                    <p className="pt-1 text-center text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                      {needsAttention ? t('bouncer.tapToContinue') : t('bouncer.tapToSkip')}
+                    {overlayOffline && (scanResult === 'success' || scanResult === 'vip_success') && (
+                      /* Badge « validé hors ligne » : même signal que le ScanOverlay classique */
+                      <span
+                        className="mt-3 inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide"
+                        style={{ background: pillBg, border: `1px solid ${pillBorder}`, color: fg }}
+                      >
+                        {t('offline.validatedOffline')}
+                      </span>
+                    )}
+
+                    <p className="mt-4 text-xs" style={{ color: dark ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.7)' }}>
+                      {t('bouncer.tapToSkip')}
                     </p>
-                  </div>
+                  </motion.div>
                 </motion.div>
               );
             })()}
