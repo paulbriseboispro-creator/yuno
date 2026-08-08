@@ -93,6 +93,7 @@ serve(async (req) => {
         id, affiliate_id, affiliate_venue_id, name,
         day_of_week, advance_days, start_time, end_time,
         price_from, is_free, genres, publication_url, flyer_url,
+        publication_url_set_at, publication_url_is_permanent,
         affiliate_venues(name, slug)
       `)
       .eq("is_active", true);
@@ -110,6 +111,24 @@ serve(async (req) => {
     let generated = 0;
     let updated = 0;
     const errors: string[] = [];
+
+    // Un lien de modèle est un lien d'ÉDITION (Fourvenues & co créent une page
+    // par semaine) : il ne vaut que pour la première occurrence qui suit sa
+    // pose, puis il expire — sauf lien coché « permanent ». Un lien sans date
+    // de pose (posé avant ce système) est considéré périmé.
+    const templateLinkFor = (
+      tpl: { publication_url?: string | null; publication_url_set_at?: string | null; publication_url_is_permanent?: boolean | null },
+      eventDate: string,
+    ): string | null => {
+      const url = tpl.publication_url ?? null;
+      if (!url) return null;
+      if (tpl.publication_url_is_permanent) return url;
+      if (!tpl.publication_url_set_at) return null;
+      const setAt = new Date(tpl.publication_url_set_at).getTime();
+      const eventDayEnd = new Date(`${eventDate}T23:59:59`).getTime();
+      const ageDays = (eventDayEnd - setAt) / 86_400_000;
+      return ageDays >= 0 && ageDays < 7 ? url : null;
+    };
 
     for (const tpl of templates) {
       const eventDates = upcomingDatesForDayOfWeek(tpl.day_of_week, tpl.advance_days);
@@ -133,7 +152,9 @@ serve(async (req) => {
             // source of truth, SAUF si un humain a posé le lien sur cette
             // occurrence (ticket_url_overridden, posé par trigger côté DB) :
             // son lien et le statut qui en découle ne sont alors plus touchés.
-            const tplTicketUrl = (tpl as { publication_url?: string | null }).publication_url ?? null;
+            // Un lien de modèle expiré (posé il y a plus d'un cycle) vaut null :
+            // l'occurrence qui le portait est dépubliée et nettoyée ici même.
+            const tplTicketUrl = templateLinkFor(tpl, eventDate);
             const tplFlyerUrl = (tpl as { flyer_url?: string | null }).flyer_url ?? null;
             const overridden = (existing as { ticket_url_overridden?: boolean }).ticket_url_overridden === true;
             const targetUrl = overridden ? existing.external_ticket_url : tplTicketUrl;
@@ -168,11 +189,12 @@ serve(async (req) => {
             slug = `${baseSlug}-${attempt}`;
           }
 
-          // Only apply the template's publication_url to the nearest occurrence.
-          // Future advance events start as drafts — they'll be published when the
-          // user sets their specific ticket link for that week.
+          // Only apply the template's publication_url to the nearest occurrence,
+          // et seulement s'il est encore frais (ou permanent). Future advance
+          // events start as drafts — they'll be published when the user sets
+          // their specific ticket link for that week.
           const isNearest = eventDate === nearestEventDate;
-          const ticketUrl = isNearest ? ((tpl as { publication_url?: string | null }).publication_url ?? null) : null;
+          const ticketUrl = isNearest ? templateLinkFor(tpl, eventDate) : null;
 
           await supabaseAdmin.from("affiliate_events").insert({
             affiliate_id: tpl.affiliate_id,

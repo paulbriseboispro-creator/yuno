@@ -909,6 +909,8 @@ export type Database = {
           name: string
           price_from: number | null
           publication_url: string | null
+          publication_url_is_permanent: boolean
+          publication_url_set_at: string | null
           slug: string | null
           start_time: string | null
           updated_at: string
@@ -928,6 +930,8 @@ export type Database = {
           name: string
           price_from?: number | null
           publication_url?: string | null
+          publication_url_is_permanent?: boolean
+          publication_url_set_at?: string | null
           slug?: string | null
           start_time?: string | null
           updated_at?: string
@@ -947,6 +951,8 @@ export type Database = {
           name?: string
           price_from?: number | null
           publication_url?: string | null
+          publication_url_is_permanent?: boolean
+          publication_url_set_at?: string | null
           slug?: string | null
           start_time?: string | null
           updated_at?: string

@@ -87,13 +87,14 @@ type FormData = {
   flyer_url: string | null;
   genres: string[];
   publication_url: string;
+  publication_url_is_permanent: boolean;
 };
 
 const EMPTY: FormData = {
   name: '', slug: '', affiliate_venue_id: '', day_of_week: 5,
   advance_days: 7, start_time: '23:00', end_time: '06:00',
   price_from: '', is_free: false, is_active: true, flyer_url: null, genres: [],
-  publication_url: '',
+  publication_url: '', publication_url_is_permanent: false,
 };
 
 export default function AffiliateRecurringForm() {
@@ -154,6 +155,7 @@ export default function AffiliateRecurringForm() {
           // Anciens libellés ramenés sur les puces réelles (cf. musicGenres.ts).
           genres: canonicalGenres(data.genres),
           publication_url: (data as any).publication_url ?? '',
+          publication_url_is_permanent: (data as any).publication_url_is_permanent ?? false,
         });
       }
     }
@@ -195,6 +197,7 @@ export default function AffiliateRecurringForm() {
           flyer_url: form.flyer_url,
           genres: form.genres,
           publication_url: form.publication_url || null,
+          publication_url_is_permanent: form.publication_url_is_permanent,
         };
         const { error } = await supabase.from('affiliate_recurring_templates').insert(payload);
         if (error) errors.push(`${dayName}: ${error.message}`);
@@ -232,6 +235,7 @@ export default function AffiliateRecurringForm() {
         flyer_url: form.flyer_url,
         genres: form.genres,
         publication_url: form.publication_url || null,
+        publication_url_is_permanent: form.publication_url_is_permanent,
       };
 
       const saved: FormData = { ...form, slug };
@@ -386,6 +390,8 @@ export default function AffiliateRecurringForm() {
             <FieldLabel>{t('aff.recurringForm.publicationUrlLabel')}</FieldLabel>
             <DarkInput type="url" value={form.publication_url} onChange={(v) => set('publication_url', v)} placeholder="https://shotgun.live/events/ma-soiree" />
             <p style={{ color: T3, fontSize: 11, marginTop: 6 }}>{t('aff.recurringForm.publicationUrlHelp')}</p>
+            <div className="mt-3"><CheckBox checked={form.publication_url_is_permanent} onChange={(v) => set('publication_url_is_permanent', v)} label={t('aff.recurringForm.permanentLinkLabel')} /></div>
+            <p style={{ color: T3, fontSize: 11, marginTop: 6 }}>{t('aff.recurringForm.permanentLinkHelp')}</p>
           </div>
 
           {/* is_active toggle */}
