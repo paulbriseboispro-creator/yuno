@@ -242,6 +242,21 @@ export const agencyHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.agc.stats.s2h', bodyKey: 'ohelp.agc.stats.s2b' },
         ],
       },
+      {
+        id: 'audience-notifications',
+        titleKey: 'ohelp.agc.audience.title',
+        descKey: 'ohelp.agc.audience.desc',
+        icon: 'Radio',
+        actionLink: { labelKey: 'ohelp.agc.action.openAudience', path: '/audience' },
+        relatedArticleIds: ['stats-analytics', 'rp-page'],
+        keywords: ['abonnés', 'subscribers', 'audience', 'notifications', 'push', 'suivre', 'follow', 'cloche', 'abonnement', 's\'abonner', 'nouvelle soirée', 'segmentation'],
+        sections: [
+          { headingKey: 'ohelp.agc.audience.s1h', bodyKey: 'ohelp.agc.audience.s1b' },
+          { headingKey: 'ohelp.agc.audience.s2h', bodyKey: 'ohelp.agc.audience.s2b' },
+          { headingKey: 'ohelp.agc.audience.s3h', bodyKey: 'ohelp.agc.audience.s3b', type: 'tip' },
+          { headingKey: 'ohelp.agc.audience.s4h', bodyKey: 'ohelp.agc.audience.s4b', type: 'warning' },
+        ],
+      },
     ],
   },
 

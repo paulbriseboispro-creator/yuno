@@ -46,7 +46,7 @@ AVANT toute action qui MODIFIE des données (annonce à l'équipe, bio, tri du l
 - Tu ne DÉCLENCHES JAMAIS un règlement, un virement ou un changement de statut financier. Le cycle de règlement (préparer → déclarer envoyé → le promoteur confirme) se fait uniquement sur [Finance](/agency-app/finance). Yuno ne touche jamais les fonds (virements SEPA de banque à banque).
 
 ═══ NAVIGATION ═══
-Utilise des liens Markdown : [Tableau de bord](/agency-app), [Ma vitrine](/agency-app/vitrine), [Profil de l'agence](/agency-app/profile), [Promoteurs](/agency-app/promoters), [Groupes](/agency-app/groups), [Guest lists](/agency-app/guest-lists), [Contrats clubs](/agency-app/clubs), [Événements](/agency-app/events), [Stats de ventes](/agency-app/stats), [Graphiques](/agency-app/analytics), [Finance](/agency-app/finance), [Règles](/agency-app/rules), [Rémunération](/agency-app/pay), [Annonces](/agency-app/announcements), [Assignations](/affiliate/assignments), [Suivi](/affiliate/suivi), [Clubs externes](/affiliate/venues), [Soirées externes](/affiliate/events), [Analytics trafic](/affiliate/analytics), [Commissions externes](/affiliate/commissions), [Linktree & externe](/affiliate/settings), [Mode d'emploi](/agency-app/help)
+Utilise des liens Markdown : [Tableau de bord](/agency-app), [Ma vitrine](/agency-app/vitrine), [Profil de l'agence](/agency-app/profile), [Promoteurs](/agency-app/promoters), [Groupes](/agency-app/groups), [Guest lists](/agency-app/guest-lists), [Contrats clubs](/agency-app/clubs), [Événements](/agency-app/events), [Stats de ventes](/agency-app/stats), [Graphiques](/agency-app/analytics), [Abonnés](/agency-app/audience), [Notifications](/agency-app/push), [Finance](/agency-app/finance), [Règles](/agency-app/rules), [Rémunération](/agency-app/pay), [Annonces](/agency-app/announcements), [Assignations](/affiliate/assignments), [Suivi](/affiliate/suivi), [Clubs externes](/affiliate/venues), [Soirées externes](/affiliate/events), [Analytics trafic](/affiliate/analytics), [Commissions externes](/affiliate/commissions), [Linktree & externe](/affiliate/settings), [Mode d'emploi](/agency-app/help)
 
 ═══ NE MÉLANGE JAMAIS ═══
 - Question "comment ça marche" → search_help_articles
@@ -128,6 +128,18 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     keywords: ["stats", "statistiques", "analytics", "ventes", "sales", "graphiques", "charts", "classement", "leaderboard", "performance"],
     path: "/agency-app/stats",
     snippet: "Stats de ventes agrège le bras Yuno : volume, commissions, détail par club, soirée et promoteur. Graphiques déroule les tendances. Le bras externe se lit dans Analytics trafic (vues, clics billetterie, conversions déclarées). Les deux ensemble constituent l'argumentaire de valeur auprès des clubs.",
+  },
+  "subscribers": {
+    title: "Abonnés de l'agence (audience)",
+    keywords: ["abonnés", "subscribers", "audience", "suivre", "follow", "abonnement", "s'abonner", "communauté", "fans", "démographie", "segmentation", "croissance", "revenu abonnés"],
+    path: "/agency-app/audience",
+    snippet: "Le public peut s'abonner à l'agence depuis sa page RP (/rp/…) d'un tap, comme on suit un club. La page Abonnés agrège tout : total et croissance nette, sources d'acquisition, démographie (âge, sexe estimé, villes, langues, goûts), segmentation (engagés/passifs, nouveaux/établis), portée push et part du revenu qui vient des abonnés. La section « Par soirée » montre, pour chaque soirée sous contrat, combien d'abonnés ont acheté et le taux de conversion. Un abonnement RP apparaît dans les Favoris du client, onglet Promoteurs.",
+  },
+  "notifications": {
+    title: "Notifications push aux abonnés",
+    keywords: ["notifications", "push", "notifier", "prévenir", "envoyer", "campagne", "manuel", "automatique", "nouvelle soirée", "abonnés"],
+    path: "/agency-app/push",
+    snippet: "Deux leviers pour toucher tes abonnés. Le push AUTOMATIQUE « Nouvelle soirée » (éteint par défaut, opt-in) : activé, chaque soirée fraîche d'un club sous contrat prévient tes abonnés toute seule, une fois par soirée. Le push MANUEL : un message ponctuel (titre + texte + lien) à tous tes abonnés joignables, avec aperçu iOS et portée estimée avant l'envoi. Maximum 4 envois manuels par 24 h. Seuls les abonnés qui ont l'app et gardent les notifs activées sont joignables.",
   },
   "external-catalog": {
     title: "Clubs externes (catalogue)",
