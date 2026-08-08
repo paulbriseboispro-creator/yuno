@@ -63,10 +63,17 @@ function buildGroups(t: T): SidebarNavGroup[] {
       items: [
         { title: t('agc.nav.contracts'), path: '/agency-app/clubs', icon: <Building2 /> },
         { title: t('agc.nav.events'), path: '/agency-app/events', icon: <CalendarDays /> },
-        { title: t('agc.nav.salesStats'), path: '/agency-app/stats', icon: <TrendingUp /> },
-        { title: t('agc.nav.charts'), path: '/agency-app/analytics', icon: <BarChart2 /> },
+      ],
+    },
+    {
+      // Piloter l'activité : audience, notifications, ventes, analyse, argent —
+      // regroupés pour désengorger le bras Yuno (trop d'onglets auparavant).
+      label: t('agc.nav.opsGroup'),
+      items: [
         { title: t('agc.nav.audience'), path: '/agency-app/audience', icon: <Radio /> },
         { title: t('agc.nav.push'), path: '/agency-app/push', icon: <BellRing /> },
+        { title: t('agc.nav.salesStats'), path: '/agency-app/stats', icon: <TrendingUp /> },
+        { title: t('agc.nav.charts'), path: '/agency-app/analytics', icon: <BarChart2 /> },
         { title: t('agc.nav.finance'), path: '/agency-app/finance', icon: <Wallet /> },
       ],
     },

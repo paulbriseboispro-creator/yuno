@@ -13076,6 +13076,7 @@ const es: Record<string, string> = {
   'agc.nav.charts': 'Gráficos',
   'agc.nav.audience': 'Suscriptores',
   'agc.nav.push': 'Notificaciones',
+  'agc.nav.opsGroup': 'Operaciones',
   'agc.nav.finance': 'Finanzas',
   'agc.nav.externalGroup': 'Clubs externos',
   'agc.nav.trafficAnalytics': 'Analytics de tráfico',

@@ -13033,6 +13033,7 @@ const fr: Record<string, string> = {
   'agc.nav.charts': 'Graphiques',
   'agc.nav.audience': 'Abonnés',
   'agc.nav.push': 'Notifications',
+  'agc.nav.opsGroup': 'Opérations',
   'agc.nav.finance': 'Finance',
   'agc.nav.externalGroup': 'Clubs externes',
   'agc.nav.trafficAnalytics': 'Analytics trafic',

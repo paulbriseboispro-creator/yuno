@@ -12962,6 +12962,7 @@ const en: Record<string, string> = {
   'agc.nav.charts': 'Charts',
   'agc.nav.audience': 'Subscribers',
   'agc.nav.push': 'Notifications',
+  'agc.nav.opsGroup': 'Operations',
   'agc.nav.finance': 'Finance',
   'agc.nav.externalGroup': 'External clubs',
   'agc.nav.trafficAnalytics': 'Traffic analytics',
