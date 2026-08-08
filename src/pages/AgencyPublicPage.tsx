@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowLeft, Share2, MapPin, AtSign, Globe, MessageCircle, Heart, BadgeCheck } from 'lucide-react';
+import { ArrowLeft, Share2, MapPin, AtSign, Globe, MessageCircle, Heart, BadgeCheck, Bell, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -55,6 +55,8 @@ type RpProfile = {
   website: string | null;
   whatsapp: string | null;
   linktree_slug: string | null;
+  /** Identité maître de l'entité fusionnée. NULL = affilié sans agence → pas d'abonnement. */
+  agency_id: string | null;
 };
 
 type RpEvent = {
@@ -177,7 +179,7 @@ function RpEventCard({
 
         <button
           onClick={(e) => { e.stopPropagation(); toggleFavorite(favType, ev.id); }}
-          className="absolute bottom-2.5 right-2.5 z-10 flex items-center justify-center rounded-full w-7 h-7 transition-all"
+          className="absolute top-2.5 right-2.5 z-10 flex items-center justify-center rounded-full w-7 h-7 transition-all"
           style={{ background: 'rgba(10,10,10,0.55)', border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)' }}
           aria-label={liked ? t('explore.removeFav') : t('explore.addFav')}
         >
@@ -238,6 +240,10 @@ export default function AgencyPublicPage() {
   const [events, setEvents] = useState<RpEvent[]>([]);
   const [clubs, setClubs] = useState<RpClub[]>([]);
   const [loading, setLoading] = useState(true);
+  // Abonnement à l'agence (identité maître). Absent d'affiliate sans agency_id.
+  const [followersCount, setFollowersCount] = useState(0);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
 
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const isOwner = !!(user?.id && profile?.user_id && user.id === profile.user_id);
@@ -254,7 +260,7 @@ export default function AgencyPublicPage() {
         // Cast any : banner_url n'est pas encore dans les types générés.
         const { data: aff } = await (supabase as any)
           .from('affiliates')
-          .select('id, user_id, name, city, bio, avatar_url, banner_url, instagram, tiktok, website, whatsapp, linktree_slug')
+          .select('id, user_id, name, city, bio, avatar_url, banner_url, instagram, tiktok, website, whatsapp, linktree_slug, agency_id')
           .eq('linktree_slug', slug)
           .eq('is_active', true)
           .maybeSingle();
@@ -375,6 +381,54 @@ export default function AgencyPublicPage() {
     return () => { active = false; };
   }, [slug]);
 
+  // Abonnés de l'agence : compteur public + état de l'utilisateur courant.
+  // On ne fait rien pour un affilié sans identité d'agence (agency_id NULL).
+  const agencyId = profile?.agency_id ?? null;
+  useEffect(() => {
+    if (!agencyId) { setFollowersCount(0); setIsFollowing(false); return; }
+    let active = true;
+    (async () => {
+      // agency_followers pas encore dans les types générés → cast (regen après push).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabase as any;
+      const [{ count }, followedRes] = await Promise.all([
+        sb.from('agency_followers').select('id', { count: 'exact', head: true }).eq('agency_id', agencyId),
+        user?.id
+          ? sb.from('agency_followers').select('id').eq('agency_id', agencyId).eq('user_id', user.id).maybeSingle()
+          : Promise.resolve({ data: null }),
+      ]);
+      if (!active) return;
+      setFollowersCount(count ?? 0);
+      setIsFollowing(!!followedRes.data);
+    })();
+    return () => { active = false; };
+  }, [agencyId, user?.id]);
+
+  const toggleFollow = async () => {
+    if (!agencyId || followBusy) return;
+    if (!user?.id) {
+      toast.info(t('affiliate.loginToFollow'));
+      navigate('/auth');
+      return;
+    }
+    // Optimiste : le pouce doit sentir le tap ; on annule si l'écriture échoue.
+    const was = isFollowing;
+    setFollowBusy(true);
+    setIsFollowing(!was);
+    setFollowersCount(c => was ? Math.max(0, c - 1) : c + 1);
+    const { error } = was
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? await (supabase as any).from('agency_followers').delete().eq('agency_id', agencyId).eq('user_id', user.id)
+      : await (supabase.rpc as unknown as (n: string, p: Record<string, unknown>) => Promise<{ error: unknown }>)(
+          'follow_agency', { p_agency_id: agencyId, p_source: 'rp_page' });
+    if (error) {
+      setIsFollowing(was);
+      setFollowersCount(c => was ? c + 1 : Math.max(0, c - 1));
+      toast.error(t('subscribe.error'));
+    }
+    setFollowBusy(false);
+  };
+
   const openEvent = (ev: RpEvent) => {
     // Le clic (FK affiliate_event_id) ne se compte que sur les soirées externes.
     if (!ev.yuno_event_id && profile) {
@@ -433,6 +487,7 @@ export default function AgencyPublicPage() {
   const customBanner = profile.banner_url;
   const heroBackdrop = customBanner || events.find(e => e.flyer_url)?.flyer_url || profile.avatar_url;
   const stats = [
+    agencyId ? { value: followersCount, label: t('affiliate.subscribers') } : null,
     { value: events.length, label: t('promoterLinktree.eventPlural') },
     clubs.length > 0 ? { value: clubs.length, label: t('affiliate.clubs') } : null,
     cityCount > 1 ? { value: cityCount, label: t('affiliate.cities') } : null,
@@ -552,6 +607,30 @@ export default function AgencyPublicPage() {
                 WhatsApp
               </OutboundLink>
             )}
+          </div>
+        )}
+
+        {/* S'abonner à l'agence — action primaire (identité maître requise) */}
+        {agencyId && (
+          <div className="animate-hero-cta" style={{ marginTop: 18 }}>
+            <button
+              onClick={toggleFollow}
+              disabled={followBusy}
+              aria-pressed={isFollowing}
+              className="inline-flex items-center justify-center gap-2 transition-all hover:opacity-90"
+              style={{
+                padding: '11px 22px', borderRadius: 999,
+                fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+                fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+                background: isFollowing ? 'rgba(255,255,255,0.06)' : '#E8192C',
+                color: isFollowing ? '#E5E5E5' : '#fff',
+                border: `1px solid ${isFollowing ? 'rgba(255,255,255,0.14)' : 'transparent'}`,
+                cursor: followBusy ? 'default' : 'pointer', opacity: followBusy ? 0.6 : 1,
+              }}
+            >
+              {isFollowing ? <Check className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+              {isFollowing ? t('affiliate.subscribed') : t('affiliate.subscribe')}
+            </button>
           </div>
         )}
 
