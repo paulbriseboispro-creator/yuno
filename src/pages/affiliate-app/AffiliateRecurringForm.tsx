@@ -88,6 +88,10 @@ type FormData = {
   genres: string[];
   publication_url: string;
   publication_url_is_permanent: boolean;
+  has_tables: boolean;
+  tables_only: boolean;
+  has_guest_list: boolean;
+  guest_list_type: 'mixed' | 'women';
 };
 
 const EMPTY: FormData = {
@@ -95,6 +99,7 @@ const EMPTY: FormData = {
   advance_days: 7, start_time: '23:00', end_time: '06:00',
   price_from: '', is_free: false, is_active: true, flyer_url: null, genres: [],
   publication_url: '', publication_url_is_permanent: false,
+  has_tables: false, tables_only: false, has_guest_list: false, guest_list_type: 'mixed',
 };
 
 export default function AffiliateRecurringForm() {
@@ -156,6 +161,10 @@ export default function AffiliateRecurringForm() {
           genres: canonicalGenres(data.genres),
           publication_url: (data as any).publication_url ?? '',
           publication_url_is_permanent: (data as any).publication_url_is_permanent ?? false,
+          has_tables: (data as any).has_tables ?? false,
+          tables_only: (data as any).tables_only ?? false,
+          has_guest_list: (data as any).has_guest_list ?? false,
+          guest_list_type: ((data as any).guest_list_type === 'women' ? 'women' : 'mixed'),
         });
       }
     }
@@ -198,6 +207,10 @@ export default function AffiliateRecurringForm() {
           genres: form.genres,
           publication_url: form.publication_url || null,
           publication_url_is_permanent: form.publication_url_is_permanent,
+          has_tables: form.has_tables || form.tables_only,
+          tables_only: form.tables_only,
+          has_guest_list: form.has_guest_list,
+          guest_list_type: form.guest_list_type,
         };
         const { error } = await supabase.from('affiliate_recurring_templates').insert(payload);
         if (error) errors.push(`${dayName}: ${error.message}`);
@@ -236,6 +249,10 @@ export default function AffiliateRecurringForm() {
         genres: form.genres,
         publication_url: form.publication_url || null,
         publication_url_is_permanent: form.publication_url_is_permanent,
+        has_tables: form.has_tables || form.tables_only,
+        tables_only: form.tables_only,
+        has_guest_list: form.has_guest_list,
+        guest_list_type: form.guest_list_type,
       };
 
       const saved: FormData = { ...form, slug };
@@ -392,6 +409,27 @@ export default function AffiliateRecurringForm() {
             <p style={{ color: T3, fontSize: 11, marginTop: 6 }}>{t('aff.recurringForm.publicationUrlHelp')}</p>
             <div className="mt-3"><CheckBox checked={form.publication_url_is_permanent} onChange={(v) => set('publication_url_is_permanent', v)} label={t('aff.recurringForm.permanentLinkLabel')} /></div>
             <p style={{ color: T3, fontSize: 11, marginTop: 6 }}>{t('aff.recurringForm.permanentLinkHelp')}</p>
+
+            {/* Offre de la soirée : tables VIP / guest list — copiée sur chaque
+                occurrence générée, ajustable ensuite soirée par soirée. */}
+            <div className="mt-5">
+              <FieldLabel>{t('aff.offer.title')}</FieldLabel>
+              <div className="space-y-2 mt-1">
+                <CheckBox checked={form.has_tables || form.tables_only} onChange={(v) => { set('has_tables', v); if (!v) set('tables_only', false); }} label={t('aff.offer.tables')} />
+                <CheckBox checked={form.tables_only} onChange={(v) => { set('tables_only', v); if (v) set('has_tables', true); }} label={t('aff.offer.tablesOnly')} />
+                <CheckBox checked={form.has_guest_list} onChange={(v) => set('has_guest_list', v)} label={t('aff.offer.guestList')} />
+              </div>
+              {form.has_guest_list && (
+                <div className="mt-3">
+                  <FieldLabel>{t('aff.offer.guestListType')}</FieldLabel>
+                  <DarkSelect value={form.guest_list_type} onChange={(v) => set('guest_list_type', v as FormData['guest_list_type'])}>
+                    <option value="mixed">{t('aff.offer.glMixed')}</option>
+                    <option value="women">{t('aff.offer.glWomen')}</option>
+                  </DarkSelect>
+                </div>
+              )}
+              <p style={{ color: T3, fontSize: 11, marginTop: 6 }}>{t('aff.offer.help')}</p>
+            </div>
           </div>
 
           {/* is_active toggle */}

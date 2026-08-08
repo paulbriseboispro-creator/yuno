@@ -9,6 +9,7 @@ import { fr, es, enUS } from 'date-fns/locale';
 import { FadeInView } from '@/components/motion';
 import { MonthLabel, DayRow, groupDaysIntoMonths } from '@/components/agenda/timeline';
 import { openExternal } from '@/lib/native';
+import { OfferBadges } from '@/components/affiliate/OfferBadges';
 
 type DayFilter = 'today' | 'tomorrow' | 'weekend' | null;
 type PriceFilter = 'free' | 'paid' | null;
@@ -66,6 +67,10 @@ type LinktreeEvent = {
   external_ticket_url: string | null;
   genres: string[];
   venue_name: string | null;
+  has_tables?: boolean;
+  tables_only?: boolean;
+  has_guest_list?: boolean;
+  guest_list_type?: string | null;
 };
 
 type GroupedDate = {
@@ -597,6 +602,8 @@ function EventCard({
           </p>
         )}
 
+        <OfferBadges flags={event} />
+
         {/* Price + CTA */}
         <div
           style={{
@@ -855,7 +862,7 @@ export default function PromoterLinktree() {
       const today = new Date().toISOString().split('T')[0];
       const { data: linktreeRows, error: linktreeError } = await supabase
         .from('promoter_linktree_events')
-        .select('id, affiliate_event_id, promo_link, sort_order, affiliate_events(id, name, slug, event_date, start_time, flyer_url, price_from, is_free, is_sold_out, external_ticket_url, genres, affiliate_venues(name))')
+        .select('id, affiliate_event_id, promo_link, sort_order, affiliate_events(id, name, slug, event_date, start_time, flyer_url, price_from, is_free, is_sold_out, external_ticket_url, genres, has_tables, tables_only, has_guest_list, guest_list_type, affiliate_venues(name))')
         .eq('member_id', memberData.id)
         .order('sort_order', { ascending: true });
 
@@ -886,6 +893,10 @@ export default function PromoterLinktree() {
             external_ticket_url: ev.external_ticket_url ?? null,
             genres: Array.isArray(ev.genres) ? ev.genres : [],
             venue_name: venue?.name ?? null,
+            has_tables: !!(ev as any).has_tables,
+            tables_only: !!(ev as any).tables_only,
+            has_guest_list: !!(ev as any).has_guest_list,
+            guest_list_type: (ev as any).guest_list_type ?? null,
           };
         });
 

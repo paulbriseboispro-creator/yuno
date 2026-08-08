@@ -94,6 +94,7 @@ serve(async (req) => {
         day_of_week, advance_days, start_time, end_time,
         price_from, is_free, genres, publication_url, flyer_url,
         publication_url_set_at, publication_url_is_permanent,
+        has_tables, tables_only, has_guest_list, guest_list_type,
         affiliate_venues(name, slug)
       `)
       .eq("is_active", true);
@@ -211,6 +212,12 @@ serve(async (req) => {
             status: ticketUrl ? "published" : "draft",
             recurring_template_id: tpl.id,
             external_ticket_url: ticketUrl,
+            // Offre (tables / guest list) : copiée du modèle à la création,
+            // puis modifiable au cas par cas sur l'occurrence (pas de resync).
+            has_tables: (tpl as { has_tables?: boolean }).has_tables ?? false,
+            tables_only: (tpl as { tables_only?: boolean }).tables_only ?? false,
+            has_guest_list: (tpl as { has_guest_list?: boolean }).has_guest_list ?? false,
+            guest_list_type: (tpl as { guest_list_type?: string }).guest_list_type ?? "mixed",
           });
 
           generated++;

@@ -18,6 +18,7 @@ import { useAffiliateVisitorTracking, trackAffiliateClick } from '@/hooks/useAff
 import { useFavorites } from '@/hooks/useFavorites';
 import { StickyCheckoutFooter } from '@/components/StickyCheckoutFooter';
 import { openExternal } from '@/lib/native';
+import { OfferBadges } from '@/components/affiliate/OfferBadges';
 
 type AffiliateEvent = {
   id: string;
@@ -37,6 +38,10 @@ type AffiliateEvent = {
   is_sold_out: boolean;
   status: string;
   affiliate_id: string;
+  has_tables: boolean;
+  tables_only: boolean;
+  has_guest_list: boolean;
+  guest_list_type: string | null;
   affiliate_venues: {
     id: string;
     name: string;
@@ -356,6 +361,7 @@ export default function AffiliateEventPage() {
                 {g}
               </span>
             ))}
+            <OfferBadges flags={event} size="md" />
           </div>
 
           {/* Event title */}
@@ -465,7 +471,7 @@ export default function AffiliateEventPage() {
                     className="font-mono uppercase mb-1"
                     style={{ fontSize: '9px', color: '#E8192C', letterSpacing: '0.14em' }}
                   >
-                    {t('event.ticketsAvailable')}
+                    {event.tables_only ? t('aff.badge.tablesOnly') : t('event.ticketsAvailable')}
                   </p>
                   <p
                     className="font-display font-bold text-white"
@@ -496,7 +502,7 @@ export default function AffiliateEventPage() {
                   onTouchStart={e => (e.currentTarget.style.transform = 'scale(0.97)')}
                   onTouchEnd={e => (e.currentTarget.style.transform = '')}
                 >
-                  {t('affiliate.getTickets')} <ExternalLink className="h-3.5 w-3.5" />
+                  {event.tables_only ? t('aff.badge.bookTable') : t('affiliate.getTickets')} <ExternalLink className="h-3.5 w-3.5" />
                 </button>
               </div>
               <p className="font-mono" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.04em', marginTop: 10 }}>

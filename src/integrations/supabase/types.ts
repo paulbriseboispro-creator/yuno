@@ -460,6 +460,9 @@ export type Database = {
           flyer_url: string | null
           gallery_urls: string[] | null
           genres: string[] | null
+          guest_list_type: string
+          has_guest_list: boolean
+          has_tables: boolean
           id: string
           is_free: boolean
           is_sold_out: boolean
@@ -470,6 +473,7 @@ export type Database = {
           slug: string
           start_time: string | null
           status: string
+          tables_only: boolean
           ticket_url_overridden: boolean
           updated_at: string
         }
@@ -485,6 +489,9 @@ export type Database = {
           flyer_url?: string | null
           gallery_urls?: string[] | null
           genres?: string[] | null
+          guest_list_type?: string
+          has_guest_list?: boolean
+          has_tables?: boolean
           id?: string
           is_free?: boolean
           is_sold_out?: boolean
@@ -495,6 +502,7 @@ export type Database = {
           slug: string
           start_time?: string | null
           status?: string
+          tables_only?: boolean
           ticket_url_overridden?: boolean
           updated_at?: string
         }
@@ -510,6 +518,9 @@ export type Database = {
           flyer_url?: string | null
           gallery_urls?: string[] | null
           genres?: string[] | null
+          guest_list_type?: string
+          has_guest_list?: boolean
+          has_tables?: boolean
           id?: string
           is_free?: boolean
           is_sold_out?: boolean
@@ -520,6 +531,7 @@ export type Database = {
           slug?: string
           start_time?: string | null
           status?: string
+          tables_only?: boolean
           ticket_url_overridden?: boolean
           updated_at?: string
         }
@@ -903,6 +915,9 @@ export type Database = {
           end_time: string | null
           flyer_url: string | null
           genres: string[] | null
+          guest_list_type: string
+          has_guest_list: boolean
+          has_tables: boolean
           id: string
           is_active: boolean
           is_free: boolean
@@ -913,6 +928,7 @@ export type Database = {
           publication_url_set_at: string | null
           slug: string | null
           start_time: string | null
+          tables_only: boolean
           updated_at: string
         }
         Insert: {
@@ -924,6 +940,9 @@ export type Database = {
           end_time?: string | null
           flyer_url?: string | null
           genres?: string[] | null
+          guest_list_type?: string
+          has_guest_list?: boolean
+          has_tables?: boolean
           id?: string
           is_active?: boolean
           is_free?: boolean
@@ -934,6 +953,7 @@ export type Database = {
           publication_url_set_at?: string | null
           slug?: string | null
           start_time?: string | null
+          tables_only?: boolean
           updated_at?: string
         }
         Update: {
@@ -945,6 +965,9 @@ export type Database = {
           end_time?: string | null
           flyer_url?: string | null
           genres?: string[] | null
+          guest_list_type?: string
+          has_guest_list?: boolean
+          has_tables?: boolean
           id?: string
           is_active?: boolean
           is_free?: boolean
@@ -955,6 +978,7 @@ export type Database = {
           publication_url_set_at?: string | null
           slug?: string | null
           start_time?: string | null
+          tables_only?: boolean
           updated_at?: string
         }
         Relationships: [

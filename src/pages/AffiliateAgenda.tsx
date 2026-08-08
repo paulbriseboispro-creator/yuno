@@ -10,6 +10,7 @@ import { smartOpenEvent } from '@/lib/appDeepLink';
 import { openExternal } from '@/lib/native';
 import { MonthLabel } from '@/components/agenda/timeline';
 import { AgendaPosterCard } from '@/components/agenda/AgendaPosterCard';
+import { offerBadgeLabels } from '@/components/affiliate/OfferBadges';
 
 /* ============================================================
    AffiliateAgenda — l'agenda complet du bras affilié/agence.
@@ -60,6 +61,10 @@ interface AgendaItem {
   venueCity: string | null;
   yuno_event_id: string | null;
   promo_link: string | null;
+  has_tables?: boolean;
+  tables_only?: boolean;
+  has_guest_list?: boolean;
+  guest_list_type?: string | null;
 }
 
 /** Ligne renvoyée par la RPC get_agency_linktree_yuno_events. */
@@ -99,7 +104,7 @@ function mapYunoRow(row: YunoAgendaRow): AgendaItem {
 }
 
 const EXTERNAL_EVENT_COLUMNS =
-  'id, name, slug, event_date, start_time, flyer_url, price_from, is_free, is_sold_out, external_ticket_url, genres, affiliate_venues(name, city)';
+  'id, name, slug, event_date, start_time, flyer_url, price_from, is_free, is_sold_out, external_ticket_url, genres, has_tables, tables_only, has_guest_list, guest_list_type, affiliate_venues(name, city)';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapExternalRow(e: any): AgendaItem {
@@ -120,6 +125,10 @@ function mapExternalRow(e: any): AgendaItem {
     venueCity: venue?.city ?? null,
     yuno_event_id: null,
     promo_link: null,
+    has_tables: !!e.has_tables,
+    tables_only: !!e.tables_only,
+    has_guest_list: !!e.has_guest_list,
+    guest_list_type: e.guest_list_type ?? null,
   };
 }
 
@@ -445,7 +454,7 @@ export default function AffiliateAgenda({ mode }: { mode: Mode }) {
                         topLine={ev.venueName ? `${ev.venueName}${ev.venueCity ? ` · ${ev.venueCity}` : ''}` : null}
                         timeLabel={ev.start_time ? ev.start_time.slice(0, 5) : null}
                         priceLabel={priceLabel(ev)}
-                        genreLine={ev.genres.slice(0, 2).join(' · ')}
+                        genreLine={[...ev.genres.slice(0, 2), ...offerBadgeLabels(ev, t)].join(' · ')}
                         ctaLabel={ev.is_sold_out ? cardLabels.soldOut : ev.is_free ? cardLabels.join : cardLabels.tickets}
                         soldOut={ev.is_sold_out}
                         soldOutLabel={cardLabels.soldOut}

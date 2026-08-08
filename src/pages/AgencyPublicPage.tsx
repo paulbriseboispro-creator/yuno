@@ -16,6 +16,7 @@ import { smartOpenEvent } from '@/lib/appDeepLink';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { useAffiliateVisitorTracking, trackAffiliateClick } from '@/hooks/useAffiliateVisitorTracking';
 import { OutboundLink } from '@/components/OutboundLink';
+import { OfferBadges } from '@/components/affiliate/OfferBadges';
 
 /* ============================================================
    AgencyPublicPage — /rp/:slug
@@ -70,6 +71,10 @@ type RpEvent = {
   venueName: string | null;
   venueCity: string | null;
   yuno_event_id: string | null;
+  has_tables?: boolean;
+  tables_only?: boolean;
+  has_guest_list?: boolean;
+  guest_list_type?: string | null;
 };
 
 type RpClub = {
@@ -189,6 +194,7 @@ function RpEventCard({
         <h3 className="font-display line-clamp-2" style={{ fontSize: 'clamp(14px, 2.5vw, 17px)', fontWeight: 700, color: '#FFFFFF', textTransform: 'uppercase', lineHeight: 1.05, letterSpacing: '-0.005em' }}>
           {ev.name}
         </h3>
+        <OfferBadges flags={ev} />
         <div className="flex-1" />
         <div className="flex items-center justify-between gap-2 pt-2.5" style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}>
           <p className="font-mono" style={{ fontSize: '11px', color: '#9A9A9A', letterSpacing: '0.04em' }}>
@@ -267,7 +273,7 @@ export default function AgencyPublicPage() {
         const [externalRes, yunoRes, yunoVenuesRes, externalVenuesRes] = await Promise.all([
           supabase
             .from('affiliate_events')
-            .select('id, name, slug, event_date, start_time, flyer_url, price_from, is_free, is_sold_out, genres, affiliate_venues(name, city)')
+            .select('id, name, slug, event_date, start_time, flyer_url, price_from, is_free, is_sold_out, genres, has_tables, tables_only, has_guest_list, guest_list_type, affiliate_venues(name, city)')
             .eq('affiliate_id', aff.id)
             .in('status', ['published', 'featured'])
             .gte('event_date', today)
@@ -303,6 +309,10 @@ export default function AgencyPublicPage() {
             venueName: v?.name ?? null,
             venueCity: v?.city ?? null,
             yuno_event_id: null,
+            has_tables: !!e.has_tables,
+            tables_only: !!e.tables_only,
+            has_guest_list: !!e.has_guest_list,
+            guest_list_type: e.guest_list_type ?? null,
           };
         });
 

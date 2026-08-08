@@ -10,6 +10,7 @@ import { FadeInView } from '@/components/motion';
 import { MonthLabel, DayRow, groupDaysIntoMonths } from '@/components/agenda/timeline';
 import { openExternal } from '@/lib/native';
 import { OutboundLink } from '@/components/OutboundLink';
+import { OfferBadges } from '@/components/affiliate/OfferBadges';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -48,6 +49,10 @@ type LinktreeEvent = {
   external_ticket_url: string | null;
   genres: string[];
   affiliate_venues: { name: string; city: string | null } | null;
+  has_tables?: boolean;
+  tables_only?: boolean;
+  has_guest_list?: boolean;
+  guest_list_type?: string | null;
   /** Soirée Yuno in-app (clubs sous contrat de l'agence) : navigation interne, pas de redirection billetterie. */
   yuno_event_id?: string | null;
 };
@@ -609,6 +614,8 @@ function EventCard({
           </p>
         )}
 
+        <OfferBadges flags={event} />
+
         {/* Prix + CTA */}
         <div
           style={{
@@ -837,7 +844,7 @@ export default function AffiliateLinktree() {
       const [{ data: linktreeItems, error: linktreeError }, yunoRes] = await Promise.all([
         supabase
           .from('affiliate_linktree_events')
-          .select('sort_order, affiliate_events(id, name, slug, event_date, start_time, flyer_url, price_from, is_free, is_sold_out, external_ticket_url, genres, affiliate_venues(name, city))')
+          .select('sort_order, affiliate_events(id, name, slug, event_date, start_time, flyer_url, price_from, is_free, is_sold_out, external_ticket_url, genres, has_tables, tables_only, has_guest_list, guest_list_type, affiliate_venues(name, city))')
           .eq('affiliate_id', aff.id)
           .order('sort_order', { ascending: true }),
         // Agence fusionnée : les soirées Yuno des clubs sous contrat actif
@@ -869,7 +876,7 @@ export default function AffiliateLinktree() {
       if (eventsToShow.length === 0) {
         const { data: upcoming } = await supabase
           .from('affiliate_events')
-          .select('id, name, slug, event_date, start_time, flyer_url, price_from, is_free, is_sold_out, external_ticket_url, genres, affiliate_venues(name, city)')
+          .select('id, name, slug, event_date, start_time, flyer_url, price_from, is_free, is_sold_out, external_ticket_url, genres, has_tables, tables_only, has_guest_list, guest_list_type, affiliate_venues(name, city)')
           .eq('affiliate_id', aff.id)
           .in('status', ['published', 'featured'])
           .gte('event_date', today)

@@ -41,12 +41,17 @@ type FormData = {
   is_free: boolean;
   is_sold_out: boolean;
   status: 'draft' | 'published' | 'featured';
+  has_tables: boolean;
+  tables_only: boolean;
+  has_guest_list: boolean;
+  guest_list_type: 'mixed' | 'women';
 };
 
 const EMPTY: FormData = {
   affiliate_venue_id: '', name: '', slug: '', event_date: '', start_time: '',
   end_time: '', flyer_url: null, gallery_urls: [], description: '', genres: [], dj_names: '',
   external_ticket_url: '', price_from: '', is_free: false, is_sold_out: false, status: 'draft',
+  has_tables: false, tables_only: false, has_guest_list: false, guest_list_type: 'mixed',
 };
 
 // Native date/time inputs styled to DA tokens.
@@ -115,6 +120,10 @@ export default function AffiliateEventForm() {
           is_free: data.is_free ?? false,
           is_sold_out: data.is_sold_out ?? false,
           status: (data.status ?? 'draft') as 'draft' | 'published' | 'featured',
+          has_tables: (data as any).has_tables ?? false,
+          tables_only: (data as any).tables_only ?? false,
+          has_guest_list: (data as any).has_guest_list ?? false,
+          guest_list_type: ((data as any).guest_list_type === 'women' ? 'women' : 'mixed'),
         });
       }
     }
@@ -157,6 +166,10 @@ export default function AffiliateEventForm() {
         is_sold_out: form.is_sold_out,
         // Sans lien : brouillon d'office (le trigger DB l'impose de toute façon).
         status: form.external_ticket_url ? form.status : 'draft',
+        has_tables: form.has_tables || form.tables_only,
+        tables_only: form.tables_only,
+        has_guest_list: form.has_guest_list,
+        guest_list_type: form.guest_list_type,
       };
 
       const saved: FormData = { ...form, slug };
@@ -273,6 +286,25 @@ export default function AffiliateEventForm() {
             </div>
             <div className="pb-2.5"><CheckBox checked={form.is_free} onChange={(v) => set('is_free', v)} label={t('aff.eventForm.freeEntry')} /></div>
             <div className="pb-2.5"><CheckBox checked={form.is_sold_out} onChange={(v) => set('is_sold_out', v)} label={t('aff.eventForm.soldOut')} /></div>
+          </div>
+
+          {/* Offre de la soirée : tables VIP / guest list (badges publics). */}
+          <div className="mt-4">
+            <FieldLabel>{t('aff.offer.title')}</FieldLabel>
+            <div className="space-y-2 mt-1">
+              <CheckBox checked={form.has_tables || form.tables_only} onChange={(v) => { set('has_tables', v); if (!v) set('tables_only', false); }} label={t('aff.offer.tables')} />
+              <CheckBox checked={form.tables_only} onChange={(v) => { set('tables_only', v); if (v) set('has_tables', true); }} label={t('aff.offer.tablesOnly')} />
+              <CheckBox checked={form.has_guest_list} onChange={(v) => set('has_guest_list', v)} label={t('aff.offer.guestList')} />
+            </div>
+            {form.has_guest_list && (
+              <div className="mt-3">
+                <FieldLabel>{t('aff.offer.guestListType')}</FieldLabel>
+                <DarkSelect value={form.guest_list_type} onChange={(v) => set('guest_list_type', v as FormData['guest_list_type'])}>
+                  <option value="mixed">{t('aff.offer.glMixed')}</option>
+                  <option value="women">{t('aff.offer.glWomen')}</option>
+                </DarkSelect>
+              </div>
+            )}
           </div>
         </div>
       </AffCard>
