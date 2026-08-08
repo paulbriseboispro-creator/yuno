@@ -47,17 +47,17 @@ export function glowStyle(hue: number): React.CSSProperties {
 }
 
 /* ── Modèle unifié de la mosaïque ──
-   Les cinq familles de favoris (club, soirée, DJ, boisson, organisateur) vivent
-   dans des tables différentes et n'ont ni les mêmes champs ni la même sémantique
+   Les six familles de favoris (club, soirée, DJ, boisson, organisateur, RP/agence)
+   vivent dans des tables différentes et n'ont ni les mêmes champs ni la même sémantique
    (cœur vs cloche). La grille, elle, doit les mélanger dans un seul flux : on les
    aplatit donc en un seul type porteur de PRIMITIVES DE PRÉSENTATION (un tag de
    titre, un tag de pied, une ligne meta) plutôt que de champs métier. La carte
    n'a alors aucun `switch` sur le genre, et ajouter une famille = produire un
    FavItem de plus. */
-export type FavKind = 'club' | 'event' | 'dj' | 'drink' | 'organizer';
+export type FavKind = 'club' | 'event' | 'dj' | 'drink' | 'organizer' | 'agency';
 
 /** Filtre actif de la mosaïque. `all` = le mélange complet. */
-export type Filter = 'all' | 'clubs' | 'events' | 'djs' | 'drinks' | 'organizers';
+export type Filter = 'all' | 'clubs' | 'events' | 'djs' | 'drinks' | 'organizers' | 'promoters';
 
 export const FILTER_OF_KIND: Record<FavKind, Exclude<Filter, 'all'>> = {
   club: 'clubs',
@@ -65,6 +65,7 @@ export const FILTER_OF_KIND: Record<FavKind, Exclude<Filter, 'all'>> = {
   dj: 'djs',
   drink: 'drinks',
   organizer: 'organizers',
+  agency: 'promoters',
 };
 
 export interface FavItem {

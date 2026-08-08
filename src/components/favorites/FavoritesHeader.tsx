@@ -122,6 +122,7 @@ export function FavoritesHeader({
     { id: 'djs',        label: `${t('favorites.typeDJ')}s` },
     { id: 'drinks',     label: t('favorites.drinks') },
     { id: 'organizers', label: t('favorites.tabOrganizers') },
+    { id: 'promoters',  label: t('favorites.tabPromoters') },
   ];
 
   return (

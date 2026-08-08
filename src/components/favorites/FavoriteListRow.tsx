@@ -1,4 +1,4 @@
-import { Bell, Calendar, Music, Users, Wine } from 'lucide-react';
+import { Bell, Calendar, Music, Users, Wine, Megaphone } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { FavoriteButton } from '@/components/FavoriteButton';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
@@ -10,6 +10,7 @@ const FALLBACK_ICON: Record<FavKind, React.ElementType> = {
   dj: Music,
   drink: Wine,
   organizer: Users,
+  agency: Megaphone,
 };
 
 function typeLabel(kind: FavKind, t: (k: string) => string): string {
@@ -19,6 +20,7 @@ function typeLabel(kind: FavKind, t: (k: string) => string): string {
     case 'dj':        return t('favorites.typeDJ');
     case 'drink':     return t('favorites.typeDrink');
     case 'organizer': return t('favorites.typeOrganizer');
+    case 'agency':    return t('favorites.typeAgency');
   }
 }
 

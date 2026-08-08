@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Calendar, Wine, MapPin, Music, Users, Compass, ChevronRight, Heart, Sparkles } from 'lucide-react';
+import { Calendar, Wine, MapPin, Music, Users, Compass, ChevronRight, Heart, Sparkles, Megaphone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFavorites } from '@/hooks/useFavorites';
@@ -86,6 +86,15 @@ interface FollowedOrganizer {
   city?: string;
 }
 
+/** RP/agence suivie — id = agencies.id, slug = affiliates.linktree_slug (→ /rp/:slug). */
+interface FollowedAgency {
+  id: string;
+  name: string;
+  logoUrl?: string;
+  slug?: string;
+  city?: string;
+}
+
 /* ── Lignes brutes renvoyées par Supabase ──
    Le fetch tire ses tables via des ternaires (`ids.length ? requête : vide`), ce
    qui casse l'inférence de types de supabase-js. On déclare donc la forme des
@@ -111,6 +120,7 @@ const DISCOVER: Record<Filter, { path: string; titleKey: string; descKey: string
   all:        { path: '/',             titleKey: 'favorites.discoverAllTitle',    descKey: 'favorites.discoverAllDesc' },
   clubs:      { path: '/clubs',        titleKey: 'favorites.discoverClubsTitle',  descKey: 'favorites.discoverClubsDesc' },
   organizers: { path: '/clubs',        titleKey: 'favorites.discoverClubsTitle',  descKey: 'favorites.discoverClubsDesc' },
+  promoters:  { path: '/events',       titleKey: 'favorites.discoverPromotersTitle', descKey: 'favorites.discoverPromotersDesc' },
   events:     { path: '/events',       titleKey: 'favorites.discoverEventsTitle', descKey: 'favorites.discoverEventsDesc' },
   djs:        { path: '/djs',          titleKey: 'favorites.discoverDJsTitle',    descKey: 'favorites.discoverDJsDesc' },
   drinks:     { path: '/order-drinks', titleKey: 'favorites.discoverDrinksTitle', descKey: 'favorites.discoverDrinksDesc' },
@@ -120,6 +130,7 @@ const DISCOVER: Record<Filter, { path: string; titleKey: string; descKey: string
 const FILTER_EMPTY: Record<Exclude<Filter, 'all'>, { icon: React.ElementType; titleKey: string; descKey: string }> = {
   clubs:      { icon: MapPin,   titleKey: 'subscribe.emptyClubs',      descKey: 'subscribe.emptyClubsDesc' },
   organizers: { icon: Users,    titleKey: 'subscribe.emptyOrganizers', descKey: 'subscribe.emptyOrganizersDesc' },
+  promoters:  { icon: Megaphone, titleKey: 'subscribe.emptyPromoters', descKey: 'subscribe.emptyPromotersDesc' },
   events:     { icon: Calendar, titleKey: 'favorites.noEvents',        descKey: 'favorites.noEventsDesc' },
   djs:        { icon: Music,    titleKey: 'subscribe.emptyDJs',        descKey: 'subscribe.emptyDJsDesc' },
   drinks:     { icon: Wine,     titleKey: 'favorites.noDrinks',        descKey: 'favorites.noDrinksDesc' },
@@ -277,6 +288,7 @@ export default function Favorites() {
   const [drinks, setDrinks] = useState<FavoriteDrink[]>([]);
   const [djs, setDJs] = useState<FavoriteDJ[]>([]);
   const [followedOrganizers, setFollowedOrganizers] = useState<FollowedOrganizer[]>([]);
+  const [followedAgencies, setFollowedAgencies] = useState<FollowedAgency[]>([]);
   // Upcoming-events count per club id / organizer user id (keys never collide — both UUIDs).
   const [upcomingByEntity, setUpcomingByEntity] = useState<Record<string, number>>({});
   const [djFollowers, setDjFollowers] = useState<Record<string, number>>({});
@@ -289,11 +301,41 @@ export default function Favorites() {
   const drinkFavoriteCount = favorites.filter(f => f.favoriteType === 'drink').length;
   const djFavoriteCount = favorites.filter(f => f.favoriteType === 'dj').length;
 
-  const totalCount = clubFavoriteCount + eventFavoriteCount + drinkFavoriteCount + djFavoriteCount + followedOrganizers.length;
+  const totalCount = clubFavoriteCount + eventFavoriteCount + drinkFavoriteCount + djFavoriteCount + followedOrganizers.length + followedAgencies.length;
 
   useEffect(() => {
     localStorage.setItem('yuno.favorites.view', view);
   }, [view]);
+
+  // Abonnements aux RP/agences — table dédiée (agency_followers), hors contexte
+  // favoris. Résolus séparément vers l'identité publique de l'affilié (nom, avatar,
+  // linktree_slug → /rp/:slug), comme les organisateurs.
+  useEffect(() => {
+    if (favLoading) return;
+    let cancelled = false;
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { if (!cancelled) setFollowedAgencies([]); return; }
+      // agency_followers pas encore typé (regen après push) → cast.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: follows } = await (supabase as any)
+        .from('agency_followers').select('agency_id').eq('user_id', user.id);
+      const ids = [...new Set(((follows ?? []) as { agency_id: string }[]).map(f => f.agency_id))];
+      if (ids.length === 0) { if (!cancelled) setFollowedAgencies([]); return; }
+      // avatar_url / linktree_slug / agency_id ne sont pas dans les types générés.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: affs } = await (supabase as any)
+        .from('affiliates').select('agency_id, name, avatar_url, linktree_slug, city')
+        .in('agency_id', ids).eq('is_active', true);
+      if (cancelled) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setFollowedAgencies(((affs ?? []) as any[]).map((a) => ({
+        id: a.agency_id, name: a.name, logoUrl: a.avatar_url || undefined,
+        slug: a.linktree_slug || undefined, city: a.city || undefined,
+      })));
+    })();
+    return () => { cancelled = true; };
+  }, [favLoading]);
 
   useEffect(() => {
     if (favLoading) return;
@@ -476,6 +518,14 @@ export default function Favorites() {
     setFollowedOrganizers(prev => prev.filter(o => o.id !== orgId));
   };
 
+  const unfollowAgency = async (agencyId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('agency_followers').delete().eq('agency_id', agencyId).eq('user_id', user.id);
+    setFollowedAgencies(prev => prev.filter(a => a.id !== agencyId));
+  };
+
   /* ── Aplatissement des cinq familles en un seul flux ── */
   const items: FavItem[] = useMemo(() => {
     const out: FavItem[] = [];
@@ -512,6 +562,21 @@ export default function Favorites() {
         metaTone: upcoming > 0 ? 'accent' : 'default',
         onOpen: o.slug ? () => navigate(`/o/${o.slug}`) : undefined,
         search: [o.name, o.city].filter(Boolean).join(' ').toLowerCase(),
+      });
+    });
+
+    followedAgencies.forEach((ag) => {
+      out.push({
+        key: `agency:${ag.id}`,
+        kind: 'agency',
+        id: ag.id,
+        title: ag.name,
+        imageUrl: ag.logoUrl,
+        // Pas de compteur de soirées (les soirées d'une agence se résolvent par
+        // contrat, trop lourd ici) : on montre la ville, comme les clubs affiliés.
+        meta: ag.city || undefined,
+        onOpen: ag.slug ? () => navigate(`/rp/${ag.slug}`) : undefined,
+        search: [ag.name, ag.city].filter(Boolean).join(' ').toLowerCase(),
       });
     });
 
@@ -569,7 +634,7 @@ export default function Favorites() {
 
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [venues, followedOrganizers, events, djs, drinks, upcomingByEntity, djFollowers, t, language, navigate]);
+  }, [venues, followedOrganizers, followedAgencies, events, djs, drinks, upcomingByEntity, djFollowers, t, language, navigate]);
 
   /* Recherche d'abord (elle alimente les compteurs des chips), filtre ensuite. */
   const searched = useMemo(() => {
@@ -590,12 +655,13 @@ export default function Favorites() {
         djs: djFavoriteCount,
         drinks: drinkFavoriteCount,
         organizers: followedOrganizers.length,
+        promoters: followedAgencies.length,
       };
     }
-    const c: Record<Filter, number> = { all: searched.length, clubs: 0, events: 0, djs: 0, drinks: 0, organizers: 0 };
+    const c: Record<Filter, number> = { all: searched.length, clubs: 0, events: 0, djs: 0, drinks: 0, organizers: 0, promoters: 0 };
     searched.forEach((i) => { c[FILTER_OF_KIND[i.kind]] += 1; });
     return c;
-  }, [isLoading, searched, totalCount, clubFavoriteCount, eventFavoriteCount, djFavoriteCount, drinkFavoriteCount, followedOrganizers.length]);
+  }, [isLoading, searched, totalCount, clubFavoriteCount, eventFavoriteCount, djFavoriteCount, drinkFavoriteCount, followedOrganizers.length, followedAgencies.length]);
 
   const visible = useMemo(() => {
     const list = activeFilter === 'all' ? searched : searched.filter(i => FILTER_OF_KIND[i.kind] === activeFilter);
@@ -664,7 +730,7 @@ export default function Favorites() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14, padding: '0 20px' }}>
               {visible.map((item, i) => (
                 <FadeInView key={item.key} index={i < 8 ? i : 0}>
-                  <FavoritePosterCard item={item} onUnfollow={() => unfollowOrganizer(item.id)} />
+                  <FavoritePosterCard item={item} onUnfollow={() => item.kind === 'agency' ? unfollowAgency(item.id) : unfollowOrganizer(item.id)} />
                 </FadeInView>
               ))}
             </div>
@@ -672,7 +738,7 @@ export default function Favorites() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '0 20px' }}>
               {visible.map((item, i) => (
                 <FadeInView key={item.key} index={i < 6 ? i : 0}>
-                  <FavoriteListRow item={item} onUnfollow={() => unfollowOrganizer(item.id)} />
+                  <FavoriteListRow item={item} onUnfollow={() => item.kind === 'agency' ? unfollowAgency(item.id) : unfollowOrganizer(item.id)} />
                 </FadeInView>
               ))}
             </div>
