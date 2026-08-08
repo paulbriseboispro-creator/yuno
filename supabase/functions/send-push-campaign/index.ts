@@ -24,6 +24,7 @@ type CampaignRequest = {
   segment?: string;          // segments admin : all | active_30d | inactive_30d | ticket_holders | vip | loyal
   scope?: string;            // scopes club : event_tickets | checked_in | followers | rfm:<segment> | all_customers
   venue_id?: string;         // présent => campagne club (auth is_venue_owner)
+  agency_id?: string;        // présent => campagne RP/agence (auth is_agency_owner) — scope 'followers'
   event_id?: string;         // requis pour event_tickets / checked_in
   template_key?: string;
   platform?: string;         // DÉPRÉCIÉ (ignoré) : les campagnes ciblent toujours l'app iOS
@@ -101,6 +102,15 @@ async function resolveAudience(supabase: SupabaseClient, req: CampaignRequest): 
     subscribers = await pushSubscriberIds(supabase);
   } catch (e) {
     return { userIds: [], error: e instanceof Error ? e.message : 'push subscribers unavailable' };
+  }
+
+  // ── Scope RP/agence : abonnés de l'agence ─────────────────────────────────
+  // Une agence ne cible que ses propres abonnés (agency_followers). Pas de
+  // segments RFM/tickets ici : l'audience RP est une audience possédée simple.
+  if (req.agency_id) {
+    const ids = new Set(await collectUserIds((f, t) => supabase
+      .from('agency_followers').select('user_id').eq('agency_id', req.agency_id!).not('user_id', 'is', null).range(f, t)));
+    return { userIds: [...ids].filter((id) => subscribers.has(id)) };
   }
 
   // ── Scopes club ───────────────────────────────────────────────────────────
@@ -277,6 +287,7 @@ Deno.serve(async (req) => {
       const request: CampaignRequest = {
         title: campaign.title, body: campaign.body, url: campaign.url || '/',
         segment: campaign.segment, venue_id: campaign.venue_id || undefined,
+        agency_id: campaign.agency_id || undefined,
         event_id: campaign.event_id || undefined, template_key: campaign.template_key || undefined,
         scope: stored.scope, platform: stored.platform, city: stored.city,
         title_i18n: sanitizeI18n(campaign.title_i18n), body_i18n: sanitizeI18n(campaign.body_i18n),
@@ -317,6 +328,13 @@ Deno.serve(async (req) => {
           allowed = !!mgr?.can_manage_crm;
         }
         if (!allowed) return json(403, { error: 'forbidden_not_owner_or_crm_manager' });
+      } else if (body.agency_id) {
+        // Campagne RP : uniquement le propriétaire de l'agence.
+        const { data: ownsAgency } = await supabase.rpc('is_agency_owner', {
+          _user_id: user.id,
+          _agency_id: body.agency_id,
+        });
+        if (!ownsAgency) return json(403, { error: 'forbidden_not_agency_owner' });
       } else {
         // Campagne globale : super admin uniquement.
         const { data: isSA } = await supabaseAuth.rpc('is_super_admin');
@@ -351,6 +369,20 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Garde-fou RP : même plafond 4 campagnes / 24 h par agence ──────────
+    if (body.agency_id) {
+      const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const { count } = await supabase
+        .from('push_campaigns')
+        .select('id', { count: 'exact', head: true })
+        .eq('agency_id', body.agency_id)
+        .eq('source', 'manual')
+        .gte('created_at', dayAgo);
+      if ((count ?? 0) >= OWNER_MAX_CAMPAIGNS_PER_24H) {
+        return json(429, { error: 'campaign_rate_limited', limit: OWNER_MAX_CAMPAIGNS_PER_24H });
+      }
+    }
+
     const audienceSnapshot = {
       scope: body.scope, platform: body.platform, city: body.city,
     };
@@ -378,6 +410,7 @@ Deno.serve(async (req) => {
       title: body.title, body: body.body, url: body.url || '/',
       segment: body.segment || body.scope || 'all',
       venue_id: body.venue_id || null, event_id: body.event_id || null,
+      agency_id: body.agency_id || null,
       template_key: body.template_key || null,
       audience: audienceSnapshot,
       status: 'sending',

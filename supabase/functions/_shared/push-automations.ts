@@ -74,6 +74,13 @@ const NEW_EVENT_TPL: Record<Lang, LocalizedText> = {
   es: { title: "📅 Novedad en {name}", body: "{event} — {date}. Sé de los primeros en reservar." },
 };
 
+// Nouvelle soirée d'un RP suivi → ses abonnés. {name} = nom de l'agence.
+const NEW_EVENT_AGENCY_TPL: Record<Lang, LocalizedText> = {
+  fr: { title: "📅 {name} présente", body: "{event} — {date}. Réserve ta place dès maintenant." },
+  en: { title: "📅 {name} presents", body: "{event} — {date}. Book your spot now." },
+  es: { title: "📅 {name} presenta", body: "{event} — {date}. Reserva tu lugar ahora." },
+};
+
 function render(text: string, vars: Record<string, string>): string {
   let out = text;
   for (const [k, v] of Object.entries(vars)) {
@@ -439,6 +446,124 @@ export async function dispatchNewEventPushes(
     processed++;
     totalSent += sent;
     console.log(`[NEW-EVENT-PUSH] event ${ev.id} → ${sent}/${userIds.length} sent`);
+  }
+
+  return { processed, sent: totalSent };
+}
+
+/**
+ * Automatisation RP 'agency_new_event' : une soirée fraîche (< 48 h, à venir)
+ * rattachée à une agence PAR CONTRAT ACTIF (agency_venue_contracts) déclenche UN
+ * push vers les abonnés de cette agence — mais uniquement si l'agence a activé
+ * son toggle (agency_push_automations, opt-in, éteint par défaut). Une soirée
+ * peut concerner plusieurs agences : une campagne par (soirée, agence), dédupée
+ * par le template_key `agency_new_event:<agency_id>` (index unique existant sur
+ * (event_id, template_key) WHERE source='auto'). Gated en plus par le kill
+ * switch plateforme (clé 'agency_new_event'). Distinct du push club 'new_event' :
+ * ce sont deux audiences possédées différentes (followers du club vs de l'RP).
+ */
+export async function dispatchNewEventAgencyPushes(
+  admin: SupabaseClient,
+  supabaseUrl: string,
+  serviceKey: string,
+): Promise<{ processed: number; sent: number }> {
+  if (!(await isAutoPushEnabled(admin, "agency_new_event"))) return { processed: 0, sent: 0 };
+
+  // Opt-in par agence : sans une seule agence ayant activé, rien à faire.
+  const { data: toggles } = await admin
+    .from("agency_push_automations")
+    .select("agency_id")
+    .eq("automation_key", "new_event")
+    .eq("enabled", true);
+  const enabledAgencies = new Set((toggles || []).map((r: { agency_id: string }) => r.agency_id));
+  if (enabledAgencies.size === 0) return { processed: 0, sent: 0 };
+
+  const nowIso = new Date().toISOString();
+  const cutoff = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+  const { data: events } = await admin
+    .from("events")
+    .select("id, title, slug, venue_id, organizer_user_id, start_at")
+    .eq("is_active", true)
+    .is("cancelled_at", null)
+    .gt("start_at", nowIso)
+    .gte("created_at", cutoff);
+  if (!events?.length) return { processed: 0, sent: 0 };
+
+  const subscribers = await subscriberSet(admin);
+  const pushUrl = `${supabaseUrl}/functions/v1/send-push-notification`;
+  let processed = 0;
+  let totalSent = 0;
+
+  for (const ev of events) {
+    // Contrats actifs qui rattachent cette soirée à une agence (par club OU orga).
+    const orParts: string[] = [];
+    if (ev.venue_id) orParts.push(`venue_id.eq.${ev.venue_id}`);
+    if (ev.organizer_user_id) orParts.push(`organizer_user_id.eq.${ev.organizer_user_id}`);
+    if (orParts.length === 0) continue;
+
+    const { data: contracts } = await admin
+      .from("agency_venue_contracts")
+      .select("agency_id, agencies(name, is_active)")
+      .eq("status", "active")
+      .or(orParts.join(","));
+    if (!contracts?.length) continue;
+
+    // Une agence peut avoir plusieurs contrats matchant (club + orga) → dédup.
+    const seen = new Set<string>();
+    for (const c of contracts as Array<{ agency_id: string; agencies: { name: string; is_active: boolean } | { name: string; is_active: boolean }[] | null }>) {
+      const agencyId = c.agency_id;
+      if (!enabledAgencies.has(agencyId) || seen.has(agencyId)) continue;
+      seen.add(agencyId);
+      const ag = Array.isArray(c.agencies) ? c.agencies[0] : c.agencies;
+      if (!ag || ag.is_active === false) continue;
+      const agencyName = (ag.name || "").trim() || "Yuno";
+
+      const targetUrl = ev.venue_id && ev.slug ? `/events/${ev.venue_id}/${ev.slug}` : `/event/${ev.id}`;
+      const dateByLang = localizedDate(ev.start_at);
+      const varsFor = (lang: Lang) => ({ name: agencyName, event: ev.title || "", date: dateByLang[lang] || "" });
+
+      // Verrou anti-double-fire : template_key par agence sur l'index unique.
+      const templateKey = `agency_new_event:${agencyId}`;
+      const { data: inserted, error: insErr } = await admin
+        .from("push_campaigns")
+        .insert({
+          title: render(NEW_EVENT_AGENCY_TPL.fr.title, varsFor("fr")),
+          body: render(NEW_EVENT_AGENCY_TPL.fr.body, varsFor("fr")),
+          url: targetUrl,
+          segment: "followers",
+          venue_id: ev.venue_id ?? null,
+          agency_id: agencyId,
+          event_id: ev.id,
+          template_key: templateKey,
+          source: "auto",
+          status: "sending",
+          audience: { scope: "followers", agency_id: agencyId },
+          targeted_count: 0,
+          sent_count: 0,
+        })
+        .select("id")
+        .maybeSingle();
+      if (insErr || !inserted) continue; // déjà notifié pour cette (soirée, agence)
+      const campaignId = inserted.id as string;
+
+      const ids = new Set(await collectUserIds((f, t) => admin
+        .from("agency_followers").select("user_id")
+        .eq("agency_id", agencyId).not("user_id", "is", null).range(f, t)));
+      const userIds = [...ids].filter((id) => subscribers.has(id));
+
+      const sent = await fanoutCampaign(
+        admin, pushUrl, serviceKey, campaignId, userIds, targetUrl,
+        (lang) => ({
+          title: render(NEW_EVENT_AGENCY_TPL[lang].title, varsFor(lang)),
+          body: render(NEW_EVENT_AGENCY_TPL[lang].body, varsFor(lang)),
+        }),
+        render(NEW_EVENT_AGENCY_TPL.fr.title, varsFor("fr")),
+      );
+
+      processed++;
+      totalSent += sent;
+      console.log(`[AGENCY-NEW-EVENT-PUSH] event ${ev.id} · agency ${agencyId} → ${sent}/${userIds.length} sent`);
+    }
   }
 
   return { processed, sent: totalSent };

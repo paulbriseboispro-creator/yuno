@@ -1,7 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
-import { dispatchPushAutomations, dispatchNewEventPushes } from "../_shared/push-automations.ts";
+import { dispatchPushAutomations, dispatchNewEventPushes, dispatchNewEventAgencyPushes } from "../_shared/push-automations.ts";
 import { refreshEventEmbeddings, refreshDjEmbeddings } from "../_shared/event-embeddings.ts";
 import { refreshTasteEmbeddings } from "../_shared/taste-embeddings.ts";
 import { dispatchLiveOpsAlerts } from "../_shared/live-ops-alerts.ts";
@@ -106,6 +106,15 @@ Deno.serve(async (req) => {
       console.error('[NEW-EVENT-PUSH] dispatch failed:', String(e));
     }
 
+    // Nouvel événement d'un RP suivi → push aux abonnés de l'agence (opt-in par
+    // agence + gate super admin 'agency_new_event'). Best-effort.
+    let agencyNewEventPush = { processed: 0, sent: 0 };
+    try {
+      agencyNewEventPush = await dispatchNewEventAgencyPushes(admin, SUPABASE_URL, SERVICE_KEY);
+    } catch (e) {
+      console.error('[AGENCY-NEW-EVENT-PUSH] dispatch failed:', String(e));
+    }
+
     // Embeddings — events (recos « Pour toi ») et profils DJ (matching DJ↔soirée).
     // Best-effort, ne touchent que ce qui a été créé/modifié depuis le dernier run.
     let embeddings = { scanned: 0, updated: 0 };
@@ -150,7 +159,7 @@ Deno.serve(async (req) => {
       console.error('[WEEKLY-RECAP] dispatch failed:', String(e));
     }
 
-    return new Response(JSON.stringify({ processed, pushProcessed, autoPush, newEventPush, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ processed, pushProcessed, autoPush, newEventPush, agencyNewEventPush, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }
