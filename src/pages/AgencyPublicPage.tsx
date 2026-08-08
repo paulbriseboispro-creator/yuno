@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowLeft, Share2, MapPin, AtSign, Globe, MessageCircle, Heart, BadgeCheck, Bell, Check } from 'lucide-react';
+import { ArrowLeft, Share2, MapPin, AtSign, Globe, MessageCircle, Heart, BadgeCheck, Bell } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -487,7 +488,6 @@ export default function AgencyPublicPage() {
   const customBanner = profile.banner_url;
   const heroBackdrop = customBanner || events.find(e => e.flyer_url)?.flyer_url || profile.avatar_url;
   const stats = [
-    agencyId ? { value: followersCount, label: t('affiliate.subscribers') } : null,
     { value: events.length, label: t('promoterLinktree.eventPlural') },
     clubs.length > 0 ? { value: clubs.length, label: t('affiliate.clubs') } : null,
     cityCount > 1 ? { value: cityCount, label: t('affiliate.cities') } : null,
@@ -610,27 +610,29 @@ export default function AgencyPublicPage() {
           </div>
         )}
 
-        {/* S'abonner à l'agence — action primaire (identité maître requise) */}
+        {/* S'abonner à l'agence — pilule pleine qui bascule en outline « Abonné »
+            (même design que le bouton d'abonnement DJ). Identité maître requise. */}
         {agencyId && (
-          <div className="animate-hero-cta" style={{ marginTop: 18 }}>
-            <button
+          <div className="flex items-center gap-3 animate-hero-cta" style={{ marginTop: 18 }}>
+            <Button
+              variant={isFollowing ? 'outline' : 'default'}
+              size="sm"
               onClick={toggleFollow}
               disabled={followBusy}
               aria-pressed={isFollowing}
-              className="inline-flex items-center justify-center gap-2 transition-all hover:opacity-90"
-              style={{
-                padding: '11px 22px', borderRadius: 999,
-                fontFamily: "'JetBrains Mono', ui-monospace, monospace",
-                fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
-                background: isFollowing ? 'rgba(255,255,255,0.06)' : '#E8192C',
-                color: isFollowing ? '#E5E5E5' : '#fff',
-                border: `1px solid ${isFollowing ? 'rgba(255,255,255,0.14)' : 'transparent'}`,
-                cursor: followBusy ? 'default' : 'pointer', opacity: followBusy ? 0.6 : 1,
-              }}
+              className={cn(
+                'h-8 px-3 rounded-[10px] text-xs font-medium transition-all',
+                isFollowing && 'border-border text-foreground hover:bg-muted hover:text-foreground',
+              )}
             >
-              {isFollowing ? <Check className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
-              {isFollowing ? t('affiliate.subscribed') : t('affiliate.subscribe')}
-            </button>
+              <Bell className="h-5 w-5" />
+              <span className="ml-1">{isFollowing ? t('affiliate.subscribed') : t('affiliate.subscribe')}</span>
+            </Button>
+            {followersCount > 0 && (
+              <span style={{ fontSize: '13px', color: '#9A9A9A' }}>
+                {followersCount.toLocaleString()} {t('affiliate.subscribers').toLowerCase()}
+              </span>
+            )}
           </div>
         )}
 
