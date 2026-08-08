@@ -1977,6 +1977,7 @@ const fr: Record<string, string> = {
   'search.clubs': 'Clubs',
   'search.djs': 'DJs',
   'search.organizers': 'Organisateurs',
+  'search.agencies': 'Agences RP',
   'search.almostFull': 'Presque complet',
   'search.recentSearches': 'Recherches récentes',
   'search.clearRecent': 'Effacer',

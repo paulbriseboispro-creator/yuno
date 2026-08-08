@@ -2206,6 +2206,7 @@ const es: Record<string, string> = {
   'search.clubs': 'Clubs',
   'search.djs': 'DJs',
   'search.organizers': 'Organizadores',
+  'search.agencies': 'Agencias RRPP',
   'search.almostFull': 'Casi lleno',
   'search.recentSearches': 'Búsquedas recientes',
   'search.clearRecent': 'Borrar',

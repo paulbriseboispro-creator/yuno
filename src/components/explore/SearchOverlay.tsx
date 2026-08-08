@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
-import { X, Search, TrendingUp, Users, Music, PartyPopper, Clock, ChevronRight, MapPin, Sparkles } from 'lucide-react';
+import { X, Search, TrendingUp, Users, Music, PartyPopper, Clock, ChevronRight, MapPin, Sparkles, Megaphone } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -14,6 +14,7 @@ interface SearchResult {
   clubs: ClubResult[];
   djs: DjResult[];
   organizers: OrgResult[];
+  agencies: AgencyResult[];
 }
 
 interface EventResult {
@@ -58,6 +59,16 @@ interface OrgResult {
   slug: string | null;
 }
 
+// Agence RP (entité fusionnée agence↔affilié). Surface publique = /rp/:slug
+// (AgencyPublicPage), où :slug est le linktree_slug de la ligne affiliates.
+interface AgencyResult {
+  id: string;
+  name: string;
+  logo_url: string | null;
+  city: string | null;
+  slug: string; // linktree_slug — jamais null (filtré côté requête)
+}
+
 // Lignes telles que sélectionnées par les requêtes de recherche (colonnes du select).
 interface EventRow {
   id: string;
@@ -92,6 +103,14 @@ interface DjRow {
   handle: string | null;
 }
 
+interface AgencyRow {
+  id: string;
+  name: string;
+  city: string | null;
+  avatar_url: string | null;
+  linktree_slug: string | null;
+}
+
 // Interface structurelle minimale du query builder Supabase : chaînable + thenable.
 interface SearchQuery<Row> extends PromiseLike<{ data: Row[] | null }> {
   eq(column: string, value: string | boolean): SearchQuery<Row>;
@@ -117,7 +136,7 @@ interface ChipDef {
 const STORAGE_KEY = 'yuno_recent_searches';
 const MAX_RECENT = 8;
 const MAX_VISIBLE = 3;
-const EMPTY: SearchResult = { events: [], clubs: [], djs: [], organizers: [] };
+const EMPTY: SearchResult = { events: [], clubs: [], djs: [], organizers: [], agencies: [] };
 
 // ─── Animation variants ──────────────────────────────────────────
 const overlayVariants = {
@@ -468,7 +487,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
         ...affEventResults
       ] = await Promise.all(affEventQueries);
 
-      const [venuesRes, affVenuesRes, djsRes, organizersRes] = await Promise.all([
+      const [venuesRes, affVenuesRes, djsRes, organizersRes, agenciesRes] = await Promise.all([
         venuesQuery,
         affVenuesQuery,
         hasText
@@ -487,6 +506,19 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
               .eq('bde_verified', false) // BDE accounts stay private — never in public search
               .ilike('search_display_name', searchTerm)
               .limit(5)
+          : Promise.resolve({ data: [] }),
+        // Agences RP : l'identité maître fusionnée (agency_id non nul) qui a une
+        // page publique /rp/:linktree_slug. Recherche globale (pas de geo-scope :
+        // une agence est une entité de découverte, comme les DJs/organisateurs).
+        hasText
+          ? supabase
+              .from('affiliates')
+              .select('id, name, city, avatar_url, linktree_slug')
+              .eq('is_active', true)
+              .not('agency_id', 'is', null)
+              .not('linktree_slug', 'is', null)
+              .or(`search_name.ilike.${searchTerm},search_city.ilike.${searchTerm}`)
+              .limit(6)
           : Promise.resolve({ data: [] }),
       ]);
 
@@ -639,6 +671,15 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
           music_genres: [] as string[],
           slug: o.slug,
         })),
+        agencies: ((agenciesRes.data || []) as AgencyRow[])
+          .filter((a) => !!a.linktree_slug)
+          .map((a) => ({
+            id: a.id,
+            name: a.name,
+            logo_url: a.avatar_url,
+            city: a.city,
+            slug: a.linktree_slug as string,
+          })),
       });
     } catch (err) {
       console.error('Search error:', err);
@@ -740,7 +781,7 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
   const toggleSection = (key: string) => setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
 
   const hasResults = results.events.length > 0 || results.clubs.length > 0 || results.djs.length > 0
-    || results.organizers.length > 0 || semanticEvents.length > 0;
+    || results.organizers.length > 0 || results.agencies.length > 0 || semanticEvents.length > 0;
   const isSearching = query.length >= 1 || activeDateFilter !== null;
   const getVisibleItems = <T,>(items: T[], key: string) =>
     expandedSections[key] ? items : items.slice(0, MAX_VISIBLE);
@@ -1139,6 +1180,43 @@ export function SearchOverlay({ open, onClose, city, userLocation }: SearchOverl
                               <p className="text-xs text-muted-foreground truncate">
                                 {o.music_genres.slice(0, 3).join(' · ')}
                               </p>
+                            )}
+                          </div>
+                        </motion.button>
+                      ))}
+                    </ResultSection>
+                  )}
+
+                  {results.agencies.length > 0 && (
+                    <ResultSection title={t('search.agencies')} count={results.agencies.length} sectionKey="agencies" expanded={expandedSections.agencies} onToggle={toggleSection} t={t}>
+                      {getVisibleItems(results.agencies, 'agencies').map(a => (
+                        <motion.button
+                          key={a.id}
+                          onClick={() => handleNavigate(`/rp/${a.slug}`)}
+                          className="flex w-full items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-card active:bg-muted"
+                          variants={staggerItem}
+                          whileTap={tapScale}
+                        >
+                          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full border border-primary/20 bg-muted">
+                            {a.logo_url ? (
+                              <img src={a.logo_url} alt={a.name} className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center bg-card">
+                                <Megaphone className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0 text-left">
+                            <div className="flex items-center gap-1.5">
+                              <p className="text-sm font-medium text-foreground truncate">
+                                {highlightMatch(a.name, query)}
+                              </p>
+                              <span className="shrink-0 rounded-full bg-primary/10 border border-primary/20 px-1.5 py-0.5 text-[9px] font-semibold text-primary uppercase tracking-wide">
+                                {t('affiliate.rp')}
+                              </span>
+                            </div>
+                            {a.city && (
+                              <p className="text-xs text-muted-foreground truncate">{a.city}</p>
                             )}
                           </div>
                         </motion.button>

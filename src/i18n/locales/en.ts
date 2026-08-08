@@ -1940,6 +1940,7 @@ const en: Record<string, string> = {
   'search.clubs': 'Clubs',
   'search.djs': 'DJs',
   'search.organizers': 'Organizers',
+  'search.agencies': 'Promoter agencies',
   'search.almostFull': 'Almost full',
   'search.recentSearches': 'Recent searches',
   'search.clearRecent': 'Clear',
