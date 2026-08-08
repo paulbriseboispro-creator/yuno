@@ -7,7 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useStaffIdentity } from '@/hooks/useStaffIdentity';
 import { StaffOnboardingGate } from '@/components/staff/StaffOnboardingGate';
 import { StaffNightPanel } from '@/components/staff/StaffNightPanel';
-import { QrCode, CheckCircle, XCircle, User, Ticket, Wine, Camera, RefreshCw, Users, Ban, AlertTriangle, Clock, Search, ShieldAlert, UserX, X } from 'lucide-react';
+import { QrCode, CheckCircle, XCircle, User, Ticket, Wine, Camera, RefreshCw, Users, Ban, AlertTriangle, Clock, Search, ShieldAlert, UserX, X, Crown } from 'lucide-react';
 import { nowInParis } from '@/lib/timezone';
 import { validateTicketEntry, validateTableReservation, validateGuestListEntry } from '@/lib/scan/rules';
 import { useOfflineScanning } from '@/hooks/useOfflineScanning';
@@ -270,6 +270,10 @@ export default function Bouncer() {
     setErrorMessage('');
     setDeniedContext(null);
     setOverlayResult(null);
+    // Statut top client : consommé par la carte rapide, à purger entre deux
+    // scans sinon le bandeau or s'affiche pour le client suivant.
+    setTopClientInfo(null);
+    setPendingTicketHolderName(undefined);
     // Cooldown 3 s sur le code qu'on vient de traiter : le billet encore
     // sous la caméra ne doit pas se re-scanner tout seul au réarmement.
     if (pendingCodeRef.current) {
@@ -832,7 +836,9 @@ export default function Bouncer() {
         if (topClient) {
           setTopClientInfo(topClient);
           setPendingTicketHolderName(attendee.full_name || ticket.full_name);
-          setShowTopClientDialog(true);
+          // En mode rapide la carte affiche le statut top client elle-même,
+          // le dialog ne s'ouvre que dans le flux classique.
+          if (!rapidModeRef.current) setShowTopClientDialog(true);
         }
 
         fetchStats();
@@ -995,7 +1001,9 @@ export default function Bouncer() {
         if (topClient) {
           setTopClientInfo(topClient);
           setPendingTicketHolderName(ticket.full_name);
-          setShowTopClientDialog(true);
+          // En mode rapide la carte affiche le statut top client elle-même,
+          // le dialog ne s'ouvre que dans le flux classique.
+          if (!rapidModeRef.current) setShowTopClientDialog(true);
         }
 
         // Fire-and-forget VIP scan push notification (Top 100)
@@ -1152,7 +1160,9 @@ export default function Bouncer() {
         if (topClient) {
           setTopClientInfo(topClient);
           setPendingTicketHolderName(reservation.full_name);
-          setShowTopClientDialog(true);
+          // En mode rapide la carte affiche le statut top client elle-même,
+          // le dialog ne s'ouvre que dans le flux classique.
+          if (!rapidModeRef.current) setShowTopClientDialog(true);
         }
         
         fetchStats();
@@ -2408,9 +2418,42 @@ export default function Bouncer() {
                     {holder && scanResult !== 'error' && (
                       <p className="mt-1 truncate text-lg font-semibold" style={{ color: fg }}>{holder}</p>
                     )}
+                    {/* Email sous le nom : contrôle d'identité à la porte (pièce
+                        vs billet). Masqué quand le nom affiché EST déjà l'email. */}
+                    {scanResult === 'success' && scannedTicket?.fullName && scannedTicket.userEmail && (
+                      <p className="mt-0.5 truncate text-sm" style={{ color: fgSoft }}>{scannedTicket.userEmail}</p>
+                    )}
+                    {scanResult === 'vip_success' && scannedVipReservation?.userEmail && (
+                      <p className="mt-0.5 truncate text-sm" style={{ color: fgSoft }}>{scannedVipReservation.userEmail}</p>
+                    )}
+
+                    {/* Bandeau TOP CLIENT : aplat sombre + or, volontairement
+                        distinct des deux cartes — le videur doit voir en un
+                        coup d'œil qu'il tient un gros client du club. */}
+                    {(scanResult === 'success' || scanResult === 'vip_success') && topClientInfo && (
+                      <div className="mt-4 rounded-xl px-3 py-2.5 text-left" style={{ background: '#141416', border: '1px solid rgba(212,160,23,0.55)' }}>
+                        <div className="flex items-center gap-2.5">
+                          <Crown className="h-5 w-5 flex-none" style={{ color: '#FCD34D' }} />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-bold" style={{ color: '#FCD34D' }}>
+                              TOP #{topClientInfo.rank} · {topClientInfo.tier === 'platinum' ? 'PLATINUM' : topClientInfo.tier === 'gold' ? 'GOLD' : topClientInfo.tier === 'silver' ? 'SILVER' : 'BRONZE'}
+                            </p>
+                            <p className="truncate text-xs" style={{ color: 'rgba(255,255,255,0.75)' }}>
+                              {t('bouncer.totalSpent')}: {topClientInfo.totalSpent.toFixed(0)}€
+                              {topClientInfo.favoriteDrinkCategory ? ` · ${t('bouncer.favoriteDrink')}: ${topClientInfo.favoriteDrinkCategory}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {scanResult === 'success' && scannedTicket && (
                       <div className="mt-4 space-y-2 rounded-xl p-3 text-left" style={{ background: innerBg }}>
+                        {/* Rangée événement : le videur vérifie que le billet est pour CETTE soirée */}
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="flex-none text-sm" style={{ color: fgSoft }}>{t('bouncer.event')}</span>
+                          <span className="min-w-0 truncate text-right text-sm font-semibold" style={{ color: fg }}>{scannedTicket.eventTitle}</span>
+                        </div>
                         <div className="flex flex-wrap items-center gap-2">
                           <span
                             className="min-w-0 truncate rounded-full px-2.5 py-0.5 text-xs font-semibold"
@@ -2420,6 +2463,14 @@ export default function Bouncer() {
                           </span>
                           <span className="flex-none tabular-nums text-base font-bold" style={{ color: fg }}>{scannedTicket.quantity}x</span>
                         </div>
+                        {/* Heure limite : seulement quand elle est respectée — le
+                            cas hors créneau a déjà son bloc orange dédié. */}
+                        {scannedTicket.entryDeadline && !isLate && (
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="flex-none text-sm" style={{ color: fgSoft }}>{t('tickets.entryBefore')}</span>
+                            <span className="flex-none tabular-nums text-sm font-semibold" style={{ color: fg }}>{scannedTicket.entryDeadline}</span>
+                          </div>
+                        )}
                         {scannedTicket.includesDrink && (
                           freeDrinkMode === 'bouncer_notify' ? (
                             <div className="flex items-center gap-2">
@@ -2478,6 +2529,14 @@ export default function Bouncer() {
 
                     {scanResult === 'vip_success' && scannedVipReservation && (
                       <div className="mt-4 space-y-2 rounded-xl p-3 text-left" style={{ background: innerBg }}>
+                        {/* Rangée événement : garde non-vide, l'offline ne met pas
+                            le titre en cache (manifeste local). */}
+                        {scannedVipReservation.eventTitle && (
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="flex-none text-sm" style={{ color: fgSoft }}>{t('bouncer.event')}</span>
+                            <span className="min-w-0 truncate text-right text-sm font-semibold" style={{ color: fg }}>{scannedVipReservation.eventTitle}</span>
+                          </div>
+                        )}
                         <div className="flex flex-wrap items-center gap-2">
                           <span
                             className="min-w-0 truncate rounded-full px-2.5 py-0.5 text-xs font-semibold"
