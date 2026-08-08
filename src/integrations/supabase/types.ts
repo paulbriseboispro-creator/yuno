@@ -1363,6 +1363,7 @@ export type Database = {
           agency_id: string | null
           allow_promoter_sort: boolean
           avatar_url: string | null
+          banner_url: string | null
           bio: string | null
           city: string | null
           commission_rate: number
@@ -1389,6 +1390,7 @@ export type Database = {
           agency_id?: string | null
           allow_promoter_sort?: boolean
           avatar_url?: string | null
+          banner_url?: string | null
           bio?: string | null
           city?: string | null
           commission_rate?: number
@@ -1415,6 +1417,7 @@ export type Database = {
           agency_id?: string | null
           allow_promoter_sort?: boolean
           avatar_url?: string | null
+          banner_url?: string | null
           bio?: string | null
           city?: string | null
           commission_rate?: number
@@ -1618,6 +1621,35 @@ export type Database = {
           },
         ]
       }
+      agency_followers: {
+        Row: {
+          agency_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_followers_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agency_payouts: {
         Row: {
           agency_id: string
@@ -1735,6 +1767,35 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "promoter_teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agency_push_automations: {
+        Row: {
+          agency_id: string
+          automation_key: string
+          enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          automation_key: string
+          enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          automation_key?: string
+          enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_push_automations_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
             referencedColumns: ["id"]
           },
         ]
@@ -10116,6 +10177,7 @@ export type Database = {
       }
       push_campaigns: {
         Row: {
+          agency_id: string | null
           audience: Json
           body: string
           body_i18n: Json | null
@@ -10137,6 +10199,7 @@ export type Database = {
           venue_id: string | null
         }
         Insert: {
+          agency_id?: string | null
           audience?: Json
           body: string
           body_i18n?: Json | null
@@ -10158,6 +10221,7 @@ export type Database = {
           venue_id?: string | null
         }
         Update: {
+          agency_id?: string | null
           audience?: Json
           body?: string
           body_i18n?: Json | null
@@ -10179,6 +10243,13 @@ export type Database = {
           venue_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "push_campaigns_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "push_campaigns_venue_id_fkey"
             columns: ["venue_id"]
@@ -15693,6 +15764,21 @@ export type Database = {
         }
         Returns: undefined
       }
+      follow_agency: {
+        Args: { p_agency_id: string; p_source?: string }
+        Returns: {
+          agency_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "agency_followers"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       follow_organizer: {
         Args: { p_organizer_user_id: string; p_source?: string }
         Returns: {
@@ -15778,6 +15864,10 @@ export type Database = {
       generate_table_reference: { Args: never; Returns: string }
       generate_ticket_reference: { Args: never; Returns: string }
       get_affiliate_venue_report: { Args: { p_token: string }; Returns: Json }
+      get_agency_event_breakdown: {
+        Args: { p_agency_id: string }
+        Returns: Json
+      }
       get_agency_event_full_stats: {
         Args: { p_agency_id: string; p_date_from?: string; p_date_to?: string }
         Returns: {
