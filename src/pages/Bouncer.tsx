@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { retrySupabaseAction } from '@/utils/retryAction';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useStaffIdentity } from '@/hooks/useStaffIdentity';
 import { StaffOnboardingGate } from '@/components/staff/StaffOnboardingGate';
 import { StaffNightPanel } from '@/components/staff/StaffNightPanel';
-import { QrCode, CheckCircle, XCircle, User, Ticket, Wine, Camera, RefreshCw, Users, Ban, AlertTriangle, Clock, Search, ShieldAlert, UserX } from 'lucide-react';
+import { QrCode, CheckCircle, XCircle, User, Ticket, Wine, Camera, RefreshCw, Users, Ban, AlertTriangle, Clock, Search, ShieldAlert, UserX, X } from 'lucide-react';
 import { nowInParis } from '@/lib/timezone';
 import { validateTicketEntry, validateTableReservation, validateGuestListEntry } from '@/lib/scan/rules';
 import { useOfflineScanning } from '@/hooks/useOfflineScanning';
@@ -121,6 +121,29 @@ const mainCard: React.CSSProperties = {
   position: 'relative',
 };
 
+/**
+ * Retard par rapport à l'heure limite d'entrée (format 'HH:MM').
+ * Gère les limites après minuit (ex. 02:00 = le lendemain quand la soirée
+ * démarre le soir) : avant 6 h du matin, on n'est « hors créneau » qu'entre
+ * la limite et 6 h. Utilisée par la carte classique ET le feedback du mode
+ * scan rapide — une seule arithmétique, deux surfaces.
+ */
+function computeLateness(entryDeadline: string, now: Date): { isPast: boolean; lateLabel: string } {
+  const [dH, dM] = entryDeadline.split(':').map(Number);
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const deadlineMinutes = dH * 60 + dM;
+  const isPast = deadlineMinutes < 6 * 60
+    ? (currentMinutes >= 6 * 60 ? false : currentMinutes > deadlineMinutes)
+    : currentMinutes > deadlineMinutes;
+
+  let diff = currentMinutes - deadlineMinutes;
+  if (diff < 0) diff += 24 * 60; // minuit franchi
+  const lateH = Math.floor(diff / 60);
+  const lateM = diff % 60;
+  const lateLabel = lateH > 0 ? `${lateH}h${lateM.toString().padStart(2, '0')}` : `${lateM} min`;
+  return { isPast, lateLabel };
+}
+
 const REFUND_REASONS = {
   intoxication: { fr: 'Ivresse', en: 'Intoxication', es: 'Intoxicación' },
   behavior: { fr: 'Comportement inapproprié', en: 'Inappropriate behavior', es: 'Comportamiento inapropiado' },
@@ -161,6 +184,17 @@ export default function Bouncer() {
   const [overlayResult, setOverlayResult] = useState<'success' | 'error' | 'already' | 'vip_success' | null>(null);
   const [overlayName, setOverlayName] = useState<string | undefined>(undefined);
   const [overlayOffline, setOverlayOffline] = useState(false);
+
+  // ── Mode scan rapide (onglet Entrée) : plein écran, caméra jamais démontée ──
+  const [rapidMode, setRapidMode] = useState(false);
+  /** Miroir de `rapidMode` lisible depuis les closures (onScanSuccess, onScan) — toujours mis à jour AVANT le setState. */
+  const rapidModeRef = useRef(false);
+  /** Porte de frame : tant qu'un scan est en cours de traitement, les frames suivantes sont ignorées. */
+  const processingRef = useRef(false);
+  /** Dernier code traité + horodatage du réarmement : le même code re-présenté dans les 3 s est ignoré (double lecture du billet encore sous la caméra) ; un code différent scanne immédiatement. */
+  const lastCodeRef = useRef<{ code: string; at: number } | null>(null);
+  /** Code brut de la frame en cours de traitement, mémorisé pour armer le cooldown d'advanceRapid. */
+  const pendingCodeRef = useRef<string | null>(null);
 
   /**
    * Contexte affiché sous un refus, pour que le videur puisse l'expliquer au
@@ -218,9 +252,90 @@ export default function Bouncer() {
    */
   const resultCardRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!scanResult) return;
+    // `rapidMode` dans les deps : à la sortie du mode rapide vers le flux
+    // classique (« Gérer le retard »), scanResult est déjà non-null — c'est le
+    // basculement de rapidMode qui doit déclencher le défilement.
+    if (!scanResult || rapidMode) return;
     resultCardRef.current?.scrollIntoView({ block: 'nearest', behavior: reducedMotion ? 'auto' : 'smooth' });
-  }, [scanResult, reducedMotion]);
+  }, [scanResult, rapidMode, reducedMotion]);
+
+  /**
+   * Scan suivant en mode rapide : on efface le résultat affiché, la caméra
+   * n'a jamais cessé de tourner (`scanning` reste true tout du long).
+   */
+  const advanceRapid = useCallback(() => {
+    setScannedTicket(null);
+    setScannedVipReservation(null);
+    setScanResult(null);
+    setErrorMessage('');
+    setDeniedContext(null);
+    setOverlayResult(null);
+    // Cooldown 3 s sur le code qu'on vient de traiter : le billet encore
+    // sous la caméra ne doit pas se re-scanner tout seul au réarmement.
+    if (pendingCodeRef.current) {
+      lastCodeRef.current = { code: pendingCodeRef.current, at: Date.now() };
+    }
+    processingRef.current = false;
+  }, []);
+
+  /** Sortie du mode rapide : caméra coupée, tout l'état de scan remis à zéro. */
+  const closeRapid = () => {
+    rapidModeRef.current = false;
+    setRapidMode(false);
+    setScannedTicket(null);
+    setScannedVipReservation(null);
+    setScanResult(null);
+    setErrorMessage('');
+    setDeniedContext(null);
+    setRefundReason('');
+    setCustomReason('');
+    setBanCustomer(false);
+    setTopClientInfo(null);
+    setPendingTicketHolderName(undefined);
+    setOverlayResult(null);
+    setScanning(false);
+    processingRef.current = false;
+    lastCodeRef.current = null;
+    pendingCodeRef.current = null;
+  };
+
+  // Verrou du scroll du body tant que la couche plein écran est montée.
+  useEffect(() => {
+    if (!rapidMode) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [rapidMode]);
+
+  // Vibration du feedback en mode rapide (le ScanOverlay classique n'y est
+  // pas monté) : mêmes motifs que lui.
+  useEffect(() => {
+    if (!rapidMode || !scanResult) return;
+    if (!('vibrate' in navigator)) return;
+    if (scanResult === 'success' || scanResult === 'vip_success') {
+      navigator.vibrate([100, 50, 100]);
+    } else if (scanResult === 'error') {
+      navigator.vibrate([300, 100, 300]);
+    } else if (scanResult === 'already') {
+      navigator.vibrate([500]);
+    }
+  }, [rapidMode, scanResult]);
+
+  // Auto-avance 1400 ms sur un succès simple (aucun drapeau d'attention) :
+  // le videur enchaîne sans toucher l'écran. VIP, déjà scanné, refus et
+  // succès à drapeaux (mineur, boisson à remettre, hors créneau) attendent
+  // un tap. Un tap sur le feedback avance immédiatement (cleanup = timer coupé).
+  useEffect(() => {
+    if (!rapidMode || scanResult !== 'success') return;
+    const attention = !!scannedTicket && (
+      scannedTicket.alcoholFree ||
+      (scannedTicket.includesDrink && freeDrinkMode === 'bouncer_notify') ||
+      (!!scannedTicket.entryDeadline && computeLateness(scannedTicket.entryDeadline, nowInParis()).isPast)
+    );
+    if (attention) return;
+    const timer = setTimeout(advanceRapid, 1400);
+    return () => clearTimeout(timer);
+  }, [rapidMode, scanResult, scannedTicket, freeDrinkMode, advanceRapid]);
 
   useEffect(() => {
     if (venueId) {
@@ -415,6 +530,13 @@ export default function Bouncer() {
   };
 
   const stopScanning = async () => {
+    // Mode rapide : ne JAMAIS couper la caméra. `onScanSuccess` appelle
+    // stopScanning() en tout premier ; en scan rapide on ignore cet arrêt
+    // pour garder le flux caméra chaud (zéro ré-initialisation entre deux
+    // scans — la ré-init coûte 1-2 s de noir à chaque billet). On lit le ref
+    // et pas l'état : onScanSuccess tourne dans une closure qui aurait
+    // capturé un `rapidMode` périmé.
+    if (rapidModeRef.current) return;
     setScanning(false);
   };
 
@@ -1382,6 +1504,61 @@ export default function Bouncer() {
 
   const queryLooksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clientQuery.trim());
 
+  /**
+   * L'UNIQUE instance de Scanner de la page — rendue soit dans le bloc caméra
+   * inline (flux classique), soit dans la couche plein écran (mode rapide),
+   * jamais les deux. Une seule implémentation du wrapper onScan : la porte du
+   * mode rapide (frame gate + cooldown même-code) vit ici.
+   * Ne JAMAIS utiliser la prop `paused` : elle démonte le flux caméra.
+   */
+  const scannerElement = (
+    <Scanner
+      onScan={(result) => {
+        if (!result) return;
+
+        let value: string | undefined;
+        if (typeof result === 'string') {
+          value = result;
+        } else if (Array.isArray(result) && result[0]) {
+          value = (result[0] as any).rawValue ?? String(result[0]);
+        } else if (typeof (result as any).rawValue === 'string') {
+          value = (result as any).rawValue;
+        }
+
+        if (value) {
+          if (rapidModeRef.current) {
+            // Un scan en cours de traitement absorbe les frames suivantes.
+            if (processingRef.current) return;
+            // Même code dans les 3 s après réarmement : double lecture du
+            // billet encore sous la caméra, on ignore. Un code différent
+            // (client suivant) passe immédiatement.
+            if (lastCodeRef.current && value === lastCodeRef.current.code && Date.now() - lastCodeRef.current.at < 3000) return;
+            processingRef.current = true;
+            pendingCodeRef.current = value;
+          }
+          onScanSuccess(value);
+        }
+      }}
+      onError={(error) => {
+        console.error('Scanner error', error);
+      }}
+      formats={['qr_code']}
+      scanDelay={50}
+      styles={{
+        container: { width: '100%', height: '100%' },
+        video: { width: '100%', height: '100%', objectFit: 'cover' },
+      }}
+      components={{
+        tracker: undefined,
+      }}
+      constraints={{
+        facingMode: 'environment',
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      }}
+    />
+  );
+
   if (venueLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center" style={{ background: '#000' }}>
@@ -1620,48 +1797,14 @@ export default function Bouncer() {
             {/* QR Scanner — hidden in client search mode */}
             {activeTab !== 'client' && (<>
             <div className="mb-4 space-y-4">
-              {scanning && (
+              {scanning && !rapidMode && (
                 /* Hauteur définie : sans elle le height:100% du Scanner ne résout pas et
                    la caméra retombe sur son ratio natif (bandes noires, viseur riquiqui). */
                 <div
                   className={`relative rounded-lg overflow-hidden border-2 bg-black ${activeTab === 'cancel' ? 'border-destructive/50' : 'border-primary/50'}`}
                   style={{ height: 'clamp(300px, 46vh, 440px)' }}
                 >
-                  <Scanner
-                    onScan={(result) => {
-                      if (!result) return;
-
-                      let value: string | undefined;
-                      if (typeof result === 'string') {
-                        value = result;
-                      } else if (Array.isArray(result) && result[0]) {
-                        value = (result[0] as any).rawValue ?? String(result[0]);
-                      } else if (typeof (result as any).rawValue === 'string') {
-                        value = (result as any).rawValue;
-                      }
-
-                      if (value) {
-                        onScanSuccess(value);
-                      }
-                    }}
-                    onError={(error) => {
-                      console.error('Scanner error', error);
-                    }}
-                    formats={['qr_code']}
-                    scanDelay={50}
-                    styles={{
-                      container: { width: '100%', height: '100%' },
-                      video: { width: '100%', height: '100%', objectFit: 'cover' },
-                    }}
-                    components={{
-                      tracker: undefined,
-                    }}
-                    constraints={{
-                      facingMode: 'environment',
-                      width: { ideal: 1280 },
-                      height: { ideal: 720 },
-                    }}
-                  />
+                  {scannerElement}
 
                   {/* Viseur : cadre centré pour aligner le QR dans le noir */}
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -1678,14 +1821,22 @@ export default function Bouncer() {
                 </div>
               )}
 
-              {!scanResult && (
+              {!scanResult && !rapidMode && (
                 scanning ? (
                   <Button onClick={stopScanning} variant="outline" size="lg" className="w-full">
                     {t('bouncer.stopScanning')}
                   </Button>
                 ) : (
                   <Button
-                    onClick={startScanning}
+                    onClick={() => {
+                      // Onglet Entrée : le scan démarre en mode rapide plein
+                      // écran. L'onglet Annuler garde le flux inline classique.
+                      if (activeTab === 'entry') {
+                        rapidModeRef.current = true;
+                        setRapidMode(true);
+                      }
+                      startScanning();
+                    }}
                     className="w-full"
                     size="lg"
                     disabled={isRequestingCamera}
@@ -1708,7 +1859,7 @@ export default function Bouncer() {
             </div>
 
             <AnimatePresence mode="wait">
-              {scanResult && (
+              {!rapidMode && scanResult && (
                 <motion.div
                   ref={resultCardRef}
                   initial={{ opacity: 0, scale: 0.9 }}
@@ -1780,23 +1931,8 @@ export default function Bouncer() {
                     <div style={mainCard} className="space-y-3">
                         {/* Entry deadline alert */}
                         {scannedTicket.entryDeadline && (() => {
-                          const now = nowInParis();
-                          const [dH, dM] = scannedTicket.entryDeadline!.split(':').map(Number);
-                          const currentMinutes = now.getHours() * 60 + now.getMinutes();
-                          const deadlineMinutes = dH * 60 + dM;
-                          // Handle after-midnight deadlines (e.g., 02:00 means next day if event starts evening)
-                          const isPastDeadline = deadlineMinutes < 6 * 60
-                            ? (currentMinutes >= 6 * 60 ? false : currentMinutes > deadlineMinutes)
-                            : currentMinutes > deadlineMinutes;
-                          
-                          const lateMinutes = (() => {
-                            let diff = currentMinutes - deadlineMinutes;
-                            if (diff < 0) diff += 24 * 60; // crossed midnight
-                            return diff;
-                          })();
-                          const lateH = Math.floor(lateMinutes / 60);
-                          const lateM = lateMinutes % 60;
-                          const lateLabel = lateH > 0 ? `${lateH}h${lateM.toString().padStart(2, '0')}` : `${lateM} min`;
+                          // Arithmétique du retard partagée avec le feedback du mode rapide.
+                          const { isPast: isPastDeadline, lateLabel } = computeLateness(scannedTicket.entryDeadline!, nowInParis());
 
                           return isPastDeadline ? (
                             <div className="space-y-3">
@@ -2153,6 +2289,322 @@ export default function Bouncer() {
       </div>
       </PublicPage>
 
+      {/* ── Mode scan rapide plein écran (onglet Entrée) ─────────────────────
+          z-[45] : au-dessus du header sticky (z-40), SOUS les dialogs (z-50)
+          pour que TopClientDialog et « Avertir » restent utilisables par-dessus. */}
+      {rapidMode && (
+        <div className="fixed inset-0 z-[45] bg-black" style={{ touchAction: 'manipulation' }}>
+          {/* Caméra plein écran : l'unique instance de Scanner vit ici tant que le mode rapide est actif */}
+          <div className="absolute inset-0">
+            {scannerElement}
+          </div>
+
+          {/* Viseur centré */}
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div
+              className="rounded-2xl"
+              style={{
+                width: 'min(70%, 280px)',
+                aspectRatio: '1 / 1',
+                border: '2px solid rgba(255,255,255,0.85)',
+                boxShadow: '0 0 0 9999px rgba(0,0,0,0.45)',
+              }}
+            />
+          </div>
+
+          {/* Barre du haut : quitter + compteur d'entrées, sur un dégradé */}
+          <div
+            className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pb-6"
+            style={{
+              paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
+              background: 'linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%)',
+            }}
+          >
+            <button
+              type="button"
+              aria-label={t('bouncer.exitScan')}
+              onClick={closeRapid}
+              className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-white/10 border border-white/15"
+              style={{ touchAction: 'manipulation' }}
+            >
+              <X className="h-5 w-5 text-white" />
+            </button>
+            {/* Compteur live : fetchStats() tourne déjà après chaque scan */}
+            <div className="flex flex-none items-center gap-1.5 rounded-full bg-white/10 border border-white/15 px-3 py-1.5">
+              <Users className="h-4 w-4 text-white/70" />
+              <span className="tabular-nums text-sm font-semibold text-white">{stats.scanned}</span>
+            </div>
+          </div>
+
+          {/* Consigne bas d'écran pendant la visée */}
+          {!scanResult && (
+            <div
+              className="pointer-events-none absolute inset-x-0 bottom-0 px-6 text-center"
+              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)', color: T2, fontSize: 14 }}
+            >
+              {t('bouncer.rapidHint')}
+            </div>
+          )}
+
+          {/* Feedback plein écran : lavis de couleur + icône + infos, par-dessus la caméra.
+              Un tap n'importe où avance ; les boutons internes stoppent la propagation. */}
+          <AnimatePresence>
+            {scanResult && scanResult !== 'cancel_ready' && (() => {
+              const late = scanResult === 'success' && scannedTicket?.entryDeadline
+                ? computeLateness(scannedTicket.entryDeadline, nowInParis())
+                : null;
+              const isLate = !!late?.isPast;
+              const needsAttention = scanResult !== 'success' || !!(scannedTicket && (
+                scannedTicket.alcoholFree ||
+                (scannedTicket.includesDrink && freeDrinkMode === 'bouncer_notify') ||
+                isLate
+              ));
+              const bg = scanResult === 'success' ? 'bg-green-600/95'
+                : scanResult === 'vip_success' ? 'bg-amber-500/95'
+                : scanResult === 'already' ? 'bg-yellow-500/95'
+                : 'bg-red-600/95';
+              /* Jaune vif : texte sombre, sinon le verdict est illisible */
+              const fg = scanResult === 'already' ? '#1a1a1a' : '#fff';
+              /* Repli overlayName : le chemin offline ne peuple pas scannedTicket
+                 pour un billet simple, seul le nom du manifeste est connu. */
+              const holder = scannedTicket
+                ? (scannedTicket.fullName || scannedTicket.userEmail)
+                : (scannedVipReservation?.fullName || overlayName);
+              const scannedAtRaw = scannedTicket?.entryScannedAt || scannedVipReservation?.entryScannedAt;
+              return (
+                <motion.div
+                  key={scanResult}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.12 }}
+                  className={`absolute inset-0 flex flex-col ${bg}`}
+                  style={{ willChange: 'opacity', touchAction: 'manipulation' }}
+                  onClick={advanceRapid}
+                >
+                  {/* Zone centrale : icône + verdict */}
+                  <div
+                    className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 text-center"
+                    style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)' }}
+                  >
+                    <motion.div
+                      initial={reducedMotion ? { opacity: 0 } : { scale: 0.6, opacity: 0 }}
+                      animate={reducedMotion ? { opacity: 1 } : { scale: 1, opacity: 1 }}
+                      transition={reducedMotion ? { duration: 0.12 } : { type: 'spring', stiffness: 420, damping: 26 }}
+                      className="flex-none"
+                      style={{ willChange: 'transform, opacity' }}
+                    >
+                      {(scanResult === 'success' || scanResult === 'vip_success') ? (
+                        <CheckCircle className="h-24 w-24" style={{ color: fg }} strokeWidth={2.5} />
+                      ) : (
+                        <XCircle className="h-24 w-24" style={{ color: fg }} strokeWidth={2.5} />
+                      )}
+                    </motion.div>
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.08 }}
+                      className="mt-3 max-w-full truncate text-3xl font-black uppercase tracking-wider"
+                      style={{ color: fg }}
+                    >
+                      {scanResult === 'success' && t('bouncer.entryApproved')}
+                      {scanResult === 'vip_success' && 'VIP'}
+                      {scanResult === 'already' && t('bouncer.alreadyScanned')}
+                      {scanResult === 'error' && t('bouncer.entryDenied')}
+                    </motion.p>
+                    {scanResult === 'error' && errorMessage && (
+                      /* Motif du refus : libre de passer à la ligne, c'est ce que le videur doit lire */
+                      <p className="mt-2 max-w-xs text-balance text-base leading-snug" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                        {errorMessage}
+                      </p>
+                    )}
+                    {overlayOffline && (scanResult === 'success' || scanResult === 'vip_success') && (
+                      /* Badge « validé hors ligne » : même signal que le ScanOverlay classique */
+                      <span
+                        className="mt-3 inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide"
+                        style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', color: fg }}
+                      >
+                        {t('offline.validatedOffline')}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Zone infos : carte basse */}
+                  <div
+                    className="flex-none space-y-2.5 rounded-t-3xl bg-black/35 px-5 pt-4 backdrop-blur"
+                    style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}
+                  >
+                    {/* Succès offline : pas de scannedTicket (manifeste local), on montre au moins le nom */}
+                    {scanResult === 'success' && !scannedTicket && holder && (
+                      <p className="truncate text-lg font-semibold text-white">{holder}</p>
+                    )}
+                    {scanResult === 'success' && scannedTicket && (
+                      <>
+                        <p className="truncate text-lg font-semibold text-white">{scannedTicket.fullName || scannedTicket.userEmail}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className="min-w-0 truncate rounded-full px-2.5 py-0.5 text-xs font-semibold text-white"
+                            style={{ background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.2)' }}
+                          >
+                            {scannedTicket.roundName}
+                          </span>
+                          <span className="flex-none tabular-nums text-base font-bold text-white">{scannedTicket.quantity}x</span>
+                        </div>
+                        {scannedTicket.includesDrink && (
+                          freeDrinkMode === 'bouncer_notify' ? (
+                            <div className="flex items-center gap-2.5 rounded-xl border-2 border-green-400/60 bg-green-500/25 px-3 py-2.5">
+                              <Wine className="h-5 w-5 flex-none text-green-300" />
+                              <p className="min-w-0 truncate text-sm font-bold text-green-200">{t('bouncer.giveDrink')}</p>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <Wine className="h-4 w-4 flex-none text-white/80" />
+                              <span className="min-w-0 truncate text-sm text-white/90">{t('bouncer.freeDrinkIncluded')}</span>
+                            </div>
+                          )
+                        )}
+                        {scannedTicket.alcoholFree && (
+                          <div className="flex items-center gap-2.5 rounded-xl px-3 py-2.5" style={{ background: 'rgba(245,158,11,0.2)', border: '2px solid rgba(245,158,11,0.55)' }}>
+                            <AlertTriangle className="h-5 w-5 flex-none" style={{ color: '#F59E0B' }} />
+                            <p className="min-w-0 truncate text-sm font-bold" style={{ color: '#FBBF24' }}>{t('bouncer.minorNoAlcohol')}</p>
+                          </div>
+                        )}
+                        {isLate && late && (
+                          <div className="space-y-2.5">
+                            <div className="rounded-xl px-3 py-2.5" style={{ background: 'rgba(249,115,22,0.2)', border: '2px solid rgba(249,115,22,0.55)' }}>
+                              <div className="flex items-center gap-2.5">
+                                <AlertTriangle className="h-5 w-5 flex-none text-orange-400" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm font-bold text-orange-300">{t('bouncer.outOfSlot')}</p>
+                                  <p className="tabular-nums text-xs text-orange-200/90">+{late.lateLabel} {t('bouncer.late')}</p>
+                                </div>
+                              </div>
+                            </div>
+                            <Button
+                              variant="secondary"
+                              className="min-h-[48px] w-full"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Bascule vers le flux classique EN GARDANT le
+                                // résultat : la carte complète (refuser +
+                                // rembourser 90 % / accepter) s'y affiche et le
+                                // scrollIntoView l'amène en vue. Ne surtout pas
+                                // effacer scanResult ni scannedTicket ici.
+                                rapidModeRef.current = false;
+                                setRapidMode(false);
+                                setScanning(false);
+                                // Sinon le ScanOverlay classique rejouerait le flash vert
+                                setOverlayResult(null);
+                              }}
+                            >
+                              {t('bouncer.handleLate')}
+                            </Button>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {scanResult === 'vip_success' && scannedVipReservation && (
+                      <>
+                        <p className="truncate text-lg font-semibold text-white">{scannedVipReservation.fullName}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className="min-w-0 truncate rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                            style={{ background: 'rgba(234,179,8,0.18)', border: '1px solid rgba(234,179,8,0.4)', color: '#FCD34D' }}
+                          >
+                            {scannedVipReservation.zoneName}
+                          </span>
+                          <span
+                            className="min-w-0 truncate rounded-full px-2.5 py-0.5 text-xs font-semibold text-white"
+                            style={{ background: 'rgba(255,255,255,0.14)', border: '1px solid rgba(255,255,255,0.2)' }}
+                          >
+                            {scannedVipReservation.packName}
+                          </span>
+                          <span className="flex flex-none items-center gap-1 tabular-nums text-base font-bold text-white">
+                            <Users className="h-4 w-4" />
+                            {scannedVipReservation.guestCount}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="min-w-0 truncate text-sm text-white/70">{t('tickets.remainingOnSite')}</span>
+                          <span className="flex-none tabular-nums text-lg font-bold" style={{ color: '#FCD34D' }}>
+                            {(scannedVipReservation.totalPrice - scannedVipReservation.deposit).toFixed(2)}€
+                          </span>
+                        </div>
+                        {scannedVipReservation.arrivalDeadline && (
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="flex min-w-0 items-center gap-1.5 truncate text-sm text-white/70">
+                              <Clock className="h-3.5 w-3.5 flex-none" />
+                              {t('bouncer.arrivalDeadline')}
+                            </span>
+                            <span className="flex-none tabular-nums text-sm font-semibold text-white">{scannedVipReservation.arrivalDeadline}</span>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {scanResult === 'already' && (
+                      <>
+                        {holder && <p className="truncate text-lg font-semibold text-white">{holder}</p>}
+                        {scannedAtRaw && (
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="min-w-0 truncate text-sm text-white/70">{t('bouncer.scannedAt')}</span>
+                            <span className="flex-none tabular-nums text-sm font-semibold" style={{ color: '#FCD34D' }}>
+                              {format(new Date(scannedAtRaw), 'HH:mm', { locale: dateLocale })}
+                            </span>
+                          </div>
+                        )}
+                        {scannedTicket && (
+                          <Button
+                            variant="outline"
+                            className="min-h-[44px] w-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openWarn({ userId: scannedTicket.userId, email: scannedTicket.userEmail, name: scannedTicket.fullName });
+                            }}
+                          >
+                            <AlertTriangle className="mr-2 h-4 w-4 flex-none" />
+                            {t('bouncer.warn')}
+                          </Button>
+                        )}
+                      </>
+                    )}
+
+                    {scanResult === 'error' && (
+                      <>
+                        {(deniedContext?.name || deniedContext?.eventTitle) && (
+                          <div className="min-w-0">
+                            {deniedContext.name && <p className="truncate text-lg font-semibold text-white">{deniedContext.name}</p>}
+                            {deniedContext.eventTitle && <p className="truncate text-xs text-white/60">{deniedContext.eventTitle}</p>}
+                          </div>
+                        )}
+                        {scannedTicket && (
+                          <Button
+                            variant="outline"
+                            className="min-h-[44px] w-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openWarn({ userId: scannedTicket.userId, email: scannedTicket.userEmail, name: scannedTicket.fullName });
+                            }}
+                          >
+                            <AlertTriangle className="mr-2 h-4 w-4 flex-none" />
+                            {t('bouncer.warn')}
+                          </Button>
+                        )}
+                      </>
+                    )}
+
+                    <p className="pt-1 text-center text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                      {needsAttention ? t('bouncer.tapToContinue') : t('bouncer.tapToSkip')}
+                    </p>
+                  </div>
+                </motion.div>
+              );
+            })()}
+          </AnimatePresence>
+        </div>
+      )}
+
       {/* Cancel Confirmation Dialog */}
       <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
         <AlertDialogContent className="max-h-[85vh] overflow-y-auto">
@@ -2283,14 +2735,16 @@ export default function Bouncer() {
         ticketHolderName={pendingTicketHolderName}
       />
 
-      {/* Full-screen scan overlay */}
-      <ScanOverlay
-        result={overlayResult}
-        onDismiss={() => setOverlayResult(null)}
-        holderName={overlayName}
-        reason={overlayResult === 'error' ? errorMessage : undefined}
-        offlineBadge={overlayOffline ? t('offline.validatedOffline') : undefined}
-      />
+      {/* Full-screen scan overlay — le mode rapide a son propre feedback */}
+      {!rapidMode && (
+        <ScanOverlay
+          result={overlayResult}
+          onDismiss={() => setOverlayResult(null)}
+          holderName={overlayName}
+          reason={overlayResult === 'error' ? errorMessage : undefined}
+          offlineBadge={overlayOffline ? t('offline.validatedOffline') : undefined}
+        />
+      )}
 
       {/* File de synchronisation des scans offline (app Yuno Pro) */}
       {offline.enabled && (
