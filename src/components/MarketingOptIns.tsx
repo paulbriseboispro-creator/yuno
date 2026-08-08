@@ -22,23 +22,35 @@ interface MarketingOptInsProps {
   onWithdraw?: (channel: 'email' | 'sms', wordingText: string) => Promise<boolean>;
   /** Masque la ligne SMS quand aucun numéro n'est collecté sur cette surface. */
   showSms?: boolean;
+  /**
+   * Lecture du consentement par club encore en cours (RPC get_my_marketing_consent).
+   *
+   * Tant qu'on ignore si la personne est déjà abonnée à CE club, on n'affiche
+   * PAS de case décochée : sinon un abonné de retour voit « on me redemande de
+   * cocher » le temps que la lecture réponde, juste avant que la ligne ne se
+   * replie sur son statut « déjà abonné ». Ce clignotement est précisément la
+   * plainte corrigée ici — on montre un placeholder discret à la place.
+   */
+  pending?: boolean;
 }
 
 /**
  * Consentements marketing (email + SMS), groupés dans une carte clairement
  * optionnelle.
  *
- * Deux états par canal, et la distinction est juridique, pas cosmétique :
+ * Trois états, et la distinction est juridique, pas cosmétique :
+ *
+ *  - Lecture en cours (`pending`) → placeholder, jamais une case décochée. On ne
+ *    redemande pas de cocher à quelqu'un dont on n'a pas encore lu le statut.
  *
  *  - Aucun consentement en cours → case DÉCOCHÉE nommant le club. Jamais
  *    pré-cochée : « silence, pre-ticked boxes or inactivity should not
  *    constitute consent » (RGPD cons. 32 ; CJUE C-673/17, Planet49).
  *
- *  - Consentement déjà donné à ce club → on ne redemande pas, mais on ne
- *    masque pas non plus en silence : on affiche l'état et un retrait
- *    immédiat, dans cette même interface (EDPB 05/2020 §114). Un consentement
- *    invisible est un consentement qu'on ne peut pas retirer, et §116 précise
- *    qu'un retrait non conforme invalide tout le mécanisme.
+ *  - Consentement déjà donné à ce club → on ne redemande pas. Les deux canaux
+ *    acquis se replient sur UNE ligne discrète (« Vous êtes abonné… — Gérer ») ;
+ *    « Gérer » déplie le retrait, exigé sur la même interface (EDPB 05/2020 §114 ;
+ *    §116 : un retrait non conforme invalide tout le mécanisme).
  *
  * Ne pas revenir à un simple `showNewsletter={false}` : masquer la ligne sans
  * rien afficher était précisément le défaut corrigé ici.
@@ -53,12 +65,21 @@ export function MarketingOptIns({
   smsAlreadyGranted = false,
   onWithdraw,
   showSms = true,
+  pending = false,
 }: MarketingOptInsProps) {
   const { t } = useLanguage();
+  // L'état « déjà abonné » se présente replié : une seule ligne, pas une carte
+  // qui a l'air de redemander. « Gérer » ouvre le retrait à la demande.
+  const [manageOpen, setManageOpen] = useState(false);
 
   const { email: emailLabel, sms: smsLabel } = marketingConsentWording(t, scopeName);
 
   const bothGranted = emailAlreadyGranted && (smsAlreadyGranted || !showSms);
+
+  const named = (scopeName ?? '').trim();
+  const summaryLabel = named
+    ? t('consent.subscribedSummary').replace('{{name}}', named)
+    : t('consent.subscribedSummaryGeneric');
 
   return (
     <div className="rounded-[10px] border border-white/[0.08] bg-[#141414] p-4">
@@ -70,48 +91,91 @@ export function MarketingOptIns({
           </span>
         </div>
         <span className="font-mono uppercase text-[9px] font-semibold tracking-[0.12em] text-[#5A5A5E]">
-          {bothGranted ? t('consent.active') : t('consent.optional')}
+          {pending ? '' : bothGranted ? t('consent.active') : t('consent.optional')}
         </span>
       </div>
 
-      <div className="divide-y divide-white/[0.06]">
-        {emailAlreadyGranted ? (
-          <GrantedRow
-            icon={<Mail className="h-4 w-4" />}
-            label={emailLabel}
-            onWithdraw={onWithdraw ? () => onWithdraw('email', emailLabel) : undefined}
-          />
-        ) : (
-          <ConsentRow
-            icon={<Mail className="h-4 w-4" />}
-            label={emailLabel}
-            checked={newsletterOptIn}
-            onToggle={() => onNewsletterChange(!newsletterOptIn)}
-          />
-        )}
+      {pending ? (
+        <PendingRows showSms={showSms} label={t('consent.checkingPreferences')} />
+      ) : bothGranted && !manageOpen ? (
+        <button
+          type="button"
+          onClick={() => setManageOpen(true)}
+          className="flex items-center gap-3 w-full text-left py-2.5"
+        >
+          <span className="shrink-0 h-5 w-5 rounded-[4px] bg-primary border border-primary flex items-center justify-center">
+            <Check className="h-3 w-3 text-white" strokeWidth={3} />
+          </span>
+          <span className="text-sm text-[#9A9A9A] leading-snug flex-1 min-w-0">{summaryLabel}</span>
+          <span className="shrink-0 text-[11px] font-medium text-[#5A5A5E] underline underline-offset-2 hover:text-white transition-colors">
+            {t('consent.manage')}
+          </span>
+        </button>
+      ) : (
+        <>
+          <div className="divide-y divide-white/[0.06]">
+            {emailAlreadyGranted ? (
+              <GrantedRow
+                icon={<Mail className="h-4 w-4" />}
+                label={emailLabel}
+                onWithdraw={onWithdraw ? () => onWithdraw('email', emailLabel) : undefined}
+              />
+            ) : (
+              <ConsentRow
+                icon={<Mail className="h-4 w-4" />}
+                label={emailLabel}
+                checked={newsletterOptIn}
+                onToggle={() => onNewsletterChange(!newsletterOptIn)}
+              />
+            )}
 
-        {showSms &&
-          (smsAlreadyGranted ? (
-            <GrantedRow
-              icon={<MessageSquare className="h-4 w-4" />}
-              label={smsLabel}
-              onWithdraw={onWithdraw ? () => onWithdraw('sms', smsLabel) : undefined}
-            />
-          ) : (
-            <ConsentRow
-              icon={<MessageSquare className="h-4 w-4" />}
-              label={smsLabel}
-              checked={smsOptIn}
-              onToggle={() => onSmsChange(!smsOptIn)}
-            />
-          ))}
-      </div>
+            {showSms &&
+              (smsAlreadyGranted ? (
+                <GrantedRow
+                  icon={<MessageSquare className="h-4 w-4" />}
+                  label={smsLabel}
+                  onWithdraw={onWithdraw ? () => onWithdraw('sms', smsLabel) : undefined}
+                />
+              ) : (
+                <ConsentRow
+                  icon={<MessageSquare className="h-4 w-4" />}
+                  label={smsLabel}
+                  checked={smsOptIn}
+                  onToggle={() => onSmsChange(!smsOptIn)}
+                />
+              ))}
+          </div>
 
-      {bothGranted && (
-        <p className="mt-2.5 text-[11px] leading-snug text-[#5A5A5E]">
-          {t('consent.alreadySubscribedHint')}
-        </p>
+          {bothGranted && (
+            <p className="mt-2.5 text-[11px] leading-snug text-[#5A5A5E]">
+              {t('consent.alreadySubscribedHint')}
+            </p>
+          )}
+        </>
       )}
+    </div>
+  );
+}
+
+/**
+ * Placeholder pendant la lecture du consentement par club. On ne montre jamais
+ * une case décochée avant de savoir : un abonné de retour ne doit pas voir « on
+ * me redemande de cocher » le temps d'un aller-retour réseau.
+ */
+function PendingRows({ showSms, label }: { showSms: boolean; label: string }) {
+  return (
+    <div className="py-1" aria-busy="true">
+      <div className="flex items-center gap-3 py-2.5">
+        <span className="shrink-0 h-5 w-5 rounded-[4px] border border-white/10 bg-white/[0.04] animate-pulse" />
+        <span className="h-3 flex-1 max-w-[70%] rounded bg-white/[0.06] animate-pulse" />
+      </div>
+      {showSms && (
+        <div className="flex items-center gap-3 py-2.5">
+          <span className="shrink-0 h-5 w-5 rounded-[4px] border border-white/10 bg-white/[0.04] animate-pulse" />
+          <span className="h-3 flex-1 max-w-[55%] rounded bg-white/[0.06] animate-pulse" />
+        </div>
+      )}
+      <span className="sr-only">{label}</span>
     </div>
   );
 }

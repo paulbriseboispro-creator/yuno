@@ -887,6 +887,7 @@ export default function TableCheckout() {
                     scopeName={venue?.name}
                     emailAlreadyGranted={marketingConsent.emailGranted}
                     smsAlreadyGranted={marketingConsent.smsGranted}
+                    pending={marketingConsent.pending}
                     onWithdraw={handleWithdrawConsent}
                   />
                   <TermsAcceptance userId={user?.id} guestEmail={!user ? email : null} context="table" onAcceptedChange={setAcceptTerms} />

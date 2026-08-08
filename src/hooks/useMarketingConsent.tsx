@@ -61,9 +61,21 @@ interface ConsentState {
   emailGranted: boolean;
   smsGranted: boolean;
   loading: boolean;
+  /**
+   * `true` une fois qu'on a une réponse ferme pour la portée courante (RPC
+   * rendue, erreur, ou rien à lire pour un invité). Tant que c'est `false`, on
+   * ne connaît pas encore le statut d'abonnement : l'écran ne doit surtout pas
+   * afficher une case décochée entre-temps.
+   */
+  resolved: boolean;
 }
 
-const IDLE: ConsentState = { emailGranted: false, smsGranted: false, loading: false };
+const IDLE: ConsentState = {
+  emailGranted: false,
+  smsGranted: false,
+  loading: false,
+  resolved: false,
+};
 
 export function useMarketingConsent(scope: MarketingConsentScope | null) {
   const { user } = useAuth();
@@ -75,11 +87,16 @@ export function useMarketingConsent(scope: MarketingConsentScope | null) {
 
   const refresh = useCallback(async () => {
     if (!user || !hasScope) {
-      setState(IDLE);
+      // Rien à lire — un invité (ou une portée absente) ne peut pas avoir de
+      // consentement mémorisé. On est « résolu » tout de suite : la case s'affiche
+      // sans placeholder inutile.
+      setState({ ...IDLE, resolved: true });
       return;
     }
 
-    setState((prev) => ({ ...prev, loading: true }));
+    // On repasse en non-résolu le temps de relire : un changement de club ne doit
+    // pas laisser le statut de l'ancien club « collé » à l'écran.
+    setState((prev) => ({ ...prev, loading: true, resolved: false }));
 
     const { data, error } = await supabase.rpc('get_my_marketing_consent', {
       p_venue_id: venueId,
@@ -91,7 +108,7 @@ export function useMarketingConsent(scope: MarketingConsentScope | null) {
       // case affichée en trop est une gêne, une case masquée à tort est un
       // envoi sans base légale.
       console.error('[marketing-consent] lecture impossible', error);
-      setState(IDLE);
+      setState({ emailGranted: false, smsGranted: false, loading: false, resolved: true });
       return;
     }
 
@@ -100,6 +117,7 @@ export function useMarketingConsent(scope: MarketingConsentScope | null) {
       emailGranted: row?.email_opted_in === true,
       smsGranted: row?.sms_opted_in === true,
       loading: false,
+      resolved: true,
     });
   }, [user, hasScope, venueId, organizerUserId]);
 
@@ -141,7 +159,12 @@ export function useMarketingConsent(scope: MarketingConsentScope | null) {
     [user, hasScope, venueId, organizerUserId],
   );
 
-  return { ...state, refresh, withdraw };
+  // `pending` = on ne sait pas encore. L'écran s'en sert pour montrer un
+  // placeholder plutôt qu'une case décochée tant que la lecture n'a pas tranché
+  // (premier rendu, aller-retour réseau, ou changement de club).
+  const pending = state.loading || !state.resolved;
+
+  return { ...state, pending, refresh, withdraw };
 }
 
 /**

@@ -1011,6 +1011,7 @@ export default function TicketCheckout() {
               scopeName={consentScope?.scopeName}
               emailAlreadyGranted={marketingConsent.emailGranted}
               smsAlreadyGranted={marketingConsent.smsGranted}
+              pending={marketingConsent.pending}
               onWithdraw={handleWithdrawConsent}
             />
 
