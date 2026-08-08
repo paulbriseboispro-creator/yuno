@@ -14,7 +14,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { fr, enUS, es } from 'date-fns/locale';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import {
-  generateReceiptPDF, generateBilletPDF, downloadBlob, receiptLineLabels,
+  generateReceiptPDF, generateBilletPDF, deliverDocument, receiptLineLabels,
   type ReceiptLine, type DocLang,
 } from '@/lib/generateDocuments';
 import { shareContent } from '@/lib/share';
@@ -733,8 +733,13 @@ export default function OrderConfirmation() {
         eventDate: data.eventDate ? new Date(data.eventDate) : undefined,
         lines: buildReceiptLines(),
       });
-      downloadBlob(blob, `Yuno-recu-${orderNumber}.pdf`);
-      toast.success(t('invoice.downloaded') || 'Reçu téléchargé');
+      // Web : téléchargement fichier (toast honnête). Natif WKWebView : feuille de
+      // partage iOS (« Enregistrer dans Fichiers » / Mail / Imprimer) — c'est la
+      // feuille elle-même qui fait office de retour, comme handleShare : pas de
+      // toast en natif (on ne clame plus « téléchargé » alors que rien n'a bougé).
+      const outcome = await deliverDocument(blob, `Yuno-recu-${orderNumber}.pdf`, data.eventTitle || 'Yuno');
+      if (outcome === 'downloaded') toast.success(t('invoice.downloaded') || 'Reçu téléchargé');
+      else if (outcome === 'failed') toast.error(t('invoice.error') || 'Erreur lors de la génération du reçu');
     } catch (error) {
       console.error('Error generating receipt:', error);
       toast.error(t('invoice.error') || 'Erreur lors de la génération du reçu');
@@ -772,8 +777,11 @@ export default function OrderConfirmation() {
         index: 1,
         total: 1,
       });
-      downloadBlob(blob, `Yuno-billet-${reference}.pdf`);
-      toast.success(t('confirmation.billetDownloaded') || 'Billet téléchargé');
+      // Web : téléchargement fichier. Natif : feuille de partage iOS (la feuille
+      // est le retour, pas de toast — cf. handleDownloadReceipt).
+      const outcome = await deliverDocument(blob, `Yuno-billet-${reference}.pdf`, data.eventTitle || 'Yuno');
+      if (outcome === 'downloaded') toast.success(t('confirmation.billetDownloaded') || 'Billet téléchargé');
+      else if (outcome === 'failed') toast.error(t('invoice.error') || 'Erreur lors de la génération du billet');
     } catch (error) {
       console.error('Error generating billet:', error);
       toast.error(t('invoice.error') || 'Erreur lors de la génération du billet');

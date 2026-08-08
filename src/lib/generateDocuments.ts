@@ -14,6 +14,8 @@ import {
   drawReceipt, drawBillet,
   type ReceiptData, type BilletData, type PdfDoc,
 } from '../../supabase/functions/_shared/pdf-documents';
+import { isNative } from './native';
+import { shareContent } from './share';
 
 export { receiptLineLabels } from '../../supabase/functions/_shared/pdf-documents';
 export type { ReceiptLine, BilletData, ReceiptData, DocLang } from '../../supabase/functions/_shared/pdf-documents';
@@ -65,4 +67,41 @@ export function downloadBlob(blob: Blob, filename: string): void {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+export type DeliverOutcome = 'downloaded' | 'shared' | 'dismissed' | 'failed';
+
+/**
+ * Livre un PDF à l'utilisateur, quelle que soit la coquille.
+ *
+ * WKWebView iOS (l'app native) N'HONORE PAS l'attribut `download` d'un <a> sur
+ * une URL blob: — le clic est un no-op silencieux, aucun fichier n'atterrit et
+ * aucune erreur n'est levée. Un `toast.success('téléchargé')` derrière ment donc
+ * en natif. On distingue les deux mondes :
+ *
+ *  - Web : `downloadBlob` — les vrais navigateurs honorent `<a download>`. → 'downloaded'
+ *  - Natif : feuille de partage iOS via `shareContent` (Filesystem écrit le PDF
+ *    en cache, Share l'ouvre). L'utilisateur choisit « Enregistrer dans Fichiers »,
+ *    Imprimer, Mail (se l'envoyer), AirDrop… C'est la SEULE voie qui livre vraiment
+ *    le fichier depuis la WebView. → 'shared' (feuille ouverte) / 'dismissed' (annulé)
+ *
+ * 'failed' = binaire natif sans le plugin Share : rien n'a été livré, l'appelant
+ * doit afficher une vraie erreur plutôt qu'un faux succès.
+ */
+export async function deliverDocument(
+  blob: Blob,
+  filename: string,
+  title?: string,
+): Promise<DeliverOutcome> {
+  if (!isNative()) {
+    downloadBlob(blob, filename);
+    return 'downloaded';
+  }
+  const file = new File([blob], filename, { type: blob.type || 'application/pdf' });
+  const outcome = await shareContent({ title, files: [file] });
+  if (outcome === 'shared') return 'shared';
+  if (outcome === 'dismissed') return 'dismissed';
+  // 'copied' : le plugin natif a manqué et shareContent est retombé sur le
+  // presse-papier (vide, sans URL/texte) — le document n'a PAS été livré.
+  return 'failed';
 }
