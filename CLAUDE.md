@@ -121,6 +121,35 @@ statiques sont servis gratuitement et ne comptent pas dans le quota de requêtes
   `VITE_MAPBOX_TOKEN`, `VITE_STRIPE_PUBLISHABLE_KEY` (clé `pk_live_…`).
 - **Domaine** : brancher `yunoapp.eu` dès le départ (cf. CORS-lock ci-dessus).
 
+## OTA — mises à jour natives sans review App Store (Capgo self-hosted)
+
+Les apps natives (**Yuno** `eu.yunoapp.app` + **Yuno Pro** `eu.yunoapp.pro`)
+reçoivent des MàJ du bundle web **Over-The-Air** via `@capgo/capacitor-updater`,
+**auto-hébergé sur Supabase** (pas le cloud Capgo payant). Doc complète +
+dépannage : `docs/OTA_CAPGO.md`. Apple l'autorise (2.5.2/3.3.2) : seul du code
+interprété (JS/HTML/CSS) est livré, jamais du natif.
+
+- **3 edge functions** (`verify_jwt=false`, le plugin n'envoie pas de JWT) :
+  `capgo-updates` (updateUrl), `capgo-stats` (statsUrl), `capgo-channel`
+  (channelUrl). Le contrat exact vient du code natif du plugin (`InfoObject`
+  requête / `AppVersionDec` réponse) — ne pas deviner.
+- **4 tables** `ota_*` (migration `20260809190000`) : RLS totale, **aucune policy
+  anon** (infra invisible côté client) ; seules les fonctions + le script
+  (service_role) y touchent. Zips dans le bucket public `ota-bundles`
+  (content-addressed `bundles/<sha256>.zip`).
+- **Garde-fou anti-downgrade** : un bundle est tagué `native_version` (=
+  MARKETING_VERSION) ; `capgo-updates` ne le sert que si `native_version ==
+  version_build` de l'appareil. Un bundle `1.0.x` ne peut jamais tomber sur une
+  future app native `2.0`. Le rollback auto (`notifyAppReady()` dans
+  `NativeBridge.tsx`, déjà câblé) protège d'un bundle qui démarre mal.
+- **Pousser une MàJ** : `npm run ota:beta` → tester → `npm run ota:promote`
+  (beta→prod), ou `npm run ota:publish` direct. `ota:list` / `ota:devices` /
+  `ota:rollback`. Tout passe par `scripts/ota-publish.mjs` (secrets lus depuis
+  `.env.local`). **Jamais** écrire dans les tables `ota_*` autrement que via ce
+  script ou les fonctions.
+- **⚠️ Avant toute soumission App Store** : `npm run cap:sync` + `cap:sync:pro`
+  pour compiler les `updateUrl` dans le JSON natif — sinon l'OTA est muet.
+
 ## Git / GitHub (départ propre 2026-06-14)
 
 - **Lovable est définitivement coupé.** Plus aucune référence, aucun rapport à Lovable.
