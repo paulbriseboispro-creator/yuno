@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { v4 as uuidv4 } from 'uuid';
+import { useConsent } from '@/lib/consent';
 
 const SESSION_STORAGE_KEY = 'yuno_session_id';
 const VENUE_STORAGE_KEY = 'yuno_venue_id';
@@ -81,8 +82,13 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
   const startTimeRef = useRef<number>(Date.now());
   const heartbeatRef = useRef<number | null>(null);
   const maxScrollRef = useRef<number>(0);
+  // Mesure d'audience non nécessaire → gatée au consentement analytics. Tant
+  // qu'il n'est pas accordé, aucun identifiant visiteur ni ping « live » n'est
+  // posé. L'effet se relance dès que le consentement bascule (deps).
+  const { analytics: analyticsConsent } = useConsent();
 
   useEffect(() => {
+    if (!analyticsConsent) return;
     if (!venueId && !eventId && !organizerUserId) return;
 
     let sessionId = sessionStorage.getItem(SESSION_STORAGE_KEY);
@@ -202,7 +208,7 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
       stopHeartbeat();
       updateDuration();
     };
-  }, [venueId, eventId, organizerUserId]);
+  }, [venueId, eventId, organizerUserId, analyticsConsent]);
 
   const trackVisitor = async (sessionId: string) => {
     try {

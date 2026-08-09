@@ -56,6 +56,7 @@ import { uniqueChannel } from "@/lib/realtime";
 import { useStore } from "@/store/useStore";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { NativeBridge } from "@/components/NativeBridge";
+import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import { NativeStatusBarScrim } from "@/components/NativeStatusBarScrim";
 import { SplashScreen } from "@/components/SplashScreen";
 import { NativeProGate } from "@/components/NativeProGate";
@@ -465,6 +466,9 @@ const App = () => (
             <SplashScreen />
             {/* Surfaces B2C inactives dans l'app Yuno Pro (staff) */}
             {!isProApp() && <OnboardingGate />}
+            {/* Consentement cookies (ePrivacy/CNIL) — B2C uniquement. Tant qu'il
+                n'est pas accordé, le tracking analytics reste éteint (défaut). */}
+            {!isProApp() && <CookieConsentBanner />}
             <Toaster />
             <Sonner />
             {/* Bascule de comptes démo : active AUSSI dans l'app Pro (staff) — c'est

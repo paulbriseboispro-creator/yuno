@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 import { getBrowserId } from '@/lib/browserId';
+import { useConsent } from '@/lib/consent';
 
 const SESSION_KEY       = 'yuno_aff_session_id';
 const SESSION_START_KEY = 'yuno_aff_session_start';
@@ -80,8 +81,14 @@ export function useAffiliateVisitorTracking({
   const startTimeRef = useRef<number>(Date.now());
   const heartbeatRef = useRef<number | null>(null);
   const maxScrollRef = useRef<number>(0);
+  // Mesure d'audience de la vitrine externe = analytics non nécessaire → gatée
+  // au consentement (identifiant visiteur 1 an + pings « live »). L'attribution
+  // d'une conversion (?via=) est un mécanisme SÉPARÉ, résolu en amont, et reste
+  // hors périmètre de ce gate (code argent intouché).
+  const { analytics: analyticsConsent } = useConsent();
 
   useEffect(() => {
+    if (!analyticsConsent) return;
     if (!affiliateId) return;
 
     let sessionId = sessionStorage.getItem(SESSION_KEY);
@@ -173,7 +180,7 @@ export function useAffiliateVisitorTracking({
       if (heartbeatRef.current) clearInterval(heartbeatRef.current);
       flushDuration(false);
     };
-  }, [affiliateId, affiliateMemberId, affiliateEventId, affiliateVenueId]);
+  }, [affiliateId, affiliateMemberId, affiliateEventId, affiliateVenueId, analyticsConsent]);
 }
 
 async function trackPageView(
