@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { eventTargetPath } from '@/lib/eventNavigation';
+import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { format } from 'date-fns';
 
 export interface EventCardData {
@@ -47,6 +48,15 @@ export function EventCard({ event }: { event: EventCardData }) {
   const dateLabel = format(new Date(event.startAt), 'dd MMM').toUpperCase();
   const timeLabel = format(new Date(event.startAt), 'HH:mm');
 
+  // Carte carrée en object-cover : on sert un crop 400×400 WebP (retina jusqu'à
+  // ~200px d'affichage) au lieu du poster plein format (~1 Mo). C'est la surface
+  // la plus vue de l'app — gros gain data + fluidité de scroll en 4G. Le helper
+  // ne transforme QUE les URLs Supabase Storage ; les URLs externes (soirées
+  // affiliées) passent inchangées.
+  const posterSrc = event.posterUrl
+    ? getOptimizedImageUrl(event.posterUrl, { width: 400, height: 400, quality: 75, resize: 'cover' })
+    : null;
+
   const handleFavorite = async (e: React.MouseEvent) => {
     e.stopPropagation();
     const willActivate = !liked;
@@ -73,10 +83,10 @@ export function EventCard({ event }: { event: EventCardData }) {
     >
       {/* Image — carré 1:1 */}
       <div className="relative w-full overflow-hidden" style={{ aspectRatio: '1/1' }}>
-        {event.posterUrl ? (
+        {posterSrc ? (
           <>
             <img
-              src={event.posterUrl}
+              src={posterSrc}
               alt={event.title}
               className="event-card-img h-full w-full object-cover"
               loading="lazy"
