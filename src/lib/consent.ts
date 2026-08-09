@@ -1,7 +1,15 @@
 import { useEffect, useState } from 'react';
+import { isNative } from '@/lib/native';
 
 /**
  * Consentement cookies / traceurs (ePrivacy art. 5(3) / CNIL).
+ *
+ * ⚠️ WEB UNIQUEMENT. Les « cookies » sont une notion de site web. Dans l'app
+ * native (Capacitor iOS), il n'y a pas de bannière cookies : la mesure d'audience
+ * first-party est déclarée par l'étiquette de confidentialité App Store, et les
+ * permissions sensibles (notifications, localisation) passent par les dialogues
+ * système d'Apple, pas par un consentement web. Donc en natif on considère le
+ * consentement comme ACQUIS d'office (aucune bannière, aucun blocage analytics).
  *
  * Deux catégories seulement :
  *  - `necessary` : toujours actif, jamais un choix. Couvre ce qui est
@@ -55,11 +63,15 @@ function readStored(): StoredConsent | null {
 
 /** L'utilisateur a-t-il déjà fait un choix (accepté OU refusé) ? */
 export function hasDecidedConsent(): boolean {
+  // Natif : rien à demander (cf. en-tête) → traité comme déjà décidé.
+  if (isNative()) return true;
   return readStored() !== null;
 }
 
 /** Consentement analytics accordé ? (défaut : non tant qu'aucun choix.) */
 export function hasAnalyticsConsent(): boolean {
+  // Natif : mesure d'audience déclarée par l'App Store → acquise d'office.
+  if (isNative()) return true;
   return readStored()?.analytics === true;
 }
 
@@ -118,5 +130,8 @@ export function useConsent(): { decided: boolean; analytics: boolean } {
     };
   }, []);
 
+  // Natif : consentement acquis d'office (cf. en-tête) — les traceurs analytics
+  // gatés sur `analytics` tournent normalement, sans bannière.
+  if (isNative()) return { decided: true, analytics: true };
   return { decided: stored !== null, analytics: stored?.analytics === true };
 }

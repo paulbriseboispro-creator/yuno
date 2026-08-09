@@ -61,7 +61,7 @@ import { NativeStatusBarScrim } from "@/components/NativeStatusBarScrim";
 import { SplashScreen } from "@/components/SplashScreen";
 import { NativeProGate } from "@/components/NativeProGate";
 import { ProAppGate } from "@/components/ProAppGate";
-import { isProApp } from "@/lib/native";
+import { isProApp, isNative } from "@/lib/native";
 import { PushClickTracker } from "@/components/PushClickTracker";
 import { CelebrationHost } from "@/components/celebration/CelebrationHost";
 import { DemoSwitcher } from "@/components/demo/DemoSwitcher";
@@ -466,9 +466,12 @@ const App = () => (
             <SplashScreen />
             {/* Surfaces B2C inactives dans l'app Yuno Pro (staff) */}
             {!isProApp() && <OnboardingGate />}
-            {/* Consentement cookies (ePrivacy/CNIL) — B2C uniquement. Tant qu'il
-                n'est pas accordé, le tracking analytics reste éteint (défaut). */}
-            {!isProApp() && <CookieConsentBanner />}
+            {/* Consentement cookies (ePrivacy/CNIL) — B2C WEB uniquement. Les
+                cookies sont une notion de site : dans l'app native, la mesure
+                d'audience est déclarée par l'App Store et les permissions
+                sensibles (notifications, localisation) passent par les dialogues
+                système Apple. Pas de bannière cookies en natif. */}
+            {!isProApp() && !isNative() && <CookieConsentBanner />}
             <Toaster />
             <Sonner />
             {/* Bascule de comptes démo : active AUSSI dans l'app Pro (staff) — c'est

@@ -18,6 +18,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNightlifeProfile } from '@/hooks/useNightlifeProfile';
 import { legalContent, type LegalSection } from '@/data/legalContent';
 import { openConsentSettings } from '@/lib/consent';
+import { isNative } from '@/lib/native';
 import { PublicPage } from '@/components/PublicPage';
 import { MarketingSubscriptions } from '@/components/settings/MarketingSubscriptions';
 
@@ -606,15 +607,19 @@ export default function Settings() {
               </Button>
             ))}
             {/* Retrait du consentement aussi simple que l'octroi (CNIL) :
-                rouvre la bannière de préférences cookies. */}
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-3 h-11 text-sm font-normal"
-              onClick={() => openConsentSettings()}
-            >
-              <Cookie className="h-4 w-4" />
-              {t('cookies.banner.manage')}
-            </Button>
+                rouvre la bannière de préférences cookies. WEB uniquement — en
+                natif il n'y a pas de bannière cookies à gérer (permissions via
+                Réglages iOS). */}
+            {!isNative() && (
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-3 h-11 text-sm font-normal"
+                onClick={() => openConsentSettings()}
+              >
+                <Cookie className="h-4 w-4" />
+                {t('cookies.banner.manage')}
+              </Button>
+            )}
           </CardContent>
         </Card>
 
