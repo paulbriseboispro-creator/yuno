@@ -820,6 +820,11 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives – contact@yunoapp.eu
 • Clubs partenaires (données nécessaires à l'exécution : commande, identité si nécessaire, QR)
 • Stripe (paiements – les données de paiement sont traitées directement par Stripe et ne transitent pas par les serveurs de Yuno)
 • Hébergeur Backend (Supabase – supabase.com – serveurs sécurisés avec chiffrement en transit via HTTPS/TLS)
+• Mapbox (affichage cartographique des clubs)
+• Resend (envoi des emails transactionnels : confirmations, billets)
+• OpenAI (assistant conversationnel : les questions posées à l'assistant sont transmises à OpenAI pour générer la réponse)
+• Twilio (envoi de SMS, lorsque vous y avez consenti)
+• Cloudflare (diffusion sécurisée du site)
 • Sous-traitants techniques strictement nécessaires
 
 **5. Durées de conservation**
@@ -841,7 +846,7 @@ Mesures techniques et organisationnelles : contrôles d'accès, limitation des p
 L'opérateur de la plateforme dispose d'un accès aux données de gestion des établissements partenaires (performances, commandes, événements) pour assurer le bon fonctionnement du service et le support. Cet accès est fondé sur l'intérêt légitime de l'opérateur et encadré par des mesures de sécurité appropriées.
 
 **9. Transferts hors UE**
-Stripe peut impliquer des transferts de données hors de l'Union Européenne, encadrés par les clauses contractuelles types de la Commission européenne conformément au RGPD. L'hébergeur (Supabase) utilise des infrastructures conformes aux normes européennes de protection des données.`
+Certains sous-traitants — notamment Stripe (paiements), OpenAI (assistant IA) et Twilio (SMS) — peuvent impliquer des transferts de données hors de l'Union Européenne, encadrés par les clauses contractuelles types de la Commission européenne (ou tout autre mécanisme de transfert reconnu, tel que le Data Privacy Framework) conformément au RGPD. L'hébergeur (Supabase), Mapbox, Resend et Cloudflare utilisent des infrastructures conformes aux normes européennes de protection des données.`
     },
     en: {
       title: 'Privacy Policy',
@@ -870,6 +875,11 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, France – contact@yunoap
 • Partner clubs (data necessary for execution: order, identity if needed, QR)
 • Stripe (payments – payment data is processed directly by Stripe and does not pass through Yuno's servers)
 • Backend Host (Supabase – supabase.com – secure servers with encryption in transit via HTTPS/TLS)
+• Mapbox (map display of clubs)
+• Resend (delivery of transactional emails: confirmations, tickets)
+• OpenAI (conversational assistant: questions you ask the assistant are sent to OpenAI to generate the answer)
+• Twilio (SMS delivery, when you have consented)
+• Cloudflare (secure site delivery)
 • Strictly necessary technical subcontractors
 
 **5. Retention Periods**
@@ -888,7 +898,7 @@ Complaint with CNIL: cnil.fr
 Technical and organizational measures: access controls, permission restrictions, encryption in transit via HTTPS, secure authentication, enforced password policies.
 
 **8. Transfers Outside the EU**
-Stripe may involve data transfers outside the European Union, governed by the European Commission's standard contractual clauses in accordance with GDPR. The host (Supabase) uses infrastructure compliant with European data protection standards.`
+Some sub-processors — notably Stripe (payments), OpenAI (AI assistant) and Twilio (SMS) — may involve data transfers outside the European Union, governed by the European Commission's standard contractual clauses (or any other recognized transfer mechanism, such as the Data Privacy Framework) in accordance with GDPR. The host (Supabase), Mapbox, Resend and Cloudflare use infrastructure compliant with European data protection standards.`
     },
     es: {
       title: 'Política de Privacidad',
@@ -917,6 +927,11 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, Francia – contact@yunoa
 • Clubs asociados (datos necesarios para la ejecución: pedido, identidad si es necesario, QR)
 • Stripe (pagos – los datos de pago son procesados directamente por Stripe y no pasan por los servidores de Yuno)
 • Alojamiento Backend (Supabase – supabase.com – servidores seguros con cifrado en tránsito via HTTPS/TLS)
+• Mapbox (visualización cartográfica de los clubs)
+• Resend (envío de emails transaccionales: confirmaciones, entradas)
+• OpenAI (asistente conversacional: las preguntas que haces al asistente se envían a OpenAI para generar la respuesta)
+• Twilio (envío de SMS, cuando lo has consentido)
+• Cloudflare (distribución segura del sitio)
 • Subcontratistas técnicos estrictamente necesarios
 
 **5. Plazos de conservación**
@@ -935,7 +950,7 @@ Reclamación ante la CNIL: cnil.fr
 Medidas técnicas y organizativas: controles de acceso, limitación de permisos, cifrado en tránsito via HTTPS, autenticación segura, política de contraseñas reforzada.
 
 **8. Transferencias fuera de la UE**
-Stripe puede implicar transferencias de datos fuera de la Unión Europea, reguladas por las cláusulas contractuales tipo de la Comisión Europea de conformidad con el RGPD. El proveedor de alojamiento (Supabase) utiliza infraestructuras conformes con los estándares europeos de protección de datos.`
+Algunos subencargados — en particular Stripe (pagos), OpenAI (asistente IA) y Twilio (SMS) — pueden implicar transferencias de datos fuera de la Unión Europea, reguladas por las cláusulas contractuales tipo de la Comisión Europea (o cualquier otro mecanismo de transferencia reconocido, como el Data Privacy Framework) de conformidad con el RGPD. El proveedor de alojamiento (Supabase), Mapbox, Resend y Cloudflare utilizan infraestructuras conformes con los estándares europeos de protección de datos.`
     }
   },
 
