@@ -20,7 +20,7 @@ const TABS = [
 ] as const;
 
 export default function HelpCenter({ defaultTab = 'client' }: Props) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<string>(searchParams.get('tab') || defaultTab);
@@ -29,6 +29,14 @@ export default function HelpCenter({ defaultTab = 'client' }: Props) {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   const categories = helpContent[activeTab] || [];
+
+  // Bloc de contact support : Apple exige que l'URL de support (/help) offre un
+  // vrai moyen de joindre le support, pas seulement une FAQ. i18n inline (3 langues).
+  const supportContact = {
+    fr: { heading: "Besoin d'aide ?", body: "Une question, ou un souci avec une commande ou un billet ? Écris-nous, on répond vite.", cta: 'Nous contacter' },
+    en: { heading: 'Need help?', body: 'A question, or an issue with an order or ticket? Email us, we reply fast.', cta: 'Contact us' },
+    es: { heading: '¿Necesitas ayuda?', body: '¿Una pregunta o un problema con un pedido o entrada? Escríbenos, respondemos rápido.', cta: 'Contáctanos' },
+  }[language] ?? { heading: 'Need help?', body: 'A question, or an issue with an order or ticket? Email us, we reply fast.', cta: 'Contact us' };
 
   const filteredCategories = useMemo(() => {
     if (!search.trim()) return categories;
@@ -218,6 +226,20 @@ export default function HelpCenter({ defaultTab = 'client' }: Props) {
             </div>
           )}
         </div>
+
+        {!search && (
+          <div className="rounded-xl border border-border bg-muted/20 p-4 text-center">
+            <p className="text-sm font-semibold">{supportContact.heading}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{supportContact.body}</p>
+            <a
+              href="mailto:contact@yunoapp.eu"
+              className="mt-3 inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+            >
+              {supportContact.cta}
+            </a>
+            <p className="mt-2 text-[11px] text-muted-foreground">contact@yunoapp.eu</p>
+          </div>
+        )}
       </div>
       </PublicPage>
     </div>
