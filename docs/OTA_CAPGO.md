@@ -144,6 +144,27 @@ script **saute** une publication si le bundle actif a déjà le même contenu
 
 ---
 
+### Premier lancement : le bundle baké se déclare « builtin »
+
+Le bundle web embarqué dans le binaire App Store se déclare **toujours**
+`version_name = "builtin"` (constante `ID_BUILTIN` du plugin), jamais son numéro
+de version. Conséquence : dès qu'un bundle est **actif en production**, une
+nouvelle installation le télécharge **une fois** (en arrière-plan, non bloquant :
+le 1er lancement utilise le bundle baké, la MàJ s'applique au lancement suivant),
+même si le contenu est identique.
+
+Deux postures, au choix :
+- **Production active en permanence** (état actuel) : chaque install fait un
+  download OTA initial. Garantit que tout le monde tourne sur le bundle servi.
+- **Production vide entre deux vraies MàJ** : les installs utilisent le bundle
+  baké, zéro download tant qu'aucun `ota:publish` n'a livré de nouveauté. Pour
+  revenir à cet état : désactiver le bundle actif (ré-publier plus tard livrera
+  la 1re vraie MàJ). Utile si on veut éviter tout transfert redondant tant que le
+  contenu OTA == le contenu baké.
+
+Le numéro `native_version` (garde anti-downgrade), lui, vient bien de la
+`MARKETING_VERSION` native (`version_build`), indépendant de ce `"builtin"`.
+
 ## Sécurité
 
 - Tables `ota_*` : RLS activée, **aucune** policy → la clé anon ne lit/écrit rien.
