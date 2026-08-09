@@ -124,7 +124,10 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
     const sendHeartbeat = async (stage: 'browsing' | 'cart' | 'checkout' | 'paid' = 'browsing') => {
       const sid = sessionStorage.getItem(SESSION_STORAGE_KEY);
       if (!sid) return;
-      const { data: { user } } = await supabase.auth.getUser();
+      // getSession() lit le token en local (aucun aller-réseau), contrairement à
+      // getUser() qui frappe /auth/v1/user à chaque battement. Sur une page vue
+      // en boucle, ça retire un round-trip toutes les 15 s.
+      const { data: { session } } = await supabase.auth.getSession();
       await supabase.from('live_visitor_pings').upsert({
         session_id: sid,
         venue_id: venueId || null,
@@ -132,13 +135,26 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
         organizer_user_id: organizerUserId || null,
         page_path: window.location.pathname,
         stage,
-        user_id: user?.id || null,
+        user_id: session?.user?.id || null,
         last_seen: new Date().toISOString(),
       }, { onConflict: 'session_id' });
     };
 
-    sendHeartbeat();
-    heartbeatRef.current = window.setInterval(() => sendHeartbeat(), 15000);
+    // Le battement est suspendu quand l'onglet passe en arrière-plan et repart au
+    // retour au premier plan : inutile de pinger « live » un visiteur qui a
+    // basculé sur une autre app (économie batterie/data en soirée).
+    const startHeartbeat = () => {
+      if (heartbeatRef.current) return;
+      sendHeartbeat();
+      heartbeatRef.current = window.setInterval(() => sendHeartbeat(), 15000);
+    };
+    const stopHeartbeat = () => {
+      if (heartbeatRef.current) {
+        clearInterval(heartbeatRef.current);
+        heartbeatRef.current = null;
+      }
+    };
+    if (document.visibilityState !== 'hidden') startHeartbeat();
 
     const updateDuration = () => {
       const sid = sessionStorage.getItem(SESSION_STORAGE_KEY);
@@ -168,7 +184,12 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') updateDuration();
+      if (document.visibilityState === 'hidden') {
+        updateDuration();
+        stopHeartbeat();
+      } else {
+        startHeartbeat();
+      }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -178,7 +199,7 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', updateDuration);
       window.removeEventListener('scroll', handleScroll);
-      if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+      stopHeartbeat();
       updateDuration();
     };
   }, [venueId, eventId, organizerUserId]);
