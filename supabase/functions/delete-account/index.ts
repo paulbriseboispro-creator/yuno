@@ -78,6 +78,22 @@ serve(async (req) => {
       })
       .eq("id", user.id);
 
+    // 3b. Anonymize the club CRM rows (venue_customers) : email/nom/téléphone du
+    // compte supprimé y vivaient dans le CRM de CHAQUE club visité, sans être
+    // touchés par la suppression — contradiction avec la promesse d'effacement
+    // faite dans l'app (RGPD art. 17). On garde la ligne (le total dépensé /
+    // palier reste utile au club en agrégat) mais on retire l'identité. `email`
+    // est NOT NULL → placeholder, comme pour le profil.
+    await supabaseAdmin
+      .from("venue_customers")
+      .update({
+        email: `deleted-${user.id}@deleted.local`,
+        first_name: "Compte",
+        last_name: "Supprimé",
+        phone: null,
+      })
+      .eq("user_id", user.id);
+
     // 4. Delete the Supabase Auth account (irreversible).
     const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
     if (deleteAuthError) throw deleteAuthError;
