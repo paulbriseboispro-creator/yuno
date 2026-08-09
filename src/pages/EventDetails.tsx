@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { usePreviewNavigate, useOwnerPreview } from '@/contexts/OwnerPreviewContext';
 import { ArrowLeft, AlertCircle, MapPin, ChevronDown, ChevronUp, Music, Ticket, UserCheck, Share2, Bell } from 'lucide-react';
@@ -155,7 +156,8 @@ export default function EventDetails() {
 
   useEffect(() => {
     if (eventId) {
-      fetchEventDetails();
+      // Les données de l'event sont chargées par eventDetailsQuery (react-query) ;
+      // ici on ne déclenche que le token Mapbox (hors chemin critique).
       fetchMapboxToken();
     } else if (!host || !eventSlug) {
       // No eventId in the URL (malformed link): fall through to the
@@ -163,6 +165,7 @@ export default function EventDetails() {
       setLoading(false);
     }
     // sinon : résolution du slug propre en cours -> on garde le skeleton.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId]);
 
   const fetchMapboxToken = async () => {
@@ -245,8 +248,12 @@ export default function EventDetails() {
     setOrgFollowing(Object.fromEntries(orgStats.map(o => [o.orgUserId, o.following])));
   }, [eventId]);
 
-  const fetchEventDetails = async () => {
-    try {
+  // queryFn : ne fait QUE les deux salves de requêtes et renvoie le bundle brut.
+  // Le traitement + les setState vivent dans l'effet `processEventData` plus bas
+  // (mêmes noms de variables → logique inchangée). Migré sur react-query pour que
+  // le retour de navigation serve le cache (staleTime 5 min) au lieu de tout
+  // re-télécharger. Les erreurs remontent à react-query → toast via l'effet isError.
+  async function fetchEventDetailsRaw() {
       /* ══ VAGUE 1 ══════════════════════════════════════════════════════════
          Tout ce qui ne dépend que de l'eventId part ensemble. Avant, cette page
          empilait ~12 allers-retours EN FILE INDIENNE (event → orga → salle → DJs
@@ -325,6 +332,30 @@ export default function EventDetails() {
               .maybeSingle()
           : Promise.resolve({ data: null }),
       ]);
+
+      return {
+        eventData, user, eventSettingsData, djIds, isOrganizerLed, hostVenueId, partnerOrgId,
+        venueRes, orgProfileRes, legacyProfileRes, coOrgRes, djRowsRes, zonesRes, packsRes,
+        presetRes, waitlistRes, roundsRes,
+      };
+  }
+
+  const eventDetailsQuery = useQuery({
+    queryKey: ['event-details', eventId],
+    queryFn: fetchEventDetailsRaw,
+    enabled: !!eventId,
+  });
+
+  // Traitement du bundle brut → state. Logique reprise verbatim de l'ancien
+  // fetchEventDetails (mêmes noms via destructuration). Sur montage avec cache,
+  // s'exécute sans requête réseau ; sur refetch, avec les données fraîches.
+  useEffect(() => {
+    if (!eventDetailsQuery.data) return;
+    const {
+      eventData, user, eventSettingsData, djIds, isOrganizerLed, hostVenueId, partnerOrgId,
+      venueRes, orgProfileRes, legacyProfileRes, coOrgRes, djRowsRes, zonesRes, packsRes,
+      presetRes, waitlistRes, roundsRes,
+    } = eventDetailsQuery.data;
 
       // ── Organisateurs (primaire + co-orga) ──
       const orgIds: string[] = [];
@@ -518,13 +549,18 @@ export default function EventDetails() {
       // complète (affiche, line-up, billets, tables) — on ne retarde pas le
       // premier pixel pour un nombre d'abonnés qui se posera 200 ms plus tard.
       void fetchStats(hostVenueId || null, orgIds, user);
-    } catch (error) {
-      console.error('Error fetching event:', error);
-      toast.error(t('tickets.errorLoading'));
-    } finally {
       setLoading(false);
-    }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventDetailsQuery.data]);
+
+  // Erreur de chargement (event introuvable, réseau) : toast + fin du skeleton.
+  useEffect(() => {
+    if (!eventDetailsQuery.isError) return;
+    console.error('Error fetching event:', eventDetailsQuery.error);
+    toast.error(t('tickets.errorLoading'));
+    setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventDetailsQuery.isError]);
 
   // Auto-translate description when language changes
   useEffect(() => {
