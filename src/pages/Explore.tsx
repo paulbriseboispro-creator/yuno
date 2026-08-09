@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -103,6 +104,24 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
 // Pick the date-fns locale matching the active app language (EN/ES/FR).
 const dfLocale = (lang: string) => (lang === 'fr' ? fr : lang === 'es' ? es : enUS);
 
+// Défauts stables (référence constante) pour les données dérivées de react-query
+// tant que la requête n'a pas résolu : évite un nouveau tableau/objet à chaque
+// rendu, donc pas de recalcul superflu des useMemo qui en dépendent.
+const EMPTY_CARDS: EventCardData[] = [];
+const EMPTY_VENUES: ExploreVenueRow[] = [];
+const EMPTY_AFF_VENUES: ExploreAffiliateVenueRow[] = [];
+const EMPTY_COUNTS: Record<string, number> = {};
+const EMPTY_WEEK: WeekDayData[] = [];
+const EMPTY_DJS: ExploreDJItem[] = [];
+const DEFAULT_FILTER_DYNAMIC: FilterDynamicData = {
+  ticketPriceMin: 0,
+  ticketPriceMax: 200,
+  vipPriceMin: 0,
+  vipPriceMax: 200,
+  earliestHour: 18,
+  latestHour: 6,
+};
+
 export default function Explore() {
   const navigate = useNavigate();
   const { t, language } = useLanguage();
@@ -151,21 +170,10 @@ export default function Explore() {
   const [chipGenres, setChipGenres] = useState<string[]>([]);
   const [freeOnly, setFreeOnly] = useState(false);
 
-  // ── Events + venues ──
-  const [events, setEvents] = useState<EventCardData[]>([]);
-  const [allEvents, setAllEvents] = useState<EventCardData[]>([]);
-  const [venues, setVenues] = useState<ExploreVenueRow[]>([]);
-  const [affiliateVenues, setAffiliateVenues] = useState<ExploreAffiliateVenueRow[]>([]);
-  const [venueFavCounts, setVenueFavCounts] = useState<Record<string, number>>({});
-
-  // ── Week data for "Cette semaine" section ──
-  const [weekData, setWeekData] = useState<WeekDayData[]>([]);
-
-  // ── Top DJs jouant cette semaine dans la zone (les plus suivis) ──
-  const [topDjs, setTopDjs] = useState<ExploreDJItem[]>([]);
+  // Les données (events, venues, week, topDjs) sont désormais servies par
+  // react-query plus bas (après `city`) — plus de useState/useEffect manuels.
 
   // ── UI state ──
-  const [loading, setLoading] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [activeFiltersCount, setActiveFiltersCount] = useState(0);
@@ -179,14 +187,7 @@ export default function Explore() {
     dateFilter: 'today',
     timeRange: [0, 12],
   });
-  const [filterDynamicData, setFilterDynamicData] = useState<FilterDynamicData>({
-    ticketPriceMin: 0,
-    ticketPriceMax: 200,
-    vipPriceMin: 0,
-    vipPriceMax: 200,
-    earliestHour: 18,
-    latestHour: 6,
-  });
+  // filterDynamicData est dérivé de la requête principale (défaut ci-dessous).
 
   // ── Location / city ── (shared with ClubMap via @/lib/userLocation)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(() => getManualCoords());
@@ -196,6 +197,54 @@ export default function Explore() {
   //    courante). Déclaré après `city` dont il dépend. Vide = rien à
   //    recommander, la section se masque d'elle-même.
   const forYouItems = useForYouFeed(city);
+
+  // ── Data (react-query) ──
+  // Migré de useEffect+useState : le cache par défaut (staleTime 5 min du
+  // QueryClient d'App.tsx) rend le retour de navigation instantané — plus de
+  // re-fetch intégral à chaque montage. fetchExploreMain/Week/TopDjs sont des
+  // déclarations de fonction hoistées (définies plus bas), donc référençables ici.
+  const exploreMainQuery = useQuery({
+    queryKey: ['explore-main', dateFilter, selectedDate?.getTime() ?? null, city, userLocation?.lat ?? null, userLocation?.lng ?? null],
+    queryFn: fetchExploreMain,
+  });
+  const events = exploreMainQuery.data?.events ?? EMPTY_CARDS;
+  const allEvents = exploreMainQuery.data?.allEvents ?? EMPTY_CARDS;
+  const venues = exploreMainQuery.data?.venues ?? EMPTY_VENUES;
+  const affiliateVenues = exploreMainQuery.data?.affiliateVenues ?? EMPTY_AFF_VENUES;
+  const venueFavCounts = exploreMainQuery.data?.venueFavCounts ?? EMPTY_COUNTS;
+  const filterDynamicData = exploreMainQuery.data?.filterDynamicData ?? DEFAULT_FILTER_DYNAMIC;
+  const loading = exploreMainQuery.isLoading;
+
+  // Réseau instable en soirée : on signale l'échec avec un « Réessayer » plutôt
+  // que de laisser un accueil vide et silencieux.
+  useEffect(() => {
+    if (!exploreMainQuery.isError) return;
+    toast.error(t('common.error'), {
+      description:
+        language === 'fr' ? 'Impossible de charger les événements.'
+        : language === 'es' ? 'No se pudieron cargar los eventos.'
+        : 'Could not load events.',
+      action: {
+        label: language === 'fr' ? 'Réessayer' : language === 'es' ? 'Reintentar' : 'Retry',
+        onClick: () => { exploreMainQuery.refetch(); },
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exploreMainQuery.isError]);
+
+  const exploreWeekQuery = useQuery({
+    queryKey: ['explore-week', city, userLocation?.lat ?? null, userLocation?.lng ?? null, language],
+    queryFn: fetchExploreWeek,
+  });
+  const weekData = exploreWeekQuery.data ?? EMPTY_WEEK;
+
+  // topDjs dérive des soirées de la semaine : sa clé suit les ids non-affiliés.
+  const weekEventIdsKey = weekData.flatMap(d => d.events).filter(e => !e.isAffiliate).map(e => e.id).join(',');
+  const exploreTopDjsQuery = useQuery({
+    queryKey: ['explore-topdjs', weekEventIdsKey],
+    queryFn: () => fetchExploreTopDjs(weekData),
+  });
+  const topDjs = exploreTopDjsQuery.data ?? EMPTY_DJS;
 
   // ── Geolocation init ──
   useEffect(() => {
@@ -251,19 +300,7 @@ export default function Explore() {
   }, []);
 
   // ── Main data fetch ──
-  useEffect(() => {
-    fetchData();
-  }, [dateFilter, selectedDate, city, userLocation]);
-
-  // ── Week data fetch (independent of date filter) ──
-  useEffect(() => {
-    fetchWeekData();
-  }, [city, userLocation]);
-
-  // ── Top DJs: dérivé des soirées club/orga de la semaine déjà chargées ──
-  useEffect(() => {
-    fetchTopDjs();
-  }, [weekData]);
+  // (Les fetch sont pilotés par les useQuery ci-dessus — plus d'effets manuels.)
 
   const handleDateSelect = (date: Date | null, preset?: string) => {
     if (preset) {
@@ -544,8 +581,7 @@ export default function Explore() {
   // ══════════════════════════════════════════════════
   // FETCH: main events
   // ══════════════════════════════════════════════════
-  const fetchData = async () => {
-    setLoading(true);
+  async function fetchExploreMain() {
     const dateSource = selectedDate || dateFilter;
     const { start, end } = getDateRange(dateSource);
 
@@ -602,14 +638,11 @@ export default function Explore() {
         ]);
 
       const venuesList = venuesRes.data || [];
-      setVenues(venuesList);
-      setAffiliateVenues(affiliateVenuesRes.data || []);
 
       const venueFavCounts: Record<string, number> = {};
       (clubFavCountsRes.data || []).forEach(f => {
         if (f.target_id) venueFavCounts[f.target_id] = f.total_count;
       });
-      setVenueFavCounts(venueFavCounts);
 
       const venueMap = new Map(venuesList.map(v => [v.id, v]));
 
@@ -682,14 +715,14 @@ export default function Explore() {
       const earliestHour = eventHours.length > 0 ? Math.min(...eventHours.filter(h => h >= 18 || h <= 6).length > 0 ? eventHours.filter(h => h >= 18 || h <= 6) : eventHours) : 18;
       const latestHour = eventHours.length > 0 ? Math.max(...eventHours.filter(h => h <= 6).length > 0 ? eventHours.filter(h => h <= 6) : [6]) : 6;
 
-      setFilterDynamicData({
+      const filterDynamicData: FilterDynamicData = {
         ticketPriceMin: Math.floor(ticketPriceMin),
         ticketPriceMax: Math.ceil(ticketPriceMax),
         vipPriceMin: 0,
         vipPriceMax: 200,
         earliestHour,
         latestHour,
-      });
+      };
 
       const MAX_DIST = 50;
 
@@ -800,31 +833,26 @@ export default function Explore() {
         (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime()
       );
 
-      setEvents(mergedCards);
-      setAllEvents(mergedCards);
+      return {
+        events: mergedCards,
+        allEvents: mergedCards,
+        venues: venuesList,
+        affiliateVenues: affiliateVenuesRes.data || [],
+        venueFavCounts,
+        filterDynamicData,
+      };
     } catch (err) {
       console.error('Error fetching explore data:', err);
-      // Surface the failure with a retry instead of leaving the user on a
-      // silent, empty home (common on flaky mobile networks inside venues).
-      toast.error(t('common.error'), {
-        description:
-          language === 'fr' ? 'Impossible de charger les événements.'
-          : language === 'es' ? 'No se pudieron cargar los eventos.'
-          : 'Could not load events.',
-        action: {
-          label: language === 'fr' ? 'Réessayer' : language === 'es' ? 'Reintentar' : 'Retry',
-          onClick: () => { fetchData(); },
-        },
-      });
-    } finally {
-      setLoading(false);
+      // L'erreur remonte à react-query (retry/refetch) ; le toast « Réessayer »
+      // est déclenché par l'effet qui observe exploreMainQuery.isError.
+      throw err;
     }
-  };
+  }
 
   // ══════════════════════════════════════════════════
   // FETCH: week events for "Cette semaine" section
   // ══════════════════════════════════════════════════
-  const fetchWeekData = async () => {
+  async function fetchExploreWeek() {
     try {
       const today = new Date();
       const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -971,25 +999,25 @@ export default function Explore() {
         days.push({ key, date, events: allDayEvents });
       }
 
-      setWeekData(days);
+      return days;
     } catch (err) {
       console.error('Error fetching week data:', err);
+      return EMPTY_WEEK;
     }
-  };
+  }
 
   // ══════════════════════════════════════════════════
   // FETCH: top DJs — les plus suivis qui jouent cette semaine dans la zone
   // ══════════════════════════════════════════════════
-  const fetchTopDjs = async () => {
+  async function fetchExploreTopDjs(weekDataArg: WeekDayData[]) {
     try {
       // Soirées club + orga de la semaine, déjà filtrées par ville/fenêtre/visibilité
       // dans weekData. On exclut les affiliés (table séparée, pas de line-up DJ).
       const eventIds = [...new Set(
-        weekData.flatMap(d => d.events).filter(e => !e.isAffiliate).map(e => e.id)
+        weekDataArg.flatMap(d => d.events).filter(e => !e.isAffiliate).map(e => e.id)
       )];
       if (eventIds.length === 0) {
-        setTopDjs([]);
-        return;
+        return EMPTY_DJS;
       }
 
       // Quels DJs jouent l'une de ces soirées ? (event_djs : lecture publique)
@@ -999,8 +1027,7 @@ export default function Explore() {
         .in('event_id', eventIds);
       const djIds = [...new Set((links || []).map(l => l.dj_id).filter(Boolean))];
       if (djIds.length === 0) {
-        setTopDjs([]);
-        return;
+        return EMPTY_DJS;
       }
 
       // Nombre d'abonnés par DJ + profils publics (vue djs_public, definer), en parallèle.
@@ -1044,11 +1071,12 @@ export default function Explore() {
         deduped.push(d);
         if (deduped.length === 10) break;
       }
-      setTopDjs(deduped);
+      return deduped;
     } catch (err) {
       console.error('Error fetching top DJs:', err);
+      return EMPTY_DJS;
     }
-  };
+  }
 
   // ══════════════════════════════════════════════════
   // RENDER
