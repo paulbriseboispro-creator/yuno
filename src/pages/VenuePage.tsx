@@ -93,25 +93,42 @@ export default function VenuePage() {
   const navigate = usePreviewNavigate();
 
   useEffect(() => {
-    if (!routeSlug) return;
+    // Param de route absent (cas théorique : /club/:slug l'impose). C'est le
+    // seul vrai « slug manquant » → 404. La fenêtre de résolution (routeSlug
+    // présent mais resolvedVenueId pas encore posé) n'est PAS un 404.
+    if (!routeSlug) { setNotFound(true); setVenueLoading(false); return; }
     let active = true;
+    // Timeout dur sur la résolution : un RPC qui ne répond jamais (réseau boîte
+    // de nuit, WebView sortant de veille) ne doit pas laisser la page bloquée sur
+    // le skeleton. On abandonne au bout de 8s et on retombe sur le param brut ;
+    // la requête venues (avec son propre timeout 10s) tranchera 404 vs réessai.
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), 8000);
     (async () => {
-      const { data } = await supabase.rpc('resolve_venue_slug', { p_slug: routeSlug });
-      if (!active) return;
-      const row = Array.isArray(data) ? data[0] : null;
-      if (!row) {
-        // Introuvable ou RPC en échec : on laisse le flux existant trancher
-        // (vrai 404 ou retry réseau) en requêtant tel quel.
-        setResolvedVenueId(routeSlug);
-        return;
+      try {
+        const { data } = await supabase
+          .rpc('resolve_venue_slug', { p_slug: routeSlug })
+          .abortSignal(abort.signal);
+        if (!active) return;
+        const row = Array.isArray(data) ? data[0] : null;
+        if (row?.slug && row.slug !== routeSlug) {
+          // Le param n'est pas l'URL canonique (id historique ou ancien slug) :
+          // on redirige en préservant la query (?ref promoteur, etc.).
+          navigate(`/club/${row.slug}${window.location.search}`, { replace: true });
+          return;
+        }
+        // row trouvé → id interne ; introuvable OU RPC en échec → param brut, la
+        // requête venues ci-dessous tranchera (vrai 404 ou retry réseau).
+        setResolvedVenueId(row?.venue_id ?? routeSlug);
+      } catch {
+        // Abort/timeout/erreur réseau : fallback param brut plutôt que skeleton
+        // infini. Un id valide rendra la page, sinon 404 via le fetch venues.
+        if (active) setResolvedVenueId(routeSlug);
+      } finally {
+        clearTimeout(timer);
       }
-      if (row.slug && row.slug !== routeSlug) {
-        navigate(`/club/${row.slug}${window.location.search}`, { replace: true });
-        return;
-      }
-      setResolvedVenueId(row.venue_id);
     })();
-    return () => { active = false; };
+    return () => { active = false; clearTimeout(timer); abort.abort(); };
   }, [routeSlug, navigate]);
 
   // Promoter link redirect: ?ref=CODE without event → hub page, ?ref=CODE&event=ID → event page
@@ -200,8 +217,12 @@ export default function VenuePage() {
 
   useEffect(() => {
     if (!slug) {
-      setNotFound(true);
-      setVenueLoading(false);
+      // `slug` (= resolvedVenueId) reste undefined tant que le RPC de résolution
+      // (async) n'a pas répondu. Ce n'est PAS un 404 : c'est la fenêtre de
+      // résolution. On garde le skeleton (venueLoading démarre à true) et on
+      // laisse l'effet de résolution renseigner resolvedVenueId. Poser notFound
+      // ici faisait 404 sur TOUTES les pages club dès le premier rendu — rien ne
+      // le remettait à false une fois l'id résolu arrivé.
       return;
     }
 
@@ -213,6 +234,9 @@ export default function VenuePage() {
       const timer = setTimeout(() => abort.abort(), 10000);
       try {
         setLoadError(false);
+        // Une résolution précédente a pu laisser notFound=true (slug changé,
+        // retry, realtime) : on repart propre avant de trancher sur les données.
+        setNotFound(false);
         // Anon visitors only have column-level GRANTs on the public subset of
         // `venues` (see publicColumns.ts). select('*') here returns HTTP 401 for
         // logged-out guests → the whole club page falls back to "not found".
