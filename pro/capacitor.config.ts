@@ -23,8 +23,15 @@ const config: CapacitorConfig = {
       backgroundColor: '#050505',
     },
     CapacitorUpdater: {
-      // Capgo : seconde app eu.yunoapp.pro, même bundle uploadé que le B2C.
+      // Capgo OTA auto-hébergée sur Supabase : seconde app eu.yunoapp.pro. Le
+      // MÊME zip de bundle est référencé que le B2C (stockage content-addressed),
+      // mais l'app_id eu.yunoapp.pro a ses propres lignes ota_bundles/canaux, donc
+      // on peut promouvoir/rollback Pro indépendamment. Voir docs/OTA_CAPGO.md.
       autoUpdate: true,
+      updateUrl: 'https://fulawxvdlwtdlpkycixe.supabase.co/functions/v1/capgo-updates',
+      statsUrl: 'https://fulawxvdlwtdlpkycixe.supabase.co/functions/v1/capgo-stats',
+      channelUrl: 'https://fulawxvdlwtdlpkycixe.supabase.co/functions/v1/capgo-channel',
+      defaultChannel: 'production',
     },
   },
 };

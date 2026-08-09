@@ -25,9 +25,15 @@ const config: CapacitorConfig = {
       backgroundColor: '#E51D2A',
     },
     CapacitorUpdater: {
-      // MàJ OTA Capgo : le bundle web se met à jour sans review Apple.
-      // notifyAppReady() est appelé dans NativeBridge — sans lui, rollback auto.
+      // MàJ OTA Capgo AUTO-HÉBERGÉE sur Supabase (pas le cloud Capgo payant) :
+      // le bundle web se met à jour sans review Apple. Les 3 endpoints sont des
+      // edge functions (verify_jwt=false). notifyAppReady() est appelé dans
+      // NativeBridge — sans lui, rollback auto. Voir docs/OTA_CAPGO.md.
       autoUpdate: true,
+      updateUrl: 'https://fulawxvdlwtdlpkycixe.supabase.co/functions/v1/capgo-updates',
+      statsUrl: 'https://fulawxvdlwtdlpkycixe.supabase.co/functions/v1/capgo-stats',
+      channelUrl: 'https://fulawxvdlwtdlpkycixe.supabase.co/functions/v1/capgo-channel',
+      defaultChannel: 'production',
     },
   },
 };
