@@ -548,7 +548,7 @@ export default function TicketSelection() {
         {salesIsOpen && !saleLocked && eventData?.maxTicketsPerPerson && (
           <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <Users className="h-3.5 w-3.5 text-white/45 shrink-0" />
+            <Users className="h-3.5 w-3.5 text-white/60 shrink-0" />
             <span className="text-xs text-white/55">
               {t('tickets.maxPerPersonNotice').replace('{count}', String(eventData.maxTicketsPerPerson))}
             </span>
@@ -564,7 +564,7 @@ export default function TicketSelection() {
               <Lock className="h-5 w-5 text-primary" />
             </div>
             <h2 className="text-base font-bold">{t('tickets.salePasswordGateTitle')}</h2>
-            <p className="text-xs text-white/45 mt-1.5 mb-4 leading-relaxed">{t('tickets.salePasswordGateDesc')}</p>
+            <p className="text-xs text-white/60 mt-1.5 mb-4 leading-relaxed">{t('tickets.salePasswordGateDesc')}</p>
             <Input
               type="text"
               autoComplete="off"
@@ -597,7 +597,7 @@ export default function TicketSelection() {
               onClick={() => { setActiveTab('tickets'); scrollToSection(ticketsRef); }}
               className={cn(
                 'flex-1 flex items-center justify-center gap-1.5 h-9 rounded-md text-xs font-bold uppercase tracking-wide transition-all duration-150',
-                activeTab === 'tickets' ? 'bg-white/[0.10] text-white' : 'text-white/40 hover:text-white/65'
+                activeTab === 'tickets' ? 'bg-white/[0.10] text-white' : 'text-white/55 hover:text-white/65'
               )}
             >
               <Ticket className="h-3.5 w-3.5" />
@@ -607,7 +607,7 @@ export default function TicketSelection() {
               onClick={() => { setActiveTab('tables'); scrollToSection(tablesRef); }}
               className={cn(
                 'flex-1 flex items-center justify-center gap-1.5 h-9 rounded-md text-xs font-bold uppercase tracking-wide transition-all duration-150',
-                activeTab === 'tables' ? 'bg-white/[0.10] text-white' : 'text-white/40 hover:text-white/65'
+                activeTab === 'tables' ? 'bg-white/[0.10] text-white' : 'text-white/55 hover:text-white/65'
               )}
             >
               <Users className="h-3.5 w-3.5" />
@@ -717,7 +717,7 @@ export default function TicketSelection() {
                           <span className="font-bold text-sm">{c.symbol ? `${c.symbol} ` : ''}{c.label}</span>
                           <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-sm">{t('guestList.free')}</span>
                         </div>
-                        <p className="text-[11px] text-white/45 flex items-center gap-1.5">
+                        <p className="text-[11px] text-white/60 flex items-center gap-1.5">
                           <Clock className="h-3 w-3" />
                           {t('guestList.freeBeforeTime')} {guestList.freeBeforeTime}
                         </p>
@@ -730,7 +730,7 @@ export default function TicketSelection() {
                       </div>
                       <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
                         {isFull ? (
-                          <span className="text-[10px] font-semibold text-white/30 border border-white/10 px-2 py-0.5 rounded-sm">{t('tables.soldOut')}</span>
+                          <span className="text-[10px] font-semibold text-white/55 border border-white/10 px-2 py-0.5 rounded-sm">{t('tables.soldOut')}</span>
                         ) : isSel ? (
                           <span className="h-7 w-7 rounded-full bg-emerald-500 flex items-center justify-center">
                             <Check className="h-4 w-4 text-black" strokeWidth={3} />
@@ -738,7 +738,7 @@ export default function TicketSelection() {
                         ) : (
                           <p className="text-2xl font-bold text-emerald-400">0 €</p>
                         )}
-                        {!isFull && guestList.showRemaining && <p className="text-[10px] text-white/35">{c.remaining} {t('guestList.spotsLeft')}</p>}
+                        {!isFull && guestList.showRemaining && <p className="text-[10px] text-white/60">{c.remaining} {t('guestList.spotsLeft')}</p>}
                       </div>
                     </div>
                   </button>
@@ -764,11 +764,11 @@ export default function TicketSelection() {
                     <span className="font-bold text-sm">{t('guestList.title')}</span>
                     <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-sm">{t('guestList.free')}</span>
                   </div>
-                  <p className="text-[11px] text-white/45 flex items-center gap-1.5">
+                  <p className="text-[11px] text-white/60 flex items-center gap-1.5">
                     <Music className="h-3 w-3" />
                     {t('guestList.dj.guestOf').replace('{name}', djGuestList.djName)}
                   </p>
-                  <p className="text-[11px] text-white/45 flex items-center gap-1.5">
+                  <p className="text-[11px] text-white/60 flex items-center gap-1.5">
                     <Clock className="h-3 w-3" />
                     {t('guestList.freeBeforeTime')} {djGuestList.freeBeforeTime}
                   </p>
@@ -808,7 +808,7 @@ export default function TicketSelection() {
                           className={cn(
                             'shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-[11px] font-bold border transition-all duration-150',
                             isSoldOut && 'opacity-35 cursor-default',
-                            !isActive && !isSoldOut && 'bg-white/[0.04] border-white/[0.07] text-white/40 hover:text-white/60',
+                            !isActive && !isSoldOut && 'bg-white/[0.04] border-white/[0.07] text-white/55 hover:text-white/60',
                           )}
                           style={isActive && !isSoldOut ? {
                             backgroundColor: `${zone.color}18`,
@@ -895,7 +895,7 @@ function SectionDivider({ icon, label }: { icon: React.ReactNode; label: string 
   return (
     <div className="flex items-center gap-3 pt-2 pb-0.5">
       <div className="h-px flex-1 bg-white/[0.07]" />
-      <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white/25">
+      <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white/55">
         {icon}
         {label}
       </span>
@@ -998,7 +998,7 @@ function TicketCard({
               </span>
             )}
             {round.entryDeadline && (
-              <span className="text-[10px] text-white/40 flex items-center gap-1">
+              <span className="text-[10px] text-white/55 flex items-center gap-1">
                 <Clock className="h-2.5 w-2.5" />{t('ticketSel.before')} {round.entryDeadline}
               </span>
             )}
@@ -1013,7 +1013,7 @@ function TicketCard({
           {round.description && (
             <button
               onClick={(e) => { e.stopPropagation(); setShowDesc(!showDesc); }}
-              className="flex items-center gap-1 text-[10px] text-white/30 mt-1.5 hover:text-white/50 transition-colors"
+              className="flex items-center gap-1 text-[10px] text-white/55 mt-1.5 hover:text-white/50 transition-colors"
             >
               {showDesc ? t('ticketSel.hide') : t('tickets.details')}
               <ChevronDown className={cn('h-2.5 w-2.5 transition-transform', showDesc && 'rotate-180')} />
@@ -1024,11 +1024,11 @@ function TicketCard({
         {/* Right: qty or status */}
         <div className="shrink-0">
           {previewOnly ? (
-            <span className="text-[10px] font-semibold text-white/30 border border-white/10 px-2.5 py-1 rounded-sm">
+            <span className="text-[10px] font-semibold text-white/55 border border-white/10 px-2.5 py-1 rounded-sm">
               {t('tickets.comingSoon') || 'Bientôt'}
             </span>
           ) : isSoldOut ? (
-            <span className="text-[10px] font-semibold text-white/30 border border-white/10 px-2.5 py-1 rounded-sm">
+            <span className="text-[10px] font-semibold text-white/55 border border-white/10 px-2.5 py-1 rounded-sm">
               {t('tickets.soldOut') || 'Épuisé'}
             </span>
           ) : (
@@ -1052,7 +1052,7 @@ function TicketCard({
             exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }}
             className="overflow-hidden"
           >
-            <p className="text-[11px] text-white/35 px-4 pb-3.5 border-t border-white/[0.06] pt-2.5 leading-relaxed">
+            <p className="text-[11px] text-white/60 px-4 pb-3.5 border-t border-white/[0.06] pt-2.5 leading-relaxed">
               {round.description}
             </p>
           </motion.div>
@@ -1121,12 +1121,12 @@ function PackCard({
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2 text-[11px] text-white/45 flex-wrap">
+            <div className="flex items-center gap-2 text-[11px] text-white/60 flex-wrap">
               <span>{pack.baseCapacity} {t('ticketSel.minPersons')}</span>
               {pack.includedBottlesQuota > 0 && <span>· {pack.includedBottlesQuota} {pack.includedBottlesQuota > 1 ? t('ticketSel.bottles') : t('ticketSel.bottle')}</span>}
             </div>
             {pack.includedItems && (
-              <p className="text-[11px] text-white/35">{pack.includedItems}</p>
+              <p className="text-[11px] text-white/60">{pack.includedItems}</p>
             )}
             {pack.minimumSpend > 0 && (
               <p className="text-[11px] text-amber-400/60 font-medium">{t('ticketSel.minSpend')} {pack.minimumSpend} €</p>
@@ -1135,7 +1135,7 @@ function PackCard({
               <p className="text-[11px] text-amber-400 font-semibold">{t('ticketSel.arrivalBefore')} {pack.arrivalDeadline}</p>
             )}
             {depositAmount > 0 && remainingAtVenue > 0 && (
-              <p className="text-[11px] text-white/45">
+              <p className="text-[11px] text-white/60">
                 <span className="text-white/70 font-medium">{t('ticketSel.depositNow')} {depositAmount} €</span>
                 {' · '}{remainingAtVenue} € {t('ticketSel.atVenue')}
               </p>
@@ -1148,7 +1148,7 @@ function PackCard({
               isSelected ? (
                 <div className="flex flex-col items-end gap-1.5">
                   <QuantitySelector quantity={quantity} onQuantityChange={onQuantityChange} min={1} max={Math.min(10, remaining > 0 ? remaining : 10)} />
-                  <button onClick={(e) => { e.stopPropagation(); onDeselectPack(); }} className="text-[9px] text-white/25 hover:text-white/50 transition-colors font-medium uppercase tracking-wide">
+                  <button onClick={(e) => { e.stopPropagation(); onDeselectPack(); }} className="text-[9px] text-white/55 hover:text-white/50 transition-colors font-medium uppercase tracking-wide">
                     {t('common.cancel')}
                   </button>
                 </div>
@@ -1163,7 +1163,7 @@ function PackCard({
               )
             )}
             {isSoldOut && (
-              <span className="text-[10px] font-semibold text-white/25 border border-white/10 px-2 py-0.5 rounded-sm">
+              <span className="text-[10px] font-semibold text-white/55 border border-white/10 px-2 py-0.5 rounded-sm">
                 {t('tables.soldOut') || 'Complet'}
               </span>
             )}
@@ -1202,7 +1202,7 @@ function QuantitySelector({
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.75, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 500, damping: 22, duration: 0.12 }}
-          className={cn('text-base font-bold w-5 text-center tabular-nums select-none', quantity === 0 ? 'text-white/25' : 'text-white')}
+          className={cn('text-base font-bold w-5 text-center tabular-nums select-none', quantity === 0 ? 'text-white/55' : 'text-white')}
         >
           {quantity}
         </motion.span>
