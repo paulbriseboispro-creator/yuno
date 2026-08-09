@@ -803,6 +803,8 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives – contact@yunoapp.eu
 • Données de commande : produits achetés, montants, horodatage, club concerné
 • Données âge (déclaratif) : date de naissance / confirmation de majorité
 • Données techniques : logs de sécurité, appareil, cookies si activés
+• Localisation : position de l'appareil (avec votre autorisation) pour afficher les clubs et soirées proches de vous
+• Notifications push : identifiant d'appareil (jeton) pour vous envoyer les alertes soirées et le suivi de vos commandes
 • Données clubs : informations établissement, produits, performances
 • Preuves d'acceptation légale : version des conditions acceptées, horodatage, adresse IP (case cochée à l'inscription, l'onboarding ou l'accès à un aperçu)
 
@@ -810,7 +812,8 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives – contact@yunoapp.eu
 • Exécuter les commandes & fournir QR codes : exécution du contrat
 • Sécuriser la plateforme / anti-fraude : intérêt légitime
 • Support client : exécution du contrat / intérêt légitime
-• Statistiques internes : intérêt légitime (ou consentement si traceurs non nécessaires)
+• Statistiques internes, mesure d'audience & personnalisation (« Pour toi ») : intérêt légitime (ou consentement si traceurs non nécessaires)
+• Afficher les clubs/soirées proches & envoyer les notifications push : intérêt légitime, avec l'autorisation système (localisation, notifications) que vous pouvez révoquer à tout moment
 • Communications (si newsletter) : consentement (si applicable)
 
 **4. Destinataires**
@@ -850,6 +853,8 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, France – contact@yunoap
 • Order data: purchased products, amounts, timestamps, related club
 • Age data (declarative): date of birth / confirmation of legal age
 • Technical data: security logs, device, cookies if enabled
+• Location: device location (with your permission) to show clubs and parties near you
+• Push notifications: device identifier (token) to send you party alerts and order updates
 • Club data: establishment information, products, performance
 • Legal acceptance records: version of accepted terms, timestamp, IP address (checkbox at signup, onboarding, or preview access)
 
@@ -857,7 +862,8 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, France – contact@yunoap
 • Execute orders & provide QR codes: contract performance
 • Secure the platform / anti-fraud: legitimate interest
 • Customer support: contract performance / legitimate interest
-• Internal statistics: legitimate interest (or consent if non-essential trackers)
+• Internal statistics, audience measurement & personalization ("For You"): legitimate interest (or consent if non-essential trackers)
+• Show nearby clubs/parties & send push notifications: legitimate interest, with the system permission (location, notifications) you can revoke at any time
 • Communications (if newsletter): consent (if applicable)
 
 **4. Recipients**
@@ -894,6 +900,8 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, Francia – contact@yunoa
 • Datos de pedido: productos comprados, importes, marcas de tiempo, club concernido
 • Datos de edad (declarativos): fecha de nacimiento / confirmación de mayoría de edad
 • Datos técnicos: logs de seguridad, dispositivo, cookies si están activadas
+• Ubicación: ubicación del dispositivo (con tu permiso) para mostrar discotecas y fiestas cerca de ti
+• Notificaciones push: identificador del dispositivo (token) para enviarte avisos de fiestas y el seguimiento de tus pedidos
 • Datos de clubs: información del establecimiento, productos, rendimiento
 • Pruebas de aceptación legal: versión de las condiciones aceptadas, marca de tiempo, dirección IP (casilla marcada en el registro, el onboarding o el acceso a una vista previa)
 
@@ -901,7 +909,8 @@ WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, Francia – contact@yunoa
 • Ejecutar pedidos y proporcionar códigos QR: ejecución del contrato
 • Asegurar la plataforma / antifraude: interés legítimo
 • Soporte al cliente: ejecución del contrato / interés legítimo
-• Estadísticas internas: interés legítimo (o consentimiento si rastreadores no necesarios)
+• Estadísticas internas, medición de audiencia y personalización ("Para ti"): interés legítimo (o consentimiento si rastreadores no necesarios)
+• Mostrar discotecas/fiestas cercanas y enviar notificaciones push: interés legítimo, con el permiso del sistema (ubicación, notificaciones) que puedes revocar en cualquier momento
 • Comunicaciones (si newsletter): consentimiento (si aplicable)
 
 **4. Destinatarios**
