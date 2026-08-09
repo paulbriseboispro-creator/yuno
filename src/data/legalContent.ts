@@ -976,8 +976,8 @@ Un menu "Cookies" est accessible à tout moment depuis : Profil → Réglages �
 **Cookies tiers** :
 • Stripe : cookies de sécurité pour le traitement des paiements (nécessaires au fonctionnement du paiement sécurisé)
 
-**Cookies analytiques** :
-• Aucun cookie analytique tiers n'est actuellement utilisé. Si nous en ajoutons à l'avenir, votre consentement sera requis.`
+**Cookies analytiques (mesure d'audience)** :
+• Uniquement après votre consentement, Yuno dépose un identifiant de visite (yuno_visitor_id) et des indicateurs de fréquentation « live » pour mesurer, de façon anonyme, comment les clubs et soirées sont consultés. Aucun cookie analytique tiers n'est utilisé. Vous pouvez retirer ce consentement à tout moment via le menu Cookies.`
     },
     en: {
       title: 'Cookie Policy',
@@ -1000,8 +1000,8 @@ A "Cookies" menu is accessible at any time from: Profile → Settings → Legal 
 **Third-Party Cookies**:
 • Stripe: security cookies for payment processing (necessary for secure payment operation)
 
-**Analytical Cookies**:
-• No third-party analytical cookies are currently used. If we add any in the future, your consent will be required.`
+**Analytical Cookies (audience measurement)**:
+• Only after your consent, Yuno stores a visit identifier (yuno_visitor_id) and "live" attendance indicators to anonymously measure how clubs and parties are viewed. No third-party analytical cookies are used. You can withdraw this consent at any time via the Cookies menu.`
     },
     es: {
       title: 'Política de Cookies',
@@ -1024,8 +1024,8 @@ Un menú "Cookies" es accesible en cualquier momento desde: Perfil → Ajustes �
 **Cookies de terceros**:
 • Stripe: cookies de seguridad para el procesamiento de pagos (necesarias para el funcionamiento del pago seguro)
 
-**Cookies analíticas**:
-• Actualmente no se utilizan cookies analíticas de terceros. Si las añadimos en el futuro, se requerirá tu consentimiento.`
+**Cookies analíticas (medición de audiencia)**:
+• Solo tras tu consentimiento, Yuno guarda un identificador de visita (yuno_visitor_id) e indicadores de afluencia «live» para medir, de forma anónima, cómo se ven los clubs y las fiestas. No se utilizan cookies analíticas de terceros. Puedes retirar este consentimiento en cualquier momento desde el menú Cookies.`
     }
   }
 };

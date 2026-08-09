@@ -13224,6 +13224,19 @@ const fr: Record<string, string> = {
   'mfaDisable.genericError': "Une erreur est survenue.",
   'common.pageNotFound': "Oups ! Page introuvable",
   'common.returnHome': "Retour à l'accueil",
+  // --- Bannière de consentement cookies (ePrivacy/CNIL) ---
+  'cookies.banner.title': 'Votre vie privée compte',
+  'cookies.banner.body': "Nous utilisons des cookies nécessaires au fonctionnement de Yuno, et d'autres, optionnels, pour mesurer l'usage de l'app. Vous choisissez ce que vous autorisez.",
+  'cookies.banner.learnMore': 'En savoir plus',
+  'cookies.banner.acceptAll': 'Tout accepter',
+  'cookies.banner.refuseAll': 'Refuser',
+  'cookies.banner.customize': 'Personnaliser',
+  'cookies.banner.manage': 'Gérer les cookies',
+  'cookies.banner.save': 'Enregistrer mes choix',
+  'cookies.banner.necessaryLabel': 'Strictement nécessaires',
+  'cookies.banner.necessaryDesc': "Connexion, sécurité, panier et attribution d'un achat au lien que vous avez suivi. Toujours actifs.",
+  'cookies.banner.analyticsLabel': "Mesure d'audience",
+  'cookies.banner.analyticsDesc': "Statistiques anonymes sur la façon dont les clubs et soirées sont consultés. Inactif tant que vous ne l'autorisez pas.",
 };
 
 export default fr;

@@ -13153,6 +13153,19 @@ const en: Record<string, string> = {
   'mfaDisable.genericError': "Something went wrong.",
   'common.pageNotFound': "Oops! Page not found",
   'common.returnHome': "Return to Home",
+  // --- Cookie consent banner (ePrivacy/CNIL) ---
+  'cookies.banner.title': 'We value your privacy',
+  'cookies.banner.body': 'We use cookies needed to make Yuno work, and optional ones to measure how the app is used. You choose what to allow.',
+  'cookies.banner.learnMore': 'Learn more',
+  'cookies.banner.acceptAll': 'Accept all',
+  'cookies.banner.refuseAll': 'Refuse',
+  'cookies.banner.customize': 'Customize',
+  'cookies.banner.manage': 'Manage cookies',
+  'cookies.banner.save': 'Save my choices',
+  'cookies.banner.necessaryLabel': 'Strictly necessary',
+  'cookies.banner.necessaryDesc': 'Sign-in, security, cart and attributing a purchase to the link you followed. Always on.',
+  'cookies.banner.analyticsLabel': 'Audience measurement',
+  'cookies.banner.analyticsDesc': 'Anonymous stats on how clubs and parties are viewed. Off unless you allow it.',
 };
 
 export default en;
