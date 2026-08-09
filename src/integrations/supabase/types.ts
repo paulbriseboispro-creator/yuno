@@ -1377,6 +1377,8 @@ export type Database = {
           name: string
           name_changed_at: string | null
           promoter_social_mode: string
+          search_city: string | null
+          search_name: string | null
           tiktok: string | null
           tracking_prefix: string | null
           trust_stats: Json
@@ -1404,6 +1406,8 @@ export type Database = {
           name: string
           name_changed_at?: string | null
           promoter_social_mode?: string
+          search_city?: string | null
+          search_name?: string | null
           tiktok?: string | null
           tracking_prefix?: string | null
           trust_stats?: Json
@@ -1431,6 +1435,8 @@ export type Database = {
           name?: string
           name_changed_at?: string | null
           promoter_social_mode?: string
+          search_city?: string | null
+          search_name?: string | null
           tiktok?: string | null
           tracking_prefix?: string | null
           trust_stats?: Json
@@ -2346,74 +2352,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
-      }
-      client_scores: {
-        Row: {
-          created_at: string
-          event_score: number
-          id: string
-          last_activity_at: string | null
-          monthly_rank: number | null
-          monthly_score: number
-          rank: number | null
-          recency_boost: number
-          spend_score: number
-          total_score: number
-          updated_at: string
-          user_id: string
-          venue_id: string
-          vip_score: number
-          visit_score: number
-          yearly_rank: number | null
-          yearly_score: number
-        }
-        Insert: {
-          created_at?: string
-          event_score?: number
-          id?: string
-          last_activity_at?: string | null
-          monthly_rank?: number | null
-          monthly_score?: number
-          rank?: number | null
-          recency_boost?: number
-          spend_score?: number
-          total_score?: number
-          updated_at?: string
-          user_id: string
-          venue_id: string
-          vip_score?: number
-          visit_score?: number
-          yearly_rank?: number | null
-          yearly_score?: number
-        }
-        Update: {
-          created_at?: string
-          event_score?: number
-          id?: string
-          last_activity_at?: string | null
-          monthly_rank?: number | null
-          monthly_score?: number
-          rank?: number | null
-          recency_boost?: number
-          spend_score?: number
-          total_score?: number
-          updated_at?: string
-          user_id?: string
-          venue_id?: string
-          vip_score?: number
-          visit_score?: number
-          yearly_rank?: number | null
-          yearly_score?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "client_scores_venue_id_fkey"
-            columns: ["venue_id"]
-            isOneToOne: false
-            referencedRelation: "venues"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       cloakroom_transactions: {
         Row: {
@@ -6841,312 +6779,6 @@ export type Database = {
         }
         Relationships: []
       }
-      leaderboard_contest_scores: {
-        Row: {
-          contest_id: string
-          id: string
-          order_count: number
-          rank: number | null
-          score: number
-          spend: number
-          table_count: number
-          ticket_count: number
-          updated_at: string
-          user_id: string
-          venue_id: string
-        }
-        Insert: {
-          contest_id: string
-          id?: string
-          order_count?: number
-          rank?: number | null
-          score?: number
-          spend?: number
-          table_count?: number
-          ticket_count?: number
-          updated_at?: string
-          user_id: string
-          venue_id: string
-        }
-        Update: {
-          contest_id?: string
-          id?: string
-          order_count?: number
-          rank?: number | null
-          score?: number
-          spend?: number
-          table_count?: number
-          ticket_count?: number
-          updated_at?: string
-          user_id?: string
-          venue_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "leaderboard_contest_scores_contest_id_fkey"
-            columns: ["contest_id"]
-            isOneToOne: false
-            referencedRelation: "leaderboard_contests"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "leaderboard_contest_scores_venue_id_fkey"
-            columns: ["venue_id"]
-            isOneToOne: false
-            referencedRelation: "venues"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      leaderboard_contest_winners: {
-        Row: {
-          contest_id: string
-          created_at: string
-          id: string
-          rank: number
-          redeemed: boolean
-          redeemed_at: string | null
-          redemption_id: string | null
-          reward_config: Json | null
-          reward_description: string | null
-          reward_type: string
-          score: number
-          user_id: string
-          venue_id: string
-        }
-        Insert: {
-          contest_id: string
-          created_at?: string
-          id?: string
-          rank: number
-          redeemed?: boolean
-          redeemed_at?: string | null
-          redemption_id?: string | null
-          reward_config?: Json | null
-          reward_description?: string | null
-          reward_type: string
-          score?: number
-          user_id: string
-          venue_id: string
-        }
-        Update: {
-          contest_id?: string
-          created_at?: string
-          id?: string
-          rank?: number
-          redeemed?: boolean
-          redeemed_at?: string | null
-          redemption_id?: string | null
-          reward_config?: Json | null
-          reward_description?: string | null
-          reward_type?: string
-          score?: number
-          user_id?: string
-          venue_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "leaderboard_contest_winners_contest_id_fkey"
-            columns: ["contest_id"]
-            isOneToOne: false
-            referencedRelation: "leaderboard_contests"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "leaderboard_contest_winners_redemption_id_fkey"
-            columns: ["redemption_id"]
-            isOneToOne: false
-            referencedRelation: "reward_redemptions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "leaderboard_contest_winners_venue_id_fkey"
-            columns: ["venue_id"]
-            isOneToOne: false
-            referencedRelation: "venues"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      leaderboard_contests: {
-        Row: {
-          auto_reward: boolean
-          contest_type: string
-          created_at: string
-          end_date: string
-          event_id: string | null
-          id: string
-          name: string
-          reward_preset_ids: string[] | null
-          rewards_distributed: boolean
-          scoring_config: Json | null
-          start_date: string
-          status: string
-          updated_at: string
-          venue_id: string
-        }
-        Insert: {
-          auto_reward?: boolean
-          contest_type?: string
-          created_at?: string
-          end_date: string
-          event_id?: string | null
-          id?: string
-          name?: string
-          reward_preset_ids?: string[] | null
-          rewards_distributed?: boolean
-          scoring_config?: Json | null
-          start_date?: string
-          status?: string
-          updated_at?: string
-          venue_id: string
-        }
-        Update: {
-          auto_reward?: boolean
-          contest_type?: string
-          created_at?: string
-          end_date?: string
-          event_id?: string | null
-          id?: string
-          name?: string
-          reward_preset_ids?: string[] | null
-          rewards_distributed?: boolean
-          scoring_config?: Json | null
-          start_date?: string
-          status?: string
-          updated_at?: string
-          venue_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "leaderboard_contests_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "leaderboard_contests_venue_id_fkey"
-            columns: ["venue_id"]
-            isOneToOne: false
-            referencedRelation: "venues"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      leaderboard_rewards: {
-        Row: {
-          created_at: string
-          id: string
-          is_active: boolean
-          rank_max: number
-          rank_min: number
-          reward_config: Json | null
-          reward_description: string | null
-          reward_type: string
-          venue_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          rank_max: number
-          rank_min: number
-          reward_config?: Json | null
-          reward_description?: string | null
-          reward_type?: string
-          venue_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_active?: boolean
-          rank_max?: number
-          rank_min?: number
-          reward_config?: Json | null
-          reward_description?: string | null
-          reward_type?: string
-          venue_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "leaderboard_rewards_venue_id_fkey"
-            columns: ["venue_id"]
-            isOneToOne: false
-            referencedRelation: "venues"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      leaderboard_settings: {
-        Row: {
-          auto_reward: boolean
-          contest_event_id: string | null
-          created_at: string
-          event_weight: number
-          id: string
-          is_enabled: boolean
-          leaderboard_type: string
-          recency_days: number
-          recency_enabled: boolean
-          show_top_count: number
-          spend_weight: number
-          updated_at: string
-          venue_id: string
-          vip_weight: number
-          visit_weight: number
-        }
-        Insert: {
-          auto_reward?: boolean
-          contest_event_id?: string | null
-          created_at?: string
-          event_weight?: number
-          id?: string
-          is_enabled?: boolean
-          leaderboard_type?: string
-          recency_days?: number
-          recency_enabled?: boolean
-          show_top_count?: number
-          spend_weight?: number
-          updated_at?: string
-          venue_id: string
-          vip_weight?: number
-          visit_weight?: number
-        }
-        Update: {
-          auto_reward?: boolean
-          contest_event_id?: string | null
-          created_at?: string
-          event_weight?: number
-          id?: string
-          is_enabled?: boolean
-          leaderboard_type?: string
-          recency_days?: number
-          recency_enabled?: boolean
-          show_top_count?: number
-          spend_weight?: number
-          updated_at?: string
-          venue_id?: string
-          vip_weight?: number
-          visit_weight?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "leaderboard_settings_contest_event_id_fkey"
-            columns: ["contest_event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "leaderboard_settings_venue_id_fkey"
-            columns: ["venue_id"]
-            isOneToOne: true
-            referencedRelation: "venues"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       legal_acceptances: {
         Row: {
           accepted_at: string
@@ -9113,7 +8745,6 @@ export type Database = {
           is_click_collect_manager: boolean | null
           is_suspended: boolean
           last_name: string | null
-          leaderboard_visibility: string
           mfa_enabled: boolean | null
           mfa_enforced: boolean | null
           mfa_exempt: boolean
@@ -9164,7 +8795,6 @@ export type Database = {
           is_click_collect_manager?: boolean | null
           is_suspended?: boolean
           last_name?: string | null
-          leaderboard_visibility?: string
           mfa_enabled?: boolean | null
           mfa_enforced?: boolean | null
           mfa_exempt?: boolean
@@ -9215,7 +8845,6 @@ export type Database = {
           is_click_collect_manager?: boolean | null
           is_suspended?: boolean
           last_name?: string | null
-          leaderboard_visibility?: string
           mfa_enabled?: boolean | null
           mfa_enforced?: boolean | null
           mfa_exempt?: boolean
@@ -10448,7 +10077,6 @@ export type Database = {
       }
       reward_redemptions: {
         Row: {
-          contest_winner_id: string | null
           created_at: string | null
           customer_loyalty_id: string
           expires_at: string | null
@@ -10466,7 +10094,6 @@ export type Database = {
           venue_id: string
         }
         Insert: {
-          contest_winner_id?: string | null
           created_at?: string | null
           customer_loyalty_id: string
           expires_at?: string | null
@@ -10484,7 +10111,6 @@ export type Database = {
           venue_id: string
         }
         Update: {
-          contest_winner_id?: string | null
           created_at?: string | null
           customer_loyalty_id?: string
           expires_at?: string | null
@@ -10502,13 +10128,6 @@ export type Database = {
           venue_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "reward_redemptions_contest_winner_id_fkey"
-            columns: ["contest_winner_id"]
-            isOneToOne: false
-            referencedRelation: "leaderboard_contest_winners"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "reward_redemptions_customer_loyalty_id_fkey"
             columns: ["customer_loyalty_id"]
@@ -14957,18 +14576,6 @@ export type Database = {
           venue_id: string
         }[]
       }
-      _deliver_contest_reward: {
-        Args: {
-          p_contest_name: string
-          p_reward_config: Json
-          p_reward_description: string
-          p_reward_type: string
-          p_user_id: string
-          p_venue_id: string
-          p_winner_id: string
-        }
-        Returns: string
-      }
       _execute_event_collab_action: {
         Args: { p_request_id: string }
         Returns: undefined
@@ -14980,21 +14587,6 @@ export type Database = {
           p_start_position: number
         }
         Returns: number
-      }
-      _leaderboard_user_activity: {
-        Args: {
-          p_end: string
-          p_event_id?: string
-          p_start: string
-          p_venue_id: string
-        }
-        Returns: {
-          order_count: number
-          spend: number
-          table_count: number
-          ticket_count: number
-          user_id: string
-        }[]
       }
       accept_dj_booking_request: {
         Args: { p_id: string; p_note?: string }
@@ -15240,7 +14832,6 @@ export type Database = {
       }
       auto_dispute_stale_collab_settlements: { Args: never; Returns: Json }
       auto_dispute_stale_promoter_payouts: { Args: never; Returns: Json }
-      auto_finalize_leaderboard_contests: { Args: never; Returns: number }
       award_loyalty_points: {
         Args: {
           p_amount: number
@@ -15269,14 +14860,6 @@ export type Database = {
           _window_seconds: number
         }
         Returns: boolean
-      }
-      calculate_client_scores: {
-        Args: { p_venue_id: string }
-        Returns: undefined
-      }
-      calculate_contest_scores: {
-        Args: { p_contest_id: string }
-        Returns: undefined
       }
       calculate_customer_tier: {
         Args: { total_spent: number }
@@ -15616,8 +15199,6 @@ export type Database = {
       demo_live_session: {
         Args: never
         Returns: {
-          client_rank: number
-          client_tier: string
           entry_scanned_at: string
           event_end_at: string
           event_id: string
@@ -15751,10 +15332,6 @@ export type Database = {
       }
       expire_dj_booking_requests: { Args: never; Returns: undefined }
       expire_stale_ticket_reservations: { Args: never; Returns: number }
-      finalize_leaderboard_contest: {
-        Args: { p_contest_id: string }
-        Returns: Json
-      }
       flush_affiliate_session: {
         Args: {
           p_affiliate_id: string
@@ -16275,8 +15852,6 @@ export type Database = {
       get_live_session: {
         Args: never
         Returns: {
-          client_rank: number
-          client_tier: string
           entry_scanned_at: string
           event_end_at: string
           event_id: string
@@ -16886,7 +16461,6 @@ export type Database = {
       purge_admin_notifications: { Args: never; Returns: number }
       purge_expired_personal_data: { Args: never; Returns: undefined }
       purge_promoter_push_queue: { Args: never; Returns: Json }
-      recalc_all_leaderboards: { Args: never; Returns: number }
       record_legal_acceptance: {
         Args: {
           p_context?: Json
