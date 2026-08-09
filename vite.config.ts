@@ -77,15 +77,46 @@ export default defineConfig({
         // precache + auto-reload as soon as a user enabled push. One SW, both jobs.
         importScripts: ['/sw-push-handlers.js'],
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2,ttf}'],
-        // Ne PAS précacher les captures du centre d'aide owner (public/help/**,
-        // ~14 Mo) ni l'icône 1024 (install only) : ce sont des ressources pro /
-        // hors-parcours qu'un visiteur B2C en 4G téléchargeait pour rien au
-        // premier chargement. Servies au réseau à la demande à la place.
-        globIgnores: ['help/**', 'icon-1024.png'],
+        // Ne PAS précacher, au premier chargement B2C :
+        //  - les captures du centre d'aide owner (public/help/**, ~14 Mo) et
+        //    l'icône 1024 (install only) — ressources pro / hors-parcours ;
+        //  - mapbox (1,7 Mo, une seule page /map lazy) ;
+        //  - les 3 fichiers de langue (fr/es/en, ~2,7 Mo) : un visiteur n'en lit
+        //    qu'un ; l'actif se cache au runtime (CacheFirst /assets/ ci-dessous) ;
+        //  - les chunks des dashboards pro (Owner/Admin/Agency/Org/Promoter/
+        //    Affiliate/Staff/Manager/DJ/Vip/Bouncer/Cloakroom/Barman) + jspdf,
+        //    html2canvas, recharts : un client B2C ne les ouvre jamais.
+        // Tout ce qui est exclu ici reste servi au réseau puis mis en cache à la
+        // PREMIÈRE utilisation réelle via le runtimeCaching CacheFirst sur
+        // /assets/ — donc offline OK après usage, sans surcoût au boot.
+        globIgnores: [
+          'help/**',
+          'icon-1024.png',
+          'assets/mapbox-gl-*.js',
+          'assets/{fr,es,en}-*.js',
+          'assets/jspdf*.js',
+          'assets/html2canvas-*.js',
+          'assets/generateCategoricalChart-*.js',
+          'assets/{Owner,Admin,Agency,Org,Promoter,Affiliate,Staff,Manager,DJ,Vip,Viph,VipHost,Bouncer,Cloakroom,Barman}*.js',
+        ],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/~oauth/],
         runtimeCaching: [
+          {
+            // Chunks de build hashés (JS/CSS immuables). CacheFirst : un chunk
+            // exclu du précache (langue active, page pro, mapbox…) se cache dès
+            // sa 1re utilisation réelle et fonctionne offline ensuite — sans
+            // forcer chaque visiteur B2C à télécharger toute l'app au boot.
+            urlPattern: ({ url, sameOrigin }) =>
+              sameOrigin && url.pathname.startsWith('/assets/'),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'app-assets-cache',
+              expiration: { maxEntries: 300, maxAgeSeconds: 30 * 24 * 3600 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           {
             // Cache ONLY non-sensitive, cacheable Supabase REST (events, venues,
             // profiles, catalogs...). Auth (/auth/), Edge Functions (/functions/)
