@@ -164,6 +164,10 @@ export default function GuestFinalizeAccount() {
             <Label>{t('finalize.password')}</Label>
             <div className="relative">
               <Input
+                // iOS WebKit garde son état "secure text entry" si on ne fait que
+                // basculer type=password→text : la key force le remount du champ pour
+                // que la révélation fonctionne aussi en WebView.
+                key={showPassword ? 'pwd-shown' : 'pwd-hidden'}
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -183,6 +187,7 @@ export default function GuestFinalizeAccount() {
           <div className="space-y-2">
             <Label>{t('finalize.confirmPassword')}</Label>
             <Input
+              key={showPassword ? 'confirm-shown' : 'confirm-hidden'}
               type={showPassword ? 'text' : 'password'}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}

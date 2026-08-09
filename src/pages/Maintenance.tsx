@@ -596,6 +596,10 @@ export default function Maintenance() {
               <form onSubmit={handlePasswordAccess} className="space-y-4">
                 <div className="relative">
                   <Input
+                    // iOS WebKit garde son état "secure text entry" si on ne fait que
+                    // basculer type=password→text : la key force le remount du champ
+                    // pour que la révélation fonctionne aussi en WebView.
+                    key={showPassword ? 'pwd-shown' : 'pwd-hidden'}
                     type={showPassword ? 'text' : 'password'}
                     placeholder={t('password')}
                     value={password}

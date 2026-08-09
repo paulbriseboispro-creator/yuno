@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRoles } from '@/hooks/useUserRoles';
@@ -52,6 +52,28 @@ export default function Auth() {
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  // iOS WebKit garde son état interne « secure text entry » quand on se contente
+  // de basculer l'attribut type de `password` à `text` : les points restent
+  // affichés malgré type="text" (le web, lui, révèle correctement). On force donc
+  // le remount du champ via une `key` liée à showPassword (voir l'input plus bas)
+  // pour que WebKit recrée un input propre. Le remount perd le focus : ce ref +
+  // cet effet le restaurent, curseur en fin de saisie, seulement après un clic
+  // manuel sur l'œil (jamais au montage, sinon le clavier s'ouvrirait tout seul).
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const refocusAfterToggle = useRef(false);
+  const togglePassword = () => {
+    refocusAfterToggle.current = true;
+    setShowPassword((v) => !v);
+  };
+  useEffect(() => {
+    if (!refocusAfterToggle.current) return;
+    refocusAfterToggle.current = false;
+    const el = passwordRef.current;
+    if (!el) return;
+    el.focus();
+    const end = el.value.length;
+    try { el.setSelectionRange(end, end); } catch { /* certains types n'autorisent pas setSelectionRange */ }
+  }, [showPassword]);
   const [acceptingInvite, setAcceptingInvite] = useState(false);
   const [isSessionReady, setIsSessionReady] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
@@ -541,8 +563,8 @@ export default function Auth() {
 
             {!isForgotPassword && (
               <div className="relative">
-                <input type={showPassword ? 'text' : 'password'} autoComplete={isSignUp || isReset ? 'new-password' : 'current-password'} aria-label={isReset ? t('auth.placeholders.newPassword') : t('auth.placeholders.password')} placeholder={isReset ? t('auth.placeholders.newPassword') : t('auth.placeholders.password')} value={password} onChange={(e) => setPassword(e.target.value)} required disabled={isLoading} minLength={6} style={{ ...inputStyle, paddingRight: '44px', borderColor: password ? 'rgba(232,25,44,0.4)' : 'rgba(255,255,255,0.08)' }} />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} disabled={isLoading} aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')} aria-pressed={showPassword} className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors" style={{ color: '#5A5A5E' }}>
+                <input ref={passwordRef} key={showPassword ? 'pwd-shown' : 'pwd-hidden'} type={showPassword ? 'text' : 'password'} autoComplete={isSignUp || isReset ? 'new-password' : 'current-password'} aria-label={isReset ? t('auth.placeholders.newPassword') : t('auth.placeholders.password')} placeholder={isReset ? t('auth.placeholders.newPassword') : t('auth.placeholders.password')} value={password} onChange={(e) => setPassword(e.target.value)} required disabled={isLoading} minLength={6} style={{ ...inputStyle, paddingRight: '44px', borderColor: password ? 'rgba(232,25,44,0.4)' : 'rgba(255,255,255,0.08)' }} />
+                <button type="button" onClick={togglePassword} disabled={isLoading} aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')} aria-pressed={showPassword} className="absolute right-0 top-0 bottom-0 flex items-center justify-center transition-colors" style={{ color: '#5A5A5E', width: '44px' }}>
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>

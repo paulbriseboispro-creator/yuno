@@ -294,6 +294,10 @@ export default function VerifyTicketPayment() {
             <div style={{ marginTop: 24, display: 'flex', flexDirection: 'column', gap: 10 }}>
               <div style={{ position: 'relative' }}>
                 <input
+                  // iOS WebKit garde son état "secure text entry" si on ne fait que
+                  // basculer type=password→text : la key force le remount du champ pour
+                  // que la révélation fonctionne aussi en WebView.
+                  key={showPassword ? 'pwd-shown' : 'pwd-hidden'}
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); if (signupError) setSignupError(''); }}
@@ -314,6 +318,7 @@ export default function VerifyTicketPayment() {
                 </button>
               </div>
               <input
+                key={showPassword ? 'confirm-shown' : 'confirm-hidden'}
                 type={showPassword ? 'text' : 'password'}
                 value={confirmPassword}
                 onChange={(e) => { setConfirmPassword(e.target.value); if (signupError) setSignupError(''); }}

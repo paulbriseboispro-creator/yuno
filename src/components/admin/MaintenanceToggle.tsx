@@ -150,6 +150,10 @@ export function MaintenanceToggle() {
         <div className="flex gap-2">
           <div className="relative flex-1">
             <input
+              // iOS WebKit garde son état "secure text entry" si on ne fait que
+              // basculer type=password→text : la key force le remount du champ pour
+              // que la révélation fonctionne aussi en WebView.
+              key={showPassword ? 'pwd-shown' : 'pwd-hidden'}
               type={showPassword ? 'text' : 'password'}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
