@@ -130,20 +130,18 @@ export const useVisitorTracking = (venueId?: string, eventId?: string, organizer
     const sendHeartbeat = async (stage: 'browsing' | 'cart' | 'checkout' | 'paid' = 'browsing') => {
       const sid = sessionStorage.getItem(SESSION_STORAGE_KEY);
       if (!sid) return;
-      // getSession() lit le token en local (aucun aller-réseau), contrairement à
-      // getUser() qui frappe /auth/v1/user à chaque battement. Sur une page vue
-      // en boucle, ça retire un round-trip toutes les 15 s.
-      const { data: { session } } = await supabase.auth.getSession();
-      await supabase.from('live_visitor_pings').upsert({
-        session_id: sid,
-        venue_id: venueId || null,
-        event_id: eventId || null,
-        organizer_user_id: organizerUserId || null,
-        page_path: window.location.pathname,
-        stage,
-        user_id: session?.user?.id || null,
-        last_seen: new Date().toISOString(),
-      }, { onConflict: 'session_id' });
+      // Écriture via RPC SECURITY DEFINER (plus d'UPDATE anonyme direct sur la
+      // table : cf. migration 20260809200000). Le serveur borne les entrées et
+      // impose user_id = auth.uid() — inutile de récupérer la session côté client.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await supabase.rpc('ping_live_visitor' as any, {
+        p_session_id: sid,
+        p_venue_id: venueId || null,
+        p_event_id: eventId || null,
+        p_organizer_user_id: organizerUserId || null,
+        p_page_path: window.location.pathname,
+        p_stage: stage,
+      });
     };
 
     // Le battement est suspendu quand l'onglet passe en arrière-plan et repart au
