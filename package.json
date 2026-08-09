@@ -13,7 +13,14 @@
     "cap:sync": "npm run build && npx cap sync ios",
     "cap:sync:pro": "npm run build && cd pro && npx cap sync ios",
     "cap:open": "npx cap open ios",
-    "cap:open:pro": "cd pro && npx cap open ios"
+    "cap:open:pro": "cd pro && npx cap open ios",
+    "ota:publish": "node scripts/ota-publish.mjs publish --channel production --app both",
+    "ota:beta": "node scripts/ota-publish.mjs publish --channel beta --app both",
+    "ota:promote": "node scripts/ota-publish.mjs promote --app both --from beta --to production",
+    "ota:rollback": "node scripts/ota-publish.mjs rollback --app both --channel production",
+    "ota:list": "node scripts/ota-publish.mjs list",
+    "ota:devices": "node scripts/ota-publish.mjs devices",
+    "ota": "node scripts/ota-publish.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",
