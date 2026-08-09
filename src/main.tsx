@@ -2,8 +2,18 @@ import { createRoot } from "react-dom/client";
 import { HelmetProvider } from "react-helmet-async";
 import { registerSW } from "virtual:pwa-register";
 import { isNative } from "@/lib/native";
+import { loadLocale } from "@/i18n/data";
+import { persistedLanguage } from "@/contexts/LanguageContext";
 import App from "./App.tsx";
 import "./index.css";
+
+// Le chunk de langue est sur le chemin critique du premier paint :
+// LanguageProvider rend `null` tant que le dictionnaire n'est pas là. Sans ce
+// coup d'envoi, il n'est découvert qu'après le téléchargement + l'exécution de
+// l'entry (~240 Ko) → cascade séquentielle. On lance le fetch ICI, en parallèle
+// du boot React. loadLocale dédup (cache par langue + dédup module navigateur),
+// donc l'appel refait par LanguageProvider ne re-télécharge rien.
+loadLocale(persistedLanguage()).catch(() => {});
 
 // Register the PWA service worker and force open tabs to reload as soon as a new
 // build is deployed. Without this, returning visitors keep running the old

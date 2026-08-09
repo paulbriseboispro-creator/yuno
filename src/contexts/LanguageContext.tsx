@@ -14,7 +14,7 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-function persistedLanguage(): Language {
+export function persistedLanguage(): Language {
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem('language') as Language | null;
     if (saved && VALID_LANGS.includes(saved)) return saved;
