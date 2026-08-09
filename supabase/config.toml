@@ -1,5 +1,17 @@
 project_id = "fulawxvdlwtdlpkycixe"
 
+# OTA Capgo self-hosted — le plugin natif @capgo/capacitor-updater appelle ces
+# endpoints SANS JWT Supabase → verify_jwt = false obligatoire (sinon 401 avant
+# d'entrer dans la fonction). Voir docs/OTA_CAPGO.md.
+[functions.capgo-updates]
+verify_jwt = false
+
+[functions.capgo-stats]
+verify_jwt = false
+
+[functions.capgo-channel]
+verify_jwt = false
+
 [functions.admin-account-recovery]
 verify_jwt = true
 
