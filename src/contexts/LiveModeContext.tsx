@@ -57,8 +57,6 @@ export interface LiveSession {
   menuEnabled: boolean;
   liveModeEnabled: boolean;
   soloBottleSaleEnabled: boolean;
-  clientRank: number | null;
-  clientTier: 'platinum' | 'gold' | 'silver' | 'bronze' | null;
 }
 
 interface LiveModeValue {
@@ -121,8 +119,6 @@ interface LiveSessionRow {
   menu_enabled: boolean;
   live_mode_enabled: boolean;
   solo_bottle_sale_enabled: boolean;
-  client_rank: number | null;
-  client_tier: LiveSession['clientTier'];
 }
 
 function mapRow(row: LiveSessionRow): LiveSession {
@@ -140,8 +136,6 @@ function mapRow(row: LiveSessionRow): LiveSession {
     menuEnabled: row.menu_enabled,
     liveModeEnabled: row.live_mode_enabled,
     soloBottleSaleEnabled: row.solo_bottle_sale_enabled,
-    clientRank: row.client_rank,
-    clientTier: row.client_tier,
   };
 }
 

@@ -5,7 +5,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useNightlifeProfile } from '@/hooks/useNightlifeProfile';
-import { supabase } from '@/integrations/supabase/client';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { TierBadge } from '@/components/loyalty/TierBadge';
@@ -13,13 +12,6 @@ import { LoyaltyProgressRing } from '@/components/profile/LoyaltyProgressRing';
 import { LoyaltyRewardsSheet } from '@/components/loyalty/LoyaltyRewardsSheet';
 import { cn } from '@/lib/utils';
 import { PublicPage } from '@/components/PublicPage';
-
-interface VenueScore {
-  venue_id: string;
-  rank: number | null;
-  total_score: number;
-  monthly_rank: number | null;
-}
 
 const TIER_ACCENT = {
   bronze: 'from-primary/10 to-primary/5',
@@ -41,7 +33,6 @@ export default function LoyaltyHub() {
   const { t } = useLanguage();
   const { loyaltyCards, loading: profileLoading } = useNightlifeProfile();
 
-  const [venueScores, setVenueScores] = useState<VenueScore[]>([]);
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(null);
   const [showSheet, setShowSheet] = useState(false);
 
@@ -50,24 +41,6 @@ export default function LoyaltyHub() {
       navigate('/auth?redirect=/loyalty');
     }
   }, [user, authLoading, navigate]);
-
-  // Fetch leaderboard scores for all venues
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from('client_scores')
-      .select('venue_id, rank, total_score, monthly_rank')
-      .eq('user_id', user.id)
-      .then(({ data }) => {
-        if (data) setVenueScores(data as VenueScore[]);
-      });
-  }, [user]);
-
-  const scoreMap = useMemo(() => {
-    const map: Record<string, VenueScore> = {};
-    venueScores.forEach(s => { map[s.venue_id] = s; });
-    return map;
-  }, [venueScores]);
 
   const totalPoints = loyaltyCards.reduce((sum, c) => sum + c.current_balance, 0);
   const totalClubs = loyaltyCards.length;
@@ -78,11 +51,6 @@ export default function LoyaltyHub() {
       return tierOrder[card.tier] > tierOrder[best] ? card.tier : best;
     }, 'bronze');
   }, [loyaltyCards]);
-
-  const bestRank = useMemo(() => {
-    const ranks = venueScores.filter(s => s.rank && s.rank > 0).map(s => s.rank!);
-    return ranks.length > 0 ? Math.min(...ranks) : null;
-  }, [venueScores]);
 
   if (authLoading || profileLoading) {
     return (
@@ -135,22 +103,13 @@ export default function LoyaltyHub() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="grid grid-cols-3 gap-2 mt-6"
+            className="grid grid-cols-2 gap-2 mt-6"
           >
             {/* Total Points */}
             <div className="bg-white/[0.04] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-3 text-center">
               <Sparkles className="h-4 w-4 text-primary mx-auto mb-1" />
               <p className="text-xl font-bold text-foreground">{totalPoints.toLocaleString()}</p>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('loyaltyHub.totalPoints')}</p>
-            </div>
-
-            {/* Best Rank */}
-            <div className="bg-white/[0.04] backdrop-blur-sm border border-white/[0.08] rounded-2xl p-3 text-center">
-              <Crown className="h-4 w-4 text-primary mx-auto mb-1" />
-              <p className="text-xl font-bold text-foreground">
-                {bestRank ? `#${bestRank}` : '—'}
-              </p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t('loyaltyHub.bestRank')}</p>
             </div>
 
             {/* Clubs */}
@@ -197,9 +156,6 @@ export default function LoyaltyHub() {
         ) : (
           <AnimatePresence>
             {loyaltyCards.map((card, idx) => {
-              const score = scoreMap[card.venue_id];
-              const rank = score?.rank || null;
-
               return (
                 <motion.button
                   key={card.venue_id}
@@ -271,39 +227,9 @@ export default function LoyaltyHub() {
                       )}
                     </div>
 
-                    {/* Rank badge */}
+                    {/* Chevron */}
                     <div className="flex flex-col items-center gap-1 shrink-0">
-                      {rank && rank > 0 ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (card.venue_slug) {
-                              navigate(`/club/${card.venue_slug}/leaderboard`);
-                            }
-                          }}
-                          className={cn(
-                            "flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-colors",
-                            rank <= 3 && "bg-primary/20 text-primary hover:bg-primary/30",
-                            rank > 3 && rank <= 10 && "bg-primary/10 text-primary/80 hover:bg-primary/20",
-                            rank > 10 && "bg-muted/50 text-muted-foreground hover:bg-muted"
-                          )}
-                        >
-                          <Crown className="h-3.5 w-3.5" />
-                          #{rank}
-                        </button>
-                      ) : card.venue_slug ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/club/${card.venue_slug}/leaderboard`);
-                          }}
-                          className="p-1.5 rounded-lg text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
-                        >
-                          <Crown className="h-4 w-4" />
-                        </button>
-                      ) : (
-                        <ArrowRight className="h-4 w-4 text-muted-foreground/30" />
-                      )}
+                      <ArrowRight className="h-4 w-4 text-muted-foreground/30" />
                     </div>
                   </div>
 

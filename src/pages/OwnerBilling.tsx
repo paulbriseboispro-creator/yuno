@@ -73,7 +73,6 @@ const PRO_ONLY_FEATURES: DisplayFeature[] = [
   { key: 'offers_upsell', labelKey: 'plan.feature.offersUpsell' },
   { key: 'loyalty_crm', labelKey: 'plan.feature.loyaltyCrm' },
   { key: 'hype_analysis', labelKey: 'plan.feature.hypeAnalysis' },
-  { key: 'client_leaderboard', labelKey: 'plan.feature.clientLeaderboard' },
   { key: 'personalization_advanced', labelKey: 'plan.feature.personalizationAdvanced' },
 ];
 

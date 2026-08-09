@@ -279,9 +279,6 @@ verify_jwt = false
 [functions.notify-dj-booking-request]
 verify_jwt = false
 
-[functions.notify-top-customer-scan]
-verify_jwt = false
-
 # Acceptation CGU au checkout (invité possible) → false
 [functions.record-terms-acceptance]
 verify_jwt = false

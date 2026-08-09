@@ -1,19 +1,11 @@
-// Mode Live — header plein écran : venue + événement + heure de fin, chip
-// top-100 (client_scores) et sortie discrète. Passe en état LAST CALL à
-// end_at − 45 min (accent rouge, purement client).
+// Mode Live — header plein écran : venue + événement + heure de fin et sortie
+// discrète. Passe en état LAST CALL à end_at − 45 min (accent rouge, purement client).
 import { X, Radio } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useLiveMode } from '@/contexts/LiveModeContext';
 import { transitions } from '@/lib/motion';
-
-const TIER_COLORS: Record<string, string> = {
-  platinum: '#B9E8F5',
-  gold: '#FBBF24',
-  silver: '#C0C0C8',
-  bronze: '#CD7F32',
-};
 
 export function LiveHeader({ lastCall }: { lastCall: boolean }) {
   const { t, language } = useLanguage();
@@ -26,8 +18,6 @@ export function LiveHeader({ lastCall }: { lastCall: boolean }) {
     language === 'en' ? 'en-GB' : language === 'es' ? 'es-ES' : 'fr-FR',
     { hour: '2-digit', minute: '2-digit' }
   );
-  const showTopChip = session.clientRank !== null && session.clientRank <= 100 && session.clientTier;
-
   const handleExit = () => {
     exitLive();
     navigate('/', { replace: true });
@@ -62,20 +52,6 @@ export function LiveHeader({ lastCall }: { lastCall: boolean }) {
             >
               {lastCall ? t('live.lastCall.title') : 'LIVE'}
             </span>
-            {showTopChip && (
-              <span
-                className="font-mono font-bold uppercase rounded-full px-1.5 py-0.5"
-                style={{
-                  fontSize: 9,
-                  letterSpacing: '0.1em',
-                  color: TIER_COLORS[session.clientTier!] ?? '#E5E5E5',
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                }}
-              >
-                {session.clientTier!.toUpperCase()} · TOP {session.clientRank}
-              </span>
-            )}
           </div>
           <h1
             className="font-display font-bold uppercase truncate text-white"

@@ -125,7 +125,6 @@ interface Profile {
   city: string | null;
   birth_date: string | null;
   email: string;
-  leaderboard_visibility: string;
 }
 
 export type UserBadge = 'new' | 'regular' | 'vip';
@@ -188,7 +187,7 @@ export function useNightlifeProfile() {
         ordersRes, ticketsRes, tasteRes, loyaltyRes,
       ] = await Promise.all([
         supabase.from('profiles')
-          .select('first_name, last_name, avatar_url, background_url, city, birth_date, email, leaderboard_visibility')
+          .select('first_name, last_name, avatar_url, background_url, city, birth_date, email')
           .eq('id', user.id).single(),
         supabase.rpc('get_user_nightlife_stats', { p_user_id: user.id }),
         supabase.from('venue_customers')
@@ -222,7 +221,7 @@ export function useNightlifeProfile() {
         (a, b) => (b.ticket_count || 0) - (a.ticket_count || 0),
       );
 
-      setProfile(profileData ? { ...profileData, leaderboard_visibility: profileData.leaderboard_visibility || 'public' } as Profile : null);
+      setProfile(profileData ? { ...profileData } as Profile : null);
 
       let fetchedStats: NightlifeStats | null = null;
 
@@ -556,7 +555,7 @@ export function useNightlifeProfile() {
     };
   }, [user, fetchData]);
 
-  const updateProfile = async (updates: Partial<Pick<Profile, 'first_name' | 'last_name' | 'city' | 'avatar_url' | 'background_url' | 'birth_date' | 'leaderboard_visibility'>>) => {
+  const updateProfile = async (updates: Partial<Pick<Profile, 'first_name' | 'last_name' | 'city' | 'avatar_url' | 'background_url' | 'birth_date'>>) => {
     if (!user) return { success: false };
 
     try {

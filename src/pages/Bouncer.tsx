@@ -799,18 +799,6 @@ export default function Bouncer() {
           return res;
         });
 
-        // Fire-and-forget Top 100 VIP scan notification
-        if (ticket.user_id && venueId) {
-          supabase.functions.invoke('notify-top-customer-scan', {
-            body: {
-              venue_id: venueId,
-              user_id: ticket.user_id,
-              full_name: attendee.full_name || ticket.full_name,
-              event_id: (ticket as any).events?.id ?? null,
-            },
-          }).catch((e) => console.warn('top-customer-scan notify failed', e));
-        }
-
         setScanResult('success');
         setOverlayResult('success');
         setOverlayName(attendee.full_name || ticket.full_name || undefined);
@@ -1004,18 +992,6 @@ export default function Bouncer() {
           // En mode rapide la carte affiche le statut top client elle-même,
           // le dialog ne s'ouvre que dans le flux classique.
           if (!rapidModeRef.current) setShowTopClientDialog(true);
-        }
-
-        // Fire-and-forget VIP scan push notification (Top 100)
-        if (ticket.user_id && venueId) {
-          supabase.functions.invoke('notify-top-customer-scan', {
-            body: {
-              venue_id: venueId,
-              user_id: ticket.user_id,
-              full_name: ticket.full_name,
-              event_id: (ticket as any).event_id ?? null,
-            },
-          }).catch((e) => console.warn('top-customer-scan notify failed', e));
         }
 
         fetchStats();

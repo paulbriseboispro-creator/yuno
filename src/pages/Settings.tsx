@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, User, Lock, Globe, LogOut, MapPin, Shield, FileText, ScrollText, ShoppingBag, Building2, Cookie, Bell, BellOff, Smartphone, Loader2, Mail, Trophy, Trash2 } from 'lucide-react';
+import { ArrowLeft, User, Lock, Globe, LogOut, MapPin, Shield, FileText, ScrollText, ShoppingBag, Building2, Cookie, Bell, BellOff, Smartphone, Loader2, Mail, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -582,40 +582,6 @@ export default function Settings() {
                   }
                 }}
               />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Leaderboard Privacy */}
-        <Card className="border-border/50">
-          <CardContent className="p-4 space-y-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <Trophy className="h-4 w-4" />
-              {language === 'fr' ? 'Classement & Visibilité' : language === 'es' ? 'Clasificación & Visibilidad' : 'Leaderboard & Visibility'}
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-sm">{language === 'fr' ? 'Apparence dans les classements' : language === 'es' ? 'Apariencia en rankings' : 'Leaderboard display'}</span>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {language === 'fr' ? 'Contrôlez comment votre nom apparaît' : language === 'es' ? 'Controla cómo aparece tu nombre' : 'Control how your name appears'}
-                </p>
-              </div>
-              <Select 
-                value={profile?.leaderboard_visibility || 'public'} 
-                onValueChange={async (val) => {
-                  await updateProfile({ leaderboard_visibility: val });
-                  toast.success(language === 'fr' ? 'Préférence mise à jour' : language === 'es' ? 'Preferencia actualizada' : 'Preference updated');
-                }}
-              >
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="public">{language === 'fr' ? 'Public' : language === 'es' ? 'Público' : 'Public'}</SelectItem>
-                  <SelectItem value="anonymous">{language === 'fr' ? 'Anonyme' : language === 'es' ? 'Anónimo' : 'Anonymous'}</SelectItem>
-                  <SelectItem value="hidden">{language === 'fr' ? 'Masqué' : language === 'es' ? 'Oculto' : 'Hidden'}</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </CardContent>
         </Card>

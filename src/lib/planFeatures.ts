@@ -28,7 +28,7 @@ export type FeatureKey =
   | 'promoters' | 'analytics_advanced'
   | 'exports_csv' | 'clients_basic' | 'live_night' | 'vip_tables_basic'
   | 'vip_tables' | 'vip_service' | 'offers_upsell' | 'loyalty_crm'
-  | 'hype_analysis' | 'personalization_advanced' | 'client_leaderboard'
+  | 'hype_analysis' | 'personalization_advanced'
   | 'promoters_basic' | 'analytics_tickets' | 'scarcity_tools'
   | 'email_campaigns_informational' | 'email_campaigns_promotional';
 
@@ -82,9 +82,9 @@ const PRO_FEATURES: FeatureKey[] = [
   'analytics_advanced', 'exports_csv', 'vip_tables', 'vip_service',
   'djs_orchestrate', 'organizations_orchestrate',
   'live_night', 'offers_upsell',
-  // Loyalty/CRM, hype, client leaderboard and advanced personalization are all
+  // Loyalty/CRM, hype and advanced personalization are all
   // BUILT — they belong in the highest purchasable tier, not behind the unbuilt Elite.
-  'loyalty_crm', 'hype_analysis', 'client_leaderboard', 'personalization_advanced',
+  'loyalty_crm', 'hype_analysis', 'personalization_advanced',
 ];
 
 // Elite (SCALE — "Bientôt"): multi-venue group + API. Both entirely to build →
@@ -126,7 +126,7 @@ const COLLAB_FEATURES: FeatureKey[] = [
   'email_campaigns_promotional', 'clients_basic',
   'analytics_advanced', 'vip_tables', 'vip_service',
   'live_night', 'offers_upsell',
-  'loyalty_crm', 'hype_analysis', 'client_leaderboard', 'personalization_advanced',
+  'loyalty_crm', 'hype_analysis', 'personalization_advanced',
 ];
 
 // Stripe price IDs are NOT stored here. The frontend only sends { planCode,
@@ -258,7 +258,6 @@ export const FEATURE_DESCRIPTIONS: Record<FeatureKey, string> = {
   hype_analysis: 'plan.feature.hypeAnalysis',
   personalization_advanced: 'plan.feature.personalizationAdvanced',
   live_night: 'plan.feature.liveNight',
-  client_leaderboard: 'plan.feature.clientLeaderboard',
   promoters_basic: 'plan.feature.promotersBasic',
   analytics_tickets: 'plan.feature.analyticsTickets',
   scarcity_tools: 'plan.feature.scarcityTools',

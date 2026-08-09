@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Trophy, Crown, Sparkles, ChevronRight, Gift, Star } from 'lucide-react';
+import { Trophy, Sparkles, ChevronRight, Gift, Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
@@ -18,7 +18,6 @@ interface LoyaltyCard {
   next_reward_name: string | null;
   next_reward_points: number | null;
   progress_percent: number;
-  rank?: number | null;
 }
 
 interface LoyaltyHubCardProps {
@@ -46,11 +45,6 @@ export function LoyaltyHubCard({ cards, onCardClick, onViewAll }: LoyaltyHubCard
     return cards.reduce<'bronze' | 'silver' | 'gold' | 'platinum'>((best, c) => {
       return order[c.tier] > order[best] ? c.tier : best;
     }, 'bronze');
-  }, [cards]);
-
-  const bestRank = useMemo(() => {
-    const ranks = cards.filter(c => c.rank && c.rank > 0).map(c => c.rank!);
-    return ranks.length > 0 ? Math.min(...ranks) : null;
   }, [cards]);
 
   const hasData = cards.length > 0;
@@ -103,17 +97,6 @@ export function LoyaltyHubCard({ cards, onCardClick, onViewAll }: LoyaltyHubCard
 
             <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.10)' }} />
 
-            {/* Meilleur rang */}
-            {bestRank && (
-              <>
-                <div className="flex items-center gap-1">
-                  <Crown className="h-3 w-3" style={{ color: '#E8192C' }} />
-                  <span className="font-mono font-bold text-white" style={{ fontSize: '13px' }}>#{bestRank}</span>
-                </div>
-                <div style={{ width: 1, height: 16, background: 'rgba(255,255,255,0.10)' }} />
-              </>
-            )}
-
             {/* Nombre de clubs */}
             <span className="font-mono uppercase" style={{ fontSize: '10px', letterSpacing: '0.06em', color: '#9A9A9A' }}>
               {totalClubs} {totalClubs > 1 ? 'clubs' : 'club'}
@@ -163,20 +146,6 @@ export function LoyaltyHubCard({ cards, onCardClick, onViewAll }: LoyaltyHubCard
                       <span className="font-mono uppercase" style={{ fontSize: '8px', letterSpacing: '0.06em', color: '#5A5A5E' }}>pts</span>
                     </div>
                   </div>
-
-                  {card.rank && card.rank > 0 && (
-                    <div
-                      className="flex items-center gap-0.5 px-1.5 py-1 font-mono font-bold shrink-0"
-                      style={{
-                        fontSize: '10px', borderRadius: 3,
-                        background: card.rank <= 10 ? 'rgba(232,25,44,0.14)' : 'rgba(255,255,255,0.05)',
-                        color: card.rank <= 10 ? '#E8192C' : '#9A9A9A',
-                      }}
-                    >
-                      <Crown className="h-2.5 w-2.5" />
-                      #{card.rank}
-                    </div>
-                  )}
                 </div>
 
                 {/* Indice prochaine récompense */}

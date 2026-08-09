@@ -1,10 +1,9 @@
 import { motion } from 'framer-motion';
-import { Gift, Sparkles, ChevronRight, Crown } from 'lucide-react';
+import { Gift, Sparkles, ChevronRight } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { TierBadge } from '@/components/loyalty/TierBadge';
 import { LoyaltyProgressRing } from './LoyaltyProgressRing';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
 interface ClubLoyaltyCardProps {
@@ -15,8 +14,6 @@ interface ClubLoyaltyCardProps {
   nextRewardName: string | null;
   nextRewardPoints: number | null;
   progressPercent: number;
-  rank?: number | null;
-  venueSlug?: string | null;
   onClick: () => void;
 }
 
@@ -42,21 +39,11 @@ export function ClubLoyaltyCard({
   nextRewardName,
   nextRewardPoints,
   progressPercent,
-  rank,
-  venueSlug,
   onClick
 }: ClubLoyaltyCardProps) {
-  const { t, language } = useLanguage();
-  const navigate = useNavigate();
+  const { t } = useLanguage();
   const pointsToNext = nextRewardPoints ? nextRewardPoints - currentBalance : 0;
   const isCloseToReward = progressPercent >= 80;
-
-  const handleLeaderboardClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (venueSlug) {
-      navigate(`/club/${venueSlug}/leaderboard`);
-    }
-  };
 
   return (
     <motion.button
@@ -119,33 +106,8 @@ export function ClubLoyaltyCard({
           )}
         </div>
 
-        {/* Right side: rank badge or chevron */}
-        <div className="flex flex-col items-center gap-1 shrink-0">
-          {rank && rank > 0 ? (
-            <button
-              onClick={handleLeaderboardClick}
-              className={cn(
-                "flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold transition-colors",
-                rank === 1 && "bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30",
-                rank > 1 && rank <= 5 && "bg-violet-500/15 text-violet-400 hover:bg-violet-500/25",
-                rank > 5 && rank <= 10 && "bg-primary/15 text-primary hover:bg-primary/25",
-                rank > 10 && "bg-muted/50 text-muted-foreground hover:bg-muted"
-              )}
-            >
-              <Crown className="h-3 w-3" />
-              #{rank}
-            </button>
-          ) : venueSlug ? (
-            <button
-              onClick={handleLeaderboardClick}
-              className="p-1 rounded-lg text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors"
-            >
-              <Crown className="h-3.5 w-3.5" />
-            </button>
-          ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground/30" />
-          )}
-        </div>
+        {/* Right side: chevron */}
+        <ChevronRight className="h-4 w-4 text-muted-foreground/30 shrink-0" />
       </div>
 
       {/* Close to reward indicator */}

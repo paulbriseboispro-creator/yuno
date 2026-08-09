@@ -115,7 +115,6 @@ const OwnerWaitlist = lazyWithRetry(() => import("./pages/OwnerWaitlist"));
 const OwnerUpsell = lazyWithRetry(() => import("./pages/OwnerUpsell"));
 const OwnerScarcity = lazyWithRetry(() => import("./pages/OwnerScarcity"));
 const OwnerLiveNight = lazyWithRetry(() => import("./pages/OwnerLiveNight"));
-const VenueLeaderboard = lazyWithRetry(() => import("./pages/VenueLeaderboard"));
 const LoyaltyHub = lazyWithRetry(() => import("./pages/LoyaltyHub"));
 const OwnerBilling = lazyWithRetry(() => import("./pages/OwnerBilling"));
 const OwnerSmsCredits = lazyWithRetry(() => import("./pages/OwnerSmsCredits"));
@@ -529,8 +528,7 @@ const App = () => (
                 <Route path="/club/:slug/event/:eventId/guestlist" element={<GuestListSignup />} />
                 <Route path="/club/:slug/event/:eventId/guestlist-checkout" element={<GuestListCheckout />} />
                 <Route path="/club/:slug/drinks/:category" element={<CategoryDrinks />} />
-                <Route path="/club/:slug/leaderboard" element={<VenueLeaderboard />} />
-                
+
                 {/* DJ public page */}
                 <Route path="/dj/:slug/epk" element={<DJEpkPage />} />
                 <Route path="/dj/:slug/past" element={<DJPastEventsPage />} />

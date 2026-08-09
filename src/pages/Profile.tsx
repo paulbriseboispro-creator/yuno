@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Settings, Trophy, ChevronRight } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -23,7 +23,6 @@ import { PartyStreak } from '@/components/profile/PartyStreak';
 import { ProfileShareCard } from '@/components/profile/ProfileShareCard';
 import { ProfileQuickStats } from '@/components/profile/ProfileQuickStats';
 import { useNightlifeProfile } from '@/hooks/useNightlifeProfile';
-import { useLeaderboard } from '@/hooks/useLeaderboard';
 import { toast } from 'sonner';
 
 export default function Profile() {
@@ -51,31 +50,6 @@ export default function Profile() {
     updateProfile,
     refetch
   } = useNightlifeProfile();
-
-  // Fetch leaderboard ranks for all venues
-  const [venueRanks, setVenueRanks] = useState<Record<string, number>>({});
-  
-  useEffect(() => {
-    if (user && loyaltyCards.length > 0) {
-      supabase
-        .from('client_scores')
-        .select('venue_id, rank')
-        .eq('user_id', user.id)
-        .then(({ data }) => {
-          if (data) {
-            const map: Record<string, number> = {};
-            data.forEach((s: any) => { if (s.rank) map[s.venue_id] = s.rank; });
-            setVenueRanks(map);
-          }
-        });
-    }
-  }, [user, loyaltyCards.length]);
-
-  // Enrich loyalty cards with rank data
-  const enrichedCards = loyaltyCards.map(card => ({
-    ...card,
-    rank: venueRanks[card.venue_id] || null,
-  }));
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -273,14 +247,14 @@ export default function Profile() {
         )}
         END DISABLED */}
 
-        {/* Unified Loyalty & Leaderboard Card */}
+        {/* Unified Loyalty Card */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.13 }}
         >
           <LoyaltyHubCard
-            cards={enrichedCards}
+            cards={loyaltyCards}
             onCardClick={handleLoyaltyCardClick}
             onViewAll={() => navigate('/loyalty')}
           />

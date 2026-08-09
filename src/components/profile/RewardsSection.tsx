@@ -23,7 +23,6 @@ interface LoyaltyCard {
   next_reward_points: number | null;
   progress_percent: number;
   recent_transactions: LoyaltyTransaction[];
-  rank?: number | null;
 }
 
 interface RewardsSectionProps {
@@ -97,8 +96,6 @@ export function RewardsSection({ loyaltyCards, onCardClick }: RewardsSectionProp
                 nextRewardName={card.next_reward_name}
                 nextRewardPoints={card.next_reward_points}
                 progressPercent={card.progress_percent}
-                rank={card.rank}
-                venueSlug={card.venue_slug}
                 onClick={() => onCardClick(card.venue_id)}
               />
             </div>

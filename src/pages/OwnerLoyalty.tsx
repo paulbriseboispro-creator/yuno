@@ -9,7 +9,6 @@ import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { TierBadge } from '@/components/loyalty/TierBadge';
-import { OwnerLeaderboardSection } from '@/components/owner/OwnerLeaderboardSection';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useLoyaltyManagement } from '@/hooks/useLoyalty';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -95,7 +94,6 @@ export default function OwnerLoyalty() {
   const { venueId, loading: venueLoading } = useVenueContext();
   const { loading, settings, rewards, stats, updateSettings, createReward, updateReward, deleteReward } = useLoyaltyManagement(venueId || undefined);
 
-  const [activeTab, setActiveTab] = useState<'loyalty' | 'leaderboard'>('loyalty');
   const [showRewardDialog, setShowRewardDialog] = useState(false);
   const [editingReward, setEditingReward] = useState<typeof rewards[0] | null>(null);
   const [deleteRewardId, setDeleteRewardId] = useState<string | null>(null);
@@ -211,40 +209,14 @@ export default function OwnerLoyalty() {
     </div>
   );
 
-  const tabs: { key: 'loyalty' | 'leaderboard'; label: string; Icon: typeof Gift }[] = [
-    { key: 'loyalty',     label: t('owner.loy.loyalty'),     Icon: Gift  },
-    { key: 'leaderboard', label: t('owner.loy.leaderboard'), Icon: Crown },
-  ];
-
   return (
     <div className="min-h-screen pb-24" style={{ background: '#000' }}>
       <OwnerHeader title={t('loyalty.title')} showBackButton backTo="/owner" />
 
       <div className="mx-auto max-w-4xl p-4">
 
-        {/* Custom Tabs */}
-        <div className="flex mb-6" style={{ background: TILE_BG, border: `1px solid ${F_BORDER}`, borderRadius: 12, padding: 4 }}>
-          {tabs.map(tab => (
-            <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)}
-              className="relative flex-1 flex items-center justify-center gap-2 cursor-pointer"
-              style={{ padding: '8px 12px', borderRadius: 9, background: 'none', border: 'none', fontSize: 13.5, fontWeight: 600, color: activeTab === tab.key ? T1 : T3, transition: 'color 0.2s', zIndex: 1 }}
-            >
-              {activeTab === tab.key && (
-                <motion.span className="absolute inset-0 rounded-[9px]"
-                  layoutId="loyaltyTab"
-                  style={{ background: INNER_BG, border: `1px solid ${BORDER}`, zIndex: -1 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 35 }}
-                />
-              )}
-              <tab.Icon className="h-4 w-4" />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
         <AnimatePresence mode="wait">
-          {activeTab === 'loyalty' && (
-            <motion.div key="loyalty" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-5">
+          <motion.div key="loyalty" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-5">
 
               {/* Enable Toggle */}
               <div style={{ background: 'linear-gradient(135deg,rgba(232,25,44,0.10),rgba(232,25,44,0.03)),#0a0a0c', border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: '16px' }}>
@@ -479,14 +451,7 @@ export default function OwnerLoyalty() {
                   </div>
                 </>
               )}
-            </motion.div>
-          )}
-
-          {activeTab === 'leaderboard' && (
-            <motion.div key="leaderboard" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <OwnerLeaderboardSection venueId={venueId} />
-            </motion.div>
-          )}
+          </motion.div>
         </AnimatePresence>
       </div>
 
