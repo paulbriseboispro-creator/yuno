@@ -11,7 +11,7 @@ import { AffiliateImageUploader } from '@/components/affiliate/AffiliateImageUpl
 import {
   AffPage, AffBackHeader, AffCard, AffCardHeader, AffButton, ChoiceChip, CheckBox, Toggle, AffSpinner,
   FieldLabel, DarkInput, DarkSelect,
-  RED, T1, T2, T3, BORDER, INNER_BG, TILE_BG, F_BORDER,
+  RED, POS, WARN, T1, T2, T3, BORDER, INNER_BG, TILE_BG, F_BORDER,
 } from '@/components/affiliate/affiliate-ui';
 import { MUSIC_GENRES, canonicalGenres } from '@/lib/musicGenres';
 
@@ -35,38 +35,237 @@ const timeInputStyle: React.CSSProperties = {
   colorScheme: 'dark',
 };
 
-function getNextOccurrences(dayOfWeek: number, count = 5): Date[] {
+// Occurrences à venir de ce jour de semaine, depuis aujourd'hui inclus (aligné
+// sur le générateur create-affiliate-recurring-events). Jusqu'à 10 d'avance :
+// le RP publie le lien de chaque date quand il veut, pas forcément semaine
+// après semaine.
+function getNextOccurrences(dayOfWeek: number, count = 10): Date[] {
   const dates: Date[] = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  let d = new Date(today);
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + ((dayOfWeek - d.getDay() + 7) % 7)); // 1re occurrence >= aujourd'hui
   while (dates.length < count) {
-    d = new Date(d.getTime() + 24 * 60 * 60 * 1000);
-    if (d.getDay() === dayOfWeek) dates.push(new Date(d));
+    dates.push(new Date(d));
+    d.setDate(d.getDate() + 7);
   }
   return dates;
 }
 
-function NextOccurrencesPreview({ dayOfWeek, advanceDays }: { dayOfWeek: number; advanceDays: number }) {
+// Date locale en 'yyyy-mm-dd' (pas toISOString, qui décale d'un jour selon le
+// fuseau) : c'est la clé exacte d'une occurrence dans affiliate_events.
+function toDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+type OccEvent = { id: string; external_ticket_url: string | null; status: string; is_sold_out: boolean; event_date: string };
+
+type TplSnapshot = {
+  name: string; affiliate_venue_id: string; start_time: string; end_time: string;
+  price_from: string; is_free: boolean; genres: string[]; flyer_url: string | null;
+  has_tables: boolean; tables_only: boolean; has_guest_list: boolean; guest_list_type: string;
+};
+
+// Aperçu lecture seule (mode création) : le modèle n'existe pas encore, on
+// montre juste les 10 prochaines dates + l'invite à enregistrer d'abord.
+function NextOccurrencesPreview({ dayOfWeek }: { dayOfWeek: number }) {
   const { t, language } = useLanguage();
   const localeTag = language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-US';
   const dates = getNextOccurrences(dayOfWeek);
   return (
     <AffCard padding={18}>
       <AffCardHeader icon={Sparkles} title={t('aff.recurringForm.nextOccurrences')} subtitle={t('aff.recurringForm.nextOccurrencesSub')} accent />
-      <ul className="space-y-2">
-        {dates.map((d, i) => {
-          const createdOn = new Date(d.getTime() - advanceDays * 24 * 60 * 60 * 1000);
-          const dateLabel = d.toLocaleDateString(localeTag, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-          const createdLabel = createdOn.toLocaleDateString(localeTag, { day: 'numeric', month: 'short' });
-          return (
-            <li key={i} className="flex items-center justify-between gap-4 py-1.5" style={{ borderBottom: i < dates.length - 1 ? `1px solid ${F_BORDER}` : 'none' }}>
-              <span style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{dateLabel}</span>
-              <span style={{ color: T3, fontSize: 11 }}>{t('aff.recurringForm.createdBefore').replace('{count}', String(advanceDays))} · {createdLabel}</span>
-            </li>
-          );
-        })}
+      <div className="rounded-lg p-3 mb-3" style={{ background: 'rgba(232,25,44,0.06)', border: '1px solid rgba(232,25,44,0.2)' }}>
+        <p style={{ color: T2, fontSize: 11.5, lineHeight: 1.5 }}>{t('aff.recurringForm.occSaveFirst')}</p>
+      </div>
+      <ul className="space-y-1.5">
+        {dates.map((d, i) => (
+          <li key={i} className="flex items-center gap-2 py-1" style={{ borderBottom: i < dates.length - 1 ? `1px solid ${F_BORDER}` : 'none' }}>
+            <span className="capitalize" style={{ color: T1, fontSize: 12.5, fontWeight: 540 }}>
+              {d.toLocaleDateString(localeTag, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+            </span>
+          </li>
+        ))}
       </ul>
+    </AffCard>
+  );
+}
+
+// Publieur par jour (mode édition) : chaque prochaine soirée sur sa propre
+// carte, avec son lien billetterie propre. Poser un lien crée/publie
+// l'occurrence (ticket_url_overridden = le générateur ne la touche plus, le
+// lien n'expire jamais) ; vider le lien rend la main au modèle.
+function NextOccurrencesPublisher({ templateId, dayOfWeek, affiliateId, tpl }: {
+  templateId: string; dayOfWeek: number; affiliateId: string; tpl: TplSnapshot;
+}) {
+  const { t, language } = useLanguage();
+  const { toast } = useToast();
+  const localeTag = language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-US';
+  const dates = getNextOccurrences(dayOfWeek, 10);
+  const dateStrs = dates.map(toDateStr);
+
+  const [loading, setLoading] = useState(true);
+  const [byDate, setByDate] = useState<Record<string, OccEvent>>({});
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [savingDate, setSavingDate] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from('affiliate_events')
+        .select('id, external_ticket_url, status, is_sold_out, event_date')
+        .eq('recurring_template_id', templateId)
+        .in('event_date', dateStrs);
+      if (cancelled) return;
+      const map: Record<string, OccEvent> = {};
+      const init: Record<string, string> = {};
+      for (const ev of (data ?? []) as OccEvent[]) {
+        map[ev.event_date] = ev;
+        init[ev.event_date] = ev.external_ticket_url ?? '';
+      }
+      setByDate(map);
+      setDrafts((prev) => ({ ...prev, ...init }));
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+    // dateStrs est dérivé de dayOfWeek ; on resynchronise si le jour change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateId, dayOfWeek]);
+
+  const reload = async () => {
+    const { data } = await supabase
+      .from('affiliate_events')
+      .select('id, external_ticket_url, status, is_sold_out, event_date')
+      .eq('recurring_template_id', templateId)
+      .in('event_date', dateStrs);
+    const map: Record<string, OccEvent> = {};
+    const fresh: Record<string, string> = {};
+    for (const ev of (data ?? []) as OccEvent[]) {
+      map[ev.event_date] = ev;
+      fresh[ev.event_date] = ev.external_ticket_url ?? '';
+    }
+    setByDate(map);
+    setDrafts((prev) => ({ ...prev, ...fresh }));
+  };
+
+  const publish = async (dateStr: string) => {
+    const url = (drafts[dateStr] ?? '').trim() || null;
+    setSavingDate(dateStr);
+    try {
+      // Ré-vérifier l'existence par (modèle, date) juste avant d'écrire :
+      // le cron a pu créer un brouillon depuis le chargement. Évite un doublon.
+      const { data: existing } = await supabase
+        .from('affiliate_events')
+        .select('id')
+        .eq('recurring_template_id', templateId)
+        .eq('event_date', dateStr)
+        .maybeSingle();
+
+      if (existing) {
+        const { error } = await supabase
+          .from('affiliate_events')
+          .update({ external_ticket_url: url })
+          .eq('id', existing.id);
+        if (error) throw error;
+      } else {
+        if (!url) { setSavingDate(null); return; } // rien à publier
+        // Slug unique (même base que le générateur), résolution de conflit.
+        const base = slugify(`${tpl.name} ${dateStr}`);
+        let slug = base;
+        let attempt = 0;
+        while (attempt < 6) {
+          const { data: conflict } = await supabase.from('affiliate_events').select('id').eq('slug', slug).maybeSingle();
+          if (!conflict) break;
+          attempt++;
+          slug = `${base}-${attempt}`;
+        }
+        const { error } = await supabase.from('affiliate_events').insert({
+          affiliate_id: affiliateId,
+          affiliate_venue_id: tpl.affiliate_venue_id || null,
+          name: tpl.name,
+          slug,
+          event_date: dateStr,
+          start_time: tpl.start_time || null,
+          end_time: tpl.end_time || null,
+          price_from: tpl.price_from ? parseFloat(tpl.price_from) : null,
+          is_free: tpl.is_free,
+          genres: tpl.genres,
+          flyer_url: tpl.flyer_url,
+          external_ticket_url: url,
+          status: 'published', // le trigger link_gate l'impose de toute façon
+          recurring_template_id: templateId,
+          // Le trigger d'override ne se déclenche pas à l'INSERT : on marque
+          // explicitement pour que le générateur respecte ce lien à jamais.
+          ticket_url_overridden: true,
+          has_tables: tpl.has_tables || tpl.tables_only,
+          tables_only: tpl.tables_only,
+          has_guest_list: tpl.has_guest_list,
+          guest_list_type: tpl.guest_list_type,
+        });
+        if (error) throw error;
+      }
+      await reload();
+      toast({ title: url ? t('aff.recurringForm.occSavedToast') : t('aff.recurringForm.occClearedToast') });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : t('aff.recurringForm.occErrorToast');
+      toast({ title: t('aff.recurringForm.occErrorToast'), description: msg, variant: 'destructive' });
+    } finally {
+      setSavingDate(null);
+    }
+  };
+
+  const rowStatus = (dateStr: string): { key: string; color: string } => {
+    const ev = byDate[dateStr];
+    if (!ev) return { key: 'aff.recurringForm.occToPublish', color: T3 };
+    if (ev.is_sold_out) return { key: 'aff.recurringForm.occSoldOut', color: RED };
+    if (ev.external_ticket_url && (ev.status === 'published' || ev.status === 'featured')) return { key: 'aff.recurringForm.occLive', color: POS };
+    return { key: 'aff.recurringForm.occDraft', color: WARN };
+  };
+
+  return (
+    <AffCard padding={18}>
+      <AffCardHeader icon={Sparkles} title={t('aff.recurringForm.nextOccurrences')} subtitle={t('aff.recurringForm.nextOccurrencesSub')} accent />
+      {loading ? (
+        <p style={{ color: T3, fontSize: 12 }}>{t('aff.recurringForm.occLoading')}</p>
+      ) : (
+        <div className="space-y-2.5">
+          {dates.map((d, i) => {
+            const dateStr = dateStrs[i];
+            const st = rowStatus(dateStr);
+            const ev = byDate[dateStr];
+            const dirty = (drafts[dateStr] ?? '') !== (ev?.external_ticket_url ?? '');
+            return (
+              <div key={dateStr} className="rounded-xl p-3" style={{ background: TILE_BG, border: `1px solid ${F_BORDER}`, borderLeft: `3px solid ${st.color}` }}>
+                <div className="flex items-center gap-3">
+                  <div className="flex flex-col items-center justify-center w-11 h-11 rounded-lg flex-none" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
+                    <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: T3 }}>{d.toLocaleDateString(localeTag, { weekday: 'short' })}</span>
+                    <span className="tabular-nums" style={{ fontSize: 15, fontWeight: 700, color: T1, lineHeight: 1 }}>{d.getDate()}</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="capitalize truncate" style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{d.toLocaleDateString(localeTag, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: st.color, display: 'inline-block' }} />
+                      <span style={{ fontSize: 11, color: T3 }}>{t(st.key)}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mt-2.5">
+                  <div className="flex-1 min-w-0">
+                    <DarkInput type="url" value={drafts[dateStr] ?? ''} onChange={(v) => setDrafts((prev) => ({ ...prev, [dateStr]: v }))} placeholder={t('aff.recurringForm.occPlaceholder')} />
+                  </div>
+                  <AffButton size="sm" onClick={() => publish(dateStr)} disabled={savingDate === dateStr || !dirty}>
+                    {savingDate === dateStr ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : (ev?.external_ticket_url ? t('aff.recurringForm.occUpdate') : t('aff.recurringForm.occPublish'))}
+                  </AffButton>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </AffCard>
   );
 }
@@ -455,8 +654,34 @@ export default function AffiliateRecurringForm() {
           folder="recurring/flyers" hint={t('aff.recurringForm.flyerHint')} />
       </AffCard>
 
-      {/* Preview occurrences — mode single uniquement */}
-      {(!bulkMode || isEdit) && <NextOccurrencesPreview dayOfWeek={form.day_of_week} advanceDays={form.advance_days} />}
+      {/* Prochaines soirées — mode single uniquement.
+          Édition : publieur par jour (lien propre à chaque date, posé quand on veut).
+          Création : aperçu des dates + invite à enregistrer le modèle d'abord. */}
+      {!bulkMode && (
+        isEdit && id ? (
+          <NextOccurrencesPublisher
+            templateId={id}
+            dayOfWeek={form.day_of_week}
+            affiliateId={affiliateId}
+            tpl={{
+              name: form.name,
+              affiliate_venue_id: form.affiliate_venue_id,
+              start_time: form.start_time,
+              end_time: form.end_time,
+              price_from: form.price_from,
+              is_free: form.is_free,
+              genres: form.genres,
+              flyer_url: form.flyer_url,
+              has_tables: form.has_tables,
+              tables_only: form.tables_only,
+              has_guest_list: form.has_guest_list,
+              guest_list_type: form.guest_list_type,
+            }}
+          />
+        ) : (
+          <NextOccurrencesPreview dayOfWeek={form.day_of_week} />
+        )
+      )}
 
       <div className="flex gap-3 pb-8">
         <AffButton onClick={handleSave} disabled={saving}>
