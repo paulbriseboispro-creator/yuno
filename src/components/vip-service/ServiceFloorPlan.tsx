@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { renderTableShape } from '@/components/vip/floorPlanShapes';
 import { getFittedBackgroundRect } from '@/lib/floorPlanBackground';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { ZoomIn, ZoomOut } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 import {
   ServiceReservation, TableServiceInfo, TABLE_STATE_COLORS, tableVisualState, fmtEuro,
 } from './serviceTypes';
@@ -70,6 +70,7 @@ export function ServiceFloorPlan({
 
   const [zoom, setZoom] = useState(1);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const isDefaultView = zoom === 1 && panOffset.x === 0 && panOffset.y === 0;
   const gesture = useRef<
     | { kind: 'pan'; x: number; y: number; ox: number; oy: number }
     | { kind: 'pinch'; dist: number; zoom: number }
@@ -392,24 +393,40 @@ export function ServiceFloorPlan({
         </div>
 
         <div className="absolute bottom-3 right-3 flex gap-1.5">
+          {/* Recadrer : réapparaît dès que l'hôte a zoomé ou déplacé le plan,
+              pour repartir sur la vue d'ensemble d'un seul geste. */}
+          {!isDefaultView && (
+            <button
+              type="button"
+              aria-label={t('vipnight.resetView')}
+              title={t('vipnight.resetView')}
+              className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full backdrop-blur"
+              style={{ background: 'rgba(232,25,44,0.9)', border: '1px solid rgba(255,255,255,0.18)', color: '#fff' }}
+              onClick={() => {
+                setZoom(1);
+                setPanOffset({ x: 0, y: 0 });
+              }}
+            >
+              <Maximize2 className="h-4 w-4" />
+            </button>
+          )}
           <button
             type="button"
+            aria-label={t('vipnight.zoomOut')}
+            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full backdrop-blur"
+            style={{ background: 'rgba(20,20,24,0.85)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)' }}
+            onClick={() => setZoom(z => Math.max(z - 0.3, 0.5))}
+          >
+            <ZoomOut className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            aria-label={t('vipnight.zoomIn')}
             className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full backdrop-blur"
             style={{ background: 'rgba(20,20,24,0.85)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)' }}
             onClick={() => setZoom(z => Math.min(z + 0.3, 3))}
           >
             <ZoomIn className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full backdrop-blur"
-            style={{ background: 'rgba(20,20,24,0.85)', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.8)' }}
-            onClick={() => {
-              setZoom(1);
-              setPanOffset({ x: 0, y: 0 });
-            }}
-          >
-            <ZoomOut className="h-4 w-4" />
           </button>
         </div>
       </div>

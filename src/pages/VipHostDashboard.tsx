@@ -24,6 +24,7 @@ import { OrderComposerSheet } from '@/components/vip-service/OrderComposerSheet'
 import { VipEventBar } from '@/components/vip-service/VipEventBar';
 import { VipHomeTab } from '@/components/vip-service/VipHomeTab';
 import { VipLivePanel } from '@/components/vip-service/VipLivePanel';
+import { OccupiedTablesList } from '@/components/vip-service/OccupiedTablesList';
 import { WalkinPosSheet, WalkinTarget } from '@/components/vip-service/WalkinPosSheet';
 import { WalkinSeatSheet } from '@/components/vip-service/WalkinSeatSheet';
 import {
@@ -577,6 +578,13 @@ export default function VipHostDashboard() {
                     setSeatPicker({ reservation: requester, moveMode: false });
                   }
                 }}
+              />
+
+              {/* Sous le plan : qui est à quelle table (le plan ne le dit pas
+                  lisiblement). Un tap ouvre la fiche table + suivi conso. */}
+              <OccupiedTablesList
+                reservations={reservations}
+                onSelect={r => setSelectedId(r.id)}
               />
 
               {/* Sous le plan : le pouls du service + la carte VIP en référence. */}
