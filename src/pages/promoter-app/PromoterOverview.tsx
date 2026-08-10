@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   TrendingUp, Ticket, Euro, Wine, Wallet, Gift, Megaphone, Users, Crown, Zap,
-  ArrowRight,
+  ArrowRight, ScanLine, ClipboardList,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -18,7 +18,7 @@ import {
 export default function PromoterOverview() {
   const { t, language } = useLanguage();
   const tt = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
-  const { promoter, scopeName, stats, announcements, events, templateRules, teamInfo } = usePromoterData();
+  const { promoter, scopeName, stats, announcements, events, templateRules, teamInfo, canScan, hasGuestListAccess } = usePromoterData();
 
   // Mode soirée : une soirée de la portée est en cours → bandeau live pollé.
   const [liveEvent, setLiveEvent] = useState<{ id: string; title: string } | null>(null);
@@ -121,6 +121,31 @@ export default function PromoterOverview() {
                     <span className="shrink-0 tabular-nums">{liveStats.tickets}/{liveStats.goalTarget}</span>
                   </div>
                   <PromoProgress value={liveStats.goal} />
+                </div>
+              )}
+              {/* Outils de porte à un tap pendant la soirée */}
+              {(canScan || hasGuestListAccess) && (
+                <div className="grid gap-2 mt-3" style={{ gridTemplateColumns: canScan && hasGuestListAccess ? '1fr 1fr' : '1fr' }}>
+                  {canScan && (
+                    <Link
+                      to="/promoter/scan"
+                      className="flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-opacity hover:opacity-90"
+                      style={{ background: RED, color: '#fff', minHeight: 44 }}
+                    >
+                      <ScanLine className="h-4 w-4" />
+                      {tt('Scanner', 'Scan', 'Escanear')}
+                    </Link>
+                  )}
+                  {hasGuestListAccess && (
+                    <Link
+                      to="/promoter/guestlist"
+                      className="flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors hover:bg-white/[0.08]"
+                      style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, minHeight: 44 }}
+                    >
+                      <ClipboardList className="h-4 w-4" />
+                      Guest list
+                    </Link>
+                  )}
                 </div>
               )}
             </div>
