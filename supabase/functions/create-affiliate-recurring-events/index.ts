@@ -2,15 +2,20 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 
-// Returns occurrences of dayOfWeek from today through the next advanceDays days (inclusive).
-// Results are sorted ascending (nearest first). The caller is responsible for deciding
-// which occurrences should inherit the template's publication_url vs. start as drafts.
-function upcomingDatesForDayOfWeek(dayOfWeek: number, advanceDays: number): string[] {
+// On matérialise les OCCURRENCE_HORIZON prochaines soirées de chaque modèle,
+// pas seulement la fenêtre advance_days : le RP voit toutes les dates à venir
+// dans son cockpit (page Events groupée par jour) et peut poser le lien de
+// chacune quand il veut. Les occurrences au-delà de la plus proche restent en
+// brouillon (cachées du public) tant qu'aucun lien n'est posé — le verrou
+// link_gate s'en assure. Aucun cron ne purge ces brouillons.
+const OCCURRENCE_HORIZON = 10;
+
+// Returns the next `count` occurrences of dayOfWeek from today (inclusive).
+// Results are sorted ascending (nearest first). The caller is responsible for
+// deciding which occurrences inherit the template's publication_url vs. draft.
+function upcomingOccurrenceDates(dayOfWeek: number, count: number): string[] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
-  const windowEnd = new Date(today);
-  windowEnd.setDate(windowEnd.getDate() + Math.max(advanceDays, 0));
 
   // Find first occurrence of dayOfWeek on or after today
   const first = new Date(today);
@@ -19,7 +24,7 @@ function upcomingDatesForDayOfWeek(dayOfWeek: number, advanceDays: number): stri
 
   const dates: string[] = [];
   const cur = new Date(first);
-  while (cur <= windowEnd) {
+  for (let i = 0; i < count; i++) {
     dates.push(cur.toISOString().split("T")[0]);
     cur.setDate(cur.getDate() + 7);
   }
@@ -132,7 +137,7 @@ serve(async (req) => {
     };
 
     for (const tpl of templates) {
-      const eventDates = upcomingDatesForDayOfWeek(tpl.day_of_week, tpl.advance_days);
+      const eventDates = upcomingOccurrenceDates(tpl.day_of_week, OCCURRENCE_HORIZON);
       // Only the nearest occurrence (eventDates[0]) inherits the template's publication_url.
       // Advance-generated future events start as drafts to avoid publishing next week's
       // event with this week's ticket link.
