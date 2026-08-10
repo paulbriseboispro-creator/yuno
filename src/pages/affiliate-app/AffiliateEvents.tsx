@@ -139,6 +139,19 @@ export default function AffiliateEvents() {
   const filtered = filter === 'all' ? events : events.filter((e) => e.status === filter);
   const missingLink = events.filter((e) => !e.external_ticket_url && !isPast(parseISO(e.event_date))).length;
 
+  // Groupement par date : chaque jour a son en-tête, les soirées à venir en
+  // premier (plus proche → plus lointaine), le passé ensuite (plus récent
+  // d'abord). Rend lisible une longue liste d'occurrences récurrentes.
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const groups = new Map<string, EventRow[]>();
+  for (const e of filtered) {
+    const arr = groups.get(e.event_date);
+    if (arr) arr.push(e); else groups.set(e.event_date, [e]);
+  }
+  const upcomingDates = [...groups.keys()].filter((d) => d >= todayStr).sort();
+  const pastDates = [...groups.keys()].filter((d) => d < todayStr).sort().reverse();
+  const orderedDates = [...upcomingDates, ...pastDates];
+
   if (loading) return <AffSpinner />;
 
   return (
@@ -195,82 +208,101 @@ export default function AffiliateEvents() {
           action={<AffLinkButton to="/affiliate/events/new" size="sm"><Plus className="h-4 w-4" /> {t('aff.events.createEvent')}</AffLinkButton>}
         />
       ) : (
-        <AffCard padding={0}>
-          <div className="divide-y" style={{ borderColor: BORDER }}>
-            {filtered.map((event, i) => {
-              const past = isPast(parseISO(event.event_date));
-              return (
-                <motion.div key={event.id}
-                  initial={{ opacity: 0 }} animate={{ opacity: past ? 0.5 : 1 }} transition={{ delay: Math.min(i * 0.025, 0.3) }}
-                  className="flex items-center gap-4 px-4 py-3 transition-colors"
-                  onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                >
-                  {/* Flyer thumbnail */}
-                  <div className="w-12 h-12 rounded-lg overflow-hidden flex-none flex items-center justify-center" style={{ background: C_FAINT, border: `1px solid ${BORDER}` }}>
-                    {event.flyer_url ? (
-                      <img src={event.flyer_url} alt={event.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="tabular-nums" style={{ color: T3, fontSize: 16, fontWeight: 700 }}>{format(parseISO(event.event_date), 'd')}</span>
-                    )}
-                  </div>
+        <div className="space-y-5">
+          {orderedDates.map((dateStr) => {
+            const dayEvents = groups.get(dateStr)!;
+            const d = parseISO(dateStr);
+            const isTodayGroup = dateStr === todayStr;
+            const isPastGroup = dateStr < todayStr;
+            return (
+              <div key={dateStr}>
+                {/* En-tête de jour */}
+                <div className="flex items-center gap-2 px-1 mb-2">
+                  <span className="capitalize" style={{ fontSize: 12.5, fontWeight: 650, color: isTodayGroup ? RED : isPastGroup ? T3 : T2, letterSpacing: '0.01em' }}>
+                    {format(d, 'EEEE d MMM yyyy', { locale: dateLocale })}
+                  </span>
+                  {isTodayGroup && <span style={{ fontSize: 10.5, fontWeight: 600, color: RED, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('aff.week.today')}</span>}
+                  <span style={{ fontSize: 11, color: T3 }}>· {dayEvents.length} {dayEvents.length > 1 ? t('aff.week.eventMany') : t('aff.week.eventOne')}</span>
+                </div>
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{event.name}</p>
-                      {event.is_sold_out && <Pill tone="red">{t('aff.events.soldOutPill')}</Pill>}
-                    </div>
-                    <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>
-                      {event.affiliate_venues?.name ?? t('aff.events.noVenue')}
-                      {' · '}
-                      {format(parseISO(event.event_date), 'd MMM yyyy', { locale: dateLocale })}
-                    </p>
-                  </div>
+                <AffCard padding={0}>
+                  <div className="divide-y" style={{ borderColor: BORDER }}>
+                    {dayEvents.map((event, i) => {
+                      const past = isPast(parseISO(event.event_date));
+                      return (
+                        <motion.div key={event.id}
+                          initial={{ opacity: 0 }} animate={{ opacity: past ? 0.5 : 1 }} transition={{ delay: Math.min(i * 0.025, 0.3) }}
+                          className="flex items-center gap-4 px-4 py-3 transition-colors"
+                          onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                        >
+                          {/* Flyer thumbnail */}
+                          <div className="w-12 h-12 rounded-lg overflow-hidden flex-none flex items-center justify-center" style={{ background: C_FAINT, border: `1px solid ${BORDER}` }}>
+                            {event.flyer_url ? (
+                              <img src={event.flyer_url} alt={event.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="tabular-nums" style={{ color: T3, fontSize: 16, fontWeight: 700 }}>{format(parseISO(event.event_date), 'd')}</span>
+                            )}
+                          </div>
 
-                  {/* Ticket URL indicator */}
-                  <div className="flex-none hidden md:block">
-                    {event.external_ticket_url ? (
-                      <a href={event.external_ticket_url} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-[11.5px] font-medium" style={{ color: POS }}>
-                        <ExternalLink className="h-3 w-3" /> {t('aff.events.linkActive')}
-                      </a>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[11.5px] font-medium" style={{ color: WARN }}>
-                        <AlertTriangle className="h-3 w-3" /> {t('aff.events.linkMissing')}
-                      </span>
-                    )}
-                  </div>
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="truncate" style={{ color: T1, fontSize: 13.5, fontWeight: 560 }}>{event.name}</p>
+                              {event.is_sold_out && <Pill tone="red">{t('aff.events.soldOutPill')}</Pill>}
+                            </div>
+                            <p style={{ color: T3, fontSize: 11.5, marginTop: 1 }}>
+                              {event.affiliate_venues?.name ?? t('aff.events.noVenue')}
+                            </p>
+                          </div>
 
-                  {/* Status + actions */}
-                  <div className="flex items-center gap-1.5 flex-none">
-                    <Pill tone={STATUS_TONE[event.status] ?? 'muted'}>{STATUS_LABEL_KEY[event.status] ? t(STATUS_LABEL_KEY[event.status]) : event.status}</Pill>
-                    <button onClick={() => toggleSoldOut(event.id, event.is_sold_out)}
-                      title={event.is_sold_out ? t('aff.events.markOnSale') : t('aff.events.markSoldOut')}
-                      className="p-1.5 transition-colors" style={{ color: event.is_sold_out ? RED : T3 }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = RED)} onMouseLeave={(e) => (e.currentTarget.style.color = event.is_sold_out ? RED : T3)}>
-                      <CheckCircle className="h-3.5 w-3.5" />
-                    </button>
-                    <Link to={`/affiliate/events/${event.id}/brief`} title={t('aff.events.briefTitle')}
-                      className="p-1.5 transition-colors" style={{ color: T3 }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = RED)} onMouseLeave={(e) => (e.currentTarget.style.color = T3)}>
-                      <FileText className="h-3.5 w-3.5" />
-                    </Link>
-                    <Link to={`/affiliate/events/${event.id}/edit`} title={t('aff.events.editTitle')}
-                      className="p-1.5 transition-colors" style={{ color: T3 }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = T1)} onMouseLeave={(e) => (e.currentTarget.style.color = T3)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Link>
-                    <button onClick={() => handleDelete(event.id)} className="p-1.5 transition-colors" style={{ color: T3 }} title={t('aff.events.deleteTitle')}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = RED)} onMouseLeave={(e) => (e.currentTarget.style.color = T3)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                          {/* Ticket URL indicator */}
+                          <div className="flex-none hidden md:block">
+                            {event.external_ticket_url ? (
+                              <a href={event.external_ticket_url} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[11.5px] font-medium" style={{ color: POS }}>
+                                <ExternalLink className="h-3 w-3" /> {t('aff.events.linkActive')}
+                              </a>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[11.5px] font-medium" style={{ color: WARN }}>
+                                <AlertTriangle className="h-3 w-3" /> {t('aff.events.linkMissing')}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Status + actions */}
+                          <div className="flex items-center gap-1.5 flex-none">
+                            <Pill tone={STATUS_TONE[event.status] ?? 'muted'}>{STATUS_LABEL_KEY[event.status] ? t(STATUS_LABEL_KEY[event.status]) : event.status}</Pill>
+                            <button onClick={() => toggleSoldOut(event.id, event.is_sold_out)}
+                              title={event.is_sold_out ? t('aff.events.markOnSale') : t('aff.events.markSoldOut')}
+                              className="p-1.5 transition-colors" style={{ color: event.is_sold_out ? RED : T3 }}
+                              onMouseEnter={(e) => (e.currentTarget.style.color = RED)} onMouseLeave={(e) => (e.currentTarget.style.color = event.is_sold_out ? RED : T3)}>
+                              <CheckCircle className="h-3.5 w-3.5" />
+                            </button>
+                            <Link to={`/affiliate/events/${event.id}/brief`} title={t('aff.events.briefTitle')}
+                              className="p-1.5 transition-colors" style={{ color: T3 }}
+                              onMouseEnter={(e) => (e.currentTarget.style.color = RED)} onMouseLeave={(e) => (e.currentTarget.style.color = T3)}>
+                              <FileText className="h-3.5 w-3.5" />
+                            </Link>
+                            <Link to={`/affiliate/events/${event.id}/edit`} title={t('aff.events.editTitle')}
+                              className="p-1.5 transition-colors" style={{ color: T3 }}
+                              onMouseEnter={(e) => (e.currentTarget.style.color = T1)} onMouseLeave={(e) => (e.currentTarget.style.color = T3)}>
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Link>
+                            <button onClick={() => handleDelete(event.id)} className="p-1.5 transition-colors" style={{ color: T3 }} title={t('aff.events.deleteTitle')}
+                              onMouseEnter={(e) => (e.currentTarget.style.color = RED)} onMouseLeave={(e) => (e.currentTarget.style.color = T3)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
                   </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        </AffCard>
+                </AffCard>
+              </div>
+            );
+          })}
+        </div>
       )}
     </AffPage>
   );
