@@ -72,8 +72,9 @@ export function PromoterAppSidebar() {
   };
 
   return (
-    // Même largeur mobile que l'app DJ : le tiroir laisse voir la page derrière.
-    <Sidebar collapsible="icon" variant="floating" mobileWidth="min(15rem, 78vw)">
+    // Même tiroir mobile que l'app DJ : 15rem de large, panneau flottant détaché
+    // des bords (mobileInset) pour ne pas recouvrir la barre de statut.
+    <Sidebar collapsible="icon" variant="floating" mobileWidth="min(15rem, 78vw)" mobileInset>
       <SidebarHeader className="h-14 justify-center">
         <SidebarMenuButton asChild>
           <Link to="/promoter" className="gap-2.5">

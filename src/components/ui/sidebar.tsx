@@ -172,6 +172,10 @@ const Sidebar = React.forwardRef<
      *  sur le SheetContent, donc une classe `w-[...]` passée via className ne
      *  peut PAS la surcharger — ce prop est le seul levier par instance. */
     mobileWidth?: string
+    /** Tiroir mobile « flottant » : détaché des bords (safe-area comprise, il ne
+     *  recouvre plus l'heure), coins arrondis, hauteur auto. Pensé pour les
+     *  apps natives où le Sheet pleine hauteur écrase la barre de statut. */
+    mobileInset?: boolean
   }
 >(
   (
@@ -180,6 +184,7 @@ const Sidebar = React.forwardRef<
       variant = "sidebar",
       collapsible = "offcanvas",
       mobileWidth,
+      mobileInset,
       className,
       children,
       ...props
@@ -213,6 +218,20 @@ const Sidebar = React.forwardRef<
             style={
               {
                 "--sidebar-width": mobileWidth ?? SIDEBAR_WIDTH_MOBILE,
+                // Les styles inline priment sur les classes du Sheet
+                // (inset-y-0 h-full border-r) : c'est le seul moyen d'insérer
+                // les marges safe-area par instance.
+                ...(mobileInset
+                  ? {
+                      top: "calc(env(safe-area-inset-top, 0px) + 10px)",
+                      bottom: "calc(env(safe-area-inset-bottom, 0px) + 10px)",
+                      left: 10,
+                      height: "auto",
+                      borderRadius: 18,
+                      border: "1px solid hsl(var(--sidebar-border))",
+                      overflow: "hidden",
+                    }
+                  : {}),
               } as React.CSSProperties
             }
             side={side}

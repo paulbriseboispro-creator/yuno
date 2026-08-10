@@ -59,7 +59,9 @@ export function DJAppSidebar() {
   return (
     // 18rem (défaut Sheet) couvrait ~3/4 d'un iPhone : trop large pour un tiroir
     // secondaire dans l'app Pro. 15rem suffit aux libellés et laisse voir la page.
-    <Sidebar collapsible="icon" variant="floating" mobileWidth="min(15rem, 78vw)">
+    // mobileInset : panneau flottant détaché des bords — sans lui le Sheet pleine
+    // hauteur recouvre la barre de statut (l'heure) sur iPhone.
+    <Sidebar collapsible="icon" variant="floating" mobileWidth="min(15rem, 78vw)" mobileInset>
       <SidebarHeader className="h-14 justify-center">
         <SidebarMenuButton asChild>
           <Link to="/dj" className="gap-2.5">
