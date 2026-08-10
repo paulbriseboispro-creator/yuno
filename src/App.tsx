@@ -135,7 +135,17 @@ const Unsubscribe = lazyWithRetry(() => import("./pages/Unsubscribe"));
 // Legacy organizer pages removed — replaced by OrgApp* + OrganizerPublicProfile.
 const GuestListSignup = lazyWithRetry(() => import("./pages/GuestListSignup"));
 const GuestListCheckout = lazyWithRetry(() => import("./pages/GuestListCheckout"));
-const PromoterDashboard = lazyWithRetry(() => import("./pages/PromoterDashboard"));
+// Espace promoteur (layout sidebar + sections routées, miroir de l'app DJ)
+const PromoterLayout = lazyWithRetry(() => import("./pages/promoter-app/PromoterLayout"));
+const PromoterOverview = lazyWithRetry(() => import("./pages/promoter-app/PromoterOverview"));
+const PromoterEvents = lazyWithRetry(() => import("./pages/promoter-app/PromoterEvents"));
+const PromoterLinks = lazyWithRetry(() => import("./pages/promoter-app/PromoterLinks"));
+const PromoterLinktreePage = lazyWithRetry(() => import("./pages/promoter-app/PromoterLinktreePage"));
+const PromoterScanPage = lazyWithRetry(() => import("./pages/promoter-app/PromoterScanPage"));
+const PromoterGuestlistPage = lazyWithRetry(() => import("./pages/promoter-app/PromoterGuestlistPage"));
+const PromoterPayments = lazyWithRetry(() => import("./pages/promoter-app/PromoterPayments"));
+const PromoterTeamPage = lazyWithRetry(() => import("./pages/promoter-app/PromoterTeamPage"));
+const PromoterProfilePage = lazyWithRetry(() => import("./pages/promoter-app/PromoterProfilePage"));
 const PromoterHub = lazyWithRetry(() => import("./pages/PromoterHub"));
 const PromoterAgenda = lazyWithRetry(() => import("./pages/PromoterAgenda"));
 const PromoterPublicRedirect = lazyWithRetry(() => import("./pages/PromoterPublicRedirect"));
@@ -734,12 +744,24 @@ const App = () => (
                   </BouncerRoute>
                 } />
                 
-                {/* Promoter routes */}
+                {/* Espace promoteur (layout sidebar + sections routées).
+                    NB : /promoter/event/:eventId reste une route autonome plus
+                    haut — elle sert aussi la vue owner (?promoter=) sans guard. */}
                 <Route path="/promoter" element={
                   <PromoterRoute>
-                    <PromoterDashboard />
+                    <PromoterLayout />
                   </PromoterRoute>
-                } />
+                }>
+                  <Route index element={<PromoterOverview />} />
+                  <Route path="events" element={<PromoterEvents />} />
+                  <Route path="links" element={<PromoterLinks />} />
+                  <Route path="linktree" element={<PromoterLinktreePage />} />
+                  <Route path="scan" element={<PromoterScanPage />} />
+                  <Route path="guestlist" element={<PromoterGuestlistPage />} />
+                  <Route path="payments" element={<PromoterPayments />} />
+                  <Route path="team" element={<PromoterTeamPage />} />
+                  <Route path="profile" element={<PromoterProfilePage />} />
+                </Route>
 
                 {/* PIN setup & reset routes */}
                 <Route path="/setup-pin" element={<SetupPinPage />} />

@@ -94,6 +94,60 @@ export function PromoCard({
   );
 }
 
+// ─── Carte premium avec en-tête (icône + titre + sous-titre + slot droit) ─────
+// Miroir du PCard de dj-ui : la carte de section standard des pages de l'app
+// promoteur. `accent` passe la tuile d'icône en rouge Yuno.
+export function PromoPCard({
+  children, className = '', style = {}, icon, title, sub, right, accent,
+}: {
+  children: ReactNode;
+  className?: string;
+  style?: CSSProperties;
+  icon?: ReactNode;
+  title?: string;
+  sub?: string;
+  right?: ReactNode;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      className={`overflow-hidden relative ${className}`}
+      style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: CARD_SHADOW, padding: 18, ...style }}
+    >
+      {(title || icon) && (
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div className="flex items-center gap-3 min-w-0">
+            {icon && (
+              <div className="w-8 h-8 flex items-center justify-center rounded-xl flex-none"
+                style={accent
+                  ? { background: 'rgba(232,25,44,0.1)', border: '1px solid rgba(232,25,44,0.2)', color: RED }
+                  : { background: C_FAINT, border: `1px solid ${BORDER}`, color: T2 }}>
+                {icon}
+              </div>
+            )}
+            <div className="min-w-0">
+              {title && <h3 className="m-0 text-[15.5px] font-semibold leading-tight truncate" style={{ color: T1, letterSpacing: '-0.01em' }}>{title}</h3>}
+              {sub && <p className="m-0 mt-0.5 text-xs truncate" style={{ color: T3 }}>{sub}</p>}
+            </div>
+          </div>
+          {right}
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+// ─── Loading spinner (pleine surface) ────────────────────────────────────────
+export function PromoSpinner() {
+  return (
+    <div className="flex min-h-screen items-center justify-center" style={{ background: '#000' }}>
+      <div className="h-10 w-10 animate-spin rounded-full border-2"
+        style={{ borderColor: `${BORDER} ${BORDER} ${BORDER} ${RED}` }} />
+    </div>
+  );
+}
+
 // ─── Section label (uppercase, with optional action on the right) ─────────────
 export function SectionLabel({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
