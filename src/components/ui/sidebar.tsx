@@ -168,6 +168,10 @@ const Sidebar = React.forwardRef<
     side?: "left" | "right"
     variant?: "sidebar" | "floating" | "inset"
     collapsible?: "offcanvas" | "icon" | "none"
+    /** Largeur du tiroir mobile (Sheet). La largeur est posée en CSS var inline
+     *  sur le SheetContent, donc une classe `w-[...]` passée via className ne
+     *  peut PAS la surcharger — ce prop est le seul levier par instance. */
+    mobileWidth?: string
   }
 >(
   (
@@ -175,6 +179,7 @@ const Sidebar = React.forwardRef<
       side = "left",
       variant = "sidebar",
       collapsible = "offcanvas",
+      mobileWidth,
       className,
       children,
       ...props
@@ -207,7 +212,7 @@ const Sidebar = React.forwardRef<
             className="w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
             style={
               {
-                "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
+                "--sidebar-width": mobileWidth ?? SIDEBAR_WIDTH_MOBILE,
               } as React.CSSProperties
             }
             side={side}
