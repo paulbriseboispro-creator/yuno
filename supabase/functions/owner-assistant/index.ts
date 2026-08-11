@@ -210,9 +210,9 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "events-create": {
     title: "Créer et publier une soirée",
-    keywords: ["événement", "event", "soirée", "créer", "create", "publier", "publish", "poster", "affiche", "line-up", "privé", "mot de passe", "visibilité", "secret"],
+    keywords: ["événement", "event", "soirée", "créer", "create", "publier", "publish", "poster", "affiche", "line-up", "privé", "mot de passe", "visibilité", "secret", "fuseau", "fuseau horaire", "timezone", "heure", "décalage"],
     path: "/owner/events",
-    snippet: "Depuis Événements, crée une soirée : titre, dates, affiche, genre musical, line-up DJ. Ajouter au line-up un DJ qui a un compte Yuno envoie une demande de booking (horaires du set, cachet proposé, message pour le style attendu) : il n'apparaît sur l'affiche qu'après avoir accepté depuis son app, et reste « En attente » d'ici là ; un profil sans compte est ajouté directement. Active ensuite la billetterie, la guest list et les tables VIP selon tes besoins. Une soirée peut être publique (visible dans Explorer) ou privée avec mot de passe. Les événements sans lieu fixe peuvent utiliser une adresse secrète révélée aux acheteurs.",
+    snippet: "Depuis Événements, crée une soirée : titre, dates, fuseau horaire, affiche, genre musical, line-up DJ. Le champ Fuseau horaire fixe le fuseau dans lequel les heures de début/fin que tu saisis sont interprétées ET affichées (clients, notifications, billets) ; il est pré-rempli avec le fuseau de la ville de ton club et tu peux le changer par soirée. Ainsi une soirée saisie à 23h30 reste 23h30 partout, sans décalage. Ajouter au line-up un DJ qui a un compte Yuno envoie une demande de booking (horaires du set, cachet proposé, message pour le style attendu) : il n'apparaît sur l'affiche qu'après avoir accepté depuis son app, et reste « En attente » d'ici là ; un profil sans compte est ajouté directement. Active ensuite la billetterie, la guest list et les tables VIP selon tes besoins. Une soirée peut être publique (visible dans Explorer) ou privée avec mot de passe. Les événements sans lieu fixe peuvent utiliser une adresse secrète révélée aux acheteurs.",
   },
   "recurring-events": {
     title: "Soirées récurrentes",
