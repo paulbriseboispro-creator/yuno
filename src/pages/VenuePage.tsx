@@ -21,7 +21,7 @@ import { Shimmer, SkeletonLine } from '@/components/skeletons/Shimmer';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr, es, enUS } from 'date-fns/locale';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { PARIS_TIMEZONE, nowInParis } from '@/lib/timezone';
+import { nowInParis, getEventTimezone } from '@/lib/timezone';
 import { hasFeature, SUBSCRIPTIONS_ENABLED, type PlanCode } from '@/lib/planFeatures';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
 import { usePromoterTracking } from '@/hooks/usePromoterTracking';
@@ -441,6 +441,7 @@ export default function VenuePage() {
           posterPosition: event.poster_position as { x: number; y: number; scale: number } | undefined,
           startAt: event.start_at,
           endAt: event.end_at,
+          timezone: event.timezone,
           isActive: event.is_active,
           ticketingEnabled: event.ticketing_enabled,
           createdAt: event.created_at,
@@ -895,7 +896,7 @@ export default function VenuePage() {
                   {/* Text — separated below the image */}
                   <div className="pt-2.5">
                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-                      {formatInTimeZone(startDate, PARIS_TIMEZONE, 'EEE d MMM', { locale: dfLocale })}
+                      {formatInTimeZone(startDate, getEventTimezone(event), 'EEE d MMM', { locale: dfLocale })}
                     </p>
                     <p className="text-sm font-bold text-foreground mt-0.5 line-clamp-2 leading-tight">
                       {event.title}

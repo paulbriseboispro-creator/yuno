@@ -13,7 +13,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useScrollIntoViewOnFocus } from '@/hooks/useScrollIntoViewOnFocus';
 import { formatInTimeZone } from 'date-fns-tz';
 import { enUS, es, fr } from 'date-fns/locale';
-import { PARIS_TIMEZONE } from '@/lib/timezone';
+import { PARIS_TIMEZONE, getEventTimezone } from '@/lib/timezone';
 import { TicketRound, EventWithTicketing, customerTransactionFee } from '@/types/ticketing';
 import { useAbsorbYunoFees } from '@/hooks/useAbsorbYunoFees';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
@@ -308,6 +308,7 @@ export default function TicketCheckout() {
         posterUrl: eventData.poster_url,
         startAt: eventData.start_at,
         endAt: eventData.end_at,
+        timezone: eventData.timezone,
         isActive: eventData.is_active,
         ticketingEnabled: eventData.ticketing_enabled,
         maxTickets: eventData.max_tickets,
@@ -1065,9 +1066,9 @@ export default function TicketCheckout() {
                   <div className="min-w-0">
                     <p className="font-display font-bold uppercase text-white leading-tight" style={{ fontSize: '15px', letterSpacing: '-0.005em' }}>{event.title}</p>
                     <p className="font-mono uppercase text-[#9A9A9A] flex items-center gap-1.5 mt-1.5" style={{ fontSize: '10px', letterSpacing: '0.04em' }}>
-                      {formatInTimeZone(new Date(event.startAt), PARIS_TIMEZONE, 'EEE d MMM · HH:mm', { locale: getLocale() })}
+                      {formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'EEE d MMM · HH:mm', { locale: getLocale() })}
                       {' – '}
-                      {formatInTimeZone(new Date(event.endAt), PARIS_TIMEZONE, 'HH:mm', { locale: getLocale() })}
+                      {formatInTimeZone(new Date(event.endAt), getEventTimezone(event), 'HH:mm', { locale: getLocale() })}
                     </p>
                   </div>
                 </div>

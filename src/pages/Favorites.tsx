@@ -6,7 +6,7 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { supabase } from '@/integrations/supabase/client';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr, es, enUS } from 'date-fns/locale';
-import { PARIS_TIMEZONE } from '@/lib/timezone';
+import { getEventTimezone } from '@/lib/timezone';
 import { FadeInView } from '@/components/motion';
 import { PageFade } from '@/components/PageFade';
 import { EmptyState as GlobalEmptyState } from '@/components/EmptyState';
@@ -50,6 +50,7 @@ interface FavoriteEvent {
   title: string;
   startAt: string;
   endAt?: string;
+  timezone?: string | null;
   posterUrl?: string;
   venueId?: string;
   venueName?: string;
@@ -101,7 +102,7 @@ interface FollowedAgency {
    lignes qu'on lit vraiment, plutôt que de tout passer en `any`. */
 interface VenueRow { id: string; name: string; city: string | null; logo_url: string | null; cover_url: string | null; music_genre: string | null }
 interface AffVenueRow { id: string; name: string; city: string | null; cover_image_url: string | null; slug: string }
-interface EventRow { id: string; title: string; start_at: string; end_at: string | null; poster_url: string | null; venue_id: string | null; partner_venue_id: string | null; organizer_user_id: string | null; music_genres: string[] | null }
+interface EventRow { id: string; title: string; start_at: string; end_at: string | null; timezone: string | null; poster_url: string | null; venue_id: string | null; partner_venue_id: string | null; organizer_user_id: string | null; music_genres: string[] | null }
 interface AffEventRow { id: string; name: string; event_date: string; start_time: string | null; flyer_url: string | null; slug: string; genres: string[] | null; affiliate_venues: { name: string } | null }
 interface DrinkRow { id: string; name: string; price: number; img_url: string; venue_id: string; collection: string }
 interface DjRow { id: string; stage_name: string | null; first_name: string | null; last_name: string | null; profile_image_url: string | null; music_genres: string[] | null; slug: string | null; handle: string | null }
@@ -371,7 +372,7 @@ export default function Favorites() {
         ] = await Promise.all([
           clubIds0.length ? supabase.from('venues').select('id, name, city, logo_url, cover_url, music_genre').in('id', clubIds0) : none<VenueRow>(),
           affVenueIds.length ? supabase.from('affiliate_venues').select('id, name, city, cover_image_url, slug').in('id', affVenueIds) : none<AffVenueRow>(),
-          eventIds.length ? supabase.from('events').select('id, title, start_at, end_at, poster_url, venue_id, partner_venue_id, organizer_user_id, music_genres').in('id', eventIds) : none<EventRow>(),
+          eventIds.length ? supabase.from('events').select('id, title, start_at, end_at, timezone, poster_url, venue_id, partner_venue_id, organizer_user_id, music_genres').in('id', eventIds) : none<EventRow>(),
           affEventIds.length ? supabase.from('affiliate_events').select('id, name, event_date, start_time, flyer_url, slug, genres, affiliate_venues(name)').in('id', affEventIds) : none<AffEventRow>(),
           drinkIds.length ? supabase.from('drinks').select('id, name, price, img_url, venue_id, collection').in('id', drinkIds) : none<DrinkRow>(),
           // djs_public (vue definer, anon-safe) expose le handle propre -> lien /dj/<handle>.
@@ -447,6 +448,7 @@ export default function Favorites() {
 
         const regularEvents: FavoriteEvent[] = eventRows.map((e) => ({
           id: e.id, title: e.title, startAt: e.start_at, endAt: e.end_at,
+          timezone: e.timezone,
           posterUrl: e.poster_url || undefined,
           venueId: e.venue_id, isAffiliate: false,
           venueName: hostVenueName.get(e.venue_id) || hostVenueName.get(e.partner_venue_id) || hostOrgName.get(e.organizer_user_id) || undefined,
@@ -501,13 +503,13 @@ export default function Favorites() {
     return () => { cancelled = true; };
   }, [favLoading, favorites]);
 
-  const formatEventDate = (startAt: string) => {
+  const formatEventDate = (ev: FavoriteEvent) => {
     try {
-      const d = new Date(startAt);
-      if (isNaN(d.getTime())) return startAt.slice(0, 10);
-      return formatInTimeZone(d, PARIS_TIMEZONE, 'EEE d MMM', { locale });
+      const d = new Date(ev.startAt);
+      if (isNaN(d.getTime())) return ev.startAt.slice(0, 10);
+      return formatInTimeZone(d, getEventTimezone(ev), 'EEE d MMM', { locale });
     } catch {
-      return startAt.slice(0, 10);
+      return ev.startAt.slice(0, 10);
     }
   };
 
@@ -588,7 +590,7 @@ export default function Favorites() {
         id: e.id,
         title: e.title,
         imageUrl: e.posterUrl,
-        meta: [formatEventDate(e.startAt).toUpperCase(), genre].filter(Boolean).join(' · '),
+        meta: [formatEventDate(e).toUpperCase(), genre].filter(Boolean).join(' · '),
         isAffiliate: e.isAffiliate,
         favType: e.isAffiliate ? 'affiliate_event' : 'event',
         onOpen: () => (e.isAffiliate

@@ -14,7 +14,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { fr, es, enUS } from 'date-fns/locale';
 import { motion } from 'framer-motion';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { PARIS_TIMEZONE, nowInParis } from '@/lib/timezone';
+import { nowInParis, getEventTimezone } from '@/lib/timezone';
 
 interface EventSelectionDialogProps {
   open: boolean;
@@ -111,6 +111,7 @@ export function EventSelectionDialog({
         posterUrl: event.poster_url || undefined,
         startAt: event.start_at,
         endAt: event.end_at,
+        timezone: event.timezone,
         isActive: event.is_active,
         createdAt: event.created_at,
         updatedAt: event.updated_at,
@@ -182,10 +183,10 @@ export function EventSelectionDialog({
                           </p>
                         )}
                         <p className="text-xs text-muted-foreground mt-1">
-                          {formatInTimeZone(new Date(event.startAt), PARIS_TIMEZONE, 'EEE d MMM', { locale: getLocale() })}
+                          {formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'EEE d MMM', { locale: getLocale() })}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {formatInTimeZone(new Date(event.startAt), PARIS_TIMEZONE, 'HH:mm', { locale: getLocale() })} - {formatInTimeZone(new Date(event.endAt), PARIS_TIMEZONE, 'HH:mm', { locale: getLocale() })}
+                          {formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'HH:mm', { locale: getLocale() })} - {formatInTimeZone(new Date(event.endAt), getEventTimezone(event), 'HH:mm', { locale: getLocale() })}
                         </p>
                       </div>
                     </div>

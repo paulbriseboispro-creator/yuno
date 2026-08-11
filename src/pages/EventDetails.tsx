@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatInTimeZone } from 'date-fns-tz';
 import { enUS, es, fr } from 'date-fns/locale';
-import { PARIS_TIMEZONE } from '@/lib/timezone';
+import { PARIS_TIMEZONE, getEventTimezone } from '@/lib/timezone';
 import { TicketRound, TableZone, TablePack, EventWithTicketing, getEventSalesStatus } from '@/types/ticketing';
 import { EventSalesStatus } from '@/components/ticketing/EventSalesStatus';
 // EventWaitlistForm moved to dedicated page
@@ -513,6 +513,7 @@ export default function EventDetails() {
         posterPosition: eventData.poster_position as { x: number; y: number; scale: number } | undefined,
         startAt: eventData.start_at,
         endAt: eventData.end_at,
+        timezone: eventData.timezone,
         isActive: eventData.is_active,
         ticketingEnabled: eventData.ticketing_enabled,
         maxTickets: eventData.max_tickets,
@@ -824,9 +825,9 @@ export default function EventDetails() {
               <p className="font-mono text-[#9A9A9A] tracking-[0.06em]" style={{ fontSize: '12px' }}>
                 {[
                   !primaryOrganizer && venue ? venue.name.toUpperCase() : null,
-                  formatInTimeZone(new Date(event.startAt), PARIS_TIMEZONE, 'EEE d MMM yyyy', { locale: getLocale() }).toUpperCase(),
-                  `OPENS ${formatInTimeZone(new Date(event.startAt), PARIS_TIMEZONE, 'HH:mm')}`,
-                  `CLOSES ${formatInTimeZone(new Date(event.endAt), PARIS_TIMEZONE, 'HH:mm')}`,
+                  formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'EEE d MMM yyyy', { locale: getLocale() }).toUpperCase(),
+                  `OPENS ${formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'HH:mm')}`,
+                  `CLOSES ${formatInTimeZone(new Date(event.endAt), getEventTimezone(event), 'HH:mm')}`,
                 ].filter(Boolean).join(' · ')}
               </p>
             </div>
@@ -988,10 +989,10 @@ export default function EventDetails() {
                 className="font-display font-bold text-white"
                 style={{ fontSize: 'clamp(48px, 12vw, 72px)', letterSpacing: '-0.04em', lineHeight: 0.85 }}
               >
-                {formatInTimeZone(new Date(event.startAt), PARIS_TIMEZONE, 'dd', { locale: getLocale() })}
+                {formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'dd', { locale: getLocale() })}
               </p>
               <p className="font-display font-bold uppercase" style={{ fontSize: 'clamp(14px, 3.5vw, 20px)', color: '#9A9A9A', letterSpacing: '-0.01em', lineHeight: 1.1, marginTop: 4 }}>
-                {formatInTimeZone(new Date(event.startAt), PARIS_TIMEZONE, 'MMMM yyyy', { locale: getLocale() })}
+                {formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'MMMM yyyy', { locale: getLocale() })}
               </p>
             </div>
             <div className="shrink-0" style={{ width: 1, background: 'rgba(255,255,255,0.07)', margin: '0 24px' }} />
@@ -1001,10 +1002,10 @@ export default function EventDetails() {
                 className="font-display font-bold text-white"
                 style={{ fontSize: 'clamp(48px, 12vw, 72px)', letterSpacing: '-0.04em', lineHeight: 0.85 }}
               >
-                {formatInTimeZone(new Date(event.startAt), PARIS_TIMEZONE, 'HH:mm')}
+                {formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'HH:mm')}
               </p>
               <p className="font-mono uppercase" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.08em', marginTop: 8 }}>
-                {t('event.doorsClose')} {formatInTimeZone(new Date(event.endAt), PARIS_TIMEZONE, 'HH:mm')}
+                {t('event.doorsClose')} {formatInTimeZone(new Date(event.endAt), getEventTimezone(event), 'HH:mm')}
               </p>
             </div>
           </div>

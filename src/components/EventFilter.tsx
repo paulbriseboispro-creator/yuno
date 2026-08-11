@@ -12,7 +12,7 @@ import { uniqueChannel } from '@/lib/realtime';
 import { Event } from '@/types';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr, es, enUS } from 'date-fns/locale';
-import { PARIS_TIMEZONE, nowInParis, toParisTime } from '@/lib/timezone';
+import { nowInParis, toParisTime, getEventTimezone } from '@/lib/timezone';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface EventFilterProps {
@@ -55,6 +55,7 @@ export function EventFilter({ selectedEventId, onEventSelect, venueId }: EventFi
           title: event.title,
           startAt: event.start_at,
           endAt: event.end_at,
+          timezone: event.timezone,
           isActive: event.is_active,
           createdAt: event.created_at,
           updatedAt: event.updated_at,
@@ -138,7 +139,7 @@ export function EventFilter({ selectedEventId, onEventSelect, venueId }: EventFi
             <SelectItem key={event.id} value={event.id}>
               <span className="min-w-0 truncate font-medium">{event.title}</span>
               <span className="ml-2 shrink-0 whitespace-nowrap text-xs text-muted-foreground">
-                {formatInTimeZone(new Date(event.startAt), PARIS_TIMEZONE, 'PP', { locale: getLocale() })}
+                {formatInTimeZone(new Date(event.startAt), getEventTimezone(event), 'PP', { locale: getLocale() })}
               </span>
             </SelectItem>
           ))}
