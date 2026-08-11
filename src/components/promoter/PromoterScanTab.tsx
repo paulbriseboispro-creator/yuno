@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { ScanLine, CheckCircle2, XCircle, AlertTriangle, Camera, X } from 'lucide-react';
 import { Scanner } from '@yudiel/react-qr-scanner';
+import { classifyCameraError } from '@/lib/cameraPermission';
+import { CameraPermissionNotice } from '@/components/pro/CameraPermissionNotice';
 
 interface PromoterScanTabProps {
   promoterId: string;
@@ -23,6 +25,8 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
   const { t } = useLanguage();
   const [scanning, setScanning] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
+  const [cameraIssue, setCameraIssue] = useState<'denied' | 'unavailable' | null>(null);
+  const [scannerKey, setScannerKey] = useState(0);
   const [lastResult, setLastResult] = useState<ScanResult | null>(null);
   const [scannedCount, setScannedCount] = useState(0);
   const [processing, setProcessing] = useState(false);
@@ -242,6 +246,7 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
           {cameraActive ? (
             <div className="relative rounded-xl overflow-hidden border border-border">
               <Scanner
+                key={scannerKey}
                 onScan={(results) => {
                   if (results && results.length > 0 && !processing) {
                     const code = results[0].rawValue;
@@ -251,24 +256,37 @@ export function PromoterScanTab({ promoterId, eventId, eventTitle }: PromoterSca
                     }
                   }
                 }}
+                onError={(err: unknown) => setCameraIssue(classifyCameraError(err) === 'denied' ? 'denied' : 'unavailable')}
                 formats={['qr_code']}
                 allowMultiple={false}
                 scanDelay={1500}
                 components={{ finder: true }}
                 styles={{ container: { width: '100%', aspectRatio: '1' } }}
               />
+              {cameraIssue && (
+                <CameraPermissionNotice
+                  className="absolute inset-0"
+                  denied={cameraIssue === 'denied'}
+                  onRetry={() => { setCameraIssue(null); setScannerKey((k) => k + 1); }}
+                  title={t(cameraIssue === 'denied' ? 'camera.blockedTitle' : 'camera.unavailableTitle')}
+                  body={t(cameraIssue === 'denied' ? 'camera.blockedBody' : 'camera.unavailableBody')}
+                  openSettingsLabel={t('camera.openSettings')}
+                  retryLabel={t('camera.retry')}
+                  webHint={t('camera.webHint')}
+                />
+              )}
               <Button
                 variant="secondary"
                 size="sm"
                 className="absolute top-2 right-2 z-10"
-                onClick={() => setCameraActive(false)}
+                onClick={() => { setCameraActive(false); setCameraIssue(null); }}
               >
                 <X className="h-4 w-4" />
               </Button>
             </div>
           ) : (
             <Button
-              onClick={() => { setCameraActive(true); setLastResult(null); }}
+              onClick={() => { setCameraActive(true); setCameraIssue(null); setLastResult(null); }}
               className="w-full gap-2"
               disabled={processing}
             >

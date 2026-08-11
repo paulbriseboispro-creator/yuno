@@ -3,7 +3,9 @@ import { Scanner } from '@yudiel/react-qr-scanner';
 import { Camera, CameraOff, Keyboard } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
-import { OrgButton, DarkInput, RED_SOFT, T3, BORDER } from '@/components/org-ui';
+import { OrgButton, DarkInput, T3, BORDER } from '@/components/org-ui';
+import { classifyCameraError } from '@/lib/cameraPermission';
+import { CameraPermissionNotice } from '@/components/pro/CameraPermissionNotice';
 
 interface Props {
   onScan: (text: string) => void | Promise<void>;
@@ -17,7 +19,8 @@ interface Props {
 export default function OrgQRScanner({ onScan }: Props) {
   const { language } = useLanguage();
   const [active, setActive] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [cameraIssue, setCameraIssue] = useState<'denied' | 'unavailable' | null>(null);
+  const [scannerKey, setScannerKey] = useState(0);
   const [manualOpen, setManualOpen] = useState(false);
   const [manualCode, setManualCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -62,14 +65,15 @@ export default function OrgQRScanner({ onScan }: Props) {
   return (
     <div className="space-y-3">
       <div
-        className="mx-auto aspect-square w-full max-w-sm overflow-hidden rounded-2xl"
+        className="relative mx-auto aspect-square w-full max-w-sm overflow-hidden rounded-2xl"
         style={{ background: '#000', border: `1px solid ${BORDER}` }}
       >
         {active ? (
           <Scanner
+            key={scannerKey}
             onScan={handleScan}
-            onError={(err: any) => {
-              setError(err?.message ?? t('Caméra inaccessible', 'Camera unavailable'));
+            onError={(err: unknown) => {
+              setCameraIssue(classifyCameraError(err) === 'denied' ? 'denied' : 'unavailable');
             }}
             constraints={{ facingMode: 'environment' }}
             formats={['qr_code']}
@@ -84,19 +88,30 @@ export default function OrgQRScanner({ onScan }: Props) {
             {t('Scanner désactivé', 'Scanner off')}
           </div>
         )}
+        {active && cameraIssue && (
+          <CameraPermissionNotice
+            className="absolute inset-0"
+            denied={cameraIssue === 'denied'}
+            onRetry={() => { setCameraIssue(null); setScannerKey((k) => k + 1); }}
+            title={cameraIssue === 'denied'
+              ? t('Caméra désactivée', 'Camera turned off', 'Cámara desactivada')
+              : t('Caméra indisponible', 'Camera unavailable', 'Cámara no disponible')}
+            body={cameraIssue === 'denied'
+              ? t('L\'accès à la caméra est nécessaire pour scanner les billets.', 'Camera access is required to scan tickets.', 'Se necesita acceso a la cámara para escanear entradas.')
+              : t('Aucune caméra détectée, ou elle est utilisée par une autre app.', 'No camera detected, or it\'s in use by another app.', 'No se detecta ninguna cámara o está en uso por otra app.')}
+            openSettingsLabel={t('Ouvrir les Réglages', 'Open Settings', 'Abrir Ajustes')}
+            retryLabel={t('Réessayer', 'Try again', 'Reintentar')}
+            webHint={t('Autorisez la caméra dans les réglages de votre navigateur, puis réessayez.', 'Allow camera access in your browser settings, then try again.', 'Permite el acceso a la cámara en los ajustes del navegador y vuelve a intentarlo.')}
+          />
+        )}
       </div>
-      {error && (
-        <p className="text-center" style={{ color: RED_SOFT, fontSize: 13 }}>
-          {error} · {t('Utilisez la saisie manuelle ci-dessous.', 'Use manual entry below.')}
-        </p>
-      )}
       {!active ? (
-        <OrgButton variant="primary" onClick={() => { setError(null); setActive(true); }} className="w-full !py-3">
+        <OrgButton variant="primary" onClick={() => { setCameraIssue(null); setActive(true); }} className="w-full !py-3">
           <Camera className="h-4 w-4" />
           {t('Activer le scanner', 'Start scanner')}
         </OrgButton>
       ) : (
-        <OrgButton variant="secondary" onClick={() => setActive(false)} className="w-full !py-3">
+        <OrgButton variant="secondary" onClick={() => { setActive(false); setCameraIssue(null); }} className="w-full !py-3">
           <CameraOff className="h-4 w-4" />
           {t('Arrêter', 'Stop')}
         </OrgButton>

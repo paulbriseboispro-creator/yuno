@@ -24,6 +24,8 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { Scanner } from '@yudiel/react-qr-scanner';
+import { classifyCameraError } from '@/lib/cameraPermission';
+import { CameraPermissionNotice } from '@/components/pro/CameraPermissionNotice';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -167,6 +169,8 @@ export default function Bouncer() {
   const [errorMessage, setErrorMessage] = useState('');
   const [stats, setStats] = useState({ scanned: 0, total: 0 });
   const [isRequestingCamera, setIsRequestingCamera] = useState(false);
+  const [cameraIssue, setCameraIssue] = useState<'denied' | 'unavailable' | null>(null);
+  const [scannerKey, setScannerKey] = useState(0);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   
@@ -298,6 +302,7 @@ export default function Bouncer() {
     setPendingTicketHolderName(undefined);
     setOverlayResult(null);
     setScanning(false);
+    setCameraIssue(null);
     processingRef.current = false;
     lastCodeRef.current = null;
     pendingCodeRef.current = null;
@@ -527,9 +532,18 @@ export default function Bouncer() {
     setScanResult(null);
     setErrorMessage('');
     setDeniedContext(null);
+    setCameraIssue(null);
     setIsRequestingCamera(true);
     setScanning(true);
     setIsRequestingCamera(false);
+  };
+
+  // Re-monte le flux caméra après que l'agent a réactivé l'accès dans les
+  // Réglages : un getUserMedia refusé ne se ré-arme pas tout seul, il faut
+  // remonter le <Scanner/> (clé) pour relancer la demande.
+  const retryCamera = () => {
+    setCameraIssue(null);
+    setScannerKey((k) => k + 1);
   };
 
   const stopScanning = async () => {
@@ -1498,6 +1512,7 @@ export default function Bouncer() {
    */
   const scannerElement = (
     <Scanner
+      key={scannerKey}
       onScan={(result) => {
         if (!result) return;
 
@@ -1524,8 +1539,8 @@ export default function Bouncer() {
           onScanSuccess(value);
         }
       }}
-      onError={(error) => {
-        console.error('Scanner error', error);
+      onError={(error: unknown) => {
+        setCameraIssue(classifyCameraError(error) === 'denied' ? 'denied' : 'unavailable');
       }}
       formats={['qr_code']}
       scanDelay={50}
@@ -1546,6 +1561,22 @@ export default function Bouncer() {
       }}
     />
   );
+
+  // Panneau « caméra bloquée / indisponible » posé par-dessus le flux (inline
+  // ET plein écran). L'agent tape « Ouvrir les Réglages » sur un refus, revient,
+  // puis « Réessayer » re-monte le scanner. La saisie manuelle reste dispo à côté.
+  const cameraNotice = cameraIssue ? (
+    <CameraPermissionNotice
+      className="absolute inset-0 z-20"
+      denied={cameraIssue === 'denied'}
+      onRetry={retryCamera}
+      title={t(cameraIssue === 'denied' ? 'camera.blockedTitle' : 'camera.unavailableTitle')}
+      body={t(cameraIssue === 'denied' ? 'camera.blockedBody' : 'camera.unavailableBody')}
+      openSettingsLabel={t('camera.openSettings')}
+      retryLabel={t('camera.retry')}
+      webHint={t('camera.webHint')}
+    />
+  ) : null;
 
   if (venueLoading) {
     return (
@@ -1793,6 +1824,7 @@ export default function Bouncer() {
                   style={{ height: 'clamp(300px, 46vh, 440px)' }}
                 >
                   {scannerElement}
+                  {cameraNotice}
 
                   {/* Viseur : cadre centré pour aligner le QR dans le noir */}
                   <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -2285,6 +2317,7 @@ export default function Bouncer() {
           {/* Caméra plein écran : l'unique instance de Scanner vit ici tant que le mode rapide est actif */}
           <div className="absolute inset-0">
             {scannerElement}
+            {cameraNotice}
           </div>
 
           {/* Viseur centré */}
@@ -2300,9 +2333,11 @@ export default function Bouncer() {
             />
           </div>
 
-          {/* Barre du haut : quitter + compteur d'entrées, sur un dégradé */}
+          {/* Barre du haut : quitter + compteur d'entrées, sur un dégradé.
+              z-30 : reste au-dessus du panneau caméra bloquée (z-20) pour que
+              l'agent puisse toujours sortir du mode rapide même caméra refusée. */}
           <div
-            className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pb-6"
+            className="absolute inset-x-0 top-0 z-30 flex items-center justify-between px-4 pb-6"
             style={{
               paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
               background: 'linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%)',

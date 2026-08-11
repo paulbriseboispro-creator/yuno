@@ -8,6 +8,8 @@ import { EventFilter } from '@/components/EventFilter';
 import { ChefHat, Camera, Search, CheckCircle, XCircle, Ban, AlertTriangle, Clock, Bell } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Scanner } from '@yudiel/react-qr-scanner';
+import { classifyCameraError } from '@/lib/cameraPermission';
+import { CameraPermissionNotice } from '@/components/pro/CameraPermissionNotice';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
@@ -114,6 +116,7 @@ export default function Barman() {
   const [loading, setLoading] = useState(true);
   const [isScanning, setIsScanning] = useState(false);
   const [isRequestingCamera, setIsRequestingCamera] = useState(false);
+  const [cameraIssue, setCameraIssue] = useState<'denied' | 'unavailable' | null>(null);
   const [pinSearch, setPinSearch] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [preparingOrder, setPreparingOrder] = useState<Order | null>(null);
@@ -390,35 +393,24 @@ export default function Barman() {
   };
 
 
-  const requestCameraPermission = async (): Promise<boolean> => {
+  const startScanning = async () => {
+    setIsRequestingCamera(true);
+    setCameraIssue(null);
+
     try {
+      // On sonde la caméra AVANT de monter le scanner : le pop-up natif iOS ne
+      // s'affiche qu'une fois, donc un refus doit ouvrir directement le panneau
+      // « Ouvrir les Réglages » plutôt que d'échouer en silence.
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' },
       });
       stream.getTracks().forEach((track) => track.stop());
-      return true;
-    } catch (error) {
-      console.error('Camera permission denied:', error);
-      return false;
-    }
-  };
-
-  const startScanning = async () => {
-    setIsRequestingCamera(true);
-
-    try {
-      const hasPermission = await requestCameraPermission();
-
-      if (!hasPermission) {
-        toast.error(t('barman.cameraPermissionDenied'));
-        setIsRequestingCamera(false);
-        return;
-      }
-
       setIsScanning(true);
     } catch (error) {
-      console.error('Error starting scanner:', error);
-      toast.error(t('barman.cameraError'));
+      // Refus / caméra indisponible : on montre le panneau à la place du flux
+      // (isScanning=true rend le conteneur, le panneau remplace le <Scanner/>).
+      setCameraIssue(classifyCameraError(error) === 'denied' ? 'denied' : 'unavailable');
+      setIsScanning(true);
     } finally {
       setIsRequestingCamera(false);
     }
@@ -426,6 +418,7 @@ export default function Barman() {
 
   const stopScanning = () => {
     setIsScanning(false);
+    setCameraIssue(null);
   };
 
   const handleScan = async (token: string) => {
@@ -1134,11 +1127,22 @@ export default function Barman() {
           <div className="mb-3 sm:mb-4 space-y-3">
             {isScanning && (
               <div
-                className={`mx-auto max-w-md overflow-hidden rounded-lg border-2 bg-black ${
+                className={`relative mx-auto max-w-md overflow-hidden rounded-lg border-2 bg-black ${
                   scanMode === 'cancel' ? 'border-destructive' : 'border-primary/50'
                 }`}
                 style={{ minHeight: '280px' }}
               >
+                {cameraIssue ? (
+                  <CameraPermissionNotice
+                    denied={cameraIssue === 'denied'}
+                    onRetry={startScanning}
+                    title={t(cameraIssue === 'denied' ? 'camera.blockedTitle' : 'camera.unavailableTitle')}
+                    body={t(cameraIssue === 'denied' ? 'camera.blockedBody' : 'camera.unavailableBody')}
+                    openSettingsLabel={t('camera.openSettings')}
+                    retryLabel={t('camera.retry')}
+                    webHint={t('camera.webHint')}
+                  />
+                ) : (
                 <Scanner
                   onScan={(result) => {
                     if (!result) return;
@@ -1159,8 +1163,8 @@ export default function Barman() {
                       stopScanning();
                     }
                   }}
-                  onError={(error) => {
-                    console.error('Scanner error', error);
+                  onError={(error: unknown) => {
+                    setCameraIssue(classifyCameraError(error) === 'denied' ? 'denied' : 'unavailable');
                   }}
                   formats={['qr_code']}
                   scanDelay={50}
@@ -1178,6 +1182,7 @@ export default function Barman() {
                     height: { ideal: 720 },
                   }}
                 />
+                )}
               </div>
             )}
 

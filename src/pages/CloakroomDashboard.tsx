@@ -9,6 +9,8 @@ import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Scanner } from '@yudiel/react-qr-scanner';
+import { classifyCameraError } from '@/lib/cameraPermission';
+import { CameraPermissionNotice } from '@/components/pro/CameraPermissionNotice';
 import { LanguageSelector } from '@/components/LanguageSelector';
 import { PublicPage } from '@/components/PublicPage';
 import { StaffHeader } from '@/components/staff/StaffHeader';
@@ -58,6 +60,8 @@ export default function CloakroomDashboard() {
   const { t } = useLanguage();
   const { venueId: staffVenueId, loading: venueLoading } = useStaffIdentity();
   const [scanning, setScanning] = useState(false);
+  const [cameraIssue, setCameraIssue] = useState<'denied' | 'unavailable' | null>(null);
+  const [scannerKey, setScannerKey] = useState(0);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [cloakroomNumber, setCloakroomNumber] = useState('');
   const [itemsCount, setItemsCount] = useState(1);
@@ -172,6 +176,7 @@ export default function CloakroomDashboard() {
 
   const startScanning = () => {
     setScanResult(null);
+    setCameraIssue(null);
     setScanning(true);
   };
 
@@ -521,8 +526,24 @@ export default function CloakroomDashboard() {
           </h3>
           <div className="space-y-3">
             {scanning ? (
-              <div className="rounded-xl overflow-hidden bg-black" style={{ minHeight: '280px', border: '2px solid rgba(232,25,44,0.5)' }}>
-                <Scanner onScan={handleScan} />
+              <div className="relative rounded-xl overflow-hidden bg-black" style={{ minHeight: '280px', border: '2px solid rgba(232,25,44,0.5)' }}>
+                <Scanner
+                  key={scannerKey}
+                  onScan={handleScan}
+                  onError={(err: unknown) => setCameraIssue(classifyCameraError(err) === 'denied' ? 'denied' : 'unavailable')}
+                />
+                {cameraIssue && (
+                  <CameraPermissionNotice
+                    className="absolute inset-0"
+                    denied={cameraIssue === 'denied'}
+                    onRetry={() => { setCameraIssue(null); setScannerKey((k) => k + 1); }}
+                    title={t(cameraIssue === 'denied' ? 'camera.blockedTitle' : 'camera.unavailableTitle')}
+                    body={t(cameraIssue === 'denied' ? 'camera.blockedBody' : 'camera.unavailableBody')}
+                    openSettingsLabel={t('camera.openSettings')}
+                    retryLabel={t('camera.retry')}
+                    webHint={t('camera.webHint')}
+                  />
+                )}
               </div>
             ) : !scanResult ? (
               <Button onClick={startScanning} className="w-full h-12 text-sm gap-2">
@@ -532,7 +553,7 @@ export default function CloakroomDashboard() {
             ) : null}
 
             {scanning && (
-              <Button variant="outline" onClick={() => setScanning(false)} className="w-full text-sm">
+              <Button variant="outline" onClick={() => { setScanning(false); setCameraIssue(null); }} className="w-full text-sm">
                 {t('cloakroom.stopScan')}
               </Button>
             )}
