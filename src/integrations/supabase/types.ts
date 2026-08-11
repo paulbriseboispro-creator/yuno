@@ -5738,6 +5738,7 @@ export type Database = {
           tables_owner_user_id: string | null
           ticket_selling_mode: string | null
           ticketing_enabled: boolean
+          timezone: string | null
           title: string
           updated_at: string
           venue_id: string | null
@@ -5805,6 +5806,7 @@ export type Database = {
           tables_owner_user_id?: string | null
           ticket_selling_mode?: string | null
           ticketing_enabled?: boolean
+          timezone?: string | null
           title: string
           updated_at?: string
           venue_id?: string | null
@@ -5872,6 +5874,7 @@ export type Database = {
           tables_owner_user_id?: string | null
           ticket_selling_mode?: string | null
           ticketing_enabled?: boolean
+          timezone?: string | null
           title?: string
           updated_at?: string
           venue_id?: string | null
@@ -8423,6 +8426,144 @@ export type Database = {
             referencedColumns: ["user_id"]
           },
         ]
+      }
+      ota_bundles: {
+        Row: {
+          active: boolean
+          app_id: string
+          channel: string
+          checksum: string
+          created_at: string
+          id: string
+          native_version: string
+          notes: string | null
+          size_bytes: number | null
+          url: string
+          version: string
+        }
+        Insert: {
+          active?: boolean
+          app_id: string
+          channel?: string
+          checksum: string
+          created_at?: string
+          id?: string
+          native_version: string
+          notes?: string | null
+          size_bytes?: number | null
+          url: string
+          version: string
+        }
+        Update: {
+          active?: boolean
+          app_id?: string
+          channel?: string
+          checksum?: string
+          created_at?: string
+          id?: string
+          native_version?: string
+          notes?: string | null
+          size_bytes?: number | null
+          url?: string
+          version?: string
+        }
+        Relationships: []
+      }
+      ota_channels: {
+        Row: {
+          allow_self_set: boolean
+          app_id: string
+          created_at: string
+          is_default: boolean
+          name: string
+        }
+        Insert: {
+          allow_self_set?: boolean
+          app_id: string
+          created_at?: string
+          is_default?: boolean
+          name: string
+        }
+        Update: {
+          allow_self_set?: boolean
+          app_id?: string
+          created_at?: string
+          is_default?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
+      ota_devices: {
+        Row: {
+          app_id: string
+          channel: string | null
+          custom_id: string | null
+          device_id: string
+          first_seen: string
+          last_seen: string
+          native_version: string | null
+          platform: string | null
+          plugin_version: string | null
+          version_name: string | null
+        }
+        Insert: {
+          app_id: string
+          channel?: string | null
+          custom_id?: string | null
+          device_id: string
+          first_seen?: string
+          last_seen?: string
+          native_version?: string | null
+          platform?: string | null
+          plugin_version?: string | null
+          version_name?: string | null
+        }
+        Update: {
+          app_id?: string
+          channel?: string | null
+          custom_id?: string | null
+          device_id?: string
+          first_seen?: string
+          last_seen?: string
+          native_version?: string | null
+          platform?: string | null
+          plugin_version?: string | null
+          version_name?: string | null
+        }
+        Relationships: []
+      }
+      ota_stats: {
+        Row: {
+          action: string | null
+          app_id: string | null
+          created_at: string
+          device_id: string | null
+          id: number
+          old_version_name: string | null
+          platform: string | null
+          version_name: string | null
+        }
+        Insert: {
+          action?: string | null
+          app_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          id?: never
+          old_version_name?: string | null
+          platform?: string | null
+          version_name?: string | null
+        }
+        Update: {
+          action?: string | null
+          app_id?: string | null
+          created_at?: string
+          device_id?: string | null
+          id?: never
+          old_version_name?: string | null
+          platform?: string | null
+          version_name?: string | null
+        }
+        Relationships: []
       }
       owner_ai_audit_log: {
         Row: {
@@ -13167,6 +13308,7 @@ export type Database = {
           stripe_onboarding_complete: boolean | null
           stripe_payouts_enabled: boolean | null
           tiktok_url: string | null
+          timezone: string | null
           twitter_url: string | null
           vat_number: string | null
           vip_menu_display_mode: string
@@ -13225,6 +13367,7 @@ export type Database = {
           stripe_onboarding_complete?: boolean | null
           stripe_payouts_enabled?: boolean | null
           tiktok_url?: string | null
+          timezone?: string | null
           twitter_url?: string | null
           vat_number?: string | null
           vip_menu_display_mode?: string
@@ -13283,6 +13426,7 @@ export type Database = {
           stripe_onboarding_complete?: boolean | null
           stripe_payouts_enabled?: boolean | null
           tiktok_url?: string | null
+          timezone?: string | null
           twitter_url?: string | null
           vat_number?: string | null
           vip_menu_display_mode?: string
@@ -16405,6 +16549,17 @@ export type Database = {
           p_member_id?: string
           p_page_path?: string
           p_session_id: string
+          p_venue_id?: string
+        }
+        Returns: undefined
+      }
+      ping_live_visitor: {
+        Args: {
+          p_event_id?: string
+          p_organizer_user_id?: string
+          p_page_path?: string
+          p_session_id: string
+          p_stage?: string
           p_venue_id?: string
         }
         Returns: undefined
