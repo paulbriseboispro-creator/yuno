@@ -4,6 +4,7 @@ import { wrapEmailWithBranding } from "../_shared/email-branding.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { sendAutoPush } from "../_shared/auto-push.ts";
 import { entryTypeLabelFr, guestListEntryEmailContent } from "../_shared/guest-list-email.ts";
+import { formatEventDate } from "../_shared/event-time.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[PROMOTER-ADD-GUEST] ${step}`, details ? JSON.stringify(details) : "");
@@ -359,7 +360,7 @@ serve(async (req) => {
         const promoterName = profile ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() : promoter.promo_code;
 
         const eventDate = event?.start_at
-          ? new Date(event.start_at).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })
+          ? formatEventDate(event.start_at, { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })
           : "";
 
         const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");

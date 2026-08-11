@@ -57,14 +57,17 @@ const MONO = 'courier';       // codes / metadata signature
 const eur = (n: number) => `${(n || 0).toFixed(2).replace('.', ',')} €`;
 const htOf = (ttc: number, rate: number) => ttc / (1 + rate / 100);
 
-function fmtDate(d: Date, locale: string): string {
+// Un rendu SANS `timeZone` tombe sur le fuseau du runtime (UTC en edge Deno),
+// décalant une soirée à 23h30 Paris en « 21h30 ». On impose toujours un fuseau.
+const DOC_TZ = 'Europe/Paris';
+function fmtDate(d: Date, locale: string, tz: string = DOC_TZ): string {
   try {
-    return d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: tz });
   } catch { return ''; }
 }
-function fmtLongDate(d: Date, locale: string): string {
+function fmtLongDate(d: Date, locale: string, tz: string = DOC_TZ): string {
   try {
-    return d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: tz });
   } catch { return ''; }
 }
 
@@ -364,7 +367,7 @@ export function drawBillet(doc: PdfDoc, data: BilletData): void {
   y += 6;
   const validity = data.eventStart
     ? data.eventEnd
-      ? `${fmtLongDate(data.eventStart, loc)} – ${data.eventEnd.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' })}`
+      ? `${fmtLongDate(data.eventStart, loc)} – ${data.eventEnd.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit', timeZone: DOC_TZ })}`
       : fmtLongDate(data.eventStart, loc)
     : '—';
   let ly = y;

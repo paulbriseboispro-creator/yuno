@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 import { sendAutoPush, isAutoPushEnabled } from "../_shared/auto-push.ts";
+import { formatEventTime } from "../_shared/event-time.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -67,7 +68,7 @@ Deno.serve(async (req) => {
 
       const userIds = [...new Set((tickets || []).map(t => t.user_id).filter(Boolean))];
 
-      const startTime = new Date(event.start_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      const startTime = formatEventTime(event.start_at);
 
       for (const userId of userIds) {
         // Anti-spam: check if already notified for this event
@@ -152,7 +153,7 @@ Deno.serve(async (req) => {
           .gte('created_at', new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString());
 
         if ((alreadyFired ?? 0) === 0) {
-          const startTime = new Date(event.start_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+          const startTime = formatEventTime(event.start_at);
           await supabase.from('staff_notifications').insert({
             venue_id: event.venue_id,
             target_role: 'owner',
@@ -200,7 +201,7 @@ Deno.serve(async (req) => {
           .gte('created_at', new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString());
 
         if ((alreadyFired ?? 0) === 0) {
-          const startTime = new Date(event.start_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+          const startTime = formatEventTime(event.start_at);
           await supabase.from('staff_notifications').insert({
             venue_id: event.venue_id,
             target_role: 'all_staff',

@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
 import { EmailLanguage, t, wrapEmailWithBranding, escapeHtml } from "../_shared/email-branding.ts";
 import { loadOptIns, optInToken, unsubscribeHeaders } from "../_shared/email-compliance.ts";
 import { buildWinBack, fmtDateParts } from "../_shared/email-templates.ts";
+import { formatEventDate } from "../_shared/event-time.ts";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 const corsHeaders = {
@@ -146,7 +147,7 @@ serve(async (req) => {
 
           let nextEventHtml = '';
           if (nextEvent) {
-            const nextDate = new Date(nextEvent.start_at).toLocaleDateString(dateLocales[lang], { weekday: 'short', day: 'numeric', month: 'short' });
+            const nextDate = formatEventDate(nextEvent.start_at, { weekday: 'short', day: 'numeric', month: 'short' }, undefined, dateLocales[lang]);
             nextEventHtml = `
               <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(255,255,255,0.05); border-radius: 12px; margin: 16px 0;">
                 <tr>

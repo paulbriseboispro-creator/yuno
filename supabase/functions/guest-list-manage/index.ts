@@ -12,6 +12,7 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 import { wrapEmailWithBranding, type EmailLanguage } from "../_shared/email-branding.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { sendAutoPush } from "../_shared/auto-push.ts";
+import { formatEventDate } from "../_shared/event-time.ts";
 import {
   entryTypeLabel,
   guestListEntryEmailContent,
@@ -154,9 +155,9 @@ async function loadPartAndEvent(admin: SupabaseClient, guestListId: string): Pro
   return { part: part as PartRow, event: event as EventRow, venueName };
 }
 
-function formatEventDateFr(startAt: string | null | undefined): string {
+function formatEventDateFr(startAt: string | null | undefined, tz?: string | null): string {
   return startAt
-    ? new Date(startAt).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })
+    ? formatEventDate(startAt, { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }, tz)
     : "";
 }
 
