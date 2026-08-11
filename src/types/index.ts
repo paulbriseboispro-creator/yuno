@@ -83,6 +83,7 @@ export type Event = {
   posterUrl?: string;
   startAt: string;
   endAt: string;
+  timezone?: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

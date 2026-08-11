@@ -88,7 +88,7 @@ serve(async (req) => {
 
     const { data: event } = await supabaseAdmin
       .from("events")
-      .select("id, title, venue_id, organizer_user_id, partner_organizer_id, start_at, end_at, poster_url")
+      .select("id, title, venue_id, organizer_user_id, partner_organizer_id, start_at, end_at, poster_url, timezone")
       .eq("id", eventId)
       .maybeSingle();
 
@@ -360,7 +360,7 @@ serve(async (req) => {
         const promoterName = profile ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() : promoter.promo_code;
 
         const eventDate = event?.start_at
-          ? formatEventDate(event.start_at, { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })
+          ? formatEventDate(event.start_at, { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }, event.timezone)
           : "";
 
         const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");

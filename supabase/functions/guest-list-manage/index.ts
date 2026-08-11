@@ -85,6 +85,7 @@ interface EventRow {
   start_at: string;
   end_at: string | null;
   poster_url: string | null;
+  timezone: string | null;
 }
 
 /** Miroir TS de public.guest_list_allowed_entry_types (même règle). */
@@ -141,7 +142,7 @@ async function loadPartAndEvent(admin: SupabaseClient, guestListId: string): Pro
 
   const { data: event } = await admin
     .from("events")
-    .select("id, title, venue_id, partner_venue_id, organizer_user_id, start_at, end_at, poster_url")
+    .select("id, title, venue_id, partner_venue_id, organizer_user_id, start_at, end_at, poster_url, timezone")
     .eq("id", part.event_id)
     .maybeSingle();
   if (!event) throw new Error("Event not found");
@@ -402,7 +403,7 @@ serve(async (req) => {
           const ctaUrl = linkedUserId ? `${APP_URL}/my-orders` : `${APP_URL}/auth?redirect=/my-orders`;
           const content = guestListEntryEmailContent({
             eventTitle: event.title || "Événement",
-            eventDate: formatEventDateFr(event.start_at),
+            eventDate: formatEventDateFr(event.start_at, event.timezone),
             venueName,
             posterUrl: event.poster_url,
             entryLabel: entryTypeLabel(resolvedEntryType, recipientLang),

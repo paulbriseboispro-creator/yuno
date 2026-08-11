@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
     // --- T-4h Reminders ---
     const { data: events4h } = await supabase
       .from('events')
-      .select('id, title, start_at, venue_id')
+      .select('id, title, start_at, venue_id, timezone')
       .gte('start_at', t4hStart)
       .lte('start_at', t4hEnd)
       .eq('is_active', true);
@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
 
       const userIds = [...new Set((tickets || []).map(t => t.user_id).filter(Boolean))];
 
-      const startTime = formatEventTime(event.start_at);
+      const startTime = formatEventTime(event.start_at, event.timezone);
 
       for (const userId of userIds) {
         // Anti-spam: check if already notified for this event
@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
     // --- T-30min Reminders ---
     const { data: events30m } = await supabase
       .from('events')
-      .select('id, title, start_at, venue_id')
+      .select('id, title, start_at, venue_id, timezone')
       .gte('start_at', t30mStart)
       .lte('start_at', t30mEnd)
       .eq('is_active', true);
@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
           .gte('created_at', new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString());
 
         if ((alreadyFired ?? 0) === 0) {
-          const startTime = formatEventTime(event.start_at);
+          const startTime = formatEventTime(event.start_at, event.timezone);
           await supabase.from('staff_notifications').insert({
             venue_id: event.venue_id,
             target_role: 'owner',
@@ -181,7 +181,7 @@ Deno.serve(async (req) => {
     // → push Pro (target_role 'all_staff', type 'event_prep_6h').
     const { data: events6h } = await supabase
       .from('events')
-      .select('id, title, start_at, venue_id')
+      .select('id, title, start_at, venue_id, timezone')
       .gte('start_at', t6hStart)
       .lte('start_at', t6hEnd)
       .eq('is_active', true)
@@ -201,7 +201,7 @@ Deno.serve(async (req) => {
           .gte('created_at', new Date(now.getTime() - 3 * 60 * 60 * 1000).toISOString());
 
         if ((alreadyFired ?? 0) === 0) {
-          const startTime = formatEventTime(event.start_at);
+          const startTime = formatEventTime(event.start_at, event.timezone);
           await supabase.from('staff_notifications').insert({
             venue_id: event.venue_id,
             target_role: 'all_staff',

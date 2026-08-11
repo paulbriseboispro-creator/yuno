@@ -107,7 +107,7 @@ serve(async (req) => {
 
       const { data: nextEvents } = await supabaseAdmin
         .from('events')
-        .select('id, title, start_at')
+        .select('id, title, start_at, timezone')
         .eq('venue_id', event.venue_id)
         .eq('is_active', true)
         .gt('start_at', new Date().toISOString())
@@ -147,7 +147,7 @@ serve(async (req) => {
 
           let nextEventHtml = '';
           if (nextEvent) {
-            const nextDate = formatEventDate(nextEvent.start_at, { weekday: 'short', day: 'numeric', month: 'short' }, undefined, dateLocales[lang]);
+            const nextDate = formatEventDate(nextEvent.start_at, { weekday: 'short', day: 'numeric', month: 'short' }, nextEvent.timezone, dateLocales[lang]);
             nextEventHtml = `
               <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(255,255,255,0.05); border-radius: 12px; margin: 16px 0;">
                 <tr>

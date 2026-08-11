@@ -3258,6 +3258,8 @@ const fr: Record<string, string> = {
   'owner.ev.secretVenue': "Lieu secret",
   'owner.ev.secretVenueDesc': "Cache le nom du lieu et l'adresse exacte sur la page publique, révélés uniquement aux participants confirmés. La ville reste visible et l'événement apparaît quand même dans la bonne ville.",
   'owner.ev.locationRequired': "Lieu, ville et adresse requis",
+  'owner.ev.timezone': "Fuseau horaire",
+  'owner.ev.timezoneHint': "Les heures de la soirée seront interprétées et affichées dans ce fuseau (clients et notifications). Par défaut, le fuseau de votre ville.",
   'owner.ev.revealConfirmTitle': "Dans l'email de confirmation",
   'owner.ev.revealConfirmDesc': "Envoyée automatiquement dès qu'un participant réserve.",
   'owner.ev.revealManualTitle': "Je la révèle moi-même",

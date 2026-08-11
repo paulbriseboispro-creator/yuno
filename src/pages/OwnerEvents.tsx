@@ -10,7 +10,7 @@ import { Event } from '@/types';
 import { formatInTimeZone } from 'date-fns-tz';
 import { fr, es, enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { PARIS_TIMEZONE, toParisTime, fromParisTime, nowInParis } from '@/lib/timezone';
+import { PARIS_TIMEZONE, toParisTime, fromParisTime, nowInParis, getEventTimezone, fromWallClockInTz, toWallClockInputInTz, cityToTimezone, SUPPORTED_TIMEZONES, tzOffsetLabel } from '@/lib/timezone';
 import { notifyDjLineup } from '@/lib/djNotify';
 import { loadLineupEntries, saveLineup, type LineupEntry } from '@/lib/djLineup';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -115,7 +115,10 @@ export default function OwnerEvents() {
   const [formData, setFormData] = useState({
     title: '', description: '', posterUrl: '', startAt: '', endAt: '',
     isActive: true, musicGenres: ['Open Format'] as string[], eventType: 'club',
+    timezone: PARIS_TIMEZONE,
   });
+  // Fuseau par défaut du compte (dérivé de la ville de la venue, éditable par event).
+  const [venueTimezone, setVenueTimezone] = useState<string>(PARIS_TIMEZONE);
 
   // ─── Organizer-only event fields (visibility / collab / secret venue) ──
   const [eventKind, setEventKind] = useState<EventKind>('public_event');
@@ -170,11 +173,13 @@ export default function OwnerEvents() {
     if (!scopeReady) return;
     (async () => {
       if (isOrganizerScope) {
-        const { data } = await supabase.from('organizer_profiles').select('minors_allowed').eq('user_id', organizerUserId!).maybeSingle();
+        const { data } = await supabase.from('organizer_profiles').select('minors_allowed, city').eq('user_id', organizerUserId!).maybeSingle();
         setGlobalMinorsAllowed(data?.minors_allowed ?? false);
+        setVenueTimezone(cityToTimezone(data?.city));
       } else {
-        const { data } = await supabase.from('venues').select('minors_allowed').eq('id', venueId!).maybeSingle();
+        const { data } = await supabase.from('venues').select('minors_allowed, timezone, city').eq('id', venueId!).maybeSingle();
         setGlobalMinorsAllowed(data?.minors_allowed ?? false);
+        setVenueTimezone(data?.timezone || cityToTimezone(data?.city));
       }
     })();
   }, [venueId, organizerUserId, isOrganizerScope, scopeReady]);
@@ -198,7 +203,8 @@ export default function OwnerEvents() {
         description: event.description || undefined,
         posterUrl: event.poster_url || undefined,
         posterPosition: event.poster_position as unknown as PosterPosition | undefined,
-        startAt: event.start_at, endAt: event.end_at, isActive: event.is_active,
+        startAt: event.start_at, endAt: event.end_at, timezone: event.timezone,
+        isActive: event.is_active,
         createdAt: event.created_at, updatedAt: event.updated_at,
         musicGenres: event.music_genres || [event.music_genre || 'Open Format'],
         eventType: event.event_type || 'club',
@@ -331,7 +337,7 @@ export default function OwnerEvents() {
       description: formData.description.trim() || null,
       poster_url: posterUrl || null,
       poster_position: posterPosition ? { x: posterPosition.x, y: posterPosition.y, scale: posterPosition.scale } : null,
-      start_at: startAtUTC, end_at: endAtUTC,
+      start_at: startAtUTC, end_at: endAtUTC, timezone: formData.timezone || PARIS_TIMEZONE,
       location_name: locationName.trim() || null,
       location_city: locationCity.trim() || null,
       location_address: locationAddress.trim() || null,
@@ -424,7 +430,7 @@ export default function OwnerEvents() {
     try {
       // ── Organizer scope: visibility / collab / secret venue (mirrors the org event flow) ──
       if (isOrganizerScope) {
-        const savedId = await saveOrganizerEvent({ startAtUTC: fromParisTime(formData.startAt).toISOString(), endAtUTC: fromParisTime(formData.endAt).toISOString() });
+        const savedId = await saveOrganizerEvent({ startAtUTC: fromWallClockInTz(formData.startAt, formData.timezone), endAtUTC: fromWallClockInTz(formData.endAt, formData.timezone) });
         await proposeIfNeeded(savedId);
         setIsDialogOpen(false);
         resetForm();
@@ -441,14 +447,14 @@ export default function OwnerEvents() {
           else { posterUrl = supabase.storage.from('event-images').getPublicUrl(filePath).data.publicUrl; }
         } catch (err) { console.error('Poster upload exception:', err); }
       }
-      const startAtUTC = fromParisTime(formData.startAt).toISOString();
-      const endAtUTC = fromParisTime(formData.endAt).toISOString();
+      const startAtUTC = fromWallClockInTz(formData.startAt, formData.timezone);
+      const endAtUTC = fromWallClockInTz(formData.endAt, formData.timezone);
       if (editingEvent) {
         const { error } = await supabase.from('events').update({
           title: formData.title, description: formData.description || null,
           poster_url: posterUrl || null,
           poster_position: posterPosition ? { x: posterPosition.x, y: posterPosition.y, scale: posterPosition.scale } : null,
-          start_at: startAtUTC, end_at: endAtUTC, is_active: formData.isActive,
+          start_at: startAtUTC, end_at: endAtUTC, timezone: formData.timezone || PARIS_TIMEZONE, is_active: formData.isActive,
           venue_id: venueId, minors_disabled: minorsDisabled, music_genres: formData.musicGenres, event_type: formData.eventType,
         }).eq('id', editingEvent.id);
         if (error) throw error;
@@ -473,7 +479,7 @@ export default function OwnerEvents() {
           title: formData.title, description: formData.description || null,
           poster_url: posterUrl || null,
           poster_position: posterPosition ? { x: posterPosition.x, y: posterPosition.y, scale: posterPosition.scale } : null,
-          start_at: startAtUTC, end_at: endAtUTC, is_active: formData.isActive,
+          start_at: startAtUTC, end_at: endAtUTC, timezone: formData.timezone || PARIS_TIMEZONE, is_active: formData.isActive,
           venue_id: venueId, minors_disabled: minorsDisabled, music_genres: formData.musicGenres, event_type: formData.eventType,
         }).select('id').single();
         if (error) throw error;
@@ -699,13 +705,15 @@ export default function OwnerEvents() {
     setEditingEvent(event);
     setPosterPreview(event.posterUrl || '');
     setPosterPosition(event.posterPosition || null);
+    const eventTz = getEventTimezone(event);
     setFormData({
       title: event.title, description: event.description || '', posterUrl: event.posterUrl || '',
-      startAt: formatInTimeZone(new Date(event.startAt), PARIS_TIMEZONE, "yyyy-MM-dd'T'HH:mm"),
-      endAt: formatInTimeZone(new Date(event.endAt), PARIS_TIMEZONE, "yyyy-MM-dd'T'HH:mm"),
+      startAt: toWallClockInputInTz(event.startAt, eventTz),
+      endAt: toWallClockInputInTz(event.endAt, eventTz),
       isActive: event.isActive,
       musicGenres: (event as Event & { musicGenres?: string[] }).musicGenres || ['Open Format'],
       eventType: (event as Event & { eventType?: string }).eventType || 'club',
+      timezone: eventTz,
     });
     const entries = await loadLineupEntries(event.id);
     setLineupEntries(entries);
@@ -757,7 +765,7 @@ export default function OwnerEvents() {
 
   const resetForm = () => {
     setEditingEvent(null); setPosterFile(null); setPosterPreview(''); setPosterPosition(null); setLineupEntries([]); setInitialLineupEntries([]);
-    setFormData({ title: '', description: '', posterUrl: '', startAt: '', endAt: '', isActive: true, musicGenres: ['Open Format'], eventType: 'club' });
+    setFormData({ title: '', description: '', posterUrl: '', startAt: '', endAt: '', isActive: true, musicGenres: ['Open Format'], eventType: 'club', timezone: venueTimezone });
     setEventKind('public_event'); setCollabMode('solo'); setPartnerVenueId(''); setPartnerOrganizerId('');
     setCollabResponsibilities(defaultResponsibilities('co_event')); setLiveContract(null);
     setLocationName(''); setLocationCity(''); setLocationAddress(''); setLocationIsSecret(false); setRevealAddressInEmail(true); setMinorsDisabled(false);
@@ -1126,6 +1134,34 @@ export default function OwnerEvents() {
                 <FieldLabel>{t('owner.endDateTime')}</FieldLabel>
                 <DarkInput id="endAt" type="datetime-local" value={formData.endAt} onChange={v => setFormData({ ...formData, endAt: v })} />
               </div>
+            </div>
+
+            {/* Fuseau horaire — les heures saisies ci-dessus sont interprétées et
+                affichées dans ce fuseau (clients + notifications). Défaut = ville du compte. */}
+            <div>
+              <FieldLabel>
+                <Clock className="w-3 h-3 inline mr-1" />
+                {t('owner.ev.timezone')}
+              </FieldLabel>
+              <div className="relative">
+                <select
+                  value={formData.timezone}
+                  onChange={e => setFormData({ ...formData, timezone: e.target.value })}
+                  className="w-full appearance-none px-3 py-2.5 rounded-xl text-[13px] cursor-pointer"
+                  style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T1, outline: 'none' }}
+                >
+                  {(SUPPORTED_TIMEZONES.some(z => z.id === formData.timezone)
+                    ? SUPPORTED_TIMEZONES
+                    : [{ id: formData.timezone, city: formData.timezone }, ...SUPPORTED_TIMEZONES]
+                  ).map(z => (
+                    <option key={z.id} value={z.id} style={{ background: '#0a0a0c' }}>
+                      {z.city} · {tzOffsetLabel(z.id)}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T3 }} />
+              </div>
+              <p className="text-[11px] mt-1.5" style={{ color: T3 }}>{t('owner.ev.timezoneHint')}</p>
             </div>
 
             {/* ── Organizer-only: visibility / collaboration / partner club / secret venue ── */}

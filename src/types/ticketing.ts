@@ -134,6 +134,7 @@ export type EventWithTicketing = {
   posterPosition?: { x: number; y: number; scale: number };
   startAt: string;
   endAt: string;
+  timezone?: string | null;
   isActive: boolean;
   ticketingEnabled: boolean;
   maxTickets?: number;

@@ -30,9 +30,8 @@ import {
 } from 'lucide-react';
 import { PosterCropper, PosterPosition } from '@/components/PosterCropper';
 import { DJLineupSelector } from '@/components/dj/DJLineupSelector';
-import { fromParisTime } from '@/lib/timezone';
 import { formatInTimeZone } from 'date-fns-tz';
-import { PARIS_TIMEZONE } from '@/lib/timezone';
+import { PARIS_TIMEZONE, getEventTimezone, fromWallClockInTz, toWallClockInputInTz, cityToTimezone, SUPPORTED_TIMEZONES, tzOffsetLabel } from '@/lib/timezone';
 // Libellés RÉELS du filtre public — une seule liste pour toute l'app.
 import { MUSIC_GENRES } from '@/lib/musicGenres';
 
@@ -157,6 +156,10 @@ export function OrgEventFormDialog({
   const [description, setDescription] = useState('');
   const [startAt, setStartAt] = useState('');
   const [endAt, setEndAt] = useState('');
+  // Fuseau de l'événement (figé à la publication). Défaut dérivé de la ville
+  // saisie tant que l'organisateur n'a pas choisi explicitement.
+  const [timezone, setTimezone] = useState(PARIS_TIMEZONE);
+  const [tzTouched, setTzTouched] = useState(false);
   const [locationName, setLocationName] = useState('');
   const [locationCity, setLocationCity] = useState('');
   const [locationAddress, setLocationAddress] = useState('');
@@ -211,6 +214,14 @@ export function OrgEventFormDialog({
     return () => { cancelled = true; };
   }, [open, organizerUserId, eventId]);
 
+  // Défaut de fuseau dérivé de la ville saisie, tant que l'organisateur n'a pas
+  // choisi explicitement (et seulement en création).
+  useEffect(() => {
+    if (!eventId && !tzTouched && locationCity.trim()) {
+      setTimezone(cityToTimezone(locationCity));
+    }
+  }, [locationCity, eventId, tzTouched]);
+
   // Reset on open
   useEffect(() => {
     if (!open) return;
@@ -220,6 +231,8 @@ export function OrgEventFormDialog({
       setDescription('');
       setStartAt('');
       setEndAt('');
+      setTimezone(PARIS_TIMEZONE);
+      setTzTouched(false);
       setLocationName('');
       setLocationCity('');
       setLocationAddress('');
@@ -250,8 +263,10 @@ export function OrgEventFormDialog({
       if (ev) {
         setTitle(ev.title || '');
         setDescription(ev.description || '');
-        setStartAt(formatInTimeZone(ev.start_at, PARIS_TIMEZONE, "yyyy-MM-dd'T'HH:mm"));
-        setEndAt(formatInTimeZone(ev.end_at, PARIS_TIMEZONE, "yyyy-MM-dd'T'HH:mm"));
+        setTimezone(getEventTimezone(ev));
+        setTzTouched(true);
+        setStartAt(toWallClockInputInTz(ev.start_at, getEventTimezone(ev)));
+        setEndAt(toWallClockInputInTz(ev.end_at, getEventTimezone(ev)));
         setLocationName(ev.location_name || '');
         setLocationCity(ev.location_city || '');
         setLocationAddress(ev.location_address || '');
@@ -359,8 +374,8 @@ export function OrgEventFormDialog({
         }
       }
 
-      const startAtUTC = fromParisTime(startAt).toISOString();
-      const endAtUTC = fromParisTime(endAt).toISOString();
+      const startAtUTC = fromWallClockInTz(startAt, timezone);
+      const endAtUTC = fromWallClockInTz(endAt, timezone);
 
       const visibility = eventKind === 'private_event' ? 'private' : 'public';
       // The DB trigger evaluate_event_discoverability() recomputes is_discoverable / discovery_status
@@ -382,6 +397,7 @@ export function OrgEventFormDialog({
           : null,
         start_at: startAtUTC,
         end_at: endAtUTC,
+        timezone: timezone || PARIS_TIMEZONE,
         location_name: locationName.trim() || null,
         location_city: locationCity.trim() || null,
         location_address: locationAddress.trim() || null,
@@ -589,13 +605,32 @@ export function OrgEventFormDialog({
             {/* Dates */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <FieldLabel>{t('Début (heure de Paris)', 'Start (Paris time)')} *</FieldLabel>
+                <FieldLabel>{t('Début', 'Start')} *</FieldLabel>
                 <DarkInput id="start" type="datetime-local" value={startAt} onChange={setStartAt} required />
               </div>
               <div>
-                <FieldLabel>{t('Fin (heure de Paris)', 'End (Paris time)')} *</FieldLabel>
+                <FieldLabel>{t('Fin', 'End')} *</FieldLabel>
                 <DarkInput id="end" type="datetime-local" value={endAt} onChange={setEndAt} required />
               </div>
+            </div>
+
+            {/* Fuseau horaire — les heures ci-dessus sont interprétées et affichées
+                dans ce fuseau (clients + notifications). Défaut = ville saisie. */}
+            <div>
+              <FieldLabel>{t('Fuseau horaire', 'Time zone', 'Zona horaria')}</FieldLabel>
+              <DarkSelect id="timezone" value={timezone} onChange={(v) => { setTimezone(v); setTzTouched(true); }}>
+                {(SUPPORTED_TIMEZONES.some(z => z.id === timezone)
+                  ? SUPPORTED_TIMEZONES
+                  : [{ id: timezone, city: timezone }, ...SUPPORTED_TIMEZONES]
+                ).map(z => (
+                  <option key={z.id} value={z.id} style={{ background: '#0a0a0c' }}>
+                    {z.city} · {tzOffsetLabel(z.id)}
+                  </option>
+                ))}
+              </DarkSelect>
+              <p className="text-[11px] mt-1.5" style={{ color: T3 }}>
+                {t('Les heures de la soirée seront affichées dans ce fuseau.', 'Event times will be shown in this time zone.', 'Las horas se mostrarán en esta zona horaria.')}
+              </p>
             </div>
 
             {/* Event kind */}

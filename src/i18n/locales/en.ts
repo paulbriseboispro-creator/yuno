@@ -3207,6 +3207,8 @@ const en: Record<string, string> = {
   'owner.ev.secretVenue': "Secret venue",
   'owner.ev.secretVenueDesc': "Hides the venue name and exact address on the public page, revealed only to confirmed guests. The city stays visible and the event still appears in the right city.",
   'owner.ev.locationRequired': "Venue, city and address required",
+  'owner.ev.timezone': "Time zone",
+  'owner.ev.timezoneHint': "Event times are interpreted and shown in this time zone (clients and notifications). Defaults to your city's zone.",
   'owner.ev.revealConfirmTitle': "In the confirmation email",
   'owner.ev.revealConfirmDesc': "Sent automatically the moment a guest reserves.",
   'owner.ev.revealManualTitle': "I'll reveal it myself",

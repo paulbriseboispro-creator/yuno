@@ -3487,6 +3487,8 @@ const es: Record<string, string> = {
   'owner.ev.secretVenue': "Lugar secreto",
   'owner.ev.secretVenueDesc': "Oculta el nombre del lugar y la dirección exacta en la página pública, revelados solo a los asistentes confirmados. La ciudad sigue visible y el evento aparece igualmente en la ciudad correcta.",
   'owner.ev.locationRequired': "Lugar, ciudad y dirección obligatorios",
+  'owner.ev.timezone': "Zona horaria",
+  'owner.ev.timezoneHint': "Las horas del evento se interpretan y se muestran en esta zona horaria (clientes y notificaciones). Por defecto, la zona de tu ciudad.",
   'owner.ev.revealConfirmTitle': "En el email de confirmación",
   'owner.ev.revealConfirmDesc': "Enviada automáticamente en cuanto un asistente reserva.",
   'owner.ev.revealManualTitle': "La revelo yo mismo",
