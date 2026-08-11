@@ -165,6 +165,7 @@ export interface ReceiptData {
   // Event
   eventTitle?: string;
   eventDate?: Date;
+  eventTimezone?: string;   // fuseau de l'événement (défaut Europe/Paris)
   eventCity?: string;
   // Lines (ticket + fees), each with its own VAT rate
   lines: ReceiptLine[];
@@ -176,6 +177,7 @@ export interface BilletData {
   organizerName: string;
   eventStart?: Date;
   eventEnd?: Date;
+  eventTimezone?: string;   // fuseau de l'événement (défaut Europe/Paris)
   address?: string;        // resolved venue address, or empty when deferred
   addressDeferred?: boolean;
   entranceGroup?: string;  // e.g. "GENERAL ENTRANCE" (round group label)
@@ -240,7 +242,7 @@ export function drawReceipt(doc: PdfDoc, data: ReceiptData): void {
     text(doc, L.event, M + 7, y + 8, { size: 7.5, font: MONO, style: 'bold', color: RED });
     let ey = y + 15;
     for (const ln of titleLines) { text(doc, ln, M + 7, ey, { size: 13, style: 'bold' }); ey += 6; }
-    const meta = [data.eventDate ? fmtLongDate(data.eventDate, loc) : '', data.eventCity || ''].filter(Boolean).join('  ·  ');
+    const meta = [data.eventDate ? fmtLongDate(data.eventDate, loc, data.eventTimezone) : '', data.eventCity || ''].filter(Boolean).join('  ·  ');
     if (meta) text(doc, meta, M + 7, ey + 0.5, { size: 8.5, font: MONO, color: SUB });
     y += panelH + 10;
   }
@@ -367,8 +369,8 @@ export function drawBillet(doc: PdfDoc, data: BilletData): void {
   y += 6;
   const validity = data.eventStart
     ? data.eventEnd
-      ? `${fmtLongDate(data.eventStart, loc)} – ${data.eventEnd.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit', timeZone: DOC_TZ })}`
-      : fmtLongDate(data.eventStart, loc)
+      ? `${fmtLongDate(data.eventStart, loc, data.eventTimezone)} – ${data.eventEnd.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit', timeZone: data.eventTimezone || DOC_TZ })}`
+      : fmtLongDate(data.eventStart, loc, data.eventTimezone)
     : '—';
   let ly = y;
   for (const ln of wrap(doc, validity, W / 2 - M - 6, 9)) { text(doc, ln, M, ly, { size: 9, color: INK }); ly += 4.6; }
@@ -410,7 +412,7 @@ export function drawBillet(doc: PdfDoc, data: BilletData): void {
 
   // Event date reminder
   if (data.eventStart) {
-    text(doc, `${L.eventDate} : ${fmtLongDate(data.eventStart, loc)}`, M, y, { size: 8.5, font: MONO, color: SUB });
+    text(doc, `${L.eventDate} : ${fmtLongDate(data.eventStart, loc, data.eventTimezone)}`, M, y, { size: 8.5, font: MONO, color: SUB });
     y += 6;
   }
   text(doc, L.showAtEntry, M, y, { size: 9, style: 'bold', color: RED });

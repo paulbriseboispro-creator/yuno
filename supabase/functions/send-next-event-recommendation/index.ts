@@ -221,7 +221,7 @@ serve(async (req) => {
           lang,
           firstName: profile?.first_name || undefined,
           events: scoredEvents.map((e) => {
-            const dp = fmtDateParts(e.start_at, lang);
+            const dp = fmtDateParts(e.start_at, lang, e.timezone || undefined);
             const vName = (e.venues as any)?.name || '';
             return { title: e.title, meta: `${dp.day} ${dp.month}${vName ? ' · ' + vName : ''}`, url: `https://yunoapp.eu/event/${e.id}`, img: e.poster_url || undefined };
           }),

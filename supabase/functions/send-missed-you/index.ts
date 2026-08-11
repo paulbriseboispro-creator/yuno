@@ -208,7 +208,7 @@ serve(async (req) => {
 
           const nextEventBuilt = nextEvent ? {
             title: nextEvent.title,
-            meta: (() => { const dp = fmtDateParts(nextEvent.start_at, lang); return `${dp.day} ${dp.month}`; })(),
+            meta: (() => { const dp = fmtDateParts(nextEvent.start_at, lang, nextEvent.timezone || undefined); return `${dp.day} ${dp.month}`; })(),
             url: `https://yunoapp.eu/event/${nextEvent.id}`,
           } : undefined;
           const unsubUrl = `${Deno.env.get('PUBLIC_URL') || Deno.env.get('APP_BASE_URL') || 'https://yunoapp.eu'}/unsubscribe?token=${unsubToken}`;
