@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { helpContent, HelpArticle, HelpCategory } from '@/data/helpContent';
-import { ArrowLeft, Search, ChevronRight, ChevronDown, Image, BookOpen } from 'lucide-react';
+import { ArrowLeft, Search, ChevronRight, ChevronDown, BookOpen } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -90,18 +90,33 @@ export default function HelpCenter({ defaultTab = 'client' }: Props) {
             <p className="text-sm text-muted-foreground">{t(selectedArticle.descKey)}</p>
           </div>
 
-          {selectedArticle.sections.map((section, i) => (
-            <div key={i} className="space-y-2">
-              <h3 className="text-base font-semibold text-foreground">{t(section.headingKey)}</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{t(section.bodyKey)}</p>
-              {section.screenshotPlaceholder && (
-                <div className="w-full h-40 rounded-lg border-2 border-dashed border-border bg-muted/30 flex flex-col items-center justify-center gap-2 mt-3">
-                  <Image className="w-8 h-8 text-muted-foreground/50" />
-                  <span className="text-xs text-muted-foreground/50">{t('help.screenshotPlaceholder')}</span>
-                </div>
-              )}
-            </div>
-          ))}
+          {selectedArticle.sections.map((section, i) => {
+            // Screen names resolve to per-language mobile captures (portrait,
+            // constrained width); absolute paths are shared desktop captures
+            // of the owner dashboard (full width).
+            const isSharedDesktopShot = section.screenshot?.startsWith('/');
+            const screenshotSrc = section.screenshot
+              ? (isSharedDesktopShot ? section.screenshot : `/help/app/${language}/${section.screenshot}.webp`)
+              : null;
+            return (
+              <div key={i} className="space-y-2">
+                <h3 className="text-base font-semibold text-foreground">{t(section.headingKey)}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{t(section.bodyKey)}</p>
+                {screenshotSrc && (
+                  <img
+                    src={screenshotSrc}
+                    alt={t(section.headingKey)}
+                    loading="lazy"
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                    className={cn(
+                      'rounded-xl border border-border mt-3',
+                      isSharedDesktopShot ? 'w-full' : 'w-full max-w-[300px] mx-auto',
+                    )}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
         </PublicPage>
       </div>

@@ -1,10 +1,17 @@
 // Help Center content structure — all text via i18n keys
-// Each article has sections with headings and body text
+// Each article has sections with headings and body text.
+//
+// Screenshots: `screenshot` is either
+//   - a screen name (e.g. 'explore') resolved per language to
+//     /help/app/<lang>/<name>.webp — real app captures taken in EN/FR/ES
+//     (mobile viewport, portrait);
+//   - an absolute path (starts with '/') used as-is — shared desktop captures
+//     from the owner dashboard (same convention as the in-app owner guide).
 
 export interface HelpSection {
   headingKey: string;
   bodyKey: string;
-  screenshotPlaceholder?: boolean;
+  screenshot?: string;
 }
 
 export interface HelpArticle {
@@ -33,7 +40,7 @@ export const helpContent: Record<string, HelpCategory[]> = {
           descKey: 'help.client.explore.desc',
           icon: '🔍',
           sections: [
-            { headingKey: 'help.client.explore.s1h', bodyKey: 'help.client.explore.s1b', screenshotPlaceholder: true },
+            { headingKey: 'help.client.explore.s1h', bodyKey: 'help.client.explore.s1b', screenshot: 'explore' },
             { headingKey: 'help.client.explore.s2h', bodyKey: 'help.client.explore.s2b' },
             { headingKey: 'help.client.explore.s3h', bodyKey: 'help.client.explore.s3b' },
           ],
@@ -44,7 +51,7 @@ export const helpContent: Record<string, HelpCategory[]> = {
           descKey: 'help.client.events.desc',
           icon: '🎉',
           sections: [
-            { headingKey: 'help.client.events.s1h', bodyKey: 'help.client.events.s1b', screenshotPlaceholder: true },
+            { headingKey: 'help.client.events.s1h', bodyKey: 'help.client.events.s1b', screenshot: 'event' },
             { headingKey: 'help.client.events.s2h', bodyKey: 'help.client.events.s2b' },
           ],
         },
@@ -60,9 +67,30 @@ export const helpContent: Record<string, HelpCategory[]> = {
           descKey: 'help.client.tickets.desc',
           icon: '🎫',
           sections: [
-            { headingKey: 'help.client.tickets.s1h', bodyKey: 'help.client.tickets.s1b', screenshotPlaceholder: true },
+            { headingKey: 'help.client.tickets.s1h', bodyKey: 'help.client.tickets.s1b', screenshot: 'tickets' },
             { headingKey: 'help.client.tickets.s2h', bodyKey: 'help.client.tickets.s2b' },
             { headingKey: 'help.client.tickets.s3h', bodyKey: 'help.client.tickets.s3b' },
+          ],
+        },
+        {
+          id: 'client-tables',
+          titleKey: 'help.client.tables.title',
+          descKey: 'help.client.tables.desc',
+          icon: '🍾',
+          sections: [
+            { headingKey: 'help.client.tables.s1h', bodyKey: 'help.client.tables.s1b', screenshot: 'tables' },
+            { headingKey: 'help.client.tables.s2h', bodyKey: 'help.client.tables.s2b' },
+            { headingKey: 'help.client.tables.s3h', bodyKey: 'help.client.tables.s3b' },
+          ],
+        },
+        {
+          id: 'client-guestlist',
+          titleKey: 'help.client.guestlist.title',
+          descKey: 'help.client.guestlist.desc',
+          icon: '📝',
+          sections: [
+            { headingKey: 'help.client.guestlist.s1h', bodyKey: 'help.client.guestlist.s1b', screenshot: 'guestlist' },
+            { headingKey: 'help.client.guestlist.s2h', bodyKey: 'help.client.guestlist.s2b' },
           ],
         },
         {
@@ -71,7 +99,7 @@ export const helpContent: Record<string, HelpCategory[]> = {
           descKey: 'help.client.drinks.desc',
           icon: '🍸',
           sections: [
-            { headingKey: 'help.client.drinks.s1h', bodyKey: 'help.client.drinks.s1b', screenshotPlaceholder: true },
+            { headingKey: 'help.client.drinks.s1h', bodyKey: 'help.client.drinks.s1b', screenshot: 'drinks' },
             { headingKey: 'help.client.drinks.s2h', bodyKey: 'help.client.drinks.s2b' },
             { headingKey: 'help.client.drinks.s3h', bodyKey: 'help.client.drinks.s3b' },
           ],
@@ -82,7 +110,7 @@ export const helpContent: Record<string, HelpCategory[]> = {
           descKey: 'help.client.qr.desc',
           icon: '📱',
           sections: [
-            { headingKey: 'help.client.qr.s1h', bodyKey: 'help.client.qr.s1b', screenshotPlaceholder: true },
+            { headingKey: 'help.client.qr.s1h', bodyKey: 'help.client.qr.s1b', screenshot: 'myorders' },
             { headingKey: 'help.client.qr.s2h', bodyKey: 'help.client.qr.s2b' },
           ],
         },
@@ -98,8 +126,19 @@ export const helpContent: Record<string, HelpCategory[]> = {
           descKey: 'help.client.points.desc',
           icon: '⭐',
           sections: [
-            { headingKey: 'help.client.points.s1h', bodyKey: 'help.client.points.s1b' },
+            { headingKey: 'help.client.points.s1h', bodyKey: 'help.client.points.s1b', screenshot: 'profile' },
             { headingKey: 'help.client.points.s2h', bodyKey: 'help.client.points.s2b' },
+          ],
+        },
+        {
+          id: 'client-account',
+          titleKey: 'help.client.account.title',
+          descKey: 'help.client.account.desc',
+          icon: '🔐',
+          sections: [
+            { headingKey: 'help.client.account.s1h', bodyKey: 'help.client.account.s1b', screenshot: 'settings' },
+            { headingKey: 'help.client.account.s2h', bodyKey: 'help.client.account.s2b' },
+            { headingKey: 'help.client.account.s3h', bodyKey: 'help.client.account.s3b' },
           ],
         },
         {
@@ -126,7 +165,7 @@ export const helpContent: Record<string, HelpCategory[]> = {
           descKey: 'help.owner.venueSetup.desc',
           icon: '🏢',
           sections: [
-            { headingKey: 'help.owner.venueSetup.s1h', bodyKey: 'help.owner.venueSetup.s1b', screenshotPlaceholder: true },
+            { headingKey: 'help.owner.venueSetup.s1h', bodyKey: 'help.owner.venueSetup.s1b', screenshot: '/help/owner-venue.png' },
             { headingKey: 'help.owner.venueSetup.s2h', bodyKey: 'help.owner.venueSetup.s2b' },
             { headingKey: 'help.owner.venueSetup.s3h', bodyKey: 'help.owner.venueSetup.s3b' },
           ],
@@ -137,7 +176,7 @@ export const helpContent: Record<string, HelpCategory[]> = {
           descKey: 'help.owner.stripe.desc',
           icon: '💰',
           sections: [
-            { headingKey: 'help.owner.stripe.s1h', bodyKey: 'help.owner.stripe.s1b', screenshotPlaceholder: true },
+            { headingKey: 'help.owner.stripe.s1h', bodyKey: 'help.owner.stripe.s1b' },
             { headingKey: 'help.owner.stripe.s2h', bodyKey: 'help.owner.stripe.s2b' },
             { headingKey: 'help.owner.stripe.s3h', bodyKey: 'help.owner.stripe.s3b' },
           ],
@@ -154,7 +193,7 @@ export const helpContent: Record<string, HelpCategory[]> = {
           descKey: 'help.owner.menuMgmt.desc',
           icon: '📋',
           sections: [
-            { headingKey: 'help.owner.menuMgmt.s1h', bodyKey: 'help.owner.menuMgmt.s1b', screenshotPlaceholder: true },
+            { headingKey: 'help.owner.menuMgmt.s1h', bodyKey: 'help.owner.menuMgmt.s1b', screenshot: '/help/owner-menu.png' },
             { headingKey: 'help.owner.menuMgmt.s2h', bodyKey: 'help.owner.menuMgmt.s2b' },
             { headingKey: 'help.owner.menuMgmt.s3h', bodyKey: 'help.owner.menuMgmt.s3b' },
           ],
@@ -165,7 +204,7 @@ export const helpContent: Record<string, HelpCategory[]> = {
           descKey: 'help.owner.eventsMgmt.desc',
           icon: '📅',
           sections: [
-            { headingKey: 'help.owner.eventsMgmt.s1h', bodyKey: 'help.owner.eventsMgmt.s1b', screenshotPlaceholder: true },
+            { headingKey: 'help.owner.eventsMgmt.s1h', bodyKey: 'help.owner.eventsMgmt.s1b', screenshot: '/help/owner-events.png' },
             { headingKey: 'help.owner.eventsMgmt.s2h', bodyKey: 'help.owner.eventsMgmt.s2b' },
             { headingKey: 'help.owner.eventsMgmt.s3h', bodyKey: 'help.owner.eventsMgmt.s3b' },
           ],
@@ -176,7 +215,7 @@ export const helpContent: Record<string, HelpCategory[]> = {
           descKey: 'help.owner.staffMgmt.desc',
           icon: '👥',
           sections: [
-            { headingKey: 'help.owner.staffMgmt.s1h', bodyKey: 'help.owner.staffMgmt.s1b', screenshotPlaceholder: true },
+            { headingKey: 'help.owner.staffMgmt.s1h', bodyKey: 'help.owner.staffMgmt.s1b', screenshot: '/help/owner-staff.png' },
             { headingKey: 'help.owner.staffMgmt.s2h', bodyKey: 'help.owner.staffMgmt.s2b' },
           ],
         },
@@ -203,8 +242,8 @@ export const helpContent: Record<string, HelpCategory[]> = {
           descKey: 'help.owner.analyticsBasics.desc',
           icon: '📊',
           sections: [
-            { headingKey: 'help.owner.analyticsBasics.s1h', bodyKey: 'help.owner.analyticsBasics.s1b', screenshotPlaceholder: true },
-            { headingKey: 'help.owner.analyticsBasics.s2h', bodyKey: 'help.owner.analyticsBasics.s2b' },
+            { headingKey: 'help.owner.analyticsBasics.s1h', bodyKey: 'help.owner.analyticsBasics.s1b', screenshot: '/help/owner-dashboard.png' },
+            { headingKey: 'help.owner.analyticsBasics.s2h', bodyKey: 'help.owner.analyticsBasics.s2b', screenshot: '/help/owner-analytics.png' },
           ],
         },
         {
@@ -213,7 +252,7 @@ export const helpContent: Record<string, HelpCategory[]> = {
           descKey: 'help.owner.refunds.desc',
           icon: '↩️',
           sections: [
-            { headingKey: 'help.owner.refunds.s1h', bodyKey: 'help.owner.refunds.s1b' },
+            { headingKey: 'help.owner.refunds.s1h', bodyKey: 'help.owner.refunds.s1b', screenshot: '/help/owner-refunds.png' },
             { headingKey: 'help.owner.refunds.s2h', bodyKey: 'help.owner.refunds.s2b' },
           ],
         },
@@ -241,7 +280,7 @@ export const helpContent: Record<string, HelpCategory[]> = {
           descKey: 'help.staff.barman.queue.desc',
           icon: '🍺',
           sections: [
-            { headingKey: 'help.staff.barman.queue.s1h', bodyKey: 'help.staff.barman.queue.s1b', screenshotPlaceholder: true },
+            { headingKey: 'help.staff.barman.queue.s1h', bodyKey: 'help.staff.barman.queue.s1b', screenshot: 'barman' },
             { headingKey: 'help.staff.barman.queue.s2h', bodyKey: 'help.staff.barman.queue.s2b' },
             { headingKey: 'help.staff.barman.queue.s3h', bodyKey: 'help.staff.barman.queue.s3b' },
           ],
@@ -258,7 +297,7 @@ export const helpContent: Record<string, HelpCategory[]> = {
           descKey: 'help.staff.bouncer.scan.desc',
           icon: '🚪',
           sections: [
-            { headingKey: 'help.staff.bouncer.scan.s1h', bodyKey: 'help.staff.bouncer.scan.s1b', screenshotPlaceholder: true },
+            { headingKey: 'help.staff.bouncer.scan.s1h', bodyKey: 'help.staff.bouncer.scan.s1b', screenshot: 'bouncer' },
             { headingKey: 'help.staff.bouncer.scan.s2h', bodyKey: 'help.staff.bouncer.scan.s2b' },
           ],
         },
@@ -274,7 +313,7 @@ export const helpContent: Record<string, HelpCategory[]> = {
           descKey: 'help.staff.vip.tables.desc',
           icon: '🥂',
           sections: [
-            { headingKey: 'help.staff.vip.tables.s1h', bodyKey: 'help.staff.vip.tables.s1b', screenshotPlaceholder: true },
+            { headingKey: 'help.staff.vip.tables.s1h', bodyKey: 'help.staff.vip.tables.s1b', screenshot: 'viphost' },
             { headingKey: 'help.staff.vip.tables.s2h', bodyKey: 'help.staff.vip.tables.s2b' },
             { headingKey: 'help.staff.vip.tables.s3h', bodyKey: 'help.staff.vip.tables.s3b' },
           ],
@@ -291,7 +330,7 @@ export const helpContent: Record<string, HelpCategory[]> = {
           descKey: 'help.staff.cloakroom.flow.desc',
           icon: '🧥',
           sections: [
-            { headingKey: 'help.staff.cloakroom.flow.s1h', bodyKey: 'help.staff.cloakroom.flow.s1b' },
+            { headingKey: 'help.staff.cloakroom.flow.s1h', bodyKey: 'help.staff.cloakroom.flow.s1b', screenshot: 'cloakroom' },
             { headingKey: 'help.staff.cloakroom.flow.s2h', bodyKey: 'help.staff.cloakroom.flow.s2b' },
           ],
         },
