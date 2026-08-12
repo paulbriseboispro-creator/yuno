@@ -14,10 +14,15 @@
 // It also serves a LIVE /sitemap.xml built from Supabase, so every public event, club,
 // DJ and organizer page is discoverable (the old static sitemap listed 2 URLs).
 //
+// Finally, it turns ghost file paths (/_next/*, /static/* — other frameworks' asset
+// prefixes, left over from an earlier deploy on this domain) into real 404s instead of
+// the 200 + index.html the SPA fallback would otherwise return.
+//
 // Real users are never affected — non-crawler requests fall straight through to the
 // static asset server (zero added latency), and any failure falls back to the
 // unmodified page. Only routes in wrangler.jsonc `assets.run_worker_first`
-// (/sitemap.xml, /dj/*, /event/*, /club/*, /o/*) ever reach this Worker.
+// (/sitemap.xml, /dj/*, /event/*, /club/*, /o/*, /_next/*, /static/*) ever reach
+// this Worker.
 
 interface Env {
   ASSETS: { fetch: (req: Request) => Promise<Response> };
@@ -53,6 +58,15 @@ const G = globalThis as unknown as {
 // preview deploys (*.workers.dev) still emit canonical + sitemap URLs pointing at prod,
 // consolidating all ranking signals onto yunoapp.eu.
 const ORIGIN = 'https://yunoapp.eu';
+
+// Asset prefixes belonging to OTHER frameworks — never a Yuno route. The SPA fallback
+// (`not_found_handling: single-page-application`) answers 200 + index.html for ANY unknown
+// URL, so a ghost file path becomes a soft-404: the crawler gets HTML on a `.woff2`, reads
+// the static `<link rel="canonical" href="https://yunoapp.eu/">`, and files the URL under
+// "Duplicate, Google chose a different canonical". Search Console reported exactly that in
+// August 2026 for `/_next/static/media/*.woff2?dpl=…` — a leftover from a Next.js/Vercel
+// deploy that once lived on this domain. Serving a real 404 lets the engine drop the URL.
+const GHOST_ASSET_RE = /^\/(?:_next|static)\//;
 
 interface Entity {
   title: string; // <title> + og:title + twitter:title
@@ -866,6 +880,23 @@ export default {
 
   async fetch(request: Request, env: Env, ctx: Ctx): Promise<Response> {
     const url = new URL(request.url);
+
+    // Ghost asset paths → real 404, never the SPA shell. Workers Assets falls back to
+    // index.html when a file is missing, so `/_next/…woff2` currently answers 200 + HTML
+    // and search engines treat it as a page. We only guard prefixes that can never be an
+    // app route (see GHOST_ASSET_RE) — a bare "has a dot" test would 404 legitimate slugs
+    // like /dj/dj.snake. Content-type is what tells the two apart: a real file keeps its
+    // own type, the fallback comes back as text/html.
+    if (GHOST_ASSET_RE.test(url.pathname)) {
+      const asset = await env.ASSETS.fetch(request);
+      if ((asset.headers.get('content-type') || '').includes('text/html')) {
+        return new Response('Not Found', {
+          status: 404,
+          headers: { 'content-type': 'text/plain; charset=utf-8', 'x-robots-tag': 'noindex' },
+        });
+      }
+      return asset;
+    }
 
     // Live sitemap — served to everyone (Googlebot, GSC, humans), not just crawlers.
     // Handle HEAD too so a HEAD probe returns XML headers, not the SPA shell.
