@@ -795,162 +795,252 @@ Derecho francés. Este acuerdo prevalece sobre las Condiciones Pro en lo relativ
   'privacy': {
     fr: {
       title: 'Politique de Confidentialité',
-      content: `**1. Responsable du traitement**
-WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives – contact@yunoapp.eu
+      content: `Dernière mise à jour : 11 août 2026
+
+Cette politique explique quelles données Yuno collecte, pourquoi, avec qui elles sont partagées et quels sont vos droits. Elle s'applique au site yunoapp.eu et aux applications mobiles Yuno et Yuno Pro.
+
+**1. Responsable du traitement**
+WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, France – contact@yunoapp.eu
 
 **2. Données collectées**
-• Identité & contact : nom, prénom, email, téléphone
-• Données de commande : produits achetés, montants, horodatage, club concerné
-• Données âge (déclaratif) : date de naissance / confirmation de majorité
-• Données techniques : logs de sécurité, appareil, cookies si activés
-• Localisation : position de l'appareil (avec votre autorisation) pour afficher les clubs et soirées proches de vous
-• Notifications push : identifiant d'appareil (jeton) pour vous envoyer les alertes soirées et le suivi de vos commandes
-• Données clubs : informations établissement, produits, performances
-• Preuves d'acceptation légale : version des conditions acceptées, horodatage, adresse IP (case cochée à l'inscription, l'onboarding ou l'accès à un aperçu)
+• Compte & identité : nom, prénom, email, téléphone, ville (optionnelle), photo de profil (si ajoutée), langue préférée
+• Âge (déclaratif) : date de naissance / confirmation de majorité — Yuno est réservé aux 18 ans et plus
+• Connexion via Apple ou Google : identifiant transmis par le service choisi (nous ne recevons jamais votre mot de passe Apple/Google)
+• Commandes & réservations : billets, tables VIP (acompte, minimum de consommation), boissons, inscriptions guest list, remboursements, factures
+• Fidélité & préférences : points de fidélité, favoris, préférences musicales (quiz de goûts)
+• Localisation : traitée sur votre appareil (avec votre autorisation système) pour afficher les clubs et soirées proches ; la ville retenue est mémorisée, Yuno ne conserve pas d'historique de vos positions
+• Notifications push : jeton d'appareil (Apple APNs / Google FCM), supprimé si vous désactivez les notifications
+• Assistant IA : contenu des conversations avec l'assistant Yuno
+• Caméra (app Pro / staff) : utilisée localement pour scanner les QR codes ; aucune image n'est enregistrée ni transmise
+• Liens de promotion : si vous ouvrez Yuno via le lien d'un promoteur ou partenaire, l'identifiant du lien est mémorisé pour attribuer la vente
+• Données techniques & sécurité : logs, type d'appareil, adresse IP
+• Preuves d'acceptation légale : version des conditions acceptées, horodatage, adresse IP
+• Cookies & traceurs : voir la Politique Cookies (yunoapp.eu/legal/cookies) — les traceurs de mesure d'audience ne sont déposés qu'avec votre consentement
 
 **3. Finalités & bases légales**
-• Exécuter les commandes & fournir QR codes : exécution du contrat
-• Sécuriser la plateforme / anti-fraude : intérêt légitime
+• Fournir le service (compte, commandes, QR codes, guest lists) : exécution du contrat
+• Paiements, factures et comptabilité : exécution du contrat & obligation légale
+• Vérification de la majorité (18+) : obligation légale & intérêt légitime
+• Sécurité de la plateforme / anti-fraude : intérêt légitime
 • Support client : exécution du contrat / intérêt légitime
-• Statistiques internes, mesure d'audience & personnalisation (« Pour toi ») : intérêt légitime (ou consentement si traceurs non nécessaires)
-• Afficher les clubs/soirées proches & envoyer les notifications push : intérêt légitime, avec l'autorisation système (localisation, notifications) que vous pouvez révoquer à tout moment
-• Communications (si newsletter) : consentement (si applicable)
+• Notifications push & localisation : autorisations système que vous accordez et pouvez révoquer à tout moment dans les réglages de votre appareil
+• Personnalisation (« Pour toi », recommandations) & statistiques internes : intérêt légitime — désactivable dans Réglages → Recommandations personnalisées
+• Attribution des ventes aux promoteurs/partenaires : intérêt légitime (rémunération des partenaires)
+• Emails et SMS marketing, newsletter : consentement, retirable à tout moment (lien de désinscription, STOP)
+• Mesure d'audience (cookies analytiques) : consentement
 
 **4. Destinataires**
-• Clubs partenaires (données nécessaires à l'exécution : commande, identité si nécessaire, QR)
-• Stripe (paiements – les données de paiement sont traitées directement par Stripe et ne transitent pas par les serveurs de Yuno)
-• Hébergeur Backend (Supabase – supabase.com – serveurs sécurisés avec chiffrement en transit via HTTPS/TLS)
-• Mapbox (affichage cartographique des clubs)
-• Resend (envoi des emails transactionnels : confirmations, billets)
-• OpenAI (assistant conversationnel : les questions posées à l'assistant sont transmises à OpenAI pour générer la réponse)
-• Twilio (envoi de SMS, lorsque vous y avez consenti)
+Yuno ne vend jamais vos données. Elles ne sont partagées qu'avec :
+• Les clubs et organisateurs concernés par vos achats (commande, identité nécessaire à l'entrée, QR) ; pour une guest list via promoteur, le club et l'équipe concernés voient votre inscription
+• Stripe (paiements — vos données bancaires sont traitées directement par Stripe et ne transitent jamais par les serveurs de Yuno)
+• Supabase (hébergement backend — chiffrement en transit HTTPS/TLS)
 • Cloudflare (diffusion sécurisée du site)
+• Mapbox (affichage cartographique des clubs)
+• Resend (emails transactionnels : confirmations, billets)
+• Twilio (SMS, lorsque vous y avez consenti)
+• OpenAI (assistant conversationnel et moteur de recommandations : les questions posées à l'assistant et des descriptions d'événements/préférences musicales sont transmises à OpenAI pour générer réponses et suggestions)
+• Apple et Google (livraison des notifications push, connexion Sign in, cartes Wallet le cas échéant)
 • Sous-traitants techniques strictement nécessaires
 
 **5. Durées de conservation**
-• Données de commandes : 5 ans (preuve/gestion litiges et obligations comptables)
-• Support : 2 ans après dernier contact
-• Logs sécurité : 12 mois
-• Preuves d'acceptation légale : 5 ans (preuve du consentement)
-• Compte utilisateur inactif : 24 mois puis suppression/anonymisation (sauf obligations légales)
+• Données de commandes et factures : 5 ans (preuve, litiges, obligations comptables)
+• Support : 2 ans après le dernier contact
+• Logs de sécurité : 12 mois
+• Preuves d'acceptation légale : 5 ans
+• Jeton de notification push : supprimé à la désactivation des notifications ou à la suppression du compte
+• Compte inactif : 24 mois puis suppression/anonymisation (sauf obligations légales)
 
-**6. Droits**
-Accès, rectification, suppression, opposition, limitation, portabilité.
-Contact : contact@yunoapp.eu
-Réclamation CNIL : cnil.fr
+**6. Vos droits**
+Vous disposez des droits d'accès, de rectification, d'effacement, d'opposition, de limitation et de portabilité, ainsi que du droit de retirer votre consentement à tout moment et de définir des directives sur le sort de vos données après votre décès.
+Contact : contact@yunoapp.eu — nous répondons sous 30 jours.
+Réclamation : CNIL (cnil.fr) ou l'autorité de protection des données de votre pays de résidence.
 
-**7. Sécurité**
-Mesures techniques et organisationnelles : contrôles d'accès, limitation des permissions, chiffrement en transit via HTTPS, authentification sécurisée, politique de mots de passe renforcée.
+**7. Supprimer votre compte**
+Vous pouvez supprimer votre compte directement dans l'app : Profil → Réglages → Supprimer mon compte. La suppression est immédiate et irréversible (profil, favoris, points de fidélité). Les justificatifs que la loi impose de conserver (factures, commandes) sont gardés pendant la durée légale puis supprimés.
 
-**8bis. Accès administrateur**
+**8. Sécurité**
+Mesures techniques et organisationnelles : contrôles d'accès et cloisonnement des permissions par rôle, chiffrement en transit (HTTPS/TLS), authentification sécurisée avec double authentification disponible, politique de mots de passe renforcée, journalisation de sécurité.
+
+**9. Accès administrateur**
 L'opérateur de la plateforme dispose d'un accès aux données de gestion des établissements partenaires (performances, commandes, événements) pour assurer le bon fonctionnement du service et le support. Cet accès est fondé sur l'intérêt légitime de l'opérateur et encadré par des mesures de sécurité appropriées.
 
-**9. Transferts hors UE**
-Certains sous-traitants — notamment Stripe (paiements), OpenAI (assistant IA) et Twilio (SMS) — peuvent impliquer des transferts de données hors de l'Union Européenne, encadrés par les clauses contractuelles types de la Commission européenne (ou tout autre mécanisme de transfert reconnu, tel que le Data Privacy Framework) conformément au RGPD. L'hébergeur (Supabase), Mapbox, Resend et Cloudflare utilisent des infrastructures conformes aux normes européennes de protection des données.`
+**10. Mineurs**
+Yuno est réservé aux personnes majeures (18+). Nous ne collectons pas sciemment de données de mineurs ; tout compte identifié comme appartenant à un mineur est supprimé.
+
+**11. Personnalisation & décisions automatisées**
+La sélection « Pour toi » et les suggestions de soirées reposent sur vos goûts musicaux, vos favoris et votre historique pour ordonner l'affichage. Ce profilage n'a aucun effet juridique sur vous et se désactive à tout moment dans Réglages → Recommandations personnalisées. Yuno ne prend aucune décision entièrement automatisée produisant des effets juridiques.
+
+**12. Transferts hors UE**
+Certains sous-traitants — notamment Stripe (paiements), OpenAI (assistant IA), Twilio (SMS), Apple et Google (notifications) — peuvent impliquer des transferts de données hors de l'Union Européenne, encadrés par les clauses contractuelles types de la Commission européenne ou le Data Privacy Framework, conformément au RGPD. Supabase, Mapbox, Resend et Cloudflare utilisent des infrastructures conformes aux normes européennes de protection des données.
+
+**13. Modifications**
+Cette politique peut évoluer avec le service. En cas de changement substantiel, vous serez informé dans l'app ou par email. La date de dernière mise à jour figure en haut de cette page.`
     },
     en: {
       title: 'Privacy Policy',
-      content: `**1. Data Controller**
+      content: `Last updated: 11 August 2026
+
+This policy explains what data Yuno collects, why, who it is shared with, and what your rights are. It applies to yunoapp.eu and to the Yuno and Yuno Pro mobile apps.
+
+**1. Data Controller**
 WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, France – contact@yunoapp.eu
 
 **2. Data Collected**
-• Identity & contact: last name, first name, email, phone
-• Order data: purchased products, amounts, timestamps, related club
-• Age data (declarative): date of birth / confirmation of legal age
-• Technical data: security logs, device, cookies if enabled
-• Location: device location (with your permission) to show clubs and parties near you
-• Push notifications: device identifier (token) to send you party alerts and order updates
-• Club data: establishment information, products, performance
-• Legal acceptance records: version of accepted terms, timestamp, IP address (checkbox at signup, onboarding, or preview access)
+• Account & identity: last name, first name, email, phone, city (optional), profile picture (if added), preferred language
+• Age (declarative): date of birth / confirmation of legal age — Yuno is restricted to ages 18 and over
+• Sign-in via Apple or Google: identifier provided by the chosen service (we never receive your Apple/Google password)
+• Orders & bookings: tickets, VIP tables (deposit, minimum spend), drinks, guest list registrations, refunds, invoices
+• Loyalty & preferences: loyalty points, favorites, music preferences (taste quiz)
+• Location: processed on your device (with your system permission) to show nearby clubs and parties; the selected city is remembered, Yuno keeps no history of your positions
+• Push notifications: device token (Apple APNs / Google FCM), deleted if you disable notifications
+• AI assistant: content of your conversations with the Yuno assistant
+• Camera (Pro / staff app): used locally to scan QR codes; no image is recorded or transmitted
+• Promotion links: if you open Yuno through a promoter or partner link, the link identifier is remembered to attribute the sale
+• Technical & security data: logs, device type, IP address
+• Legal acceptance records: version of accepted terms, timestamp, IP address
+• Cookies & trackers: see the Cookie Policy (yunoapp.eu/legal/cookies) — audience measurement trackers are only placed with your consent
 
 **3. Purposes & Legal Bases**
-• Execute orders & provide QR codes: contract performance
-• Secure the platform / anti-fraud: legitimate interest
+• Providing the service (account, orders, QR codes, guest lists): contract performance
+• Payments, invoices and accounting: contract performance & legal obligation
+• Age verification (18+): legal obligation & legitimate interest
+• Platform security / anti-fraud: legitimate interest
 • Customer support: contract performance / legitimate interest
-• Internal statistics, audience measurement & personalization ("For You"): legitimate interest (or consent if non-essential trackers)
-• Show nearby clubs/parties & send push notifications: legitimate interest, with the system permission (location, notifications) you can revoke at any time
-• Communications (if newsletter): consent (if applicable)
+• Push notifications & location: system permissions you grant and can revoke anytime in your device settings
+• Personalization ("For You", recommendations) & internal statistics: legitimate interest — can be turned off in Settings → Personalized recommendations
+• Attributing sales to promoters/partners: legitimate interest (partner compensation)
+• Marketing emails and SMS, newsletter: consent, withdrawable at any time (unsubscribe link, STOP)
+• Audience measurement (analytics cookies): consent
 
 **4. Recipients**
-• Partner clubs (data necessary for execution: order, identity if needed, QR)
-• Stripe (payments – payment data is processed directly by Stripe and does not pass through Yuno's servers)
-• Backend Host (Supabase – supabase.com – secure servers with encryption in transit via HTTPS/TLS)
-• Mapbox (map display of clubs)
-• Resend (delivery of transactional emails: confirmations, tickets)
-• OpenAI (conversational assistant: questions you ask the assistant are sent to OpenAI to generate the answer)
-• Twilio (SMS delivery, when you have consented)
+Yuno never sells your data. It is only shared with:
+• The clubs and organizers involved in your purchases (order, identity needed at the door, QR); for a guest list joined through a promoter, the relevant club and team see your registration
+• Stripe (payments — your card details are processed directly by Stripe and never pass through Yuno's servers)
+• Supabase (backend hosting — encryption in transit via HTTPS/TLS)
 • Cloudflare (secure site delivery)
+• Mapbox (map display of clubs)
+• Resend (transactional emails: confirmations, tickets)
+• Twilio (SMS, when you have consented)
+• OpenAI (conversational assistant and recommendation engine: questions you ask the assistant, and event descriptions/music preferences, are sent to OpenAI to generate answers and suggestions)
+• Apple and Google (push notification delivery, Sign-in, Wallet passes where applicable)
 • Strictly necessary technical subcontractors
 
 **5. Retention Periods**
-• Order data: 5 years (proof/dispute management and accounting obligations)
+• Order data and invoices: 5 years (proof, disputes, accounting obligations)
 • Support: 2 years after last contact
 • Security logs: 12 months
-• Legal acceptance records: 5 years (proof of consent)
-• Inactive user account: 24 months then deletion/anonymization (unless legal obligations apply)
+• Legal acceptance records: 5 years
+• Push notification token: deleted when you disable notifications or delete your account
+• Inactive account: 24 months, then deletion/anonymization (unless legal obligations apply)
 
-**6. Rights**
-Access, rectification, deletion, objection, restriction, portability.
-Contact: contact@yunoapp.eu
-Complaint with CNIL: cnil.fr
+**6. Your Rights**
+You have the rights of access, rectification, erasure, objection, restriction and portability, as well as the right to withdraw your consent at any time and to set directives on what happens to your data after your death.
+Contact: contact@yunoapp.eu — we reply within 30 days.
+Complaint: CNIL (cnil.fr) or the data protection authority of your country of residence.
 
-**7. Security**
-Technical and organizational measures: access controls, permission restrictions, encryption in transit via HTTPS, secure authentication, enforced password policies.
+**7. Deleting Your Account**
+You can delete your account directly in the app: Profile → Settings → Delete my account. Deletion is immediate and irreversible (profile, favorites, loyalty points). Records the law requires us to keep (invoices, orders) are retained for the legal period and then deleted.
 
-**8. Transfers Outside the EU**
-Some sub-processors — notably Stripe (payments), OpenAI (AI assistant) and Twilio (SMS) — may involve data transfers outside the European Union, governed by the European Commission's standard contractual clauses (or any other recognized transfer mechanism, such as the Data Privacy Framework) in accordance with GDPR. The host (Supabase), Mapbox, Resend and Cloudflare use infrastructure compliant with European data protection standards.`
+**8. Security**
+Technical and organizational measures: access controls and role-based permission isolation, encryption in transit (HTTPS/TLS), secure authentication with two-factor authentication available, enforced password policy, security logging.
+
+**9. Administrator Access**
+The platform operator has access to partner venues' management data (performance, orders, events) to keep the service running and provide support. This access is based on the operator's legitimate interest and protected by appropriate security measures.
+
+**10. Minors**
+Yuno is restricted to adults (18+). We do not knowingly collect data from minors; any account identified as belonging to a minor is deleted.
+
+**11. Personalization & Automated Decisions**
+The "For You" selection and party suggestions rely on your music tastes, favorites and history to order what you see. This profiling has no legal effect on you and can be turned off anytime in Settings → Personalized recommendations. Yuno makes no fully automated decision producing legal effects.
+
+**12. Transfers Outside the EU**
+Some sub-processors — notably Stripe (payments), OpenAI (AI assistant), Twilio (SMS), Apple and Google (notifications) — may involve data transfers outside the European Union, governed by the European Commission's standard contractual clauses or the Data Privacy Framework, in accordance with GDPR. Supabase, Mapbox, Resend and Cloudflare use infrastructure compliant with European data protection standards.
+
+**13. Changes**
+This policy may evolve with the service. In case of substantial change, you will be informed in the app or by email. The last update date appears at the top of this page.`
     },
     es: {
       title: 'Política de Privacidad',
-      content: `**1. Responsable del tratamiento**
+      content: `Última actualización: 11 de agosto de 2026
+
+Esta política explica qué datos recoge Yuno, por qué, con quién se comparten y cuáles son tus derechos. Se aplica a yunoapp.eu y a las apps móviles Yuno y Yuno Pro.
+
+**1. Responsable del tratamiento**
 WOMBER – 25 avenue Mercure, 31130 Quint-Fonsegrives, Francia – contact@yunoapp.eu
 
 **2. Datos recogidos**
-• Identidad y contacto: apellido, nombre, email, teléfono
-• Datos de pedido: productos comprados, importes, marcas de tiempo, club concernido
-• Datos de edad (declarativos): fecha de nacimiento / confirmación de mayoría de edad
-• Datos técnicos: logs de seguridad, dispositivo, cookies si están activadas
-• Ubicación: ubicación del dispositivo (con tu permiso) para mostrar discotecas y fiestas cerca de ti
-• Notificaciones push: identificador del dispositivo (token) para enviarte avisos de fiestas y el seguimiento de tus pedidos
-• Datos de clubs: información del establecimiento, productos, rendimiento
-• Pruebas de aceptación legal: versión de las condiciones aceptadas, marca de tiempo, dirección IP (casilla marcada en el registro, el onboarding o el acceso a una vista previa)
+• Cuenta e identidad: apellido, nombre, email, teléfono, ciudad (opcional), foto de perfil (si la añades), idioma preferido
+• Edad (declarativa): fecha de nacimiento / confirmación de mayoría de edad — Yuno está reservado a mayores de 18 años
+• Inicio de sesión con Apple o Google: identificador transmitido por el servicio elegido (nunca recibimos tu contraseña de Apple/Google)
+• Pedidos y reservas: entradas, mesas VIP (depósito, gasto mínimo), bebidas, inscripciones en guest lists, reembolsos, facturas
+• Fidelidad y preferencias: puntos de fidelidad, favoritos, preferencias musicales (quiz de gustos)
+• Ubicación: procesada en tu dispositivo (con tu permiso del sistema) para mostrar clubs y fiestas cercanas; se memoriza la ciudad elegida, Yuno no conserva ningún historial de tus posiciones
+• Notificaciones push: token del dispositivo (Apple APNs / Google FCM), eliminado si desactivas las notificaciones
+• Asistente IA: contenido de tus conversaciones con el asistente Yuno
+• Cámara (app Pro / personal): usada localmente para escanear códigos QR; no se graba ni se transmite ninguna imagen
+• Enlaces de promoción: si abres Yuno a través del enlace de un promotor o socio, el identificador del enlace se memoriza para atribuir la venta
+• Datos técnicos y de seguridad: logs, tipo de dispositivo, dirección IP
+• Pruebas de aceptación legal: versión de las condiciones aceptadas, marca de tiempo, dirección IP
+• Cookies y rastreadores: ver la Política de Cookies (yunoapp.eu/legal/cookies) — los rastreadores de medición de audiencia solo se instalan con tu consentimiento
 
 **3. Finalidades y bases legales**
-• Ejecutar pedidos y proporcionar códigos QR: ejecución del contrato
-• Asegurar la plataforma / antifraude: interés legítimo
+• Prestar el servicio (cuenta, pedidos, códigos QR, guest lists): ejecución del contrato
+• Pagos, facturas y contabilidad: ejecución del contrato y obligación legal
+• Verificación de la mayoría de edad (18+): obligación legal e interés legítimo
+• Seguridad de la plataforma / antifraude: interés legítimo
 • Soporte al cliente: ejecución del contrato / interés legítimo
-• Estadísticas internas, medición de audiencia y personalización ("Para ti"): interés legítimo (o consentimiento si rastreadores no necesarios)
-• Mostrar discotecas/fiestas cercanas y enviar notificaciones push: interés legítimo, con el permiso del sistema (ubicación, notificaciones) que puedes revocar en cualquier momento
-• Comunicaciones (si newsletter): consentimiento (si aplicable)
+• Notificaciones push y ubicación: permisos del sistema que concedes y puedes revocar en cualquier momento en los ajustes de tu dispositivo
+• Personalización ("Para ti", recomendaciones) y estadísticas internas: interés legítimo — desactivable en Ajustes → Recomendaciones personalizadas
+• Atribución de ventas a promotores/socios: interés legítimo (remuneración de socios)
+• Emails y SMS de marketing, newsletter: consentimiento, retirable en cualquier momento (enlace de baja, STOP)
+• Medición de audiencia (cookies analíticas): consentimiento
 
 **4. Destinatarios**
-• Clubs asociados (datos necesarios para la ejecución: pedido, identidad si es necesario, QR)
-• Stripe (pagos – los datos de pago son procesados directamente por Stripe y no pasan por los servidores de Yuno)
-• Alojamiento Backend (Supabase – supabase.com – servidores seguros con cifrado en tránsito via HTTPS/TLS)
-• Mapbox (visualización cartográfica de los clubs)
-• Resend (envío de emails transaccionales: confirmaciones, entradas)
-• OpenAI (asistente conversacional: las preguntas que haces al asistente se envían a OpenAI para generar la respuesta)
-• Twilio (envío de SMS, cuando lo has consentido)
+Yuno nunca vende tus datos. Solo se comparten con:
+• Los clubs y organizadores implicados en tus compras (pedido, identidad necesaria en la puerta, QR); si te apuntas a una guest list a través de un promotor, el club y el equipo implicados ven tu inscripción
+• Stripe (pagos — tus datos bancarios los procesa directamente Stripe y nunca pasan por los servidores de Yuno)
+• Supabase (alojamiento backend — cifrado en tránsito HTTPS/TLS)
 • Cloudflare (distribución segura del sitio)
-• Subcontratistas técnicos estrictamente necesarios
+• Mapbox (visualización cartográfica de los clubs)
+• Resend (emails transaccionales: confirmaciones, entradas)
+• Twilio (SMS, cuando lo has consentido)
+• OpenAI (asistente conversacional y motor de recomendaciones: las preguntas al asistente y descripciones de eventos/preferencias musicales se envían a OpenAI para generar respuestas y sugerencias)
+• Apple y Google (entrega de notificaciones push, inicio de sesión, tarjetas Wallet cuando aplique)
+• Subencargados técnicos estrictamente necesarios
 
 **5. Plazos de conservación**
-• Datos de pedidos: 5 años (prueba/gestión de litigios y obligaciones contables)
+• Datos de pedidos y facturas: 5 años (prueba, litigios, obligaciones contables)
 • Soporte: 2 años después del último contacto
 • Logs de seguridad: 12 meses
-• Pruebas de aceptación legal: 5 años (prueba del consentimiento)
-• Cuenta de usuario inactiva: 24 meses y luego eliminación/anonimización (salvo obligaciones legales)
+• Pruebas de aceptación legal: 5 años
+• Token de notificaciones push: eliminado al desactivar las notificaciones o al eliminar la cuenta
+• Cuenta inactiva: 24 meses y luego eliminación/anonimización (salvo obligaciones legales)
 
-**6. Derechos**
-Acceso, rectificación, supresión, oposición, limitación, portabilidad.
-Contacto: contact@yunoapp.eu
-Reclamación ante la CNIL: cnil.fr
+**6. Tus derechos**
+Tienes derecho de acceso, rectificación, supresión, oposición, limitación y portabilidad, así como el derecho a retirar tu consentimiento en cualquier momento y a dar instrucciones sobre el destino de tus datos tras tu fallecimiento.
+Contacto: contact@yunoapp.eu — respondemos en un plazo de 30 días.
+Reclamación: CNIL (cnil.fr, autoridad del responsable en Francia) o la autoridad de protección de datos de tu país de residencia (en España, la AEPD).
 
-**7. Seguridad**
-Medidas técnicas y organizativas: controles de acceso, limitación de permisos, cifrado en tránsito via HTTPS, autenticación segura, política de contraseñas reforzada.
+**7. Eliminar tu cuenta**
+Puedes eliminar tu cuenta directamente en la app: Perfil → Ajustes → Eliminar mi cuenta. La eliminación es inmediata e irreversible (perfil, favoritos, puntos de fidelidad). Los justificantes que la ley nos obliga a conservar (facturas, pedidos) se guardan durante el plazo legal y luego se eliminan.
 
-**8. Transferencias fuera de la UE**
-Algunos subencargados — en particular Stripe (pagos), OpenAI (asistente IA) y Twilio (SMS) — pueden implicar transferencias de datos fuera de la Unión Europea, reguladas por las cláusulas contractuales tipo de la Comisión Europea (o cualquier otro mecanismo de transferencia reconocido, como el Data Privacy Framework) de conformidad con el RGPD. El proveedor de alojamiento (Supabase), Mapbox, Resend y Cloudflare utilizan infraestructuras conformes con los estándares europeos de protección de datos.`
+**8. Seguridad**
+Medidas técnicas y organizativas: controles de acceso y aislamiento de permisos por rol, cifrado en tránsito (HTTPS/TLS), autenticación segura con doble factor disponible, política de contraseñas reforzada, registro de seguridad.
+
+**9. Acceso de administrador**
+El operador de la plataforma tiene acceso a los datos de gestión de los establecimientos asociados (rendimiento, pedidos, eventos) para garantizar el buen funcionamiento del servicio y el soporte. Este acceso se basa en el interés legítimo del operador y está protegido por medidas de seguridad apropiadas.
+
+**10. Menores**
+Yuno está reservado a personas adultas (18+). No recogemos conscientemente datos de menores; cualquier cuenta identificada como perteneciente a un menor será eliminada.
+
+**11. Personalización y decisiones automatizadas**
+La selección "Para ti" y las sugerencias de fiestas se basan en tus gustos musicales, tus favoritos y tu historial para ordenar lo que ves. Este perfilado no tiene ningún efecto jurídico sobre ti y puede desactivarse en cualquier momento en Ajustes → Recomendaciones personalizadas. Yuno no toma ninguna decisión totalmente automatizada con efectos jurídicos.
+
+**12. Transferencias fuera de la UE**
+Algunos subencargados — en particular Stripe (pagos), OpenAI (asistente IA), Twilio (SMS), Apple y Google (notificaciones) — pueden implicar transferencias de datos fuera de la Unión Europea, reguladas por las cláusulas contractuales tipo de la Comisión Europea o el Data Privacy Framework, de conformidad con el RGPD. Supabase, Mapbox, Resend y Cloudflare utilizan infraestructuras conformes con los estándares europeos de protección de datos.
+
+**13. Modificaciones**
+Esta política puede evolucionar con el servicio. En caso de cambio sustancial, se te informará en la app o por email. La fecha de última actualización figura en la parte superior de esta página.`
     }
   },
 
