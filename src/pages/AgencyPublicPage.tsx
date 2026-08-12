@@ -514,8 +514,11 @@ export default function AgencyPublicPage() {
         ) : (
           <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, #1a0808 0%, #3d0f18 55%, #0A0A0A 100%)' }} />
         )}
-        {/* Voile pour lisibilité + dégradé cinématique bas */}
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, #0A0A0A 4%, rgba(10,10,10,0.55) 46%, rgba(10,10,10,0.72) 100%)' }} />
+        {/* Fondu bas vers la page + légère vignette haute pour les boutons.
+            Aucun texte n'est posé sur l'image (le nom vit dans le bloc identité
+            en dessous) : le voile ne doit donc PAS couvrir le centre, sinon la
+            bannière de l'agence sort délavée. */}
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, #0A0A0A 3%, rgba(10,10,10,0.45) 20%, rgba(10,10,10,0) 52%, rgba(10,10,10,0) 82%, rgba(10,10,10,0.30) 100%)' }} />
 
         {/* Top bar flottante : back + share */}
         <div className="absolute top-0 left-0 right-0 z-20 flex items-start justify-between" style={{ padding: 'calc(env(safe-area-inset-top, 0px) + 8px) 16px 0' }}>
