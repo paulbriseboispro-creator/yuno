@@ -81,6 +81,13 @@ export default function AffiliateEventForm() {
 
   const init = async () => {
     if (!user) return;
+    // Rechargement (création → édition sur place) : on repasse par l'état de
+    // chargement. C'est lui qui dit à la garde des modifications non
+    // enregistrées « les données serveur arrivent » — sans ça, elle fige sa
+    // référence sur le formulaire d'avant le rechargement, les valeurs relues
+    // tombent par-dessus, et elle croit qu'il reste des modifications juste
+    // après un enregistrement réussi.
+    setLoadingData(true);
     const { data: aff } = await supabase.from('affiliates').select('id').eq('user_id', user.id).single();
     if (!aff) { setLoadingData(false); return; }
     setAffiliateId(aff.id);
@@ -106,8 +113,11 @@ export default function AffiliateEventForm() {
           name: data.name ?? '',
           slug: data.slug ?? '',
           event_date: data.event_date ?? '',
-          start_time: data.start_time ?? '',
-          end_time: data.end_time ?? '',
+          // Postgres rend une heure en 'HH:MM:SS', l'input type=time écrit
+          // 'HH:MM'. Sans cette coupe, la même heure s'écrit de deux façons et
+          // toute comparaison de formulaire la voit comme une modification.
+          start_time: (data.start_time ?? '').slice(0, 5),
+          end_time: (data.end_time ?? '').slice(0, 5),
           flyer_url: data.flyer_url ?? null,
           gallery_urls: data.gallery_urls ?? [],
           description: data.description ?? '',

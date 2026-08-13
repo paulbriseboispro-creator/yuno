@@ -424,6 +424,13 @@ export default function AffiliateRecurringForm() {
 
   const init = async () => {
     if (!user) return;
+    // Rechargement (création → édition sur place) : on repasse par l'état de
+    // chargement. C'est lui qui dit à la garde des modifications non
+    // enregistrées « les données serveur arrivent » — sans ça, elle fige sa
+    // référence sur le formulaire d'avant le rechargement, les valeurs relues
+    // tombent par-dessus, et elle croit qu'il reste des modifications juste
+    // après un enregistrement réussi.
+    setLoadingData(true);
     const { data: aff } = await supabase.from('affiliates').select('id').eq('user_id', user.id).single();
     if (!aff) { setLoadingData(false); return; }
     setAffiliateId(aff.id);
@@ -450,8 +457,12 @@ export default function AffiliateRecurringForm() {
           affiliate_venue_id: data.affiliate_venue_id ?? '',
           day_of_week: data.day_of_week ?? 5,
           advance_days: data.advance_days ?? 7,
-          start_time: data.start_time ?? '23:00',
-          end_time: data.end_time ?? '06:00',
+          // Postgres rend une heure en 'HH:MM:SS', l'input type=time écrit
+          // 'HH:MM'. Sans cette coupe, la même heure s'écrit de deux façons :
+          // la garde de sortie croit à une modification, et le report sur les
+          // soirées annonce un horaire changé qui ne l'est pas.
+          start_time: data.start_time ? data.start_time.slice(0, 5) : '23:00',
+          end_time: data.end_time ? data.end_time.slice(0, 5) : '06:00',
           price_from: data.price_from?.toString() ?? '',
           is_free: data.is_free ?? false,
           is_active: data.is_active ?? true,
