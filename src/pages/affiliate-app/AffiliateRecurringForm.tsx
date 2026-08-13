@@ -8,7 +8,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
 import { Loader2, Zap, RefreshCw, Sparkles, ImageIcon, CopyCheck } from 'lucide-react';
 import { AffiliateImageUploader } from '@/components/affiliate/AffiliateImageUploader';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AffPage, AffBackHeader, AffCard, AffCardHeader, AffButton, ChoiceChip, CheckBox, Toggle, AffSpinner,
   FieldLabel, DarkInput, DarkSelect,
@@ -150,12 +150,15 @@ function pickFields(values: OccValues, fields: PropField[]): Partial<OccValues> 
   return out;
 }
 
+// Trois destinations possibles pour un changement de modèle : les brouillons
+// seuls (le cas courant — retoucher ce qui n'est pas encore devant le public),
+// brouillons ET soirées déjà en ligne (aligner tout de suite ce que voient les
+// clients), ou rien du tout (le modèle ne vaut que pour les créations à venir).
 type PropagatePrompt = {
   fields: PropField[];
   values: Partial<OccValues>;
-  ids: string[];
-  drafts: number;
-  live: number;
+  draftIds: string[];
+  liveIds: string[];
 };
 
 // Aperçu lecture seule (mode création) : le modèle n'existe pas encore, on
@@ -413,7 +416,7 @@ export default function AffiliateRecurringForm() {
   // repropose jamais deux fois le même changement.
   const savedOccValues = useRef<OccValues | null>(null);
   const [propagate, setPropagate] = useState<PropagatePrompt | null>(null);
-  const [propagating, setPropagating] = useState(false);
+  const [propagating, setPropagating] = useState<'drafts' | 'all' | null>(null);
 
   useEffect(() => {
     if (user) init();
@@ -594,9 +597,8 @@ export default function AffiliateRecurringForm() {
           setPropagate({
             fields: changed,
             values: pickFields(after, changed),
-            ids: rows.map((r) => r.id),
-            drafts: rows.filter((r) => r.status === 'draft').length,
-            live: rows.filter((r) => r.status !== 'draft').length,
+            draftIds: rows.filter((r) => r.status === 'draft').map((r) => r.id),
+            liveIds: rows.filter((r) => r.status !== 'draft').map((r) => r.id),
           });
         }
       }
@@ -616,23 +618,25 @@ export default function AffiliateRecurringForm() {
   // Report du changement sur les soirées déjà créées. On n'écrit QUE les champs
   // qui ont bougé : une soirée personnalisée à la main garde tout le reste. Le
   // lien billetterie et le statut ne sont jamais dans le lot, donc le verrou
-  // link_gate ne rebascule rien et une soirée en ligne le reste.
-  const applyPropagation = async () => {
+  // link_gate ne rebascule rien et une soirée en ligne le reste en ligne.
+  const applyPropagation = async (scope: 'drafts' | 'all') => {
     if (!propagate) return;
-    setPropagating(true);
+    const ids = scope === 'drafts' ? propagate.draftIds : [...propagate.draftIds, ...propagate.liveIds];
+    if (ids.length === 0) { setPropagate(null); return; }
+    setPropagating(scope);
     try {
       const { error } = await supabase
         .from('affiliate_events')
         .update(propagate.values)
-        .in('id', propagate.ids);
+        .in('id', ids);
       if (error) throw error;
-      toast({ title: t('aff.recurringForm.propDoneToast').replace('{count}', String(propagate.ids.length)) });
+      toast({ title: t('aff.recurringForm.propDoneToast').replace('{count}', String(ids.length)) });
       setPropagate(null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('aff.recurringForm.propErrorToast');
       toast({ title: t('aff.recurringForm.propErrorToast'), description: msg, variant: 'destructive' });
     } finally {
-      setPropagating(false);
+      setPropagating(null);
     }
   };
 
@@ -874,33 +878,52 @@ export default function AffiliateRecurringForm() {
 
               <div className="rounded-lg p-3" style={{ background: 'rgba(232,25,44,0.06)', border: '1px solid rgba(232,25,44,0.2)' }}>
                 <p style={{ color: T1, fontSize: 12, fontWeight: 560 }}>
-                  {propagate.ids.length === 1
+                  {propagate.draftIds.length + propagate.liveIds.length === 1
                     ? t('aff.recurringForm.propScopeOne')
-                    : t('aff.recurringForm.propScope').replace('{count}', String(propagate.ids.length))}
+                    : t('aff.recurringForm.propScope').replace('{count}', String(propagate.draftIds.length + propagate.liveIds.length))}
                 </p>
                 <p style={{ color: T3, fontSize: 11.5, marginTop: 3 }}>
                   {t('aff.recurringForm.propBreakdown')
-                    .replace('{drafts}', String(propagate.drafts))
-                    .replace('{live}', String(propagate.live))}
+                    .replace('{drafts}', String(propagate.draftIds.length))
+                    .replace('{live}', String(propagate.liveIds.length))}
                 </p>
                 <p style={{ color: T3, fontSize: 11.5, marginTop: 6 }}>{t('aff.recurringForm.propKeepsLinks')}</p>
               </div>
+
+              {/* Trois destinations, empilées : chaque bouton dit combien de
+                  soirées il touche, pour qu'aucun choix ne se fasse à l'aveugle.
+                  Une catégorie vide (aucun brouillon, ou rien en ligne) ne
+                  s'affiche pas — le choix restant devient le seul bouton. */}
+              <div className="flex flex-col gap-2 pt-1">
+                {propagate.draftIds.length > 0 && (
+                  <AffButton full onClick={() => applyPropagation('drafts')} disabled={Boolean(propagating)}>
+                    {propagating === 'drafts' && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {propagating === 'drafts'
+                      ? t('aff.recurringForm.propApplying')
+                      : propagate.draftIds.length === 1
+                        ? t('aff.recurringForm.propApplyDraftsOne')
+                        : t('aff.recurringForm.propApplyDrafts').replace('{count}', String(propagate.draftIds.length))}
+                  </AffButton>
+                )}
+                {propagate.liveIds.length > 0 && (
+                  <AffButton variant="secondary" full onClick={() => applyPropagation('all')} disabled={Boolean(propagating)}>
+                    {propagating === 'all' && <Loader2 className="h-4 w-4 animate-spin" />}
+                    {propagating === 'all'
+                      ? t('aff.recurringForm.propApplying')
+                      : propagate.draftIds.length > 0
+                        ? t('aff.recurringForm.propApplyAll')
+                            .replace('{count}', String(propagate.draftIds.length + propagate.liveIds.length))
+                        : propagate.liveIds.length === 1
+                          ? t('aff.recurringForm.propApplyLiveOnlyOne')
+                          : t('aff.recurringForm.propApplyLiveOnly').replace('{count}', String(propagate.liveIds.length))}
+                  </AffButton>
+                )}
+                <AffButton variant="ghost" full onClick={() => setPropagate(null)} disabled={Boolean(propagating)}>
+                  {t('aff.recurringForm.propSkip')}
+                </AffButton>
+              </div>
             </div>
           )}
-
-          <DialogFooter>
-            <AffButton variant="ghost" size="sm" onClick={() => setPropagate(null)} disabled={propagating}>
-              {t('aff.recurringForm.propSkip')}
-            </AffButton>
-            <AffButton size="sm" onClick={applyPropagation} disabled={propagating}>
-              {propagating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {propagating
-                ? t('aff.recurringForm.propApplying')
-                : propagate?.ids.length === 1
-                  ? t('aff.recurringForm.propApplyOne')
-                  : t('aff.recurringForm.propApply').replace('{count}', String(propagate?.ids.length ?? 0))}
-            </AffButton>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </AffPage>
