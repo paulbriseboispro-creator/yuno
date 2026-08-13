@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { eventPriceLabel, affiliateMinPrice } from '@/lib/eventPriceLabel';
 import { useFavorites } from '@/hooks/useFavorites';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
@@ -133,10 +134,11 @@ function RpEventCard({
   const dateLabel = Number.isNaN(when.getTime()) ? '' : format(when, 'dd MMM', { locale }).toUpperCase();
   const timeLabel = startHm;
 
-  const priceNode = ev.is_free
-    ? <span className="font-mono font-bold shrink-0" style={{ fontSize: '12px', color: '#E8192C', letterSpacing: '0.02em' }}>{t('promoterLinktree.free').toUpperCase()}</span>
-    : ev.price_from != null
-    ? <span className="font-mono font-bold shrink-0" style={{ fontSize: '12px', color: '#E8192C', letterSpacing: '0.02em' }}>{t('explore.from')} {ev.price_from}€</span>
+  // Le prix passe par la porte unique : « tables uniquement » n'est jamais un
+  // prix, et un price_from à zéro n'est pas un gratuit.
+  const priceText = eventPriceLabel({ minPrice: affiliateMinPrice(ev), tablesOnly: ev.tables_only }, t);
+  const priceNode = priceText
+    ? <span className="font-mono font-bold shrink-0" style={{ fontSize: '12px', color: '#E8192C', letterSpacing: '0.02em' }}>{priceText.toUpperCase()}</span>
     : null;
 
   return (

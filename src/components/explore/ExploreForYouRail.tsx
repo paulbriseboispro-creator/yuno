@@ -10,6 +10,7 @@ import { FadeInView } from '@/components/motion';
 import { ExploreSectionTitle } from './ExploreSectionTitle';
 import type { EventCardData } from './EventCard';
 import type { ForYouItem, ForYouReasonCode } from '@/hooks/useForYouFeed';
+import { eventPriceLabel } from '@/lib/eventPriceLabel';
 
 // Module « Pour toi » — DESIGN_SYSTEM_PUBLIC (éditorial, noir, mono trackée).
 //
@@ -65,10 +66,7 @@ function ForYouCard({ item }: { item: ForYouItem }) {
   const event: EventCardData = item.event;
   const liked = isFavorite('event', event.id);
   const dateLabel = format(new Date(event.startAt), 'EEE dd MMM', { locale: dfLocale(language) }).toUpperCase();
-  const price =
-    event.minPrice === 0 ? t('explore.free')
-    : event.minPrice !== null ? `${t('explore.priceFrom')} ${event.minPrice}€`
-    : '';
+  const price = eventPriceLabel(event, t);
 
   const reason = reasonText(t, item.reasonCode, item.reasonValue);
   const ReasonIcon = REASON_ICON[item.reasonCode];

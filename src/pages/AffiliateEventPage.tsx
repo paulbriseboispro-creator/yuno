@@ -233,9 +233,15 @@ export default function AffiliateEventPage() {
     catch { /* URL invalide : pas de domaine à afficher */ }
   }
 
-  const priceDisplay = isFree
+  // Une soirée qui ne vend que des tables n'a pas de prix d'entrée : le bandeau
+  // annonce déjà « Tables uniquement » au-dessus, le montant renvoie donc vers
+  // les tarifs des tables plutôt que vers un « à partir de 0,00 € » mensonger.
+  // Un price_from à zéro sans is_free n'est pas un gratuit : c'est un champ vide.
+  const priceDisplay = event.tables_only
+    ? t('affiliate.seePrices')
+    : isFree
     ? t('affiliate.freeEntry')
-    : priceFrom != null
+    : priceFrom != null && priceFrom > 0
     ? `${t('event.startingFrom')} ${priceFrom.toFixed(2)}€`
     : t('affiliate.seePrices');
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { eventPriceLabel, affiliateMinPrice } from '@/lib/eventPriceLabel';
 import { useAuth } from '@/hooks/useAuth';
 import { format, type Locale } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -446,13 +447,11 @@ function EventCard({
   const { t } = useLanguage();
   const isSoldOut = event.is_sold_out;
   const isFree = event.is_free;
+  // Porte unique du prix : une soirée « tables uniquement » n'a pas de prix
+  // d'entrée, et un price_from à zéro n'est pas un gratuit.
   const priceLabel = isSoldOut
     ? t('promoterLinktree.soldOut')
-    : isFree
-    ? t('promoterLinktree.free')
-    : event.price_from != null
-    ? `${event.price_from}€`
-    : null;
+    : eventPriceLabel({ minPrice: affiliateMinPrice(event), tablesOnly: event.tables_only }, t, { withFromPrefix: false }) || null;
   const ctaLabel = isSoldOut ? t('promoterLinktree.soldOut') : isFree ? t('promoterLinktree.join') : t('promoterLinktree.tickets');
 
   const handleClick = () => {
@@ -759,8 +758,10 @@ function sortAndGroupEvents(events: LinktreeEvent[], mode: SortMode, locale: Loc
     }
     case 'by_price': {
       const sorted = [...events].sort((a, b) => {
-        const pa = a.is_free ? -1 : (a.price_from ?? 9999);
-        const pb = b.is_free ? -1 : (b.price_from ?? 9999);
+        // Les soirées « tables uniquement » sont les plus chères, pas les moins :
+        // elles ne doivent jamais remonter en tête d'un tri par prix croissant.
+        const pa = a.tables_only ? 99999 : a.is_free ? -1 : (a.price_from ?? 9999);
+        const pb = b.tables_only ? 99999 : b.is_free ? -1 : (b.price_from ?? 9999);
         return pa - pb;
       });
       return [{ date: '__price__', label: t('promoterLinktree.byPrice'), items: sorted }];
@@ -925,8 +926,8 @@ export default function AffiliateLinktree() {
     if (dayFilter === 'tomorrow' && ev.event_date !== tomorrowStr) return false;
     if (dayFilter === 'weekend' && !weekendDates.includes(ev.event_date)) return false;
     if (genreFilter && !ev.genres.includes(genreFilter)) return false;
-    if (priceFilter === 'free' && !ev.is_free) return false;
-    if (priceFilter === 'paid' && ev.is_free) return false;
+    if (priceFilter === 'free' && (!ev.is_free || ev.tables_only)) return false;
+    if (priceFilter === 'paid' && ev.is_free && !ev.tables_only) return false;
     return true;
   });
 

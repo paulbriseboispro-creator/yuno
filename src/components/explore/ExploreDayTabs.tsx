@@ -44,7 +44,8 @@ export function ExploreDayTabs({ weekData, chipGenres, freeOnly, exploreFilters 
 
   // Apply chip filters to the day's events
   let dayEvents = day.events;
-  if (freeOnly) dayEvents = dayEvents.filter(e => e.minPrice === 0);
+  // Une soirée « tables uniquement » n'est pas gratuite : c'est la plus chère.
+  if (freeOnly) dayEvents = dayEvents.filter(e => e.minPrice === 0 && !e.tablesOnly);
   if (chipGenres.length > 0) {
     const normalizedChips = chipGenres.map(normGenre);
     dayEvents = dayEvents.filter(e => e.genres.some(g => normalizedChips.includes(normGenre(g))));

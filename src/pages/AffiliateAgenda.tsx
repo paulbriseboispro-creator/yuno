@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { eventPriceLabel, affiliateMinPrice } from '@/lib/eventPriceLabel';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -333,8 +334,10 @@ export default function AffiliateAgenda({ mode }: { mode: Mode }) {
     free: t('promoterLinktree.free'),
   };
 
+  // Porte unique : « tables uniquement » n'est jamais un prix, et un price_from
+  // à zéro n'est pas un gratuit.
   const priceLabel = (ev: AgendaItem) =>
-    ev.is_free ? cardLabels.free : ev.price_from != null ? `${ev.price_from}€` : null;
+    eventPriceLabel({ minPrice: affiliateMinPrice(ev), tablesOnly: ev.tables_only }, t, { withFromPrefix: false }) || null;
 
   // ── Chargement ──
   if (loading) {

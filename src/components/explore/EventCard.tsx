@@ -21,6 +21,8 @@ export interface EventCardData {
   venueSlug: string;
   venueCity: string;
   minPrice: number | null;
+  /** La soirée ne vend que des tables : aucun prix d'entrée n'a de sens. */
+  tablesOnly?: boolean;
   genres: string[];
   interestedCount: number;
   percentSold: number;
@@ -217,7 +219,14 @@ export function EventCard({ event }: { event: EventCardData }) {
             )}
           </p>
 
-          {event.minPrice !== null ? (
+          {event.tablesOnly ? (
+            <p
+              className="font-mono font-bold shrink-0"
+              style={{ fontSize: '12px', color: '#E8192C', letterSpacing: '0.02em' }}
+            >
+              {t('explore.tablesOnly')}
+            </p>
+          ) : event.minPrice !== null ? (
             <p
               className="font-mono font-bold shrink-0"
               style={{ fontSize: '12px', color: '#E8192C', letterSpacing: '0.02em' }}

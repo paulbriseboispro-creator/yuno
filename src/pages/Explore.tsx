@@ -7,6 +7,7 @@ import { getManualCoords, getStoredCity, hasManualCity, setManualLocation, setRe
 import { markAppReady } from '@/lib/appReady';
 import { getCurrentPosition } from '@/lib/geolocation';
 import { genresMatch } from '@/lib/musicGenres';
+import { eventPriceLabel, affiliateMinPrice } from '@/lib/eventPriceLabel';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ExploreHeader } from '@/components/explore/ExploreHeader';
 import { EventCardData } from '@/components/explore/EventCard';
@@ -389,7 +390,8 @@ export default function Explore() {
   // ── Chip-filtered events ──
   const chipFilteredEvents = useMemo(() => {
     let result = filteredEvents;
-    if (freeOnly) result = result.filter(e => e.minPrice === 0);
+    // Une soirée « tables uniquement » n'est pas gratuite : c'est la plus chère.
+    if (freeOnly) result = result.filter(e => e.minPrice === 0 && !e.tablesOnly);
     if (chipGenres.length > 0) {
       result = result.filter(e => matchesAny(e.genres, chipGenres));
     }
@@ -435,7 +437,8 @@ export default function Explore() {
         return true;
       });
     // Apply chip filters
-    if (freeOnly) result = result.filter(e => e.minPrice === 0);
+    // Une soirée « tables uniquement » n'est pas gratuite : c'est la plus chère.
+    if (freeOnly) result = result.filter(e => e.minPrice === 0 && !e.tablesOnly);
     if (chipGenres.length > 0) {
       result = result.filter(e => matchesAny(e.genres, chipGenres));
     }
@@ -625,7 +628,7 @@ export default function Explore() {
           supabase.rpc('get_public_favorite_counts', { _favorite_type: 'club' }),
           supabase
             .from('affiliate_events')
-            .select('id, name, slug, event_date, start_time, end_time, flyer_url, genres, price_from, is_free, external_ticket_url, affiliate_venues(id, name, city, neighborhood, lat, lng)')
+            .select('id, name, slug, event_date, start_time, end_time, flyer_url, genres, price_from, is_free, tables_only, external_ticket_url, affiliate_venues(id, name, city, neighborhood, lat, lng)')
             .in('status', ['published', 'featured'])
             .gte('event_date', startDate)
             .lte('event_date', endDate)
@@ -812,7 +815,10 @@ export default function Explore() {
           venueName: venue.name,
           venueSlug: venue.id,
           venueCity: venue.city || '',
-          minPrice: ae.is_free ? 0 : (ae.price_from ?? null),
+          minPrice: affiliateMinPrice(ae),
+          // Une soirée qui ne vend que des tables n'a pas de prix d'entrée :
+          // sans ce drapeau elle s'affichait « Gratuit ».
+          tablesOnly: !!ae.tables_only,
           genres: ae.genres || [],
           interestedCount: affiliateFavCounts[ae.id] || 0,
           percentSold: 0,
@@ -880,7 +886,7 @@ export default function Explore() {
         supabase.from('ticket_rounds').select('event_id, price, is_active'),
         supabase
           .from('affiliate_events')
-          .select('id, name, slug, event_date, start_time, end_time, flyer_url, genres, price_from, is_free, affiliate_venues(id, name, city, neighborhood, lat, lng)')
+          .select('id, name, slug, event_date, start_time, end_time, flyer_url, genres, price_from, is_free, tables_only, affiliate_venues(id, name, city, neighborhood, lat, lng)')
           .in('status', ['published', 'featured'])
           .gte('event_date', startDate)
           .lte('event_date', endDate)
@@ -926,7 +932,10 @@ export default function Explore() {
           venueName: venue.name,
           venueSlug: venue.id,
           venueCity: venue.city || '',
-          minPrice: ae.is_free ? 0 : (ae.price_from ?? null),
+          minPrice: affiliateMinPrice(ae),
+          // Une soirée qui ne vend que des tables n'a pas de prix d'entrée :
+          // sans ce drapeau elle s'affichait « Gratuit ».
+          tablesOnly: !!ae.tables_only,
           genres: ae.genres || [],
           interestedCount: weekAffiliateFavCounts[ae.id] || 0,
           percentSold: 0,

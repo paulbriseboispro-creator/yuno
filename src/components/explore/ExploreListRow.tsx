@@ -4,13 +4,10 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { format } from 'date-fns';
 import { EventCardData } from './EventCard';
+import { eventPriceLabel as priceLabel } from '@/lib/eventPriceLabel';
 import { eventTargetPath } from '@/lib/eventNavigation';
 
-function priceLabel(event: EventCardData, t: (k: string) => string): string {
-  if (event.minPrice === 0) return t('explore.free');
-  if (event.minPrice !== null) return `${t('explore.priceFrom')} ${event.minPrice}€`;
-  return '';
-}
+
 
 function navigateToEvent(event: EventCardData, navigate: ReturnType<typeof useNavigate>) {
   navigate(eventTargetPath(event));
