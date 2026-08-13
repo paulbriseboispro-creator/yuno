@@ -218,7 +218,11 @@ serve(async (req) => {
             recurring_template_id: tpl.id,
             external_ticket_url: ticketUrl,
             // Offre (tables / guest list) : copiée du modèle à la création,
-            // puis modifiable au cas par cas sur l'occurrence (pas de resync).
+            // puis modifiable au cas par cas sur l'occurrence. Le générateur ne
+            // la resynchronise jamais — c'est ce qui protège une soirée
+            // personnalisée. Reporter un changement de modèle sur les soirées
+            // déjà créées se fait à la demande, depuis le formulaire du modèle
+            // (question posée à l'enregistrement, cf. AffiliateRecurringForm).
             has_tables: (tpl as { has_tables?: boolean }).has_tables ?? false,
             tables_only: (tpl as { tables_only?: boolean }).tables_only ?? false,
             has_guest_list: (tpl as { has_guest_list?: boolean }).has_guest_list ?? false,

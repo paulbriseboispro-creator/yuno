@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
@@ -6,8 +6,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
-import { Loader2, Zap, RefreshCw, Sparkles, ImageIcon } from 'lucide-react';
+import { Loader2, Zap, RefreshCw, Sparkles, ImageIcon, CopyCheck } from 'lucide-react';
 import { AffiliateImageUploader } from '@/components/affiliate/AffiliateImageUploader';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
   AffPage, AffBackHeader, AffCard, AffCardHeader, AffButton, ChoiceChip, CheckBox, Toggle, AffSpinner,
   FieldLabel, DarkInput, DarkSelect,
@@ -66,6 +67,95 @@ type TplSnapshot = {
   name: string; affiliate_venue_id: string; start_time: string; end_time: string;
   price_from: string; is_free: boolean; genres: string[]; flyer_url: string | null;
   has_tables: boolean; tables_only: boolean; has_guest_list: boolean; guest_list_type: string;
+};
+
+// --- Report d'une modif du modèle sur les soirées déjà créées ---------------
+//
+// Le générateur ne copie ces champs qu'à la CRÉATION d'une occurrence : changer
+// le prix ou la guest list sur le modèle laissait les 10 brouillons d'avance sur
+// les anciennes valeurs, à corriger un par un. Après chaque enregistrement, on
+// compare le modèle à son état d'avant et on propose de reporter ce qui a bougé.
+//
+// Sont volontairement HORS de cette liste : le jour de semaine (il déplace les
+// dates, ce n'est pas une valeur qu'on recopie), l'horizon, l'activation, et
+// toute la mécanique de lien billetterie — le lien et le statut d'une soirée
+// gardent leurs propres règles (verrou link_gate + ticket_url_overridden).
+// Le flyer en est aussi absent : le générateur le resynchronise déjà seul à
+// chaque passage, poser la question n'aurait aucun sens.
+const PROPAGATABLE = [
+  'name', 'affiliate_venue_id', 'start_time', 'end_time',
+  'price_from', 'is_free', 'genres',
+  'has_tables', 'tables_only', 'has_guest_list', 'guest_list_type',
+] as const;
+type PropField = typeof PROPAGATABLE[number];
+
+const PROP_FIELD_KEY: Record<PropField, string> = {
+  name: 'aff.recurringForm.propField.name',
+  affiliate_venue_id: 'aff.recurringForm.propField.venue',
+  start_time: 'aff.recurringForm.propField.startTime',
+  end_time: 'aff.recurringForm.propField.endTime',
+  price_from: 'aff.recurringForm.propField.price',
+  is_free: 'aff.recurringForm.propField.free',
+  genres: 'aff.recurringForm.propField.genres',
+  has_tables: 'aff.recurringForm.propField.tables',
+  tables_only: 'aff.recurringForm.propField.tablesOnly',
+  has_guest_list: 'aff.recurringForm.propField.guestList',
+  guest_list_type: 'aff.recurringForm.propField.guestListType',
+};
+
+// Le formulaire tient des chaînes ; affiliate_events tient des colonnes typées.
+// On traduit ici une fois pour toutes — c'est la valeur comparée ET la valeur
+// écrite, donc les deux ne peuvent pas diverger.
+type OccValues = {
+  name: string;
+  affiliate_venue_id: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  price_from: number | null;
+  is_free: boolean;
+  genres: string[];
+  has_tables: boolean;
+  tables_only: boolean;
+  has_guest_list: boolean;
+  guest_list_type: string;
+};
+
+function occurrenceValues(f: FormData): OccValues {
+  return {
+    name: f.name,
+    affiliate_venue_id: f.affiliate_venue_id || null,
+    start_time: f.start_time || null,
+    end_time: f.end_time || null,
+    price_from: f.price_from ? parseFloat(f.price_from) : null,
+    is_free: f.is_free,
+    genres: f.genres,
+    // Même normalisation que le payload du modèle : « uniquement des tables »
+    // implique « des tables ».
+    has_tables: f.has_tables || f.tables_only,
+    tables_only: f.tables_only,
+    has_guest_list: f.has_guest_list,
+    guest_list_type: f.guest_list_type,
+  };
+}
+
+function changedFields(before: OccValues, after: OccValues): PropField[] {
+  return PROPAGATABLE.filter((k) => JSON.stringify(before[k] ?? null) !== JSON.stringify(after[k] ?? null));
+}
+
+// Sous-ensemble des champs qui ont bougé — le reste de l'occurrence, y compris
+// ce qu'on y a personnalisé à la main, n'est pas touché.
+function pickFields(values: OccValues, fields: PropField[]): Partial<OccValues> {
+  const out: Partial<OccValues> = {};
+  for (const k of fields) (out as Record<string, unknown>)[k] = values[k];
+  return out;
+}
+
+type PropagatePrompt = {
+  fields: PropField[];
+  values: Partial<OccValues>;
+  ids: string[];
+  drafts: number;
+  live: number;
 };
 
 // Aperçu lecture seule (mode création) : le modèle n'existe pas encore, on
@@ -318,6 +408,13 @@ export default function AffiliateRecurringForm() {
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkSelectedDays, setBulkSelectedDays] = useState<number[]>([1, 2, 3, 4, 5, 6]);
 
+  // État du modèle tel qu'il est EN BASE, pour savoir ce qui a bougé au save.
+  // Remis à jour après chaque enregistrement (report accepté ou non) : on ne
+  // repropose jamais deux fois le même changement.
+  const savedOccValues = useRef<OccValues | null>(null);
+  const [propagate, setPropagate] = useState<PropagatePrompt | null>(null);
+  const [propagating, setPropagating] = useState(false);
+
   useEffect(() => {
     if (user) init();
   }, [user?.id, id]);
@@ -344,7 +441,7 @@ export default function AffiliateRecurringForm() {
         .eq('affiliate_id', aff.id)
         .single();
       if (data) {
-        setForm({
+        const loaded: FormData = {
           name: data.name ?? '',
           slug: (data as any).slug ?? '',
           affiliate_venue_id: data.affiliate_venue_id ?? '',
@@ -364,7 +461,9 @@ export default function AffiliateRecurringForm() {
           tables_only: (data as any).tables_only ?? false,
           has_guest_list: (data as any).has_guest_list ?? false,
           guest_list_type: ((data as any).guest_list_type === 'women' ? 'women' : 'mixed'),
-        });
+        };
+        setForm(loaded);
+        savedOccValues.current = occurrenceValues(loaded);
       }
     }
     setLoadingData(false);
@@ -379,7 +478,10 @@ export default function AffiliateRecurringForm() {
   const toggleBulkDay = (day: number) =>
     setBulkSelectedDays((prev) => prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]);
 
-  const handleSave = async (): Promise<boolean> => {
+  // `askPropagate` n'est vrai que depuis le bouton Enregistrer : quand le garde
+  // des modifications non enregistrées sauvegarde en partant, on ne va pas
+  // ouvrir une question sur une page qu'on quitte.
+  const handleSave = async ({ askPropagate = false }: { askPropagate?: boolean } = {}): Promise<boolean> => {
     if (!affiliateId) return false;
 
     if (bulkMode && !isEdit) {
@@ -468,9 +570,36 @@ export default function AffiliateRecurringForm() {
 
       await supabase.functions.invoke('create-affiliate-recurring-events');
 
+      // Ce qui a changé sur le modèle depuis la dernière écriture en base. La
+      // référence est remise à jour tout de suite : que le report soit accepté
+      // ou refusé, ce changement est traité, on ne le repropose plus.
+      const after = occurrenceValues(saved);
+      const changed = isEdit && savedOccValues.current ? changedFields(savedOccValues.current, after) : [];
+      savedOccValues.current = after;
+
       setForm(saved);
       markSaved({ form: saved, bulkMode, bulkSelectedDays });
       toast({ title: isEdit ? t('aff.recurringForm.updatedToast') : t('aff.recurringForm.createdToast') });
+
+      // Le générateur vient de tourner : les soirées relues ici incluent celles
+      // qu'il vient de créer (déjà à jour — les réécrire ne coûte rien).
+      if (askPropagate && isEdit && id && changed.length > 0) {
+        const { data: occ } = await supabase
+          .from('affiliate_events')
+          .select('id, status')
+          .eq('recurring_template_id', id)
+          .gte('event_date', toDateStr(new Date()));
+        const rows = occ ?? [];
+        if (rows.length > 0) {
+          setPropagate({
+            fields: changed,
+            values: pickFields(after, changed),
+            ids: rows.map((r) => r.id),
+            drafts: rows.filter((r) => r.status === 'draft').length,
+            live: rows.filter((r) => r.status !== 'draft').length,
+          });
+        }
+      }
       // On RESTE sur le template : après édition rien ne bouge, après création
       // on bascule en mode édition sur place.
       if (createdId) navigate(`/affiliate/recurring/${createdId}/edit`, { replace: true });
@@ -484,6 +613,29 @@ export default function AffiliateRecurringForm() {
     }
   };
 
+  // Report du changement sur les soirées déjà créées. On n'écrit QUE les champs
+  // qui ont bougé : une soirée personnalisée à la main garde tout le reste. Le
+  // lien billetterie et le statut ne sont jamais dans le lot, donc le verrou
+  // link_gate ne rebascule rien et une soirée en ligne le reste.
+  const applyPropagation = async () => {
+    if (!propagate) return;
+    setPropagating(true);
+    try {
+      const { error } = await supabase
+        .from('affiliate_events')
+        .update(propagate.values)
+        .in('id', propagate.ids);
+      if (error) throw error;
+      toast({ title: t('aff.recurringForm.propDoneToast').replace('{count}', String(propagate.ids.length)) });
+      setPropagate(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : t('aff.recurringForm.propErrorToast');
+      toast({ title: t('aff.recurringForm.propErrorToast'), description: msg, variant: 'destructive' });
+    } finally {
+      setPropagating(false);
+    }
+  };
+
   // Le mode groupé fait partie de l'état à protéger : le jour sélectionné et le
   // club choisi disparaissaient avec le reste au moindre changement d'onglet.
   const guardValue = { form, bulkMode, bulkSelectedDays };
@@ -493,7 +645,7 @@ export default function AffiliateRecurringForm() {
     ready: !loadingData && Boolean(affiliateId),
     value: guardValue,
     onRestore: (v) => { setForm(v.form); setBulkMode(v.bulkMode); setBulkSelectedDays(v.bulkSelectedDays); },
-    onSave: handleSave,
+    onSave: () => handleSave(),
   });
 
   if (loadingData) return <AffSpinner />;
@@ -684,7 +836,7 @@ export default function AffiliateRecurringForm() {
       )}
 
       <div className="flex gap-3 pb-8">
-        <AffButton onClick={handleSave} disabled={saving}>
+        <AffButton onClick={() => handleSave({ askPropagate: true })} disabled={saving}>
           {saving && <Loader2 className="h-4 w-4 animate-spin" />}
           {saving
             ? (bulkMode && !isEdit ? t('aff.recurringForm.bulkCreating').replace('{count}', String(bulkSelectedDays.length)) : t('aff.recurringForm.savingLabel'))
@@ -696,6 +848,61 @@ export default function AffiliateRecurringForm() {
         </AffButton>
         <AffButton variant="ghost" onClick={() => guardedNavigate('/affiliate/recurring')}>{t('aff.recurringForm.cancel')}</AffButton>
       </div>
+
+      {/* Report sur les soirées déjà créées. Ouverte seulement après un
+          enregistrement qui a vraiment changé quelque chose de recopiable, et
+          seulement s'il existe au moins une soirée à venir issue du modèle. */}
+      <Dialog open={Boolean(propagate)} onOpenChange={(open) => { if (!open && !propagating) setPropagate(null); }}>
+        <DialogContent className="max-w-md border-0 text-white" style={{ background: '#0a0a0c', border: `1px solid ${BORDER}` }}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2" style={{ color: T1 }}>
+              <CopyCheck className="h-5 w-5" style={{ color: RED }} />
+              {t('aff.recurringForm.propTitle')}
+            </DialogTitle>
+          </DialogHeader>
+
+          {propagate && (
+            <div className="space-y-3 py-1">
+              <p style={{ color: T2, fontSize: 12.5, lineHeight: 1.55 }}>{t('aff.recurringForm.propIntro')}</p>
+
+              <div className="rounded-lg p-3 space-y-1" style={{ background: TILE_BG, border: `1px solid ${F_BORDER}` }}>
+                <p style={{ color: T1, fontSize: 12, fontWeight: 600 }}>{t('aff.recurringForm.propChanged')}</p>
+                {propagate.fields.map((f) => (
+                  <p key={f} style={{ color: T3, fontSize: 11.5 }}>• {t(PROP_FIELD_KEY[f])}</p>
+                ))}
+              </div>
+
+              <div className="rounded-lg p-3" style={{ background: 'rgba(232,25,44,0.06)', border: '1px solid rgba(232,25,44,0.2)' }}>
+                <p style={{ color: T1, fontSize: 12, fontWeight: 560 }}>
+                  {propagate.ids.length === 1
+                    ? t('aff.recurringForm.propScopeOne')
+                    : t('aff.recurringForm.propScope').replace('{count}', String(propagate.ids.length))}
+                </p>
+                <p style={{ color: T3, fontSize: 11.5, marginTop: 3 }}>
+                  {t('aff.recurringForm.propBreakdown')
+                    .replace('{drafts}', String(propagate.drafts))
+                    .replace('{live}', String(propagate.live))}
+                </p>
+                <p style={{ color: T3, fontSize: 11.5, marginTop: 6 }}>{t('aff.recurringForm.propKeepsLinks')}</p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <AffButton variant="ghost" size="sm" onClick={() => setPropagate(null)} disabled={propagating}>
+              {t('aff.recurringForm.propSkip')}
+            </AffButton>
+            <AffButton size="sm" onClick={applyPropagation} disabled={propagating}>
+              {propagating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {propagating
+                ? t('aff.recurringForm.propApplying')
+                : propagate?.ids.length === 1
+                  ? t('aff.recurringForm.propApplyOne')
+                  : t('aff.recurringForm.propApply').replace('{count}', String(propagate?.ids.length ?? 0))}
+            </AffButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AffPage>
   );
 }
