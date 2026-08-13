@@ -47,6 +47,7 @@ export default function AffiliateEvents() {
   const [filter, setFilter] = useState<Filter>('all');
   const [loading, setLoading] = useState(true);
   const [purging, setPurging] = useState(false);
+  const [affiliateId, setAffiliateId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) fetchEvents();
@@ -57,6 +58,7 @@ export default function AffiliateEvents() {
     setLoading(true);
     const { data: aff } = await supabase.from('affiliates').select('id').eq('user_id', user.id).single();
     if (!aff) { setLoading(false); return; }
+    setAffiliateId(aff.id);
 
     const { data } = await supabase
       .from('affiliate_events')
@@ -103,25 +105,40 @@ export default function AffiliateEvents() {
     setPurging(true);
     let errors = 0;
 
+    // Les fichiers candidats à la suppression, collectés AVANT d'effacer les
+    // lignes. Le flyer d'un modèle récurrent est délibérément écarté : le même
+    // fichier sert la soirée de la semaine dernière ET les dix à venir, plus le
+    // modèle lui-même. Le supprimer avec une soirée passée cassait l'image de
+    // toutes les autres (l'icône « image introuvable » du navigateur, sans
+    // aucun message). Un flyer de modèle ne s'efface qu'en changeant le modèle.
+    const candidates = new Set<string>();
     for (const ev of pastEvents) {
-      const paths: string[] = [];
-      if (ev.flyer_url) {
-        const match = ev.flyer_url.match(/affiliate-media\/(.+)$/);
-        if (match) paths.push(match[1]);
+      for (const url of [ev.flyer_url, ...(ev.gallery_urls ?? [])]) {
+        const match = url?.match(/affiliate-media\/(.+)$/);
+        if (match && !match[1].includes('/recurring/flyers/')) candidates.add(match[1]);
       }
-      if (ev.gallery_urls) {
-        for (const url of ev.gallery_urls) {
-          const match = url.match(/affiliate-media\/(.+)$/);
-          if (match) paths.push(match[1]);
-        }
-      }
+    }
 
-      if (paths.length > 0) {
-        await supabase.storage.from('affiliate-media').remove(paths);
-      }
-
+    for (const ev of pastEvents) {
       const { error } = await supabase.from('affiliate_events').delete().eq('id', ev.id);
       if (error) errors++;
+    }
+
+    // Deuxième garde-fou : une fois les soirées passées effacées, un fichier ne
+    // part que si plus rien ne le référence. Deux requêtes, pas une par fichier.
+    if (candidates.size > 0 && affiliateId) {
+      const [{ data: evRefs }, { data: tplRefs }] = await Promise.all([
+        supabase.from('affiliate_events').select('flyer_url, gallery_urls').eq('affiliate_id', affiliateId),
+        supabase.from('affiliate_recurring_templates').select('flyer_url').eq('affiliate_id', affiliateId),
+      ]);
+      const stillUsed = new Set<string>();
+      for (const row of evRefs ?? []) {
+        for (const url of [row.flyer_url, ...(row.gallery_urls ?? [])]) if (url) stillUsed.add(url);
+      }
+      for (const row of tplRefs ?? []) if (row.flyer_url) stillUsed.add(row.flyer_url);
+
+      const orphans = [...candidates].filter((path) => ![...stillUsed].some((url) => url.endsWith(path)));
+      if (orphans.length > 0) await supabase.storage.from('affiliate-media').remove(orphans);
     }
 
     await fetchEvents();
