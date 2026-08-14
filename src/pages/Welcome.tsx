@@ -21,7 +21,7 @@ import { fromParisTime } from '@/lib/timezone';
 import { useFavorites } from '@/hooks/useFavorites';
 import { cn } from '@/lib/utils';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
-import { getCurrentPosition } from '@/lib/geolocation';
+import { getCurrentPosition, getCurrentPositionIfGranted } from '@/lib/geolocation';
 
 // Threshold for "Popular" badge (total sales count)
 const POPULAR_THRESHOLD = 10;
@@ -189,8 +189,9 @@ const Welcome = () => {
     const requestGeolocation = () => {
       setLocationRequested(true);
 
-      // Natif : prompt système Apple via le plugin ; web : Safari-friendly.
-      getCurrentPosition(
+      // Auto au mount : en natif, position seulement si déjà accordée (aucun
+      // dialogue système hors geste explicite) ; web : Safari-friendly.
+      getCurrentPositionIfGranted(
         (position) => {
           setUserLocation({
             lat: position.coords.latitude,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { getCurrentPosition } from '@/lib/geolocation';
+import { getCurrentPositionIfGranted } from '@/lib/geolocation';
 import {
   getManualCoords,
   getStoredCity,
@@ -27,7 +27,9 @@ export function useUserLocation() {
     // Respect a manual city pick — never override it with GPS.
     if (hasManualCity()) return;
 
-    getCurrentPosition(
+    // Init automatique : en natif, jamais de dialogue système ici (position
+    // utilisée seulement si la permission a déjà été accordée ailleurs).
+    getCurrentPositionIfGranted(
       async (pos) => {
         const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setUserLocation(coords);

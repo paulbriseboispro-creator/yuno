@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { getManualCoords, getStoredCity, hasManualCity, setManualLocation, setResolvedCity } from '@/lib/userLocation';
 import { markAppReady } from '@/lib/appReady';
-import { getCurrentPosition } from '@/lib/geolocation';
+import { getCurrentPositionIfGranted } from '@/lib/geolocation';
 import { genresMatch } from '@/lib/musicGenres';
 import { eventPriceLabel, affiliateMinPrice } from '@/lib/eventPriceLabel';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -248,10 +248,12 @@ export default function Explore() {
   const topDjs = exploreTopDjsQuery.data ?? EMPTY_DJS;
 
   // ── Geolocation init ──
+  // Init automatique au mount : ne doit JAMAIS déclencher le dialogue système
+  // en natif (premier lancement = seule la demande de notifications part).
   useEffect(() => {
     if (hasManualCity()) return;
     const initLocation = async () => {
-      getCurrentPosition(
+      getCurrentPositionIfGranted(
         async (pos) => {
           const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
           if (!localStorage.getItem('yuno_city')) {
