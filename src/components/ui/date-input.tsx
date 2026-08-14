@@ -205,7 +205,7 @@ const DateInput = React.forwardRef<HTMLInputElement, DateInputProps>(
         </div>
         {(unparseable || beyondMax) && (
           <p className="mt-1.5 text-[11px] text-primary">
-            {beyondMax ? t('common.dateInFuture') : `${t('common.dateInvalid')} · ${hint}`}
+            {beyondMax ? t('common.dateInFuture') : `${t('common.dateInvalid')} ${hint}`}
           </p>
         )}
       </div>
