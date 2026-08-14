@@ -255,6 +255,29 @@ export default function VenuePage() {
           return;
         }
 
+        // Club masqué (« Masqué du public » ou décommissionné par l'admin) : la
+        // page publique n'existe plus. Seuls le owner (aperçu onboarding) et le
+        // super admin la voient encore.
+        if ((data as { is_hidden?: boolean }).is_hidden) {
+          const { data: authData } = await supabase.auth.getUser();
+          const uid = authData?.user?.id;
+          let allowed = !!uid && (data as { owner_id?: string | null }).owner_id === uid;
+          if (!allowed && uid) {
+            const { data: adminRole } = await supabase
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', uid)
+              .eq('role', 'admin')
+              .maybeSingle();
+            allowed = !!adminRole;
+          }
+          if (!allowed) {
+            setNotFound(true);
+            setVenueLoading(false);
+            return;
+          }
+        }
+
         setVenue({
           id: data.id,
           name: data.name,

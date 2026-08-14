@@ -62,6 +62,8 @@ interface Venue {
   longitude: number | null;
   owner_id: string | null;
   is_hidden: boolean;
+  decommissioned_at: string | null;
+  purge_at: string | null;
   owner_email?: string;
   pending_owner_email?: string;
   pending_owner_expires_at?: string;
@@ -83,6 +85,9 @@ export default function AdminVenues() {
   });
   const [deleteTarget, setDeleteTarget] = useState<Venue | null>(null);
   const [deleteConfirmName, setDeleteConfirmName] = useState('');
+  // 'decommission' = flux normal (hors ligne maintenant, purge à J+60) ;
+  // 'purge' = suppression immédiate d'un club déjà décommissionné (clubs de test).
+  const [deleteMode, setDeleteMode] = useState<'decommission' | 'purge'>('decommission');
 
   const geocodeAddress = async (addr: string): Promise<{ lat: number; lng: number } | null> => {
     if (!addr || addr.length < 5) return null;
@@ -278,9 +283,16 @@ export default function AdminVenues() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const { error } = await supabase.rpc('admin_delete_venue', { _venue_id: deleteTarget.id });
-      if (error) throw error;
-      toast.success(t('adminVenues.clubDeleted'));
+      if (deleteMode === 'purge') {
+        const { error } = await supabase.rpc('admin_purge_venue', { _venue_id: deleteTarget.id });
+        if (error) throw error;
+        toast.success(t('adminVenues.purged'));
+      } else {
+        const { data, error } = await supabase.rpc('admin_decommission_venue', { _venue_id: deleteTarget.id });
+        if (error) throw error;
+        const purgeDate = data ? new Date(data as string).toLocaleDateString(language) : '';
+        toast.success(t('adminVenues.decommissioned').replace('{date}', purgeDate));
+      }
       setDeleteTarget(null);
       setDeleteConfirmName('');
       fetchData();
@@ -289,6 +301,17 @@ export default function AdminVenues() {
       toast.error((error as Error).message || t('adminVenues.deleteError'));
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const cancelDecommission = async (venueId: string) => {
+    try {
+      const { error } = await supabase.rpc('admin_restore_venue', { _venue_id: venueId });
+      if (error) throw error;
+      toast.success(t('adminVenues.deletionCancelled'));
+      fetchData();
+    } catch (error) {
+      toast.error((error as Error).message || t('adminVenues.deleteError'));
     }
   };
 
@@ -355,18 +378,38 @@ export default function AdminVenues() {
                     <button style={iconBtnStyle} className="cursor-pointer" onClick={() => openEditDialog(venue)}>
                       <Edit2 className="h-4 w-4" style={{ color: T2 }} />
                     </button>
-                    <button style={iconBtnStyle} className="cursor-pointer" onClick={() => { setDeleteTarget(venue); setDeleteConfirmName(''); }}>
+                    <button style={iconBtnStyle} className="cursor-pointer" onClick={() => { setDeleteMode(venue.decommissioned_at ? 'purge' : 'decommission'); setDeleteTarget(venue); setDeleteConfirmName(''); }}>
                       <Trash2 className="h-4 w-4" style={{ color: NEG }} />
                     </button>
                   </div>
                 </div>
 
                 {/* Hidden badge */}
-                {venue.is_hidden && (
+                {venue.is_hidden && !venue.decommissioned_at && (
                   <div className="px-4 pt-2">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: C_FAINT, border: `1px solid ${BORDER}`, color: T2, fontSize: 10, fontWeight: 600 }}>
                       <EyeOff className="h-3 w-3" />{t('adminVenues.hidden')}
                     </span>
+                  </div>
+                )}
+
+                {/* Décommission en cours : badge daté + annuler / purger maintenant */}
+                {venue.decommissioned_at && (
+                  <div className="px-4 pt-2 space-y-2">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,92,99,0.12)', border: '1px solid rgba(255,92,99,0.3)', color: NEG, fontSize: 10, fontWeight: 600 }}>
+                      <Trash2 className="h-3 w-3" />
+                      {venue.purge_at
+                        ? t('adminVenues.scheduledPurge').replace('{date}', new Date(venue.purge_at).toLocaleDateString(language))
+                        : t('adminVenues.hidden')}
+                    </span>
+                    <div className="flex gap-2">
+                      <button style={{ ...secondaryBtnStyle, flex: 1, padding: '7px 10px', fontSize: 12 }} onClick={() => cancelDecommission(venue.id)}>
+                        {t('adminVenues.cancelDeletion')}
+                      </button>
+                      <button style={{ ...dangerBtnStyle, flex: 1, padding: '7px 10px', fontSize: 12 }} onClick={() => { setDeleteMode('purge'); setDeleteTarget(venue); setDeleteConfirmName(''); }}>
+                        {t('adminVenues.purgeNow')}
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -495,8 +538,8 @@ export default function AdminVenues() {
         <Dialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) { setDeleteTarget(null); setDeleteConfirmName(''); } }}>
           <DialogContent className="max-w-md border-0" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: CARD_SHADOW }}>
             <DialogHeader>
-              <DialogTitle style={{ color: NEG }}>{t('adminVenues.deleteTitle').replace('{name}', deleteTarget?.name || '')}</DialogTitle>
-              <DialogDescription style={{ color: T3 }}>{t('adminVenues.deleteWarning')}</DialogDescription>
+              <DialogTitle style={{ color: NEG }}>{t(deleteMode === 'purge' ? 'adminVenues.purgeTitle' : 'adminVenues.deleteTitle').replace('{name}', deleteTarget?.name || '')}</DialogTitle>
+              <DialogDescription style={{ color: T3 }}>{t(deleteMode === 'purge' ? 'adminVenues.purgeWarning' : 'adminVenues.deleteWarning')}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <p style={{ fontSize: 13, color: T2 }}>{t('adminVenues.deleteTypeName').replace('{name}', deleteTarget?.name || '')}</p>
@@ -514,7 +557,7 @@ export default function AdminVenues() {
                   disabled={deleteConfirmName !== deleteTarget?.name || deleting}
                   style={{ ...dangerBtnStyle, flex: 1, opacity: (deleteConfirmName !== deleteTarget?.name || deleting) ? 0.5 : 1 }}
                 >
-                  {deleting ? <><Loader2 className="h-4 w-4 animate-spin" />{t('adminVenues.deleting') || 'Suppression...'}</> : <><Trash2 className="h-4 w-4" />{t('adminVenues.confirmDeleteBtn')}</>}
+                  {deleting ? <><Loader2 className="h-4 w-4 animate-spin" />{t('adminVenues.deleting') || 'Suppression...'}</> : <><Trash2 className="h-4 w-4" />{t(deleteMode === 'purge' ? 'adminVenues.confirmDeleteBtn' : 'adminVenues.confirmDecommissionBtn')}</>}
                 </button>
               </div>
             </div>

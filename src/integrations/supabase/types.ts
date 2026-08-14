@@ -13271,6 +13271,7 @@ export type Database = {
           cover_url: string | null
           created_at: string
           custom_domain: string | null
+          decommissioned_at: string | null
           description: string | null
           facebook_url: string | null
           floor_plan_url: string | null
@@ -13297,6 +13298,7 @@ export type Database = {
           name_changed_at: string | null
           owner_id: string | null
           post_checkout_upsell_enabled: boolean
+          purge_at: string | null
           search_city: string | null
           search_name: string | null
           short_description: string | null
@@ -13330,6 +13332,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           custom_domain?: string | null
+          decommissioned_at?: string | null
           description?: string | null
           facebook_url?: string | null
           floor_plan_url?: string | null
@@ -13356,6 +13359,7 @@ export type Database = {
           name_changed_at?: string | null
           owner_id?: string | null
           post_checkout_upsell_enabled?: boolean
+          purge_at?: string | null
           search_city?: string | null
           search_name?: string | null
           short_description?: string | null
@@ -13389,6 +13393,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           custom_domain?: string | null
+          decommissioned_at?: string | null
           description?: string | null
           facebook_url?: string | null
           floor_plan_url?: string | null
@@ -13415,6 +13420,7 @@ export type Database = {
           name_changed_at?: string | null
           owner_id?: string | null
           post_checkout_upsell_enabled?: boolean
+          purge_at?: string | null
           search_city?: string | null
           search_name?: string | null
           short_description?: string | null
@@ -14732,6 +14738,7 @@ export type Database = {
         }
         Returns: number
       }
+      _purge_venue: { Args: { _venue_id: string }; Returns: undefined }
       accept_dj_booking_request: {
         Args: { p_id: string; p_note?: string }
         Returns: string
@@ -14758,6 +14765,7 @@ export type Database = {
         Returns: undefined
       }
       admin_customer_detail: { Args: { p_email: string }; Returns: Json }
+      admin_decommission_venue: { Args: { _venue_id: string }; Returns: string }
       admin_delete_credential_deadline: {
         Args: { p_key: string }
         Returns: boolean
@@ -14803,7 +14811,9 @@ export type Database = {
         Args: { p_from: string; p_to: string; p_venue_id?: string }
         Returns: Json
       }
+      admin_purge_venue: { Args: { _venue_id: string }; Returns: undefined }
       admin_reset_user_mfa: { Args: { _user_id: string }; Returns: undefined }
+      admin_restore_venue: { Args: { _venue_id: string }; Returns: undefined }
       admin_segmentation_customers: {
         Args: {
           p_activity?: string
@@ -16817,6 +16827,7 @@ export type Database = {
       run_admin_alert_sweep: { Args: never; Returns: Json }
       run_affiliate_automation_sweep: { Args: never; Returns: undefined }
       run_audience_snapshot: { Args: { p_date?: string }; Returns: Json }
+      run_venue_purge_sweep: { Args: never; Returns: undefined }
       search_djs_marketplace: {
         Args: {
           p_available_on?: string

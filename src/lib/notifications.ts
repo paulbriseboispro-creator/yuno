@@ -122,6 +122,8 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_mfa_reset_requested: { icon: ShieldAlert,   category: 'compliance', label: 'notif.type.admin_mfa_reset_requested' },
   // Système : l'état de la plateforme elle-même.
   admin_maintenance_mode:    { icon: Wrench,        category: 'system',    label: 'notif.type.admin_maintenance_mode' },
+  admin_venue_purged:        { icon: Building2,     category: 'system',    label: 'notif.type.admin_venue_purged' },
+  admin_venue_purge_failed:  { icon: AlertTriangle, category: 'system',    label: 'notif.type.admin_venue_purge_failed' },
   admin_payments_switch:     { icon: Siren,         category: 'system',    label: 'notif.type.admin_payments_switch' },
   admin_security_burst:      { icon: ShieldAlert,   category: 'system',    label: 'notif.type.admin_security_burst' },
   admin_push_queue_stuck:    { icon: Radio,         category: 'system',    label: 'notif.type.admin_push_queue_stuck' },
@@ -494,6 +496,12 @@ function adminNotifLink(n: AppNotif): string | null {
     case 'admin_maintenance_mode':
     case 'admin_payments_switch':
       return '/admin';
+
+    // Le club purgé n'existe plus : la liste des clubs est le seul point
+    // d'atterrissage qui reste vrai (et celui d'où on relance une purge ratée).
+    case 'admin_venue_purged':
+    case 'admin_venue_purge_failed':
+      return '/admin/venues';
 
     case 'admin_security_burst':
       return '/admin/audit';
