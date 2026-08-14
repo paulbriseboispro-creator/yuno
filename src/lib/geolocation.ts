@@ -50,6 +50,40 @@ export function getCurrentPosition(
 }
 
 /**
+ * Émis quand l'utilisateur vient d'ACCORDER la localisation via la séquence
+ * d'onboarding native — les surfaces déjà montées (Explore) réécoutent et
+ * résolvent leur ville tout de suite, sans attendre le prochain lancement.
+ */
+export const GEOLOC_GRANTED_EVENT = 'yuno:geoloc-granted';
+
+/**
+ * Pose la question de localisation si — et seulement si — elle n'a jamais été
+ * posée (état 'prompt'). Natif uniquement, no-op ailleurs. C'est l'étape 2 de
+ * la séquence d'onboarding : appelée APRÈS que l'utilisateur a répondu au
+ * dialogue de notifications, pour que les deux dialogues système ne
+ * s'empilent jamais. iOS mémorise la réponse : les lancements suivants ne
+ * repassent jamais ici (l'état n'est plus 'prompt').
+ */
+export async function requestLocationIfUndecided(): Promise<void> {
+  if (!isNative()) return;
+  try {
+    const { Geolocation } = await import('@capacitor/geolocation');
+    const perm = await Geolocation.checkPermissions();
+    if (perm.location !== 'prompt' && perm.location !== 'prompt-with-rationale') return;
+    const res = await Geolocation.requestPermissions();
+    if (res.location === 'granted') {
+      try {
+        window.dispatchEvent(new Event(GEOLOC_GRANTED_EVENT));
+      } catch {
+        // pas de window (SSR) : rien à notifier
+      }
+    }
+  } catch {
+    // Services de localisation coupés au niveau système : rien à demander.
+  }
+}
+
+/**
  * Variante SANS prompt pour les initialisations automatiques (Explore, listes).
  *
  * En natif, le dialogue système Apple ne doit partir que sur un geste explicite

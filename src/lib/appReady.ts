@@ -44,3 +44,43 @@ export function onAppReady(cb: () => void): () => void {
 export function isAppReady(): boolean {
   return ready;
 }
+
+// ────────────────────────────────────────────────────────────────────
+// Second signal : « splash terminé » — l'écran de lancement a fini son
+// animation de sortie (ou ne s'affiche pas du tout). C'est le repère des
+// surfaces qui ne doivent JAMAIS apparaître par-dessus l'animation de
+// lancement — en tête : les dialogues système de permission iOS
+// (OnboardingGate), qui empilés sur le splash font rejeter la review.
+// ────────────────────────────────────────────────────────────────────
+
+let splashGone = false;
+const splashListeners = new Set<() => void>();
+
+/** Émet « splash terminé ». Idempotent — les appels suivants sont ignorés. */
+export function markSplashGone(): void {
+  if (splashGone) return;
+  splashGone = true;
+  for (const fn of splashListeners) {
+    try {
+      fn();
+    } catch {
+      // un écouteur qui jette ne doit pas bloquer les autres
+    }
+  }
+  splashListeners.clear();
+}
+
+/**
+ * S'abonne au signal « splash terminé ». Si déjà terminé, `cb` est appelé
+ * de façon synchrone. Renvoie une fonction de désabonnement.
+ */
+export function onSplashGone(cb: () => void): () => void {
+  if (splashGone) {
+    cb();
+    return () => {};
+  }
+  splashListeners.add(cb);
+  return () => {
+    splashListeners.delete(cb);
+  };
+}

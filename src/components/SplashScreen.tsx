@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'framer-motion';
 import { isNative, isProApp } from '@/lib/native';
-import { markAppReady, onAppReady } from '@/lib/appReady';
+import { markAppReady, onAppReady, markSplashGone } from '@/lib/appReady';
 
 /* ════════════════════════════════════════════════════════════════════
    SplashScreen — écran de lancement animé de l'app Yuno (« Frame B »).
@@ -94,7 +94,12 @@ export function SplashScreen() {
   // Planifie la sortie : après le remplissage (MIN_SHOW) et une fois l'app
   // prête, sinon au plus tard à MAX_SHOW.
   useEffect(() => {
-    if (!show) return;
+    if (!show) {
+      // Pas de splash (web classique, déjà joué…) : le signal part tout de
+      // suite pour ne pas bloquer ceux qui attendent sa fin (OnboardingGate).
+      markSplashGone();
+      return;
+    }
     played = true;
 
     // Profite du temps de splash pour précharger les surfaces majeures :
@@ -140,6 +145,12 @@ export function SplashScreen() {
     const id = window.setTimeout(() => setDone(true), (reduced ? FADE_MS : LIFT_MS) + 60);
     return () => window.clearTimeout(id);
   }, [exiting, reduced]);
+
+  // Splash entièrement parti : les surfaces qui attendaient (dialogues de
+  // permission) peuvent y aller.
+  useEffect(() => {
+    if (done) markSplashGone();
+  }, [done]);
 
   if (!show || done) return null;
 

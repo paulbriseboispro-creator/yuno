@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { getManualCoords, getStoredCity, hasManualCity, setManualLocation, setResolvedCity } from '@/lib/userLocation';
 import { markAppReady } from '@/lib/appReady';
-import { getCurrentPositionIfGranted } from '@/lib/geolocation';
+import { getCurrentPositionIfGranted, GEOLOC_GRANTED_EVENT } from '@/lib/geolocation';
 import { genresMatch } from '@/lib/musicGenres';
 import { eventPriceLabel, affiliateMinPrice } from '@/lib/eventPriceLabel';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -26,6 +26,8 @@ import { ExploreDayTabs, WeekDayData } from '@/components/explore/ExploreDayTabs
 import { FadeInView } from '@/components/motion';
 import { useForYouFeed } from '@/hooks/useForYouFeed';
 import { ExploreForYouRail } from '@/components/explore/ExploreForYouRail';
+import { ExploreMomentBanner } from '@/components/explore/ExploreMomentBanner';
+import { activeMomentForCity } from '@/data/featuredMoments';
 import { PublicPage } from '@/components/PublicPage';
 import { ExploreCardsSkeleton } from '@/components/skeletons/ExploreCardsSkeleton';
 import { format } from 'date-fns';
@@ -199,6 +201,10 @@ export default function Explore() {
   //    recommander, la section se masque d'elle-même.
   const forYouItems = useForYouFeed(city);
 
+  // ── Moment éditorial (Freshers Week…) : bannière affiche en tête de feed
+  //    quand la ville du visiteur a un temps fort en cours ou qui approche.
+  const activeMoment = useMemo(() => activeMomentForCity(city), [city]);
+
   // ── Data (react-query) ──
   // Migré de useEffect+useState : le cache par défaut (staleTime 5 min du
   // QueryClient d'App.tsx) rend le retour de navigation instantané — plus de
@@ -300,6 +306,13 @@ export default function Explore() {
       );
     };
     initLocation();
+
+    // La séquence d'onboarding native vient d'obtenir la permission : on
+    // résout la ville tout de suite (le mount ci-dessus s'était tu, faute de
+    // permission), sans attendre le prochain lancement.
+    const onGranted = () => { initLocation(); };
+    window.addEventListener(GEOLOC_GRANTED_EVENT, onGranted);
+    return () => window.removeEventListener(GEOLOC_GRANTED_EVENT, onGranted);
   }, []);
 
   // ── Main data fetch ──
@@ -1135,6 +1148,10 @@ export default function Explore() {
             ══════════════════════════════════════════ */}
         {!loading && (
           <PublicPage variant="discovery">
+            {/* ═══ MODULE 0 : Bannière moment (Freshers Week…) — se masque
+                toute seule hors fenêtre / hors ville / sans matière. ═══ */}
+            {activeMoment && <ExploreMomentBanner moment={activeMoment} />}
+
             {/* ═══ MODULE 1 : Carrousel de toutes les soirées de la période ═══ */}
             <ExploreEventCarousel
               events={carouselEvents}

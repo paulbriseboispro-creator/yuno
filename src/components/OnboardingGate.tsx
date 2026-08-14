@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Bell, Globe, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { deviceLanguage } from '@/lib/deviceLanguage';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { isNative } from '@/lib/native';
+import { onSplashGone } from '@/lib/appReady';
+import { requestLocationIfUndecided } from '@/lib/geolocation';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,10 +38,54 @@ export function OnboardingGate() {
     return () => { active = false; };
   }, []);
 
+  // ── App native : séquence de permissions, une à la fois ──
+  // 1. Le splash finit son animation de sortie (l'accueil est révélé) ;
+  // 2. dialogue Apple des NOTIFICATIONS ;
+  // 3. une fois la réponse donnée, dialogue Apple de la LOCALISATION
+  //    (seulement si jamais posée) ;
+  // 4. carte de langue si l'appareil parle une langue que Yuno n'a pas.
+  // Jamais deux dialogues empilés, jamais pendant l'animation de lancement —
+  // l'empilement au premier lancement était un motif de blocage App Review.
+  const nativeSeqStarted = useRef(false);
+  useEffect(() => {
+    if (!isNative() || !pushReady || nativeSeqStarted.current) return;
+    nativeSeqStarted.current = true;
+
+    const off = onSplashGone(() => {
+      (async () => {
+        // L'accueil vient d'être révélé : petit temps de pose avant le
+        // premier dialogue, pour qu'il ne surgisse pas pendant le paint.
+        await new Promise((r) => setTimeout(r, 400));
+
+        if (localStorage.getItem(PUSH_ANSWERED_KEY) !== 'true') {
+          localStorage.setItem(PUSH_ANSWERED_KEY, 'true');
+          try {
+            await subscribe(); // résout quand l'utilisateur a répondu au dialogue
+          } catch {
+            // refus système : la réponse est enregistrée par iOS
+          }
+        }
+
+        // Localisation APRÈS la réponse aux notifications — no-op si la
+        // question a déjà été posée (iOS mémorise).
+        await requestLocationIfUndecided();
+
+        const langAnswered =
+          localStorage.getItem(LANG_ANSWERED_KEY) === 'true' || deviceLanguage() !== null;
+        if (!langAnswered) setStep('language');
+      })();
+    });
+    return off;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pushReady]);
+
   // Determine initial step on mount
   useEffect(() => {
     // Wait until push hook has finished initializing
     if (!pushReady) return;
+    // App native : la séquence dédiée ci-dessus pilote tout (dialogues +
+    // carte de langue) — le flux carte-par-carte reste le chemin web/PWA.
+    if (isNative()) return;
 
     const pushAnswered = localStorage.getItem(PUSH_ANSWERED_KEY) === 'true';
     // La langue du téléphone vaut réponse : LanguageContext l'a déjà appliquée,
@@ -72,14 +118,6 @@ export function OnboardingGate() {
         if (!langAnswered) {
           setStep('language');
         }
-        return;
-      }
-      // App native : dialogue de permission APPLE directement (pas de carte
-      // Yuno héritée de la PWA). La réponse système fait foi, on enchaîne.
-      if (isNative()) {
-        localStorage.setItem(PUSH_ANSWERED_KEY, 'true');
-        subscribe().catch(() => { /* refus système : réponse enregistrée par iOS */ });
-        setStep(langAnswered ? 'done' : 'language');
         return;
       }
       setStep('push');
