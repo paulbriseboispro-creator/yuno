@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import {
   Camera, Check, Loader2, LogOut, KeyRound, Users, Sparkles,
   ScanLine, Wine, Shirt, Crown, CalendarDays, Trash2,
+  FileText, ScrollText, Shield, Cookie, ChevronRight,
 } from 'lucide-react';
 import { PublicPage } from '@/components/PublicPage';
 import { ProBackButton } from '@/components/pro/ProBackButton';
@@ -25,6 +26,7 @@ import { useStaffIdentity } from '@/hooks/useStaffIdentity';
 import { compressImage } from '@/lib/compressImage';
 import { clearStaffSession } from '@/components/RequireStaffSession';
 import { DeleteAccountAction } from '@/components/account/DeleteAccountAction';
+import { legalContent, type LegalSection } from '@/data/legalContent';
 import {
   roleTokens, greetingKey, staffInitials, isStaffRole, primaryStaffRole,
   STAFF_ROLE_DEFS,
@@ -61,6 +63,17 @@ interface TeamMate {
   is_me: boolean;
 }
 
+/* Documents légaux utiles à un compte pro individuel (staff, promoteur, DJ).
+   Les titres viennent de legalContent (déjà trilingue) — mêmes pages que la
+   fiche Réglages client, rendues dans /legal/:section (route ouverte de
+   l'app Pro). Les CGV clubs/utilisateurs concernent la vente : hors sujet ici. */
+const LEGAL_LINKS: { key: LegalSection; icon: typeof FileText }[] = [
+  { key: 'mentions-legales', icon: FileText },
+  { key: 'cgu', icon: ScrollText },
+  { key: 'privacy', icon: Shield },
+  { key: 'cookies', icon: Cookie },
+];
+
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
     <div
@@ -84,7 +97,7 @@ function SectionTitle({ icon: Icon, children }: { icon: typeof Users; children: 
 }
 
 export default function StaffProfile() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   const { identity, loading, refresh } = useStaffIdentity();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -452,18 +465,45 @@ export default function StaffProfile() {
             </Card>
           )}
 
+          {/* ── Légal — mentions, CGU, confidentialité, cookies ──────────── */}
+          <Card>
+            <SectionTitle icon={FileText}>{t('settings.legalInfo')}</SectionTitle>
+            <div className="space-y-2">
+              {LEGAL_LINKS.map(({ key, icon: Icon }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => navigate(`/legal/${key}`)}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-3 transition-colors hover:bg-white/[0.03]"
+                  style={{ border: `1px solid ${BORDER}` }}
+                >
+                  <Icon className="h-4 w-4 flex-none" style={{ color: T2 }} />
+                  <span className="flex-1 text-left" style={{ color: T1, fontSize: 13.5 }}>
+                    {legalContent[key][language].title}
+                  </span>
+                  <ChevronRight className="h-4 w-4 flex-none" style={{ color: T3 }} />
+                </button>
+              ))}
+            </div>
+          </Card>
+
           {/* ── Compte ───────────────────────────────────────────────────── */}
           <Card>
             <SectionTitle icon={KeyRound}>{t('staffme.section.account')}</SectionTitle>
-            <button
-              type="button"
-              onClick={() => navigate('/setup-pin')}
-              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-3 transition-colors hover:bg-white/[0.03]"
-              style={{ border: `1px solid ${BORDER}` }}
-            >
-              <KeyRound className="h-4 w-4 flex-none" style={{ color: T2 }} />
-              <span className="flex-1 text-left" style={{ color: T1, fontSize: 13.5 }}>{t('staffme.changePin')}</span>
-            </button>
+            {/* Le PIN n'existe que pour le staff club (tablettes partagées) :
+                un promoteur ou un DJ n'en a pas, le bouton l'enverrait poser un
+                PIN qui ne garde rien. */}
+            {roles.length > 0 && (
+              <button
+                type="button"
+                onClick={() => navigate('/setup-pin')}
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-3 transition-colors hover:bg-white/[0.03]"
+                style={{ border: `1px solid ${BORDER}` }}
+              >
+                <KeyRound className="h-4 w-4 flex-none" style={{ color: T2 }} />
+                <span className="flex-1 text-left" style={{ color: T1, fontSize: 13.5 }}>{t('staffme.changePin')}</span>
+              </button>
+            )}
             <button
               type="button"
               onClick={handleLogout}
