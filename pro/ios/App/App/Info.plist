@@ -79,7 +79,7 @@
 		</dict>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>Yuno Pro scans ticket and guest list QR codes at the venue entrance.</string>
+	<string>Yuno Pro uses the camera to scan QR codes at the venue door. For example, when a guest arrives, door staff scan the QR code on their ticket or guest-list invite to check them in. No photo or video is recorded, stored or shared.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>
