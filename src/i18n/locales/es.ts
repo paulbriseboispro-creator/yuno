@@ -1245,6 +1245,13 @@ const es: Record<string, string> = {
   // === Partnerships (owner) ===
   'common.loading': "Cargando…",
   'common.dateFormatHint': "DD / MM / AAAA",
+  // Segmentos del campo de fecha — montados en el orden del TELÉFONO (un móvil
+  // francés leyendo Yuno en inglés escribe siempre el día primero), nunca fijos.
+  'common.dateSegDay': "DD",
+  'common.dateSegMonth': "MM",
+  'common.dateSegYear': "AAAA",
+  'common.dateInvalid': "Esta fecha no existe. Formato esperado:",
+  'common.dateInFuture': "Una fecha de nacimiento no puede estar en el futuro.",
   'common.send': "Enviar",
   'common.accept': "Aceptar",
   'common.decline': "Rechazar",

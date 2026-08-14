@@ -977,6 +977,13 @@ const en: Record<string, string> = {
   // === Partnerships (owner) ===
   'common.loading': "Loading…",
   'common.dateFormatHint': "MM / DD / YYYY",
+  // Date field segments — assembled in the device's own order (a French phone
+  // reading Yuno in English still writes the day first), never hardcoded.
+  'common.dateSegDay': "DD",
+  'common.dateSegMonth': "MM",
+  'common.dateSegYear': "YYYY",
+  'common.dateInvalid': "This date doesn't exist. Expected format:",
+  'common.dateInFuture': "A date of birth can't be in the future.",
   'common.send': "Send",
   'common.accept': "Accept",
   'common.decline': "Decline",

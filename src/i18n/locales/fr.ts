@@ -1014,6 +1014,13 @@ const fr: Record<string, string> = {
   // === Partnerships (owner) ===
   'common.loading': "Chargement…",
   'common.dateFormatHint': "JJ / MM / AAAA",
+  // Segments du champ date — assemblés dans l'ordre du TÉLÉPHONE (un téléphone
+  // français lisant Yuno en anglais écrit toujours le jour d'abord), jamais figés.
+  'common.dateSegDay': "JJ",
+  'common.dateSegMonth': "MM",
+  'common.dateSegYear': "AAAA",
+  'common.dateInvalid': "Cette date n'existe pas. Format attendu :",
+  'common.dateInFuture': "Une date de naissance ne peut pas être dans le futur.",
   'common.send': "Envoyer",
   'common.accept': "Accepter",
   'common.decline': "Refuser",
