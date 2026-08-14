@@ -13,6 +13,7 @@ import {
   PromoButton, PromoCard, DarkInput, FieldLabel, CopyField,
 } from '@/components/promoter/promoter-ui';
 import RenameConfirmDialog from '@/components/RenameConfirmDialog';
+import { DeleteAccountAction } from '@/components/account/DeleteAccountAction';
 import { ImageCropperDialog } from '@/components/ImageCropperDialog';
 import { nextRenameAt, parseRenameCooldownError, slugifyName } from '@/lib/renameGuard';
 
@@ -465,6 +466,12 @@ export default function AgencyProfile() {
           else if (target === 'banner') uploadBanner(cropped);
         }}
       />
+
+      {/* Compte — App Store 5.1.1(v). Un compte propriétaire d'agence ne peut pas
+          s'effacer seul : la fonction répond `owns_agency` et le message dirige
+          vers le support, plutôt que de laisser l'agence et ses promoteurs sans
+          propriétaire. */}
+      <DeleteAccountAction variant="row" pro redirectTo="/auth" />
 
       <RenameConfirmDialog
         open={renameOpen}

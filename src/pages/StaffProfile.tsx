@@ -24,6 +24,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useStaffIdentity } from '@/hooks/useStaffIdentity';
 import { compressImage } from '@/lib/compressImage';
 import { clearStaffSession } from '@/components/RequireStaffSession';
+import { DeleteAccountAction } from '@/components/account/DeleteAccountAction';
 import {
   roleTokens, greetingKey, staffInitials, isStaffRole, primaryStaffRole,
   STAFF_ROLE_DEFS,
@@ -472,6 +473,9 @@ export default function StaffProfile() {
               <LogOut className="h-4 w-4 flex-none" style={{ color: '#E8192C' }} />
               <span className="flex-1 text-left" style={{ color: '#E8192C', fontSize: 13.5 }}>{t('staffme.logout')}</span>
             </button>
+            {/* App Store 5.1.1(v) : l'app Pro permet de créer un compte sur son
+                écran de connexion, elle doit donc permettre de le supprimer. */}
+            <DeleteAccountAction variant="row" pro redirectTo="/auth" />
             {identity?.email && (
               <p className="mt-3 truncate text-center" style={{ color: T3, fontSize: 10.5 }}>{identity.email}</p>
             )}

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import AffiliateQRSection from '@/components/affiliate/AffiliateQRSection';
 import RenameConfirmDialog from '@/components/RenameConfirmDialog';
+import { DeleteAccountAction } from '@/components/account/DeleteAccountAction';
 import { nextRenameAt, parseRenameCooldownError, slugifyName } from '@/lib/renameGuard';
 import {
   AffPage, AffSpinner,
@@ -1016,6 +1017,10 @@ export default function AffiliateSettings() {
           </SectionCard>
         )}
       </div>
+
+      {/* Compte — App Store 5.1.1(v). Même composant partout : un seul chemin de
+          suppression, donc une seule vérité sur ce qui est effacé. */}
+      <DeleteAccountAction variant="row" pro redirectTo="/auth" />
 
       <RenameConfirmDialog
         open={renameOpen}

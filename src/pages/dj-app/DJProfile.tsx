@@ -19,6 +19,7 @@ import {
 
 import { MUSIC_GENRES as YUNO_MUSIC_GENRES } from '@/lib/musicGenres';
 import RenameConfirmDialog from '@/components/RenameConfirmDialog';
+import { DeleteAccountAction } from '@/components/account/DeleteAccountAction';
 import { nextRenameAt, parseRenameCooldownError, slugifyName } from '@/lib/renameGuard';
 
 export default function DJProfile() {
@@ -751,6 +752,10 @@ export default function DJProfile() {
           </PCard>
         </>
       )}
+
+      {/* Compte — App Store 5.1.1(v) : l'app Pro permet de créer un compte,
+          elle doit permettre de le supprimer. */}
+      <DeleteAccountAction variant="row" pro redirectTo="/auth" />
 
       <RenameConfirmDialog
         open={renameOpen}

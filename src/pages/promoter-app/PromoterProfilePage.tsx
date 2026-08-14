@@ -9,6 +9,7 @@ import { PromoterPage, PromoHeading } from '@/components/promoter/promoter-app-s
 import { PromoterProfileTab } from '@/components/promoter/PromoterProfileTab';
 import { ProfilePhotoUpload } from '@/components/ProfilePhotoUpload';
 import { ChangePinFlow } from '@/components/ChangePinFlow';
+import { DeleteAccountAction } from '@/components/account/DeleteAccountAction';
 import { T1, T3, BORDER, CARD_BG, CARD_SHADOW, C_FAINT } from '@/components/promoter/promoter-ui';
 
 export default function PromoterProfilePage() {
@@ -78,6 +79,12 @@ export default function PromoterProfilePage() {
           </div>
           <ChevronRight className="h-4 w-4 flex-none" style={{ color: T3 }} />
         </button>
+      </motion.div>
+
+      {/* ── Compte (App Store 5.1.1(v) : créer un compte ici implique pouvoir
+             le supprimer ici) ── */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+        <DeleteAccountAction variant="row" pro redirectTo="/auth" />
       </motion.div>
     </PromoterPage>
   );
