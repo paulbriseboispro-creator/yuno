@@ -130,6 +130,17 @@ Deux façons de mettre un appareil sur beta :
    le JS (à câbler sur un bouton debug si besoin). `setChannel('production')` ou
    `--clear` pour revenir.
 
+> ⚠️ **Un canal beta périmé RÉTROGRADE.** `capgo-updates` sert le bundle actif
+> du canal de l'appareil sans comparer sa fraîcheur à production : un appareil
+> oublié sur beta reçoit le vieux bundle beta même si production a 10 versions
+> d'avance. Vécu le 2026-08-14 : une install neuve s'est fait « mettre à jour »
+> vers le bundle beta 1.0.4 du 9 août — ressuscitant des bugs corrigés depuis
+> (permissions empilées, bannière cookies). Deux disciplines :
+> après un test beta, **toujours** remettre l'appareil en production
+> (`channel --device <id> --clear`) ; et à chaque publication production,
+> réaligner beta (`promote --app both --from production --to beta`) s'il n'est
+> pas en cours d'utilisation pour un vrai test.
+
 ---
 
 ## Versioning des bundles
