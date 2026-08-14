@@ -5,6 +5,7 @@ import { isNative } from "@/lib/native";
 import { loadLocale } from "@/i18n/data";
 import { persistedLanguage } from "@/contexts/LanguageContext";
 import App from "./App.tsx";
+import { BootErrorBoundary } from "@/components/BootErrorBoundary";
 import "./index.css";
 
 // Le chunk de langue est sur le chemin critique du premier paint :
@@ -51,7 +52,9 @@ window.addEventListener('unhandledrejection', (event) => {
 });
 
 createRoot(document.getElementById("root")!).render(
-  <HelmetProvider>
-    <App />
-  </HelmetProvider>
+  <BootErrorBoundary>
+    <HelmetProvider>
+      <App />
+    </HelmetProvider>
+  </BootErrorBoundary>
 );

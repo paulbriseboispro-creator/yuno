@@ -198,6 +198,36 @@
         } catch (e) { /* no-op */ }
       })();
     </script>
+    <script>
+      // Filet de dernier recours du boot : si React n'a RIEN rendu après 12 s,
+      // c'est un boot mort (crash JS de l'entry, chunk introuvable…), pas un
+      // boot lent — en natif tous les assets sont locaux. Sans ce filet, le
+      // loader ci-dessus (rouge plein écran en natif) reste figé pour toujours
+      // et l'utilisateur doit tuer l'app (vécu au premier lancement du build 19).
+      // Installé ICI, avant tout module JS, pour survivre même quand main.tsx
+      // ne s'exécute jamais. React remplace le contenu de #root à son premier
+      // commit : « #initial-loader encore présent » = React n'a jamais démarré.
+      (function () {
+        setTimeout(function () {
+          var l = document.getElementById('initial-loader');
+          if (!l) return;
+          var texts = {
+            fr: ['Un imprévu est survenu', 'Relancer'],
+            es: ['Algo salió mal', 'Reiniciar'],
+            en: ['Something went wrong', 'Reload'],
+          };
+          var c = texts[(navigator.language || 'en').slice(0, 2)] || texts.en;
+          var native = location.protocol === 'capacitor:';
+          var fg = native ? '#E51D2A' : '#fff';
+          var bg = native ? '#fff' : '#c62828';
+          l.innerHTML =
+            '<div style="text-align:center;font-family:-apple-system,ui-sans-serif,system-ui,sans-serif;color:#fff;padding:24px;">' +
+            '<p style="margin:0 0 18px;font-size:17px;font-weight:600;">' + c[0] + '</p>' +
+            '<button onclick="window.location.reload()" style="appearance:none;-webkit-appearance:none;border:0;border-radius:14px;padding:13px 30px;font-size:16px;font-weight:600;background:' + bg + ';color:' + fg + ';">' + c[1] + '</button>' +
+            '</div>';
+        }, 12000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
