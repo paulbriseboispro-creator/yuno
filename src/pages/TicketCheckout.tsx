@@ -1113,8 +1113,12 @@ export default function TicketCheckout() {
         <div className="relative z-50">
           {/* The pay button greys out until the age gate is satisfied. Without this
               line the disabled state is silent — the buyer can't tell a date of
-              birth (collected higher up) is what's blocking them. */}
-          {!checkoutLoading && minorGateBlocked && !minorDocPending && (
+              birth (collected higher up) is what's blocking them. Only shown while
+              no valid date is known yet (`minorInfo` is null): a minor on an
+              adults-only event HAS given their date, and the gate above already
+              tells them what's wrong — asking again for what they just typed is
+              how a blocked checkout turns into a dead end. */}
+          {!checkoutLoading && minorGateBlocked && !minorDocPending && !minorInfo && (
             <div className="max-w-lg mx-auto px-4 pt-2 pb-1 bg-[#0A0A0A]">
               <p className="text-center text-amber-400" style={{ fontSize: '11px' }}>
                 {t('tickets.dobRequiredHint')}
