@@ -228,6 +228,7 @@ const JoinViaLink = lazyWithRetry(() => import("./pages/JoinViaLink"));
 const Welcome = lazyWithRetry(() => import("./pages/Welcome"));
 const Explore = lazyWithRetry(() => import("./pages/Explore"));
 const AllEventsPage = lazyWithRetry(() => import("./pages/AllEventsPage"));
+const MomentPage = lazyWithRetry(() => import("./pages/MomentPage"));
 const AllClubsPage = lazyWithRetry(() => import("./pages/AllClubsPage"));
 const AllDJsPage = lazyWithRetry(() => import("./pages/AllDJsPage"));
 const EventTicketsLanding = lazyWithRetry(() => import("./pages/EventTicketsLanding"));
@@ -511,6 +512,8 @@ const App = () => (
                 {/* Explorer home page */}
                 <Route path="/" element={<Explore />} />
                 <Route path="/events" element={<AllEventsPage />} />
+                {/* Page programme d'un moment éditorial (Freshers Week…) — voir src/data/featuredMoments.ts */}
+                <Route path="/moment/:slug" element={<MomentPage />} />
                 <Route path="/clubs" element={<AllClubsPage />} />
                 <Route path="/djs" element={<AllDJsPage />} />
                 <Route path="/tickets" element={<EventTicketsLanding />} />
