@@ -12474,6 +12474,7 @@ const fr: Record<string, string> = {
   'aff.offer.glWomen': "Femmes uniquement",
   'aff.offer.help': "Affiché en badges sur la page de la soirée et les vitrines publiques. Sur un modèle récurrent, l'offre est copiée sur chaque soirée générée puis ajustable au cas par cas. « Uniquement des tables » remplace aussi le prix par « Tables uniquement » partout sur Yuno : inutile de renseigner un prix d'entrée.",
   'aff.badge.tables': "Tables VIP",
+  'aff.badge.ticketsAndTables': "Tickets et tables",
   'aff.badge.tablesOnly': "Tables uniquement",
   'aff.badge.guestList': "Guest list",
   'aff.badge.guestListWomen': "Guest list femmes",

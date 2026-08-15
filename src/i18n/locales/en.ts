@@ -12403,6 +12403,7 @@ const en: Record<string, string> = {
   'aff.offer.glWomen': "Women only",
   'aff.offer.help': "Shown as badges on the event page and public showcases. On a recurring template, the offer is copied to every generated event, then adjustable case by case. \"Tables only\" also replaces the price with \"Tables only\" everywhere on Yuno: no need to fill in an entry price.",
   'aff.badge.tables': "VIP tables",
+  'aff.badge.ticketsAndTables': "Tickets and tables",
   'aff.badge.tablesOnly': "Tables only",
   'aff.badge.guestList': "Guest list",
   'aff.badge.guestListWomen': "Women guest list",

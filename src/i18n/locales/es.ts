@@ -12517,6 +12517,7 @@ const es: Record<string, string> = {
   'aff.offer.glWomen': "Solo mujeres",
   'aff.offer.help': "Se muestra como badges en la página del evento y en los escaparates públicos. En una plantilla recurrente, la oferta se copia en cada evento generado y luego es ajustable caso por caso. «Solo mesas» también sustituye el precio por «Solo mesas» en todo Yuno: no hace falta rellenar un precio de entrada.",
   'aff.badge.tables': "Mesas VIP",
+  'aff.badge.ticketsAndTables': "Entradas y mesas",
   'aff.badge.tablesOnly': "Solo mesas",
   'aff.badge.guestList': "Guest list",
   'aff.badge.guestListWomen': "Guest list mujeres",

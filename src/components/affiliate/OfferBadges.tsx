@@ -10,8 +10,11 @@ export type OfferFlags = {
 
 export function offerBadgeLabels(flags: OfferFlags, t: (k: string) => string): string[] {
   const out: string[] = [];
+  // Le badge est lu À CÔTÉ du prix. « Tables VIP » collé à « dès 20€ » se
+  // lisait « des tables à 20 € » : le badge doit donc nommer les deux produits
+  // quand la soirée vend les deux, pour que le montant se rattache au billet.
   if (flags.tables_only) out.push(t('aff.badge.tablesOnly'));
-  else if (flags.has_tables) out.push(t('aff.badge.tables'));
+  else if (flags.has_tables) out.push(t('aff.badge.ticketsAndTables'));
   if (flags.has_guest_list) {
     out.push(flags.guest_list_type === 'women' ? t('aff.badge.guestListWomen') : t('aff.badge.guestList'));
   }
