@@ -31,7 +31,7 @@
     // Sans eux ici, le SPA fallback leur répond 200 + index.html et Google range ces URLs
     // fantômes en « Autre page avec balise canonique correcte » (constaté en août 2026 sur
     // /_next/static/media/*.woff2). Le Worker leur renvoie un vrai 404 — cf. GHOST_ASSET_RE.
-    "run_worker_first": ["/sitemap.xml", "/events", "/events/*", "/clubs", "/djs", "/dj/*", "/event/*", "/club/*", "/o/*", "/_next/*", "/static/*"]
+    "run_worker_first": ["/sitemap.xml", "/events", "/events/*", "/clubs", "/djs", "/dj/*", "/event/*", "/club/*", "/o/*", "/tickets", "/vip-tables", "/order-drinks", "/_next/*", "/static/*"]
   },
   // SUPABASE_URL est public (= VITE_SUPABASE_URL). La clé anon (SUPABASE_ANON_KEY,
   // publique car déjà embarquée dans le bundle front) doit être ajoutée comme variable

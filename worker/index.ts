@@ -221,6 +221,30 @@ function linkListHtml(heading: string, links: { href: string; label: string }[])
   return items ? `<h2>${esc(heading)}</h2><ul>${items}</ul>` : '';
 }
 
+// Pages piliers — meta identique au composant SPA correspondant
+// (src/pages/{EventTickets,VipTables,OrderDrinks}Landing.tsx). Si le copy
+// change là-bas, le refléter ici.
+const PILLAR_PAGES: Record<string, { title: string; description: string; h1: string }> = {
+  '/tickets': {
+    title: 'Buy Event Tickets — Club Nights, Parties & Shows | Yuno',
+    description:
+      'Buy tickets to club nights, parties and events near you. Instant QR tickets, secure Apple Pay / Google Pay checkout, presale and guest list — plus VIP tables and drinks in one app.',
+    h1: 'Event tickets for the best nights out',
+  },
+  '/vip-tables': {
+    title: 'Book VIP Tables & Bottle Service — Reserve Online | Yuno',
+    description:
+      'Book VIP tables and bottle service at top nightclubs online. See real table maps, pre-order bottles, get guaranteed entry and host service. Reserve your table on Yuno.',
+    h1: 'Book a VIP table & bottle service',
+  },
+  '/order-drinks': {
+    title: 'Order Drinks & Skip the Bar Queue — Order Ahead | Yuno',
+    description:
+      'Order drinks from your phone and skip the bar queue. Browse the club menu, pay in-app, and collect at a dedicated pickup point. Order rounds cashless with Yuno.',
+    h1: 'Order drinks and skip the bar queue',
+  },
+};
+
 // ---------------------------------------------------------------------------
 // Entity resolution — one function per public entity type.
 // ---------------------------------------------------------------------------
@@ -229,6 +253,32 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
   const path = url.pathname;
   let m: RegExpMatchArray | null;
   const nowIso = new Date().toISOString();
+
+  // ── SEO pillar landing pages ── the editorial copy lives in the SPA
+  // (src/pages/EventTicketsLanding.tsx & co, meta dupliquée ici) ; le Worker
+  // fournit le canonical + les meta AU PREMIER PASSAGE du crawler. Sans cette
+  // entrée, ces routes héritent du canonical statique de index.html
+  // (https://yunoapp.eu/) et Google les classe « Duplicate » — elles ne
+  // peuvent pas ranker. Routes déclarées dans run_worker_first (wrangler.jsonc).
+  const pillar = PILLAR_PAGES[path];
+  if (pillar) {
+    return {
+      title: pillar.title,
+      description: pillar.description,
+      canonical: `${ORIGIN}${path}`,
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@type': 'WebPage',
+        name: pillar.title,
+        description: pillar.description,
+        url: `${ORIGIN}${path}`,
+      },
+      h1: pillar.h1,
+      bodyHtml:
+        `<p>${pillar.description}</p>` +
+        `<p><a href="${ORIGIN}/events">Browse events</a> · <a href="${ORIGIN}/clubs">Find clubs</a> · <a href="${ORIGIN}/djs">Discover DJs</a></p>`,
+    };
+  }
 
   // ── Public browse/list pages ── enrich crawlers with real, indexable content: an
   // <h1> + intro + a linked list of every entity (crawl paths to the detail pages) +
