@@ -163,6 +163,23 @@ interprété (JS/HTML/CSS) est livré, jamais du natif.
   `yuno-bar-buddy.lovable.app` dans du SQL **déjà appliqué** — ne pas réécrire (casse le
   checksum Supabase). Vérifier plutôt la table live `email_templates` pour des liens résiduels.
 
+## Web = acquisition, app = rétention (stratégie 2026-08)
+
+La racine `/` du web montre une **landing vitrine** (`src/pages/Landing.tsx`) au seul
+visiteur web déconnecté jamais engagé ; app native, PWA, sessions et habitués tombent
+sur le feed (`/explore` = `Explore`, porte dans `HomeGate`/`src/lib/webHome.ts`).
+La conversion vers l'app iOS vit dans `src/lib/appStore.ts` (constante unique
+`APP_STORE_READY` — **false tant qu'Apple n'a pas approuvé l'app client**, à flipper
+à l'approbation) + `src/components/install/*` (barre dismissible, carte post-achat,
+badge) + meta `apple-itunes-app` dans `index.html`.
+
+**Surfaces à ne JAMAIS gater derrière l'app** (aucun mur, aucun interstitiel) :
+commande de boissons au QR du bar, checkouts billets/tables/guest list, page QR de
+commande, liens promoteurs & affiliés (`/l/*`, `/promoteur/*`, `/p/*`, `/promo/*`,
+`/rp/*` — trafic Instagram : les Universal Links n'y fonctionnent pas), surfaces
+staff/pro. Le web mobile doit rester un chemin d'achat complet — DICE gate, Yuno non :
+on vend du sans-friction dans une file d'attente.
+
 ## Règles de travail
 
 - Toujours `git add <fichiers précis>` — jamais `git add -A`/`git add .` (parasites + binaires).
