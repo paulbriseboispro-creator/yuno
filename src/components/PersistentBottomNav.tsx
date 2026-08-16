@@ -25,6 +25,7 @@ import { isProApp } from '@/lib/native';
    les dashboards pro et le staff restent sans barre. */
 const NAV_ROUTES = [
   '/',
+  '/explore',
   '/events',
   '/clubs',
   '/djs',

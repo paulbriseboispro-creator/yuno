@@ -62,6 +62,8 @@ import { SplashScreen } from "@/components/SplashScreen";
 import { NativeProGate } from "@/components/NativeProGate";
 import { ProAppGate } from "@/components/ProAppGate";
 import { isProApp, isNative } from "@/lib/native";
+import { shouldShowLanding } from "@/lib/webHome";
+import { InstallBar } from "@/components/install/InstallBar";
 import { PushClickTracker } from "@/components/PushClickTracker";
 import { CelebrationHost } from "@/components/celebration/CelebrationHost";
 import { DemoSwitcher } from "@/components/demo/DemoSwitcher";
@@ -227,6 +229,7 @@ const JoinViaLink = lazyWithRetry(() => import("./pages/JoinViaLink"));
 
 const Welcome = lazyWithRetry(() => import("./pages/Welcome"));
 const Explore = lazyWithRetry(() => import("./pages/Explore"));
+const Landing = lazyWithRetry(() => import("./pages/Landing"));
 const AllEventsPage = lazyWithRetry(() => import("./pages/AllEventsPage"));
 const MomentPage = lazyWithRetry(() => import("./pages/MomentPage"));
 const AllClubsPage = lazyWithRetry(() => import("./pages/AllClubsPage"));
@@ -443,6 +446,18 @@ function ScrollToTop() {
   return null;
 }
 
+/**
+ * Porte d'accueil « / » — landing vitrine pour l'inconnu web, feed Explore
+ * pour tout le monde d'autre (natif, PWA, connecté, déjà engagé).
+ * Décision figée au premier rendu (useState initializer) : pas de bascule
+ * landing→feed sous les yeux de l'utilisateur pendant la session.
+ * Voir src/lib/webHome.ts pour la règle complète.
+ */
+function HomeGate() {
+  const [landing] = useState(() => shouldShowLanding());
+  return landing ? <Landing /> : <Explore />;
+}
+
 function RouteErrorBoundary({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   return (
@@ -509,8 +524,10 @@ const App = () => (
               <Routes>
                 {/* Yuno Pro (app staff) — accueil / sélecteur de rôle */}
                 <Route path="/pro" element={<ProHome />} />
-                {/* Explorer home page */}
-                <Route path="/" element={<Explore />} />
+                {/* Accueil : landing vitrine (inconnu web) ou feed Explore (voir HomeGate) */}
+                <Route path="/" element={<HomeGate />} />
+                {/* Le feed garde sa propre URL : la landing et les liens « web app » pointent ici */}
+                <Route path="/explore" element={<Explore />} />
                 <Route path="/events" element={<AllEventsPage />} />
                 {/* Page programme d'un moment éditorial (Freshers Week…) — voir src/data/featuredMoments.ts */}
                 <Route path="/moment/:slug" element={<MomentPage />} />
@@ -1147,6 +1164,10 @@ const App = () => (
                   page à l'autre, donc elle reste à l'écran pendant que la page
                   cible charge (skeleton compris). Voir PersistentBottomNav. */}
               <PersistentBottomNav />
+              {/* Conversion web → app iOS : barre fine dismissible, web mobile
+                  iOS uniquement, pages publiques uniquement. Inerte tant que
+                  APP_STORE_READY est false (l'app n'est pas encore approuvée). */}
+              {!isProApp() && !isNative() && <InstallBar />}
             </MaintenanceWrapper>
             </BottomNavVisibilityProvider>
             </LiveModeProvider>

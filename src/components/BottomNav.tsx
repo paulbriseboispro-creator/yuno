@@ -70,7 +70,7 @@ export function BottomNav({ mode = 'fixed' }: { mode?: 'fixed' | 'docked' }) {
       key: 'explore',
       label: t('nav.exploreTab') || 'Explorer',
       icon: Search,
-      isActive: path === '/',
+      isActive: path === '/' || path === '/explore',
       onSelect: () => navigate('/'),
     },
     {

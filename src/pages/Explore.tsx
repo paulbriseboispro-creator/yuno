@@ -29,6 +29,7 @@ import { ExploreForYouRail } from '@/components/explore/ExploreForYouRail';
 import { ExploreMomentBanner } from '@/components/explore/ExploreMomentBanner';
 import { activeMomentForCity } from '@/data/featuredMoments';
 import { PublicPage } from '@/components/PublicPage';
+import { markWebEngaged } from '@/lib/webHome';
 import { ExploreCardsSkeleton } from '@/components/skeletons/ExploreCardsSkeleton';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
@@ -131,7 +132,10 @@ export default function Explore() {
 
   // Accueil monté et peint : signale l'app « prête » pour que l'écran de
   // lancement lance sa sortie (soulèvement) et révèle l'Explorer.
+  // Et pose le drapeau « engagé » : quiconque a atteint le feed une fois
+  // ne reverra plus la landing vitrine à la racine (voir src/lib/webHome.ts).
   useEffect(() => {
+    markWebEngaged();
     const id = requestAnimationFrame(() => markAppReady());
     return () => cancelAnimationFrame(id);
   }, []);
