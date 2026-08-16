@@ -64,6 +64,7 @@ import { ProAppGate } from "@/components/ProAppGate";
 import { isProApp, isNative } from "@/lib/native";
 import { shouldShowLanding } from "@/lib/webHome";
 import { InstallBar } from "@/components/install/InstallBar";
+import { CITY_PAGES } from "@/data/cityPages";
 import { PushClickTracker } from "@/components/PushClickTracker";
 import { CelebrationHost } from "@/components/celebration/CelebrationHost";
 import { DemoSwitcher } from "@/components/demo/DemoSwitcher";
@@ -230,6 +231,7 @@ const JoinViaLink = lazyWithRetry(() => import("./pages/JoinViaLink"));
 const Welcome = lazyWithRetry(() => import("./pages/Welcome"));
 const Explore = lazyWithRetry(() => import("./pages/Explore"));
 const Landing = lazyWithRetry(() => import("./pages/Landing"));
+const CityPage = lazyWithRetry(() => import("./pages/CityPage"));
 const AllEventsPage = lazyWithRetry(() => import("./pages/AllEventsPage"));
 const MomentPage = lazyWithRetry(() => import("./pages/MomentPage"));
 const AllClubsPage = lazyWithRetry(() => import("./pages/AllClubsPage"));
@@ -528,6 +530,16 @@ const App = () => (
                 <Route path="/" element={<HomeGate />} />
                 {/* Le feed garde sa propre URL : la landing et les liens « web app » pointent ici */}
                 <Route path="/explore" element={<Explore />} />
+                {/* URL stable de la vitrine, visible par TOUT LE MONDE (aperçu,
+                    partage, bio Instagram) — la porte de la racine ne s'y applique
+                    pas. Canonical → « / » (posé par Landing), donc pas de duplicate. */}
+                <Route path="/home" element={<Landing />} />
+                {/* Pages villes SEO (/paris, /madrid…) — routes générées depuis
+                    CITY_PAGES : pas de segment dynamique racine qui avalerait
+                    les 404. Voir src/data/cityPages.ts pour en ajouter une. */}
+                {Object.keys(CITY_PAGES).map((slug) => (
+                  <Route key={slug} path={`/${slug}`} element={<CityPage />} />
+                ))}
                 <Route path="/events" element={<AllEventsPage />} />
                 {/* Page programme d'un moment éditorial (Freshers Week…) — voir src/data/featuredMoments.ts */}
                 <Route path="/moment/:slug" element={<MomentPage />} />

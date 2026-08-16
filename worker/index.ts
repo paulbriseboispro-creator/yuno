@@ -24,6 +24,9 @@
 // (/sitemap.xml, /dj/*, /event/*, /club/*, /o/*, /_next/*, /static/*) ever reach
 // this Worker.
 
+// Pages villes : mêmes définitions que la SPA (slug, nom, meta) — données pures.
+import { CITY_PAGES } from '../src/data/cityPages';
+
 interface Env {
   ASSETS: { fetch: (req: Request) => Promise<Response> };
   SUPABASE_URL: string;
@@ -277,6 +280,65 @@ async function resolveEntity(url: URL, env: Env): Promise<Entity | null> {
       bodyHtml:
         `<p>${pillar.description}</p>` +
         `<p><a href="${ORIGIN}/events">Browse events</a> · <a href="${ORIGIN}/clubs">Find clubs</a> · <a href="${ORIGIN}/djs">Discover DJs</a></p>`,
+    };
+  }
+
+  // ── Pages villes SEO ── /paris, /madrid… (définies dans src/data/cityPages.ts,
+  // routées ici par run_worker_first). Contenu crawlable VIVANT : clubs de la
+  // ville (natifs + affiliés) et soirées à venir — Madrid est essentiellement
+  // porté par le bras affilié, il DOIT apparaître ici.
+  const cityDef = CITY_PAGES[path.replace(/^\//, '').toLowerCase()];
+  if (cityDef && /^\/[a-z-]+$/.test(path)) {
+    const cityPat = `ilike.*${encodeURIComponent(cityDef.name)}*`;
+    const todayStr = nowIso.slice(0, 10);
+    const [venues, affVenues] = await Promise.all([
+      fetchRows(env, `venues?is_hidden=eq.false&city=${cityPat}&select=id,name,city`),
+      fetchRows(env, `affiliate_venues?city=${cityPat}&select=id,slug,name,city`),
+    ]);
+    const venueIds = venues.map((v) => v.id).filter(Boolean);
+    const orFilter = venueIds.length
+      ? `&or=(venue_id.in.(${venueIds.join(',')}),location_city.${cityPat})`
+      : `&location_city=${cityPat}`;
+    const affIds = new Set(affVenues.map((v) => v.id).filter(Boolean));
+    const [events, affEventsAll] = await Promise.all([
+      fetchRows(
+        env,
+        `events?is_active=eq.true&visibility=eq.public&is_discoverable=eq.true&end_at=gte.${encodeURIComponent(nowIso)}` +
+          `${orFilter}&select=id,slug,title,start_at,organizer_user_id,venue_id&order=start_at.asc&limit=30`,
+      ),
+      affIds.size
+        ? fetchRows(
+            env,
+            `affiliate_events?status=in.(published,featured)&event_date=gte.${todayStr}` +
+              `&select=slug,name,event_date,affiliate_venue_id&order=event_date.asc&limit=40`,
+          )
+        : Promise.resolve([]),
+    ]);
+    const affEvents = affEventsAll.filter((e) => affIds.has(e.affiliate_venue_id));
+    const cityOrgMap = await orgSlugMap(env, events);
+    const eventLinks = [
+      ...events.filter((e) => e.id).map((e) => ({ href: eventCleanUrl(e, cityOrgMap), label: clean(e.title, 120) })),
+      ...affEvents.filter((e) => e.slug).map((e) => ({ href: `${ORIGIN}/affiliate-event/${e.slug}`, label: clean(e.name, 120) })),
+    ];
+    const clubLinks = [
+      ...venues.filter((v) => v.id).map((v) => ({ href: `${ORIGIN}/club/${v.id}`, label: clean(v.name, 120) })),
+      ...affVenues.filter((v) => v.slug).map((v) => ({ href: `${ORIGIN}/affiliate-venue/${v.slug}`, label: clean(v.name, 120) })),
+    ];
+    return {
+      title: cityDef.metaTitle,
+      description: cityDef.metaDescription,
+      canonical: `${ORIGIN}/${cityDef.slug}`,
+      jsonLd: {
+        '@context': 'https://schema.org',
+        '@type': 'ItemList',
+        name: `Nightlife in ${cityDef.name} on Yuno`,
+        itemListElement: eventLinks.map((l, i) => ({ '@type': 'ListItem', position: i + 1, url: l.href, name: l.label })),
+      },
+      h1: `Nightlife in ${cityDef.name}`,
+      bodyHtml:
+        `<p>${esc(cityDef.metaDescription)}</p>` +
+        linkListHtml(`Parties in ${cityDef.name}`, eventLinks) +
+        linkListHtml(`Clubs in ${cityDef.name}`, clubLinks),
     };
   }
 
@@ -795,6 +857,8 @@ async function buildSitemap(env: Env): Promise<string> {
     { loc: `${ORIGIN}/tickets`, changefreq: 'monthly', priority: '0.8' },
     { loc: `${ORIGIN}/vip-tables`, changefreq: 'monthly', priority: '0.8' },
     { loc: `${ORIGIN}/order-drinks`, changefreq: 'monthly', priority: '0.8' },
+    // Pages villes (src/data/cityPages.ts) — contenu vivant, re-crawl fréquent.
+    ...Object.values(CITY_PAGES).map((c) => ({ loc: `${ORIGIN}/${c.slug}`, changefreq: 'daily', priority: '0.8' })),
     { loc: `${ORIGIN}/help`, changefreq: 'monthly', priority: '0.3' },
   ];
 

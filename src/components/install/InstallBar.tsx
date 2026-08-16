@@ -29,6 +29,8 @@ import { AppleLogo } from '@/components/install/AppStoreBadge';
 const SHOW_PATTERNS = [
   '/',
   '/explore',
+  '/paris', // pages villes SEO — garder en phase avec CITY_PAGES
+  '/madrid',
   '/events',
   '/clubs',
   '/djs',

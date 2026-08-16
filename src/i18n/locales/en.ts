@@ -13299,6 +13299,16 @@ const en: Record<string, string> = {
   'landing.footHelp': 'Help',
   'landing.footLegal': 'Legal',
 
+  // ── Pages villes SEO (/paris, /madrid…) ──
+  'city.kicker': 'Nightlife guide',
+  'city.h1': 'Nightlife in {city}',
+  'city.lead': "Every party in {city}, one place: tonight's club nights, guest lists, VIP tables and tickets — updated live by the clubs and organizers themselves.",
+  'city.events': 'Upcoming parties in {city}',
+  'city.clubs': 'Clubs in {city}',
+  'city.empty': 'No upcoming party listed in {city} right now — check back soon.',
+  'city.free': 'Free',
+  'city.other': 'Yuno in {city}',
+
   // ── Conversion app iOS (barre d'install + post-achat) ──
   'install.barTitle': 'Yuno is better on the app',
   'install.barCta': 'App Store',

@@ -26,6 +26,8 @@ import { isProApp } from '@/lib/native';
 const NAV_ROUTES = [
   '/',
   '/explore',
+  '/paris', // pages villes SEO — liste explicite (un pattern dynamique racine matcherait tout)
+  '/madrid',
   '/events',
   '/clubs',
   '/djs',
