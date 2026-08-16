@@ -24,6 +24,7 @@ import { WalletButtons } from '@/components/WalletButtons';
 import { DrinkCreditsCard } from '@/components/upsell/DrinkCreditsCard';
 import { DrinksUpsellCard } from '@/components/upsell/DrinksUpsellCard';
 import { TicketQRCarousel } from '@/components/orders/TicketQRCarousel';
+import { PostPurchaseAppCard } from '@/components/install/PostPurchaseAppCard';
 import { PublicPage } from '@/components/PublicPage';
 interface UpsellSelection {
   name: string;
@@ -1123,6 +1124,10 @@ export default function OrderConfirmation() {
             {t('confirmation.shareEvent')}
           </button>
         </motion.section>
+
+        {/* Le moment honnête de la conversion app : APRÈS l'achat. Web mobile
+            iOS uniquement — rend null partout ailleurs (voir canPromoteApp). */}
+        <PostPurchaseAppCard />
 
         {/* RESTE DANS LA BOUCLE — suivre le club et/ou le ou les organisateurs.
             Voir followTargets plus haut : seules les entités PAS ENCORE suivies
