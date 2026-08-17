@@ -1,3 +1,4 @@
+import { dismissSsrHero } from '@/lib/ssrHero';
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -63,6 +64,12 @@ export default function OrganizerPublicProfile() {
   const [followersCount, setFollowersCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Hero server-rendered (SERP → fiche) : congédier l'overlay du Worker dès
+  // que la page est prête à être vue (données chargées OU erreur/introuvable).
+  useEffect(() => {
+    if (!loading) dismissSsrHero();
+  }, [loading]);
+
   const [bioExpanded, setBioExpanded] = useState(false);
   const [showAllPast, setShowAllPast] = useState(false);
   // Drinks menu from partner clubs (active partnerships, drinks-enabled tier, menu_enabled=true)

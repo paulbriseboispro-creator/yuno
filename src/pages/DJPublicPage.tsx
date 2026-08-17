@@ -1,3 +1,4 @@
+import { dismissSsrHero } from '@/lib/ssrHero';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -123,6 +124,12 @@ export default function DJPublicPage() {
   const [upcomingCount, setUpcomingCount] = useState(0);
   const [pastCount, setPastCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  // Hero server-rendered (SERP → fiche) : congédier l'overlay du Worker dès
+  // que la page est prête à être vue (données chargées OU erreur/introuvable).
+  useEffect(() => {
+    if (!loading) dismissSsrHero();
+  }, [loading]);
+
   const [djId, setDjId] = useState<string | null>(null);
   const [bioExpanded, setBioExpanded] = useState(false);
   const [extras, setExtras] = useState<DJExtras>({ photos: [], venues: [], organizers: [] });

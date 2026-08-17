@@ -1,3 +1,4 @@
+import { dismissSsrHero } from '@/lib/ssrHero';
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearchParams, useLocation } from 'react-router-dom';
@@ -76,6 +77,12 @@ export default function EventDetails() {
   const [zones, setZones] = useState<TableZone[]>([]);
   const [packs, setPacks] = useState<TablePack[]>([]);
   const [loading, setLoading] = useState(true);
+  // Hero server-rendered (SERP → fiche) : congédier l'overlay du Worker dès
+  // que la page est prête à être vue (données chargées OU erreur/introuvable).
+  useEffect(() => {
+    if (!loading) dismissSsrHero();
+  }, [loading]);
+
   const [hasPresaleAccess, setHasPresaleAccess] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [djs, setDjs] = useState<EventDJ[]>([]);

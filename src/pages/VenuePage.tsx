@@ -1,3 +1,4 @@
+import { dismissSsrHero } from '@/lib/ssrHero';
 import { motion } from 'framer-motion';
 import { FadeInView } from '@/components/motion';
 import { PublicPage } from '@/components/PublicPage';
@@ -164,6 +165,12 @@ export default function VenuePage() {
   const [drinks, setDrinks] = useState<Drink[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+  // Hero server-rendered (SERP → fiche) : congédier l'overlay du Worker dès
+  // que la page est prête à être vue (données chargées OU erreur/introuvable).
+  useEffect(() => {
+    if (!loading) dismissSsrHero();
+  }, [loading]);
+
   const [venueLoading, setVenueLoading] = useState(true);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [eventDialogOpen, setEventDialogOpen] = useState(false);

@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { lazyWithRetry } from "@/lib/lazyWithRetry";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Toaster } from "@/components/ui/toaster";
@@ -63,6 +63,7 @@ import { NativeProGate } from "@/components/NativeProGate";
 import { ProAppGate } from "@/components/ProAppGate";
 import { isProApp, isNative } from "@/lib/native";
 import { shouldShowLanding } from "@/lib/webHome";
+import { dismissSsrHero } from "@/lib/ssrHero";
 import { InstallBar } from "@/components/install/InstallBar";
 import { CITY_PAGES } from "@/data/cityPages";
 import { PushClickTracker } from "@/components/PushClickTracker";
@@ -449,6 +450,21 @@ function ScrollToTop() {
 }
 
 /**
+ * Garde de l'overlay SSR (voir src/lib/ssrHero.ts) : si l'utilisateur navigue
+ * AILLEURS que l'URL d'atterrissage, l'overlay — qui ne décrit qu'elle — est
+ * congédié immédiatement. Le montage initial ne congédie pas (c'est là que
+ * l'overlay sert).
+ */
+function SsrHeroGuard() {
+  const { pathname } = useLocation();
+  const initialPath = useRef(pathname);
+  useEffect(() => {
+    if (pathname !== initialPath.current) dismissSsrHero();
+  }, [pathname]);
+  return null;
+}
+
+/**
  * Porte d'accueil « / » — landing vitrine pour l'inconnu web, feed Explore
  * pour tout le monde d'autre (natif, PWA, connecté, déjà engagé).
  * Décision figée au premier rendu (useState initializer) : pas de bascule
@@ -508,6 +524,7 @@ const App = () => (
             <DemoSwitcher />
             <PreviewModeBanner />
             <ScrollToTop />
+            <SsrHeroGuard />
             {!isProApp() && <CartCleanup />}
             <OfflineBanner />
             <NativeBridge />

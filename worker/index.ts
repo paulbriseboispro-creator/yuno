@@ -826,6 +826,51 @@ class RootInjector {
   }
 }
 
+// Hero server-rendered pour les HUMAINS. Prépendu au <body> : un overlay
+// plein écran qui montre l'affiche + le titre de l'entité AU PREMIER OCTET,
+// pendant que la SPA boote derrière (elle mettait 1-3 s à remplacer un écran
+// noir + spinner pour un visiteur SERP). Contrat de congédiement :
+//   • le script inline expose window.__yunoSsrHeroDismiss (fondu 240 ms) ;
+//   • la SPA l'appelle quand la fiche est prête (src/lib/ssrHero.ts) ou
+//     quand l'utilisateur navigue ailleurs (SsrHeroGuard) ;
+//   • garde-fou : auto-destruction à 6 s quoi qu'il arrive.
+// DA publique : fond #0A0A0A, image cover + gradient, titre Space Grotesk
+// uppercase ancré en bas, kicker mono rouge. z-index 60 (sous la bannière
+// cookies à 70). Uniquement les vraies navigations (Sec-Fetch-Mode) sur les
+// fiches — jamais les tunnels d'achat, jamais les listes.
+class HeroOverlayInjector {
+  constructor(private e: Entity) {}
+  element(el: El) {
+    // Gradient de marque TOUJOURS posé sous l'image : pendant que l'affiche
+    // charge (transformation Supabase froide), le fond n'est jamais noir pur.
+    const img = this.e.image
+      ? `<div style="position:absolute;inset:0;background-image:url('${esc(this.e.image)}');background-size:cover;background-position:center;filter:saturate(1.05)"></div>`
+      : '';
+    el.prepend(
+      `<div id="yuno-ssr-hero" style="position:fixed;inset:0;z-index:60;background:#0A0A0A;opacity:1;transition:opacity 240ms ease;overflow:hidden">` +
+        `<div style="position:absolute;inset:0;background:linear-gradient(160deg,#1a0a0d 0%,#3a0a14 55%,#12070a 100%)"></div>` +
+        img +
+        `<div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,10,10,0.20) 0%,rgba(10,10,10,0.42) 46%,rgba(10,10,10,0.92) 82%,#0A0A0A 100%)"></div>` +
+        `<div style="position:absolute;left:0;right:0;bottom:0;padding:0 22px calc(34px + env(safe-area-inset-bottom));max-width:900px;margin:0 auto">` +
+        `<p style="margin:0 0 10px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:10.5px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:#E8192C">Yuno</p>` +
+        `<p style="margin:0;font-family:'Space Grotesk',system-ui,sans-serif;font-size:clamp(28px,7.5vw,54px);font-weight:700;letter-spacing:-0.02em;line-height:1.02;text-transform:uppercase;color:#fff">${esc(this.e.h1)}</p>` +
+        `<div style="margin-top:18px;width:26px;height:26px;border:2.5px solid rgba(255,255,255,0.16);border-top-color:#E8192C;border-radius:50%;animation:yunossr 0.9s linear infinite"></div>` +
+        `</div>` +
+        `<style>@keyframes yunossr{to{transform:rotate(360deg)}}</style>` +
+        `</div>` +
+        `<script>(function(){var e=document.getElementById('yuno-ssr-hero');if(!e)return;var d=false;function g(){if(d)return;d=true;e.style.opacity='0';setTimeout(function(){try{e.parentNode&&e.parentNode.removeChild(e)}catch(_){}},260)}window.__yunoSsrHeroDismiss=g;setTimeout(g,6000)})();</script>`,
+      { html: true },
+    );
+  }
+}
+
+// Fiches éligibles à l'overlay humain — ancrées en fin : les sous-routes
+// (billets, checkout, guestlist, epk…) n'ont JAMAIS d'overlay, un client qui
+// paie ne doit pas attendre 6 s derrière un écran. La SPA congédie sur ces
+// pages exactes (EventDetails, VenuePage, DJPublicPage, OrganizerPublicProfile).
+const HERO_ROUTE_RE =
+  /^\/(?:event\/[^/]+|events\/[^/]+\/[^/]+|club\/[^/]+(?:\/event\/[^/]+)?|dj\/[^/]+|o\/[^/]+)$/;
+
 // ---------------------------------------------------------------------------
 // Sitemap
 // ---------------------------------------------------------------------------
@@ -1034,6 +1079,46 @@ export default {
               .on('head', new HeadInjector(entity))
               .on('#root', new RootInjector(entity))
               .transform(asset);
+          }
+          return asset;
+        }
+      }
+
+      // Hero server-rendered pour les HUMAINS — fiches uniquement (voir
+      // HERO_ROUTE_RE), vraies navigations uniquement (Sec-Fetch-Mode:
+      // navigate ; les fetch du service worker / assets ne l'ont pas — les
+      // navigateurs très anciens n'envoient pas l'en-tête, on les accepte).
+      // La réponse transformée est identique pour tous → cache edge 180 s
+      // par chemin : seul le premier visiteur d'une fiche paie la résolution
+      // Supabase, les suivants ont un TTFB inchangé.
+      const fetchMode = request.headers.get('sec-fetch-mode');
+      if (
+        request.method === 'GET' &&
+        HERO_ROUTE_RE.test(url.pathname) &&
+        (fetchMode === null || fetchMode === 'navigate')
+      ) {
+        const cache = G.caches?.default;
+        const cacheKey = new Request(`${ORIGIN}${url.pathname}?__ssrhero=1`);
+        if (cache) {
+          const hit = await cache.match(cacheKey);
+          if (hit) return hit;
+        }
+        const entity = await resolveEntity(url, env);
+        if (entity) {
+          const asset = await env.ASSETS.fetch(request);
+          const ct = asset.headers.get('content-type') || '';
+          if (ct.includes('text/html')) {
+            const transformed = new G.HTMLRewriter()
+              .on('title', new TitleRewriter(entity.title))
+              .on('meta', new MetaRewriter(entity))
+              .on('link[rel="canonical"]', new CanonicalRewriter(entity.canonical))
+              .on('body', new HeroOverlayInjector(entity))
+              .transform(asset);
+            const headers = new Headers(transformed.headers);
+            headers.set('cache-control', 'public, max-age=0, s-maxage=180');
+            const resp = new Response(transformed.body, { status: transformed.status, headers });
+            if (cache) ctx.waitUntil(cache.put(cacheKey, resp.clone()));
+            return resp;
           }
           return asset;
         }
