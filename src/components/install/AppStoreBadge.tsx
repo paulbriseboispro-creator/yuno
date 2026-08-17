@@ -7,7 +7,14 @@ import { APP_STORE_URL, APP_STORE_READY } from '@/lib/appStore';
  * (APP_STORE_READY=false), rend la variante inerte « Bientôt sur
  * l'App Store » si `showComingSoon`, sinon null.
  */
-export function AppStoreBadge({ showComingSoon = false }: { showComingSoon?: boolean }) {
+export function AppStoreBadge({
+  showComingSoon = false,
+  className = '',
+}: {
+  showComingSoon?: boolean;
+  /** Classes additionnelles (ex. `w-full sm:w-auto` pour les CTA de hero mobile). */
+  className?: string;
+}) {
   const { t } = useLanguage();
 
   const inner = (
@@ -25,6 +32,7 @@ export function AppStoreBadge({ showComingSoon = false }: { showComingSoon?: boo
   const baseStyle: React.CSSProperties = {
     display: 'inline-flex',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 9,
     height: 48,
     padding: '0 22px',
@@ -38,7 +46,10 @@ export function AppStoreBadge({ showComingSoon = false }: { showComingSoon?: boo
   if (!APP_STORE_READY) {
     if (!showComingSoon) return null;
     return (
-      <span style={{ ...baseStyle, background: 'rgba(255,255,255,0.06)', color: '#9A9A9A', border: '1px solid rgba(255,255,255,0.10)' }}>
+      <span
+        className={className}
+        style={{ ...baseStyle, background: 'rgba(255,255,255,0.06)', color: '#9A9A9A', border: '1px solid rgba(255,255,255,0.10)' }}
+      >
         {inner}
       </span>
     );
@@ -49,7 +60,7 @@ export function AppStoreBadge({ showComingSoon = false }: { showComingSoon?: boo
       href={APP_STORE_URL}
       target="_blank"
       rel="noopener noreferrer"
-      className="active:scale-[0.97]"
+      className={`active:scale-[0.97] ${className}`}
       style={baseStyle}
     >
       {inner}
