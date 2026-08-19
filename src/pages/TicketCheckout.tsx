@@ -4,6 +4,7 @@ import { useEventRoute } from '@/hooks/useEventRoute';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Minus, Plus, Tag, ChevronRight, ChevronUp, LogIn, Calendar, Wine, Lock } from 'lucide-react';
 import { getEventSalesStatus } from '@/types/ticketing';
+import { fetchEventPaymentsReady } from '@/lib/paymentsReady';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
@@ -381,6 +382,16 @@ export default function TicketCheckout() {
       if (salesStatus === 'ended') {
         toast.error(t('salesStatus.ended'));
         navigate(-1);
+        return;
+      }
+
+      // Club sans compte Stripe actif : le serveur refuserait ce checkout à la
+      // fin du formulaire (« payments not set up »). On ferme la porte ICI,
+      // URL directe comprise, avec un message neutre — jamais un message
+      // d'erreur après saisie. Comptes démo @womber.fr exclus de la porte.
+      if (!(await fetchEventPaymentsReady(eventId!))) {
+        toast(t('salesStatus.salesNotOpenYet'));
+        navigate(basePath, { replace: true });
         return;
       }
 

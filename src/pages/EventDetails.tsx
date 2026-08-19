@@ -30,6 +30,7 @@ import { usePromoterTracking } from '@/hooks/usePromoterTracking';
 import { useResolvePurchaseSource, useResolveTrackedLink } from '@/hooks/usePurchaseSourceTracking';
 import { useStore } from '@/store/useStore';
 import { useVisitorTracking } from '@/hooks/useVisitorTracking';
+import { useEventPaymentsReady } from '@/lib/paymentsReady';
 
 type EventDJ = {
   id: string;
@@ -644,7 +645,7 @@ export default function EventDetails() {
   const lowStockRounds = activeRounds.filter(r => (r.maxTickets - r.ticketsSold) <= r.lastTicketsThreshold);
   const totalTicketsRemaining = activeRounds.reduce((sum, r) => sum + (r.maxTickets - r.ticketsSold), 0);
   const isSoldOut = !!event?.ticketingEnabled && buyableRounds.length === 0 && ticketRounds.length > 0;
-  const eventSalesStatus = getEventSalesStatus(
+  const rawSalesStatus = getEventSalesStatus(
     {
       presaleStartAt: event?.presaleStartAt,
       publicSaleStartAt: event?.publicSaleStartAt,
@@ -653,6 +654,14 @@ export default function EventDetails() {
     },
     isSoldOut,
   );
+  // Club sans compte Stripe actif : le serveur refusera tout checkout (billets,
+  // tables, boissons). On présente la vente comme « bientôt » plutôt que de
+  // laisser l'acheteur remplir un formulaire condamné à un message d'erreur.
+  // Les comptes démo @womber.fr passent (checkout simulé côté serveur).
+  const paymentsReady = useEventPaymentsReady(eventId);
+  const paymentsGateClosed =
+    !paymentsReady && (rawSalesStatus === 'public_sale' || rawSalesStatus === 'presale');
+  const eventSalesStatus = paymentsGateClosed ? 'coming_soon' : rawSalesStatus;
 
   // Cette page pose son propre CTA d'achat collant en bas d'écran dès qu'il y a
   // quelque chose à vendre (ou que la vente n'est pas encore publique : bloc
@@ -890,6 +899,7 @@ export default function EventDetails() {
               }}
               allRoundsSoldOut={isSoldOut}
               hasPresaleAccess={hasPresaleAccess}
+              forcedStatus={paymentsGateClosed ? 'coming_soon' : undefined}
             />
           </div>
         )}

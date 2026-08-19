@@ -23,6 +23,7 @@ import { VipTableWaitlistDialog } from '@/components/vip/VipTableWaitlistDialog'
 import { useTableAvailability } from '@/hooks/useTableAvailability';
 import { supabase } from '@/integrations/supabase/client';
 import { PUBLIC_VENUE_COLUMNS } from '@/integrations/supabase/publicColumns';
+import { fetchEventPaymentsReady } from '@/lib/paymentsReady';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { launchCheckout } from '@/lib/native';
 import { haptics } from '@/lib/haptics';
@@ -199,6 +200,15 @@ export default function TableCheckout() {
         .from('events').select('*').eq('id', eventId).single();
       if (eventError) throw eventError;
       setEvent(eventData);
+
+      // Club sans compte Stripe actif : le serveur refuserait cette réservation
+      // au clic « Payer ». Porte fermée dès l'arrivée, URL directe comprise,
+      // message neutre. Comptes démo @womber.fr exclus de la porte.
+      if (!(await fetchEventPaymentsReady(eventId!))) {
+        toast(t('salesStatus.salesNotOpenYet'));
+        navigate(basePath, { replace: true });
+        return;
+      }
 
       // Resolve venue (event.venue_id OR partner_venue_id for orga-led co-events)
       const effectiveVenueId = eventData.venue_id ?? eventData.partner_venue_id;

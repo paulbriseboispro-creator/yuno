@@ -4063,6 +4063,7 @@ const en: Record<string, string> = {
   'tickets.enableWaitlist': 'Enable Private List',
   'tickets.enableWaitlistDesc': 'Allow users to pre-register before ticket sales',
   'salesStatus.waitlistOpen': 'Private List is open, sales are not live yet',
+  'salesStatus.salesNotOpenYet': 'Sales aren\'t open here yet. Check back soon.',
   'salesStatus.ended': 'Event ended',
   'salesStatus.endedDesc': 'This event has ended — ticket sales are closed.',
   'tickets.includes': 'Includes',

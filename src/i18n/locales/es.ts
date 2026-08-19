@@ -4257,6 +4257,7 @@ const es: Record<string, string> = {
   'tickets.enableWaitlist': 'Activar Lista Privada',
   'tickets.enableWaitlistDesc': 'Permitir pre-registro antes de la venta',
   'salesStatus.waitlistOpen': 'La Lista Privada está abierta, la venta aún no',
+  'salesStatus.salesNotOpenYet': 'La venta aún no está abierta aquí. Vuelve pronto.',
   'salesStatus.ended': 'Evento finalizado',
   'salesStatus.endedDesc': 'Este evento ha terminado — la venta de entradas está cerrada.',
   'tickets.includes': 'Incluye',

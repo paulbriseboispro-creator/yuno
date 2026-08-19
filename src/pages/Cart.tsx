@@ -21,6 +21,7 @@ import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { launchCheckout } from '@/lib/native';
 import { haptics } from '@/lib/haptics';
 import { useToast } from '@/hooks/use-toast';
+import { fetchEventPaymentsReady, fetchVenuePaymentsReady } from '@/lib/paymentsReady';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslatedDrinkName } from '@/lib/drinkTranslations';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
@@ -321,6 +322,21 @@ export default function Cart() {
     setIsProcessing(true);
     try {
       const eventId = selectedEventId || cart[0]?.eventId;
+
+      // Club sans compte Stripe actif : create-checkout refuserait la commande
+      // au moment de payer. On le dit AVANT, avec un message neutre — jamais un
+      // message d'erreur en bout de formulaire. Démo @womber.fr : porte ouverte.
+      const paymentsOk = eventId
+        ? await fetchEventPaymentsReady(eventId)
+        : venueInfo?.id
+          ? await fetchVenuePaymentsReady(venueInfo.id)
+          : true;
+      if (!paymentsOk) {
+        toast({ title: t('salesStatus.salesNotOpenYet') });
+        setIsProcessing(false);
+        return;
+      }
+
       const { getTrackedLinkForCheckout } = await import('@/hooks/usePurchaseSourceTracking');
       const trackedLinkId = getTrackedLinkForCheckout(eventId);
       // kind/mixerIds : bouteilles solo du Mode Live — validées serveur contre

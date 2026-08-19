@@ -11,11 +11,20 @@ interface EventSalesStatusProps {
   hasPresaleAccess?: boolean;
   className?: string;
   showCountdown?: boolean;
+  /**
+   * Statut imposé par le parent quand une contrainte externe aux dates de vente
+   * ferme la vente (club sans compte Stripe actif : le serveur refuserait tout
+   * checkout). Le composant recalcule sinon son statut depuis les dates — un
+   * parent qui a déjà décidé « fermé » doit pouvoir l'imposer, sans compte à
+   * rebours ni affichage de dates de vente déjà passées.
+   */
+  forcedStatus?: SalesStatusType;
 }
 
-export function EventSalesStatus({ event, allRoundsSoldOut, hasPresaleAccess, className, showCountdown = true }: EventSalesStatusProps) {
+export function EventSalesStatus({ event, allRoundsSoldOut, hasPresaleAccess, className, showCountdown = true, forcedStatus }: EventSalesStatusProps) {
   const { t } = useLanguage();
-  const [status, setStatus] = useState<SalesStatusType>(() => getEventSalesStatus(event, allRoundsSoldOut));
+  const [computedStatus, setComputedStatus] = useState<SalesStatusType>(() => getEventSalesStatus(event, allRoundsSoldOut));
+  const status = forcedStatus ?? computedStatus;
   const [countdown, setCountdown] = useState('');
 
   const formatSaleDate = (date: string) =>
@@ -28,8 +37,15 @@ export function EventSalesStatus({ event, allRoundsSoldOut, hasPresaleAccess, cl
 
   useEffect(() => {
     const update = () => {
-      const newStatus = getEventSalesStatus(event, allRoundsSoldOut);
-      setStatus(newStatus);
+      const newStatus = forcedStatus ?? getEventSalesStatus(event, allRoundsSoldOut);
+      setComputedStatus(getEventSalesStatus(event, allRoundsSoldOut));
+
+      // Statut imposé : pas de compte à rebours — les dates de vente peuvent
+      // être passées, un décompte négatif ou des dates révolues n'ont pas de sens.
+      if (forcedStatus) {
+        setCountdown('');
+        return;
+      }
 
       // Calculate countdown
       if (newStatus === 'coming_soon') {
@@ -65,7 +81,7 @@ export function EventSalesStatus({ event, allRoundsSoldOut, hasPresaleAccess, cl
     update();
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
-  }, [event, allRoundsSoldOut, hasPresaleAccess]);
+  }, [event, allRoundsSoldOut, hasPresaleAccess, forcedStatus]);
 
   if (status === 'public_sale') return null;
 
@@ -102,10 +118,12 @@ export function EventSalesStatus({ event, allRoundsSoldOut, hasPresaleAccess, cl
             </div>
           )}
           <p className="text-xs text-muted-foreground">
-            {countdown ? t('salesStatus.ticketsAvailableIn') : t('salesStatus.waitlistOpen')}
+            {forcedStatus
+              ? t('salesStatus.salesNotOpenYet')
+              : countdown ? t('salesStatus.ticketsAvailableIn') : t('salesStatus.waitlistOpen')}
           </p>
 
-          {event.presaleStartAt && event.publicSaleStartAt && (
+          {!forcedStatus && event.presaleStartAt && event.publicSaleStartAt && (
             <div className="rounded-lg bg-background/40 px-3 py-2 text-[11px] text-muted-foreground space-y-1 text-left">
               <p>
                 {t('tickets.presaleMembersStart')}:{' '}

@@ -15,6 +15,7 @@ import { haptics } from '@/lib/haptics';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { fetchEventPaymentsReady } from '@/lib/paymentsReady';
 
 interface InstantItem {
   id: string;
@@ -53,6 +54,13 @@ export function useLiveInstantCheckout(ctx: LiveContext | null) {
         item.fallbackAddToCart();
         toast({ title: t('live.pay.ageFirst') });
         navigate('/cart');
+        return;
+      }
+
+      // Club sans compte Stripe actif : create-checkout refuserait ce paiement.
+      // Message neutre avant l'appel. Démo @womber.fr : porte ouverte (simulé).
+      if (!(await fetchEventPaymentsReady(ctx.eventId))) {
+        toast({ title: t('salesStatus.salesNotOpenYet') });
         return;
       }
 

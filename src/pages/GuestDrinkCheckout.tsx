@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { useStore } from '@/store/useStore';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useToast } from '@/hooks/use-toast';
+import { fetchEventPaymentsReady, fetchVenuePaymentsReady } from '@/lib/paymentsReady';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { getTranslatedDrinkName } from '@/lib/drinkTranslations';
@@ -131,6 +132,20 @@ export default function GuestDrinkCheckout() {
       // CGV acceptance is handled by TermsAcceptance component
 
       const eventId = selectedEventId || cart[0]?.eventId;
+
+      // Club sans compte Stripe actif : create-checkout refuserait la commande.
+      // Message neutre avant l'appel — jamais d'erreur en bout de formulaire.
+      const paymentsOk = eventId
+        ? await fetchEventPaymentsReady(eventId)
+        : venueInfo?.id
+          ? await fetchVenuePaymentsReady(venueInfo.id)
+          : true;
+      if (!paymentsOk) {
+        toast({ title: t('salesStatus.salesNotOpenYet') });
+        setIsProcessing(false);
+        return;
+      }
+
       const items = cart.map(item => ({ id: item.drinkId, quantity: item.qty, collection: item.collection }));
 
       const { data, error } = await invokeEdgeFunction('create-checkout', {

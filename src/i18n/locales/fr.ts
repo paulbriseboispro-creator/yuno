@@ -4032,6 +4032,7 @@ const fr: Record<string, string> = {
   'tickets.enableWaitlist': 'Activer la Liste Privée',
   'tickets.enableWaitlistDesc': 'Permettre le pré-enregistrement avant la mise en vente',
   'salesStatus.waitlistOpen': 'La Liste Privée est ouverte, la vente n\'est pas encore lancée',
+  'salesStatus.salesNotOpenYet': 'La vente n\'est pas encore ouverte ici. Reviens bientôt.',
   'salesStatus.ended': 'Soirée terminée',
   'salesStatus.endedDesc': 'Cette soirée est terminée — la billetterie est fermée.',
   'tickets.includes': 'Inclut',

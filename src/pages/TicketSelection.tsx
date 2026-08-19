@@ -13,6 +13,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { TicketRound, TableZone, TablePack, TicketSellingMode, getEventSalesStatus, customerTransactionFee } from '@/types/ticketing';
 import { useAbsorbYunoFees } from '@/hooks/useAbsorbYunoFees';
 import { EventSalesStatus } from '@/components/ticketing/EventSalesStatus';
+import { useEventPaymentsReady } from '@/lib/paymentsReady';
 import { EventWaitlistForm } from '@/components/ticketing/EventWaitlistForm';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
 import { toast } from 'sonner';
@@ -90,6 +91,7 @@ export default function TicketSelection() {
 
   usePromoterTracking(eventData?.venueId || slug, eventId);
   const scarcitySettings = useEventScarcity(eventId);
+  const paymentsReady = useEventPaymentsReady(eventId);
 
   useEffect(() => {
     if (eventId) fetchData();
@@ -310,9 +312,15 @@ export default function TicketSelection() {
   // Un round est épuisé s'il a atteint sa capacité OU s'il a été marqué épuisé manuellement.
   const isRoundSoldOut = (r: TicketRound) => r.manuallySoldOut || r.ticketsSold >= r.maxTickets;
   const allRoundsSoldOut = simpleGlobalSoldOut || (ticketRounds.length > 0 && ticketRounds.every(isRoundSoldOut));
-  const salesStatus = eventData
+  const rawSalesStatus = eventData
     ? getEventSalesStatus({ presaleStartAt: eventData.presaleStartAt, publicSaleStartAt: eventData.publicSaleStartAt, waitlistEnabled: eventData.waitlistEnabled, endAt: eventData.endAt }, allRoundsSoldOut)
     : 'public_sale' as const;
+  // Club sans compte Stripe actif : le serveur refuserait le checkout — la
+  // vente se présente comme « bientôt », jamais comme un formulaire condamné.
+  // Comptes démo @womber.fr exclus de la porte (checkout simulé serveur).
+  const paymentsGateClosed =
+    !paymentsReady && (rawSalesStatus === 'public_sale' || rawSalesStatus === 'presale');
+  const salesStatus = paymentsGateClosed ? 'coming_soon' : rawSalesStatus;
 
   const visibility = eventData?.roundsVisibility ?? 'sequential';
   const getVisibleRounds = (rounds: TicketRound[]): Array<TicketRound & { _previewOnly?: boolean }> => {
@@ -540,6 +548,7 @@ export default function TicketSelection() {
             event={{ presaleStartAt: eventData.presaleStartAt, publicSaleStartAt: eventData.publicSaleStartAt, waitlistEnabled: eventData.waitlistEnabled, endAt: eventData.endAt }}
             allRoundsSoldOut={salesStatus === 'sold_out'}
             hasPresaleAccess={hasPresaleAccess}
+            forcedStatus={paymentsGateClosed ? 'coming_soon' : undefined}
           />
         )}
         {salesStatus === 'coming_soon' && eventData?.waitlistEnabled && (
