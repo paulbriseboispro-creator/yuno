@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import { isNative } from '@/lib/native';
 
 interface ExploreHeaderProps {
   city: string;
@@ -172,20 +173,24 @@ export function ExploreHeader({ city, selectedDate, dateLabel, dateFilter, onDat
           >
             Yuno
           </span>
-          <span
-            className="font-mono font-bold uppercase"
-            style={{
-              fontSize: '9px',
-              letterSpacing: '0.12em',
-              color: '#E8192C',
-              background: 'rgba(232,25,44,0.12)',
-              border: '1px solid rgba(232,25,44,0.25)',
-              padding: '2px 6px',
-              borderRadius: '999px',
-            }}
-          >
-            Beta
-          </span>
+          {/* Le badge « Beta » n'existe que sur le web : dans l'app App Store il
+              contredirait la Guideline 2.2 (pas de beta en production). */}
+          {!isNative() && (
+            <span
+              className="font-mono font-bold uppercase"
+              style={{
+                fontSize: '9px',
+                letterSpacing: '0.12em',
+                color: '#E8192C',
+                background: 'rgba(232,25,44,0.12)',
+                border: '1px solid rgba(232,25,44,0.25)',
+                padding: '2px 6px',
+                borderRadius: '999px',
+              }}
+            >
+              Beta
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
