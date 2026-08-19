@@ -710,8 +710,8 @@ serve(async (req) => {
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
 
-    if (!venue.stripe_account_id) throw new Error("Ce club n'a pas encore configuré ses paiements.");
-    if (!venue.stripe_charges_enabled) throw new Error("Le compte Stripe du club n'est pas encore activé.");
+    if (!venue.stripe_account_id) throw new Error(t("checkout.venuePaymentsNotSetUp", lang));
+    if (!venue.stripe_charges_enabled) throw new Error(t("checkout.venueStripeNotActive", lang));
 
     // Atomic: locks the governing zone, re-counts under the lock, then inserts the
     // pending reservation. See migration 20260616130000_reserve_table_slot_atomic.sql.

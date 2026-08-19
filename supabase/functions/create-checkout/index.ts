@@ -568,15 +568,11 @@ serve(async (req) => {
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
 
     if (!venue.stripe_account_id) {
-      throw new Error(
-        "Ce club n'a pas encore configuré ses paiements. Veuillez contacter le club."
-      );
+      throw new Error(t("checkout.venuePaymentsNotSetUp", lang));
     }
 
     if (!venue.stripe_charges_enabled) {
-      throw new Error(
-        "Le compte Stripe du club n'est pas encore activé. Veuillez contacter le club."
-      );
+      throw new Error(t("checkout.venueStripeNotActive", lang));
     }
 
     // Create pending order
