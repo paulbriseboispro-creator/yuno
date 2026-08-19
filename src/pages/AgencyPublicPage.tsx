@@ -180,9 +180,10 @@ function RpEventCard({
           ))}
         </div>
 
+        {/* Cœur en bas à droite comme <EventCard> : en haut il recouvrait le badge genre */}
         <button
           onClick={(e) => { e.stopPropagation(); toggleFavorite(favType, ev.id); }}
-          className="absolute top-2.5 right-2.5 z-10 flex items-center justify-center rounded-full w-7 h-7 transition-all"
+          className="absolute bottom-2.5 right-2.5 z-10 flex items-center justify-center rounded-full w-7 h-7 transition-all"
           style={{ background: 'rgba(10,10,10,0.55)', border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)' }}
           aria-label={liked ? t('explore.removeFav') : t('explore.addFav')}
         >
