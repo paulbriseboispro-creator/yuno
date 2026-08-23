@@ -199,7 +199,7 @@ export default function OwnerEvents() {
       const { data, error } = await query;
       if (error) throw error;
       const mappedEvents = (data || []).map((event) => ({
-        id: event.id, venueId: event.venue_id, title: event.title,
+        id: event.id, venueId: event.venue_id, partnerVenueId: event.partner_venue_id ?? null, title: event.title,
         description: event.description || undefined,
         posterUrl: event.poster_url || undefined,
         posterPosition: event.poster_position as unknown as PosterPosition | undefined,
@@ -586,7 +586,10 @@ export default function OwnerEvents() {
       } else {
         const { error } = await supabase.from('guest_lists').insert({
           event_id: event.id,
-          venue_id: isOrganizerScope ? (event.venueId ?? null) : venueId,
+          // Co-soirée org-led : venue_id est NULL, le club physique est
+          // partner_venue_id — sans le fallback, le scan en ligne du videur
+          // du club ne retrouve pas la part (« Billet introuvable »).
+          venue_id: isOrganizerScope ? (event.venueId ?? event.partnerVenueId ?? null) : venueId,
           organizer_user_id: isOrganizerScope ? organizerUserId : null,
           holder_type: 'club',
           is_active: true,

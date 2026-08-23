@@ -5,6 +5,9 @@ export type EventKind = 'public_event' | 'private_event';
 export type CollabMode = 'solo' | 'co_event' | 'venue_rental' | 'hosted_by_venue';
 
 export type OwnerEventRow = Event & {
+  /** Club partenaire d'une co-soirée org-led (events.partner_venue_id) — le club
+   *  physique quand venueId est NULL. */
+  partnerVenueId?: string | null;
   isPartnerHosted?: boolean;
   organizerUserId?: string | null;
   ticketingEnabled?: boolean;

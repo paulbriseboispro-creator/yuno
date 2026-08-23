@@ -135,9 +135,12 @@ export default function OwnerGuestList() {
   const fetchEvents = async () => {
     if (!scopeReady) return;
     const base = supabase.from('events').select('id,title,start_at,end_at').gte('end_at', new Date().toISOString()).order('start_at', { ascending: true });
+    // Côté club : inclure les co-soirées org-led où le club est partner_venue_id
+    // (venue_id NULL) — sinon la soirée du 11/09 n'apparaît pas dans le sélecteur
+    // et le club ne peut pas suivre sa guest list.
     const { data } = isOrganizerScope
       ? await base.or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`)
-      : await base.eq('venue_id', venueId);
+      : await base.or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`);
     if (data) {
       setEvents(data.map(e => ({ id: e.id, title: e.title, startAt: e.start_at, endAt: e.end_at })));
       if (data.length > 0 && !selectedEventId) setSelectedEventId(data[0].id);

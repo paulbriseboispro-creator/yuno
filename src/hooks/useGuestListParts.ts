@@ -172,10 +172,14 @@ export function useGuestListParts(eventId: string, ctx: PartScopeCtx) {
   }, [eventId]);
 
   // Resolve the host columns (venue_id / organizer_user_id) every part inherits.
+  // Co-soirée org-led : venue_id de l'event est NULL, le club physique est
+  // partner_venue_id — sans le fallback, la part naît avec venue_id NULL et le
+  // scan EN LIGNE du videur du club répond « Billet introuvable » (l'offline,
+  // lui, passe — bug indiagnosticable le soir même).
   const resolveHost = useCallback(async (): Promise<{ venue_id: string | null; organizer_user_id: string | null }> => {
     if (ctx.isOrganizerScope) {
-      const { data: ev } = await supabase.from('events').select('venue_id').eq('id', eventId).maybeSingle();
-      return { venue_id: ev?.venue_id ?? null, organizer_user_id: ctx.organizerUserId ?? null };
+      const { data: ev } = await supabase.from('events').select('venue_id, partner_venue_id').eq('id', eventId).maybeSingle();
+      return { venue_id: ev?.venue_id ?? ev?.partner_venue_id ?? null, organizer_user_id: ctx.organizerUserId ?? null };
     }
     return { venue_id: ctx.venueId ?? null, organizer_user_id: null };
   }, [ctx.isOrganizerScope, ctx.venueId, ctx.organizerUserId, eventId]);
