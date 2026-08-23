@@ -107,9 +107,9 @@ function DarkTextarea({
 }
 
 function DarkSelect({
-  id, value, onChange, children, placeholder,
+  id, value, onChange, children, placeholder, disabled,
 }: {
-  id?: string; value: string; onChange: (v: string) => void; children: React.ReactNode; placeholder?: string;
+  id?: string; value: string; onChange: (v: string) => void; children: React.ReactNode; placeholder?: string; disabled?: boolean;
 }) {
   return (
     <div className="relative">
@@ -117,7 +117,8 @@ function DarkSelect({
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full appearance-none px-3 py-2.5 rounded-xl text-[13px] cursor-pointer"
+        disabled={disabled}
+        className="w-full appearance-none px-3 py-2.5 rounded-xl text-[13px] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: value ? T1 : T3, outline: 'none' }}
       >
         {placeholder && <option value="" disabled style={{ background: '#0a0a0c' }}>{placeholder}</option>}
@@ -183,6 +184,10 @@ export function OrgEventFormDialog({
   const [eventKind, setEventKind] = useState<EventKind>('public_event');
   const [collabMode, setCollabMode] = useState<CollabMode>('solo');
   const [partnerVenueId, setPartnerVenueId] = useState<string>('');
+  /** Club partenaire tel qu'il était au chargement (édition) — sert à détecter un détachement. */
+  const [savedPartnerVenueId, setSavedPartnerVenueId] = useState<string>('');
+  /** Statut du contrat de collaboration de la soirée (event_collab_contracts.status), null si aucun. */
+  const [contractStatus, setContractStatus] = useState<string | null>(null);
   /** BDE account (super-admin flag). BDE soirées are private by default; going public
    *  is a request validated by a super admin before it appears in Explore. */
   const [isBde, setIsBde] = useState(false);
@@ -194,6 +199,24 @@ export function OrgEventFormDialog({
 
   const isEdit = !!eventId;
   const requiresPartner = eventKind === 'public_event' && collabMode !== 'solo';
+
+  // Un contrat SIGNÉ (double signature : active/locked) verrouille le club
+  // partenaire : le détacher casserait la répartition des revenus déjà actée.
+  // Un trigger DB refuse de toute façon l'écriture (code partner_locked_by_contract) ;
+  // ici on désactive le détachement en amont, avec le même message.
+  const partnerLockedByContract =
+    !!savedPartnerVenueId && (contractStatus === 'active' || contractStatus === 'locked');
+  const partnerLockedMsg = () => t(
+    "Ce club est lié par un contrat signé — annulez d'abord le contrat.",
+    'This club is bound by a signed agreement — cancel the agreement first.',
+    'Este club está vinculado por un contrato firmado: cancela primero el contrato.',
+  );
+  /** true = action bloquée (toast affiché). À appeler avant tout geste qui détacherait le club. */
+  const guardPartnerDetach = (): boolean => {
+    if (!partnerLockedByContract) return false;
+    toast.error(partnerLockedMsg());
+    return true;
+  };
 
   // BDE status of the current organizer. BDE soirées default to private; on a new
   // event we flip the default once the flag loads (the reset effect sets 'public_event').
@@ -247,6 +270,8 @@ export function OrgEventFormDialog({
       setEventKind('public_event');
       setCollabMode('solo');
       setPartnerVenueId('');
+      setSavedPartnerVenueId('');
+      setContractStatus(null);
       setPosterFile(null);
       setPosterPreview('');
       setPosterPosition(null);
@@ -281,6 +306,19 @@ export function OrgEventFormDialog({
         const evKind = (ev.event_kind as string) || 'public_event';
         setEventKind(evKind === 'private_event' ? 'private_event' : 'public_event');
         setPartnerVenueId(ev.partner_venue_id || '');
+        setSavedPartnerVenueId(ev.partner_venue_id || '');
+        // Statut du contrat de collaboration : un contrat signé (active/locked)
+        // verrouille le détachement du club ; son absence déclenche l'incitation
+        // à proposer le contrat après rattachement.
+        setContractStatus(null);
+        if (ev.partner_venue_id) {
+          const { data: contract } = await supabase
+            .from('event_collab_contracts' as never)
+            .select('status')
+            .eq('event_id', eventId)
+            .maybeSingle();
+          setContractStatus((contract as { status?: string } | null)?.status ?? null);
+        }
         if (ev.partner_venue_id) {
           // Best-effort infer collab mode from event_mode
           const evMode = (ev.event_mode as string) || '';
@@ -341,6 +379,12 @@ export function OrgEventFormDialog({
     }
     if (requiresPartner && !partnerVenueId) {
       toast.error(t('Sélectionne un club partenaire', 'Select a partner club'));
+      return;
+    }
+    // Filet côté soumission : un contrat signé interdit de détacher (ou changer)
+    // le club partenaire — le trigger DB le refuserait de toute façon.
+    if (partnerLockedByContract && (!requiresPartner || partnerVenueId !== savedPartnerVenueId)) {
+      toast.error(partnerLockedMsg());
       return;
     }
     // Every event must be placeable in a city. Off-platform / solo & private events
@@ -468,10 +512,36 @@ export function OrgEventFormDialog({
       }
 
       toast.success(isEdit ? t('Événement mis à jour', 'Event updated') : t('Événement créé', 'Event created'));
+
+      // Club rattaché SANS contrat de partage : pousser clairement vers le bloc
+      // « Contrat de collaboration » de la page de la soirée (SplitContractBanner).
+      // Sans double signature, les ventes de la co-soirée restent fermées.
+      const hasLiveContract = !!contractStatus && contractStatus !== 'cancelled';
+      if (requiresPartner && partnerVenueId && !hasLiveContract) {
+        toast.info(
+          t('Club rattaché — propose le contrat de partage', 'Club attached — propose the split agreement', 'Club vinculado: propone el contrato de reparto'),
+          {
+            duration: 9000,
+            description: t(
+              'Ouvre la page de la soirée et utilise le bloc « Contrat de collaboration » pour définir la répartition et l\'envoyer au club. Les ventes restent fermées tant que les deux parties n\'ont pas signé.',
+              'Open the event page and use the "Collaboration agreement" block to set the split and send it to the club. Sales stay closed until both parties have signed.',
+              'Abre la página del evento y usa el bloque «Contrato de colaboración» para definir el reparto y enviarlo al club. Las ventas permanecen cerradas hasta que ambas partes firmen.',
+            ),
+          },
+        );
+      }
+
       onOpenChange(false);
       onSaved?.();
     } catch (err: any) {
       console.error('Save event error:', err, { code: err?.code, details: err?.details, hint: err?.hint });
+      // Trigger DB « partner_locked_by_contract » : détachement refusé car un
+      // contrat signé lie le club — message métier, pas l'erreur SQL brute.
+      const raw = `${err?.message ?? ''} ${err?.code ?? ''} ${err?.details ?? ''} ${err?.hint ?? ''}`;
+      if (raw.includes('partner_locked_by_contract')) {
+        toast.error(partnerLockedMsg());
+        return;
+      }
       const detail = err?.message || err?.error_description || err?.details || t('Erreur inconnue', 'Unknown error');
       toast.error(t("Impossible de créer l'événement", 'Could not create event'), {
         description: detail,
@@ -653,7 +723,8 @@ export function OrgEventFormDialog({
                 />
                 <SelectCard
                   selected={eventKind === 'private_event'}
-                  onClick={() => setEventKind('private_event')}
+                  // Passer en privé détacherait le club partenaire — interdit sous contrat signé.
+                  onClick={() => { if (guardPartnerDetach()) return; setEventKind('private_event'); }}
                   icon={Lock}
                   title={isBde ? t('Privé (recommandé)', 'Private (recommended)') : t('Privé', 'Private')}
                   description={t(
@@ -680,7 +751,8 @@ export function OrgEventFormDialog({
                 <div className="space-y-2">
                   <SelectCard
                     selected={collabMode === 'solo'}
-                    onClick={() => setCollabMode('solo')}
+                    // Revenir en solo détacherait le club partenaire — interdit sous contrat signé.
+                    onClick={() => { if (guardPartnerDetach()) return; setCollabMode('solo'); }}
                     icon={Sparkles}
                     title={t('Solo orga', 'Solo organizer')}
                     description={t(
@@ -736,7 +808,8 @@ export function OrgEventFormDialog({
                 ) : (
                   <DarkSelect
                     value={partnerVenueId}
-                    onChange={setPartnerVenueId}
+                    onChange={(v) => { if (v !== savedPartnerVenueId && guardPartnerDetach()) return; setPartnerVenueId(v); }}
+                    disabled={partnerLockedByContract}
                     placeholder={t('Sélectionne un club', 'Select a club')}
                   >
                     {activePartnerships.map((p) => (
@@ -746,6 +819,12 @@ export function OrgEventFormDialog({
                       </option>
                     ))}
                   </DarkSelect>
+                )}
+                {partnerLockedByContract && (
+                  <p className="mt-2 flex items-start gap-1.5" style={{ color: T3, fontSize: 11.5 }}>
+                    <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    {partnerLockedMsg()}
+                  </p>
                 )}
               </div>
             )}
