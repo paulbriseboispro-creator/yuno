@@ -32,6 +32,8 @@ interface ProposableEvent {
   start_at: string;
   end_at: string;
   is_active: boolean;
+  /** Déjà rattachée au club destinataire (invitation email) — le lien existe, seul le contrat manque. */
+  partner_venue_id: string | null;
 }
 
 interface Props {
@@ -92,27 +94,50 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
     if (open) setVenueId(preselectedVenueId || '');
   }, [open, preselectedVenueId]);
 
-  // Load the organizer's upcoming nights not yet linked to a partner club —
-  // published OR draft. Co-events already carry a partner so they're excluded.
+  // Load the organizer's upcoming nights — published OR draft. Two cases can be
+  // proposed to the selected club: (1) nights with no partner yet, and (2) nights
+  // ALREADY linked to that club (pre-attached by email invitation) but still
+  // WITHOUT a collaboration contract — otherwise a pre-attached night became a
+  // dead end: invisible here, impossible to propose the split agreement.
+  // Nights that already carry a live contract are excluded.
   useEffect(() => {
     if (!open || !user) return;
     let cancelled = false;
     setLoadingOptions(true);
     setEventId('');
     (async () => {
-      const { data } = await supabase
+      const base = supabase
         .from('events')
-        .select('id, title, description, poster_url, start_at, end_at, is_active')
+        .select('id, title, description, poster_url, start_at, end_at, is_active, partner_venue_id')
         .eq('organizer_user_id', user.id)
-        .is('partner_venue_id', null)
         .gte('end_at', new Date().toISOString())
         .order('start_at', { ascending: true });
+      const { data } = venueId
+        ? await base.or(`partner_venue_id.is.null,partner_venue_id.eq.${venueId}`)
+        : await base.is('partner_venue_id', null);
       if (cancelled) return;
-      setOptions((data || []) as ProposableEvent[]);
+      let rows = (data || []) as ProposableEvent[];
+
+      // Écarter les soirées qui ont déjà un contrat vivant (tout sauf 'cancelled').
+      const attachedIds = rows.filter((r) => r.partner_venue_id).map((r) => r.id);
+      if (attachedIds.length > 0) {
+        const { data: contracts } = await supabase
+          .from('event_collab_contracts' as never)
+          .select('event_id, status')
+          .in('event_id', attachedIds);
+        const contracted = new Set(
+          ((contracts ?? []) as unknown as { event_id: string; status: string }[])
+            .filter((c) => c.status !== 'cancelled')
+            .map((c) => c.event_id),
+        );
+        rows = rows.filter((r) => !contracted.has(r.id));
+      }
+      if (cancelled) return;
+      setOptions(rows);
       setLoadingOptions(false);
     })();
     return () => { cancelled = true; };
-  }, [open, user]);
+  }, [open, user, venueId]);
 
   const selectedEvent = options.find((d) => d.id === eventId) || null;
   const hasOptions = options.length > 0;
@@ -134,6 +159,9 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
     if (!eventId) { toast.error(t('Choisis une soirée.', 'Choose an event.', 'Elige un evento.')); return; }
 
     setSaving(true);
+    // Soirée pré-rattachée au club (invitation email) : le lien existe déjà,
+    // on ne propose ici que le contrat — et on ne détache JAMAIS ce lien en rollback.
+    const wasPreAttached = options.find((d) => d.id === eventId)?.partner_venue_id === venueId;
     try {
       // 1. Link the chosen night to the partner club. Publish state stays as-is.
       const { error } = await supabase
@@ -159,9 +187,12 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
       if (contractErr) {
         // Roll back the link so we never leave a half-formed co-event with no
         // contract (which would render as a misleading "active" partnership).
-        await supabase.from('events')
-          .update({ partner_venue_id: null, event_mode: null, collab_responsibilities: null })
-          .eq('id', eventId).eq('organizer_user_id', user.id);
+        // Jamais pour une soirée pré-rattachée : ce lien préexiste à la proposition.
+        if (!wasPreAttached) {
+          await supabase.from('events')
+            .update({ partner_venue_id: null, event_mode: null, collab_responsibilities: null })
+            .eq('id', eventId).eq('organizer_user_id', user.id);
+        }
         throw contractErr;
       }
 
@@ -275,6 +306,7 @@ export function OrgProposeEventDialog({ open, onOpenChange, preselectedVenueId, 
                     {options.map((d) => (
                       <option key={d.id} value={d.id} style={{ background: '#0a0a0c' }}>
                         {(d.title || t('Sans titre', 'Untitled', 'Sin título'))} · {formatInTimeZone(new Date(d.start_at), PARIS_TIMEZONE, 'dd MMM', { locale: fr })}
+                        {d.partner_venue_id ? ` · ${t('déjà rattachée — contrat à proposer', 'already linked — agreement to propose', 'ya vinculada: contrato por proponer')}` : ''}
                       </option>
                     ))}
                   </DarkSelect>
