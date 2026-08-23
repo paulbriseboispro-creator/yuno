@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchMyVenuePrivate } from '@/lib/venuePrivate';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Search, CheckCircle, AlertTriangle, XCircle, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
@@ -35,9 +36,12 @@ export default function DirectoryVenues() {
 
   const load = useCallback(async () => {
     setLoading(true);
+    // Les colonnes stripe_* sont retirées du select direct (migration
+    // 20260823180003) : le statut Stripe de chaque club vient de la RPC privée
+    // (le super admin passe sa garde), fusionnée ligne à ligne plus bas.
     let query = supabase
       .from('venues')
-      .select('id, name, city, owner_id, stripe_account_id, stripe_charges_enabled, stripe_onboarding_complete, created_at', { count: 'exact' });
+      .select('id, name, city, owner_id, created_at', { count: 'exact' });
 
     if (search) {
       query = query.or(`name.ilike.%${search}%,city.ilike.%${search}%`);
@@ -64,8 +68,18 @@ export default function DirectoryVenues() {
       const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p.email]));
       const onboardingMap = Object.fromEntries((onboarding || []).map(o => [o.venue_id, o]));
 
+      // Statut Stripe par club via la RPC privée (25 lignes/page, en parallèle).
+      // Repli propre : RPC en échec → pastille « Stripe manquant » par défaut.
+      const privates = await Promise.all(venueIds.map((id) => fetchMyVenuePrivate(id)));
+      const privateMap = Object.fromEntries(
+        privates.filter((p): p is NonNullable<typeof p> => !!p).map((p) => [p.id, p]),
+      );
+
       setData(venues.map(v => ({
         ...v,
+        stripe_account_id: privateMap[v.id]?.stripe_account_id ?? null,
+        stripe_charges_enabled: privateMap[v.id]?.stripe_charges_enabled ?? null,
+        stripe_onboarding_complete: privateMap[v.id]?.stripe_onboarding_complete ?? null,
         ownerEmail: profileMap[v.owner_id] || '—',
         onboarding: onboardingMap[v.id] || null,
       })));

@@ -6,6 +6,7 @@ import { OrgEventFormDialog } from '@/components/organizer-app/OrgEventFormDialo
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams, useSearchParams, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchMyVenuePrivate } from '@/lib/venuePrivate';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
@@ -155,13 +156,23 @@ export default function CollabEventDetail({ viewerRole }: { viewerRole: ViewerRo
       setLoading(true);
 
       // Venue viewer: resolve the club this owner runs (for scope + framing).
+      // Les drapeaux Stripe du club sont réservés à la RPC privée owner
+      // (migration 20260823180003) — un select direct prendrait un 403.
+      // Repli : RPC indisponible → statut inconnu (null), la bannière
+      // « connectez Stripe » ne s'affiche que sur un false certain.
       let venueRow: { id: string; name: string } | null = null;
       if (isVenue) {
-        const { data: v } = await supabase.from('venues').select('id, name, stripe_account_id, stripe_charges_enabled').eq('owner_id', user.id).limit(1).maybeSingle();
+        const { data: v } = await supabase.from('venues').select('id, name').eq('owner_id', user.id).limit(1).maybeSingle();
         if (cancelled) return;
         venueRow = v ?? null;
         setMyVenue(venueRow ? { id: venueRow.id, name: venueRow.name } : null);
-        setVenueStripeReady(Boolean(v?.stripe_account_id && v?.stripe_charges_enabled));
+        if (venueRow) {
+          const priv = await fetchMyVenuePrivate(venueRow.id);
+          if (cancelled) return;
+          setVenueStripeReady(priv ? Boolean(priv.stripe_account_id && priv.stripe_charges_enabled) : null);
+        } else {
+          setVenueStripeReady(null);
+        }
       }
 
       // Event row. Organizer must match a night they lead OR a club proposed to them.

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchMyVenuePrivate } from '@/lib/venuePrivate';
 import { orderRevenue as orderClub, ticketRevenue as ticketClub, tableRevenue as tableClub } from '@/utils/fees';
 import { ArrowLeft, Building2, CheckCircle, XCircle, AlertTriangle, Users, Calendar, ExternalLink, CreditCard, Wine, Ticket, Armchair, type LucideIcon } from 'lucide-react';
 import { format } from 'date-fns';
@@ -72,14 +73,18 @@ export default function AdminVenueDetail() {
 
   const loadVenue = async () => {
     setLoading(true);
-    const [venueRes, eventsRes, onbRes, subRes] = await Promise.all([
-      supabase.from('venues').select('*').eq('id', venueId!).single(),
+    // Liste explicite (pas de select('*')) : les internals Stripe/facturation
+    // sont retirés du rôle authenticated (migration 20260823180003) — le
+    // super admin les récupère via la RPC privée, fusionnée dans l'objet venue.
+    const [venueRes, privateRes, eventsRes, onbRes, subRes] = await Promise.all([
+      supabase.from('venues').select('id, name, city, address, owner_id, created_at').eq('id', venueId!).single(),
+      fetchMyVenuePrivate(venueId!),
       supabase.from('events').select('id, title, start_at, end_at, is_active, ticketing_enabled, tables_enabled').eq('venue_id', venueId!).order('start_at', { ascending: false }).limit(20),
       supabase.from('venue_onboarding').select('*').eq('venue_id', venueId!).maybeSingle(),
       supabase.from('venue_subscriptions').select('*').eq('venue_id', venueId!).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ]);
 
-    setVenue(venueRes.data);
+    setVenue(venueRes.data ? { ...venueRes.data, ...(privateRes ?? {}) } : venueRes.data);
     setEvents(eventsRes.data || []);
     setOnboarding(onbRes.data);
     setSubscription(subRes.data);

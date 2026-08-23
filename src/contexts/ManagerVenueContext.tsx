@@ -136,10 +136,13 @@ export function ManagerVenueProvider({ children }: { children: ReactNode }) {
         canManageVipService: permData.can_manage_vip_service ?? false,
       });
 
-      // Fetch venue details
+      // Fetch venue details — colonnes sûres UNIQUEMENT (pas de select('*') :
+      // les internals Stripe/facturation sont retirés du rôle authenticated par
+      // la migration 20260823180003, et un manager n'a de toute façon PAS accès
+      // à la RPC privée get_my_venue_private, réservée owner/super admin).
       const { data: venueData, error: venueError } = await supabase
         .from('venues')
-        .select('*')
+        .select('id, name, city, address, cover_url, logo_url, floor_plan_url, legal_name, siret, vat_number')
         .eq('id', permData.venue_id)
         .maybeSingle();
 

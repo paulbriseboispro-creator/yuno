@@ -47,10 +47,14 @@ export function OwnerVenueProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Find venue where this user is the owner (via owner_id)
+      // Find venue where this user is the owner (via owner_id).
+      // Liste explicite (pas de select('*')) : les internals Stripe/facturation
+      // sont retirés du rôle authenticated (migration 20260823180003) et un
+      // select('*') prendrait un 403 sur TOUTE la requête. Ce contexte ne
+      // consomme que ces colonnes ; le privé passe par get_my_venue_private.
       const { data: venueData, error: venueError } = await withTimeout(
         // Cast needed: the Supabase builder is a thenable, not a Promise, so withTimeout can't accept it as-is.
-        supabase.from('venues').select('*').eq('owner_id', user.id).maybeSingle() as unknown as Promise<{ data: Tables<'venues'> | null; error: Error | null }>,
+        supabase.from('venues').select('id, name, city, address, cover_url, logo_url, floor_plan_url').eq('owner_id', user.id).maybeSingle() as unknown as Promise<{ data: Pick<Tables<'venues'>, 'id' | 'name' | 'city' | 'address' | 'cover_url' | 'logo_url' | 'floor_plan_url'> | null; error: Error | null }>,
         8000,
       );
 

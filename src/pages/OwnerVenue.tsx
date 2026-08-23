@@ -29,6 +29,7 @@ const TikTokIcon = ({ className }: { className?: string }) => (
 
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchMyVenuePrivate } from '@/lib/venuePrivate';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
@@ -245,7 +246,13 @@ export default function OwnerVenue() {
   const fetchVenue = async () => {
     if (!venueId) return;
     try {
-      const { data, error } = await supabase.from('venues').select('*').eq('id', venueId).single();
+      // Liste explicite (pas de select('*')) : les internals Stripe/facturation
+      // sont retirés du rôle authenticated (migration 20260823180003) — un
+      // select('*') prendrait un 403 total. invoice_prefix arrive par la RPC
+      // privée ci-dessous ; le bloc légal reste en lecture directe.
+      const { data, error } = await supabase.from('venues').select(
+        'id, name, city, address, logo_url, cover_url, cover_position, latitude, longitude, gallery_images, instagram_url, facebook_url, tiktok_url, twitter_url, whatsapp_number, hidden_from_map, description, short_description, music_genre, min_age, minors_allowed, minor_auth_doc_url, minor_auth_doc_name, menu_enabled, free_drink_mode, absorb_yuno_fees, legal_name, siret, vat_number, legal_address',
+      ).eq('id', venueId).single();
       if (error) throw error;
       if (data.logo_url) { setCurrentLogoUrl(data.logo_url); setLogoPreview(data.logo_url); }
       if (data.cover_url) { setCurrentCoverUrl(data.cover_url); setCoverPreview(data.cover_url); }
@@ -274,7 +281,9 @@ export default function OwnerVenue() {
       setSiret(data.siret || '');
       setVatNumber(data.vat_number || '');
       setLegalAddress(data.legal_address || '');
-      setInvoicePrefix(data.invoice_prefix || 'FAC');
+      // invoice_prefix est réservé à la RPC privée owner (repli : défaut FAC).
+      const priv = await fetchMyVenuePrivate(venueId);
+      setInvoicePrefix(priv?.invoice_prefix || 'FAC');
     } catch { toast.error(t('owner.errorLoadingVenue')); }
     finally { setLoading(false); }
   };

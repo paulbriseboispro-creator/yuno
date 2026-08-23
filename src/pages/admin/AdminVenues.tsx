@@ -108,7 +108,12 @@ export default function AdminVenues() {
 
   const fetchData = async () => {
     try {
-      const { data: venuesData, error: venuesError } = await supabase.from('venues').select('*').order('name');
+      // Liste explicite (pas de select('*')) : les internals Stripe/facturation
+      // sont retirés du rôle authenticated (migration 20260823180003) — un
+      // select('*') prendrait un 403 total. Cette page n'affiche aucun champ privé.
+      const { data: venuesData, error: venuesError } = await supabase.from('venues')
+        .select('id, name, city, address, owner_id, is_hidden, latitude, longitude, decommissioned_at, purge_at')
+        .order('name');
       if (venuesError) throw venuesError;
 
       if (venuesData) {

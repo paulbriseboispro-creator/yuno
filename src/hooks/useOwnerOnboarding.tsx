@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchMyVenuePrivate } from '@/lib/venuePrivate';
 import type { Json, TablesUpdate } from '@/integrations/supabase/types';
 
 export type StepStatus = 'not_started' | 'in_progress' | 'completed' | 'skipped';
@@ -54,13 +55,18 @@ async function detectCompletedSteps(
 ): Promise<Record<string, boolean>> {
   const result: Record<string, boolean> = {};
 
-  const { data: venue } = await supabase
-    .from('venues')
-    .select(
-      'name, city, address, cover_url, description, gallery_images, instagram_url, facebook_url, tiktok_url, siret, legal_name, stripe_account_id, is_hidden',
-    )
-    .eq('id', venueId)
-    .single();
+  // stripe_account_id est réservé à la RPC privée owner (migration
+  // 20260823180003) — le garder dans ce select ferait 403 TOUTE la requête.
+  const [{ data: venue }, venuePrivate] = await Promise.all([
+    supabase
+      .from('venues')
+      .select(
+        'name, city, address, cover_url, description, gallery_images, instagram_url, facebook_url, tiktok_url, siret, legal_name, is_hidden',
+      )
+      .eq('id', venueId)
+      .single(),
+    fetchMyVenuePrivate(venueId),
+  ]);
 
   if (!venue) return result;
 
@@ -104,8 +110,9 @@ async function detectCompletedSteps(
     .not('employee_pin', 'is', null);
   result['5'] = (staffCount ?? 0) > 0;
 
-  // Step 6 — Payments: Stripe account connected.
-  result['6'] = !!venue.stripe_account_id;
+  // Step 6 — Payments: Stripe account connected (RPC privée ; repli : étape
+  // simplement non auto-cochée si le statut est inconnu).
+  result['6'] = !!venuePrivate?.stripe_account_id;
 
   // Step 7 — Go live: venue is visible.
   result['7'] = !venue.is_hidden;

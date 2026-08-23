@@ -3,6 +3,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchMyVenuePrivate } from '@/lib/venuePrivate';
 import { toast } from 'sonner';
 import { Sparkles, Image as ImageIcon, Loader2, Plus, X, MessageCircle, FileText, ArrowRight, SkipForward } from 'lucide-react';
 import { Instagram } from '@/components/icons/Instagram';
@@ -44,11 +45,16 @@ export function OnboardingStepPolish({ venueId, onComplete, onSkip }: Props) {
 
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase
-        .from('venues')
-        .select('cover_url, description, gallery_images, instagram_url, facebook_url, tiktok_url, twitter_url, whatsapp_number, legal_name, siret, vat_number, legal_address, invoice_prefix')
-        .eq('id', venueId)
-        .single();
+      // invoice_prefix est réservé à la RPC privée owner (migration
+      // 20260823180003) — le bloc légal, lui, reste en lecture directe.
+      const [{ data }, priv] = await Promise.all([
+        supabase
+          .from('venues')
+          .select('cover_url, description, gallery_images, instagram_url, facebook_url, tiktok_url, twitter_url, whatsapp_number, legal_name, siret, vat_number, legal_address')
+          .eq('id', venueId)
+          .single(),
+        fetchMyVenuePrivate(venueId),
+      ]);
       if (data) {
         setCoverPreview((data as any).cover_url || '');
         setDescription((data as any).description || '');
@@ -62,7 +68,7 @@ export function OnboardingStepPolish({ venueId, onComplete, onSkip }: Props) {
         setSiret((data as any).siret || '');
         setVatNumber((data as any).vat_number || '');
         setLegalAddress((data as any).legal_address || '');
-        setInvoicePrefix((data as any).invoice_prefix || 'FAC');
+        setInvoicePrefix(priv?.invoice_prefix || 'FAC');
       }
       setLoaded(true);
     };
