@@ -21,6 +21,7 @@ import { StickyCheckoutFooter } from '@/components/StickyCheckoutFooter';
 import { CheckoutSteps } from '@/components/CheckoutSteps';
 import { getStoredPromoCodeForVenue, usePromoterTracking } from '@/hooks/usePromoterTracking';
 import { ClientFloorPlanPicker } from '@/components/vip/ClientFloorPlanPicker';
+import { useTableAvailability } from '@/hooks/useTableAvailability';
 import { VenueFloorPlan } from '@/types';
 import { useEventScarcity, type ScarcitySettings } from '@/hooks/useScarcitySettings';
 import { cn } from '@/lib/utils';
@@ -72,7 +73,6 @@ export default function TicketSelection() {
   const [, setNowTick] = useState(Date.now());
   const [zones, setZones] = useState<TableZone[]>([]);
   const [packs, setPacks] = useState<TablePack[]>([]);
-  const [reservationsByZone, setReservationsByZone] = useState<Record<string, number>>({});
   const [guestList, setGuestList] = useState<{ id: string; quota: number; quotaFemale: number | null; quotaMale: number | null; freeBeforeTime: string; includesDrink: boolean; showRemaining: boolean; shareToken: string; count: number; femaleCount: number; maleCount: number } | null>(null);
   // A DJ's personal guest list, surfaced ONLY when the visitor arrives with the
   // DJ's private link (?dj=<share_token>) — invisible to the general public.
@@ -92,6 +92,10 @@ export default function TicketSelection() {
   usePromoterTracking(eventData?.venueId || slug, eventId);
   const scarcitySettings = useEventScarcity(eventId);
   const paymentsReady = useEventPaymentsReady(eventId);
+  // Occupation réelle des tables (RPC SECURITY DEFINER, lisible en anon).
+  // L'ancienne lecture directe de table_reservations rendait 0 ligne pour un
+  // visiteur anonyme → toutes les tables semblaient libres toute la nuit.
+  const { unavailableTableIds, reservationsByZone } = useTableAvailability(eventId);
 
   useEffect(() => {
     if (eventId) fetchData();
@@ -131,7 +135,11 @@ export default function TicketSelection() {
       if (error) throw error;
 
       const effectiveVenueId = ev.venue_id || ev.partner_venue_id || null;
-      const isBasicTables = ev.tables_mode === 'basic' || !ev.venue_id;
+      // Co-soirée org-led en mode « élite » : venue_id est NULL mais le club
+      // partenaire porte des zones/packs VENUE-scopés que le mode élite ne clone
+      // pas — scoper par event uniquement en mode basic ou sans club rattaché,
+      // sinon la page publique listait 0 table.
+      const isBasicTables = ev.tables_mode === 'basic' || !effectiveVenueId;
 
       const evData = {
         title: ev.title, posterUrl: ev.poster_url || undefined,
@@ -173,22 +181,39 @@ export default function TicketSelection() {
       }
 
       if (ev.tables_enabled) {
-        const zoneQuery = isBasicTables
-          ? supabase.from('table_zones').select('*').eq('event_id', eventId).order('position', { ascending: true })
-          : supabase.from('table_zones').select('*').eq('venue_id', effectiveVenueId).order('position', { ascending: true });
-        const { data: zonesData } = await zoneQuery;
-        if (zonesData) {
-          setZones(zonesData.map(z => ({
-            id: z.id, venueId: z.venue_id, name: z.name, color: z.color,
-            tablesCount: z.tables_count || 1, position: z.position,
-            lastTablesThreshold: z.last_tables_threshold ?? 20, createdAt: z.created_at, updatedAt: z.updated_at,
-          })));
+        // Zones + packs viennent TOUJOURS du même périmètre (les packs pointent
+        // les zone_id du périmètre choisi). Même logique de repli que le plan de
+        // salle plus bas : périmètre primaire, PUIS l'autre s'il est vide —
+        // couvre le mode élite org-led (données venue-scopées du club) comme
+        // les co-soirées héritées aux zones event-scopées.
+        const fetchZonesPacks = async (scope: 'event' | 'venue') => {
+          const zoneQuery = scope === 'event'
+            ? supabase.from('table_zones').select('*').eq('event_id', eventId).order('position', { ascending: true })
+            : supabase.from('table_zones').select('*').eq('venue_id', effectiveVenueId).order('position', { ascending: true });
+          const packQuery = scope === 'event'
+            ? supabase.from('table_packs').select('*').eq('event_id', eventId).eq('is_active', true).order('position', { ascending: true })
+            : supabase.from('table_packs').select('*').eq('venue_id', effectiveVenueId).eq('is_active', true).order('position', { ascending: true });
+          const [{ data: z }, { data: p }] = await Promise.all([zoneQuery, packQuery]);
+          return { zones: z || [], packs: p || [] };
+        };
+
+        const primaryScope: 'event' | 'venue' = isBasicTables ? 'event' : 'venue';
+        let scoped = await fetchZonesPacks(primaryScope);
+        if (scoped.zones.length === 0) {
+          const fallbackScope: 'event' | 'venue' = primaryScope === 'event' ? 'venue' : 'event';
+          if (fallbackScope === 'event' || effectiveVenueId) {
+            const fb = await fetchZonesPacks(fallbackScope);
+            if (fb.zones.length > 0) scoped = fb;
+          }
         }
 
-        const packQuery = isBasicTables
-          ? supabase.from('table_packs').select('*').eq('event_id', eventId).eq('is_active', true).order('position', { ascending: true })
-          : supabase.from('table_packs').select('*').eq('venue_id', effectiveVenueId).eq('is_active', true).order('position', { ascending: true });
-        const { data: packsData } = await packQuery;
+        const zonesData = scoped.zones;
+        const packsData = scoped.packs;
+        setZones(zonesData.map(z => ({
+          id: z.id, venueId: z.venue_id, name: z.name, color: z.color,
+          tablesCount: z.tables_count || 1, position: z.position,
+          lastTablesThreshold: z.last_tables_threshold ?? 20, createdAt: z.created_at, updatedAt: z.updated_at,
+        })));
 
         const { data: eventSettingsData } = await supabase.from('event_table_settings').select('*').eq('event_id', eventId).single();
         const priceOverrides: Record<string, number> = {};
@@ -205,25 +230,20 @@ export default function TicketSelection() {
           });
         }
 
-        if (packsData) {
-          setPacks(packsData.map(p => ({
-            id: p.id, zoneId: p.zone_id, venueId: p.venue_id, name: p.name, description: p.description,
-            basePrice: priceOverrides[p.id] ?? Number(p.base_price), baseCapacity: p.base_capacity,
-            extraPersonPrice: p.extra_person_price ? Number(p.extra_person_price) : 0,
-            maxExtraPersons: p.max_extra_persons ?? 0, deposit: p.deposit ? Number(p.deposit) : 0,
-            depositType: (p.deposit_type as 'fixed' | 'percentage') || 'fixed',
-            includedItems: p.included_items, includedBottlesQuota: p.included_bottles_quota || 0,
-            minimumSpend: Number(p.minimum_spend) || 0, arrivalDeadline: p.arrival_deadline || undefined, tablesCount: p.tables_count || 1,
-            position: p.position, isActive: p.is_active, createdAt: p.created_at, updatedAt: p.updated_at,
-          })));
-        }
+        setPacks(packsData.map(p => ({
+          id: p.id, zoneId: p.zone_id, venueId: p.venue_id, name: p.name, description: p.description,
+          basePrice: priceOverrides[p.id] ?? Number(p.base_price), baseCapacity: p.base_capacity,
+          extraPersonPrice: p.extra_person_price ? Number(p.extra_person_price) : 0,
+          maxExtraPersons: p.max_extra_persons ?? 0, deposit: p.deposit ? Number(p.deposit) : 0,
+          depositType: (p.deposit_type as 'fixed' | 'percentage') || 'fixed',
+          includedItems: p.included_items, includedBottlesQuota: p.included_bottles_quota || 0,
+          minimumSpend: Number(p.minimum_spend) || 0, arrivalDeadline: p.arrival_deadline || undefined, tablesCount: p.tables_count || 1,
+          position: p.position, isActive: p.is_active, createdAt: p.created_at, updatedAt: p.updated_at,
+        })));
 
-        const { data: reservationsData } = await supabase.from('table_reservations').select('zone_id').eq('event_id', eventId).eq('status', 'paid');
-        if (reservationsData) {
-          const countsByZone: Record<string, number> = {};
-          reservationsData.forEach(r => { if (r.zone_id) countsByZone[r.zone_id] = (countsByZone[r.zone_id] || 0) + 1; });
-          setReservationsByZone(countsByZone);
-        }
+        // L'occupation par zone vient du hook useTableAvailability (RPC lisible
+        // en anon) — l'ancienne lecture directe `status='paid'` rendait 0 ligne
+        // aux visiteurs anonymes et laissait vendre des zones complètes.
 
         const { data: fpEvent } = await supabase.from('venue_floor_plans').select('*').eq('event_id', eventId!).maybeSingle();
         let fpData = fpEvent;
@@ -862,12 +882,13 @@ export default function TicketSelection() {
                 ));
               })()}
 
-              {/* Floor plan (read-only) */}
+              {/* Floor plan (read-only) — les tables vendues / en cours d'achat
+                  apparaissent indisponibles, comme au checkout. */}
               {floorPlan && (
                 <div className="rounded border border-white/[0.07] bg-[#141414] overflow-hidden p-2 mt-1">
                   <ClientFloorPlanPicker
                     floorPlan={floorPlan}
-                    unavailableTableIds={new Set<string>()}
+                    unavailableTableIds={unavailableTableIds}
                     selectedTableId={null}
                     onSelectTable={() => {}}
                     onSkip={() => {}}
