@@ -64,6 +64,31 @@ serve(async (req) => {
 
     const results: Array<{ id: string; type: string; success: boolean; error?: string; amount?: number }> = [];
 
+    // Co-soirée org-led : events.venue_id est NULL et le club hôte vit dans
+    // partner_venue_id. Résout le club EFFECTIF de la soirée (embed venues si
+    // venue-led, sinon lookup du club partenaire) — sans ça, le owner du club
+    // partenaire ne pouvait pas rembourser une vente de sa propre co-soirée
+    // (« Unauthorized ») et venueId restait vide (stats/notifs jamais émises,
+    // alors que verify-*-payment les incrémente sur venue_id ?? partner_venue_id).
+    const resolveEventVenue = async (
+      ev: {
+        venue_id?: string | null;
+        partner_venue_id?: string | null;
+        venues?: { id: string; owner_id: string | null; name: string | null } | null;
+      } | null | undefined,
+    ): Promise<{ id: string; owner_id: string | null; name: string } | null> => {
+      if (ev?.venues) return { id: ev.venues.id, owner_id: ev.venues.owner_id, name: ev.venues.name || "" };
+      if (ev?.partner_venue_id) {
+        const { data: pv } = await supabaseAdmin
+          .from("venues")
+          .select("id, owner_id, name")
+          .eq("id", ev.partner_venue_id)
+          .maybeSingle();
+        if (pv) return { id: pv.id, owner_id: pv.owner_id, name: pv.name || "" };
+      }
+      return null;
+    };
+
     for (const item of items) {
       try {
         let record: any = null;
@@ -104,19 +129,20 @@ serve(async (req) => {
         } else if (item.type === "ticket") {
           const { data } = await supabaseAdmin
             .from("tickets")
-            .select("*, events!inner(id, title, venue_id, organizer_user_id, partner_organizer_id, venues:venue_id(id, owner_id, name))")
+            .select("*, events!inner(id, title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, venues:venue_id(id, owner_id, name))")
             .eq("id", item.id)
             .single();
           record = data;
           if (!record) { results.push({ id: item.id, type: item.type, success: false, error: "Not found" }); continue; }
 
-          const isVenueOwner = record.events?.venues?.owner_id === user.id;
+          const eventVenue = await resolveEventVenue(record.events);
+          const isVenueOwner = !!eventVenue?.owner_id && eventVenue.owner_id === user.id;
           const isOrganizer = record.events?.organizer_user_id === user.id || record.events?.partner_organizer_id === user.id;
           if (!isAdmin && !isVenueOwner && !isOrganizer) {
             results.push({ id: item.id, type: item.type, success: false, error: "Unauthorized" }); continue;
           }
-          venueId = record.events.venue_id;
-          venueName = record.events?.venues?.name || "";
+          venueId = eventVenue?.id || "";
+          venueName = eventVenue?.name || "";
           customerEmail = record.user_email || "";
           customerUserId = record.user_id || "";
           // Absorbed commission was paid by the club, not the fan → don't subtract it.
@@ -130,19 +156,20 @@ serve(async (req) => {
         } else if (item.type === "table_reservation") {
           const { data } = await supabaseAdmin
             .from("table_reservations")
-            .select("*, events!inner(id, title, venue_id, organizer_user_id, partner_organizer_id, venues:venue_id(id, owner_id, name))")
+            .select("*, events!inner(id, title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, venues:venue_id(id, owner_id, name))")
             .eq("id", item.id)
             .single();
           record = data;
           if (!record) { results.push({ id: item.id, type: item.type, success: false, error: "Not found" }); continue; }
 
-          const isVenueOwner = record.events?.venues?.owner_id === user.id;
+          const eventVenue = await resolveEventVenue(record.events);
+          const isVenueOwner = !!eventVenue?.owner_id && eventVenue.owner_id === user.id;
           const isOrganizer = record.events?.organizer_user_id === user.id || record.events?.partner_organizer_id === user.id;
           if (!isAdmin && !isVenueOwner && !isOrganizer) {
             results.push({ id: item.id, type: item.type, success: false, error: "Unauthorized" }); continue;
           }
-          venueId = record.events.venue_id;
-          venueName = record.events?.venues?.name || "";
+          venueId = eventVenue?.id || "";
+          venueName = eventVenue?.name || "";
           customerEmail = record.user_email || "";
           customerUserId = record.user_id || "";
           // Une table n'encaisse que l'ACOMPTE (+ frais Yuno) au checkout —
