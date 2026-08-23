@@ -339,3 +339,10 @@ verify_jwt = true
 # architecture qu'owner-assistant : double client, tools, audit des écritures.
 [functions.agency-assistant]
 verify_jwt = true
+
+# Connexion serveur aux comptes démo @womber.fr (DemoSwitcher + switch de rôles
+# en aperçu + parcours reviewer Apple). Le mot de passe démo vit dans le secret
+# DEMO_LOGIN_PASSWORD, plus jamais dans le bundle. Appelée avant qu'une session
+# valide existe → pas de JWT garanti.
+[functions.demo-login]
+verify_jwt = false

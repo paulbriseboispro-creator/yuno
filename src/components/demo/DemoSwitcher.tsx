@@ -14,7 +14,7 @@ import {
 import { PLANS, PlanCode, SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
 import { getDemoPlan, setDemoPlan, DEMO_PLAN_EVENT } from '@/lib/demoPlan';
 import { isDemoLiveForced, setDemoLiveForced } from '@/lib/demoLive';
-import { setMfaBypass, setRoleSessionBypass, MFA_GATED, DEMO_PASSWORD } from '@/lib/demoSession';
+import { setMfaBypass, setRoleSessionBypass, MFA_GATED, signInToDemoAccount } from '@/lib/demoSession';
 import { isPreviewActive } from '@/contexts/PreviewModeContext';
 import { isDemoButtonHidden, setDemoButtonHidden, DEMO_HIDDEN_EVENT } from '@/lib/demoVisibility';
 import { haptics } from '@/lib/haptics';
@@ -25,8 +25,10 @@ import { launchTasteQuiz } from '@/lib/demoQuiz';
  * affilié, staff) pendant les appels de vente. Visible UNIQUEMENT pour les
  * comptes @womber.fr (owner + comptes démo). Invisible pour tous les vrais users.
  *
- * Mécanique (aucune edge function — non bloqué par le cap 402) :
- *  - Bascule vers un compte démo = supabase.auth.signInWithPassword (mdp connu).
+ * Mécanique :
+ *  - Bascule vers un compte démo = edge function `demo-login` (le mot de passe
+ *    démo vit dans le secret Supabase DEMO_LOGIN_PASSWORD, jamais dans le bundle)
+ *    puis supabase.auth.setSession avec les tokens renvoyés.
  *  - Retour vers owner = restauration de la session owner sauvegardée
  *    (le mot de passe super-admin de owner@womber.fr n'est JAMAIS embarqué).
  */
@@ -45,7 +47,8 @@ const REVEAL_CORNER_PX = 140;
 // Filet de sécurité déterministe : ?demo=1 dans l'URL réaffiche toujours
 // le bouton, même si le geste ne passe pas (WebView capricieuse, etc.).
 const REVEAL_QUERY_PARAM = 'demo';
-// DEMO_PASSWORD est centralisé dans @/lib/demoSession (partagé avec le switch preview).
+// La connexion démo passe par signInToDemoAccount (@/lib/demoSession) → edge
+// function demo-login : aucun mot de passe dans le bundle.
 const ORIGIN_KEY = 'yuno_demo_origin_session';
 
 // MFA_GATED / setMfaBypass / setRoleSessionBypass sont partagés avec PreviewGate
@@ -262,29 +265,27 @@ export function DemoSwitcher() {
         );
       }
       let newUserId: string | undefined;
-      // Bascule uniforme : tout compte démo (owner inclus) via signInWithPassword → illimité any→any.
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: account.email,
-        password: DEMO_PASSWORD,
-      });
-      if (error) {
-        // Owner : si le login échoue (mdp démo pas encore posé), restaurer la session sauvegardée.
+      // Bascule uniforme : tout compte démo (owner inclus) via l'edge function
+      // demo-login (mot de passe côté serveur uniquement) → illimité any→any.
+      const { userId, error } = await signInToDemoAccount(account.email);
+      if (error || !userId) {
+        // Owner : si le login échoue (fonction pas déployée / indispo), restaurer la session sauvegardée.
         if (account.email === OWNER_EMAIL) {
           const raw = localStorage.getItem(ORIGIN_KEY);
-          if (!raw) throw error;
+          if (!raw) throw error ?? new Error('demo-login unavailable');
           const saved = JSON.parse(raw) as { access_token: string; refresh_token: string };
           const restored = await supabase.auth.setSession({
             access_token: saved.access_token,
             refresh_token: saved.refresh_token,
           });
-          if (restored.error) throw error;
+          if (restored.error) throw error ?? new Error('demo-login unavailable');
           newUserId = restored.data.user?.id;
           localStorage.removeItem(ORIGIN_KEY);
         } else {
-          throw error;
+          throw error ?? new Error('demo-login unavailable');
         }
       } else {
-        newUserId = data.user?.id;
+        newUserId = userId;
       }
       if (MFA_GATED.has(account.email)) setMfaBypass(newUserId);
       await setRoleSessionBypass(account, newUserId);

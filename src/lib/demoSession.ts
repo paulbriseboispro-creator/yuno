@@ -43,10 +43,37 @@ export const DEMO_ACCOUNTS: Record<TargetAccount, DemoAccountMeta> = {
 
 export const ALL_TARGET_ACCOUNTS = Object.keys(DEMO_ACCOUNTS) as TargetAccount[];
 
-// Mot de passe partagé des comptes démo (throwaway, club masqué, données fictives).
-// Déjà public dans le bundle (DemoSwitcher) et le seed — centralisé ici pour être
-// réutilisé par le switch de rôles en aperçu.
-export const DEMO_PASSWORD = 'YunoDemo2026!';
+/**
+ * Connexion à un compte démo via l'edge function `demo-login` (verify_jwt=false).
+ * Le mot de passe partagé des comptes démo ne vit QUE dans le secret Supabase
+ * `DEMO_LOGIN_PASSWORD` — plus jamais dans le bundle livré. La fonction vérifie
+ * l'allowlist serveur (@womber.fr strict), fait le signInWithPassword côté Deno
+ * et renvoie les tokens ; ici on pose simplement la session.
+ *
+ * AUCUN repli par mot de passe local : si la fonction n'est pas déployée ou
+ * échoue, on renvoie l'erreur et l'appelant affiche son message générique.
+ */
+export async function signInToDemoAccount(
+  email: string,
+): Promise<{ userId: string | null; error: Error | null }> {
+  try {
+    const { data, error } = await supabase.functions.invoke('demo-login', { body: { email } });
+    const tokens = data as { access_token?: string; refresh_token?: string } | null;
+    if (error || !tokens?.access_token || !tokens?.refresh_token) {
+      return { userId: null, error: error instanceof Error ? error : new Error('demo-login unavailable') };
+    }
+    const { data: sess, error: sessErr } = await supabase.auth.setSession({
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+    });
+    if (sessErr || !sess.user) {
+      return { userId: null, error: sessErr ?? new Error('demo-login session failed') };
+    }
+    return { userId: sess.user.id, error: null };
+  } catch (e) {
+    return { userId: null, error: e instanceof Error ? e : new Error('demo-login unavailable') };
+  }
+}
 
 // Comptes dont la route exige RequireMFA (owner, affilié). On pose une session MFA
 // locale valide 24 h pour ne pas tomber sur /mfa-setup en démo.
@@ -98,15 +125,16 @@ export async function applyDemoBypass(target: TargetAccount, userId: string | un
 
 /**
  * Bascule client-side vers un autre compte démo (switch de rôles en aperçu).
- * Réutilise le mécanisme du DemoSwitcher : signInWithPassword avec le mot de passe
- * démo (déjà public) puis pose les bypass du rôle. Renvoie false en cas d'échec.
+ * Même mécanisme que le DemoSwitcher : connexion serveur via `demo-login`
+ * (le mot de passe ne quitte jamais le serveur) puis pose des bypass du rôle.
+ * Renvoie false en cas d'échec.
  */
 export async function switchToDemoRole(target: TargetAccount): Promise<boolean> {
   const meta = DEMO_ACCOUNTS[target];
   if (!meta) return false;
-  const { data, error } = await supabase.auth.signInWithPassword({ email: meta.email, password: DEMO_PASSWORD });
-  if (error || !data.user) return false;
-  await applyDemoBypass(target, data.user.id);
+  const { userId, error } = await signInToDemoAccount(meta.email);
+  if (error || !userId) return false;
+  await applyDemoBypass(target, userId);
   return true;
 }
 
