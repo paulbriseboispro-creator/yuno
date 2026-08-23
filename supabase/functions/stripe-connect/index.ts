@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { releaseDjBookingBalance, refundDjBookingContract, computeDjEscrowFeeCents } from "../_shared/dj-payout.ts";
+import { resolveReturnOrigin, safeReturnUrl } from "../_shared/cors.ts";
 
 // Unified Stripe Connect dispatcher.
 // Replaces: organizer-stripe-connect-onboard, organizer-stripe-connect-status,
@@ -47,7 +48,10 @@ serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const action: string = body.action;
-    const origin = req.headers.get("origin") || "https://yunoapp.eu";
+    // Origine verrouillée sur la liste blanche CORS : les URLs de retour Stripe
+    // (onboarding, portail, checkout séquestre DJ) ne reflètent jamais une
+    // Origin forgée. Voir resolveReturnOrigin dans _shared/cors.ts.
+    const { origin } = resolveReturnOrigin(req);
     log("Request", { userId: user.id, action });
 
     // Any venueId coming from the request body MUST belong to the caller. Every
@@ -233,10 +237,12 @@ serve(async (req) => {
         log("Using existing owner Stripe account", { accountId: stripeAccountId });
       }
 
+      // refreshUrl/returnUrl viennent du body : mêmes origines que la liste
+      // blanche CORS uniquement (safeReturnUrl), sinon retour par défaut.
       const accountLink = await stripe.accountLinks.create({
         account: stripeAccountId,
-        refresh_url: refreshUrl || `${origin}/owner/venue?stripe=refresh`,
-        return_url: returnUrl || `${origin}/owner/venue?stripe=success`,
+        refresh_url: safeReturnUrl(refreshUrl, `${origin}/owner/venue?stripe=refresh`),
+        return_url: safeReturnUrl(returnUrl, `${origin}/owner/venue?stripe=success`),
         type: "account_onboarding",
       });
 
@@ -612,8 +618,10 @@ serve(async (req) => {
               quantity: 1,
             }] : []),
           ],
-          success_url: body.successUrl || `${origin}/owner/djs?booking=paid`,
-          cancel_url: body.cancelUrl || `${origin}/owner/djs?booking=cancelled`,
+          // successUrl/cancelUrl viennent du body : mêmes origines que la liste
+          // blanche CORS uniquement (safeReturnUrl), sinon retour par défaut.
+          success_url: safeReturnUrl(body.successUrl, `${origin}/owner/djs?booking=paid`),
+          cancel_url: safeReturnUrl(body.cancelUrl, `${origin}/owner/djs?booking=cancelled`),
           customer_email: user.email ?? undefined,
           payment_method_types: ["card"],
           payment_intent_data: {

@@ -3,6 +3,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
 import { SUBSCRIPTIONS_ENABLED } from "../_shared/venue-plan.ts";
+import { resolveReturnOrigin } from "../_shared/cors.ts";
 
 // Pinned to the account's API version. Newer than the SDK's bundled types
 // (which top out at basil), hence the cast. On clover+, a subscription's billing
@@ -487,7 +488,8 @@ serve(async (req) => {
       // free 3 months get NO extra trial — they pay immediately.
       const trialDays = isEarlyAdopter ? 0 : 14;
 
-      const origin = req.headers.get("origin") || "https://yunoapp.eu";
+      // Origine verrouillée sur la liste blanche CORS (voir _shared/cors.ts).
+      const { origin } = resolveReturnOrigin(req);
       const session = await stripe.checkout.sessions.create({
         customer: customerId,
         line_items: [{ price: priceId, quantity: 1 }],
@@ -529,7 +531,8 @@ serve(async (req) => {
       const customerId = customers.data[0].id;
       logStep("Found Stripe customer", { customerId });
 
-      const origin = req.headers.get("origin") || "https://yunoapp.eu";
+      // Origine verrouillée sur la liste blanche CORS (voir _shared/cors.ts).
+      const { origin } = resolveReturnOrigin(req);
       const portalSession = await stripe.billingPortal.sessions.create({
         customer: customerId,
         return_url: `${origin}/owner/venue`,

@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
+import { resolveReturnOrigin } from "../_shared/cors.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -111,7 +112,10 @@ serve(async (req) => {
       if (customers.data.length > 0) customerId = customers.data[0].id;
     }
 
-    const origin = req.headers.get("origin") || "https://yunoapp.eu";
+    // URLs de retour Stripe : origine verrouillée sur la liste blanche CORS ;
+    // l'app native (capacitor://…) est rebasculée sur le domaine web (Stripe
+    // refuse les schémas non publics). Voir resolveReturnOrigin (_shared/cors.ts).
+    const { origin } = resolveReturnOrigin(req);
     const unitAmount = Math.round(Number(pack.price_eur) * 100);
 
     const session = await stripe.checkout.sessions.create({

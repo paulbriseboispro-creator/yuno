@@ -3,7 +3,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentSplit, estimateStripeFeeEur, isPillarDisabled } from "../_shared/payment-split.ts";
 import { t, resolveLang } from "../_shared/i18n.ts";
-import { restrictedCorsHeaders } from "../_shared/cors.ts";
+import { restrictedCorsHeaders, resolveReturnOrigin, safeReturnPath } from "../_shared/cors.ts";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
 // Yuno commission rate — single source of truth (3% drinks).
 import { YUNO_DRINK_RATE as YUNO_COMMISSION_RATE } from "../_shared/commission.ts";
@@ -165,7 +165,7 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({
             success: false,
-            error: "Vous devez certifier être majeur. L'établissement vérifiera votre pièce d'identité à l'entrée.",
+            error: t("checkout.ageDeclarationRequired", lang),
             code: AGE_DECLARATION_REQUIRED_CODE,
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
@@ -214,7 +214,7 @@ serve(async (req) => {
     if (paymentMode === "blocked") {
       logStep("Payments disabled — checkout refused", { venueId });
       return new Response(
-        JSON.stringify({ success: false, error: "Payments are temporarily unavailable. Please try again later.", code: PAYMENTS_DISABLED_CODE }),
+        JSON.stringify({ success: false, error: t("checkout.paymentsDisabled", lang), code: PAYMENTS_DISABLED_CODE }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
       );
     }
@@ -246,14 +246,13 @@ serve(async (req) => {
 
       if (eventError || !event) throw new Error("Event not found");
       if (!event.is_active) throw new Error("Event is not active");
-      if (new Date(event.end_at) < new Date()) throw new Error("L'événement est déjà terminé");
+      if (new Date(event.end_at) < new Date()) throw new Error(t("checkout.eventAlreadyEnded", lang));
 
       // Resolve which venue actually hosts the bar (lead venue OR partner venue in a co-event).
       const drinksVenueId = event.venue_id ?? event.partner_venue_id;
       if (!drinksVenueId) {
-        throw new Error(
-          "Drink sales are only available for events hosted at a Yuno club. Standalone organizer events cannot sell drinks."
-        );
+        // Soirée d'organisateur sans club hôte : pas de bar où servir.
+        throw new Error(t("checkout.drinksNeedClub", lang));
       }
       if (drinksVenueId !== venueId) {
         throw new Error("Event does not belong to this venue");
@@ -575,6 +574,15 @@ serve(async (req) => {
       throw new Error(t("checkout.venueStripeNotActive", lang));
     }
 
+    // Sentinelle démo (`acct_demo_…`, seed womber) : compte Stripe FICTIF marqué
+    // charges_enabled=true — sans ce refus, Stripe meurt en plein checkout sur
+    // « No such account » (l'erreur du rejet App Store 2.1(a)). Refus propre AVANT
+    // la création de commande ; les démos @womber.fr n'arrivent jamais ici (simulate).
+    if (venue.stripe_account_id.startsWith("acct_demo")) {
+      logStep("Checkout refused — demo Stripe account sentinel", { account: venue.stripe_account_id });
+      throw new Error(t("checkout.demoEventNotPurchasable", lang));
+    }
+
     // Create pending order
     const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
@@ -621,6 +629,12 @@ serve(async (req) => {
         ]);
         if (orgProfile?.stripe_connect_account_id && orgProfile?.stripe_connect_charges_enabled) {
           organizerStripeAccountId = orgProfile.stripe_connect_account_id;
+        }
+        // Sentinelle démo côté organisateur (même refus que le gate venue) : un
+        // split co-soirée vers `acct_demo_…` ferait échouer transferts/charges.
+        if (organizerStripeAccountId?.startsWith("acct_demo")) {
+          logStep("Checkout refused — demo organizer Stripe account sentinel", { account: organizerStripeAccountId });
+          throw new Error(t("checkout.demoEventNotPurchasable", lang));
         }
         partnershipRules = (partnership?.default_split_rules as Record<string, unknown>) ?? null;
         partnershipId = partnership?.id ?? null;
@@ -688,21 +702,23 @@ serve(async (req) => {
       quantity: 1,
     });
 
-    // App native (Capacitor) : l'origine est capacitor://localhost, que Stripe
-    // refuse dans les URLs de retour. On rebascule sur le domaine web et on
-    // flague native=1 pour que la page verify propose le deep-link yuno://.
-    const rawOrigin = req.headers.get("origin") || "https://yunoapp.eu";
-    const isNativeApp = rawOrigin.startsWith("capacitor://") || rawOrigin === "https://localhost";
-    const origin = isNativeApp ? "https://yunoapp.eu" : rawOrigin;
+    // URLs de retour Stripe : origine verrouillée sur la liste blanche CORS
+    // (une Origin forgée redirigerait le retour de paiement — et le QR de retrait
+    // payé — vers un site attaquant). App native (Capacitor) : rebasculée sur le
+    // domaine web + flag native=1 pour que la page verify propose le deep-link
+    // yuno://. Voir resolveReturnOrigin dans _shared/cors.ts.
+    const { origin, isNativeApp } = resolveReturnOrigin(req);
     const nativeFlag = isNativeApp ? "&native=1" : "";
+    // cancelUrl vient du client : chemin même-site uniquement (safeReturnPath) ;
+    // il peut déjà porter une query (ex. /order/upsell?ticket=…) → &.
+    const cancelPath = safeReturnPath(cancelUrl, "/cart");
 
     // Create Stripe checkout session
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       line_items: lineItems,
       mode: "payment",
       success_url: `${origin}/verify-payment?session_id={CHECKOUT_SESSION_ID}&order_id=${order.id}${nativeFlag}`,
-      // cancelUrl peut déjà porter une query (ex. /order/upsell?ticket=…) → &.
-      cancel_url: cancelUrl ? `${origin}${cancelUrl}${cancelUrl.includes("?") ? "&" : "?"}payment_cancelled=true` : `${origin}/cart?payment_cancelled=true`,
+      cancel_url: `${origin}${cancelPath}${cancelPath.includes("?") ? "&" : "?"}payment_cancelled=true`,
       customer_email: user?.email || guestEmail,
       payment_method_types: ["card", "link"],
       metadata: {

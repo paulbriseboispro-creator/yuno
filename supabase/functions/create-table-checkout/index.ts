@@ -15,7 +15,7 @@ import { recordSmsConsent } from "../_shared/sms-consent.ts";
 import { resolveAgeDeclaration, AgeDeclarationError, AGE_DECLARATION_REQUIRED_CODE } from "../_shared/age-declaration.ts";
 import { t, resolveLang } from "../_shared/i18n.ts";
 import { resolveTrackedLinkId } from "../_shared/tracked-link.ts";
-import { restrictedCorsHeaders } from "../_shared/cors.ts";
+import { restrictedCorsHeaders, resolveReturnOrigin, safeReturnPath } from "../_shared/cors.ts";
 
 // Production mode - payments go through Stripe Connect
 const TEST_MODE = false;
@@ -117,7 +117,7 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({
             success: false,
-            error: "Vous devez certifier être majeur. L'établissement vérifiera votre pièce d'identité à l'entrée.",
+            error: t("checkout.ageDeclarationRequired", lang),
             code: AGE_DECLARATION_REQUIRED_CODE,
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
@@ -162,7 +162,7 @@ serve(async (req) => {
     if (paymentMode === "blocked") {
       logStep("Payments disabled — checkout refused");
       return new Response(
-        JSON.stringify({ success: false, error: "Payments are temporarily unavailable. Please try again later.", code: PAYMENTS_DISABLED_CODE }),
+        JSON.stringify({ success: false, error: t("checkout.paymentsDisabled", lang), code: PAYMENTS_DISABLED_CODE }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
       );
     }
@@ -181,7 +181,7 @@ serve(async (req) => {
     if (!event.tables_enabled) throw new Error("Table sales not enabled for this event");
     // Une soirée terminée ne se vend plus — même garde que create-ticket-checkout.
     if (event.end_at && new Date(event.end_at) < new Date()) {
-      throw new Error("L'événement est déjà terminé");
+      throw new Error(t("checkout.eventAlreadyEnded", lang));
     }
 
     logStep("Event found", { eventId: event.id, venueId: event.venue_id, mode: event.event_mode, tablesMode: event.tables_mode });
@@ -189,7 +189,7 @@ serve(async (req) => {
     const isBasicMode = event.tables_mode === 'basic';
     const effectiveVenueId = event.venue_id || event.partner_venue_id;
     if (!effectiveVenueId) {
-      throw new Error("Les tables VIP nécessitent un club partenaire.");
+      throw new Error(t("table.needsPartnerClub", lang));
     }
     const effectiveOrganizerId = event.organizer_user_id || event.partner_organizer_id;
 
@@ -208,7 +208,7 @@ serve(async (req) => {
           .maybeSingle();
         if (bannedCustomer?.is_banned) {
           logStep("Customer is banned (account)", { userId: user.id, venueId: effectiveVenueId });
-          throw new Error("Vous n'êtes pas autorisé à réserver une table dans ce club.");
+          throw new Error(t("table.notAllowed", lang));
         }
       }
 
@@ -218,7 +218,7 @@ serve(async (req) => {
         });
         if (emailBanned === true) {
           logStep("Customer is banned (email)", { venueId: effectiveVenueId });
-          throw new Error("Vous n'êtes pas autorisé à réserver une table dans ce club.");
+          throw new Error(t("table.notAllowed", lang));
         }
       }
     }
@@ -228,7 +228,7 @@ serve(async (req) => {
     const { data: pack } = await packQuery.single();
     if (!pack || !pack.is_active) throw new Error("Table pack not found or inactive");
     if (isBasicMode && pack.event_id !== eventId) {
-      throw new Error("Pack invalide pour cette soirée.");
+      throw new Error(t("table.invalidPack", lang));
     }
 
     logStep("Pack found", { packId: pack.id, packName: pack.name, basic: isBasicMode });
@@ -258,10 +258,9 @@ serve(async (req) => {
         const used = activeCount || 0;
         if (used >= zoneRow.tables_count) {
           logStep("Zone capacity reached", { zoneId: effectiveZoneId, used, max: zoneRow.tables_count });
-          throw new Error(
-            `La zone "${zoneRow.name}" est complète (${used}/${zoneRow.tables_count} tables réservées). ` +
-            `Choisis une autre zone ou réessaie plus tard.`
-          );
+          throw new Error(t("table.zoneFull", lang, {
+            zone: zoneRow.name, used, max: zoneRow.tables_count,
+          }));
         }
         logStep("Zone capacity OK", { zoneId: effectiveZoneId, used, max: zoneRow.tables_count });
       }
@@ -713,6 +712,17 @@ serve(async (req) => {
     if (!venue.stripe_account_id) throw new Error(t("checkout.venuePaymentsNotSetUp", lang));
     if (!venue.stripe_charges_enabled) throw new Error(t("checkout.venueStripeNotActive", lang));
 
+    // Sentinelle démo (`acct_demo_…`, seed womber) : compte Stripe FICTIF marqué
+    // charges_enabled=true — sans ce refus, Stripe meurt en plein checkout sur
+    // « No such account » (l'erreur du rejet App Store 2.1(a)). Refus propre AVANT
+    // la réservation ; les comptes démo @womber.fr n'arrivent jamais ici (simulate).
+    const demoStripeAccount = [venue.stripe_account_id, organizerStripeAccountId]
+      .find((id) => id?.startsWith("acct_demo"));
+    if (demoStripeAccount) {
+      logStep("Checkout refused — demo Stripe account sentinel", { demoStripeAccount });
+      throw new Error(t("checkout.demoEventNotPurchasable", lang));
+    }
+
     // Atomic: locks the governing zone, re-counts under the lock, then inserts the
     // pending reservation. See migration 20260616130000_reserve_table_slot_atomic.sql.
     const { data: reservationId, error: reservationError } = await supabaseAdmin.rpc("reserve_table_slot", {
@@ -794,11 +804,11 @@ serve(async (req) => {
     logStep("Pending reservation created", { reservationId: reservation.id });
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-    // App native (Capacitor) : origine capacitor://localhost refusée par Stripe
-    // dans les URLs de retour → rebasculer sur le domaine web + flag native=1.
-    const rawOrigin = req.headers.get("origin") || "https://yunoapp.eu";
-    const isNativeApp = rawOrigin.startsWith("capacitor://") || rawOrigin === "https://localhost";
-    const origin = isNativeApp ? "https://yunoapp.eu" : rawOrigin;
+    // URLs de retour Stripe : origine verrouillée sur la liste blanche CORS
+    // (une Origin forgée redirigerait le retour de paiement — et le QR de la
+    // table payée — vers un site attaquant). App native (Capacitor) : rebasculée
+    // sur le domaine web + flag native=1. Voir resolveReturnOrigin (_shared/cors.ts).
+    const { origin, isNativeApp } = resolveReturnOrigin(req);
     const nativeFlag = isNativeApp ? "&native=1" : "";
 
     // Resolve the Stripe Connect split up front. DIRECT = single recipient → the
@@ -849,7 +859,8 @@ serve(async (req) => {
       ],
       mode: "payment",
       success_url: `${origin}/verify-table-payment?session_id={CHECKOUT_SESSION_ID}&reservation_id=${reservation.id}${nativeFlag}`,
-      cancel_url: cancelUrl ? `${origin}${cancelUrl}` : `${origin}/`,
+      // cancelUrl vient du client : chemin même-site uniquement (safeReturnPath).
+      cancel_url: `${origin}${safeReturnPath(cancelUrl, "/")}`,
       customer_email: user?.email || guestEmail,
       payment_method_types: ['card', 'link'],
       metadata: { reservationId: reservation.id, eventId, packId, userId: user?.id || '', venueId: effectiveVenueId, promoterId: promoterId || '', promoCode: promoCode || '', promoDiscount: String(validatedDiscount || 0), trackedLinkId: safeTrackedLinkId || '', isGuest: isGuestCheckout ? 'true' : 'false' },

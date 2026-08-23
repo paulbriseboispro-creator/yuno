@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { resolvePaymentSplit, estimateStripeFeeEur, isPillarDisabled } from "../_shared/payment-split.ts";
-import { restrictedCorsHeaders } from "../_shared/cors.ts";
+import { restrictedCorsHeaders, resolveReturnOrigin, safeReturnPath } from "../_shared/cors.ts";
 import { t, resolveLang } from "../_shared/i18n.ts";
 import { resolvePaymentMode, PAYMENTS_DISABLED_CODE } from "../_shared/payment-guard.ts";
 // Yuno commission rate — single source of truth (4% min 0.99€ for tickets).
@@ -200,30 +200,34 @@ serve(async (req) => {
     logStep("Event found", { eventId: event.id, venueId: event.venue_id });
 
     // Check if customer is banned (account-level OR email-level — guest checkout too).
-    // Both checks are scoped to event.venue_id, so a ban never crosses clubs.
-    if (event.venue_id) {
+    // Scoped to the venue that actually hosts the night : event.venue_id, sinon
+    // partner_venue_id (soirée org-led au club partenaire — venue_id est NULL et
+    // le contrôle sautait entièrement : un banni du club pouvait acheter un billet
+    // de co-soirée dans CE club). Un ban ne traverse jamais les clubs.
+    const banVenueId = event.venue_id ?? event.partner_venue_id;
+    if (banVenueId) {
       const buyerEmail = user?.email || guestEmail || null;
 
       if (user) {
         const { data: bannedCustomer } = await supabaseAdmin
           .from("venue_customers")
           .select("is_banned")
-          .eq("venue_id", event.venue_id)
+          .eq("venue_id", banVenueId)
           .eq("user_id", user.id)
           .eq("is_banned", true)
           .maybeSingle();
         if (bannedCustomer?.is_banned) {
-          logStep("Customer is banned (account)", { userId: user.id, venueId: event.venue_id });
+          logStep("Customer is banned (account)", { userId: user.id, venueId: banVenueId });
           throw new Error(t("checkout.notAllowedTickets", lang));
         }
       }
 
       if (buyerEmail) {
         const { data: emailBanned } = await supabaseAdmin.rpc("is_email_banned", {
-          p_venue_id: event.venue_id, p_email: buyerEmail,
+          p_venue_id: banVenueId, p_email: buyerEmail,
         });
         if (emailBanned === true) {
-          logStep("Customer is banned (email)", { venueId: event.venue_id });
+          logStep("Customer is banned (email)", { venueId: banVenueId });
           throw new Error(t("checkout.notAllowedTickets", lang));
         }
       }
@@ -411,6 +415,19 @@ serve(async (req) => {
           payoutSource === 'organizer' ? "checkout.organizerStripeNotActive" : "checkout.venueStripeNotActive",
           lang,
         ));
+      }
+
+      // Sentinelle démo (`acct_demo_…`, seed womber) : compte Stripe FICTIF posé
+      // avec charges_enabled=true — la porte « paiements prêts » s'ouvre, puis
+      // Stripe meurt en plein checkout sur « No such account » : exactement
+      // l'erreur du rejet App Store 2.1(a). Un vrai acheteur (ou un reviewer non
+      // connecté en démo) est refusé proprement ICI, avant toute réservation.
+      // Les comptes démo @womber.fr ne passent jamais par ce bloc (simulate).
+      const demoStripeAccount = [venueStripeAccountId, organizerStripeAccountId]
+        .find((id) => id?.startsWith("acct_demo"));
+      if (demoStripeAccount) {
+        logStep("Checkout refused — demo Stripe account sentinel", { demoStripeAccount });
+        throw new Error(t("checkout.demoEventNotPurchasable", lang));
       }
     }
 
@@ -1019,11 +1036,11 @@ serve(async (req) => {
       }
     }
 
-    // App native (Capacitor) : origine capacitor://localhost refusée par Stripe
-    // dans les URLs de retour → rebasculer sur le domaine web + flag native=1.
-    const rawOrigin = req.headers.get("origin") || "https://yunoapp.eu";
-    const isNativeApp = rawOrigin.startsWith("capacitor://") || rawOrigin === "https://localhost";
-    const origin = isNativeApp ? "https://yunoapp.eu" : rawOrigin;
+    // URLs de retour Stripe : origine verrouillée sur la liste blanche CORS
+    // (une Origin forgée redirigerait le retour de paiement — et le QR du billet
+    // payé — vers un site attaquant). App native (Capacitor) : rebasculée sur le
+    // domaine web + flag native=1. Voir resolveReturnOrigin dans _shared/cors.ts.
+    const { origin, isNativeApp } = resolveReturnOrigin(req);
     const nativeFlag = isNativeApp ? "&native=1" : "";
 
     // Serialize upsells for Stripe metadata (max 500 chars per value)
@@ -1036,7 +1053,9 @@ serve(async (req) => {
       line_items: lineItems,
       mode: "payment",
       success_url: `${origin}/verify-ticket-payment?session_id={CHECKOUT_SESSION_ID}&ticket_id=${ticket.id}${nativeFlag}`,
-      cancel_url: cancelUrl ? `${origin}${cancelUrl}?payment_cancelled=true` : `${origin}/?payment_cancelled=true`,
+      // cancelUrl vient du client : chemin même-site uniquement (safeReturnPath),
+      // sinon "@evil.tld" / ".evil.tld" déplaceraient l'hôte de l'URL concaténée.
+      cancel_url: `${origin}${safeReturnPath(cancelUrl, "/")}?payment_cancelled=true`,
       customer_email: user?.email || guestEmail,
       payment_method_types: ['card', 'link'],
       metadata: {
