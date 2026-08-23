@@ -205,6 +205,12 @@ serve(async (req) => {
   try {
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+    // En live, les charges DIRECT naissent sur le compte CONNECTÉ du club : elles
+    // n'arrivent que par un endpoint Stripe « Listen to events on Connected
+    // accounts », qui a son PROPRE secret de signature (un whsec_ par endpoint).
+    // On essaie donc chaque secret configuré. Inerte tant que la seconde env
+    // n'existe pas — un seul endpoint, un seul secret, comportement inchangé.
+    const webhookSecretConnect = Deno.env.get("STRIPE_WEBHOOK_SECRET_CONNECT");
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
     if (!webhookSecret) throw new Error("STRIPE_WEBHOOK_SECRET is not set");
 
@@ -270,11 +276,23 @@ serve(async (req) => {
     const signature = req.headers.get("stripe-signature");
     if (!signature) throw new Error("No stripe-signature header");
 
-    let event: Stripe.Event;
-    try {
-      event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
-    } catch (err) {
-      logStep("Signature verification failed", { error: (err as Error).message });
+    // Vérification de signature multi-endpoints : secret plateforme d'abord,
+    // puis secret Connect si configuré (voir le commentaire en tête de fonction).
+    const signingSecrets = [webhookSecret, webhookSecretConnect].filter(
+      (s): s is string => !!s,
+    );
+    let event: Stripe.Event | null = null;
+    let lastSignatureError = "";
+    for (const secret of signingSecrets) {
+      try {
+        event = await stripe.webhooks.constructEventAsync(body, signature, secret);
+        break;
+      } catch (err) {
+        lastSignatureError = (err as Error).message;
+      }
+    }
+    if (!event) {
+      logStep("Signature verification failed", { error: lastSignatureError, secretsTried: signingSecrets.length });
       return new Response(JSON.stringify({ error: "Invalid signature" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 400,
