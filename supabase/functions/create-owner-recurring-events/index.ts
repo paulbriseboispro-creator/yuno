@@ -127,24 +127,48 @@ async function applyPreset(
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // Cron (pg_cron, x-cron-secret) ou utilisateur VALIDÉ — même modèle
+  // d'autorisation que la fonction sœur create-affiliate-recurring-events.
   const cronSecret = Deno.env.get("CRON_SECRET");
   const providedCronSecret = req.headers.get("x-cron-secret");
-  const authHeader = req.headers.get("authorization");
-
   const isCron = !!cronSecret && providedCronSecret === cronSecret;
-  const isAuthenticated = !!authHeader?.startsWith("Bearer ");
-
-  if (!isCron && !isAuthenticated) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+
+    // Appels manuels : le bearer doit résoudre un VRAI utilisateur, et la
+    // génération est bornée aux modèles des clubs qu'il POSSÈDE (même règle que
+    // la policy RLS de owner_recurring_templates : venues.owner_id = auth.uid()).
+    // Avant : un `Bearer x` quelconque suffisait, et la fonction générait —
+    // en service_role — les events de TOUS les clubs de la plateforme.
+    let ownedVenueIds: string[] | null = null;
+    if (!isCron) {
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+      const authHeader = req.headers.get("Authorization");
+      const supabaseUser = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader || "" } },
+      });
+      const { data: { user: caller } } = await supabaseUser.auth.getUser();
+      if (!caller) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const { data: ownedVenues } = await supabaseAdmin
+        .from("venues")
+        .select("id")
+        .eq("owner_id", caller.id);
+      ownedVenueIds = (ownedVenues ?? []).map((v: { id: string }) => v.id);
+      if (ownedVenueIds.length === 0) {
+        return new Response(JSON.stringify({ error: "Venue ownership required" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     // Optional: restrict to a single template (used by the "generate now"
     // button after a create/edit so the owner sees occurrences immediately).
@@ -163,9 +187,15 @@ serve(async (req) => {
         music_genres, event_type, day_of_week, start_time, end_time,
         advance_days, ticket_preset_id, vip_preset_id, auto_enable_tables
       `)
-      .eq("is_active", true);
+      .eq("is_active", true)
+      // Les modèles ORGANISATEUR (organizer_user_id, venue_id NULL — migration
+      // 20260613050000) sont hors périmètre de cette fonction héritée : les
+      // matérialiser ici créerait des events sans venue NI organisateur. Les
+      // deux scopes vivent désormais dans la RPC SQL generate_recurring_events.
+      .not("venue_id", "is", null);
 
     if (onlyTemplateId) tplQuery = tplQuery.eq("id", onlyTemplateId);
+    if (ownedVenueIds) tplQuery = tplQuery.in("venue_id", ownedVenueIds);
 
     const { data: templates, error: tplError } = await tplQuery;
     if (tplError) throw tplError;
