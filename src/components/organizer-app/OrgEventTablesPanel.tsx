@@ -682,6 +682,21 @@ export function OrgEventTablesPanel({ eventId, organizerUserId }: OrgEventTables
               <div><FieldLabel>{tt('Capacité', 'Guests')}</FieldLabel><input type="number" min="1" value={packForm.base_capacity} onChange={(e) => setPackForm({ ...packForm, base_capacity: e.target.value })} style={daInputStyle} /></div>
               <div><FieldLabel>{tt('Acompte €', 'Deposit €')}</FieldLabel><input type="number" min="0" value={packForm.deposit} onChange={(e) => setPackForm({ ...packForm, deposit: e.target.value })} style={daInputStyle} /></div>
             </div>
+            {/* Acompte 0 = paiement INTÉGRAL au checkout : dit noir sur blanc,
+                sinon une table « 800 € sans acompte » débite 800 € sans prévenir. */}
+            <p style={{ color: (parseFloat(packForm.deposit) || 0) > 0 ? T3 : '#E8A019', fontSize: 11, marginTop: -4, lineHeight: 1.45 }}>
+              {(parseFloat(packForm.deposit) || 0) > 0
+                ? tt(
+                    "Le client paie l'acompte en ligne, le reste sur place.",
+                    'The client pays the deposit online, the rest at the venue.',
+                    'El cliente paga la señal en línea y el resto en el local.',
+                  )
+                : tt(
+                    'Acompte à 0 : le client paiera le prix total de la table en ligne.',
+                    'Deposit at 0: the client will pay the full table price online.',
+                    'Señal a 0: el cliente pagará el precio total de la mesa en línea.',
+                  )}
+            </p>
             <div><FieldLabel>{tt('Inclus (texte libre)', 'Includes (free text)')}</FieldLabel><DarkTextarea rows={2} placeholder={tt('Ex: 1 bouteille de vodka, 6 mixers', 'e.g. 1 vodka bottle, 6 mixers')} value={packForm.included_items} onChange={(v) => setPackForm({ ...packForm, included_items: v })} /></div>
             {/* Heure d'arrivée limite (optionnelle) — affichée au client à la résa */}
             <div>
