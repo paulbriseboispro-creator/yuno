@@ -17,7 +17,7 @@
  *   node scripts/rotate-demo-password.mjs --yes    # applique la rotation
  *
  * NB : apple-review@womber.fr / apple-review-pro@womber.fr (comptes reviewer Apple,
- * mot de passe YunoReview2026! des notes ASC) ne sont PAS dans cette liste : leur
+ * mot de passe dédié dans les notes ASC) ne sont PAS dans cette liste : leur
  * mot de passe ne bouge pas ici.
  */
 
@@ -129,11 +129,11 @@ async function main() {
   console.log(`\n    ${newPassword}\n`);
   console.log('ACTIONS MANUELLES RESTANTES — dans cet ordre :');
   console.log('  1. supabase secrets set DEMO_LOGIN_PASSWORD=\'<le mot de passe ci-dessus>\'');
-  console.log('     (+ DEMO_ACCOUNT_PASSWORD=<idem> : le flux preview accept-staff-invitation le lit,');
-  console.log('      et son repli codé en dur sur l\'ancien mot de passe devient invalide après rotation)');
+  console.log('     (accept-staff-invitation lit DEMO_LOGIN_PASSWORD puis DEMO_ACCOUNT_PASSWORD :');
+  console.log('      un seul secret à jour suffit aux deux flux)');
   console.log('  2. App Store Connect → App Review Information → Notes : mettre à jour toute');
   console.log('     mention d\'un compte @womber.fr utilisant l\'ancien mot de passe démo.');
-  console.log('     (apple-review@ / apple-review-pro@ gardent YunoReview2026!, non rotés ici.)');
+  console.log('     (apple-review@ / apple-review-pro@ gardent leur mot de passe dédié, non roté ici.)');
   console.log('──────────────────────────────────────────────────────────────\n');
 }
 

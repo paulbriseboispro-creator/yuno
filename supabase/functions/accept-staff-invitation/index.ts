@@ -375,10 +375,10 @@ async function handleRedeemDemoPreviewLink(supabase: SupabaseClient, body: any):
   if (!email) return json({ error: 'unknown_account', code: 'server_error' }, 500);
 
   // 2) Mint une session pour le compte démo existant. Le mot de passe démo partagé
-  //    est déjà public (hardcodé dans le bundle front DemoSwitcher.tsx + seed), donc
-  //    le fallback ici n'expose rien de plus. Un secret edge DEMO_ACCOUNT_PASSWORD le
-  //    surcharge si un jour le mot de passe démo est tourné.
-  const demoPassword = Deno.env.get('DEMO_ACCOUNT_PASSWORD') ?? 'YunoDemo2026!';
+  //    ne vit plus QUE dans les secrets edge (sorti du bundle ET du code — même
+  //    source que demo-login, une rotation = un seul secret à poser).
+  const demoPassword = Deno.env.get('DEMO_LOGIN_PASSWORD') ?? Deno.env.get('DEMO_ACCOUNT_PASSWORD');
+  if (!demoPassword) return json({ error: 'not_configured', code: 'server_error' }, 500);
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY'); // auto-injecté par Supabase
   const url = Deno.env.get('SUPABASE_URL');
   if (!anonKey || !url) return json({ error: 'not_configured', code: 'server_error' }, 500);
