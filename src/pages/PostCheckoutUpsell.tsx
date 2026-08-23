@@ -66,7 +66,7 @@ export default function PostCheckoutUpsell() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
 
   const ticketParam = cleanUuid(searchParams.get('ticket'));
@@ -212,6 +212,8 @@ export default function PostCheckoutUpsell() {
         venueId: venueInfo.id,
         cancelUrl: `/order/upsell?ticket=${ticketId}`,
         purchaseSource: 'post_checkout_upsell',
+        // Refus serveur dans la langue de l'acheteur (pattern TicketCheckout).
+        language,
         ageDeclaration: { confirmed: true, birthDate: ageBirthDate },
       };
       const { data, error } = await invokeEdgeFunction('create-checkout', { body });

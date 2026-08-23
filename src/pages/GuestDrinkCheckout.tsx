@@ -154,6 +154,8 @@ export default function GuestDrinkCheckout() {
           eventId,
           venueId: venueInfo?.id,
           cancelUrl: '/guest-checkout',
+          // Refus serveur dans la langue de l'acheteur (pattern TicketCheckout).
+          language,
           guestEmail: guestEmail.trim(),
           guestFullName: `${guestFirstName.trim()} ${guestLastName.trim()}`,
           guestPhone: guestPhone.trim() || undefined,

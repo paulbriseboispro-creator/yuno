@@ -34,7 +34,7 @@ interface LiveContext {
 export function useLiveInstantCheckout(ctx: LiveContext | null) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   const [payingId, setPayingId] = useState<string | null>(null);
 
@@ -78,6 +78,8 @@ export function useLiveInstantCheckout(ctx: LiveContext | null) {
         venueId: ctx.venueId,
         cancelUrl: '/live',
         trackedLinkId,
+        // Refus serveur dans la langue de l'acheteur (pattern TicketCheckout).
+        language,
         ageDeclaration: { confirmed: true, birthDate: profile.birth_date ?? undefined },
       };
 

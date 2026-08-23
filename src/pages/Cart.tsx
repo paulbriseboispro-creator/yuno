@@ -348,7 +348,8 @@ export default function Cart() {
         kind: item.kind,
         mixerIds: item.kind === 'bottle' ? (item.mixers ?? []).map(m => m.id) : undefined,
       }));
-      const body: any = { items: cartItemsPayload, eventId, venueId: venueInfo?.id, cancelUrl: '/cart', trackedLinkId, ageDeclaration: { confirmed: true, birthDate: ageBirthDate } };
+      // language : les refus serveur (paiements non configurés, etc.) arrivent dans la langue de l'acheteur — même pattern que TicketCheckout/TableCheckout.
+      const body: any = { items: cartItemsPayload, eventId, venueId: venueInfo?.id, cancelUrl: '/cart', trackedLinkId, language, ageDeclaration: { confirmed: true, birthDate: ageBirthDate } };
 
       if (!user) {
         body.guestEmail = guestEmail.trim();
