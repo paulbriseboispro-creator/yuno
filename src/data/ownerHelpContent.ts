@@ -695,6 +695,45 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         ],
       },
       {
+        // Impression / export des listes : transverse aux trois piliers (guest
+        // list, tables VIP, billets), donc rangé en Opérations plutôt que sous
+        // une seule page.
+        id: 'print-export-lists',
+        titleKey: 'ohelp.printExport.title',
+        descKey: 'ohelp.printExport.desc',
+        icon: 'FileText',
+        actionLink: { labelKey: 'ohelp.action.goToGuestList', path: '/guest-list' },
+        relatedArticleIds: ['guest-list-setup', 'orders', 'door-name-search'],
+        keywords: ['imprimer', 'impression', 'print', 'imprimir', 'exporter', 'export', 'exportar', 'pdf', 'csv', 'tableur', 'excel', 'google sheets', 'liste de porte', 'door list', 'lista de puerta', 'feuille de porte', 'liste papier', 'liste complète', 'télécharger la liste', 'airprint', 'papier', 'donner la liste au videur', 'rgpd'],
+        sections: [
+          { headingKey: 'ohelp.printExport.s1h', bodyKey: 'ohelp.printExport.s1b' },
+          { headingKey: 'ohelp.printExport.s2h', bodyKey: 'ohelp.printExport.s2b' },
+          { headingKey: 'ohelp.printExport.s3h', bodyKey: 'ohelp.printExport.s3b' },
+          { headingKey: 'ohelp.printExport.s4h', bodyKey: 'ohelp.printExport.s4b', type: 'steps' },
+          { headingKey: 'ohelp.printExport.s5h', bodyKey: 'ohelp.printExport.s5b' },
+          { headingKey: 'ohelp.printExport.s6h', bodyKey: 'ohelp.printExport.s6b', type: 'tip' },
+          { headingKey: 'ohelp.printExport.s7h', bodyKey: 'ohelp.printExport.s7b', type: 'warning' },
+        ],
+      },
+      {
+        // Onglet « Liste » du videur : recherche de nom à la porte. Range avec
+        // les autres sujets de nuit (staff, mode live).
+        id: 'door-name-search',
+        titleKey: 'ohelp.doorSearch.title',
+        descKey: 'ohelp.doorSearch.desc',
+        icon: 'DoorOpen',
+        actionLink: { labelKey: 'ohelp.action.goToStaff', path: '/staff' },
+        relatedArticleIds: ['print-export-lists', 'guest-list-setup', 'staff-creation'],
+        keywords: ['videur', 'bouncer', 'portero', 'porte', 'door', 'puerta', 'onglet liste', 'liste', 'recherche par nom', 'chercher un nom', 'search by name', 'buscar por nombre', 'sans qr', 'qr perdu', 'téléphone déchargé', 'batterie', 'faire entrer', 'let in', 'entrée manuelle', 'check-in manuel', 'manual check-in', 'hors ligne', 'offline', 'sin conexión', 'déjà entré'],
+        sections: [
+          { headingKey: 'ohelp.doorSearch.s1h', bodyKey: 'ohelp.doorSearch.s1b' },
+          { headingKey: 'ohelp.doorSearch.s2h', bodyKey: 'ohelp.doorSearch.s2b', type: 'steps' },
+          { headingKey: 'ohelp.doorSearch.s3h', bodyKey: 'ohelp.doorSearch.s3b' },
+          { headingKey: 'ohelp.doorSearch.s4h', bodyKey: 'ohelp.doorSearch.s4b', type: 'tip' },
+          { headingKey: 'ohelp.doorSearch.s5h', bodyKey: 'ohelp.doorSearch.s5b', type: 'warning' },
+        ],
+      },
+      {
         id: 'invoices-management',
         titleKey: 'ohelp.pg.invoices.title',
         descKey: 'ohelp.pg.invoices.desc',
@@ -883,6 +922,26 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.stripeConnect.s5h', bodyKey: 'ohelp.stripeConnect.s5b' },
           { headingKey: 'ohelp.stripeConnect.s6h', bodyKey: 'ohelp.stripeConnect.s6b', type: 'warning' },
           { headingKey: 'ohelp.stripeConnect.s7h', bodyKey: 'ohelp.stripeConnect.s7b', type: 'tip' },
+        ],
+      },
+      {
+        // Accès assisté Yuno : consentement explicite, verrous base de données,
+        // journal lisible par le pro. Vit dans Réglages, comme l'entrée sidebar.
+        id: 'support-access',
+        titleKey: 'ohelp.supportAccess.title',
+        descKey: 'ohelp.supportAccess.desc',
+        icon: 'Headphones',
+        actionLink: { labelKey: 'ohelp.action.goToSupportAccess', path: '/support-access' },
+        relatedArticleIds: ['stripe-connect', 'venue-settings', 'launch-checklist'],
+        keywords: ['assistance', 'assistance yuno', 'accès assisté', 'acces assiste', 'support', 'support access', 'assisted access', 'acceso asistido', 'asistencia', 'aide configuration', 'configurer à ma place', 'équipe yuno', 'accorder l\'accès', 'couper l\'accès', 'révoquer', 'revoke', 'autorisation', 'journal', 'audit', 'session', 'sécurité', 'qui accède à mon compte'],
+        sections: [
+          { headingKey: 'ohelp.supportAccess.s1h', bodyKey: 'ohelp.supportAccess.s1b' },
+          { headingKey: 'ohelp.supportAccess.s2h', bodyKey: 'ohelp.supportAccess.s2b', type: 'steps' },
+          { headingKey: 'ohelp.supportAccess.s3h', bodyKey: 'ohelp.supportAccess.s3b' },
+          { headingKey: 'ohelp.supportAccess.s4h', bodyKey: 'ohelp.supportAccess.s4b', type: 'warning' },
+          { headingKey: 'ohelp.supportAccess.s5h', bodyKey: 'ohelp.supportAccess.s5b' },
+          { headingKey: 'ohelp.supportAccess.s6h', bodyKey: 'ohelp.supportAccess.s6b' },
+          { headingKey: 'ohelp.supportAccess.s7h', bodyKey: 'ohelp.supportAccess.s7b', type: 'tip' },
         ],
       },
       {

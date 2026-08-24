@@ -180,6 +180,59 @@ commande, liens promoteurs & affiliés (`/l/*`, `/promoteur/*`, `/p/*`, `/promo/
 staff/pro. Le web mobile doit rester un chemin d'achat complet — DICE gate, Yuno non :
 on vend du sans-friction dans une file d'attente.
 
+## Accès assisté Yuno (« mode support ») — consentement du pro
+
+Un super admin peut ouvrir une session GoTrue **dans le compte d'un pro consentant**
+pour l'aider à configurer sa soirée, sans jamais connaître son mot de passe. Toute la
+mécanique vit dans la migration `20260824120000_admin_support_access.sql`.
+
+- **Le consentement est la porte** : `admin_support_grants` (demandé par l'admin,
+  approuvé par le pro via `approve_support_grant`, coupé par l'un ou l'autre via
+  `revoke_support_grant`). Grant 7 j, session 12 h. Page pro : `/owner/support-access`,
+  `/manager/support-access`, `/organizer-app/support-access`.
+- **La clé de tous les verrous est le claim JWT `session_id`**, enregistré dans
+  `admin_support_sessions.auth_session_id` par l'edge `admin-account-recovery`
+  (action `open-support-session` : magiclink admin → `verifyOtp` serveur → tokens).
+  `is_support_session()` le lit ; les triggers de garde s'appuient dessus.
+- **Ces gardes discriminent sur `auth.jwt()`, PAS sur `current_user`** — ils PEUVENT
+  donc être `SECURITY DEFINER` sans se désactiver eux-mêmes, contrairement aux gardes
+  du cycle promoteur.
+- **Ne JAMAIS ajouter un trigger de blocage sur `admin_support_audit` ni
+  `admin_support_sessions`** : la ligne d'audit est écrite PENDANT la session support,
+  le trigger se bloquerait lui-même et casserait toute écriture métier. Ces tables sont
+  protégées par la RLS (aucune policy d'écriture) — c'est suffisant et sans retour de flamme.
+- **Toute nouvelle surface qui touche à l'argent ou à l'identité doit se verrouiller** :
+  trigger `block_support_session_write` côté base, et `isSupportSessionToken()`
+  (`_shared/support-session.ts`) côté edge function. Déjà couverts : Stripe Connect
+  (profiles + venues + DJ + abonnement club), IBAN organisateur et promoteur, cycle
+  `promoter_payouts`, email de connexion, PIN, suspension, MFA, suppression de compte.
+  `promoter_conversions` bloque UPDATE/DELETE mais **autorise l'INSERT** (une entrée
+  pointée à la porte est un fait opérationnel ; la bloquer ferait perdre la commission
+  du promoteur en silence, les appels étant en fire-and-forget).
+- Le drapeau `localStorage` de `src/lib/supportSession.ts` ne sert QU'À la bannière et
+  au contournement de `RequireMFA` (le support n'a pas le téléphone du pro). Ce n'est
+  jamais la sécurité : tout refus est serveur.
+
+## Listes imprimables (guest list, tables VIP, billetterie)
+
+`src/lib/rosterExport.ts` (rendu) + `src/lib/rosterBuilders.ts` (données) + le dialogue
+`RosterExportDialog`. Trois formats : `door` (PDF de porte, gros noms A→Z, **jamais**
+email/téléphone/montant), `detail` (PDF complet) et `csv` (BOM UTF-8 + séparateur `;`
+pour Excel FR/ES).
+
+- Livraison via `deliverDocument` : `<a download>` est un no-op dans la WebView iOS,
+  le natif passe par la feuille de partage (qui contient « Imprimer »).
+- Un nouveau pilier à imprimer = un constructeur dans `rosterBuilders.ts`, pas un
+  nouveau rendu. Ne jamais mettre une colonne sensible dans `doorMetaKeys`.
+- **Recherche par nom à la porte** (`useDoorRoster` + `DoorSearchPanel`, onglet « Liste »
+  du videur et de `/organizer-app/checkin`) : taper sur un nom **rejoue le pipeline de
+  scan existant** avec le QR trouvé. Ne JAMAIS y réimplémenter la validation — les règles
+  (heure limite, doublon, mauvais club, conversion promoteur, file offline) doivent rester
+  au seul endroit qui les porte.
+- Source de la liste : RPC `get_event_scan_manifest`, ouverte à l'organisateur de la
+  soirée et à son équipe depuis `20260824120002`. Le repli hors ligne (IndexedDB) n'existe
+  que dans l'app Yuno Pro (`isProApp()`).
+
 ## Règles de travail
 
 - Toujours `git add <fichiers précis>` — jamais `git add -A`/`git add .` (parasites + binaires).
