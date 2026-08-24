@@ -5,7 +5,9 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
-import { ChevronDown, Plus, QrCode, Calendar, FolderOpen } from 'lucide-react';
+import { ChevronDown, Plus, QrCode, Calendar, FolderOpen, Printer } from 'lucide-react';
+import { RosterExportDialog } from '@/components/roster/RosterExportDialog';
+import { buildGuestListRoster } from '@/lib/rosterBuilders';
 import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { toast } from 'sonner';
@@ -26,7 +28,7 @@ import { GuestListRequestsInbox } from '@/components/owner/guest-list/GuestListR
 import { AgencyEnvelopeGrant } from '@/components/owner/guest-list/AgencyEnvelopeGrant';
 import { RED, T1, T2, T3, BORDER, F_BORDER, C_FAINT, INNER_BG, CARD_BG, CARD_SHADOW } from '@/components/owner/guest-list/ui';
 
-interface EventOption { id: string; title: string; startAt: string; endAt: string }
+interface EventOption { id: string; title: string; startAt: string; endAt: string; timezone: string | null }
 
 /** A preset's reusable config (everything a part insert carries, minus quota/holder). */
 function presetExtra(tpl: GuestListTemplate): Record<string, unknown> {
@@ -80,7 +82,7 @@ function EventSelector({ events, value, onChange, t }: { events: EventOption[]; 
 }
 
 export default function OwnerGuestList() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { venueId, venue, organizerUserId, scope, loading: venueLoading } = useVenueContext();
   const isOrganizerScope = scope === 'organizer';
   const scopeReady = isOrganizerScope ? !!organizerUserId : !!venueId;
@@ -90,6 +92,7 @@ export default function OwnerGuestList() {
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [tab, setTab] = useState<'events' | 'templates'>('events');
+  const [exportOpen, setExportOpen] = useState(false);
 
   const ctx = { isOrganizerScope, venueId: venueId ?? null, organizerUserId: organizerUserId ?? null };
   const {
@@ -134,7 +137,7 @@ export default function OwnerGuestList() {
 
   const fetchEvents = async () => {
     if (!scopeReady) return;
-    const base = supabase.from('events').select('id,title,start_at,end_at').gte('end_at', new Date().toISOString()).order('start_at', { ascending: true });
+    const base = supabase.from('events').select('id,title,start_at,end_at,timezone').gte('end_at', new Date().toISOString()).order('start_at', { ascending: true });
     // Côté club : inclure les co-soirées org-led où le club est partner_venue_id
     // (venue_id NULL) — sinon la soirée du 11/09 n'apparaît pas dans le sélecteur
     // et le club ne peut pas suivre sa guest list.
@@ -142,12 +145,13 @@ export default function OwnerGuestList() {
       ? await base.or(`organizer_user_id.eq.${organizerUserId},partner_organizer_id.eq.${organizerUserId}`)
       : await base.or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`);
     if (data) {
-      setEvents(data.map(e => ({ id: e.id, title: e.title, startAt: e.start_at, endAt: e.end_at })));
+      setEvents(data.map(e => ({ id: e.id, title: e.title, startAt: e.start_at, endAt: e.end_at, timezone: e.timezone ?? null })));
       if (data.length > 0 && !selectedEventId) setSelectedEventId(data[0].id);
     }
     setLoadingEvents(false);
   };
 
+  const selectedEvent = events.find(e => e.id === selectedEventId) ?? null;
   const slug = partSlug({ isOrganizerScope, organizerUserId, venueName: venue?.name ?? null });
   const clubPart = parts.find(p => p.holder_type === 'club') ?? null;
   // L'ENVELOPPE agence ('agency') est pilotée dans le cockpit de l'agence
@@ -273,6 +277,17 @@ export default function OwnerGuestList() {
                 <p style={{ color: T1, fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>{totalSignups}</p>
                 <p style={{ color: T3, fontSize: 10.5, margin: 0 }}>{t('guestList.parts.totalSignups')}</p>
               </div>
+              {/* Sortie papier / tableur de TOUTE la guest list de la soirée
+                  (toutes parts confondues), pour la porte comme pour le bureau. */}
+              <button
+                type="button"
+                onClick={() => setExportOpen(true)}
+                className="ml-auto inline-flex items-center gap-1.5 shrink-0 cursor-pointer"
+                style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '8px 12px', color: T2, fontSize: 12.5, fontWeight: 560, fontFamily: 'inherit' }}
+              >
+                <Printer className="h-3.5 w-3.5" />
+                {t('roster.cta')}
+              </button>
             </div>
 
             {/* Demandes d'allocation — pour la partie qui tient l'opérationnel */}
@@ -438,6 +453,24 @@ export default function OwnerGuestList() {
           onClose={() => setDistribute(null)}
           onConfirmTargets={confirmDistributeTargets}
           onConfirmAgency={confirmDistributeAgency}
+        />
+      )}
+
+      {exportOpen && selectedEvent && (
+        <RosterExportDialog
+          open
+          onClose={() => setExportOpen(false)}
+          title={t('roster.guestListTitle')}
+          build={() => buildGuestListRoster(
+            {
+              id: selectedEvent.id,
+              title: selectedEvent.title,
+              start_at: selectedEvent.startAt,
+              timezone: selectedEvent.timezone,
+              venueName: venue?.name ?? null,
+            },
+            language,
+          )}
         />
       )}
     </div>

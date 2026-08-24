@@ -3,7 +3,9 @@ import { motion } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
-import { Search, Eye, Crown, Users, ChevronDown } from 'lucide-react';
+import { Search, Eye, Crown, Users, ChevronDown, Printer } from 'lucide-react';
+import { RosterExportDialog } from '@/components/roster/RosterExportDialog';
+import { buildTableRoster } from '@/lib/rosterBuilders';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { supabase } from '@/integrations/supabase/client';
 import { tableRevenue } from '@/utils/fees';
@@ -52,8 +54,11 @@ interface VipOrder {
   vipStatus: string | null;
   createdAt: string;
   paidAt: string | null;
+  eventId: string;
   eventTitle: string;
   eventStartAt: string;
+  eventTimezone: string | null;
+  venueName: string | null;
   zoneName: string | null;
 }
 
@@ -98,6 +103,7 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedReservation, setSelectedReservation] = useState<VipOrder | null>(null);
   const [sortBy, setSortBy] = useState<'date' | 'price'>('date');
+  const [exportOpen, setExportOpen] = useState(false);
 
   const dateLocale = language === 'fr' ? fr : language === 'es' ? es : enUS;
   const statusLabel = (s: string) => t(STATUS_KEY[s] ?? 'orders.status.pending');
@@ -122,12 +128,16 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
       if (orgScope && eventIds!.length === 0) { setReservations([]); return; }
       let query = supabase
         .from('table_reservations')
-        .select(`*, events!inner(title, start_at, venue_id), table_zones(name)`)
+        .select(`*, events!inner(title, start_at, venue_id, timezone, venues(name)), table_zones(name)`)
         .in('status', ['paid', 'confirmed', 'cancelled', 'refunded'])
         .order('created_at', { ascending: false });
       if (eventId) query = query.eq('event_id', eventId);
       else if (orgScope) query = query.in('event_id', eventIds!);
-      else if (venueId) query = query.eq('events.venue_id', venueId);
+      // Co-soiree org-led : events.venue_id est NULL et le club vit dans
+      // partner_venue_id. Filtrer sur venue_id seul faisait disparaitre la
+      // soiree entiere de cette page pour le club partenaire — donc aussi le
+      // bouton d'impression. Meme elargissement que OwnerGuestList.
+      else if (venueId) query = query.or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`, { referencedTable: 'events' });
       const { data, error } = await query;
       if (error) throw error;
       const mapped: VipOrder[] = (data || []).map((r: any) => ({
@@ -145,8 +155,11 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
         vipStatus: r.vip_status,
         createdAt: r.created_at,
         paidAt: r.paid_at,
+        eventId: r.event_id,
         eventTitle: r.events.title,
         eventStartAt: r.events.start_at,
+        eventTimezone: r.events.timezone ?? null,
+        venueName: r.events.venues?.name ?? null,
         zoneName: r.table_zones?.name || null,
       }));
       setReservations(mapped);
@@ -177,6 +190,17 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
   );
   const totalGuests = filteredReservations.reduce((s, r) => s + (r.guestCount ?? 0), 0);
 
+  // Soirées présentes dans le jeu chargé — la page club est multi-soirées, mais
+  // une feuille de service n'a de sens que pour UNE nuit.
+  const eventChoices = Array.from(
+    new Map(reservations.map((r) => [r.eventId, r])).values(),
+  )
+    .sort((a, b) => new Date(b.eventStartAt).getTime() - new Date(a.eventStartAt).getTime())
+    .map((r) => ({
+      id: r.eventId,
+      label: `${r.eventTitle} — ${format(new Date(r.eventStartAt), 'dd/MM/yyyy', { locale: dateLocale })}`,
+    }));
+
   return (
     <>
       {/* Stats */}
@@ -193,6 +217,20 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
             </div>
           ))}
         </div>
+        {/* Feuille de service VIP : plan de salle sur papier pour l'hôte et la porte. */}
+        {eventChoices.length > 0 && (
+          <div className="mt-4 flex justify-center">
+            <button
+              type="button"
+              onClick={() => setExportOpen(true)}
+              className="inline-flex items-center gap-1.5 cursor-pointer"
+              style={{ background: INNER_BG, border: `1px solid ${BORDER}`, borderRadius: 10, padding: '8px 12px', color: T2, fontSize: 12.5, fontWeight: 560 }}
+            >
+              <Printer className="w-3.5 h-3.5" />
+              {t('roster.cta')}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Filters */}
@@ -369,6 +407,32 @@ export function OwnerVipOrders({ venueId, eventId, eventIds, focusOrderId }: Own
           )}
         </DialogContent>
       </Dialog>
+
+      {exportOpen && (
+        <RosterExportDialog
+          open
+          onClose={() => setExportOpen(false)}
+          title={t('roster.tablesTitle')}
+          eventChoices={eventChoices}
+          build={(_format, pickedId) => {
+            const target = reservations.find((r) => r.eventId === (pickedId ?? eventChoices[0]?.id));
+            // La liste peut se recharger pendant que le dialogue est ouvert : sans
+            // ce garde, `target!` lèverait un TypeError avalé en toast générique.
+            if (!target) throw new Error('event_no_longer_loaded');
+            return buildTableRoster(
+              {
+                id: target.eventId,
+                title: target.eventTitle,
+                start_at: target.eventStartAt,
+                timezone: target.eventTimezone,
+                venueName: target.venueName,
+              },
+              language,
+              venueId ?? null,
+            );
+          }}
+        />
+      )}
     </>
   );
 }
