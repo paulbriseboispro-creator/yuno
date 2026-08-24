@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, UserCircle, Shield, ShieldOff, Plus, Trash2, MapPin, Mail, Calendar, Star, ShoppingBag, Ticket, AlertTriangle, Building2, KeyRound, Ban, UserCheck, ShieldAlert, type LucideIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { SupportAccessPanel } from '@/components/admin/SupportAccessPanel';
 
 // ─── Yuno Design Tokens ───────────────────────────────────────────────────────
 const RED        = '#E8192C';
@@ -620,6 +621,18 @@ export default function AdminUserDetail() {
             <strong style={{ color: T2 }}>Suspension</strong> : coupe l'accès aux dashboards pro (effet à la prochaine navigation).
           </p>
         </div>
+
+        {/* Accès assisté — consentement du pro, session encadrée, journal */}
+        {userId && (
+          <div style={cardStyle}>
+            <SupportAccessPanel
+              userId={userId}
+              userEmail={profile?.email}
+              userName={[profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || undefined}
+              roles={roles}
+            />
+          </div>
+        )}
 
         {/* Owner venue sync — shown when user has owner role */}
         {roles.includes(OWNER_ROLE) && (

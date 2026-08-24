@@ -732,6 +732,10 @@ const ROLE_DEEPLINK: Record<string, string> = {
   // Rappel multi-rôles (soirée dans ~6h) : pas de dashboard unique — l'accueil
   // Pro redirige chaque membre vers le sien.
   all_staff: '/',
+  // Cible 'owner' : les alertes qui s'adressent au patron du club, pas au staff
+  // terrain (accès assisté Yuno). Sans cette entrée, le deeplink est undefined
+  // et le push est jeté avant l'envoi.
+  owner: '/owner/support-access',
 };
 
 const INCIDENT_LABEL: Record<Lang, Record<string, string>> = {
@@ -814,6 +818,23 @@ function staffPushCopy(type: string, lang: Lang, md: StaffPushMetadata | null): 
       if (lang === 'en') return { title: '📣 Tonight — get ready', body: `${ev} starts in ~6h${at}. Prep your station.` };
       if (lang === 'es') return { title: '📣 Esta noche — prepárate', body: `${ev} empieza en ~6h${at}. Prepara tu puesto.` };
       return { title: '📣 Ce soir — prépare-toi', body: `${ev} commence dans ~6h${at}. Prépare ton poste.` };
+    }
+    // Accès assisté Yuno : le consentement doit se voir au moment où il se
+    // joue. Un accès qu'on découvre le lendemain n'est pas un accès consenti.
+    case 'support_access_requested': {
+      if (lang === 'en') return { title: '🛟 Yuno support access', body: 'The Yuno team is asking to help you set up your account. Tap to accept or decline.' };
+      if (lang === 'es') return { title: '🛟 Acceso asistido Yuno', body: 'El equipo de Yuno pide ayudarte a configurar tu cuenta. Toca para aceptar o rechazar.' };
+      return { title: '🛟 Accès assisté Yuno', body: "L'équipe Yuno demande à vous aider à configurer votre compte. Touchez pour accepter ou refuser." };
+    }
+    case 'support_access_session': {
+      if (lang === 'en') return { title: '🛟 Yuno is in your account', body: 'A session just opened. Everything is logged, and you can cut access at any time.' };
+      if (lang === 'es') return { title: '🛟 Yuno está en tu cuenta', body: 'Una sesión acaba de abrirse. Todo queda registrado y puedes cortar el acceso cuando quieras.' };
+      return { title: '🛟 Yuno est dans votre compte', body: "Une session vient de s'ouvrir. Tout est journalisé et vous pouvez couper l'accès à tout moment." };
+    }
+    case 'support_access_ended': {
+      if (lang === 'en') return { title: '🛟 Yuno access ended', body: 'The assisted access to your account is over.' };
+      if (lang === 'es') return { title: '🛟 Acceso Yuno finalizado', body: 'El acceso asistido a tu cuenta ha terminado.' };
+      return { title: '🛟 Accès Yuno terminé', body: "L'accès assisté à votre compte est terminé." };
     }
     default:
       return null; // type hors catalogue : pas de push (la DB filtre déjà, ceci est la ceinture).

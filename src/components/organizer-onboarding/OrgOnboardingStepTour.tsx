@@ -7,6 +7,7 @@ import {
   ArrowLeft, ArrowRight, Sparkles, Check, type LucideIcon,
 } from 'lucide-react';
 import { StepHeader, PrimaryButton, GhostButton, InnerCard, DoneRow, RED, T1, T2, T3, C_FAINT } from '@/components/onboarding/onboardingUI';
+import { SupportHelpOptIn } from '@/components/onboarding/SupportHelpOptIn';
 
 interface Props {
   onComplete: () => void | Promise<void>;
@@ -110,6 +111,10 @@ export function OrgOnboardingStepTour({ onComplete }: Props) {
           </div>
         </div>
       </InnerCard>
+
+      {/* Dernière étape = le moment où l'ampleur du réglage devient concrète.
+          C'est là que « vous préférez qu'on le fasse avec vous ? » a du sens. */}
+      <SupportHelpOptIn settingsPath="/organizer-app/support-access" />
 
       <DoneRow>
         <Check className="w-5 h-5 flex-none" style={{ color: '#34D399' }} />

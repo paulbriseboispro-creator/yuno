@@ -3,6 +3,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { releaseDjBookingBalance, refundDjBookingContract, computeDjEscrowFeeCents } from "../_shared/dj-payout.ts";
 import { resolveReturnOrigin, safeReturnUrl } from "../_shared/cors.ts";
+import { isSupportSessionToken } from "../_shared/support-session.ts";
 
 // Unified Stripe Connect dispatcher.
 // Replaces: organizer-stripe-connect-onboard, organizer-stripe-connect-status,
@@ -53,6 +54,14 @@ serve(async (req) => {
     // Origin forgée. Voir resolveReturnOrigin dans _shared/cors.ts.
     const { origin } = resolveReturnOrigin(req);
     log("Request", { userId: user.id, action });
+
+    // Mode support (accès admin assisté) : lecture seule sur Stripe. Toute
+    // action qui crée/modifie un compte connecté, mint un lien Express (accès
+    // solde + compte bancaire) ou déplace de l'argent est refusée — seul
+    // "status" passe.
+    if (action !== "status" && (await isSupportSessionToken(supabaseAdmin, token))) {
+      return json({ error: "support_session_forbidden" }, 403);
+    }
 
     // Any venueId coming from the request body MUST belong to the caller. Every
     // owner branch below runs via service_role (RLS bypassed), so without this an

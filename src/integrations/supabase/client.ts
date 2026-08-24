@@ -62,10 +62,45 @@ function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise
     );
   }, timeoutMs);
 
-  return fetch(input, { ...init, signal: controller.signal }).finally(() => {
-    clearTimeout(timer);
-    callerSignal?.removeEventListener('abort', abortFromCaller);
-  });
+  return fetch(input, { ...init, signal: controller.signal })
+    .then((res) => {
+      // Accès assisté : traduire un refus de verrou en message lisible, une
+      // seule fois et partout. Chaque page a sa propre gestion d'erreur (souvent
+      // un toast générique), donc sans ce point unique un refus volontaire
+      // ressemblerait à un bug de l'app en plein montage de soirée.
+      if (!res.ok && (res.status === 400 || res.status === 403)) void reportSupportRefusal(res);
+      return res;
+    })
+    .finally(() => {
+      clearTimeout(timer);
+      callerSignal?.removeEventListener('abort', abortFromCaller);
+    });
+}
+
+/**
+ * Inspecte une réponse en erreur SANS la consommer (clone) et signale un refus
+ * de mode assistance. Best-effort de bout en bout : jamais de throw, jamais de
+ * blocage de la réponse d'origine.
+ */
+let lastRefusalAt = 0;
+async function reportSupportRefusal(res: Response): Promise<void> {
+  try {
+    const body = await res.clone().text();
+    if (!body.includes('support_session_forbidden') && !body.includes('P0403')) return;
+    // Une seule alerte par salve : une page qui enregistre un formulaire peut
+    // lancer plusieurs écritures, toutes refusées pour la même raison.
+    const now = Date.now();
+    if (now - lastRefusalAt < 4000) return;
+    lastRefusalAt = now;
+    const [{ toast }, support] = await Promise.all([
+      import('sonner'),
+      import('@/lib/supportSession'),
+    ]);
+    const lang = localStorage.getItem('language') ?? 'fr';
+    toast.error(support.supportForbiddenMessage(lang));
+  } catch {
+    // Corps illisible, import échoué, localStorage indispo : on n'a rien à dire.
+  }
 }
 
 /**

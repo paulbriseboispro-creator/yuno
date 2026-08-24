@@ -72,6 +72,7 @@ import { DemoSwitcher } from "@/components/demo/DemoSwitcher";
 import { PreviewModeProvider } from "@/contexts/PreviewModeContext";
 import { LiveModeProvider } from "@/contexts/LiveModeContext";
 import { PreviewModeBanner } from "@/components/PreviewModeBanner";
+import { SupportSessionBanner } from "@/components/SupportSessionBanner";
 import { BottomNavVisibilityProvider, PersistentBottomNav } from "@/components/PersistentBottomNav";
 import { pruneExpiredDrafts } from "@/lib/formDraft";
 import "@/lib/previewGuard"; // installe l'intercepteur lecture seule (effet de bord)
@@ -129,6 +130,7 @@ const OwnerOnboarding = lazyWithRetry(() => import("./pages/OwnerOnboarding"));
 const HelpCenter = lazyWithRetry(() => import("./pages/HelpCenter"));
 const OwnerHelpCenter = lazyWithRetry(() => import("./pages/OwnerHelpCenter"));
 const OwnerSupportRequest = lazyWithRetry(() => import("./pages/OwnerSupportRequest"));
+const SupportAccessSettings = lazyWithRetry(() => import("./pages/SupportAccessSettings"));
 const OwnerGuestList = lazyWithRetry(() => import("./pages/OwnerGuestList"));
 const OwnerRefunds = lazyWithRetry(() => import("./pages/OwnerRefunds"));
 const OwnerNotifications = lazyWithRetry(() => import("./pages/OwnerNotifications"));
@@ -523,6 +525,9 @@ const App = () => (
                 comptes @womber.fr (return null sinon), donc jamais visible d'un vrai user. */}
             <DemoSwitcher />
             <PreviewModeBanner />
+            {/* Assistance Yuno : rappel permanent qu'un admin agit dans le compte
+                d'un pro consentant, avec sortie immédiate. Auto-gaté. */}
+            <SupportSessionBanner />
             <ScrollToTop />
             <SsrHeroGuard />
             {!isProApp() && <CartCleanup />}
@@ -688,6 +693,7 @@ const App = () => (
                   <Route path="campaigns/:id/edit" element={<OrgAppCampaignEditor />} />
                   <Route path="campaigns/:id/report" element={<OrgAppCampaignReport />} />
                   <Route path="organization" element={<OrgAppOrganization />} />
+                  <Route path="support-access" element={<SupportAccessSettings />} />
                   <Route path="payments" element={<OrgAppPayments />} />
                   {/* Legacy Stripe onboarding return target (`?stripe=success|refresh`) → payments page */}
                   <Route path="settings" element={<OrgAppPayments />} />
@@ -873,6 +879,7 @@ const App = () => (
                   <Route path="notifications" element={<OwnerNotifications />} />
                   <Route path="help" element={<OwnerHelpCenter />} />
                   <Route path="support" element={<OwnerSupportRequest />} />
+                  <Route path="support-access" element={<SupportAccessSettings />} />
                 </Route>
 
                 <Route path="/unsubscribe" element={<Unsubscribe />} />
@@ -1098,6 +1105,11 @@ const App = () => (
                 <Route path="/manager/support" element={
                   <ManagerRoute>
                     <OwnerSupportRequest />
+                  </ManagerRoute>
+                } />
+                <Route path="/manager/support-access" element={
+                  <ManagerRoute>
+                    <SupportAccessSettings />
                   </ManagerRoute>
                 } />
                 

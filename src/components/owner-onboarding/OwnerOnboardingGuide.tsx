@@ -8,6 +8,7 @@ import {
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useOwnerOnboarding } from '@/hooks/useOwnerOnboarding';
 import { SUBSCRIPTIONS_ENABLED } from '@/lib/planFeatures';
+import { SupportHelpOptIn } from '@/components/onboarding/SupportHelpOptIn';
 
 const RED = '#E8192C';
 const GREEN = '#22c55e';
@@ -308,6 +309,14 @@ export function OwnerOnboardingGuide({ venueId }: Props) {
               }}
             />
           </div>
+        </div>
+
+        {/* ── « On le fait pour vous ? » ──
+            Placé au-dessus des étapes, pas caché en bas : un patron de club qui
+            ouvre ce guide et voit sept étapes doit savoir tout de suite qu'il
+            peut nous les déléguer. */}
+        <div className="mb-6">
+          <SupportHelpOptIn settingsPath="/owner/support-access" />
         </div>
 
         {/* ── Steps ── */}

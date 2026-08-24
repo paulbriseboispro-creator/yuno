@@ -29,6 +29,7 @@ import {
 	HelpCircleIcon,
 	ActivityIcon,
 	CalculatorIcon,
+	LifeBuoyIcon,
 } from "lucide-react";
 import { SUBSCRIPTIONS_ENABLED } from "@/lib/planFeatures";
 
@@ -221,6 +222,12 @@ export function buildNavGroups(t: (key: string) => string): SidebarNavGroup[] {
 					title: t(SUBSCRIPTIONS_ENABLED ? 'sidebar.subscription' : 'plan.payments'),
 					path: "/owner/billing",
 					icon: <CreditCardIcon />,
+				},
+				{
+					// Accès assisté Yuno : consentement, journal, révocation.
+					title: t('sidebar.supportAccess'),
+					path: "/owner/support-access",
+					icon: <LifeBuoyIcon />,
 				},
 			],
 		},

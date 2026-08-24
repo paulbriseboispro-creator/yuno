@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { type EmailLanguage } from "../_shared/email-branding.ts";
 import { buildSecureLink } from "../_shared/email-templates.ts";
+import { isSupportSessionToken } from "../_shared/support-session.ts";
 
 // Unified email-change dispatcher.
 // Replaces: request-email-change, submit-new-email, verify-email-change.
@@ -147,6 +148,12 @@ serve(async (req) => {
       const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
       if (userError || !user) throw new Error("Not authenticated");
 
+      // Mode support (accès admin assisté) : l'email de connexion appartient au
+      // client — un changement d'email détournerait le compte.
+      if (await isSupportSessionToken(supabaseAdmin, authHeader.replace("Bearer ", ""))) {
+        return new Response(JSON.stringify({ error: "support_session_forbidden" }), { status: 403, headers: jsonHeaders });
+      }
+
       const { origin } = body;
 
       await supabaseAdmin
@@ -239,6 +246,11 @@ serve(async (req) => {
 
       const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
       if (userError || !user) throw new Error("Not authenticated");
+
+      // Mode support : même verrou que "request".
+      if (await isSupportSessionToken(supabaseAdmin, authHeader.replace("Bearer ", ""))) {
+        return new Response(JSON.stringify({ error: "support_session_forbidden" }), { status: 403, headers: jsonHeaders });
+      }
 
       const { request_id, new_email, origin } = body;
       if (!request_id || !new_email) throw new Error("Missing fields");

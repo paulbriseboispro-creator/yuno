@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { hashPin } from "../_shared/pin-hash.ts";
+import { isSupportSessionToken } from "../_shared/support-session.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,6 +50,14 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } }
     );
+
+    // Accès assisté Yuno : le code PIN appartient au pro. Écriture service_role,
+    // donc le trigger sur profiles ne suffit pas.
+    if (await isSupportSessionToken(supabaseAdmin, authHeader.replace("Bearer ", ""))) {
+      return new Response(JSON.stringify({ error: "support_session_forbidden" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 403,
+      });
+    }
 
     // Check user has dj, promoter, organizer, or affiliate role
     const { data: roles, error: rolesError } = await supabaseAdmin

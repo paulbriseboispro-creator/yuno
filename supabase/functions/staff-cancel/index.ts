@@ -4,6 +4,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { type EmailLanguage } from "../_shared/email-branding.ts";
 import { buildRefund } from "../_shared/email-templates.ts";
 import { sendAutoPush } from "../_shared/auto-push.ts";
+import { isSupportSessionToken } from "../_shared/support-session.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -60,6 +61,16 @@ serve(async (req) => {
     }
 
     if (!authenticatedUserId) throw new Error('Not authenticated');
+
+    // Accès assisté Yuno : annuler un billet déclenche un remboursement Stripe.
+    // Même raison qu'owner-refund — écriture service_role, donc hors de portée
+    // des triggers.
+    if (await isSupportSessionToken(adminClient, (req.headers.get('Authorization') ?? '').replace('Bearer ', ''))) {
+      return new Response(JSON.stringify({ error: 'support_session_forbidden' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 403,
+      });
+    }
+
 
     const { data: roles } = await adminClient
       .from('user_roles').select('role').eq('user_id', authenticatedUserId);

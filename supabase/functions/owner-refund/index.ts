@@ -5,6 +5,7 @@ import { type EmailLanguage } from "../_shared/email-branding.ts";
 import { buildRefund } from "../_shared/email-templates.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { sendAutoPush } from "../_shared/auto-push.ts";
+import { isSupportSessionToken } from "../_shared/support-session.ts";
 
 const logStep = (step: string, details?: any) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : "";
@@ -34,6 +35,15 @@ serve(async (req) => {
 
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
     if (authError || !user) throw new Error("Not authenticated");
+
+    // Accès assisté Yuno : un remboursement sort de l'argent du compte Stripe du
+    // club. Cette fonction écrit en service_role, donc les triggers de garde de
+    // la base ne la voient jamais — le refus doit être posé ici.
+    if (await isSupportSessionToken(supabaseAdmin, (req.headers.get("Authorization") ?? "").replace("Bearer ", ""))) {
+      return new Response(JSON.stringify({ error: "support_session_forbidden" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 403,
+      });
+    }
 
     logStep("User authenticated", { userId: user.id });
 

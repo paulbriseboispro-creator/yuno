@@ -182,6 +182,167 @@ export type Database = {
           },
         ]
       }
+      admin_support_audit: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          detail: Json | null
+          grant_id: string | null
+          id: string
+          row_pk: string | null
+          session_id: string | null
+          table_name: string | null
+          target_user_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          detail?: Json | null
+          grant_id?: string | null
+          id?: string
+          row_pk?: string | null
+          session_id?: string | null
+          table_name?: string | null
+          target_user_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          detail?: Json | null
+          grant_id?: string | null
+          id?: string
+          row_pk?: string | null
+          session_id?: string | null
+          table_name?: string | null
+          target_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_support_audit_grant_id_fkey"
+            columns: ["grant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_support_grants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_support_audit_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "admin_support_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_support_grants: {
+        Row: {
+          approved_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          initiated_by: string
+          reason: string | null
+          requested_by: string
+          revoked_at: string | null
+          revoked_by: string | null
+          scope: string
+          status: string
+          target_user_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          initiated_by?: string
+          reason?: string | null
+          requested_by: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          scope?: string
+          status?: string
+          target_user_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          initiated_by?: string
+          reason?: string | null
+          requested_by?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+          scope?: string
+          status?: string
+          target_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_support_grants_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_support_grants_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_support_sessions: {
+        Row: {
+          admin_id: string
+          auth_session_id: string | null
+          created_at: string
+          ended_at: string | null
+          expires_at: string
+          grant_id: string
+          id: string
+          registered_at: string | null
+          status: string
+          target_user_id: string
+        }
+        Insert: {
+          admin_id: string
+          auth_session_id?: string | null
+          created_at?: string
+          ended_at?: string | null
+          expires_at?: string
+          grant_id: string
+          id?: string
+          registered_at?: string | null
+          status?: string
+          target_user_id: string
+        }
+        Update: {
+          admin_id?: string
+          auth_session_id?: string | null
+          created_at?: string
+          ended_at?: string | null
+          expires_at?: string
+          grant_id?: string
+          id?: string
+          registered_at?: string | null
+          status?: string
+          target_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_support_sessions_grant_id_fkey"
+            columns: ["grant_id"]
+            isOneToOne: false
+            referencedRelation: "admin_support_grants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       affiliate_app_notifications: {
         Row: {
           affiliate_id: string
@@ -14883,6 +15044,14 @@ export type Database = {
       admin_set_user_suspended: {
         Args: { _reason?: string; _suspended: boolean; _user_id: string }
         Returns: undefined
+      }
+      approve_support_grant: { Args: { _grant_id: string }; Returns: undefined }
+      request_support_help: { Args: { _reason?: string }; Returns: string }
+      revoke_support_grant: { Args: { _grant_id: string }; Returns: undefined }
+      is_support_session: { Args: Record<PropertyKey, never>; Returns: boolean }
+      get_my_support_session: {
+        Args: Record<PropertyKey, never>
+        Returns: { expires_at: string; grant_id: string; session_id: string }[]
       }
       admin_upsert_credential_deadline: {
         Args: {

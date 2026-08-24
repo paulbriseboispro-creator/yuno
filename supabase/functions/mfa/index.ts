@@ -5,6 +5,7 @@ import { wrapEmailWithBranding } from "../_shared/email-branding.ts";
 import { buildSecureLink } from "../_shared/email-templates.ts";
 import { generateSecret, generateOTPAuthURL, verifyTOTP } from "../_shared/totp.ts";
 import { encode } from "https://deno.land/std@0.190.0/encoding/hex.ts";
+import { isSupportSessionToken } from "../_shared/support-session.ts";
 
 // Unified MFA dispatcher.
 // Replaces: mfa-disable, mfa-generate-secret, mfa-verify-login, mfa-verify-setup.
@@ -87,6 +88,20 @@ serve(async (req) => {
     );
 
     const authHeader = req.headers.get("Authorization");
+    // Accès assisté Yuno : la 2FA et le rebond de session web appartiennent au
+    // pro. Un « web-handoff » depuis une session support minterait une session
+    // GoTrue NEUVE, dont le session_id n'est enregistré nulle part — donc plus
+    // aucun verrou ne la reconnaîtrait. C'est la sortie de secours à fermer en
+    // premier. Idem pour l'enrôlement 2FA, qui rendrait le second facteur du
+    // pro au support (et le pro se retrouverait dehors).
+    const refuseIfSupport = async (): Promise<Response | null> => {
+      if (!authHeader) return null;
+      const bearer = authHeader.replace("Bearer ", "");
+      if (await isSupportSessionToken(serviceClient, bearer)) {
+        return json({ error: "support_session_forbidden" }, 403);
+      }
+      return null;
+    };
     // Anon client bound to the caller's JWT — used for getUser() and RLS-scoped reads.
     const makeAuthClient = () =>
       createClient(
@@ -170,6 +185,7 @@ serve(async (req) => {
     // action: "disable-request"  (← mfa-disable, request path — requires auth)
     // ─────────────────────────────────────────────────────────────────────────
     if (action === "disable-request") {
+      { const denied = await refuseIfSupport(); if (denied) return denied; }
       if (!authHeader) throw new Error("Non authentifié");
       const { data: { user }, error: authError } = await makeAuthClient().auth.getUser();
       if (authError || !user) throw new Error("Non authentifié");
@@ -249,6 +265,7 @@ serve(async (req) => {
     // ─────────────────────────────────────────────────────────────────────────
     if (action === "web-handoff") {
       if (!authHeader) throw new Error("Non authentifié");
+      { const denied = await refuseIfSupport(); if (denied) return denied; }
       const { data: { user }, error: authError } = await makeAuthClient().auth.getUser();
       if (authError || !user?.email) throw new Error("Non authentifié");
 
@@ -274,6 +291,7 @@ serve(async (req) => {
     // action: "generate-secret"  (← mfa-generate-secret — requires auth)
     // ─────────────────────────────────────────────────────────────────────────
     if (action === "generate-secret") {
+      { const denied = await refuseIfSupport(); if (denied) return denied; }
       if (!authHeader) throw new Error("Non authentifié");
       const supabaseAuth = makeAuthClient();
       const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
@@ -406,6 +424,7 @@ serve(async (req) => {
     // action: "verify-setup"  (← mfa-verify-setup — requires auth)
     // ─────────────────────────────────────────────────────────────────────────
     if (action === "verify-setup") {
+      { const denied = await refuseIfSupport(); if (denied) return denied; }
       const { code } = body;
       if (!code || !/^\d{6}$/.test(code)) throw new Error("Code invalide (6 chiffres requis)");
 

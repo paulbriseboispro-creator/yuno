@@ -127,6 +127,12 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_payments_switch:     { icon: Siren,         category: 'system',    label: 'notif.type.admin_payments_switch' },
   admin_security_burst:      { icon: ShieldAlert,   category: 'system',    label: 'notif.type.admin_security_burst' },
   admin_push_queue_stuck:    { icon: Radio,         category: 'system',    label: 'notif.type.admin_push_queue_stuck' },
+  // 🛟 Accès assisté Yuno (support) — flux club + organisateur.
+  support_access_requested:  { icon: LifeBuoy,      category: 'people',    label: 'notif.type.support_access_requested' },
+  support_access_session:    { icon: ShieldAlert,   category: 'people',    label: 'notif.type.support_access_session' },
+  support_access_ended:      { icon: LifeBuoy,      category: 'people',    label: 'notif.type.support_access_ended' },
+  // Flux super admin : un pro vient d'ouvrir la porte, la session est ouvrable.
+  admin_support_access_ready:{ icon: LifeBuoy,      category: 'growth',    label: 'notif.type.admin_support_access_ready' },
 };
 
 export const CATEGORY_META: Record<string, { label: string; color: string }> = {
@@ -408,6 +414,13 @@ export function notifLink(n: AppNotif, config: FeedConfig): string | null {
     case 'liveops_incident':
       return isOrganizer ? null : `${basePath}/live`;
 
+    // Accès assisté Yuno : toujours vers le panneau de consentement, quel que
+    // soit le dashboard — c'est là que le pro accepte, révoque et lit le journal.
+    case 'support_access_requested':
+    case 'support_access_session':
+    case 'support_access_ended':
+      return isOrganizer ? '/organizer-app/support-access' : `${basePath}/support-access`;
+
     default:
       return null;
   }
@@ -465,6 +478,13 @@ function adminNotifLink(n: AppNotif): string | null {
 
     case 'admin_new_organizer':
       return ref ? `/admin/directory/user/${ref}` : '/admin/organizers';
+
+    // Accès assisté prêt : atterrir directement sur la fiche du pro, là où vit
+    // le bouton « Ouvrir une session ».
+    case 'admin_support_access_ready': {
+      const target = typeof n.metadata?.target_user_id === 'string' ? n.metadata.target_user_id : null;
+      return target ? `/admin/directory/user/${target}` : '/admin/directory';
+    }
 
     case 'admin_new_agency':
       return '/admin/directory';

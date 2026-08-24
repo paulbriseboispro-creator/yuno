@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { MFAVerificationDialog } from './MFAVerificationDialog';
+import { isSupportSessionActive } from '@/lib/supportSession';
 
 interface RequireMFAProps {
   children: React.ReactNode;
@@ -61,6 +62,18 @@ export function RequireMFA({ children, requiredRole }: RequireMFAProps) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         navigate('/auth');
+        return;
+      }
+
+      // Accès assisté Yuno : la session est authentifiée comme le pro, mais le
+      // code 2FA appartient à SON téléphone — le support ne peut pas le fournir.
+      // La 2FA est ici remplacée par une garantie plus forte en amont : rôle
+      // super admin + consentement explicite du pro + session limitée dans le
+      // temps + journal d'audit. Les écritures sensibles restent bloquées
+      // côté base, donc sauter ce garde n'élargit aucun pouvoir.
+      if (isSupportSessionActive()) {
+        setMfaVerified(true);
+        setLoading(false);
         return;
       }
 

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
+import { isSupportSessionToken } from "../_shared/support-session.ts";
 
 serve(async (req) => {
   const corsHeaders = restrictedCorsHeaders(req);
@@ -33,6 +34,15 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
+
+    // Mode support (accès admin assisté) : la suppression du compte appartient
+    // au client, jamais à une session support.
+    if (await isSupportSessionToken(supabaseAdmin, authHeader.replace("Bearer ", ""))) {
+      return new Response(JSON.stringify({ error: "support_session_forbidden" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 403,
+      });
+    }
 
     // Check for active (unpaid/pending) purchases before deletion.
     const { data: activePurchases } = await supabaseAdmin

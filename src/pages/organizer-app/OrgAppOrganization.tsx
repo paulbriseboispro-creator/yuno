@@ -6,7 +6,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { translate } from '@/i18n/orgTranslate';
 import {
   UserCircle, CreditCard, Users, Building2, FileText, RotateCcw,
-  ChevronRight, ExternalLink, LogOut, Loader2, Lock,
+  ChevronRight, ExternalLink, LogOut, Loader2, Lock, LifeBuoy,
 } from 'lucide-react';
 import {
   OrgPage, OrgPageHeader, OrgCard, OrgButton, OrgSectionLabel,
@@ -73,6 +73,20 @@ export default function OrgAppOrganization() {
       items: [
         { icon: FileText, title: t('Factures', 'Invoices'), desc: t('Historique des factures émises.', 'History of issued invoices.'), to: '/organizer-app/invoices' },
         { icon: RotateCcw, title: t('Remboursements', 'Refunds'), desc: t('Gérez les remboursements de vos soirées.', 'Manage refunds for your events.'), to: '/organizer-app/refunds' },
+      ],
+    },
+    {
+      label: t('Sécurité', 'Security'),
+      items: [
+        {
+          icon: LifeBuoy,
+          title: t('Assistance Yuno', 'Yuno assisted access'),
+          desc: t(
+            "Autorisez l'équipe Yuno à configurer votre compte avec vous. Paiements exclus, journal complet, révocable à tout moment.",
+            'Let the Yuno team set up your account with you. Payments excluded, full audit trail, revocable anytime.',
+          ),
+          to: '/organizer-app/support-access',
+        },
       ],
     },
   ];
