@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DoorSearchPanel } from '@/components/bouncer/DoorSearchPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -9,7 +10,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import {
   ScanLine, CheckCircle2, XCircle, Clock, Ticket as TicketIcon,
-  Wine, Shirt, Ban, AlertTriangle, User,
+  Wine, Shirt, Ban, AlertTriangle, User, ClipboardList,
 } from 'lucide-react';
 import OrgQRScanner from '@/components/organizer-app/OrgQRScanner';
 import { toast } from 'sonner';
@@ -75,7 +76,18 @@ export default function OrgAppCheckin() {
   const [tab, setTab] = useState<ScanTab>('tickets');
   const [ticketMode, setTicketMode] = useState<TicketMode>('entry');
   const [processing, setProcessing] = useState(false);
-  const [lastScan, setLastScan] = useState<{ ok: boolean; name?: string; reason?: string } | null>(null);
+  const [lastScan, setLastScanState] = useState<{ ok: boolean; name?: string; reason?: string } | null>(null);
+  /**
+   * Miroir synchrone du dernier verdict. L'entrée manuelle (onglet Liste) doit
+   * savoir si la personne est passée dès que handleEntryScan a rendu la main,
+   * or l'état React n'est pas encore relu à cet instant. Le setter est
+   * enveloppé pour que les sites d'appel existants alimentent le ref.
+   */
+  const lastScanRef = useRef<{ ok: boolean; name?: string; reason?: string } | null>(null);
+  const setLastScan = useCallback((v: { ok: boolean; name?: string; reason?: string } | null) => {
+    lastScanRef.current = v;
+    setLastScanState(v);
+  }, []);
   const [recent, setRecent] = useState<{ name: string | null; at: Date }[]>([]);
   const [scannedTicket, setScannedTicket] = useState<ScannedTicket | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -103,6 +115,18 @@ export default function OrgAppCheckin() {
       if (data?.[0]) setEventId(data[0].id);
     })();
   }, [user]);
+
+  /**
+   * Entrée manuelle depuis la recherche par nom : on rejoue le scan d'entrée
+   * avec le QR de la personne, donc aucune règle n'est dupliquée (mauvais
+   * événement, doublon, statut). Renvoie true quand l'entrée est validée, pour
+   * que la ligne bascule en « entré » sous le doigt.
+   */
+  const handleDoorPick = async (qr: string): Promise<boolean> => {
+    lastScanRef.current = null;
+    await handleEntryScan(qr);
+    return lastScanRef.current?.ok === true;
+  };
 
   const resetTicketScan = () => {
     setLastScan(null); setScannedTicket(null); setRefundReason(''); setCustomReason(''); setShowCancelConfirm(false);
@@ -453,9 +477,20 @@ export default function OrgAppCheckin() {
 
             {ticketMode === 'entry' && (
               <div className="grid gap-4 lg:grid-cols-2">
-                {/* Left — scanner */}
+                {/* Left — scanner, puis recherche par nom (téléphone déchargé,
+                    invité ajouté à la dernière minute…). Le clic rejoue
+                    handleEntryScan : mêmes contrôles, même trace qu'un scan. */}
                 <div className="space-y-4">
                   <OrgQRScanner onScan={handleEntryScan} />
+                  <OrgCard>
+                    <div className="p-4">
+                      <h3 className="mb-3 flex items-center gap-2" style={{ color: T1, fontSize: 13, fontWeight: 600 }}>
+                        <ClipboardList className="h-4 w-4" style={{ color: T3 }} />
+                        {t('Chercher un nom', 'Search a name')}
+                      </h3>
+                      <DoorSearchPanel eventId={eventId || null} onPick={handleDoorPick} />
+                    </div>
+                  </OrgCard>
                 </div>
                 {/* Right — result + recent */}
                 <div className="space-y-4">

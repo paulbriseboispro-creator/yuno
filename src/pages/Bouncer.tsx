@@ -7,7 +7,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useStaffIdentity } from '@/hooks/useStaffIdentity';
 import { StaffOnboardingGate } from '@/components/staff/StaffOnboardingGate';
 import { StaffNightPanel } from '@/components/staff/StaffNightPanel';
-import { QrCode, CheckCircle, XCircle, User, Ticket, Wine, Camera, RefreshCw, Users, Ban, AlertTriangle, Clock, Search, ShieldAlert, UserX, X, Crown } from 'lucide-react';
+import { QrCode, CheckCircle, XCircle, User, Ticket, Wine, Camera, RefreshCw, Users, Ban, AlertTriangle, Clock, Search, ShieldAlert, UserX, X, Crown, ClipboardList } from 'lucide-react';
+import { DoorSearchPanel } from '@/components/bouncer/DoorSearchPanel';
 import { nowInParis } from '@/lib/timezone';
 import { validateTicketEntry, validateTableReservation, validateGuestListEntry } from '@/lib/scan/rules';
 import { useOfflineScanning } from '@/hooks/useOfflineScanning';
@@ -161,11 +162,25 @@ export default function Bouncer() {
   const { t, language } = useLanguage();
   const { venueId, loading: venueLoading } = useStaffIdentity();
   
-  const [activeTab, setActiveTab] = useState<'entry' | 'cancel' | 'client'>('entry');
+  const [activeTab, setActiveTab] = useState<'entry' | 'search' | 'cancel' | 'client'>('entry');
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
   const [scanning, setScanning] = useState(false);
   const [scannedTicket, setScannedTicket] = useState<ScannedTicket | null>(null);
   const [scannedVipReservation, setScannedVipReservation] = useState<ScannedVipReservation | null>(null);
-  const [scanResult, setScanResult] = useState<'success' | 'error' | 'already' | 'vip_success' | 'cancel_ready' | null>(null);
+  type ScanOutcome = 'success' | 'error' | 'already' | 'vip_success' | 'cancel_ready' | null;
+  const [scanResult, setScanResultState] = useState<ScanOutcome>(null);
+  /**
+   * Miroir synchrone de `scanResult`. L'entrée manuelle (recherche par nom) doit
+   * connaître le verdict dès que `onScanSuccess` a rendu la main, or l'état
+   * React n'est pas encore relu à cet instant. Le setter est enveloppé pour que
+   * les ~22 sites d'appel existants alimentent le ref sans être touchés.
+   */
+  const scanResultRef = useRef<ScanOutcome>(null);
+  const setScanResult = useCallback((v: ScanOutcome) => {
+    scanResultRef.current = v;
+    setScanResultState(v);
+  }, []);
   const [errorMessage, setErrorMessage] = useState('');
   const [stats, setStats] = useState({ scanned: 0, total: 0 });
   const [isRequestingCamera, setIsRequestingCamera] = useState(false);
@@ -260,6 +275,10 @@ export default function Bouncer() {
     // classique (« Gérer le retard »), scanResult est déjà non-null — c'est le
     // basculement de rapidMode qui doit déclencher le défilement.
     if (!scanResult || rapidMode) return;
+    // Onglet Liste : on enchaîne les invités depuis le champ de recherche.
+    // Faire défiler vers la carte de résultat à chaque nom obligerait à
+    // remonter entre chaque personne, au milieu d'une file.
+    if (activeTabRef.current === 'search') return;
     resultCardRef.current?.scrollIntoView({ block: 'nearest', behavior: reducedMotion ? 'auto' : 'smooth' });
   }, [scanResult, rapidMode, reducedMotion]);
 
@@ -536,6 +555,34 @@ export default function Bouncer() {
     setIsRequestingCamera(true);
     setScanning(true);
     setIsRequestingCamera(false);
+  };
+
+  /**
+   * Entrée manuelle depuis la recherche par nom. On ne duplique aucune règle :
+   * on rejoue `onScanSuccess` avec le QR de la personne, exactement comme si la
+   * caméra l'avait lu. Heure limite, doublon, mauvais club, conversion
+   * promoteur, file offline : tout passe par le même chemin, donc une entrée
+   * manuelle laisse la même trace qu'un scan.
+   *
+   * `scanResult` est mis à jour de façon asynchrone par onScanSuccess ; on le
+   * lit dans un ref pour savoir quoi renvoyer au panneau de recherche.
+   */
+  const handleDoorPick = async (qr: string): Promise<boolean> => {
+    scanResultRef.current = null;
+    await onScanSuccess(qr);
+    const outcome = scanResultRef.current;
+    const ok = outcome === 'success' || outcome === 'vip_success';
+    // Une entrée acceptée se voit sur la ligne elle-même (elle passe au vert) :
+    // on efface la carte de verdict pour que la liste reste lisible. Un REFUS
+    // reste affiché — c'est la seule façon pour le videur de savoir pourquoi.
+    if (ok) {
+      setScanResult(null);
+      setOverlayResult(null);
+      setScannedTicket(null);
+      setScannedVipReservation(null);
+      setDeniedContext(null);
+    }
+    return ok;
   };
 
   // Re-monte le flux caméra après que l'agent a réactivé l'accès dans les
@@ -1354,7 +1401,10 @@ export default function Bouncer() {
     setBanCustomer(false);
     setTopClientInfo(null);
     setPendingTicketHolderName(undefined);
-    setScanning(true);
+    // « Scanner le suivant » relance la caméra — sauf depuis l'onglet Liste, où
+    // le geste est de taper un nom : y ouvrir le viseur (et redemander
+    // l'autorisation caméra) serait exactement ce que cet onglet évite.
+    if (activeTab !== 'search') setScanning(true);
   };
 
   const getRefundReasonLabel = (key: keyof typeof REFUND_REASONS) => {
@@ -1668,11 +1718,12 @@ export default function Bouncer() {
                 min-w-0 + truncate sur les libellés : sans ça un libellé long (ES)
                 déborde du segment. */}
             <div
-              className="mb-4 grid grid-cols-3 gap-1"
+              className="mb-4 grid grid-cols-4 gap-1"
               style={{ padding: 4, borderRadius: 14, background: INNER_BG, border: `1px solid ${BORDER}` }}
             >
               {([
                 { key: 'entry', icon: CheckCircle, label: t('bouncer.entry') },
+                { key: 'search', icon: ClipboardList, label: t('bouncer.listTab') },
                 { key: 'cancel', icon: Ban, label: t('bouncer.cancelTab') },
                 { key: 'client', icon: Search, label: t('bouncer.clientTab') },
               ] as const).map(({ key, icon: Icon, label }) => {
@@ -1721,6 +1772,12 @@ export default function Bouncer() {
                 );
               })}
             </div>
+
+            {/* Recherche par nom : le filet quand le QR ne passe pas. Le clic
+                rejoue le pipeline de scan normal — mêmes règles, même trace. */}
+            {activeTab === 'search' && (
+              <DoorSearchPanel eventId={offlineEventId} onPick={handleDoorPick} />
+            )}
 
             {activeTab === 'client' && (
               <div className="space-y-4">
@@ -1813,7 +1870,12 @@ export default function Bouncer() {
               </div>
             )}
 
-            {/* QR Scanner — hidden in client search mode */}
+            {/* QR Scanner — hidden in client search mode.
+                En recherche par nom, la caméra et le bouton « Scanner » sont
+                masqués plus bas (le geste est de taper un nom), mais le panneau
+                de verdict reste rendu : un refus (heure limite dépassée, déjà
+                entré, mauvais club) doit s'afficher aussi pour une entrée
+                manuelle, sinon le videur ne saurait pas pourquoi ça a bloqué. */}
             {activeTab !== 'client' && (<>
             <div className="mb-4 space-y-4">
               {scanning && !rapidMode && (
@@ -1841,7 +1903,7 @@ export default function Bouncer() {
                 </div>
               )}
 
-              {!scanResult && !rapidMode && (
+              {!scanResult && !rapidMode && activeTab !== 'search' && (
                 scanning ? (
                   <Button onClick={stopScanning} variant="outline" size="lg" className="w-full">
                     {t('bouncer.stopScanning')}
