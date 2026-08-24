@@ -74,8 +74,9 @@ serve(async (req) => {
       .maybeSingle();
     if (!adminRole) throw new Error("Admin role required");
 
-    const { email, organization_name } = await req.json();
+    const { email, organization_name, offer_support_help } = await req.json();
     if (!email || !organization_name) throw new Error("Missing required fields");
+    const offerHelp = offer_support_help === true;
 
     const normalizedEmail = String(email).toLowerCase().trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
@@ -122,8 +123,34 @@ serve(async (req) => {
         await sendEmail(resendApiKey, normalizedEmail, mail.subject, mail.html);
       }
 
+      // Assistance proposée à un compte qui existe déjà : il n'y a pas de page
+      // d'acceptation d'invitation où l'interroger. On dépose donc une demande
+      // EN ATTENTE — le pro la voit dans sa cloche et reçoit un push, et c'est
+      // lui qui accepte. On n'accorde jamais à sa place.
+      let supportOffered = false;
+      if (offerHelp) {
+        const { data: openGrant } = await supabaseAdmin
+          .from("admin_support_grants")
+          .select("id")
+          .eq("target_user_id", existingUser.id)
+          .in("status", ["pending", "active"])
+          .gt("expires_at", new Date().toISOString())
+          .maybeSingle();
+        if (!openGrant) {
+          const { error: grantErr } = await supabaseAdmin
+            .from("admin_support_grants")
+            .insert({
+              target_user_id: existingUser.id,
+              requested_by: caller.id,
+              reason: "Configuration du compte par l'équipe Yuno, proposée à l'invitation.",
+            });
+          if (grantErr) console.error("[INVITE-PLATFORM-USER] support grant failed:", grantErr.message);
+          else supportOffered = true;
+        }
+      }
+
       return new Response(
-        JSON.stringify({ success: true, user_exists: true }),
+        JSON.stringify({ success: true, user_exists: true, support_offered: supportOffered }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -148,6 +175,7 @@ serve(async (req) => {
           expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
           accepted_at: null,
           accepted_by: null,
+          offer_support_help: offerHelp,
         })
         .eq("id", invitation.id)
         .select()
@@ -162,6 +190,7 @@ serve(async (req) => {
           profile_type: "organizer",
           organization_name,
           invited_by: caller.id,
+          offer_support_help: offerHelp,
         })
         .select()
         .single();

@@ -85,6 +85,9 @@ export default function AdminPlatformInvitations() {
   const [submitting, setSubmitting] = useState(false);
   const [email, setEmail] = useState('');
   const [orgName, setOrgName] = useState('');
+  // Proposer l'assistance par défaut : un pro qu'on invite soi-même est
+  // quelqu'un qu'on accompagne. Décocher reste possible.
+  const [offerHelp, setOfferHelp] = useState(true);
 
   // Edit dialog
   const [editOpen, setEditOpen] = useState(false);
@@ -117,14 +120,20 @@ export default function AdminPlatformInvitations() {
     setSubmitting(true);
     try {
       const { data, error } = await supabase.functions.invoke('invite-platform-user', {
-        body: { email, organization_name: orgName },
+        body: { email, organization_name: orgName, offer_support_help: offerHelp },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      toast.success(data?.user_exists
-        ? 'Compte existant lié au profil organisateur'
-        : 'Invitation envoyée par email');
-      setEmail(''); setOrgName('');
+      toast.success(
+        data?.user_exists
+          ? (data?.support_offered
+              ? "Compte lié — demande d'assistance envoyée, il doit l'accepter dans son app"
+              : 'Compte existant lié au profil organisateur')
+          : (offerHelp
+              ? "Invitation envoyée — l'assistance lui sera proposée à l'activation"
+              : 'Invitation envoyée par email'),
+      );
+      setEmail(''); setOrgName(''); setOfferHelp(true);
       setInviteOpen(false);
       load();
     } catch (e) {
@@ -288,6 +297,33 @@ export default function AdminPlatformInvitations() {
                     Sinon, un email d'invitation sera envoyé.
                   </p>
                 </div>
+
+                {/* Assistance Yuno — PROPOSITION, jamais un accès accordé d'office :
+                    c'est le pro qui ouvre la porte, à l'activation de son compte. */}
+                <label
+                  className="flex items-start gap-3 rounded-xl p-3 cursor-pointer"
+                  style={{ background: INNER_BG, border: `1px solid ${offerHelp ? 'rgba(232,25,44,0.3)' : BORDER}` }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={offerHelp}
+                    onChange={(e) => setOfferHelp(e.target.checked)}
+                    style={{ marginTop: 2, accentColor: RED, width: 16, height: 16, cursor: 'pointer' }}
+                  />
+                  <span>
+                    <span style={{ color: T1, fontSize: 13, fontWeight: 560, display: 'block' }}>
+                      Proposer l'assistance Yuno
+                    </span>
+                    <span style={{ color: T3, fontSize: 11.5, lineHeight: 1.5, display: 'block', marginTop: 3 }}>
+                      À l'activation de son compte, on lui demande s'il veut qu'on configure tout
+                      pour lui, en lui montrant les garanties (paiements, coordonnées bancaires,
+                      email de connexion et 2FA restent hors de portée ; journal complet ; révocable
+                      en un bouton). <strong style={{ color: T2 }}>C'est lui qui accepte</strong> —
+                      cette case ne fait que proposer.
+                    </span>
+                  </span>
+                </label>
+
                 <button
                   onClick={submit}
                   disabled={submitting || !email || !orgName}

@@ -59,6 +59,9 @@ serve(async (req) => {
             email: invitation.email,
             profile_type: invitation.profile_type,
             organization_name: invitation.organization_name,
+            // L'admin a proposé l'assistance : la page d'acceptation posera la
+            // question au pro. Simple PROPOSITION — rien n'est accordé ici.
+            offer_support_help: invitation.offer_support_help === true,
           },
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -116,7 +119,7 @@ serve(async (req) => {
         }, { onConflict: "user_id" });
 
       return new Response(
-        JSON.stringify({ success: true }),
+        JSON.stringify({ success: true, offer_support_help: invitation.offer_support_help === true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

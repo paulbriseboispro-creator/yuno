@@ -8972,6 +8972,7 @@ export type Database = {
           expires_at: string
           id: string
           invited_by: string
+          offer_support_help: boolean
           organization_name: string | null
           profile_type: string
           status: string
@@ -8985,6 +8986,7 @@ export type Database = {
           expires_at?: string
           id?: string
           invited_by: string
+          offer_support_help?: boolean
           organization_name?: string | null
           profile_type: string
           status?: string
@@ -8998,6 +9000,7 @@ export type Database = {
           expires_at?: string
           id?: string
           invited_by?: string
+          offer_support_help?: boolean
           organization_name?: string | null
           profile_type?: string
           status?: string
@@ -15047,6 +15050,7 @@ export type Database = {
       }
       approve_support_grant: { Args: { _grant_id: string }; Returns: undefined }
       request_support_help: { Args: { _reason?: string }; Returns: string }
+      accept_support_offer_from_invitation: { Args: { _token: string }; Returns: string }
       revoke_support_grant: { Args: { _grant_id: string }; Returns: undefined }
       is_support_session: { Args: Record<PropertyKey, never>; Returns: boolean }
       get_my_support_session: {
