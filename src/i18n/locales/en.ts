@@ -13460,6 +13460,8 @@ const en: Record<string, string> = {
   'supportAccess.askReason': 'Requested from the settings: help setting up the account.',
   'supportAccess.askDone': "Access granted — the Yuno team can now set your account up.",
   'notif.type.admin_support_access_ready': 'Assisted access ready',
+  'ohelp.supportAccess.s8h': 'Three ways to ask Yuno for help',
+  'ohelp.supportAccess.s8b': "1. From this page: the button “Ask Yuno to set it up for me” opens access right away. Your click is the consent, there is no second screen.\n2. While setting up your account: the card “Prefer Yuno to set it all up?” appears at the top of the setup guide (venue) or on the last onboarding step (organizer).\n3. If Yuno invited you: you are asked right after your account is activated, with the guarantees spelled out.\nSaying no blocks nothing: you can change your mind here anytime. Note: your company registration number, legal name and Stripe account remain yours to fill in — those commit your business, and the database refuses them to anyone else.",
 };
 
 export default en;

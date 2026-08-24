@@ -933,7 +933,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Headphones',
         actionLink: { labelKey: 'ohelp.action.goToSupportAccess', path: '/support-access' },
         relatedArticleIds: ['stripe-connect', 'venue-settings', 'launch-checklist'],
-        keywords: ['assistance', 'assistance yuno', 'accès assisté', 'acces assiste', 'support', 'support access', 'assisted access', 'acceso asistido', 'asistencia', 'aide configuration', 'configurer à ma place', 'équipe yuno', 'accorder l\'accès', 'couper l\'accès', 'révoquer', 'revoke', 'autorisation', 'journal', 'audit', 'session', 'sécurité', 'qui accède à mon compte'],
+        keywords: ['assistance', 'assistance yuno', 'accès assisté', 'acces assiste', 'support', 'support access', 'assisted access', 'acceso asistido', 'asistencia', 'aide configuration', 'configurer à ma place', 'équipe yuno', 'accorder l\'accès', 'couper l\'accès', 'révoquer', 'revoke', 'autorisation', 'journal', 'audit', 'session', 'sécurité', 'qui accède à mon compte', 'demander de l\'aide', 'configurer pour moi', 'pas le temps', 'invitation', 'premier login', 'onboarding'],
         sections: [
           { headingKey: 'ohelp.supportAccess.s1h', bodyKey: 'ohelp.supportAccess.s1b' },
           { headingKey: 'ohelp.supportAccess.s2h', bodyKey: 'ohelp.supportAccess.s2b', type: 'steps' },
@@ -942,6 +942,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.supportAccess.s5h', bodyKey: 'ohelp.supportAccess.s5b' },
           { headingKey: 'ohelp.supportAccess.s6h', bodyKey: 'ohelp.supportAccess.s6b' },
           { headingKey: 'ohelp.supportAccess.s7h', bodyKey: 'ohelp.supportAccess.s7b', type: 'tip' },
+          { headingKey: 'ohelp.supportAccess.s8h', bodyKey: 'ohelp.supportAccess.s8b', type: 'steps' },
         ],
       },
       {

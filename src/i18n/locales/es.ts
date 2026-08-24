@@ -13802,6 +13802,8 @@ const es: Record<string, string> = {
   'supportAccess.askReason': 'Solicitado desde los ajustes: ayuda para configurar la cuenta.',
   'supportAccess.askDone': 'Acceso concedido: el equipo de Yuno ya puede configurar tu cuenta.',
   'notif.type.admin_support_access_ready': 'Acceso asistido listo',
+  'ohelp.supportAccess.s8h': 'Tres formas de pedir ayuda a Yuno',
+  'ohelp.supportAccess.s8b': "1. Desde esta página: el botón «Pedir a Yuno que lo configure todo» abre el acceso de inmediato. Tu clic es el consentimiento, no hay una segunda pantalla.\n2. Durante la configuración de tu cuenta: la tarjeta «¿Prefieres que Yuno lo configure todo?» aparece arriba de la guía de configuración (club) o en el último paso del onboarding (organizador).\n3. Si Yuno te invitó: se te pregunta justo después de activar tu cuenta, con las garantías detalladas.\nDecir que no no bloquea nada: puedes cambiar de opinión aquí cuando quieras. Nota: tu NIF/CIF, tu razón social y tu cuenta Stripe siguen siendo tuyos para rellenar: comprometen a tu empresa y la base de datos se los deniega a cualquier otro.",
 };
 
 export default es;
