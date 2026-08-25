@@ -60,6 +60,25 @@ export async function readInfo(req: Request): Promise<InfoObject> {
   }
 }
 
+/**
+ * Le plugin envoie ses stats en BATCH ([{...}, {...}]) dès qu'il a plus d'un
+ * événement en file — dont les rapports d'erreur JS du WebView
+ * (webview_javascript_error, message + stack dans `metadata`). L'ancien
+ * readInfo (objet unitaire) les jetait tous en silence : c'est ce qui a rendu
+ * le rejet Apple du build 28 indiagnosticable à distance. Toujours utiliser
+ * ceci côté stats.
+ */
+export async function readInfoBatch(req: Request): Promise<Record<string, unknown>[]> {
+  try {
+    const body = await req.json();
+    if (Array.isArray(body)) return body as Record<string, unknown>[];
+    if (body && typeof body === "object") return [body as Record<string, unknown>];
+    return [];
+  } catch {
+    return [];
+  }
+}
+
 /** Effective channel for a device: server override wins, then the app's
  *  requested/default channel, then the app's default channel, then "production". */
 export async function resolveChannel(

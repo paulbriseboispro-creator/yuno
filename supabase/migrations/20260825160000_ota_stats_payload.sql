@@ -1,0 +1,15 @@
+-- ota_stats : colonne payload (événement brut du plugin Capgo).
+--
+-- POURQUOI : le 25/08/2026, le rejet Apple du build 28 (app morte au boot chez
+-- le reviewer) a été diagnostiqué à l'aveugle. Le plugin Capgo AVAIT capturé
+-- l'erreur JS fatale (action webview_javascript_error, message + stack dans un
+-- champ metadata) et l'avait POSTée sur capgo-stats — mais la fonction ne
+-- parsait qu'un événement UNITAIRE ({...}) alors que le plugin envoie des
+-- BATCHES ([{...}, ...]) : tout était jeté en silence. Seuls les
+-- update_offered (envoyés hors batch) survivaient.
+--
+-- Cette colonne stocke désormais l'événement complet tel que reçu (jsonb),
+-- y compris metadata (message, stack, href, user_agent...) pour les actions
+-- webview_*. Les colonnes extraites existantes restent la surface de requête
+-- rapide ; payload est la vérité forensique.
+ALTER TABLE public.ota_stats ADD COLUMN IF NOT EXISTS payload jsonb;
