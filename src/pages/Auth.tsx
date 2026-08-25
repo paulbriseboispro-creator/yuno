@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { SupportOfferScreen } from '@/components/onboarding/SupportOfferScreen';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRoles } from '@/hooks/useUserRoles';
@@ -35,6 +36,8 @@ export default function Auth() {
   const isReset = searchParams.get('reset') === 'true';
   const inviteToken = searchParams.get('invite');
   const platformInviteToken = searchParams.get('invite_platform');
+  /** Offre d'assistance à présenter juste après l'activation du compte invité. */
+  const [supportOfferToken, setSupportOfferToken] = useState<string | null>(null);
   const affiliateInviteToken = searchParams.get('invite_affiliate');
   const affiliateMemberInviteToken = searchParams.get('invite_affiliate_member');
   const inviteEmailParam = searchParams.get('email');
@@ -172,6 +175,13 @@ export default function Auth() {
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
         toast({ title: 'Compte organisateur activé', description: 'Bienvenue sur Yuno !' });
+        // Assistance proposée à l'invitation : on pose la question ICI, pendant
+        // qu'il vient d'activer son compte. C'est CE chemin que suit le lien
+        // envoyé par email (/auth?invite_platform=…), pas la page dédiée.
+        if (data?.offer_support_help) {
+          setSupportOfferToken(platformInviteToken);
+          return;
+        }
         setTimeout(() => navigate('/organizer-app'), 1200);
       } catch (e: any) {
         console.error('Error accepting platform invitation:', e);
@@ -421,6 +431,21 @@ export default function Auth() {
   };
 
   const isInviteFlow = !!(inviteToken || platformInviteToken || affiliateInviteToken || affiliateMemberInviteToken);
+  // Compte invité tout juste activé, avec assistance proposée : cet écran passe
+  // AVANT tout le reste, sinon la redirection vers le dashboard l'emporte et la
+  // question n'est jamais posée.
+  if (supportOfferToken) {
+    return (
+      <SupportOfferScreen
+        token={supportOfferToken}
+        onDone={() => {
+          setSupportOfferToken(null);
+          navigate('/organizer-app');
+        }}
+      />
+    );
+  }
+
   if ((loading || rolesLoading) && !isReset && !isInviteFlow) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">

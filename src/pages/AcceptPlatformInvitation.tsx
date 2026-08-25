@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { toast } from 'sonner';
-import { CheckCircle, AlertCircle, Sparkles, LifeBuoy, Lock, Loader2 } from 'lucide-react';
+import { CheckCircle, AlertCircle, Sparkles } from 'lucide-react';
+import { SupportOfferScreen } from '@/components/onboarding/SupportOfferScreen';
 
 export default function AcceptPlatformInvitation() {
   const [searchParams] = useSearchParams();
@@ -22,7 +23,6 @@ export default function AcceptPlatformInvitation() {
   const [accepted, setAccepted] = useState(false);
   /** L'admin a proposé l'assistance : on demande au pro juste après l'activation. */
   const [supportStep, setSupportStep] = useState(false);
-  const [supportBusy, setSupportBusy] = useState(false);
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
 
   useEffect(() => {
@@ -86,80 +86,18 @@ export default function AcceptPlatformInvitation() {
     );
   }
 
-  const acceptSupport = async () => {
-    setSupportBusy(true);
-    const { error } = await supabase.rpc('accept_support_offer_from_invitation', { _token: token! });
-    setSupportBusy(false);
-    if (error) {
-      toast.error(t("Ça n'a pas marché. Vous pourrez le faire depuis vos réglages.",
-                    "That didn't work. You can do it from your settings."));
-    } else {
-      toast.success(t("C'est noté — l'équipe Yuno va configurer votre compte.",
-                      "Done — the Yuno team will set your account up."));
-    }
-    setAccepted(true);
-    setTimeout(() => navigate('/organizer-app'), 1200);
-  };
 
-  const declineSupport = () => {
-    setAccepted(true);
-    setTimeout(() => navigate('/organizer-app'), 800);
-  };
 
   if (supportStep) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full p-8 space-y-5">
-          <div className="text-center">
-            <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 mb-4">
-              <LifeBuoy className="h-7 w-7 text-primary" />
-            </div>
-            <h2 className="text-xl font-bold tracking-tight">
-              {t('Voulez-vous que Yuno configure tout pour vous ?',
-                 'Want Yuno to set everything up for you?')}
-            </h2>
-            <p className="text-sm text-muted-foreground mt-2">
-              {t("L'équipe Yuno peut monter votre première soirée avec vous : billetterie, guest lists, tables VIP, profil public.",
-                 'The Yuno team can build your first event with you: ticketing, guest lists, VIP tables, public profile.')}
-            </p>
-          </div>
-
-          <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-2.5">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              {t('Ce que ça protège', 'What stays protected')}
-            </p>
-            {[
-              t("Vos paiements, vos coordonnées bancaires et vos virements restent inaccessibles — c'est la base de données qui le refuse, pas une promesse.",
-                'Your payments, bank details and payouts stay out of reach — the database refuses them, it is not a promise.'),
-              t("Votre email de connexion, votre code PIN et votre double authentification ne peuvent pas être modifiés.",
-                'Your login email, PIN and two-factor cannot be changed.'),
-              t("Chaque action est écrite dans un journal que vous consultez quand vous voulez.",
-                'Every action is written to a log you can read whenever you want.'),
-              t("Vous coupez l'accès en un bouton, et il expire seul au bout de 7 jours.",
-                'You cut access with one button, and it expires on its own after 7 days.'),
-            ].map((line) => (
-              <p key={line} className="text-xs text-muted-foreground flex items-start gap-2">
-                <Lock className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" />
-                <span>{line}</span>
-              </p>
-            ))}
-          </div>
-
-          <div className="space-y-2">
-            <Button className="w-full" onClick={acceptSupport} disabled={supportBusy}>
-              {supportBusy ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <LifeBuoy className="h-4 w-4 mr-2" />}
-              {t('Oui, aidez-moi à tout configurer', 'Yes, set it up with me')}
-            </Button>
-            <Button variant="ghost" className="w-full" onClick={declineSupport} disabled={supportBusy}>
-              {t('Non merci, je gère seul', 'No thanks, I will do it myself')}
-            </Button>
-            <p className="text-[11px] text-center text-muted-foreground pt-1">
-              {t("Vous pourrez changer d'avis à tout moment dans vos réglages.",
-                 'You can change your mind anytime in your settings.')}
-            </p>
-          </div>
-        </Card>
-      </div>
+      <SupportOfferScreen
+        token={token!}
+        onDone={() => {
+          setSupportStep(false);
+          setAccepted(true);
+          setTimeout(() => navigate('/organizer-app'), 1000);
+        }}
+      />
     );
   }
 
