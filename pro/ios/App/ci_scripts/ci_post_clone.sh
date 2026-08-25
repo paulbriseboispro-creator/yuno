@@ -28,7 +28,22 @@ cd "$CI_PRIMARY_REPOSITORY_PATH"
 
 # 3. Dependances racine, puis construire le bundle web partage (dist/).
 npm ci
+
+# 3bis. Variables VITE_* du build web — depuis le REPO, plus jamais depuis
+#    l'UI Xcode Cloud (cf. scripts/ci-web-env.sh : le build client 28 a ete
+#    rejete par Apple car compile sans VITE_SUPABASE_URL, app morte au boot).
+. ./scripts/ci-web-env.sh
+
 npm run build
+
+# 3ter. GARDE-FOU : echouer ICI si la config Supabase n'est pas bakee, plutot
+#    que livrer une app Pro morte a l'installation neuve.
+_SUPA_HOST=$(printf '%s' "$VITE_SUPABASE_URL" | sed 's|https://||;s|/.*||')
+if [ -z "$_SUPA_HOST" ] || ! grep -rq "$_SUPA_HOST" dist/assets/; then
+  echo "ERREUR: l'URL Supabase ($_SUPA_HOST) n'est pas bakee dans dist/assets — bundle inutilisable." >&2
+  exit 1
+fi
+echo "verification bundle: URL Supabase bakee OK ($_SUPA_HOST)"
 
 # 4. Dependances natives de la coquille Pro, puis synchroniser dist/ dans
 #    pro/ios/App/App/public + cabler les plugins natifs. `cap sync` s'execute
