@@ -149,6 +149,16 @@ interprété (JS/HTML/CSS) est livré, jamais du natif.
   script ou les fonctions.
 - **⚠️ Avant toute soumission App Store** : `npm run cap:sync` + `cap:sync:pro`
   pour compiler les `updateUrl` dans le JSON natif — sinon l'OTA est muet.
+- **Les `VITE_*` des builds Xcode Cloud viennent de `scripts/ci-web-env.sh`
+  (committé), jamais de l'UI Xcode Cloud.** Le 25/08, Apple a rejeté le
+  build 28 : les env vars du workflow avaient disparu (édition du 14/08) et le
+  bundle embarqué, compilé sans `VITE_SUPABASE_URL`, mourait au boot
+  (`supabaseUrl is required.`) sur toute **installation neuve** — les appareils
+  existants étant sauvés par l'OTA, seul le reviewer le voyait. Les deux
+  `ci_post_clone.sh` sourcent ce fichier puis vérifient que l'URL Supabase est
+  bakée dans `dist/assets` (sinon le build échoue). Pour tester le vrai flux
+  reviewer : extraire `public/` de l'IPA (artefact Xcode Cloud), le swap dans
+  une App.app simulateur, install NEUVE (`simctl uninstall` d'abord).
 
 ## Git / GitHub (départ propre 2026-06-14)
 
