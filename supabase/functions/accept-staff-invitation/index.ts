@@ -370,6 +370,53 @@ async function handleRedeemDemoPreviewLink(supabase: SupabaseClient, body: any):
 
   const targets: string[] = Array.isArray(v.target_accounts) ? v.target_accounts.map(String) : [];
   const language = String(v.language ?? 'en');
+
+  // ─── Lien VITRINE : session lecture seule dans le compte fantôme ───────────
+  // Triple verrou (voir migration 20260826100000) : le compte à minter est
+  // résolu par le MARQUEUR showcase_shadow_owner_id, jamais par owner_id, et
+  // doit encore être le propriétaire. Après réclamation, le lien est mort même
+  // s'il avait survécu à la révocation du handoff.
+  if (v.venue_id) {
+    const { data: venue } = await supabase
+      .from('venues')
+      .select('id, name, slug, owner_id, showcase_shadow_owner_id')
+      .eq('id', String(v.venue_id))
+      .maybeSingle();
+    if (!venue?.showcase_shadow_owner_id || venue.owner_id !== venue.showcase_shadow_owner_id) {
+      return json({ success: false, code: 'claimed' }, 200);
+    }
+
+    const { data: shadow, error: shadowError } = await supabase.auth.admin.getUserById(venue.showcase_shadow_owner_id);
+    if (shadowError || !shadow?.user?.email) return json({ error: 'shadow_not_found', code: 'server_error' }, 500);
+
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    const url = Deno.env.get('SUPABASE_URL');
+    if (!anonKey || !url) return json({ error: 'not_configured', code: 'server_error' }, 500);
+
+    // Mint sans mot de passe : magiclink admin → hashed_token → verifyOtp côté
+    // serveur (même mécanique qu'admin-account-recovery / open-support-session).
+    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+      type: 'magiclink', email: shadow.user.email,
+    });
+    if (linkError || !linkData?.properties?.hashed_token) return json({ error: 'mint_link_failed', code: 'server_error' }, 500);
+
+    const anonClient = createClient(url, anonKey);
+    const { data: verified, error: verifyOtpError } = await anonClient.auth.verifyOtp({
+      token_hash: linkData.properties.hashed_token, type: 'magiclink',
+    });
+    if (verifyOtpError || !verified?.session) return json({ error: 'mint_session_failed', code: 'server_error' }, 500);
+
+    return json({
+      success: true,
+      showcase: true,
+      venue: { id: venue.id, slug: venue.slug || venue.id, name: venue.name },
+      target_accounts: ['owner'],
+      language,
+      access_token: verified.session.access_token,
+      refresh_token: verified.session.refresh_token,
+    });
+  }
+
   const primary = targets[0];
   const email = DEMO_EMAIL_BY_ACCOUNT[primary];
   if (!email) return json({ error: 'unknown_account', code: 'server_error' }, 500);

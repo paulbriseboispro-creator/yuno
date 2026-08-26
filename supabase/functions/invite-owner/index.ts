@@ -40,6 +40,11 @@ interface InviteOwnerRequest {
   email: string;
   venue_id: string;
   venue_name: string;
+  // Propose l'assistance Yuno (mode support) à l'acceptation — même mécanique
+  // que platform_invitations. Ne s'applique qu'à la branche « nouveau compte »
+  // (la branche « user existant » transfère sans acceptation, donc sans écran
+  // de consentement).
+  offer_support_help?: boolean;
 }
 
 serve(async (req: Request) => {
@@ -89,7 +94,7 @@ serve(async (req: Request) => {
     
     console.log(`Super admin ${caller.email} is inviting an owner`);
 
-    const { email, venue_id, venue_name }: InviteOwnerRequest = await req.json();
+    const { email, venue_id, venue_name, offer_support_help }: InviteOwnerRequest = await req.json();
 
     if (!email || !venue_id) {
       throw new Error("Email and venue_id are required");
@@ -101,6 +106,15 @@ serve(async (req: Request) => {
     }
 
     console.log(`Inviting owner: ${normalizedEmail} for venue: ${venue_id}`);
+
+    // Venue vitrine ? (marqueur lu AVANT tout transfert : le handoff — trigger
+    // sur venues.owner_id, migration 20260826103000 — le remet à NULL.)
+    const { data: venueRow } = await supabaseAdmin
+      .from("venues")
+      .select("showcase_shadow_owner_id")
+      .eq("id", venue_id)
+      .maybeSingle();
+    const isShowcase = !!venueRow?.showcase_shadow_owner_id;
 
     // Check if user already exists
     const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
@@ -175,10 +189,11 @@ serve(async (req: Request) => {
       }
 
       return new Response(
-        JSON.stringify({ 
-          success: true, 
+        JSON.stringify({
+          success: true,
           message: "Propriétaire assigné avec succès",
-          user_exists: true 
+          user_exists: true,
+          venue_claimed: isShowcase,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -192,6 +207,8 @@ serve(async (req: Request) => {
       .insert({
         venue_id,
         email: normalizedEmail,
+        invited_by: caller.id,
+        offer_support_help: !!offer_support_help,
       })
       .select()
       .single();

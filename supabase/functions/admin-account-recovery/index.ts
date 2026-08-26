@@ -12,6 +12,15 @@
 //                              n'exige PAS le rôle admin car l'appelant porte
 //                              alors l'identité du client, mais ne peut fermer QUE
 //                              la session dont il détient le JWT.
+//   • "create-showcase-owner" (admin) — crée le compte FANTÔME d'une venue
+//                              vitrine (prospection) : user jetable propriétaire
+//                              d'une venue cachée, marqueur
+//                              venues.showcase_shadow_owner_id posé, et renvoie
+//                              un magiclink que l'admin ouvre en fenêtre privée
+//                              pour construire le contenu. Voir migration
+//                              20260826100000. (Logée ici et pas dans une
+//                              fonction dédiée : cap Supabase sur les nouvelles
+//                              edge functions.)
 //
 // Le reset MFA se fait via la RPC admin_reset_user_mfa ; la suspension via
 // admin_set_user_suspended ; approbation/révocation d'un grant via les RPC
@@ -111,6 +120,92 @@ serve(async (req) => {
     const { data: adminRole } = await supabaseAdmin
       .from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
     if (!adminRole) return fail("Admin role required", 403);
+
+    // ── create-showcase-owner : compte fantôme d'une venue vitrine ─────────────
+    if (action === "create-showcase-owner") {
+      const venueId: string | undefined = typeof body.venueId === "string" ? body.venueId.trim() : undefined;
+      const email: string | undefined = typeof body.email === "string" ? body.email.trim().toLowerCase() : undefined;
+      if (!venueId || !email) return fail("venueId and email are required", 400);
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return fail("invalid_email", 400);
+      // Le suffixe @womber.fr court-circuite paymentsReady et affiche le
+      // DemoSwitcher : un fantôme démo fausserait l'aperçu acheteur du prospect.
+      if (email.endsWith("@womber.fr")) return fail("womber_email_forbidden", 400);
+
+      const { data: venue } = await supabaseAdmin
+        .from("venues")
+        .select("id, owner_id, showcase_shadow_owner_id")
+        .eq("id", venueId)
+        .maybeSingle();
+      if (!venue) return fail("venue_not_found", 404);
+
+      // Jamais voler un vrai owner : seule une venue sans owner, ou déjà portée
+      // par son propre fantôme (relance idempotente), est éligible.
+      if (venue.owner_id && venue.owner_id !== venue.showcase_shadow_owner_id) {
+        return fail("venue_already_owned", 409);
+      }
+
+      // Créer le user fantôme — ou le retrouver s'il existe déjà pour CETTE venue.
+      let shadowId: string | null = null;
+      const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        email_confirm: true,
+        password: crypto.randomUUID() + crypto.randomUUID(),
+      });
+      if (createErr) {
+        const { data: existing } = await supabaseAdmin
+          .from("profiles").select("id").eq("email", email).maybeSingle();
+        if (!existing || existing.id !== venue.showcase_shadow_owner_id) {
+          return fail("email_already_used", 409);
+        }
+        shadowId = existing.id;
+      } else {
+        shadowId = created.user.id;
+      }
+
+      await supabaseAdmin
+        .from("user_roles")
+        .upsert({ user_id: shadowId, role: "owner", email }, { onConflict: "user_id,role" });
+
+      const { error: venueErr } = await supabaseAdmin
+        .from("venues")
+        .update({ owner_id: shadowId, is_hidden: true, showcase_shadow_owner_id: shadowId })
+        .eq("id", venueId);
+      if (venueErr) return fail("venue_update_failed", 500);
+
+      // mfa_exempt : sans lui, la session de construction (magiclink, hors mode
+      // preview) serait redirigée vers /mfa-setup.
+      const { data: profRows } = await supabaseAdmin
+        .from("profiles")
+        .update({ venue_id: venueId, mfa_exempt: true })
+        .eq("id", shadowId)
+        .select("id");
+      if (!profRows?.length) {
+        await supabaseAdmin
+          .from("profiles")
+          .insert({ id: shadowId, email, venue_id: venueId, mfa_exempt: true });
+      }
+
+      const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
+        type: "magiclink",
+        email,
+        options: { redirectTo: `${APP_URL}/owner/dashboard` },
+      });
+      if (linkErr || !linkData?.properties?.action_link) return fail("mint_link_failed", 502);
+
+      await supabaseAdmin.from("admin_audit_log").insert({
+        admin_id: user.id,
+        action: "showcase_owner_created",
+        entity_type: "venue",
+        entity_id: venueId,
+        metadata: { email, shadow_user_id: shadowId },
+      });
+
+      return new Response(JSON.stringify({
+        success: true,
+        user_id: shadowId,
+        action_link: linkData.properties.action_link,
+      }), { headers: jsonHeaders });
+    }
 
     // ── open-support-session ───────────────────────────────────────────────────
     if (action === "open-support-session") {

@@ -88,19 +88,28 @@ serve(async (req) => {
       .update({ venue_id: invitation.venue_id })
       .eq("id", user.id);
 
-    // Mark invitation as accepted
+    // Mark invitation as accepted. accepted_by est la clé du consentement à
+    // l'assistance : accept_support_offer_from_owner_invitation refuse tout
+    // appelant qui n'est pas ce compte.
     await supabaseAdmin
       .from("owner_invitations")
-      .update({ accepted_at: new Date().toISOString() })
+      .update({ accepted_at: new Date().toISOString(), accepted_by: user.id })
       .eq("id", invitation.invitation_id);
+
+    const { data: inviteRow } = await supabaseAdmin
+      .from("owner_invitations")
+      .select("offer_support_help")
+      .eq("id", invitation.invitation_id)
+      .maybeSingle();
 
     console.log(`Owner invitation accepted successfully for ${user.email}`);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         message: "Invitation acceptée! Vous êtes maintenant propriétaire.",
-        venue_id: invitation.venue_id
+        venue_id: invitation.venue_id,
+        offer_support_help: !!inviteRow?.offer_support_help
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
