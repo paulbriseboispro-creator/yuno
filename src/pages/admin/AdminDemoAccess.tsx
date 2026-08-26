@@ -292,6 +292,8 @@ export default function AdminDemoAccess() {
       }
       if (error || data?.error) throw new Error(data?.error ?? error?.message);
       if (data?.user_exists) {
+        // Orga déjà existant : le handoff a fusionné le contenu vitrine dans
+        // son profil (qui adopte la présentation construite).
         toast.success('Compte existant : la vitrine vient d\'être transférée immédiatement.');
       } else {
         toast.success(`Invitation envoyée à ${inviteEmail.trim()}`);
@@ -299,9 +301,7 @@ export default function AdminDemoAccess() {
       setInviteTarget(null);
       load();
     } catch (e: any) {
-      toast.error(String(e.message ?? 'Erreur').includes('prospect_already_organizer')
-        ? 'Ce compte est déjà organisateur : réclamation impossible, à traiter à la main.'
-        : e.message ?? 'Erreur');
+      toast.error(e.message ?? 'Erreur');
     } finally {
       setInviting(false);
     }
