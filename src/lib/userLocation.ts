@@ -42,6 +42,32 @@ export function getStoredCity(fallback = 'Paris'): string {
   return sessionStorage.getItem(MANUAL_CITY_KEY) || localStorage.getItem(CITY_KEY) || fallback;
 }
 
+/**
+ * Ville forcée par l'URL (`?city=Madrid`) — lue par Explore au montage.
+ *
+ * Un lien d'acquisition par marché (bio Instagram Madrid, campagne locale, QR
+ * d'un flyer) doit ouvrir le feed SUR sa ville, quelle que soit la géoloc du
+ * visiteur : un compte Instagram Madrid n'envoie pas ses abonnés sur Paris.
+ * Explore traite la valeur comme un choix MANUEL (setManualLocation), donc la
+ * géoloc ne l'écrase pas et la carte / la page Tous les events suivent sur
+ * toute la session (même contrat de stockage).
+ *
+ * La casse est normalisée pour l'affichage ; le filtre en base est un `ilike`
+ * insensible à la casse, mais PAS aux accents — passer la ville telle qu'elle
+ * est écrite dans `venues.city` / `affiliate_venues.city`.
+ */
+export function cityFromUrl(search: string = window.location.search): string | null {
+  try {
+    const raw = new URLSearchParams(search).get('city');
+    const value = (raw || '').trim().replace(/\s+/g, ' ').slice(0, 60);
+    if (!value) return null;
+    return value.replace(/(^|[\s-])(\p{L})/gu, (_m, sep, letter) => sep + letter.toUpperCase());
+  } catch {
+    /* URL exotique : on retombe sur la ville stockée */
+    return null;
+  }
+}
+
 /** Persist a manual location pick. Shared by Explore's city picker and the map's city search. */
 export function setManualLocation(city: string, coords?: Coords): void {
   localStorage.setItem(CITY_KEY, city);

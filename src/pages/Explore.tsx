@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { getManualCoords, getStoredCity, hasManualCity, setManualLocation, setResolvedCity } from '@/lib/userLocation';
+import { cityFromUrl, getManualCoords, getStoredCity, hasManualCity, setManualLocation, setResolvedCity } from '@/lib/userLocation';
 import { markAppReady } from '@/lib/appReady';
 import { getCurrentPositionIfGranted, GEOLOC_GRANTED_EVENT } from '@/lib/geolocation';
 import { genresMatch } from '@/lib/musicGenres';
@@ -198,7 +198,18 @@ export default function Explore() {
 
   // ── Location / city ── (shared with ClubMap via @/lib/userLocation)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(() => getManualCoords());
-  const [city, setCity] = useState(() => getStoredCity());
+  const [city, setCity] = useState(() => cityFromUrl() || getStoredCity());
+
+  // ── Ville forcée par l'URL (`/explore?city=Madrid`) ──
+  // Lien d'acquisition par marché : on l'enregistre comme un choix MANUEL, au
+  // même titre que le sélecteur de ville. Déclaré AVANT l'effet de géoloc, qui
+  // sort sur `hasManualCity()` — sans quoi le GPS d'un visiteur de passage
+  // écraserait la ville du lien. Effet de bord assumé : la carte et la page
+  // Tous les events suivent sur toute la session (stockage partagé).
+  useEffect(() => {
+    const forced = cityFromUrl();
+    if (forced) setManualLocation(forced);
+  }, []);
 
   // ── Module « Pour toi » : cartes + raisons, autonome (horizon 45 j, ville
   //    courante). Déclaré après `city` dont il dépend. Vide = rien à
