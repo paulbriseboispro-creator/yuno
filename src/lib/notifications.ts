@@ -109,6 +109,7 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_new_organizer:       { icon: UserPlus,      category: 'growth',    label: 'notif.type.admin_new_organizer' },
   admin_new_agency:          { icon: Briefcase,     category: 'growth',    label: 'notif.type.admin_new_agency' },
   admin_agency_club_lead:    { icon: Rocket,        category: 'growth',    label: 'notif.type.admin_agency_club_lead' },
+  admin_showcase_claim:      { icon: Rocket,        category: 'growth',    label: 'notif.type.admin_showcase_claim' },
   admin_waitlist_signup:     { icon: Users,         category: 'growth',    label: 'notif.type.admin_waitlist_signup' },
   admin_venue_first_sale:    { icon: Rocket,        category: 'growth',    label: 'notif.type.admin_venue_first_sale' },
   // Encaissement : ce qui empêche l'argent d'entrer, ou le fait ressortir.
@@ -491,6 +492,11 @@ function adminNotifLink(n: AppNotif): string | null {
 
     case 'admin_agency_club_lead':
       return '/admin/affiliates';
+
+    // Demande d'activation d'un compte vitrine : la section « Demandes
+    // d'activation » et le bouton Inviter vivent sur la page des accès démo.
+    case 'admin_showcase_claim':
+      return '/admin/demo-access';
 
     case 'admin_waitlist_signup':
       return '/admin/waitlist';

@@ -890,7 +890,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Store',
         actionLink: { labelKey: 'ohelp.action.goToVenue', path: '/venue' },
         relatedArticleIds: ['customization-options', 'stripe-connect'],
-        keywords: ['venue', 'club', 'customization', 'personnalisation', 'logo', 'banner', 'bannière', 'gallery', 'galerie', 'adresse', 'address', 'hours', 'horaires', 'social', 'public page', 'club'],
+        keywords: ['venue', 'club', 'customization', 'personnalisation', 'logo', 'banner', 'bannière', 'gallery', 'galerie', 'adresse', 'address', 'hours', 'horaires', 'social', 'public page', 'club', 'publier', 'publish', 'visible', 'cachée', 'hidden', 'vitrine'],
         sections: [
           { headingKey: 'ohelp.pg.venue.s1h', bodyKey: 'ohelp.pg.venue.s1b' },
           { headingKey: 'ohelp.pg.venue.s2h', bodyKey: 'ohelp.pg.venue.s2b', screenshotUrl: '/help/owner-venue.png' },
@@ -899,6 +899,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.venue.s5h', bodyKey: 'ohelp.pg.venue.s5b', type: 'steps' },
           { headingKey: 'ohelp.pg.venue.s6h', bodyKey: 'ohelp.pg.venue.s6b', type: 'tip' },
           { headingKey: 'ohelp.pg.venue.s7h', bodyKey: 'ohelp.pg.venue.s7b', type: 'warning' },
+          { headingKey: 'ohelp.pg.venue.s8h', bodyKey: 'ohelp.pg.venue.s8b' },
         ],
       },
       // Abonnement coupé (lancement, SUBSCRIPTIONS_ENABLED=false dans planFeatures.ts) :

@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
   Upload, X, MapPin, Loader2, Plus, Trash2, MessageCircle,
   EyeOff, Wine, Bell, Coins, Image, Settings, Building2, Share2, FileText, Receipt,
-  Copy, Check, ExternalLink,
+  Copy, Check, ExternalLink, Globe,
 } from 'lucide-react';
 
 const Instagram = ({ className }: { className?: string }) => (
@@ -35,6 +35,8 @@ import { OwnerHeader } from '@/components/OwnerHeader';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useUnsavedGuard } from '@/hooks/useUnsavedGuard';
+import { isPreviewActive } from '@/contexts/PreviewModeContext';
+import { useVenuePaymentsReady } from '@/lib/paymentsReady';
 import { Switch } from '@/components/ui/switch';
 import { BarConfigSection } from '@/components/owner/BarConfigSection';
 import TrackedLinksManager from '@/components/tracking/TrackedLinksManager';
@@ -211,6 +213,16 @@ export default function OwnerVenue() {
   // Visibility
   const [hiddenFromMap, setHiddenFromMap] = useState(false);
 
+  // Publication : une venue is_hidden (compte vitrine réclamé, onboarding) n'est
+  // visible que de son owner — cette carte lui donne le geste « Publier ma page ».
+  // La publication n'exige PAS Stripe (les ventes restent gatées par
+  // venue_payments_ready) ; on affiche seulement un rappel.
+  const [isHidden, setIsHidden] = useState(false);
+  const [decommissioned, setDecommissioned] = useState(false);
+  const [publicSlug, setPublicSlug] = useState('');
+  const [publishing, setPublishing] = useState(false);
+  const paymentsReady = useVenuePaymentsReady(venueId);
+
   // Bar & menu
   const [menuEnabled, setMenuEnabled] = useState(true);
   const [freeDrinkMode, setFreeDrinkMode] = useState<'credits' | 'bouncer_notify'>('credits');
@@ -251,7 +263,7 @@ export default function OwnerVenue() {
       // select('*') prendrait un 403 total. invoice_prefix arrive par la RPC
       // privée ci-dessous ; le bloc légal reste en lecture directe.
       const { data, error } = await supabase.from('venues').select(
-        'id, name, city, address, logo_url, cover_url, cover_position, latitude, longitude, gallery_images, instagram_url, facebook_url, tiktok_url, twitter_url, whatsapp_number, hidden_from_map, description, short_description, music_genre, min_age, minors_allowed, minor_auth_doc_url, minor_auth_doc_name, menu_enabled, free_drink_mode, absorb_yuno_fees, legal_name, siret, vat_number, legal_address',
+        'id, name, city, address, logo_url, cover_url, cover_position, latitude, longitude, gallery_images, instagram_url, facebook_url, tiktok_url, twitter_url, whatsapp_number, hidden_from_map, description, short_description, music_genre, min_age, minors_allowed, minor_auth_doc_url, minor_auth_doc_name, menu_enabled, free_drink_mode, absorb_yuno_fees, legal_name, siret, vat_number, legal_address, is_hidden, slug, decommissioned_at',
       ).eq('id', venueId).single();
       if (error) throw error;
       if (data.logo_url) { setCurrentLogoUrl(data.logo_url); setLogoPreview(data.logo_url); }
@@ -268,6 +280,9 @@ export default function OwnerVenue() {
       setTwitterUrl(data.twitter_url || '');
       setWhatsappNumber(data.whatsapp_number || '');
       setHiddenFromMap(data.hidden_from_map || false);
+      setIsHidden(data.is_hidden === true);
+      setDecommissioned(!!data.decommissioned_at);
+      setPublicSlug((data.slug as string | null) || data.id);
       setVenueDescription(data.description || '');
       setShortDescription(data.short_description || '');
       setMusicGenre(data.music_genre || '');
@@ -557,6 +572,19 @@ export default function OwnerVenue() {
     } catch { toast.error(t('owner.errorSaving')); }
   };
 
+  const handlePublish = async () => {
+    if (!venueId || publishing) return;
+    if (isPreviewActive()) { toast.error(t('owner.publishReadOnly')); return; }
+    setPublishing(true);
+    try {
+      const { error } = await supabase.from('venues').update({ is_hidden: false }).eq('id', venueId);
+      if (error) throw error;
+      setIsHidden(false);
+      toast.success(t('owner.publishSuccess'));
+    } catch { toast.error(t('owner.errorSaving')); }
+    finally { setPublishing(false); }
+  };
+
   if (loading) return <OwnerPageSkeleton />;
 
   return (
@@ -567,6 +595,39 @@ export default function OwnerVenue() {
       <OwnerHeader title={t('owner.venueCustomization')} />
 
       <div className="relative z-10 mx-auto max-w-[900px] px-4 sm:px-6 pt-2 pb-4 space-y-4">
+
+        {/* Page encore cachée (compte vitrine réclamé, onboarding) : le geste de
+            publication appartient au pro. Les ventes restent gatées par Stripe. */}
+        {isHidden && !decommissioned && (
+          <SectionCard title={t('owner.publishTitle')} description={t('owner.publishDesc')}>
+            <div className="space-y-3">
+              <a
+                href={`/club/${publicSlug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5"
+                style={{ color: 'rgba(255,255,255,0.58)', fontSize: 12.5, textDecoration: 'underline' }}
+              >
+                <ExternalLink className="h-3.5 w-3.5" />{t('owner.publishPreviewLink')}
+              </a>
+              {!paymentsReady && (
+                <p style={{ color: 'rgba(255,255,255,0.36)', fontSize: 12, lineHeight: 1.5 }}>
+                  {t('owner.publishStripeHint')}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={handlePublish}
+                disabled={publishing}
+                className="inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-semibold transition"
+                style={{ background: RED, color: '#fff', boxShadow: `0 0 18px -6px ${RED}88`, opacity: publishing ? 0.6 : 1, cursor: publishing ? 'not-allowed' : 'pointer' }}
+              >
+                {publishing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
+                {t('owner.publishButton')}
+              </button>
+            </div>
+          </SectionCard>
+        )}
 
         {/* ═══════════════════════════════════════════════════════════
             1. APPARENCE — Identité visuelle côté client

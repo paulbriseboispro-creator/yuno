@@ -64,6 +64,7 @@ interface Venue {
   is_hidden: boolean;
   decommissioned_at: string | null;
   purge_at: string | null;
+  showcase_shadow_owner_id?: string | null;
   owner_email?: string;
   pending_owner_email?: string;
   pending_owner_expires_at?: string;
@@ -112,7 +113,7 @@ export default function AdminVenues() {
       // sont retirés du rôle authenticated (migration 20260823180003) — un
       // select('*') prendrait un 403 total. Cette page n'affiche aucun champ privé.
       const { data: venuesData, error: venuesError } = await supabase.from('venues')
-        .select('id, name, city, address, owner_id, is_hidden, latitude, longitude, decommissioned_at, purge_at')
+        .select('id, name, city, address, owner_id, is_hidden, latitude, longitude, decommissioned_at, purge_at, showcase_shadow_owner_id' as '*')
         .order('name');
       if (venuesError) throw venuesError;
 
@@ -154,6 +155,53 @@ export default function AdminVenues() {
   // Onboarding link generated inline after creating an owner-less club.
   const [createdLink, setCreatedLink] = useState<{ url: string; venueName: string } | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
+
+  // Compte vitrine (prospection) : fantôme propriétaire d'une venue cachée,
+  // construit par l'admin via un magiclink en fenêtre privée. Voir migration
+  // 20260826100000 + action create-showcase-owner d'admin-account-recovery.
+  const [showcaseTarget, setShowcaseTarget] = useState<Venue | null>(null);
+  const [showcaseEmail, setShowcaseEmail] = useState('');
+  const [creatingShowcase, setCreatingShowcase] = useState(false);
+  const [showcaseLink, setShowcaseLink] = useState<string | null>(null);
+
+  const openShowcaseDialog = (venue: Venue) => {
+    setShowcaseTarget(venue);
+    setShowcaseLink(null);
+    // Le fantôme existe déjà → son email est l'owner_email affiché ; sinon,
+    // convention vitrine+<id>@yunoapp.eu (boîte contrôlée par Yuno, JAMAIS
+    // @womber.fr — ce suffixe fausserait paymentsReady et le DemoSwitcher).
+    setShowcaseEmail(venue.showcase_shadow_owner_id ? (venue.owner_email ?? '') : `vitrine+${venue.id}@yunoapp.eu`);
+  };
+
+  const createShowcase = async () => {
+    if (!showcaseTarget || !showcaseEmail || creatingShowcase) return;
+    setCreatingShowcase(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-account-recovery', {
+        body: { action: 'create-showcase-owner', venueId: showcaseTarget.id, email: showcaseEmail.trim() },
+      });
+      if (error || (data as any)?.error) throw new Error((data as any)?.error ?? error?.message);
+      setShowcaseLink((data as any).action_link as string);
+      toast.success('Compte vitrine prêt — ouvre le lien en fenêtre privée pour construire.');
+      fetchData();
+    } catch (e: any) {
+      const msg = String(e?.message ?? '');
+      if (msg.includes('venue_already_owned')) toast.error('Ce club a déjà un vrai propriétaire.');
+      else if (msg.includes('email_already_used')) toast.error('Cet email est déjà utilisé par un autre compte.');
+      else if (msg.includes('womber_email_forbidden')) toast.error('Jamais d\'email @womber.fr pour un fantôme.');
+      else toast.error(msg || 'Erreur');
+    } finally {
+      setCreatingShowcase(false);
+    }
+  };
+
+  const copyShowcaseLink = async () => {
+    if (!showcaseLink) return;
+    try {
+      await navigator.clipboard.writeText(showcaseLink);
+      toast.success('Lien builder copié');
+    } catch { toast.error('Copie impossible'); }
+  };
 
   const openCreateDialog = () => {
     setEditingVenue(null);
@@ -458,6 +506,23 @@ export default function AdminVenues() {
                     />
                   )}
 
+                  {/* Compte vitrine : venue sans vrai owner (libre, ou déjà portée
+                      par son fantôme). Le fantôme EST l'owner → owner_email affiché. */}
+                  {venue.showcase_shadow_owner_id ? (
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full shrink-0" style={{ background: 'rgba(232,25,44,0.12)', border: '1px solid rgba(232,25,44,0.3)', color: RED, fontSize: 10, fontWeight: 600 }}>
+                        Vitrine
+                      </span>
+                      <button style={{ ...secondaryBtnStyle, flex: 1, padding: '7px 10px', fontSize: 12 }} onClick={() => openShowcaseDialog(venue)}>
+                        Lien builder
+                      </button>
+                    </div>
+                  ) : (!venue.owner_email && !venue.decommissioned_at && (
+                    <button style={{ ...secondaryBtnStyle, width: '100%', padding: '7px 10px', fontSize: 12 }} onClick={() => openShowcaseDialog(venue)}>
+                      Compte vitrine
+                    </button>
+                  ))}
+
                   <a href={`/club/${venue.id}`} target="_blank" rel="noopener noreferrer" style={{ ...secondaryBtnStyle, width: '100%', padding: '7px 10px', fontSize: 12, textDecoration: 'none' }}>
                     <ExternalLink className="h-3.5 w-3.5" />{t('adminVenues.viewPage')}
                   </a>
@@ -566,6 +631,61 @@ export default function AdminVenues() {
                 </button>
               </div>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!showcaseTarget} onOpenChange={(o) => { if (!o) { setShowcaseTarget(null); setShowcaseLink(null); } }}>
+          <DialogContent className="max-w-md border-0" style={{ background: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: CARD_SHADOW }}>
+            <DialogHeader>
+              <DialogTitle style={{ color: T1 }}>
+                Compte vitrine{showcaseTarget ? ` — ${showcaseTarget.name}` : ''}
+              </DialogTitle>
+              <DialogDescription style={{ color: T3 }}>
+                Crée (ou récupère) le compte fantôme propriétaire de ce club caché, puis ouvre le
+                lien builder en fenêtre privée pour construire la page, les soirées et les tables.
+                Le club reste invisible du public jusqu'à sa réclamation puis sa publication.
+              </DialogDescription>
+            </DialogHeader>
+            {showcaseLink ? (
+              <div className="space-y-3">
+                <p style={{ fontSize: 13, color: T2 }}>
+                  Lien builder prêt (usage unique, ouvre-le en <strong style={{ color: T1 }}>fenêtre privée</strong>) :
+                </p>
+                <div className="flex items-center gap-2">
+                  <input readOnly value={showcaseLink} style={{ ...inputStyle, flex: 1 }} onFocus={(e) => e.currentTarget.select()} />
+                  <button onClick={copyShowcaseLink} style={{ ...secondaryBtnStyle, padding: '9px 12px' }}>
+                    <Copy className="h-4 w-4" />
+                  </button>
+                </div>
+                <button onClick={() => { setShowcaseTarget(null); setShowcaseLink(null); }} style={{ ...primaryBtnStyle, width: '100%' }}>
+                  Terminé
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label style={labelStyle}>Email du compte fantôme</label>
+                  <input
+                    type="email"
+                    value={showcaseEmail}
+                    onChange={(e) => setShowcaseEmail(e.target.value)}
+                    style={inputStyle}
+                  />
+                  <p style={{ color: T3, fontSize: 11.5, marginTop: 6, lineHeight: 1.5 }}>
+                    Une boîte contrôlée par Yuno (jamais @womber.fr). Le prospect ne la verra jamais :
+                    à la réclamation, la propriété passe sur SON compte, sans rien perdre du contenu.
+                  </p>
+                </div>
+                <button
+                  onClick={createShowcase}
+                  disabled={creatingShowcase || !showcaseEmail}
+                  style={{ ...primaryBtnStyle, width: '100%', opacity: (creatingShowcase || !showcaseEmail) ? 0.5 : 1, cursor: (creatingShowcase || !showcaseEmail) ? 'not-allowed' : 'pointer' }}
+                >
+                  {creatingShowcase && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {showcaseTarget?.showcase_shadow_owner_id ? 'Regénérer le lien builder' : 'Créer le compte vitrine'}
+                </button>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
 

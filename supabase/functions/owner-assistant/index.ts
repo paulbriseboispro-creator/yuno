@@ -106,6 +106,12 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     path: "/owner/venue",
     snippet: "Yuno utilise Stripe Connect (Standard) pour les paiements. Chaque club a son propre compte Stripe connecté. L'argent va directement sur le compte du club. Yuno prélève une commission automatiquement. Pour connecter Stripe : va dans Paramètres > Paiements et clique 'Connecter Stripe'. Stripe vérifie le compte en 24-48h.",
   },
+  "publish-page": {
+    title: "Publier ma page (page cachée / compte vitrine)",
+    keywords: ["publier", "publish", "page cachée", "hidden", "invisible", "visible", "en ligne", "vitrine", "showcase", "activer", "activation", "compte pré-construit", "preview", "aperçu", "ma page n'apparaît pas", "introuvable"],
+    path: "/owner/venue",
+    snippet: "Si ta page club est encore invisible du public (par exemple l'équipe Yuno a pré-construit ton compte et tu viens de l'activer), une carte « Publier ma page » apparaît en haut de Paramètres > Mon club. Vérifie ta page avec le lien d'aperçu, puis clique « Publier ma page » : elle devient immédiatement visible dans l'app et sur le web. Tu peux publier avant de connecter Stripe — les ventes de billets, tables et boissons restent simplement fermées tant que Stripe n'est pas configuré. Tant que la page est cachée, seuls toi et l'équipe Yuno pouvez la voir.",
+  },
   "staff-roles": {
     title: "Rôles du staff",
     keywords: ["staff", "employé", "barman", "bouncer", "videur", "manager", "vestiaire", "cloakroom", "rôle", "PIN"],

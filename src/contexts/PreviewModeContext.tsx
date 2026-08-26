@@ -10,6 +10,13 @@
 //
 // L'état porte : le nom de la personne (label), la liste des rôles accessibles (roles),
 // le rôle courant (current) et la langue par défaut (language).
+//
+// Deux sortes d'aperçu (kind) :
+//   • 'demo'     — comptes démo génériques @womber.fr (comportement historique).
+//   • 'showcase' — compte VITRINE : le prospect est connecté au compte fantôme de
+//                  SA venue cachée (venueId/venueSlug/venueName renseignés) et la
+//                  bannière lui offre page publique ↔ dashboard + le CTA
+//                  « Activer mon compte ».
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
@@ -21,19 +28,35 @@ export interface PreviewState {
   roles: string[];
   current: string;
   language: string;
+  kind: 'demo' | 'showcase';
+  venueId: string;
+  venueSlug: string;
+  venueName: string;
 }
 
-const EMPTY: PreviewState = { label: '', roles: [], current: '', language: 'en' };
+const EMPTY: PreviewState = {
+  label: '', roles: [], current: '', language: 'en',
+  kind: 'demo', venueId: '', venueSlug: '', venueName: '',
+};
 
 function parse(raw: string | null): PreviewState | null {
   if (!raw) return null;
   try {
     const o = JSON.parse(raw);
     if (o && typeof o === 'object' && Array.isArray(o.roles)) {
-      return { label: o.label ?? '', roles: o.roles, current: o.current ?? o.roles[0] ?? '', language: o.language ?? 'en' };
+      return {
+        label: o.label ?? '',
+        roles: o.roles,
+        current: o.current ?? o.roles[0] ?? '',
+        language: o.language ?? 'en',
+        kind: o.kind === 'showcase' ? 'showcase' : 'demo',
+        venueId: o.venueId ?? '',
+        venueSlug: o.venueSlug ?? '',
+        venueName: o.venueName ?? '',
+      };
     }
   } catch { /* ancien format (string label) : traité comme label seul */
-    return { label: raw, roles: [], current: '', language: 'en' };
+    return { ...EMPTY, label: raw };
   }
   return null;
 }
@@ -61,12 +84,19 @@ export function getPreviewLabel(): string {
 }
 
 /** Arme la lecture seule (appelé par PreviewGate après connexion au compte démo). */
-export function enablePreviewMode(state: { label: string; roles: string[]; current?: string; language?: string }): void {
+export function enablePreviewMode(state: {
+  label: string; roles: string[]; current?: string; language?: string;
+  kind?: 'demo' | 'showcase'; venueId?: string; venueSlug?: string; venueName?: string;
+}): void {
   const value = JSON.stringify({
     label: state.label ?? '',
     roles: state.roles ?? [],
     current: state.current ?? state.roles?.[0] ?? '',
     language: state.language ?? 'en',
+    kind: state.kind === 'showcase' ? 'showcase' : 'demo',
+    venueId: state.venueId ?? '',
+    venueSlug: state.venueSlug ?? '',
+    venueName: state.venueName ?? '',
   });
   try { sessionStorage.setItem(PREVIEW_FLAG, value); } catch { /* storage indispo : ignore */ }
   try { window.dispatchEvent(new Event(PREVIEW_EVENT)); } catch { /* pas de window */ }

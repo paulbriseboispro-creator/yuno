@@ -20,6 +20,12 @@ const WRITE_BUILDER_METHODS = ['insert', 'update', 'upsert', 'delete'] as const;
 
 // Verbes d'écriture : une RPC dont le nom commence par l'un d'eux est bloquée.
 // Biais volontaire : ne JAMAIS bloquer une lecture (get_/search_/count_/is_/…).
+//
+// ⚠️ Le préfixe `request_` est EXEMPTÉ à dessein : `request_showcase_claim`
+// (CTA « Activer mon compte » des sessions vitrine, migration 20260826101000)
+// est le seul canal d'écriture du prospect en preview et dépend de cette
+// exemption. Si un durcissement futur ajoute `request_`, il faut d'abord créer
+// une allowlist exacte pour cette RPC.
 const WRITE_RPC_PREFIXES = [
   'set_', 'create_', 'update_', 'delete_', 'insert_', 'upsert_', 'add_', 'remove_',
   'record_', 'save_', 'settle_', 'redeem_', 'revoke_', 'cancel_', 'refund_', 'apply_',

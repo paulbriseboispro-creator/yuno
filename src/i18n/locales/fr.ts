@@ -3734,6 +3734,13 @@ const fr: Record<string, string> = {
   
   // OwnerVenue customization keys - French
   'owner.clientPagePreview': 'Aperçu de la page client',
+  'owner.publishTitle': 'Publier ma page',
+  'owner.publishDesc': 'Votre page est encore invisible du public. Publiez-la quand tout est prêt — vous pouvez d\'abord la vérifier avec le lien d\'aperçu ci-dessous.',
+  'owner.publishPreviewLink': 'Voir ma page publique',
+  'owner.publishStripeHint': 'À savoir : les ventes de billets, tables et boissons ne s\'ouvrent qu\'une fois Stripe connecté. Vous pouvez publier maintenant et connecter Stripe plus tard.',
+  'owner.publishButton': 'Publier ma page',
+  'owner.publishSuccess': 'Votre page est en ligne !',
+  'owner.publishReadOnly': 'Aperçu en lecture seule',
   'owner.roundLogo': 'Logo rond',
   'owner.changeLogo': 'Changer le logo',
   'owner.addLogo': 'Ajouter un logo',
@@ -9935,6 +9942,8 @@ const fr: Record<string, string> = {
   'ohelp.pg.venue.s6b': 'Servez-vous de l\'Aperçu de la page client comme guide, c\'est la vraie vue client. Une bannière nette et un bloc d\'infos complet rendent une page de club assez crédible pour qu\'on y achète.',
   'ohelp.pg.venue.s7h': 'Attention',
   'ohelp.pg.venue.s7b': 'Votre slug d\'URL publique fait partie de chaque lien que vous partagez. Fixez-le avant de commencer à promouvoir, le changer plus tard casse les liens déjà en circulation.',
+  'ohelp.pg.venue.s8h': 'Publier ma page',
+  'ohelp.pg.venue.s8b': 'Si votre page est encore invisible du public (par exemple l\'équipe Yuno a pré-construit votre compte et vous venez de l\'activer), une carte « Publier ma page » apparaît en haut de cet écran. Vérifiez tout avec le lien d\'aperçu, puis publiez quand c\'est prêt. Vous pouvez publier avant de connecter Stripe — les ventes restent simplement fermées tant que Stripe n\'est pas configuré.',
 
   'ohelp.pg.subscription.title': 'Abonnement',
   'ohelp.pg.subscription.desc': 'Votre plan, votre compte de versement Stripe et les frais, au même endroit.',
@@ -13283,6 +13292,7 @@ const fr: Record<string, string> = {
   'notif.type.aff_contract_status': "Contrat mis à jour",
   'notif.type.aff_missing_ticket_url': "Lien billetterie manquant",
   'notif.type.admin_agency_club_lead': "Lead club (agence)",
+  'notif.type.admin_showcase_claim': "Demande d'activation vitrine",
 
   'aff.pdash.quickYunoSide': "Mes clubs Yuno",
   'aff.pdash.quickYunoSideDesc': "Ventes in-app & commissions",

@@ -4,6 +4,13 @@
 // (ex. « el sorbo ») + 1 type de compte démo. On génère une URL /preview?token=…
 // à envoyer ; le destinataire ouvre, saisit son mot de passe, et voit le dashboard
 // démo en LECTURE SEULE.
+//
+// Liens VITRINE : un lien peut viser une venue vitrine précise (compte fantôme,
+// voir migration 20260826100000) au lieu des comptes démo génériques — le
+// prospect voit alors SA page publique + SON dashboard. La section « Demandes
+// d'activation » liste les prospects qui ont cliqué « Activer mon compte » ;
+// le bouton Inviter déclenche l'invitation propriétaire (invite-owner), dont
+// l'acceptation transfère la venue sans rien perdre du contenu construit.
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,7 +22,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, KeyRound, Trash2, Copy, Ban, Eye, Check, Pencil } from 'lucide-react';
+import { Plus, KeyRound, Trash2, Copy, Ban, Eye, Check, Pencil, Rocket, Store } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ALL_TARGET_ACCOUNTS, DEMO_ACCOUNTS, type TargetAccount } from '@/lib/demoSession';
@@ -74,6 +81,22 @@ interface PreviewLink {
   last_used_at: string | null;
   revoked_at: string | null;
   created_at: string;
+  venue_id: string | null;
+  venues?: { name: string } | null;
+}
+
+interface ShowcaseVenue {
+  id: string;
+  name: string;
+}
+
+interface ClaimRequest {
+  id: string;
+  venue_id: string;
+  requested_email: string;
+  created_at: string;
+  updated_at: string;
+  venues?: { name: string } | null;
 }
 
 const LANGUAGES: { code: string; label: string }[] = [
@@ -127,6 +150,16 @@ export default function AdminDemoAccess() {
   const [accounts, setAccounts] = useState<TargetAccount[]>(['owner']);
   const [language, setLanguage] = useState('en');
   const [expiresAt, setExpiresAt] = useState('');
+  // Lien vitrine : '' = lien démo classique, sinon id de la venue vitrine visée.
+  const [showcaseVenueId, setShowcaseVenueId] = useState('');
+  const [showcaseVenues, setShowcaseVenues] = useState<ShowcaseVenue[]>([]);
+
+  // Demandes d'activation (CTA « Activer mon compte » des sessions vitrine).
+  const [claims, setClaims] = useState<ClaimRequest[]>([]);
+  const [inviteTarget, setInviteTarget] = useState<ClaimRequest | null>(null);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [offerHelp, setOfferHelp] = useState(true);
+  const [inviting, setInviting] = useState(false);
 
   const toggleAccount = (a: TargetAccount) =>
     setAccounts((prev) => (prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a]));
@@ -145,11 +178,25 @@ export default function AdminDemoAccess() {
 
   const load = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('demo_preview_links' as any)
-      .select('*')
-      .order('created_at', { ascending: false });
-    setLinks((data ?? []) as unknown as PreviewLink[]);
+    const [linksRes, venuesRes, claimsRes] = await Promise.all([
+      supabase
+        .from('demo_preview_links' as any)
+        .select('*, venues(name)')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('venues' as any)
+        .select('id, name')
+        .not('showcase_shadow_owner_id', 'is', null)
+        .order('name'),
+      supabase
+        .from('showcase_claim_requests' as any)
+        .select('*, venues(name)')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false }),
+    ]);
+    setLinks((linksRes.data ?? []) as unknown as PreviewLink[]);
+    setShowcaseVenues((venuesRes.data ?? []) as unknown as ShowcaseVenue[]);
+    setClaims((claimsRes.data ?? []) as unknown as ClaimRequest[]);
     setLoading(false);
   };
 
@@ -165,15 +212,16 @@ export default function AdminDemoAccess() {
   };
 
   const submit = async () => {
-    if (!label || !password || accounts.length === 0) return;
+    if (!label || !password || (!showcaseVenueId && accounts.length === 0)) return;
     setSubmitting(true);
     try {
       const { data, error } = await supabase.rpc('create_demo_preview_link' as any, {
         p_label: label,
         p_password: password,
-        p_target_accounts: accounts,
+        p_target_accounts: showcaseVenueId ? ['owner'] : accounts,
         p_language: language,
         p_expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+        p_venue_id: showcaseVenueId || null,
       });
       if (error) throw error;
       const row = Array.isArray(data) ? data[0] : data;
@@ -185,6 +233,7 @@ export default function AdminDemoAccess() {
         toast.success('Lien créé');
       }
       setLabel(''); setPassword(''); setAccounts(['owner']); setLanguage('en'); setExpiresAt('');
+      setShowcaseVenueId('');
       setCreateOpen(false);
       load();
     } catch (e: any) {
@@ -192,6 +241,45 @@ export default function AdminDemoAccess() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Invitation propriétaire depuis une demande d'activation. La branche
+  // « compte existant » d'invite-owner transfère la venue IMMÉDIATEMENT (pas
+  // d'email d'acceptation) — le toast le dit clairement.
+  const sendInvite = async () => {
+    if (!inviteTarget || !inviteEmail || inviting) return;
+    setInviting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('invite-owner', {
+        body: {
+          email: inviteEmail.trim(),
+          venue_id: inviteTarget.venue_id,
+          venue_name: inviteTarget.venues?.name ?? inviteTarget.venue_id,
+          offer_support_help: offerHelp,
+        },
+      });
+      if (error || (data as any)?.error) throw new Error((data as any)?.error ?? error?.message);
+      if ((data as any)?.user_exists) {
+        toast.success('Compte existant : la venue vient d\'être transférée immédiatement.');
+      } else {
+        toast.success(`Invitation envoyée à ${inviteEmail.trim()}`);
+      }
+      setInviteTarget(null);
+      load();
+    } catch (e: any) {
+      toast.error(e.message ?? 'Erreur');
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const dismissClaim = async (claim: ClaimRequest) => {
+    const { error } = await supabase
+      .from('showcase_claim_requests' as any)
+      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .eq('id', claim.id);
+    if (error) toast.error(error.message);
+    else { toast.success('Demande écartée'); load(); }
   };
 
   const revoke = async (link: PreviewLink) => {
@@ -292,12 +380,30 @@ export default function AdminDemoAccess() {
                   </p>
                 </div>
                 <div>
-                  <Label style={{ color: T2 }}>Dashboards accessibles ({accounts.length})</Label>
+                  <Label style={{ color: T2 }}>Compte vitrine (optionnel)</Label>
                   <p style={{ color: T3, fontSize: 11.5, margin: '4px 0 8px', lineHeight: 1.5 }}>
-                    Coche un ou plusieurs rôles. La personne pourra basculer entre eux depuis l'aperçu.
+                    Vise un club vitrine précis : le prospect verra SA page publique et SON dashboard
+                    en lecture seule, au lieu des comptes démo génériques.
                   </p>
-                  <AccountPicker selected={accounts} onToggle={toggleAccount} />
+                  <select value={showcaseVenueId} onChange={(e) => setShowcaseVenueId(e.target.value)}
+                    style={inputStyle}>
+                    <option value="" style={{ background: '#0a0a0c' }}>— Lien démo classique —</option>
+                    {showcaseVenues.map((v) => (
+                      <option key={v.id} value={v.id} style={{ background: '#0a0a0c' }}>
+                        {v.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                {!showcaseVenueId && (
+                  <div>
+                    <Label style={{ color: T2 }}>Dashboards accessibles ({accounts.length})</Label>
+                    <p style={{ color: T3, fontSize: 11.5, margin: '4px 0 8px', lineHeight: 1.5 }}>
+                      Coche un ou plusieurs rôles. La personne pourra basculer entre eux depuis l'aperçu.
+                    </p>
+                    <AccountPicker selected={accounts} onToggle={toggleAccount} />
+                  </div>
+                )}
                 <div>
                   <Label style={{ color: T2 }}>Langue par défaut</Label>
                   <select value={language} onChange={(e) => setLanguage(e.target.value)}
@@ -316,9 +422,9 @@ export default function AdminDemoAccess() {
                 </div>
                 <button
                   onClick={submit}
-                  disabled={submitting || !label || !password || accounts.length === 0}
+                  disabled={submitting || !label || !password || (!showcaseVenueId && accounts.length === 0)}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-all duration-150"
-                  style={{ background: RED, color: '#fff', padding: '11px 16px', boxShadow: `0 0 18px -6px ${RED}88`, cursor: (submitting || !label || !password || accounts.length === 0) ? 'not-allowed' : 'pointer', opacity: (submitting || !label || !password || accounts.length === 0) ? 0.5 : 1 }}
+                  style={{ background: RED, color: '#fff', padding: '11px 16px', boxShadow: `0 0 18px -6px ${RED}88`, cursor: (submitting || !label || !password || (!showcaseVenueId && accounts.length === 0)) ? 'not-allowed' : 'pointer', opacity: (submitting || !label || !password || (!showcaseVenueId && accounts.length === 0)) ? 0.5 : 1 }}
                 >
                   {submitting && <div className="h-4 w-4 animate-spin rounded-full border-2" style={{ borderColor: `rgba(255,255,255,0.35) rgba(255,255,255,0.35) rgba(255,255,255,0.35) #fff` }} />}
                   Créer + copier le lien
@@ -327,6 +433,39 @@ export default function AdminDemoAccess() {
             </DialogContent>
           </Dialog>
         </header>
+
+        {claims.length > 0 && (
+          <div style={cardStyle}>
+            <h2 className="flex items-center gap-2" style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em', marginBottom: 16 }}>
+              <Rocket className="h-4 w-4" style={{ color: RED }} />Demandes d'activation ({claims.length})
+            </h2>
+            <div className="space-y-2">
+              {claims.map((cl) => (
+                <div key={cl.id} className="flex items-center justify-between gap-3 p-3" style={rowStyle}>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-[560] truncate" style={{ color: T1, fontSize: 13.5 }}>
+                      {cl.venues?.name ?? cl.venue_id}
+                    </div>
+                    <div className="truncate" style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>
+                      {cl.requested_email}
+                      {' · '}{format(new Date(cl.updated_at ?? cl.created_at), 'dd/MM HH:mm')}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setInviteTarget(cl); setInviteEmail(cl.requested_email); setOfferHelp(true); }}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold cursor-pointer transition-all duration-150"
+                    style={{ background: RED, color: '#fff', boxShadow: `0 0 14px -6px ${RED}88` }}
+                  >
+                    Inviter
+                  </button>
+                  <button onClick={() => dismissClaim(cl)} title="Écarter la demande" style={iconBtn('neutral')}>
+                    <Ban className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div style={cardStyle}>
           <h2 className="flex items-center gap-2" style={{ color: T1, fontSize: 15.5, fontWeight: 600, letterSpacing: '-0.01em', marginBottom: 16 }}>
@@ -346,17 +485,26 @@ export default function AdminDemoAccess() {
                   <div className="flex-1 min-w-0">
                     <div className="font-[560] truncate" style={{ color: T1, fontSize: 13.5 }}>{l.label}</div>
                     <div className="truncate" style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>
-                      {(l.target_accounts ?? []).map((a) => DEMO_ACCOUNTS[a]?.label ?? a).join(', ')}
+                      {l.venue_id
+                        ? `Vitrine · ${l.venues?.name ?? l.venue_id}`
+                        : (l.target_accounts ?? []).map((a) => DEMO_ACCOUNTS[a]?.label ?? a).join(', ')}
                       {' · '}{(l.language ?? 'en').toUpperCase()}
                       {' · '}{l.used_count} ouverture{l.used_count > 1 ? 's' : ''}
                       {l.last_used_at ? ` · dernier ${format(new Date(l.last_used_at), 'dd/MM HH:mm')}` : ''}
                       {l.expires_at ? ` · expire ${format(new Date(l.expires_at), 'dd/MM/yyyy')}` : ''}
                     </div>
                   </div>
+                  {l.venue_id && (
+                    <span style={pillStyle(RED, 'rgba(232,25,44,0.1)', 'rgba(232,25,44,0.3)')}>
+                      <Store className="h-3 w-3" />Vitrine
+                    </span>
+                  )}
                   {statusPill(l)}
-                  <button onClick={() => openEdit(l)} title="Modifier les accès" style={iconBtn('neutral')}>
-                    <Pencil className="h-4 w-4" />
-                  </button>
+                  {!l.venue_id && (
+                    <button onClick={() => openEdit(l)} title="Modifier les accès" style={iconBtn('neutral')}>
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                  )}
                   <button onClick={() => copyLink(l.token)} title="Copier le lien" style={iconBtn('neutral')}>
                     <Copy className="h-4 w-4" />
                   </button>
@@ -398,6 +546,52 @@ export default function AdminDemoAccess() {
               >
                 {savingEdit && <div className="h-4 w-4 animate-spin rounded-full border-2" style={{ borderColor: `rgba(255,255,255,0.35) rgba(255,255,255,0.35) rgba(255,255,255,0.35) #fff` }} />}
                 Enregistrer
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={!!inviteTarget} onOpenChange={(o) => !o && setInviteTarget(null)}>
+          <DialogContent style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, color: T1 }}>
+            <DialogHeader>
+              <DialogTitle style={{ color: T1 }}>
+                Inviter le propriétaire{inviteTarget?.venues?.name ? ` — ${inviteTarget.venues.name}` : ''}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-2">
+              <div>
+                <Label style={{ color: T2 }}>Email du prospect</Label>
+                <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)}
+                  style={{ ...inputStyle, marginTop: 6 }} />
+                <p style={{ color: T3, fontSize: 11.5, marginTop: 6, lineHeight: 1.5 }}>
+                  Nouveau compte : il reçoit une invitation à accepter. Compte Yuno existant :
+                  la venue lui est transférée immédiatement, sans email d'acceptation.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOfferHelp(!offerHelp)}
+                className="flex items-start gap-2.5 w-full text-left"
+              >
+                <span
+                  className="shrink-0 h-[18px] w-[18px] rounded-[4px] border flex items-center justify-center transition-colors mt-[1px]"
+                  style={{ background: offerHelp ? RED : 'transparent', borderColor: offerHelp ? RED : 'rgba(255,255,255,0.25)' }}
+                >
+                  {offerHelp && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+                </span>
+                <span style={{ color: T2, fontSize: 12.5, lineHeight: 1.5 }}>
+                  Proposer l'assistance Yuno à l'acceptation (le pro consent, un accès support
+                  s'ouvre pour finir la configuration avec lui).
+                </span>
+              </button>
+              <button
+                onClick={sendInvite}
+                disabled={inviting || !inviteEmail}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-all duration-150"
+                style={{ background: RED, color: '#fff', padding: '11px 16px', boxShadow: `0 0 18px -6px ${RED}88`, cursor: (inviting || !inviteEmail) ? 'not-allowed' : 'pointer', opacity: (inviting || !inviteEmail) ? 0.5 : 1 }}
+              >
+                {inviting && <div className="h-4 w-4 animate-spin rounded-full border-2" style={{ borderColor: `rgba(255,255,255,0.35) rgba(255,255,255,0.35) rgba(255,255,255,0.35) #fff` }} />}
+                Envoyer l'invitation
               </button>
             </div>
           </DialogContent>

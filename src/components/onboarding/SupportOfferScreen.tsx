@@ -21,16 +21,22 @@ interface Props {
   token: string;
   /** Appelé quand le pro a tranché (accepté ou refusé) — l'appelant redirige. */
   onDone: () => void;
+  /** Chemin d'activation : 'platform' (organisateur, défaut) ou 'owner'
+   *  (invitation club) — chacun a sa propre RPC d'acceptation. */
+  variant?: 'platform' | 'owner';
 }
 
-export function SupportOfferScreen({ token, onDone }: Props) {
+export function SupportOfferScreen({ token, onDone, variant = 'platform' }: Props) {
   const { language } = useLanguage();
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [busy, setBusy] = useState(false);
 
   const accept = async () => {
     setBusy(true);
-    const { error } = await supabase.rpc('accept_support_offer_from_invitation', { _token: token });
+    const rpcName = variant === 'owner'
+      ? 'accept_support_offer_from_owner_invitation'
+      : 'accept_support_offer_from_invitation';
+    const { error } = await supabase.rpc(rpcName as 'accept_support_offer_from_invitation', { _token: token });
     setBusy(false);
     if (error) {
       toast.error(t(

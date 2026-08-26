@@ -1,22 +1,38 @@
 // Bannière persistante affichée pendant un aperçu (preview) en lecture seule.
 // Rappelle au prospect qu'il est en démo, permet de basculer entre les rôles
 // accordés par le lien, et de quitter proprement.
+//
+// Variante VITRINE (kind === 'showcase') : le prospect est connecté au compte
+// fantôme de SA venue — le switcher de rôles démo est remplacé par deux pills
+// de navigation (page publique ↔ dashboard) et le CTA « Activer mon compte ».
 
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Eye, X, ChevronDown, Loader2, Check } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Eye, X, ChevronDown, Loader2, Check, Rocket } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { usePreviewMode, disablePreviewMode, setPreviewCurrentRole } from '@/contexts/PreviewModeContext';
 import { clearDemoBypass, switchToDemoRole, DEMO_ACCOUNTS, type TargetAccount } from '@/lib/demoSession';
+import { ShowcaseClaimDialog } from '@/components/showcase/ShowcaseClaimDialog';
 
 const RED = '#E8192C';
 
+// COPY local (la surface preview vit hors du i18n t(), comme PreviewGate).
+const SHOWCASE_COPY: Record<'en' | 'fr' | 'es', {
+  preview: string; publicPage: string; dashboard: string; activate: string; quit: string;
+}> = {
+  en: { preview: 'Preview', publicPage: 'Public page', dashboard: 'Dashboard', activate: 'Activate my account', quit: 'Quit' },
+  fr: { preview: 'Aperçu', publicPage: 'Page publique', dashboard: 'Dashboard', activate: 'Activer mon compte', quit: 'Quitter' },
+  es: { preview: 'Vista previa', publicPage: 'Página pública', dashboard: 'Panel', activate: 'Activar mi cuenta', quit: 'Salir' },
+};
+
 export function PreviewModeBanner() {
-  const { isPreview, label, roles, current } = usePreviewMode();
+  const { isPreview, label, roles, current, kind, venueSlug, venueName, language } = usePreviewMode();
   const navigate = useNavigate();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [claimOpen, setClaimOpen] = useState(false);
 
   if (!isPreview) return null;
 
@@ -43,6 +59,81 @@ export function PreviewModeBanner() {
     try { await supabase.auth.signOut(); } catch { /* ignore */ }
     navigate('/', { replace: true });
   };
+
+  // ── Variante VITRINE ───────────────────────────────────────────────────────
+  if (kind === 'showcase') {
+    const sc = SHOWCASE_COPY[language === 'fr' || language === 'es' ? language : 'en'];
+    const publicPath = venueSlug ? `/club/${venueSlug}` : '/';
+    const onDashboard = location.pathname.startsWith('/owner');
+    const pill = (active: boolean) => ({
+      background: active ? 'rgba(232,25,44,0.18)' : 'rgba(255,255,255,0.08)',
+      border: `1px solid ${active ? `${RED}66` : 'rgba(255,255,255,0.12)'}`,
+    });
+
+    return (
+      <>
+        <div
+          className="fixed left-1/2 z-[70] flex -translate-x-1/2 items-center gap-1.5 rounded-full px-3 py-2 text-white shadow-lg max-w-[calc(100vw-1.5rem)]"
+          style={{
+            bottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)',
+            background: 'rgba(10,10,12,0.94)',
+            border: `1px solid ${RED}55`,
+            backdropFilter: 'blur(12px)',
+            boxShadow: `0 10px 40px -12px ${RED}55`,
+          }}
+        >
+          <Eye className="h-4 w-4 shrink-0" style={{ color: RED }} />
+          <span className="hidden sm:inline text-[12.5px] font-medium whitespace-nowrap">
+            {sc.preview}{venueName ? <span className="text-white/55"> · {venueName}</span> : null}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => navigate(publicPath)}
+            className="ml-1 inline-flex items-center rounded-full px-2.5 py-1 text-[11.5px] font-semibold transition hover:brightness-110 whitespace-nowrap"
+            style={pill(!onDashboard)}
+          >
+            {sc.publicPage}
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/owner/dashboard')}
+            className="inline-flex items-center rounded-full px-2.5 py-1 text-[11.5px] font-semibold transition hover:brightness-110 whitespace-nowrap"
+            style={pill(onDashboard)}
+          >
+            {sc.dashboard}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setClaimOpen(true)}
+            className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-semibold transition hover:brightness-110 whitespace-nowrap"
+            style={{ background: RED, boxShadow: `0 0 18px -6px ${RED}` }}
+          >
+            <Rocket className="h-3 w-3" />
+            {sc.activate}
+          </button>
+
+          <button
+            type="button"
+            onClick={quit}
+            aria-label={sc.quit}
+            className="ml-0.5 inline-flex items-center rounded-full p-1.5 transition hover:brightness-110"
+            style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+
+        <ShowcaseClaimDialog
+          open={claimOpen}
+          onOpenChange={setClaimOpen}
+          language={language}
+          venueName={venueName}
+        />
+      </>
+    );
+  }
 
   return (
     <div

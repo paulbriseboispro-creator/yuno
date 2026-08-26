@@ -288,10 +288,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "admin_support_grants_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "admin_support_grants_target_user_id_fkey"
             columns: ["target_user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_support_grants_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
             referencedColumns: ["id"]
           },
         ]
@@ -3180,6 +3194,7 @@ export type Database = {
           target_accounts: string[]
           token: string
           used_count: number
+          venue_id: string | null
         }
         Insert: {
           created_at?: string
@@ -3197,6 +3212,7 @@ export type Database = {
           target_accounts?: string[]
           token?: string
           used_count?: number
+          venue_id?: string | null
         }
         Update: {
           created_at?: string
@@ -3214,8 +3230,17 @@ export type Database = {
           target_accounts?: string[]
           token?: string
           used_count?: number
+          venue_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "demo_preview_links_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       discovery_event_notifications: {
         Row: {
@@ -8701,6 +8726,7 @@ export type Database = {
           device_id: string | null
           id: number
           old_version_name: string | null
+          payload: Json | null
           platform: string | null
           version_name: string | null
         }
@@ -8711,6 +8737,7 @@ export type Database = {
           device_id?: string | null
           id?: never
           old_version_name?: string | null
+          payload?: Json | null
           platform?: string | null
           version_name?: string | null
         }
@@ -8721,6 +8748,7 @@ export type Database = {
           device_id?: string | null
           id?: never
           old_version_name?: string | null
+          payload?: Json | null
           platform?: string | null
           version_name?: string | null
         }
@@ -8767,28 +8795,37 @@ export type Database = {
       owner_invitations: {
         Row: {
           accepted_at: string | null
+          accepted_by: string | null
           created_at: string
           email: string
           expires_at: string
           id: string
+          invited_by: string | null
+          offer_support_help: boolean
           token: string
           venue_id: string
         }
         Insert: {
           accepted_at?: string | null
+          accepted_by?: string | null
           created_at?: string
           email: string
           expires_at?: string
           id?: string
+          invited_by?: string | null
+          offer_support_help?: boolean
           token?: string
           venue_id: string
         }
         Update: {
           accepted_at?: string | null
+          accepted_by?: string | null
           created_at?: string
           email?: string
           expires_at?: string
           id?: string
+          invited_by?: string | null
+          offer_support_help?: boolean
           token?: string
           venue_id?: string
         }
@@ -10488,6 +10525,47 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      showcase_claim_requests: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          requested_email: string
+          shadow_user_id: string
+          status: string
+          updated_at: string
+          venue_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          requested_email: string
+          shadow_user_id: string
+          status?: string
+          updated_at?: string
+          venue_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          requested_email?: string
+          shadow_user_id?: string
+          status?: string
+          updated_at?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "showcase_claim_requests_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sms_campaigns: {
         Row: {
@@ -13466,6 +13544,7 @@ export type Database = {
           search_city: string | null
           search_name: string | null
           short_description: string | null
+          showcase_shadow_owner_id: string | null
           siret: string | null
           slug: string | null
           solo_bottle_sale_enabled: boolean
@@ -13527,6 +13606,7 @@ export type Database = {
           search_city?: string | null
           search_name?: string | null
           short_description?: string | null
+          showcase_shadow_owner_id?: string | null
           siret?: string | null
           slug?: string | null
           solo_bottle_sale_enabled?: boolean
@@ -13588,6 +13668,7 @@ export type Database = {
           search_city?: string | null
           search_name?: string | null
           short_description?: string | null
+          showcase_shadow_owner_id?: string | null
           siret?: string | null
           slug?: string | null
           solo_bottle_sale_enabled?: boolean
@@ -14911,6 +14992,14 @@ export type Database = {
         Args: { p_token: string }
         Returns: Json
       }
+      accept_support_offer_from_invitation: {
+        Args: { _token: string }
+        Returns: string
+      }
+      accept_support_offer_from_owner_invitation: {
+        Args: { _token: string }
+        Returns: string
+      }
       add_sms_credits: {
         Args: {
           p_amount: number
@@ -15048,15 +15137,6 @@ export type Database = {
         Args: { _reason?: string; _suspended: boolean; _user_id: string }
         Returns: undefined
       }
-      approve_support_grant: { Args: { _grant_id: string }; Returns: undefined }
-      request_support_help: { Args: { _reason?: string }; Returns: string }
-      accept_support_offer_from_invitation: { Args: { _token: string }; Returns: string }
-      revoke_support_grant: { Args: { _grant_id: string }; Returns: undefined }
-      is_support_session: { Args: Record<PropertyKey, never>; Returns: boolean }
-      get_my_support_session: {
-        Args: Record<PropertyKey, never>
-        Returns: { expires_at: string; grant_id: string; session_id: string }[]
-      }
       admin_upsert_credential_deadline: {
         Args: {
           p_console_url?: string
@@ -15127,6 +15207,7 @@ export type Database = {
         Args: { p_contract_id: string }
         Returns: undefined
       }
+      approve_support_grant: { Args: { _grant_id: string }; Returns: undefined }
       archive_expired_event_orders: { Args: never; Returns: undefined }
       assert_admin_or_backend: { Args: never; Returns: undefined }
       assign_agency_commission_template: {
@@ -15396,6 +15477,7 @@ export type Database = {
           p_language?: string
           p_password: string
           p_target_accounts: string[]
+          p_venue_id?: string
         }
         Returns: {
           id: string
@@ -15426,24 +15508,15 @@ export type Database = {
         }
         Returns: string
       }
-      create_event_collab_contract:
-        | {
-            Args: {
-              p_cancellation_policy?: string
-              p_event_id: string
-              p_split_rules?: Json
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_cancellation_policy?: string
-              p_event_id: string
-              p_responsibilities?: Json
-              p_split_rules?: Json
-            }
-            Returns: string
-          }
+      create_event_collab_contract: {
+        Args: {
+          p_cancellation_policy?: string
+          p_event_id: string
+          p_responsibilities?: Json
+          p_split_rules?: Json
+        }
+        Returns: string
+      }
       create_event_collab_series_contract:
         | {
             Args: {
@@ -15608,6 +15681,7 @@ export type Database = {
         Returns: undefined
       }
       enable_collab_tables: { Args: { p_event_id: string }; Returns: string }
+      end_support_session: { Args: { _session_id: string }; Returns: undefined }
       enforce_drinks_alcohol_gate: {
         Args: { p_org_id: string; p_rules: Json }
         Returns: Json
@@ -15646,6 +15720,10 @@ export type Database = {
         Args: { p_domain: string; p_event_id: string }
         Returns: boolean
       }
+      event_has_blocking_collab_contract: {
+        Args: { p_event_id: string }
+        Returns: boolean
+      }
       event_host_slug: { Args: { p_event_id: string }; Returns: string }
       event_origin_cities: {
         Args: {
@@ -15657,6 +15735,7 @@ export type Database = {
         }
         Returns: Json
       }
+      event_payments_ready: { Args: { p_event_id: string }; Returns: boolean }
       expire_dj_booking_requests: { Args: never; Returns: undefined }
       expire_stale_ticket_reservations: { Args: never; Returns: number }
       flush_affiliate_session: {
@@ -15962,6 +16041,9 @@ export type Database = {
           label: string
           language: string
           target_accounts: string[]
+          venue_id: string
+          venue_name: string
+          venue_slug: string
         }[]
       }
       get_discovery_events_for_user: {
@@ -16077,6 +16159,17 @@ export type Database = {
         }[]
       }
       get_event_scan_manifest: { Args: { p_event_id: string }; Returns: Json }
+      get_event_table_availability: {
+        Args: { p_event_id: string }
+        Returns: {
+          assigned_table_id: string
+          guest_count: number
+          placement_status: string
+          requested_table_id: string
+          status: string
+          zone_id: string
+        }[]
+      }
       get_events_pnl: {
         Args: { p_from?: string; p_to?: string; p_venue_id: string }
         Returns: Json
@@ -16216,11 +16309,34 @@ export type Database = {
           venue_id: string
         }[]
       }
+      get_my_support_session: {
+        Args: never
+        Returns: {
+          expires_at: string
+          grant_id: string
+          session_id: string
+        }[]
+      }
       get_my_table_spend: {
         Args: { p_reservation_id: string }
         Returns: {
           consumed_total: number
           minimum_spend: number
+        }[]
+      }
+      get_my_venue_private: {
+        Args: { p_venue_id: string }
+        Returns: {
+          id: string
+          invoice_prefix: string
+          legal_address: string
+          legal_name: string
+          siret: string
+          stripe_account_id: string
+          stripe_charges_enabled: boolean
+          stripe_onboarding_complete: boolean
+          stripe_payouts_enabled: boolean
+          vat_number: string
         }[]
       }
       get_onboarding_link_public: {
@@ -16527,6 +16643,10 @@ export type Database = {
         Args: { _gl: Database["public"]["Tables"]["guest_lists"]["Row"] }
         Returns: string[]
       }
+      handoff_showcase_venue: {
+        Args: { p_new_owner_id: string; p_venue_id: string }
+        Returns: Json
+      }
       has_accepted_legal: {
         Args: { p_doc_type: string; p_doc_version: string }
         Returns: boolean
@@ -16593,6 +16713,10 @@ export type Database = {
         Args: { _event_id: string; _user_id: string }
         Returns: boolean
       }
+      is_event_partner_venue_staff: {
+        Args: { _event_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_night_staff_of_venue: {
         Args: { p_venue_id: string }
         Returns: boolean
@@ -16628,6 +16752,7 @@ export type Database = {
         Returns: boolean
       }
       is_super_admin: { Args: never; Returns: boolean }
+      is_support_session: { Args: never; Returns: boolean }
       is_venue_owner: {
         Args: { _user_id: string; _venue_id: string }
         Returns: boolean
@@ -16894,6 +17019,8 @@ export type Database = {
         }
         Returns: string
       }
+      request_showcase_claim: { Args: { p_email: string }; Returns: Json }
+      request_support_help: { Args: { _reason?: string }; Returns: string }
       reserve_table_slot: {
         Args: {
           _capacity_zone_id: string
@@ -16997,6 +17124,11 @@ export type Database = {
         Args: { p_member_id: string; p_status: string }
         Returns: string
       }
+      revoke_auth_session: {
+        Args: { _auth_session_id: string }
+        Returns: undefined
+      }
+      revoke_support_grant: { Args: { _grant_id: string }; Returns: undefined }
       run_admin_alert_sweep: { Args: never; Returns: Json }
       run_affiliate_automation_sweep: { Args: never; Returns: undefined }
       run_audience_snapshot: { Args: { p_date?: string }; Returns: Json }
@@ -17295,6 +17427,7 @@ export type Database = {
         }
         Returns: string
       }
+      venue_payments_ready: { Args: { p_venue_id: string }; Returns: boolean }
       verify_demo_preview_password: {
         Args: { p_password: string; p_token: string }
         Returns: {
@@ -17302,6 +17435,7 @@ export type Database = {
           ok: boolean
           reason: string
           target_accounts: string[]
+          venue_id: string
         }[]
       }
       verify_invitation_token: {

@@ -3963,6 +3963,13 @@ const es: Record<string, string> = {
   
   // OwnerVenue customization keys - Spanish
   'owner.clientPagePreview': 'Vista previa de la página cliente',
+  'owner.publishTitle': 'Publicar mi página',
+  'owner.publishDesc': 'Tu página aún es invisible para el público. Publícala cuando todo esté listo — puedes comprobarla antes con el enlace de vista previa de abajo.',
+  'owner.publishPreviewLink': 'Ver mi página pública',
+  'owner.publishStripeHint': 'Importante: las ventas de entradas, mesas y bebidas solo se abren una vez conectado Stripe. Puedes publicar ahora y conectar Stripe más tarde.',
+  'owner.publishButton': 'Publicar mi página',
+  'owner.publishSuccess': '¡Tu página ya está en línea!',
+  'owner.publishReadOnly': 'Vista previa de solo lectura',
   'owner.roundLogo': 'Logo redondo',
   'owner.changeLogo': 'Cambiar logo',
   'owner.addLogo': 'Agregar un logo',
@@ -10050,6 +10057,8 @@ const es: Record<string, string> = {
   'ohelp.pg.venue.s6b': 'Usa la Vista previa de la página del cliente como guía, es la vista real del cliente. Un banner nítido y un bloque de info completo hacen que una página de local parezca lo bastante fiable para comprar en ella.',
   'ohelp.pg.venue.s7h': 'Atención',
   'ohelp.pg.venue.s7b': 'Tu slug de URL pública forma parte de cada enlace que compartes. Fíjalo antes de empezar a promocionar, cambiarlo después rompe los enlaces que ya están circulando.',
+  'ohelp.pg.venue.s8h': 'Publicar mi página',
+  'ohelp.pg.venue.s8b': 'Si tu página aún es invisible para el público (por ejemplo, el equipo de Yuno preconstruyó tu cuenta y acabas de activarla), aparece una tarjeta «Publicar mi página» en la parte superior de esta pantalla. Compruébalo todo con el enlace de vista previa y publica cuando esté listo. Puedes publicar antes de conectar Stripe — las ventas simplemente permanecen cerradas hasta configurar Stripe.',
 
   'ohelp.pg.subscription.title': 'Suscripción',
   'ohelp.pg.subscription.desc': 'Tu plan, tu cuenta de pagos Stripe y las comisiones, todo en un sitio.',
@@ -13554,6 +13563,7 @@ const es: Record<string, string> = {
   'notif.type.aff_contract_status': "Contrato actualizado",
   'notif.type.aff_missing_ticket_url': "Falta enlace de entradas",
   'notif.type.admin_agency_club_lead': "Lead de club (agencia)",
+  'notif.type.admin_showcase_claim': "Solicitud de activación (vitrina)",
 
   'aff.pdash.quickYunoSide': "Mis clubs Yuno",
   'aff.pdash.quickYunoSideDesc': "Ventas in-app y comisiones",

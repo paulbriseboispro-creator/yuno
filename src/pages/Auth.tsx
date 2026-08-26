@@ -36,8 +36,10 @@ export default function Auth() {
   const isReset = searchParams.get('reset') === 'true';
   const inviteToken = searchParams.get('invite');
   const platformInviteToken = searchParams.get('invite_platform');
-  /** Offre d'assistance à présenter juste après l'activation du compte invité. */
-  const [supportOfferToken, setSupportOfferToken] = useState<string | null>(null);
+  /** Offre d'assistance à présenter juste après l'activation du compte invité.
+   *  variant : 'platform' (organisateur) ou 'owner' (invitation club) — chaque
+   *  chemin a sa propre RPC d'acceptation et sa propre redirection. */
+  const [supportOffer, setSupportOffer] = useState<{ token: string; variant: 'platform' | 'owner' } | null>(null);
   const affiliateInviteToken = searchParams.get('invite_affiliate');
   const affiliateMemberInviteToken = searchParams.get('invite_affiliate_member');
   const inviteEmailParam = searchParams.get('email');
@@ -146,6 +148,13 @@ export default function Auth() {
           description: t('auth.invitationAcceptedDesc'),
         });
 
+        // Assistance proposée à l'invitation (même mécanique que le chemin
+        // organisateur) : la question passe AVANT la redirection dashboard.
+        if (data?.offer_support_help) {
+          setSupportOffer({ token: inviteToken, variant: 'owner' });
+          return;
+        }
+
         // Redirect to owner dashboard
         setTimeout(() => navigate('/owner/dashboard'), 1500);
       } catch (error: any) {
@@ -179,7 +188,7 @@ export default function Auth() {
         // qu'il vient d'activer son compte. C'est CE chemin que suit le lien
         // envoyé par email (/auth?invite_platform=…), pas la page dédiée.
         if (data?.offer_support_help) {
-          setSupportOfferToken(platformInviteToken);
+          setSupportOffer({ token: platformInviteToken, variant: 'platform' });
           return;
         }
         setTimeout(() => navigate('/organizer-app'), 1200);
@@ -434,13 +443,15 @@ export default function Auth() {
   // Compte invité tout juste activé, avec assistance proposée : cet écran passe
   // AVANT tout le reste, sinon la redirection vers le dashboard l'emporte et la
   // question n'est jamais posée.
-  if (supportOfferToken) {
+  if (supportOffer) {
     return (
       <SupportOfferScreen
-        token={supportOfferToken}
+        token={supportOffer.token}
+        variant={supportOffer.variant}
         onDone={() => {
-          setSupportOfferToken(null);
-          navigate('/organizer-app');
+          const dest = supportOffer.variant === 'owner' ? '/owner/dashboard' : '/organizer-app';
+          setSupportOffer(null);
+          navigate(dest);
         }}
       />
     );

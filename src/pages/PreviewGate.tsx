@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Loader2, Lock, Eye, AlertTriangle, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { DEMO_ACCOUNTS, applyDemoBypass, type TargetAccount } from '@/lib/demoSession';
+import { DEMO_ACCOUNTS, applyDemoBypass, setMfaBypass, type TargetAccount } from '@/lib/demoSession';
 import { enablePreviewMode } from '@/contexts/PreviewModeContext';
 import { useLanguage, type Language } from '@/contexts/LanguageContext';
 import { recordLegalAcceptance } from '@/lib/legal';
@@ -22,6 +22,9 @@ interface LinkInfo {
   label: string;
   target_accounts: TargetAccount[];
   language: string;
+  venue_id: string | null;
+  venue_name: string | null;
+  venue_slug: string | null;
   is_valid: boolean;
   invalid_reason: string | null;
 }
@@ -32,24 +35,29 @@ const COPY: Record<Lang, {
   badge: string;
   hi: string;
   lead: (roles: string, count: number) => string;
+  leadShowcase: (venue: string) => string;
   pw: string;
   enter: string;
   footer: string;
+  footerShowcase: string;
   loading: string;
   unavailable: string;
   consent: string;
   consentLink: string;
   invalid: Record<string, string>;
-  err: { wrong: string; locked: string; expired: string; revoked: string; generic: string; unknown: string };
+  err: { wrong: string; locked: string; expired: string; revoked: string; claimed: string; generic: string; unknown: string };
 }> = {
   en: {
     badge: 'YUNO PREVIEW',
     hi: 'Hi',
     lead: (roles, count) =>
       `Read-only demo access to the ${roles} ${count > 1 ? 'dashboards' : 'dashboard'}. Enter your password to continue.`,
+    leadShowcase: (venue) =>
+      `A private preview of ${venue} on Yuno — public page and dashboard, ready to explore. Enter your password to continue.`,
     pw: 'Password',
     enter: 'Enter preview',
     footer: 'Demo preview. Everything is read-only — no real data can be created or modified.',
+    footerShowcase: 'Private preview. Everything is read-only — nothing is visible to the public.',
     loading: 'Loading…',
     unavailable: 'Preview unavailable',
     consent: 'By entering, I agree to keep this preview confidential and not to reproduce it.',
@@ -66,6 +74,7 @@ const COPY: Record<Lang, {
       locked: 'Too many attempts. Try again later.',
       expired: 'This preview link has expired.',
       revoked: 'This preview link has been disabled.',
+      claimed: 'This account has been activated — this preview link is no longer valid.',
       generic: 'Access denied. Check your password.',
       unknown: 'Something went wrong. Try again.',
     },
@@ -75,9 +84,12 @@ const COPY: Record<Lang, {
     hi: 'Bonjour',
     lead: (roles, count) =>
       `Accès démo en lecture seule ${count > 1 ? 'aux tableaux de bord' : 'au tableau de bord'} ${roles}. Saisis ton mot de passe pour entrer.`,
+    leadShowcase: (venue) =>
+      `Un aperçu privé de ${venue} sur Yuno — page publique et tableau de bord, prêts à explorer. Saisis ton mot de passe pour entrer.`,
     pw: 'Mot de passe',
     enter: "Entrer dans l'aperçu",
     footer: 'Aperçu de démonstration. Tout est en lecture seule — aucune donnée réelle ne peut être créée ou modifiée.',
+    footerShowcase: 'Aperçu privé. Tout est en lecture seule — rien n\'est visible du public.',
     loading: 'Chargement…',
     unavailable: 'Aperçu indisponible',
     consent: "En entrant, je m'engage à garder cet aperçu confidentiel et à ne pas le reproduire.",
@@ -94,6 +106,7 @@ const COPY: Record<Lang, {
       locked: 'Trop de tentatives. Réessaie plus tard.',
       expired: "Ce lien d'aperçu a expiré.",
       revoked: "Ce lien d'aperçu a été désactivé.",
+      claimed: "Ce compte a été activé — ce lien d'aperçu n'est plus valable.",
       generic: 'Accès impossible. Vérifie ton mot de passe.',
       unknown: 'Une erreur est survenue. Réessaie.',
     },
@@ -103,9 +116,12 @@ const COPY: Record<Lang, {
     hi: 'Hola',
     lead: (roles, count) =>
       `Acceso de demostración de solo lectura ${count > 1 ? 'a los paneles' : 'al panel'} ${roles}. Introduce tu contraseña para entrar.`,
+    leadShowcase: (venue) =>
+      `Una vista previa privada de ${venue} en Yuno — página pública y panel, listos para explorar. Introduce tu contraseña para entrar.`,
     pw: 'Contraseña',
     enter: 'Entrar a la vista previa',
     footer: 'Vista previa de demostración. Todo es de solo lectura — no se puede crear ni modificar ningún dato real.',
+    footerShowcase: 'Vista previa privada. Todo es de solo lectura — nada es visible para el público.',
     loading: 'Cargando…',
     unavailable: 'Vista previa no disponible',
     consent: 'Al entrar, me comprometo a mantener esta vista previa confidencial y a no reproducirla.',
@@ -122,6 +138,7 @@ const COPY: Record<Lang, {
       locked: 'Demasiados intentos. Inténtalo más tarde.',
       expired: 'Este enlace de vista previa ha caducado.',
       revoked: 'Este enlace de vista previa ha sido desactivado.',
+      claimed: 'Esta cuenta ha sido activada — este enlace de vista previa ya no es válido.',
       generic: 'Acceso denegado. Comprueba tu contraseña.',
       unknown: 'Algo salió mal. Inténtalo de nuevo.',
     },
@@ -184,6 +201,7 @@ export default function PreviewGate() {
         else if (code === 'locked') setError(c.err.locked);
         else if (code === 'expired') setError(c.err.expired);
         else if (code === 'revoked') setError(c.err.revoked);
+        else if (code === 'claimed') setError(c.err.claimed);
         else setError(c.err.generic);
         setSubmitting(false);
         return;
@@ -192,15 +210,17 @@ export default function PreviewGate() {
       // Clickwrap : trace l'engagement de confidentialité du prospect AVANT le
       // setSession (encore anon) et avant l'armement du mode lecture seule, qui
       // bloquerait cette écriture. On n'enregistre que les entrées réussies.
+      const isShowcase = !!(data as any).showcase;
       await recordLegalAcceptance({
         docType: 'demo_confidentiality',
         docContent: legalContent['confidentialite'][lang].content,
-        context: { surface: 'preview_gate', label: info?.label ?? '', roles: info?.target_accounts ?? [] },
+        context: isShowcase
+          ? { surface: 'showcase_gate', label: info?.label ?? '', venue_id: String((data as any).venue?.id ?? '') }
+          : { surface: 'preview_gate', label: info?.label ?? '', roles: info?.target_accounts ?? [] },
       });
 
       const roles = ((data as any).target_accounts as TargetAccount[]) ?? [];
       const primary = roles[0];
-      const meta = DEMO_ACCOUNTS[primary];
       const language = String((data as any).language ?? info?.language ?? 'en');
       const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
         access_token: (data as any).access_token,
@@ -209,6 +229,29 @@ export default function PreviewGate() {
       if (sessionError) throw sessionError;
 
       const userId = sessionData.user?.id;
+
+      if (isShowcase) {
+        // Session VITRINE : le prospect est connecté au compte fantôme de SA
+        // venue. Pas d'applyDemoBypass complet (compte non-démo) — seulement le
+        // bypass MFA local, en ceinture-bretelles du mfa_exempt posé côté base.
+        const venue = (data as any).venue ?? {};
+        setMfaBypass(userId);
+        enablePreviewMode({
+          label: info?.label ?? '',
+          roles: ['owner'],
+          current: 'owner',
+          language,
+          kind: 'showcase',
+          venueId: String(venue.id ?? ''),
+          venueSlug: String(venue.slug ?? ''),
+          venueName: String(venue.name ?? ''),
+        });
+        if (['en', 'fr', 'es'].includes(language)) setLanguage(language as Language);
+        navigate(venue.slug ? `/club/${venue.slug}` : '/owner/dashboard', { replace: true });
+        return;
+      }
+
+      const meta = DEMO_ACCOUNTS[primary];
       await applyDemoBypass(primary, userId);
       enablePreviewMode({ label: info?.label ?? '', roles, current: primary, language });
       if (['en', 'fr', 'es'].includes(language)) setLanguage(language as Language);
@@ -265,10 +308,12 @@ export default function PreviewGate() {
                   {c.hi} {info.label}
                 </h1>
                 <p className="mt-1.5 text-sm text-white/50">
-                  {c.lead(
-                    info.target_accounts.map((a) => DEMO_ACCOUNTS[a]?.label ?? a).join(', '),
-                    info.target_accounts.length,
-                  )}
+                  {info.venue_id
+                    ? c.leadShowcase(info.venue_name || 'Yuno')
+                    : c.lead(
+                        info.target_accounts.map((a) => DEMO_ACCOUNTS[a]?.label ?? a).join(', '),
+                        info.target_accounts.length,
+                      )}
                 </p>
               </div>
             </div>
@@ -340,7 +385,7 @@ export default function PreviewGate() {
             </div>
 
             <p className="mt-5 text-center text-[11px] leading-relaxed text-white/35">
-              {c.footer}
+              {info.venue_id ? c.footerShowcase : c.footer}
             </p>
           </>
         )}
