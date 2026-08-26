@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   graphql_public: {
     Tables: {
@@ -3188,6 +3188,7 @@ export type Database = {
           label: string
           language: string
           last_used_at: string | null
+          organizer_user_id: string | null
           password_hash: string
           revoked_at: string | null
           target_account: string | null
@@ -3206,6 +3207,7 @@ export type Database = {
           label: string
           language?: string
           last_used_at?: string | null
+          organizer_user_id?: string | null
           password_hash: string
           revoked_at?: string | null
           target_account?: string | null
@@ -3224,6 +3226,7 @@ export type Database = {
           label?: string
           language?: string
           last_used_at?: string | null
+          organizer_user_id?: string | null
           password_hash?: string
           revoked_at?: string | null
           target_account?: string | null
@@ -8498,6 +8501,7 @@ export type Database = {
           display_name: string
           instagram_url: string | null
           is_public: boolean
+          is_showcase_shadow: boolean
           legal_address: string | null
           legal_name: string | null
           minor_auth_doc_name: string | null
@@ -8527,6 +8531,7 @@ export type Database = {
           display_name: string
           instagram_url?: string | null
           is_public?: boolean
+          is_showcase_shadow?: boolean
           legal_address?: string | null
           legal_name?: string | null
           minor_auth_doc_name?: string | null
@@ -8556,6 +8561,7 @@ export type Database = {
           display_name?: string
           instagram_url?: string | null
           is_public?: boolean
+          is_showcase_shadow?: boolean
           legal_address?: string | null
           legal_name?: string | null
           minor_auth_doc_name?: string | null
@@ -9012,6 +9018,7 @@ export type Database = {
           offer_support_help: boolean
           organization_name: string | null
           profile_type: string
+          showcase_shadow_user_id: string | null
           status: string
           token: string
         }
@@ -9026,6 +9033,7 @@ export type Database = {
           offer_support_help?: boolean
           organization_name?: string | null
           profile_type: string
+          showcase_shadow_user_id?: string | null
           status?: string
           token?: string
         }
@@ -9040,6 +9048,7 @@ export type Database = {
           offer_support_help?: boolean
           organization_name?: string | null
           profile_type?: string
+          showcase_shadow_user_id?: string | null
           status?: string
           token?: string
         }
@@ -10531,31 +10540,34 @@ export type Database = {
           completed_at: string | null
           created_at: string
           id: string
+          organizer_user_id: string | null
           requested_email: string
           shadow_user_id: string
           status: string
           updated_at: string
-          venue_id: string
+          venue_id: string | null
         }
         Insert: {
           completed_at?: string | null
           created_at?: string
           id?: string
+          organizer_user_id?: string | null
           requested_email: string
           shadow_user_id: string
           status?: string
           updated_at?: string
-          venue_id: string
+          venue_id?: string | null
         }
         Update: {
           completed_at?: string | null
           created_at?: string
           id?: string
+          organizer_user_id?: string | null
           requested_email?: string
           shadow_user_id?: string
           status?: string
           updated_at?: string
-          venue_id?: string
+          venue_id?: string | null
         }
         Relationships: [
           {
@@ -15475,6 +15487,7 @@ export type Database = {
           p_expires_at?: string
           p_label: string
           p_language?: string
+          p_organizer_user_id?: string
           p_password: string
           p_target_accounts: string[]
           p_venue_id?: string
@@ -16040,6 +16053,9 @@ export type Database = {
           is_valid: boolean
           label: string
           language: string
+          organizer_name: string
+          organizer_slug: string
+          organizer_user_id: string
           target_accounts: string[]
           venue_id: string
           venue_name: string
@@ -16643,6 +16659,10 @@ export type Database = {
         Args: { _gl: Database["public"]["Tables"]["guest_lists"]["Row"] }
         Returns: string[]
       }
+      handoff_showcase_organizer: {
+        Args: { p_new_owner_id: string; p_shadow_user_id: string }
+        Returns: Json
+      }
       handoff_showcase_venue: {
         Args: { p_new_owner_id: string; p_venue_id: string }
         Returns: Json
@@ -16751,6 +16771,7 @@ export type Database = {
         Args: { _event_id: string; _user_id: string }
         Returns: boolean
       }
+      is_showcase_organizer: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       is_support_session: { Args: never; Returns: boolean }
       is_venue_owner: {
@@ -17433,6 +17454,7 @@ export type Database = {
         Returns: {
           language: string
           ok: boolean
+          organizer_user_id: string
           reason: string
           target_accounts: string[]
           venue_id: string

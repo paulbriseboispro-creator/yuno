@@ -82,6 +82,7 @@ interface PreviewLink {
   revoked_at: string | null;
   created_at: string;
   venue_id: string | null;
+  organizer_user_id: string | null;
   venues?: { name: string } | null;
 }
 
@@ -90,9 +91,15 @@ interface ShowcaseVenue {
   name: string;
 }
 
+interface ShowcaseOrganizer {
+  user_id: string;
+  display_name: string;
+}
+
 interface ClaimRequest {
   id: string;
-  venue_id: string;
+  venue_id: string | null;
+  organizer_user_id: string | null;
   requested_email: string;
   created_at: string;
   updated_at: string;
@@ -150,9 +157,14 @@ export default function AdminDemoAccess() {
   const [accounts, setAccounts] = useState<TargetAccount[]>(['owner']);
   const [language, setLanguage] = useState('en');
   const [expiresAt, setExpiresAt] = useState('');
-  // Lien vitrine : '' = lien démo classique, sinon id de la venue vitrine visée.
-  const [showcaseVenueId, setShowcaseVenueId] = useState('');
+  // Lien vitrine : '' = lien démo classique, 'v:<id>' = club vitrine,
+  // 'o:<uuid>' = organisateur vitrine.
+  const [showcaseSel, setShowcaseSel] = useState('');
   const [showcaseVenues, setShowcaseVenues] = useState<ShowcaseVenue[]>([]);
+  const [showcaseOrgs, setShowcaseOrgs] = useState<ShowcaseOrganizer[]>([]);
+  const selVenueId = showcaseSel.startsWith('v:') ? showcaseSel.slice(2) : '';
+  const selOrgId = showcaseSel.startsWith('o:') ? showcaseSel.slice(2) : '';
+  const orgNameById = Object.fromEntries(showcaseOrgs.map((o) => [o.user_id, o.display_name]));
 
   // Demandes d'activation (CTA « Activer mon compte » des sessions vitrine).
   const [claims, setClaims] = useState<ClaimRequest[]>([]);
@@ -178,7 +190,7 @@ export default function AdminDemoAccess() {
 
   const load = async () => {
     setLoading(true);
-    const [linksRes, venuesRes, claimsRes] = await Promise.all([
+    const [linksRes, venuesRes, orgsRes, claimsRes] = await Promise.all([
       supabase
         .from('demo_preview_links' as any)
         .select('*, venues(name)')
@@ -189,6 +201,11 @@ export default function AdminDemoAccess() {
         .not('showcase_shadow_owner_id', 'is', null)
         .order('name'),
       supabase
+        .from('organizer_profiles' as any)
+        .select('user_id, display_name')
+        .eq('is_showcase_shadow', true)
+        .order('display_name'),
+      supabase
         .from('showcase_claim_requests' as any)
         .select('*, venues(name)')
         .eq('status', 'pending')
@@ -196,6 +213,7 @@ export default function AdminDemoAccess() {
     ]);
     setLinks((linksRes.data ?? []) as unknown as PreviewLink[]);
     setShowcaseVenues((venuesRes.data ?? []) as unknown as ShowcaseVenue[]);
+    setShowcaseOrgs((orgsRes.data ?? []) as unknown as ShowcaseOrganizer[]);
     setClaims((claimsRes.data ?? []) as unknown as ClaimRequest[]);
     setLoading(false);
   };
@@ -212,16 +230,17 @@ export default function AdminDemoAccess() {
   };
 
   const submit = async () => {
-    if (!label || !password || (!showcaseVenueId && accounts.length === 0)) return;
+    if (!label || !password || (!showcaseSel && accounts.length === 0)) return;
     setSubmitting(true);
     try {
       const { data, error } = await supabase.rpc('create_demo_preview_link' as any, {
         p_label: label,
         p_password: password,
-        p_target_accounts: showcaseVenueId ? ['owner'] : accounts,
+        p_target_accounts: selVenueId ? ['owner'] : selOrgId ? ['organizer'] : accounts,
         p_language: language,
         p_expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
-        p_venue_id: showcaseVenueId || null,
+        p_venue_id: selVenueId || null,
+        p_organizer_user_id: selOrgId || null,
       });
       if (error) throw error;
       const row = Array.isArray(data) ? data[0] : data;
@@ -233,7 +252,7 @@ export default function AdminDemoAccess() {
         toast.success('Lien créé');
       }
       setLabel(''); setPassword(''); setAccounts(['owner']); setLanguage('en'); setExpiresAt('');
-      setShowcaseVenueId('');
+      setShowcaseSel('');
       setCreateOpen(false);
       load();
     } catch (e: any) {
@@ -243,31 +262,46 @@ export default function AdminDemoAccess() {
     }
   };
 
-  // Invitation propriétaire depuis une demande d'activation. La branche
-  // « compte existant » d'invite-owner transfère la venue IMMÉDIATEMENT (pas
-  // d'email d'acceptation) — le toast le dit clairement.
+  // Invitation depuis une demande d'activation. Club → invite-owner ; orga →
+  // invite-platform-user (avec le fantôme à re-parenter). Dans les deux cas,
+  // la branche « compte existant » transfère IMMÉDIATEMENT (pas d'email
+  // d'acceptation) — le toast le dit clairement.
   const sendInvite = async () => {
     if (!inviteTarget || !inviteEmail || inviting) return;
     setInviting(true);
     try {
-      const { data, error } = await supabase.functions.invoke('invite-owner', {
-        body: {
-          email: inviteEmail.trim(),
-          venue_id: inviteTarget.venue_id,
-          venue_name: inviteTarget.venues?.name ?? inviteTarget.venue_id,
-          offer_support_help: offerHelp,
-        },
-      });
-      if (error || (data as any)?.error) throw new Error((data as any)?.error ?? error?.message);
-      if ((data as any)?.user_exists) {
-        toast.success('Compte existant : la venue vient d\'être transférée immédiatement.');
+      let data: any, error: any;
+      if (inviteTarget.venue_id) {
+        ({ data, error } = await supabase.functions.invoke('invite-owner', {
+          body: {
+            email: inviteEmail.trim(),
+            venue_id: inviteTarget.venue_id,
+            venue_name: inviteTarget.venues?.name ?? inviteTarget.venue_id,
+            offer_support_help: offerHelp,
+          },
+        }));
+      } else {
+        ({ data, error } = await supabase.functions.invoke('invite-platform-user', {
+          body: {
+            email: inviteEmail.trim(),
+            organization_name: orgNameById[inviteTarget.organizer_user_id ?? ''] ?? 'Organisateur',
+            offer_support_help: offerHelp,
+            showcase_shadow_user_id: inviteTarget.organizer_user_id,
+          },
+        }));
+      }
+      if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      if (data?.user_exists) {
+        toast.success('Compte existant : la vitrine vient d\'être transférée immédiatement.');
       } else {
         toast.success(`Invitation envoyée à ${inviteEmail.trim()}`);
       }
       setInviteTarget(null);
       load();
     } catch (e: any) {
-      toast.error(e.message ?? 'Erreur');
+      toast.error(String(e.message ?? 'Erreur').includes('prospect_already_organizer')
+        ? 'Ce compte est déjà organisateur : réclamation impossible, à traiter à la main.'
+        : e.message ?? 'Erreur');
     } finally {
       setInviting(false);
     }
@@ -382,20 +416,33 @@ export default function AdminDemoAccess() {
                 <div>
                   <Label style={{ color: T2 }}>Compte vitrine (optionnel)</Label>
                   <p style={{ color: T3, fontSize: 11.5, margin: '4px 0 8px', lineHeight: 1.5 }}>
-                    Vise un club vitrine précis : le prospect verra SA page publique et SON dashboard
-                    en lecture seule, au lieu des comptes démo génériques.
+                    Vise un club ou un organisateur vitrine précis : le prospect verra SA page publique
+                    et SON dashboard en lecture seule, au lieu des comptes démo génériques.
                   </p>
-                  <select value={showcaseVenueId} onChange={(e) => setShowcaseVenueId(e.target.value)}
+                  <select value={showcaseSel} onChange={(e) => setShowcaseSel(e.target.value)}
                     style={inputStyle}>
                     <option value="" style={{ background: '#0a0a0c' }}>— Lien démo classique —</option>
-                    {showcaseVenues.map((v) => (
-                      <option key={v.id} value={v.id} style={{ background: '#0a0a0c' }}>
-                        {v.name}
-                      </option>
-                    ))}
+                    {showcaseVenues.length > 0 && (
+                      <optgroup label="Clubs vitrine">
+                        {showcaseVenues.map((v) => (
+                          <option key={v.id} value={`v:${v.id}`} style={{ background: '#0a0a0c' }}>
+                            {v.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {showcaseOrgs.length > 0 && (
+                      <optgroup label="Organisateurs vitrine">
+                        {showcaseOrgs.map((o) => (
+                          <option key={o.user_id} value={`o:${o.user_id}`} style={{ background: '#0a0a0c' }}>
+                            {o.display_name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
-                {!showcaseVenueId && (
+                {!showcaseSel && (
                   <div>
                     <Label style={{ color: T2 }}>Dashboards accessibles ({accounts.length})</Label>
                     <p style={{ color: T3, fontSize: 11.5, margin: '4px 0 8px', lineHeight: 1.5 }}>
@@ -422,9 +469,9 @@ export default function AdminDemoAccess() {
                 </div>
                 <button
                   onClick={submit}
-                  disabled={submitting || !label || !password || (!showcaseVenueId && accounts.length === 0)}
+                  disabled={submitting || !label || !password || (!showcaseSel && accounts.length === 0)}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-all duration-150"
-                  style={{ background: RED, color: '#fff', padding: '11px 16px', boxShadow: `0 0 18px -6px ${RED}88`, cursor: (submitting || !label || !password || (!showcaseVenueId && accounts.length === 0)) ? 'not-allowed' : 'pointer', opacity: (submitting || !label || !password || (!showcaseVenueId && accounts.length === 0)) ? 0.5 : 1 }}
+                  style={{ background: RED, color: '#fff', padding: '11px 16px', boxShadow: `0 0 18px -6px ${RED}88`, cursor: (submitting || !label || !password || (!showcaseSel && accounts.length === 0)) ? 'not-allowed' : 'pointer', opacity: (submitting || !label || !password || (!showcaseSel && accounts.length === 0)) ? 0.5 : 1 }}
                 >
                   {submitting && <div className="h-4 w-4 animate-spin rounded-full border-2" style={{ borderColor: `rgba(255,255,255,0.35) rgba(255,255,255,0.35) rgba(255,255,255,0.35) #fff` }} />}
                   Créer + copier le lien
@@ -444,7 +491,9 @@ export default function AdminDemoAccess() {
                 <div key={cl.id} className="flex items-center justify-between gap-3 p-3" style={rowStyle}>
                   <div className="flex-1 min-w-0">
                     <div className="font-[560] truncate" style={{ color: T1, fontSize: 13.5 }}>
-                      {cl.venues?.name ?? cl.venue_id}
+                      {cl.venue_id
+                        ? (cl.venues?.name ?? cl.venue_id)
+                        : `${orgNameById[cl.organizer_user_id ?? ''] ?? 'Organisateur'} (orga)`}
                     </div>
                     <div className="truncate" style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>
                       {cl.requested_email}
@@ -486,7 +535,9 @@ export default function AdminDemoAccess() {
                     <div className="font-[560] truncate" style={{ color: T1, fontSize: 13.5 }}>{l.label}</div>
                     <div className="truncate" style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>
                       {l.venue_id
-                        ? `Vitrine · ${l.venues?.name ?? l.venue_id}`
+                        ? `Vitrine club · ${l.venues?.name ?? l.venue_id}`
+                        : l.organizer_user_id
+                        ? `Vitrine orga · ${orgNameById[l.organizer_user_id] ?? 'réclamée'}`
                         : (l.target_accounts ?? []).map((a) => DEMO_ACCOUNTS[a]?.label ?? a).join(', ')}
                       {' · '}{(l.language ?? 'en').toUpperCase()}
                       {' · '}{l.used_count} ouverture{l.used_count > 1 ? 's' : ''}
@@ -494,13 +545,13 @@ export default function AdminDemoAccess() {
                       {l.expires_at ? ` · expire ${format(new Date(l.expires_at), 'dd/MM/yyyy')}` : ''}
                     </div>
                   </div>
-                  {l.venue_id && (
+                  {(l.venue_id || l.organizer_user_id) && (
                     <span style={pillStyle(RED, 'rgba(232,25,44,0.1)', 'rgba(232,25,44,0.3)')}>
                       <Store className="h-3 w-3" />Vitrine
                     </span>
                   )}
                   {statusPill(l)}
-                  {!l.venue_id && (
+                  {!l.venue_id && !l.organizer_user_id && (
                     <button onClick={() => openEdit(l)} title="Modifier les accès" style={iconBtn('neutral')}>
                       <Pencil className="h-4 w-4" />
                     </button>
@@ -555,7 +606,10 @@ export default function AdminDemoAccess() {
           <DialogContent style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, color: T1 }}>
             <DialogHeader>
               <DialogTitle style={{ color: T1 }}>
-                Inviter le propriétaire{inviteTarget?.venues?.name ? ` — ${inviteTarget.venues.name}` : ''}
+                {inviteTarget?.venue_id ? 'Inviter le propriétaire' : 'Inviter l\'organisateur'}
+                {inviteTarget?.venue_id
+                  ? (inviteTarget?.venues?.name ? ` — ${inviteTarget.venues.name}` : '')
+                  : (orgNameById[inviteTarget?.organizer_user_id ?? ''] ? ` — ${orgNameById[inviteTarget!.organizer_user_id!]}` : '')}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-2">
@@ -565,7 +619,7 @@ export default function AdminDemoAccess() {
                   style={{ ...inputStyle, marginTop: 6 }} />
                 <p style={{ color: T3, fontSize: 11.5, marginTop: 6, lineHeight: 1.5 }}>
                   Nouveau compte : il reçoit une invitation à accepter. Compte Yuno existant :
-                  la venue lui est transférée immédiatement, sans email d'acceptation.
+                  la vitrine lui est transférée immédiatement, sans email d'acceptation.
                 </p>
               </div>
               <button

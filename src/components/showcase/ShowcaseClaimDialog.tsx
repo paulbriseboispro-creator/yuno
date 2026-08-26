@@ -69,10 +69,11 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   language: string;
-  venueName: string;
+  /** Nom de l'entité vitrine (club ou organisateur). */
+  entityName: string;
 }
 
-export function ShowcaseClaimDialog({ open, onOpenChange, language, venueName }: Props) {
+export function ShowcaseClaimDialog({ open, onOpenChange, language, entityName }: Props) {
   const lang: Lang = language === 'fr' || language === 'es' ? language : 'en';
   const c = COPY[lang];
 
@@ -141,7 +142,7 @@ export function ShowcaseClaimDialog({ open, onOpenChange, language, venueName }:
               </span>
               <div>
                 <h2 className="text-lg font-bold text-white">{c.title}</h2>
-                <p className="mt-1.5 text-sm leading-relaxed text-white/55">{c.lead(venueName || 'Yuno')}</p>
+                <p className="mt-1.5 text-sm leading-relaxed text-white/55">{c.lead(entityName || 'Yuno')}</p>
               </div>
             </div>
 

@@ -25,6 +25,9 @@ interface LinkInfo {
   venue_id: string | null;
   venue_name: string | null;
   venue_slug: string | null;
+  organizer_user_id: string | null;
+  organizer_name: string | null;
+  organizer_slug: string | null;
   is_valid: boolean;
   invalid_reason: string | null;
 }
@@ -215,7 +218,13 @@ export default function PreviewGate() {
         docType: 'demo_confidentiality',
         docContent: legalContent['confidentialite'][lang].content,
         context: isShowcase
-          ? { surface: 'showcase_gate', label: info?.label ?? '', venue_id: String((data as any).venue?.id ?? '') }
+          ? {
+              surface: 'showcase_gate',
+              label: info?.label ?? '',
+              target: (data as any).target === 'organizer' ? 'organizer' : 'venue',
+              venue_id: String((data as any).venue?.id ?? ''),
+              organizer_user_id: String((data as any).organizer?.user_id ?? ''),
+            }
           : { surface: 'preview_gate', label: info?.label ?? '', roles: info?.target_accounts ?? [] },
       });
 
@@ -231,23 +240,30 @@ export default function PreviewGate() {
       const userId = sessionData.user?.id;
 
       if (isShowcase) {
-        // Session VITRINE : le prospect est connecté au compte fantôme de SA
-        // venue. Pas d'applyDemoBypass complet (compte non-démo) — seulement le
-        // bypass MFA local, en ceinture-bretelles du mfa_exempt posé côté base.
-        const venue = (data as any).venue ?? {};
+        // Session VITRINE : le prospect est connecté au compte fantôme de SON
+        // club ou de SON profil organisateur. Pas d'applyDemoBypass complet
+        // (compte non-démo) — seulement le bypass MFA local, en
+        // ceinture-bretelles du mfa_exempt posé côté base.
+        const target: 'venue' | 'organizer' = (data as any).target === 'organizer' ? 'organizer' : 'venue';
+        const ent = (target === 'organizer' ? (data as any).organizer : (data as any).venue) ?? {};
+        const role = target === 'organizer' ? 'organizer' : 'owner';
         setMfaBypass(userId);
         enablePreviewMode({
           label: info?.label ?? '',
-          roles: ['owner'],
-          current: 'owner',
+          roles: [role],
+          current: role,
           language,
           kind: 'showcase',
-          venueId: String(venue.id ?? ''),
-          venueSlug: String(venue.slug ?? ''),
-          venueName: String(venue.name ?? ''),
+          showcaseTarget: target,
+          entityId: String(ent.id ?? ent.user_id ?? ''),
+          entitySlug: String(ent.slug ?? ''),
+          entityName: String(ent.name ?? ''),
         });
         if (['en', 'fr', 'es'].includes(language)) setLanguage(language as Language);
-        navigate(venue.slug ? `/club/${venue.slug}` : '/owner/dashboard', { replace: true });
+        const landing = target === 'organizer'
+          ? (ent.slug ? `/o/${ent.slug}` : '/organizer-app')
+          : (ent.slug ? `/club/${ent.slug}` : '/owner/dashboard');
+        navigate(landing, { replace: true });
         return;
       }
 
@@ -308,8 +324,8 @@ export default function PreviewGate() {
                   {c.hi} {info.label}
                 </h1>
                 <p className="mt-1.5 text-sm text-white/50">
-                  {info.venue_id
-                    ? c.leadShowcase(info.venue_name || 'Yuno')
+                  {info.venue_id || info.organizer_user_id
+                    ? c.leadShowcase(info.venue_name || info.organizer_name || 'Yuno')
                     : c.lead(
                         info.target_accounts.map((a) => DEMO_ACCOUNTS[a]?.label ?? a).join(', '),
                         info.target_accounts.length,
@@ -385,7 +401,7 @@ export default function PreviewGate() {
             </div>
 
             <p className="mt-5 text-center text-[11px] leading-relaxed text-white/35">
-              {info.venue_id ? c.footerShowcase : c.footer}
+              {info.venue_id || info.organizer_user_id ? c.footerShowcase : c.footer}
             </p>
           </>
         )}

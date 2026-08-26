@@ -27,7 +27,7 @@ const SHOWCASE_COPY: Record<'en' | 'fr' | 'es', {
 };
 
 export function PreviewModeBanner() {
-  const { isPreview, label, roles, current, kind, venueSlug, venueName, language } = usePreviewMode();
+  const { isPreview, label, roles, current, kind, showcaseTarget, entitySlug, entityName, language } = usePreviewMode();
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -60,11 +60,13 @@ export function PreviewModeBanner() {
     navigate('/', { replace: true });
   };
 
-  // ── Variante VITRINE ───────────────────────────────────────────────────────
+  // ── Variante VITRINE (club ou organisateur) ────────────────────────────────
   if (kind === 'showcase') {
     const sc = SHOWCASE_COPY[language === 'fr' || language === 'es' ? language : 'en'];
-    const publicPath = venueSlug ? `/club/${venueSlug}` : '/';
-    const onDashboard = location.pathname.startsWith('/owner');
+    const isOrg = showcaseTarget === 'organizer';
+    const publicPath = entitySlug ? (isOrg ? `/o/${entitySlug}` : `/club/${entitySlug}`) : '/';
+    const dashboardPath = isOrg ? '/organizer-app' : '/owner/dashboard';
+    const onDashboard = location.pathname.startsWith(isOrg ? '/organizer-app' : '/owner');
     const pill = (active: boolean) => ({
       background: active ? 'rgba(232,25,44,0.18)' : 'rgba(255,255,255,0.08)',
       border: `1px solid ${active ? `${RED}66` : 'rgba(255,255,255,0.12)'}`,
@@ -84,7 +86,7 @@ export function PreviewModeBanner() {
         >
           <Eye className="h-4 w-4 shrink-0" style={{ color: RED }} />
           <span className="hidden sm:inline text-[12.5px] font-medium whitespace-nowrap">
-            {sc.preview}{venueName ? <span className="text-white/55"> · {venueName}</span> : null}
+            {sc.preview}{entityName ? <span className="text-white/55"> · {entityName}</span> : null}
           </span>
 
           <button
@@ -97,7 +99,7 @@ export function PreviewModeBanner() {
           </button>
           <button
             type="button"
-            onClick={() => navigate('/owner/dashboard')}
+            onClick={() => navigate(dashboardPath)}
             className="inline-flex items-center rounded-full px-2.5 py-1 text-[11.5px] font-semibold transition hover:brightness-110 whitespace-nowrap"
             style={pill(onDashboard)}
           >
@@ -129,7 +131,7 @@ export function PreviewModeBanner() {
           open={claimOpen}
           onOpenChange={setClaimOpen}
           language={language}
-          venueName={venueName}
+          entityName={entityName}
         />
       </>
     );

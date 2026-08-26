@@ -103,11 +103,14 @@ export default function OrganizerPublicProfile() {
   const load = async () => {
     setLoading(true);
     try {
+      // Pas de filtre is_public côté client : la RLS décide. Anon et tiers ne
+      // lisent que les profils publics ; le PROPRIÉTAIRE (session vitrine
+      // comprise) et le super admin voient leur page même privée — c'est le
+      // gate d'aperçu, miroir de VenuePage pour les clubs cachés.
       const { data: prof } = await supabase
         .from('organizer_profiles')
         .select(PUBLIC_ORGANIZER_COLUMNS)
         .eq('slug', slug!)
-        .eq('is_public', true)
         .maybeSingle();
 
       if (!prof) {

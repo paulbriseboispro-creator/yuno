@@ -13,10 +13,11 @@
 //
 // Deux sortes d'aperçu (kind) :
 //   • 'demo'     — comptes démo génériques @womber.fr (comportement historique).
-//   • 'showcase' — compte VITRINE : le prospect est connecté au compte fantôme de
-//                  SA venue cachée (venueId/venueSlug/venueName renseignés) et la
-//                  bannière lui offre page publique ↔ dashboard + le CTA
-//                  « Activer mon compte ».
+//   • 'showcase' — compte VITRINE : le prospect est connecté au compte fantôme
+//                  de SON club (showcaseTarget='venue') ou de SON profil
+//                  organisateur (showcaseTarget='organizer'). entityId/Slug/Name
+//                  décrivent l'entité vitrine ; la bannière offre page publique
+//                  ↔ dashboard + le CTA « Activer mon compte ».
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
@@ -29,14 +30,15 @@ export interface PreviewState {
   current: string;
   language: string;
   kind: 'demo' | 'showcase';
-  venueId: string;
-  venueSlug: string;
-  venueName: string;
+  showcaseTarget: 'venue' | 'organizer';
+  entityId: string;
+  entitySlug: string;
+  entityName: string;
 }
 
 const EMPTY: PreviewState = {
   label: '', roles: [], current: '', language: 'en',
-  kind: 'demo', venueId: '', venueSlug: '', venueName: '',
+  kind: 'demo', showcaseTarget: 'venue', entityId: '', entitySlug: '', entityName: '',
 };
 
 function parse(raw: string | null): PreviewState | null {
@@ -50,9 +52,12 @@ function parse(raw: string | null): PreviewState | null {
         current: o.current ?? o.roles[0] ?? '',
         language: o.language ?? 'en',
         kind: o.kind === 'showcase' ? 'showcase' : 'demo',
-        venueId: o.venueId ?? '',
-        venueSlug: o.venueSlug ?? '',
-        venueName: o.venueName ?? '',
+        showcaseTarget: o.showcaseTarget === 'organizer' ? 'organizer' : 'venue',
+        // Repli sur les anciennes clés venue* (session vitrine ouverte avant le
+        // déploiement de la variante orga, rechargée après).
+        entityId: o.entityId ?? o.venueId ?? '',
+        entitySlug: o.entitySlug ?? o.venueSlug ?? '',
+        entityName: o.entityName ?? o.venueName ?? '',
       };
     }
   } catch { /* ancien format (string label) : traité comme label seul */
@@ -86,7 +91,8 @@ export function getPreviewLabel(): string {
 /** Arme la lecture seule (appelé par PreviewGate après connexion au compte démo). */
 export function enablePreviewMode(state: {
   label: string; roles: string[]; current?: string; language?: string;
-  kind?: 'demo' | 'showcase'; venueId?: string; venueSlug?: string; venueName?: string;
+  kind?: 'demo' | 'showcase'; showcaseTarget?: 'venue' | 'organizer';
+  entityId?: string; entitySlug?: string; entityName?: string;
 }): void {
   const value = JSON.stringify({
     label: state.label ?? '',
@@ -94,9 +100,10 @@ export function enablePreviewMode(state: {
     current: state.current ?? state.roles?.[0] ?? '',
     language: state.language ?? 'en',
     kind: state.kind === 'showcase' ? 'showcase' : 'demo',
-    venueId: state.venueId ?? '',
-    venueSlug: state.venueSlug ?? '',
-    venueName: state.venueName ?? '',
+    showcaseTarget: state.showcaseTarget === 'organizer' ? 'organizer' : 'venue',
+    entityId: state.entityId ?? '',
+    entitySlug: state.entitySlug ?? '',
+    entityName: state.entityName ?? '',
   });
   try { sessionStorage.setItem(PREVIEW_FLAG, value); } catch { /* storage indispo : ignore */ }
   try { window.dispatchEvent(new Event(PREVIEW_EVENT)); } catch { /* pas de window */ }

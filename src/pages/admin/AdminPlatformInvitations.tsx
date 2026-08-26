@@ -8,7 +8,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Mail, Sparkles, Trash2, Pencil, Send } from 'lucide-react';
+import { Plus, Mail, Sparkles, Trash2, Pencil, Send, Store, Copy, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { GenerateOnboardingLinkButton } from '@/components/onboarding/GenerateOnboardingLinkButton';
@@ -98,6 +98,50 @@ export default function AdminPlatformInvitations() {
   // Delete confirm
   const [deleteTarget, setDeleteTarget] = useState<OrgAccount | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Compte vitrine orga (prospection) : fantôme portant un profil orga privé,
+  // construit par l'admin via un magiclink en fenêtre privée. Voir migration
+  // 20260826110000 + action create-showcase-organizer d'admin-account-recovery.
+  const [showcaseOpen, setShowcaseOpen] = useState(false);
+  const [showcaseName, setShowcaseName] = useState('');
+  const [showcaseEmail, setShowcaseEmail] = useState('');
+  const [showcaseEmailTouched, setShowcaseEmailTouched] = useState(false);
+  const [creatingShowcase, setCreatingShowcase] = useState(false);
+  const [showcaseLink, setShowcaseLink] = useState<string | null>(null);
+
+  // Email conventionnel dérivé du nom (boîte contrôlée par Yuno, jamais
+  // @womber.fr) — modifiable tant que l'admin n'y a pas touché lui-même.
+  const suggestShowcaseEmail = (name: string) =>
+    `vitrine+${name.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'orga'}@yunoapp.eu`;
+
+  const createShowcase = async () => {
+    if (!showcaseName || !showcaseEmail || creatingShowcase) return;
+    setCreatingShowcase(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-account-recovery', {
+        body: { action: 'create-showcase-organizer', name: showcaseName.trim(), email: showcaseEmail.trim() },
+      });
+      if (error || (data as { error?: string })?.error) throw new Error((data as { error?: string })?.error ?? error?.message);
+      setShowcaseLink((data as { action_link: string }).action_link);
+      toast.success('Compte vitrine prêt — ouvre le lien en fenêtre privée pour construire.');
+      load();
+    } catch (e) {
+      const msg = String((e as Error)?.message ?? '');
+      if (msg.includes('email_already_used')) toast.error('Cet email est déjà utilisé par un autre compte.');
+      else if (msg.includes('womber_email_forbidden')) toast.error('Jamais d\'email @womber.fr pour un fantôme.');
+      else toast.error(msg || 'Erreur');
+    } finally {
+      setCreatingShowcase(false);
+    }
+  };
+
+  const copyShowcaseLink = async () => {
+    if (!showcaseLink) return;
+    try {
+      await navigator.clipboard.writeText(showcaseLink);
+      toast.success('Lien builder copié');
+    } catch { toast.error('Copie impossible'); }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -266,6 +310,83 @@ export default function AdminPlatformInvitations() {
             variant="outline"
             size="sm"
           />
+          <Dialog open={showcaseOpen} onOpenChange={(o) => { setShowcaseOpen(o); if (!o) { setShowcaseLink(null); setShowcaseName(''); setShowcaseEmail(''); setShowcaseEmailTouched(false); } }}>
+            <DialogTrigger asChild>
+              <button
+                className="inline-flex items-center gap-2 rounded-xl text-[13px] font-semibold cursor-pointer transition-all duration-150"
+                style={{ background: INNER_BG, color: T2, border: `1px solid ${BORDER}`, padding: '10px 14px' }}
+              >
+                <Store className="h-4 w-4" style={{ color: RED }} />Compte vitrine
+              </button>
+            </DialogTrigger>
+            <DialogContent style={{ background: '#0a0a0c', border: `1px solid ${BORDER}`, color: T1 }}>
+              <DialogHeader>
+                <DialogTitle style={{ color: T1 }}>Compte vitrine organisateur</DialogTitle>
+              </DialogHeader>
+              {showcaseLink ? (
+                <div className="space-y-3 mt-2">
+                  <p style={{ fontSize: 13, color: T2 }}>
+                    Lien builder prêt (ouvre-le en <strong style={{ color: T1 }}>fenêtre privée</strong>) :
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <input readOnly value={showcaseLink} style={{ ...inputStyle, flex: 1 }} onFocus={(e) => e.currentTarget.select()} />
+                    <button onClick={copyShowcaseLink} style={{ ...inputStyle, width: 'auto', cursor: 'pointer' }}>
+                      <Copy className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => setShowcaseOpen(false)}
+                    className="inline-flex w-full items-center justify-center rounded-xl text-[13px] font-semibold cursor-pointer"
+                    style={{ background: RED, color: '#fff', padding: '11px 16px' }}
+                  >
+                    Terminé
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4 mt-2">
+                  <p style={{ color: T3, fontSize: 12.5, lineHeight: 1.5 }}>
+                    Crée un profil organisateur pré-construit, invisible du public, porté par un
+                    compte fantôme. Tu construis tout (profil, soirées, guest lists) via le lien
+                    builder, puis tu partages un lien d'aperçu depuis Accès démo. À la réclamation,
+                    tout est transféré au vrai compte du client.
+                  </p>
+                  <div>
+                    <Label style={{ color: T2 }}>Nom de l'organisateur</Label>
+                    <input
+                      value={showcaseName}
+                      onChange={(e) => {
+                        setShowcaseName(e.target.value);
+                        if (!showcaseEmailTouched) setShowcaseEmail(suggestShowcaseEmail(e.target.value));
+                      }}
+                      placeholder="Ex : Nuits Fauves Collectif"
+                      style={{ ...inputStyle, marginTop: 6 }}
+                    />
+                  </div>
+                  <div>
+                    <Label style={{ color: T2 }}>Email du compte fantôme</Label>
+                    <input
+                      type="email"
+                      value={showcaseEmail}
+                      onChange={(e) => { setShowcaseEmail(e.target.value); setShowcaseEmailTouched(true); }}
+                      style={{ ...inputStyle, marginTop: 6 }}
+                    />
+                    <p style={{ color: T3, fontSize: 11.5, marginTop: 6, lineHeight: 1.5 }}>
+                      Une boîte contrôlée par Yuno (jamais @womber.fr). Le prospect ne la verra jamais.
+                    </p>
+                  </div>
+                  <button
+                    onClick={createShowcase}
+                    disabled={creatingShowcase || !showcaseName || !showcaseEmail}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl text-[13px] font-semibold transition-all duration-150"
+                    style={{ background: RED, color: '#fff', padding: '11px 16px', boxShadow: `0 0 18px -6px ${RED}88`, cursor: (creatingShowcase || !showcaseName || !showcaseEmail) ? 'not-allowed' : 'pointer', opacity: (creatingShowcase || !showcaseName || !showcaseEmail) ? 0.5 : 1 }}
+                  >
+                    {creatingShowcase && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Créer le compte vitrine
+                  </button>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
           <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
             <DialogTrigger asChild>
               <button
