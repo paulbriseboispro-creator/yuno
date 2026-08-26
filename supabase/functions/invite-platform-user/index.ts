@@ -74,13 +74,26 @@ serve(async (req) => {
       .maybeSingle();
     if (!adminRole) throw new Error("Admin role required");
 
-    const { email, organization_name, offer_support_help } = await req.json();
+    const { email, organization_name, offer_support_help, showcase_shadow_user_id } = await req.json();
     if (!email || !organization_name) throw new Error("Missing required fields");
     const offerHelp = offer_support_help === true;
 
     const normalizedEmail = String(email).toLowerCase().trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
       throw new Error("Invalid email");
+    }
+
+    // Réclamation d'une vitrine orga : l'invitation porte le fantôme à
+    // re-parenter (handoff_showcase_organizer). On valide qu'il en est bien un.
+    let shadowUserId: string | null = null;
+    if (showcase_shadow_user_id) {
+      const { data: shadowRow } = await supabaseAdmin
+        .from("organizer_profiles")
+        .select("user_id, is_showcase_shadow")
+        .eq("user_id", String(showcase_shadow_user_id))
+        .maybeSingle();
+      if (!shadowRow?.is_showcase_shadow) throw new Error("not_a_showcase_organizer");
+      shadowUserId = shadowRow.user_id;
     }
 
     console.log(`Inviting organizer ${normalizedEmail} for ${organization_name}`);
@@ -94,6 +107,17 @@ serve(async (req) => {
     const existingUser = existingProfile ? { id: existingProfile.id } : null;
 
     if (existingUser) {
+      // Réclamation de vitrine par un compte existant : le re-parentage doit
+      // réussir AVANT toute mutation (échoue net si le prospect est déjà
+      // organisateur — collision de profil, cas à traiter à la main).
+      if (shadowUserId) {
+        const { error: handoffError } = await supabaseAdmin.rpc("handoff_showcase_organizer", {
+          p_shadow_user_id: shadowUserId,
+          p_new_owner_id: existingUser.id,
+        });
+        if (handoffError) throw new Error(handoffError.message);
+      }
+
       // Apply organizer profile directly
       const { error: profileError } = await supabaseAdmin
         .from("profiles")
@@ -105,13 +129,17 @@ serve(async (req) => {
         .eq("id", existingUser.id);
       if (profileError) throw profileError;
 
-      // Bootstrap public organizer profile (idempotent)
-      await supabaseAdmin
-        .from("organizer_profiles")
-        .upsert(
-          { user_id: existingUser.id, display_name: organization_name },
-          { onConflict: "user_id" }
-        );
+      // Bootstrap public organizer profile (idempotent). JAMAIS dans le cas
+      // vitrine : le handoff vient de re-parenter le profil construit — un
+      // upsert écraserait son display_name.
+      if (!shadowUserId) {
+        await supabaseAdmin
+          .from("organizer_profiles")
+          .upsert(
+            { user_id: existingUser.id, display_name: organization_name },
+            { onConflict: "user_id" }
+          );
+      }
 
       if (resendApiKey) {
         const mail = buildInvitation({
@@ -150,7 +178,12 @@ serve(async (req) => {
       }
 
       return new Response(
-        JSON.stringify({ success: true, user_exists: true, support_offered: supportOffered }),
+        JSON.stringify({
+          success: true,
+          user_exists: true,
+          support_offered: supportOffered,
+          showcase_claimed: !!shadowUserId,
+        }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -176,6 +209,9 @@ serve(async (req) => {
           accepted_at: null,
           accepted_by: null,
           offer_support_help: offerHelp,
+          // Un « renvoyer » (sans champ vitrine) ne doit pas effacer le
+          // pointeur d'une invitation de réclamation existante.
+          showcase_shadow_user_id: shadowUserId ?? invitation.showcase_shadow_user_id ?? null,
         })
         .eq("id", invitation.id)
         .select()
@@ -191,6 +227,7 @@ serve(async (req) => {
           organization_name,
           invited_by: caller.id,
           offer_support_help: offerHelp,
+          showcase_shadow_user_id: shadowUserId,
         })
         .select()
         .single();

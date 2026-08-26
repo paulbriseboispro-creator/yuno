@@ -21,6 +21,11 @@
 //                              20260826100000. (Logée ici et pas dans une
 //                              fonction dédiée : cap Supabase sur les nouvelles
 //                              edge functions.)
+//   • "create-showcase-organizer" (admin) — pendant ORGANISATEUR : user jetable
+//                              portant un organizer_profiles privé marqué
+//                              is_showcase_shadow (migration 20260826110000).
+//                              La réclamation re-parente tout via
+//                              handoff_showcase_organizer.
 //
 // Le reset MFA se fait via la RPC admin_reset_user_mfa ; la suspension via
 // admin_set_user_suspended ; approbation/révocation d'un grant via les RPC
@@ -198,6 +203,101 @@ serve(async (req) => {
         entity_type: "venue",
         entity_id: venueId,
         metadata: { email, shadow_user_id: shadowId },
+      });
+
+      return new Response(JSON.stringify({
+        success: true,
+        user_id: shadowId,
+        action_link: linkData.properties.action_link,
+      }), { headers: jsonHeaders });
+    }
+
+    // ── create-showcase-organizer : compte fantôme d'un profil orga vitrine ────
+    if (action === "create-showcase-organizer") {
+      const orgName: string | undefined = typeof body.name === "string" ? body.name.trim() : undefined;
+      const email: string | undefined = typeof body.email === "string" ? body.email.trim().toLowerCase() : undefined;
+      if (!orgName || !email) return fail("name and email are required", 400);
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return fail("invalid_email", 400);
+      // Même règle que les vitrines club : jamais @womber.fr (paymentsReady,
+      // DemoSwitcher).
+      if (email.endsWith("@womber.fr")) return fail("womber_email_forbidden", 400);
+
+      // Créer le user fantôme — ou le retrouver s'il est déjà le fantôme d'une
+      // vitrine orga (relance idempotente pour regénérer le lien builder).
+      let shadowId: string | null = null;
+      let alreadyShadow = false;
+      const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        email_confirm: true,
+        password: crypto.randomUUID() + crypto.randomUUID(),
+      });
+      if (createErr) {
+        const { data: existing } = await supabaseAdmin
+          .from("profiles").select("id").eq("email", email).maybeSingle();
+        if (!existing) return fail("email_already_used", 409);
+        const { data: orgRow } = await supabaseAdmin
+          .from("organizer_profiles")
+          .select("user_id, is_showcase_shadow")
+          .eq("user_id", existing.id)
+          .maybeSingle();
+        if (!orgRow?.is_showcase_shadow) return fail("email_already_used", 409);
+        shadowId = existing.id;
+        alreadyShadow = true;
+      } else {
+        shadowId = created.user.id;
+      }
+
+      // profile_type='organizer' ouvre l'app orga (OrgAppRoute) et le trigger
+      // de synchro pose user_roles 'organizer' tout seul. mfa_exempt : sans
+      // lui, la session builder (magiclink) serait redirigée vers /mfa-setup.
+      const { data: profRows } = await supabaseAdmin
+        .from("profiles")
+        .update({
+          profile_type: "organizer",
+          organization_name: orgName,
+          onboarding_completed: true,
+          mfa_exempt: true,
+        })
+        .eq("id", shadowId)
+        .select("id");
+      if (!profRows?.length) {
+        await supabaseAdmin.from("profiles").insert({
+          id: shadowId,
+          email,
+          profile_type: "organizer",
+          organization_name: orgName,
+          onboarding_completed: true,
+          mfa_exempt: true,
+        });
+      }
+
+      // Le profil vitrine : privé (invisible du public) + marqueur. Le slug est
+      // généré par le trigger de la table.
+      if (!alreadyShadow) {
+        const { error: orgErr } = await supabaseAdmin
+          .from("organizer_profiles")
+          .insert({
+            user_id: shadowId,
+            display_name: orgName,
+            is_public: false,
+            is_showcase_shadow: true,
+          });
+        if (orgErr) return fail("organizer_profile_failed", 500);
+      }
+
+      const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
+        type: "magiclink",
+        email,
+        options: { redirectTo: `${APP_URL}/organizer-app` },
+      });
+      if (linkErr || !linkData?.properties?.action_link) return fail("mint_link_failed", 502);
+
+      await supabaseAdmin.from("admin_audit_log").insert({
+        admin_id: user.id,
+        action: "showcase_organizer_created",
+        entity_type: "organizer",
+        entity_id: shadowId,
+        metadata: { email, organization_name: orgName },
       });
 
       return new Response(JSON.stringify({

@@ -88,6 +88,30 @@ serve(async (req) => {
         });
       }
 
+      // Réclamation d'une vitrine orga : le profil construit par l'admin est
+      // re-parenté vers ce compte (handoff_showcase_organizer) au lieu de
+      // créer un profil vierge. Le pointeur est revalidé ICI (marqueur
+      // is_showcase_shadow) : s'il est périmé, on retombe sur le chemin normal.
+      let claimShadowId: string | null = null;
+      if (invitation.showcase_shadow_user_id) {
+        const { data: shadowRow } = await supabaseAdmin
+          .from("organizer_profiles")
+          .select("user_id, is_showcase_shadow")
+          .eq("user_id", invitation.showcase_shadow_user_id)
+          .maybeSingle();
+        if (shadowRow?.is_showcase_shadow) claimShadowId = shadowRow.user_id;
+      }
+
+      // Le re-parentage d'abord : s'il échoue (prospect déjà organisateur…),
+      // l'invitation reste pending et l'acceptation est rejouable.
+      if (claimShadowId) {
+        const { error: handoffError } = await supabaseAdmin.rpc("handoff_showcase_organizer", {
+          p_shadow_user_id: claimShadowId,
+          p_new_owner_id: user.id,
+        });
+        if (handoffError) throw new Error(handoffError.message);
+      }
+
       // Update profile (always normalize to 'organizer')
       const { error: profileError } = await supabaseAdmin
         .from("profiles")
@@ -110,13 +134,17 @@ serve(async (req) => {
         })
         .eq("id", invitation.id);
 
-      // Create organizer_profiles row (defaults)
-      await supabaseAdmin
-        .from("organizer_profiles")
-        .upsert({
-          user_id: user.id,
-          display_name: invitation.organization_name,
-        }, { onConflict: "user_id" });
+      // Create organizer_profiles row (defaults). JAMAIS dans le cas vitrine :
+      // le handoff vient de re-parenter le profil construit — un upsert
+      // écraserait son display_name.
+      if (!claimShadowId) {
+        await supabaseAdmin
+          .from("organizer_profiles")
+          .upsert({
+            user_id: user.id,
+            display_name: invitation.organization_name,
+          }, { onConflict: "user_id" });
+      }
 
       return new Response(
         JSON.stringify({ success: true, offer_support_help: invitation.offer_support_help === true }),

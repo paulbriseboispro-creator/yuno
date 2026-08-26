@@ -409,8 +409,53 @@ async function handleRedeemDemoPreviewLink(supabase: SupabaseClient, body: any):
     return json({
       success: true,
       showcase: true,
+      target: 'venue',
       venue: { id: venue.id, slug: venue.slug || venue.id, name: venue.name },
       target_accounts: ['owner'],
+      language,
+      access_token: verified.session.access_token,
+      refresh_token: verified.session.refresh_token,
+    });
+  }
+
+  // ─── Lien VITRINE ORGANISATEUR : même mécanique, marqueur organizer_profiles.
+  // Après réclamation, le profil a changé de porteur (handoff) : le fantôme du
+  // lien n'a plus de profil vitrine → 'claimed'. Un lien mort ne peut jamais
+  // minter la session du vrai client.
+  if (v.organizer_user_id) {
+    const { data: orgProfile } = await supabase
+      .from('organizer_profiles')
+      .select('user_id, display_name, slug, is_showcase_shadow')
+      .eq('user_id', String(v.organizer_user_id))
+      .maybeSingle();
+    if (!orgProfile?.is_showcase_shadow) {
+      return json({ success: false, code: 'claimed' }, 200);
+    }
+
+    const { data: shadow, error: shadowError } = await supabase.auth.admin.getUserById(orgProfile.user_id);
+    if (shadowError || !shadow?.user?.email) return json({ error: 'shadow_not_found', code: 'server_error' }, 500);
+
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    const url = Deno.env.get('SUPABASE_URL');
+    if (!anonKey || !url) return json({ error: 'not_configured', code: 'server_error' }, 500);
+
+    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+      type: 'magiclink', email: shadow.user.email,
+    });
+    if (linkError || !linkData?.properties?.hashed_token) return json({ error: 'mint_link_failed', code: 'server_error' }, 500);
+
+    const anonClient = createClient(url, anonKey);
+    const { data: verified, error: verifyOtpError } = await anonClient.auth.verifyOtp({
+      token_hash: linkData.properties.hashed_token, type: 'magiclink',
+    });
+    if (verifyOtpError || !verified?.session) return json({ error: 'mint_session_failed', code: 'server_error' }, 500);
+
+    return json({
+      success: true,
+      showcase: true,
+      target: 'organizer',
+      organizer: { user_id: orgProfile.user_id, slug: orgProfile.slug ?? '', name: orgProfile.display_name },
+      target_accounts: ['organizer'],
       language,
       access_token: verified.session.access_token,
       refresh_token: verified.session.refresh_token,
