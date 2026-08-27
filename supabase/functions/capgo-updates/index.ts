@@ -24,6 +24,19 @@ serve(async (req) => {
     const deviceId = info.device_id ?? "";
     const nativeVersion = info.version_build ?? "";
     const currentVersion = info.version_name ?? "";
+
+    // Familles de compatibilité native : un bump de version marketing SANS
+    // changement du shell natif (mêmes plugins, mêmes capacités) reste dans
+    // la famille d'origine et consomme les mêmes bundles. Cas : App Store
+    // ferme le train 1.0 de Pro une fois publié (ITMS-90186) → le binaire
+    // suivant s'appelle 1.0.1 mais son WebView est identique (27/08/2026).
+    // À tenir en MIROIR de scripts/ota-publish.mjs (NATIVE_FAMILY). Un VRAI
+    // changement natif prend une nouvelle famille : ne PAS l'ajouter ici —
+    // c'est ce qui préserve le garde-fou anti-downgrade.
+    const NATIVE_FAMILY: Record<string, Record<string, string>> = {
+      "eu.yunoapp.pro": { "1.0.1": "1.0" },
+    };
+    const nativeFamily = NATIVE_FAMILY[appId]?.[nativeVersion] ?? nativeVersion;
     const supa = admin();
 
     logStep("capgo-updates", "check", {
@@ -65,7 +78,7 @@ serve(async (req) => {
       .select("version, url, checksum")
       .eq("app_id", appId)
       .eq("channel", channel)
-      .eq("native_version", nativeVersion)
+      .eq("native_version", nativeFamily)
       .eq("active", true)
       .order("created_at", { ascending: false })
       .limit(1)

@@ -91,12 +91,26 @@ function resolveApps(flag) {
   die(`--app doit être both|client|pro (reçu: ${flag})`);
 }
 
+// Familles de compatibilité native. Une fois une version publiée sur l'App
+// Store, son train est FERMÉ (ITMS-90186) : tout nouveau binaire doit porter
+// une version marketing supérieure. Quand ce bump ne change RIEN au shell
+// natif (mêmes plugins, mêmes capacités — cas de Pro 1.0 → 1.0.1 le
+// 27/08/2026), les deux shells consomment les MÊMES bundles OTA : on canonise
+// la version vers la famille d'origine. À tenir en MIROIR de
+// supabase/functions/capgo-updates/index.ts (NATIVE_FAMILY). Un VRAI
+// changement natif (nouveau plugin, breaking change) = nouvelle famille :
+// ne PAS l'ajouter ici.
+const NATIVE_FAMILY = {
+  'eu.yunoapp.pro': { '1.0.1': '1.0' },
+};
+
 function nativeVersionOf(app) {
   const p = join(ROOT, app.pbxproj);
   if (!existsSync(p)) die(`pbxproj introuvable pour ${app.label}: ${p}`);
   const m = readFileSync(p, 'utf8').match(/MARKETING_VERSION\s*=\s*([^;]+);/);
   if (!m) die(`MARKETING_VERSION introuvable dans ${app.pbxproj}`);
-  return m[1].trim();
+  const raw = m[1].trim();
+  return NATIVE_FAMILY[app.id]?.[raw] ?? raw;
 }
 
 // next patch number for a given (app, native): "1.0" -> "1.0.1", "1.0.2"...
