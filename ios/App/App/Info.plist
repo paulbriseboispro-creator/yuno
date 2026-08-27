@@ -78,6 +78,11 @@
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Yuno uses your location to show clubs and events near you on the map.</string>
+	<!-- Exigée par App Store Connect (ITMS-90683, build 40) : le plugin
+	     @capacitor/geolocation référence l'API « Always » même si Yuno ne
+	     demande jamais la localisation en arrière-plan. -->
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Yuno uses your location to show clubs and events near you on the map. Yuno never tracks your location in the background.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Yuno uses the camera to scan QR codes for tickets and event check-in.</string>
 	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
