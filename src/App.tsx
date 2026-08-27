@@ -67,6 +67,7 @@ import { dismissSsrHero } from "@/lib/ssrHero";
 import { InstallBar } from "@/components/install/InstallBar";
 import { CITY_PAGES } from "@/data/cityPages";
 import { PushClickTracker } from "@/components/PushClickTracker";
+import PlatformTrafficTracker from "@/components/PlatformTrafficTracker";
 import { CelebrationHost } from "@/components/celebration/CelebrationHost";
 import { DemoSwitcher } from "@/components/demo/DemoSwitcher";
 import { PreviewModeProvider } from "@/contexts/PreviewModeContext";
@@ -255,6 +256,7 @@ const AdminLayout = lazyWithRetry(() => import("./pages/admin/AdminLayout"));
 const AdminDashboard = lazyWithRetry(() => import("./pages/admin/AdminDashboard"));
 const AdminVenues = lazyWithRetry(() => import("./pages/admin/AdminVenues"));
 const AdminAnalytics = lazyWithRetry(() => import("./pages/admin/AdminAnalytics"));
+const AdminTraffic = lazyWithRetry(() => import("./pages/admin/AdminTraffic"));
 const AdminSegmentation = lazyWithRetry(() => import("./pages/admin/AdminSegmentation"));
 const AdminAccounting = lazyWithRetry(() => import("./pages/admin/AdminAccounting"));
 const AdminFeedback = lazyWithRetry(() => import("./pages/admin/AdminFeedback"));
@@ -535,6 +537,9 @@ const App = () => (
             <NativeBridge />
             <NativeStatusBarScrim />
             <PushClickTracker />
+            {/* Mesure d'audience plateforme sans cookie — périmètre public/client
+                uniquement (voir src/lib/platformTraffic.ts). Dashboard : /admin/traffic. */}
+            <PlatformTrafficTracker />
             {/* Célébrations (confettis/overlay) des succès rares — écoute
                 l'événement émis par src/lib/celebrate.ts. B2C uniquement. */}
             {!isProApp() && <CelebrationHost />}
@@ -1125,6 +1130,9 @@ const App = () => (
                   <Route path="alerts" element={<AdminAlerts />} />
                   <Route path="venues" element={<AdminVenues />} />
                   <Route path="analytics" element={<AdminAnalytics />} />
+                  {/* /admin/traffic = audience web+app (visiteurs, acquisition,
+                      pages, temps réel) — /admin/analytics reste le CA. */}
+                  <Route path="traffic" element={<AdminTraffic />} />
                   <Route path="segmentation" element={<AdminSegmentation />} />
                   <Route path="accounting" element={<AdminAccounting />} />
                   <Route path="feedback" element={<AdminFeedback />} />

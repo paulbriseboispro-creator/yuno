@@ -29,6 +29,7 @@ import {
   ScrollText,
   KeyRound,
   Siren,
+  Radar,
   type LucideIcon,
 } from 'lucide-react';
 import AdminSearchBar from '@/components/admin/AdminSearchBar';
@@ -64,6 +65,7 @@ export default function AdminLayout() {
         { title: t('admin.navAlerts'), path: '/admin/alerts', icon: Siren },
         { title: t('admin.dir.navTitle'), path: '/admin/directory', icon: BookOpen },
         { title: 'Analytics', path: '/admin/analytics', icon: BarChart3 },
+        { title: t('admin.navTraffic'), path: '/admin/traffic', icon: Radar },
         { title: t('admin.navSegmentation'), path: '/admin/segmentation', icon: UsersRound },
       ],
     },
