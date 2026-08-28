@@ -58,16 +58,6 @@ interface RewardRedemption {
   reward?: LoyaltyReward;
 }
 
-interface CrmNotification {
-  id: string;
-  title: string | null;
-  message: string;
-  notification_type: string;
-  sent_at: string;
-  read_at: string | null;
-  metadata: Record<string, unknown>;
-}
-
 export function useLoyalty(venueId?: string) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -79,7 +69,6 @@ export function useLoyalty(venueId?: string) {
   const [rewards, setRewards] = useState<LoyaltyReward[]>([]);
   const [transactions, setTransactions] = useState<LoyaltyTransaction[]>([]);
   const [redemptions, setRedemptions] = useState<RewardRedemption[]>([]);
-  const [notifications, setNotifications] = useState<CrmNotification[]>([]);
 
   const fetchLoyaltyData = useCallback(async () => {
     if (!venueId) {
@@ -165,18 +154,6 @@ export function useLoyalty(venueId?: string) {
 
           setRedemptions((redemptionsData || []) as unknown as RewardRedemption[]);
         }
-
-        // Fetch notifications (secondaire)
-        const { data: notificationsData, error: notificationsError } = await supabase
-          .from('crm_notifications')
-          .select('*')
-          .eq('venue_id', venueId)
-          .eq('user_id', user.id)
-          .order('sent_at', { ascending: false })
-          .limit(20);
-        if (notificationsError) console.error('Error fetching CRM notifications:', notificationsError);
-
-        setNotifications((notificationsData || []) as CrmNotification[]);
       }
     } catch (error) {
       // Échec du chargement critique (settings / solde) : on signale une erreur,
@@ -247,20 +224,6 @@ export function useLoyalty(venueId?: string) {
     }
   };
 
-  const markNotificationRead = async (notificationId: string) => {
-    if (!user) return;
-
-    await supabase
-      .from('crm_notifications')
-      .update({ read_at: new Date().toISOString() })
-      .eq('id', notificationId)
-      .eq('user_id', user.id);
-
-    setNotifications(prev =>
-      prev.map(n => n.id === notificationId ? { ...n, read_at: new Date().toISOString() } : n)
-    );
-  };
-
   const getNextReward = () => {
     if (!loyalty || rewards.length === 0) return null;
     
@@ -279,8 +242,6 @@ export function useLoyalty(venueId?: string) {
     };
   };
 
-  const unreadNotificationsCount = notifications.filter(n => !n.read_at).length;
-
   return {
     loading,
     loadError,
@@ -289,10 +250,7 @@ export function useLoyalty(venueId?: string) {
     rewards,
     transactions,
     redemptions,
-    notifications,
-    unreadNotificationsCount,
     redeemReward,
-    markNotificationRead,
     getNextReward,
     refetch: fetchLoyaltyData,
     isEnabled: settings?.is_enabled ?? false

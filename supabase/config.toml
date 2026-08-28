@@ -310,13 +310,7 @@ verify_jwt = true
 [functions.guest-list-manage]
 verify_jwt = true
 
-[functions.send-crm-campaign]
-verify_jwt = true
-
 [functions.send-sms-campaign]
-verify_jwt = true
-
-[functions.analytics-export]
 verify_jwt = true
 
 [functions.delete-employee]

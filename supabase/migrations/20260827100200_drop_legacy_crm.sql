@@ -1,0 +1,33 @@
+-- ───────────────────────────────────────────────────────────────────────────
+-- Suppression du CRM legacy (chemin d'envoi désactivé depuis longtemps).
+--
+-- crm_campaigns / crm_notifications appartenaient à l'ancien pipeline
+-- send-crm-campaign, désactivé côté edge (410 : pas de consentement, pas de
+-- lien de désinscription) et remplacé par email_campaigns + send-campaign.
+-- Vérifications faites avant ce drop :
+--   • plus AUCUNE fonction SQL vivante ne les touche : l'admin_delete_venue
+--     actuelle (20260814100000) est un shim de décommission sans référence
+--     crm_*, _purge_venue non plus ; les fonctions leaderboard qui inséraient
+--     dans crm_notifications ont été droppées par 20260809100000.
+--   • côté front, les derniers lecteurs (useLoyalty.tsx, CampaignDialog.tsx,
+--     OwnerEmailCampaign.tsx non routée) sont purgés dans le même chantier.
+--   • le drop lève aussi un risque latent : ces tables portaient une FK
+--     venue_id que la purge de club ne nettoyait plus.
+-- L'edge function send-crm-campaign est supprimée du projet dans la foulée
+-- (supabase functions delete send-crm-campaign) — libère un slot du cap 402.
+--
+-- Drops REJETÉS en connaissance de cause (écart assumé au plan initial) :
+--   • venue_customers.customer_segment / average_spend / favorite_drink_category :
+--     jamais écrites, mais LUES par Bouncer.tsx (surface porte), AdminUserDetail,
+--     usePostEventAnalysis, la vue venue_customers_limited et la RPC nightlife
+--     (20260215103020). Les dropper = toucher une vue RLS et la surface videur
+--     pour un gain cosmétique. On les garde, documentées mortes.
+--   • customer_activity_log + get_customer_timeline : la table figure dans la
+--     boucle de re-parentage dynamique du claim vitrine orga (20260826114000 /
+--     20260826120000, EXECUTE format sans gestion d'exception) — la dropper
+--     casserait la réclamation d'un organisateur fantôme au runtime. On garde.
+-- ───────────────────────────────────────────────────────────────────────────
+
+-- L'ordre compte : crm_notifications porte une FK vers crm_campaigns.
+DROP TABLE IF EXISTS public.crm_notifications;
+DROP TABLE IF EXISTS public.crm_campaigns;

@@ -115,7 +115,6 @@ const OwnerInvoices = lazyWithRetry(() => import("./pages/OwnerInvoices"));
 const OwnerAccounting = lazyWithRetry(() => import("./pages/OwnerAccounting"));
 const OwnerLoyalty = lazyWithRetry(() => import("./pages/OwnerLoyalty"));
 // Email Campaign Editor - Hidden for now, feature in development
-// // const OwnerEmailCampaign = lazyWithRetry(() => import("./pages/OwnerEmailCampaign"));
 const OwnerHypeAnalysis = lazyWithRetry(() => import("./pages/OwnerHypeAnalysis"));
 const OwnerVipService = lazyWithRetry(() => import("./pages/OwnerVipService"));
 const OwnerWaitlist = lazyWithRetry(() => import("./pages/OwnerWaitlist"));
