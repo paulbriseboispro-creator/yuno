@@ -22,7 +22,7 @@ type CampaignRequest = {
   body?: string;
   url?: string;
   segment?: string;          // segments admin : all | active_30d | inactive_30d | ticket_holders | vip | loyal
-  scope?: string;            // scopes club : event_tickets | checked_in | followers | rfm:<segment> | all_customers
+  scope?: string;            // scopes club : event_tickets | checked_in | followers | rfm:<segment> | segment:<uuid> (segment sauvegardé) | all_customers
   venue_id?: string;         // présent => campagne club (auth is_venue_owner)
   agency_id?: string;        // présent => campagne RP/agence (auth is_agency_owner) — scope 'followers'
   event_id?: string;         // requis pour event_tickets / checked_in
@@ -142,64 +142,43 @@ async function resolveAudience(supabase: SupabaseClient, req: CampaignRequest): 
     } else if (scope === 'followers') {
       ids = new Set(await collectUserIds((f, t) => supabase
         .from('favorites').select('user_id').eq('venue_id', req.venue_id!).not('user_id', 'is', null).range(f, t)));
+    } else if (scope.startsWith('segment:')) {
+      // Segment sauvegardé : la définition est rechargée et résolue À L'ENVOI
+      // (membership dynamique) — un push programmé cible donc l'état du
+      // segment au moment du départ, pas celui de la programmation.
+      const segId = scope.slice(8);
+      const { data: seg } = await supabase
+        .from('venue_segments')
+        .select('id, definition')
+        .eq('id', segId)
+        .eq('venue_id', req.venue_id!)
+        .maybeSingle();
+      if (!seg) return { userIds: [], error: 'segment not found for this venue' };
+      const { data, error } = await supabase.rpc('resolve_venue_segment', {
+        p_venue_id: req.venue_id,
+        p_definition: (seg as { definition: unknown }).definition,
+      });
+      if (error) return { userIds: [], error: `segment resolution failed: ${error.message}` };
+      ids = new Set(
+        ((data || []) as Array<{ user_id: string | null }>)
+          .filter((row) => !!row.user_id)
+          .map((row) => row.user_id as string),
+      );
     } else if (scope.startsWith('rfm:')) {
       const wanted = scope.slice(4);
+      // Le scoring RFM vit désormais côté SQL (_venue_customer_rfm, migration
+      // 20260827100000) : la RPC renvoie rfm_segment calculé par les MÊMES
+      // quintiles que la page Clients — plus aucune réplique TypeScript à
+      // garder synchrone (une dérive passée avait fait cibler 0 personne sur
+      // tous les segments RFM). La garde de la RPC accepte explicitement le
+      // service_role : ce chemin s'exécute avec le client service.
       const { data, error } = await supabase.rpc('get_venue_customer_segments', { p_venue_id: req.venue_id });
       if (error) return { userIds: [], error: `RFM segments unavailable: ${error.message}` };
-      // La RPC ne renvoie PAS de colonne segment : le segment RFM est calculé
-      // côté client (OwnerCustomers.tsx). On réplique EXACTEMENT ce scoring
-      // (quintiles relatifs au club) pour que la cible du push corresponde à
-      // ce que l'owner voit sur sa page Clients. Avant ce fix, r.segment était
-      // toujours undefined → tous les segments RFM ciblaient 0 personne.
-      // Ligne renvoyée par get_venue_customer_segments — seuls les champs
-      // consommés par le scoring RFM ci-dessous sont déclarés.
-      type RfmCustomerRow = {
-        user_id: string | null;
-        first_visit_at: string;
-        last_visit_at: string | null;
-        last_activity_at: string | null;
-        visit_nights: number | null;
-        ticket_count: number | null;
-        order_count: number | null;
-        table_count: number | null;
-        total_spent: number | string | null;
-      };
-      const rows: RfmCustomerRow[] = data || [];
-      const now = Date.now();
-      const recencyOf = (r: RfmCustomerRow) =>
-        Math.floor((now - new Date(r.last_activity_at || r.last_visit_at || r.first_visit_at).getTime()) / 86400000);
-      const freqOf = (r: RfmCustomerRow) => r.visit_nights || ((r.ticket_count || 0) + (r.order_count || 0) + (r.table_count || 0));
-      const quintile = (value: number, sortedAsc: number[], invert = false): number => {
-        const n = sortedAsc.length;
-        if (n <= 1) return 3;
-        let below = 0;
-        for (let i = 0; i < n; i++) { if (sortedAsc[i] < value) below++; else break; }
-        const pct = below / (n - 1);
-        const score = Math.min(5, Math.max(1, Math.floor(pct * 5) + 1));
-        return invert ? 6 - score : score;
-      };
-      const segmentOf = (r: number, f: number, m: number): string => {
-        if (r >= 4 && f >= 4) return 'champions';
-        if (f >= 4) return 'loyal';
-        if (r <= 2 && f >= 3) return 'at_risk';
-        if (r >= 4 && f <= 2) return m >= 3 ? 'promising' : 'new';
-        if (r >= 3) return 'loyal';
-        if (r === 2) return 'dormant';
-        return 'lost';
-      };
-      const recArr = rows.map(recencyOf).sort((a, b) => a - b);
-      const freqArr = rows.map(freqOf).sort((a, b) => a - b);
-      const monArr = rows.map((r) => Number(r.total_spent) || 0).sort((a, b) => a - b);
+      type RfmCustomerRow = { user_id: string | null; rfm_segment: string | null };
       ids = new Set(
-        rows
-          .filter((row) => {
-            if (!row.user_id) return false;
-            const r = quintile(recencyOf(row), recArr, true);
-            const f = quintile(freqOf(row), freqArr);
-            const m = quintile(Number(row.total_spent) || 0, monArr);
-            return segmentOf(r, f, m) === wanted;
-          })
-          .map((row) => row.user_id as string), // non-null garanti par le filtre ci-dessus
+        ((data || []) as RfmCustomerRow[])
+          .filter((row) => !!row.user_id && row.rfm_segment === wanted)
+          .map((row) => row.user_id as string),
       );
     } else { // all_customers
       ids = new Set(await collectUserIds((f, t) => supabase

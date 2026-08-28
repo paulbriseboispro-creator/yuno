@@ -7,6 +7,7 @@ import { refreshTasteEmbeddings } from "../_shared/taste-embeddings.ts";
 import { dispatchLiveOpsAlerts } from "../_shared/live-ops-alerts.ts";
 import { dispatchPromoterPushes } from "../_shared/promoter-push.ts";
 import { dispatchAudienceWeeklyRecaps } from "../_shared/audience-weekly-recap.ts";
+import { dispatchCustomerAutomations } from "../_shared/customer-automations.ts";
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type' };
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -97,6 +98,15 @@ Deno.serve(async (req) => {
       console.error('[AUTO-PUSH] dispatch failed:', String(e));
     }
 
+    // Automations CRM user-scopées (win_back, birthday) — opt-in par club,
+    // claim atomique + cap 3/24 h dans le dispatcher. Best-effort.
+    let customerAuto = { processed: 0, sent: 0 };
+    try {
+      customerAuto = await dispatchCustomerAutomations(admin, SUPABASE_URL, SERVICE_KEY);
+    } catch (e) {
+      console.error('[CUSTOMER-AUTO] dispatch failed:', String(e));
+    }
+
     // Nouvel événement publié → push aux followers du club + de l'organisateur.
     // Gated par le registre super admin (clé 'new_event'). Best-effort.
     let newEventPush = { processed: 0, sent: 0 };
@@ -159,7 +169,7 @@ Deno.serve(async (req) => {
       console.error('[WEEKLY-RECAP] dispatch failed:', String(e));
     }
 
-    return new Response(JSON.stringify({ processed, pushProcessed, autoPush, newEventPush, agencyNewEventPush, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ processed, pushProcessed, autoPush, customerAuto, newEventPush, agencyNewEventPush, embeddings, djEmbeddings, liveOps, promoterPush, weeklyRecap }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   }

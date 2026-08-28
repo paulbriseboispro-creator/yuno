@@ -3,6 +3,61 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { buildOtp } from "../_shared/email-templates.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 
+/**
+ * Post-claim best-effort : l'invité réclamé devient une vraie ligne CRM
+ * (venue_customers) avec ses compteurs — la ligne synthétique du CRM lecture
+ * (_venue_customer_rfm) disparaît d'elle-même au prochain chargement.
+ * JAMAIS bloquant : le claim est déjà réussi, un échec ici est silencieux.
+ */
+// deno-lint-ignore no-explicit-any
+async function graduateGuestToCrm(admin: any, table: string, purchaseId: string, userId: string): Promise<void> {
+  try {
+    let venueId: string | null = null;
+    let email: string | null = null;
+    let firstName: string | null = null;
+    let lastName: string | null = null;
+    let phone: string | null = null;
+    let spent = 0;
+    let deltas = { order: 0, ticket: 0, table: 0 };
+
+    if (table === "orders") {
+      const { data: o } = await admin.from("orders")
+        .select("venue_id, user_email, guest_first_name, guest_last_name, guest_phone, total, status")
+        .eq("id", purchaseId).maybeSingle();
+      if (!o || !["paid", "served"].includes(o.status)) return;
+      venueId = o.venue_id; email = o.user_email;
+      firstName = o.guest_first_name; lastName = o.guest_last_name; phone = o.guest_phone;
+      spent = Number(o.total) || 0; deltas.order = 1;
+    } else {
+      const cols = "event_id, user_email, guest_first_name, guest_last_name, guest_phone, full_name, phone, total_price, paid_at";
+      const { data: r } = await admin.from(table).select(cols).eq("id", purchaseId).maybeSingle();
+      if (!r || !r.paid_at) return;
+      const { data: ev } = await admin.from("events").select("venue_id").eq("id", r.event_id).maybeSingle();
+      venueId = ev?.venue_id || null; email = r.user_email;
+      firstName = r.guest_first_name || (r.full_name ? String(r.full_name).split(" ")[0] : null);
+      lastName = r.guest_last_name || (r.full_name ? String(r.full_name).split(" ").slice(1).join(" ") || null : null);
+      phone = r.guest_phone || r.phone;
+      spent = Number(r.total_price) || 0;
+      if (table === "tickets") deltas.ticket = 1; else deltas.table = 1;
+    }
+    if (!venueId || !email) return;
+
+    await admin.rpc("get_or_create_venue_customer", {
+      p_venue_id: venueId, p_user_id: userId, p_email: email,
+      p_first_name: firstName, p_last_name: lastName, p_phone: phone,
+    });
+    await admin.rpc("increment_venue_customer_stats", {
+      p_venue_id: venueId, p_user_id: userId,
+      p_order_delta: deltas.order, p_ticket_delta: deltas.ticket,
+      p_table_delta: deltas.table, p_spent_delta: spent,
+    });
+  } catch (e) {
+    console.error("[CLAIM] graduateGuestToCrm best-effort failed:", e);
+  }
+}
+
+
+
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
 const logStep = (step: string, details?: any) => {
@@ -273,6 +328,7 @@ serve(async (req) => {
         .eq("id", purchase.id);
 
       logStep("Purchase linked after signup", { purchaseId: purchase.id, userId });
+      await graduateGuestToCrm(supabaseAdmin, purchase.table, purchase.id, userId);
 
       return new Response(
         JSON.stringify({ success: true, message: "Achat lié à votre compte" }),
@@ -665,6 +721,7 @@ serve(async (req) => {
         .eq("id", purchase.id);
 
       logStep("Purchase linked to user", { purchaseId: purchase.id, userId: user.id, type });
+      await graduateGuestToCrm(supabaseAdmin, purchase.table, purchase.id, user.id);
 
       return new Response(
         JSON.stringify({ success: true, message: "Commande liée à votre compte" }),

@@ -25,7 +25,7 @@ import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2
 type Lang = "fr" | "en" | "es";
 type LocalizedText = { title: string; body: string };
 type AutomationConfig = {
-  scope: "event_tickets" | "checked_in" | "followers";
+  scope: "event_tickets" | "checked_in" | "followers" | "ticket_no_table";
   fr: LocalizedText;
   en: LocalizedText;
   es: LocalizedText;
@@ -62,6 +62,14 @@ const AUTOMATIONS: Record<string, AutomationConfig> = {
     en: { title: "🍸 Tonight: skip the bar queue", body: "{event} — order your drinks in the app now, they'll be waiting at {venue}." },
     es: { title: "🍸 Esta noche: sin cola en la barra", body: "{event} — pide tus copas en la app ahora, te esperan en {venue}." },
   },
+  // Upsell table VIP à J-2 : détenteurs de billet SANS table (scope
+  // ticket_no_table). Le plus gros panier de la nuit tient dans un push.
+  vip_upsell: {
+    scope: "ticket_no_table",
+    fr: { title: "🥂 {event} — passe en VIP", body: "Ta soirée est réservée. Ta table aussi ? Les meilleures partent en premier au {venue}." },
+    en: { title: "🥂 {event} — go VIP", body: "Your night is booked. Your table too? The best ones go first at {venue}." },
+    es: { title: "🥂 {event} — pásate a VIP", body: "Tu noche está reservada. ¿Y tu mesa? Las mejores vuelan en {venue}." },
+  },
 };
 
 // Nouvel événement publié → followers. {name} = nom du club ou de l'organisateur.
@@ -81,7 +89,7 @@ const NEW_EVENT_AGENCY_TPL: Record<Lang, LocalizedText> = {
   es: { title: "📅 {name} presenta", body: "{event} — {date}. Reserva tu lugar ahora." },
 };
 
-function render(text: string, vars: Record<string, string>): string {
+export function render(text: string, vars: Record<string, string>): string {
   let out = text;
   for (const [k, v] of Object.entries(vars)) {
     out = out.split(`{${k}}`).join(v ?? "");
@@ -122,13 +130,13 @@ async function collectUserIds(
 // Abonnés de l'app grand public uniquement. Les automatisations club et les
 // annonces de soirée sont du marketing client : un membre du staff qui n'a que
 // Yuno Pro ne doit pas les recevoir (et n'était comptabilisé que comme échec).
-async function subscriberSet(admin: SupabaseClient): Promise<Set<string>> {
+export async function subscriberSet(admin: SupabaseClient): Promise<Set<string>> {
   return new Set(await collectUserIds((from, to) =>
     admin.from("push_subscriptions").select("user_id").eq("platform", "ios").range(from, to)));
 }
 
 /** Clés désactivées par le super admin (platform_notification_settings). */
-async function disabledKeySet(admin: SupabaseClient): Promise<Set<string>> {
+export async function disabledKeySet(admin: SupabaseClient): Promise<Set<string>> {
   try {
     const { data } = await admin
       .from("platform_notification_settings")
@@ -161,6 +169,15 @@ async function resolveAudience(
     add(await collectUserIds((f, t) => admin
       .from("tickets").select("user_id")
       .eq("event_id", eventId).eq("status", "paid").eq("entry_scanned", true).not("user_id", "is", null).range(f, t)));
+  } else if (scope === "ticket_no_table") {
+    // Détenteurs de billet payé SANS réservation de table payée sur la soirée.
+    add(await collectUserIds((f, t) => admin
+      .from("tickets").select("user_id")
+      .eq("event_id", eventId).eq("status", "paid").not("user_id", "is", null).range(f, t)));
+    const tableHolders = new Set(await collectUserIds((f, t) => admin
+      .from("table_reservations").select("user_id")
+      .eq("event_id", eventId).eq("status", "paid").not("user_id", "is", null).range(f, t)));
+    for (const id of tableHolders) ids.delete(id);
   } else { // followers
     add(await collectUserIds((f, t) => admin
       .from("favorites").select("user_id")
@@ -175,7 +192,7 @@ async function resolveAudience(
  * journalise sent/failed + notification_log, met à jour les compteurs.
  * Renvoie le nombre d'envois réussis.
  */
-async function fanoutCampaign(
+export async function fanoutCampaign(
   admin: SupabaseClient,
   pushUrl: string,
   serviceKey: string,
@@ -293,6 +310,7 @@ export async function dispatchPushAutomations(
       : row.automation_key === "drinks_preorder"
         ? `/order/upsell?event=${row.event_id}`
         : (row.event_slug ? `/events/${row.venue_id}/${row.event_slug}` : `/club/${row.venue_id}`);
+    // vip_upsell atterrit sur la page soirée : le bloc tables y est le CTA naturel.
 
     // Insert de la campagne AVANT l'envoi : l'index unique (event_id, template_key)
     // WHERE source='auto' fait office de verrou anti-double-fire. En cas de
