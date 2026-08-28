@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Loader2, Mail, Users, Eye, MousePointerClick,
-  UserMinus, AlertTriangle, ShieldX, CheckCircle2, BarChart3, Palette,
+  UserMinus, AlertTriangle, ShieldX, CheckCircle2, BarChart3, Palette, Euro,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -98,6 +98,8 @@ export default function CampaignReport({ scope, basePath }: Props) {
   const [loading, setLoading] = useState(true);
   const [campaign, setCampaign] = useState<CampaignRow | null>(null);
   const [extra, setExtra] = useState({ delivered: 0, bounced: 0, complained: 0, failed: 0 });
+  // Attribution clic→achat 72 h (get_email_campaign_attribution, net de frais).
+  const [attribution, setAttribution] = useState<{ revenue: number; buyers: number } | null>(null);
   const [tab, setTab] = useState<'performance' | 'design'>('performance');
 
   useEffect(() => {
@@ -132,6 +134,23 @@ export default function CampaignReport({ scope, basePath }: Props) {
             failed: f.count || 0,
           });
         }
+        // Revenus attribués — best-effort : sans donnée, les tuiles n'apparaissent pas.
+        try {
+          const subject = (data as { venue_id?: string | null; organizer_user_id?: string | null });
+          const args = subject.venue_id
+            ? { p_subject_type: 'venue', p_subject_id: subject.venue_id }
+            : subject.organizer_user_id
+              ? { p_subject_type: 'organizer', p_subject_id: subject.organizer_user_id }
+              : null;
+          if (args) {
+            const { data: attr } = await supabase.rpc('get_email_campaign_attribution' as never, args as never);
+            const payload = attr as { supported?: boolean; campaigns?: Array<{ id: string; revenue: number; buyers: number }> } | null;
+            if (!cancelled && payload?.supported) {
+              const mine = (payload.campaigns || []).find((campRow) => campRow.id === id);
+              setAttribution(mine ? { revenue: mine.revenue, buyers: mine.buyers } : { revenue: 0, buyers: 0 });
+            }
+          }
+        } catch { /* tuiles absentes */ }
       }
       if (!cancelled) setLoading(false);
     })();
@@ -234,7 +253,16 @@ export default function CampaignReport({ scope, basePath }: Props) {
                   <MetricTile icon={MousePointerClick} label={t('em.report.clicks')} value={clicks.toLocaleString()} sub={`${fmtPct(clicks, rc)} ${t('em.report.clickRate')}`} accent={RED} />
                   <MetricTile icon={UserMinus} label={t('em.report.unsubscribes')} value={unsubs.toLocaleString()} sub={fmtPct(unsubs, rc)} accent={unsubs > 0 ? WARN : undefined} />
                   <MetricTile icon={AlertTriangle} label={t('em.report.bounces')} value={extra.bounced.toLocaleString()} sub={fmtPct(extra.bounced, rc)} accent={extra.bounced > 0 ? WARN : undefined} />
+                  {attribution && (
+                    <>
+                      <MetricTile icon={Euro} label={t('em.report.attributedRevenue')} value={`${attribution.revenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}€`} accent={POS} />
+                      <MetricTile icon={Users} label={t('em.report.attributedBuyers')} value={attribution.buyers.toLocaleString()} accent={POS} />
+                    </>
+                  )}
                 </div>
+                {attribution && (
+                  <p style={{ color: T3, fontSize: 11, lineHeight: 1.5, marginTop: -8 }}>{t('em.report.attributionNote')}</p>
+                )}
 
                 {/* Funnel */}
                 <div style={{ background: CARD_BG, border: `1px solid ${BORDER}`, borderRadius: 16, boxShadow: CARD_SHADOW, padding: '18px 18px 20px' }}>

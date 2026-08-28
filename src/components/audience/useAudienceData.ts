@@ -72,6 +72,13 @@ export interface AudienceSources {
   sources: { source: string; count: number }[];
 }
 
+export interface TrackedLinksSummary {
+  links: number;
+  clicks: number;
+  conversions: number;
+  revenue: number;
+}
+
 export interface AudienceData {
   analytics: AudienceAnalytics | null;
   growth: AudienceGrowth | null;
@@ -79,6 +86,8 @@ export interface AudienceData {
   notifications: AudienceNotifications | null;
   revenue: AudienceRevenue | null;
   attribution: AudienceAttribution | null;
+  emailAttribution: AudienceAttribution | null;
+  trackedLinks: TrackedLinksSummary | null;
   benchmarks: AudienceBenchmarks | null;
   cohorts: AudienceCohorts | null;
   sources: AudienceSources | null;
@@ -98,17 +107,36 @@ export function useAudienceData(subject: AudienceSubject | null) {
     setLoading(true);
     const p = { p_subject_type: subject.type, p_subject_id: subject.id };
     try {
-      const [a, g, s, n, r, at, bm, co, sr] = await Promise.all([
+      const isVenue = subject.type === 'venue';
+      const [a, g, s, n, r, at, em, tl, bm, co, sr] = await Promise.all([
         rpc('get_audience_analytics', p),
         rpc('get_audience_growth', p),
         rpc('get_audience_segments', p),
         rpc('get_audience_notifications', p),
         rpc('get_audience_revenue', p),
         rpc('get_audience_push_attribution', p),
+        // Attribution email (miroir de la push, matchée par email — venue + organizer)
+        subject.type === 'venue' || subject.type === 'organizer'
+          ? rpc('get_email_campaign_attribution', p)
+          : Promise.resolve({ data: null, error: null } as RpcResult),
+        // Résumé liens trackés (venue uniquement) pour la zone Performance
+        isVenue
+          ? rpc('get_tracked_link_stats', { p_owner_kind: 'venue', p_venue_id: subject.id })
+          : Promise.resolve({ data: null, error: null } as RpcResult),
         rpc('get_audience_benchmarks', p),
         rpc('get_audience_cohorts', p),
         rpc('get_audience_sources', p),
       ]);
+      let trackedLinks: TrackedLinksSummary | null = null;
+      if (isVenue && Array.isArray(tl.data)) {
+        const rows = tl.data as Array<{ clicks: number | null; conversions: number | null; revenue: number | null }>;
+        trackedLinks = rows.reduce<TrackedLinksSummary>((acc, row) => ({
+          links: acc.links + 1,
+          clicks: acc.clicks + (Number(row.clicks) || 0),
+          conversions: acc.conversions + (Number(row.conversions) || 0),
+          revenue: acc.revenue + (Number(row.revenue) || 0),
+        }), { links: 0, clicks: 0, conversions: 0, revenue: 0 });
+      }
       setData({
         analytics: ok<AudienceAnalytics>(a.data),
         growth: ok<AudienceGrowth>(g.data),
@@ -116,6 +144,8 @@ export function useAudienceData(subject: AudienceSubject | null) {
         notifications: ok<AudienceNotifications>(n.data),
         revenue: ok<AudienceRevenue>(r.data),
         attribution: ok<AudienceAttribution>(at.data),
+        emailAttribution: ok<AudienceAttribution>(em.data),
+        trackedLinks,
         benchmarks: ok<AudienceBenchmarks>(bm.data),
         cohorts: ok<AudienceCohorts>(co.data),
         sources: ok<AudienceSources>(sr.data),

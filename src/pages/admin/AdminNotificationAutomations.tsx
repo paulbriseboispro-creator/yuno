@@ -64,6 +64,9 @@ const CATALOG: { key: string; category: Category }[] = [
   { key: 'thank_you', category: 'club_automation' },
   { key: 'almost_sold_out', category: 'club_automation' },
   { key: 'drinks_preorder', category: 'club_automation' },
+  { key: 'vip_upsell', category: 'club_automation' },
+  { key: 'win_back', category: 'club_automation' },
+  { key: 'birthday', category: 'club_automation' },
 ];
 
 interface KeyStats {

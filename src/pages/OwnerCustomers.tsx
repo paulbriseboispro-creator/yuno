@@ -13,12 +13,13 @@ import {
   Crown, TrendingUp, TrendingDown, Calendar, Star, Target, ShoppingBag, Download, Filter, X,
   Activity, Clock3, History, ArrowDownRight, Mail, Globe, ShieldAlert, FileText,
 } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
+import { format } from 'date-fns';
 import { fr, es, enUS } from 'date-fns/locale';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { TierBadge } from '@/components/loyalty/TierBadge';
 import { CustomerTimelineSheet } from '@/components/crm/CustomerTimelineSheet';
+import { SavedSegments, type SegmentDefinition } from '@/components/crm/SavedSegments';
 import { OwnerCustomerOrigins } from '@/components/owner/OwnerCustomerOrigins';
 import { countryFromPhone, COUNTRIES, getCountryName } from '@/lib/countries';
 import { fetchMinorDocsByEmail, ageFromBirthDate, type MinorDoc } from '@/lib/minorTicketDocs';
@@ -51,11 +52,18 @@ interface VenueCustomer {
   revenue_30d: number; revenue_90d: number; revenue_prev_90d: number; avg_basket: number;
   visit_nights: number; visits_per_month: number; last_activity_at: string | null;
   preferred_dow: number | null; preferred_event_title: string | null;
+  // Server-side RFM (migration 20260827100000) — same quintiles as rfm: push targeting
+  recency_days: number; rfm_r: number; rfm_f: number; rfm_m: number;
+  rfm_segment: SegmentKey; rfm_tier: Tier; churn_risk: boolean;
+  // acheteur invité (guest checkout) : ligne synthétique lecture seule, pas de compte
+  is_guest?: boolean;
   // synthetic email-only ban row (no account)
   emailOnly?: boolean;
 }
 
-// Derived scoring attached to each customer (computed client-side, venue-relative)
+// Scoring attached to each customer — RFM comes from the server RPC (single
+// source of truth shared with rfm: push targeting); trend + preferred category
+// stay client-side (display-only derivations).
 interface Scored {
   r: number; f: number; m: number;            // 1-5 quintiles
   segment: SegmentKey; tier: Tier;
@@ -76,35 +84,10 @@ interface SegmentFilters {
 }
 const emptyFilters: SegmentFilters = { segment: '', recency: '', value: '', category: '', churn: false, origin: '' };
 
-// ─── Scoring helpers ──────────────────────────────────────────────────────────
-function quintile(value: number, sortedAsc: number[], invert = false): number {
-  const n = sortedAsc.length;
-  if (n <= 1) return 3;
-  // share of population strictly below this value
-  let below = 0;
-  // binary-ish linear scan is fine for venue-sized lists
-  for (let i = 0; i < n; i++) { if (sortedAsc[i] < value) below++; else break; }
-  const pct = below / (n - 1);
-  const score = Math.min(5, Math.max(1, Math.floor(pct * 5) + 1));
-  return invert ? 6 - score : score;
-}
-
-function tierFromM(m: number): Tier {
-  if (m >= 5) return 'platinum';
-  if (m >= 4) return 'gold';
-  if (m >= 2) return 'silver';
-  return 'bronze';
-}
-
-function segmentOf(r: number, f: number, m: number): SegmentKey {
-  if (r >= 4 && f >= 4) return 'champions';
-  if (f >= 4) return 'loyal';                       // frequent, recency fading
-  if (r <= 2 && f >= 3) return 'at_risk';           // was regular, slipping away
-  if (r >= 4 && f <= 2) return m >= 3 ? 'promising' : 'new';
-  if (r >= 3) return 'loyal';                       // mid-active, decent freq
-  if (r === 2) return 'dormant';
-  return 'lost';                                    // r === 1
-}
+// ─── Display helpers ──────────────────────────────────────────────────────────
+// RFM quintile scoring (segments, tiers, churn) lives in SQL now:
+// _venue_customer_rfm (migration 20260827100000), served by
+// get_venue_customer_segments and shared with send-push-campaign's rfm: scopes.
 
 function preferredCategory(c: VenueCustomer): Scored['preferredCategory'] {
   const mx = Math.max(c.ticket_count || 0, c.order_count || 0, c.table_count || 0);
@@ -157,6 +140,10 @@ export default function OwnerCustomers() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [segmentFilters, setSegmentFilters] = useState<SegmentFilters>(emptyFilters);
   const [showFilters, setShowFilters] = useState(false);
+  const [saveSegOpen, setSaveSegOpen] = useState(false);
+  const [saveSegName, setSaveSegName] = useState('');
+  const [savingSeg, setSavingSeg] = useState(false);
+  const [segReloadKey, setSegReloadKey] = useState(0);
   const [notesDraft, setNotesDraft] = useState('');
   const [savingNotes, setSavingNotes] = useState(false);
   const [timelineOpen, setTimelineOpen] = useState(false);
@@ -212,6 +199,9 @@ export default function OwnerCustomers() {
         avg_basket: num(r.avg_basket), visit_nights: r.visit_nights || 0, visits_per_month: num(r.visits_per_month),
         last_activity_at: r.last_activity_at, preferred_dow: r.preferred_dow,
         preferred_event_title: r.preferred_event_title,
+        recency_days: r.recency_days ?? 9999, rfm_r: r.rfm_r ?? 1, rfm_f: r.rfm_f ?? 1, rfm_m: r.rfm_m ?? 1,
+        rfm_segment: (r.rfm_segment || 'lost') as SegmentKey, rfm_tier: (r.rfm_tier || 'bronze') as Tier,
+        churn_risk: !!r.churn_risk, is_guest: !!r.is_guest,
       }));
       setAllCustomers(mapped);
     } catch {
@@ -234,7 +224,7 @@ export default function OwnerCustomers() {
         // fall back to a direct fetch if the segments list hasn't populated yet
         if (accountRows.length === 0) {
           const { data } = await supabase.from('venue_customers').select('*').eq('venue_id', venue.id).in('id', uniqueIds);
-          accountRows = (data || []).map((r: any) => ({ ...r, total_spent: num(r.total_spent), revenue_30d: 0, revenue_90d: 0, revenue_prev_90d: 0, avg_basket: 0, visit_nights: 0, visits_per_month: 0, last_activity_at: r.last_visit_at, preferred_dow: null, preferred_event_title: null }));
+          accountRows = (data || []).map((r: any) => ({ ...r, total_spent: num(r.total_spent), revenue_30d: 0, revenue_90d: 0, revenue_prev_90d: 0, avg_basket: 0, visit_nights: 0, visits_per_month: 0, last_activity_at: r.last_visit_at, preferred_dow: null, preferred_event_title: null, recency_days: 9999, rfm_r: 1, rfm_f: 1, rfm_m: 1, rfm_segment: 'lost' as SegmentKey, rfm_tier: 'bronze' as Tier, churn_risk: false }));
         }
       }
       // (b) email-only bans (guest / no account) that have no venue_customer
@@ -249,7 +239,10 @@ export default function OwnerCustomers() {
           ticket_count: 0, order_count: 0, table_count: 0, is_banned: true, banned_at: b.banned_at,
           ban_reason: b.ban_reason, notes: null, revenue_30d: 0, revenue_90d: 0, revenue_prev_90d: 0,
           avg_basket: 0, visit_nights: 0, visits_per_month: 0, last_activity_at: b.banned_at,
-          preferred_dow: null, preferred_event_title: null, emailOnly: true,
+          preferred_dow: null, preferred_event_title: null,
+          recency_days: 9999, rfm_r: 1, rfm_f: 1, rfm_m: 1,
+          rfm_segment: 'lost' as SegmentKey, rfm_tier: 'bronze' as Tier, churn_risk: false,
+          emailOnly: true,
         }));
       setWarnedCustomers([...accountRows, ...emailOnly]);
     } catch { /* best-effort : la liste des signalements reste vide */ }
@@ -297,7 +290,7 @@ export default function OwnerCustomers() {
   };
 
   const saveNotes = async () => {
-    if (!selectedCustomer || selectedCustomer.emailOnly) return;
+    if (!selectedCustomer || selectedCustomer.emailOnly || selectedCustomer.is_guest) return;
     setSavingNotes(true);
     try {
       const { error } = await supabase.from('venue_customers').update({ notes: notesDraft }).eq('id', selectedCustomer.id);
@@ -309,27 +302,17 @@ export default function OwnerCustomers() {
     finally { setSavingNotes(false); }
   };
 
-  // ─── Venue-relative RFM scoring (single source of truth) ─────────────────────
-  const scored = useMemo<ScoredCustomer[]>(() => {
-    const now = new Date();
-    const recencyOf = (c: VenueCustomer) => differenceInDays(now, new Date(c.last_activity_at || c.last_visit_at || c.first_visit_at));
-    const freqOf = (c: VenueCustomer) => c.visit_nights || ((c.ticket_count || 0) + (c.order_count || 0) + (c.table_count || 0));
-    const recArr = allCustomers.map(recencyOf).sort((a, b) => a - b);
-    const freqArr = allCustomers.map(freqOf).sort((a, b) => a - b);
-    const monArr = allCustomers.map(c => c.total_spent).sort((a, b) => a - b);
-    return allCustomers.map(c => {
-      const recencyDays = recencyOf(c);
-      const r = quintile(recencyDays, recArr, true);   // recent → high
-      const f = quintile(freqOf(c), freqArr);
-      const m = quintile(c.total_spent, monArr);
-      const segment = segmentOf(r, f, m);
-      const trendPct = c.revenue_prev_90d > 0
-        ? ((c.revenue_90d - c.revenue_prev_90d) / c.revenue_prev_90d) * 100
-        : (c.revenue_90d > 0 ? 100 : 0);
-      const churnRisk = f >= 3 && recencyDays > 45 && recencyDays <= 180;
-      return { ...c, _s: { r, f, m, segment, tier: tierFromM(m), recencyDays, trendPct, churnRisk, preferredCategory: preferredCategory(c) } };
-    });
-  }, [allCustomers]);
+  // ─── RFM : valeurs serveur (une seule source de vérité avec le push) ─────────
+  const scored = useMemo<ScoredCustomer[]>(() => allCustomers.map(c => {
+    const trendPct = c.revenue_prev_90d > 0
+      ? ((c.revenue_90d - c.revenue_prev_90d) / c.revenue_prev_90d) * 100
+      : (c.revenue_90d > 0 ? 100 : 0);
+    return { ...c, _s: {
+      r: c.rfm_r, f: c.rfm_f, m: c.rfm_m, segment: c.rfm_segment, tier: c.rfm_tier,
+      recencyDays: c.recency_days, trendPct, churnRisk: c.churn_risk,
+      preferredCategory: preferredCategory(c),
+    } };
+  }), [allCustomers]);
 
   const scoredById = useMemo(() => {
     const map = new Map<string, ScoredCustomer>();
@@ -381,6 +364,44 @@ export default function OwnerCustomers() {
     if (churn) list = list.filter(c => scoredById.get(c.id)?._s.churnRisk);
     return list;
   }, [allCustomers, topCustomers, warnedCustomers, minorByEmail, searchQuery, activeTab, segmentFilters, scoredById]);
+
+  // Filtres actifs → définition de segment sauvegardé (v1, AND plat).
+  // `origin` n'est pas mappable (dérivé du préfixe téléphonique côté client) :
+  // il est ignoré, l'UI le signale.
+  const filtersToDefinition = (f: SegmentFilters): SegmentDefinition => {
+    const conditions: Array<Record<string, unknown>> = [];
+    if (f.segment) conditions.push({ type: 'rfm_segment', in: [f.segment] });
+    if (f.value) conditions.push({ type: 'rfm_tier', in: [f.value] });
+    if (f.category) conditions.push({ type: 'pillar', pillar: f.category, has: true });
+    if (f.churn) conditions.push({ type: 'churn_risk', value: true });
+    if (f.recency === 'active') conditions.push({ type: 'last_visit_days', op: 'lte', value: 30 });
+    else if (f.recency === 'dormant') {
+      conditions.push({ type: 'last_visit_days', op: 'gt', value: 30 });
+      conditions.push({ type: 'last_visit_days', op: 'lte', value: 90 });
+    } else if (f.recency === 'lost') conditions.push({ type: 'last_visit_days', op: 'gt', value: 90 });
+    return { version: 1, match: 'all', conditions };
+  };
+
+  const mappableFilterCount = filtersToDefinition(segmentFilters).conditions.length;
+
+  const handleSaveSegment = async () => {
+    if (!venue?.id || !saveSegName.trim()) return;
+    setSavingSeg(true);
+    try {
+      const { error } = await supabase.from('venue_segments' as never).insert({
+        venue_id: venue.id,
+        name: saveSegName.trim(),
+        definition: filtersToDefinition(segmentFilters),
+      } as never);
+      if (error) throw error;
+      toast({ title: t('segments.saved'), description: saveSegName.trim() });
+      setSaveSegOpen(false); setSaveSegName('');
+      setSegReloadKey(k => k + 1);
+    } catch (e) {
+      const isDup = e instanceof Error && e.message.includes('uq_venue_segments_name');
+      toast({ title: isDup ? t('segments.nameTaken') : t('customers.error'), variant: 'destructive' });
+    } finally { setSavingSeg(false); }
+  };
 
   const getIncidentTypeLabel = (type: string) => {
     const m: Record<string, Record<string, string>> = {
@@ -452,6 +473,31 @@ export default function OwnerCustomers() {
     toast({ title: t('customers.exportSuccess') });
   };
 
+  // Export « audience pub » : contacts CONSENTANTS uniquement (opt-in newsletter
+  // ∪ consentement SMS), via la RPC gatée export_venue_ad_audience. Format CSV
+  // attendu par les imports custom audience Meta / Google / TikTok.
+  const exportAdAudienceCsv = async () => {
+    if (!venue?.id) return;
+    try {
+      const { data, error } = await supabase.rpc('export_venue_ad_audience' as never, {
+        p_venue_id: venue.id,
+      } as never);
+      if (error) throw error;
+      const rows = ((data as unknown) as Array<{ email: string | null; phone: string | null; first_name: string | null; last_name: string | null; country: string | null }>) || [];
+      if (rows.length === 0) { toast({ title: t('customers.exportAdAudienceEmpty') }); return; }
+      const sep = ',';
+      const out = [['email', 'phone', 'fn', 'ln', 'country'].join(sep)];
+      rows.forEach(r => out.push([r.email || '', r.phone || '', r.first_name || '', r.last_name || '', r.country || '']
+        .map(v => `"${String(v).replace(/"/g, '""')}"`).join(sep)));
+      const blob = new Blob(['\ufeff' + out.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `ad-audience-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+      toast({ title: t('customers.exportAdAudienceSuccess').replace('{count}', String(rows.length)) });
+    } catch { toast({ title: t('customers.error'), variant: 'destructive' }); }
+  };
+
   const openCustomer = useCallback((customer: VenueCustomer) => {
     setSelectedCustomer(customer); setNotesDraft(customer.notes || '');
     fetchCustomerIncidents(customer.id); setSheetOpen(true);
@@ -493,6 +539,10 @@ export default function OwnerCustomers() {
             <span style={{ color: T1, fontSize: 13, fontWeight: 500 }}>
               {[customer.first_name, customer.last_name].filter(Boolean).join(' ') || customer.email}
             </span>
+            {customer.is_guest && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
+                style={{ background: 'rgba(255,255,255,0.06)', color: T3 }}>{t('customers.guestBadge')}</span>
+            )}
             {seg && (
               <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
                 style={{ background: seg.bg, color: seg.accent }}>{seg.label}</span>
@@ -544,11 +594,19 @@ export default function OwnerCustomers() {
         title={t('customers.title')}
         showBackButton backTo="/owner"
         rightContent={hasExportCsv ? (
-          <button onClick={exportCustomersCsv}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium cursor-pointer transition-all duration-150"
-            style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>
-            <Download className="w-3.5 h-3.5" />CSV
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={exportAdAudienceCsv}
+              title={t('customers.exportAdAudienceNote')}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium cursor-pointer transition-all duration-150"
+              style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>
+              <Target className="w-3.5 h-3.5" />{t('customers.exportAdAudience')}
+            </button>
+            <button onClick={exportCustomersCsv}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-medium cursor-pointer transition-all duration-150"
+              style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>
+              <Download className="w-3.5 h-3.5" />CSV
+            </button>
+          </div>
         ) : undefined}
       />
 
@@ -573,6 +631,11 @@ export default function OwnerCustomers() {
             </div>
           ))}
         </div>
+
+        {/* Segments sauvegardés (Elite) — dynamiques, ciblables push + email */}
+        {venue?.id && hasAdvancedClients && (
+          <SavedSegments venueId={venue.id} reloadKey={segReloadKey} />
+        )}
 
         {/* Segment overview + preferences (Elite) */}
         {allCustomers.length > 0 && hasAdvancedClients && (
@@ -701,13 +764,22 @@ export default function OwnerCustomers() {
                 <div className="mt-3 p-4 rounded-xl space-y-4" style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}>
                   <div className="flex items-center justify-between">
                     <p style={{ color: T3, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Segmentation</p>
-                    {activeFilterCount > 0 && (
-                      <button onClick={() => setSegmentFilters(emptyFilters)}
-                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] cursor-pointer"
-                        style={{ background: 'rgba(232,25,44,0.08)', color: RED }}>
-                        <X className="w-3 h-3" />Reset
-                      </button>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {mappableFilterCount > 0 && hasAdvancedClients && (
+                        <button onClick={() => setSaveSegOpen(true)}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] cursor-pointer"
+                          style={{ background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.25)', color: POS, fontWeight: 600 }}>
+                          {t('segments.saveAsSegment')}
+                        </button>
+                      )}
+                      {activeFilterCount > 0 && (
+                        <button onClick={() => setSegmentFilters(emptyFilters)}
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] cursor-pointer"
+                          style={{ background: 'rgba(232,25,44,0.08)', color: RED }}>
+                          <X className="w-3 h-3" />Reset
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Segment chips */}
@@ -814,6 +886,13 @@ export default function OwnerCustomers() {
                       <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold flex items-center gap-1"
                         style={{ background: 'rgba(96,165,250,0.12)', color: '#60A5FA' }}>
                         <Mail className="w-3 h-3" />{t('customers.emailOnly')}
+                      </span>
+                    )}
+                    {selectedCustomer.is_guest && (
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                        style={{ background: 'rgba(255,255,255,0.07)', color: T2 }}
+                        title={t('customers.guestNoAccount')}>
+                        {t('customers.guestBadge')}
                       </span>
                     )}
                     {selectedCustomer.is_banned && (
@@ -954,7 +1033,8 @@ export default function OwnerCustomers() {
                       <History className="w-4 h-4" />{t('customers.viewHistory')}
                     </button>
 
-                    {/* Editable notes */}
+                    {/* Editable notes — pas de compte = pas de ligne venue_customers = pas de notes */}
+                    {!selectedCustomer.is_guest && (
                     <div>
                       <FieldLabel>{t('customers.notes')}</FieldLabel>
                       <textarea value={notesDraft} onChange={e => setNotesDraft(e.target.value)} rows={3}
@@ -969,6 +1049,7 @@ export default function OwnerCustomers() {
                         </button>
                       )}
                     </div>
+                    )}
                   </>
                 )}
 
@@ -1107,6 +1188,37 @@ export default function OwnerCustomers() {
               style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>
               {t('customers.cancel')}
             </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sauvegarde du filtre courant comme segment réutilisable */}
+      <Dialog open={saveSegOpen} onOpenChange={setSaveSegOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('segments.saveAsSegment')}</DialogTitle>
+            <DialogDescription>
+              {t('segments.saveDialogBody').replace('{count}', String(mappableFilterCount))}
+              {segmentFilters.origin ? ` ${t('segments.originNotIncluded')}` : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <div>
+              <FieldLabel>{t('segments.name')}</FieldLabel>
+              <DarkInput value={saveSegName} onChange={setSaveSegName} placeholder={t('segments.namePlaceholder')} />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setSaveSegOpen(false)} disabled={savingSeg}
+                className="px-4 py-2.5 rounded-xl text-[13px] font-medium cursor-pointer"
+                style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2 }}>
+                {t('customers.cancel')}
+              </button>
+              <button onClick={handleSaveSegment} disabled={savingSeg || !saveSegName.trim()}
+                className="px-4 py-2.5 rounded-xl text-[13px] font-semibold cursor-pointer transition-all duration-150"
+                style={{ background: RED, color: '#fff', opacity: savingSeg || !saveSegName.trim() ? 0.5 : 1 }}>
+                {savingSeg ? t('segments.saving') : t('segments.saveCta')}
+              </button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

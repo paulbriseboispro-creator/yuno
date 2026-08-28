@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
@@ -65,6 +65,8 @@ export default function CampaignBuilder({ scope, basePath }: Props) {
   const [subject, setSubject] = useState('');
   const [preheader, setPreheader] = useState('');
   const [audienceType, setAudienceType] = useState<string>('event_buyers');
+  const [segmentId, setSegmentId] = useState<string>('');
+  const [savedSegments, setSavedSegments] = useState<Array<{ id: string; name: string }>>([]);
   const [eventId, setEventId] = useState<string>('');
   const [blocks, setBlocks] = useState<EmailBlock[]>([]);
   const [theme, setTheme] = useState<Required<EmailTheme>>({ ...DEFAULT_THEME });
@@ -106,6 +108,17 @@ export default function CampaignBuilder({ scope, basePath }: Props) {
     // Deps primitives : le parent recrée l'objet `scope` à chaque render.
   }, [scope.kind, scopeVenueId, scopeOrganizerId]);
 
+  // Segments sauvegardés (clubs uniquement) — audience 'custom_segment'.
+  useEffect(() => {
+    if (scope.kind !== 'venue' || !scopeVenueId) { setSavedSegments([]); return; }
+    supabase
+      .from('venue_segments' as never)
+      .select('id, name')
+      .eq('venue_id', scopeVenueId)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setSavedSegments(((data as unknown) as Array<{ id: string; name: string }>) || []));
+  }, [scope.kind, scopeVenueId]);
+
   // Load existing campaign
   useEffect(() => {
     if (isNew || !params.id) return;
@@ -117,6 +130,7 @@ export default function CampaignBuilder({ scope, basePath }: Props) {
         setSubject(data.subject);
         setPreheader(data.preheader || '');
         setAudienceType(data.audience_type || 'event_buyers');
+        setSegmentId(((data as unknown) as { segment_id?: string | null }).segment_id || '');
         setEventId(data.event_id || '');
         // The upcoming-only list may not contain this campaign's event if it's
         // already past — fetch it so it stays visible/selectable while editing.
@@ -150,7 +164,7 @@ export default function CampaignBuilder({ scope, basePath }: Props) {
   useEffect(() => {
     if (type === 'informational' && !INFO_SEGMENTS.some(s => s.value === audienceType)) {
       setAudienceType('event_buyers');
-    } else if (type === 'promotional' && !PROMO_SEGMENTS.some(s => s.value === audienceType)) {
+    } else if (type === 'promotional' && audienceType !== 'custom_segment' && !PROMO_SEGMENTS.some(s => s.value === audienceType)) {
       setAudienceType('all_subscribers');
     }
   }, [type]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -161,12 +175,13 @@ export default function CampaignBuilder({ scope, basePath }: Props) {
     const needsEvent = type === 'informational' || audienceType === 'event_subscribers';
     if (needsEvent && !eventId) { setRecipientCount(0); return; }
 
+    if (audienceType === 'custom_segment' && !segmentId) { setRecipientCount(0); return; }
     const rpcName = scope.kind === 'venue' ? 'count_campaign_recipients' : 'count_campaign_recipients_org';
     const args: any = scope.kind === 'venue'
-      ? { p_venue_id: scope.venueId, p_type: type, p_audience_type: audienceType, p_event_id: eventId || null }
+      ? { p_venue_id: scope.venueId, p_type: type, p_audience_type: audienceType, p_event_id: eventId || null, p_segment_id: audienceType === 'custom_segment' ? segmentId : null }
       : { p_organizer_user_id: scope.organizerId, p_type: type, p_audience_type: audienceType, p_event_id: eventId || null };
     supabase.rpc(rpcName as any, args).then(({ data }) => setRecipientCount((data as number) || 0));
-  }, [scope, type, audienceType, eventId]);
+  }, [scope, type, audienceType, eventId, segmentId]);
 
   // Auto-inject the campaign-level logo into header blocks (for live preview)
   const blocksWithLogo = useMemo(() => blocks.map(b => {
@@ -193,8 +208,10 @@ export default function CampaignBuilder({ scope, basePath }: Props) {
         social_links_json: socialLinks,
         logo_url: logoUrl,
       };
-      if (scope.kind === 'venue') payload.venue_id = scope.venueId;
-      else payload.organizer_user_id = scope.organizerId;
+      if (scope.kind === 'venue') {
+        payload.venue_id = scope.venueId;
+        payload.segment_id = audienceType === 'custom_segment' ? (segmentId || null) : null;
+      } else payload.organizer_user_id = scope.organizerId;
       if (status) payload.status = status;
       if (status === 'scheduled' && scheduledAt) payload.scheduled_at = new Date(scheduledAt).toISOString();
 
@@ -339,10 +356,22 @@ export default function CampaignBuilder({ scope, basePath }: Props) {
                 <>
                   <div>
                     <Label>{t('em.builder.clientSegment')}</Label>
-                    <Select value={audienceType} onValueChange={setAudienceType}>
+                    <Select
+                      value={audienceType === 'custom_segment' ? (segmentId ? `seg:${segmentId}` : 'all_subscribers') : audienceType}
+                      onValueChange={(v) => {
+                        if (v.startsWith('seg:')) { setAudienceType('custom_segment'); setSegmentId(v.slice(4)); }
+                        else { setAudienceType(v); setSegmentId(''); }
+                      }}
+                    >
                       <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {PROMO_SEGMENTS.map(s => <SelectItem key={s.value} value={s.value}>{t(s.labelKey)}</SelectItem>)}
+                        {scope.kind === 'venue' && savedSegments.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel>{t('em.seg.customGroup')}</SelectLabel>
+                            {savedSegments.map(sg => <SelectItem key={sg.id} value={`seg:${sg.id}`}>{sg.name}</SelectItem>)}
+                          </SelectGroup>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>

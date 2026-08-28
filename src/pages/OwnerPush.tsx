@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
-import { Bell, Send, Loader2, Clock, Users, Zap, Sparkles } from 'lucide-react';
+import { Bell, Send, Loader2, Clock, Users, Zap, Sparkles, CalendarClock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useVenueContext } from '@/hooks/useVenueContext';
+import { useSubscriptionPlan } from '@/hooks/useSubscriptionPlan';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -58,6 +59,8 @@ type Campaign = {
   targeted_count?: number;
   template_key?: string | null;
   source?: string | null;
+  status?: string | null;
+  scheduled_at?: string | null;
   created_at: string;
 };
 
@@ -68,8 +71,10 @@ const RFM_LABEL_KEYS: Record<string, string> = {
 };
 
 export default function OwnerPush() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { venueId, venue, loading: venueLoading } = useVenueContext();
+  const { hasFeature } = useSubscriptionPlan();
+  const hasAdvancedCrm = hasFeature('personalization_advanced');
 
   const [template, setTemplate] = useState<PushTemplate | null>(null);
   const [title, setTitle] = useState('');
@@ -93,8 +98,14 @@ export default function OwnerPush() {
   const [sending, setSending] = useState(false);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [clicks, setClicks] = useState<Record<string, number>>({});
+  const [pushRevenue, setPushRevenue] = useState<Record<string, { revenue: number; buyers: number }>>({});
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [savedSegments, setSavedSegments] = useState<Array<{ id: string; name: string }>>([]);
+  const [scheduledAt, setScheduledAt] = useState<string>(''); // datetime-local ; vide = envoi immédiat
+  const [bestSlot, setBestSlot] = useState<{ dow: number; hour: number } | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [automations, setAutomations] = useState<Record<string, boolean>>({});
+  const [automationParams, setAutomationParams] = useState<Record<string, { days?: number }>>({});
   const [togglingKey, setTogglingKey] = useState<string | null>(null);
 
   const scope = audience === 'rfm' ? `rfm:${rfmSegment}` : audience;
@@ -142,22 +153,51 @@ export default function OwnerPush() {
       });
       setClicks(counts);
     }
+    // Revenus attribués par campagne (clic→achat 72 h, net) — best-effort.
+    try {
+      const { data: attr } = await supabase.rpc('get_audience_push_attribution' as never, {
+        p_subject_type: 'venue', p_subject_id: venueId,
+      } as never);
+      const payload = attr as { supported?: boolean; campaigns?: Array<{ id: string; revenue: number; buyers: number }> } | null;
+      if (payload?.supported) {
+        const map: Record<string, { revenue: number; buyers: number }> = {};
+        (payload.campaigns || []).forEach((c) => { map[c.id] = { revenue: c.revenue, buyers: c.buyers }; });
+        setPushRevenue(map);
+      }
+    } catch { /* chips absentes */ }
   };
 
   useEffect(() => { fetchHistory(); }, [venueId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Meilleur créneau d'envoi (user_send_profiles agrégés par get_audience_notifications).
+  // Best-effort : sans données, le hint ne s'affiche pas.
+  useEffect(() => {
+    if (!venueId) return;
+    (async () => {
+      try {
+        const { data } = await supabase.rpc('get_audience_notifications' as never, {
+          p_subject_type: 'venue', p_subject_id: venueId,
+        } as never);
+        const bs = (data as { best_send?: { dow: number | null; hour: number | null } } | null)?.best_send;
+        if (bs && typeof bs.dow === 'number' && typeof bs.hour === 'number') setBestSlot({ dow: bs.dow, hour: bs.hour });
+      } catch { /* hint optionnel */ }
+    })();
+  }, [venueId]);
 
   // État des automatisations du club (toggles opt-in, désactivés par défaut).
   useEffect(() => {
     if (!venueId) return;
     supabase
       .from('venue_push_automations' as never)
-      .select('automation_key, enabled')
+      .select('automation_key, enabled, params')
       .eq('venue_id', venueId)
       .then(({ data }) => {
         const map: Record<string, boolean> = {};
-        (((data as unknown) as Array<{ automation_key: string; enabled: boolean }>) || [])
-          .forEach((r) => { map[r.automation_key] = r.enabled; });
+        const params: Record<string, { days?: number }> = {};
+        (((data as unknown) as Array<{ automation_key: string; enabled: boolean; params?: { days?: number } | null }>) || [])
+          .forEach((r) => { map[r.automation_key] = r.enabled; if (r.params) params[r.automation_key] = r.params; });
         setAutomations(map);
+        setAutomationParams(params);
       });
   }, [venueId]);
 
@@ -181,6 +221,25 @@ export default function OwnerPush() {
       toast.error(t('ownerPush.autoError'));
     } finally {
       setTogglingKey(null);
+    }
+  };
+
+  // Paramètre { days } du win_back — upsert sans toucher au toggle.
+  const setAutomationDays = async (key: string, days: number) => {
+    if (!venueId) return;
+    const prev = automationParams[key];
+    setAutomationParams((p) => ({ ...p, [key]: { ...p[key], days } }));
+    try {
+      const { error } = await supabase
+        .from('venue_push_automations' as never)
+        .upsert(
+          { venue_id: venueId, automation_key: key, enabled: !!automations[key], params: { days }, updated_at: new Date().toISOString() } as never,
+          { onConflict: 'venue_id,automation_key' },
+        );
+      if (error) throw error;
+    } catch {
+      setAutomationParams((p) => ({ ...p, [key]: prev || {} }));
+      toast.error(t('ownerPush.autoError'));
     }
   };
 
@@ -222,6 +281,23 @@ export default function OwnerPush() {
     const tpl = PUSH_TEMPLATES.find((candidate) => candidate.key === prefill);
     if (tpl) pickTemplate(tpl);
      
+  }, [searchParams]);
+
+  // Segments sauvegardés du club (page Clients) — ciblables en push.
+  useEffect(() => {
+    if (!venueId) return;
+    supabase
+      .from('venue_segments' as never)
+      .select('id, name')
+      .eq('venue_id', venueId)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setSavedSegments(((data as unknown) as Array<{ id: string; name: string }>) || []));
+  }, [venueId]);
+
+  // Pré-sélection d'un segment via ?segment=<uuid> (bouton « Push » de la page Clients).
+  useEffect(() => {
+    const seg = searchParams.get('segment');
+    if (seg) setAudience(`segment:${seg}`);
   }, [searchParams]);
 
   // URL par défaut : la soirée sélectionnée, sinon la page du club.
@@ -274,8 +350,50 @@ export default function OwnerPush() {
     return () => clearTimeout(timer);
   }, [venueId, scope, eventId, needsEvent]);
 
+  const pad2 = (n: number) => String(n).padStart(2, '0');
+
+  // Prochaine occurrence locale du meilleur créneau, au format datetime-local.
+  const nextBestSlotLocal = (): string | null => {
+    if (!bestSlot) return null;
+    const d = new Date();
+    d.setMinutes(0, 0, 0);
+    d.setHours(bestSlot.hour);
+    d.setDate(d.getDate() + ((bestSlot.dow - d.getDay() + 7) % 7));
+    if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 7);
+    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  };
+
+  const bestSlotDayLabel = (): string => {
+    if (!bestSlot) return '';
+    // extract(dow) SQL et getDay() JS partagent 0 = dimanche.
+    const ref = new Date();
+    ref.setDate(ref.getDate() + ((bestSlot.dow - ref.getDay() + 7) % 7));
+    const tag = language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB';
+    return ref.toLocaleDateString(tag, { weekday: 'long' });
+  };
+
+  const cancelScheduled = async (id: string) => {
+    setCancellingId(id);
+    try {
+      const { data, error } = await supabase.rpc('cancel_scheduled_push_campaign' as never, {
+        p_campaign_id: id,
+      } as never);
+      if (error) throw error;
+      if (data) { toast.success(t('ownerPush.scheduleCancelled')); fetchHistory(); }
+      else toast.error(t('ownerPush.scheduleCancelTooLate')); // déjà partie (le cron marque 'sending' avant d'envoyer)
+    } catch {
+      toast.error(t('ownerPush.sendError'));
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
   const handleSend = async () => {
     if (!venueId || !title.trim() || !body.trim()) return;
+    if (scheduledAt && new Date(scheduledAt).getTime() <= Date.now()) {
+      toast.error(t('ownerPush.schedulePast'));
+      return;
+    }
     setSending(true);
     try {
       const { data, error } = await supabase.functions.invoke('send-push-campaign', {
@@ -285,6 +403,7 @@ export default function OwnerPush() {
           ...(needsEvent ? { event_id: eventId } : {}),
           template_key: template?.key || 'custom',
           ...(i18nContent ? { title_i18n: i18nContent.title_i18n, body_i18n: i18nContent.body_i18n } : {}),
+          ...(scheduledAt ? { scheduled_at: new Date(scheduledAt).toISOString() } : {}),
         },
       });
       if (error) {
@@ -303,10 +422,12 @@ export default function OwnerPush() {
         } catch { /* garder msg */ }
         throw new Error(msg);
       }
-      toast.success(t('ownerPush.sentToast').replace('{count}', String(data?.sent || 0)));
+      if (scheduledAt) toast.success(t('ownerPush.scheduledToast'));
+      else toast.success(t('ownerPush.sentToast').replace('{count}', String(data?.sent || 0)));
       setConfirmOpen(false);
       setTemplate(null);
       setTitle(''); setBody(''); setManuallyEdited(false); setI18nContent(null);
+      setScheduledAt('');
       fetchHistory();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('ownerPush.sendError'));
@@ -361,7 +482,9 @@ export default function OwnerPush() {
           </div>
 
           <div className="grid sm:grid-cols-2 gap-3 mt-4">
-            {PUSH_AUTOMATIONS.map((auto: PushAutomation) => {
+            {PUSH_AUTOMATIONS
+              .filter((auto: PushAutomation) => hasAdvancedCrm || !['vip_upsell', 'win_back', 'birthday'].includes(auto.key))
+              .map((auto: PushAutomation) => {
               const on = !!automations[auto.key];
               const previewTitle = renderPushTemplate(t(auto.titleKey), autoPreviewValues);
               const previewBody = renderPushTemplate(t(auto.bodyKey), autoPreviewValues);
@@ -391,9 +514,26 @@ export default function OwnerPush() {
                     <p style={{ color: T3, fontSize: 11, lineHeight: 1.4, marginTop: 2 }}>{previewBody}</p>
                   </div>
 
-                  <div className="flex items-center gap-1.5 mt-2.5">
-                    <Users className="h-3 w-3" style={{ color: T3 }} />
-                    <span style={{ color: T3, fontSize: 10.5 }}>{t(auto.audienceKey)}</span>
+                  <div className="flex items-center justify-between gap-1.5 mt-2.5">
+                    <span className="flex items-center gap-1.5">
+                      <Users className="h-3 w-3" style={{ color: T3 }} />
+                      <span style={{ color: T3, fontSize: 10.5 }}>{t(auto.audienceKey)}</span>
+                    </span>
+                    {auto.key === 'win_back' && on && (
+                      <span className="flex items-center gap-1.5">
+                        <span style={{ color: T3, fontSize: 10.5 }}>{t('ownerPush.winBackAfter')}</span>
+                        <select
+                          value={String(automationParams.win_back?.days ?? 45)}
+                          onChange={(e) => setAutomationDays('win_back', Number(e.target.value))}
+                          className="rounded-md cursor-pointer"
+                          style={{ background: INNER_BG, border: `1px solid ${BORDER}`, color: T2, fontSize: 10.5, padding: '2px 6px' }}
+                        >
+                          {[30, 45, 60, 90].map((d) => (
+                            <option key={d} value={d}>{t('ownerPush.winBackDays').replace('{days}', String(d))}</option>
+                          ))}
+                        </select>
+                      </span>
+                    )}
                   </div>
                 </div>
               );
@@ -534,6 +674,14 @@ export default function OwnerPush() {
                       {audienceOptions.map((a) => (
                         <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>
                       ))}
+                      {savedSegments.length > 0 && (
+                        <SelectGroup>
+                          <SelectLabel>{t('ownerPush.audSavedSegments')}</SelectLabel>
+                          {savedSegments.map((sg) => (
+                            <SelectItem key={sg.id} value={`segment:${sg.id}`}>{sg.name}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
@@ -559,6 +707,33 @@ export default function OwnerPush() {
                 <p style={{ color: T3, fontSize: 12 }}>{t('ownerPush.needEvent')}</p>
               )}
 
+              {/* Programmation (optionnelle) — l'infra scheduled_at + cron existait déjà */}
+              <div>
+                <label style={labelStyle}>{t('ownerPush.scheduleLabel')}</label>
+                <input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  onChange={(e) => setScheduledAt(e.target.value)}
+                  style={{ ...inputStyle, colorScheme: 'dark' }}
+                />
+                <p style={{ color: T3, fontSize: 11, marginTop: 6, lineHeight: 1.5 }}>{t('ownerPush.scheduleHelp')}</p>
+                {bestSlot && (
+                  <p className="flex items-center gap-2 flex-wrap" style={{ color: T2, fontSize: 11.5, marginTop: 8 }}>
+                    <Sparkles className="h-3 w-3" style={{ color: POS }} />
+                    {t('ownerPush.bestSlotHint')
+                      .replace('{day}', bestSlotDayLabel())
+                      .replace('{hour}', `${bestSlot.hour}h`)}
+                    <button
+                      onClick={() => { const v = nextBestSlotLocal(); if (v) setScheduledAt(v); }}
+                      className="underline underline-offset-2 cursor-pointer transition-all duration-150"
+                      style={{ color: POS, fontSize: 11.5, fontWeight: 600 }}
+                    >
+                      {t('ownerPush.bestSlotUse')}
+                    </button>
+                  </p>
+                )}
+              </div>
+
               {/* Portée + envoi */}
               <div className="flex items-center justify-between gap-3 pt-1">
                 <span className="flex items-center gap-2 tabular-nums" style={{ color: T2, fontSize: 12.5 }}>
@@ -579,8 +754,8 @@ export default function OwnerPush() {
                     opacity: (sending || !title.trim() || !body.trim() || (needsEvent && !eventId) || (reach ?? 0) === 0) ? 0.5 : 1,
                   }}
                 >
-                  <Send className="h-4 w-4" />
-                  {t('ownerPush.sendCta')}
+                  {scheduledAt ? <CalendarClock className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+                  {scheduledAt ? t('ownerPush.scheduleCta') : t('ownerPush.sendCta')}
                 </button>
               </div>
 
@@ -669,6 +844,15 @@ export default function OwnerPush() {
                           {t(`ownerPush.tplName.${c.template_key}`)}
                         </span>
                       )}
+                      {c.status === 'scheduled' && c.scheduled_at && (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full tabular-nums"
+                          style={{ background: 'rgba(252,211,77,0.08)', border: '1px solid rgba(252,211,77,0.25)', color: '#FCD34D', fontSize: 10, fontWeight: 600 }}
+                        >
+                          <CalendarClock className="h-2.5 w-2.5" />
+                          {t('ownerPush.scheduledBadge')} · {new Date(c.scheduled_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
                       <span className="flex items-center gap-1 tabular-nums" style={{ color: T3, fontSize: 10 }}>
                         <Clock className="h-3 w-3" />
                         {new Date(c.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
@@ -676,16 +860,39 @@ export default function OwnerPush() {
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1 shrink-0">
-                    <span
-                      className="inline-flex items-center px-2.5 py-1 rounded-full tabular-nums"
-                      style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: POS, fontSize: 11, fontWeight: 600 }}
-                    >
-                      {t('ownerPush.sent').replace('{count}', String(c.sent_count))}
-                    </span>
-                    <span className="tabular-nums" style={{ color: T3, fontSize: 10 }}>
-                      {t('ownerPush.clicked').replace('{count}', String(clicks[c.id] || 0))}
-                      {c.sent_count > 0 && <> · CTR {Math.round(((clicks[c.id] || 0) / c.sent_count) * 100)}%</>}
-                    </span>
+                    {c.status === 'scheduled' ? (
+                      <button
+                        onClick={() => cancelScheduled(c.id)}
+                        disabled={cancellingId === c.id}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full cursor-pointer transition-all duration-150"
+                        style={{ background: 'rgba(232,25,44,0.08)', border: '1px solid rgba(232,25,44,0.25)', color: RED, fontSize: 11, fontWeight: 600, opacity: cancellingId === c.id ? 0.5 : 1 }}
+                      >
+                        {cancellingId === c.id ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                        {t('ownerPush.cancelSchedule')}
+                      </button>
+                    ) : (
+                      <>
+                        <span
+                          className="inline-flex items-center px-2.5 py-1 rounded-full tabular-nums"
+                          style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: POS, fontSize: 11, fontWeight: 600 }}
+                        >
+                          {t('ownerPush.sent').replace('{count}', String(c.sent_count))}
+                        </span>
+                        {pushRevenue[c.id] && pushRevenue[c.id].revenue > 0 && (
+                          <span
+                            className="inline-flex items-center px-2.5 py-1 rounded-full tabular-nums"
+                            style={{ background: 'rgba(52,211,153,0.14)', border: '1px solid rgba(52,211,153,0.35)', color: POS, fontSize: 11, fontWeight: 700 }}
+                            title={t('ownerPush.attributedRevenueTitle')}
+                          >
+                            {t('ownerPush.attributedRevenue').replace('{amount}', pushRevenue[c.id].revenue.toLocaleString(undefined, { maximumFractionDigits: 0 }))}
+                          </span>
+                        )}
+                        <span className="tabular-nums" style={{ color: T3, fontSize: 10 }}>
+                          {t('ownerPush.clicked').replace('{count}', String(clicks[c.id] || 0))}
+                          {c.sent_count > 0 && <> · CTR {Math.round(((clicks[c.id] || 0) / c.sent_count) * 100)}%</>}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
@@ -700,7 +907,11 @@ export default function OwnerPush() {
           <DialogHeader>
             <DialogTitle>{t('ownerPush.confirmTitle')}</DialogTitle>
             <DialogDescription>
-              {t('ownerPush.confirmBody').replace('{count}', String(reach ?? 0))}
+              {scheduledAt
+                ? t('ownerPush.confirmBodyScheduled')
+                    .replace('{count}', String(reach ?? 0))
+                    .replace('{date}', scheduledAt ? new Date(scheduledAt).toLocaleString(language === 'fr' ? 'fr-FR' : language === 'es' ? 'es-ES' : 'en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '')
+                : t('ownerPush.confirmBody').replace('{count}', String(reach ?? 0))}
             </DialogDescription>
           </DialogHeader>
           <div className="flex gap-2 justify-end pt-2">

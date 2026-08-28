@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from 'react';
 import {
   Users, TrendingUp, Bell, BellOff, Cake, MapPin, Music, Heart, Star,
   Languages as LangIcon, Loader2, BarChart3, Euro, Clock, Zap, Sparkles, Filter,
+  Mail, Link2, Send,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAudienceData, type AudienceSubject } from './useAudienceData';
@@ -27,6 +28,8 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
   const notif = data?.notifications ?? null;
   const rev = data?.revenue ?? null;
   const att = data?.attribution ?? null;
+  const emailAtt = data?.emailAttribution ?? null;
+  const tlinks = data?.trackedLinks ?? null;
   const bm = data?.benchmarks ?? null;
   const co = data?.cohorts ?? null;
   const acq = data?.sources ?? null;
@@ -320,6 +323,72 @@ export function AudienceDashboard({ subject, subjectLabel, actions }: {
                     );
                   })}
                 </div>
+              </PCard>
+            );
+          })()}
+
+          {/* ── PERFORMANCE MARKETING PAR CANAL (venue) ── */}
+          {subject.type === 'venue' && (att?.supported || emailAtt?.supported || (tlinks && tlinks.links > 0)) && (() => {
+            const channels = [
+              {
+                key: 'push', icon: <Send className="w-3.5 h-3.5" />,
+                label: t('Push', 'Push', 'Push'),
+                count: att?.campaigns?.length ?? 0,
+                countLabel: t('campagnes', 'campaigns', 'campañas'),
+                revenue: att?.total_90d ?? 0,
+                buyers: (att?.campaigns || []).reduce((sum, c) => sum + (c.buyers || 0), 0),
+                show: !!att?.supported,
+              },
+              {
+                key: 'email', icon: <Mail className="w-3.5 h-3.5" />,
+                label: t('Email', 'Email', 'Email'),
+                count: emailAtt?.campaigns?.length ?? 0,
+                countLabel: t('campagnes', 'campaigns', 'campañas'),
+                revenue: emailAtt?.total_90d ?? 0,
+                buyers: (emailAtt?.campaigns || []).reduce((sum, c) => sum + (c.buyers || 0), 0),
+                show: !!emailAtt?.supported,
+              },
+              {
+                key: 'links', icon: <Link2 className="w-3.5 h-3.5" />,
+                label: t('Liens trackés', 'Tracked links', 'Enlaces rastreados'),
+                count: tlinks?.links ?? 0,
+                countLabel: t('liens', 'links', 'enlaces'),
+                revenue: tlinks?.revenue ?? 0,
+                buyers: tlinks?.conversions ?? 0,
+                show: !!tlinks && tlinks.links > 0,
+              },
+            ].filter(ch => ch.show);
+            if (channels.length === 0) return null;
+            const best = channels.reduce((mx, ch) => (ch.revenue > mx ? ch.revenue : mx), 0);
+            return (
+              <PCard style={{ marginTop: 12 }} icon={<BarChart3 className="w-4 h-4" />}
+                title={t('Performance marketing', 'Marketing performance', 'Rendimiento de marketing')}
+                sub={t('Revenus attribués par canal (90j, net de frais)', 'Attributed revenue per channel (90d, net of fees)', 'Ingresos atribuidos por canal (90d, netos)')}>
+                <div className="space-y-3">
+                  {channels.map(ch => (
+                    <div key={ch.key} className="flex items-center gap-3">
+                      <span className="flex items-center gap-2 w-[130px] flex-none text-[12.5px]" style={{ color: T2 }}>
+                        {ch.icon}{ch.label}
+                      </span>
+                      <div className="flex-1 h-[6px] rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                        <div className="h-full rounded-full" style={{
+                          width: best > 0 ? `${Math.max(2, Math.round((ch.revenue / best) * 100))}%` : '2%',
+                          background: ch.revenue > 0 ? POS : 'rgba(255,255,255,0.12)',
+                        }} />
+                      </div>
+                      <div className="flex items-center gap-3 flex-none text-[12px] tabular-nums" style={{ color: T3 }}>
+                        <span className="font-[640]" style={{ color: ch.revenue > 0 ? POS : T3 }}>{eur(ch.revenue)}</span>
+                        <span>{ch.count} {ch.countLabel}</span>
+                        <span>{ch.buyers} {t('acheteurs', 'buyers', 'compradores')}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] mt-3" style={{ color: T3 }}>
+                  {t('Push et email : clic→achat sous 72 h. Liens : achats portés par le lien. Une vente peut créditer plusieurs canaux.',
+                     'Push & email: click→buy within 72h. Links: purchases carrying the link. One sale can credit several channels.',
+                     'Push y email: clic→compra en 72 h. Enlaces: compras con el enlace. Una venta puede acreditar varios canales.')}
+                </p>
               </PCard>
             );
           })()}

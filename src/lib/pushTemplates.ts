@@ -117,7 +117,10 @@ export type PushAutomationKey =
   | 'event_live'
   | 'thank_you'
   | 'almost_sold_out'
-  | 'drinks_preorder';
+  | 'drinks_preorder'
+  | 'vip_upsell'
+  | 'win_back'
+  | 'birthday';
 
 export interface PushAutomation {
   key: PushAutomationKey;
@@ -176,6 +179,30 @@ export const PUSH_AUTOMATIONS: PushAutomation[] = [
     bodyKey: 'pushTpl.drinksPreorder.body',
     variables: ['event', 'venue'],
     audienceKey: 'ownerPush.audEventTickets',
+  },
+  {
+    key: 'vip_upsell',
+    emoji: '🥂',
+    titleKey: 'pushTpl.vipUpsell.title',
+    bodyKey: 'pushTpl.vipUpsell.body',
+    variables: ['event', 'venue'],
+    audienceKey: 'ownerPush.audTicketNoTable',
+  },
+  {
+    key: 'win_back',
+    emoji: '👀',
+    titleKey: 'pushTpl.winBack.title',
+    bodyKey: 'pushTpl.winBack.body',
+    variables: ['venue'],
+    audienceKey: 'ownerPush.audWinBack',
+  },
+  {
+    key: 'birthday',
+    emoji: '🎂',
+    titleKey: 'pushTpl.birthday.title',
+    bodyKey: 'pushTpl.birthday.body',
+    variables: ['venue'],
+    audienceKey: 'ownerPush.audBirthday',
   },
 ];
 
