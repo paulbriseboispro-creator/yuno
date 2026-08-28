@@ -308,6 +308,35 @@ pour Excel FR/ES).
   même chantier — clés `ohelp.*` dans `src/i18n/data.ts` (les 3 langues EN/FR/ES) et
   structure dans `src/data/ownerHelpContent.ts`. Une feature sans doc n'est pas finie.
 
+## CRM club v2 (segments, attribution, automations — 2026-08-28)
+
+- **Le scoring RFM vit dans `_venue_customer_rfm` (SQL) et NULLE PART ailleurs.**
+  `get_venue_customer_segments` renvoie `rfm_segment/rfm_tier/churn_risk/is_guest`
+  calculés serveur — ne JAMAIS re-répliquer les quintiles en TypeScript (la
+  triplication historique a déjà fait cibler 0 personne en push). Les invités
+  (guest checkout) sont des lignes synthétiques UNION lecture (`is_guest`,
+  id = md5, user_id NULL) — le chemin paiement n'est pas touché.
+- **Segments sauvegardés** : `venue_segments` (definition jsonb v1, AND plat) +
+  résolveur unique `resolve_venue_segment` (membership dynamique, résolu à
+  l'envoi). Consommé par le scope push `segment:<uuid>` et l'audience email
+  `custom_segment` — cette dernière JOINt TOUJOURS `newsletter_subscriptions`
+  opt-in : ne jamais contourner ce join, c'est la porte de consentement.
+  Condition inconnue ⇒ FAUX (l'audience rétrécit, jamais l'inverse).
+- **Attribution €** : query-time uniquement (jamais de campaign_id sur les
+  tables de vente). Push = `get_audience_push_attribution` (user_id), email =
+  `get_email_campaign_attribution` (lower(email), couvre les invités) — même
+  fenêtre clic→achat 72 h, même formule net (fees.ts).
+- **Automations client** (`win_back`/`birthday`) : dispatcher
+  `_shared/customer-automations.ts` drainé par process-scheduled-campaigns.
+  Anti-spam en 3 couches : ledger `venue_automation_sends` + claim atomique
+  `try_claim_customer_automation`, cap 3 push non transactionnels/24 h,
+  kill-switch `platform_notification_settings`. `vip_upsell` est event-scopée
+  et passe par `get_due_push_automations` (verrou (event_id, template_key)).
+  Toute nouvelle clé : CHECK de `venue_push_automations` + templates
+  `_shared/` + `pushTemplates.ts` + CATALOG admin + seed + i18n ×3.
+- **Export audience pub** (`export_venue_ad_audience`) : contacts CONSENTANTS
+  uniquement (opt-in newsletter ∪ SMS), gate owner — jamais la base brute.
+
 ## Claude Design — design system public synchronisé
 
 Le design system **public** (et lui seul) est synchronisé vers claude.ai/design, projet
