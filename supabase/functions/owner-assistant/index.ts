@@ -86,7 +86,7 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
     title: "Suivre son audience (abonnés)",
     keywords: ["audience", "abonnés", "abonnes", "subscribers", "followers", "suivis", "fans", "statistiques abonnés", "démographie", "demographics", "portée", "reachable", "joignables", "croissance", "growth", "segmentation", "notifications", "efficacité notifs", "revenu abonnés", "clients fidèles", "valeur par abonné", "ltv", "combien rapporte un abonné", "entonnoir", "funnel", "conversion", "ré-acheteurs", "attribution", "revenu par push", "combien a rapporté mon push", "benchmark", "médiane ville", "comparaison", "percentile", "source d'acquisition", "d'où viennent mes abonnés", "cohorte", "rétention", "récap hebdo", "audience partagée", "chevauchement", "collab", "net-new"],
     path: "/owner/audience",
-    snippet: "La page Audience (menu Aperçu) montre qui suit ton club et ce que ça rapporte. La couche argent est en tête : (0) Valeur de l'audience — combien vaut chaque abonné (revenu net qu'ils génèrent ÷ leur nombre, sur 90j) avec taux de conversion et panier moyen ; un entonnoir Abonnés → Joignables → Engagés → Acheteurs → Ré-acheteurs ; et l'attribution push→vente qui chiffre chaque campagne (« ton dernier push a rapporté X€ » = abonnés qui ont cliqué puis acheté dans les 72h). Puis : (1) Croissance — nombre d'abonnés et évolution nette dans le temps (le suivi net démarre avec la capture ; avant, c'est l'historique brut, sans les désabonnements passés). (2) Portée & notifications — combien de tes abonnés peuvent recevoir un push (le reste a coupé les notifs), le meilleur créneau d'envoi, et le taux de clic + revenu attribué de tes campagnes. (3) Démographie agrégée et anonyme — âge, sexe (estimé via guest lists), villes, langues, goûts musicaux. (4) Segmentation & revenu — abonnés engagés/passifs/injoignables, abonnés qui ont acheté chez toi et leur valeur, et combien de ton chiffre vient de tes abonnés vs des non-abonnés. (5) Comparaison, sources & récap — ta position face aux autres clubs de ta ville (percentiles anonymes, « ta portée mieux que 60% »), d'où viennent tes abonnés (quelle surface les déclenche), la rétention par cohorte, et chaque lundi un récap de ta semaine (abonnés, push, ventes) poussé sur ton app Pro. Sur une soirée en collab, une carte « Audience partagée » montre les abonnés communs avec le co-organisateur et le net-new que la collab débloque. Le bouton « Notifier mes abonnés » ouvre l'envoi de push. Tout est agrégé : tu ne vois jamais l'identité de chaque abonné. (Valeur/entonnoir/attribution = clubs uniquement ; côté DJ/organisateur, l'audience reste démographie + portée.)",
+    snippet: "La page Audience (menu Aperçu) montre qui suit ton club et ce que ça rapporte. La couche argent est en tête : (0) Valeur de l'audience — combien vaut chaque abonné (revenu net qu'ils génèrent ÷ leur nombre, sur 90j) avec taux de conversion et panier moyen ; un entonnoir Abonnés → Joignables → Engagés → Acheteurs → Ré-acheteurs ; et l'attribution push→vente qui chiffre chaque campagne (« ton dernier push a rapporté X€ » = abonnés qui ont cliqué puis acheté dans les 72h). Puis : (1) Croissance — nombre d'abonnés et évolution nette dans le temps (le suivi net démarre avec la capture ; avant, c'est l'historique brut, sans les désabonnements passés). (2) Portée & notifications — combien de tes abonnés peuvent recevoir un push (le reste a coupé les notifs), le meilleur créneau d'envoi, et le taux de clic + revenu attribué de tes campagnes. (3) Démographie agrégée et anonyme — âge, sexe (estimé via guest lists), villes, langues, goûts musicaux. (4) Segmentation & revenu — abonnés engagés/passifs/injoignables, abonnés qui ont acheté chez toi et leur valeur, et combien de ton chiffre vient de tes abonnés vs des non-abonnés. (5) Comparaison, sources & récap — ta position face aux autres clubs de ta ville (percentiles anonymes, « ta portée mieux que 60% »), d'où viennent tes abonnés (quelle surface les déclenche), la rétention par cohorte, et chaque lundi un récap de ta semaine (abonnés, push, ventes) poussé sur ton app Pro. Sur une soirée en collab, une carte « Audience partagée » montre les abonnés communs avec le co-organisateur et le net-new que la collab débloque. Une zone « Performance marketing » compare les canaux côte à côte : revenus attribués du push, de l'email et des liens trackés sur 90 j. Le bouton « Notifier mes abonnés » ouvre l'envoi de push. Tout est agrégé : tu ne vois jamais l'identité de chaque abonné. (Valeur/entonnoir/attribution = clubs uniquement ; côté DJ/organisateur, l'audience reste démographie + portée.)",
   },
   "staff-push-notifications": {
     title: "Alertes push du staff (app Yuno Pro)",
@@ -264,9 +264,9 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "email-campaigns": {
     title: "Campagnes email",
-    keywords: ["email", "campagne", "campaign", "newsletter", "mailing", "éditeur", "envoi", "ouvertures", "désabonnement"],
+    keywords: ["email", "campagne", "campaign", "newsletter", "mailing", "éditeur", "envoi", "ouvertures", "désabonnement", "revenu campagne", "combien a rapporté", "segment personnalisé"],
     path: "/owner/campaigns",
-    snippet: "Crée des campagnes email vers tes clients avec l'éditeur intégré (visuel ou avancé). Cible par segments (fidèles, inactifs, VIP…), envoie, puis suis le rapport : ouvertures, clics, désabonnements. Les destinataires désabonnés sont exclus automatiquement des envois suivants.",
+    snippet: "Crée des campagnes email vers tes clients avec l'éditeur intégré (visuel ou avancé). Cible par segments (fidèles, inactifs, VIP…) OU par un de tes segments sauvegardés depuis la page Clients (groupe « Mes segments enregistrés » dans le choix d'audience — toujours croisé avec l'opt-in newsletter). Envoie, puis suis le rapport : ouvertures, clics, désabonnements, ET les revenus attribués — les ventes des destinataires qui ont cliqué l'email puis acheté sous 72 h, net de frais. Les destinataires désabonnés sont exclus automatiquement des envois suivants.",
   },
   "marketing-consent": {
     title: "Consentement marketing (RGPD)",
@@ -282,9 +282,9 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "push-notifications": {
     title: "Notifications push",
-    keywords: ["push", "notification", "notif", "automatique", "auto", "soirée live", "event live", "remerciement", "thank you", "rappel", "reminder", "bientôt complet", "sold out", "happy hour", "tables vip", "guest list", "campagne push"],
+    keywords: ["push", "notification", "notif", "automatique", "auto", "soirée live", "event live", "remerciement", "thank you", "rappel", "reminder", "bientôt complet", "sold out", "happy hour", "tables vip", "guest list", "campagne push", "programmer", "programmé", "planifier", "schedule", "meilleur créneau", "meilleur moment", "annuler un push"],
     path: "/owner/push",
-    snippet: "La page Notifications push a DEUX familles bien séparées. 1) AUTOMATIQUES : tu actives un toggle, Yuno envoie tout seul au bon moment — Rappel jour J (6 h avant, aux acheteurs), La soirée commence (à l'ouverture, aux acheteurs), Remerciement (après la soirée, aux clients entrés), Bientôt complet (à 85 % de billets vendus, aux followers). Désactivées par défaut, chacune ne part qu'une fois par soirée et dans la langue de chaque client, et ne compte PAS dans la limite de 4 campagnes/24 h. 2) MANUELLES : tu composes et envoies un push ponctuel (Promotion, Happy hour, Dernières places, Tables VIP, Guest list, Concours ou message libre), en ciblant l'audience (acheteurs, clients entrés, followers, segment). Plafond 4 campagnes/24 h.",
+    snippet: "La page Notifications push a DEUX familles bien séparées. 1) AUTOMATIQUES : tu actives un toggle, Yuno envoie tout seul au bon moment — Rappel jour J (6 h avant, aux acheteurs), La soirée commence (à l'ouverture, aux acheteurs), Remerciement (après la soirée, aux clients entrés), Bientôt complet (à 85 % de billets vendus, aux followers), Pré-commande boissons (l'après-midi, aux acheteurs), et trois automations CRM : Upsell table VIP (à J-2, aux détenteurs de billet SANS table — le plus gros panier de la nuit), Reconquête (client inactif depuis N jours, paramétrable 30/45/60/90, max une fois par trimestre par client) et Anniversaire (le jour J, une fois par an). Reconquête et Anniversaire respectent le plafond global de 3 push non transactionnels par client et par 24 h. Désactivées par défaut, chacune ne part qu'une fois par soirée et dans la langue de chaque client, et ne compte PAS dans la limite de 4 campagnes/24 h. 2) MANUELLES : tu composes et envoies un push ponctuel (Promotion, Happy hour, Dernières places, Tables VIP, Guest list, Concours ou message libre), en ciblant l'audience (acheteurs, clients entrés, followers, segment). L'envoi peut être immédiat ou PROGRAMMÉ à une date/heure précise ; Yuno suggère le meilleur créneau d'envoi calculé sur les habitudes de l'audience, et un push programmé reste annulable depuis l'historique tant qu'il n'est pas parti. Plafond 4 campagnes/24 h.",
   },
   "refund-management": {
     title: "Remboursements",
@@ -318,9 +318,9 @@ const HELP_ARTICLES: Record<string, { title: string; keywords: string[]; path: s
   },
   "customers-crm": {
     title: "Clients & CRM",
-    keywords: ["client", "customer", "crm", "segment", "rfm", "ban", "bannir", "fiche client", "historique", "export"],
+    keywords: ["client", "customer", "crm", "segment", "rfm", "ban", "bannir", "fiche client", "historique", "export", "segment sauvegardé", "segment enregistré", "mes segments", "saved segment", "cibler un segment"],
     path: "/owner/customers",
-    snippet: "La page Clients regroupe tous tes clients avec leur historique (visites, dépenses, panier moyen) et une segmentation automatique (fidèles, réguliers, à risque, inactifs). Tu peux bannir un client par email — le videur est alerté si son billet est scanné. Utilise les segments pour cibler tes campagnes email/SMS.",
+    snippet: "La page Clients regroupe tous tes clients avec leur historique (visites, dépenses, panier moyen) et une segmentation automatique RFM (champions, fidèles, prometteurs, nouveaux, à risque, dormants, perdus — calculée côté serveur, la même que le ciblage push). Tu peux bannir un client par email — le videur est alerté si son billet est scanné. SEGMENTS SAUVEGARDÉS : compose des filtres (segment RFM, palier, récence, pilier, churn), puis « Enregistrer comme segment » — le segment devient réutilisable comme audience dans les push ET les campagnes email (toujours croisé avec l'opt-in newsletter pour l'email). Le contenu est dynamique : recalculé à chaque envoi, un client qui ne matche plus en sort tout seul. L'outil list_saved_segments te donne la liste et la taille live de chaque segment.",
   },
   "analytics": {
     title: "Analytics",
@@ -479,6 +479,14 @@ const TOOLS = [
         },
         required: [],
       },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_saved_segments",
+      description: "List the venue's saved CRM segments (name + live customer count). Use when the owner asks about their segments, how many customers match one, or which segments exist.",
+      parameters: { type: "object", properties: {}, required: [] },
     },
   },
   {
@@ -995,6 +1003,29 @@ async function executeTool(
       }
 
       // ─── EVENTS ───
+      case "list_saved_segments": {
+        const { data: segs } = await supabase
+          .from("venue_segments")
+          .select("id, name, definition, created_at")
+          .eq("venue_id", venueId)
+          .order("created_at", { ascending: false })
+          .limit(20);
+        const withCounts = await Promise.all((segs || []).map(async (seg: { id: string; name: string; definition: unknown; created_at: string }) => {
+          const { data: n } = await supabase.rpc("count_venue_segment", {
+            p_venue_id: venueId, p_definition: seg.definition,
+          });
+          return {
+            name: seg.name,
+            customers_today: typeof n === "number" ? n : null,
+            conditions: Array.isArray((seg.definition as { conditions?: unknown[] })?.conditions)
+              ? ((seg.definition as { conditions: unknown[] }).conditions).length
+              : 0,
+            created_at: seg.created_at,
+          };
+        }));
+        return JSON.stringify({ segments: withCounts, note: "Segments are dynamic: counts are computed live. Owners create them from Clients > filters > Save as segment, and target them in Push and Email campaigns." });
+      }
+
       case "list_events": {
         const filter = args.filter || "upcoming";
         const now = new Date().toISOString();
