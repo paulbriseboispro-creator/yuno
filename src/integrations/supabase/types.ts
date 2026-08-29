@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   graphql_public: {
     Tables: {
@@ -4528,13 +4528,16 @@ export type Database = {
       }
       email_campaign_recipients: {
         Row: {
+          attempts: number
           campaign_id: string
+          claimed_at: string | null
           created_at: string
           email: string
           error_message: string | null
           first_name: string | null
           id: string
           last_name: string | null
+          next_attempt_at: string | null
           resend_email_id: string | null
           sent_at: string | null
           status: string
@@ -4542,13 +4545,16 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          attempts?: number
           campaign_id: string
+          claimed_at?: string | null
           created_at?: string
           email: string
           error_message?: string | null
           first_name?: string | null
           id?: string
           last_name?: string | null
+          next_attempt_at?: string | null
           resend_email_id?: string | null
           sent_at?: string | null
           status?: string
@@ -4556,13 +4562,16 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          attempts?: number
           campaign_id?: string
+          claimed_at?: string | null
           created_at?: string
           email?: string
           error_message?: string | null
           first_name?: string | null
           id?: string
           last_name?: string | null
+          next_attempt_at?: string | null
           resend_email_id?: string | null
           sent_at?: string | null
           status?: string
@@ -4583,26 +4592,35 @@ export type Database = {
         Row: {
           audience_type: string | null
           blocks_json: Json
+          bounced_count: number
           clicks_count: number
+          complained_count: number
           created_at: string
           created_by: string | null
+          delivered_count: number
           error_message: string | null
           event_id: string | null
+          failed_count: number
           html_body: string | null
           id: string
+          last_slice_at: string | null
           logo_url: string | null
           name: string
           opens_count: number
           organizer_user_id: string | null
+          paused_reason: string | null
           preheader: string | null
           recipients_count: number
           scheduled_at: string | null
           segment_id: string | null
+          send_started_at: string | null
           sent_at: string | null
           social_links_json: Json | null
           status: string
           subject: string
+          suppressed_count: number
           theme_json: Json | null
+          total_recipients: number
           type: string | null
           unsubscribes_count: number
           updated_at: string
@@ -4611,26 +4629,35 @@ export type Database = {
         Insert: {
           audience_type?: string | null
           blocks_json?: Json
+          bounced_count?: number
           clicks_count?: number
+          complained_count?: number
           created_at?: string
           created_by?: string | null
+          delivered_count?: number
           error_message?: string | null
           event_id?: string | null
+          failed_count?: number
           html_body?: string | null
           id?: string
+          last_slice_at?: string | null
           logo_url?: string | null
           name: string
           opens_count?: number
           organizer_user_id?: string | null
+          paused_reason?: string | null
           preheader?: string | null
           recipients_count?: number
           scheduled_at?: string | null
           segment_id?: string | null
+          send_started_at?: string | null
           sent_at?: string | null
           social_links_json?: Json | null
           status?: string
           subject: string
+          suppressed_count?: number
           theme_json?: Json | null
+          total_recipients?: number
           type?: string | null
           unsubscribes_count?: number
           updated_at?: string
@@ -4639,26 +4666,35 @@ export type Database = {
         Update: {
           audience_type?: string | null
           blocks_json?: Json
+          bounced_count?: number
           clicks_count?: number
+          complained_count?: number
           created_at?: string
           created_by?: string | null
+          delivered_count?: number
           error_message?: string | null
           event_id?: string | null
+          failed_count?: number
           html_body?: string | null
           id?: string
+          last_slice_at?: string | null
           logo_url?: string | null
           name?: string
           opens_count?: number
           organizer_user_id?: string | null
+          paused_reason?: string | null
           preheader?: string | null
           recipients_count?: number
           scheduled_at?: string | null
           segment_id?: string | null
+          send_started_at?: string | null
           sent_at?: string | null
           social_links_json?: Json | null
           status?: string
           subject?: string
+          suppressed_count?: number
           theme_json?: Json | null
+          total_recipients?: number
           type?: string | null
           unsubscribes_count?: number
           updated_at?: string
@@ -4748,6 +4784,211 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      email_list_imports: {
+        Row: {
+          attested_at: string
+          attested_by: string | null
+          collected_since: string | null
+          consent_details: string | null
+          consent_source: string
+          created_at: string
+          duplicate_count: number
+          filename: string | null
+          id: string
+          inserted_count: number
+          invalid_count: number
+          organizer_user_id: string | null
+          reactivated_count: number
+          submitted_count: number
+          suppressed_count: number
+          unchanged_count: number
+          venue_id: string | null
+        }
+        Insert: {
+          attested_at?: string
+          attested_by?: string | null
+          collected_since?: string | null
+          consent_details?: string | null
+          consent_source: string
+          created_at?: string
+          duplicate_count?: number
+          filename?: string | null
+          id?: string
+          inserted_count?: number
+          invalid_count?: number
+          organizer_user_id?: string | null
+          reactivated_count?: number
+          submitted_count?: number
+          suppressed_count?: number
+          unchanged_count?: number
+          venue_id?: string | null
+        }
+        Update: {
+          attested_at?: string
+          attested_by?: string | null
+          collected_since?: string | null
+          consent_details?: string | null
+          consent_source?: string
+          created_at?: string
+          duplicate_count?: number
+          filename?: string | null
+          id?: string
+          inserted_count?: number
+          invalid_count?: number
+          organizer_user_id?: string | null
+          reactivated_count?: number
+          submitted_count?: number
+          suppressed_count?: number
+          unchanged_count?: number
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_list_imports_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_list_imports_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_list_imports_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_send_quota: {
+        Row: {
+          day: string
+          scope_key: string
+          sent: number
+          updated_at: string
+        }
+        Insert: {
+          day?: string
+          scope_key: string
+          sent?: number
+          updated_at?: string
+        }
+        Update: {
+          day?: string
+          scope_key?: string
+          sent?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      email_sender_state: {
+        Row: {
+          daily_cap_override: number | null
+          first_send_at: string | null
+          lifetime_sent: number
+          organizer_user_id: string | null
+          restricted_reason: string | null
+          scope_key: string
+          trust_level: string
+          updated_at: string
+          venue_id: string | null
+        }
+        Insert: {
+          daily_cap_override?: number | null
+          first_send_at?: string | null
+          lifetime_sent?: number
+          organizer_user_id?: string | null
+          restricted_reason?: string | null
+          scope_key: string
+          trust_level?: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Update: {
+          daily_cap_override?: number | null
+          first_send_at?: string | null
+          lifetime_sent?: number
+          organizer_user_id?: string | null
+          restricted_reason?: string | null
+          scope_key?: string
+          trust_level?: string
+          updated_at?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_sender_state_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_sender_state_organizer_user_id_fkey"
+            columns: ["organizer_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_sender_state_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_suppressions: {
+        Row: {
+          campaign_id: string | null
+          created_at: string
+          email: string
+          id: string
+          metadata: Json
+          reason: string
+          scope_organizer_user_id: string | null
+          scope_venue_id: string | null
+          source: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          metadata?: Json
+          reason: string
+          scope_organizer_user_id?: string | null
+          scope_venue_id?: string | null
+          source?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          metadata?: Json
+          reason?: string
+          scope_organizer_user_id?: string | null
+          scope_venue_id?: string | null
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_suppressions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "email_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_templates: {
         Row: {
@@ -7454,9 +7695,14 @@ export type Database = {
       }
       newsletter_subscriptions: {
         Row: {
+          consent_recorded_at: string | null
+          consent_source: string | null
           created_at: string
           email: string
+          first_name: string | null
           id: string
+          import_id: string | null
+          last_name: string | null
           opted_in: boolean
           opted_out_at: string | null
           organizer_user_id: string | null
@@ -7467,9 +7713,14 @@ export type Database = {
           venue_id: string | null
         }
         Insert: {
+          consent_recorded_at?: string | null
+          consent_source?: string | null
           created_at?: string
           email: string
+          first_name?: string | null
           id?: string
+          import_id?: string | null
+          last_name?: string | null
           opted_in?: boolean
           opted_out_at?: string | null
           organizer_user_id?: string | null
@@ -7480,9 +7731,14 @@ export type Database = {
           venue_id?: string | null
         }
         Update: {
+          consent_recorded_at?: string | null
+          consent_source?: string | null
           created_at?: string
           email?: string
+          first_name?: string | null
           id?: string
+          import_id?: string | null
+          last_name?: string | null
           opted_in?: boolean
           opted_out_at?: string | null
           organizer_user_id?: string | null
@@ -7493,6 +7749,13 @@ export type Database = {
           venue_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "newsletter_subscriptions_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "email_list_imports"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "newsletter_subscriptions_organizer_user_id_fkey"
             columns: ["organizer_user_id"]
@@ -15402,6 +15665,10 @@ export type Database = {
           upsell_percent: number
         }[]
       }
+      campaign_circuit_breaker: {
+        Args: { p_campaign_id: string }
+        Returns: Json
+      }
       can_access_partnership: {
         Args: {
           _organizer_user_id: string
@@ -15475,6 +15742,16 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      claim_campaign_recipients: {
+        Args: { p_campaign_id: string; p_limit?: number }
+        Returns: {
+          attempts: number
+          email: string
+          first_name: string
+          last_name: string
+          unsubscribe_token: string
+        }[]
+      }
       claim_guest_list_invite_use: {
         Args: { _invite_id: string }
         Returns: boolean
@@ -15534,6 +15811,15 @@ export type Database = {
       confirm_ticket_reservation: {
         Args: { _reservation_id: string }
         Returns: undefined
+      }
+      consume_email_send_quota: {
+        Args: {
+          p_organizer_user_id?: string
+          p_requested: number
+          p_scope_key: string
+          p_venue_id?: string
+        }
+        Returns: number
       }
       consume_pack_credit: {
         Args: { p_credit_id: string; p_want: number }
@@ -15761,6 +16047,7 @@ export type Database = {
       dj_revoke_team_invitation: { Args: { p_id: string }; Returns: Json }
       dj_team_owner_ids: { Args: never; Returns: string[] }
       dj_user_from_slug: { Args: { p_slug: string }; Returns: string }
+      email_sender_daily_cap: { Args: { p_scope_key: string }; Returns: number }
       emit_admin_notification: {
         Args: {
           p_dedup_key?: string
@@ -15813,6 +16100,10 @@ export type Database = {
       end_support_session: { Args: { _session_id: string }; Returns: undefined }
       enforce_drinks_alcohol_gate: {
         Args: { p_org_id: string; p_rules: Json }
+        Returns: Json
+      }
+      enqueue_campaign_recipients: {
+        Args: { p_campaign_id: string }
         Returns: Json
       }
       enqueue_promoter_night_digests: { Args: never; Returns: Json }
@@ -16146,6 +16437,10 @@ export type Database = {
           sent_30d: number
           sent_total: number
         }[]
+      }
+      get_campaign_send_progress: {
+        Args: { p_campaign_id: string }
+        Returns: Json
       }
       get_collab_audience_overlap: {
         Args: { p_event_id: string }
@@ -16833,6 +17128,19 @@ export type Database = {
         Returns: boolean
       }
       hash_maintenance_password: { Args: { password: string }; Returns: string }
+      import_email_contacts: {
+        Args: {
+          p_collected_since?: string
+          p_consent_details?: string
+          p_consent_source: string
+          p_contacts: Json
+          p_filename?: string
+          p_import_id?: string
+          p_organizer_user_id?: string
+          p_venue_id?: string
+        }
+        Returns: Json
+      }
       increment_balance: {
         Args: { amount: number; current_val: number }
         Returns: number
@@ -16871,6 +17179,7 @@ export type Database = {
         Args: { p_email: string; p_organizer_user_id: string }
         Returns: boolean
       }
+      is_email_suppressed: { Args: { p_email: string }; Returns: boolean }
       is_event_collab_participant: {
         Args: { p_event_id: string; p_user: string }
         Returns: boolean
@@ -16952,6 +17261,20 @@ export type Database = {
       manager_has_permission: {
         Args: { _permission: string; _user_id: string; _venue_id: string }
         Returns: boolean
+      }
+      mark_campaign_recipients_failed: {
+        Args: {
+          p_campaign_id: string
+          p_emails: string[]
+          p_error: string
+          p_max_attempts?: number
+          p_retry_at?: string
+        }
+        Returns: number
+      }
+      mark_campaign_recipients_sent: {
+        Args: { p_campaign_id: string; p_rows: Json }
+        Returns: number
       }
       match_djs_for_event: {
         Args: { p_event_id: string; p_limit?: number }
@@ -17166,6 +17489,10 @@ export type Database = {
       refresh_analytics_daily_rollup: { Args: never; Returns: undefined }
       refresh_analytics_rollup: { Args: never; Returns: undefined }
       refresh_user_send_profiles: { Args: never; Returns: number }
+      refund_email_send_quota: {
+        Args: { p_amount: number; p_scope_key: string }
+        Returns: undefined
+      }
       refund_sms_credits: {
         Args: {
           p_amount: number
@@ -17210,6 +17537,10 @@ export type Database = {
       }
       request_showcase_claim: { Args: { p_email: string }; Returns: Json }
       request_support_help: { Args: { _reason?: string }; Returns: string }
+      requeue_stale_campaign_claims: {
+        Args: { p_max_attempts?: number; p_stale_minutes?: number }
+        Returns: number
+      }
       reserve_table_slot: {
         Args: {
           _capacity_zone_id: string
@@ -17456,6 +17787,10 @@ export type Database = {
         Args: { p_date: string; p_reason?: string }
         Returns: undefined
       }
+      set_email_campaign_send_state: {
+        Args: { p_action: string; p_campaign_id: string }
+        Returns: Json
+      }
       set_event_sale_password: {
         Args: { p_event_id: string; p_password: string }
         Returns: undefined
@@ -17568,6 +17903,16 @@ export type Database = {
       store_mfa_totp_secret: {
         Args: { p_secret: string; p_user_id: string }
         Returns: undefined
+      }
+      suppress_email: {
+        Args: {
+          p_campaign_id?: string
+          p_email: string
+          p_metadata?: Json
+          p_reason: string
+          p_source?: string
+        }
+        Returns: boolean
       }
       sync_offline_scans: { Args: { p_scans: Json }; Returns: Json }
       sync_promoter_guestlist_parts: {

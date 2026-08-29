@@ -31,14 +31,12 @@ export interface SendProgress {
   daily_used: number;
 }
 
-// Cast : RPC neuves, `types.ts` sera régénéré après `supabase db push`.
-type LooseRpc = { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> };
-const rpc = supabase as unknown as LooseRpc;
-
 async function fetchSendProgress(campaignId: string): Promise<SendProgress | null> {
-  const { data, error } = await rpc.rpc('get_campaign_send_progress', { p_campaign_id: campaignId });
+  const { data, error } = await supabase.rpc('get_campaign_send_progress', { p_campaign_id: campaignId });
   if (error || !data) return null;
-  return data as SendProgress;
+  // La RPC est typée `Json` côté Supabase (elle renvoie un jsonb construit à la
+  // main) : la forme réelle est celle de SendProgress, définie juste au-dessus.
+  return data as unknown as SendProgress;
 }
 
 interface Props {
@@ -83,7 +81,7 @@ export default function CampaignSendProgress({ campaignId, onSettled, compact }:
   const act = useCallback(async (action: 'pause' | 'resume' | 'cancel') => {
     setActing(true);
     try {
-      const { error } = await rpc.rpc('set_email_campaign_send_state', {
+      const { error } = await supabase.rpc('set_email_campaign_send_state', {
         p_campaign_id: campaignId, p_action: action,
       });
       if (error) throw new Error(error.message);

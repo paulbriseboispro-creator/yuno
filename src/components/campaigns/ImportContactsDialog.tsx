@@ -30,6 +30,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { parseContactList, chunkContacts, type ParseResult, type ConsentSource } from '@/lib/emailImport';
 
@@ -122,12 +123,10 @@ export default function ImportContactsDialog({ open, onClose, scope, onImported 
 
     try {
       for (let i = 0; i < chunks.length; i++) {
-        // Cast : la RPC vient d'être créée, `types.ts` sera régénéré après le
-        // `supabase db push` (convention déjà en place dans le repo).
-        const { data, error } = await (supabase as unknown as {
-          rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
-        }).rpc('import_email_contacts', {
-          p_contacts: chunks[i],
+        const { data, error } = await supabase.rpc('import_email_contacts', {
+          // jsonb côté Postgres : la signature générée attend `Json`, et une
+          // interface TS sans index signature n'y est pas assignable telle quelle.
+          p_contacts: chunks[i] as unknown as Json,
           p_consent_source: consentSource,
           p_venue_id: scope.kind === 'venue' ? scope.venueId : null,
           p_organizer_user_id: scope.kind === 'organizer' ? scope.organizerId : null,
