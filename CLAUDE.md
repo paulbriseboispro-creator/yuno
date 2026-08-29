@@ -337,6 +337,53 @@ pour Excel FR/ES).
 - **Export audience pub** (`export_venue_ad_audience`) : contacts CONSENTANTS
   uniquement (opt-in newsletter ∪ SMS), gate owner — jamais la base brute.
 
+## Envoi de masse email (2026-08-29)
+
+Doc complète + runbook DNS : `docs/EMAIL_DELIVERABILITY.md`. Les règles
+intouchables :
+
+- **`send-campaign` est un worker de file, pas une boucle.** Il constitue la
+  file (`enqueue_campaign_recipients`), draine ~45 s, puis s'auto-chaîne ; le
+  cron `process-scheduled-campaigns` rattrape via `sweepSendingCampaigns()`.
+  Ne JAMAIS revenir à un envoi en une passe : à 3 000 adresses la fonction
+  dépassait le wall-clock et laissait la campagne à moitié partie.
+- **Deux garde-fous anti-doublon, les deux nécessaires** : `FOR UPDATE SKIP
+  LOCKED` dans `claim_campaign_recipients` (deux workers concurrents) ET la clé
+  d'idempotence Resend (worker tué entre l'appel HTTP et le marquage). Retirer
+  l'un des deux réintroduit un doublon.
+- **Marquage EN LOT obligatoire.** Un UPDATE par destinataire, c'est ce qui
+  faisait exploser le temps d'exécution. Passer par
+  `mark_campaign_recipients_sent/failed`.
+- **Le disjoncteur est la sécurité de la plateforme**, pas un confort :
+  > 0,2 % de plaintes ou > 5 % de bounces (échantillon ≥ 200) met la campagne en
+  pause. Il est appelé DANS la boucle et DANS `resend-webhook` — les signaux
+  arrivent en différé, c'est le webhook qui compte vraiment.
+- **La liste de suppression (`email_suppressions`) est globale et ne filtre QUE
+  le marketing.** Un hard bounce ou une plainte y entre même sans
+  `campaign_id` (donc depuis un transactionnel), et coupe `opted_in`. Un billet
+  de confirmation part toujours, même vers une adresse supprimée.
+- **Le plafond plateforme doit refléter le PLAN RESEND.** Semé à 90/jour (plan
+  gratuit : 100/jour, 3 000/mois, partagés avec TOUT le transactionnel). Passer
+  en Pro exige un `UPDATE email_sender_state SET daily_cap_override = 25000
+  WHERE scope_key = 'platform'`, sinon tout reste bridé. Dépasser le plan ne
+  ralentit pas l'envoi : Resend renvoie des 429, les destinataires épuisent
+  leurs tentatives et finissent en `failed` — on PERD des gens.
+- **Warm-up non contournable côté client** : `email_sender_daily_cap()`
+  (300 → 25 000 sur 6 jours) + plafond plateforme. Les quotas se consomment via
+  `consume_email_send_quota` (service_role only) ; un plafond atteint met la
+  campagne en attente du lendemain, ce n'est PAS un échec.
+- **Marketing et transactionnel doivent vivre sur des domaines séparés.**
+  `EMAIL_MARKETING_DOMAIN` (ex. `news.yunoapp.eu`) n'est lu que s'il est défini,
+  fallback sur `EMAIL_DOMAIN` : le poser avant la vérification Resend ferait
+  échouer 100 % des envois.
+- **Import de liste** (`import_email_contacts`) : attestation de consentement
+  obligatoire et horodatée, jamais de réactivation d'un désabonné explicite,
+  bloqué en session support. Envoyer une campagne l'est aussi
+  (`isSupportSessionToken` dans `send-campaign`) ; l'envoi de TEST reste ouvert.
+- **Le front ne décide plus du statut d'une campagne.** `sendNow` ne force plus
+  `status='failed'` en cas d'erreur réseau : l'envoi est asynchrone, il continue
+  côté serveur. Le serveur est seul maître du statut.
+
 ## Claude Design — design system public synchronisé
 
 Le design system **public** (et lui seul) est synchronisé vers claude.ai/design, projet

@@ -506,7 +506,7 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
         icon: 'Mail',
         actionLink: { labelKey: 'ohelp.action.goToCampaigns', path: '/campaigns' },
         relatedArticleIds: ['crm-setup', 'sms-credits', 'loyalty-setup'],
-        keywords: ['email', 'campagne', 'campaign', 'newsletter', 'marketing', 'gdpr', 'rgpd', 'open rate', 'taux ouverture', 'audience', 'segment', 'correo', 'envoi'],
+        keywords: ['email', 'campagne', 'campaign', 'newsletter', 'marketing', 'gdpr', 'rgpd', 'open rate', 'taux ouverture', 'audience', 'segment', 'correo', 'envoi', 'importer', 'import', 'liste', 'list', 'csv', 'base email', 'spam', 'delivrabilite', 'deliverability', 'masse', 'bulk', 'importar', 'lista'],
         sections: [
           { headingKey: 'ohelp.pg.campaigns.s1h', bodyKey: 'ohelp.pg.campaigns.s1b' },
           { headingKey: 'ohelp.pg.campaigns.s2h', bodyKey: 'ohelp.pg.campaigns.s2b', screenshotUrl: '/help/owner-campaigns.png' },
@@ -514,6 +514,9 @@ export const ownerHelpCategories: OwnerHelpCategory[] = [
           { headingKey: 'ohelp.pg.campaigns.s4h', bodyKey: 'ohelp.pg.campaigns.s4b' },
           { headingKey: 'ohelp.pg.campaigns.s5h', bodyKey: 'ohelp.pg.campaigns.s5b', type: 'warning' },
           { headingKey: 'ohelp.pg.campaigns.s6h', bodyKey: 'ohelp.pg.campaigns.s6b', type: 'tip' },
+          { headingKey: 'ohelp.pg.campaigns.s7h', bodyKey: 'ohelp.pg.campaigns.s7b', type: 'steps' },
+          { headingKey: 'ohelp.pg.campaigns.s8h', bodyKey: 'ohelp.pg.campaigns.s8b' },
+          { headingKey: 'ohelp.pg.campaigns.s9h', bodyKey: 'ohelp.pg.campaigns.s9b', type: 'warning' },
         ],
       },
       {
