@@ -26,6 +26,12 @@
 //                              is_showcase_shadow (migration 20260826110000).
 //                              La réclamation re-parente tout via
 //                              handoff_showcase_organizer.
+//   • "request-support-access" (admin) — crée (ou relance) une demande d'accès
+//                              assisté EN ATTENTE et prévient le pro par EMAIL
+//                              (en plus de la notif in-app + push posées par
+//                              les triggers) avec un bouton vers sa page
+//                              d'acceptation. Le consentement reste chez lui :
+//                              rien ne s'ouvre tant qu'il n'a pas approuvé.
 //
 // Le reset MFA se fait via la RPC admin_reset_user_mfa ; la suspension via
 // admin_set_user_suspended ; approbation/révocation d'un grant via les RPC
@@ -125,6 +131,117 @@ serve(async (req) => {
     const { data: adminRole } = await supabaseAdmin
       .from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
     if (!adminRole) return fail("Admin role required", 403);
+
+    // ── request-support-access : demande d'accès assisté + email au pro ────────
+    if (action === "request-support-access") {
+      const targetId: string | undefined = typeof body.userId === "string" ? body.userId : undefined;
+      const reason: string | null = typeof body.reason === "string" ? body.reason.trim() || null : null;
+      if (!targetId) return fail("userId is required", 400);
+      if (targetId === user.id) return fail("cannot_target_self", 400);
+
+      const { data: target } = await supabaseAdmin
+        .from("profiles")
+        .select("id, email, preferred_language, profile_type, first_name, organization_name")
+        .eq("id", targetId)
+        .maybeSingle();
+      if (!target?.email) return fail("target_not_found", 404);
+
+      // Un accord ouvert existe déjà ? Actif → rien à demander. En attente →
+      // on le RÉUTILISE et on renvoie l'email (bouton « Relancer »).
+      const { data: openGrant } = await supabaseAdmin
+        .from("admin_support_grants")
+        .select("id, status")
+        .eq("target_user_id", targetId)
+        .in("status", ["pending", "active"])
+        .gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (openGrant?.status === "active") {
+        return new Response(JSON.stringify({ success: true, already_active: true }), { headers: jsonHeaders });
+      }
+
+      let grantId = openGrant?.id ?? null;
+      if (!grantId) {
+        const { data: created, error: grantErr } = await supabaseAdmin
+          .from("admin_support_grants")
+          .insert({ target_user_id: targetId, requested_by: user.id, reason })
+          .select("id")
+          .single();
+        if (grantErr) return fail(grantErr.message, 500);
+        grantId = created.id;
+      }
+
+      // La page d'acceptation dépend du rôle du pro (chaque app a la sienne).
+      const { data: roleRows } = await supabaseAdmin
+        .from("user_roles").select("role").eq("user_id", targetId);
+      const roles = (roleRows ?? []).map((r: { role: string }) => r.role);
+      const acceptPath = roles.includes("owner")
+        ? "/owner/support-access"
+        : (roles.includes("organizer") || target.profile_type === "organizer")
+        ? "/organizer-app/support-access"
+        : roles.includes("manager")
+        ? "/manager/support-access"
+        : "/owner/support-access";
+
+      const lang: Lang = (["en", "es", "fr"].includes(target.preferred_language) ? target.preferred_language : "fr") as Lang;
+      const SUPPORT_COPY: Record<Lang, { subject: string; title: string; body: string; cta: string; footnote: string }> = {
+        fr: {
+          subject: "Yuno propose de configurer votre compte avec vous",
+          title: "L'équipe Yuno vous propose son aide",
+          body: `L'équipe Yuno demande votre accord pour ouvrir un accès d'assistance à votre compte et tout configurer avec vous.${reason ? ` Motif : ${reason}` : ""} Vos paiements, votre email de connexion et votre double authentification restent verrouillés, chaque action est journalisée, et vous coupez l'accès quand vous voulez.`,
+          cta: "Examiner et accepter la demande",
+          footnote: "Rien ne s'ouvre sans votre accord. Si vous n'êtes pas à l'origine de ce contact, ignorez cet email.",
+        },
+        en: {
+          subject: "Yuno offers to set up your account with you",
+          title: "The Yuno team offers to help",
+          body: `The Yuno team is asking for your approval to open a support access to your account and set everything up with you.${reason ? ` Reason: ${reason}` : ""} Your payments, login email and two-factor stay locked, every action is logged, and you can cut access anytime.`,
+          cta: "Review and accept the request",
+          footnote: "Nothing opens without your approval. If you weren't expecting this, just ignore this email.",
+        },
+        es: {
+          subject: "Yuno propone configurar tu cuenta contigo",
+          title: "El equipo de Yuno te ofrece su ayuda",
+          body: `El equipo de Yuno pide tu aprobación para abrir un acceso de asistencia a tu cuenta y configurarlo todo contigo.${reason ? ` Motivo: ${reason}` : ""} Tus pagos, tu email de acceso y tu doble factor permanecen bloqueados, cada acción queda registrada y puedes cortar el acceso cuando quieras.`,
+          cta: "Revisar y aceptar la solicitud",
+          footnote: "Nada se abre sin tu aprobación. Si no esperabas este contacto, ignora este email.",
+        },
+      };
+      const copy = SUPPORT_COPY[lang];
+
+      const resendApiKey = Deno.env.get("RESEND_API_KEY");
+      let emailSent = false;
+      if (resendApiKey) {
+        const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@yunoapp.eu";
+        const mail = buildSecureLink({
+          lang,
+          title: copy.title,
+          message: copy.body,
+          ctaLabel: copy.cta,
+          ctaUrl: `${APP_URL}${acceptPath}`,
+          footnote: copy.footnote,
+        });
+        const res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${resendApiKey}` },
+          body: JSON.stringify({ from: `Yuno <${fromEmail}>`, to: [target.email], subject: copy.subject, html: mail.html }),
+        });
+        if (!res.ok) {
+          const errBody = await res.text().catch(() => "");
+          console.error("[ADMIN-ACCOUNT-RECOVERY] support request email failed:", res.status, errBody);
+        } else {
+          emailSent = true;
+        }
+      }
+
+      return new Response(JSON.stringify({
+        success: true,
+        grant_id: grantId,
+        reused: !!openGrant,
+        emailSent,
+      }), { headers: jsonHeaders });
+    }
 
     // ── create-showcase-owner : compte fantôme d'une venue vitrine ─────────────
     if (action === "create-showcase-owner") {

@@ -88,20 +88,26 @@ export function SupportAccessPanel({ userId, userEmail, userName, roles }: Props
 
   const request = async () => {
     const reason = window.prompt(
-      "Motif de la demande (visible par le pro dans son app) :",
+      "Motif de la demande (visible par le pro dans son app et dans l'email) :",
       "Configuration de la soirée : guest lists, tables et billetterie.",
     );
     if (reason === null) return;
     setBusy(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await supabase.from('admin_support_grants').insert({
-      target_user_id: userId,
-      requested_by: user?.id,
-      reason: reason.trim() || null,
+    // Via l'edge : crée l'accord en attente ET envoie l'email d'acceptation au
+    // pro (en plus de la notif in-app + push posées par les triggers).
+    const { data, error } = await supabase.functions.invoke('admin-account-recovery', {
+      body: { action: 'request-support-access', userId, reason: reason.trim() },
     });
     setBusy(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success('Demande envoyée — le pro la voit dans son app.');
+    if (error || (data as { error?: string })?.error) {
+      toast.error((data as { error?: string })?.error ?? error?.message ?? 'Erreur');
+      return;
+    }
+    toast.success(
+      (data as { emailSent?: boolean })?.emailSent
+        ? 'Demande envoyée — email + notif dans son app.'
+        : 'Demande envoyée — le pro la voit dans son app.',
+    );
     load();
   };
 

@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  LifeBuoy, Loader2, LogIn, ShieldOff, Clock, Check, Search, History, ExternalLink,
+  LifeBuoy, Loader2, LogIn, ShieldOff, Clock, Check, Search, History, ExternalLink, Mail,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -213,21 +213,48 @@ export default function AdminSupportAccess() {
     setSearching(false);
   };
 
+  // La demande passe par l'edge : elle crée (ou réutilise) l'accord en attente
+  // ET envoie l'email au pro avec le bouton d'acceptation, en plus de la notif
+  // in-app + push posées par les triggers.
   const sendRequest = async () => {
     if (!picked || sending) return;
     setSending(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    const { error } = await supabase.from('admin_support_grants').insert({
-      target_user_id: picked.id,
-      requested_by: user?.id,
-      reason: reason.trim() || null,
+    const { data, error } = await supabase.functions.invoke('admin-account-recovery', {
+      body: { action: 'request-support-access', userId: picked.id, reason: reason.trim() },
     });
     setSending(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success(`Demande envoyée à ${displayName(picked)} — il la voit dans son app (notif + push).`);
+    if (error || (data as { error?: string })?.error) {
+      toast.error((data as { error?: string })?.error ?? error?.message ?? 'Erreur');
+      return;
+    }
+    if ((data as { already_active?: boolean })?.already_active) {
+      toast.info(`${displayName(picked)} t'a déjà accordé l'accès — il est dans « Accès accordés ».`);
+    } else {
+      toast.success(
+        (data as { emailSent?: boolean })?.emailSent
+          ? `Demande envoyée à ${displayName(picked)} — email + notif + push.`
+          : `Demande envoyée à ${displayName(picked)} (notif + push ; email indisponible).`,
+      );
+    }
     setRequestOpen(false);
     setQuery(''); setResults([]); setPicked(null);
     load();
+  };
+
+  // Re-notifier un pro qui n'a pas encore accepté : ré-envoie l'email sur
+  // l'accord en attente existant (l'edge le réutilise, pas de doublon).
+  const remind = async (g: GrantRow) => {
+    if (busy) return;
+    setBusy(true);
+    const { data, error } = await supabase.functions.invoke('admin-account-recovery', {
+      body: { action: 'request-support-access', userId: g.target_user_id, reason: g.reason ?? '' },
+    });
+    setBusy(false);
+    if (error || (data as { error?: string })?.error) {
+      toast.error((data as { error?: string })?.error ?? error?.message ?? 'Erreur');
+      return;
+    }
+    toast.success((data as { emailSent?: boolean })?.emailSent ? 'Email de relance envoyé.' : 'Relance impossible (email indisponible).');
   };
 
   // ── Ouvrir / révoquer (même mécanique que SupportAccessPanel) ─────────────
@@ -449,6 +476,9 @@ export default function AdminSupportAccess() {
                       <span style={pillStyle(AMBER, 'rgba(245,165,36,0.08)', 'rgba(245,165,36,0.25)')}>
                         Attend son accord
                       </span>
+                      <button onClick={() => remind(g)} disabled={busy} style={{ ...btn, opacity: busy ? 0.5 : 1 }}>
+                        <Mail className="h-4 w-4" />Relancer par email
+                      </button>
                       <button onClick={() => revoke(g.id)} disabled={busy} style={{ ...btn, opacity: busy ? 0.5 : 1 }}>
                         <ShieldOff className="h-4 w-4" />Annuler
                       </button>
