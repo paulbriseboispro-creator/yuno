@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Mail, Loader2, AlertCircle, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Plus, Mail, Loader2, AlertCircle, BarChart3, Upload } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useProfileType } from '@/hooks/useProfileType';
 import CampaignBuilder from '@/components/campaigns/CampaignBuilder';
 import CampaignReport from '@/components/campaigns/CampaignReport';
 import { slugifyVenueName } from '@/lib/emailCampaign';
+import ImportContactsDialog from '@/components/campaigns/ImportContactsDialog';
+import CampaignSendProgress from '@/components/campaigns/CampaignSendProgress';
 import {
   OrgPage, OrgPageHeader, OrgCard, OrgPill, OrgButton, OrgEmptyState,
   T1, T2, T3,
@@ -25,8 +27,10 @@ const STATUS_META: Record<string, { fr: string; en: string; es: string; tone: Pi
   draft: { fr: 'Brouillon', en: 'Draft', es: 'Borrador', tone: 'muted' },
   scheduled: { fr: 'Planifiée', en: 'Scheduled', es: 'Programada', tone: 'info' },
   sending: { fr: 'Envoi en cours', en: 'Sending', es: 'Enviando', tone: 'warn' },
+  paused: { fr: 'En pause', en: 'Paused', es: 'En pausa', tone: 'warn' },
   sent: { fr: 'Envoyée', en: 'Sent', es: 'Enviada', tone: 'success' },
   failed: { fr: 'Échec', en: 'Failed', es: 'Fallida', tone: 'danger' },
+  cancelled: { fr: 'Annulée', en: 'Cancelled', es: 'Cancelada', tone: 'muted' },
 };
 
 export default function OrgAppCampaigns() {
@@ -37,6 +41,7 @@ export default function OrgAppCampaigns() {
   const t = (fr: string, en: string, es?: string) => translate(language, fr, en, es);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
+  const [importOpen, setImportOpen] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -59,9 +64,14 @@ export default function OrgAppCampaigns() {
             title={t('Campagnes Email', 'Email campaigns', 'Campañas de email')}
             subtitle={t('Newsletter & emails de service à votre audience', 'Newsletter & service emails to your audience', 'Newsletter y emails de servicio para tu audiencia')}
             actions={
-              <OrgButton variant="primary" size="sm" onClick={() => navigate('/organizer-app/campaigns/new')}>
-                <Plus className="h-4 w-4" /> <span className="hidden sm:inline">{t('Nouvelle campagne', 'New campaign', 'Nueva campaña')}</span>
-              </OrgButton>
+              <div className="flex items-center gap-2">
+                <OrgButton variant="secondary" size="sm" onClick={() => setImportOpen(true)}>
+                  <Upload className="h-4 w-4" /> <span className="hidden sm:inline">{t('Importer ma liste', 'Import my list', 'Importar mi lista')}</span>
+                </OrgButton>
+                <OrgButton variant="primary" size="sm" onClick={() => navigate('/organizer-app/campaigns/new')}>
+                  <Plus className="h-4 w-4" /> <span className="hidden sm:inline">{t('Nouvelle campagne', 'New campaign', 'Nueva campaña')}</span>
+                </OrgButton>
+              </div>
             }
           />
         </div>
@@ -91,8 +101,10 @@ export default function OrgAppCampaigns() {
               const statusLabel = s ? t(s.fr, s.en, s.es) : c.status;
               const statusTone: PillTone = s?.tone ?? 'muted';
               const openRate = c.recipients_count > 0 ? ((c.opens_count / c.recipients_count) * 100).toFixed(1) : '0';
+              const inFlight = c.status === 'sending' || c.status === 'paused';
               return (
-                <OrgCard key={c.id} onClick={() => navigate(c.status === 'sent'
+                <div key={c.id} className="space-y-2">
+                <OrgCard onClick={() => navigate(['sent', 'sending', 'paused'].includes(c.status)
                   ? `/organizer-app/campaigns/${c.id}/report`
                   : `/organizer-app/campaigns/${c.id}/edit`)} className="cursor-pointer">
                   <div className="flex items-center justify-between gap-4 p-4">
@@ -113,11 +125,26 @@ export default function OrgAppCampaigns() {
                     </div>
                   </div>
                 </OrgCard>
+                {inFlight && (
+                  <CampaignSendProgress
+                    campaignId={c.id}
+                    onSettled={(status) => setCampaigns((prev) => prev.map((x) => x.id === c.id ? { ...x, status } : x))}
+                  />
+                )}
+                </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {user?.id && (
+        <ImportContactsDialog
+          open={importOpen}
+          onClose={() => setImportOpen(false)}
+          scope={{ kind: 'organizer', organizerId: user.id }}
+        />
+      )}
     </OrgPage>
   );
 }

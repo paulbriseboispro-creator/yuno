@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { OwnerPageSkeleton } from '@/components/DashboardSkeleton';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Mail, Loader2, AlertCircle, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Plus, Mail, Loader2, AlertCircle, BarChart3, Upload } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useVenueContext } from '@/hooks/useVenueContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import CampaignBuilder from '@/components/campaigns/CampaignBuilder';
 import CampaignReport from '@/components/campaigns/CampaignReport';
 import { slugifyVenueName } from '@/lib/emailCampaign';
+import ImportContactsDialog from '@/components/campaigns/ImportContactsDialog';
+import CampaignSendProgress from '@/components/campaigns/CampaignSendProgress';
 
 // ─── Yuno Design Tokens ──────────────────────────────────────────────────────
 const RED       = '#E8192C';
@@ -33,7 +35,9 @@ const STATUS_CFG: Record<string, { labelKey: string; color: string; bg: string; 
   scheduled: { labelKey: 'em.status.scheduled', color: T2,  bg: 'rgba(255,255,255,0.06)',       border: BORDER },
   sending:   { labelKey: 'em.status.sending',   color: '#FCD34D', bg: 'rgba(251,191,36,0.10)', border: 'rgba(251,191,36,0.25)' },
   sent:      { labelKey: 'em.status.sent',      color: POS, bg: 'rgba(52,211,153,0.10)',        border: 'rgba(52,211,153,0.25)' },
+  paused:    { labelKey: 'em.status.paused',    color: '#FCD34D', bg: 'rgba(251,191,36,0.10)', border: 'rgba(251,191,36,0.25)' },
   failed:    { labelKey: 'em.status.failed',    color: NEG, bg: 'rgba(255,92,99,0.08)',         border: 'rgba(255,92,99,0.20)' },
+  cancelled: { labelKey: 'em.status.cancelled', color: T3,  bg: INNER_BG,                       border: BORDER },
 };
 
 function Chip({ label, color, bg, border }: { label: string; color: string; bg: string; border: string }) {
@@ -53,6 +57,7 @@ export default function OwnerCampaigns() {
   const { venueId, venue } = useVenueContext();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
+  const [importOpen, setImportOpen] = useState(false);
 
   useEffect(() => {
     if (!venueId) return;
@@ -85,17 +90,30 @@ export default function OwnerCampaigns() {
               <p style={{ color: T3, fontSize: 13, margin: 0 }}>{t('em.subtitle')}</p>
             </div>
           </div>
-          <button
-            onClick={() => navigate('/owner/campaigns/new')}
-            className="flex items-center gap-2 cursor-pointer transition-all duration-150"
-            style={{
-              background: RED, color: '#fff', border: 'none',
-              padding: '9px 16px', borderRadius: 10, fontSize: 13.5, fontWeight: 600,
-            }}
-          >
-            <Plus className="w-4 h-4" />
-            {t('em.new')}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setImportOpen(true)}
+              className="flex items-center gap-2 cursor-pointer transition-all duration-150"
+              style={{
+                background: INNER_BG, color: T2, border: `1px solid ${BORDER}`,
+                padding: '9px 14px', borderRadius: 10, fontSize: 13.5, fontWeight: 600,
+              }}
+            >
+              <Upload className="w-4 h-4" />
+              <span className="hidden sm:inline">{t('em.import.button')}</span>
+            </button>
+            <button
+              onClick={() => navigate('/owner/campaigns/new')}
+              className="flex items-center gap-2 cursor-pointer transition-all duration-150"
+              style={{
+                background: RED, color: '#fff', border: 'none',
+                padding: '9px 16px', borderRadius: 10, fontSize: 13.5, fontWeight: 600,
+              }}
+            >
+              <Plus className="w-4 h-4" />
+              {t('em.new')}
+            </button>
+          </div>
         </div>
 
         {/* RGPD notice */}
@@ -132,10 +150,11 @@ export default function OwnerCampaigns() {
             {campaigns.map((c) => {
               const s = STATUS_CFG[c.status] || { labelKey: c.status, color: T3, bg: INNER_BG, border: BORDER };
               const openRate = c.recipients_count > 0 ? ((c.opens_count / c.recipients_count) * 100).toFixed(1) : '0';
+              const inFlight = c.status === 'sending' || c.status === 'paused';
               return (
+                <div key={c.id} className="space-y-2">
                 <button
-                  key={c.id}
-                  onClick={() => navigate(c.status === 'sent'
+                  onClick={() => navigate(['sent', 'sending', 'paused'].includes(c.status)
                     ? `/owner/campaigns/${c.id}/report`
                     : `/owner/campaigns/${c.id}/edit`)}
                   className="w-full text-left cursor-pointer transition-all duration-150"
@@ -169,11 +188,26 @@ export default function OwnerCampaigns() {
                     {c.status === 'sent' && <BarChart3 className="w-4 h-4" style={{ color: T3 }} />}
                   </div>
                 </button>
+                {inFlight && (
+                  <CampaignSendProgress
+                    campaignId={c.id}
+                    onSettled={(status) => setCampaigns((prev) => prev.map((x) => x.id === c.id ? { ...x, status } : x))}
+                  />
+                )}
+                </div>
               );
             })}
           </div>
         )}
       </div>
+
+      {venueId && (
+        <ImportContactsDialog
+          open={importOpen}
+          onClose={() => setImportOpen(false)}
+          scope={{ kind: 'venue', venueId }}
+        />
+      )}
     </div>
   );
 }

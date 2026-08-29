@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import CampaignSendProgress from '@/components/campaigns/CampaignSendProgress';
 import {
   buildPreviewHtml, DEFAULT_THEME,
   type EmailBlock, type EmailTheme, type SocialLinks,
@@ -221,6 +222,16 @@ export default function CampaignReport({ scope, basePath }: Props) {
           </div>
         ) : (
           <>
+            {/* Envoi en cours : suivi temps réel + pause / reprise / annulation.
+                La liste des campagnes route désormais ici (et non vers
+                l'éditeur) dès qu'une campagne est en vol — on n'édite pas un
+                email dont une moitié est déjà partie. */}
+            {(campaign.status === 'sending' || campaign.status === 'paused') && (
+              <div className="mb-5">
+                <CampaignSendProgress campaignId={campaign.id} />
+              </div>
+            )}
+
             {/* Tabs */}
             <div className="flex items-center gap-2 mb-5">
               {([

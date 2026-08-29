@@ -255,15 +255,34 @@ export default function CampaignBuilder({ scope, basePath }: Props) {
     if (!id) return;
     setSending(true);
     try {
+      // L'appel ne renvoie plus « tout est parti » : il renvoie le résultat de
+      // la PREMIÈRE tranche. Sur 5 000 destinataires, le reste part en tâche de
+      // fond (auto-chaînage + cron). Le compte rendu honnête vit désormais dans
+      // la barre de progression de la liste des campagnes.
       const { data, error } = await supabase.functions.invoke('send-campaign', { body: { campaign_id: id } });
       if (error) throw error;
-      const sent = (data as any)?.sent ?? recipientCount;
-      const failed = (data as any)?.failed ?? 0;
-      toast.success(`${t('em.toast.sentPrefix')} ${sent} ${t('em.toast.emailsWord')}${failed ? ` · ${failed} ${t('em.toast.failuresWord')}` : ''}`);
+      const res = (data ?? {}) as { sent?: number; remaining?: number; queued?: { total?: number } };
+      const total = res.queued?.total ?? recipientCount;
+      const remaining = res.remaining ?? 0;
+      if (remaining > 0) {
+        toast.success(
+          t('em.toast.sendQueued')
+            .replace('{sent}', String(res.sent ?? 0))
+            .replace('{total}', String(total)),
+        );
+      } else {
+        toast.success(`${t('em.toast.sentPrefix')} ${res.sent ?? total} ${t('em.toast.emailsWord')}`);
+      }
       navigate(basePath);
     } catch (e: any) {
+      // ON NE FORCE PLUS status='failed' ICI. L'envoi est asynchrone : une
+      // coupure réseau pendant la première tranche ne signifie pas que la
+      // campagne est morte — elle continue côté serveur. Écraser le statut
+      // ferait afficher « Échec » sur un envoi qui part réellement, et
+      // effacerait une pause disjoncteur légitime. Le serveur est seul maître
+      // du statut ; on redirige le pro vers la barre de progression.
       toast.error(e.message || t('em.toast.sendError'));
-      await supabase.from('email_campaigns').update({ status: 'failed', error_message: e.message }).eq('id', id);
+      navigate(basePath);
     } finally { setSending(false); setConfirmOpen(false); }
   };
 
