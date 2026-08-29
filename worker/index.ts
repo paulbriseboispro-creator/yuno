@@ -71,6 +71,54 @@ const ORIGIN = 'https://yunoapp.eu';
 // deploy that once lived on this domain. Serving a real 404 lets the engine drop the URL.
 const GHOST_ASSET_RE = /^\/(?:_next|static)\//;
 
+// Sortie de build hashée (Vite). Un miss ici DOIT être un vrai 404, jamais le shell SPA.
+// `_headers` estampille /assets/* en `immutable, max-age=31536000` : si le serveur répond
+// 200 + index.html pour un chunk absent (le temps qu'un déploiement se propage, ou parce
+// que le client tourne encore sur un index périmé), le navigateur — et le cache edge —
+// mémorisent du HTML *en tant que JavaScript* sous cette URL pour un an. La route casse
+// alors définitivement sur ce client avec « Failed to fetch dynamically imported module »,
+// et ni un rechargement ni une purge du service worker n'y changent quoi que ce soit.
+// Constaté le 2026-08-29 sur /affiliate-venue/:slug (chunks exclus du précache, donc
+// toujours cherchés au réseau au moment de la navigation — les plus exposés).
+const BUILD_ASSET_RE = /^\/assets\//;
+
+// 404 franc et non mémorisable. `no-store` interdit au navigateur comme au cache edge de
+// garder la réponse : le prochain essai repart au réseau et voit le fichier dès qu'il existe.
+function hardNotFound(): Response {
+  return new Response('Not Found', {
+    status: 404,
+    headers: {
+      'content-type': 'text/plain; charset=utf-8',
+      'cache-control': 'no-store',
+      'x-robots-tag': 'noindex',
+    },
+  });
+}
+
+// Sert le shell SPA pour une route applicative. `not_found_handling` vaut désormais "none",
+// donc Workers Assets ne réécrit plus les miss en index.html : le Worker est propriétaire du
+// fallback, et peut le REFUSER aux chemins qui ne doivent jamais être du HTML (chunks de
+// build, assets fantômes d'anciens frameworks).
+async function serveApp(request: Request, env: Env): Promise<Response> {
+  const asset = await env.ASSETS.fetch(request);
+  if (asset.status !== 404) return asset;
+  const url = new URL(request.url);
+  if (BUILD_ASSET_RE.test(url.pathname) || GHOST_ASSET_RE.test(url.pathname)) return hardNotFound();
+  // Le shell ne se sert qu'en lecture. Sur tout autre verbe on garde le 405 que renvoyait
+  // Workers Assets avant ce changement — et surtout on ne recycle PAS `request` comme init :
+  // son corps a déjà été lu par le premier ASSETS.fetch ci-dessus (« ReadableStream is
+  // disturbed »).
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return new Response('Method Not Allowed', {
+      status: 405,
+      headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' },
+    });
+  }
+  return env.ASSETS.fetch(
+    new Request(new URL('/', url), { method: request.method, headers: request.headers }),
+  );
+}
+
 interface Entity {
   title: string; // <title> + og:title + twitter:title
   description: string; // meta description + og/twitter description
@@ -1048,11 +1096,8 @@ export default {
     // own type, the fallback comes back as text/html.
     if (GHOST_ASSET_RE.test(url.pathname)) {
       const asset = await env.ASSETS.fetch(request);
-      if ((asset.headers.get('content-type') || '').includes('text/html')) {
-        return new Response('Not Found', {
-          status: 404,
-          headers: { 'content-type': 'text/plain; charset=utf-8', 'x-robots-tag': 'noindex' },
-        });
+      if (asset.status === 404 || (asset.headers.get('content-type') || '').includes('text/html')) {
+        return hardNotFound();
       }
       return asset;
     }
@@ -1069,7 +1114,7 @@ export default {
       if (request.method === 'GET' && CRAWLER_RE.test(ua)) {
         const entity = await resolveEntity(url, env);
         if (entity) {
-          const asset = await env.ASSETS.fetch(request);
+          const asset = await serveApp(request, env);
           const ct = asset.headers.get('content-type') || '';
           if (ct.includes('text/html')) {
             return new G.HTMLRewriter()
@@ -1105,7 +1150,7 @@ export default {
         }
         const entity = await resolveEntity(url, env);
         if (entity) {
-          const asset = await env.ASSETS.fetch(request);
+          const asset = await serveApp(request, env);
           const ct = asset.headers.get('content-type') || '';
           if (ct.includes('text/html')) {
             const transformed = new G.HTMLRewriter()
@@ -1126,6 +1171,6 @@ export default {
     } catch {
       // Enrichment is best-effort: on any error, serve the page untouched.
     }
-    return env.ASSETS.fetch(request);
+    return serveApp(request, env);
   },
 };
