@@ -9,8 +9,8 @@
 // /organizer-app/support-access — la même page pour les trois dashboards, comme
 // OwnerSupportRequest.
 
-import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useDashboardMode } from '@/contexts/DashboardModeContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -83,6 +83,15 @@ export default function SupportAccessSettings() {
   const [acting, setActing] = useState(false);
   const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
 
+  // Arrivée depuis l'EMAIL de demande (?approve=<grant_id>) : la décision
+  // s'ouvre d'elle-même en boîte de dialogue — inratable après le login.
+  // Le consentement reste un clic explicite ; « Annuler » laisse simplement la
+  // demande en attente sur la page. Une seule ouverture (pas de ré-ouverture
+  // après fermeture), et le paramètre est consommé.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [emailPromptGrant, setEmailPromptGrant] = useState<GrantRow | null>(null);
+  const emailPromptConsumed = useRef(false);
+
   const locale = language === 'fr' ? fr : language === 'es' ? es : enUS;
 
   const load = useCallback(async () => {
@@ -109,6 +118,18 @@ export default function SupportAccessSettings() {
   const pending = grants.find((g) => g.status === 'pending' && new Date(g.expires_at) > new Date());
   const active = grants.find((g) => g.status === 'active' && new Date(g.expires_at) > new Date());
   const liveSession = sessions.find((s) => s.status === 'active' && new Date(s.expires_at) > new Date());
+
+  useEffect(() => {
+    if (emailPromptConsumed.current || loading || !pending) return;
+    const requested = searchParams.get('approve');
+    if (!requested) return;
+    emailPromptConsumed.current = true;
+    // Le param désigne un accord précis, mais s'il a expiré/été remplacé on
+    // ouvre sur LA demande en attente courante — c'est elle qui compte.
+    setEmailPromptGrant(pending);
+    searchParams.delete('approve');
+    setSearchParams(searchParams, { replace: true });
+  }, [loading, pending, searchParams, setSearchParams]);
 
   const approve = async (id: string) => {
     setActing(true);
@@ -310,6 +331,31 @@ export default function SupportAccessSettings() {
           </>
         )}
       </div>
+
+      {/* Décision en arrivant depuis l'email : accepter ici, ou fermer et
+          retrouver la même demande en haut de la page. */}
+      <AlertDialog open={!!emailPromptGrant} onOpenChange={(v) => !v && setEmailPromptGrant(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('supportAccess.pendingTitle')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('supportAccess.pendingDesc')}
+              {emailPromptGrant?.reason ? ` « ${emailPromptGrant.reason} »` : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (emailPromptGrant) approve(emailPromptGrant.id);
+                setEmailPromptGrant(null);
+              }}
+            >
+              {t('supportAccess.acceptCta')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!confirmRevoke} onOpenChange={(v) => !v && setConfirmRevoke(null)}>
         <AlertDialogContent>

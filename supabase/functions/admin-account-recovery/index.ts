@@ -219,7 +219,9 @@ serve(async (req) => {
           title: copy.title,
           message: copy.body,
           ctaLabel: copy.cta,
-          ctaUrl: `${APP_URL}${acceptPath}`,
+          // ?approve= : la page ouvre d'office la boîte de décision à l'arrivée
+          // (après login si besoin) — le clic d'acceptation reste explicite.
+          ctaUrl: `${APP_URL}${acceptPath}?approve=${grantId}`,
           footnote: copy.footnote,
         });
         const res = await fetch("https://api.resend.com/emails", {
