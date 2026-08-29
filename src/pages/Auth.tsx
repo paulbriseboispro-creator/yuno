@@ -29,9 +29,13 @@ export default function Auth() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   // Priorité : ?redirect=… explicite, sinon la page protégée que l'utilisateur
-  // visait (RequireRole passe state={{ from: location }}) → il y revient après login.
+  // visait (RequireRole passe state={{ from: location }}) → il y revient après
+  // login. La query string est conservée : les liens profonds en dépendent
+  // (ex. l'email d'accès assisté porte ?approve=<grant> qui ouvre la boîte de
+  // décision à l'arrivée — sans elle, le clic email retombait sur la page nue).
+  const fromLocation = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from;
   const redirect = searchParams.get('redirect')
-    ?? (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
+    ?? (fromLocation?.pathname ? `${fromLocation.pathname}${fromLocation.search ?? ''}` : null)
     ?? null;
   const isReset = searchParams.get('reset') === 'true';
   const inviteToken = searchParams.get('invite');
