@@ -57,10 +57,6 @@ Deno.serve(async (req) => {
     const recipient = Array.isArray(data.to) ? data.to[0] : data.to;
     const resendEmailId = data.email_id || data.id;
 
-    if (!campaignId) {
-      return new Response(JSON.stringify({ ok: true, ignored: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
     const map: Record<string, string> = {
@@ -73,6 +69,36 @@ Deno.serve(async (req) => {
     const evt = map[eventType];
     if (!evt) return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
+    // ── Réputation : suppression AVANT tout le reste ────────────────────────
+    // Un bounce dur ou une plainte retire l'adresse pour TOUS les expéditeurs,
+    // qu'elle vienne d'une campagne ou d'un email transactionnel (donc même
+    // sans tag campaign_id). La liste de suppression n'est consultée qu'à la
+    // constitution d'une audience marketing : une confirmation de billet part
+    // toujours, même vers une adresse supprimée.
+    //
+    // Un bounce SOFT (boîte pleine, indisponibilité temporaire) ne supprime
+    // rien : l'adresse est valide, elle revivra.
+    const bounceType: string = (data.bounce?.type || data.bounce?.subType || '').toString().toLowerCase();
+    const isHardBounce = evt === 'bounced' && !bounceType.includes('soft') && !bounceType.includes('transient');
+
+    if (recipient && (isHardBounce || evt === 'complained')) {
+      try {
+        await admin.rpc('suppress_email', {
+          p_email: recipient,
+          p_reason: isHardBounce ? 'hard_bounce' : 'complaint',
+          p_source: 'resend_webhook',
+          p_campaign_id: campaignId ?? null,
+          p_metadata: { bounce: data.bounce ?? null, subject: data.subject ?? null },
+        });
+      } catch (e) {
+        console.error('suppress_email failed:', e);
+      }
+    }
+
+    if (!campaignId) {
+      return new Response(JSON.stringify({ ok: true, suppressed: isHardBounce || evt === 'complained' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     await admin.from('email_campaign_events').insert({
       campaign_id: campaignId,
       recipient_email: recipient || 'unknown',
@@ -81,7 +107,52 @@ Deno.serve(async (req) => {
       metadata: data,
     });
 
-    // Increment counters (only count first opened per email)
+    // ── Compteurs de campagne ───────────────────────────────────────────────
+    // delivered / bounced / complained alimentent le disjoncteur : ils doivent
+    // être exacts, donc comptés une seule fois par destinataire.
+    if (evt === 'delivered' || evt === 'bounced' || evt === 'complained') {
+      const { count } = await admin
+        .from('email_campaign_events')
+        .select('id', { count: 'exact', head: true })
+        .eq('campaign_id', campaignId)
+        .eq('event_type', evt)
+        .eq('recipient_email', recipient);
+
+      if (count === 1) {
+        const column = evt === 'delivered' ? 'delivered_count' : evt === 'bounced' ? 'bounced_count' : 'complained_count';
+        const { data: c } = await admin.from('email_campaigns').select(column).eq('id', campaignId).single();
+        await admin.from('email_campaigns')
+          .update({ [column]: Number((c as Record<string, unknown> | null)?.[column] || 0) + 1 })
+          .eq('id', campaignId);
+      }
+
+      if (recipient && (evt === 'bounced' || evt === 'complained')) {
+        // `.eq` en minuscules, PAS `.ilike` : dans un motif LIKE, le `_` d'une
+        // adresse (jean_bon@x.fr) est un joker et marquerait le mauvais
+        // destinataire. La file stocke déjà les adresses en minuscules
+        // (enqueue_campaign_recipients normalise), donc l'égalité suffit.
+        await admin.from('email_campaign_recipients')
+          .update({ status: evt })
+          .eq('campaign_id', campaignId)
+          .eq('email', String(recipient).toLowerCase());
+      }
+
+      // Disjoncteur : c'est ICI qu'il compte vraiment. Les signaux arrivent en
+      // différé, donc une campagne encore en vol peut se couper toute seule
+      // avant d'avoir vidé la file.
+      if (evt === 'bounced' || evt === 'complained') {
+        try {
+          const { data: verdict } = await admin.rpc('campaign_circuit_breaker', { p_campaign_id: campaignId });
+          if (verdict?.paused) {
+            console.warn(`circuit breaker: campagne ${campaignId} en pause (${verdict.reason})`);
+          }
+        } catch (e) {
+          console.error('circuit breaker failed:', e);
+        }
+      }
+    }
+
+    // Ouvertures / clics : premier événement par destinataire seulement.
     if (evt === 'opened') {
       const { count } = await admin
         .from('email_campaign_events')

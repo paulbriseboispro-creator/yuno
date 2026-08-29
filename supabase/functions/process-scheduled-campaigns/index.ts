@@ -8,6 +8,7 @@ import { dispatchLiveOpsAlerts } from "../_shared/live-ops-alerts.ts";
 import { dispatchPromoterPushes } from "../_shared/promoter-push.ts";
 import { dispatchAudienceWeeklyRecaps } from "../_shared/audience-weekly-recap.ts";
 import { dispatchCustomerAutomations } from "../_shared/customer-automations.ts";
+import { sweepSendingCampaigns } from "../_shared/campaign-drain-sweeper.ts";
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, content-type' };
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -55,6 +56,16 @@ Deno.serve(async (req) => {
       } catch (e) {
         await admin.from('email_campaigns').update({ status: 'failed', error_message: String(e) }).eq('id', c.id);
       }
+    }
+
+    // Envois de masse en cours : libérer les réservations mortes et relancer
+    // une tranche. C'est le filet sous l'auto-chaînage de send-campaign — une
+    // campagne interrompue reprend ici, au pire une minute plus tard.
+    let emailSweep: unknown = null;
+    try {
+      emailSweep = await sweepSendingCampaigns(admin, SUPABASE_URL, SERVICE_KEY);
+    } catch (e) {
+      console.error('sweepSendingCampaigns error:', e);
     }
 
     // Campagnes PUSH planifiées (admin + clubs) — même mécanique que l'email :
