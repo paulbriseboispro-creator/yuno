@@ -277,6 +277,7 @@ const AdminAffiliates = lazyWithRetry(() => import("./pages/admin/AdminAffiliate
 const AdminEvents = lazyWithRetry(() => import("./pages/admin/AdminEvents"));
 const AdminAuditLog = lazyWithRetry(() => import("./pages/admin/AdminAuditLog"));
 const AdminDemoAccess = lazyWithRetry(() => import("./pages/admin/AdminDemoAccess"));
+const AdminSupportAccess = lazyWithRetry(() => import("./pages/admin/AdminSupportAccess"));
 const AdminAlerts = lazyWithRetry(() => import("./pages/admin/AdminAlerts"));
 const AccountSuspended = lazyWithRetry(() => import("./pages/AccountSuspended"));
 
@@ -1150,6 +1151,7 @@ const App = () => (
                   <Route path="organizers" element={<AdminPlatformInvitations />} />
                   <Route path="affiliates" element={<AdminAffiliates />} />
                   <Route path="demo-access" element={<AdminDemoAccess />} />
+                  <Route path="support" element={<AdminSupportAccess />} />
                   <Route path="audit" element={<AdminAuditLog />} />
                 </Route>
 
