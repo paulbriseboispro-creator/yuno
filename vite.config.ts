@@ -115,6 +115,19 @@ export default defineConfig({
               cacheName: 'app-assets-cache',
               expiration: { maxEntries: 300, maxAgeSeconds: 30 * 24 * 3600 },
               cacheableResponse: { statuses: [0, 200] },
+              plugins: [
+                {
+                  // Ceinture + bretelles avec le 404 franc du Worker : ne JAMAIS mémoriser
+                  // du HTML sous une URL de chunk hashé. Si quoi que ce soit répond le shell
+                  // SPA pour un /assets/* absent (déploiement en cours de propagation, index
+                  // périmé), CacheFirst épinglerait ce mensonge 30 jours et la route serait
+                  // morte hors ligne comme en ligne.
+                  cacheWillUpdate: async ({ response }) =>
+                    (response.headers.get('content-type') || '').includes('text/html')
+                      ? null
+                      : response,
+                },
+              ],
             },
           },
           {
