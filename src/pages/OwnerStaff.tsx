@@ -218,7 +218,19 @@ export default function OwnerStaff() {
       }
       // C&C manager only applies if the invited person already has a profile at this venue.
       if (formData.roles.includes('barman') && formData.isClickCollectManager) {
-        const { data: profileData } = await supabase.from('profiles').select('id').eq('email', formData.email.toLowerCase()).maybeSingle();
+        // Cherché DANS le club, et sans `maybeSingle()` : deux profils peuvent
+        // porter le même email (héritage d'une suppression douce, cf.
+        // docs/ORPHAN_PROFILES.md) et PostgREST refuse alors de coercer en objet
+        // unique — l'invitation venait de partir, et l'écran affichait « impossible
+        // d'ajouter l'employé ». Le filtre par venue dit exactement l'intention
+        // écrite au-dessus : la personne a déjà un profil DANS CE club.
+        const { data: profileRows } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', formData.email.toLowerCase())
+          .eq('venue_id', venueId)
+          .limit(1);
+        const profileData = profileRows?.[0];
         if (profileData) {
           await supabase.from('profiles').update({ is_click_collect_manager: false }).eq('venue_id', venueId).eq('is_click_collect_manager', true);
           await supabase.from('profiles').update({ is_click_collect_manager: true }).eq('id', profileData.id);

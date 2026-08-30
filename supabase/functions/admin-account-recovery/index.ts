@@ -276,12 +276,17 @@ serve(async (req) => {
         password: crypto.randomUUID() + crypto.randomUUID(),
       });
       if (createErr) {
-        const { data: existing } = await supabaseAdmin
-          .from("profiles").select("id").eq("email", email).maybeSingle();
-        if (!existing || existing.id !== venue.showcase_shadow_owner_id) {
+        // Jamais `maybeSingle()` sur un email : deux profils peuvent le porter
+        // (suppression douce, cf. docs/ORPHAN_PROFILES.md), PostgREST renvoie
+        // alors PGRST116 et la reprise était refusée à tort. On prend toutes les
+        // lignes et on cherche celle qui EST le fantôme de cette vitrine.
+        const { data: existingRows } = await supabaseAdmin
+          .from("profiles").select("id").eq("email", email);
+        const match = (existingRows ?? []).find((p) => p.id === venue.showcase_shadow_owner_id);
+        if (!match) {
           return fail("email_already_used", 409);
         }
-        shadowId = existing.id;
+        shadowId = match.id;
       } else {
         shadowId = created.user.id;
       }
@@ -351,16 +356,20 @@ serve(async (req) => {
         password: crypto.randomUUID() + crypto.randomUUID(),
       });
       if (createErr) {
-        const { data: existing } = await supabaseAdmin
-          .from("profiles").select("id").eq("email", email).maybeSingle();
-        if (!existing) return fail("email_already_used", 409);
-        const { data: orgRow } = await supabaseAdmin
+        // Même raison qu'au-dessus : un email peut porter plusieurs profils, on
+        // ne coerce pas en objet unique. On garde celui qui est réellement le
+        // fantôme d'une vitrine orga.
+        const { data: existingRows } = await supabaseAdmin
+          .from("profiles").select("id").eq("email", email);
+        const candidates = (existingRows ?? []).map((p) => p.id);
+        if (candidates.length === 0) return fail("email_already_used", 409);
+        const { data: orgRows } = await supabaseAdmin
           .from("organizer_profiles")
           .select("user_id, is_showcase_shadow")
-          .eq("user_id", existing.id)
-          .maybeSingle();
-        if (!orgRow?.is_showcase_shadow) return fail("email_already_used", 409);
-        shadowId = existing.id;
+          .in("user_id", candidates);
+        const shadowRow = (orgRows ?? []).find((r) => r.is_showcase_shadow);
+        if (!shadowRow) return fail("email_already_used", 409);
+        shadowId = shadowRow.user_id;
         alreadyShadow = true;
       } else {
         shadowId = created.user.id;
