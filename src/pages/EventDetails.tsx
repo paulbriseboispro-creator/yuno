@@ -999,36 +999,57 @@ export default function EventDetails() {
         {canUserAccessSales && !hasTicketsOrTables && hasPublicGuestList && (
           <section style={{ padding: '20px 20px 0' }}>
             <p className="section-label-ruled mb-3">{t('guestList.title')}</p>
-            <div style={{ border: '1px solid rgba(16,185,129,0.28)', borderRadius: 4, padding: '16px 20px', background: 'rgba(16,185,129,0.04)' }}>
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="font-display font-bold text-white" style={{ fontSize: 'clamp(22px, 5vw, 32px)', letterSpacing: '-0.025em', lineHeight: 1 }}>
-                    {t('guestList.free')}
-                  </p>
-                  {publicGuestList?.free_before_time && (
-                    <p className="font-mono mt-1.5" style={{ fontSize: '11px', color: '#9A9A9A', letterSpacing: '0.04em' }}>
-                      {t('guestList.freeBeforeTime')} {publicGuestList.free_before_time.substring(0, 5)}
-                    </p>
-                  )}
-                  {publicGuestList?.includes_drink && (
-                    <p className="font-mono mt-1" style={{ fontSize: '11px', color: 'rgba(16,185,129,0.85)', letterSpacing: '0.04em' }}>
-                      {t('guestList.drinkIncluded')}
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={() => navigate(`${checkoutBase}/billets`, { state: { eventId } })}
-                  className="shrink-0 font-mono font-bold uppercase"
-                  style={{ height: 44, padding: '0 22px', background: '#10B981', color: '#04120C', border: 'none', borderRadius: 3, fontSize: '11px', cursor: 'pointer', letterSpacing: '0.10em', transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1)', WebkitTapHighlightColor: 'transparent' } as React.CSSProperties}
-                  onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.97)')}
-                  onMouseUp={(e) => (e.currentTarget.style.transform = '')}
-                  onMouseLeave={(e) => (e.currentTarget.style.transform = '')}
-                  onTouchStart={(e) => (e.currentTarget.style.transform = 'scale(0.97)')}
-                  onTouchEnd={(e) => (e.currentTarget.style.transform = '')}
-                >
-                  {t('guestList.register')}
-                </button>
+            <div style={{ border: '1px solid rgba(16,185,129,0.28)', borderRadius: 4, padding: '18px 20px 20px', background: 'rgba(16,185,129,0.04)' }}>
+              {/* Le « gratuit » est la valeur d'affiche de la soirée : il se lit
+                  au barème de la date géante du bloc Infos, pas au barème d'un
+                  sous-titre. Le badge boisson prend la place que le mot laisse
+                  libre, et se replie tout seul sous lui quand la langue est
+                  longue (« GRATUIT » + « BOISSON OFFERTE » ne tiennent pas sur
+                  une ligne de téléphone) — d'où flex-wrap + un mot insécable. */}
+              <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+                <p className="font-display font-bold text-white shrink-0 whitespace-nowrap" style={{ fontSize: 'clamp(34px, 11vw, 52px)', letterSpacing: '-0.04em', lineHeight: 0.85 }}>
+                  {t('guestList.free')}
+                </p>
+                {publicGuestList?.includes_drink && (
+                  <span className="font-mono font-bold uppercase shrink-0" style={{ fontSize: '9.5px', color: '#10B981', letterSpacing: '0.10em', border: '1px solid rgba(16,185,129,0.45)', borderRadius: 999, padding: '4px 10px', marginTop: 3, whiteSpace: 'nowrap' }}>
+                    {t('guestList.drinkIncluded')}
+                  </span>
+                )}
               </div>
+
+              {/* L'heure limite est une donnée, pas une fin de phrase : couple
+                  label mono / valeur, alignés aux deux bords comme le tableau
+                  d'infos juste en dessous. Avant, « Free entry before 01:00 »
+                  se cassait n'importe où dans une colonne étranglée. */}
+              {publicGuestList?.free_before_time && (
+                <div className="flex items-baseline justify-between gap-4 mt-4 pt-3.5" style={{ borderTop: '1px solid rgba(16,185,129,0.16)' }}>
+                  <span className="font-mono uppercase" style={{ fontSize: '10px', color: '#9A9A9A', letterSpacing: '0.12em', lineHeight: 1.5 }}>
+                    {t('guestList.freeBefore')}
+                  </span>
+                  <span className="font-mono font-bold text-white shrink-0" style={{ fontSize: '16px', letterSpacing: '0.01em' }}>
+                    {publicGuestList.free_before_time.substring(0, 5)}
+                  </span>
+                </div>
+              )}
+
+              {/* CTA pleine largeur : « S'inscrire gratuitement » ne tient pas
+                  dans la colonne résiduelle d'une ligne à deux colonnes — le
+                  libellé se repliait dans une boîte de 44px de haut. minHeight
+                  plutôt que height : si une traduction débordait un jour, le
+                  bouton grandit au lieu de rogner son texte. */}
+              <button
+                onClick={() => navigate(`${checkoutBase}/billets`, { state: { eventId } })}
+                className="w-full mt-5 flex items-center justify-center gap-2 font-mono font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                style={{ minHeight: 46, padding: '0 14px', background: '#10B981', color: '#04120C', border: 'none', borderRadius: 3, fontSize: '11px', cursor: 'pointer', letterSpacing: '0.08em', lineHeight: 1.3, transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1)', WebkitTapHighlightColor: 'transparent' } as React.CSSProperties}
+                onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.98)')}
+                onMouseUp={(e) => (e.currentTarget.style.transform = '')}
+                onMouseLeave={(e) => (e.currentTarget.style.transform = '')}
+                onTouchStart={(e) => (e.currentTarget.style.transform = 'scale(0.98)')}
+                onTouchEnd={(e) => (e.currentTarget.style.transform = '')}
+              >
+                <UserCheck className="h-4 w-4 shrink-0" />
+                <span>{t('guestList.register')}</span>
+              </button>
             </div>
           </section>
         )}
