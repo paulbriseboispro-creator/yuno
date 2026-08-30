@@ -1,6 +1,14 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
+import { wrapEmailWithBranding, type EmailLanguage } from "../_shared/email-branding.ts";
+import { formatEventDate } from "../_shared/event-time.ts";
+import {
+  entryTypeLabel,
+  guestListEntryEmailContent,
+  resolveGuestListBrandName,
+  resolveGuestListHolderName,
+} from "../_shared/guest-list-email.ts";
 
 /** Generate client-facing reservation code in YN-XXXXXX format */
 function generateReservationCode(): string {
@@ -39,6 +47,43 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[CREATE-GUEST-LIST-ENTRY] ${step}`, details ? JSON.stringify(details) : "");
 };
 
+const APP_URL = Deno.env.get("APP_BASE_URL") || "https://yunoapp.eu";
+
+/** Langue d'email valide, sinon anglais (défaut de l'app). */
+function normalizeLang(value: unknown): EmailLanguage | null {
+  return value === "fr" || value === "en" || value === "es" ? value : null;
+}
+
+/**
+ * Envoi Resend, best-effort. L'inscription est DÉJÀ enregistrée quand on
+ * arrive ici : un échec d'email ne doit jamais faire échouer la réservation ni
+ * faire croire à l'invité qu'il n'est pas sur la liste.
+ */
+async function sendResendEmail(to: string, subject: string, html: string): Promise<boolean> {
+  const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+  const RESEND_FROM = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@yunoapp.eu";
+  if (!RESEND_API_KEY) {
+    logStep("RESEND_API_KEY not set, skipping email");
+    return false;
+  }
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ from: RESEND_FROM, to: [to], subject, html }),
+    // Un tiers qui ne répond pas ne doit pas suspendre la fonction.
+    signal: AbortSignal.timeout(10000),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    logStep("Resend send failed", { to, status: res.status, body });
+    return false;
+  }
+  return true;
+}
+
 serve(async (req) => {
   // CORS locked to the app's own origins (yunoapp.eu, native app, local dev,
   // Cloudflare previews) instead of "*" — no arbitrary site drives this endpoint
@@ -57,7 +102,10 @@ serve(async (req) => {
       { auth: { persistSession: false } }
     );
 
-    const { shareToken, inviteToken, trackedLinkId, entryType, gender, promoterCode, guestEmail, guestFullName, guestPhone } = await req.json();
+    const { shareToken, inviteToken, trackedLinkId, entryType, gender, promoterCode, guestEmail, guestFullName, guestPhone, lang } = await req.json();
+    // Langue affichée au moment de l'inscription : c'est celle que l'invité
+    // vient de lire, donc celle de son email de confirmation.
+    const requestedLang = normalizeLang(lang);
 
     // Deux portes d'entrée : le lien public de la part (shareToken) ou un lien
     // unique personnel (inviteToken, table guest_list_invites).
@@ -158,7 +206,7 @@ serve(async (req) => {
 
     const glQuery = supabaseAdmin
       .from("guest_lists")
-      .select("*, events!inner(id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id)")
+      .select("*, events!inner(id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, poster_url, timezone)")
       .eq("is_active", true);
     const { data: guestList, error: glError } = await (guestListId
       ? glQuery.eq("id", guestListId)
@@ -387,16 +435,28 @@ serve(async (req) => {
       promoterId = guestList.promoter_id;
     }
 
-    // Create/update venue_customer (works for guests too — user_id is optional)
-    const nameParts = fullName.trim().split(" ");
-    await supabaseAdmin.rpc("get_or_create_venue_customer", {
-      p_venue_id: guestList.venue_id,
-      p_user_id: registrantUser?.id ?? null,
-      p_email: email.toLowerCase().trim(),
-      p_first_name: nameParts[0] || null,
-      p_last_name: nameParts.slice(1).join(" ") || null,
-      p_phone: phone || null,
-    });
+    // Fiche client du CLUB. `venue_customers.venue_id` et `.user_id` sont tous
+    // deux NOT NULL : appelée avec l'un des deux à NULL — soirée d'organisateur
+    // (venue_id NULL) ou inscription sans compte — la RPC lève une 23502 que
+    // personne ne lisait, l'erreur d'une RPC supabase-js n'étant pas jetée.
+    // On n'appelle donc que quand les deux existent, et on trace le reste :
+    // l'audience d'une soirée org-led se lit via get_organizer_customer_segments,
+    // qui compte désormais les inscriptions guest list.
+    const crmVenueId = guestList.venue_id ?? guestList.events.venue_id ?? guestList.events.partner_venue_id ?? null;
+    if (crmVenueId && registrantUser?.id) {
+      const nameParts = fullName.trim().split(" ");
+      const { error: crmError } = await supabaseAdmin.rpc("get_or_create_venue_customer", {
+        p_venue_id: crmVenueId,
+        p_user_id: registrantUser.id,
+        p_email: email.toLowerCase().trim(),
+        p_first_name: nameParts[0] || null,
+        p_last_name: nameParts.slice(1).join(" ") || null,
+        p_phone: phone || null,
+      });
+      if (crmError) console.error("get_or_create_venue_customer failed:", crmError);
+    } else {
+      logStep("Venue customer skipped", { hasVenue: !!crmVenueId, hasAccount: !!registrantUser?.id });
+    }
 
     // Un lien unique réserve sa place AVANT l'insertion (UPDATE conditionnel
     // atomique : deux claims concurrents ne dépassent jamais max_uses). Si le
@@ -505,6 +565,59 @@ serve(async (req) => {
       }
     }
 
+    // ── Email de confirmation « Vous êtes sur la Guest List » ────────────────
+    // La page d'inscription PROMET ce mail ("your QR code arrives by email").
+    // Il est d'autant plus vital que la majorité des inscrits arrivent sans
+    // compte : le QR affiché à l'écran est alors leur seule copie, et
+    // /my-orders ne leur rendra rien (la policy filtre sur user_id).
+    // Best-effort de bout en bout : l'entrée est créée, l'email ne peut plus la
+    // remettre en cause.
+    let emailSent = false;
+    try {
+      let recipientLang: EmailLanguage = requestedLang ?? "en";
+      if (!requestedLang) {
+        const { data: langProfile } = await supabaseAdmin
+          .from("profiles")
+          .select("preferred_language")
+          .eq("email", email.toLowerCase().trim())
+          .maybeSingle();
+        recipientLang = normalizeLang(langProfile?.preferred_language) ?? "en";
+      }
+
+      const brandName = await resolveGuestListBrandName(supabaseAdmin, guestList.events);
+      const invitedBy = await resolveGuestListHolderName(supabaseAdmin, guestList, brandName);
+      const eventDate = guestList.events.start_at
+        ? formatEventDate(
+            guestList.events.start_at,
+            { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" },
+            guestList.events.timezone,
+          )
+        : "";
+
+      const content = guestListEntryEmailContent({
+        eventTitle: guestList.events.title || "Événement",
+        eventDate,
+        venueName: brandName,
+        posterUrl: guestList.events.poster_url,
+        entryLabel: entryTypeLabel(resolvedEntryType, recipientLang),
+        invitedBy,
+        qrCode: entry.qr_code,
+        reservationCode,
+        ctaUrl: registrantUser ? `${APP_URL}/my-orders` : `${APP_URL}/auth?redirect=/my-orders`,
+        hasAccount: !!registrantUser,
+        lang: recipientLang,
+      });
+      const html = wrapEmailWithBranding(content, recipientLang, brandName);
+      emailSent = await sendResendEmail(
+        email.toLowerCase().trim(),
+        `Guest List - ${guestList.events.title || "Événement"}`,
+        html,
+      );
+      logStep("Confirmation email", { to: email.toLowerCase().trim(), sent: emailSent, lang: recipientLang });
+    } catch (emailErr) {
+      console.error("Confirmation email failed (non-blocking):", emailErr);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -523,6 +636,9 @@ serve(async (req) => {
         // Places restantes sur le lien unique après CETTE inscription (le front
         // propose « inscrire une autre personne » tant qu'il en reste).
         inviteRemaining: invite ? Math.max(0, invite.max_uses - invite.used_count - 1) : null,
+        // L'email de confirmation est-il RÉELLEMENT parti ? Le front n'a le droit
+        // de promettre un email que si c'est vrai ; sinon il dit de garder le QR.
+        emailSent,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

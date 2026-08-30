@@ -6113,6 +6113,8 @@ const es: Record<string, string> = {
   'guestList.freeBefore': 'Gratis antes de las',
   'guestList.drinkIncluded': 'Bebida incluida',
   'guestList.showQR': 'Muestra este QR en la entrada',
+  'guestList.emailSent': 'Un email de confirmación con tu código QR acaba de salir.',
+  'guestList.emailFailed': 'No pudimos enviarte el email — guarda este código QR (haz una captura).',
   'guestList.spotsLeft': 'plazas restantes',
   'guestList.listOpen': 'Lista abierta',
   'guestList.expired': 'Expirada',

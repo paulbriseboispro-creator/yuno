@@ -144,6 +144,9 @@ export default function GuestListSignup() {
   const [successEntryType, setSuccessEntryType] = useState<GLEntryType | null>(null);
   /** Id de l'entrée créée — clé du pass Apple Wallet proposé après inscription. */
   const [successEntryId, setSuccessEntryId] = useState<string | null>(null);
+  // L'email de confirmation est-il RÉELLEMENT parti ? On ne l'annonce que si
+  // le serveur le confirme ; sinon on dit de garder le QR.
+  const [successEmailSent, setSuccessEmailSent] = useState<boolean | null>(null);
 
   // Form (gender only - rest comes from profile)
   // Pre-fill from URL param when coming from a gender-specific share link
@@ -436,6 +439,8 @@ export default function GuestListSignup() {
     try {
       const { data, error } = await supabase.functions.invoke('create-guest-list-entry', {
         body: {
+          // Langue lue par l'invité = langue de son email de confirmation.
+          lang: language,
           // Lien unique (?invite=) OU lien public de la part.
           ...(inviteParam
             ? { inviteToken: inviteParam }
@@ -473,6 +478,7 @@ export default function GuestListSignup() {
       setSuccess(true);
       setSuccessEntryType((data.entry?.entryType as GLEntryType) || null);
       setSuccessEntryId((data.entry?.id as string) || null);
+      setSuccessEmailSent(typeof data.emailSent === 'boolean' ? data.emailSent : null);
       // Décompte local du lien unique (le serveur renvoie le restant réel).
       if (inviteMeta && typeof data.inviteRemaining === 'number') {
         setInviteMeta({ ...inviteMeta, usedCount: inviteMeta.maxUses - data.inviteRemaining });
@@ -739,6 +745,11 @@ export default function GuestListSignup() {
               <img src={qrImage} alt="QR Code" className="mx-auto rounded-lg" />
             )}
             <p className="text-xs text-muted-foreground">{t('guestList.showQR')}</p>
+            {successEmailSent !== null && (
+              <p className={`text-xs ${successEmailSent ? 'text-muted-foreground' : 'text-amber-500'}`}>
+                {t(successEmailSent ? 'guestList.emailSent' : 'guestList.emailFailed')}
+              </p>
+            )}
             {/* Apple Wallet — juste sous le QR, au moment où « ne pas le
                 reperdre » est l'action évidente. Le composant se masque hors
                 appareil Apple et pour une inscription sans compte (l'émission

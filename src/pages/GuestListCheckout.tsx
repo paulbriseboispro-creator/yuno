@@ -80,6 +80,8 @@ export default function GuestListCheckout() {
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
   const [gender, setGender] = useState<string>(genderParam || '');
   const [qrImage, setQrImage] = useState('');
+  // Ne promettre l'email que si le serveur confirme qu'il est parti.
+  const [emailSent, setEmailSent] = useState<boolean | null>(null);
   const [timeLeft, setTimeLeft] = useState('');
   // Guest registration (no account) — mirrors the ticket/table guest flow.
   const [guestName, setGuestName] = useState('');
@@ -305,6 +307,8 @@ export default function GuestListCheckout() {
       const { data, error } = await supabase.functions.invoke('create-guest-list-entry', {
         body: {
           shareToken: guestList.shareToken,
+          // Langue lue par l'invité = langue de son email de confirmation.
+          lang: language,
           gender: gender || undefined,
           promoterCode,
           // Guest contact info — the function uses these only when no valid JWT
@@ -325,6 +329,7 @@ export default function GuestListCheckout() {
       // champ local -- c'est celui qui est reellement stocke, donc le seul que la
       // fonction de rattachement acceptera comme preuve.
       if (data?.entry?.id) setEntryId(data.entry.id);
+      setEmailSent(typeof data?.emailSent === 'boolean' ? data.emailSent : null);
       setEntryEmail((data?.entry?.email || guestEmail).trim());
 
       if (data?.entry?.qrCode) {
@@ -463,6 +468,11 @@ export default function GuestListCheckout() {
             </div>
             {qrImage && <img src={qrImage} alt="QR Code" className="mx-auto rounded-lg" />}
             <p className="text-xs text-white/40">{t('guestList.showQR')}</p>
+            {emailSent !== null && (
+              <p className={`text-xs ${emailSent ? 'text-white/40' : 'text-amber-500'}`}>
+                {t(emailSent ? 'guestList.emailSent' : 'guestList.emailFailed')}
+              </p>
+            )}
             {/* Un invite sans compte n'a RIEN dans /my-orders : lui proposer d'y
                 aller etait une impasse. Le bouton n'apparait que pour quelqu'un
                 de connecte ; l'invite, lui, se voit proposer un compte. */}
