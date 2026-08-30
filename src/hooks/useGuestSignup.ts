@@ -11,7 +11,15 @@ export interface GuestSignupContext {
   /** Reference (order code / qr) used for the existing-account /claim redirect. */
   reference?: string;
   purchaseId: string;
-  purchaseType: string; // 'ticket' | 'table' | 'order'
+  purchaseType: string; // 'ticket' | 'table' | 'order' | 'guestlist'
+  /**
+   * Où envoyer quelqu'un dont l'email a DÉJÀ un compte. Par défaut : le parcours
+   * de récupération par OTP (`/claim`), câblé pour les billets, tables et
+   * boissons. La guest list n'y a pas sa place — son inscription est gratuite et
+   * la preuve de propriété se fait par simple correspondance d'email — elle
+   * passe donc son propre chemin de retour ici.
+   */
+  existingAccountRedirect?: string;
 }
 
 /**
@@ -67,6 +75,10 @@ export function useGuestSignup() {
             title: t('finalize.existingAccount'),
             description: t('finalize.existingAccountDesc'),
           });
+          if (ctx.existingAccountRedirect) {
+            navigate(`/auth?redirect=${encodeURIComponent(ctx.existingAccountRedirect)}`);
+            return;
+          }
           const ref = ctx.reference || ctx.purchaseId;
           navigate(
             `/auth?redirect=/claim?order=${encodeURIComponent(ref)}&type=${ctx.purchaseType}&email=${encodeURIComponent(ctx.email)}`,

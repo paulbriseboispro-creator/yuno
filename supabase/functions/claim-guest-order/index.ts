@@ -20,6 +20,32 @@ async function graduateGuestToCrm(admin: any, table: string, purchaseId: string,
     let spent = 0;
     let deltas = { order: 0, ticket: 0, table: 0 };
 
+    if (table === "guest_list_entries") {
+      // Une inscription guest list n'est PAS un achat : on crée (ou retrouve) le
+      // contact côté club, sans incrémenter la moindre statistique de dépense.
+      // Le club gagne un client identifié, pas un faux chiffre d'affaires.
+      const { data: e } = await admin.from("guest_list_entries")
+        .select("email, full_name, phone, guest_lists!inner(event_id)")
+        .eq("id", purchaseId).maybeSingle();
+      if (!e) return;
+      const eventId = (e.guest_lists as any)?.event_id;
+      if (!eventId) return;
+      // Co-soirée menée par un organisateur : events.venue_id est NULL, le club
+      // hôte vit dans partner_venue_id.
+      const { data: ev } = await admin.from("events")
+        .select("venue_id, partner_venue_id").eq("id", eventId).maybeSingle();
+      const vId = ev?.venue_id || ev?.partner_venue_id || null;
+      if (!vId || !e.email) return;
+      const parts = String(e.full_name || "").trim().split(" ");
+      await admin.rpc("get_or_create_venue_customer", {
+        p_venue_id: vId, p_user_id: userId, p_email: e.email,
+        p_first_name: parts[0] || null,
+        p_last_name: parts.slice(1).join(" ") || null,
+        p_phone: e.phone || null,
+      });
+      return;
+    }
+
     if (table === "orders") {
       const { data: o } = await admin.from("orders")
         .select("venue_id, user_email, guest_first_name, guest_last_name, guest_phone, total, status")
@@ -119,6 +145,11 @@ serve(async (req) => {
         }
         if (!data) return null;
         return { ...data, reference: data.reference_code || data.qr_code, email: data.user_email, table: 'table_reservations' };
+      } else if (type === 'guestlist') {
+        // Le parcours de récupération par OTP (/claim) n'est pas câblé pour les
+        // guest lists. Sans ce garde-fou explicite, on tombait dans la branche
+        // `orders` et on cherchait une inscription dans la table des boissons.
+        return null;
       } else {
         // Drink order numbers (DR-XXXXXX) are uppercase hex.
         const { data, error } = await supabaseAdmin
@@ -149,6 +180,23 @@ serve(async (req) => {
           .single();
         if (error || !data) return null;
         return { ...data, reference: data.reference_code || data.qr_code, email: data.user_email, table: 'table_reservations' };
+      } else if (type === 'guestlist') {
+        const { data, error } = await supabaseAdmin
+          .from("guest_list_entries")
+          .select("id, qr_code, reservation_code, email, full_name, phone, status, user_id")
+          .eq("id", pid)
+          .single();
+        if (error || !data) return null;
+        // `guest_list_entries` ne porte pas de colonne `claimed_by_user_id` :
+        // une inscription gratuite n'a qu'un propriétaire, `user_id`. On le
+        // remonte sous le nom attendu pour que le garde « déjà lié à un autre
+        // compte » fonctionne sans cas particulier en aval.
+        return {
+          ...data,
+          reference: data.reservation_code || data.qr_code,
+          claimed_by_user_id: data.user_id,
+          table: 'guest_list_entries',
+        };
       } else {
         const { data, error } = await supabaseAdmin
           .from("orders")
@@ -316,11 +364,16 @@ serve(async (req) => {
         throw new Error("L'email vérifié ne correspond pas à votre compte");
       }
 
-      const updateData: Record<string, any> = {
-        user_id: userId,
-        claimed_by_user_id: userId,
-        claimed_at: new Date().toISOString(),
-      };
+      // `guest_list_entries` n'a ni `claimed_by_user_id` ni `claimed_at` :
+      // écrire ces colonnes ferait échouer tout l'UPDATE et l'inscription
+      // resterait orpheline malgré un compte fraîchement créé.
+      const updateData: Record<string, any> = purchase.table === 'guest_list_entries'
+        ? { user_id: userId }
+        : {
+            user_id: userId,
+            claimed_by_user_id: userId,
+            claimed_at: new Date().toISOString(),
+          };
 
       await supabaseAdmin
         .from(purchase.table)
