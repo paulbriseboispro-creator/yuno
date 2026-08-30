@@ -16047,6 +16047,7 @@ export type Database = {
       dj_revoke_team_invitation: { Args: { p_id: string }; Returns: Json }
       dj_team_owner_ids: { Args: never; Returns: string[] }
       dj_user_from_slug: { Args: { p_slug: string }; Returns: string }
+      email_has_account: { Args: { _email: string }; Returns: boolean }
       email_sender_daily_cap: { Args: { p_scope_key: string }; Returns: number }
       emit_admin_notification: {
         Args: {
