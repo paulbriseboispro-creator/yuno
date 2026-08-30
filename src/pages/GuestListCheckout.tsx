@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { useEventRoute } from '@/hooks/useEventRoute';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
@@ -52,6 +52,7 @@ export default function GuestListCheckout() {
   const { eventId, basePath } = useEventRoute();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { t, language } = useLanguage();
   // Clavier iOS : garder le champ focus visible (formulaire long).
   useScrollIntoViewOnFocus();
@@ -82,8 +83,25 @@ export default function GuestListCheckout() {
   const [guestEmail, setGuestEmail] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
 
-  const backToSelection = () =>
-    navigate(eventId ? `${basePath}/billets` : '/', { state: { eventId } });
+  // Retour vers la sélection : on DÉPILE, comme partout ailleurs dans le tunnel
+  // (fiche event, billets, checkout billet). Empiler `/billets` d'ici enfermait
+  // l'utilisateur : la flèche de `/billets` dépile, elle retombait donc sur ce
+  // checkout, puis celle du checkout réempilait `/billets`… la fiche de la
+  // soirée devenait inatteignable. Tout retour du tunnel doit dépiler, sinon
+  // deux pages se renvoient la balle indéfiniment.
+  //
+  // Le point d'entrée est figé AU MONTAGE : `location.key` ne vaut 'default'
+  // que sur un chargement neuf (lien direct, rechargement). Le lire plus tard
+  // est faux — même piège que dans useBackConfirm. Sans ce garde-fou, un
+  // `navigate(-1)` sur un lien direct sortirait du site.
+  const isEntryPointRef = useRef(location.key === 'default');
+  const backToSelection = () => {
+    if (!isEntryPointRef.current) {
+      navigate(-1);
+      return;
+    }
+    navigate(eventId ? `${basePath}/billets` : '/', { replace: true, state: { eventId } });
+  };
 
   useEffect(() => {
     fetchGuestList();
