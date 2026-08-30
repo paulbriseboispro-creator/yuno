@@ -246,6 +246,16 @@ pour Excel FR/ES).
 ## Règles de travail
 
 - Toujours `git add <fichiers précis>` — jamais `git add -A`/`git add .` (parasites + binaires).
+- **Ne JAMAIS supprimer un compte « en douceur » (`should_soft_delete`)** — ni dans
+  le dashboard Supabase, ni en script. La suppression douce garde la ligne
+  `auth.users` (avec `deleted_at`), donc la FK `profiles_id_fkey` ne cascade PAS :
+  le profil survit sans compte, et une réinscription sur le même email crée un
+  SECOND profil. C'est l'origine des 7 profils orphelins recensés dans
+  `docs/ORPHAN_PROFILES.md` (dont deux qui possèdent un club). La suppression
+  franche (`admin.deleteUser(id)`, ce que fait déjà l'edge `delete-account`)
+  cascade correctement. Corollaire : ne jamais chercher un utilisateur par
+  `profiles.email` avec `.maybeSingle()` — sur un doublon, PostgREST renvoie
+  `PGRST116` et l'appel tombe.
 - **Notifications push automatiques** : toute nouvelle notif auto passe par le registre
   super admin (`platform_notification_settings`, page `/admin/notifications`). Push
   unitaire → `_shared/auto-push.ts` (`sendAutoPush` : gate + langue FR/EN/ES + tracking
@@ -446,3 +456,13 @@ secret `OPENAI_API_KEY` dans Supabase) :
 
 L'ancienne table `chatbot_training` (FAQ injectée dans le prompt) est abandonnée —
 ne pas la réintroduire : la connaissance versionnée dans le code est la seule source.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
