@@ -131,6 +131,9 @@ const CLIENT_KNOWLEDGE_BASE = `
 - Les places sont limitées (quota). Inscris-toi depuis la page de l'événement ou via un lien partagé par le club/promoteur.
 - Tu peux aussi recevoir un LIEN D'INVITATION PERSONNEL (par email ou message) : le type d'entrée y est déjà fixé et le lien a un nombre de places précis (ex. toi + 1 accompagnant). Tant qu'il reste des places sur ce lien, tu peux inscrire tes accompagnants (chacun avec son propre email). Si le lien affiche « épuisé » ou « désactivé », vois avec la personne qui t'a invité.
 - Un club/promoteur peut aussi t'ajouter DIRECTEMENT : dans ce cas ton QR d'entrée arrive par email, rien à faire (crée un compte avec le même email pour le retrouver dans « Mes Commandes »).
+- Tu peux t'inscrire SANS COMPTE : nom, email, téléphone suffisent, ta place est acquise tout de suite. Juste après, l'écran de confirmation te propose de créer ton compte Yuno en choisissant un mot de passe — ton inscription s'y rattache automatiquement et tu la retrouves dans « Mes Commandes ». C'est une proposition, jamais une obligation : ta place reste valable si tu passes ton chemin.
+- Si ton email a déjà un compte Yuno, l'écran t'envoie te connecter et ta place est rattachée à l'arrivée.
+- Sans compte, ta place existe quand même mais elle ne s'affiche PAS dans « Mes Commandes » (rien ne t'y identifie) : garde le QR reçu par email, ou crée ton compte avec le même email pour l'y retrouver.
 - Le club choisit d'afficher ou non le nombre de places restantes. Si le compteur n'apparaît pas, la liste indique simplement qu'elle est ouverte (et affichera « complet » quand elle le sera) — ce n'est jamais un bug, et ça ne veut pas dire qu'il reste peu de places. Ne JAMAIS inventer un nombre de places restantes qui n'est pas affiché.
 
 🍾 TABLES VIP — comment réserver
