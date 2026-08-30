@@ -209,13 +209,41 @@ function RevenueBars({ data: raw }: { data: { hour: string; revenue: number }[] 
 }
 
 // ─── Conversion funnel ribbon ─────────────────────────────────────────────────
+// Band edges use horizontal-handle cubics: both control points sit on the x
+// midpoint, flat at each end. Catmull-Rom overshot on the uneven column spacing
+// (edge anchors sit half a column apart, inner ones a full column), which drew
+// phantom waves through stages that are actually flat — a funnel of 1 visitor
+// then zeros rippled instead of collapsing cleanly.
+function ribbonEdge(pts: [number, number][], move: boolean): string {
+  let d = `${move ? 'M' : 'L'} ${pts[0][0]} ${pts[0][1]}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x1, y1] = pts[i];
+    const [x2, y2] = pts[i + 1];
+    if (y1 === y2) { d += ` L ${x2} ${y2}`; continue; }
+    const mx = (x1 + x2) / 2;
+    d += ` C ${mx} ${y1} ${mx} ${y2} ${x2} ${y2}`;
+  }
+  return d;
+}
+
+// Every pill in the ribbon reads the same way: a whole percent, with one decimal
+// only when a real but tiny share would otherwise round away to 0%.
+function funnelPct(n: number, total: number): string {
+  if (!total) return '0%';
+  const v = (n / total) * 100;
+  return v > 0 && v < 1 ? `${v.toFixed(1)}%` : `${Math.round(v)}%`;
+}
+
 function FunnelRibbon({ stages }: { stages: { label: string; n: number; pct: string }[] }) {
   if (!stages.length) return null;
   const W = 900, H = 260, cy = H / 2;
   const colW = W / stages.length;
   const vmax = stages[0].n || 1;
   const maxBand = 200;
-  const hAt = (i: number, scale: number) => Math.max(6, (stages[i].n / vmax) * maxBand) * scale;
+  // Floor applied after scaling: flooring before it gave each layer its own
+  // minimum, stacking three visible stripes across an empty funnel.
+  const HAIR = 2;
+  const hAt = (i: number, scale: number) => Math.max(HAIR, (stages[i].n / vmax) * maxBand * scale);
   const centers = stages.map((_, i) => (i + 0.5) * colW);
   const ax = [0, ...centers, W];
 
@@ -229,31 +257,32 @@ function FunnelRibbon({ stages }: { stages: { label: string; n: number; pct: str
     const hs = [hAt(0, L.scale), ...stages.map((_, i) => hAt(i, L.scale)), hAt(stages.length - 1, L.scale)];
     const top: [number, number][] = ax.map((x, i): [number, number] => [x, cy - hs[i] / 2]);
     const bot: [number, number][] = ax.map((x, i): [number, number] => [x, cy + hs[i] / 2]).reverse();
-    const topPath = smooth(top);
-    const botRev = smooth(bot);
-    const d = `${topPath} L ${bot[0][0]} ${bot[0][1]} ${botRev.replace(/^M[^C]*/, '')} Z`;
+    const d = `${ribbonEdge(top, true)} ${ribbonEdge(bot, false)} Z`;
     return <path key={li} d={d} fill={L.fill} opacity={L.op} />;
   });
 
-  const pills = stages.map((s, i) => {
-    const x = centers[i], pw = 58, ph = 28;
-    return (
-      <g key={i}>
-        <rect x={x - pw / 2} y={cy - ph / 2} width={pw} height={ph} rx={14} fill="rgba(255,255,255,0.94)" />
-        <text x={x} y={cy + 1} fill="#000" fontSize={13} fontWeight={700} textAnchor="middle" dominantBaseline="middle">{s.pct}</text>
-      </g>
-    );
-  });
-
+  // Pills render as HTML on top of the ribbon: the SVG is stretched to fill the
+  // card (preserveAspectRatio="none"), which squashed the percentages inside it.
   return (
-    <div style={{ width: '100%' }}>
+    <div className="relative" style={{ width: '100%' }}>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block', width: '100%', height: 220 }}>
         {ribbons}
         {stages.map((_, i) => i === 0 ? null : (
           <line key={i} x1={i * colW} x2={i * colW} y1={18} y2={H - 18} stroke={BORDER} strokeWidth={1} />
         ))}
-        {pills}
       </svg>
+      <div className="absolute inset-0 flex items-center pointer-events-none select-none">
+        {stages.map((s, i) => (
+          <div key={i} className="flex-1 flex justify-center">
+            <span
+              className="px-3 py-[5px] rounded-full text-[13px] font-bold leading-none tabular-nums"
+              style={{ background: 'rgba(255,255,255,0.94)', color: '#000' }}
+            >
+              {s.pct}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -565,10 +594,10 @@ export default function OrgAppAnalytics() {
 
   // Funnel stages (organizer visitor funnel)
   const funnelSteps = [
-    { label: tt('Visiteurs', 'Visitors'), n: funnel.visitors, pct: funnel.visitors > 0 ? '100%' : '0%' },
-    { label: tt('Panier', 'Added to cart'), n: funnel.addedToCart, pct: funnel.visitors > 0 ? ((funnel.addedToCart / funnel.visitors) * 100).toFixed(0) + '%' : '0%' },
-    { label: tt('Checkout', 'Checkout'), n: funnel.proceededToCheckout, pct: funnel.visitors > 0 ? ((funnel.proceededToCheckout / funnel.visitors) * 100).toFixed(0) + '%' : '0%' },
-    { label: tt('Conversions', 'Conversions'), n: funnel.completed, pct: funnel.visitors > 0 ? funnel.conversionRate.toFixed(1) + '%' : '0%' },
+    { label: tt('Visiteurs', 'Visitors'), n: funnel.visitors, pct: funnelPct(funnel.visitors, funnel.visitors) },
+    { label: tt('Panier', 'Added to cart'), n: funnel.addedToCart, pct: funnelPct(funnel.addedToCart, funnel.visitors) },
+    { label: tt('Checkout', 'Checkout'), n: funnel.proceededToCheckout, pct: funnelPct(funnel.proceededToCheckout, funnel.visitors) },
+    { label: tt('Conversions', 'Conversions'), n: funnel.completed, pct: funnelPct(funnel.completed, funnel.visitors) },
   ];
 
   // Donut: revenue mix by category (tickets + tables)
