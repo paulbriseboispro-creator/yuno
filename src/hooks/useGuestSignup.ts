@@ -80,9 +80,11 @@ export function useGuestSignup() {
             return;
           }
           const ref = ctx.reference || ctx.purchaseId;
-          navigate(
-            `/auth?redirect=/claim?order=${encodeURIComponent(ref)}&type=${ctx.purchaseType}&email=${encodeURIComponent(ctx.email)}`,
-          );
+          // `redirect` doit être encodé ENTIER : sans ça, `&type=` et `&email=`
+          // sont lus comme des paramètres de /auth, et /claim arrivait sans le
+          // type ni l'email de la commande à rattacher.
+          const claimPath = `/claim?order=${encodeURIComponent(ref)}&type=${ctx.purchaseType}&email=${encodeURIComponent(ctx.email)}`;
+          navigate(`/auth?redirect=${encodeURIComponent(claimPath)}`);
           return;
         }
         throw signUpError;
