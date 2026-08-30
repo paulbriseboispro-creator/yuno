@@ -4969,6 +4969,20 @@ const en: Record<string, string> = {
   'tconf.viewTicket': 'View my ticket',
   'tconf.skipNote': 'You can create your account later, anytime.',
   'tconf.accountFor': 'Linked to',
+  // Guest list confirmation — account creation
+  'glconf.accountLabel': 'Your Yuno account',
+  'glconf.accountPitch': 'Keep your spot, and every night after this one.',
+  'glconf.perkQr': 'Your QR code always with you, even offline',
+  'glconf.perkLoyalty': 'Earn loyalty points every night out',
+  'glconf.perkAlerts': 'First access to the next guest lists',
+  'glconf.createCta': 'Create my account',
+  'glconf.accountFor': 'Linked to',
+  'glconf.skipCta': 'Not now',
+  'glconf.skipNote': 'Your spot is already secured. You can create your account later.',
+  'glconf.created': 'Account created — your spot is linked to it.',
+  'glconf.linked': 'Your spot has been added to your account.',
+  'glconf.showPassword': 'Show password',
+  'glconf.hidePassword': 'Hide password',
 
   // Verify table payment
   'verify.reservationConfirmed': 'Reservation confirmed!',

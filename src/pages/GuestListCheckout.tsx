@@ -19,10 +19,11 @@ import { formatInTimeZone } from 'date-fns-tz';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { fr, es, enUS } from 'date-fns/locale';
 import { toast } from 'sonner';
-import { ArrowLeft, Clock, Wine, CheckCircle, Ticket, LogIn, PartyPopper, Calendar } from 'lucide-react';
+import { ArrowLeft, Clock, Wine, CheckCircle, Ticket, LogIn, PartyPopper, Calendar, QrCode as QrCodeIcon, Sparkles, Bell, UserPlus, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
 import QRCode from 'qrcode';
 import { haptics } from '@/lib/haptics';
 import { PublicPage } from '@/components/PublicPage';
+import { useGuestSignup } from '@/hooks/useGuestSignup';
 
 interface GuestListInfo {
   id: string;
@@ -82,6 +83,16 @@ export default function GuestListCheckout() {
   const [guestName, setGuestName] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
+  // Identifiants de l'inscription qui vient d'être créée — c'est ce couple
+  // (id + email) qui permet de rattacher l'inscription au compte créé juste
+  // après. Sans lui, l'invité repart avec un QR que personne ne peut relier.
+  const [entryId, setEntryId] = useState('');
+  const [entryEmail, setEntryEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [accountCreated, setAccountCreated] = useState(false);
+  const { submitting: signingUp, error: signupError, setError: setSignupError, signup } = useGuestSignup();
 
   // Retour vers la sélection : on DÉPILE, comme partout ailleurs dans le tunnel
   // (fiche event, billets, checkout billet). Empiler `/billets` d'ici enfermait
@@ -107,6 +118,31 @@ export default function GuestListCheckout() {
     fetchGuestList();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId, user]);
+
+  // Retour de connexion pour un email qui avait deja un compte : on rattache
+  // l'inscription maintenant que la session existe. La preuve est la meme que
+  // pour une creation de compte -- l'email authentifie doit etre celui de
+  // l'inscription -- et c'est le serveur qui la verifie.
+  const linkParam = searchParams.get('link');
+  useEffect(() => {
+    if (!linkParam || !user || authLoading) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await supabase.functions.invoke('claim-guest-order', {
+          body: { action: 'link_after_signup', purchaseId: linkParam, purchaseType: 'guestlist', userId: user.id },
+        });
+        if (cancelled) return;
+        toast.success(t('glconf.linked'));
+      } catch (err) {
+        console.error('Guest list link error:', err);
+      } finally {
+        if (!cancelled) navigate('/my-orders?tab=tickets', { replace: true });
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkParam, user, authLoading]);
 
   useEffect(() => {
     if (!guestList) return;
@@ -204,6 +240,41 @@ export default function GuestListCheckout() {
     }
   };
 
+  const accountPerks: Array<{ Icon: typeof QrCodeIcon; label: string }> = [
+    { Icon: QrCodeIcon, label: t('glconf.perkQr') },
+    { Icon: Sparkles, label: t('glconf.perkLoyalty') },
+    { Icon: Bell, label: t('glconf.perkAlerts') },
+  ];
+
+  // Transforme l'inscription invite en compte Yuno. Le compte est cree sur
+  // l'email de l'inscription, puis le serveur rattache l'inscription parce que
+  // l'email authentifie est exactement celui qu'elle porte.
+  // Email deja pris : on renvoie vers la connexion, avec `?link=` en retour --
+  // le rattachement se fera a l'arrivee, session en main. Le parcours OTP
+  // `/claim` des billets ne sait pas lire une guest list, on ne l'emprunte pas.
+  const handleCreateAccount = () => {
+    if (!entryEmail || !entryId) return;
+    const [firstName, ...rest] = guestName.trim().split(' ');
+    const back = `${location.pathname}${location.search ? location.search + '&' : '?'}link=${entryId}`;
+    signup(
+      {
+        email: entryEmail,
+        firstName: firstName || undefined,
+        lastName: rest.join(' ') || undefined,
+        purchaseId: entryId,
+        purchaseType: 'guestlist',
+        existingAccountRedirect: back,
+      },
+      password,
+      confirmPassword,
+      () => {
+        setAccountCreated(true);
+        toast.success(t('glconf.created'));
+        navigate('/my-orders?tab=tickets');
+      },
+    );
+  };
+
   const handleConfirm = async () => {
     if (!guestList || submitting) return;
     if ((guestList.quotaFemale !== null || guestList.quotaMale !== null) && !gender) {
@@ -236,6 +307,13 @@ export default function GuestListCheckout() {
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+
+      // Le couple (id, email) de l'inscription : c'est la cle du rattachement au
+      // compte propose juste apres. L'email vient de la reponse serveur, pas du
+      // champ local -- c'est celui qui est reellement stocke, donc le seul que la
+      // fonction de rattachement acceptera comme preuve.
+      if (data?.entry?.id) setEntryId(data.entry.id);
+      setEntryEmail((data?.entry?.email || guestEmail).trim());
 
       if (data?.entry?.qrCode) {
         const qrUrl = await QRCode.toDataURL(data.entry.qrCode, {
@@ -373,10 +451,112 @@ export default function GuestListCheckout() {
             </div>
             {qrImage && <img src={qrImage} alt="QR Code" className="mx-auto rounded-lg" />}
             <p className="text-xs text-white/40">{t('guestList.showQR')}</p>
-            <Button className="w-full" onClick={() => navigate('/my-orders')}>
-              <Ticket className="h-4 w-4 mr-2" />{t('guestList.viewInOrders')}
-            </Button>
+            {/* Un invite sans compte n'a RIEN dans /my-orders : lui proposer d'y
+                aller etait une impasse. Le bouton n'apparait que pour quelqu'un
+                de connecte ; l'invite, lui, se voit proposer un compte. */}
+            {(user || accountCreated) && (
+              <Button className="w-full" onClick={() => navigate('/my-orders?tab=tickets')}>
+                <Ticket className="h-4 w-4 mr-2" />{t('guestList.viewInOrders')}
+              </Button>
+            )}
           </motion.div>
+
+          {/* ---- Creation de compte ----
+              Meme mecanique que la confirmation de billet : l'inscription vient
+              d'etre faite avec un email, on propose de la transformer en compte
+              Yuno. Le mot de passe cree le compte sur CET email, et le serveur
+              rattache l'inscription parce que l'email authentifie est celui de
+              l'inscription. Proposition, jamais mur : le QR est deja acquis. */}
+          {!user && !accountCreated && entryEmail && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.15 }}
+              className="mt-6 border border-white/[0.08] bg-[#141414] p-5"
+              style={{ borderRadius: 12 }}
+            >
+              <p className="section-label-ruled" style={{ marginBottom: 14 }}>{t('glconf.accountLabel')}</p>
+              <h3 className="font-display font-bold" style={{ fontSize: 'clamp(19px, 4.6vw, 24px)', color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.08 }}>
+                {t('glconf.accountPitch')}
+              </h3>
+
+              <ul style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {accountPerks.map(({ Icon, label }) => (
+                  <li key={label} className="flex items-center gap-3">
+                    <span
+                      className="flex items-center justify-center flex-shrink-0"
+                      style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(16,185,129,0.09)', border: '1px solid rgba(16,185,129,0.22)' }}
+                    >
+                      <Icon style={{ width: 15, height: 15, color: '#10B981' }} />
+                    </span>
+                    <span className="font-sans text-left" style={{ fontSize: '13.5px', color: '#E5E5E5' }}>{label}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ position: 'relative' }}>
+                  {/* iOS WebKit garde son etat "secure text entry" si on ne fait
+                      que basculer type=password->text : la key force le remount
+                      pour que la revelation marche aussi en WebView. */}
+                  <Input
+                    key={showPassword ? 'gl-pwd-shown' : 'gl-pwd-hidden'}
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); if (signupError) setSignupError(''); }}
+                    placeholder={t('finalize.passwordPlaceholder')}
+                    autoComplete="new-password"
+                    style={{ paddingRight: 44 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute inset-y-0 right-0 flex items-center justify-center"
+                    style={{ width: 44, color: '#9A9A9A' }}
+                    aria-label={showPassword ? t('glconf.hidePassword') : t('glconf.showPassword')}
+                  >
+                    {showPassword ? <EyeOff style={{ width: 17, height: 17 }} /> : <Eye style={{ width: 17, height: 17 }} />}
+                  </button>
+                </div>
+                <Input
+                  key={showPassword ? 'gl-confirm-shown' : 'gl-confirm-hidden'}
+                  type={showPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => { setConfirmPassword(e.target.value); if (signupError) setSignupError(''); }}
+                  placeholder={t('finalize.confirmPlaceholder')}
+                  autoComplete="new-password"
+                />
+              </div>
+
+              {signupError && (
+                <p className="font-sans text-center" style={{ fontSize: '13px', color: '#E8192C', marginTop: 12 }}>{signupError}</p>
+              )}
+
+              <Button
+                className="w-full mt-4"
+                disabled={signingUp || !password || !confirmPassword}
+                onClick={handleCreateAccount}
+              >
+                {signingUp
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <><UserPlus className="h-4 w-4 mr-2" />{t('glconf.createCta')}</>}
+              </Button>
+
+              <p className="font-mono uppercase text-center truncate" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.06em', marginTop: 12 }}>
+                {t('glconf.accountFor')} {entryEmail}
+              </p>
+
+              <button
+                className="w-full flex items-center justify-center gap-2 font-sans"
+                style={{ marginTop: 16, fontSize: '13px', color: '#9A9A9A', minHeight: 40 }}
+                onClick={() => navigate('/')}
+              >
+                {t('glconf.skipCta')}
+                <ArrowRight style={{ width: 15, height: 15 }} />
+              </button>
+              <p className="font-sans text-center" style={{ fontSize: '12px', color: '#5A5A5E', marginTop: 8 }}>{t('glconf.skipNote')}</p>
+            </motion.div>
+          )}
         </div>
       </CheckoutShell>
     );
