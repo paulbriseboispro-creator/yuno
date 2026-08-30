@@ -1,13 +1,13 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
-import { wrapEmailWithBranding, type EmailLanguage } from "../_shared/email-branding.ts";
-import { formatEventDate } from "../_shared/event-time.ts";
+import type { EmailLanguage } from "../_shared/email-branding.ts";
+import { buildGuestListConfirmation, fmtDateParts } from "../_shared/email-templates.ts";
 import {
   entryTypeLabel,
-  guestListEntryEmailContent,
   resolveGuestListBrandName,
   resolveGuestListHolderName,
+  resolveGuestListPlace,
 } from "../_shared/guest-list-email.ts";
 
 /** Generate client-facing reservation code in YN-XXXXXX format */
@@ -206,7 +206,7 @@ serve(async (req) => {
 
     const glQuery = supabaseAdmin
       .from("guest_lists")
-      .select("*, events!inner(id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, poster_url, timezone)")
+      .select("*, events!inner(id, title, start_at, end_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, poster_url, timezone, location_address, location_city, location_is_secret, reveal_address_in_email)")
       .eq("is_active", true);
     const { data: guestList, error: glError } = await (guestListId
       ? glQuery.eq("id", guestListId)
@@ -586,33 +586,33 @@ serve(async (req) => {
 
       const brandName = await resolveGuestListBrandName(supabaseAdmin, guestList.events);
       const invitedBy = await resolveGuestListHolderName(supabaseAdmin, guestList, brandName);
-      const eventDate = guestList.events.start_at
-        ? formatEventDate(
-            guestList.events.start_at,
-            { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" },
-            guestList.events.timezone,
-          )
-        : "";
+      const place = await resolveGuestListPlace(supabaseAdmin, guestList.events);
+      const { day, month, time } = fmtDateParts(
+        guestList.events.start_at,
+        recipientLang,
+        guestList.events.timezone || "Europe/Paris",
+      );
 
-      const content = guestListEntryEmailContent({
+      const built = buildGuestListConfirmation({
+        lang: recipientLang,
+        firstName: fullName.trim().split(" ")[0] || undefined,
         eventTitle: guestList.events.title || "Événement",
-        eventDate,
         venueName: brandName,
-        posterUrl: guestList.events.poster_url,
+        posterUrl: guestList.events.poster_url || undefined,
+        day, month, openTime: time,
+        city: place.city || undefined,
+        address: place.address || undefined,
+        guestName: fullName.trim(),
         entryLabel: entryTypeLabel(resolvedEntryType, recipientLang),
         invitedBy,
-        qrCode: entry.qr_code,
-        reservationCode,
+        reference: reservationCode,
+        // free_before_time arrive en 'HH:MM:SS' : l'email n'affiche pas les secondes.
+        freeBefore: guestList.free_before_time ? String(guestList.free_before_time).slice(0, 5) : undefined,
+        qrDataUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(entry.qr_code)}`,
         ctaUrl: registrantUser ? `${APP_URL}/my-orders` : `${APP_URL}/auth?redirect=/my-orders`,
         hasAccount: !!registrantUser,
-        lang: recipientLang,
       });
-      const html = wrapEmailWithBranding(content, recipientLang, brandName);
-      emailSent = await sendResendEmail(
-        email.toLowerCase().trim(),
-        `Guest List - ${guestList.events.title || "Événement"}`,
-        html,
-      );
+      emailSent = await sendResendEmail(email.toLowerCase().trim(), built.subject, built.html);
       logStep("Confirmation email", { to: email.toLowerCase().trim(), sent: emailSent, lang: recipientLang });
     } catch (emailErr) {
       console.error("Confirmation email failed (non-blocking):", emailErr);

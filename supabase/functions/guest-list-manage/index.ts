@@ -9,17 +9,20 @@
 // partagée avec les policies RLS des invitations).
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { wrapEmailWithBranding, type EmailLanguage } from "../_shared/email-branding.ts";
+import type { EmailLanguage } from "../_shared/email-branding.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { sendAutoPush } from "../_shared/auto-push.ts";
-import { formatEventDate } from "../_shared/event-time.ts";
 import {
   entryTypeLabel,
-  guestListEntryEmailContent,
-  guestListInviteEmailContent,
   resolveGuestListBrandName,
   resolveGuestListHolderName,
+  resolveGuestListPlace,
 } from "../_shared/guest-list-email.ts";
+import {
+  buildGuestListConfirmation,
+  buildGuestListInvite,
+  fmtDateParts,
+} from "../_shared/email-templates.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[GUEST-LIST-MANAGE] ${step}`, details ? JSON.stringify(details) : "");
@@ -74,6 +77,7 @@ interface PartRow {
   quota_table: number;
   entry_kind: string | null;
   entry_deadline: string | null;
+  free_before_time: string | null;
   agency_distribution_mode: string | null;
   is_active: boolean;
 }
@@ -106,14 +110,14 @@ function allowedEntryTypes(part: PartRow): string[] {
 async function loadPartAndEvent(admin: SupabaseClient, guestListId: string): Promise<{ part: PartRow; event: EventRow; venueName: string }> {
   const { data: part } = await admin
     .from("guest_lists")
-    .select("id, event_id, venue_id, organizer_user_id, dj_id, promoter_id, agency_id, holder_type, holder_label, quota, quota_normal, quota_drink, quota_table, entry_kind, entry_deadline, agency_distribution_mode, is_active")
+    .select("id, event_id, venue_id, organizer_user_id, dj_id, promoter_id, agency_id, holder_type, holder_label, quota, quota_normal, quota_drink, quota_table, entry_kind, entry_deadline, free_before_time, agency_distribution_mode, is_active")
     .eq("id", guestListId)
     .maybeSingle();
   if (!part) throw new Error("Guest list not found");
 
   const { data: event } = await admin
     .from("events")
-    .select("id, title, venue_id, partner_venue_id, organizer_user_id, start_at, end_at, poster_url, timezone")
+    .select("id, title, venue_id, partner_venue_id, organizer_user_id, start_at, end_at, poster_url, timezone, location_address, location_city, location_is_secret, reveal_address_in_email")
     .eq("id", part.event_id)
     .maybeSingle();
   if (!event) throw new Error("Event not found");
@@ -123,12 +127,6 @@ async function loadPartAndEvent(admin: SupabaseClient, guestListId: string): Pro
   // d'email vide et un « invité par Yuno » au lieu du nom de l'organisateur.
   const venueName = await resolveGuestListBrandName(admin, event as EventRow);
   return { part: part as PartRow, event: event as EventRow, venueName };
-}
-
-function formatEventDateFr(startAt: string | null | undefined, tz?: string | null): string {
-  return startAt
-    ? formatEventDate(startAt, { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }, tz)
-    : "";
 }
 
 async function sendResendEmail(to: string, subject: string, html: string): Promise<boolean> {
@@ -369,22 +367,27 @@ serve(async (req) => {
       if (normalizedEmail) {
         try {
           const invitedBy = await resolveGuestListHolderName(admin, part, venueName);
-          const ctaUrl = linkedUserId ? `${APP_URL}/my-orders` : `${APP_URL}/auth?redirect=/my-orders`;
-          const content = guestListEntryEmailContent({
+          const place = await resolveGuestListPlace(admin, event);
+          const { day, month, time } = fmtDateParts(event.start_at, recipientLang, event.timezone || "Europe/Paris");
+          const built = buildGuestListConfirmation({
+            lang: recipientLang,
+            firstName: normalizedName.trim().split(" ")[0] || undefined,
             eventTitle: event.title || "Événement",
-            eventDate: formatEventDateFr(event.start_at, event.timezone),
             venueName,
-            posterUrl: event.poster_url,
+            posterUrl: event.poster_url || undefined,
+            day, month, openTime: time,
+            city: place.city || undefined,
+            address: place.address || undefined,
+            guestName: normalizedName.trim(),
             entryLabel: entryTypeLabel(resolvedEntryType, recipientLang),
             invitedBy,
-            qrCode,
-            reservationCode,
-            ctaUrl,
+            reference: reservationCode,
+            freeBefore: part.free_before_time ? String(part.free_before_time).slice(0, 5) : undefined,
+            qrDataUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCode)}`,
+            ctaUrl: linkedUserId ? `${APP_URL}/my-orders` : `${APP_URL}/auth?redirect=/my-orders`,
             hasAccount: !!linkedUserId,
-            lang: recipientLang,
           });
-          const html = wrapEmailWithBranding(content, recipientLang, venueName);
-          await sendResendEmail(normalizedEmail, `Guest List - ${event.title || "Événement"}`, html);
+          await sendResendEmail(normalizedEmail, built.subject, built.html);
           logStep("Invitation email sent", { to: normalizedEmail, hasAccount: !!linkedUserId });
         } catch (emailErr) {
           console.error("Email sending failed (non-blocking):", emailErr);
@@ -459,23 +462,21 @@ serve(async (req) => {
       }
 
       const invitedBy = await resolveGuestListHolderName(admin, part, venueName);
-      const content = guestListInviteEmailContent({
+      const place = await resolveGuestListPlace(admin, event);
+      const parts = fmtDateParts(event.start_at, inviteLang, event.timezone || "Europe/Paris");
+      const built = buildGuestListInvite({
+        lang: inviteLang,
         eventTitle: event.title || "Événement",
-        eventDate: formatEventDateFr(event.start_at),
         venueName,
-        posterUrl: event.poster_url,
+        posterUrl: event.poster_url || undefined,
+        day: parts.day, month: parts.month, openTime: parts.time,
+        city: place.city || undefined,
         entryLabel: entryTypeLabel(invite.entry_type, inviteLang),
         invitedBy,
-        inviteUrl,
         maxUses: invite.max_uses,
-        lang: inviteLang,
+        inviteUrl,
       });
-      const html = wrapEmailWithBranding(content, inviteLang, venueName);
-      const sent = await sendResendEmail(
-        invite.guest_email,
-        `Invitation Guest List - ${event.title || "Événement"}`,
-        html
-      );
+      const sent = await sendResendEmail(invite.guest_email, built.subject, built.html);
       if (sent) {
         await admin.from("guest_list_invites").update({ email_sent_at: new Date().toISOString() }).eq("id", invite.id);
       }

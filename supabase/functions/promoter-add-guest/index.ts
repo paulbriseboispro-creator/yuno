@@ -1,10 +1,13 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
-import { wrapEmailWithBranding } from "../_shared/email-branding.ts";
 import { restrictedCorsHeaders } from "../_shared/cors.ts";
 import { sendAutoPush } from "../_shared/auto-push.ts";
-import { entryTypeLabelFr, guestListEntryEmailContent } from "../_shared/guest-list-email.ts";
-import { formatEventDate } from "../_shared/event-time.ts";
+import {
+  entryTypeLabel,
+  resolveGuestListBrandName,
+  resolveGuestListPlace,
+} from "../_shared/guest-list-email.ts";
+import { buildGuestListConfirmation, fmtDateParts } from "../_shared/email-templates.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[PROMOTER-ADD-GUEST] ${step}`, details ? JSON.stringify(details) : "");
@@ -88,7 +91,7 @@ serve(async (req) => {
 
     const { data: event } = await supabaseAdmin
       .from("events")
-      .select("id, title, venue_id, organizer_user_id, partner_organizer_id, start_at, end_at, poster_url, timezone")
+      .select("id, title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, start_at, end_at, poster_url, timezone, location_address, location_city, location_is_secret, reveal_address_in_email")
       .eq("id", eventId)
       .maybeSingle();
 
@@ -110,10 +113,10 @@ serve(async (req) => {
     // holder_type='promoter', created and capped by the club on the Guest List page. The
     // commission template no longer carries any guest-list config — it is purely money.
     // No allocation = the promoter can't add (they ask the club to set one up).
-    type Part = { id: string; quota: number | null; includes_drink: boolean; is_active: boolean; entry_deadline: string | null; quota_normal: number; quota_drink: number; quota_table: number };
+    type Part = { id: string; quota: number | null; includes_drink: boolean; is_active: boolean; entry_deadline: string | null; free_before_time: string | null; quota_normal: number; quota_drink: number; quota_table: number };
     const { data: promoterParts } = await supabaseAdmin
       .from("guest_lists")
-      .select("id, quota, includes_drink, is_active, entry_deadline, quota_normal, quota_drink, quota_table")
+      .select("id, quota, includes_drink, is_active, entry_deadline, free_before_time, quota_normal, quota_drink, quota_table")
       .eq("event_id", eventId)
       .eq("holder_type", "promoter")
       .eq("promoter_id", promoterId)
@@ -130,7 +133,7 @@ serve(async (req) => {
     if ((!guestList || !guestList.is_active) && promoter.agency_id) {
       const { data: agencyParts } = await supabaseAdmin
         .from("guest_lists")
-        .select("id, quota, includes_drink, is_active, entry_deadline, quota_normal, quota_drink, quota_table")
+        .select("id, quota, includes_drink, is_active, entry_deadline, free_before_time, quota_normal, quota_drink, quota_table")
         .eq("event_id", eventId)
         .eq("holder_type", "agency")
         .eq("agency_id", promoter.agency_id)
@@ -342,15 +345,10 @@ serve(async (req) => {
     // Send invitation email with Yuno branding
     if (normalizedEmail) {
       try {
-        let venueName = "";
-        if (event?.venue_id) {
-          const { data: venue } = await supabaseAdmin
-            .from("venues")
-            .select("name")
-            .eq("id", event.venue_id)
-            .single();
-          venueName = venue?.name || "";
-        }
+        // Résolveur partagé : une soirée d'organisateur (venue_id NULL) doit
+        // afficher le nom de l'organisateur, pas une enseigne vide.
+        const venueName = await resolveGuestListBrandName(supabaseAdmin, event);
+        const place = await resolveGuestListPlace(supabaseAdmin, event);
 
         const { data: profile } = await supabaseAdmin
           .from("profiles")
@@ -358,10 +356,6 @@ serve(async (req) => {
           .eq("id", promoter.user_id)
           .single();
         const promoterName = profile ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() : promoter.promo_code;
-
-        const eventDate = event?.start_at
-          ? formatEventDate(event.start_at, { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }, event.timezone)
-          : "";
 
         const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
         const RESEND_FROM = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@yunoapp.eu";
@@ -372,22 +366,27 @@ serve(async (req) => {
             ? `${APP_URL}/my-orders`
             : `${APP_URL}/auth?redirect=/my-orders`;
 
-          // Gabarit partagé avec guest-list-manage (_shared/guest-list-email.ts).
-          const emailContent = guestListEntryEmailContent({
+          // Gabarit partagé du design system email (_shared/email-templates.ts) :
+          // même DA que la confirmation de billet.
+          const { day, month, time } = fmtDateParts(event.start_at, 'fr', event.timezone || "Europe/Paris");
+          const built = buildGuestListConfirmation({
+            lang: 'fr',
+            firstName: normalizedName.trim().split(" ")[0] || undefined,
             eventTitle: event?.title || "Événement",
-            eventDate,
             venueName,
-            posterUrl: event?.poster_url,
-            entryLabel: entryTypeLabelFr(resolvedEntryType),
+            posterUrl: event?.poster_url || undefined,
+            day, month, openTime: time,
+            city: place.city || undefined,
+            address: place.address || undefined,
+            guestName: normalizedName.trim(),
+            entryLabel: entryTypeLabel(resolvedEntryType, 'fr'),
             invitedBy: promoterName,
-            qrCode,
-            reservationCode,
+            reference: reservationCode,
+            freeBefore: guestList?.free_before_time ? String(guestList.free_before_time).slice(0, 5) : undefined,
+            qrDataUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCode)}`,
             ctaUrl,
             hasAccount: !!linkedUserId,
-            lang: 'fr',
           });
-
-          const html = wrapEmailWithBranding(emailContent, 'fr', venueName);
 
           await fetch("https://api.resend.com/emails", {
             method: "POST",
@@ -398,8 +397,8 @@ serve(async (req) => {
             body: JSON.stringify({
               from: RESEND_FROM,
               to: [normalizedEmail],
-              subject: `Guest List - ${event?.title || "Événement"}`,
-              html,
+              subject: built.subject,
+              html: built.html,
             }),
           });
 
