@@ -1,7 +1,9 @@
 # Profils orphelins — état des lieux et plan
 
-Relevé du 2026-08-30. Aucune écriture n'a été faite sur ces données : ce document
-sert à décider, pas à raconter ce qui a déjà eu lieu.
+Relevé du 2026-08-30. **Aucune écriture n'a été faite sur ces données.** Le lot 1
+(code et détection) est livré ; les lots 2 et 3 touchent aux données et attendent
+une décision. Règle de conduite retenue : mieux vaut un compte inactif qu'une
+chose cassée.
 
 ## Le fait
 
@@ -97,23 +99,24 @@ plus destructeur.
 
 ## Plan
 
-### Lot 1 — Empêcher la récidive et réparer le code (aucun risque de données)
+### Lot 1 — Empêcher la récidive et réparer le code — ✅ livré le 30/08
 
 1. **Ne plus jamais supprimer en douceur.** Le drapeau `should_soft_delete` est
-   proscrit : dans le dashboard Supabase comme en script. À inscrire dans
-   `CLAUDE.md`.
-2. **Réparer les deux recherches par email.** Remplacer
-   `.eq('email', …).maybeSingle()` par un tri explicite (`order('created_at',
-   { ascending: false }).limit(1).maybeSingle()`), pour que la ligne la plus
-   récente — celle du compte vivant — gagne au lieu de faire tomber l'appel.
-3. **Voir venir.** Une alerte quotidienne via `emit_admin_notification` depuis
-   `run_admin_alert_sweep()` : « N profils sans compte auth ». Un `dedup_key`
-   obligatoire, l'émetteur étant périodique. La consigne du projet est déjà
-   écrite dans `CLAUDE.md`.
+   proscrit, dashboard Supabase compris. Inscrit dans `CLAUDE.md`.
+2. **Les recherches par email ne tombent plus.** `OwnerStaff` cherche le
+   responsable Click & Collect DANS le club au lieu de coercer un email en objet
+   unique ; `admin-account-recovery` lit toutes les lignes et garde celle qui est
+   réellement le fantôme de la vitrine.
+3. **Le problème est visible.** `sweep_orphan_profiles()`, cron quotidien à
+   7 h 20 UTC, compte les profils sans compte et les clubs sans propriétaire, et
+   émet `admin_orphan_profiles` dans `/admin/alerts`. La clé de dédoublonnage
+   porte les deux compteurs : silence au repos, alerte dès qu'un chiffre bouge.
+   Fonction et cron séparés de `run_admin_alert_sweep()` pour ne pas avoir à
+   redéclarer ses 200 lignes d'alertes.
 
-Lot livrable en une session, sans toucher une seule ligne de données.
+Aucune ligne de données déplacée.
 
-### Lot 2 — Re-rattacher (données, un dossier à la fois)
+### Lot 2 — Re-rattacher (données, un dossier à la fois) — en attente de décision
 
 Pour chaque orphelin qui a un compte vivant, déplacer ce qu'il possède vers le
 compte vivant, colonne par colonne. Ordre conseillé, du plus sûr au plus délicat :
@@ -138,7 +141,7 @@ défaut :
 - `boulayg65@gmail.com` ne possède qu'une réservation de table et un rôle
   `client`. Même question, enjeu quasi nul.
 
-### Lot 3 — Purger (seulement une fois le lot 2 fini)
+### Lot 3 — Purger (seulement une fois le lot 2 fini) — en attente du lot 2
 
 Quand un profil orphelin ne possède plus rien, la ligne peut disparaître sans
 cascade dangereuse. Vérifier d'abord que chaque table le donne à zéro, puis
