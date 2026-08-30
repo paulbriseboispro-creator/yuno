@@ -15,6 +15,8 @@ import {
 import OrgQRScanner from '@/components/organizer-app/OrgQRScanner';
 import { toast } from 'sonner';
 import { retrySupabaseAction } from '@/utils/retryAction';
+import { validateTicketEntry, validateTableReservation, validateGuestListEntry } from '@/lib/scan/rules';
+import type { DoorScope, ScanVerdict } from '@/lib/scan/types';
 import { calcStripeFee } from '@/utils/fees';
 import {
   OrgPage, OrgPageHeader, OrgCard, OrgButton, OrgTabs, OrgEmptyState,
@@ -102,12 +104,51 @@ export default function OrgAppCheckin() {
   const selectedEvent = useMemo(() => events.find(e => e.id === eventId), [events, eventId]);
   const eventVenueId: string | null = selectedEvent?.venue_id ?? selectedEvent?.partner_venue_id ?? null;
 
+  /**
+   * Périmètre de porte de la soirée sélectionnée — même contrat que l'app Pro
+   * (`src/lib/scan/types.ts`) : le club prime quand la soirée en a un, sinon
+   * l'organisateur porte la porte. La page ne liste que les soirées dont le
+   * viewer est organisateur lead OU partenaire, donc ce périmètre est bien le
+   * sien. Sur une co-soirée, club et organisateur tiennent la même porte : le
+   * staff du club scanne avec `venueId`, celui de l'organisateur avec
+   * `organizerUserId`, et les deux tombent sur la même entrée.
+   */
+  const doorScope = useMemo<DoorScope>(() => {
+    const venueId = selectedEvent?.venue_id ?? selectedEvent?.partner_venue_id ?? null;
+    return {
+      venueId,
+      organizerUserId: venueId
+        ? null
+        : (selectedEvent?.organizer_user_id ?? selectedEvent?.partner_organizer_id ?? null),
+    };
+  }, [selectedEvent]);
+
+  /**
+   * Un verdict de règle partagée devient un message de porte. Les libellés
+   * restent ceux de cette page ; c'est la DÉCISION qui est désormais commune
+   * avec l'app Pro — un invité refusé par le videur ne peut plus être accepté
+   * ici, ni l'inverse.
+   */
+  const denyFromVerdict = (v: ScanVerdict, name?: string | null) => {
+    const reason =
+      v.status === 'wrong_venue' ? t('Mauvais événement', 'Wrong event')
+      : v.status === 'already' ? t('Déjà scanné', 'Already scanned')
+      : v.status === 'cancelled' ? t('Réservation annulée', 'Cancelled reservation')
+      : v.status === 'not_paid' ? t('Non payé', 'Not paid')
+      : v.status === 'deadline_passed'
+        ? (v.deadlineSource === 'entry'
+            ? t('Heure limite dépassée pour cette invitation', 'Entry deadline passed for this invite')
+            : t('Heure limite de la guest list dépassée', 'Guest list deadline passed'))
+      : t('Entrée refusée', 'Entry denied');
+    setLastScan({ ok: false, name: name ?? undefined, reason });
+  };
+
   useEffect(() => {
     if (!user) return;
     (async () => {
       const { data } = await supabase
         .from('events')
-        .select('id, title, start_at, venue_id, partner_venue_id')
+        .select('id, title, start_at, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id')
         .or(`organizer_user_id.eq.${user.id},partner_organizer_id.eq.${user.id}`)
         .gte('end_at', new Date(Date.now() - 86_400_000).toISOString())
         .order('start_at', { ascending: true });
@@ -138,9 +179,16 @@ export default function OrgAppCheckin() {
     setProcessing(true);
     setLastScan(null);
     try {
+      // Toutes les branches valident via `@/lib/scan/rules` — les MÊMES règles que
+      // l'app Pro et que le rejeu hors-ligne. Après le contrôle `event_id ===
+      // eventId`, l'entité appartient forcément à la soirée sélectionnée : ses
+      // attributs de porte sont donc ceux de cette soirée, d'où `doorScope`.
+      const scanCtx = { scope: doorScope, now: new Date(), mode: 'entry' as const };
+      const doorAttrs = { venueId: doorScope.venueId, organizerUserId: doorScope.organizerUserId };
+
       const { data: att } = await supabase
         .from('ticket_attendees')
-        .select('id, ticket_id, full_name, entry_scanned')
+        .select('id, ticket_id, full_name, entry_scanned, entry_scanned_at')
         .eq('qr_code', qrCode)
         .maybeSingle();
 
@@ -151,8 +199,14 @@ export default function OrgAppCheckin() {
           .eq('id', att.ticket_id)
           .maybeSingle();
         if (!parent || parent.event_id !== eventId) { setLastScan({ ok: false, reason: t('Mauvais événement', 'Wrong event') }); return; }
-        if (parent.status !== 'paid') { setLastScan({ ok: false, reason: t('Non payé', 'Not paid') }); return; }
-        if (att.entry_scanned) { setLastScan({ ok: false, name: att.full_name ?? undefined, reason: t('Déjà scanné', 'Already scanned') }); return; }
+
+        const verdict = validateTicketEntry(
+          { type: 'ticket_attendee', id: att.id, ticketId: parent.id, name: att.full_name,
+            status: parent.status, scanned: att.entry_scanned, scannedAt: att.entry_scanned_at ?? null,
+            ...doorAttrs },
+          scanCtx,
+        );
+        if (verdict.status !== 'success') { denyFromVerdict(verdict, att.full_name); return; }
 
         const { data: updated } = await retrySupabaseAction(async () => {
           const r = await supabase.from('ticket_attendees')
@@ -160,6 +214,9 @@ export default function OrgAppCheckin() {
             .eq('id', att.id).eq('entry_scanned', false).select();
           if (r.error) throw r.error; return r;
         });
+        // 0 ligne = quelqu'un d'autre a scanné entre la lecture et l'écriture.
+        // C'est CE garde, et lui seul, qui rend le double scan impossible quand
+        // le club, l'organisateur et son videur scannent en même temps.
         if (!updated || updated.length === 0) { setLastScan({ ok: false, name: att.full_name ?? undefined, reason: t('Déjà scanné', 'Already scanned') }); return; }
 
         await retrySupabaseAction(async () => {
@@ -177,12 +234,18 @@ export default function OrgAppCheckin() {
 
       const { data: ticket } = await supabase
         .from('tickets')
-        .select('id, full_name, entry_scanned, status, event_id')
+        .select('id, full_name, entry_scanned, entry_scanned_at, status, event_id')
         .eq('qr_code', qrCode).maybeSingle();
       if (ticket) {
         if (ticket.event_id !== eventId) { setLastScan({ ok: false, reason: t('Mauvais événement', 'Wrong event') }); return; }
-        if (ticket.status !== 'paid') { setLastScan({ ok: false, reason: t('Non payé', 'Not paid') }); return; }
-        if (ticket.entry_scanned) { setLastScan({ ok: false, name: ticket.full_name ?? undefined, reason: t('Déjà scanné', 'Already scanned') }); return; }
+
+        const verdict = validateTicketEntry(
+          { type: 'ticket', id: ticket.id, ticketId: ticket.id, name: ticket.full_name,
+            status: ticket.status, scanned: ticket.entry_scanned, scannedAt: ticket.entry_scanned_at ?? null,
+            ...doorAttrs },
+          scanCtx,
+        );
+        if (verdict.status !== 'success') { denyFromVerdict(verdict, ticket.full_name); return; }
 
         const { data: updated } = await retrySupabaseAction(async () => {
           const r = await supabase.from('tickets')
@@ -200,12 +263,18 @@ export default function OrgAppCheckin() {
 
       const { data: reservation } = await supabase
         .from('table_reservations')
-        .select('id, full_name, entry_scanned, status, event_id')
+        .select('id, full_name, entry_scanned, entry_scanned_at, status, event_id')
         .eq('qr_code', qrCode).maybeSingle();
       if (reservation) {
         if (reservation.event_id !== eventId) { setLastScan({ ok: false, reason: t('Mauvais événement', 'Wrong event') }); return; }
-        if (!['paid', 'confirmed'].includes(reservation.status)) { setLastScan({ ok: false, reason: t('Non payé', 'Not paid') }); return; }
-        if (reservation.entry_scanned) { setLastScan({ ok: false, name: reservation.full_name ?? undefined, reason: t('Déjà scanné', 'Already scanned') }); return; }
+
+        const verdict = validateTableReservation(
+          { type: 'table_reservation', id: reservation.id, name: reservation.full_name,
+            status: reservation.status, scanned: reservation.entry_scanned,
+            scannedAt: reservation.entry_scanned_at ?? null, ...doorAttrs },
+          scanCtx,
+        );
+        if (verdict.status !== 'success') { denyFromVerdict(verdict, reservation.full_name); return; }
 
         const { data: updated } = await retrySupabaseAction(async () => {
           const r = await supabase.from('table_reservations')
@@ -221,18 +290,29 @@ export default function OrgAppCheckin() {
         return;
       }
 
-      // Guest list entries (promoter free guestlists). The door scan is the source
-      // of truth: marking the entry validated triggers the promoter commission
-      // asynchronously, with the scan timestamp making the (time-windowed) rules.
+      // Guest list. Le scan de porte fait foi : valider l'entrée déclenche la
+      // commission du promoteur, l'horodatage du scan servant les règles à
+      // fenêtre de temps.
       const { data: gle } = await supabase
         .from('guest_list_entries')
-        .select('id, full_name, entry_scanned, promoter_id, guest_list:guest_lists!inner(event_id)')
+        .select('id, full_name, status, entry_scanned, entry_scanned_at, entry_deadline, promoter_id, guest_list:guest_lists!inner(event_id, entry_deadline, free_before_time)')
         .or(`qr_code.eq.${qrCode},reservation_code.eq.${qrCode}`)
         .maybeSingle();
       if (gle) {
-        const glEventId = (gle.guest_list as any)?.event_id;
-        if (glEventId !== eventId) { setLastScan({ ok: false, reason: t('Mauvais événement', 'Wrong event') }); return; }
-        if (gle.entry_scanned) { setLastScan({ ok: false, name: gle.full_name ?? undefined, reason: t('Déjà scanné', 'Already scanned') }); return; }
+        const glList = gle.guest_list as unknown as { event_id: string; entry_deadline: string | null; free_before_time: string | null };
+        if (glList?.event_id !== eventId) { setLastScan({ ok: false, reason: t('Mauvais événement', 'Wrong event') }); return; }
+
+        const verdict = validateGuestListEntry(
+          { type: 'guest_list_entry', id: gle.id, name: gle.full_name, status: gle.status,
+            scanned: gle.entry_scanned, scannedAt: gle.entry_scanned_at ?? null,
+            entryDeadline: gle.entry_deadline || null,
+            glDeadline: glList.entry_deadline || null,
+            freeBeforeTime: glList.free_before_time || null,
+            eventStartAt: selectedEvent?.start_at ?? new Date().toISOString(),
+            ...doorAttrs },
+          scanCtx,
+        );
+        if (verdict.status !== 'success') { denyFromVerdict(verdict, gle.full_name); return; }
 
         const scanAt = new Date().toISOString();
         const { data: updated } = await retrySupabaseAction(async () => {
@@ -243,13 +323,13 @@ export default function OrgAppCheckin() {
         });
         if (!updated || updated.length === 0) { setLastScan({ ok: false, name: gle.full_name ?? undefined, reason: t('Déjà scanné', 'Already scanned') }); return; }
 
-        // Record the promoter commission without blocking the door flow.
+        // Commission du promoteur, sans bloquer le flux de la porte.
         if (gle.promoter_id) {
           supabase.rpc('record_promoter_conversion', {
             p_promoter_id: gle.promoter_id,
             p_conversion_type: 'guestlist',
             p_amount: 0,
-            p_event_id: glEventId,
+            p_event_id: glList.event_id,
             p_guest_list_entry_id: gle.id,
             p_scan_at: scanAt,
           }).then(({ error }) => { if (error) console.error('record_promoter_conversion (guestlist)', error); });
