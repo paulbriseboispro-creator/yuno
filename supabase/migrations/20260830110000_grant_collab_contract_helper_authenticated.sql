@@ -1,0 +1,21 @@
+-- ============================================================================
+-- GRANT manquant : event_has_blocking_collab_contract exécutable par le client.
+--
+-- Vécu en prod (session assistée, édition d'une soirée d'organisateur) :
+-- « 42501: permission denied for function event_has_blocking_collab_contract »
+-- dans guard_event_partner_link_under_contract. Le garde est SECURITY INVOKER
+-- (règle des triggers de garde : jamais DEFINER quand ils discriminent sur
+-- current_user) → il appelle le helper EN TANT QUE le rôle client. Or
+-- 20260823180005 a REVOKE le helper de authenticated sans le re-granter :
+-- depuis le 23/08, TOUTE édition d'événement qui touche les colonnes
+-- surveillées (venue_id, partner_venue_id, organizer_user_id,
+-- partner_organizer_id) mourait — le formulaire organisateur les envoie
+-- toujours, même à NULL en solo.
+--
+-- Le helper est SECURITY DEFINER et ne révèle qu'un booléen « un contrat
+-- signé bloque » — information que l'erreur du garde affiche de toute façon.
+-- L'accorder à authenticated est sans fuite ; anon reste révoqué (aucun
+-- UPDATE d'events possible en anonyme).
+-- ============================================================================
+
+GRANT EXECUTE ON FUNCTION public.event_has_blocking_collab_contract(uuid) TO authenticated;
