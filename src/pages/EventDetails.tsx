@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { usePreviewNavigate, useOwnerPreview } from '@/contexts/OwnerPreviewContext';
-import { ArrowLeft, AlertCircle, MapPin, ChevronDown, ChevronUp, Music, Ticket, UserCheck, Share2, Bell } from 'lucide-react';
+import { ArrowLeft, AlertCircle, MapPin, ChevronDown, ChevronUp, ChevronRight, Music, Ticket, UserCheck, Share2, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -726,6 +726,7 @@ export default function EventDetails() {
   if (hasTables) activePacks.forEach(p => allPrices.push(p.basePrice));
   const minPrice = allPrices.length > 0 ? Math.min(...allPrices) : 0;
 
+
   // Availability text
   const getAvailabilityInfo = () => {
     if (isSoldOut && !hasTables) {
@@ -748,6 +749,22 @@ export default function EventDetails() {
   };
 
   const canUserAccessSales = eventSalesStatus === 'public_sale' || (eventSalesStatus === 'presale' && hasPresaleAccess);
+  // ── Echelle d'entree ──────────────────────────────────────────────────────
+  // Gratuit et payant ne se disputent pas la page : ils forment une echelle.
+  // « Gratuit avant 01:00 » est le crochet qui fait rester ; le billet et la
+  // table sont la marche d'apres (entrer apres l'heure limite, la boisson, le
+  // carre). Avant, des qu'un billet etait en vente la guest list DISPARAISSAIT
+  // de la fiche — l'argument le plus fort de la soiree, invisible.
+  //
+  // Deux mises en page, parce que la hierarchie de l'information change :
+  //   • seule offre  -> bloc d'affiche (le gratuit EST le titre)
+  //   • avec du payant -> ligne compacte, premiere marche de l'echelle
+  const showPaidCallout = canUserAccessSales && hasTicketsOrTables && minPrice > 0;
+  const guestListOnly = canUserAccessSales && hasPublicGuestList && !hasTicketsOrTables;
+  const guestListWithPaid = canUserAccessSales && hasPublicGuestList && hasTicketsOrTables;
+  const freeBeforeLabel = publicGuestList?.free_before_time
+    ? `${t('guestList.freeBefore')} ${publicGuestList.free_before_time.substring(0, 5)}`
+    : null;
   const availability = canUserAccessSales ? getAvailabilityInfo() : null;
 
   return (
@@ -934,18 +951,71 @@ export default function EventDetails() {
           </div>
         )}
 
-        {/* ── INLINE TICKET CALLOUT ── */}
-        {canUserAccessSales && hasTicketsOrTables && minPrice > 0 && (
+        {/* ── OFFRES D'ENTREE : le gratuit puis le payant, dans cet ordre ── */}
+        {(showPaidCallout || guestListWithPaid) && (
           <section style={{ padding: '20px 20px 0' }}>
             <p className="section-label-ruled mb-3">
-              {hasTickets && hasTables ? t('event.ticketsAndTables') : hasTickets ? t('event.ticketsAvailable') : t('event.tablesAvailable')}
+              {guestListWithPaid
+                ? t('event.howToEnter')
+                : hasTickets && hasTables ? t('event.ticketsAndTables') : hasTickets ? t('event.ticketsAvailable') : t('event.tablesAvailable')}
             </p>
+
+            {/* Premiere marche : l'entree gratuite. Ligne entierement tapable —
+                une cible de 44px de haut minimum, valeur alignee a droite pour
+                que l'oeil compare « GRATUIT » et « des 12,00 € » sur la meme
+                colonne, comme deux lignes d'un meme tarif. */}
+            {guestListWithPaid && (
+              <button
+                onClick={() => navigate(`${checkoutBase}/billets`, { state: { eventId } })}
+                className="w-full text-left mb-2.5 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/70"
+                style={{ border: '1px solid rgba(16,185,129,0.28)', borderRadius: 4, padding: '13px 16px', background: 'rgba(16,185,129,0.05)', minHeight: 60, transition: 'background 160ms ease, border-color 160ms ease' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(16,185,129,0.09)'; e.currentTarget.style.borderColor = 'rgba(16,185,129,0.45)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(16,185,129,0.05)'; e.currentTarget.style.borderColor = 'rgba(16,185,129,0.28)'; }}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-mono uppercase" style={{ fontSize: '9px', color: '#10B981', letterSpacing: '0.14em' }}>
+                      {t('guestList.title')}
+                    </p>
+                    {/* Jamais `truncate` ici : « Gratis antes de las … » coupe
+                        precisement l'heure, qui est la seule information de la
+                        ligne. On laisse replier sur deux lignes. */}
+                    <p className="font-mono mt-1" style={{ fontSize: '11px', color: '#9A9A9A', letterSpacing: '0.04em', lineHeight: 1.35 }}>
+                      {freeBeforeLabel ?? t('guestList.listOpen')}
+                    </p>
+                  </div>
+                  <span className="flex items-center gap-1.5 shrink-0">
+                    <span className="font-display font-bold text-white" style={{ fontSize: '19px', letterSpacing: '-0.02em' }}>
+                      {t('guestList.free')}
+                    </span>
+                    <ChevronRight className="h-4 w-4" style={{ color: '#10B981' }} />
+                  </span>
+                </div>
+              </button>
+            )}
+
+            {showPaidCallout && (
             <div style={{ border: '1px solid rgba(232,25,44,0.28)', borderRadius: 4, padding: '16px 20px', background: 'rgba(232,25,44,0.04)' }}>
-              <div className="flex items-center justify-between gap-4">
+              {/* flex-wrap + prix insecable : sur un petit telephone le bouton
+                  descend sous le prix au lieu d'ecraser « Desde 12.00€ » sur
+                  deux lignes en plein milieu du montant. */}
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
                 <div className="min-w-0">
-                  <p className="font-display font-bold text-white" style={{ fontSize: 'clamp(22px, 5vw, 32px)', letterSpacing: '-0.025em', lineHeight: 1 }}>
+                  <p className="font-display font-bold text-white whitespace-nowrap" style={{ fontSize: 'clamp(21px, 5vw, 32px)', letterSpacing: '-0.025em', lineHeight: 1 }}>
                     {t('event.startingFrom')} {minPrice.toFixed(2)}€
                   </p>
+                  {/* Poser les deux offres cote a cote soulevait une question a
+                      laquelle rien ne repondait : pourquoi payer si c'est
+                      gratuit ? Parce que la liste n'est gratuite qu'AVANT une
+                      heure, et qu'elle a un quota. On le dit, sinon le payant
+                      passe pour une arnaque a cote du gratuit. */}
+                  {guestListWithPaid && (
+                    <p className="font-mono mt-1.5" style={{ fontSize: '11px', color: '#9A9A9A', letterSpacing: '0.04em' }}>
+                      {publicGuestList?.free_before_time
+                        ? `${t('event.paidGuaranteedAfter')} ${publicGuestList.free_before_time.substring(0, 5)}`
+                        : t('event.paidGuaranteed')}
+                    </p>
+                  )}
                   {availability?.urgent && (
                     <p className={`font-mono mt-1.5 ${availability.color}`} style={{ fontSize: '11px', letterSpacing: '0.04em' }}>
                       <span className="inline-block h-1.5 w-1.5 rounded-full bg-current mr-1.5 animate-pulse" style={{ verticalAlign: 'middle' }} />
@@ -955,8 +1025,8 @@ export default function EventDetails() {
                 </div>
                 <button
                   onClick={() => navigate(`${checkoutBase}/billets`, { state: { eventId } })}
-                  className="shrink-0 font-mono font-bold uppercase"
-                  style={{ height: 44, padding: '0 22px', background: '#E8192C', color: '#fff', border: 'none', borderRadius: 3, fontSize: '11px', cursor: 'pointer', letterSpacing: '0.10em', transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1)', WebkitTapHighlightColor: 'transparent' } as React.CSSProperties}
+                  className="shrink-0 grow sm:grow-0 font-mono font-bold uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                  style={{ minHeight: 44, padding: '0 22px', background: '#E8192C', color: '#fff', border: 'none', borderRadius: 3, fontSize: '11px', cursor: 'pointer', letterSpacing: '0.10em', transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1)', WebkitTapHighlightColor: 'transparent' } as React.CSSProperties}
                   onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.97)')}
                   onMouseUp={(e) => (e.currentTarget.style.transform = '')}
                   onMouseLeave={(e) => (e.currentTarget.style.transform = '')}
@@ -986,6 +1056,7 @@ export default function EventDetails() {
                 </div>
               )}
             </div>
+            )}
           </section>
         )}
 
@@ -996,7 +1067,7 @@ export default function EventDetails() {
             pas encore branché Stripe — et il n'en a pas besoin : l'inscription
             est gratuite. Quand des billets sont en vente, le CTA « Réserver »
             mène déjà à la page billetterie, où la liste est proposée. */}
-        {canUserAccessSales && !hasTicketsOrTables && hasPublicGuestList && (
+        {guestListOnly && (
           <section style={{ padding: '20px 20px 0' }}>
             <p className="section-label-ruled mb-3">{t('guestList.title')}</p>
             <div style={{ border: '1px solid rgba(16,185,129,0.28)', borderRadius: 4, padding: '18px 20px 20px', background: 'rgba(16,185,129,0.04)' }}>
@@ -1007,7 +1078,7 @@ export default function EventDetails() {
                   longue (« GRATUIT » + « BOISSON OFFERTE » ne tiennent pas sur
                   une ligne de téléphone) — d'où flex-wrap + un mot insécable. */}
               <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-                <p className="font-display font-bold text-white shrink-0 whitespace-nowrap" style={{ fontSize: 'clamp(34px, 11vw, 52px)', letterSpacing: '-0.04em', lineHeight: 0.85 }}>
+                <p className="font-display font-bold text-white shrink-0 whitespace-nowrap" style={{ fontSize: 'clamp(27px, 7.4vw, 38px)', letterSpacing: '-0.035em', lineHeight: 0.9 }}>
                   {t('guestList.free')}
                 </p>
                 {publicGuestList?.includes_drink && (
@@ -1408,6 +1479,11 @@ export default function EventDetails() {
             <StickyCheckoutFooter
               amount={minPrice}
               label={t('event.startingFrom')}
+              // La barre ancre le prix (c'est la ou est le revenu du club), mais
+              // elle dit aussi qu'une entree gratuite existe : sans ce mot, un
+              // visiteur qui ne fait que lire le bas de l'ecran croit que la
+              // soiree est payante et repart.
+              subtitleText={guestListWithPaid ? t('event.freeEntryAlso') : undefined}
               buttonText={t('event.bookNow')}
               icon={<Ticket className="h-4 w-4" />}
               onClick={() => navigate(`${checkoutBase}/billets`, { state: { eventId } })}
