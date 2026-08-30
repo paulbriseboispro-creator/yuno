@@ -358,18 +358,25 @@ function DonutChart({ data }: { data: { name: string; val: number; pct: number }
   // first category like "Boissons" read "0%" while real revenue sat in others).
   const hasData = data.some(d => d.val > 0);
   const top = data.reduce((m, d) => (d.val > m.val ? d : m), data[0] ?? { name: '', val: 0, pct: 0 });
+  // Both lines are baseline-centred on their own y, and the pair is offset so the
+  // block sits on the ring's centre. Without a caption the value takes the centre
+  // outright — it used to keep the two-line offset and float above the middle.
+  const label = hasData ? top.name.split(' ')[0] : '';
+  const valueY = label ? c - 6 : c;
   return (
     <svg width={S} height={S} viewBox={`0 0 ${S} ${S}`} style={{ flexShrink: 0 }}>
       <circle cx={c} cy={c} r={r} fill="none" stroke={C_FAINT} strokeWidth={sw} />
       {segs}
-      <text x={c} y={c - 5} fill={T1} fontSize={21} fontWeight={650} textAnchor="middle"
+      <text x={c} y={valueY} fill={T1} fontSize={21} fontWeight={650} textAnchor="middle" dominantBaseline="central"
         style={{ letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums' }}>
         {hasData ? top.pct : 0}%
       </text>
-      <text x={c} y={c + 14} fill={T3} fontSize={10} textAnchor="middle"
-        style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-        {hasData ? top.name.split(' ')[0] : ''}
-      </text>
+      {label && (
+        <text x={c} y={c + 13} fill={T3} fontSize={10} textAnchor="middle" dominantBaseline="central"
+          style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          {label}
+        </text>
+      )}
     </svg>
   );
 }
