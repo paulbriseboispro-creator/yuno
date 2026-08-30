@@ -12226,6 +12226,7 @@ const es: Record<string, string> = {
   'notif.type.admin_payments_switch': 'Conmutación de pagos',
   'notif.type.admin_security_burst': 'Ráfaga de accesos fallidos',
   'notif.type.admin_push_queue_stuck': 'Cola de push bloqueada',
+  'notif.type.admin_orphan_profiles': 'Perfil sin cuenta',
   'adminAlerts.sweepNow': 'Comprobar ahora',
   'adminAlerts.sweepHint': "Lanza el barrido sin esperar al pase automático de las 9 h: vencimientos, clubs bloqueados, primeras ventas, picos de reembolso y colas de push.",
   'adminAlerts.sweepError': "El barrido ha fallado.",

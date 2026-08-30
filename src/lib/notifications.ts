@@ -11,7 +11,7 @@ import {
   UserCheck, AlertTriangle, Receipt, Music, Handshake, MessageSquare,
   Martini, DoorOpen, Gauge, Target, ShieldAlert, Clock,
   KeyRound, CalendarClock, Hourglass, ListChecks, Building2, UserPlus,
-  Briefcase, Rocket, CreditCard, Banknote, LifeBuoy, Wrench, Siren,
+  Briefcase, Rocket, CreditCard, Banknote, LifeBuoy, Wrench, Siren, UserX,
 } from 'lucide-react';
 
 export interface AppNotif {
@@ -128,6 +128,7 @@ export const NOTIF_CATALOGUE: Record<string, NotifDef> = {
   admin_payments_switch:     { icon: Siren,         category: 'system',    label: 'notif.type.admin_payments_switch' },
   admin_security_burst:      { icon: ShieldAlert,   category: 'system',    label: 'notif.type.admin_security_burst' },
   admin_push_queue_stuck:    { icon: Radio,         category: 'system',    label: 'notif.type.admin_push_queue_stuck' },
+  admin_orphan_profiles:     { icon: UserX,         category: 'system',    label: 'notif.type.admin_orphan_profiles' },
   // 🛟 Accès assisté Yuno (support) — flux club + organisateur.
   support_access_requested:  { icon: LifeBuoy,      category: 'people',    label: 'notif.type.support_access_requested' },
   support_access_session:    { icon: ShieldAlert,   category: 'people',    label: 'notif.type.support_access_session' },
@@ -534,6 +535,11 @@ function adminNotifLink(n: AppNotif): string | null {
 
     case 'admin_push_queue_stuck':
       return '/admin/push';
+
+    // Un profil sans compte ne s'ouvre nulle part : l'annuaire est le seul
+    // endroit d'où on peut comparer les deux lignes d'un même email.
+    case 'admin_orphan_profiles':
+      return '/admin/directory';
 
     default:
       return null;

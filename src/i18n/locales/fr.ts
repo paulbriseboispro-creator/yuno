@@ -12183,6 +12183,7 @@ const fr: Record<string, string> = {
   'notif.type.admin_payments_switch': 'Bascule des paiements',
   'notif.type.admin_security_burst': "Rafale d'échecs de connexion",
   'notif.type.admin_push_queue_stuck': 'File de push bloquée',
+  'notif.type.admin_orphan_profiles': 'Profil sans compte',
   'adminAlerts.sweepNow': 'Vérifier maintenant',
   'adminAlerts.sweepHint': "Relance le balayage sans attendre le passage automatique de 9 h : échéances, clubs bloqués, premières ventes, pics de remboursement et files de push.",
   'adminAlerts.sweepError': "Le balayage a échoué.",

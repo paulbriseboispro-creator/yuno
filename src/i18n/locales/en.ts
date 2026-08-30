@@ -12112,6 +12112,7 @@ const en: Record<string, string> = {
   'notif.type.admin_payments_switch': 'Payments switch',
   'notif.type.admin_security_burst': 'Burst of failed logins',
   'notif.type.admin_push_queue_stuck': 'Push queue stuck',
+  'notif.type.admin_orphan_profiles': 'Profile without an account',
   'adminAlerts.sweepNow': 'Check now',
   'adminAlerts.sweepHint': "Runs the sweep without waiting for the 9am pass: deadlines, stuck venues, first sales, refund spikes and push queues.",
   'adminAlerts.sweepError': "The sweep failed.",
