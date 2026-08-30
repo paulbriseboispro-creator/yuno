@@ -13,7 +13,7 @@
 import {
   shell, brandBar, poster, ruleLabel, title, mono, body, section,
   ctaPill, ctaSharp, walletPill, bigDate, calloutPrice, codeBlock, infoRows, eventMiniCard,
-  qrCard, divider, spacer, footer, C, F,
+  qrCard, divider, spacer, footer, esc, C, F,
 } from './email-kit.ts';
 
 /** Libellé du bouton Apple Wallet (3 langues). */
@@ -46,6 +46,9 @@ const LBL = {
   org: { en: 'Organization', fr: 'Organisation', es: 'Organización' },
   validUntil: { en: 'Valid until', fr: 'Valide jusqu\'au', es: 'Válido hasta' },
   amount: { en: 'Amount', fr: 'Montant', es: 'Importe' },
+  entryType: { en: 'Entry', fr: "Type d'entrée", es: 'Entrada' },
+  invitedBy: { en: 'Invited by', fr: 'Invité par', es: 'Invitado por' },
+  name: { en: 'Name', fr: 'Nom', es: 'Nombre' },
 };
 const lbl = (lang: Lang, k: keyof typeof LBL) => p(lang, LBL[k]);
 const reasonTicket = (lang: Lang) => p(lang, { en: 'you bought a ticket', fr: 'tu as acheté un billet', es: 'compraste una entrada' });
@@ -128,6 +131,124 @@ export function buildTicketConfirmation(d: {
     ].join(''),
   });
   return { subject, preheader: `${d.day} ${d.month} · ${d.venueName}`, html };
+}
+
+// ── 1 bis. Confirmation guest list ───────────────────────────────────────────
+// Même DA que le billet : c'est le même geste — un QR qui ouvre une porte. La
+// seule différence tenue par le design, c'est le prix (gratuit) et l'heure
+// limite, mise en avant parce que c'est LA condition de la gratuité.
+export function buildGuestListConfirmation(d: {
+  lang?: Lang; firstName?: string; eventTitle: string; venueName: string; posterUrl?: string;
+  day: string; month: string; openTime?: string; city?: string; address?: string;
+  entryLabel: string; invitedBy: string; reference: string; guestName?: string;
+  /** Heure limite d'entrée gratuite ("01:00") — mise en exergue quand elle existe. */
+  freeBefore?: string;
+  qrDataUrl?: string; ctaUrl: string; hasAccount?: boolean; walletUrl?: string;
+}): BuiltEmail {
+  const lang = L(d.lang || 'en');
+  const hi = d.firstName ? `${d.firstName}, ` : '';
+  const subject = `${p(lang, { en: "You're on the guest list", fr: 'Tu es sur la guest list', es: 'Estás en la guest list' })} — ${d.eventTitle}`;
+  const html = shell({
+    title: subject,
+    preheader: `${d.day} ${d.month}${d.openTime ? ` · ${d.openTime}` : ''} · ${d.venueName} · ${lbl(lang, 'reference')} ${d.reference}`,
+    body: [
+      brandBar(),
+      poster(d.posterUrl || '', d.eventTitle),
+      section(ruleLabel(p(lang, { en: 'Guest list confirmed', fr: 'Guest list confirmée', es: 'Guest list confirmada' })) + `<div style="height:14px"></div>` +
+        title(`${hi}${p(lang, { en: "you're on the list", fr: 'tu es sur la liste', es: 'estás en la lista' })}`, 32) + `<div style="height:14px"></div>` +
+        body(p(lang, {
+          en: `Your spot for <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> is confirmed. Show the QR at the door, that's it.`,
+          fr: `Ta place pour <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> est confirmée. Montre le QR à l'entrée, c'est tout.`,
+          es: `Tu plaza para <strong style="color:${C.white}">${esc(d.eventTitle)}</strong> está confirmada. Muestra el QR en la entrada, eso es todo.`,
+        }))),
+      section(bigDate({
+        day: d.day,
+        month: `${d.month}${d.city ? ' · ' + d.city : ''}`,
+        dateLabel: lbl(lang, 'date'),
+        timeLabel: lbl(lang, 'doors'),
+        timeValue: d.openTime || '—',
+      })),
+      // L'heure limite est la seule vraie contrainte de la guest list : elle a
+      // droit au bloc que le billet réserve au prix.
+      ...(d.freeBefore ? [section(calloutPrice(
+        p(lang, { en: 'Free entry before', fr: 'Entrée gratuite avant', es: 'Entrada gratis antes de' }),
+        d.freeBefore,
+      ))] : []),
+      section(infoRows([
+        { k: lbl(lang, 'party'), v: d.eventTitle },
+        { k: lbl(lang, 'venue'), v: d.venueName },
+        ...(d.address ? [{ k: p(lang, { en: 'Address', fr: 'Adresse', es: 'Dirección' }), v: d.address }] : []),
+        ...(d.guestName ? [{ k: lbl(lang, 'name'), v: d.guestName }] : []),
+        { k: lbl(lang, 'entryType'), v: d.entryLabel },
+        { k: lbl(lang, 'invitedBy'), v: d.invitedBy },
+        { k: lbl(lang, 'reference'), v: d.reference },
+      ])),
+      section(`${d.qrDataUrl
+        ? qrCard(d.qrDataUrl, p(lang, { en: 'Scan at the door', fr: "À scanner à l'entrée", es: 'Escanear en la entrada' }), d.reference)
+        : calloutPrice(p(lang, { en: 'Show at the door', fr: "À présenter à l'entrée", es: 'Mostrar en la entrada' }), d.reference)
+        }${d.walletUrl ? `<div style="height:20px"></div>${walletPill(p(lang, WALLET_LABEL), d.walletUrl)}` : ''}<div style="height:20px"></div>${ctaPill(
+          d.hasAccount
+            ? p(lang, { en: 'View in My Orders', fr: 'Voir dans Mes Commandes', es: 'Ver en Mis Pedidos' })
+            : p(lang, { en: 'Find my QR code', fr: 'Retrouver mon QR code', es: 'Encontrar mi código QR' }),
+          d.ctaUrl,
+        )}<div style="height:12px"></div>${mono(p(lang, {
+          en: 'Keep this email — the QR is your entry.',
+          fr: "Garde cet email — le QR, c'est ton entrée.",
+          es: 'Guarda este email: el QR es tu entrada.',
+        }), C.gray3, 11)}`, { border: false }),
+      footer({ lang, venueName: d.venueName }),
+    ].join(''),
+  });
+  return { subject, preheader: `${d.day} ${d.month} · ${d.venueName}`, html };
+}
+
+// ── 1 ter. Invitation guest list (lien unique personnel) ─────────────────────
+// Même DA, mais l'invité n'a PAS encore de place : le QR n'existe pas, le CTA
+// est la seule action. Le nombre de places tient le bloc que la confirmation
+// donne à l'heure limite.
+export function buildGuestListInvite(d: {
+  lang?: Lang; eventTitle: string; venueName: string; posterUrl?: string;
+  day: string; month: string; openTime?: string; city?: string;
+  entryLabel: string; invitedBy: string; maxUses: number; inviteUrl: string;
+}): BuiltEmail {
+  const lang = L(d.lang || 'en');
+  const places = d.maxUses > 1
+    ? p(lang, { en: `${d.maxUses} spots`, fr: `${d.maxUses} places`, es: `${d.maxUses} plazas` })
+    : p(lang, { en: '1 spot', fr: '1 place', es: '1 plaza' });
+  const subject = `${p(lang, { en: "You're invited", fr: 'Tu es invité·e', es: 'Estás invitado·a' })} — ${d.eventTitle}`;
+  const html = shell({
+    title: subject,
+    preheader: `${d.day} ${d.month}${d.openTime ? ` · ${d.openTime}` : ''} · ${d.venueName} · ${places}`,
+    body: [
+      brandBar(),
+      poster(d.posterUrl || '', d.eventTitle),
+      section(ruleLabel(p(lang, { en: 'Guest list invitation', fr: 'Invitation guest list', es: 'Invitación guest list' })) + `<div style="height:14px"></div>` +
+        title(p(lang, { en: "you're invited", fr: 'tu es invité·e', es: 'estás invitado·a' }), 32) + `<div style="height:14px"></div>` +
+        body(p(lang, {
+          en: `<strong style="color:${C.white}">${esc(d.invitedBy)}</strong> saved you a spot for <strong style="color:${C.white}">${esc(d.eventTitle)}</strong>. Confirm it below, your QR follows straight away.`,
+          fr: `<strong style="color:${C.white}">${esc(d.invitedBy)}</strong> t'a gardé une place pour <strong style="color:${C.white}">${esc(d.eventTitle)}</strong>. Confirme-la ci-dessous, ton QR arrive juste après.`,
+          es: `<strong style="color:${C.white}">${esc(d.invitedBy)}</strong> te ha guardado una plaza para <strong style="color:${C.white}">${esc(d.eventTitle)}</strong>. Confírmala abajo y recibirás tu QR enseguida.`,
+        }))),
+      section(bigDate({
+        day: d.day, month: `${d.month}${d.city ? ' · ' + d.city : ''}`,
+        dateLabel: lbl(lang, 'date'), timeLabel: lbl(lang, 'doors'), timeValue: d.openTime || '—',
+      })),
+      section(calloutPrice(p(lang, { en: 'Reserved for you', fr: 'Réservé pour toi', es: 'Reservado para ti' }), places)),
+      section(infoRows([
+        { k: lbl(lang, 'party'), v: d.eventTitle },
+        { k: lbl(lang, 'venue'), v: d.venueName },
+        { k: lbl(lang, 'entryType'), v: d.entryLabel },
+        { k: lbl(lang, 'invitedBy'), v: d.invitedBy },
+      ])),
+      section(`${ctaPill(p(lang, { en: 'Claim my spot', fr: 'Réserver ma place', es: 'Reservar mi plaza' }), d.inviteUrl)}<div style="height:12px"></div>${mono(p(lang, {
+        en: 'Personal link — do not forward it.',
+        fr: 'Lien personnel — ne le transfère pas.',
+        es: 'Enlace personal: no lo reenvíes.',
+      }), C.gray3, 11)}`, { border: false }),
+      footer({ lang, venueName: d.venueName }),
+    ].join(''),
+  });
+  return { subject, preheader: `${d.day} ${d.month} · ${places}`, html };
 }
 
 // ── 2. Confirmation table VIP ────────────────────────────────────────────────
@@ -669,6 +790,8 @@ export function buildRefund(d: {
 const POSTER = 'https://fulawxvdlwtdlpkycixe.supabase.co/storage/v1/object/public/event-images/events/1781542670364-poster.jpg';
 export const PREVIEW_SAMPLES: Record<string, () => BuiltEmail> = {
   ticket: () => buildTicketConfirmation({ lang: 'fr', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, day: '22', month: 'Juin 2026', openTime: '18:00', city: 'Paris', ticketType: 'Early Bird', price: '18,00 €', reference: 'TK-7F3K9P', ticketUrl: `${APP}/tickets`, qrDataUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=YUNO-DEMO-TK-7F3K9P' }),
+  guestList: () => buildGuestListConfirmation({ lang: 'fr', firstName: 'Paul', eventTitle: 'Woh Face To Face Edition', venueName: 'WOH', posterUrl: POSTER, day: '11', month: 'Septembre 2026', openTime: '23:30', city: 'Paris', address: '8 Boulevard de la Madeleine, 75009 Paris', entryLabel: 'Entrée standard', invitedBy: 'WOH', reference: 'YN-KUTAYB', freeBefore: '01:00', ctaUrl: `${APP}/my-orders`, hasAccount: false, qrDataUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=YUNO-DEMO-GL' }),
+  guestListInvite: () => buildGuestListInvite({ lang: 'fr', eventTitle: 'Woh Face To Face Edition', venueName: 'WOH', posterUrl: POSTER, day: '11', month: 'Septembre 2026', openTime: '23:30', city: 'Paris', entryLabel: 'Entrée standard', invitedBy: 'WOH', maxUses: 2, inviteUrl: `${APP}/guestlist?invite=demo` }),
   vip: () => buildVipConfirmation({ lang: 'fr', firstName: 'Paul', eventTitle: 'Yuno Boat Party Seine', venueName: 'Night Square', posterUrl: POSTER, day: '22', month: 'Juin 2026', arrivalTime: '23:00', tableName: 'Carré VIP — Pont supérieur', guests: '6 personnes', bottles: '2 × Grey Goose', total: '890,00 €', reference: 'VP-2M8X4Q', manageUrl: `${APP}/reservations`, qrDataUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=YUNO-DEMO-VP-2M8X4Q' }),
   order: () => buildOrderConfirmation({ lang: 'fr', firstName: 'Paul', venueName: 'Night Square', items: [{ k: '2 × Mojito', v: '24,00 €' }, { k: '1 × Red Bull', v: '6,00 €' }], total: '30,00 €', reference: 'OR-9920XB', pickupInfo: 'Récupère au bar avec ta référence.', orderUrl: `${APP}/orders` }),
   winback: () => buildWinBack({ lang: 'fr', firstName: 'Paul', pastEventTitle: 'Techno Sundays #12', venueName: 'Night Square', posterUrl: POSTER, attendeeCount: '340', nextEvent: { title: 'Yuno Boat Party Seine', meta: '22 Juin · 18:00 · Paris', url: `${APP}/event/demo`, img: POSTER }, venueUrl: `${APP}/club/night-square`, unsubscribeUrl: `${APP}/unsubscribe?token=demo`, recipientEmail: 'paul.brisebois.pro@gmail.com' }),
