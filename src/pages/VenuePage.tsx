@@ -752,7 +752,7 @@ export default function VenuePage() {
             {/* OPEN TONIGHT badge */}
             {isOpenTonight && (
               <div
-                className="absolute bottom-4 left-5 z-10 flex items-center gap-1.5 px-3 py-1.5"
+                className="absolute bottom-4 right-5 z-10 flex items-center gap-1.5 px-3 py-1.5"
                 style={{ background: 'rgba(10,10,10,0.72)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 10 }}
               >
                 <span
@@ -773,6 +773,20 @@ export default function VenuePage() {
           animate={{ opacity: 1, y: 0 }}
           className="px-5 pt-5"
         >
+          {/* Photo de profil proéminente — chevauche le hero, calquée sur la fiche DJ */}
+          {venue.logoUrl && (
+            <div
+              className="overflow-hidden"
+              style={{ width: 92, height: 92, borderRadius: 14, border: '3px solid #0A0A0A', boxShadow: '0 0 0 1px rgba(255,255,255,0.12)', background: '#191919', marginTop: -62, marginBottom: 14, position: 'relative', zIndex: 10 }}
+            >
+              <img
+                src={getOptimizedImageUrl(venue.logoUrl, { width: 240, height: 240 })}
+                alt={venue.name}
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }}
+              />
+            </div>
+          )}
           <p className="font-mono uppercase mb-2" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.16em' }}>
             CLUB{venue.city ? ` · ${venue.city.toUpperCase()}` : ''}
           </p>

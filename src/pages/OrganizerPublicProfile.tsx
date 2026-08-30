@@ -384,17 +384,23 @@ export default function OrganizerPublicProfile() {
           animate={{ opacity: 1, y: 0 }}
           className="px-5 pt-5"
         >
-          {/* Kicker — logo + ORGANIZER */}
-          <div className="flex items-center gap-2 mb-2">
-            {profile.avatar_url && (
+          {/* Photo de profil proéminente — chevauche le hero, calquée sur la fiche DJ */}
+          {profile.avatar_url && (
+            <div
+              className="overflow-hidden"
+              style={{ width: 92, height: 92, borderRadius: 14, border: '3px solid #0A0A0A', boxShadow: '0 0 0 1px rgba(255,255,255,0.12)', background: '#191919', marginTop: -62, marginBottom: 14, position: 'relative', zIndex: 10 }}
+            >
               <img
-                src={profile.avatar_url}
+                src={getOptimizedImageUrl(profile.avatar_url, { width: 240, height: 240 })}
                 alt={profile.display_name}
-                className="h-6 w-6 rounded-full object-cover flex-shrink-0"
-                style={{ border: '1px solid rgba(255,255,255,0.14)' }}
-                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }}
               />
-            )}
+            </div>
+          )}
+
+          {/* Kicker — ORGANIZER */}
+          <div className="flex items-center gap-2 mb-2">
             <p className="font-mono uppercase" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.16em' }}>
               {(t('orgPublic.organizer') || 'Organizer').toUpperCase()}
             </p>
