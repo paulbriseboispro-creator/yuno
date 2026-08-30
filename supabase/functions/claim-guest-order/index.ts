@@ -382,6 +382,16 @@ serve(async (req) => {
 
       logStep("Purchase linked after signup", { purchaseId: purchase.id, userId });
       await graduateGuestToCrm(supabaseAdmin, purchase.table, purchase.id, userId);
+      // NOTE : pas de credit « boisson offerte » ici, DELIBEREMENT. Les trois
+      // chemins guest list (create-guest-list-entry, promoter-add-guest,
+      // guest-list-manage) ecrivent `pack_id: gl-drink-<uuid>` alors que
+      // `order_pack_credits.pack_id` est de type uuid : l'upsert echoue depuis
+      // toujours, en silence, pour TOUT LE MONDE -- personne n'a jamais recu ce
+      // credit. Le reparer ici seul donnerait un droit a l'invite converti que
+      // l'inscrit connecte n'a pas, et ferait servir deux fois la ou le bar
+      // sert deja a la porte. La correction appartient aux trois emetteurs, et
+      // c'est une decision d'exploitation, pas un effet de bord d'une creation
+      // de compte.
 
       return new Response(
         JSON.stringify({ success: true, message: "Achat lié à votre compte" }),
