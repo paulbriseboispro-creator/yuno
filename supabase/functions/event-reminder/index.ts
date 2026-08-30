@@ -1,4 +1,7 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Version ÉPINGLÉE, comme les helpers _shared (auto-push) et 59 autres
+// fonctions : l'import flottant "@2" résolvait une version dont les types
+// divergeaient de ceux de sendAutoPush, laissant ce fichier non vérifiable.
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.57.2";
 
 import { authorizeCronRequest } from "../_shared/cron-auth.ts";
 import { sendAutoPush, isAutoPushEnabled } from "../_shared/auto-push.ts";
@@ -7,6 +10,36 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+/**
+ * Détenteurs d'un compte Yuno attendus à une soirée : acheteurs de billets ET
+ * inscrits sur la guest list. Sans la seconde source, une soirée sans
+ * billetterie (guest list seule) ne rappelait RIEN à personne — le cas de
+ * toutes les soirées d'organisateur en entrée libre.
+ * Les inscrits sans compte (user_id NULL) sont hors périmètre du push : c'est
+ * l'email de confirmation qui les couvre.
+ */
+async function eventAudience(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<{ userIds: string[]; ticketHolders: Set<string> }> {
+  const [{ data: tickets }, { data: guests }] = await Promise.all([
+    supabase.from('tickets').select('user_id').eq('event_id', eventId).eq('status', 'paid'),
+    supabase
+      .from('guest_list_entries')
+      .select('user_id, guest_lists!inner(event_id)')
+      .eq('guest_lists.event_id', eventId)
+      .neq('status', 'cancelled')
+      .not('user_id', 'is', null),
+  ]);
+  const ticketHolders = new Set<string>(
+    (tickets || []).map((t: { user_id: string | null }) => t.user_id).filter(Boolean) as string[],
+  );
+  const guestUserIds = (guests || [])
+    .map((g: { user_id: string | null }) => g.user_id)
+    .filter(Boolean) as string[];
+  return { userIds: [...new Set([...ticketHolders, ...guestUserIds])], ticketHolders };
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -59,14 +92,8 @@ Deno.serve(async (req) => {
       .eq('is_active', true);
 
     for (const event of reminder4hEnabled ? (events4h || []) : []) {
-      // Get ticket holders for this event
-      const { data: tickets } = await supabase
-        .from('tickets')
-        .select('user_id')
-        .eq('event_id', event.id)
-        .eq('status', 'paid');
-
-      const userIds = [...new Set((tickets || []).map(t => t.user_id).filter(Boolean))];
+      // Acheteurs de billets + inscrits guest list disposant d'un compte.
+      const { userIds } = await eventAudience(supabase, event.id);
 
       const startTime = formatEventTime(event.start_at, event.timezone);
 
@@ -106,13 +133,7 @@ Deno.serve(async (req) => {
       .eq('is_active', true);
 
     for (const event of reminder30mEnabled ? (events30m || []) : []) {
-      const { data: tickets } = await supabase
-        .from('tickets')
-        .select('user_id')
-        .eq('event_id', event.id)
-        .eq('status', 'paid');
-
-      const userIds = [...new Set((tickets || []).map(t => t.user_id).filter(Boolean))];
+      const { userIds, ticketHolders } = await eventAudience(supabase, event.id);
 
       for (const userId of userIds) {
         // Check if T-30min already sent
@@ -131,7 +152,9 @@ Deno.serve(async (req) => {
           const res = await sendAutoPush(supabase, {
             key: 'event_reminder_30m',
             userId,
-            url: `/my-orders?tab=tickets`,
+            // Un inscrit guest list n'a pas de billet : on l'envoie sur ses
+            // commandes sans présélectionner l'onglet billetterie.
+            url: ticketHolders.has(userId) ? `/my-orders?tab=tickets` : `/my-orders`,
             vars: { event: event.title || '' },
           });
           if (res.sent > 0) totalSent++;
