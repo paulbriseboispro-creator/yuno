@@ -348,7 +348,7 @@ export default function OrgAppDashboard() {
               <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>
                 {stripeStatus === 'pending'
                   ? tt('Onboarding Stripe incomplet.', 'Stripe onboarding incomplete.')
-                  : tt('Vous pouvez créer des événements, mais pas vendre de billets sans Stripe.', 'You can create events, but selling requires Stripe.')}
+                  : tt('Vos soirées et vos guest lists vivent en ligne sans Stripe. Billets, tables et boissons demandent un compte connecté.', 'Your events and guest lists go live without Stripe. Tickets, tables and drinks need a connected account.')}
               </p>
             </div>
             <Link

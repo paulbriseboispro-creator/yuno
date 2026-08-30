@@ -89,6 +89,12 @@ export default function OwnerEvents() {
   // Venues handle Stripe elsewhere, so this hook is a no-op (null userId) outside organizer scope.
   const { canSell, status: stripeStatus, loading: stripeLoading } = useOrganizerStripe(isOrganizerScope ? organizerUserId : null);
   // True only when we positively know an organizer cannot yet charge.
+  //
+  // Cette porte ferme les PILIERS PAYANTS (billets, tables, boissons) — elle ne
+  // ferme PAS la publication de la soirée. Une guest list est gratuite : elle
+  // n'encaisse rien, donc elle n'a besoin d'aucun compte Stripe pour être en
+  // ligne. Une soirée en liste invités seule doit pouvoir être active dans
+  // l'app sans que l'organisateur ait branché Stripe.
   const orgSellingBlocked = isOrganizerScope && !stripeLoading && !canSell;
   // Partner clubs the organizer has an active partnership with (used by collab/co-event modes).
   const { partnerships } = useOrganizerPartnerships();
@@ -523,6 +529,18 @@ export default function OwnerEvents() {
   // Returns false when activation needs a table plan first (no bookable inventory),
   // so the card routes the user to the table setup instead of flipping a dead flag.
   const handleToggleTables = async (event: OwnerEventRow): Promise<boolean> => {
+    // Mettre des tables en vente encaisse de l'argent, exactement comme les
+    // billets : sans compte Stripe capable de charger, le client atteindrait un
+    // checkout qui ne peut rien collecter. Retirer la vente reste toujours permis.
+    if (!event.tablesEnabled && orgSellingBlocked) {
+      toast.error(
+        stripeStatus === 'pending'
+          ? t('owner.ev.stripePendingToast')
+          : t('owner.ev.stripeNotConfiguredToast'),
+        { action: { label: t('owner.ev.configure'), onClick: () => navigate(`${basePath}/payments`) } }
+      );
+      return true; // handled — don't route to the table setup
+    }
     try {
       // Turning sales OFF is always allowed.
       if (event.tablesEnabled) {
@@ -834,12 +852,15 @@ export default function OwnerEvents() {
         {collabReadOnly && <CollabActivateBanner />}
         {collabReadOnly && <CollabReadOnlyBanner action={t('collab.action.createEvent')} />}
 
+        {/* Bandeau informatif : la soirée et sa guest list peuvent partir en ligne
+            dès maintenant. Seuls les piliers payants attendent Stripe — d'où le
+            ton neutre plutôt que l'alerte rouge d'un blocage. */}
         {orgSellingBlocked && (
           <div
             className="flex items-center gap-3 rounded-xl px-4 py-3"
-            style={{ background: 'rgba(232,25,44,0.10)', border: '1px solid rgba(232,25,44,0.30)' }}
+            style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.26)' }}
           >
-            <Lock className="w-4 h-4 shrink-0" style={{ color: '#E8192C' }} />
+            <Lock className="w-4 h-4 shrink-0" style={{ color: '#F59E0B' }} />
             <p className="text-[12.5px] flex-1" style={{ color: T1 }}>
               {stripeStatus === 'pending'
                 ? t('owner.ev.stripePendingBanner')
@@ -848,7 +869,7 @@ export default function OwnerEvents() {
             <button
               onClick={() => navigate(`${basePath}/payments`)}
               className="text-[12.5px] font-medium px-3 py-1.5 rounded-lg cursor-pointer shrink-0"
-              style={{ background: 'rgba(232,25,44,0.16)', border: '1px solid rgba(232,25,44,0.32)', color: '#fff' }}
+              style={{ background: 'rgba(245,158,11,0.16)', border: '1px solid rgba(245,158,11,0.32)', color: '#fff' }}
             >
               {t('owner.ev.configure')}
             </button>
@@ -1361,19 +1382,17 @@ export default function OwnerEvents() {
               );
             })()}
 
-            {/* Active toggle — blocked for organizers who haven't connected Stripe */}
+            {/* Active toggle — publier une soirée n'encaisse rien : jamais gaté par
+                Stripe. Sans compte connecté, la soirée vit en ligne avec sa guest
+                list (gratuite) ; seuls billets, tables et boissons restent fermés. */}
             <div
               className="flex items-center justify-between p-4 rounded-xl"
-              style={{
-                background: INNER_BG,
-                border: `1px solid ${orgSellingBlocked ? 'rgba(232,25,44,0.18)' : BORDER}`,
-                opacity: orgSellingBlocked ? 0.75 : 1,
-              }}
+              style={{ background: INNER_BG, border: `1px solid ${BORDER}` }}
             >
               <div>
                 <p style={{ color: T1, fontSize: 13, fontWeight: 560 }}>{t('owner.activeEvent')}</p>
                 {orgSellingBlocked ? (
-                  <p style={{ color: '#E8192C', fontSize: 11.5, marginTop: 2 }}>
+                  <p style={{ color: T3, fontSize: 11.5, marginTop: 2 }}>
                     {t('owner.ev.stripeRequiredForLive')}
                   </p>
                 ) : (
@@ -1382,12 +1401,8 @@ export default function OwnerEvents() {
               </div>
               <Switch
                 id="isActive"
-                checked={orgSellingBlocked ? false : formData.isActive}
-                disabled={orgSellingBlocked}
-                onCheckedChange={(checked) => {
-                  if (orgSellingBlocked) return;
-                  setFormData({ ...formData, isActive: checked });
-                }}
+                checked={formData.isActive}
+                onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
               />
             </div>
 

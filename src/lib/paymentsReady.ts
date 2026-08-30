@@ -82,3 +82,25 @@ export function useVenuePaymentsReady(venueId: string | null | undefined): boole
   });
   return query.data ?? true;
 }
+
+/**
+ * Porte des BOISSONS — toujours le compte du club, jamais celui de l'organisateur.
+ *
+ * `create-checkout` encaisse une commande de boissons sur
+ * `venues.stripe_account_id` (le bar appartient au club), y compris pour une
+ * co-soirée org-led : l'organisateur n'apparaît qu'au moment du split. Demander
+ * `event_payments_ready` pour un panier de boissons interrogeait donc le mauvais
+ * compte — une soirée d'organisateur sans Stripe fermait le bar d'un club qui,
+ * lui, encaisse très bien.
+ *
+ * On lit donc le club en priorité, et on ne retombe sur la soirée que lorsqu'on
+ * n'a pas d'id de club sous la main.
+ */
+export async function fetchDrinksPaymentsReady(
+  venueId: string | null | undefined,
+  eventId: string | null | undefined,
+): Promise<boolean> {
+  if (venueId) return fetchVenuePaymentsReady(venueId);
+  if (eventId) return fetchEventPaymentsReady(eventId);
+  return true;
+}

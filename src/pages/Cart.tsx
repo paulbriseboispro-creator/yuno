@@ -21,7 +21,7 @@ import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { launchCheckout } from '@/lib/native';
 import { haptics } from '@/lib/haptics';
 import { useToast } from '@/hooks/use-toast';
-import { fetchEventPaymentsReady, fetchVenuePaymentsReady } from '@/lib/paymentsReady';
+import { fetchDrinksPaymentsReady } from '@/lib/paymentsReady';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getTranslatedDrinkName } from '@/lib/drinkTranslations';
 import { getOptimizedImageUrl } from '@/lib/imageOptimization';
@@ -326,11 +326,9 @@ export default function Cart() {
       // Club sans compte Stripe actif : create-checkout refuserait la commande
       // au moment de payer. On le dit AVANT, avec un message neutre — jamais un
       // message d'erreur en bout de formulaire. Démo @womber.fr : porte ouverte.
-      const paymentsOk = eventId
-        ? await fetchEventPaymentsReady(eventId)
-        : venueInfo?.id
-          ? await fetchVenuePaymentsReady(venueInfo.id)
-          : true;
+      // Les boissons sont encaissées sur le compte du CLUB, jamais sur celui de
+      // l'organisateur : c'est le club qu'on interroge en priorité.
+      const paymentsOk = await fetchDrinksPaymentsReady(venueInfo?.id, eventId);
       if (!paymentsOk) {
         toast({ title: t('salesStatus.salesNotOpenYet') });
         setIsProcessing(false);

@@ -335,11 +335,18 @@ export default function TicketSelection() {
   const rawSalesStatus = eventData
     ? getEventSalesStatus({ presaleStartAt: eventData.presaleStartAt, publicSaleStartAt: eventData.publicSaleStartAt, waitlistEnabled: eventData.waitlistEnabled, endAt: eventData.endAt }, allRoundsSoldOut)
     : 'public_sale' as const;
-  // Club sans compte Stripe actif : le serveur refuserait le checkout — la
-  // vente se présente comme « bientôt », jamais comme un formulaire condamné.
+  // ── Porte de paiement, PILIER PAR PILIER ─────────────────────────────────
+  // Sans compte Stripe actif, le serveur refuse tout checkout PAYANT : billets,
+  // tables et boissons se taisent (jamais un formulaire condamné à un message
+  // d'erreur au clic « Payer »). La guest list, elle, est GRATUITE : elle ne
+  // touche aucun compte Stripe et reste en ligne. Une soirée qui n'ouvre qu'une
+  // liste invités n'a donc besoin d'aucun Stripe pour vivre dans l'app.
   // Comptes démo @womber.fr exclus de la porte (checkout simulé serveur).
+  const paidBlocked = !paymentsReady;
+  const hasFreeEntry = !!guestList || !!djGuestList;
+  // La page ne bascule en « bientôt » que s'il ne reste RIEN à proposer.
   const paymentsGateClosed =
-    !paymentsReady && (rawSalesStatus === 'public_sale' || rawSalesStatus === 'presale');
+    paidBlocked && !hasFreeEntry && (rawSalesStatus === 'public_sale' || rawSalesStatus === 'presale');
   const salesStatus = paymentsGateClosed ? 'coming_soon' : rawSalesStatus;
 
   const visibility = eventData?.roundsVisibility ?? 'sequential';
@@ -376,8 +383,8 @@ export default function TicketSelection() {
   const ticketMax = eventData?.maxTicketsPerPerson ?? 10;
 
   // Tickets ⇄ Tables VIP quick-nav: only worth showing when the event sells both.
-  const ticketsExist = salesIsOpen && !saleLocked && (standardRounds.length > 0 || vipRounds.length > 0);
-  const tablesExist = salesIsOpen && !saleLocked && zones.length > 0;
+  const ticketsExist = salesIsOpen && !saleLocked && !paidBlocked && (standardRounds.length > 0 || vipRounds.length > 0);
+  const tablesExist = salesIsOpen && !saleLocked && !paidBlocked && zones.length > 0;
   const showSectionTabs = ticketsExist && tablesExist;
 
   const scrollToSection = (ref: React.RefObject<HTMLDivElement>) => {
@@ -650,7 +657,7 @@ export default function TicketSelection() {
       <div ref={ticketsRef} className="px-4 mt-4 space-y-2.5">
 
         {/* STANDARD TICKETS */}
-        {salesIsOpen && !saleLocked && standardRounds.length > 0 && (
+        {salesIsOpen && !saleLocked && !paidBlocked && standardRounds.length > 0 && (
           <div className="space-y-2.5">
             {getVisibleRounds(standardRounds).map(round => (
               <TicketCard
@@ -673,7 +680,7 @@ export default function TicketSelection() {
         )}
 
         {/* VIP TICKETS */}
-        {salesIsOpen && !saleLocked && vipRounds.length > 0 && (
+        {salesIsOpen && !saleLocked && !paidBlocked && vipRounds.length > 0 && (
           <>
             <SectionDivider icon={<Crown className="h-2.5 w-2.5" />} label={t('ticketSel.vipExperience')} />
             <div className="space-y-2.5">
@@ -817,7 +824,7 @@ export default function TicketSelection() {
         )}
 
         {/* TABLES */}
-        {salesIsOpen && !saleLocked && zones.length > 0 && (
+        {salesIsOpen && !saleLocked && !paidBlocked && zones.length > 0 && (
           <div ref={tablesRef} className="space-y-2.5">
             <SectionDivider icon={<Users className="h-2.5 w-2.5" />} label={t('tables.vipTables')} />
             <div className="space-y-2.5">

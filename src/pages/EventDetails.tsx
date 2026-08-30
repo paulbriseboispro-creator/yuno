@@ -628,6 +628,39 @@ export default function EventDetails() {
   //   sequential       → only the first active not-sold-out round shows as buyable
   //   preview_upcoming → all rounds visible; only first not-sold-out is buyable, others "Bientôt"
   //   all_open         → every active round is buyable in parallel
+  //
+  // ── Porte de paiement, PILIER PAR PILIER ─────────────────────────────────
+  // Sans compte Stripe actif, le serveur refuse tout checkout PAYANT (billets,
+  // tables, boissons) : on ne laisse pas l'acheteur remplir un formulaire
+  // condamné à un message d'erreur au clic « Payer ». La guest list est
+  // GRATUITE — elle ne touche aucun compte Stripe et reste en ligne : une
+  // soirée qui n'ouvre qu'une liste invités s'affiche normalement, jamais en
+  // « bientôt disponible ».
+  // Les comptes démo @womber.fr passent (checkout simulé côté serveur).
+  const paymentsReady = useEventPaymentsReady(eventId);
+  const paidBlocked = !paymentsReady;
+  // Liste invités publique de la soirée : requête légère, hors du gros bundle
+  // (elle n'est jamais dans le chemin critique du premier pixel). Même filtre
+  // que la page billetterie — seules les parts marquées « visible sur la page
+  // club » comptent ; les parts déléguées ne vivent que derrière leur lien.
+  const publicGuestListQuery = useQuery({
+    queryKey: ['event-public-guest-list', eventId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('guest_lists')
+        .select('id, free_before_time, includes_drink')
+        .eq('event_id', eventId as string)
+        .eq('is_active', true)
+        .eq('visible_on_club_page', true)
+        .limit(1);
+      return data?.[0] ?? null;
+    },
+    enabled: !!eventId,
+    staleTime: 5 * 60 * 1000,
+  });
+  const publicGuestList = publicGuestListQuery.data ?? null;
+  const hasPublicGuestList = !!publicGuestList;
+
   const visibility = event?.roundsVisibility ?? 'sequential';
   const buyableRounds = ticketRounds.filter(r => r.isActive && !r.manuallySoldOut && r.ticketsSold < r.maxTickets);
   const activeRounds = visibility === 'all_open'
@@ -637,8 +670,8 @@ export default function EventDetails() {
     ? buyableRounds.slice(1)
     : [];
   const activePacks = packs.filter(p => p.isActive);
-  const hasTickets = !!event?.ticketingEnabled && activeRounds.length > 0;
-  const hasTables = !!event?.tablesEnabled && activePacks.length > 0;
+  const hasTickets = !!event?.ticketingEnabled && activeRounds.length > 0 && paymentsReady;
+  const hasTables = !!event?.tablesEnabled && activePacks.length > 0 && paymentsReady;
   const hasTicketsOrTables = hasTickets || hasTables;
 
   // Low stock detection
@@ -654,13 +687,10 @@ export default function EventDetails() {
     },
     isSoldOut,
   );
-  // Club sans compte Stripe actif : le serveur refusera tout checkout (billets,
-  // tables, boissons). On présente la vente comme « bientôt » plutôt que de
-  // laisser l'acheteur remplir un formulaire condamné à un message d'erreur.
-  // Les comptes démo @womber.fr passent (checkout simulé côté serveur).
-  const paymentsReady = useEventPaymentsReady(eventId);
+  // La page ne bascule en « bientôt » que s'il ne reste RIEN à proposer :
+  // paiements fermés ET aucune liste invités gratuite ouverte.
   const paymentsGateClosed =
-    !paymentsReady && (rawSalesStatus === 'public_sale' || rawSalesStatus === 'presale');
+    paidBlocked && !hasPublicGuestList && (rawSalesStatus === 'public_sale' || rawSalesStatus === 'presale');
   const eventSalesStatus = paymentsGateClosed ? 'coming_soon' : rawSalesStatus;
 
   // Cette page pose son propre CTA d'achat collant en bas d'écran dès qu'il y a
@@ -669,7 +699,7 @@ export default function EventDetails() {
   // d'onglets — sinon la barre globale reste, y compris pendant le chargement.
   // Soirée terminée : plus rien à vendre ni à annoncer → la barre d'onglets
   // globale reste affichée (pas de CTA collant qui la remplacerait).
-  useSuppressBottomNav(!!event && eventSalesStatus !== 'ended' && (hasTicketsOrTables || eventSalesStatus !== 'public_sale'));
+  useSuppressBottomNav(!!event && eventSalesStatus !== 'ended' && (hasTicketsOrTables || hasPublicGuestList || eventSalesStatus !== 'public_sale'));
 
   if (loading) {
     return <EventDetailsSkeleton />;
@@ -955,6 +985,50 @@ export default function EventDetails() {
                   })}
                 </div>
               )}
+            </div>
+          </section>
+        )}
+
+        {/* ── GUEST LIST GRATUITE ──
+            Seule offre de la soirée (aucun billet ni table en vente) : sans ce
+            bloc, une soirée qui n'ouvre qu'une liste invités n'aurait AUCUN
+            point d'entrée sur sa page. C'est le cas d'un organisateur qui n'a
+            pas encore branché Stripe — et il n'en a pas besoin : l'inscription
+            est gratuite. Quand des billets sont en vente, le CTA « Réserver »
+            mène déjà à la page billetterie, où la liste est proposée. */}
+        {canUserAccessSales && !hasTicketsOrTables && hasPublicGuestList && (
+          <section style={{ padding: '20px 20px 0' }}>
+            <p className="section-label-ruled mb-3">{t('guestList.title')}</p>
+            <div style={{ border: '1px solid rgba(16,185,129,0.28)', borderRadius: 4, padding: '16px 20px', background: 'rgba(16,185,129,0.04)' }}>
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="font-display font-bold text-white" style={{ fontSize: 'clamp(22px, 5vw, 32px)', letterSpacing: '-0.025em', lineHeight: 1 }}>
+                    {t('guestList.free')}
+                  </p>
+                  {publicGuestList?.free_before_time && (
+                    <p className="font-mono mt-1.5" style={{ fontSize: '11px', color: '#9A9A9A', letterSpacing: '0.04em' }}>
+                      {t('guestList.freeBeforeTime')} {publicGuestList.free_before_time.substring(0, 5)}
+                    </p>
+                  )}
+                  {publicGuestList?.includes_drink && (
+                    <p className="font-mono mt-1" style={{ fontSize: '11px', color: 'rgba(16,185,129,0.85)', letterSpacing: '0.04em' }}>
+                      {t('guestList.drinkIncluded')}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={() => navigate(`${checkoutBase}/billets`, { state: { eventId } })}
+                  className="shrink-0 font-mono font-bold uppercase"
+                  style={{ height: 44, padding: '0 22px', background: '#10B981', color: '#04120C', border: 'none', borderRadius: 3, fontSize: '11px', cursor: 'pointer', letterSpacing: '0.10em', transition: 'transform 160ms cubic-bezier(0.23, 1, 0.32, 1)', WebkitTapHighlightColor: 'transparent' } as React.CSSProperties}
+                  onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.97)')}
+                  onMouseUp={(e) => (e.currentTarget.style.transform = '')}
+                  onMouseLeave={(e) => (e.currentTarget.style.transform = '')}
+                  onTouchStart={(e) => (e.currentTarget.style.transform = 'scale(0.97)')}
+                  onTouchEnd={(e) => (e.currentTarget.style.transform = '')}
+                >
+                  {t('guestList.register')}
+                </button>
+              </div>
             </div>
           </section>
         )}
@@ -1315,6 +1389,22 @@ export default function EventDetails() {
               label={t('event.startingFrom')}
               buttonText={t('event.bookNow')}
               icon={<Ticket className="h-4 w-4" />}
+              onClick={() => navigate(`${checkoutBase}/billets`, { state: { eventId } })}
+            />
+          );
+        }
+
+        // Rien de payant, mais une liste invités ouverte : elle mérite le même
+        // CTA collant. C'est le seul chemin d'entrée d'une soirée en guest list
+        // seule — celle d'un organisateur qui n'a pas branché Stripe, entre autres.
+        if (canUserAccessSales && !hasTicketsOrTables && hasPublicGuestList) {
+          return (
+            <StickyCheckoutFooter
+              amount={0}
+              label=""
+              buttonText={t('guestList.register')}
+              icon={<UserCheck className="h-4 w-4" />}
+              accentColor="#10B981"
               onClick={() => navigate(`${checkoutBase}/billets`, { state: { eventId } })}
             />
           );

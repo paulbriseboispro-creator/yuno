@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { useStore } from '@/store/useStore';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useToast } from '@/hooks/use-toast';
-import { fetchEventPaymentsReady, fetchVenuePaymentsReady } from '@/lib/paymentsReady';
+import { fetchDrinksPaymentsReady } from '@/lib/paymentsReady';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { getTranslatedDrinkName } from '@/lib/drinkTranslations';
@@ -135,11 +135,9 @@ export default function GuestDrinkCheckout() {
 
       // Club sans compte Stripe actif : create-checkout refuserait la commande.
       // Message neutre avant l'appel — jamais d'erreur en bout de formulaire.
-      const paymentsOk = eventId
-        ? await fetchEventPaymentsReady(eventId)
-        : venueInfo?.id
-          ? await fetchVenuePaymentsReady(venueInfo.id)
-          : true;
+      // Les boissons sont encaissées sur le compte du CLUB, jamais sur celui de
+      // l'organisateur : c'est le club qu'on interroge en priorité.
+      const paymentsOk = await fetchDrinksPaymentsReady(venueInfo?.id, eventId);
       if (!paymentsOk) {
         toast({ title: t('salesStatus.salesNotOpenYet') });
         setIsProcessing(false);
