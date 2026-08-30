@@ -24,6 +24,8 @@ import QRCode from 'qrcode';
 import { haptics } from '@/lib/haptics';
 import { PublicPage } from '@/components/PublicPage';
 import { useGuestSignup } from '@/hooks/useGuestSignup';
+import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
+import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 
 interface GuestListInfo {
   id: string;
@@ -93,6 +95,11 @@ export default function GuestListCheckout() {
   const [showPassword, setShowPassword] = useState(false);
   const [accountCreated, setAccountCreated] = useState(false);
   const { submitting: signingUp, error: signupError, setError: setSignupError, signup } = useGuestSignup();
+  // « Cet email a-t-il déjà un compte ? » posée pendant la saisie, puis sur
+  // l'email réellement enregistré. Sans ça, la réponse ne tombait qu'après un
+  // mot de passe choisi pour rien.
+  const { exists: typedEmailHasAccount } = useExistingAccountCheck(guestEmail, !user);
+  const { exists: entryEmailHasAccount } = useExistingAccountCheck(entryEmail, !user && !accountCreated);
 
   // Retour vers la sélection : on DÉPILE, comme partout ailleurs dans le tunnel
   // (fiche event, billets, checkout billet). Empiler `/billets` d'ici enfermait
@@ -252,10 +259,15 @@ export default function GuestListCheckout() {
   // Email deja pris : on renvoie vers la connexion, avec `?link=` en retour --
   // le rattachement se fera a l'arrivee, session en main. Le parcours OTP
   // `/claim` des billets ne sait pas lire une guest list, on ne l'emprunte pas.
+  // Retour de connexion qui rattache l'inscription à l'arrivée (`?link=`).
+  // Partagé par le panneau « compte existant » et par le repli du signup.
+  const relinkBackUrl = entryId
+    ? `${location.pathname}${location.search ? location.search + '&' : '?'}link=${entryId}`
+    : '';
+
   const handleCreateAccount = () => {
     if (!entryEmail || !entryId) return;
     const [firstName, ...rest] = guestName.trim().split(' ');
-    const back = `${location.pathname}${location.search ? location.search + '&' : '?'}link=${entryId}`;
     signup(
       {
         email: entryEmail,
@@ -263,7 +275,7 @@ export default function GuestListCheckout() {
         lastName: rest.join(' ') || undefined,
         purchaseId: entryId,
         purchaseType: 'guestlist',
-        existingAccountRedirect: back,
+        existingAccountRedirect: relinkBackUrl,
       },
       password,
       confirmPassword,
@@ -476,6 +488,19 @@ export default function GuestListCheckout() {
               style={{ borderRadius: 12 }}
             >
               <p className="section-label-ruled" style={{ marginBottom: 14 }}>{t('glconf.accountLabel')}</p>
+
+              {/* Email déjà pris : on ne demande PAS un mot de passe que
+                  `auth.signUp` refusera. La connexion prend toute la place, et
+                  `?link=` rattache l'inscription dès le retour. */}
+              {entryEmailHasAccount ? (
+                <ExistingAccountNotice
+                  variant="panel"
+                  email={entryEmail}
+                  redirectTo={relinkBackUrl}
+                  description={t('glconf.existingAccountDesc')}
+                />
+              ) : (
+              <>
               <h3 className="font-display font-bold" style={{ fontSize: 'clamp(19px, 4.6vw, 24px)', color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.08 }}>
                 {t('glconf.accountPitch')}
               </h3>
@@ -545,6 +570,8 @@ export default function GuestListCheckout() {
               <p className="font-mono uppercase text-center truncate" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.06em', marginTop: 12 }}>
                 {t('glconf.accountFor')} {entryEmail}
               </p>
+              </>
+              )}
 
               <button
                 className="w-full flex items-center justify-center gap-2 font-sans"
@@ -671,6 +698,9 @@ export default function GuestListCheckout() {
               <div className="space-y-1.5">
                 <Label htmlFor="gl-email" className="text-xs text-white/55">{t('guestList.email')} *</Label>
                 <Input id="gl-email" type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder={t('guestList.emailPlaceholder')} />
+                {/* Dit tout de suite ce qu'on ne disait qu'après le mot de passe.
+                    Simple information : la place reste accessible sans compte. */}
+                {typedEmailHasAccount && <ExistingAccountNotice email={guestEmail.trim()} />}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="gl-phone" className="text-xs text-white/55">{t('guestList.phone')} *</Label>

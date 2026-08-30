@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useGuestSignup } from '@/hooks/useGuestSignup';
+import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
+import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface GuestContext {
@@ -37,6 +39,9 @@ export default function GuestFinalizeAccount() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [done, setDone] = useState(false);
+  // L'email de l'achat a-t-il déjà un compte ? Vérifié dès que le contexte est
+  // chargé : inutile de demander un mot de passe que signUp refusera.
+  const { exists: emailHasAccount } = useExistingAccountCheck(context?.email || '');
 
   useEffect(() => {
     if (!id) {
@@ -159,6 +164,25 @@ export default function GuestFinalizeAccount() {
           </Card>
         )}
 
+        {emailHasAccount ? (
+          <div className="space-y-4">
+            {/* Email déjà pris : on ne demande pas un mot de passe voué à
+                l'échec. Le retour passe par /claim, qui rattache l'achat. */}
+            <ExistingAccountNotice
+              variant="panel"
+              email={context?.email || ''}
+              redirectTo={`/claim?order=${encodeURIComponent(context?.reference || id)}&type=${type}&email=${encodeURIComponent(context?.email || '')}`}
+              description={t('finalize.existingAccountDesc')}
+            />
+            <Button
+              variant="ghost"
+              onClick={() => navigate(`/order-confirmation?type=${type}&id=${id}`)}
+              className="w-full text-sm text-muted-foreground"
+            >
+              {t('finalize.later')}
+            </Button>
+          </div>
+        ) : (
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>{t('finalize.password')}</Label>
@@ -224,6 +248,7 @@ export default function GuestFinalizeAccount() {
             {t('finalize.later')}
           </Button>
         </div>
+        )}
       </motion.div>
     </div>
   );

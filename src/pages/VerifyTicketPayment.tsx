@@ -11,6 +11,8 @@ import { fr, enUS, es } from 'date-fns/locale';
 import { PARIS_TIMEZONE } from '@/lib/timezone';
 import { motion } from 'framer-motion';
 import { NativeCheckoutReturn } from '@/components/NativeCheckoutReturn';
+import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
+import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 
 const EASE = [0.16, 1, 0.3, 1] as [number, number, number, number];
 
@@ -31,6 +33,9 @@ export default function VerifyTicketPayment() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const { submitting, error: signupError, setError: setSignupError, signup } = useGuestSignup();
+  // L'email du billet a-t-il déjà un compte ? Posé à l'affichage de la carte,
+  // pas après un mot de passe saisi pour rien.
+  const { exists: guestEmailHasAccount } = useExistingAccountCheck(guestEmail);
 
   const venueId = sessionStorage.getItem('yuno_venue_id') || undefined;
   const { trackOrderComplete } = useVisitorTracking(venueId);
@@ -271,6 +276,19 @@ export default function VerifyTicketPayment() {
             transition={{ duration: 0.6, ease: EASE, delay: 0.26 }}
           >
             <p className="section-label-ruled" style={{ marginBottom: 14 }}>{t('tconf.accountLabel')}</p>
+
+            {/* Email déjà pris : `auth.signUp` refuserait de toute façon. On
+                remplace le formulaire par la connexion, et le retour passe par
+                /claim qui rattache le billet au compte. */}
+            {guestEmailHasAccount ? (
+              <ExistingAccountNotice
+                variant="panel"
+                email={guestEmail}
+                redirectTo={`/claim?order=${encodeURIComponent(guestDetails?.qrCode || ticketId || '')}&type=ticket&email=${encodeURIComponent(guestEmail)}`}
+                description={t('tconf.existingAccountDesc')}
+              />
+            ) : (
+            <>
             <h2 className="font-display font-bold" style={{ fontSize: 'clamp(21px, 5vw, 26px)', color: '#fff', letterSpacing: '-0.02em', lineHeight: 1.05 }}>
               {t('tconf.accountPitch')}
             </h2>
@@ -355,6 +373,8 @@ export default function VerifyTicketPayment() {
             <p className="font-mono uppercase text-center truncate" style={{ fontSize: '10px', color: '#5A5A5E', letterSpacing: '0.06em', marginTop: 12 }}>
               {t('tconf.accountFor')} {guestEmail}
             </p>
+            </>
+            )}
 
             {/* Secondary — straight to the ticket */}
             <button className="btn btn--ghost" style={{ width: '100%', marginTop: 18 }} onClick={goToTicket}>
