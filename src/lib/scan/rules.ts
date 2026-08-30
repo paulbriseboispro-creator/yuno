@@ -1,4 +1,5 @@
 import type {
+  DoorScope,
   GuestListScanEntity,
   ScanContext,
   ScanVerdict,
@@ -18,6 +19,26 @@ import type {
  *  - tables   : venue → non payé → déjà scanné → OK
  *  - guest list : venue → déjà scanné → annulée → deadline → OK
  */
+
+/**
+ * La personne qui scanne est-elle bien à la porte de CETTE soirée ?
+ *
+ * Le club prime quand la porte en a un : la comparaison est alors mot pour mot
+ * celle d'avant, donc aucun club ne change de comportement. Une porte sans club
+ * (soirée org-led) se rabat sur l'organisateur.
+ *
+ * Fermé par défaut : une porte sans périmètre ne valide rien. C'est ce qui
+ * évite qu'un `null === null` fasse passer n'importe quel QR d'une soirée
+ * org-led sur la porte d'une autre.
+ */
+export function isInDoorScope(
+  entity: { venueId: string | null; organizerUserId: string | null },
+  scope: DoorScope,
+): boolean {
+  if (scope.venueId) return entity.venueId === scope.venueId;
+  if (scope.organizerUserId) return entity.organizerUserId === scope.organizerUserId;
+  return false;
+}
 
 /** GL- préfixe = entrée guest list ; sinon lookup générique attendee→ticket→table. */
 export function classifyQr(qr: string): 'guest_list' | 'generic' {
@@ -49,7 +70,7 @@ export function resolveGuestListDeadline(
 }
 
 export function validateTicketEntry(entity: TicketScanEntity, ctx: ScanContext): ScanVerdict {
-  if (entity.venueId !== ctx.venueId) return { status: 'wrong_venue' };
+  if (!isInDoorScope(entity, ctx.scope)) return { status: 'wrong_venue' };
 
   if (ctx.mode === 'cancel') {
     if (entity.status !== 'paid') return { status: 'not_paid' };
@@ -63,14 +84,14 @@ export function validateTicketEntry(entity: TicketScanEntity, ctx: ScanContext):
 }
 
 export function validateTableReservation(entity: TableScanEntity, ctx: ScanContext): ScanVerdict {
-  if (entity.venueId !== ctx.venueId) return { status: 'wrong_venue' };
+  if (!isInDoorScope(entity, ctx.scope)) return { status: 'wrong_venue' };
   if (entity.status !== 'paid') return { status: 'not_paid' };
   if (entity.scanned) return { status: 'already', scannedAt: entity.scannedAt };
   return { status: 'success' };
 }
 
 export function validateGuestListEntry(entity: GuestListScanEntity, ctx: ScanContext): ScanVerdict {
-  if (entity.venueId !== ctx.venueId) return { status: 'wrong_venue' };
+  if (!isInDoorScope(entity, ctx.scope)) return { status: 'wrong_venue' };
   if (entity.scanned) return { status: 'already', scannedAt: entity.scannedAt };
   if (entity.status === 'cancelled') return { status: 'cancelled' };
 

@@ -38,6 +38,13 @@ export interface StaffIdentity {
   staffOnboardedAt: string | null;
   venueId: string | null;
   venueName: string | null;
+  /**
+   * Organisateur dont la personne est le staff, quand elle n'appartient à aucun
+   * club. C'est le périmètre de porte d'une soirée org-led — un videur invité
+   * depuis /organizer-app/team n'a PAS de venue_id, son lien vit dans
+   * `org_staff`. NULL pour tout le staff de club.
+   */
+  organizerUserId: string | null;
   roles: StaffRole[];
   /** Rôle principal quand la personne cumule plusieurs postes. */
   role: StaffRole | null;
@@ -69,6 +76,22 @@ async function fetchStaffIdentity(): Promise<StaffIdentity | null> {
 
   const profile = profileRes.data;
   const allRoles = (rolesRes.data ?? []).map(r => r.role as string);
+
+  // Périmètre organisateur : lu UNIQUEMENT quand la personne n'a pas de club.
+  // Le club prime — quelqu'un qui cumule les deux (les comptes de démo, par
+  // exemple) garde exactement le comportement d'avant, et le staff de club ne
+  // paie pas une requête de plus.
+  let organizerUserId: string | null = null;
+  if (!profile?.venue_id) {
+    const { data: orgStaff } = await supabase
+      .from('org_staff')
+      .select('organizer_user_id')
+      .eq('user_id', user.id)
+      .eq('invitation_status', 'accepted')
+      .limit(1)
+      .maybeSingle();
+    organizerUserId = orgStaff?.organizer_user_id ?? null;
+  }
   const staffRoles = allRoles.filter((r): r is StaffRole =>
     ['barman', 'bouncer', 'cloakroom', 'vip_host', 'manager'].includes(r)
   );
@@ -104,6 +127,7 @@ async function fetchStaffIdentity(): Promise<StaffIdentity | null> {
     staffOnboardedAt: profile?.staff_onboarded_at ?? null,
     venueId: profile?.venue_id ?? null,
     venueName,
+    organizerUserId,
     roles: staffRoles,
     role: primaryStaffRole(staffRoles),
     isOwner: allRoles.includes('owner'),
@@ -140,5 +164,6 @@ export function useStaffIdentity() {
     // `venueId` seul, autant éviter un `identity?.venueId` partout.
     venueId: data?.venueId ?? null,
     venueName: data?.venueName ?? null,
+    organizerUserId: data?.organizerUserId ?? null,
   };
 }

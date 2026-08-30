@@ -19,7 +19,8 @@ export async function fetchManifest(eventId: string): Promise<StoredManifest> {
   const manifest = data as unknown as ScanManifest;
   const stored: StoredManifest = {
     eventId,
-    venueId: manifest.event.venue_id,
+    venueId: manifest.event.venue_id ?? null,
+    organizerUserId: manifest.event.organizer_user_id ?? null,
     fetchedAt: new Date().toISOString(),
     manifest,
   };

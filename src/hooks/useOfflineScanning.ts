@@ -7,7 +7,7 @@ import {
   validateGuestListEntry,
   validateTableReservation,
 } from '@/lib/scan/rules';
-import type { ScanEntity, ScanVerdict } from '@/lib/scan/types';
+import type { DoorScope, ScanEntity, ScanVerdict } from '@/lib/scan/types';
 import { useNetworkStatus } from '@/components/pro/OfflinePill';
 import { isProApp } from '@/lib/native';
 
@@ -28,7 +28,12 @@ interface IndexedEntry {
 function buildIndex(stored: StoredManifest): Map<string, IndexedEntry> {
   const map = new Map<string, IndexedEntry>();
   const { manifest } = stored;
-  const venueId = manifest.event.venue_id;
+  // Périmètre de la soirée tel que le serveur l'a décrit. Sur une soirée
+  // org-led, venue_id est NULL des deux côtés : c'est l'organisateur qui porte
+  // le contrôle « bonne porte ». Un manifeste stocké par une version
+  // antérieure n'a pas le champ — d'où le `?? null`.
+  const venueId = manifest.event.venue_id ?? null;
+  const organizerUserId = manifest.event.organizer_user_id ?? null;
 
   for (const e of manifest.attendees) {
     map.set(e.qr, {
@@ -36,7 +41,8 @@ function buildIndex(stored: StoredManifest): Map<string, IndexedEntry> {
       kind: 'ticket',
       entity: {
         type: 'ticket_attendee', id: e.id, ticketId: e.ticket_id || e.id,
-        name: e.name, status: e.status, scanned: e.scanned, scannedAt: e.scanned_at, venueId,
+        name: e.name, status: e.status, scanned: e.scanned, scannedAt: e.scanned_at,
+        venueId, organizerUserId,
       },
     });
   }
@@ -47,7 +53,8 @@ function buildIndex(stored: StoredManifest): Map<string, IndexedEntry> {
       kind: 'ticket',
       entity: {
         type: 'ticket', id: e.id, ticketId: e.id,
-        name: e.name, status: e.status, scanned: e.scanned, scannedAt: e.scanned_at, venueId,
+        name: e.name, status: e.status, scanned: e.scanned, scannedAt: e.scanned_at,
+        venueId, organizerUserId,
       },
     });
   }
@@ -57,7 +64,8 @@ function buildIndex(stored: StoredManifest): Map<string, IndexedEntry> {
       kind: 'table',
       entity: {
         type: 'table_reservation', id: e.id,
-        name: e.name, status: e.status, scanned: e.scanned, scannedAt: e.scanned_at, venueId,
+        name: e.name, status: e.status, scanned: e.scanned, scannedAt: e.scanned_at,
+        venueId, organizerUserId,
       },
     });
   }
@@ -67,7 +75,8 @@ function buildIndex(stored: StoredManifest): Map<string, IndexedEntry> {
       kind: 'guest_list',
       entity: {
         type: 'guest_list_entry', id: e.id,
-        name: e.name, status: e.status, scanned: e.scanned, scannedAt: e.scanned_at, venueId,
+        name: e.name, status: e.status, scanned: e.scanned, scannedAt: e.scanned_at,
+        venueId, organizerUserId,
         entryDeadline: e.entry_deadline || null,
         glDeadline: e.gl_deadline || null,
         freeBeforeTime: e.free_before || null,
@@ -83,7 +92,11 @@ function buildIndex(stored: StoredManifest): Map<string, IndexedEntry> {
  * Manifeste pré-téléchargé (IndexedDB) + validation locale via les MÊMES
  * règles pures que le chemin online (src/lib/scan/rules.ts) + file de rejeu.
  */
-export function useOfflineScanning(eventId: string | null, venueId: string | null) {
+export function useOfflineScanning(eventId: string | null, scope: DoorScope) {
+  // Déstructuré tout de suite : les effets dépendent de deux chaînes stables,
+  // jamais de l'identité de l'objet. Un appelant qui passerait un littéral
+  // inline ne ferait pas retomber le cache à chaque rendu.
+  const { venueId: scopeVenueId, organizerUserId: scopeOrganizerUserId } = scope;
   const online = useNetworkStatus();
   const enabled = isProApp() && !!eventId;
 
@@ -181,7 +194,8 @@ export function useOfflineScanning(eventId: string | null, venueId: string | nul
   const scanOffline = useCallback(async (qr: string): Promise<OfflineScanResult> => {
     const map = indexRef.current;
     const hit = map?.get(qr.trim());
-    if (!hit || !eventId || !venueId) {
+    // Une porte sans périmètre (ni club ni organisateur) ne valide rien.
+    if (!hit || !eventId || (!scopeVenueId && !scopeOrganizerUserId)) {
       return { verdict: { status: 'not_found' }, kind: 'not_found', name: null, entry: null, offline: true };
     }
 
@@ -192,7 +206,11 @@ export function useOfflineScanning(eventId: string | null, venueId: string | nul
       ? ({ ...hit.entity, scanned: true, scannedAt: local.scannedAt } as ScanEntity)
       : hit.entity;
 
-    const ctx = { venueId, now: new Date(), mode: 'entry' as const };
+    const ctx = {
+      scope: { venueId: scopeVenueId, organizerUserId: scopeOrganizerUserId },
+      now: new Date(),
+      mode: 'entry' as const,
+    };
     const verdict =
       entity.type === 'guest_list_entry' ? validateGuestListEntry(entity, ctx)
       : entity.type === 'table_reservation' ? validateTableReservation(entity, ctx)
@@ -218,7 +236,7 @@ export function useOfflineScanning(eventId: string | null, venueId: string | nul
     }
 
     return { verdict, kind: hit.kind, name: hit.entry.name, entry: hit.entry, offline: true };
-  }, [eventId, venueId, refreshPending, replay]);
+  }, [eventId, scopeVenueId, scopeOrganizerUserId, refreshPending, replay]);
 
   const manifestAgeMs = stored ? Date.now() - new Date(stored.fetchedAt).getTime() : null;
 

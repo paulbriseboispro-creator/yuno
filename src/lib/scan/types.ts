@@ -10,6 +10,20 @@ export type ScanEntityType =
   | 'guest_list_entry'
   | 'table_reservation';
 
+/**
+ * Périmètre d'une porte. Une soirée se tient soit dans un CLUB, soit sous la
+ * seule responsabilité d'un ORGANISATEUR (events.venue_id et partner_venue_id
+ * tous les deux NULL). Le contrôle « ce QR appartient-il bien à ma porte ? »
+ * doit donc pouvoir s'ancrer sur l'un ou l'autre.
+ *
+ * Un seul des deux champs est renseigné à la fois. Le club prime quand il
+ * existe : c'est exactement le comportement d'avant pour tout le parc clubs.
+ */
+export interface DoorScope {
+  venueId: string | null;
+  organizerUserId: string | null;
+}
+
 interface BaseScanEntity {
   id: string;
   name: string | null;
@@ -17,7 +31,10 @@ interface BaseScanEntity {
   status: string;
   scanned: boolean;
   scannedAt: string | null;
-  venueId: string;
+  /** Club de la soirée. NULL sur une soirée sans club (org-led). */
+  venueId: string | null;
+  /** Organisateur de la soirée. NULL sur une soirée de club pure. */
+  organizerUserId: string | null;
 }
 
 export interface TicketScanEntity extends BaseScanEntity {
@@ -45,7 +62,8 @@ export interface TableScanEntity extends BaseScanEntity {
 export type ScanEntity = TicketScanEntity | GuestListScanEntity | TableScanEntity;
 
 export interface ScanContext {
-  venueId: string;
+  /** Périmètre de la personne qui scanne (son club, ou son organisateur). */
+  scope: DoorScope;
   now: Date;
   mode: 'entry' | 'cancel';
 }

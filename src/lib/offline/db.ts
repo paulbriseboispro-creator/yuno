@@ -16,7 +16,10 @@ export interface ManifestEvent {
   title: string;
   start_at: string;
   end_at: string;
-  venue_id: string;
+  /** Club de la soirée. NULL sur une soirée sans club (org-led). */
+  venue_id: string | null;
+  /** Organisateur de la soirée. NULL sur une soirée de club pure. */
+  organizer_user_id: string | null;
   alcohol_free?: boolean | null;
 }
 
@@ -59,7 +62,10 @@ export interface ScanManifest {
 
 export interface StoredManifest {
   eventId: string;
-  venueId: string;
+  /** Club de la soirée, recopié pour lecture directe. NULL si org-led. */
+  venueId: string | null;
+  /** Organisateur de la soirée, recopié pour lecture directe. NULL si club. */
+  organizerUserId: string | null;
   fetchedAt: string;
   manifest: ScanManifest;
 }

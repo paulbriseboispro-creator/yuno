@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { retrySupabaseAction } from '@/utils/retryAction';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { QrCode, CheckCircle, XCircle, User, Ticket, Wine, Camera, RefreshCw, Us
 import { DoorSearchPanel } from '@/components/bouncer/DoorSearchPanel';
 import { nowInParis } from '@/lib/timezone';
 import { validateTicketEntry, validateTableReservation, validateGuestListEntry } from '@/lib/scan/rules';
+import type { DoorScope } from '@/lib/scan/types';
 import { useOfflineScanning } from '@/hooks/useOfflineScanning';
 import { IncidentQuickReport } from '@/components/bouncer/IncidentQuickReport';
 import { OfflinePill } from '@/components/pro/OfflinePill';
@@ -83,6 +84,28 @@ interface ScannedTicket {
   serviceFee?: number;
   userId?: string;
   entryDeadline?: string;
+}
+
+/**
+ * Forme de la jointure `guest_list_entries → guest_lists → events` telle que le
+ * scan de porte la demande. PostgREST ne type pas les jointures imbriquées, et
+ * le périmètre de la porte (club OU organisateur) se lit ici : autant l'écrire
+ * une fois plutôt que de caster à chaque accès.
+ */
+interface GuestListJoin {
+  event_id: string;
+  free_before_time: string | null;
+  entry_deadline: string | null;
+  includes_drink: boolean | null;
+  venue_id: string | null;
+  events: {
+    title: string;
+    venue_id: string | null;
+    partner_venue_id: string | null;
+    organizer_user_id: string | null;
+    partner_organizer_id: string | null;
+    start_at: string;
+  };
 }
 
 interface ScannedVipReservation {
@@ -160,7 +183,17 @@ const REFUND_REASONS = {
 export default function Bouncer() {
   const { toast } = useToast();
   const { t, language } = useLanguage();
-  const { venueId, loading: venueLoading } = useStaffIdentity();
+  const { venueId, organizerUserId, loading: venueLoading } = useStaffIdentity();
+  /**
+   * Périmètre de cette porte. Un club quand la personne en a un — c'est le
+   * cas de tout le staff de club, et rien ne change pour lui. Sinon
+   * l'organisateur qui l'a recrutée : une soirée org-led n'a aucun club.
+   */
+  const doorScope = useMemo<DoorScope>(
+    () => ({ venueId: venueId ?? null, organizerUserId: venueId ? null : (organizerUserId ?? null) }),
+    [venueId, organizerUserId],
+  );
+  const hasDoorScope = !!doorScope.venueId || !!doorScope.organizerUserId;
   
   const [activeTab, setActiveTab] = useState<'entry' | 'search' | 'cancel' | 'client'>('entry');
   const activeTabRef = useRef(activeTab);
@@ -227,7 +260,7 @@ export default function Bouncer() {
   // Scan offline (app Yuno Pro) : manifeste local + file de rejeu.
   const [offlineEventId, setOfflineEventId] = useState<string | null>(null);
   const [syncDrawerOpen, setSyncDrawerOpen] = useState(false);
-  const offline = useOfflineScanning(offlineEventId, venueId ?? null);
+  const offline = useOfflineScanning(offlineEventId, doorScope);
   
   // Cached top clients
   const [topClientsCache, setTopClientsCache] = useState<any[] | null>(null);
@@ -365,20 +398,22 @@ export default function Bouncer() {
   }, [rapidMode, scanResult, scannedTicket, advanceRapid]);
 
   useEffect(() => {
-    if (venueId) {
+    if (hasDoorScope) {
       fetchStats();
       // La prise de poste vit dans StaffNightPanel (rituel d'ouverture la nuit,
       // silencieuse en journée).
-      // Fetch free drink mode
+    }
+    // La conso offerte est un réglage de CLUB : une soirée org-led n'en a pas.
+    if (venueId) {
       supabase.from('venues').select('free_drink_mode').eq('id', venueId).single().then(({ data }) => {
         if (data) setFreeDrinkMode((data as any).free_drink_mode || 'credits');
       });
     }
-    
+
     return () => {
       stopScanning();
     };
-  }, [venueId]);
+  }, [venueId, hasDoorScope, doorScope.organizerUserId]);
 
   // Realtime subscription for live occupancy updates
   useEffect(() => {
@@ -413,58 +448,51 @@ export default function Bouncer() {
   }, [venueId]);
 
   const fetchStats = async () => {
-    if (!venueId) return;
-    
+    // Filtre des soirées de CETTE porte. Un club voit les siennes (lead ou
+    // partenaire, la co-soirée org-led pose le club en partner_venue_id) ;
+    // une porte d'organisateur voit celles de son organisateur.
+    const eventFilter = doorScope.venueId
+      ? `venue_id.eq.${doorScope.venueId},partner_venue_id.eq.${doorScope.venueId}`
+      : doorScope.organizerUserId
+        ? `organizer_user_id.eq.${doorScope.organizerUserId},partner_organizer_id.eq.${doorScope.organizerUserId}`
+        : null;
+    if (!eventFilter) return;
+
     try {
       const now = new Date().toISOString();
-      
-      // Only fetch currently active events (started and not ended).
-      // Co-soirée org-led : le club est partner_venue_id (venue_id peut être
-      // NULL) — sans le .or(), la porte ne voit pas l'event du soir.
+
+      // Soirée en cours (commencée, pas finie).
       const { data: events } = await supabase
         .from('events')
         .select('id')
-        .or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`)
+        .or(eventFilter)
         .eq('is_active', true)
         .lte('start_at', now)
         .gte('end_at', now);
 
-      if (!events || events.length === 0) {
-        // Fallback: fetch today's events if no active event right now
+      let eventIds = (events ?? []).map(e => e.id);
+
+      // À défaut, la soirée du jour — c'est elle qu'on prépare en amont, et
+      // c'est son manifeste qu'il faut avoir téléchargé AVANT d'ouvrir.
+      if (eventIds.length === 0) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const { data: todayEvents } = await supabase
           .from('events')
           .select('id')
-          .or(`venue_id.eq.${venueId},partner_venue_id.eq.${venueId}`)
+          .or(eventFilter)
           .gte('end_at', today.toISOString())
           .lte('start_at', new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString());
-        
-        if (!todayEvents || todayEvents.length === 0) {
-          setStats({ scanned: 0, total: 0 });
-          setOfflineEventId(null);
-          return;
-        }
+        eventIds = (todayEvents ?? []).map(e => e.id);
+      }
 
-        const eventIds = todayEvents.map(e => e.id);
-        // Event de référence du manifeste offline (soirée du jour).
-        setOfflineEventId(eventIds[0] ?? null);
-        const { data: tickets } = await supabase
-          .from('tickets')
-          .select('id, entry_scanned, quantity')
-          .in('event_id', eventIds)
-          .eq('status', 'paid');
-
-        if (tickets) {
-          const total = tickets.reduce((sum, t) => sum + t.quantity, 0);
-          const scanned = tickets.filter(t => t.entry_scanned).reduce((sum, t) => sum + t.quantity, 0);
-          setStats({ scanned, total });
-        }
+      if (eventIds.length === 0) {
+        setStats({ scanned: 0, total: 0 });
+        setOfflineEventId(null);
         return;
       }
 
-      const eventIds = events.map(e => e.id);
-      // Event de référence du manifeste offline (soirée en cours).
+      // Event de référence du manifeste offline.
       setOfflineEventId(eventIds[0] ?? null);
 
       const { data: tickets } = await supabase
@@ -473,11 +501,33 @@ export default function Bouncer() {
         .in('event_id', eventIds)
         .eq('status', 'paid');
 
-      if (tickets) {
-        const total = tickets.reduce((sum, t) => sum + t.quantity, 0);
-        const scanned = tickets.filter(t => t.entry_scanned).reduce((sum, t) => sum + t.quantity, 0);
-        setStats({ scanned, total });
+      let total = (tickets ?? []).reduce((sum, t) => sum + t.quantity, 0);
+      let scanned = (tickets ?? [])
+        .filter(t => t.entry_scanned)
+        .reduce((sum, t) => sum + t.quantity, 0);
+
+      // Aucune billetterie sur cette soirée : le compteur doit alors parler de
+      // la guest list, sinon la porte affiche 0/0 toute la nuit — c'est le cas
+      // d'une soirée entièrement en entrée libre. Une soirée qui vend des
+      // billets garde exactement le compteur d'avant.
+      if (total === 0) {
+        const { data: lists } = await supabase
+          .from('guest_lists')
+          .select('id')
+          .in('event_id', eventIds);
+        const listIds = (lists ?? []).map(l => l.id);
+        if (listIds.length > 0) {
+          const { data: entries } = await supabase
+            .from('guest_list_entries')
+            .select('id, entry_scanned, status')
+            .in('guest_list_id', listIds)
+            .neq('status', 'cancelled');
+          total = (entries ?? []).length;
+          scanned = (entries ?? []).filter(e => e.entry_scanned).length;
+        }
       }
+
+      setStats({ scanned, total });
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
@@ -715,7 +765,7 @@ export default function Bouncer() {
           tickets!inner(
             id, user_email, full_name, quantity, status, user_id, total_price,
             drink_redeemed, drink_name, entry_scanned,
-            events!inner(title, venue_id, partner_venue_id, alcohol_free),
+            events!inner(title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, alcohol_free),
             ticket_rounds!inner(name, includes_drink, entry_deadline)
           )
         `)
@@ -736,9 +786,11 @@ export default function Bouncer() {
             scanned: attendee.entry_scanned,
             scannedAt: attendee.entry_scanned_at,
             // Co-soirée org-led : le club physique est partner_venue_id.
-            venueId: ticket.events.venue_id ?? ticket.events.partner_venue_id,
+            venueId: ticket.events.venue_id ?? ticket.events.partner_venue_id ?? null,
+            // Soirée sans club : l'organisateur porte le périmètre.
+            organizerUserId: ticket.events.organizer_user_id ?? ticket.events.partner_organizer_id ?? null,
           },
-          { venueId: venueId!, now: new Date(), mode: activeTab === 'cancel' ? 'cancel' : 'entry' },
+          { scope: doorScope, now: new Date(), mode: activeTab === 'cancel' ? 'cancel' : 'entry' },
         );
 
         // Contexte de refus : porteur + soirée, de quoi expliquer au client.
@@ -899,7 +951,7 @@ export default function Bouncer() {
         .from('tickets')
         .select(`
           *,
-          events!inner(title, venue_id, partner_venue_id, alcohol_free),
+          events!inner(title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, alcohol_free),
           ticket_rounds!inner(name, includes_drink, entry_deadline)
         `)
         .eq('qr_code', qrCode)
@@ -916,9 +968,11 @@ export default function Bouncer() {
             scanned: ticket.entry_scanned,
             scannedAt: ticket.entry_scanned_at,
             // Co-soirée org-led : le club physique est partner_venue_id.
-            venueId: ticket.events.venue_id ?? ticket.events.partner_venue_id,
+            venueId: ticket.events.venue_id ?? ticket.events.partner_venue_id ?? null,
+            // Soirée sans club : l'organisateur porte le périmètre.
+            organizerUserId: ticket.events.organizer_user_id ?? ticket.events.partner_organizer_id ?? null,
           },
-          { venueId: venueId!, now: new Date(), mode: activeTab === 'cancel' ? 'cancel' : 'entry' },
+          { scope: doorScope, now: new Date(), mode: activeTab === 'cancel' ? 'cancel' : 'entry' },
         );
 
         // Contexte de refus : porteur + soirée, de quoi expliquer au client.
@@ -1064,7 +1118,7 @@ export default function Bouncer() {
         .from('table_reservations')
         .select(`
           *,
-          events!inner(title, venue_id, partner_venue_id),
+          events!inner(title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id),
           table_zones(name),
           table_packs(name, arrival_deadline)
         `)
@@ -1081,9 +1135,11 @@ export default function Bouncer() {
             scanned: reservation.entry_scanned,
             scannedAt: reservation.entry_scanned_at,
             // Co-soirée org-led : le club physique est partner_venue_id.
-            venueId: reservation.events.venue_id ?? reservation.events.partner_venue_id,
+            venueId: reservation.events.venue_id ?? reservation.events.partner_venue_id ?? null,
+            // Soirée sans club : l'organisateur porte le périmètre.
+            organizerUserId: reservation.events.organizer_user_id ?? reservation.events.partner_organizer_id ?? null,
           },
-          { venueId: venueId!, now: new Date(), mode: 'entry' },
+          { scope: doorScope, now: new Date(), mode: 'entry' },
         );
 
         // Contexte de refus : porteur + soirée, de quoi expliquer au client.
@@ -1212,12 +1268,16 @@ export default function Bouncer() {
           .from('guest_list_entries')
           .select(`
             *,
-            guest_lists!inner(event_id, free_before_time, entry_deadline, includes_drink, venue_id, events!inner(title, venue_id, partner_venue_id, start_at))
+            guest_lists!inner(event_id, free_before_time, entry_deadline, includes_drink, venue_id, events!inner(title, venue_id, partner_venue_id, organizer_user_id, partner_organizer_id, start_at))
           `)
           .eq('qr_code', qrCode)
           .maybeSingle();
 
         if (glEntry && !glError) {
+          // La part et sa soirée, nommées une fois : le reste du bloc les relit
+          // une dizaine de fois et PostgREST ne type pas les jointures imbriquées.
+          const glList = glEntry.guest_lists as GuestListJoin;
+          const glEvent = glList.events;
           const glVerdict = validateGuestListEntry(
             {
               type: 'guest_list_entry',
@@ -1228,15 +1288,15 @@ export default function Bouncer() {
               scannedAt: glEntry.entry_scanned_at,
               // Liste org-scopée ou co-soirée org-led : retomber sur le club de
               // l'event (venue_id puis partner_venue_id).
-              venueId: (glEntry.guest_lists as any).venue_id
-                ?? (glEntry.guest_lists as any).events.venue_id
-                ?? (glEntry.guest_lists as any).events.partner_venue_id,
+              venueId: glList.venue_id ?? glEvent.venue_id ?? glEvent.partner_venue_id ?? null,
+              // Soirée sans club : l'organisateur porte le périmètre.
+              organizerUserId: glEvent.organizer_user_id ?? glEvent.partner_organizer_id ?? null,
               entryDeadline: glEntry.entry_deadline || null,
-              glDeadline: (glEntry.guest_lists as any).entry_deadline || null,
-              freeBeforeTime: (glEntry.guest_lists as any).free_before_time || null,
-              eventStartAt: (glEntry.guest_lists as any).events.start_at,
+              glDeadline: glList.entry_deadline || null,
+              freeBeforeTime: glList.free_before_time || null,
+              eventStartAt: glEvent.start_at,
             },
-            { venueId: venueId!, now: new Date(), mode: 'entry' },
+            { scope: doorScope, now: new Date(), mode: 'entry' },
           );
 
           // Contexte de refus : porteur + soirée, de quoi expliquer au client.
