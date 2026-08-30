@@ -29,6 +29,8 @@ import { MarketingOptIns } from '@/components/MarketingOptIns';
 import { useMarketingConsent, recordConsentGrant, marketingConsentWording } from '@/hooks/useMarketingConsent';
 import { CheckoutSteps } from '@/components/CheckoutSteps';
 import { PublicPage } from '@/components/PublicPage';
+import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
+import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 
 interface PromoterDiscount {
   promoterId: string;
@@ -59,6 +61,9 @@ export default function TicketCheckout() {
     { fullName: '', email: '', phone: '' }
   ]);
   const [confirmEmail, setConfirmEmail] = useState('');
+  // Compte déjà existant sur l'email de l'acheteur : dit à la saisie, pas au
+  // bout du parcours. L'achat en invité reste possible — aucun mur ici.
+  const { exists: buyerEmailHasAccount } = useExistingAccountCheck(attendees[0]?.email || '', !user);
    const [newsletterOptIn, setNewsletterOptIn] = useState(false);
   const [smsOptIn, setSmsOptIn] = useState(false);
   // Portée du consentement marketing : le club, ou l'organisateur pour une
@@ -997,6 +1002,11 @@ export default function TicketCheckout() {
                 showConfirmEmail={idx === 0}
                 confirmEmail={confirmEmail}
                 onConfirmEmailChange={setConfirmEmail}
+                emailNotice={
+                  idx === 0 && !user && buyerEmailHasAccount
+                    ? <ExistingAccountNotice email={attendee.email.trim()} />
+                    : undefined
+                }
               />
             ))}
 

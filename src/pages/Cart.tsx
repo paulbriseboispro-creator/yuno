@@ -36,6 +36,8 @@ import { EmptyState } from '@/components/EmptyState';
 import { PublicPage } from '@/components/PublicPage';
 import { TermsAcceptance } from '@/components/TermsAcceptance';
 import { AgeGate } from '@/components/AgeGate';
+import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
+import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 
 interface VenueInfo {
   id: string;
@@ -73,6 +75,9 @@ export default function Cart() {
   const { trackCheckout } = useVisitorTracking(venueInfo?.id);
 
   const [guestEmail, setGuestEmail] = useState('');
+  // Compte déjà existant sur cet email : dit pendant la saisie. Aucun mur —
+  // la commande au bar reste payable sans compte.
+  const { exists: guestEmailHasAccount } = useExistingAccountCheck(guestEmail, !user);
   const [guestFirstName, setGuestFirstName] = useState('');
   const [guestLastName, setGuestLastName] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
@@ -855,6 +860,7 @@ export default function Cart() {
                       style={{ background: 'var(--yuno-input)' }}
                     />
                   </div>
+                  {guestEmailHasAccount && <ExistingAccountNotice email={guestEmail.trim()} />}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">

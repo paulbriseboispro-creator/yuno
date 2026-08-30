@@ -25,6 +25,8 @@ import { PARIS_TIMEZONE, fromParisTime } from '@/lib/timezone';
 import { fr, es, enUS } from 'date-fns/locale';
 import QRCode from 'qrcode';
 import { PublicPage } from '@/components/PublicPage';
+import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
+import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 
 /** Colonnes d'event embarquées avec la guest list (select imbriqué). */
 interface GuestListEventInfo {
@@ -150,6 +152,9 @@ export default function GuestListSignup() {
   const [guestName, setGuestName] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
+  // Compte déjà existant sur cet email : on le dit pendant la saisie, pas au
+  // bout du parcours. Information seule — l'inscription reste ouverte sans compte.
+  const { exists: typedEmailHasAccount } = useExistingAccountCheck(guestEmail, !user);
 
   // Countdown
   const [timeLeft, setTimeLeft] = useState('');
@@ -867,6 +872,7 @@ export default function GuestListSignup() {
                 <div className="space-y-1.5">
                   <Label htmlFor="gls-email" className="text-xs text-muted-foreground">{t('guestList.email')} *</Label>
                   <Input id="gls-email" type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder={t('guestList.emailPlaceholder')} />
+                  {typedEmailHasAccount && <ExistingAccountNotice email={guestEmail.trim()} />}
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="gls-phone" className="text-xs text-muted-foreground">{t('guestList.phone')} *</Label>

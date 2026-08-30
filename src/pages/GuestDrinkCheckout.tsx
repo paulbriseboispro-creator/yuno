@@ -22,6 +22,8 @@ import { customerTransactionFee } from '@/types/ticketing';
 import { useEffect } from 'react';
 import { PublicPage } from '@/components/PublicPage';
 import { launchCheckout } from '@/lib/native';
+import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
+import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 
 interface VenueInfo {
   id: string;
@@ -38,6 +40,9 @@ export default function GuestDrinkCheckout() {
   const selectedEventId = useStore((s) => s.selectedEventId);
 
   const [guestEmail, setGuestEmail] = useState('');
+  // Compte déjà existant sur cet email : dit pendant la saisie, jamais après
+  // coup. Aucun mur — la commande reste payable en invité.
+  const { exists: guestEmailHasAccount } = useExistingAccountCheck(guestEmail);
   const [guestFirstName, setGuestFirstName] = useState('');
   const [guestLastName, setGuestLastName] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
@@ -294,6 +299,7 @@ export default function GuestDrinkCheckout() {
                   className="pl-10"
                 />
               </div>
+              {guestEmailHasAccount && <ExistingAccountNotice email={guestEmail.trim()} />}
             </div>
 
             <div className="grid grid-cols-2 gap-3">

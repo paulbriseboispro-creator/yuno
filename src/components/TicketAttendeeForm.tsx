@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Input } from '@/components/ui/input';
 import { User, Mail } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -17,6 +18,8 @@ interface TicketAttendeeFormProps {
   showConfirmEmail?: boolean;
   confirmEmail?: string;
   onConfirmEmailChange?: (value: string) => void;
+  /** Encart posé sous les champs email (ex. « un compte existe déjà »). */
+  emailNotice?: ReactNode;
 }
 
 const inputClass =
@@ -30,7 +33,8 @@ export function TicketAttendeeForm({
   isPrimary = false,
   showConfirmEmail = false,
   confirmEmail = '',
-  onConfirmEmailChange
+  onConfirmEmailChange,
+  emailNotice
 }: TicketAttendeeFormProps) {
   const { t } = useLanguage();
 
@@ -110,6 +114,8 @@ export function TicketAttendeeForm({
           </div>
         </div>
       )}
+
+      {emailNotice}
 
       {/* Phone with country selector */}
       <div className="space-y-1.5">

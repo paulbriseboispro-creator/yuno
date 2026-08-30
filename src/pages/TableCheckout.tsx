@@ -39,6 +39,8 @@ import { FloorPlanTable, VenueFloorPlan } from '@/types';
 import type { Tables } from '@/integrations/supabase/types';
 import { getStoredPromoCodeForVenue, getStoredPromoCodeForScope } from '@/hooks/usePromoterTracking';
 import { PublicPage } from '@/components/PublicPage';
+import { useExistingAccountCheck } from '@/hooks/useExistingAccountCheck';
+import { ExistingAccountNotice } from '@/components/account/ExistingAccountNotice';
 
 interface PromoterDiscount {
   promoterId: string;
@@ -95,6 +97,9 @@ export default function TableCheckout() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [confirmEmail, setConfirmEmail] = useState('');
+  // Compte déjà existant sur cet email : dit à la saisie. La réservation de
+  // table reste ouverte en invité — c'est une information, pas une porte.
+  const { exists: guestEmailHasAccount } = useExistingAccountCheck(email, !user);
   const [phone, setPhone] = useState('');
   const [remarks, setRemarks] = useState('');
   const [newsletterOptIn, setNewsletterOptIn] = useState(false);
@@ -880,6 +885,7 @@ export default function TableCheckout() {
                     <Label htmlFor="confirmEmail" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[#5A5A5E]">{t('tableCheckout.confirmEmail')} *</Label>
                     <Input id="confirmEmail" type="email" value={confirmEmail} onChange={(e) => setConfirmEmail(e.target.value)} placeholder={t('tableCheckout.confirmEmailPlaceholder')} required className={tableInputClass} />
                   </div>
+                  {!user && guestEmailHasAccount && <ExistingAccountNotice email={email.trim()} />}
                   <div className="space-y-1.5">
                     <Label htmlFor="phone" className="font-mono uppercase text-[10px] tracking-[0.10em] text-[#5A5A5E]">{t('tableCheckout.phone')} *</Label>
                     <PhoneInputWithCountry id="phone" value={phone} onChange={setPhone} />
