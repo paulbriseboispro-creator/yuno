@@ -15,33 +15,74 @@ import { supabase } from '@/integrations/supabase/client';
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-/** Un email tapé une fois est tapé sur trois écrans : on ne redemande pas. */
-const cache = new Map<string, boolean>();
+/**
+ * Un email tapé une fois est tapé sur trois écrans : on ne redemande pas tout
+ * de suite. Mais un verdict ne vaut PAS pour la vie de l'onglet — un compte
+ * peut être supprimé (ou créé) pendant que la page reste ouverte, et Yuno est
+ * une SPA : sans expiration, « ce compte existe » survivait à la suppression
+ * jusqu'au prochain rechargement complet.
+ */
+const CACHE_TTL_MS = 60_000;
+const cache = new Map<string, { value: boolean; at: number }>();
+
+function readCache(normalized: string): boolean | undefined {
+  const hit = cache.get(normalized);
+  if (!hit) return undefined;
+  if (Date.now() - hit.at > CACHE_TTL_MS) {
+    cache.delete(normalized);
+    return undefined;
+  }
+  return hit.value;
+}
+
+/**
+ * Oublie un verdict sur commande. À appeler quand on VIENT de changer l'état
+ * du compte (création réussie, suppression), pour ne pas attendre le TTL.
+ * Sans argument : oublie tout.
+ */
+export function forgetAccountCheck(email?: string) {
+  if (!email) {
+    cache.clear();
+    return;
+  }
+  cache.delete(email.trim().toLowerCase());
+}
 
 export function looksLikeEmail(email: string): boolean {
   return EMAIL_RE.test(email.trim());
 }
 
-export async function emailHasAccount(email: string): Promise<boolean> {
+/**
+ * Réponse HONNÊTE : `true` / `false` / `null` quand on n'a pas pu savoir
+ * (adresse incomplète, RPC en échec). Les appelants qui refusent une action
+ * doivent utiliser celle-ci — confondre « pas de compte » avec « je ne sais
+ * pas » reviendrait à bloquer quelqu'un sur une panne réseau.
+ */
+export async function checkEmailAccount(email: string): Promise<boolean | null> {
   const normalized = email.trim().toLowerCase();
-  if (!EMAIL_RE.test(normalized)) return false;
+  if (!EMAIL_RE.test(normalized)) return null;
 
-  const cached = cache.get(normalized);
+  const cached = readCache(normalized);
   if (cached !== undefined) return cached;
 
   try {
     const { data, error } = await supabase.rpc('email_has_account', { _email: normalized });
     if (error) throw error;
     const exists = data === true;
-    cache.set(normalized, exists);
+    cache.set(normalized, { value: exists, at: Date.now() });
     return exists;
   } catch (err) {
-    // Fail-open : un hoquet réseau ne doit pas inventer un compte inexistant
-    // ni empêcher qui que ce soit d'avancer. On retombe simplement sur
-    // l'ancien comportement (découverte au signUp).
     console.error('email_has_account check failed:', err);
-    return false;
+    return null;
   }
+}
+
+/**
+ * Version fail-open pour l'affichage : le doute ne montre rien et ne bloque
+ * rien. C'est ce que consomment les encarts « un compte existe déjà ».
+ */
+export async function emailHasAccount(email: string): Promise<boolean> {
+  return (await checkEmailAccount(email)) === true;
 }
 
 /**
@@ -62,7 +103,7 @@ export function useExistingAccountCheck(email: string, enabled = true) {
       return;
     }
 
-    const cached = cache.get(normalized);
+    const cached = readCache(normalized);
     if (cached !== undefined) {
       setExists(cached);
       setChecking(false);
