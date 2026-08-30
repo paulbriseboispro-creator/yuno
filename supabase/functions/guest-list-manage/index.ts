@@ -17,6 +17,8 @@ import {
   entryTypeLabel,
   guestListEntryEmailContent,
   guestListInviteEmailContent,
+  resolveGuestListBrandName,
+  resolveGuestListHolderName,
 } from "../_shared/guest-list-email.ts";
 
 const logStep = (step: string, details?: Record<string, unknown>) => {
@@ -101,37 +103,6 @@ function allowedEntryTypes(part: PartRow): string[] {
   return [part.entry_kind || "normal"];
 }
 
-/** Nom affiché de qui invite, selon le type de détenteur. */
-async function resolveHolderName(admin: SupabaseClient, part: PartRow, venueName: string): Promise<string> {
-  if (part.holder_type === "dj" && part.dj_id) {
-    const { data: dj } = await admin.from("djs").select("stage_name, first_name, last_name").eq("id", part.dj_id).maybeSingle();
-    if (dj) return dj.stage_name || `${dj.first_name || ""} ${dj.last_name || ""}`.trim() || "DJ";
-  }
-  if (part.holder_type === "promoter" && part.promoter_id) {
-    const { data: promoter } = await admin.from("promoters").select("user_id, promo_code").eq("id", part.promoter_id).maybeSingle();
-    if (promoter) {
-      const { data: profile } = await admin.from("profiles").select("first_name, last_name").eq("id", promoter.user_id).maybeSingle();
-      const name = profile ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() : "";
-      return name || promoter.promo_code || "Promoteur";
-    }
-  }
-  if (part.holder_type === "organizer" && part.organizer_user_id) {
-    const { data: profile } = await admin.from("profiles").select("first_name, last_name").eq("id", part.organizer_user_id).maybeSingle();
-    const name = profile ? `${profile.first_name || ""} ${profile.last_name || ""}`.trim() : "";
-    if (name) return name;
-  }
-  if (part.holder_type === "agency") {
-    // Ajout par le chef d'agence sur l'enveloppe : au nom de l'agence.
-    if (part.holder_label) return part.holder_label;
-    if (part.agency_id) {
-      const { data: agency } = await admin.from("agencies").select("name").eq("id", part.agency_id).maybeSingle();
-      if (agency?.name) return agency.name;
-    }
-  }
-  if (part.holder_type === "custom" && part.holder_label) return part.holder_label;
-  return venueName || "Yuno";
-}
-
 async function loadPartAndEvent(admin: SupabaseClient, guestListId: string): Promise<{ part: PartRow; event: EventRow; venueName: string }> {
   const { data: part } = await admin
     .from("guest_lists")
@@ -147,12 +118,10 @@ async function loadPartAndEvent(admin: SupabaseClient, guestListId: string): Pro
     .maybeSingle();
   if (!event) throw new Error("Event not found");
 
-  const venueId = event.venue_id ?? event.partner_venue_id;
-  let venueName = "";
-  if (venueId) {
-    const { data: venue } = await admin.from("venues").select("name").eq("id", venueId).maybeSingle();
-    venueName = venue?.name || "";
-  }
+  // Enseigne affichée : club hôte/partenaire, sinon l'organisateur de la
+  // soirée. Avant, une soirée org-led (venue_id NULL) partait avec un en-tête
+  // d'email vide et un « invité par Yuno » au lieu du nom de l'organisateur.
+  const venueName = await resolveGuestListBrandName(admin, event as EventRow);
   return { part: part as PartRow, event: event as EventRow, venueName };
 }
 
@@ -399,7 +368,7 @@ serve(async (req) => {
       // Email d'invitation (QR + code) — même gabarit que promoter-add-guest.
       if (normalizedEmail) {
         try {
-          const invitedBy = await resolveHolderName(admin, part, venueName);
+          const invitedBy = await resolveGuestListHolderName(admin, part, venueName);
           const ctaUrl = linkedUserId ? `${APP_URL}/my-orders` : `${APP_URL}/auth?redirect=/my-orders`;
           const content = guestListEntryEmailContent({
             eventTitle: event.title || "Événement",
@@ -489,7 +458,7 @@ serve(async (req) => {
         }
       }
 
-      const invitedBy = await resolveHolderName(admin, part, venueName);
+      const invitedBy = await resolveGuestListHolderName(admin, part, venueName);
       const content = guestListInviteEmailContent({
         eventTitle: event.title || "Événement",
         eventDate: formatEventDateFr(event.start_at),
