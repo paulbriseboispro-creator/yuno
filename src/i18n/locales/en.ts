@@ -2136,6 +2136,8 @@ const en: Record<string, string> = {
   'auth.enterNewPassword': 'Enter your new password',
   'auth.emailSent': 'Email Sent',
   'auth.checkEmail': 'Check your mailbox to reset your password',
+  'auth.noAccountForEmail': 'No account at this address',
+  'auth.noAccountForEmailDesc': 'No Yuno account exists with this email, so no reset link can be sent. Check the address, or create an account.',
   'auth.passwordChanged': 'Password Changed',
   'auth.passwordUpdated': 'Your password has been successfully updated',
   'auth.signupSuccess': 'Signup Successful',

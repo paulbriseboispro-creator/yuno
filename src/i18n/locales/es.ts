@@ -2669,6 +2669,8 @@ const es: Record<string, string> = {
   'auth.enterNewPassword': 'Introduce tu nueva contraseña',
   'auth.emailSent': 'Correo enviado',
   'auth.checkEmail': 'Revisa tu bandeja de entrada para restablecer tu contraseña',
+  'auth.noAccountForEmail': 'Ninguna cuenta con este email',
+  'auth.noAccountForEmailDesc': 'No existe ninguna cuenta Yuno con este email, así que no se puede enviar ningún enlace. Revisa la dirección o crea una cuenta.',
   'auth.passwordChanged': 'Contraseña cambiada',
   'auth.passwordUpdated': 'Tu contraseña ha sido actualizada con éxito',
   'auth.signupSuccess': 'Registro exitoso',

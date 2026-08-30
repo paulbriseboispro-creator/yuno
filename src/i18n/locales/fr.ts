@@ -2440,6 +2440,8 @@ const fr: Record<string, string> = {
   'auth.enterNewPassword': 'Entrez votre nouveau mot de passe',
   'auth.emailSent': 'Email envoyé',
   'auth.checkEmail': 'Vérifiez votre boîte mail pour réinitialiser votre mot de passe',
+  'auth.noAccountForEmail': 'Aucun compte à cette adresse',
+  'auth.noAccountForEmailDesc': "Aucun compte Yuno n'existe avec cet email, donc aucun lien de réinitialisation ne peut partir. Vérifiez l'adresse, ou créez un compte.",
   'auth.passwordChanged': 'Mot de passe changé',
   'auth.passwordUpdated': 'Votre mot de passe a été mis à jour avec succès',
   'auth.signupSuccess': 'Inscription réussie',

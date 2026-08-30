@@ -18,6 +18,7 @@ import { isNative } from '@/lib/native';
 import { isNativeSocialAvailable } from '@/lib/nativeAuth';
 import { Check } from 'lucide-react';
 import yunoLogo from '@/assets/yuno-logo.png';
+import { checkEmailAccount } from '@/hooks/useExistingAccountCheck';
 
 const getAuthSchema = (t: (key: string) => string) => z.object({
   email: z.string().email({ message: t('auth.errors.invalidEmail') }),
@@ -286,6 +287,24 @@ export default function Auth() {
 
     try {
       if (isForgotPassword) {
+        // Supabase ne dit JAMAIS qu'une adresse est inconnue : il renvoie 200 et
+        // n'envoie rien (protection contre l'énumération). Résultat vécu après la
+        // suppression d'un compte : « Email envoyé », et l'email n'arrive jamais.
+        // On pose la question à laquelle on sait répondre AVANT de promettre quoi
+        // que ce soit. Le doute (RPC en échec) laisse passer : mieux vaut envoyer
+        // pour rien que bloquer une vraie réinitialisation.
+        // `null` = on n'a pas pu savoir : on envoie quand même.
+        const accountExists = await checkEmailAccount(email);
+        if (accountExists === false) {
+          toast({
+            title: t('auth.noAccountForEmail'),
+            description: t('auth.noAccountForEmailDesc'),
+            variant: 'destructive',
+          });
+          setIsLoading(false);
+          return;
+        }
+
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/auth?reset=true`,
         });
