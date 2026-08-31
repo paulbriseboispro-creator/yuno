@@ -11,7 +11,7 @@ import {
   buildPreviewHtml, DEFAULT_THEME,
   type EmailBlock, type EmailTheme, type SocialLinks,
 } from '@/lib/emailCampaign';
-import type { SenderScope } from './CampaignBuilder';
+import type { StudioScope as SenderScope } from '@/components/email-studio/hooks';
 
 // ─── Yuno Design Tokens (match OwnerCampaigns) ───────────────────────────────
 const RED         = '#E8192C';
