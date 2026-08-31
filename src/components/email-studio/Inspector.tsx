@@ -1,10 +1,15 @@
-import { Braces, CalendarClock, ChevronDown, Copy, MousePointer, Plus, RefreshCw, Trash2, Zap } from 'lucide-react';
+import { useRef } from 'react';
+import {
+  Baseline, Bold, Braces, CalendarClock, ChevronDown, Copy, Italic, Link2,
+  MousePointer, Plus, RefreshCw, Strikethrough, Trash2, Underline, Zap,
+} from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import ImageUploader from '@/components/campaigns/ImageUploader';
 import type {
   CtaBlock, EmailBlock, EventBlock, HeaderBlock, HtmlBlock, ImageBlock,
   SpacerBlock, TableBlock, TextBlock, TicketRow, TicketsBlock, ColumnsBlock, CountdownBlock,
 } from '@/lib/email';
+import { blockPadDefaults } from '@/lib/email';
 import { useStudio } from './store';
 import type { StudioEvent } from './hooks';
 import { blockMeta } from './meta';
@@ -16,10 +21,12 @@ import {
 interface Props {
   events: StudioEvent[];
   bucketFolder: string;
+  /** Marque du compte (club / organisateur) héritée par le bloc header. */
+  brand: { name: string; logoUrl?: string | null };
 }
 
 /** Inspecteur contextuel — champs selon le type du bloc sélectionné. */
-export default function Inspector({ events, bucketFolder }: Props) {
+export default function Inspector({ events, bucketFolder, brand }: Props) {
   const { t } = useLanguage();
   const blocks = useStudio((s) => s.campaign.blocks);
   const selectedId = useStudio((s) => s.selectedId);
@@ -68,21 +75,27 @@ export default function Inspector({ events, bucketFolder }: Props) {
         </IconBtn>
       </div>
 
-      <BlockFields block={block} patch={patch} events={events} bucketFolder={bucketFolder} />
+      <BlockFields block={block} patch={patch} events={events} bucketFolder={bucketFolder} brand={brand} />
 
-      {/* Espacement & fond — commun à tous les blocs (prototype) */}
+      {/* Espacement & fond — commun à tous les blocs (prototype).
+          0 = aucune marge : les blocs s'enchaînent collés. Les défauts sont
+          PAR TYPE (blockPadDefaults) — même table que le rendu. */}
       <PanelCard>
         <MicroLabel>{t('studio.inspector.padX')}</MicroLabel>
         <OptionPills
-          value={block.px ?? 24}
-          onChange={(v) => patch({ px: v === 24 ? undefined : v })}
-          options={[0, 16, 24, 40].map((n) => ({ value: n, label: String(n) }))}
+          value={block.px ?? blockPadDefaults(block.type).px}
+          onChange={(v) => patch({ px: v === blockPadDefaults(block.type).px ? undefined : v })}
+          options={[...new Set([0, 16, 24, 40, blockPadDefaults(block.type).px])]
+            .sort((a, b) => a - b)
+            .map((n) => ({ value: n, label: String(n) }))}
         />
         <MicroLabel>{t('studio.inspector.padY')}</MicroLabel>
         <OptionPills
-          value={block.py ?? 18}
-          onChange={(v) => patch({ py: v === 18 ? undefined : v })}
-          options={[4, 12, 18, 32].map((n) => ({ value: n, label: String(n) }))}
+          value={block.py ?? blockPadDefaults(block.type).py}
+          onChange={(v) => patch({ py: v === blockPadDefaults(block.type).py ? undefined : v })}
+          options={[...new Set([0, 4, 12, 18, 32, blockPadDefaults(block.type).py])]
+            .sort((a, b) => a - b)
+            .map((n) => ({ value: n, label: String(n) }))}
         />
         <MicroLabel>{t('studio.inspector.blockBg')}</MicroLabel>
         <OptionPills
@@ -95,6 +108,113 @@ export default function Inspector({ events, bucketFolder }: Props) {
           ]}
         />
       </PanelCard>
+    </div>
+  );
+}
+
+/** Nuancier de la barre de mise en forme (accent du thème + tons utiles). */
+const FMT_COLORS = ['accent', '#E8192C', '#D4AF37', '#34D399', '#3B82F6', '#8A8A8A', '#FFFFFF', '#0A0A0A'] as const;
+const FMT_SIZES = [12, 14, 18, 22, 28] as const;
+
+/**
+ * Textarea + barre de mise en forme : chaque bouton enveloppe la sélection
+ * avec le mini-markup rendu par inlineMarkup (render.ts). Le canvas montre le
+ * résultat en direct, l'email envoyé rend exactement pareil.
+ */
+function TextEditorWithFormatBar({ body, onBody }: { body: string; onBody: (v: string) => void }) {
+  const { t } = useLanguage();
+  const taRef = useRef<HTMLTextAreaElement>(null);
+
+  const wrap = (before: string, after: string) => {
+    const el = taRef.current;
+    if (!el) return;
+    const { selectionStart: s, selectionEnd: e, value } = el;
+    const sel = value.slice(s, e) || t('studio.inspector.fmtPlaceholder');
+    const next = value.slice(0, s) + before + sel + after + value.slice(e);
+    onBody(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(s + before.length, s + before.length + sel.length);
+    });
+  };
+
+  const addLink = () => {
+    const url = window.prompt(t('studio.inspector.fmtLinkPrompt'), 'https://');
+    if (!url || !url.trim() || url.trim() === 'https://') return;
+    wrap(`[url=${url.trim()}]`, '[/url]');
+  };
+
+  const fmtBtn = (label: string, icon: React.ReactNode, onClick: () => void) => (
+    <button
+      type="button" aria-label={label} title={label} onClick={onClick}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+      style={{
+        width: 24, height: 24, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        borderRadius: 6, color: 'rgba(255,255,255,0.62)', cursor: 'pointer',
+        background: 'transparent', border: 'none', flex: 'none',
+      }}
+    >{icon}</button>
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', padding: 3,
+        borderRadius: 9, background: SUBTLE, border: `1px solid ${BORDER}`,
+      }}>
+        {fmtBtn(t('studio.inspector.fmtBold'), <Bold size={13} strokeWidth={2.25} />, () => wrap('**', '**'))}
+        {fmtBtn(t('studio.inspector.fmtItalic'), <Italic size={13} strokeWidth={1.75} />, () => wrap('*', '*'))}
+        {fmtBtn(t('studio.inspector.fmtStrike'), <Strikethrough size={13} strokeWidth={1.75} />, () => wrap('~~', '~~'))}
+        {fmtBtn(t('studio.inspector.fmtUnderline'), <Underline size={13} strokeWidth={1.75} />, () => wrap('__', '__'))}
+        <span style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.12)', margin: '0 3px', flex: 'none' }} />
+        {FMT_SIZES.map((n) => (
+          <button
+            key={n} type="button"
+            aria-label={`${t('studio.inspector.fmtSize')} ${n}px`} title={`${t('studio.inspector.fmtSize')} ${n}px`}
+            onClick={() => wrap(`[s=${n}]`, '[/s]')}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.09)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+            style={{
+              height: 24, padding: '0 5px', display: 'inline-flex', alignItems: 'center',
+              borderRadius: 6, color: 'rgba(255,255,255,0.62)', cursor: 'pointer',
+              background: 'transparent', border: 'none', flex: 'none',
+              fontFamily: FONT_UI, fontWeight: 600,
+              fontSize: Math.min(13, 8 + n * 0.2),
+            }}
+          >A</button>
+        ))}
+        <span style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.12)', margin: '0 3px', flex: 'none' }} />
+        {fmtBtn(t('studio.inspector.fmtLink'), <Link2 size={13} strokeWidth={1.75} />, addLink)}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+        <Baseline size={12} strokeWidth={1.75} style={{ color: T3, flex: 'none' }} />
+        {FMT_COLORS.map((c) => (
+          <button
+            key={c} type="button"
+            aria-label={`${t('studio.inspector.fmtColor')} ${c}`} title={`${t('studio.inspector.fmtColor')} ${c}`}
+            onClick={() => wrap(`[c=${c}]`, '[/c]')}
+            style={{
+              width: 16, height: 16, borderRadius: '50%', cursor: 'pointer', padding: 0, flex: 'none',
+              border: '1px solid rgba(255,255,255,0.25)',
+              background: c === 'accent'
+                ? 'conic-gradient(#E8192C,#D4AF37,#3B82F6,#E8192C)'
+                : c,
+            }}
+          />
+        ))}
+        <input
+          type="color"
+          aria-label={t('studio.inspector.fmtColor')} title={t('studio.inspector.fmtColor')}
+          onChange={(e) => wrap(`[c=${e.target.value}]`, '[/c]')}
+          style={{
+            width: 20, height: 18, padding: 0, border: `1px solid ${BORDER}`, borderRadius: 5,
+            background: 'transparent', cursor: 'pointer', flex: 'none',
+          }}
+        />
+      </div>
+      <TextArea ref={taRef} value={body} onChange={(e) => onBody(e.target.value)} style={{ minHeight: 120 }} />
+      <Help>{t('studio.inspector.fmtHint')}</Help>
     </div>
   );
 }
@@ -155,9 +275,9 @@ function Banner({ tone, icon, children }: { tone: 'green' | 'red'; icon: React.R
   );
 }
 
-function BlockFields({ block, patch, events, bucketFolder }: {
+function BlockFields({ block, patch, events, bucketFolder, brand }: {
   block: EmailBlock; patch: (p: Partial<EmailBlock>) => void;
-  events: StudioEvent[]; bucketFolder: string;
+  events: StudioEvent[]; bucketFolder: string; brand: { name: string; logoUrl?: string | null };
 }) {
   const { t } = useLanguage();
   const setSocialLinks = useStudio((s) => s.setSocialLinks);
@@ -182,9 +302,9 @@ function BlockFields({ block, patch, events, bucketFolder }: {
         <>
           <PanelCard>
             <MicroLabel>{t('studio.inspector.textContent')}</MicroLabel>
-            <TextArea value={b.body} onChange={(e) => patch({ body: e.target.value })} />
+            <TextEditorWithFormatBar body={b.body} onBody={(body) => patch({ body })} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: T3, fontSize: 11, fontFamily: FONT_UI }}>
-              <Braces size={12} strokeWidth={1.75} style={{ color: RED }} />
+              <Braces size={12} strokeWidth={1.75} style={{ color: RED, flex: 'none' }} />
               {t('studio.inspector.textVarsHint')}
             </div>
           </PanelCard>
@@ -342,7 +462,11 @@ function BlockFields({ block, patch, events, bucketFolder }: {
         <>
           <PanelCard>
             <MicroLabel>{t('studio.inspector.venueName')}</MicroLabel>
-            <TextInput value={b.venueName} onChange={(e) => patch({ venueName: e.target.value })} />
+            <TextInput
+              value={b.venueName}
+              placeholder={brand.name}
+              onChange={(e) => patch({ venueName: e.target.value })}
+            />
             <ToggleRow checked={b.showName} onChange={(v) => patch({ showName: v })} label={t('studio.inspector.showName')} />
           </PanelCard>
           <PanelCard>
@@ -352,7 +476,13 @@ function BlockFields({ block, patch, events, bucketFolder }: {
               onChange={(url) => patch({ logoUrl: url || undefined })}
               bucketFolder={bucketFolder}
               preview="logo"
+              previewShape={b.logoShape === 'circle' ? 'circle' : b.logoShape === 'rounded' ? 'rounded' : 'free'}
+              autoUrl={brand.logoUrl || null}
+              autoLabel={t('studio.inspector.logoAuto')}
+              autoOverrideLabel={t('studio.inspector.logoOverride')}
+              removeLabel={brand.logoUrl ? t('studio.inspector.logoUseAuto') : undefined}
             />
+            {brand.logoUrl && !b.logoUrl && <Help>{t('studio.inspector.logoAutoHelp')}</Help>}
             <OptionPills
               value={b.logoSize}
               onChange={(v) => patch({ logoSize: v })}

@@ -127,7 +127,9 @@ export function useStudioLiveData(blocks: EmailBlock[], fallbackEventId: string 
           coverUrl: e.poster_url || e.image_url || null,
           url: `https://yunoapp.eu/event/${e.slug || e.id}`,
           priceFromLabel: activePrices.length ? `Dès ${euro(Math.min(...activePrices))}` : null,
-          tickets: tickets.length ? tickets : undefined,
+          // Tableau TOUJOURS présent : vide = « pas de billetterie » (le bloc
+          // s'efface), undefined = « données pas encore résolues » (fallback).
+          tickets,
           tablesLeft: null,
         };
       }

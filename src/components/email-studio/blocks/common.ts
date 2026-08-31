@@ -1,20 +1,32 @@
 import type { CSSProperties } from 'react';
-import type { EmailBlock, EmailTheme, LiveData, SocialLinks } from '@/lib/email';
-import { DEFAULT_PX, DEFAULT_PY } from '@/lib/email';
+import type { EmailBlock, EmailTheme, LiveData, LiveEventData, SocialLinks } from '@/lib/email';
+import { blockPadDefaults } from '@/lib/email';
 
 /** Contexte de rendu du canvas (aperçu d'édition, PAS l'email final). */
 export interface CanvasCtx {
   venueName: string;
+  /** Logo du compte — repli du bloc header (miroir de RenderCtx.logoUrl). */
+  logoUrl?: string | null;
   socialLinks: SocialLinks;
   live: LiveData;
   baseUrl: string;
+  /** Événement de la campagne — hérité par les blocs Yuno sans eventId propre
+   * (miroir du repli fait côté edge dans fetchStudioLiveData). */
+  fallbackEventId?: string | null;
 }
 
 export const EMAIL_FONT = "Arial,'Helvetica Neue',Helvetica,sans-serif";
 
-/** Marges internes du bloc (px/py du prototype). */
+/** Marges internes du bloc (px/py du prototype, défauts PAR TYPE). */
 export function blockPad(b: EmailBlock): { px: number; py: number } {
-  return { px: b.px ?? DEFAULT_PX, py: b.py ?? DEFAULT_PY };
+  const d = blockPadDefaults(b.type);
+  return { px: b.px ?? d.px, py: b.py ?? d.py };
+}
+
+/** Données live du bloc : son événement propre, sinon celui de la campagne. */
+export function liveFor(block: { eventId?: string }, ctx: CanvasCtx): LiveEventData | undefined {
+  const id = block.eventId || ctx.fallbackEventId || '';
+  return id ? ctx.live[id] : undefined;
 }
 
 /** Fond du bloc (Auto / Teinte / Accent). */

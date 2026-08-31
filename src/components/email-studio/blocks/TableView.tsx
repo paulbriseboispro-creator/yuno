@@ -1,10 +1,10 @@
 import { Fragment } from 'react';
 import type { EmailTheme, TableBlock } from '@/lib/email';
-import { EMAIL_FONT, blockPad, emailBtnStyle, splitVariables, varChipStyle, type CanvasCtx } from './common';
+import { EMAIL_FONT, blockPad, emailBtnStyle, liveFor, splitVariables, varChipStyle, type CanvasCtx } from './common';
 
 export default function TableView({ block, theme, ctx }: { block: TableBlock; theme: EmailTheme; ctx: CanvasCtx }) {
   const pad = blockPad(block);
-  const live = block.eventId ? ctx.live[block.eventId] : undefined;
+  const live = liveFor(block, ctx);
   const left = live?.tablesLeft;
   const chip = varChipStyle(theme, 14);
   const withVars = (text: string) => splitVariables(text).map((part, pi) => (

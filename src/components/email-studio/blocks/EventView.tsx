@@ -1,9 +1,9 @@
 import type { EmailTheme, EventBlock } from '@/lib/email';
-import { EMAIL_FONT, blockPad, emailBtnStyle, placeholderLabelStyle, stripesBg, type CanvasCtx } from './common';
+import { EMAIL_FONT, blockPad, emailBtnStyle, liveFor, placeholderLabelStyle, stripesBg, type CanvasCtx } from './common';
 
 export default function EventView({ block, theme, ctx }: { block: EventBlock; theme: EmailTheme; ctx: CanvasCtx }) {
   const pad = blockPad(block);
-  const live = block.eventId ? ctx.live[block.eventId] : undefined;
+  const live = liveFor(block, ctx);
   const title = live?.title || block.title;
   const dateLabel = live?.dateLabel || block.dateLabel;
   const venueLabel = live?.venueLabel || block.venueLabel;
@@ -38,7 +38,9 @@ export default function EventView({ block, theme, ctx }: { block: EventBlock; th
           {block.venue && (
             <div style={{ fontFamily: EMAIL_FONT, fontSize: 14, color: theme.muted, marginBottom: 4 }}>{venueLabel}</div>
           )}
-          {block.price && (
+          {/* Prix : la base fait foi — un événement sans billetterie n'affiche
+              rien (l'email fait pareil), le placeholder n'existe que sans événement. */}
+          {block.price && (live ? !!live.priceFromLabel : true) && (
             <div style={{ fontFamily: EMAIL_FONT, fontSize: 14, color: theme.muted, marginBottom: 4 }}>
               {live?.priceFromLabel || 'À partir de 18 €'}
             </div>

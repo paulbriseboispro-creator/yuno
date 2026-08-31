@@ -6,7 +6,7 @@ export default function CtaView({ block, theme }: { block: CtaBlock; theme: Emai
   const pad = blockPad(block);
   const chip = varChipStyle(theme, 16);
   return (
-    <div style={{ padding: `${pad.py + 6}px ${pad.px}px`, textAlign: block.align || 'center' }}>
+    <div style={{ padding: `${pad.py}px ${pad.px}px`, textAlign: block.align || 'center' }}>
       <span style={emailBtnStyle(theme, { radius: block.radius, full: block.full })}>
         {splitVariables(block.label).map((part, pi) => (
           part.isVar ? <span key={pi} style={chip}>{part.token}</span> : <Fragment key={pi}>{part.token}</Fragment>

@@ -72,15 +72,20 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
 
   const ctx: CanvasCtx = useMemo(() => ({
     venueName: scope.name,
+    logoUrl: scope.logoUrl,
     socialLinks: campaign.socialLinks,
     live,
     baseUrl: 'https://yunoapp.eu',
-  }), [scope.name, campaign.socialLinks, live]);
+    // Les blocs Yuno sans événement propre héritent de celui de la campagne
+    // (même repli que l'envoi côté edge).
+    fallbackEventId: campaign.eventId,
+  }), [scope.name, scope.logoUrl, campaign.socialLinks, live, campaign.eventId]);
 
   // Le VRAI HTML email — sert à l'aperçu iframe, au poids et à la checklist.
   const renderedHtml = useMemo(() => renderEmailHtml(campaign.blocks, theme, {
     venueName: scope.name,
     city: scope.city,
+    logoUrl: scope.logoUrl,
     emailType: campaign.type,
     subject: campaign.subject,
     preheader: campaign.preheader,
@@ -262,12 +267,13 @@ export default function CanvasColumn({ scope, live }: { scope: StudioScope; live
                 border: theme.dark ? '1px solid rgba(255,255,255,0.06)' : 'none',
               }}
             >
-              {/* Slot de drop tout en haut */}
+              {/* Slot de drop tout en haut — hauteur nulle hors drag : l'éditeur
+                  ne doit fabriquer AUCUN espace qui n'existe pas dans l'email. */}
               <div
                 onDragOver={(e) => { if (dragging) { e.preventDefault(); setDropIndex(0); } }}
                 onDrop={(e) => handleDropAt(0, e)}
                 style={{
-                  position: 'relative', height: dragging && dropIndex === 0 ? 20 : 6,
+                  position: 'relative', height: dragging && dropIndex === 0 ? 20 : 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   opacity: dragging && dropIndex === 0 ? 1 : 0, transition: 'all .12s',
                 }}
@@ -558,7 +564,12 @@ function CheckTile({ item }: { item: ChecklistItem }) {
   );
 }
 
-/** Zone « + » inter-blocs + ligne d'insertion pendant un drag. */
+/**
+ * Zone « + » inter-blocs + ligne d'insertion pendant un drag.
+ * Hauteur NULLE hors drag : la zone est un overlay absolu à cheval sur la
+ * frontière — l'éditeur n'ajoute aucun espace entre les blocs, le canvas
+ * montre exactement les marges de l'email (py 0 = blocs collés).
+ */
 function InsertZone({ active, dropActive, onClickPlus, onDragOver, onDrop, label }: {
   active: boolean; dropActive: boolean; onClickPlus: () => void;
   onDragOver: (e: React.DragEvent) => void; onDrop: (e: React.DragEvent) => void; label: string;
@@ -566,31 +577,34 @@ function InsertZone({ active, dropActive, onClickPlus, onDragOver, onDrop, label
   const [hover, setHover] = useState(false);
   const visible = hover || active || dropActive;
   return (
-    <div
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      onClick={(e) => e.stopPropagation()}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      style={{
-        position: 'relative', height: dropActive ? 20 : 16,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        opacity: visible ? 1 : 0, transition: 'opacity .12s, height .12s', cursor: 'pointer',
-      }}
-    >
-      <span style={{
-        position: 'absolute', left: 24, right: 24, height: 2, background: RED,
-        borderRadius: 2, opacity: dropActive || active ? 1 : 0.55,
-      }} />
-      <button
-        type="button" aria-label={label} onClick={onClickPlus}
+    <div style={{ position: 'relative', height: dropActive ? 20 : 0, transition: 'height .12s', zIndex: 3 }}>
+      <div
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        onClick={(e) => e.stopPropagation()}
+        onDragOver={onDragOver}
+        onDrop={onDrop}
         style={{
-          position: 'relative', zIndex: 1, width: 20, height: 20, borderRadius: 999,
-          background: RED, color: '#fff', border: 'none', cursor: 'pointer',
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 14, fontWeight: 700, lineHeight: 1,
+          position: 'absolute', left: 0, right: 0, top: dropActive ? 0 : -9,
+          height: dropActive ? 20 : 18,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: visible ? 1 : 0, transition: 'opacity .12s', cursor: 'pointer',
         }}
-      >+</button>
+      >
+        <span style={{
+          position: 'absolute', left: 24, right: 24, height: 2, background: RED,
+          borderRadius: 2, opacity: dropActive || active ? 1 : 0.55,
+        }} />
+        <button
+          type="button" aria-label={label} onClick={onClickPlus}
+          style={{
+            position: 'relative', zIndex: 1, width: 20, height: 20, borderRadius: 999,
+            background: RED, color: '#fff', border: 'none', cursor: 'pointer',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 14, fontWeight: 700, lineHeight: 1,
+          }}
+        >+</button>
+      </div>
     </div>
   );
 }

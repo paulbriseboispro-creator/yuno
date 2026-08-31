@@ -1,11 +1,35 @@
+import { EyeOff } from 'lucide-react';
+import { useLanguage } from '@/contexts/LanguageContext';
 import type { EmailTheme, TicketsBlock } from '@/lib/email';
-import { EMAIL_FONT, blockPad, type CanvasCtx } from './common';
+import { EMAIL_FONT, blockPad, liveFor, type CanvasCtx } from './common';
 
-/** Lignes de tarifs (rowsEl du prototype) : prix accent, épuisé barré. */
+/**
+ * Lignes de tarifs (rowsEl du prototype) : prix accent, épuisé barré.
+ * Live branché : la base fait foi — un événement sans billetterie affiche un
+ * état vide honnête (et le bloc ne partira pas), jamais des tarifs inventés.
+ */
 export default function TicketsView({ block, theme, ctx }: { block: TicketsBlock; theme: EmailTheme; ctx: CanvasCtx }) {
+  const { t } = useLanguage();
   const pad = blockPad(block);
-  const live = block.eventId ? ctx.live[block.eventId] : undefined;
-  const rows = (block.live && live?.tickets && live.tickets.length > 0) ? live.tickets : block.rows;
+  const live = liveFor(block, ctx);
+  const rows = (block.live && live) ? (live.tickets || []) : block.rows;
+
+  if (!rows || rows.length === 0) {
+    return (
+      <div style={{ padding: `${pad.py}px ${pad.px}px` }}>
+        <div style={{
+          border: `1px dashed ${theme.divider}`, borderRadius: 12, padding: '18px 16px',
+          display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center',
+        }}>
+          <EyeOff size={14} strokeWidth={1.75} style={{ color: theme.muted, flex: 'none' }} />
+          <span style={{ fontFamily: EMAIL_FONT, fontSize: 12.5, color: theme.muted, lineHeight: 1.5 }}>
+            {t('studio.inspector.ticketsNone')}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: `${pad.py}px ${pad.px}px` }}>
       <div style={{ border: `1px solid ${theme.divider}`, borderRadius: 12, overflow: 'hidden' }}>

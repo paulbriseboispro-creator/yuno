@@ -1,18 +1,19 @@
 import type { EmailTheme, SocialBlock, SocialLinks } from '@/lib/email';
-import { type CanvasCtx } from './common';
+import { blockPad, type CanvasCtx } from './common';
 
 const SLUGS: Record<keyof SocialLinks, string> = {
   instagram: 'instagram', tiktok: 'tiktok', facebook: 'facebook', x: 'x', website: 'safari',
 };
 
 /** Icônes réelles quand les liens existent, pastilles sinon (prototype). */
-export default function SocialView({ theme, ctx }: { block: SocialBlock; theme: EmailTheme; ctx: CanvasCtx }) {
+export default function SocialView({ block, theme, ctx }: { block: SocialBlock; theme: EmailTheme; ctx: CanvasCtx }) {
+  const pad = blockPad(block);
   const entries = (Object.entries(ctx.socialLinks) as [keyof SocialLinks, string | undefined][])
     .filter(([, url]) => url && url.trim().length > 0);
   const color = theme.muted.replace('#', '');
   return (
     <div style={{
-      padding: '18px 24px', display: 'flex', justifyContent: 'center', gap: 14,
+      padding: `${pad.py}px ${pad.px}px`, display: 'flex', justifyContent: 'center', gap: 14,
       background: theme.card,
     }}>
       {entries.length === 0 ? (

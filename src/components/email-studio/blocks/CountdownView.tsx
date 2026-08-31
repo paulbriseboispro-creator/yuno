@@ -1,16 +1,28 @@
+import { useEffect, useState } from 'react';
 import type { CountdownBlock, EmailTheme } from '@/lib/email';
 import { countdownParts } from '@/lib/email';
-import { EMAIL_FONT, blockPad, type CanvasCtx } from './common';
+import { EMAIL_FONT, blockPad, liveFor, type CanvasCtx } from './common';
 
-/** 3 cellules JOURS / HEURES / MIN (cdCard du prototype). */
+/**
+ * 3 cellules JOURS / HEURES / MIN (cdCard du prototype). L'aperçu TICKE en
+ * direct ; l'email envoyé fige le décompte au moment de l'envoi (par nature :
+ * un email ne peut pas exécuter de script).
+ */
 export default function CountdownView({ block, theme, ctx }: { block: CountdownBlock; theme: EmailTheme; ctx: CanvasCtx }) {
   const pad = blockPad(block);
-  const live = block.eventId ? ctx.live[block.eventId] : undefined;
-  const parts = live?.startAt ? countdownParts(live.startAt, new Date()) : null;
+  const live = liveFor(block, ctx);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const parts = live?.startAt ? countdownParts(live.startAt, now) : null;
   const pad2 = (n: number) => String(Math.max(0, n)).padStart(2, '0');
   const cells: [string, string][] = parts
     ? [[pad2(parts.days), 'JOURS'], [pad2(parts.hours), 'HEURES'], [pad2(parts.mins), 'MIN']]
-    : [['02', 'JOURS'], ['11', 'HEURES'], ['48', 'MIN']];
+    : [['—', 'JOURS'], ['—', 'HEURES'], ['—', 'MIN']];
   return (
     <div style={{ padding: `${pad.py}px ${pad.px}px` }}>
       <div style={{ border: `1px solid ${theme.divider}`, borderRadius: 12, padding: 18, textAlign: 'center' }}>
